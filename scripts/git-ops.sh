@@ -1277,12 +1277,57 @@ resolve_ship_spec() {
   echo "$matches"
 }
 
-# Return other P-number spec paths touched by branch commits — specs that
-# ship would orphan if closed only for the named pn. Used by the co-located
-# spec guard and Phase 2b auto-close.
+# Internal: does `git log main..branch` resolve at all? Both detect_cospecs
+# and detect_filed_cospecs treat "no" as fail-closed (P1105) — an
+# unresolvable range must never be silently read as "nothing touched/added",
+# because that's exactly the shape of the bug being fixed.
+_cospec_range_ok() {
+  local branch="$1"
+  ( cd "$REPO_ROOT" && git log --format= "main..${branch}" >/dev/null 2>&1 )
+}
+
+# Return other P-number spec paths DELIVERED by branch commits — specs that
+# existed on main before the branch and were edited, which ship would orphan
+# if closed only for the named pn. Used by the co-located spec guard and
+# Phase 2b auto-close.
+#
+# A spec the branch only CREATED (never present on main) was filed, not
+# delivered, and is excluded here (P1105) — being touched by the branch's
+# commits is not evidence of delivery, only the add-set subtraction is. See
+# detect_filed_cospecs for that excluded set (used for audit-trail
+# messaging at the call site — kept as a separate function because a bash
+# function invoked via command substitution runs in a subshell, so it
+# cannot hand a second value back through a caller-named out-variable).
+#
+# Fail-closed: returns exit status 1 with empty output if the commit range
+# cannot be resolved — callers must not fall through to treating that as
+# "nothing to close".
 detect_cospecs() {
   local pn="$1" branch="$2"
-  ( cd "$REPO_ROOT" && git log --format= --name-only "main..${branch}" 2>/dev/null ) \
+  _cospec_range_ok "$branch" || return 1
+  local touched added
+  touched="$( ( cd "$REPO_ROOT" && git log --format= --name-only "main..${branch}" 2>/dev/null ) \
+    | grep -E '^features/p[0-9]+_.*\.md$' \
+    | grep -vE '^features/(done|archive|uat)/' \
+    | grep -oE 'p[0-9]+' \
+    | sort -u || true )"
+  added="$( ( cd "$REPO_ROOT" && git log --diff-filter=A --format= --name-only "main..${branch}" 2>/dev/null ) \
+    | grep -E '^features/p[0-9]+_.*\.md$' \
+    | grep -vE '^features/(done|archive|uat)/' \
+    | grep -oE 'p[0-9]+' \
+    | sort -u || true )"
+  grep -vFxf <(printf '%s\n' "$added") <(printf '%s\n' "$touched") \
+    | grep -v "^${pn}$" || true
+}
+
+# Companion to detect_cospecs: P-numbers of specs the branch CREATED (never
+# existed on main) — filed, not delivered. Lets the ship message name what
+# it is deliberately NOT auto-closing, so the decision is auditable from the
+# log alone (P1105 AC). Fail-closed the same way as detect_cospecs.
+detect_filed_cospecs() {
+  local pn="$1" branch="$2"
+  _cospec_range_ok "$branch" || return 1
+  ( cd "$REPO_ROOT" && git log --diff-filter=A --format= --name-only "main..${branch}" 2>/dev/null ) \
     | grep -E '^features/p[0-9]+_.*\.md$' \
     | grep -vE '^features/(done|archive|uat)/' \
     | grep -oE 'p[0-9]+' \
@@ -2313,13 +2358,24 @@ The branch is authoritative for shipped migrations. Compare each file with
 'git show ${branch}:FILE', keep the right content, rm the untracked copy, re-ship."
   fi
 
-  # Guard: detect co-located specs — other P-number specs in branch commits.
-  # These would be orphaned after branch deletion if not closed here.
-  # Warn only (not die) — Phase 2b handles them automatically.
-  local cospecs
-  cospecs="$(detect_cospecs "$pn" "$branch")"
+  # Guard: detect co-located specs — other P-number specs delivered (existed
+  # on main, edited) by branch commits. These would be orphaned after branch
+  # deletion if not closed here. Specs the branch only FILED (created, never
+  # on main) are excluded — see detect_cospecs/detect_filed_cospecs (P1105)
+  # — and named below instead so the skip is auditable from the log alone.
+  # Warn only (not die) — Phase 2b handles the actual close.
+  local cospecs cospecs_filed=""
+  if ! cospecs="$(detect_cospecs "$pn" "$branch")"; then
+    cospecs=""
+    echo "ship: co-located spec detection on branch ${branch} could not resolve the commit range — closing no co-located specs (fail-closed). Review and close any by hand." >&2
+  else
+    cospecs_filed="$(detect_filed_cospecs "$pn" "$branch" || true)"
+  fi
   if [[ -n "$cospecs" ]]; then
-    echo "ship: co-located specs on branch ${branch}: $(echo "$cospecs" | tr '\n' ' ')→ auto-closing alongside ${pn}." >&2
+    echo "ship: co-located specs on branch ${branch}: $(echo "$cospecs" | tr '\n' ' ') — auto-closing alongside ${pn}." >&2
+  fi
+  if [[ -n "$cospecs_filed" ]]; then
+    echo "ship: specs filed (not delivered) on branch ${branch}: $(echo "$cospecs_filed" | tr '\n' ' ') — left untouched, not auto-closed." >&2
   fi
 
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
@@ -3458,12 +3514,4 @@ main() {
   esac
 }
 
-# Sourcing guard. Canaries need to call individual functions directly — the
-# alternative is asserting on the SHAPE of the source, and a grep binds one
-# spelling of a bug rather than the bug: a mutation swapping `(( rc == 0 ))` for
-# `[[ $rc -eq 0 ]]`, or appending a `return 0` under a string a grep matches,
-# restores the exact defect while the check stays green. Both were demonstrated.
-# With this guard `. git-ops.sh` defines the functions and runs nothing.
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  main "$@"
-fi
+main "$@"

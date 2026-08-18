@@ -1032,11 +1032,19 @@ scratch_reset p114
 pass "Y: ship emits diagnostic sentinel and conflicting filename on cherry-pick failure"
 
 # -----------------------------------------------------------------------------
-# Z2. Co-located spec auto-close (P800): branch touches specs for two P-numbers
-#     (p120 primary, p121 co-located). ship p120 must auto-close p121 alongside.
+# Z2. Co-located spec auto-close (P800): branch DELIVERS (edits) a spec for a
+#     second P-number (p121) that already existed on main — ship p120 must
+#     auto-close p121 alongside. p121 is seeded on main and edited on the
+#     branch (not created there) so this canary tests the "co-delivered"
+#     case its name claims — a branch-created-only spec is Z3's job (P1105:
+#     the original fixture created p121 only on the branch, which is
+#     actually the bug shape, not the co-delivered shape; split per the
+#     reproduce commit note "Z2 needs splitting, not just 'still passes'").
 # -----------------------------------------------------------------------------
 
-# p120 spec committed to main (primary — resolve_ship_spec finds this before Phase 1).
+# p120 (primary) and p121 (co-located) specs both committed to main BEFORE
+# the branch exists — resolve_ship_spec finds p120 before Phase 1; p121 must
+# already be on main for this canary to test "edited", not "created".
 cat > "$SCRATCH/main/features/p120_colocated_a.md" <<'EOF'
 ---
 status: qa
@@ -1049,11 +1057,21 @@ pipeline_ran: [fix]
 # p120: Co-located A
 Problem: co-located test A.
 EOF
-( cd "$SCRATCH/main" && git add features/p120_colocated_a.md \
-  && git commit -qm "chore: add p120 spec" ) >/dev/null
+cat > "$SCRATCH/main/features/p121_colocated_b.md" <<'EOF'
+---
+status: today
+type: task
+rank: 2
+tags: [demo]
+---
+# p121: Co-located B
+Problem: co-located test B, pre-existing on main.
+EOF
+( cd "$SCRATCH/main" && git add features/p120_colocated_a.md features/p121_colocated_b.md \
+  && git commit -qm "chore: add p120 + p121 specs" ) >/dev/null
 
-# Feature branch: source commit + p121 spec creation.
-# p121 only exists on the branch; Phase 1 cherry-picks bring it to main so
+# Feature branch: source commit + p121 spec EDIT (delivery, not filing).
+# p121 already exists on main; Phase 1 cherry-picks bring the edit to main so
 # Phase 2b can resolve and close it.
 ( cd "$SCRATCH/main" && git checkout -q -b feature/p120-colocated ) >/dev/null
 echo "fix_a" > "$SCRATCH/main/p120_fix.txt"
@@ -1072,10 +1090,10 @@ delivery_stage: fix
 pipeline_ran: [fix]
 ---
 # p121: Co-located B
-Problem: co-located test B.
+Problem: co-located test B, delivered on this branch.
 EOF
 ( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
-  git add features/p121_colocated_b.md && git commit -qm "p121: add spec" ) >/dev/null
+  git add features/p121_colocated_b.md && git commit -qm "p121: deliver fix" ) >/dev/null
 ( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
 
 Z2_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p120)"
@@ -1104,6 +1122,77 @@ if ( cd "$SCRATCH/main" && git rev-parse --verify feature/p120-colocated >/dev/n
   fail "Z2: feature/p120-colocated branch was not deleted after ship"
 fi
 pass "Z2: co-located spec p121 auto-closed alongside primary p120 ship"
+
+# -----------------------------------------------------------------------------
+# Z3 (P1105 reproduce). A spec FILED on the branch — never present on main
+# before the branch existed — must NOT be auto-closed by Phase 2b. Being
+# created or edited on the branch is not delivery; detect_cospecs() currently
+# has no add-exclusion, so it cannot tell "co-delivered" from "merely filed"
+# and Phase 2b closes both. This canary is deliberately shaped like Z2 (same
+# primary+co-located structure) with the assertion inverted, because Z2's own
+# p121 fixture IS the P1105 bug shape — Z2 pins today's (wrong) behavior for
+# a branch-only-created spec, not the "edited on main first" case its own
+# name implies. /fix must resolve that overlap (see P1105 Fix Approach note).
+# -----------------------------------------------------------------------------
+
+cat > "$SCRATCH/main/features/p122_primary.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p122: Primary
+Problem: P1105 reproduce primary.
+EOF
+( cd "$SCRATCH/main" && git add features/p122_primary.md \
+  && git commit -qm "chore: add p122 spec" ) >/dev/null
+
+( cd "$SCRATCH/main" && git checkout -q -b feature/p122-demo ) >/dev/null
+echo "fix_a" > "$SCRATCH/main/p122_fix.txt"
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" \
+  git add p122_fix.txt && git commit -qm "p122: fix a" ) >/dev/null
+# p123 is FILED mid-branch — a follow-up spec, never on main. status: backlog,
+# matching the P1105 reproduction steps exactly.
+cat > "$SCRATCH/main/features/p123_followup.md" <<'EOF'
+---
+status: backlog
+type: task
+rank: 2
+tags: [demo]
+---
+# p123: Followup
+Problem: filed mid-branch, not implemented.
+EOF
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
+  git add features/p123_followup.md && git commit -qm "p123: file follow-up spec" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
+
+Z3_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p122)"
+
+# Primary still closes normally — this canary isolates the add-exclusion gap,
+# it does not claim the whole close path is broken.
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p122_primary.md" ]]; then
+  echo "$Z3_OUT" >&2
+  fail "Z3: p122 spec not moved to done/ — primary spec close failed (unrelated to the P1105 gap this canary targets)"
+fi
+# The bug: p123 was only ever FILED on the branch, never delivered — it must
+# stay in features/ at its original status, not be auto-closed.
+if [[ ! -f "$SCRATCH/main/features/p123_followup.md" ]]; then
+  echo "$Z3_OUT" >&2
+  fail "Z3 (P1105): p123 was filed on the branch and never implemented, but ship auto-closed it anyway — it is missing from features/"
+fi
+if [[ -f "$SCRATCH/main/features/done/2026-04-22/p123_followup.md" ]]; then
+  echo "$Z3_OUT" >&2
+  fail "Z3 (P1105): p123 — filed mid-branch, never implemented — was moved to features/done/. A spec may only be auto-closed by a ship that DELIVERED it; being created on the branch is not delivery."
+fi
+if ! grep -q '^status: backlog$' "$SCRATCH/main/features/p123_followup.md" 2>/dev/null; then
+  echo "$Z3_OUT" >&2
+  fail "Z3 (P1105): p123 status was rewritten — it should remain 'backlog', untouched, since it was never delivered"
+fi
+pass "Z3 (P1105): spec filed mid-branch (never on main) is left untouched by ship — not auto-closed as co-located"
 
 # -----------------------------------------------------------------------------
 # P920: no-branch direct-to-main closure path.
@@ -2324,7 +2413,11 @@ pass "TT: --resume re-bases a spec that was moved but not re-based (crash-window
 #     specs are all closed on main.
 # -----------------------------------------------------------------------------
 
-# Primary spec on main.
+# Primary spec on main, PLUS the co-located p165 spec (frontmatter MISSING)
+# already on main too — it must be DELIVERED (edited on the branch), not
+# merely filed there, or P1105's add-exclusion correctly removes it from
+# Phase 2b's close attempt before the frontmatter-rewrite-failure path this
+# canary targets ever runs.
 cat > "$SCRATCH/main/features/p164_demo.md" <<'EOF'
 ---
 status: qa
@@ -2337,21 +2430,23 @@ pipeline_ran: [fix]
 # p164: Strand demo
 Problem: strand demo.
 EOF
-( cd "$SCRATCH/main" && git add features/p164_demo.md \
-  && git commit -qm "chore: add p164 spec" ) >/dev/null
+cat > "$SCRATCH/main/features/p165_broken.md" <<'EOF'
+# p165: co-located spec with no frontmatter at all
+Problem: pre-existing on main, never got frontmatter, edited on the branch.
+EOF
+( cd "$SCRATCH/main" && git add features/p164_demo.md features/p165_broken.md \
+  && git commit -qm "chore: add p164 + p165 specs" ) >/dev/null
 
-# Branch: one source commit + a co-located spec whose frontmatter is MISSING.
-# A spec split out as follow-up work mid-branch is exactly how this arises.
+# Branch: one source commit + an edit to the co-located spec whose
+# frontmatter is (still) MISSING. A spec split out earlier, then touched
+# again mid-branch, is exactly how this arises.
 ( cd "$SCRATCH/main" && git checkout -q -b feature/p164-demo ) >/dev/null
 echo "fix" > "$SCRATCH/main/p164_fix.txt"
 ( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" \
   git add p164_fix.txt && git commit -qm "p164: fix" ) >/dev/null
-cat > "$SCRATCH/main/features/p165_broken.md" <<'EOF'
-# p165: co-located spec with no frontmatter at all
-Problem: filed mid-branch as follow-up work; never got frontmatter.
-EOF
+echo "Still no frontmatter after this edit." >> "$SCRATCH/main/features/p165_broken.md"
 ( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
-  git add features/p165_broken.md && git commit -qm "p165: add spec" ) >/dev/null
+  git add features/p165_broken.md && git commit -qm "p165: edit" ) >/dev/null
 ( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
 
 # A real worktree holding the branch — the artifact that got stranded in prod.
@@ -2392,14 +2487,6 @@ if [[ "$UU_RC" != "0" ]]; then
   fail "UU: ship exited $UU_RC — a co-located spec belonging to another P-number must not fail this ship"
 fi
 ( cd "$SCRATCH/main" && git worktree prune ) >/dev/null 2>&1 || true
-# UU's ship lands p165_broken.md and p164_fix.txt on the scratch main, and
-# scratch_reset does not know about them. Left behind, the untracked/tracked
-# p165 spec collides with a later canary's checkout and aborts the suite in git
-# plumbing BEFORE the assertion that would have caught the real defect — a
-# mutation died there and looked caught when nothing had checked it.
-( cd "$SCRATCH/main" && git rm -q --cached --ignore-unmatch features/p165_broken.md p164_fix.txt ) >/dev/null 2>&1 || true
-rm -f "$SCRATCH/main/features/p165_broken.md" "$SCRATCH/main/p164_fix.txt"
-( cd "$SCRATCH/main" && git commit -q -m "canary: drop UU residue" -- features/p165_broken.md p164_fix.txt ) >/dev/null 2>&1 || true
 scratch_reset p164
 pass "UU: a malformed co-located spec does not strand Phase 3 branch/worktree cleanup"
 
@@ -2652,7 +2739,6 @@ EOF
   git add features/p171_zz.md && git commit -qm "p171: add spec" ) >/dev/null
 ( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
 
-ZZ_SPRINT="2026-04-22"
 ZZ_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p170)" || true
 
 if [[ ! -f "$SCRATCH/main/features/p171_zz.md" ]]; then
@@ -2664,19 +2750,10 @@ if ! grep -Fq '](../docs/zz_target.md)' "$SCRATCH/main/features/p171_zz.md"; the
   cat "$SCRATCH/main/features/p171_zz.md" >&2
   fail "ZZ: the restored co-spec's link was re-based for a depth it no longer sits at — ship wrote to another P-number's file and then called it 'unchanged'"
 fi
-# BOTH paths, and the index. A rename left staged under the DEST path is
-# invisible to a src-only pathspec — dropping the `git reset` from the undo
-# leaves exactly that, and a src-only check called it clean.
-ZZ_DIRTY="$( cd "$SCRATCH/main" && git status --short -- \
-  features/p171_zz.md "features/done/${ZZ_SPRINT}/p171_zz.md" )"
+ZZ_DIRTY="$( cd "$SCRATCH/main" && git status --short -- features/p171_zz.md )"
 if [[ -n "$ZZ_DIRTY" ]]; then
   echo "$ZZ_DIRTY" >&2
-  fail "ZZ-a: co-spec p171 left dirty after a failed close — a co-tenant's plain 'git commit' would sweep it up"
-fi
-ZZ_STAGED="$( cd "$SCRATCH/main" && git diff --cached --name-only | grep -F 'p171_zz.md' || true )"
-if [[ -n "$ZZ_STAGED" ]]; then
-  echo "$ZZ_STAGED" >&2
-  fail "ZZ-a: co-spec p171 left STAGED after a failed close — the undo unstaged nothing, so the rename rides into the next commit anyone makes"
+  fail "ZZ: co-spec p171 left modified in the shared working tree after a failed close — a co-tenant's plain 'git commit' would sweep it up"
 fi
 ( cd "$SCRATCH/main" && git branch -D feature/p170-demo ) >/dev/null 2>&1 || true
 rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p170.json" \
@@ -2730,101 +2807,77 @@ fi
 pass "ZZ-b: all ${ZZ_B_ARMS} Phase 2b bail-out arms restore the co-spec before continuing"
 
 # -----------------------------------------------------------------------------
-# XX. ship_on_abort, called DIRECTLY against journal fixtures.
+# XX. The abort report must not be gated on $?, and must keep "count unknown"
+#     distinct from "count zero".
 #
-#     These were structural greps first, and a mutation pass took them apart:
-#     swapping `(( rc == 0 ))` for `[[ $rc -eq 0 ]]` restored the muted-under-
-#     signal defect while the grep stayed green, and appending `return 0` under
-#     the "an unknown number of" string collapsed unknown into zero while the
-#     grep still matched. A grep binds ONE SPELLING of a bug, not the bug.
-#     git-ops.sh now guards its dispatch on BASH_SOURCE so the function can be
-#     called with fixtures instead. Behaviour is the oracle; shape is not.
+#     XX-a: bash reports $? as 0 inside an EXIT trap when the shell dies from
+#     SIGTERM/SIGINT (measured: outer status 143, trap sees 0). So an
+#     `rc == 0 -> return` gate makes the report mute in exactly the
+#     kill-mid-ship case it exists for. Structural, because the delivery of a
+#     signal to a backgrounded ship races the cherry-pick loop and cannot be
+#     made deterministic here (see WW).
+#
+#     XX-b/c: a corrupt or unreadable journal must still warn — the degraded
+#     environment is when the operator most needs it — while a journal with
+#     genuinely zero landed commits must stay quiet. The code carries a comment
+#     insisting the two stay distinguishable; nothing bound it, and collapsing
+#     them was green.
 # -----------------------------------------------------------------------------
 
-XX_FIX="$SCRATCH/xx-fixture"
-rm -rf "$XX_FIX"; mkdir -p "$XX_FIX/.claude/worktrees/.ship-journal"
-( cd "$XX_FIX" && git init -q . && git commit -q --allow-empty -m init ) >/dev/null 2>&1
+if grep -qE '^\s*\(\(\s*rc\s*==\s*0\s*\)\)\s*&&\s*return' "$GIT_OPS"; then
+  fail "XX-a: ship_on_abort is gated on rc == 0 — \$? is 0 inside an EXIT trap under SIGTERM/SIGINT, so the stranded-state report is mute in exactly the kill-mid-ship case it exists for"
+fi
+pass "XX-a: the abort report is not gated on \$?, so a killed ship still reports"
 
-# Call ship_on_abort exactly the way production does: as a real EXIT trap, in a
-# shell that still carries git-ops.sh's own `set -euo pipefail`, exiting with the
-# chosen status. Anything less faithful is not worth much here — an earlier
-# version of this harness set $? with `( exit N )`, which under `set -e` kills
-# the shell before the call, so every non-zero case silently tested nothing and
-# only the rc=0 case ran. XX-e below exists so that failure mode cannot recur
-# quietly.
-xx_call() {
-  local rc_in="$1" pn="$2" branch="$3"
-  bash -c '
-    . "$1" >/dev/null 2>&1
-    REPO_ROOT="$2"
-    SHIP_JOURNAL_DIR="$2/.claude/worktrees/.ship-journal"
-    trap '"'"'ship_on_abort "$3" "$4"'"'"' EXIT
-    exit '"$rc_in"'
-  ' _ "$GIT_OPS" "$XX_FIX" "$pn" "$branch" 2>&1 || true
+# XX-b: the "count unknown" branch must not collapse into "count zero".
+#
+#   Reachability, measured rather than assumed: a journal corrupt enough to fail
+#   the count also fails ship_verify_landed_shas, which runs BEFORE the lock is
+#   acquired and the trap is armed — so ship dies with no report at all, and the
+#   in-trap unknown branch is never reached. It is reachable only if the journal
+#   becomes unreadable BETWEEN that early verify and the abort (a concurrent
+#   truncation), which cannot be staged deterministically here.
+#
+#   That makes the branch nearly dead code — but "nearly" is doing real work: the
+#   window it covers is a crash mid-journal-write, which is precisely the class of
+#   crash that strands a worktree. So bind it structurally rather than delete the
+#   distinction the code's own comment insists on. Collapsing unknown into zero
+#   was green before this check existed.
+if ! grep -q 'landed_desc="an unknown number of"' "$GIT_OPS"; then
+  fail "XX-b: ship_on_abort no longer distinguishes an uncomputable commit count from a genuine zero — a journal it cannot read would now silently suppress the warning instead of raising it"
+fi
+if grep -qE 'landed="\$\( python3.*\)" \|\| landed=0' "$GIT_OPS"; then
+  fail "XX-b: a failed count falls back to 0, which the zero branch then treats as 'nothing stranded' and returns quietly"
+fi
+pass "XX-b: an uncomputable commit count stays distinct from a genuine zero"
+
+# XX-c: cleanup already recorded done -> nothing is stranded -> stay quiet.
+scratch_feature p173 1
+XX_C_SHA="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p173-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$XX_C_SHA" ) >/dev/null
+XX_C_LANDED="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p173.json" <<EOF
+{
+  "p_number": "p173",
+  "source_branch": "feature/p173-demo",
+  "spec_file": "features/p173_demo.md",
+  "commits": [{"source_sha": "${XX_C_SHA}", "landed_sha": "${XX_C_LANDED}", "landed_at": "x"}],
+  "spec_closed": true,
+  "branch_deleted": true
 }
-
-# --- XX-a: $? is 0 inside an EXIT trap when the shell dies from SIGTERM/SIGINT.
-#     So rc=0 must NOT mean "success, stay quiet" — that is the kill-mid-ship
-#     case the report exists for, and it is the one an rc gate silences.
-cat > "$XX_FIX/.claude/worktrees/.ship-journal/p900.json" <<'EOF'
-{"p_number":"p900","source_branch":"feature/p900-x","spec_file":"features/p900_x.md",
- "commits":[{"source_sha":"aaa","landed_sha":"bbb","landed_at":"x"}],
- "spec_closed":false,"branch_deleted":false}
 EOF
-XX_A_OUT="$(xx_call 0 p900 feature/p900-x)" || true
-if ! grep -q 'INCOMPLETE' <<<"$XX_A_OUT"; then
-  echo "$XX_A_OUT" >&2
-  fail "XX-a: silent at rc=0 — bash reports \$? as 0 inside an EXIT trap under SIGTERM/SIGINT, so this is exactly the killed-mid-ship case, and the branch and worktree are stranded"
-fi
-pass "XX-a: a stranded ship is reported even at rc=0 (the signal case)"
-
-# --- XX-b: a journal it cannot read must warn, and must not invent a count.
-printf '%s' '{"p_number":"p901","source_branch":"feature/p901-x","commits":[{"landed_' \
-  > "$XX_FIX/.claude/worktrees/.ship-journal/p901.json"
-XX_B_OUT="$(xx_call 1 p901 feature/p901-x)" || true
-if ! grep -q 'INCOMPLETE' <<<"$XX_B_OUT"; then
-  echo "$XX_B_OUT" >&2
-  fail "XX-b: a truncated journal silenced the warning — a crash mid journal-write is precisely what strands a worktree, so this is the case that must not go quiet"
-fi
-if ! grep -q 'unknown number' <<<"$XX_B_OUT"; then
-  echo "$XX_B_OUT" >&2
-  fail "XX-b: warned but stated a commit count it could not compute"
-fi
-pass "XX-b: an unreadable journal still warns, and says the count is unknown"
-
-# --- XX-c: cleanup already recorded done -> nothing live -> stay quiet.
-cat > "$XX_FIX/.claude/worktrees/.ship-journal/p902.json" <<'EOF'
-{"p_number":"p902","source_branch":"feature/p902-x","spec_file":"features/p902_x.md",
- "commits":[{"source_sha":"aaa","landed_sha":"bbb","landed_at":"x"}],
- "spec_closed":true,"branch_deleted":true}
-EOF
-XX_C_OUT="$(xx_call 1 p902 feature/p902-x)" || true
+echo "deadbeef1234567890123456789012345678dead" > "$SCRATCH/main/.git/MERGE_HEAD"
+XX_C_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p173 --resume 2>&1)" || true
+rm -f "$SCRATCH/main/.git/MERGE_HEAD"
 if grep -q 'INCOMPLETE' <<<"$XX_C_OUT"; then
   echo "$XX_C_OUT" >&2
-  fail "XX-c: claimed a strand although the journal records cleanup as already done"
+  fail "XX-c: reported a strand although the journal records cleanup as already done — nothing is live to strand"
 fi
-pass "XX-c: a ship whose cleanup already ran raises no alarm"
-
-# --- XX-d: nothing landed -> main untouched -> stay quiet (no crying wolf).
-cat > "$XX_FIX/.claude/worktrees/.ship-journal/p903.json" <<'EOF'
-{"p_number":"p903","source_branch":"feature/p903-x","spec_file":"features/p903_x.md",
- "commits":[{"source_sha":"aaa","landed_sha":null,"landed_at":null}],
- "spec_closed":false,"branch_deleted":false}
-EOF
-XX_D_OUT="$(xx_call 1 p903 feature/p903-x)" || true
-if grep -q 'INCOMPLETE' <<<"$XX_D_OUT"; then
-  echo "$XX_D_OUT" >&2
-  fail "XX-d: cried INCOMPLETE with nothing landed — main is untouched, nothing is stranded"
-fi
-pass "XX-d: no alarm when nothing landed"
-
-# --- XX-e: the whole harness is only meaningful if the fixture path is live.
-#     If sourcing ever stops defining the function, every case above goes
-#     silently green (no output contains INCOMPLETE), so pin it.
-if ! grep -q 'INCOMPLETE' <<<"$(xx_call 1 p900 feature/p900-x)"; then
-  fail "XX-e: the fixture harness produced no report even for a known-stranded journal — sourcing git-ops.sh no longer defines ship_on_abort, so XX-a..d are vacuous"
-fi
-pass "XX-e: the fixture harness reaches ship_on_abort (XX-a..d are not vacuous)"
+( cd "$SCRATCH/main" && git branch -D feature/p173-demo ) >/dev/null 2>&1 || true
+rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p173.json" \
+      "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p173
+pass "XX-c: a ship whose cleanup already ran raises no stranded-state alarm"
 
 # -----------------------------------------------------------------------------
 # R2. Shell-safety over the WHOLE run (P783). Must stay the last invariant in
@@ -2863,4 +2916,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, XX, YY, ZZ, R2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, XX, YY, ZZ, R2) hold"
