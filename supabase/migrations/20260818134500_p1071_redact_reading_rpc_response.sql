@@ -1,7 +1,13 @@
 -- P1071: get_letter_for_reading must not disclose the recipient's address,
 -- nor echo back the invitation token that authenticates the very response.
 --
--- requires-frontend: 60c444db58cfb292a0eac69bc07a9e130aa89510
+-- requires-frontend: 7ad21e96
+--   Repointed 2026-08-18 at prod-apply time. The original value (60c444db, on
+--   feature/p1071-rpc-redact-recipient-email) was rewritten by `/ship`'s cherry-pick,
+--   so it was never an ancestor of origin/main and the gate correctly hard-blocked.
+--   7ad21e96 is the post-merge frontend commit carrying the transitional fallback
+--   guard; confirmed with `git merge-base --is-ancestor 7ad21e96 origin/main`.
+--   Same defect P1057 Migration B documents in its own header.
 --   The shape detector in check-migration-client-safety.sh does not flag
 --   CREATE OR REPLACE FUNCTION -- its own header calls the list non-exhaustive.
 --   This IS client-breaking all the same: a deployed client still reading
