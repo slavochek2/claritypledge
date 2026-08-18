@@ -7,8 +7,8 @@ date_reported: '2026-08-18'
 created_date: '2026-08-18'
 date_resolved: '2026-08-18'
 tags: [git-ops, ship, worktrees, spec-lifecycle]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 root_cause: "detect_cospecs() had no --diff-filter add-set exclusion — it could not distinguish a spec the branch CREATED from one it merely EDITED, so Phase 2b auto-closed both."
 resolution: "detect_cospecs() now subtracts the branch's own add-set (git log --diff-filter=A) from the touched set before returning; a new detect_filed_cospecs() companion reports the excluded (filed-only) set for ship's log output; both fail closed via _cospec_range_ok() if the commit range can't be resolved."
 reproduce_artifact:
