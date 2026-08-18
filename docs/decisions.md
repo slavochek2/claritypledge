@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-18 [technical]: a behavioural security probe has to be reversible, or it cannot be a daily check — the function whose guard is broken is the one whose body then runs (P1065)
+
+**Context:** P1065 needed to detect not just *whether* an anonymous caller can reach a SECURITY DEFINER function, but whether that function's identity guard actually refuses one. A finding only exists in the **conjunction**: a degenerate guard behind no anon grant is unreachable, and an anon grant on a correctly-guarded function is the product working. Reading the guard text was already red-teamed and withdrawn (P1066) — the unsafe form and the sanctioned fix are textual siblings. So the check has to *observe a refusal*.
+
+The faithful observation is an unauthenticated POST to PostgREST with the anon key. That is exactly what cannot be run every morning: the function whose guard is degenerate is precisely the function whose body then executes, and over REST there is no undo. A monitor that writes damage into test on the days it finds something is not a monitor.
+
+**Decision:** Probe transactionally instead. Each probe runs `BEGIN; SET LOCAL ROLE anon; SET LOCAL "request.jwt.claims" TO ''; SELECT fn(NULL::…); ROLLBACK;` against test. `auth.uid()` reads that GUC, so it returns NULL exactly as for a real anonymous REST call — **verified against the live server, not assumed**. Guard findings are report-only; only the catalog leg (grant drift) carries the exit code.
+
+**Alternatives rejected:** *REST probe* — faithful but irreversible, so it could not run daily, which was the whole requirement. *Reading the guard text* — withdrawn in P1066 for reasons that still hold. *Letting the guard leg gate* — it passes NULL arguments and therefore under-reports; a heuristic carrying the exit code drags the reliable catalog leg toward suppression, which is how a check gets switched off.
+
+**Consequences:** The trade is stated in the artifact rather than glossed (gate 7b): the probe does not exercise PostgREST, misses guards keyed on non-JWT headers, under-reports because every argument is NULL — **so its silence is not evidence a guard is correct** — and cannot undo effects that escape the transaction (outbound HTTP, advisory locks). It also means `function_grant_exit=0` can coexist with real guard findings, so `/day`'s reading guide says explicitly that the exit code is not the whole signal. First live run: 13 anon-executable-and-unlisted on prod, **6 of which did not refuse** — a conjunction that previously required a human to compute across two half-signals every morning.
+
+Generalises past this check: when a behavioural probe is the only honest observation but the observation is destructive, look for a reversible execution context that preserves the *one* condition under test (here, `auth.uid() IS NULL`) before concluding the probe cannot be automated.
+
+**References:** [scripts/function-grant-drift-check.py](../scripts/function-grant-drift-check.py), [features/done/2026-06-10/p1065_function_grant_drift_check.md](../features/done/2026-06-10/p1065_function_grant_drift_check.md), decisions.md 2026-08-13 [technical] (REVOKE FROM PUBLIC vs FROM anon)
+
+---
+
+## 2026-08-18 [technical]: a backlog keyed on a finding's identity silently absorbs that finding getting worse — `rls-drift-check.py` has the same gap today (P1065)
+
+**Context:** Both drift checks separate an **allowlist** ("expected forever", removes the finding) from a **baseline** ("known-open backlog", stops it re-alarming daily). The baseline is what makes a daily security check survivable — without it, `/day` prints DRIFT every morning for findings already on someone's list, and an always-on signal is one nobody reads.
+
+Code review of P1065 caught the flaw in that design: the baseline keyed membership on `(direction, signature)` alone. An entry therefore suppresses an *identity*, not a *severity*. Concretely — a function is baselined as anon-executable while it is a plain function; someone later makes it SECURITY DEFINER with the anon grant intact. It now runs with elevated privilege for an anonymous caller, which is materially worse, and the key is unchanged, so `--summary` (the mode `/day` reads) still calls it known-open. The alarm never fires.
+
+**Decision:** Fold a narrow **severity shape** into the baseline key — `secdef` for the anon-unlisted direction, the grant tuple for grant-differs. Deliberately narrow: a noisier fingerprint would re-alarm on cosmetic churn, which is its own route to being ignored. A pre-shape baseline no longer matches, so everything reads NEW until re-recorded — the safe direction, since a stale baseline can then only make the check louder.
+
+**Alternatives rejected:** *Hashing the whole detail payload* — re-alarms on churn. *Leaving it and relying on the full report* — the full report does print the escalated field, but `/day` reads `--summary`, so the escalation is invisible exactly where it is read.
+
+**Consequences:** **`scripts/rls-drift-check.py` has the identical 2-element key (`[direction, table, policy]`, line 425) and the same blindness** — a baselined prod-only policy whose predicate is later *widened* on prod stays "known-open". Verified by reading the file, not inferred from the shared design. Needs its own spec; not fixed here because widening the blast radius of a P1065 ship to a second live security check is the wrong place to do it.
+
+The generalisable rule: **a suppression key must include whatever can make the finding worse.** Otherwise "we already know about that one" quietly becomes "we will never be told it got worse" — the same drift by which a backlog becomes a permanent exemption, which is the exact distinction these two files were split to preserve.
+
+**References:** [scripts/function-grant-drift-check.py](../scripts/function-grant-drift-check.py), [scripts/rls-drift-check.py](../scripts/rls-drift-check.py)
+
+---
+
 ## 2026-08-17 [technical]: the index is the provenance signal a guard needs, and a review finding's premise is the thing to test — twice, testing the premise deleted code instead of adding it (P1094)
 
 **Context:** Two `git-ops.sh ship` defects, both diagnosed precisely on 2026-08-14 while shipping P1082, both written up here as follow-ups, both left unfixed — and both recurred on the very next ship three days later, to an agent that had read the write-up. (1) Closing a spec moves it two directories deeper and nothing re-based its body links, so the doc-link gate blocked the close commit *after* the code had already landed. (2) The retry then ran a discard step that reverted the rename that same run had staged moments earlier, destroying the recovery.
