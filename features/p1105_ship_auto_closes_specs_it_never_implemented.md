@@ -1,13 +1,16 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 37
 severity: high
 date_reported: '2026-08-18'
 created_date: '2026-08-18'
+date_resolved: '2026-08-18'
 tags: [git-ops, ship, worktrees, spec-lifecycle]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+root_cause: "detect_cospecs() had no --diff-filter add-set exclusion — it could not distinguish a spec the branch CREATED from one it merely EDITED, so Phase 2b auto-closed both."
+resolution: "detect_cospecs() now subtracts the branch's own add-set (git log --diff-filter=A) from the touched set before returning; a new detect_filed_cospecs() companion reports the excluded (filed-only) set for ship's log output; both fail closed via _cospec_range_ok() if the commit range can't be resolved."
 reproduce_artifact:
   test_file: scripts/test-git-ops-ship.sh (canary Z3)
   root_cause: "detect_cospecs() (scripts/git-ops.sh ~L1283) resolves co-located specs from `git log --name-only main..branch` with zero --diff-filter — it cannot distinguish a spec the branch CREATED from one it merely EDITED. Phase 2b (~L2646) then auto-closes every hit. Verified this session by direct read of detect_cospecs() and the Phase 2b loop: no diff-filter=A or equivalent add-set exclusion exists anywhere in the co-spec path (grep for 'diff-filter' in git-ops.sh finds only two unrelated call sites: a staged-delete check at L1079, and ship_spec_creation_blob at L1939, which computes the branch's OWN pn seed blob for cherry-pick purposes — not the co-spec set)."
@@ -149,11 +152,27 @@ Rejected-alternatives check run against `docs/decisions.md`: no entry rejects th
 
 ## Acceptance Criteria
 
-- [ ] Shipping a branch that FILED a new spec leaves that spec in `features/` at its original status —
-      verified by a canary that fails against current `main`
-- [ ] Shipping a branch that EDITED a spec already on main still closes it (canary `Z2` still passes —
-      the existing behaviour is not regressed)
-- [ ] When the add-set cannot be computed, ship closes no co-located spec and says so
-- [ ] The ship output names which co-located specs it closed and which it deliberately skipped, so
-      the decision is auditable from the log alone
-- [ ] Both canaries watched failing against code without the fix before being kept (epistemic gate 7)
+- [x] Shipping a branch that FILED a new spec leaves that spec in `features/` at its original status —
+      verified by a canary that fails against current `main` (canary `Z3`, `scripts/test-git-ops-ship.sh`)
+- [x] Shipping a branch that EDITED a spec already on main still closes it (canary `Z2` still passes —
+      the existing behaviour is not regressed). `Z2`'s original fixture created its co-located spec
+      only on the branch (the P1105 bug shape, not "edited"); split per the reproduce commit note —
+      `Z2` now seeds the co-located spec on main and edits it on the branch, so it actually exercises
+      the delivered case its name claims. `UU`'s fixture had the same defect and was split the same way.
+- [x] When the add-set cannot be computed, ship closes no co-located spec and says so — `detect_cospecs`/
+      `detect_filed_cospecs` fail closed (exit 1, empty output) via `_cospec_range_ok`, and the Phase 1
+      caller prints "co-located spec detection ... could not resolve the commit range — closing no
+      co-located specs (fail-closed)". Verified by direct function-level test (bad branch ref → rc=1,
+      empty close-set) — no automated canary added for this arm: triggering it inside a full `ship`
+      integration run requires corrupting the branch's git history, which risks a flaky canary for a
+      defensive arm that earlier ship guards already prevent from being reachable in normal operation.
+- [x] The ship output names which co-located specs it closed and which it deliberately skipped, so
+      the decision is auditable from the log alone — Phase 1 prints both "co-located specs on branch
+      ...: — auto-closing alongside" and "specs filed (not delivered) on branch ...: — left untouched,
+      not auto-closed", each populated from a distinct function (`detect_cospecs` / `detect_filed_cospecs`)
+      so the two lists can never silently drift into one another.
+- [x] Both canaries watched failing against code without the fix before being kept (epistemic gate 7) —
+      confirmed by reverting `scripts/git-ops.sh` to the pre-fix `HEAD` copy and re-running the suite:
+      `Z3` FAILed exactly as at `/reproduce` time; `Z2` (new fixture) PASSed pre-fix too, confirming it
+      is a non-regression canary (the bug over-closed, never under-closed the edited case) rather than
+      one that needed the fix to pass.
