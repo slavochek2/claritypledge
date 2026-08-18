@@ -61,8 +61,27 @@ REVOKE EXECUTE ON FUNCTION public.persist_anonymous_completion(uuid, uuid, jsonb
 --   deliveries := those whose receiver_profile_id IS the caller
 --   positions  := rows already staged against those deliveries
 --
--- The enum filter mirrors the one it replaces (20260414000000): staging stores TEXT,
--- and rows predating P718 can still hold numeric strings that would fail the cast.
+-- THE ENUM FILTER IS THE CORRECTED LIST, NOT THE INHERITED ONE. Staging stores TEXT, so
+-- a filter is needed before the cast (rows predating P718 can hold numeric strings). The
+-- body this replaces filtered on 'slightly_disagree', 'neutral' and 'slightly_agree' —
+-- three labels that have never existed in `position_type`, whose real middle values are
+-- 'somewhat_disagree', 'unsure' and 'somewhat_agree'. That is the P705/P716 defect
+-- 20260416150000_p714 already fixed in `submit_point_response_by_token`; the dead body
+-- here was never patched, so copying its list forward would have shipped a *silent*
+-- drop of the three commonest answers into brand-new live code. Verified against
+-- `pg_enum` on prod, not against the migration that introduced the type.
+--
+-- THE VERIFIED CHECK IS NOT REDUNDANT. `point_positions` carries the RLS policy
+-- "Verified users can set own position" (`auth.uid() = user_id AND profiles.is_verified`).
+-- This function is SECURITY DEFINER, so it bypasses that policy entirely — an
+-- authentication check alone would let a signed-in-but-unconfirmed caller write rows the
+-- table's own policy exists to refuse. `mark_self_verified()` legitimately RETURNS FALSE
+-- (it does not raise) when the email is unconfirmed, so the caller cannot be assumed
+-- verified merely because it ran. Re-checked here rather than trusted from the client,
+-- the way `set_my_pledge` re-checks it in its own predicate.
+--
+-- Returns 0 rather than raising for an unverified caller: "nothing to replay yet" is a
+-- normal state on this path, not an error worth logging on every callback.
 --
 -- DISTINCT ON keeps this deterministic when the same point was answered in two of the
 -- caller's deliveries — the most recently staged answer wins, rather than whichever
@@ -82,6 +101,13 @@ BEGIN
     RAISE EXCEPTION 'Authentication required';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = v_caller_id AND is_verified = true
+  ) THEN
+    RETURN 0;
+  END IF;
+
   INSERT INTO point_positions (point_id, user_id, position)
   SELECT DISTINCT ON (lpr.point_id)
          lpr.point_id,
@@ -91,8 +117,8 @@ BEGIN
   JOIN letter_deliveries ld ON ld.id = lpr.delivery_id
   WHERE ld.receiver_profile_id = v_caller_id
     AND lpr.position IN (
-      'strongly_disagree', 'disagree', 'slightly_disagree', 'neutral',
-      'slightly_agree', 'agree', 'strongly_agree'
+      'strongly_disagree', 'disagree', 'somewhat_disagree', 'unsure',
+      'somewhat_agree', 'agree', 'strongly_agree'
     )
   ORDER BY lpr.point_id, lpr.created_at DESC NULLS LAST
   ON CONFLICT (point_id, user_id) DO NOTHING;

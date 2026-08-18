@@ -160,6 +160,37 @@ P705. Folded into this spec by founder decision (2026-08-18).
       closing.** Deploy is its own step.
 - [x] `.private/docs/security-log.md` updated — findings, prod counts, the anon-grant mistake and the untested surfaces
 
+## What the code review caught, and why the canary had missed it
+
+An independent review of the committed diff found two real defects in **my own fix**. Both were
+verified against the live catalog before being accepted, and both were watched failing before being
+corrected.
+
+**HIGH — the restored replay silently dropped three of seven position values.** The enum filter was
+copied forward from the dead body being replaced, which used `slightly_disagree` / `neutral` /
+`slightly_agree`. Those labels have never existed in `position_type`; the real middle values are
+`somewhat_disagree` / `unsure` / `somewhat_agree` (confirmed against `pg_enum` on prod). This is the
+exact P705/P716 defect that `20260416150000_p714` had already fixed in a *sibling* function — the
+dead body here was never patched, so the fix would have shipped a silent drop of the three commonest
+answers, including `unsure`, into brand-new live code, under a migration comment that described the
+inherited list as a feature.
+
+**Why L6 passed anyway:** it staged `'agree'`, which is valid in both the broken list and the correct
+one. The layer proved the replay ran, not that it replayed *what was staged*. L6 now stages `'unsure'`
+and fails against the old filter.
+
+**MEDIUM — the replay bypassed the verification gate it stands in for.** `point_positions` carries an
+RLS policy admitting only verified users. A `SECURITY DEFINER` function bypasses that policy, and the
+body checked only that a session existed. `mark_self_verified()` returns **false** rather than raising
+when the email is unconfirmed, so a caller reaching this line cannot be assumed verified — the client
+comment asserting otherwise was wrong. The check now lives in the function, mirroring how
+`set_my_pledge` re-checks rather than trusting its caller. New layer L9 covers it, and was watched
+writing a row for an unverified caller before the fix.
+
+**The pattern in both, and in the `anon` grant earlier:** each was a claim in a comment that no test
+bound and no catalog read had checked. Green was bounding what the fixture emitted, three times in one
+spec.
+
 ## Scope boundary — what this spec does NOT close
 
 **The defect class is still open on a third path. Filed as P1100 (2026-08-18).**

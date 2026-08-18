@@ -129,6 +129,11 @@ test.describe('P1093 — the payload writer is closed, the replay is payload-fre
   let foreignPointId: string;
   /** L6's fixture: a point staged against this delivery, awaiting replay. */
   let stagedPointId: string;
+  /** L9's fixture: an UNVERIFIED reader with their own delivery and staged point. */
+  let unverifiedReaderId: string;
+  let unverifiedReaderEmail: string;
+  let unverifiedPointId: string;
+  let unverifiedDeliveryId: string;
 
   test.beforeAll(async () => {
     const sender = await createTestUser({ name: 'P1093 Sender' });
@@ -174,12 +179,42 @@ test.describe('P1093 — the payload writer is closed, the replay is payload-fre
 
     // L6 fixture: a staged position written through the gated path, exactly as an
     // unverified reader's response lands today. Replay must lift it into the live store.
+    // 'unsure' on purpose, NOT 'agree'. The list this replay inherited carried three
+    // labels that are not in `position_type` at all ('slightly_disagree', 'neutral',
+    // 'slightly_agree'), so it silently dropped the three real middle values. A layer
+    // staging 'agree' passes against both the broken list and the correct one, which is
+    // exactly how the defect survived the first run of this file.
     const { error: stageErr } = await supabaseAdmin.from('letter_point_responses').insert({
       delivery_id: delivery.id,
       point_id: stagedPointId,
-      position: 'agree',
+      position: 'unsure',
     });
     if (stageErr) throw new Error(`staging insert failed: ${stageErr.message}`);
+
+    // L9 fixture: a reader who has NOT verified. `point_positions` RLS admits only
+    // verified users; the replay is SECURITY DEFINER and therefore bypasses that policy
+    // unless it re-checks the flag itself.
+    const unverified = await createTestUser({ name: 'P1093 Unverified Reader' });
+    unverifiedReaderId = unverified.user.id;
+    unverifiedReaderEmail = unverified.user.email!;
+    const { error: unverErr } = await supabaseAdmin
+      .from('profiles').update({ is_verified: false }).eq('id', unverifiedReaderId);
+    if (unverErr) throw new Error(`could not unverify reader: ${unverErr.message}`);
+
+    const unverifiedDelivery = await createTestDelivery(letterId, {
+      receiverEmail: unverifiedReaderEmail,
+      receiverProfileId: unverifiedReaderId,
+      status: 'in_progress',
+    });
+    unverifiedDeliveryId = unverifiedDelivery.id;
+    unverifiedPointId = (await createTestPoint(senderId, { statement: 'P1093 unverified point' })).id;
+
+    const { error: stage2Err } = await supabaseAdmin.from('letter_point_responses').insert({
+      delivery_id: unverifiedDeliveryId,
+      point_id: unverifiedPointId,
+      position: 'agree',
+    });
+    if (stage2Err) throw new Error(`unverified staging insert failed: ${stage2Err.message}`);
   });
 
   test.afterAll(async () => {
@@ -191,7 +226,7 @@ test.describe('P1093 — the payload writer is closed, the replay is payload-fre
       await supabaseAdmin.from('letter_deliveries').delete().eq('letter_id', letterId);
       await supabaseAdmin.from('clarity_letters').delete().eq('id', letterId);
     }
-    for (const p of [foreignPointId, stagedPointId].filter(Boolean)) {
+    for (const p of [foreignPointId, stagedPointId, unverifiedPointId].filter(Boolean)) {
       await supabaseAdmin.from('point_positions').delete().eq('point_id', p);
       await deleteTestPoint(p);
     }
@@ -201,7 +236,7 @@ test.describe('P1093 — the payload writer is closed, the replay is payload-fre
     }
     if (docId) await supabaseAdmin.from('clarity_docs').delete().eq('id', docId);
     await Promise.all(
-      [senderId, readerId, outsiderId].filter(Boolean).map((id) => deleteTestUser(id)),
+      [senderId, readerId, outsiderId, unverifiedReaderId].filter(Boolean).map((id) => deleteTestUser(id)),
     );
   });
 
@@ -386,6 +421,32 @@ test.describe('P1093 — the payload writer is closed, the replay is payload-fre
   // =========================================================================
   // L8 — the replay carries no anon grant
   // =========================================================================
+
+  // =========================================================================
+  // L9 — the replay must not admit an unverified caller
+  // =========================================================================
+
+  test('L9: an unverified caller replays nothing', async () => {
+    const unverified = await makeUserClient(unverifiedReaderEmail);
+
+    const { error } = await unverified.rpc('replay_letter_positions', {});
+
+    // The call itself may legitimately succeed and simply replay nothing — what must
+    // never happen is a row landing in the live store. `point_positions` RLS admits only
+    // verified users; a SECURITY DEFINER replay bypasses that policy unless it re-checks
+    // the flag itself, the way set_my_pledge re-checks it rather than trusting its caller.
+    expect(
+      await positionRowsForPoint(unverifiedPointId, unverifiedReaderId),
+      'an unverified caller must not get positions written to the live store',
+    ).toHaveLength(0);
+
+    if (error) {
+      expect(
+        error.code,
+        `an outright refusal is acceptable, but not an unexpected failure: ${error.message}`,
+      ).toBe('P0001');
+    }
+  });
 
   test('L8: an anonymous caller cannot execute the replay', async () => {
     const anon = makeAnonClient();
