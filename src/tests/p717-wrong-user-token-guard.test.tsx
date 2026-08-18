@@ -355,6 +355,39 @@ describe('P717: wrong authenticated user on token link', () => {
     ).toBeNull();
   });
 
+  it('P1071 transitional: old RPC shape (no verdict, address present) still trips the guard', async () => {
+    // The deploy window. The migration is gated on this frontend commit reaching
+    // main, so the new client provably meets the un-migrated RPC for a period. That
+    // RPC omits is_intended_recipient and still returns receiver_email. Without the
+    // fallback, `undefined === false` is false and the guard skips silently — the
+    // wrong signed-in user walks straight into someone else's delivery.
+    //
+    // Delete this test together with the fallback once the migration is live
+    // everywhere.
+    mockGetLetterForReadingByToken.mockResolvedValue({
+      letter: makeLetter() as unknown as import('@/app/types').ClarityLetter,
+      snapshots: [
+        {
+          letter_id: LETTER_ID,
+          story_id: 'story-1',
+          version_id: 'v1',
+          position: 0,
+          point_config: { storyText: 'text', storyTitle: 'title', points: [] },
+        },
+      ],
+      // Pre-P1071 shape: no is_intended_recipient key at all.
+      delivery: makeDelivery() as unknown as import('@/app/types').LetterDelivery,
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/different account|wasn't sent to you|not addressed to you/i)
+      ).toBeInTheDocument();
+    });
+  });
+
   it('authed-first path: shows wrong-account screen when getLetterForReading returns data for wrong user', async () => {
     // Scenario: RLS allows authed read (receiver_profile_id is null, so RLS passes)
     // but the current user's email doesn't match delivery.receiver_email.

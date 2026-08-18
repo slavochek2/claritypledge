@@ -341,6 +341,30 @@ export function LetterReadingPage() {
             return;
           }
 
+          // P1071 transitional fallback — DELETE once the migration is live on every
+          // environment (tracked by the last unchecked AC on the P1071 spec).
+          //
+          // The field is absent, not false, on a backend that has not run the P1071
+          // migration yet. `undefined === false` is false, so the guard above would
+          // skip silently and a wrong signed-in user could claim the delivery —
+          // exactly the defect decisions.md 2026-04-16 records as having shipped
+          // green once. The deploy order makes this window mandatory rather than
+          // unlucky: the migration is gated on the frontend commit reaching main, so
+          // the new client always meets the old RPC for a while. An old RPC still
+          // returns receiver_email, so the original comparison still works there.
+          if (
+            currentUser &&
+            readData.delivery?.is_intended_recipient === undefined &&
+            readData.delivery?.receiver_email
+          ) {
+            const intendedEmail = readData.delivery.receiver_email.toLowerCase();
+            const currentEmail = (currentUser.email ?? '').toLowerCase();
+            if (currentEmail !== intendedEmail) {
+              setSafe('wrong_user');
+              return;
+            }
+          }
+
           // Claim delivery if authenticated (sets receiver_profile_id for write RLS).
           // An unclaimed delivery reads fine but fails every later write via RLS,
           // so the outcome must not be swallowed. claimLetterDelivery classifies
