@@ -290,7 +290,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **7.1 Extract problems (sonnet subagent) with EV gate:**
 
-   Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read the last 50 lines of `docs/decisions.md` for cross-reference context. Pass both inline.
+   Before spawning, collect key session events (files edited, errors encountered, decisions made, back-and-forth exchanges) as a concise summary. Also read recent `docs/decisions.md` entries for cross-reference context — the file is newest-first, so "the last 50 lines" is the wrong end (it lands 7+ months stale) and a flat line count is unreliable regardless of direction (entries vary from a few lines to 50+). Anchor on headings instead: `head -n "$(grep -n '^## 2026-' docs/decisions.md | sed -n '15p' | cut -d: -f1)" docs/decisions.md` reads the 15 most recent entries regardless of length. Pass both inline.
 
    Spawn a `general-purpose` subagent (`model: "sonnet"`) with this task:
 

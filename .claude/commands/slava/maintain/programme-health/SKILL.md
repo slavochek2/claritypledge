@@ -162,7 +162,7 @@ RETURN (nothing else — no preamble, no summary, no encouragement):
 ```bash
 # Adjust the date window; these locate candidate lines, they do not classify them — read the hits.
 grep -n "corroborated\|pre-registered\|Novel prediction" docs/hypotheses.md docs/research-programme.md
-grep -n "^## 2026-" docs/decisions.md | tail -40      # what actually happened in the period
+grep -n "^## 2026-" docs/decisions.md | head -40      # decisions.md is newest-first — head, not tail, for the most recent period
 ```
 
 ### Step 4 — Output
