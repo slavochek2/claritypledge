@@ -1,14 +1,14 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 4
 severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [privacy, rpc, letters, anon]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 absorbed: p1090
+completed_at: 2026-08-18
 ---
 
 # P1071: the letter-reading RPC still returns the recipient email address P651 required it to drop
