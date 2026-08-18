@@ -39,6 +39,13 @@ const ALL_POSITIONS: PositionType[] = [
 interface DbPointWithCreator {
   id: string;
   statement: string;
+  /**
+   * DEPRECATED — do not write to this. Verified 2026-08-17: no production caller
+   * ever sets it (`createPoint` is called from one place, which passes `undefined`),
+   * and it renders on the feed card only — the point detail page never shows it.
+   * Grounding/context for a point belongs in a linked Story, which renders on both
+   * surfaces. Removal tracked in features/p1090_*.md.
+   */
   context: string | null;
   first_validator_id: string;
   created_at: string;

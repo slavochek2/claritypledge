@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 32
 workstream: letters
@@ -11,6 +11,8 @@ driver: anomaly
 ---
 
 # P1084: The crux letter — one neutral agent files the disagreement that actually matters, evidenced only by what each person said
+
+> **Deprioritized 2026-08-17, not rejected.** The active line is [P1096](p1096_public_multisource_point_pipeline.md), which reaches the same outcome — two people holding clarified opposed positions — from **public** material, so it needs no consent, no prediction store, and no new reader-facing question. This spec's three blockers (found 2026-08-17 and unresolved) are: the reader is asked about the *sender's* meaning, and the sender is the agent; there is no row that can hold a predicted **position** pair, only a comprehension score; and the founder cannot review a run he is a subject of. Its analysis stands and its private-dyad problem is still real — revisit after P1096 has run.
 
 **Successor to P1074** (archived 2026-08-14, `features/archive/2026-08/`). Read its `### REFUTED` section before this one — it holds the three defects this design exists to avoid, and the scope correction that says the letter itself was never the problem.
 

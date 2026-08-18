@@ -1,7 +1,7 @@
 ---
 name: align-decompose
 description: "Turn one picked /align-detect candidate into THREE competing anti-point → reverse-story → point triples, built in reverse and jointly from a stated INTENT, each aimed at −3 / 10 / +3. Prints three ranked triples and a context line; everything else goes to the run file. Writes nothing outside .private/ — no network write of any kind."
-when_to_use: "After /slava:think:align-detect and a pick, when the remedy is a paraphrase that will be FILED (a letter the experience owner scores) rather than worked through live in conversation. Re-run it as many times as the story needs. NOT the filing step — that is /slava:think:align-create-letter, deliberately a separate skill."
+when_to_use: "After /slava:think:align-detect and a pick, when the remedy is a paraphrase that will be FILED (a letter the experience owner scores) rather than worked through live in conversation. Re-run it as many times as the story needs. NOT the filing step — that is /slava:think:align-create-letter, deliberately a separate skill. NOT /slava:content:points-prepare either: the subject HERE is one person and their own experience, which they will rate for whether it captured their meaning; that skill takes a DISAGREEMENT and prepares it for a room, authors no one's interiority, and quotes only."
 version: 3.0.0
 ---
 

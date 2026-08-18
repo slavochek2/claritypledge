@@ -49,9 +49,25 @@ These restate part of the model rather than pointing at it. They are the rot sur
 
 ## Consumers that point at the model doc
 
-`docs/CHARTER.md` · `docs/definitions.md` · `.claude/commands/slava/content/sifter-definitions.md` · `.claude/commands/slava/content/sifter-point.md` · `.claude/commands/slava/content/sifter-story.md` · `.claude/commands/slava/think/align.md` · `.claude/commands/slava/think/align-detect.md` · `.claude/commands/slava/think/align-decompose.md` · `.claude/commands/slava/think/align-create-letter.md` · `features/p1012_reverse_story_sender_paraphrase.md` · `features/p1030_reverse_story_and_align_pipeline.md` · `features/uat/p1030.md`
+`docs/CHARTER.md` · `docs/definitions.md` · `.claude/commands/slava/content/points-prepare.md` · `.claude/commands/slava/content/sifter-definitions.md` · `.claude/commands/slava/content/sifter-point.md` · `.claude/commands/slava/content/sifter-story.md` · `.claude/commands/slava/think/align.md` · `.claude/commands/slava/think/align-detect.md` · `.claude/commands/slava/think/align-decompose.md` · `.claude/commands/slava/think/align-create-letter.md` · `features/p1012_reverse_story_sender_paraphrase.md` · `features/p1030_reverse_story_and_align_pipeline.md` · `features/uat/p1030.md`
 
 > **Two self-hits the check returns and cannot register:** `story-point-model.md` and this file. Pre-existing; treat them as expected output, not as gaps.
+
+### Unregistered claims awaiting a home in the model doc (added 2026-08-18)
+
+`points-prepare` points at the model doc and copies nothing from it — but it **introduces model-level concepts the model doc does not contain**, which is a third category this register had no row for. Not drift; a gap in the model:
+
+| Concept | Where it lives now | Belongs in the model because |
+|---|---|---|
+| **The synthesized point** — a claim neither speaker made, built so each speaker's own quotes commit them to opposite ends | `points-prepare` §4a | It is a *kind of point*, not extraction craft |
+| **A position held by an agent** — what it means for a non-human to hold one, and what a reader must understand by it | `points-prepare` §6, `features/p1104_*.md` | The model defines who may hold a position; agents are not in it |
+| **A story as evidence for a position** rather than as its author's lived experience | `points-prepare` §8 | The model's Story is first-person experience; a quote bundle is a different object wearing the same name |
+
+**Until these move, `points-prepare` is the de-facto home of three model rulings** — the exact rot this register exists to catch.
+
+### Register drift — the integrity check below currently fails
+
+Run 2026-08-18, it returned **10 files absent from every table above**: this skill (now added), five live specs (`p1052`, `p1055`, `p1061`, `p1084`, `p1101`) and three archived ones (`p1050`, `p1051`, `p1062`), plus the known self-hit. The register was last audited 2026-08-06. **Not fixed here** — registering nine files touched by other work needs its own pass, and the check does not say whether archived specs are exempt.
 
 ---
 
