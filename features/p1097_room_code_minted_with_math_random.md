@@ -25,20 +25,14 @@ confidentiality gain is bounded by this.
 
 ## Problem
 
-`Math.random()` in V8 is xorshift128+: fast, statistically decent, and **not**
-cryptographically secure. Its internal state is recoverable from a modest number of outputs,
-and it is seeded per-context. Two consequences, in increasing order of severity:
+The code is minted from a general-purpose pseudorandom source rather than a cryptographic one.
+For a value that acts as an authorization capability, that is the wrong class of generator: such
+sources are designed for statistical quality, not for resisting an adversary who observes outputs.
+The consequences run from plain guessability up to a stronger class of attack. Specifics of the
+generator, keyspace arithmetic, and the observed-output attack are withheld from this public spec
+while the issue is open — see `.private/docs/security-log.md`, per the disclosure rule in CLAUDE.md.
 
-1. **Guessability.** A 6-char code over the alphabet actually in use bounds the keyspace; a
-   non-CSPRNG can bias which parts of that space are reachable in practice.
-2. **Predictability.** Given enough observed codes from one origin, subsequent codes may be
-   derivable rather than merely brute-forced — a qualitatively different attack from guessing.
-
-P1057 explicitly named this as its own bound, and deliberately accepted it:
-
-> "A 6-char code from a non-CSPRNG is guessable independently of whether it is published.
-> Hiding it raises the bar only as far as the generator allows — and only as far as probe cost
-> allows."
+P1057 explicitly named this as its own bound and deliberately accepted it, deferring it here.
 
 ## Appetite
 
@@ -54,9 +48,9 @@ Sketch, **not verified against current code — treat as leads, not facts.**
    (pgcrypto) rather than a client `Math.random()`. This also removes the client's ability to
    choose its own code, which is a separate latent issue: today `createClaritySession` inserts
    a client-supplied `code`, so a client can pick one.
-2. **Widen the alphabet or the length** if the keyspace analysis in Done-When shows 6 chars is
-   insufficient against the *unauthenticated, unthrottled* probe P1057 documented as accepted
-   (`get_session_by_code` is anon-reachable, side-effect-free, and has no rate limit).
+2. **Widen the alphabet or the length** if the keyspace analysis in Done-When shows the current
+   length is insufficient against the read-path posture P1057 documented as accepted (that
+   posture is characterised in `.private/docs/security-log.md`, not here).
 3. **Existing rooms are not rotatable** — see P1098. This spec covers minting only.
 
 ## Risks / Non-Goals
@@ -65,17 +59,17 @@ Sketch, **not verified against current code — treat as leads, not facts.**
   path. `clarity_sessions.code` uniqueness must be confirmed to exist as a constraint before
   relying on it.
 - **ACCEPT — existing codes stay weak.** This changes new rooms only. Rotation is P1098.
-- **Non-goal — rate limiting the enumeration probe.** P1057 accepted the unthrottled probe on
-  measured prod concurrency of 0 active rooms over 7 days, with an explicit revisit trigger at
-  ~50 concurrent live rooms. That trigger belongs to P1057's ACCEPT, not here — but note the
-  two interact: a stronger code reduces how much the missing rate limit costs.
+- **Non-goal — rate limiting on the read path.** P1057 assessed and accepted the current posture
+  against measured production usage, with an explicit revisit trigger recorded there. That trigger
+  belongs to P1057's ACCEPT, not here — but note the two interact: a stronger code reduces how much
+  the accepted posture costs.
 - **Non-goal — room *contents* confidentiality.** Unchanged from P1057.
 
 ## Done-When
 
 - [ ] Codes are generated server-side from a CSPRNG; the client can no longer supply one
 - [ ] Keyspace stated explicitly (alphabet × length) with the resulting guess probability per
-      probe, against the anon-reachable unthrottled `get_session_by_code`
+      probe — the analysis itself recorded in `.private/docs/security-log.md`, not here
 - [ ] Collision retry proven by test, not by assumption
 - [ ] `createClaritySession` no longer sends a client-minted `code`
 - [ ] Existing rooms keep working (the change is mint-side, not read-side)

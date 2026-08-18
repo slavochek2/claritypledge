@@ -17,24 +17,19 @@ driver: anomaly
 verifying that fix, the row-level policy governing the underlying table was read directly. It does
 not carry the constraint the RPC layer was being fixed to enforce.
 
-**Complication:** The INSERT policy admits any signed-in caller who names **themselves** on either
-side of the row. Nothing in it requires the story to belong to a letter, requires a delivery to
-exist, or constrains who is credited on the other side. So a caller can write a verification for
-**any** story and credit **any** profile as its counterparty, provided they put their own id in the
-remaining slot.
-
-**This is not inferred from the policy text — it was executed.** A signed-in test caller with no
-relationship to the story or its author inserted a `source='letter'` row crediting the story's
-author as speaker. The insert returned no error and the row was written. Evidence and the exact
-predicate are in `.private/docs/security-log.md` § 2026-08-18 (P1093/P1100).
+**Complication:** The write policy on that table is broader than the integrity rule the RPC layer
+was being fixed to enforce, so rows can reach it without the letter-level checks the product
+assumes. Mechanism, the executed proof, and the exact predicate are deliberately withheld from this
+public spec — they are in `.private/docs/security-log.md` § 2026-08-18 (P1093/P1100), per the
+disclosure rule in CLAUDE.md. **This is confirmed by execution, not inferred from policy text.**
 
 **Why it outranks the path P1093 just closed:** that one had no caller anywhere in the product and
-had never written a production row. This one is a plain table insert, reachable by every signed-in
-client with no special knowledge, and it is the path the application itself already uses.
+had never written a production row. This one is reachable through the path the application itself
+already uses, which makes it both likelier to have been exercised and harder to close.
 
-**It also sidesteps the P1067 constraint.** The uniqueness rule added there is partial — scoped to
-rows that carry a delivery. A directly-inserted row can simply omit the delivery and fall outside
-it, so the per-delivery "one rating per story" guarantee does not bind this path.
+**It also sidesteps the P1067 constraint.** The uniqueness rule added there is partial, and this
+path falls outside its scope, so the per-delivery "one rating per story" guarantee does not bind
+here.
 
 **Question:** should this table accept client writes at all, or should every letter verification go
 through a SECURITY DEFINER path that resolves the letter — as the token path already does?
