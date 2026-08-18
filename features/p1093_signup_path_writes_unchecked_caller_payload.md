@@ -160,6 +160,23 @@ P705. Folded into this spec by founder decision (2026-08-18).
       closing.** Deploy is its own step.
 - [x] `.private/docs/security-log.md` updated — findings, prod counts, the anon-grant mistake and the untested surfaces
 
+## Scope boundary — what this spec does NOT close
+
+**The defect class is still open on a third path. Filed as P1100 (2026-08-18).**
+
+Found while verifying this fix, by asking whether revoking the grant actually closes the class rather
+than assuming it: the row-level INSERT policy on the underlying table carries no membership predicate.
+Any signed-in caller can write a letter verification for any story, crediting any profile as the
+counterparty, through a plain table insert — no RPC, no letter, no delivery. Executed against test,
+not inferred: the insert was accepted and the row was written.
+
+That path is **more** reachable than the one closed here (this one had no caller and had never written
+a production row), and it sidesteps the P1067 uniqueness rule by omitting the delivery. It is not
+folded in, for the same reason P1067 kept this spec out of its own migration: this fix is verified and
+committed, and adding a concern after verification means verifying it again.
+
+Read every "closed" claim in this spec as scoped to the RPC named in it.
+
 ## Disclosure ordering — read before pushing
 
 **The branch must not reach public GitHub before prod is migrated** (the P1063 ordering, inherited
