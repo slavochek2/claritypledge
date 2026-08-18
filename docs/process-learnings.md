@@ -453,3 +453,42 @@ canary at `--workers=1` to remove doubt about a flake. Fix is per-layer fixtures
 own header already notes layers get one story each — L6 reuses L4's).
 
 `due: month`
+
+---
+
+## /ship strands a worktree from ~15 more sites, and auto-closes specs it never implemented
+
+Two follow-ups from the P1057/w1 stranded-worktree fix (`a70f9e18`). Both were found by the
+adversarial review of that fix and deliberately left out of it.
+
+**1. Phase 2b runs before Phase 3, and it is not load-bearing.** `cmd_ship`'s branch+worktree
+cleanup is last, so roughly fifteen constructs between the first cherry-pick and Phase 3 still
+abort and strand: `sprint_dir="$(resolve_ship_sprint_dir)"` (that function calls `exit 1`, which
+in a command substitution becomes status 1 on an unguarded assignment — and `features/done/CURRENT_SPRINT`
+holding garbage is a case its own comment says to expect), the PRIMARY spec's `ship_rewrite_frontmatter`,
+`title="$(ship_extract_title …)"` (decodes without an explicit encoding, unlike its sibling
+`ship_rebase_doc_links`, whose comment says a locale-dependent decode is a real hazard in spec
+bodies), and both `git add` calls (exit 128 when a co-tenant holds `.git/index.lock`).
+
+Guarding them one at a time is whack-a-mole. Phase 2b reads only `$cospecs` (captured back in
+Phase 1) and working-tree paths — no `$branch`, no branch ref — so Phase 3 could run BEFORE it.
+Caveat: swapping alone trades one leak for another, because `branch_deleted: true` makes the new
+abort trap return silently and the final `rm -f "$journal"` never runs; the journal cleanup has to
+move with it. Mitigated meanwhile: the trap reports the strand and `git-ops reconcile` now detects
+it durably.
+
+**2. `detect_cospecs` closes specs that were merely CREATED on the branch.** It greps
+`git log --name-only main..branch` with no `--diff-filter` for adds, so a follow-up spec split out
+mid-branch is auto-closed as `all-done` without ever being implemented. History: `fix: reopen p1057
+— auto-closed by /ship without being implemented`, `fix: reopen P1045/P1047/P1048`, `fix: reopen
+P1044`, `Revert "chore: close p929 (co-located with p928)"`. `docs/decisions.md` already names the
+fix ("exclude specs created by the branch's own commits"). Note `a70f9e18` makes this marginally
+worse: the loop now `continue`s past a failed co-spec instead of aborting, so later co-specs that
+a crash used to spare are now closed too. Worth a spec, not a note-sized fix.
+
+**3. Canary R has zero coverage of the new ship output.** R greps `$R_SCOPED_LOG` at
+`test-git-ops-ship.sh:655`; `capture_r` appends, and UU/VV/WW/YY/ZZ are at 2300+, so R has already
+passed before any of the new output exists. `SAFETY_LOG` is written and never read by anything.
+Cheap fix: move R's grep to the end of the file, or point it at `SAFETY_LOG`.
+
+`due: month`
