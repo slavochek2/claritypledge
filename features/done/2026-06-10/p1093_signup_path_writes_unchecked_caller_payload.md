@@ -1,10 +1,9 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 4
 created_date: '2026-08-17'
 tags: [security, letters, integrity, calibration]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 driver: anomaly
 reproduce_artifact:
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [completion-writer-grant, positions-half, dead-replay]
   surfaces_deferred: []
   reproduced_at: '2026-08-18'
+completed_at: 2026-08-18
 ---
 
 # P1093: the sign-up-after-reading path records whatever the caller sends it
