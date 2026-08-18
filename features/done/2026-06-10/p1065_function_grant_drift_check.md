@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 2
 created_date: '2026-08-13'
 tags: [security, grants, ci, drift]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 driver: anomaly
+completed_at: 2026-08-18
 ---
 
 # P1065: no gate can see function-grant drift — the entire P1063 class was invisible
