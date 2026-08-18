@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -120,6 +120,10 @@ export default function App() {
   const [focusDropIndicator, setFocusDropIndicator] = useState<FocusDropIndicator | null>(null)
   const [worktrees, setWorktrees] = useState<Worktree[]>([])
   const [selectedWorktree, setSelectedWorktree] = useState<string | null>(null)
+  // Mirrors selectedWorktree so fetchWorktrees can read the live selection without
+  // taking it as a dep (a changing fetchWorktrees identity would re-fire effect 3).
+  const selectedWorktreeRef = useRef<string | null>(null)
+  useEffect(() => { selectedWorktreeRef.current = selectedWorktree }, [selectedWorktree])
 
   // Require 5px movement before drag starts - allows clicks to work
   const sensors = useSensors(
@@ -177,14 +181,21 @@ export default function App() {
     }
   }, [buildUrl])
 
-  const fetchWorktrees = useCallback(async () => {
+  // `mode: 'mount'` always snaps to the current worktree (localStorage may hold a
+  // stale path from a session started in a different dir). `mode: 'refresh'` keeps
+  // the user's selection — unless that worktree is gone (e.g. /ship removed the
+  // slot), in which case it falls back to the current one. Without the refresh
+  // path, shipped worktrees stayed in the dropdown until the server was restarted.
+  const fetchWorktrees = useCallback(async (mode: 'mount' | 'refresh' = 'mount') => {
     try {
       const res = await fetch('/api/worktrees')
       if (!res.ok) throw new Error('Failed to fetch worktrees')
       const data: Worktree[] = await res.json()
       setWorktrees(data)
-      // Always sync to the current worktree on startup.
-      // localStorage may hold a stale path from a previous session started in a different dir.
+      const selected = selectedWorktreeRef.current
+      const stillExists =
+        mode === 'refresh' && !!selected && data.some((wt) => wt.path === selected)
+      if (stillExists) return
       const current = data.find((wt) => wt.isCurrent)
       if (current) {
         setSelectedWorktree(current.path)
@@ -265,7 +276,7 @@ export default function App() {
   // 3. Fetch worktrees after config arrives (skip when disabled).
   useEffect(() => {
     if (!config || config.disableWorktrees) return
-    fetchWorktrees()
+    fetchWorktrees('mount')
   }, [config, fetchWorktrees])
 
   // 4. Fetch features once config is loaded AND hydration committed. Gating on
@@ -675,7 +686,11 @@ export default function App() {
 
             {/* Refresh button */}
             <button
-              onClick={() => { setLoading(true); fetchFeatures(true) }}
+              onClick={() => {
+                setLoading(true)
+                fetchFeatures(true)
+                if (!config.disableWorktrees) fetchWorktrees('refresh')
+              }}
               title="Refresh"
               style={{
                 display: 'flex',

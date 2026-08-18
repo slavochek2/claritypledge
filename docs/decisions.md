@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-18 [technical]: kanban's Refresh refreshed the board but not the worktree list, so shipped slots lingered until restart
+
+**Context:** After `/ship` removed a worktree slot, the kanban worktree dropdown kept offering it. Clicking Refresh did not clear it; only restarting the whole kanban did. Both halves of the system looked correct in isolation, which is why this survived: the server's `GET /api/worktrees` shells out to `git worktree list --porcelain` on every request and is never cached (verified live — removing a worktree and re-curling returned the shorter list immediately), and the client's `fetchWorktrees()` was correct for the moment it ran.
+
+**Decision:** The defect was scope, not staleness. `fetchWorktrees()` was wired only into the mount effect, and the Refresh button called `fetchFeatures(true)` alone — so the dropdown was pinned to whatever git reported at page load. Refresh now re-fetches both. `fetchWorktrees` takes a mode: `'mount'` keeps the existing behaviour of snapping to the current worktree (localStorage can hold a path from a session started in a different dir), while `'refresh'` preserves the user's selection and falls back to the current worktree only when the selected one has disappeared. A `selectedWorktreeRef` mirrors the selection so `fetchWorktrees` can read it without becoming a changing dependency of the mount effect and re-firing it.
+
+**Alternatives rejected:** Polling `/api/worktrees` on an interval — adds a recurring `git` subprocess per client for a list that changes a few times a day, and still lags the moment the user actually looks. Having Refresh call the plain `fetchWorktrees()` — it would snap the selection back to main on every click, trading a stale list for lost context. Server-side cache invalidation — there was no cache to invalidate; the fix belonged entirely on the client.
+
+**Consequences:** A "refresh" control is only as wide as the fetches it is wired to. Every subsequent independently-fetched list in this app (features, articles, opportunities, worktrees) needs an explicit decision about whether Refresh covers it — the button's label promises the whole view, and a partial refresh reads to the user as a caching bug in the layer that is actually correct. Verified by removing a worktree with the page open and clicking Refresh: the stale entry disappeared without a restart, and a separate check confirmed a selected non-main worktree survives the refresh.
+
+**References:** `tools/kanban/src/App.tsx` (`fetchWorktrees`, Refresh button) · `tools/kanban/server/api.ts` `getWorktrees()` / `GET /api/worktrees`
+
+---
+
 ## 2026-08-18 [technical]: a drift check that treats production as the baseline will revert every security fix in flight (P1093 → P1102)
 
 **Context:** P1093 revoked a client-role EXECUTE grant on a letter-completion writer and applied it to **test**. Production was deliberately left unpatched — the deploy is its own gated step, and the disclosure ordering requires prod to be patched before the branch reaches public GitHub. Hours later the P1065 grant-drift check compared the two live environments, found this one function disagreeing, and shipped a migration restoring the grant on test, reasoning that prod was the baseline and the narrowing had "no trace in migration text." Both halves of that reasoning were correct on the evidence available: the trace existed only on an unmerged feature branch, which the check cannot see.
