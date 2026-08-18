@@ -191,6 +191,31 @@ writing a row for an unverified caller before the fix.
 bound and no catalog read had checked. Green was bounding what the fixture emitted, three times in one
 spec.
 
+## The fix was reverted mid-flight by a drift remediation — and the ordering would have carried to prod
+
+Two catalog reads showed the revoke live. A later one showed `authenticated` back, appended last —
+re-granted, not never-applied.
+
+The P1065 grant-drift check compared live prod against live test, found this function disagreeing, and
+shipped a migration restoring the grant (`20260818140000`, commit `9e8ebb71` on main), reasoning that
+prod was the baseline and the revocation had "no trace in migration text." That trace was on this
+unmerged branch, which the check cannot see.
+
+**Nothing was done wrong.** A security fix lands on test first by design, and the disclosure rule keeps
+prod unpatched until the branch is ready — so throughout that window a fix is indistinguishable from
+drift, and "restore prod's privilege" re-opens the hole.
+
+**The ordering is the dangerous part.** The restore is timestamped later than this spec's migration, so
+on any ordered apply — including the pending prod deploy — it would have run *after* the revoke and
+undone it in the same run, silently.
+
+Resolved by `20260818150000_p1093_reassert_revoke_over_drift_restore.sql`, ordered after the restore.
+The P1065 commit is deliberately not reverted. The class is filed as **P1102**.
+
+Caught by an independent reviewer re-running the canary live rather than trusting this spec's own
+"Canary 9 passed" — which was true when written and false ninety minutes later. L1/L2/L3 are now the
+standing regression test for it.
+
 ## Scope boundary — what this spec does NOT close
 
 **The defect class is still open on a third path. Filed as P1100 (2026-08-18).**
