@@ -98,6 +98,8 @@ const mockGetProfile = vi.fn();        // page-level fallback (AuthCallbackPage.
 const mockGetProfileResult = vi.fn();  // context fetch (AuthContext fetchProfileForUser)
 const mockMarkSelfVerified = vi.fn().mockResolvedValue({ verified: true, error: null });
 const mockSetMyPledge = vi.fn().mockResolvedValue({ applied: true, error: null });
+// P1093: AuthCallbackPage replays staged letter positions once the caller is verified.
+const mockReplayLetterPositions = vi.fn().mockResolvedValue({ replayed: 0, error: null });
 vi.mock('@/app/data/api', () => ({
   getProfile: (id: string) => mockGetProfile(id),
   getProfileResult: (id: string) => mockGetProfileResult(id),
@@ -106,6 +108,7 @@ vi.mock('@/app/data/api', () => ({
   slugifyName: async (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
   markSelfVerified: () => mockMarkSelfVerified(),
   setMyPledge: (pledged: boolean) => mockSetMyPledge(pledged),
+  replayLetterPositions: () => mockReplayLetterPositions(),
 }));
 
 // Spy on analytics — the assertion target. AuthContext also imports identify/reset.

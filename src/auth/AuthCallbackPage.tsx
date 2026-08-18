@@ -25,7 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
-import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge } from "@/app/data/api";
+import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge, replayLetterPositions } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
@@ -498,6 +498,14 @@ export function AuthCallbackPage() {
       const { applied: pledgeApplied, error: pledgeErr } = await setMyPledge(hasPledged);
       if (pledgeErr) console.warn('⚠️ set_my_pledge failed (non-fatal):', pledgeErr.message);
       else if (hasPledged && !pledgeApplied) console.warn('⚠️ set_my_pledge(true) was rejected — caller not verified');
+
+      // P1093: the caller is verified as of the line above, so RLS now permits their own
+      // point_positions writes. Any letter they answered while unverified left its
+      // positions in the staging buffer — lift them now. Non-fatal for the same reason
+      // as the two accessors above: the profile row exists either way, and a subsequent
+      // login re-runs this. Zero replayed is the normal case, not a failure.
+      const { error: replayErr } = await replayLetterPositions();
+      if (replayErr) console.warn('⚠️ replay_letter_positions failed (non-fatal):', replayErr.message);
 
       // Clean up backup on success
       sessionStorage.removeItem('__profileMigrationBackup');

@@ -394,8 +394,9 @@ export async function submitPointResponse(
 
   // P705: Live display store — upsert into point_positions for authenticated+verified users.
   // RLS requires auth.uid() = user_id AND is_verified = true; silently fails for unverified
-  // users (their positions replay into point_positions via persist_anonymous_completion at
-  // registration/verification). Do NOT throw on failure — staging write already succeeded.
+  // users (their positions replay into point_positions via replay_letter_positions() at
+  // verification — P1093; the writer this used to name had no caller and never ran).
+  // Do NOT throw on failure — staging write already succeeded.
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.user?.id) {
     const { error: posErr } = await supabase.from('point_positions').upsert(
@@ -1192,7 +1193,7 @@ export async function submitLetterResponseAuthenticated(
     // 4b. P708: Dual-write to point_positions (live display store).
     // Mirror pattern from submitPointResponse. RLS requires auth.uid() = user_id
     // AND is_verified = true — silently fails for unverified users; their positions
-    // replay into point_positions via persist_anonymous_completion at verification.
+    // replay into point_positions via replay_letter_positions() at verification (P1093).
     // Do NOT throw on failure — staging write above already succeeded.
     const pointPositionRows = positions
       .filter((p) =>

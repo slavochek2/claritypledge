@@ -763,6 +763,32 @@ export async function markSelfVerified(): Promise<{ verified: boolean; error: Er
 }
 
 /**
+ * P1093: Replays the caller's staged letter positions into the live `point_positions`
+ * store.
+ *
+ * A reader who answers a letter before verifying has their positions written to the
+ * `letter_point_responses` staging buffer only — the `point_positions` write fails RLS
+ * (`is_verified = true` required) and is deliberately swallowed at that point (P705).
+ * This lifts those staged rows once the caller becomes verified.
+ *
+ * Takes no arguments by design. The RPC derives the caller from `auth.uid()`, their
+ * deliveries from `receiver_profile_id`, and the positions from rows already staged
+ * against those deliveries — so there is no payload a caller could forge. The writer
+ * this replaces accepted all of it from the client and checked none of it.
+ *
+ * @returns `replayed` — how many staged positions became live on this call. Zero is the
+ *   normal result for a caller with nothing staged, and is not an error.
+ */
+export async function replayLetterPositions(): Promise<{ replayed: number; error: Error | null }> {
+  const { data, error } = await supabase.rpc('replay_letter_positions');
+  if (error) {
+    console.error('Error in replay_letter_positions:', error.message);
+    return { replayed: 0, error: new Error(error.message) };
+  }
+  return { replayed: typeof data === 'number' ? data : 0, error: null };
+}
+
+/**
  * P880: Sets the current authenticated caller's pledge state, server-side.
  *
  * `profiles.has_pledged` is a trust field pinned by a DB guard trigger — clients cannot

@@ -107,6 +107,8 @@ const mockGetProfile = vi.fn();
 // pledge value. clearAllMocks() (beforeEach) keeps these implementations.
 const mockMarkSelfVerified = vi.fn().mockResolvedValue({ verified: true, error: null });
 const mockSetMyPledge = vi.fn().mockResolvedValue({ applied: true, error: null });
+// P1093: AuthCallbackPage replays staged letter positions once the caller is verified.
+const mockReplayLetterPositions = vi.fn().mockResolvedValue({ replayed: 0, error: null });
 vi.mock('@/app/data/api', () => ({
   getProfile: (id: string) => mockGetProfile(id),
   getProfileResult: (id: string) => mockGetProfile(id).then((data: unknown) => ({ success: true, data })).catch(() => ({ success: false, data: null })),
@@ -115,6 +117,7 @@ vi.mock('@/app/data/api', () => ({
   slugifyName: async (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
   markSelfVerified: () => mockMarkSelfVerified(),
   setMyPledge: (pledged: boolean) => mockSetMyPledge(pledged),
+  replayLetterPositions: () => mockReplayLetterPositions(),
 }));
 
 // -----------------------------------------------------------------------------
