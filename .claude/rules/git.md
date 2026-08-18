@@ -134,9 +134,9 @@ git diff HEAD -- <file>       # verify the file actually has uncommitted changes
 
 Worktrees + concurrent sessions mean `main` and the scripts themselves move under you. When a shared tool/script (`git-ops.sh`, `pre-commit-checks.sh`, a migration helper) fails, before reverse-engineering its internals: run `git log --oneline -5` and `git show <tool>` (or just re-run it) — a co-tenant may have already fixed the tool or advanced `main` since you last read it. P868: ~10 tool calls went into reading `git-ops.sh cmd_ship` internals to design a workaround while the fix was already on `main` and a plain re-run worked.
 
-## Worktree Phantom Deletions
+## Worktree `scripts/` is a native checkout
 
-Inside a worktree, `git status` may show phantom `D` entries for `scripts/` — these are symlink artifacts from the worktree setup, not real deletions. Use `git diff --name-only HEAD` to see only real changes.
+`scripts/` and `supabase/migrations/` are hydrated as native git checkouts in every worktree (`3d7a010e`), not symlinks. `git status` is accurate there: a `D` entry for `scripts/` means the file is really missing, not an artifact — recover with `git checkout -- scripts` inside the worktree. Older advice to ignore those entries, or to filter them with `git diff --name-only HEAD`, is obsolete.
 
 Never use `git add .` or `git add -A` in a worktree — use `git add src/` or explicit file paths. (This extends the existing `git add .` ban with a worktree-specific failure mode.)
 

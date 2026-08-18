@@ -85,7 +85,7 @@ Seeds and sync scripts must be idempotent **and** non-destructive to values the 
 
 When working in a worktree, always commit migration files from the **worktree branch** — never from `main`.
 
-`supabase/migrations/` is symlinked in worktrees, so new migration files are visible when you `git status` from either the worktree or the main repo. This creates a false impression that committing from `main` is fine. It is not: committing from `main` puts the migration on `main` before the feature is ready to ship.
+`supabase/migrations/` is a native per-worktree checkout, so a migration written on the branch is not visible from main's `git status`. The trap is the reverse: the `migrate.sh` workaround (see worktree-setup.md) copies the migration into the main repo, where it sits untracked and looks committable. Committing it from `main` puts the migration on `main` before the feature is ready to ship.
 
 The same rule applies to `supabase/deploy-manifest.json`.
 
@@ -95,5 +95,5 @@ git add supabase/migrations/YYYYMMDDHHMMSS_description.sql
 git commit -m "feat(pN): add migration for ..."
 
 # ❌ Wrong — committing from main while the feature is on a worktree branch
-# (the file appears in git status on main due to the symlink, but belongs on the feature branch)
+# (a copy left behind by the migrate.sh workaround looks committable but belongs on the feature branch)
 ```
