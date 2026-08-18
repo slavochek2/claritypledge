@@ -662,7 +662,14 @@ if grep -q '[><|]' "$R_SCOPED_LOG"; then
   echo "--- end offending lines ---" >&2
   fail "R: ship output contains shell-redirect-parseable tokens"
 fi
-pass "R: no redirect-parseable tokens in ship output"
+pass "R: no redirect-parseable tokens in ship output (canaries up to this point)"
+
+# R runs here, at line ~665, but capture_r APPENDS to R_SCOPED_LOG and later
+# canaries live at 2300+ — so R structurally cannot see their output, and every
+# canary added after it inherits zero shell-safety coverage. SAFETY_LOG collects
+# the same output for the WHOLE run and was written but never read. R2 below
+# closes both halves; the new stranded-state lines interpolate a branch name and
+# a filesystem path, and git happily mints refs containing > and |.
 
 # -----------------------------------------------------------------------------
 # U. CURRENT_SPRINT file takes priority over alphabetically-latest directory.
@@ -2655,6 +2662,28 @@ rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p170.json" \
 pass "ZZ: a failed co-located close leaves the other P-number's spec byte-identical"
 
 # -----------------------------------------------------------------------------
+# R2. Shell-safety over the WHOLE run (P783). Must stay the last invariant in
+#     the file, so every canary's output is inside it.
+# -----------------------------------------------------------------------------
+
+# Scoped to git-ops's OWN lines. SAFETY_LOG also captures relayed git output
+# (`hint: "git add/rm <pathspec>"`, diffstats), which git-ops does not author and
+# R never included either — matching R's "ship output only" scope, just over the
+# whole run instead of the first third of it.
+R2_OWN="$SCRATCH/r2-own.log"
+grep -E '^(git-ops|ship)[:[:space:]]' "$SAFETY_LOG" > "$R2_OWN" 2>/dev/null || : > "$R2_OWN"
+if [[ ! -s "$R2_OWN" ]]; then
+  fail "R2: captured none of git-ops's own output — the filter is blind, so a pass here would mean nothing"
+fi
+if grep -q '[><|]' "$R2_OWN"; then
+  echo "--- offending lines (git-ops output, whole run) ---" >&2
+  grep -n '[><|]' "$R2_OWN" >&2
+  echo "--- end offending lines ---" >&2
+  fail "R2: git-ops output contains shell-redirect-parseable tokens"
+fi
+pass "R2: no redirect-parseable tokens in git-ops output across the whole run"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -2669,4 +2698,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, YY, ZZ) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, YY, ZZ, R2) hold"
