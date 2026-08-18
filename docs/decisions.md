@@ -6,6 +6,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-18 [technical]: A new boolean on `profiles` fails OPEN unless it is added to the P877 read-grant list — `is_admin` is already in that state
+
+**Context:** P1104 proposed an `is_agent` flag so the product could mark a non-human account, preventing an agent's position from rendering as a named person's stated view. A hostile review of the spec found the design's failure mode is the harm it exists to prevent. `20260602160000_p877*.sql` restricts anon/authenticated reads on `profiles` to an **explicit grant list** — it carries `is_verified`, `is_test_account`, `is_certifier`. **`is_admin`, added later by `20260605150000_p878_search_profiles_rpc.sql:39`, is absent from it.** A column outside that list reads as `undefined` client-side → falsy → indistinguishable from `false`. For a flag whose `false` branch means "render as a human", the default failure state is a silent misrepresentation.
+
+**Decision:** P1104 ships a **hardcoded allowlist of the two agent account ids in application code** instead of a column. A constant cannot return `undefined`; it **fails closed**. At n=2 it is also simply correct — nothing about two known accounts needs a schema. The durable column version is recorded as a successor, triggered by agent #3, with its real cost enumerated: the grant list, a write-path guard (`20260605120000_p880_trust_column_guard.sql` exists precisely because users could self-set `is_verified`/`has_pledged`, so an unguarded `is_agent` would let an agent un-flag itself), and every SECURITY DEFINER accessor building JSONB from an explicit key list — 11 migration files emit a `'name'` key, each an independent omission site that also fails open.
+
+**Alternatives rejected:** *The column now* — fails open, and the identical omission has already happened once in this repo. *Naming convention alone* (an `agent_` prefix) — truncates in the UI, carries no signal in an avatar or a share card, unenforced.
+
+**Consequences:** **Any future boolean added to `profiles` must be added to the P877 grant list in the same migration, or it is invisible to the client and reads as `false`.** Whether `is_admin`'s absence is intentional or a live defect was **not** determined this session — worth checking before anything starts trusting it client-side. The general shape (a guard silently lost, caught only by reading the live definition) is the same class as the P975 SECURITY DEFINER guard-loss entry (2026-06-30), which was solved with a source canary; a canary asserting "every `profiles` boolean appears in the grant list" is the analogous prevention here. **Status: proposed** — no canary written.
+
+**References:** [p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md) · `supabase/migrations/20260602160000_p877*.sql` · `supabase/migrations/20260605150000_p878_search_profiles_rpc.sql`
+
+---
+
+## 2026-08-18 [process]: Subagents spawned ad hoc from the main loop have no I/O contract — three of four adversarial reviewers returned nothing, and the silence was misdiagnosed as flakiness
+
+**Context:** Four review agents were spawned across the session and asked to deliver findings as their **final message**. Three returned nothing. The cause is documented: `.claude/rules/skills.md` §"Subagent I/O" states background subagents' final text does not reach the main conversation and that each must **write its deliverable to a file and message back the path**. That rule was not applied, because it is path-triggered on `.claude/commands/slava/**` — it loads when an agent *edits* a skill, not when one *spawns a subagent from the main loop*. The rule file anticipates exactly this ("a skill that spawns subagents must state its own I/O contract inline; correcting this file alone does not reach runtime") and the gap still bit. Worse than the loss: the silence was reported to the founder as *"that's a pattern, not a coincidence — the multi-agent review path is unreliable here"*, a confident wrong diagnosis of a documented, avoidable behaviour. The one report that did arrive came through a reply to a direct message; the file-write contract, once applied, worked first time.
+
+**Decision:** Any subagent spawn — including ad-hoc ones from the main loop, not just from skills — states the output contract **inline in the prompt**: write the deliverable to a named file, then message back only the path. Also carried: `.claude/rules/skills.md` sets the adversarial-review default at **one** critic with a word cap, not three; three were spawned in parallel, which compounded the loss.
+
+**Alternatives rejected:** *Retry the same spawn shape* — was done twice per agent and produced the same silence, which is the two-failures-same-symptom pattern CLAUDE.md's debugging rules say to stop on. *Treat silence as "found nothing"* — explicitly refused, correctly: `decisions.md` 2026-08-14 already records an adversarial reviewer that signalled idle twice and never reported, where reading it as a clean pass would have been the confirmation bias the separate-reviewer rule exists to prevent.
+
+**Consequences:** A rule whose only home is a path-triggered file does not reach the behaviour it governs when that behaviour happens outside those paths. This is the second recorded instance of that shape. Deciding where such rules should live (CLAUDE.md core vs a rules file vs inline-per-spawn) is not settled here.
+
+**References:** [.claude/rules/skills.md](../.claude/rules/skills.md) §"Subagent I/O", §"Adversarial Review — Lean Default" · decisions.md 2026-08-14 (idle reviewer)
+
+---
+
+## 2026-08-18 [process]: An ordered empirical claim must be verified by sorting the data — a false "fell monotonically" reached a spec and survived self-review
+
+**Context:** P1096's run log claimed *"argument density fell monotonically with reach across six candidates"*, citing 1.7 and 2.7 comments-per-thousand-views at high view counts against 9.4 and 13.4 at low ones. Sorted by reach ascending, the six measured points run 34.3 → 5.3 → 9.4 → 13.4 → 1.7 → 2.7: **three of five adjacent comparisons rise.** The claim is false on its own data, and false on the four points quoted (9.4 → 13.4 rises). The sentence's word order — both high-reach values first, then both low-reach — is what made it read as monotonic. It was written by the same agent that formed the thesis, measured it, and reported the first sample as confirmation; an author-run review of the same spec missed it, and an independent reviewer caught it with arithmetic.
+
+**Decision:** Retracted in place in P1096, with the full sorted table, the honest residual claim (the two highest-reach candidates had the two lowest densities — one comparison, n=6, one topic, one search, genre confounded with reach, video age unrecorded), and an explicit note that the selector's ranking premise is **untested**. Generally: any claim of the form *X falls/rises with Y*, *monotonic*, *correlates with* — **sort the data and count the adjacent comparisons before writing the sentence.** Prose ordering is not evidence of ordering.
+
+**Alternatives rejected:** *Soften the wording to "generally falls"* — the sample does not support a direction claim at all at n=6 with genre confounded. *Delete the paragraph* — the retraction is more useful than the absence, because the premise is cited by another spec.
+
+**Consequences:** The measure was also the wrong one for the claim: the premise is about argument **quality**, what was measured is comment **quantity per viewer**, and the quality probe ran only on the two videos already selected — the repo's own control-group rule inverted, with the probe run on survivors only. Compounding lesson, and the reason this is `[process]` rather than a one-off correction: an author reviewing their own artifact found ten items and missed the three worst; three independent reviews found what the self-review could not.
+
+**References:** [p1096_public_multisource_point_pipeline.md](../features/p1096_public_multisource_point_pipeline.md) §Run log · [p1088_video_selector_for_point_extraction.md](../features/p1088_video_selector_for_point_extraction.md)
+
+---
+
 ## 2026-08-18 [technical]: kanban's Refresh refreshed the board but not the worktree list, so shipped slots lingered until restart
 
 **Context:** After `/ship` removed a worktree slot, the kanban worktree dropdown kept offering it. Clicking Refresh did not clear it; only restarting the whole kanban did. Both halves of the system looked correct in isolation, which is why this survived: the server's `GET /api/worktrees` shells out to `git worktree list --porcelain` on every request and is never cached (verified live — removing a worktree and re-curling returned the shorter list immediately), and the client's `fetchWorktrees()` was correct for the moment it ran.
