@@ -6,6 +6,28 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-18 [process]: 2nd instance — invoked a shared script without grepping `decisions.md` first, on the *same token* the 2026-08-13 entry already logged. Plus two findings recorded unapplied (P1065)
+
+**Context:** During the P1065 ship, `git-ops.sh commit-to-main` was called with a positional message string, rejected with `unknown flag`, and its real syntax recovered by grepping the script. The `/kdd` meta-reflection then proposed adding that syntax to `.claude/rules/git.md`.
+
+An independent critic falsified the proposal by reading the files. The syntax was **already documented** — `decisions.md:5906` gives it verbatim, including the exact caveat that was violated (*"each file as a separate arg, NOT a space-joined string"*). And the 2026-08-13 [process] entry above (line 654) already records this identical miss, on this identical token, with the fix stated as a rule that already exists: *"the cheap check that would have surfaced it is `grep -n \"commit-to-main\" docs/decisions.md`, which is the rule CLAUDE.md already states."*
+
+So the proposed rule line would have been the **third** attempt to solve by adding text what is already written down twice — the failure is not missing documentation, it is not reading it.
+
+**Decision:** Record the recurrence count rather than add a rule. This is **instance 2 in 5 days** on the same token. No new rule, no new gate: CLAUDE.md already mandates the grep for "is it safe to change this / why is it built this way" questions, and *"how do I invoke this shared script"* belongs in that class. If a third instance lands, that is the signal to make it mechanical rather than advisory — the threshold decision, not this entry.
+
+**Alternatives rejected:** *Add the flag signature to `.claude/rules/git.md`* — duplicates a signature that can drift from the script (Reference Over Duplication), and fixes it only for whoever loads `git.md`. *Do nothing* — loses the recurrence count, which is the only input a future threshold decision has.
+
+**Consequences — two findings recorded unapplied, deliberately (epistemic gate 8: record now with an honest status, never withhold pending validation):**
+
+1. **`scripts/git-ops.sh:979`** — the `*)` unknown-flag branch exits 2 printing only the offending flag, while the usage string it should print already exists eight lines below at `:984`/`:987`. A script that withholds its own help is the reusable half of this friction, and it fixes the case for every caller regardless of which doc they read. **Not applied:** the session was scoped to P1065, and `git-ops.sh` is self-mod-guarded at ship time.
+
+2. **The Bash tool runs zsh, so `${PIPESTATUS[0]}` is always empty** — zsh spells it `pipestatus`, 1-indexed, and the array is reset by the next command. Measured three times in one session, each costing a re-run. This is not merely lost time: epistemic gate 7 requires pasting a **non-zero exit code** as proof a gate fires, and an empty capture there produces exactly the unfalsifiable "it should fail because…" claim gate 7 exists to prevent. Nothing in the repo warns about it — the only two uses are inside bash-shebang scripts, which is why it never surfaced. `shell-safety.md` is the wrong home (path-scoped to `scripts/**`, so it does not load for an ad-hoc Bash call); it belongs on gate 7 in `.claude/rules/epistemic.md`. **Not applied:** `.claude/rules/` edits must go through `/slava:maintain:claude-md` first.
+
+**References:** [docs/decisions.md](decisions.md) 2026-08-13 [process] (instance 1, line ~654) and :5906 (the syntax), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7, [scripts/git-ops.sh](../scripts/git-ops.sh)
+
+---
+
 ## 2026-08-18 [technical]: a behavioural security probe has to be reversible, or it cannot be a daily check — the function whose guard is broken is the one whose body then runs (P1065)
 
 **Context:** P1065 needed to detect not just *whether* an anonymous caller can reach a SECURITY DEFINER function, but whether that function's identity guard actually refuses one. A finding only exists in the **conjunction**: a degenerate guard behind no anon grant is unreachable, and an anon grant on a correctly-guarded function is the product working. Reading the guard text was already red-teamed and withdrawn (P1066) — the unsafe form and the sanctioned fix are textual siblings. So the check has to *observe a refusal*.
