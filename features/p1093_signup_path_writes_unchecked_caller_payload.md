@@ -4,8 +4,8 @@ type: bug
 rank: 4
 created_date: '2026-08-17'
 tags: [security, letters, integrity, calibration]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 driver: anomaly
 reproduce_artifact:
   test_file: e2e/integration/20260818090000_p1093_signup_payload_gates.spec.ts
