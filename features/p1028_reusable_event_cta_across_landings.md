@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 8
+rank: 0.25
 created_date: '2026-08-06'
 tags:
   - cta
@@ -11,6 +11,7 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
+locked_at: '2026-08-17T07:29:26.803Z'
 ---
 
 # P1028: Reusable event CTA across landing pages

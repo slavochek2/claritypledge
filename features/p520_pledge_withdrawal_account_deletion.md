@@ -1,7 +1,7 @@
 ---
-status: today
+status: week
 type: story
-rank: 4
+rank: 0.5
 tags:
   - gdpr
   - account
@@ -12,6 +12,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+locked_at: '2026-08-17T07:29:20.408Z'
 ---
 
 # P520: Self-Serve Account Deletion
