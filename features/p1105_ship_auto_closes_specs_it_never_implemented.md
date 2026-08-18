@@ -81,8 +81,8 @@ Recurrence in the log, each needing a manual reopen or revert:
 - `Revert "chore: close p929 (co-located with p928)"`
 
 The P1038 instance is the worst case on record: it closed five specs, **two belonging to concurrent
-sessions**, and one of those was a `severity: critical` spec for a vulnerability still live on
-production — removing the only thing tracking it (decisions.md 2026-08-08).
+sessions**. One of those was a `severity: critical` security spec whose fix had not yet shipped at
+the time — so the close removed the only thing tracking it (decisions.md 2026-08-08).
 
 ## Affected Files
 

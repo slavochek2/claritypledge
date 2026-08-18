@@ -14,7 +14,7 @@ driver: heuristic
 
 ## Problem
 
-**Situation:** The comprehension protocol works. What does not work is the entry — people will not invest the onboarding time because they cannot see why it matters. This is on record, not inferred: in a recorded 2h20m conversation (2026-07-30, transcript in `.private/deconstruct/`), a peer who likes the founder, stayed two hours, and is working on the same problem said *"my first reaction is this is just too much work"* and *"0 to 10 doesn't make sense to me… I don't have a signal yet."*
+**Situation:** The comprehension protocol works. What does not work is the entry — people will not invest the onboarding time because they cannot see why it matters. This is on record, not inferred: a sympathetic, well-motivated tester who gave the protocol a long session still bounced off the entry cost, and reported having no signal to anchor the 0-10 scale against. Session record and verbatim reactions: `.private/deconstruct/` (private — this is a recorded one-to-one conversation, so the participant is not characterised and not quoted here).
 
 **Complication:** A person only feels the gap when a disagreement they care about is on the table. Manufacturing that between two specific humans is expensive — both must consent, both must attend, both must care about the same thing — which is exactly where every prior attempt stalled: at the ask. `features/p1084_crux_letter.md` is the private-dyad answer to this and carries three unresolved blockers of its own.
 
