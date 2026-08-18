@@ -6,6 +6,65 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-18 [process]: Cleanup ordered last is cleanup that silently does not happen — and the check meant to catch it reported the failure as healthy
+
+**Context:** A founder question ("why is this worktree still in kanban?") surfaced that `git-ops.sh ship` runs branch+worktree cleanup as its LAST phase. Any abort after phase 1 lands commits therefore leaves a live branch and worktree while main already looks shipped. The specific trigger was one unguarded `ship_rewrite_frontmatter` in the co-located-spec loop — a loop whose own comment calls it "best-effort by design" — where a malformed spec belonging to **another P-number** aborted the whole script under `set -euo pipefail`. Worse than the bug: **`git-ops reconcile` classified that exact state as `ok`.** A stranded slot has BOTH a lockfile and a live worktree, which is indistinguishable from a healthy one on the lock x worktree axes reconcile used. Eight stale journals had accumulated over 88 days, every one for work that had shipped, while the check called them all fine.
+
+**Decision:** Fix the trigger, but treat call-site guarding as necessary-not-sufficient — roughly a dozen other constructs in the same window abort identically (unguarded `x="$(cmd)"` assignments, `resolve_ship_sprint_dir` calling `exit 1` inside a command substitution, `git add` under a contended `index.lock`). Add the two halves that close the class: an EXIT trap naming the surviving branch, worktree and `--resume` command, and a journal pass in `reconcile`. The journal already recorded the condition (`branch_deleted: false` + any `landed_sha`) and **nothing consumed it**.
+
+**Alternatives rejected:** *Guard every call site* — whack-a-mole, and a `die` strands exactly as an unguarded abort does. *Reorder phase 2b after phase 3* — verified not load-bearing (phase 2b reads no branch ref), and it is the real fix, but swapping alone trades one leak for another: `branch_deleted: true` makes the abort trap return silently and the final journal `rm` never runs. Filed rather than rushed.
+
+**Consequences:** Generalisable, and the part worth carrying: **when a cleanup step is ordered last, every upstream failure silently skips it, so the durable record of "did cleanup run" must be read by something that runs later.** A one-shot stderr message in a session that has just errored is not that thing — those eight ships also printed errors, and the residue sat for up to 88 days. Second-order effect that made it self-sustaining: a leftover journal HARD-BLOCKS every later `ship pN`, which pushes the operator to finish by hand, which leaves the next journal. Also note the audit trail: this defect is why P1057's `requires-frontend` marker was never repointed, which silently blocked eight prod migrations — see the entry below.
+
+**References:** `scripts/git-ops.sh` `cmd_ship` phase 2b + `cmd_reconcile` pass 3 · canaries UU/VV/ZZ (ship) and K (extensions) · [features/p1105_ship_auto_closes_specs_it_never_implemented.md](../features/p1105_ship_auto_closes_specs_it_never_implemented.md)
+
+---
+
+## 2026-08-18 [process]: A structural check binds one SPELLING of a bug, not the bug — and a suite that crashes before its assertion looks exactly like a suite that caught something
+
+**Context:** Two canaries written this session asserted on the SHAPE of the source: one grepped that `ship_on_abort` contained no `(( rc == 0 )) && return`, another that it still contained the string `"an unknown number of"`. An independent mutation pass broke both while leaving them green — re-spelling the guard as `[[ $rc -eq 0 ]] && return` (a different shape, same defect), and appending `return 0` on the line after the matched string (string intact, behaviour collapsed). Separately, a mutation *appeared* caught when the suite in fact died in git plumbing on residue an earlier canary left on the scratch main, **before reaching the assertion that would have evaluated it**. The reviewer's own harness had the matching flaw: it classified any run with no `FAIL` line as "mutation survived", conflating a green suite with a suite that crashed early.
+
+**Decision:** Guard `git-ops.sh`'s dispatch on `BASH_SOURCE` so canaries can source the file and call a function directly. The abort canaries now invoke `ship_on_abort` as a **real EXIT trap** against journal fixtures — same `set -euo pipefail`, same trap mechanism, chosen exit status — so behaviour is the oracle and shape is not. All previously-surviving mutations die.
+
+**Alternatives rejected:** *Widen the greps* — a grep can always be re-spelled around; the class is unfixable by more pattern. *Leave them structural with a caveat* — a check that cannot fail for the reason it claims is worse than no check, because it is counted as coverage.
+
+**Consequences:** Three rules worth carrying. (1) **Prefer behaviour to shape.** Where a behavioural test is genuinely unreachable, say so in the canary and name what it does NOT bind — do not let a grep stand in silently. (2) **A mutation-test harness must distinguish "suite green" from "suite crashed before the assertion" by exit code**, and fixture residue must be cleaned, or a crash masquerades as a catch. (3) **Pin the harness itself.** The first fixture harness here set `$?` with `( exit N )`, which under `set -e` kills the shell before the call — every non-zero case silently tested nothing and only the rc=0 case ran. Canary XX-e now fails if the harness stops reaching the function. This extends epistemic gate 7b: green bounds what was modelled, and a structural check models a spelling.
+
+**References:** `scripts/test-git-ops-ship.sh` canaries XX-a..e, ZZ-a/b, R2 · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b
+
+---
+
+## 2026-08-18 [technical]: Two bash EXIT-trap facts that each turn a safety net into the failure it was added to prevent
+
+**Context:** Both found by adversarial review of a fix written this session, both reproduced standalone under the running bash (3.2, macOS).
+
+**Decision:** Record them as constraints on any EXIT trap in this repo's shell tooling.
+
+1. **`$?` is 0 inside an EXIT trap when the shell dies from SIGTERM or SIGINT.** Measured: outer status 143, trap sees 0. So an `rc == 0 -> return` gate makes a trap mute in exactly the killed-mid-run case it was written for. Gate on durable state (here: the journal), not on `$?`. Safe to drop the gate when the success path clears the trap before returning and no `exit 0` or bare `return` exists between arming and clearing — verify that, do not assume it.
+2. **Bash unwinds the function frame BEFORE running the EXIT trap.** A trap body referencing a function's `local` variables therefore expands an UNSET name, and under `set -u` that aborts the trap **before its first statement**. Here the first statement released `main.lock`, which `acquire_main_lock` never force-releases (P787) — so a plain Ctrl-C would have left the lock behind and made every later ship block for the full timeout and then refuse. SIGTERM does NOT reproduce it (frame still live); SIGINT does. Hoist to script scope and default the expansions (`"${VAR:-}"`).
+
+**Alternatives rejected:** *A runtime SIGINT canary* — written, then discarded. A background job in a non-interactive shell inherits SIGINT as `SIG_IGN`, and even with `set -m` delivery races the work loop: across runs of the SAME known-broken build it variously ran to completion, exited silently, and failed correctly. A canary that cannot be reliably watched failing proves nothing (epistemic gate 7).
+
+**Consequences:** Any EXIT trap added to `scripts/*.sh` must (a) not gate on `$?`, and (b) reference only script-scope names, defaulted. The lock release must be the trap's first action and must be individually failure-proof. Note the asymmetry that makes this easy to miss: the trap this replaced (`trap 'release_main_lock' EXIT`) had no parameter expansion at all and was immune — the regression arrived WITH the improvement.
+
+**References:** `scripts/git-ops.sh` `ship_on_abort` + trap arming in `cmd_ship` · canary WW
+
+---
+
+## 2026-08-18 [process]: The prod drift check reads the manifest from `origin/main`, so an unpushed stamp is indistinguishable from un-applied migrations
+
+**Context:** `check-deploy-manifest.sh --env prod` reported 8 migrations missing from prod, including two security fixes. It was reported to the founder as a real gap. It was not one: a concurrent session had already applied all 8 and stamped the manifest, with live verification. `--env prod` reads the manifest from **`origin/main`** by design (P820, so stamp commits landing after a branch was cut do not read as drift) — and the stamp commit was committed locally but unpushed. Pushing cleared the report with no further action.
+
+**Decision:** Before acting on a prod drift report, check whether the manifest stamp is merely unpushed: compare `git show origin/main:supabase/deploy-manifest.json` against the working-tree copy, and check `git log origin/main..main` for a stamp commit.
+
+**Alternatives rejected:** *Trust the drift report and migrate* — would have re-applied 8 migrations to a database that already had them, on the strength of a check that was reporting a git state, not a database state.
+
+**Consequences:** The check's name says "deploy manifest", and its `--env prod` answer is a claim about **what has been pushed**, not about what prod contains. Two failure directions, not one: an unpushed stamp reads as missing migrations (this incident), and — untested here, stated rather than claimed — a stamp pushed without the apply having succeeded would read as clean. Treat a clean prod drift check as evidence the manifest was pushed, and reach for the database itself when the question is what prod actually has.
+
+**References:** `scripts/check-deploy-manifest.sh` (the `--env prod` origin/main read) · `supabase/deploy-manifest.json`
+
+---
+
 ## 2026-08-18 [technical]: A new boolean on `profiles` fails OPEN unless it is added to the P877 read-grant list — `is_admin` is already in that state
 
 **Context:** P1104 proposed an `is_agent` flag so the product could mark a non-human account, preventing an agent's position from rendering as a named person's stated view. A hostile review of the spec found the design's failure mode is the harm it exists to prevent. `20260602160000_p877*.sql` restricts anon/authenticated reads on `profiles` to an **explicit grant list** — it carries `is_verified`, `is_test_account`, `is_certifier`. **`is_admin`, added later by `20260605150000_p878_search_profiles_rpc.sql:39`, is absent from it.** A column outside that list reads as `undefined` client-side → falsy → indistinguishable from `false`. For a flag whose `false` branch means "render as a human", the default failure state is a silent misrepresentation.
