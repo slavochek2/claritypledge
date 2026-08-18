@@ -2379,9 +2379,13 @@ if [[ -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p164.json" ]]; then
   fail "UU: journal p164.json survived a completed ship (rc=$UU_RC)"
 fi
 # The skipped co-spec must be reported, not silently dropped.
-if ! grep -q 'p165' <<<"$UU_OUT"; then
+# Must match the SKIP line specifically. A bare `grep p165` also matches ship's
+# pre-attempt announce ("co-located specs on branch ...: p165 -> auto-closing"),
+# which is printed before anything can fail — so the assertion passed even when
+# the skip message named no P-number at all.
+if ! grep -q 'skipped co-located close of p165' <<<"$UU_OUT"; then
   echo "$UU_OUT" >&2
-  fail "UU: ship said nothing about co-located p165 whose close was skipped"
+  fail "UU: the skip message did not name p165 — the co-spec was dropped without saying which"
 fi
 if [[ "$UU_RC" != "0" ]]; then
   echo "$UU_OUT" >&2
@@ -2659,7 +2663,126 @@ fi
 ( cd "$SCRATCH/main" && git branch -D feature/p170-demo ) >/dev/null 2>&1 || true
 rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p170.json" \
       "$SCRATCH/main/.claude/worktrees/main.lock"
-pass "ZZ: a failed co-located close leaves the other P-number's spec byte-identical"
+pass "ZZ-a: a failed co-located close leaves the other P-number's spec byte-identical"
+
+# -----------------------------------------------------------------------------
+# ZZ-b. EVERY bail-out arm after the co-spec `git mv` must restore the move.
+#
+#   ZZ-a drives only the frontmatter arm. The doc-link arm can only fail on a
+#   path-math bug (it raises before its single write, so it cannot be triggered
+#   by fixture data), and the git-add arm needs a contended .git/index.lock,
+#   which cannot be staged without breaking the ship's own index. Both are
+#   therefore unreachable behaviourally in this harness — and both SURVIVED
+#   mutation testing: delete their ship_undo_cospec_move call and the suite
+#   stayed green while the co-spec was left moved-but-unstaged in
+#   features/done/, the exact state the fix exists to prevent, with ship still
+#   printing "its spec is back at <path>".
+#
+#   So bind the invariant structurally instead of leaving two of three arms
+#   unbound: inside the Phase 2b loop, once the `git mv` has run, no path may
+#   reach `continue` without calling ship_undo_cospec_move first.
+# -----------------------------------------------------------------------------
+
+ZZ_B_REPORT="$( awk '
+  /Phase 2b: close co-located specs/ { inblock = 1 }
+  inblock && /git mv "\$cospec_file" "\$cospec_dest"/ { moved = 1; next }
+  inblock && moved && /ship_undo_cospec_move/ { undone = 1 }
+  inblock && moved && /^[[:space:]]*continue[[:space:]]*$/ {
+      if (!undone) print "unrestored-continue at line " NR
+      undone = 0
+  }
+  inblock && /^  # Phase 3/ { exit }
+' "$GIT_OPS" )"
+
+if [[ -n "$ZZ_B_REPORT" ]]; then
+  echo "$ZZ_B_REPORT" >&2
+  fail "ZZ-b: a Phase 2b bail-out reaches 'continue' after the git mv without calling ship_undo_cospec_move — that co-spec is left moved-but-unstaged while ship reports it restored"
+fi
+# Fail if the scan matched nothing, so a rename or refactor cannot turn this
+# into a silently vacuous pass.
+ZZ_B_ARMS="$( awk '
+  /Phase 2b: close co-located specs/ { inblock = 1 }
+  inblock && /ship_undo_cospec_move/ { n++ }
+  inblock && /^  # Phase 3/ { exit }
+  END { print n + 0 }
+' "$GIT_OPS" )"
+if (( ZZ_B_ARMS < 3 )); then
+  fail "ZZ-b: found only ${ZZ_B_ARMS} restore call(s) in the Phase 2b loop, expected 3 (frontmatter, doc-link, git add) — the scan is not seeing the block it is meant to check"
+fi
+pass "ZZ-b: all ${ZZ_B_ARMS} Phase 2b bail-out arms restore the co-spec before continuing"
+
+# -----------------------------------------------------------------------------
+# XX. The abort report must not be gated on $?, and must keep "count unknown"
+#     distinct from "count zero".
+#
+#     XX-a: bash reports $? as 0 inside an EXIT trap when the shell dies from
+#     SIGTERM/SIGINT (measured: outer status 143, trap sees 0). So an
+#     `rc == 0 -> return` gate makes the report mute in exactly the
+#     kill-mid-ship case it exists for. Structural, because the delivery of a
+#     signal to a backgrounded ship races the cherry-pick loop and cannot be
+#     made deterministic here (see WW).
+#
+#     XX-b/c: a corrupt or unreadable journal must still warn — the degraded
+#     environment is when the operator most needs it — while a journal with
+#     genuinely zero landed commits must stay quiet. The code carries a comment
+#     insisting the two stay distinguishable; nothing bound it, and collapsing
+#     them was green.
+# -----------------------------------------------------------------------------
+
+if grep -qE '^\s*\(\(\s*rc\s*==\s*0\s*\)\)\s*&&\s*return' "$GIT_OPS"; then
+  fail "XX-a: ship_on_abort is gated on rc == 0 — \$? is 0 inside an EXIT trap under SIGTERM/SIGINT, so the stranded-state report is mute in exactly the kill-mid-ship case it exists for"
+fi
+pass "XX-a: the abort report is not gated on \$?, so a killed ship still reports"
+
+# XX-b: the "count unknown" branch must not collapse into "count zero".
+#
+#   Reachability, measured rather than assumed: a journal corrupt enough to fail
+#   the count also fails ship_verify_landed_shas, which runs BEFORE the lock is
+#   acquired and the trap is armed — so ship dies with no report at all, and the
+#   in-trap unknown branch is never reached. It is reachable only if the journal
+#   becomes unreadable BETWEEN that early verify and the abort (a concurrent
+#   truncation), which cannot be staged deterministically here.
+#
+#   That makes the branch nearly dead code — but "nearly" is doing real work: the
+#   window it covers is a crash mid-journal-write, which is precisely the class of
+#   crash that strands a worktree. So bind it structurally rather than delete the
+#   distinction the code's own comment insists on. Collapsing unknown into zero
+#   was green before this check existed.
+if ! grep -q 'landed_desc="an unknown number of"' "$GIT_OPS"; then
+  fail "XX-b: ship_on_abort no longer distinguishes an uncomputable commit count from a genuine zero — a journal it cannot read would now silently suppress the warning instead of raising it"
+fi
+if grep -qE 'landed="\$\( python3.*\)" \|\| landed=0' "$GIT_OPS"; then
+  fail "XX-b: a failed count falls back to 0, which the zero branch then treats as 'nothing stranded' and returns quietly"
+fi
+pass "XX-b: an uncomputable commit count stays distinct from a genuine zero"
+
+# XX-c: cleanup already recorded done -> nothing is stranded -> stay quiet.
+scratch_feature p173 1
+XX_C_SHA="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p173-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$XX_C_SHA" ) >/dev/null
+XX_C_LANDED="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p173.json" <<EOF
+{
+  "p_number": "p173",
+  "source_branch": "feature/p173-demo",
+  "spec_file": "features/p173_demo.md",
+  "commits": [{"source_sha": "${XX_C_SHA}", "landed_sha": "${XX_C_LANDED}", "landed_at": "x"}],
+  "spec_closed": true,
+  "branch_deleted": true
+}
+EOF
+echo "deadbeef1234567890123456789012345678dead" > "$SCRATCH/main/.git/MERGE_HEAD"
+XX_C_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p173 --resume 2>&1)" || true
+rm -f "$SCRATCH/main/.git/MERGE_HEAD"
+if grep -q 'INCOMPLETE' <<<"$XX_C_OUT"; then
+  echo "$XX_C_OUT" >&2
+  fail "XX-c: reported a strand although the journal records cleanup as already done — nothing is live to strand"
+fi
+( cd "$SCRATCH/main" && git branch -D feature/p173-demo ) >/dev/null 2>&1 || true
+rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p173.json" \
+      "$SCRATCH/main/.claude/worktrees/main.lock"
+scratch_reset p173
+pass "XX-c: a ship whose cleanup already ran raises no stranded-state alarm"
 
 # -----------------------------------------------------------------------------
 # R2. Shell-safety over the WHOLE run (P783). Must stay the last invariant in
@@ -2698,4 +2821,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, YY, ZZ, R2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, XX, YY, ZZ, R2) hold"
