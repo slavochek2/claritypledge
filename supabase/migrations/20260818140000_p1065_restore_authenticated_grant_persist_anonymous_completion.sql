@@ -1,0 +1,36 @@
+-- Restore the `authenticated` EXECUTE grant on persist_anonymous_completion.
+--
+-- client-safe: grant-only; adds an EXECUTE privilege, changes no signature,
+-- no return shape and no behaviour. No-op where the grant is already present.
+--
+-- WHY
+-- The P1065 grant-drift check reported prod and test disagreeing on this one
+-- function (2026-08-18, first NEW finding since the baseline):
+--
+--   prod  anon=false auth=true   acl {postgres=X, authenticated=X, service_role=X}
+--   test  anon=false auth=false  acl {postgres=X,                 service_role=X}
+--
+-- Prod is exactly what P1063 intended. TEST had lost the `authenticated` grant,
+-- so a signed-in caller there was refused — the anon→registered replay path
+-- (staging rows in letter_point_responses upserted into point_positions once
+-- the person has an account) could not be exercised on test at all.
+--
+-- Not a missing migration: both 20260813080000 (P1063, which does the
+-- REVOKE ... FROM PUBLIC + GRANT ... TO authenticated) and 20260817120000
+-- (P1067, CREATE OR REPLACE with identical parameter names, so it preserves the
+-- ACL) are recorded applied on BOTH environments. The revocation happened
+-- out-of-band after 2026-08-13 and left no trace in migration text — the same
+-- class of event P1063 was filed for, in the harmless direction. Its two
+-- siblings (seal_and_send_letter, both overloads) are correct on both envs, so
+-- this is one function, not a broken run.
+--
+-- SCOPE — deliberately grant-only.
+-- No REVOKE ... FROM PUBLIC here: the live ACL on both environments carries no
+-- PUBLIC entry, so re-revoking would re-litigate P1063 rather than fix drift.
+-- anon stays revoked; this migration does not touch it.
+--
+-- This exists as a recorded migration rather than a one-off statement because
+-- the grant has now disappeared once with no record of who or when. If it
+-- disappears again, the drift check fires against a written baseline.
+
+GRANT EXECUTE ON FUNCTION public.persist_anonymous_completion(uuid, uuid, jsonb, jsonb) TO authenticated;
