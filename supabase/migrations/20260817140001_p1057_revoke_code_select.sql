@@ -1,16 +1,18 @@
 -- P1057 (Migration B): stop publishing the room code to the people it excludes.
 --
--- requires-frontend: 29587a64
---   ^^^ THIS SHA MUST BE REPOINTED BEFORE THE PROD APPLY.
+-- requires-frontend: 636d1e91
+--   REPOINTED 2026-08-18. Was 29587a64, the pre-cherry-pick sha on
+--   feature/p1057-room-code-confidentiality — a commit that exists on no branch, so
+--   migrate.sh hard-blocked this migration and, because it exit 1s on ANY blocked pending
+--   migration, every client-safe migration queued behind it too.
 --
---   29587a64 is the frontend commit on feature/p1057-room-code-confidentiality (the one
---   that moves every `code` projection onto the Migration A accessors). `/ship` CHERRY-PICKS
---   to main, which rewrites the sha — so this value will not be an ancestor of origin/main
---   and migrate.sh will hard-block the prod apply. That block is CORRECT and fail-safe, not
---   a bug: it is the gate doing its job until the real sha is written here.
+--   636d1e91 is the post-merge sha of the same change ("feat(p1057): move code-keyed session
+--   reads onto definer RPCs (Migration A + frontend)"), verified with
+--   `git merge-base --is-ancestor 636d1e91 origin/main`.
 --
---   At ship time: take the post-merge sha from origin/main, replace the value above, confirm
---   with `git merge-base --is-ancestor <sha> origin/main`, and only then apply to prod.
+--   Why it was missed: the P1057 ship aborted before this step and left its worktree live, so
+--   the repoint never happened and nothing said the ship was incomplete. That stranding bug is
+--   fixed in a70f9e18; P1071 needed the identical repoint and got it in 93df60a4.
 --   This is exactly the defect that stalled P1053's prod migrations silently from
 --   2026-08-12 to 2026-08-17 — its marker pointed at a pre-cherry-pick commit that existed
 --   on no branch, and migrate.sh exit 1s on ANY blocked pending migration, so the harmless
