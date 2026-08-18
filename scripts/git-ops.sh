@@ -3458,4 +3458,12 @@ main() {
   esac
 }
 
-main "$@"
+# Sourcing guard. Canaries need to call individual functions directly — the
+# alternative is asserting on the SHAPE of the source, and a grep binds one
+# spelling of a bug rather than the bug: a mutation swapping `(( rc == 0 ))` for
+# `[[ $rc -eq 0 ]]`, or appending a `return 0` under a string a grep matches,
+# restores the exact defect while the check stays green. Both were demonstrated.
+# With this guard `. git-ops.sh` defines the functions and runs nothing.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
