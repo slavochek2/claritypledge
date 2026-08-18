@@ -38,7 +38,7 @@ vi.mock('@/auth', () => ({
 
 vi.mock('@/app/data/letters-service', () => ({
   getLetterForReading: vi.fn().mockResolvedValue(null),       // RLS returns null for wrong user
-  getLetterForReadingByToken: vi.fn(),                        // returns delivery with receiver_email
+  getLetterForReadingByToken: vi.fn(),                        // P1071: returns is_intended_recipient, not receiver_email
   getLetterForPublicReading: vi.fn().mockResolvedValue(null),
   claimLetterDelivery: vi.fn().mockResolvedValue(true),
   updateDeliveryStatus: vi.fn().mockResolvedValue(undefined),
@@ -130,6 +130,10 @@ const mockUseAuth = vi.mocked(useAuth);
 const mockGetLetterForReadingByToken = vi.mocked(getLetterForReadingByToken);
 const mockGetLetterForReading = vi.mocked(getLetterForReading);
 
+/**
+ * Table-path shape (`getLetterForReading`, direct RLS read). Still carries the
+ * real receiver_email — P1071 changed the anon token RPC only, not this path.
+ */
 function makeDelivery(overrides: Record<string, unknown> = {}) {
   return {
     id: DELIVERY_ID,
@@ -137,6 +141,29 @@ function makeDelivery(overrides: Record<string, unknown> = {}) {
     receiver_email: INTENDED_EMAIL,
     receiver_profile_id: null,           // unclaimed delivery
     receiver_name: 'Bob',
+    status: 'pending',
+    access_token_expires_at: null,
+    completed_at: null,
+    ...overrides,
+  };
+}
+
+/**
+ * P1071 token-RPC shape (`get_letter_for_reading`). The RPC redacts
+ * receiver_email and invitation_token and returns the comparison verdict
+ * instead, so this fixture must NOT carry the address — a fixture that still
+ * supplied it would let the guard pass here while failing against the real RPC,
+ * which is the P717 class of defect (green unit tests, guard skipped in prod).
+ *
+ * Defaults to false: the suite's default caller is the wrong user.
+ */
+function makeRpcDelivery(overrides: Record<string, unknown> = {}) {
+  return {
+    id: DELIVERY_ID,
+    letter_id: LETTER_ID,
+    receiver_profile_id: null,           // unclaimed delivery
+    receiver_name: 'Bob',
+    is_intended_recipient: false,
     status: 'pending',
     access_token_expires_at: null,
     completed_at: null,
@@ -198,7 +225,7 @@ describe('P717: wrong authenticated user on token link', () => {
           point_config: { storyText: 'text', storyTitle: 'title', points: [] },
         },
       ],
-      delivery: makeDelivery() as unknown as import('@/app/types').LetterDelivery,
+      delivery: makeRpcDelivery() as unknown as import('@/app/types').LetterDelivery,
     });
   });
 
@@ -256,12 +283,76 @@ describe('P717: wrong authenticated user on token link', () => {
       signOut: vi.fn().mockResolvedValue(undefined),
     } as ReturnType<typeof useAuth>);
 
+    // P1071: the verdict is computed in-DB, so the correct-recipient case must be
+    // re-mocked here. Without this the test would pass vacuously — a guard that
+    // never fires also "does not show the wrong-account screen".
+    mockGetLetterForReadingByToken.mockResolvedValue({
+      letter: makeLetter() as unknown as import('@/app/types').ClarityLetter,
+      snapshots: [
+        {
+          letter_id: LETTER_ID,
+          story_id: 'story-1',
+          version_id: 'v1',
+          position: 0,
+          point_config: { storyText: 'text', storyTitle: 'title', points: [] },
+        },
+      ],
+      delivery: makeRpcDelivery({ is_intended_recipient: true }) as unknown as import('@/app/types').LetterDelivery,
+    });
+
     renderPage();
 
     // Correct user should reach the letter cover
     await waitFor(() => {
       expect(screen.getByText(/Open the Letter/i)).toBeInTheDocument();
     });
+  });
+
+  it('P1071: signed-in caller with a null verdict still reaches the letter — null must not trip the guard', async () => {
+    // The regression a naive `!delivery.is_intended_recipient` check would cause.
+    // The RPC returns null when there is nothing to compare — notably a delivery
+    // with no receiver_email, which is exactly the shape one-to-many link
+    // deliveries carry (see e2e/p704-anon-one-to-many-token.spec.ts, which inserts
+    // receiver_email: null). A signed-in reader opening such a link has a verdict
+    // of null, and must still get the letter.
+    //
+    // This case is what makes `=== false` load-bearing: the anonymous case alone
+    // cannot prove it, because the guard's `currentUser &&` prefix short-circuits
+    // there whichever comparison is used.
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: 'some-signed-in-user',
+        email: WRONG_USER_EMAIL,
+        user_metadata: { name: 'Reader' },
+      },
+      session: { access_token: 'tok' } as unknown as ReturnType<typeof useAuth>['session'],
+      sessionChecked: true,
+      isLoading: false,
+      signOut: vi.fn().mockResolvedValue(undefined),
+    } as ReturnType<typeof useAuth>);
+
+    mockGetLetterForReadingByToken.mockResolvedValue({
+      letter: makeLetter() as unknown as import('@/app/types').ClarityLetter,
+      snapshots: [
+        {
+          letter_id: LETTER_ID,
+          story_id: 'story-1',
+          version_id: 'v1',
+          position: 0,
+          point_config: { storyText: 'text', storyTitle: 'title', points: [] },
+        },
+      ],
+      delivery: makeRpcDelivery({ is_intended_recipient: null }) as unknown as import('@/app/types').LetterDelivery,
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Open the Letter/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/different account|wasn't sent to you|not addressed to you/i)
+    ).toBeNull();
   });
 
   it('authed-first path: shows wrong-account screen when getLetterForReading returns data for wrong user', async () => {

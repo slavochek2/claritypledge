@@ -1430,6 +1430,22 @@ export interface LetterDelivery {
   /** P725: public handle of the receiver profile (null when anonymous link_respondent) */
   receiver_slug?: string | null;
   invitation_token: string;
+  /**
+   * P1071: RPC-only verdict field. Present ONLY on deliveries sourced from
+   * `get_letter_for_reading` (the anon token RPC), which redacts `receiver_email`
+   * and `invitation_token` from its response and returns this comparison instead.
+   *
+   * `true`  — the signed-in caller's email matches the delivery's receiver_email
+   * `false` — a signed-in caller whose email does NOT match (the wrong-user case)
+   * `null`  — no signed-in caller, or the delivery has no receiver_email; the
+   *           guard does not apply. Anonymous reading through an invitation link
+   *           is intended behaviour, so `null` must never be treated as a failed
+   *           match — compare with `=== false`, never `!value`.
+   *
+   * Absent on deliveries read directly from `letter_deliveries` under RLS, which
+   * still carry the real `receiver_email`.
+   */
+  is_intended_recipient?: boolean | null;
   invitation_expires_at: string | null;
   access_token_expires_at: string | null;
   status: DeliveryStatus;

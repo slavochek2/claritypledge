@@ -22,7 +22,6 @@ import React from 'react';
 
 const DELIVERY_ID = 'delivery-p722';
 const TOKEN = 'token-p722';
-const INTENDED_EMAIL = 'recipient@example.com';
 const SENDER_EMAIL = 'sender@example.com';
 const LETTER_ID = 'letter-p722';
 const SENDER_ID = 'sender-p722';
@@ -129,13 +128,20 @@ import { LetterReadingPage } from '@/app/pages/letter-reading-page';
 const mockUseAuth = vi.mocked(useAuth);
 const mockGetLetterForReadingByToken = vi.mocked(getLetterForReadingByToken);
 
+/**
+ * P1071 token-RPC shape. `get_letter_for_reading` redacts receiver_email and
+ * invitation_token; the wrong-user comparison happens in-DB and arrives as
+ * is_intended_recipient. Defaults to null — this suite's scenarios are mostly
+ * anonymous or transient-signed-out callers, which is exactly when the real RPC
+ * returns null (no auth.uid() to compare against).
+ */
 function makeDelivery(overrides: Record<string, unknown> = {}) {
   return {
     id: DELIVERY_ID,
     letter_id: LETTER_ID,
-    receiver_email: INTENDED_EMAIL,
     receiver_profile_id: null,
     receiver_name: 'Recipient',
+    is_intended_recipient: null,
     status: 'pending',
     access_token_expires_at: null,
     completed_at: null,
@@ -258,11 +264,13 @@ describe('P722: anon/race-condition user must not see confetti on completed 1-to
       signOut: vi.fn().mockResolvedValue(undefined),
     } as ReturnType<typeof useAuth>);
 
-    // Delivery addressed to recipient (different email from currentUser)
+    // Delivery addressed to someone else: the signed-in caller is the sender, so
+    // the in-DB comparison returns false (P1071 — the RPC no longer hands back the
+    // address for the client to compare).
     mockGetLetterForReadingByToken.mockResolvedValue({
       letter: makeLetter() as unknown as import('@/app/types').ClarityLetter,
       snapshots: makeSnapshots() as unknown as import('@/app/types').LetterStorySnapshot[],
-      delivery: makeDelivery({ status: 'completed' }) as unknown as import('@/app/types').LetterDelivery,
+      delivery: makeDelivery({ status: 'completed', is_intended_recipient: false }) as unknown as import('@/app/types').LetterDelivery,
     });
 
     renderPage();

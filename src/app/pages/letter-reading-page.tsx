@@ -327,13 +327,18 @@ export function LetterReadingPage() {
           // P717: Guard against wrong authenticated user claiming a delivery.
           // Unclaimed deliveries have receiver_profile_id = null, so the existing
           // receiver_profile_id check doesn't fire. Compare emails instead.
-          if (currentUser && readData.delivery?.receiver_email) {
-            const intendedEmail = readData.delivery.receiver_email.toLowerCase();
-            const currentEmail = (currentUser.email ?? '').toLowerCase();
-            if (currentEmail !== intendedEmail) {
-              setSafe('wrong_user');
-              return;
-            }
+          //
+          // P1071: the comparison now happens in-DB. The RPC no longer returns
+          // receiver_email (a token holder who is not the recipient — forwarded or
+          // logged link — must not learn the address), so it returns the verdict.
+          // Guard semantics are unchanged; only the side doing the compare moved.
+          //
+          // `=== false` is load-bearing: null means "guard does not apply" (anon
+          // caller, or no receiver_email). A truthiness check would read null as a
+          // failed match and lock every anonymous recipient out of the letter.
+          if (currentUser && readData.delivery?.is_intended_recipient === false) {
+            setSafe('wrong_user');
+            return;
           }
 
           // Claim delivery if authenticated (sets receiver_profile_id for write RLS).
