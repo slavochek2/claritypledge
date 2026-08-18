@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 37
 severity: high
 date_reported: '2026-08-18'
 created_date: '2026-08-18'
 tags: [git-ops, ship, worktrees, spec-lifecycle]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-git-ops-ship.sh (canary Z3)
+  root_cause: "detect_cospecs() (scripts/git-ops.sh ~L1283) resolves co-located specs from `git log --name-only main..branch` with zero --diff-filter — it cannot distinguish a spec the branch CREATED from one it merely EDITED. Phase 2b (~L2646) then auto-closes every hit. Verified this session by direct read of detect_cospecs() and the Phase 2b loop: no diff-filter=A or equivalent add-set exclusion exists anywhere in the co-spec path (grep for 'diff-filter' in git-ops.sh finds only two unrelated call sites: a staged-delete check at L1079, and ship_spec_creation_blob at L1939, which computes the branch's OWN pn seed blob for cherry-pick purposes — not the co-spec set)."
+  confidence: high
+  surfaces_in_scope: [ship-phase-2b-colocated-close]
+  surfaces_deferred: []
+  reproduced_at: 2026-08-18
 ---
 
 # P1105: /ship marks specs all-done that its branch only FILED, never implemented
@@ -40,6 +47,27 @@ verbatim: *"The co-located-spec heuristic needs to exclude specs created by the 
 
 **This is a known, twice-recorded defect that was never fixed** — see decisions.md 2026-08-13
 [process] item 1 and the 2026-08-17 entry.
+
+### Reproduction (2026-08-18)
+
+Confirmed by direct source read this session (not spec prose alone — epistemic gate 3): grepped
+`git-ops.sh` for `diff-filter` and found exactly two call sites, neither an add-set exclusion for
+co-specs — a staged-delete check (~L1079, unrelated) and `ship_spec_creation_blob` (~L1939, which
+seeds the branch's own `pn` spec for cherry-pick purposes, not the co-spec set). `detect_cospecs()`
+itself has zero add/edit distinction.
+
+Canary `Z3` added to `scripts/test-git-ops-ship.sh` (immediately after `Z2`): ships a branch with a
+primary spec (edited-on-main analog) plus a spec filed fresh on the branch (`status: backlog`,
+never on main). Run against current code: **FAILS** — `p123` is moved to `features/done/` and its
+status rewritten, exactly the bug.
+
+**Z2/Z3 overlap — flagging for `/fix`:** Z2's own `p121` fixture is shaped exactly like the bug
+(created fresh on the branch, never on main) even though Z2's surrounding prose implies it's pinning
+the "co-delivered" case. AC 2 below ("canary Z2 still passes — the existing behaviour is not
+regressed") is only true once Z2 is rewritten to use a spec that pre-exists on `main` before the
+branch is cut — as currently written, a correct fix will make Z2 fail (correctly), not pass
+unmodified. `/fix` should split Z2 into an edited-on-main case (still closes) and confirm Z3 is the
+add-set-exclusion case (never closes), rather than trying to make current-Z2 pass as-is.
 
 ## Invariants
 
