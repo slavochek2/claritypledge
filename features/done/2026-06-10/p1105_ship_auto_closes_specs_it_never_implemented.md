@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 37
 severity: high
@@ -7,7 +7,6 @@ date_reported: '2026-08-18'
 created_date: '2026-08-18'
 date_resolved: '2026-08-18'
 tags: [git-ops, ship, worktrees, spec-lifecycle]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 root_cause: "detect_cospecs() had no --diff-filter add-set exclusion — it could not distinguish a spec the branch CREATED from one it merely EDITED, so Phase 2b auto-closed both."
 resolution: "detect_cospecs() now subtracts the branch's own add-set (git log --diff-filter=A) from the touched set before returning; a new detect_filed_cospecs() companion reports the excluded (filed-only) set for ship's log output; both fail closed via _cospec_range_ok() if the commit range can't be resolved."
@@ -18,6 +17,7 @@ reproduce_artifact:
   surfaces_in_scope: [ship-phase-2b-colocated-close]
   surfaces_deferred: []
   reproduced_at: 2026-08-18
+completed_at: 2026-08-18
 ---
 
 # P1105: /ship marks specs all-done that its branch only FILED, never implemented
@@ -44,7 +44,7 @@ additions, so a spec **created** on the branch is indistinguishable from one **c
 Phase 2b then closes each hit.
 
 The exclusion logic already exists one step narrower — the final `grep -v "^${pn}$"` drops the
-feature's own P-number. [docs/decisions.md](../docs/decisions.md) 2026-08-17 states the required fix
+feature's own P-number. [docs/decisions.md](../../../docs/decisions.md) 2026-08-17 states the required fix
 verbatim: *"The co-located-spec heuristic needs to exclude specs created by the branch's own commits
 (it already excludes the feature's own pN — the same exclusion logic, one step wider)."*
 
