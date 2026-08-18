@@ -62,6 +62,16 @@
 #       survive a crash between `git mv` and the re-base.
 #   TT. P1094 item 1 crash-window recovery: a --resume must re-base a spec that
 #       was already moved but never re-based (kill between the two steps).
+#   UU. Phase 2b must not strand Phase 3: a co-located spec with malformed or
+#       absent frontmatter belongs to ANOTHER P-number and must not abort this
+#       ship's branch + worktree cleanup (the p1057/w1 stranded-worktree bug).
+#   VV. Stranded-state signal: an abort after Phase 1 landed commits must name
+#       the surviving branch, worktree, and --resume command (VV-a), and must
+#       stay quiet when nothing landed and so nothing is stranded (VV-b).
+#   WW. SIGINT during a ship still releases main.lock — bash unwinds the
+#       function frame before the EXIT trap, so the trap must not depend on
+#       cmd_ship's locals. A leaked lock wedges every later ship (P787: the
+#       lock is never force-released).
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -2295,6 +2305,356 @@ rm -f "$TT_MOVED"
 pass "TT: --resume re-bases a spec that was moved but not re-based (crash-window recovery, P1094 item 1)"
 
 # -----------------------------------------------------------------------------
+# UU. Phase 2b must not strand Phase 3 (the "shipped but worktree survived" bug).
+#     Phase 3 (branch + worktree cleanup) runs LAST, so any abort after Phase 1
+#     landed the commits leaves a live branch + worktree while main already looks
+#     shipped — kanban keeps showing the slot and the operator has no signal.
+#     Phase 2b's loop is documented "best-effort by design", but under
+#     `set -euo pipefail` its unguarded ship_rewrite_frontmatter turns ONE
+#     malformed co-located spec into a whole-script abort. A co-spec belongs to
+#     another P-number; it must never be able to strand this ship's cleanup.
+#     Real-world instances: p1057 (stranded w1), plus 8 stale journals whose
+#     specs are all closed on main.
+# -----------------------------------------------------------------------------
+
+# Primary spec on main.
+cat > "$SCRATCH/main/features/p164_demo.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p164: Strand demo
+Problem: strand demo.
+EOF
+( cd "$SCRATCH/main" && git add features/p164_demo.md \
+  && git commit -qm "chore: add p164 spec" ) >/dev/null
+
+# Branch: one source commit + a co-located spec whose frontmatter is MISSING.
+# A spec split out as follow-up work mid-branch is exactly how this arises.
+( cd "$SCRATCH/main" && git checkout -q -b feature/p164-demo ) >/dev/null
+echo "fix" > "$SCRATCH/main/p164_fix.txt"
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" \
+  git add p164_fix.txt && git commit -qm "p164: fix" ) >/dev/null
+cat > "$SCRATCH/main/features/p165_broken.md" <<'EOF'
+# p165: co-located spec with no frontmatter at all
+Problem: filed mid-branch as follow-up work; never got frontmatter.
+EOF
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
+  git add features/p165_broken.md && git commit -qm "p165: add spec" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
+
+# A real worktree holding the branch — the artifact that got stranded in prod.
+UU_WT="$SCRATCH/main/.claude/worktrees/w1"
+( cd "$SCRATCH/main" && git worktree add -q "$UU_WT" feature/p164-demo ) >/dev/null 2>&1
+
+UU_RC=0
+UU_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p164)" || UU_RC=$?
+
+# The primary ship must complete: commits land, spec closes, AND Phase 3 runs.
+if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p164_demo.md" ]]; then
+  echo "$UU_OUT" >&2
+  fail "UU: primary spec p164 not closed"
+fi
+if ( cd "$SCRATCH/main" && git rev-parse --verify feature/p164-demo >/dev/null 2>&1 ); then
+  echo "$UU_OUT" >&2
+  fail "UU: branch feature/p164-demo survived — a malformed CO-LOCATED spec aborted the ship before Phase 3 (rc=$UU_RC)"
+fi
+if [[ -d "$UU_WT" ]] || ( cd "$SCRATCH/main" && git worktree list --porcelain | grep -Fq "worktree $UU_WT" ); then
+  echo "$UU_OUT" >&2
+  fail "UU: worktree $UU_WT survived the ship — this is the stranded-worktree bug (rc=$UU_RC)"
+fi
+if [[ -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p164.json" ]]; then
+  echo "$UU_OUT" >&2
+  fail "UU: journal p164.json survived a completed ship (rc=$UU_RC)"
+fi
+# The skipped co-spec must be reported, not silently dropped.
+if ! grep -q 'p165' <<<"$UU_OUT"; then
+  echo "$UU_OUT" >&2
+  fail "UU: ship said nothing about co-located p165 whose close was skipped"
+fi
+if [[ "$UU_RC" != "0" ]]; then
+  echo "$UU_OUT" >&2
+  fail "UU: ship exited $UU_RC — a co-located spec belonging to another P-number must not fail this ship"
+fi
+( cd "$SCRATCH/main" && git worktree prune ) >/dev/null 2>&1 || true
+scratch_reset p164
+pass "UU: a malformed co-located spec does not strand Phase 3 branch/worktree cleanup"
+
+# -----------------------------------------------------------------------------
+# VV. Stranded-state signal. Phase 3 (branch + worktree cleanup) runs LAST, so
+#     any abort after Phase 1 landed commits leaves a live branch and worktree
+#     while main already looks shipped. Fixing individual abort causes (UU) is
+#     necessary but not sufficient — the class must be loud. On a non-zero exit
+#     with commits landed and cleanup not done, ship must name the branch, the
+#     worktree, and the --resume command. And it must NOT cry wolf when nothing
+#     landed (VV-b) — a false alarm on every ordinary refusal would train the
+#     operator to ignore the real one.
+# -----------------------------------------------------------------------------
+
+# --- VV-a: commits landed, abort before Phase 3 → loud stranded report --------
+scratch_feature p166 1
+VV_SHA1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p166-demo | sed -n '1p' )"
+( cd "$SCRATCH/main" && git cherry-pick "$VV_SHA1" ) >/dev/null
+VV_LANDED1="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+VV_WT="$SCRATCH/main/.claude/worktrees/w7"
+( cd "$SCRATCH/main" && git worktree add -q "$VV_WT" feature/p166-demo ) >/dev/null 2>&1
+mkdir -p "$SCRATCH/main/.claude/worktrees/.ship-journal"
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p166.json" <<EOF
+{
+  "p_number": "p166",
+  "started_at": "2026-08-18T12:00:00Z",
+  "session_id": "canary-vv",
+  "source_branch": "feature/p166-demo",
+  "spec_file": "features/p166_demo.md",
+  "commits": [
+    {"source_sha": "${VV_SHA1}", "landed_sha": "${VV_LANDED1}", "landed_at": "2026-08-18T12:00:01Z"}
+  ],
+  "spec_closed": false,
+  "branch_deleted": false
+}
+EOF
+# A foreign MERGE_HEAD, NOT a CHERRY_PICK_HEAD: a paused cherry-pick is ship's
+# own designed conflict stop, where the branch and worktree are SUPPOSED to
+# survive, and the trap deliberately stays quiet for it (canary YY). Using one
+# here would make this canary test the suppression instead of the report.
+echo "deadbeef1234567890123456789012345678dead" > "$SCRATCH/main/.git/MERGE_HEAD"
+VV_RC=0
+VV_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p166 --resume 2>&1)" || VV_RC=$?
+rm -f "$SCRATCH/main/.git/MERGE_HEAD"
+
+if [[ $VV_RC -eq 0 ]]; then
+  echo "$VV_OUT" >&2
+  fail "VV-a: ship succeeded; cannot exercise the stranded-state path"
+fi
+if ! grep -q 'INCOMPLETE' <<<"$VV_OUT"; then
+  echo "$VV_OUT" >&2
+  fail "VV-a: ship aborted after landing commits but never said the ship was incomplete"
+fi
+if ! grep -q 'feature/p166-demo' <<<"$VV_OUT"; then
+  echo "$VV_OUT" >&2
+  fail "VV-a: stranded report did not name the surviving branch"
+fi
+if ! grep -Fq "$VV_WT" <<<"$VV_OUT"; then
+  echo "$VV_OUT" >&2
+  fail "VV-a: stranded report did not name the surviving worktree — the artifact the operator has to find"
+fi
+if ! grep -q 'ship p166 --resume' <<<"$VV_OUT"; then
+  echo "$VV_OUT" >&2
+  fail "VV-a: stranded report did not name the converge command"
+fi
+( cd "$SCRATCH/main" && git worktree remove --force "$VV_WT" ) >/dev/null 2>&1 || true
+( cd "$SCRATCH/main" && git worktree prune ) >/dev/null 2>&1 || true
+scratch_reset p166
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+pass "VV-a: an abort after commits landed reports the stranded branch, worktree, and resume command"
+
+# --- VV-b: nothing landed → no stranded report (false-alarm guard) ------------
+scratch_feature p167 1
+VV_B_SHA1="$( cd "$SCRATCH/main" && git log --reverse --format=%H main..feature/p167-demo | sed -n '1p' )"
+mkdir -p "$SCRATCH/main/.claude/worktrees/.ship-journal"
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p167.json" <<EOF
+{
+  "p_number": "p167",
+  "started_at": "2026-08-18T12:00:00Z",
+  "session_id": "canary-vv-b",
+  "source_branch": "feature/p167-demo",
+  "spec_file": "features/p167_demo.md",
+  "commits": [
+    {"source_sha": "${VV_B_SHA1}", "landed_sha": null, "landed_at": null}
+  ],
+  "spec_closed": false,
+  "branch_deleted": false
+}
+EOF
+echo "deadbeef1234567890123456789012345678dead" > "$SCRATCH/main/.git/MERGE_HEAD"
+VV_B_RC=0
+VV_B_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p167 --resume 2>&1)" || VV_B_RC=$?
+rm -f "$SCRATCH/main/.git/MERGE_HEAD"
+if [[ $VV_B_RC -eq 0 ]]; then
+  echo "$VV_B_OUT" >&2
+  fail "VV-b: ship succeeded; cannot exercise the no-landed-commits path"
+fi
+if grep -q 'INCOMPLETE' <<<"$VV_B_OUT"; then
+  echo "$VV_B_OUT" >&2
+  fail "VV-b: ship cried 'INCOMPLETE' when no commit had landed — main was untouched, nothing is stranded"
+fi
+scratch_reset p167
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+pass "VV-b: an abort with nothing landed does not raise a false stranded-state alarm"
+
+# -----------------------------------------------------------------------------
+# WW. The EXIT trap must not depend on cmd_ship's function-locals.
+#
+#     On SIGINT bash unwinds the function frame BEFORE running the EXIT trap.
+#     A trap body naming cmd_ship's `local` pn/branch then expands an UNSET
+#     variable, and under `set -u` (git-ops.sh:39) that kills the trap BEFORE
+#     its first statement — which is `release_main_lock`. The lock survives, and
+#     since acquire_main_lock never force-releases (P787), every later ship
+#     blocks for the full timeout and then refuses. A plain Ctrl-C during a ship
+#     is the trigger. The pre-VV trap (`trap 'release_main_lock' EXIT`) had no
+#     parameter expansion and was immune, so this arrived with VV.
+#
+#     Mechanism, reproduced standalone under this exact bash (3.2, macOS):
+#       f(){ local pn=p1; trap 'h "$pn"' EXIT; sleep 5; }; f
+#       -> kill -INT  =>  "line N: pn: unbound variable", handler never entered
+#       -> kill -TERM =>  handler runs normally (frame still live)
+#     SIGTERM does NOT reproduce it, which is why canary M does not cover this.
+#
+#     This is a STRUCTURAL assertion on purpose. A runtime SIGINT version was
+#     written first and rejected as flaky: a background job in a non-interactive
+#     shell inherits SIGINT as SIG_IGN, and even with `set -m` the delivery
+#     races the cherry-pick loop — across runs of the SAME known-broken build it
+#     variously ran to completion, exited silently, and failed correctly. A
+#     canary that cannot be reliably watched failing proves nothing (epistemic
+#     gate 7), so it binds the invariant that actually prevents the bug instead.
+# -----------------------------------------------------------------------------
+
+WW_TRAP_LINE="$( grep -n "trap .*ship_on_abort" "$GIT_OPS" || true )"
+if [[ -z "$WW_TRAP_LINE" ]]; then
+  fail "WW: no ship_on_abort EXIT trap found in git-ops.sh — the stranded-state signal (VV) is gone"
+fi
+# Must pass script-scope names, each with a set -u-safe default.
+if ! grep -q 'trap .ship_on_abort "\${SHIP_ABORT_PN:-}" "\${SHIP_ABORT_BRANCH:-}"' "$GIT_OPS"; then
+  echo "$WW_TRAP_LINE" >&2
+  fail "WW: the EXIT trap does not pass set -u-safe script-scope variables — on SIGINT the frame is gone, the trap aborts on the unset name, and main.lock leaks (P787: never force-released)"
+fi
+# And those names must not be `local` to cmd_ship, or hoisting them changed nothing.
+if grep -qE '^[[:space:]]*local[[:space:]].*SHIP_ABORT_(PN|BRANCH)' "$GIT_OPS"; then
+  fail "WW: SHIP_ABORT_PN/SHIP_ABORT_BRANCH are declared local — they will not survive the frame unwind the trap depends on"
+fi
+# ship_on_abort itself must tolerate being called with nothing.
+if ! grep -q 'local pn="\${1:-}" branch="\${2:-}"' "$GIT_OPS"; then
+  fail "WW: ship_on_abort does not default its arguments — set -u makes a bare call abort before release_main_lock"
+fi
+pass "WW: the EXIT trap survives frame unwind, so a Ctrl-C cannot leak main.lock"
+
+# -----------------------------------------------------------------------------
+# YY. A paused cherry-pick is a DESIGNED stop, not a strand. ship prints conflict
+#     instructions and exits non-zero on purpose; the branch and worktree are
+#     supposed to survive until the operator resolves and re-runs. Shouting
+#     "INCOMPLETE" here would (a) train the operator to ignore the one message
+#     that matters, and (b) reach the founder as an incident, because /ship
+#     relays ship's output verbatim. Real multi-commit conflict, not a fixture:
+#     commit 1 lands, commit 2 conflicts.
+# -----------------------------------------------------------------------------
+
+cat > "$SCRATCH/main/features/p169_demo.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p169: Conflict demo
+Problem: conflict demo.
+EOF
+( cd "$SCRATCH/main" && git add features/p169_demo.md && git commit -qm "chore: add p169 spec" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q -b feature/p169-demo ) >/dev/null
+echo "clean" > "$SCRATCH/main/p169_clean.txt"
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" \
+  git add p169_clean.txt && git commit -qm "p169: clean commit" ) >/dev/null
+echo "branch side" > "$SCRATCH/main/p169_conflict.txt"
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
+  git add p169_conflict.txt && git commit -qm "p169: conflicting commit" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
+# Same path, different content, already on main -> commit 2 must conflict.
+echo "main side" > "$SCRATCH/main/p169_conflict.txt"
+( cd "$SCRATCH/main" && git add p169_conflict.txt && git commit -qm "main: conflicting content" ) >/dev/null
+
+YY_RC=0
+YY_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p169)" || YY_RC=$?
+
+if [[ $YY_RC -eq 0 ]]; then
+  echo "$YY_OUT" >&2
+  fail "YY: ship succeeded; the conflict fixture did not conflict, so nothing was exercised"
+fi
+if ! grep -q '#CP_DIAGNOSTIC_BEGIN' <<<"$YY_OUT"; then
+  echo "$YY_OUT" >&2
+  fail "YY: no cherry-pick diagnostic — this abort was not the designed conflict pause"
+fi
+YY_LANDED="$( cd "$SCRATCH/main" && git log --oneline main | grep -c 'p169: clean commit' || true )"
+if [[ "$YY_LANDED" != "1" ]]; then
+  echo "$YY_OUT" >&2
+  fail "YY: commit 1 did not land ($YY_LANDED) — with nothing landed the trap is quiet for the wrong reason"
+fi
+if grep -q 'INCOMPLETE' <<<"$YY_OUT"; then
+  echo "$YY_OUT" >&2
+  fail "YY: ship reported a routine cherry-pick conflict as a stranded ship — /ship relays this to the founder as an incident"
+fi
+( cd "$SCRATCH/main" && git cherry-pick --abort ) >/dev/null 2>&1 || true
+rm -f "$SCRATCH/main/.git/CHERRY_PICK_HEAD" "$SCRATCH/main/.git/index.lock"
+( cd "$SCRATCH/main" && git branch -D feature/p169-demo ) >/dev/null 2>&1 || true
+rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p169.json" \
+      "$SCRATCH/main/.claude/worktrees/main.lock"
+pass "YY: a paused cherry-pick is reported as a conflict to resolve, not as a stranded ship"
+
+# -----------------------------------------------------------------------------
+# ZZ. A failed co-located close must leave the co-spec byte-identical. The
+#     doc-link re-base WRITES the file and can only fail afterwards, while the
+#     frontmatter rewrite validates before writing — so the frontmatter check
+#     must run FIRST. With the old order, a spec whose links re-based fine but
+#     whose frontmatter was malformed got restored to features/ carrying links
+#     re-based for a depth it no longer sits at, while ship claimed "unchanged".
+#     It is another P-number's file, left modified in the shared checkout.
+# -----------------------------------------------------------------------------
+
+mkdir -p "$SCRATCH/main/docs"
+echo "# target" > "$SCRATCH/main/docs/zz_target.md"
+cat > "$SCRATCH/main/features/p170_demo.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p170: ZZ primary
+Problem: zz.
+EOF
+( cd "$SCRATCH/main" && git add docs/zz_target.md features/p170_demo.md \
+  && git commit -qm "chore: add p170 spec" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q -b feature/p170-demo ) >/dev/null
+echo "fix" > "$SCRATCH/main/p170_fix.txt"
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" \
+  git add p170_fix.txt && git commit -qm "p170: fix" ) >/dev/null
+# Co-spec: a re-basable relative link, and NO frontmatter (rewrite must fail).
+cat > "$SCRATCH/main/features/p171_zz.md" <<'EOF'
+# p171: co-located, no frontmatter
+See [target](../docs/zz_target.md).
+EOF
+( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
+  git add features/p171_zz.md && git commit -qm "p171: add spec" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
+
+ZZ_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p170)" || true
+
+if [[ ! -f "$SCRATCH/main/features/p171_zz.md" ]]; then
+  echo "$ZZ_OUT" >&2
+  fail "ZZ: co-spec p171 was not restored to features/ after its close failed"
+fi
+if ! grep -Fq '](../docs/zz_target.md)' "$SCRATCH/main/features/p171_zz.md"; then
+  echo "--- restored co-spec ---" >&2
+  cat "$SCRATCH/main/features/p171_zz.md" >&2
+  fail "ZZ: the restored co-spec's link was re-based for a depth it no longer sits at — ship wrote to another P-number's file and then called it 'unchanged'"
+fi
+ZZ_DIRTY="$( cd "$SCRATCH/main" && git status --short -- features/p171_zz.md )"
+if [[ -n "$ZZ_DIRTY" ]]; then
+  echo "$ZZ_DIRTY" >&2
+  fail "ZZ: co-spec p171 left modified in the shared working tree after a failed close — a co-tenant's plain 'git commit' would sweep it up"
+fi
+( cd "$SCRATCH/main" && git branch -D feature/p170-demo ) >/dev/null 2>&1 || true
+rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p170.json" \
+      "$SCRATCH/main/.claude/worktrees/main.lock"
+pass "ZZ: a failed co-located close leaves the other P-number's spec byte-identical"
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -2309,4 +2669,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, YY, ZZ) hold"

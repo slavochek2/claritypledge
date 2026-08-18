@@ -8,6 +8,9 @@
 #   A. gc --dry-run lists stale branches, refuses to delete without both flags.
 #   B. abandon removes lockfile + worktree, preserves branch.
 #   C. reconcile detects orphan-lock (lock but no worktree) and orphan-worktree.
+#   K. reconcile surfaces stranded ships (lock+worktree present, commits landed,
+#      cleanup never ran — previously reported as 'ok') and leftover journals
+#      (which silently hard-block every later ship for that P-number).
 #   D. commit-to-main acquires main.lock, commits listed files, releases.
 #   E. Two concurrent commit-to-main calls serialize — second reports "held by".
 #   F. switch-safe refuses when main has uncommitted bystander changes.
@@ -492,6 +495,88 @@ fi
 pass "I: no redirect-parseable tokens in new subcommand output"
 
 # -----------------------------------------------------------------------------
+# K. reconcile surfaces stranded ships and stale journals.
+#    Passes 1-2 classify a slot by lock x worktree, so a ship that landed
+#    commits on main and then aborted before Phase 3 — lock present AND worktree
+#    present — fell through to the `ok` arm and was reported as HEALTHY. That is
+#    the p1057/w1 state. Eight such journals accumulated in the real repo over
+#    ~88 days while reconcile called every one of them fine.
+#    Two classes must be reported and must exit 2:
+#      stranded-ship — branch still exists, cleanup never ran → resume it
+#      stale-journal — branch gone (ship finished out of band) → residue, and it
+#                      HARD-BLOCKS every later `ship pN`, which is what drives
+#                      the next out-of-band finish. Self-sustaining otherwise.
+# -----------------------------------------------------------------------------
+
+mkdir -p "$SCRATCH/main/.claude/worktrees/.ship-journal"
+
+# A stranded ship: real branch, real worktree, commits landed, cleanup not done.
+( cd "$SCRATCH/main" && git worktree add -q "$SCRATCH/main/.claude/worktrees/w5" \
+    -b feature/p210-stranded main ) >/dev/null 2>&1 \
+  || fail "K-setup: git worktree add for w5 failed"
+cat > "$SCRATCH/main/.claude/worktrees/w5/.lock" <<EOF
+PID=$$
+NONCE=deadbeefcafef00d
+SESSION_ID=canary-k
+SLOT=w5
+BRANCH=feature/p210-stranded
+P_NUMBER=p210
+EOF
+K_SHA="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p210.json" <<EOF
+{
+  "p_number": "p210",
+  "source_branch": "feature/p210-stranded",
+  "spec_file": "features/p210_demo.md",
+  "commits": [{"source_sha": "aaa", "landed_sha": "${K_SHA}", "landed_at": "x"}],
+  "spec_closed": true,
+  "branch_deleted": false
+}
+EOF
+# Residue: the branch is long gone, but the journal blocks `ship p211` forever.
+cat > "$SCRATCH/main/.claude/worktrees/.ship-journal/p211.json" <<EOF
+{
+  "p_number": "p211",
+  "source_branch": "feature/p211-long-gone",
+  "spec_file": "features/p211_demo.md",
+  "commits": [{"source_sha": "bbb", "landed_sha": "${K_SHA}", "landed_at": "x"}],
+  "spec_closed": true,
+  "branch_deleted": false
+}
+EOF
+
+K_OUT="$(cd "$SCRATCH/main" && bash "$GIT_OPS" reconcile 2>&1; echo "__EXIT=$?")"
+echo "$K_OUT" >> "$SAFETY_LOG"
+echo "$K_OUT" >> "$I_SCOPED_LOG"
+K_EXIT="$(echo "$K_OUT" | tail -n1 | sed -e 's/__EXIT=//')"
+K_BODY="$(echo "$K_OUT" | sed '$d')"
+
+if ! echo "$K_BODY" | grep -q 'stranded-ship .*p210'; then
+  echo "$K_BODY" >&2
+  fail "K: reconcile did not report p210 as a stranded ship — lock+worktree both present, so it falls through to the 'ok' arm and is called healthy"
+fi
+if ! echo "$K_BODY" | grep -q 'p210 --resume'; then
+  echo "$K_BODY" >&2
+  fail "K: stranded-ship line does not name the converge command"
+fi
+if ! echo "$K_BODY" | grep -q 'stale-journal .*p211'; then
+  echo "$K_BODY" >&2
+  fail "K: reconcile did not report p211's leftover journal — it silently hard-blocks every later 'ship p211'"
+fi
+if [[ "$K_EXIT" != "2" ]]; then
+  echo "$K_BODY" >&2
+  fail "K: reconcile exit was $K_EXIT, expected 2 (stranded ship + stale journal present)"
+fi
+pass "K: reconcile reports stranded ships and stale journals instead of calling them ok"
+
+rm -f "$SCRATCH/main/.claude/worktrees/w5/.lock" \
+      "$SCRATCH/main/.claude/worktrees/.ship-journal/p210.json" \
+      "$SCRATCH/main/.claude/worktrees/.ship-journal/p211.json"
+( cd "$SCRATCH/main" && git worktree remove -f "$SCRATCH/main/.claude/worktrees/w5" 2>/dev/null ) || true
+rm -rf "$SCRATCH/main/.claude/worktrees/w5"
+( cd "$SCRATCH/main" && git branch -D feature/p210-stranded 2>/dev/null ) || true
+
+# -----------------------------------------------------------------------------
 # Invariant 4 (P785): outer worktree index unchanged.
 # -----------------------------------------------------------------------------
 
@@ -506,4 +591,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh extension invariants (A-J) hold"
+echo "PASS: all git-ops.sh extension invariants (A-K) hold"

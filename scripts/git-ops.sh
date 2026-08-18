@@ -915,11 +915,67 @@ cmd_reconcile() {
   # (e.g., user manually created a worktree outside the slot convention).
   # These are noise for reconcile; we skip them.
 
+  # Pass 3: ship journals. Passes 1-2 classify a slot by lock x worktree, so a
+  # ship that landed commits on main and then aborted before Phase 3 — lock
+  # present AND worktree present — falls through to the `ok` arm and is reported
+  # as healthy. That is the p1057/w1 state, and reconcile called it fine.
+  #
+  # The journal is the durable record of that condition (`branch_deleted: false`
+  # plus at least one `landed_sha`) and nothing consumed it. The abort-time
+  # stderr from ship_on_abort is a one-shot message in a session that has just
+  # errored; the 8 journals that accumulated here over ~88 days are the evidence
+  # that the channel does not hold on its own. This pass is the durable half.
+  #
+  # A leftover journal is not inert residue either: with a journal present and
+  # no --resume, every later `git-ops ship pN` hard-exits, which is what pushes
+  # an operator to finish the ship by hand, which is what leaves the next
+  # journal. Surfacing it breaks that loop.
+  local journal_lines=""
+  if [[ -d "$SHIP_JOURNAL_DIR" ]]; then
+    local jf jpn jbranch jlanded jdeleted jinfo
+    for jf in "$SHIP_JOURNAL_DIR"/*.json; do
+      [[ -f "$jf" ]] || continue
+      jinfo="$( python3 - "$jf" 2>/dev/null <<'PYJ'
+import json, sys
+d = json.load(open(sys.argv[1]))
+print("%s	%s	%d	%s" % (
+    d.get("p_number", ""),
+    d.get("source_branch", ""),
+    sum(1 for c in d.get("commits", []) if c.get("landed_sha")),
+    "1" if d.get("branch_deleted") else "0",
+))
+PYJ
+)" || jinfo=""
+      if [[ -z "$jinfo" ]]; then
+        journal_lines+="  unreadable-journal  $(basename "$jf")"$'\n'
+        orphans_found=$((orphans_found + 1))
+        continue
+      fi
+      jpn="$(  printf '%s' "$jinfo" | cut -f1 )"
+      jbranch="$(printf '%s' "$jinfo" | cut -f2 )"
+      jlanded="$( printf '%s' "$jinfo" | cut -f3 )"
+      jdeleted="$(printf '%s' "$jinfo" | cut -f4 )"
+      [[ -z "$jpn" ]] && jpn="$(basename "$jf" .json)"
+      if [[ "$jdeleted" != "1" ]] && [[ -n "$jbranch" ]] && \
+         ( cd "$REPO_ROOT" && git rev-parse --verify "$jbranch" >/dev/null 2>&1 ); then
+        journal_lines+="  stranded-ship       $jpn (branch: $jbranch, ${jlanded} commit(s) on main; converge: git-ops ship $jpn --resume)"$'\n'
+      else
+        journal_lines+="  stale-journal       $jpn (${jlanded} commit(s) landed, branch gone; ship $jpn is blocked until this is removed: rm $jf)"$'\n'
+      fi
+      orphans_found=$((orphans_found + 1))
+    done
+  fi
+
   if [[ -n "$lines" ]]; then
     echo "git-ops reconcile: slot state"
     printf '%s' "$lines"
   else
     echo "git-ops reconcile: no slot directories under $WORKTREES_DIR"
+  fi
+
+  if [[ -n "$journal_lines" ]]; then
+    echo "git-ops reconcile: ship journals"
+    printf '%s' "$journal_lines"
   fi
 
   if [[ $orphans_found -gt 0 ]]; then
@@ -1546,6 +1602,108 @@ except Exception:
 PY
 }
 
+# Phase 3 (branch + worktree cleanup) is the LAST thing cmd_ship does, so ANY
+# abort after Phase 1 has landed commits leaves a live branch and worktree while
+# main already looks shipped. Nothing used to say so: the operator saw the spec
+# closed, assumed a clean ship, and found the slot still in kanban days later
+# (p1057/w1, plus 8 stale journals whose specs are all closed on main). Fixing
+# the individual abort causes is necessary but never sufficient — this trap
+# turns the whole class from silent into loud. Best-effort throughout: a trap
+# that can itself fail would mask the real error it is reporting.
+ship_on_abort() {
+  local rc=$?
+  local pn="${1:-}" branch="${2:-}"
+  : "$rc"  # kept for diagnostics; see the note below on why it is NOT a gate
+  # Releasing the lock is the one thing this trap must ALWAYS do, so it comes
+  # first and nothing above it can fail. release_main_lock checks the nonce, so
+  # it never releases a lock this process does not own.
+  release_main_lock || true
+  # Deliberately NOT gated on $rc. Bash reports $? as 0 inside an EXIT trap when
+  # the shell dies from SIGTERM or SIGINT, so an `rc == 0 -> return` gate is mute
+  # in exactly the kill-mid-ship scenario this trap exists for (measured: outer
+  # status 143, trap sees 0). Gating on the journal instead is both stricter and
+  # honest: the success path at the end of cmd_ship runs `trap - EXIT` BEFORE it
+  # returns, and there is no `exit 0` or bare `return` anywhere between arming
+  # and clearing — so if this function runs at all, the ship did not complete,
+  # whatever $? claims. Canary XX pins the signal case.
+  [[ -n "$pn" ]] || return 0
+  local journal="$SHIP_JOURNAL_DIR/${pn}.json"
+  [[ -f "$journal" ]] || return 0
+  # A paused cherry-pick is a DESIGNED stop, not a strand: ship prints conflict
+  # instructions and exits non-zero on purpose, and the branch and worktree are
+  # SUPPOSED to still be there until the operator resolves and re-runs. Shouting
+  # "INCOMPLETE" at a routine conflict would train the operator to ignore the
+  # one message that matters — and /ship relays this output to the founder as an
+  # incident. The resolve-and-resume advice ship already printed is the correct
+  # guidance here; do not overwrite it with a worse copy. Canary YY pins it.
+  local _gitdir_abort=""
+  _gitdir_abort="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir 2>/dev/null )" || _gitdir_abort=""
+  if [[ -n "$_gitdir_abort" && -e "$_gitdir_abort/CHERRY_PICK_HEAD" ]]; then
+    return 0
+  fi
+  # branch_deleted true means Phase 3 already ran; nothing is stranded.
+  if ship_journal_flag "$pn" "branch_deleted" 2>/dev/null; then return 0; fi
+  # Only shout when main actually changed. A journal with nothing landed means
+  # the ship aborted before touching main, and the branch is meant to still be
+  # there — saying "stranded" then would be a false alarm.
+  # "unknown" and "zero" must stay distinguishable. Collapsing them would let a
+  # broken or missing python3 silence the warning this trap exists to print —
+  # the degraded environment is exactly when the operator most needs it. Zero
+  # returns quietly (main untouched, nothing stranded); unknown warns.
+  local landed=""
+  landed="$( python3 - "$journal" 2>/dev/null <<'PYCOUNT'
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(sum(1 for c in d.get("commits", []) if c.get("landed_sha")))
+PYCOUNT
+) " || landed=""
+  landed="$(printf '%s' "$landed" | tr -dc '0-9')"
+  local landed_desc="$landed"
+  if [[ -z "$landed" ]]; then
+    landed_desc="an unknown number of"
+  elif [[ "$landed" == "0" ]]; then
+    return 0
+  fi
+  local wt_path=""
+  wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain 2>/dev/null | \
+              awk -v br="refs/heads/${branch}" '
+                /^worktree / { path = substr($0, 10); next }
+                /^branch / { if ($2 == br) print path }
+              ' | head -n1 )" || wt_path=""
+  {
+    echo ""
+    echo "ship: INCOMPLETE — ${landed_desc} commit(s) already landed on main, but cleanup did not run."
+    echo "ship: still live: branch ${branch}"
+    [[ -n "$wt_path" ]] && echo "ship: still live: worktree ${wt_path}"
+    echo "ship: journal kept at ${journal}"
+    echo "ship: fix the error above, then converge with: git-ops ship ${pn} --resume"
+  } >&2
+  return 0
+}
+
+# Undo a co-located spec's `git mv` so a failed co-located close is a genuine
+# no-op rather than leaving the spec moved-but-unstaged in the working tree (a
+# state no later step recognises, and which a co-tenant's plain `git commit`
+# could sweep up). Unstage both paths back to HEAD, then move the file back on
+# disk. Best-effort throughout: this runs on an error path and must never be
+# able to abort the ship it is cleaning up after.
+# Returns 0 only when the spec is genuinely back at its original path; 1 when it
+# could not be restored, so the caller can tell the operator the truth instead of
+# claiming "unchanged" about a file it left somewhere else. Never aborts.
+#
+# `:(literal)` on both pathspecs: git treats a reset pathspec as a GLOB, so a
+# spec filename containing `*`, `?` or `[` would unstage a DIFFERENT file. No
+# spec is named that way today, which is precisely why nothing would notice.
+ship_undo_cospec_move() {
+  local dest_rel="$1" src_rel="$2"
+  ( cd "$REPO_ROOT" && git reset -q HEAD -- ":(literal)$dest_rel" ":(literal)$src_rel" 2>/dev/null ) || true
+  if [[ -f "$REPO_ROOT/$dest_rel" && ! -e "$REPO_ROOT/$src_rel" ]]; then
+    mv "$REPO_ROOT/$dest_rel" "$REPO_ROOT/$src_rel" 2>/dev/null || true
+  fi
+  [[ -f "$REPO_ROOT/$src_rel" && ! -e "$REPO_ROOT/$dest_rel" ]] || return 1
+  return 0
+}
+
 # Rewrite the moved spec's frontmatter: status: all-done, add completed_at
 # (YYYY-MM-DD UTC), drop delivery_stage. Leaves pipeline_plan / pipeline_ran /
 # pipeline_skipped intact for audit.
@@ -2168,7 +2326,19 @@ The branch is authoritative for shipped migrations. Compare each file with
   if ! acquire_main_lock "$timeout"; then
     exit 1
   fi
-  trap 'release_main_lock' EXIT
+  # Releases the lock AND, on a non-zero exit, reports the stranded branch and
+  # worktree that Phase 3 never got to clean up (canary VV).
+  #
+  # The values are hoisted to SCRIPT scope, and the trap body defaults them,
+  # for one specific reason: on SIGINT bash unwinds the function frame BEFORE
+  # running the EXIT trap. A trap body referencing cmd_ship's `local` pn/branch
+  # then expands an unset variable, and under `set -u` that aborts the trap
+  # BEFORE its first statement — so the lock would never be released and every
+  # later ship would block for the full timeout and then refuse. SIGTERM does
+  # not reproduce this; SIGINT (a plain Ctrl-C) does. Canary WW pins it.
+  SHIP_ABORT_PN="$pn"
+  SHIP_ABORT_BRANCH="$branch"
+  trap 'ship_on_abort "${SHIP_ABORT_PN:-}" "${SHIP_ABORT_BRANCH:-}"' EXIT
 
   # Post-acquire race guard: another session holding the same P-number may have
   # completed (deleting the branch) between our pre-check and lock acquire. If
@@ -2570,13 +2740,48 @@ The branch is authoritative for shipped migrations. Compare each file with
         # P-number, and a hard die here would block this ship on someone else's
         # file. So on failure: unstage the partial rename (never leave it for a
         # co-tenant's plain `git commit` to sweep up), warn, and move on.
-        if ! ship_rebase_doc_links "$REPO_ROOT" "$cospec_file" "$cospec_dest"; then
-          ( cd "$REPO_ROOT" && git reset -q HEAD -- "$cospec_dest" "$cospec_file" 2>/dev/null ) || true
-          echo "ship: skipped co-located close of ${cospec_pn} — doc-link re-base failed; its spec is moved but unstaged in the working tree" >&2
+        # ORDER IS LOAD-BEARING: frontmatter first, doc-links second. Both can
+        # fail, but only the frontmatter rewrite validates before it writes —
+        # the doc-link re-base WRITES the file and only then can fail on a later
+        # check. Running the re-base first meant a frontmatter failure undid a
+        # move whose file had already been re-based, restoring a spec whose
+        # links were now wrong for its original depth while telling the operator
+        # it was "unchanged" — a false claim about another P-number's file, left
+        # modified in the shared checkout. Reversing the two costs nothing:
+        # neither reads the other's output. Canary ZZ pins it.
+        #
+        # BOTH MUST STAY GUARDED. Under `set -euo pipefail` an unguarded call
+        # here aborts the whole script, and Phase 3 (branch + worktree cleanup)
+        # runs AFTER this loop — so one malformed spec belonging to ANOTHER
+        # P-number stranded this ship's branch and worktree while main already
+        # looked shipped. That is the p1057/w1 incident; canary UU pins it.
+        if ! ship_rewrite_frontmatter "$REPO_ROOT/$cospec_dest"; then
+          if ship_undo_cospec_move "$cospec_dest" "$cospec_file"; then
+            echo "ship: skipped co-located close of ${cospec_pn} — frontmatter rewrite failed (malformed or absent frontmatter); its spec is back at $cospec_file, unchanged. Close it by hand once its frontmatter is valid." >&2
+          else
+            echo "ship: skipped co-located close of ${cospec_pn} — frontmatter rewrite failed (malformed or absent frontmatter). Its spec could NOT be restored; it is at $cospec_dest. Move it back by hand." >&2
+          fi
           continue
         fi
-        ship_rewrite_frontmatter "$REPO_ROOT/$cospec_dest"
-        ( cd "$REPO_ROOT" && git add -- "$cospec_dest" ) >/dev/null
+        if ! ship_rebase_doc_links "$REPO_ROOT" "$cospec_file" "$cospec_dest"; then
+          if ship_undo_cospec_move "$cospec_dest" "$cospec_file"; then
+            echo "ship: skipped co-located close of ${cospec_pn} — doc-link re-base failed; its spec is back at $cospec_file (its frontmatter was rewritten in place — check it before closing by hand)." >&2
+          else
+            echo "ship: skipped co-located close of ${cospec_pn} — doc-link re-base failed. Its spec could NOT be restored; it is at $cospec_dest. Move it back by hand." >&2
+          fi
+          continue
+        fi
+        # Also guarded: a co-tenant holding .git/index.lock makes this exit 128,
+        # and an unguarded abort one line below the guard above would strand the
+        # worktree by the very path this fix closes.
+        if ! ( cd "$REPO_ROOT" && git add -- ":(literal)$cospec_dest" ) >/dev/null 2>&1; then
+          if ship_undo_cospec_move "$cospec_dest" "$cospec_file"; then
+            echo "ship: skipped co-located close of ${cospec_pn} — git add failed (a co-tenant may hold .git/index.lock); its spec is back at $cospec_file." >&2
+          else
+            echo "ship: skipped co-located close of ${cospec_pn} — git add failed (a co-tenant may hold .git/index.lock). Its spec could NOT be restored; it is at $cospec_dest. Move it back by hand." >&2
+          fi
+          continue
+        fi
         ( cd "$REPO_ROOT" && git commit -q \
             -m "chore: close ${cospec_pn} (co-located with ${pn})" \
             -- "$cospec_dest" "$cospec_file" ) || true
