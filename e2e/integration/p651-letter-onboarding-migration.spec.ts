@@ -275,12 +275,16 @@ test.describe('P651 Migration — get_letter_for_reading sender name', () => {
     expect(error).toBeNull();
     expect(data).toBeTruthy();
 
-    // TODO: /dev must remove receiver_email from the RPC response.
-    // After migration, verify:
-    // The delivery object in the response should NOT contain receiver_email
-    if (data?.delivery) {
-      expect(data.delivery).not.toHaveProperty('receiver_email');
-    }
+    // Implemented by P1071 (20260818134500_p1071_redact_reading_rpc_response.sql).
+    // Between P651 and P1071 this assertion failed on every run: P717 had
+    // deliberately restored receiver_email to power the client-side wrong-user
+    // guard. P1071 moved that comparison into the function, so the response can
+    // carry the verdict (is_intended_recipient) without the address.
+    //
+    // Unconditional: the `if (data?.delivery)` wrapper this replaces would have
+    // passed silently had the envelope gone missing.
+    expect(data.delivery).toBeTruthy();
+    expect(data.delivery).not.toHaveProperty('receiver_email');
   });
 });
 
