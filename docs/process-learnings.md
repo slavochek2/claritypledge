@@ -438,3 +438,18 @@ no schema. Related but distinct from P1092, which builds server-side reader stat
 *can* be kept — if P1092 ships first this note is obsolete, so drop it then rather than doing both.
 
 ---
+
+## 2026-08-18 — P1067's integration spec is not serial-safe (test hygiene, not a product bug)
+
+`e2e/integration/20260817120000_p1067_anon_rating_gates.spec.ts` passes at default parallelism (6/6)
+and fails at `--workers=1` (1 failed): its L6 catalog layer inserts a `(delivery, story)` rating row
+that L4 has already created when the two run in the same worker sequentially, so the P1067 unique
+index correctly rejects it — `duplicate key value violates unique constraint
+"story_verifications_letter_delivery_story_unique"`.
+
+Harmless today because normal runs are parallel, but it means the file cannot be used to reproduce
+anything serially, which is exactly what you want during an incident. Found while running the P1093
+canary at `--workers=1` to remove doubt about a flake. Fix is per-layer fixtures in L6 (the file's
+own header already notes layers get one story each — L6 reuses L4's).
+
+`due: month`
