@@ -29,6 +29,40 @@ scope. P1090 is archived as a duplicate.
 
 ## Root Cause
 
+**Corrected 2026-08-17 — the original root cause below was falsified during /fix Phase -1.**
+
+P651's redaction **was** implemented, and then **deliberately reversed** by P717 five weeks later.
+`docs/decisions.md:11951-11959` records the reversal and its reasoning:
+
+> The `get_letter_for_reading` RPC had `receiver_email` deliberately omitted (comment: "NO
+> receiver_email (redacted)") as a privacy measure […] **Decision:** Restore `receiver_email` to the
+> RPC delivery response. The privacy argument for omission assumed the token holder shouldn't know
+> the email; the counter-argument: the token link was sent to that email — the holder already knows
+> it.
+
+The reversal shipped as `supabase/migrations/20260416170000_p717_add_receiver_email_to_reading_rpc.sql`
+with its own integration test, `e2e/integration/p717-db-schema.spec.ts:44`, asserting
+`expect(data.delivery.receiver_email).toBeTruthy()` — the **exact opposite** of the P651 assertion.
+Two tests in the repo have been contradicting each other ever since; P651's is the one that loses.
+
+So this is **not** "a single missed surface within P651's scope". It is a live design conflict
+between a privacy requirement (P651) and a security guard (P717), and neither side is simply wrong:
+
+- P717 is right that the token was emailed to that address, so the ordinary holder already knows it.
+- P1071 is right that P717's reasoning **does not cover the forwarded or logged link**, where the
+  holder is not the recipient. That case is exactly the residual exposure.
+
+The field powers the wrong-user guard at `src/app/pages/letter-reading-page.tsx:330`, which stops a
+wrong authenticated user from claiming someone else's delivery. Deleting the field outright silently
+re-breaks that guard — the precise failure `docs/decisions.md:11937` records as having already
+shipped green once.
+
+**Resolution (founder decision, 2026-08-17): move the comparison server-side.** The RPC performs the
+email match itself and returns a boolean verdict instead of the address. Both requirements hold at
+once, and the forwarded-link exposure closes.
+
+### Original (falsified) root cause, retained for the record
+
 P651 shipped the test but not the change. The test carries its own unresolved marker:
 
 ```ts
@@ -108,10 +142,40 @@ invitation link hands the address to someone it was never meant to reach.
 
 ## Fix Approach
 
-Grep every consumer of the delivery object for `receiver_email` **before** removing it from the RPC
-— the reading page and the email-sending path both read delivery fields, and dropping a key that
-one of them still uses substitutes a broken reading flow for a privacy defect. Then redefine the
-function without that key and let the existing P651 test verify it.
+**Consumer enumeration (AC 1) — completed 2026-08-17, before any code:**
+
+| Read site | Source of `delivery` | Affected? |
+|---|---|---|
+| `letter-reading-page.tsx:330` | `getLetterForReadingByToken` → **this RPC** | **Yes** — the only one |
+| `letter-reading-page.tsx:211` | `getLetterForReading('', deliveryId)` → direct RLS table read | No |
+| `letters-section.tsx:98`, `sent-tab.tsx:84-172` | sender-side table queries | No |
+
+`invitation_token` has **no** RPC-sourced consumer at all: the single UI read
+(`letters-section.tsx:171`) builds the sender's own share link from a direct table query. Dropping
+the echoed token is therefore a free deletion.
+
+**Move the guard server-side, then redact.** Redefine `get_letter_for_reading` so the delivery
+object carries a verdict rather than the address:
+
+- **remove** `receiver_email` and `invitation_token` from the returned delivery JSON
+- **add** `is_intended_recipient` — the comparison the client used to make, evaluated in-DB against
+  the caller's own identity:
+  - `NULL` when `auth.uid()` is NULL (anonymous reader — guard does not apply; anonymous reading
+    through an invitation link stays intended behaviour)
+  - `NULL` when `ld.receiver_email` is NULL (nothing to compare — matches today's falsy skip)
+  - otherwise `lower(auth.users.email) = lower(ld.receiver_email)`
+
+Read the caller's address from `auth.users`, not `auth.jwt()` — the JWT copy goes stale after an
+email change. The RPC is already `SECURITY DEFINER`, and reading `auth.users` from one is the
+established pattern here (`seal_and_send_letter`, `get_auth_user_by_email`).
+
+The client guard at line 330 then tests `is_intended_recipient === false`. Note the strict
+comparison: `NULL` must **not** trip the guard, or every anonymous reader is locked out of the
+product's intended flow.
+
+`e2e/integration/p717-db-schema.spec.ts` asserts the old contract and must be updated in the same
+commit to assert the new one — it is not a test being weakened to pass, it is a contract being
+migrated, and P717's guard requirement survives it intact.
 
 Two constraints, both learned from P1066 in the same subsystem:
 
@@ -130,13 +194,29 @@ failures (P1091); do not read the file going green as the whole suite being heal
 
 ## Acceptance Criteria
 
-- [ ] Every client read of `receiver_email` off the delivery object enumerated, with the finding
+- [x] Every client read of `receiver_email` off the delivery object enumerated, with the finding
       stated even if the answer is "none" — this decides whether removal is a deletion or needs a
       substitute (e.g. a masked address)
+      → **Done (table in Fix Approach). Answer was not "none":** one RPC-sourced read, the P717
+      wrong-user guard. Removal therefore needs the `is_intended_recipient` substitute, not a
+      bare deletion.
+- [ ] `get_letter_for_reading` returns `is_intended_recipient`, correct in all three cases:
+      `false` for a signed-in non-recipient, `true` for the signed-in recipient, `NULL` for an
+      anonymous caller
+- [ ] An anonymous caller with a valid token can still read the letter — `NULL` does not trip the
+      guard (the regression that a naive `!is_intended_recipient` check would introduce)
+- [ ] The wrong-user guard still fires: a signed-in user whose email differs from the delivery's
+      `receiver_email` sees `wrong_user`, not the letter — P717's requirement survives the change
+- [ ] `e2e/integration/p717-db-schema.spec.ts` updated to assert the new contract, and the reason
+      recorded — a contract migration, not a test weakened to pass
+- [ ] `invitation_token` no longer echoed in the RPC response
 - [ ] `e2e/integration/p651-letter-onboarding-migration.spec.ts:268` passes — the delivery object
       has no `receiver_email` key for an unauthenticated caller
 - [ ] The TODO marker at that test is removed, since it is no longer outstanding
-- [ ] A decision recorded on the echoed invitation token — removed, or kept with the reason
+- [x] A decision recorded on the echoed invitation token — removed, or kept with the reason
+      → **Removed.** The confirmation P1090 asked for came back clean: no client reads the token
+      out of the payload. The only UI read (`letters-section.tsx:171`) is the sender's own share
+      link, built from a direct table query, not from this RPC.
 - [ ] A recipient can still open a one-to-one letter from an emailed link and sees the correct
       recipient name
 - [ ] `src/tests/sd-guard-completeness.test.ts` still passes (no historical guard dropped)
