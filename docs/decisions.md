@@ -6,6 +6,59 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-18 [technical]: a drift check that treats production as the baseline will revert every security fix in flight (P1093 → P1102)
+
+**Context:** P1093 revoked a client-role EXECUTE grant on a letter-completion writer and applied it to **test**. Production was deliberately left unpatched — the deploy is its own gated step, and the disclosure ordering requires prod to be patched before the branch reaches public GitHub. Hours later the P1065 grant-drift check compared the two live environments, found this one function disagreeing, and shipped a migration restoring the grant on test, reasoning that prod was the baseline and the narrowing had "no trace in migration text." Both halves of that reasoning were correct on the evidence available: the trace existed only on an unmerged feature branch, which the check cannot see.
+
+Nothing malfunctioned. The collision is structural: **a security fix lands on test first by design, so for the whole window between "applied to test" and "deployed to prod" it is indistinguishable from drift** — and it presents in the direction the check reads as *loss*, whose natural remediation is to restore the privilege. The check's correctness and the fix's correctness are in direct opposition for the entire life of every such fix.
+
+**Decision:** Detection stays; **remediation becomes asymmetric.** A privilege *narrowing* observed on test is presumed intentional and reported without a generated restore. Narrowing wrongly causes an outage, which is loud; widening wrongly causes a vulnerability, which is silent — so only one direction may be automated. Filed as **P1102**; this entry records the reasoning because the same shape applies to `rls-drift-check.py` and to any future environment-comparison check, not just this one.
+
+**Alternatives rejected:** *Revert the remediation commit* — it is shipped, and its header is an accurate record of a check working as designed; deleting it erases the evidence of the interaction. *Have the check read open feature branches* — plausible, but it makes a security monitor depend on branch hygiene. *Stop comparing environments* — the check found real drift on its first live finding; the detection is the valuable half.
+
+**Consequences — the ordering hazard is the part that nearly shipped.** The remediation migration was timestamped **later** than the fix it undid. On any ordered apply — a fresh environment, a replay, or the pending production deploy — the restore therefore runs *after* the revoke. Deploying would have applied the security fix and reverted it in the same run, ending green, with prod exactly as exposed as before. Editing the original migration cannot fix this; only a statement ordered after the remediation can, which is why P1093 carries a second migration whose entire purpose is to be last.
+
+Generalises: **whenever two migrations touch the same privilege, the later timestamp wins regardless of which one is correct.** A remediation generated against live state has no way to know it contradicts a migration already in the repo. Any such generator should refuse on contradiction rather than resolve it by timestamp.
+
+**References:** [features/p1102_drift_check_reverts_in_flight_security_fixes.md](../features/p1102_drift_check_reverts_in_flight_security_fixes.md), [features/done/2026-06-10/p1093_signup_path_writes_unchecked_caller_payload.md](../features/done/2026-06-10/p1093_signup_path_writes_unchecked_caller_payload.md), decisions.md 2026-08-18 [technical] (P1065 baseline severity key)
+
+---
+
+## 2026-08-18 [technical]: a writer with no caller does not need its payload validated — it needs to be unreachable (P1093)
+
+**Context:** P1093 was filed to add membership checks to a completion writer that accepted several caller-supplied identifiers without validating them against the letter. The spec named the fields to derive server-side and the checks to mirror from a sibling path. Investigation falsified the premise the spec rested on: the function had **no call site anywhere in the repo** (its only source mentions were two comments), and it had **never written a row in production** — established by identifying a column only it populates and finding that column null across every production row. It was nonetheless executable by every signed-in user.
+
+**Decision:** Remove the grant rather than validate the payload. One statement closed every unchecked field at once — including one the original review had not named — where the spec's approach would have added derivation logic to each field and left the surface reachable. Deliberately **not** a `DROP`: an existing regression test asserts an anonymous caller receives `insufficient_privilege` from this function, and dropping it would convert that into "does not exist", retiring a live guard against a different defect.
+
+**Alternatives rejected:** *Harden the body as specified* — reduces the surface to benign rather than closing it, and leaves every future edit responsible for re-deriving the same five fields correctly. *Both* — a larger diff whose extra half guards a path no caller reaches.
+
+**Consequences:** The half that was real got restored properly. The dead function was also the home of a replay (staged letter positions lifted into the live store once a reader verifies); with no caller, that replay had silently never run since it was written, while two source comments asserted it did. It now lives in a **parameter-free** function — caller, deliveries and positions all derived from server state — so the defect class cannot recur there by construction rather than by validation. **Where a payload cannot be forged because there is no payload, no future reviewer has to check that it was validated.**
+
+Scope boundary recorded rather than implied: this closed one path, not the class. A sibling table's row-level insert policy still admits a caller-supplied identifier with no membership check — filed as **P1100**, and more reachable than what P1093 closed.
+
+**References:** [features/done/2026-06-10/p1093_signup_path_writes_unchecked_caller_payload.md](../features/done/2026-06-10/p1093_signup_path_writes_unchecked_caller_payload.md), [features/p1100_letter_verification_rows_insertable_directly.md](../features/p1100_letter_verification_rows_insertable_directly.md)
+
+---
+
+## 2026-08-18 [process]: a green suite is evidence about one moment on one environment — four defects in one fix, none caught by it (P1093)
+
+**Context:** P1093's fix reached 8/8 on its own canary, 2811 passing unit tests and 15 passing sibling integration tests. It then produced four defects in sequence, **none** surfaced by that suite:
+
+1. A grant left on the wrong role, because a comment asserted it had been removed and nothing read the catalog. (The underlying rule — that revoking from `PUBLIC` does not remove a role-level grant on this stack — was **already recorded here on 2026-08-13** and was hit anyway.)
+2. An enum filter copied forward from the code being replaced, silently discarding three of seven values including the commonest. The canary layer that should have caught it staged a value valid under both the broken and the correct list, so it proved the code *ran* without proving it did the right thing.
+3. A definer function bypassing the row-level policy it stood in for, under a comment asserting a guarantee the code did not enforce.
+4. The grant reverted out from under a recorded green result (see the drift entry above), so "canary 9 passed" was true when written and false ninety minutes later.
+
+**Decision:** Treat a recorded test result as **evidence about the moment it ran, on the environment it ran against** — never as a property of the branch. Before acting on someone else's green (including your own from earlier in the session), re-derive the state. Every one of the four was caught by re-derivation: a catalog read, an independent reviewer who re-ran the canary instead of reading its recorded result, and that same reviewer testing a claim rather than the quote under it.
+
+**Alternatives rejected:** *Add more layers* — three of the four were invisible to any layer the fixture could emit, which is the existing gate-7b point, not a new one. *Trust the commit message* — the failure mode being named.
+
+**Consequences:** The common shape across all four is sharper than "tests are incomplete": **each was a claim in a comment or a commit message that no test bound and no catalog read had checked.** Prose asserting a state is the artifact to distrust, and it is exactly the artifact that reads as authoritative. Two concrete carries: assert the *effect* of a filter using a value the wrong filter would drop, never one both accept; and where a shared environment can move under you, the last verification before a deploy decision must be a fresh read, not a scroll upward.
+
+**References:** [features/done/2026-06-10/p1093_signup_path_writes_unchecked_caller_payload.md](../features/done/2026-06-10/p1093_signup_path_writes_unchecked_caller_payload.md), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7b and 9, decisions.md 2026-08-13 [technical] (REVOKE FROM PUBLIC vs FROM anon)
+
+---
+
 ## 2026-08-18 [process]: two tests asserting opposite contracts means a decision was reversed, not that one is unimplemented (P1071)
 
 **Context:** P1071 was filed against `get_letter_for_reading` for returning the recipient's email to any invitation-token holder. Its root cause read: P651 "shipped the test but not the change", and the long-red assertion proved the redaction "was never implemented" — explicitly ruling out a rejected decision. That premise was false. P717 had implemented the redaction's reversal deliberately five weeks later, with a migration, its own integration test asserting the **opposite** (`expect(data.delivery.receiver_email).toBeTruthy()`), and a recorded rationale here (2026-04-16). Both tests had been in the repo, one red and one green, against one function, for four months. Acting on the spec as written would have deleted the field and silently re-broken P717's wrong-user guard — the same defect the 2026-04-16 entry records as having already shipped green once. The spec had been through `/create-bug` and absorbed a duplicate (P1090) without anyone catching it.
