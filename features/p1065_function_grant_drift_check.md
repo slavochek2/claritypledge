@@ -82,7 +82,8 @@ prod/test divergence. Wire into `/day` alongside the RLS drift check.
 
       The guard probe's blindness controls were exercised too — a transport that fails every
       request and one that succeeds at every request both report **blind**, not clean.
-      Offline suite: `scripts/test-function-grant-drift-check.py`, **31/31**, exit 0.
+      Offline suite: `scripts/test-function-grant-drift-check.py`, **45/45**, exit 0 (31 at first review,
+      +14 binding the two review fixes).
 - [x] Wired into `/day` next to the RLS drift check — Wave 3, same main-checkout pinning and
       the same three-way exit contract, plus a reading guide. **Committed to `main`**, not to
       this branch: a skill edited in a worktree is not the skill that runs.
