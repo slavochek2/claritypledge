@@ -1,0 +1,122 @@
+# Goal gate — server-side finish line for unattended /goal runs.
+#
+# WHY THIS IS THE REAL BOUNDARY
+# /goal's loop evaluator is an LLM reading the TRANSCRIPT. It runs nothing. So
+# the loop stops on the agent's PASTE of an exit code, not on the exit code —
+# and nothing inside /goal can change that. Local hooks are equally forgeable by
+# the entity they bind. This workflow is where forgery and decay are actually
+# caught: it re-runs the gate against the pushed commits and publishes a check
+# run that, once marked required on `main`, rejects un-checked commits
+# server-side regardless of local hook state or a rewritten local hook.
+#
+# Load-bearing design notes (mirrors privacy-scan.yml, deliberately):
+#  - The gate script is fetched FROM origin/main (the already-trusted copy), NOT
+#    the pushed copy, so an edit to goal-gate.sh inside the change being gated
+#    cannot weaken its own gate.
+#  - The TRIGGER is the contract pin on origin/main, never anything on the
+#    branch. A branch cannot delete a file that lives on main, so a run cannot
+#    duck the gate by deleting its own contract — which is exactly what a loop
+#    would do to a row it was about to fail.
+#  - CI tier ONLY. No Supabase credentials, no browser, no Playwright. Putting a
+#    service-role key into a PUBLIC repo's Actions to run BRANCH-AUTHORED tests
+#    would hand the unattended loop admin credentials on the database its own
+#    tests assert against. The local tier is advisory and re-checked at /ship.
+#  - BLOCKING, never alert-only: no continue-on-error. The job must exit non-zero
+#    to register a failed required check.
+#  - permissions: contents: read ONLY. Actions auto-publishes the check-run
+#    result; a fine-grained PAT cannot POST a check run, so the result is
+#    unforgeable. Do NOT add statuses:write or checks:write.
+
+name: goal-gate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  goal-gate:
+    name: goal-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0 # full history — merge-base and origin/main must be reachable
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Fetch trusted base (origin/main)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main:refs/remotes/origin/main \
+            || git fetch --no-tags --quiet origin main
+
+      - name: Identify goalified specs in this change
+        id: specs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          BRANCH="$REF_NAME"
+          [ "$EVENT_NAME" = "pull_request" ] && BRANCH="$PR_HEAD_REF"
+
+          # Candidates from the branch name AND from every spec touched vs main.
+          # Union, not either/or — a branch name is a weaker signal than a diff.
+          CANDS=$(printf '%s\n' "$BRANCH" | grep -oE 'p[0-9]+' || true)
+          CANDS="$CANDS $(git diff --name-only origin/main...HEAD -- 'features/**' 2>/dev/null \
+                          | grep -oE 'p[0-9]+' || true)"
+
+          # A candidate only counts if a contract pin for it exists ON MAIN.
+          # The pin is the trigger precisely because the branch cannot remove it.
+          PINNED=""
+          for p in $(printf '%s\n' $CANDS | sort -u); do
+            if git cat-file -e "origin/main:features/verification/$p/contract.sha256" 2>/dev/null; then
+              PINNED="$PINNED $p"
+            fi
+          done
+          PINNED=$(printf '%s' "$PINNED" | xargs || true)
+          echo "pinned=$PINNED" >> "$GITHUB_OUTPUT"
+          if [ -z "$PINNED" ]; then
+            echo "No contract pin on origin/main for any P-number here — goal gate does not apply."
+          else
+            echo "Goalified specs with a pin on main: $PINNED"
+          fi
+
+      - name: Install dependencies
+        if: steps.specs.outputs.pinned != ''
+        run: npm ci
+
+      - name: Run the gate (trusted-base script, CI tier)
+        if: steps.specs.outputs.pinned != ''
+        env:
+          PINNED: ${{ steps.specs.outputs.pinned }}
+        run: |
+          set -euo pipefail
+          # Run the gate AS IT EXISTS ON origin/main, not the pushed copy.
+          git show origin/main:scripts/goal-gate.sh > /tmp/trusted-goal-gate.sh
+          chmod +x /tmp/trusted-goal-gate.sh
+          # pipefail is mandatory: `script | tee` under bash -e otherwise returns
+          # tee's 0, silently un-gating the check (decisions.md 2026-06-06).
+          set -o pipefail
+          rc=0
+          for p in $PINNED; do
+            echo "::group::goal-gate $p (tier: ci)"
+            bash /tmp/trusted-goal-gate.sh "$p" --tier ci 2>&1 | tee "gate-$p.txt" || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
+      - name: Canary parity (gate's own red/green suite, pushed copy)
+        if: steps.specs.outputs.pinned != ''
+        run: bash scripts/test-goal-gate.sh
+
+      - name: Dump gate output on failure
+        if: failure()
+        run: for f in gate-*.txt; do [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }; done || true
