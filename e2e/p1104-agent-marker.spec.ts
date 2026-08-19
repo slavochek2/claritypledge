@@ -26,6 +26,39 @@ async function filterOf(locator: Locator): Promise<string> {
   return locator.evaluate(el => getComputedStyle(el).filter);
 }
 
+/**
+ * Mean saturation of what the element ACTUALLY RENDERS, 0 (grey) to 1 (fully saturated).
+ *
+ * `getComputedStyle(el).filter` was used here originally and is worthless for this
+ * question: it returns the DECLARED value, so an assertion that the avatar reads
+ * `grayscale(0)` is true by construction and stays true while an ancestor filter greys
+ * every pixel. That is exactly what shipped, and adversarial review caught it with a
+ * pixel measurement after the declared-value test passed over it. Screenshot the element
+ * and look at the colours.
+ */
+async function meanSaturation(page: Page, locator: Locator): Promise<number> {
+  const png = await locator.screenshot();
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + b64;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d')!;
+    g.drawImage(img, 0, 0);
+    const { data } = g.getImageData(0, 0, c.width, c.height);
+    let total = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 8) continue;              // skip transparent
+      const r = data[i], gr = data[i + 1], b = data[i + 2];
+      const mx = Math.max(r, gr, b), mn = Math.min(r, gr, b);
+      total += mx === 0 ? 0 : (mx - mn) / mx;     // HSV saturation
+      n++;
+    }
+    return n === 0 ? 0 : total / n;
+  }, png.toString('base64'));
+}
+
 /** The row/card element carrying the drained treatment for a given person. */
 function rowFor(page: Page, name: string): Locator {
   return page.locator('[role="button"]').filter({ hasText: name }).first();
@@ -148,14 +181,27 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await expect(rowFor(page, agent.name).locator('[data-testid="ear-badge"]')).toHaveCount(0);
     });
 
-    test('row chrome is drained of colour, and the avatar is exempt from that filter', async ({ page }) => {
+    test('row chrome is drained of colour — measured on rendered pixels, not declared CSS', async ({ page }) => {
       const row = rowFor(page, agent.name);
-      expect(await filterOf(row), 'agent row chrome must carry a grayscale filter').toContain('grayscale');
+      const chrome = row.locator('.agent-drained-chrome').first();
+      await expect(chrome).toBeVisible();
 
-      // The exemption is the decision, not a detail: a blanket filter over the card kills
-      // the portrait's sensor accent and the result reads as a DISABLED CONTROL.
+      const sat = await meanSaturation(page, chrome);
+      expect(sat, `agent row chrome should render desaturated, measured ${sat}`).toBeLessThan(0.05);
+    });
+
+    test('the avatar is NOT drained — the exemption asserted on rendered pixels', async ({ page }) => {
+      // The original assertion here read getComputedStyle().filter and was true by
+      // construction. This one renders the avatar and looks at its colours, so it fails
+      // if the avatar is ever nested inside the filtered subtree again.
+      const row = rowFor(page, agent.name);
       const wrapper = row.locator('[data-testid="gravatar-avatar-wrapper"]');
-      expect(await filterOf(wrapper), 'the avatar must be un-filtered inside a drained card').toBe('grayscale(0)');
+
+      const sat = await meanSaturation(page, wrapper);
+      expect(
+        sat,
+        `the agent avatar must keep its colour inside a drained card, measured saturation ${sat}`,
+      ).toBeGreaterThan(0.15);
     });
 
     test('row aria-label carries the marker', async ({ page }) => {
@@ -188,6 +234,9 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
         await filterOf(row),
         'the card-level treatment must never collide with a monochrome human photo',
       ).not.toContain('grayscale');
+      // Declared CSS is not enough on its own: a human row nested inside a drained
+      // ancestor would render grey while its own filter still read 'none'.
+      await expect(row.locator('.agent-drained-chrome')).toHaveCount(0);
     });
   });
 
@@ -280,41 +329,107 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
     });
   });
 
-  test.describe('the registry row is what drives the marker', () => {
-    test('an agent-shaped profile whose agent_accounts row is removed renders as a person again', async ({ page }) => {
-      // Gate 7 — exercise the failure path rather than trusting the happy one. This is
-      // the only test that proves the marker is driven by ROW EXISTENCE in the registry
-      // and not by something incidental that correlates with it on the other fixtures —
-      // the "Agent · " name string, has_pledged, or is_verified, all of which stay
-      // exactly as they are across the two halves of this test.
-      const throwaway = await createTestAgentAccount({ subject: 'P1104 Registry Dependence Subject' });
-      const pointC = await createTestPoint(owner.user.id, { statement: `P1104 registry dependence ${Date.now()}` });
+  test.describe('the photographic avatar branch', () => {
+    // Every other fixture is avatar-less and renders INITIALS, so GravatarAvatar's <img>
+    // path — the one a real agent will always take, carrying the robotified portrait —
+    // is otherwise never executed by any P1104 test.
+    test('an agent with a real image renders it square, un-ringed and un-drained', async ({ page }) => {
+      const withPhoto = await createTestAgentAccount({
+        subject: 'P1104 Photo Subject',
+        avatarUrl: 'https://placehold.co/96x96/FF0000/FFFFFF.png?text=A',
+      });
+      const pointP = await createTestPoint(owner.user.id, { statement: `P1104 photo point ${Date.now()}` });
 
       try {
-        await seedAgentPosition(pointC.id, throwaway.profileId, 'agree');
+        await seedAgentPosition(pointP.id, withPhoto.profileId, 'agree');
+        await page.goto(`/point/${pointP.id}`);
+        await page.waitForLoadState('networkidle');
 
+        const row = rowFor(page, withPhoto.name);
+        const avatar = row.locator('[data-testid="gravatar-avatar"]');
+        await expect(avatar).toHaveAttribute('data-agent', 'true', { timeout: 15000 });
+        await expect(avatar).not.toHaveAttribute('data-pledger', 'true');
+        expect(await borderRadiusPx(avatar), 'a photographic agent avatar is still square').toBeLessThan(50);
+
+        // The alt text must disclose, since a screen reader gets no shape and no colour.
+        const img = avatar.locator('img');
+        await expect(img).toHaveAttribute('alt', new RegExp('machine-generated reading'));
+
+        // And the image itself must not be drained by the card treatment.
+        const sat = await meanSaturation(page, row.locator('[data-testid="gravatar-avatar-wrapper"]'));
+        expect(sat, `the portrait must keep its colour, measured ${sat}`).toBeGreaterThan(0.15);
+      } finally {
+        await deleteTestPoint(pointP.id);
+        await deleteTestAgentAccount(withPhoto.profileId);
+      }
+    });
+  });
+
+  test.describe('the registry row is what drives the marker', () => {
+    test('a profile carrying the "Agent · " NAME but no registry row renders as a person', async ({ page }) => {
+      // Gate 7, restated. The original version of this test deleted the registry row from
+      // under a live agent; that is now impossible by construction (service_role lost
+      // DELETE, and a trigger refuses removal while the profile exists), so the test had
+      // to prove the same property another way.
+      //
+      // This is the stronger form anyway: it holds the NAME fixed at the exact reserved
+      // marker and varies only registry membership. If anything in the render path ever
+      // keys off the "Agent · " string instead of the registry, this fails — and nothing
+      // else in the suite would.
+      const email = `e2e-unregistered-${Date.now()}@claritypledge-test.com`;
+      const { data: minted, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+        email, email_confirm: false,
+      });
+      expect(authErr).toBeNull();
+      const impostorId = minted!.user.id;
+      const impostorName = `Agent · Unregistered Subject ${Date.now()}`;
+
+      // service_role writes profiles directly — the guard trigger constrains only
+      // anon/authenticated, so this is the one role that can produce this state at all.
+      const { error: insErr } = await supabaseAdmin.from('profiles').insert({
+        id: impostorId, email, name: impostorName,
+        slug: `agent-unregistered-${Date.now()}`,
+        is_verified: true, has_pledged: true,
+      });
+      expect(insErr).toBeNull();
+
+      const pointC = await createTestPoint(owner.user.id, { statement: `P1104 unregistered ${Date.now()}` });
+      try {
+        await seedAgentPosition(pointC.id, impostorId, 'agree');
         await page.goto(`/point/${pointC.id}`);
         await page.waitForLoadState('networkidle');
-        const before = rowFor(page, throwaway.name).locator('[data-testid="gravatar-avatar"]');
-        await expect(before).toHaveAttribute('data-agent', 'true', { timeout: 15000 });
-        expect(await borderRadiusPx(before)).toBeLessThan(50);
 
-        // Remove ONLY the registry row. The profile, its name, its flags all survive.
-        const { error } = await supabaseAdmin
-          .from('agent_accounts').delete().eq('profile_id', throwaway.profileId);
-        expect(error).toBeNull();
+        const row = rowFor(page, impostorName);
+        const avatar = row.locator('[data-testid="gravatar-avatar"]');
+        await expect(avatar).toBeVisible({ timeout: 15000 });
 
-        await page.goto(`/point/${pointC.id}`);
-        await page.waitForLoadState('networkidle');
-        const after = rowFor(page, throwaway.name).locator('[data-testid="gravatar-avatar"]');
-        await expect(after).toBeVisible({ timeout: 15000 });
         await expect(
-          after,
-          'with no registry row the marker must disappear — proving the registry, not the name, is the source of truth',
+          avatar,
+          'the marker must follow the registry row, never the display name',
         ).not.toHaveAttribute('data-agent', 'true');
-        expect(await borderRadiusPx(after)).toBeGreaterThanOrEqual(50);
+        expect(await borderRadiusPx(avatar)).toBeGreaterThanOrEqual(50);
+        await expect(row.locator('.agent-drained-chrome')).toHaveCount(0);
       } finally {
         await deleteTestPoint(pointC.id);
+        await supabaseAdmin.auth.admin.deleteUser(impostorId);
+      }
+    });
+
+    test('the registry row cannot be orphaned — deleting it while the profile lives is refused', async ({ page: _page }) => {
+      // The other half of the same guarantee, and the reason the test above had to change:
+      // an agent-shaped profile with no registry row must not be REACHABLE, not merely
+      // undesirable. Adversarial review demonstrated service_role deleting the row and
+      // leaving the profile rendering as an ordinary person.
+      const throwaway = await createTestAgentAccount({ subject: 'P1104 Orphan Guard Subject' });
+      try {
+        const { error } = await supabaseAdmin
+          .from('agent_accounts').delete().eq('profile_id', throwaway.profileId);
+        expect(error, 'a bare registry delete must be refused while the profile exists').not.toBeNull();
+
+        const { data: still } = await supabaseAdmin
+          .from('agent_accounts').select('profile_id').eq('profile_id', throwaway.profileId).maybeSingle();
+        expect(still?.profile_id).toBe(throwaway.profileId);
+      } finally {
         await deleteTestAgentAccount(throwaway.profileId);
       }
     });
@@ -331,7 +446,11 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
 
       const card = page.locator('[data-agent-row="true"]').first();
       await expect(card).toBeVisible();
-      expect(await filterOf(card)).toContain('grayscale');
+      // The card root carries the marker attribute; the FILTER lives on the content
+      // column, because a filter on the root would also drain the avatar.
+      const chrome = card.locator('.agent-drained-chrome').first();
+      await expect(chrome).toBeVisible();
+      expect(await filterOf(chrome)).toContain('grayscale');
 
       const avatar = card.locator('[data-testid="gravatar-avatar"]').first();
       await expect(avatar).toHaveAttribute('data-agent', 'true');

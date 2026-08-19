@@ -203,9 +203,11 @@ export function StoryCardDetail({
             identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className="font-medium">{story.authorName}</span>
-          {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
-          <PositionBadge position={authorPosition} />
+          <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+            <span className="font-medium">{story.authorName}</span>
+            {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
+            <PositionBadge position={authorPosition} />
+          </span>
         </div>
 
         {/* Quoted Story box */}
@@ -280,8 +282,8 @@ export function StoryCardDetail({
             <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} avatarColor={story.authorAvatarColor} size="sm" isPledger={story.authorHasPledged ?? false} isAgent={isAgent} identityPending={identityPending} />
           </button>
 
-          {/* Content column - aligned under avatar */}
-          <div className="flex-1 min-w-0">
+          {/* Content column — carries the drain; the avatar column is its SIBLING. */}
+          <div className={`flex-1 min-w-0${isAgent ? ' agent-drained-chrome' : ''}`}>
             {/* Author info row */}
             <div className="mb-2">
               <div className="flex items-center gap-1.5">
@@ -585,9 +587,11 @@ function QuotedPoint({
             identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
+          <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
           <span className="font-medium">{authorName}</span>
           {!isAgent && !identityPending && <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />}
           {ownerPosition && <PositionBadge position={ownerPosition.position} />}
+          </span>
         </div>
       )}
 

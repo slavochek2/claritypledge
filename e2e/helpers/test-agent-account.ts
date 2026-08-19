@@ -65,7 +65,11 @@ export async function createTestAgentAccount(options: {
     p_name: name,
     p_slug: slug,
     p_avatar_url: options.avatarUrl ?? null,
-    p_avatar_color: options.avatarColor ?? '#39424B',
+    // A SATURATED default on purpose. The frozen avatar-generation prompt uses a slate
+    // palette, so a near-grey fixture would make the "avatar is not drained" assertion
+    // pass even if the avatar were being drained — the measurement could not tell the
+    // two apart. Fixtures must be able to fail the test they exist to prove.
+    p_avatar_color: options.avatarColor ?? '#0044CC',
     p_operator_name: operatorName,
   });
 

@@ -787,8 +787,8 @@ function PositionHolderCard({
         className="!w-5 !h-5 !text-[10px]"
       />
 
-      {/* Content */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+      {/* Content — carries the drain; the avatar is its SIBLING, never its descendant. */}
+      <div className={`flex-1 min-w-0 flex items-center gap-1.5 flex-wrap${isAgent ? ' agent-drained-chrome' : ''}`}>
         <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
         {/* P1104: an agent account holds no reputation. EarBadge is "never conditionally
             hide — 0 is meaningful" for people, so the suppression lives here at the call
@@ -952,7 +952,7 @@ function PositionlessStoryRow({
         identityPending={identityPending}
         className="!w-5 !h-5 !text-[10px]"
       />
-      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+      <div className={`flex-1 min-w-0 flex items-center gap-1.5 flex-wrap${isAgent ? ' agent-drained-chrome' : ''}`}>
         <span className="font-medium text-foreground text-sm truncate">{story.authorName}</span>
         {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
 

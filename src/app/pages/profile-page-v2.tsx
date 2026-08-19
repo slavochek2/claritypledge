@@ -1309,7 +1309,8 @@ function StoryCardFull({
     <div
       role="button"
       tabIndex={0}
-      className="relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${storyIsAgent ? ' agent-card-drained' : ''}`}
+      {...(storyIsAgent ? { 'data-agent-row': 'true' } : {})}
       aria-label={`Story by ${author.name}`}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
@@ -1346,8 +1347,9 @@ function StoryCardFull({
             />
           </button>
 
-          {/* Content column */}
-          <div className="flex-1 min-w-0">
+          {/* Content column — carries the drain; the avatar above is its SIBLING, never
+              its descendant, because a filter cannot be undone by a descendant rule. */}
+          <div className={`flex-1 min-w-0${storyIsAgent ? ' agent-drained-chrome' : ''}`}>
             {/* Author info row */}
             <div className="mb-2">
               <div className="flex items-center gap-1.5">
@@ -1360,12 +1362,16 @@ function StoryCardFull({
                 >
                   {author.name}
                 </button>
+                {/* P1104: an agent holds no reputation. Hand-rolled pill, not <EarBadge>,
+                    so it needs BOTH the gate and the testid the page-wide sweep keys on. */}
+                {!storyIsAgent && !storyIdentityPending && (
                 <MobileTooltip content={earTooltip(credibilityStats.ear, author.name)}>
-                  <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
+                  <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
                     <Ear size={12} />
                     {credibilityStats.ear}
                   </span>
                 </MobileTooltip>
+                )}
               </div>
               <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
@@ -1651,14 +1657,16 @@ function QuotedPointCard({
             identityPending={quotedIdentityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
+          <span className={`inline-flex items-center gap-1.5${quotedIsAgent ? ' agent-drained-chrome' : ''}`}>
           <span className="font-medium">{authorName}</span>
-          {authorEarCount !== undefined && authorEarCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
+          {!quotedIsAgent && !quotedIdentityPending && authorEarCount !== undefined && authorEarCount > 0 && (
+            <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
               <Ear size={14} />
               {authorEarCount}
             </span>
           )}
           <PositionBadge position={point.profileSubjectPosition as PositionType} />
+          </span>
         </div>
       )}
 
@@ -1787,14 +1795,18 @@ function PointCardFull({
               identityPending={ownerIdentityPending}
               className="!w-5 !h-5 !text-[10px]"
             />
+            <span className={`inline-flex items-center gap-1.5${ownerIsAgent ? ' agent-drained-chrome' : ''}`}>
             <span className="font-medium">{profileOwner.name}</span>
+            {!ownerIsAgent && !ownerIdentityPending && (
             <MobileTooltip content={earTooltip(credibilityStats.ear, profileOwner.name)}>
-              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+              <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-muted-foreground">
                 <Ear size={14} />
                 {credibilityStats.ear}
               </span>
             </MobileTooltip>
+            )}
             <PositionBadge position={profileSubjectPosition as PositionType} />
+            </span>
           </div>
         )}
 

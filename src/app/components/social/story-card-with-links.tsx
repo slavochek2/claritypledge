@@ -161,9 +161,11 @@ export function StoryCardWithLinks({
             identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className="font-medium">{author.name}</span>
-          {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
-          <PositionBadge position={profileSubjectPosition} />
+          <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+            <span className="font-medium">{author.name}</span>
+            {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
+            <PositionBadge position={profileSubjectPosition} />
+          </span>
         </div>
 
         {/* Quoted Story box */}
@@ -263,8 +265,8 @@ export function StoryCardWithLinks({
             />
           </button>
 
-          {/* Content column - aligned under avatar */}
-          <div className="flex-1 min-w-0">
+          {/* Content column — carries the drain; the avatar column is its SIBLING. */}
+          <div className={`flex-1 min-w-0${isAgent ? ' agent-drained-chrome' : ''}`}>
             {/* Author info row */}
             <div className="mb-2">
               <div className="flex items-center gap-1.5">
@@ -594,9 +596,11 @@ function QuotedPoint({
             identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className="font-medium">{authorName}</span>
-          {!isAgent && !identityPending && <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />}
-          <PositionBadge position={profileSubjectPosition} />
+          <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+            <span className="font-medium">{authorName}</span>
+            {!isAgent && !identityPending && <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />}
+            <PositionBadge position={profileSubjectPosition} />
+          </span>
         </div>
       )}
 

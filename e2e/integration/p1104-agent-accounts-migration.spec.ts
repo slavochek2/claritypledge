@@ -168,7 +168,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_name: 'Agent · Should Not Be Created',
       p_slug: `agent-should-not-be-created-${Date.now()}`,
       p_avatar_url: null,
-      p_avatar_color: '#39424B',
+      p_avatar_color: '#0044CC',
       p_operator_name: 'Should Not Work',
     });
     expect(error, 'create_or_reuse_agent_account must be service_role-only (P1104 Decision 2)').not.toBeNull();
@@ -185,7 +185,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_name: 'Agent · Service Role Test Subject',
       p_slug: `agent-service-role-test-${Date.now()}`,
       p_avatar_url: null,
-      p_avatar_color: '#39424B',
+      p_avatar_color: '#0044CC',
       p_operator_name: 'Migration Test Operator',
     });
 
@@ -225,7 +225,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_name: 'Agent · No Operator',
       p_slug: `agent-no-operator-${Date.now()}`,
       p_avatar_url: null,
-      p_avatar_color: '#39424B',
+      p_avatar_color: '#0044CC',
       p_operator_name: '   ',
     });
 
@@ -251,7 +251,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_name: 'Agent · Reuse Test Subject',
       p_slug: `agent-reuse-test-${Date.now()}`,
       p_avatar_url: null,
-      p_avatar_color: '#39424B',
+      p_avatar_color: '#0044CC',
       p_operator_name: 'Migration Test Operator',
     });
     expect(firstError).toBeNull();
@@ -269,8 +269,11 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_name: 'Agent · Reuse Test Subject (second call)',
       p_slug: `agent-reuse-test-second-${Date.now()}`,
       p_avatar_url: null,
-      p_avatar_color: '#39424B',
-      p_operator_name: 'A Different Operator',
+      p_avatar_color: '#0044CC',
+      // The SAME operator. Reuse under a different operator is now refused outright —
+      // see 'reuse under a different operator is refused rather than silently
+      // mislabelled'. This case is about reuse itself, not about operator identity.
+      p_operator_name: 'Migration Test Operator',
     });
     expect(secondError).toBeNull();
     expect(second, 'reuse must return the id from the FIRST call, not the proposed one').toBe(first);
@@ -313,7 +316,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_name: 'Agent · Atomicity Test Subject',
       p_slug: collidingSlug, // deliberate collision
       p_avatar_url: null,
-      p_avatar_color: '#39424B',
+      p_avatar_color: '#0044CC',
       p_operator_name: 'Migration Test Operator',
     });
 
@@ -371,6 +374,115 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       expect(error!.message).toMatch(/reserved/i);
     });
   }
+
+  // ── The reservation must hold at the TABLE, not only in the RPC ────────────
+  // Adversarial review measured this: settings-page -> updateProfile writes
+  // profiles.name with a DIRECT table update, and `authenticated` holds a table-level
+  // UPDATE grant. Two rounds of regex hardening guarded upsert_my_profile — a function
+  // the running product does not call to change a name. These cases bind the door that
+  // is actually used.
+  for (const [label, name] of rejectedNames) {
+    test(`a DIRECT profiles.update is refused for the reserved form — ${label}`, async () => {
+      const { error } = await authed.from('profiles').update({ name }).eq('id', authedUser.user.id);
+      expect(error, `"${name}" must not be settable by a direct table update either`).not.toBeNull();
+    });
+  }
+
+  test('the trust-column pinning still works — the name guard did not disable it', async () => {
+    // The first attempt at the table-level guard added SECURITY DEFINER to
+    // guard_profile_trust_columns, which makes current_user the owner and silently
+    // switches OFF the entire guard — including the is_verified / has_pledged pinning
+    // P880 and P878 depend on. This asserts the guard's original job still happens.
+    await supabaseAdmin.from('profiles')
+      .update({ is_verified: false, has_pledged: false }).eq('id', authedUser.user.id);
+
+    await authed.from('profiles')
+      .update({ is_verified: true, has_pledged: true }).eq('id', authedUser.user.id);
+
+    const { data } = await supabaseAdmin.from('profiles')
+      .select('is_verified, has_pledged').eq('id', authedUser.user.id).single();
+    expect(data?.is_verified, 'a client must not be able to self-verify').toBe(false);
+    expect(data?.has_pledged, 'a client must not be able to self-pledge').toBe(false);
+  });
+
+  test('an agent account MUST carry the marker in its name', async () => {
+    // Humans were forbidden the marker while agents were not required to carry it, so a
+    // caller bug could register an agent named plainly after the real person. The name is
+    // the only channel that reaches off-platform surfaces.
+    const proposedId = await mintAuthUser();
+    strayAuthUserIds.push(proposedId);
+
+    const { error } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
+      p_profile_id: proposedId,
+      p_subject_key: `p1104-bare-name-${Date.now()}`,
+      p_email: `p1104-bare-${Date.now()}@claritypledge-test.com`,
+      p_name: 'A Real Public Figure',
+      p_slug: `agent-bare-${Date.now()}`,
+      p_avatar_url: null,
+      p_avatar_color: '#0044CC',
+      p_operator_name: 'Test Operator',
+    });
+
+    expect(error, 'an agent registered under a bare person name must be refused').not.toBeNull();
+    expect(error!.message).toMatch(/marker/i);
+  });
+
+  test('a registry row cannot be deleted while its profile exists', async () => {
+    const { error } = await supabaseAdmin
+      .from('agent_accounts').delete().eq('profile_id', fixtureAccount.profileId);
+    expect(error, 'orphaning a profile would make it render as a person').not.toBeNull();
+
+    const { data } = await supabaseAdmin
+      .from('agent_accounts').select('profile_id').eq('profile_id', fixtureAccount.profileId).maybeSingle();
+    expect(data?.profile_id).toBe(fixtureAccount.profileId);
+  });
+
+  test('subject_key is stored trimmed, so whitespace variants are one subject not two', async () => {
+    // Untrimmed, " key" and "key" were distinct subjects — two agents for one person,
+    // able to hold opposing positions on the same point without tripping
+    // UNIQUE(point_id, user_id), because they are different users.
+    const key = `p1104-trim-${Date.now()}`;
+    const firstId = await mintAuthUser();
+    strayAuthUserIds.push(firstId);
+
+    const { data: first, error: e1 } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
+      p_profile_id: firstId, p_subject_key: `  ${key}  `,
+      p_email: `p1104-trim-a-${Date.now()}@claritypledge-test.com`,
+      p_name: 'Agent · Trim Subject', p_slug: `agent-trim-a-${Date.now()}`,
+      p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
+    });
+    expect(e1).toBeNull();
+    createdProfileIds.push(first as string);
+
+    const secondId = await mintAuthUser();
+    strayAuthUserIds.push(secondId);
+    const { data: second, error: e2 } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
+      p_profile_id: secondId, p_subject_key: key,
+      p_email: `p1104-trim-b-${Date.now()}@claritypledge-test.com`,
+      p_name: 'Agent · Trim Subject', p_slug: `agent-trim-b-${Date.now()}`,
+      p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
+    });
+    expect(e2).toBeNull();
+    expect(second, 'a whitespace variant must resolve to the SAME agent').toBe(first);
+  });
+
+  test('reuse under a different operator is refused rather than silently mislabelled', async () => {
+    // The reuse branch returned the existing id and discarded the supplied operator, so
+    // operator B could file content that every surface attributes to operator A. The
+    // public-figure policy approval is conditional on the operator being answerable.
+    const { error } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
+      p_profile_id: await mintAuthUser(),
+      p_subject_key: fixtureAccount.subjectKey,
+      p_email: `p1104-op-${Date.now()}@claritypledge-test.com`,
+      p_name: 'Agent · Migration Fixture Subject',
+      p_slug: `agent-op-${Date.now()}`,
+      p_avatar_url: null, p_avatar_color: '#0044CC',
+      p_operator_name: 'A Completely Different Operator',
+    });
+
+    expect(error, 'reuse must not publish one operator content under another name').not.toBeNull();
+    expect(error!.message).toMatch(/different operator/i);
+  });
 
   test('upsert_my_profile still accepts an ordinary display name', async () => {
     const newName = `P1104 Migration Ordinary Name ${Date.now()}`;

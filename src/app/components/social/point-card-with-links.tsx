@@ -271,7 +271,8 @@ export function PointCardWithLinks({
     <div
       role={!isDetailView && !disableNavigation ? 'button' : undefined}
       tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
-      className={cardClassName}
+      className={`${cardClassName}${isOwnerAgent ? ' agent-card-drained' : ''}`}
+      {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={!isDetailView && !disableNavigation ? (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -297,9 +298,11 @@ export function PointCardWithLinks({
                 identityPending={identityPending}
                 className="!w-5 !h-5 !text-[10px]"
               />
+              <span className={`inline-flex items-center gap-1.5${isOwnerAgent ? ' agent-drained-chrome' : ''}`}>
               <span className="font-medium">{profileOwner.name}</span>
               {!isOwnerAgent && !identityPending && <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />}
               <PositionBadge position={profileOwner.position} />
+              </span>
             </div>
 
             {/* Quoted Point box */}

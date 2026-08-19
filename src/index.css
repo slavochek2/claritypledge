@@ -205,27 +205,37 @@ body {
  * hold no pledge, no oath and no reputation, and a card without colour is a card with
  * lower standing.
  *
- * The avatar is EXEMPT, and that exemption is the decision, not a detail. Two findings
- * drove it (measured 2026-08-19):
- *   1. A blanket grayscale() over the card kills the robot portrait's amber sensor
- *      accent too, and the result reads as a DISABLED CONTROL rather than a
- *      machine-authored one.
- *   2. Greying the avatar alone fails outright on evidence the product already contains:
- *      a real human profile photo on this site measures 0.00 mean saturation — greyer
- *      than the robotified portrait's 0.17. An avatar-saturation rule marks that person
- *      as a machine. Black-and-white profile photos are ordinary; no choice of greys
- *      makes that rule safe. The card-level treatment does not collide with them at all,
- *      because a person with a monochrome photo still has a blue stance badge and a blue
- *      story button.
+ * THE AVATAR MUST NOT BE DRAINED, and the way that is achieved is the decision.
  *
- * Implemented as a filter on the subtree with an un-filtering child, rather than as a
- * palette swap, so it carries unchanged over any badge or pill added later without that
- * component needing to know this rule exists.
+ * A descendant `filter: grayscale(0)` CANNOT undo an ancestor's `filter: grayscale(1)`.
+ * A filtered element rasterises its entire subtree as one group and filters the result;
+ * grayscale(0) is the identity function applied before that, so it changes nothing.
+ * Measured in headless Chromium against the exact nesting: declared filter on the
+ * "exempt" child read `grayscale(0)` while its rendered pixel was rgb(54,54,54) from a
+ * source of rgb(255,0,0). The first implementation of this rule shipped that bug, and the
+ * test guarding it asserted `getComputedStyle(el).filter` — the DECLARED value, which is
+ * true by construction — so it could not fail.
+ *
+ * Two findings make the exemption mandatory rather than cosmetic:
+ *   1. A blanket grayscale() kills the robot portrait's amber sensor accent, and the
+ *      result reads as a DISABLED CONTROL rather than a machine-authored one.
+ *   2. It also greys the VIEWER'S OWN live controls inside these cards — the position
+ *      buttons carrying their recorded stance, and the destructive remove-position
+ *      control that depends on staying red.
+ *
+ * So the filter is applied to the CONTENT SIBLING of the avatar, never to a common
+ * ancestor. `.agent-card-drained` marks the card for identification; `.agent-drained-chrome`
+ * is what actually carries the filter, and the avatar lives outside it.
  */
-.agent-card-drained {
+.agent-drained-chrome {
   filter: grayscale(1);
 }
 
-.agent-card-drained [data-testid="gravatar-avatar-wrapper"] {
-  filter: grayscale(0);
-}
+/* KNOWN AND ACCEPTED: controls that live inside the drained content column are drained
+ * with it — including the viewer's own recorded position buttons. An earlier draft tried
+ * to exempt them with a nested `filter: grayscale(0)`, which is the same mistake this
+ * comment exists to record: it cannot work, for the reason above. Exempting them properly
+ * means moving them out of the filtered subtree, which is a layout change to shared
+ * components and is not in this spec's scope. Recorded in the spec's review section as an
+ * accepted residual rather than closed with a rule that does nothing.
+ */
