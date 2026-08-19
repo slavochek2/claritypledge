@@ -161,6 +161,35 @@ design, so nothing is lost if every hook is reverted.
       the `/slava:maintain:claude-md` gate; line count unchanged at 109, net prose 0. Nothing
       else in `CLAUDE.md` or `.claude/rules/` was touched by this spec.
 
+## Adversarial review outcome (2026-08-19) — READ THIS BEFORE /ship
+
+`/slava:think:adversarial-review`, 5 hostile reviewers. **Group 1 is UNREGISTERED.** The
+hook file and its canary remain in the repo; the `.claude/settings.json` entry is gone.
+
+**Why**, in the spec's own words: *"A gate that can be satisfied while committing the error
+it names is worse than none: it manufactures confidence."* The guard refused the documented
+recovery for an already-broken tree (`git.md:158`, `worktree-setup.md:74`,
+`revert-feature.md:143`), refused `--no-verify` which `fix.md:637` sanctions with founder
+approval while naming no escape, and was bypassable by prefixing `env`. It blocked recovery
+but not intent. Re-register only once the findings are closed.
+
+Groups 2 and 3 stay registered, with 8 findings fixed and new canary cases pinning each.
+The three that matter most were all **structurally invisible to the canaries** (gate 7b):
+the validator's green depended on an untracked directory outside the repo; the router
+missed the canonical spelling of its own #1 trigger because `INVARIANT 5` forbids an
+apostrophe in the fixture; and the "hermetic" canary was writing into the production log
+that measures the hook.
+
+**Coverage, honestly:** 4 of 5 reviewers reported, 3 only after being chased, 1 never. The
+evasion lens was run by hand after the channel failed. Every finding was re-verified locally
+before being acted on — none was promoted on a reviewer's word (gate 9).
+
+**Incident:** a reviewer executed a real force-push against `origin` while building a
+fixture. Verified: `origin/main` at `d40c4582` is an ancestor of local main, no history
+rewritten. The **pre-push privacy firewall rejected it** — which is the review's most
+important structural finding: the server-side check (P917/P919) is the real boundary, and a
+local hook was never going to be one.
+
 ## Evidence
 
 **Group 1 — `.claude/hooks/block-banned-git.py`** (registered PreToolUse/Bash).
