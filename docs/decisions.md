@@ -6,6 +6,32 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [process]: Ask the outcome record before trusting a mechanism argument — three cited claims died on one grep
+
+**Context:** Executing the `/goalify` plan (entry below). The plan was unusually well-sourced: every claim carried `file:line`, and it had survived **three** adversarial reviews. Re-verifying it before building — because ~30 commits had landed since its base — falsified **three load-bearing claims**, all in the same way.
+
+| plan claim | what the artifacts said |
+|---|---|
+| `/dev` → `/verify` → `/ship` "**cannot complete**" — the stamp overwrites `delivery_stage`, the 6a guard excludes `verify`, `/ship` needs `qa` | It completes routinely. **≥6 specs** ran `dev → verify → ship` *after* stamp and guard landed in the **same commit** (`8c090095`, 2026-04-05) |
+| The dead-ending `/verify` is "**why 34 scorecards stall unmarked**" | **21 of the 25** unmarked scorecards belong to specs that **never ran `/verify`** |
+| `/sim` has "**zero** references from other skills" | **One** — `verify/SKILL.md:531`. The plan's grep was confounded by `/simplify` sharing the prefix |
+
+**Decision:** For any claim about how a pipeline *behaves*, read the **outcome record** before accepting a mechanism argument — and prefer it when they disagree. Concretely: `grep` the corpus for specs that took the path and look at where they ended up. Every one of these three was settled by one grep over `features/`, and none by reading more code.
+
+The mechanism reasoning was not sloppy; it was **valid and still wrong**. Stamp-overwrites-then-guard-excludes is a correct reading of both lines. What it cannot tell you is whether the guard *binds* — because the guard is prose an agent evaluates, and agents evaluate it loosely. Which produces the distinction worth keeping:
+
+> **A guard fails in two opposite ways.** *Blocking* — it fires when it should not, and work stops visibly. *Not binding* — it never fires at all, and work proceeds while the guard's existence is cited as assurance. Mechanism reading cannot separate them; the outcome record separates them immediately. The `/verify` guard was the second kind, which is the one that looks fine.
+
+**Corrects the "six controls audited" entry below:** its "the one at the choke-point is **hollow**" is **false as written**. Checking it found `src/tests/p955-strictness-canary.test.ts` — a real grep canary whose header documents it having been watched RED 6/6 before going green. The narrower doubt (whether `p955-gate.test.ts` binds anything beyond fixtures it also defines) survives and is now `features/p1118`. Whether `ui-gate` is *required* on `main` remains **unverified** — it needs settings access this session did not have, and is labelled as such in the spec rather than asserted.
+
+**Alternatives rejected:** *Trust the citations, since each one resolves* — every one of the three did resolve to a real line saying what the plan said it said. A citation proves the line exists, never that the conclusion drawn from it holds ([epistemic.md](../.claude/rules/epistemic.md) gate 9, "test the claim, not the quote under it"). *Trust the three adversarial reviews* — all three reviewed the **design**, and a design review cannot falsify a claim about what the repo has already done. *Re-read the skills more carefully* — more mechanism reading would have re-derived the same wrong answer with more confidence; the corpus was the independent oracle.
+
+**Consequences:** The fix shipped either way — the corrected guard now tests `dev`/`fix` in `pipeline_ran` (append-only, and it preserves the history the guard actually asks about) — but the **rationale** changed completely, and P2 stopped being a blocker for Stage 1. A prerequisite justified by a causal claim should have that claim checked before it is allowed to block anything: this one delayed nothing only because it was checked early. Six repair specs (`p1117`–`p1122`) carry the corrected numbers, and each labels what was verified this session versus what was not.
+
+**References:** [features/p1117](../features/p1117_verify_prod_mode_reads_an_overwritten_field.md) · [features/p1118](../features/p1118_p955_ui_gate_may_not_bind_real_code.md) · [features/p1121](../features/p1121_sim_is_dead_measure_before_retiring.md) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9 · this log, the two 2026-08-19 `/goalify` entries below
+
+---
+
 ## 2026-08-19 [product]: The membership onboards in batches and only then merges into one room — rolling entry was priced correctly and delivered impossibly
 
 **Context:** Rebuilding `/program` from the retired co-founder pair offer (Free / €950-pair / €2450-pair) onto the 2026-08-10 ladder. The billing shape was settled quickly — **€295/month per person, monthly and open-ended, no prepay**, because a 3-month prepay (€885 up front) re-imports the exact budget barrier that made membership rung 1 ahead of the €4,500 install. What was not settled was *entry*.
