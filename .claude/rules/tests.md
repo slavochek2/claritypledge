@@ -165,6 +165,8 @@ When writing or reviewing tests that cover a UI component with a conditional ren
 
 This applies in /fix Phase 2 (canary) and Phase 4 (verify). Discovering a missing branch during code review counts as a failed Phase 2.
 
+**Same rule with call sites as the denominator:** when the fix repeats across call sites of one component/helper (not branches within one render tree), enumerate all of them — anchor a grep on the consumer (the component tag or call name), not on a value that could itself be missing — and assert per site. Untouched sites sharing the pattern must be listed as in-scope or ticketed, not silently left uncovered.
+
 ## Hook Domain-Type Coverage — Both Fetch Paths Required
 
 Any hook that returns a domain type assembled from a DB query AND uses a realtime subscription must have unit tests for **both** data delivery paths:

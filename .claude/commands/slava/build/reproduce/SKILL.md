@@ -170,8 +170,11 @@ This phase has two tracks. Run the one that fits the bug type; run both if the b
 1. Identify the core symptom as a grep pattern. Examples:
    - "position counts show 0" → grep for `PositionButtons`, `positionCounts`, `userPosition`
    - "button not highlighted" → grep for `useState.*null` near position rendering
+
+   **If the symptom is a value being dropped (a prop/column/field not passed), invert the search.** Grepping the dropped identifier itself only finds sites where it IS present — a site that drops it has no occurrence of it to match (verified: `profile-page-v2.tsx:1745` passes `isPledger` but contains zero occurrences of `avatarColor` in that call). Instead, grep the **consumer anchor** — the component tag or query/RPC name (e.g. `grep -rn "<GravatarAvatar" src/`) — and inspect each hit for the field's absence. Never grep only the symptom's literal value either (e.g. `isPledger={false}`): a sibling site can have that part correctly wired while a different related field is still silently dropped (P1109: `isPledger` correct, `avatarColor` missing).
 2. Search codebase for every component that renders the affected behavior.
 3. For each match, assess: is the bug present here too?
+3.5. **Completion check for dropped-value bugs (one pass, not a loop).** Re-run the consumer-anchor search from step 1 with no value literal and no prop filter, and diff that hit list against step 2's. Any site only the broader search found goes back through step 3 before it appears in the step-4 list. If the anchor returns more than ~100 hits, narrow by directory rather than reintroducing a value literal, and say so in the output.
 4. Present the full list:
 
 ```
@@ -303,6 +306,8 @@ reproduce_artifact:
   confidence: high | medium
   surfaces_in_scope: [profile-points, profile-stories]
   surfaces_deferred: [P720, P721]
+  surface_audit_anchor: "<GravatarAvatar"   # optional — set when Track A's dropped-value inversion ran; the consumer-anchor grep actually executed
+  surface_audit_hits: 58                    # optional — count of sites the anchor returned
   reproduced_at: 2026-04-16
   post_fix_timeout: 20000   # optional (ms). Set when canary uses a tight timeout
                              # to prove staleness/no-update bug. /fix reads this
