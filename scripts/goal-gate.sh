@@ -151,6 +151,19 @@ if want ci; then
       pass "contract: ${n_rows} rows, ${n_mech} MECHANICAL"
     fi
 
+    # HUMAN-ONLY share. Mechanized on purpose: this is the refusal threshold, and
+    # an earlier hand-count of it was wrong (2 where the answer was 3). A threshold
+    # an agent computes about its own spec is a threshold the agent can round.
+    n_human=$(contract_rows | $GREP -c '^HUMAN-ONLY' || true)
+    if [[ "${n_rows:-0}" -gt 0 ]]; then
+      pct=$(( (${n_human:-0} * 100) / n_rows ))
+      if [[ "$pct" -gt 25 ]]; then
+        fail "HUMAN-ONLY is ${n_human}/${n_rows} = ${pct}% (>25%) — this spec is mostly taste and is not loopable"
+      else
+        pass "HUMAN-ONLY ${n_human}/${n_rows} = ${pct}% (threshold 25%)"
+      fi
+    fi
+
     # Glob the test locations. Counts are NOT stable across the repo — derived, never hardcoded.
     matches=0
     for pat in "e2e/${PN}-"*.spec.ts "e2e/a11y/${PN}-"* "e2e/integration/${PN}-"* \

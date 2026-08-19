@@ -141,8 +141,17 @@ expect() {
   local ok=0
   if [[ "$want" == 0 && $rc -eq 0 ]]; then ok=1; fi
   if [[ "$want" != 0 && $rc -ne 0 ]]; then ok=1; fi
-  if [[ $ok -eq 1 && -n "$msg" ]] && ! printf '%s' "$out" | $GREP -qF "$msg"; then
-    ok=0; label="$label ${RED}[wrong reason: expected \"$msg\"]${NC}"
+  # A leading '!' inverts the assertion: the message must be ABSENT. Needed for
+  # boundary controls, where the gate legitimately fails for an unrelated reason
+  # and the thing being proved is that a SPECIFIC check stayed silent.
+  if [[ $ok -eq 1 && -n "$msg" ]]; then
+    if [[ "${msg:0:1}" == "!" ]]; then
+      if printf '%s' "$out" | $GREP -qF "${msg:1}"; then
+        ok=0; label="$label ${RED}[fired when it must not: \"${msg:1}\"]${NC}"
+      fi
+    elif ! printf '%s' "$out" | $GREP -qF "$msg"; then
+      ok=0; label="$label ${RED}[wrong reason: expected \"$msg\"]${NC}"
+    fi
   fi
   if [[ $ok -eq 1 ]]; then
     printf '%s✓%s %-58s exit=%s\n' "$GREEN" "$NC" "$label" "$rc"
@@ -161,6 +170,10 @@ expect() {
 m_no_contract()    { $GREP -v '^| DW-\|^## Verification Contract\|^|---\|^| line' "$1/features/${PN}_synthetic.md" > "$1/t" && mv "$1/t" "$1/features/${PN}_synthetic.md"; }
 m_no_mechanical()  { sed -i.bak 's/| MECHANICAL |/| HUMAN-ONLY |/' "$1/features/${PN}_synthetic.md"; }
 m_no_testfiles()   { rm -f "$1/src/tests/${PN}-unit.test.ts"; }
+# Refusal threshold. Fixture has 2 rows; adding 2 HUMAN-ONLY rows makes it 2/4 = 50%.
+m_mostly_human()   { printf '| DW-3 the copy feels right | HUMAN-ONLY | founder | — |\n| DW-4 the tone is ours | HUMAN-ONLY | founder | — |\n' >> "$1/features/${PN}_synthetic.md"; }
+# Boundary control: 1 HUMAN-ONLY of 4 = 25%, which is NOT >25% and must still pass.
+m_at_threshold()   { printf '| DW-3 the copy feels right | HUMAN-ONLY | founder | — |\n| DW-4 unit behaviour B | MECHANICAL | `true` | src/tests/p9001-unit.test.ts |\n' >> "$1/features/${PN}_synthetic.md"; }
 m_cmd_fails()      { sed -i.bak 's/`true`/`false`/' "$1/features/${PN}_synthetic.md"; }
 m_empty_branch()   { ( cd "$1" && git checkout -q main && git checkout -qb feature/${PN}-empty ); }
 m_precommit_red()  { printf '#!/usr/bin/env bash\necho "stub pre-commit RED"\nexit 1\n' > "$1/scripts/pre-commit-checks.sh"; chmod +x "$1/scripts/pre-commit-checks.sh"; }
@@ -193,6 +206,8 @@ echo "${DIM}CHECK 1 — vacuity${NC}"
 expect 1 "1a no Verification Contract section"        ci  m_no_contract "no '## Verification Contract' section"
 expect 1 "1b contract with zero MECHANICAL rows"      ci  m_no_mechanical "ZERO MECHANICAL"
 expect 1 "1c MECHANICAL required but no test files"   ci  m_no_testfiles "zero test files match"
+expect 1 "1d HUMAN-ONLY over 25% — refusal fires"       ci  m_mostly_human "not loopable"
+expect 1 "1e exactly 25% — control, must NOT refuse"    ci  m_at_threshold "!not loopable"
 echo "${DIM}CHECK 2 — exit codes, not summaries${NC}"
 expect 1 "2a MECHANICAL command exits non-zero"       ci  m_cmd_fails "exit 1"
 echo "${DIM}CHECK 3 — the empty-index pass${NC}"
