@@ -183,6 +183,14 @@ that it is taken in the room, in front of the people it binds.
   to an error state or an empty wall.*
 - **Identified readiness could be mistaken for anonymous.** *Mitigation: copy never uses the
   word; the UI Contract below fixes the phrasing.*
+- **An offensive display name reaches the projected wall.** No reliable automated filter exists —
+  word-lists are evaded and false-positive on real names (Security Review → Input Validation).
+  *Mitigation: none in code. **ACCEPTED** 2026-08-19 — the facilitator handles it in the room.
+  The record of who was there is never deleted, so adding a host soft-hide later remains open.*
+- **Roster flooding via the public join RPC** — no auth, no captcha, and the output is on a wall.
+  *Mitigation: **MITIGATED** 2026-08-19 — a soft per-event row cap inside `join_event_room`.
+  Chosen over ACCEPT because this failure mode is visible to the whole room at once, unlike
+  `/ready`'s equivalent.*
 
 ### Non-Goals
 
@@ -276,6 +284,14 @@ room), after (who was there, frozen).
 
 `[FOUNDER DECISION]` on every user-facing string below — these are placeholders marking where
 copy is required, not proposed copy.
+
+**Resolution strategy (2026-08-19):** `/dev` renders each unresolved string as a **visible**
+`PLACEHOLDER:` marker and the founder writes the real copy at `/verify`, against the rendered
+room rather than against this table. Two rows are already resolved by lookup, not decision, and
+`/dev` uses them verbatim: the guest field and the account path both reuse the shipped `/live`
+guest form (`src/app/pages/clarity-live-page.tsx`) — label *"What should we call you?"*,
+placeholder *"Enter your name"*, submit *"Join as Guest"*, divider *"or join as guest"*, account
+path `GoogleAuthButton` + *"Log in with email"*.
 
 | Element | Value | Context |
 |---|---|---|
@@ -701,19 +717,27 @@ colliding with an unrelated feature's key.
    *"What should we call you?"*, placeholder *"Enter your name"*, submit *"Join as Guest"*,
    divider *"or join as guest"*, account path = `GoogleAuthButton` + *"Log in with email"*.
 
-#### Open founder decisions raised by the Security Review — BLOCKING `/dev`
+#### Founder decisions raised by the Security Review — RESOLVED 2026-08-19
 
-Neither is answered by the spec today, and neither is an engineering trade-off `/dev` may settle
-on its own. Both follow the spec's own Risks convention of labelling each risk ACCEPT or MITIGATE.
-
-- **Abuse on the projected wall.** No reliable automated filter exists — word-lists are evaded and
-  false-positive on real names. The Security Review recommends the host be able to hide a row from
-  the projected view **without deleting the underlying data** (a soft-hide flag on a host-only
-  mutation path, so the record of who was there stays intact). BUILD or ACCEPT-and-handle-socially?
-- **Roster flooding.** No auth, no captcha, a public join RPC — and unlike `/ready`, the output is
-  on a wall in front of people. No infra-level rate limiting exists in this repo today. ACCEPT
-  (and write it into Risks) or MITIGATE (a soft per-`event_id` row-count cap inside
-  `join_event_room` — no new infrastructure, does not block legitimate walk-ins)?
+- **Projected-wall abuse → ACCEPT, handled socially.** No host soft-hide is built. The facilitator
+  handles an offensive display name in the room the way they would handle anyone being disruptive.
+  Recorded as an accepted risk in Risks below. Reversible: the soft-hide column + host-gated RPC
+  can be added after the first event that actually needs it, and nothing in this build forecloses
+  it. *Rejected: building the soft-hide now — it prices a problem that has not occurred at a scale
+  of twelve people who can see each other.*
+- **Roster flooding → MITIGATE with a soft cap.** `join_event_room` performs a per-`event_id`
+  row-count check and rejects past a large N. No new infrastructure, no captcha, and a room of
+  twelve never approaches it. Chosen over ACCEPT because, unlike `/ready`'s invisible bad number,
+  this failure mode is visible to everyone in the room at once. **`/dev` must pick N and record
+  it in this spec with its reasoning** — it is a magic number and belongs written down, not
+  buried in a migration.
+- **UI Contract copy → placeholders now, real copy at `/verify`.** `/dev` builds with **visible**
+  `PLACEHOLDER:` markers rendered in the UI — not invented copy, and not empty strings that look
+  like a rendering bug. The founder sets the eight remaining strings once they can be seen in a
+  real room. This is a deliberate second pass over the same components, accepted so that copy is
+  written against the rendered surface rather than against a table. **`/dev` must not invent any
+  user-facing string.** The two resolved slots (guest field, account path) use the shipped `/live`
+  wording verbatim and are NOT placeholders.
 
 #### Files to Create
 
