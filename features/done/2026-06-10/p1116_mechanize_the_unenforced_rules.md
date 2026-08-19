@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 48.0
 created_date: '2026-08-19'
 tags: [claude-md, rules, hooks, mechanization, instruction-layer]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 driver: anomaly
+completed_at: 2026-08-19
 ---
 
 # P1116: Mechanize the rules that were measured not firing
