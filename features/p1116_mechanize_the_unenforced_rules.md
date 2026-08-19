@@ -142,20 +142,85 @@ design, so nothing is lost if every hook is reverted.
 
 ## Done-When
 
-- [ ] Each new hook has been **watched to fail**: the forbidden input was submitted and the
+- [x] Each new hook has been **watched to fail**: the forbidden input was submitted and the
       refusal (or injection) is pasted in the commit message or spec. No hook is marked done
       on "installed"
-- [ ] Each git matcher has at least one proven near-miss that is NOT blocked, and one proven
+- [x] Each git matcher has at least one proven near-miss that is NOT blocked, and one proven
       *mention* that is not blocked — a document or commit message quoting the command must
       pass, per the incident recorded in Risks
-- [ ] Every refusal message names the sanctioned alternative
-- [ ] The three measured routing misses fire on their real recorded phrasings, sampled from
+- [x] Every refusal message names the sanctioned alternative
+- [x] The three measured routing misses fire on their real recorded phrasings, sampled from
       the transcripts that produced the 75 / 14 / 33 counts — not on invented test strings
-- [ ] The command-existence validator fails on a deliberately broken pointer, and passes on
+- [x] The command-existence validator fails on a deliberately broken pointer, and passes on
       `CLAUDE.md` as it stands after P1113
-- [ ] `./scripts/pre-commit-checks.sh` passes with the validator wired in
-- [ ] No prose removed from `CLAUDE.md` or `.claude/rules/` (verify: `git diff --stat` shows
-      no deletions in those paths)
+- [x] `./scripts/pre-commit-checks.sh` passes with the validator wired in
+- [~] No prose removed from `CLAUDE.md` or `.claude/rules/` — **one deliberate exception,
+      founder-approved mid-run.** `.claude/rules/spec-sections.md` lines 45/51/52 were the
+      validator's first real catch: three pointers to `/product-owner`, a skill P647 recorded
+      as "future, not yet built" and which has never existed. Rewritten (not removed) through
+      the `/slava:maintain:claude-md` gate; line count unchanged at 109, net prose 0. Nothing
+      else in `CLAUDE.md` or `.claude/rules/` was touched by this spec.
+
+## Evidence
+
+**Group 1 — `.claude/hooks/block-banned-git.py`** (registered PreToolUse/Bash).
+Watched to fail at the live hook layer, not just in the harness:
+
+```
+$ git add -f docs/CHARTER.md
+BLOCKED: `git add -f/--force` is banned (.claude/rules/git.md) -- it overrides .gitignore,
+which is what keeps .env.local, .mcp.json and .private/ out of a PUBLIC repo. Use instead: ...
+```
+
+Canary `scripts/test-block-banned-git.py`: **74/74**, covering every row of the git.md
+banned table, 9 shell-structure wrappings, 21 near-misses that must pass (`git add
+.claude/settings.json`, `git reset HEAD -- file`, `git reset <sha>`, `git restore --staged`,
+`push -n` = dry-run not no-verify, `+feature/x` refspec), and 10 *mentions* that must pass
+(commit messages, greps, heredocs writing docs). Watched to fail against two deliberately
+broken copies — under-blocking (rule neutered) and over-blocking (word-match instead of
+run-match) — exit 1 both times, 10 cases caught on the second.
+
+Two real defects were found by the canary on its first run and fixed: `git push origin
++main` was not detected as a force push (a `+` refspec needs no `--force` flag), and six
+refusal messages did not name the alternative in a form the assertion could verify.
+
+**The mention problem is not hypothetical.** Writing this hook tripped the existing
+push-guard **three times** — once on the spec, twice on the hook file itself — because that
+guard matches the word. That is why this one tokenizes with a quote/heredoc-aware scanner
+and only inspects the first token of each simple command.
+
+**Group 2 — `.claude/hooks/route-brief.sh`** (registered UserPromptSubmit, cp-scoped).
+Canary `scripts/test-route-brief.sh`: **43/43**. Every fire case is a real string pulled
+from `~/.claude/projects/*/*.jsonl` (typed prompts, same extraction path as
+`decision-brief-rate.py`) — `"opus or sonent oand on which effort for dev"`, `"do we need
+reviewe agnet?"`, `"whats next ? opus ? sonent? wihtihc effort?"` — never an invented one,
+which is why the matcher is typo-tolerant by multiset rather than by spelling. Watched to
+fail against three broken copies: dead multiset constant, over-broad status trigger, and an
+INVARIANT-1 violation (non-zero exit, which would ERASE the user's prompt) — exit 1 each.
+
+One real over-fire was caught and fixed: `"we agreed on sonnet for the subagents already,
+just run it"` triggered the subagent route. A decided prompt is not a deliberation, so the
+trigger now requires an interrogative frame.
+
+**Sibling, not an edit to `decision-brief.sh`**, and scoped to cp rather than
+`~/.claude/hooks/` — every route target (`/status`, `/pick-flow`,
+`.claude/rules/model-effort.md`) is a cp artifact. This retires the spec's
+"Group 2 edits a file outside this repo" risk rather than mitigating it.
+
+**Group 3 — `scripts/validate-command-refs.py`** (wired unconditionally into
+`pre-commit-checks.sh` §12b). Passes on the repo as it stands: **134 references across 19
+instruction files all resolve**. Canary `scripts/test-validate-command-refs.py`: **9/9**,
+including a deliberately broken pointer in `CLAUDE.md` and in `.claude/rules/` (exit 1), an
+archive-only pointer — the literal P1113 shape (exit 1), and a refusal to pass vacuously
+when the command tree is empty (exit 1).
+
+Deliberately *not* scoped to staged files, unlike the neighbouring doc-links check: the
+defect it exists to catch is a command being archived, where the referring file is never
+touched and a staged-file scan would see nothing.
+
+**Wiring proof.** A deliberate failing case was added to one canary and staged;
+`./scripts/pre-commit-checks.sh` exited **1** with `✗ 1 error(s) - commit blocked`. The
+defect was then reverted and all three canaries re-run green (74 + 43 + 9 = 126 cases).
 
 ## References
 

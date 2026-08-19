@@ -42,14 +42,14 @@ Existing specs may use older header variants (e.g., `## UX Requirements`, `## Te
 | `## Migration Plan` | 2 | Migration | Step-by-step execution |
 | `## Data Integrity Check` | 2 | Migration | Verification after migration |
 
-## Business Layer (from /create-prd — legacy, now /product-owner enrichment)
+## Business Layer (from the legacy create-prd skill — now product-owner enrichment, not yet built)
 
 | Header | Level | Notes |
 |--------|-------|-------|
 | `## Problem Statement` | 2 | Legacy alias for `## Problem`. Skills that READ should check both |
 | `## Business Requirements` | 2 | |
-| `## User Stories` | 2 | Added by /product-owner enrichment, not at spec creation |
-| `## Jobs to Be Done` | 2 | Added by /product-owner enrichment, not at spec creation |
+| `## User Stories` | 2 | Product-owner enrichment (skill not yet built) — not at spec creation |
+| `## Jobs to Be Done` | 2 | Product-owner enrichment (skill not yet built) — not at spec creation |
 | `## Out of Scope` | 2 | Legacy alias for Non-Goals section in `## Risks / Non-Goals` |
 
 ## UX Layer (from /ux)

@@ -346,6 +346,35 @@ else
 fi
 echo ""
 
+# 4.7f. P1116 mechanization canaries — run when a hook, the validator, or one of their
+# canaries is staged. Each pins behaviour on BOTH sides: the footgun BLOCKS and the
+# near-miss/mention PASSES. Without the second half a guard silently becomes a tax on
+# legitimate work — already observed: the push-guard refused P1116's own spec because the
+# PROSE quoted a banned command.
+P1116_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.claude/hooks/(block-banned-git\.py|route-brief\.sh)|scripts/(test-block-banned-git|test-route-brief|test-validate-command-refs|validate-command-refs)\.(py|sh))$' || true)
+if [ -n "$P1116_STAGED" ]; then
+    for _p1116 in \
+        "Banned-git hook canary (P1116):python3 scripts/test-block-banned-git.py" \
+        "Route-brief hook canary (P1116):bash scripts/test-route-brief.sh" \
+        "Command-ref validator canary (P1116):python3 scripts/test-validate-command-refs.py"
+    do
+        _p1116_name="${_p1116%%:*}"
+        _p1116_cmd="${_p1116#*:}"
+        _p1116_file=$(echo "$_p1116_cmd" | awk '{print $2}')
+        if [ -f "$_p1116_file" ]; then
+            if ! run_quiet "$_p1116_name" $_p1116_cmd; then
+                ERRORS=$((ERRORS + 1))
+            fi
+        else
+            echo -e ">>> $_p1116_name... ${RED}✗ $_p1116_file missing — blocking commit${NC}"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+else
+    echo ">>> P1116 mechanization canaries skipped (no hook/validator staged)"
+fi
+echo ""
+
 # 4.8. Edge function secrets parser canary (P834) — runs when any edge
 # function .ts file or the check script itself is staged. Pure parse: no
 # network, no project lookup. Fails if the parser regresses on a known
@@ -640,6 +669,21 @@ if [ -f "./scripts/validate-doc-links.cjs" ]; then
 else
     echo -e "${YELLOW}⚠ Doc link validator not found${NC}"
 fi
+
+# 12b. Command-ref validation (P1116) — every /command named in CLAUDE.md or
+# .claude/rules/*.md must resolve to a command that exists. Root-cause fix for the
+# dead-pointer class: P1113 remapped a routing line after its target had been archived and
+# nothing caught it. Deliberately NOT scoped to staged files, unlike the doc-links check
+# above — the defect this catches is a command being archived, where the *referring* file
+# is never touched and a staged-file scan would see nothing. Full scan costs ~0.05s.
+if [ -f "./scripts/validate-command-refs.py" ]; then
+    if ! run_quiet "Command refs" python3 ./scripts/validate-command-refs.py; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ Command-ref validator not found${NC}"
+fi
+echo ""
 
 # 13. Duplicate P-number check (prevents reused P-numbers)
 if [ -f "./scripts/check-duplicate-p-numbers.sh" ]; then
