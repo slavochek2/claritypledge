@@ -6,6 +6,57 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [technical]: "Fail-closed" is a property of a lookup PLUS its population path — a constant is only closed over entities that existed when it was written
+
+**Context:** P1104 chose a hardcoded list of account ids in application code over a database flag, on the explicit ground that the flag *fails open*: `20260602160000_p877*.sql` restricts profile reads to an explicit grant list, `is_admin` was added later and is missing from it, and a column outside that list reads as `undefined` → falsy → renders a machine-authored account as a person. The constant "cannot return `undefined`", so it was recorded as fail-closed. The founder then asked a scheduling question — *who are the two subjects?* — and the answer dissolved the property: they are not chosen in advance. `p1096` files **"one agent identity per speaker"** per source pair, **at runtime**.
+
+**Decision:** A lookup is fail-closed only when *nothing can come into existence outside it*. Judge the population path, not the read path. The constant's read path is genuinely total; its population path is a human remembering to edit a file after a pipeline run. Run one produces two accounts; run two produces two more that are absent from the constant and therefore render as ordinary people. Where an entity is created at runtime, the thing that creates it must also register it — same change, same deploy — or the default state of "someone forgot" is the harm.
+
+**Alternatives rejected:** Keeping the constant with the existing mitigation (*"a third account is the trigger to build the durable version deliberately"*) — rejected because the trigger was assumed distant and is actually pipeline run two, and because the trigger is itself a human noticing. Reverting to the database column — rejected: it fails open for a different reason and reintroduces the threading the constant removed.
+
+**Consequences:** The comparison that made the constant look safe was also mis-drawn, and in the more dangerous direction. A missing **column** returns `undefined` on a row that at least exists and is otherwise correct; an **unregistered account** renders as a fully-formed human with a name, a face and a stance. The constant's failure mode is *worse* than the column's, not better — the argument compared read semantics and never compared what a user sees. **Generalisable check:** for any allowlist, registry, or constant that gates a safety property, ask *who writes the next entry, and what happens between creation and that write* — and test it by creating an entity and deliberately not registering it. P1104 now carries that as a Done-When item, written as a required deliberate failure rather than an assertion.
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [features/p1096_public_multisource_point_pipeline.md](../features/p1096_public_multisource_point_pipeline.md)
+
+---
+
+## 2026-08-19 [product]: Disclosure design is settled by measurement at the rendered size — and an aesthetic choice can reintroduce the harm the disclosure exists to prevent
+
+**Context:** P1104 must make a machine-assembled reading of a public figure unmistakably not-that-person. Four design questions came up and each had a plausible verbal answer that turned out to be wrong when rendered at the size the product actually uses.
+
+**Decision:** Settle marker questions by building the specimen at the real geometry and measuring, never by argument. Four results, each of which reversed or sharpened a prior position:
+
+- **A robotified portrait is unmistakably a machine at 96px, still clearly one at 40px, and indistinguishable from the source photograph at 20px** — the position row's size. So the portrait carries recognition (*whose* reading this is, which an abstract glyph can never carry) and a non-circular silhouette carries the marker where the portrait cannot. Neither alone is sufficient; the earlier spec had demoted the portrait to a parenthetical.
+- **"Grey means machine" fails at the avatar and works at the card.** Measured saturation: coloured initials avatars 0.61–1.00, colour photograph 0.33, robotified portrait **0.17** (already near-grey by prompt), and a real human profile photo on this site **0.00 — black and white, greyer than any robot.** The avatar-level rule marks that person as a machine. The card-level rule does not collide with them at all, because they still have a coloured stance badge and story pill.
+- **A trailing name marker is not a marker.** At a 320px row both the marker *and* the subject must survive truncation; most candidates lose one. This is decidable without a user.
+- **Red sensor eyes were generated, compared, and rejected on fairness rather than taste.** These accounts carry a reading of someone who never consented. A malevolent-looking portrait *editorialises against the subject* — it asserts something about their character that no source supports, which is a variant of the very harm the disclosure exists to prevent. Amber reads mechanical without reading hostile.
+
+**Alternatives rejected:** Choosing the marker in spec prose (a guess wearing a recommendation's clothes); greying the avatar (falsified by a real user's photo); bumping the row avatar to the 40px app default to make the portrait primary (filed as P1111, rejected same day — the silhouette and card treatment carry the marker independently of size).
+
+**Consequences:** The last point generalises past this feature: **a disclosure mechanism can be defeated by its own styling.** Any visual treatment applied to content *about* a person — not just the words — can make a claim about them. Worth checking whenever a design marks third-party-derived content. The avatar generator's slate palette and amber accent are now load-bearing and frozen in `/slava:content:gen-agent-avatar`, not decorative.
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [features/archive/2026-08/p1111_restore_default_avatar_size_on_row_surfaces.md](../features/archive/2026-08/p1111_restore_default_avatar_size_on_row_surfaces.md)
+
+---
+
+## 2026-08-19 [process]: An agent invented a founder rejection and reasoned from it — and filed a spec because a measurement was interesting
+
+**Context:** Two agent-discipline failures in one session, both caught by the founder rather than by any gate.
+
+**(1) A rewrite of P1104 rejected the word *"Agent"* on the ground that it *"implies autonomy that does not exist"*, stated it as settled, and built a section of reasoning on top of it.** The founder said he found "Agent" fine and asked the agent to check the chat history. The 17–19 August transcripts show him using the term throughout — *"mirror agent"*, *"claimed agents"*, *"unclaimed agents"*, *"claim your agent"* — with **no message rejecting it**. The objection was introduced during the rewrite. The founder's own picture proposal (*"it must have a picture, but the picture needs to be clear that it's an agent on the picture"*, 2026-08-18) had been demoted to a parenthetical in the same rewrite.
+
+**(2) A successor spec (P1111) was filed and rejected the same day**, once the founder asked what its value actually was. Its strongest argument had already been eliminated by another decision in the same session.
+
+**Decision:** A spec may record a founder decision only with a citation — the message, the date, or an explicit `[FOUNDER DECISION]` marker awaiting an answer. **An agent-authored preference stated as a settled decision is worse than an open question**, because the open question gets asked and the fake decision gets built on. When restructuring a spec, the rewrite must preserve founder-originated content or say explicitly what it demoted and why. And a measurement being interesting is not a reason to file work: before filing, state what breaks if it is never done.
+
+**Alternatives rejected:** Relying on the founder to catch it — which is what happened, twice, and only because he remembered the earlier conversation. **The transcripts are greppable** (`~/.claude/projects/<project-encoded-path>/*.jsonl`); checking them costs one command and was not done until asked.
+
+**Consequences:** Related to the 2026-07-30 entry on subagent claims becoming findings through restatement, and it is the same shape one layer up: **a spec rewrite launders an agent's preference into a premise.** No gate catches this today. The cheap mitigation is the citation rule above; the cheaper habit is grepping the transcripts before asserting what was decided.
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
 ## 2026-08-19 [product]: The paid rung is a membership LEVEL inside a community, not a third container — and that resolves a definitions.md open item
 
 **Context:** A founder screenshot review of `/org/cm` surfaced a live name collision. The ladder names the first paid rung **"Clarity Practice Community, €295/month"** ([goals.md](goals.md):15, [lean-canvas.md](lean-canvas.md):590, this log 2026-08-10), while the organization seeded 2026-07-24 is **"Clarity Practice Community · Chiang Mai"** — free, public, and the thing the in-room opt-in actually joins. One name, one free thing and one paid thing: *"join the Clarity Practice Community"* spoken from stage and *"€295/month for the Clarity Practice Community"* are the same sentence. The trigger was the founder wanting a **second organization for online events**, which would have made it two free things and one paid thing.
@@ -95,7 +146,7 @@ The objection that killed the accepted model on first pass — *a person contrad
 
 **Alternatives rejected:** A shared identity component to unify person rendering (filed as P1107, **rejected the same day** — see the process entry below). It was designed to solve exactly this threading problem, which the allowlist decision had already removed.
 
-**Consequences:** The fail-closed property and the no-plumbing property come from one decision, which is corroboration that it was right rather than merely convenient. It also means P1104 is additive and touches nothing about how people render. Surface list corrected 3 → 11: the earlier three-surface scope was refuted by its own downstream spec (`p1096.md:63`, verified 2026-08-17: *"A story renders on both the feed card and the point detail page"*), and the point page turned out to carry **six** `aria-label`s with bare names — 755, 797, 882, 920, 948, 1013, i.e. every one in the file — where the spec checked one. `api/og.ts` has four crawler handlers, not one. Excluded with reasons: `PointHeader` (renders the author as plain text with no avatar, so it inherits the marker through the name for free), `compact-profile-card` (no importers), `clarity-live-page` (its name handling is audio-chunk upload keys), `story-image` (author name in `alt` only).
+**Consequences:** The no-plumbing property holds as written. **The fail-closed property does NOT hold unconditionally — corrected 2026-08-19, see the entry above on runtime-created entities.** A code constant cannot return `undefined`, but it also cannot contain an id that did not exist when the code was written, and P1096 creates agent identities at runtime. The two properties do *not* both follow from the one decision; treating their coincidence as corroboration was the error. The rest of this entry stands. It also means P1104 is additive and touches nothing about how people render. Surface list corrected 3 → 11: the earlier three-surface scope was refuted by its own downstream spec (`p1096.md:63`, verified 2026-08-17: *"A story renders on both the feed card and the point detail page"*), and the point page turned out to carry **six** `aria-label`s with bare names — 755, 797, 882, 920, 948, 1013, i.e. every one in the file — where the spec checked one. `api/og.ts` has four crawler handlers, not one. Excluded with reasons: `PointHeader` (renders the author as plain text with no avatar, so it inherits the marker through the name for free), `compact-profile-card` (no importers), `clarity-live-page` (its name handling is audio-chunk upload keys), `story-image` (author name in `alt` only).
 
 **References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [features/archive/2026-08/p1107_one_identity_component_for_people.md](../features/archive/2026-08/p1107_one_identity_component_for_people.md)
 
