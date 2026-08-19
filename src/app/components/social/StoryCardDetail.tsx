@@ -36,7 +36,7 @@ import { stripHashtags, extractHashtags } from '@/lib/utils';
 /** Minimal story shape needed to display a linked story card inside QuotedPoint */
 type LinkedStory = Pick<
   StoryWithAuthor,
-  'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged'
+  'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged' | 'authorAvatarColor'
 >;
 import { getPositionCTACopy, adjustPositionCounts, getPositionGroup } from '@/app/utils/position-helpers';
 
@@ -193,6 +193,7 @@ export function StoryCardDetail({
           <GravatarAvatar
             name={story.authorName}
             photoUrl={story.authorAvatarUrl}
+            avatarColor={story.authorAvatarColor}
             size="sm"
             isPledger={story.authorHasPledged ?? false}
             className="!w-5 !h-5 !text-[10px]"
@@ -270,7 +271,7 @@ export function StoryCardDetail({
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
           >
-            <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} size="sm" isPledger={story.authorHasPledged ?? false} />
+            <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} avatarColor={story.authorAvatarColor} size="sm" isPledger={story.authorHasPledged ?? false} />
           </button>
 
           {/* Content column - aligned under avatar */}
@@ -419,6 +420,8 @@ export function StoryCardDetail({
                     authorName={story.authorName}
                     storyAuthorId={story.authorId}
                     authorAvatarUrl={story.authorAvatarUrl}
+                    authorHasPledged={story.authorHasPledged}
+                    authorAvatarColor={story.authorAvatarColor}
                     authorEarCount={story.authorEarsCount}
                     positionCounts={positionCounts}
                     userPositions={userPositions}
@@ -474,6 +477,8 @@ function QuotedPoint({
   point,
   authorName,
   authorAvatarUrl,
+  authorHasPledged,
+  authorAvatarColor,
   authorEarCount,
   positionCounts,
   userPositions,
@@ -491,6 +496,8 @@ function QuotedPoint({
   point: PointSummary;
   authorName: string;
   authorAvatarUrl?: string;
+  authorHasPledged?: boolean;
+  authorAvatarColor?: string;
   authorEarCount?: number;
   positionCounts: Map<string, Record<PositionType, number>>;
   userPositions: Map<string, PointPosition>;
@@ -563,8 +570,9 @@ function QuotedPoint({
           <GravatarAvatar
             name={authorName}
             photoUrl={authorAvatarUrl}
+            avatarColor={authorAvatarColor}
             size="sm"
-            isPledger={false}
+            isPledger={authorHasPledged ?? false}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{authorName}</span>
@@ -737,6 +745,7 @@ function LinkedStoryCard({
         <GravatarAvatar
           name={story.authorName}
           photoUrl={story.authorAvatarUrl}
+          avatarColor={story.authorAvatarColor}
           size="sm"
           isPledger={story.authorHasPledged ?? false}
           className="!w-5 !h-5 !text-[10px]"

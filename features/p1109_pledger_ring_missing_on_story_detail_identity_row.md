@@ -1,13 +1,14 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 41
 severity: medium
 date_reported: '2026-08-19'
+date_resolved: '2026-08-19'
 created_date: '2026-08-19'
 tags: [avatar, pledge-ring, story-detail, props-drilling]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1109-reproduce.test.tsx
   root_cause: "QuotedPoint sub-component's props interface (StoryCardDetail.tsx ~493) never declared authorHasPledged or authorAvatarColor; call site (~421) passes only authorAvatarUrl; render (~566) hardcodes isPledger={false} with no avatarColor — dropping data present on story.authorHasPledged / story.authorAvatarColor since the component boundary."
@@ -15,6 +16,7 @@ reproduce_artifact:
   surfaces_in_scope: [story-detail-identity-row]
   surfaces_deferred: []
   reproduced_at: '2026-08-19'
+  surfaces_deferred_correction: "Found false during /fix code review — 3 more GravatarAvatar sites in StoryCardDetail.tsx had the same bug class (missing avatarColor) and were not caught by /reproduce's surface audit. All 3 fixed in this diff (see Resolution). 1 sibling at different files (ClaritySessions.tsx, profile-page-v2.tsx) deferred to P1112."
 ---
 
 # P1109: Pledger ring and avatar colour never render on the story-detail identity row
@@ -79,12 +81,35 @@ Add `authorHasPledged?: boolean` and `authorAvatarColor?: string` to the sub-com
 
 **Test the failure first.** Per `.claude/rules/epistemic.md` gate 7, a test that passes after the fix proves nothing on its own — assert the ring is absent before, present after.
 
+## Resolution
+
+**Fixed:** 2026-08-19
+
+Applied the fix approach as specified: added `authorHasPledged?: boolean` and `authorAvatarColor?: string` to `QuotedPoint`'s props interface, passed both from the call site, and read them at the render (`isPledger={authorHasPledged ?? false}`, `avatarColor={authorAvatarColor}`).
+
+**Scope widened during code review (`/finish` pass):** the review found 3 more `GravatarAvatar` sites in the *same file* with the identical bug class — `isPledger` wired correctly, `avatarColor` never passed, silently falling back to the component default (`#0044CC`):
+- `StoryCardDetail.tsx:193` (quote-pattern header row) — one-line addition, `story: StoryWithAuthor` already carries `authorAvatarColor`.
+- `StoryCardDetail.tsx:273` (main story-header avatar) — same.
+- `StoryCardDetail.tsx:741` (`LinkedStoryCard`, shown when a point's linked-stories list is expanded) — required widening the local `LinkedStory` Pick type (line 37-39) to include `authorAvatarColor`. Verified against the fixture, not just the type: `stories-service-real.ts:103` already fetches `avatar_color` and maps it to `authorAvatarColor` on every `getStoriesForPoints` row, so the data was present at runtime and only dropped at this type boundary. **Second `/finish` pass found this call site is currently unreachable within `StoryCardDetail.tsx`** — `hideLinkedStories` is hardcoded `true` (JSX boolean shorthand) at the file's only `<QuotedPoint>` call site (line 437), and `QuotedPoint`/`LinkedStoryCard` are both file-private (not exported), so no prop combination renders `LinkedStoryCard` in production today. The fix is still correct (matches the type contract, ready for if that hardcode is ever lifted) but has no render path to test against — documented in the canary rather than silently left uncovered.
+
+User confirmed fixing all 3 in the same commit rather than deferring.
+
+**Also fixed during QA (two `/finish code` passes):** hardened the canary's avatar selector from `.find()` (picks first match) to `.filter()` + length assertion, since two other sites share the identical `!w-5` class (the quote-pattern header row, and the unreachable `LinkedStoryCard`) and could co-render. Added a second canary case for the non-pledged branch (ring must stay absent) per the UI Conditional Branch Coverage rule. Second `/finish code` pass found only 1 of 4 fixed sites had regression coverage — added assertions for the main story-header avatar (reachable in the default fixture) and a new test rendering `context="point-detail"` + `authorPosition` for the quote-pattern header row. The 4th site (`LinkedStoryCard`) is documented as untestable-because-unreachable above, not silently skipped.
+
+**Filed separately (not fixed here — different files, pre-existing, out of scope):** P1112 tracks the same bug class at `ClaritySessions.tsx:104` and `profile-page-v2.tsx:1745`.
+
+**Files changed:**
+- `src/app/components/social/StoryCardDetail.tsx` — 4 `GravatarAvatar` call sites now pass `avatarColor`; `QuotedPoint` props interface widened; `LinkedStory` type widened
+- `src/tests/p1109-reproduce.test.tsx` — canary hardened; covers 3 of 4 fixed sites (identity row, header avatar, quote-pattern row) plus the non-pledged branch; 4th site is unreachable dead code, documented not tested
+
+**Regression test:** `src/tests/p1109-reproduce.test.tsx` (3 tests)
+
 ## Acceptance Criteria
 
-- [ ] Viewing another person's story detail, a pledged author's avatar shows the blue ring on the identity row above the linked point
-- [ ] The same author's avatar shows their own colour, not the default, on that row
-- [ ] A non-pledged author still shows no ring on that row — the fix is not "always show the ring"
-- [ ] The row remains hidden when the viewer is the author (the existing P793 guard is unchanged)
-- [ ] The feed card and story detail now agree for the same author — screenshots of both, pasted
-- [ ] Regression test asserts ring-absent before the fix and ring-present after
-- [ ] No console errors during the flow
+- [x] Viewing another person's story detail, a pledged author's avatar shows the blue ring on the identity row above the linked point — verified via `src/tests/p1109-reproduce.test.tsx` (`data-pledger="true"`) and a live Playwright screenshot (test fixture with `avatar_color: '#E24A90'`, ring renders via the fixed `ring-blue-500` Tailwind class, decoupled from fill colour)
+- [x] The same author's avatar shows their own colour, not the default, on that row — verified via canary (`backgroundColor` matches the fixture colour) and the same screenshot
+- [x] A non-pledged author still shows no ring on that row — the fix is not "always show the ring" — added a second canary case (`shows no pledge ring... for a non-pledged author`) asserting `data-pledger` is absent
+- [x] The row remains hidden when the viewer is the author (the existing P793 guard is unchanged) — `currentUserId !== storyAuthorId` condition untouched by this diff; full suite (2839 tests) still green
+- [x] The feed card and story detail now agree for the same author — screenshots of both, pasted — live Playwright screenshots of `/point/{id}` (Perspectives list) and `/story/{id}` (story-header avatar + identity row) show consistent ring + colour for the same test author
+- [x] Regression test asserts ring-absent before the fix and ring-present after — confirmed failing pre-fix (`data-pledger` null) and passing post-fix during this session, for the originally-reported identity row. Coverage extends to 2 of the 3 additional sites found during review (header avatar, quote-pattern row); the 4th (`LinkedStoryCard`) is currently unreachable dead code in this file, so its fix is verified by type/data-flow tracing only — see Resolution section
+- [x] No console errors during the flow — no console errors observed during Playwright verification runs

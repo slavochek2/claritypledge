@@ -69,14 +69,80 @@ describe('P1109: identity row pledger ring + avatar colour', () => {
 
     // Identity row is uniquely styled with "!w-5 !h-5 !text-[10px]" (StoryCardDetail.tsx identity row)
     // — distinct from the main story-header avatar, which has no size-override className.
+    // Two other sites share the identical "!w-5" class: the quote-pattern header row (only
+    // rendered for context='point-detail', not exercised by this fixture) and LinkedStoryCard
+    // (only reachable if hideLinkedStories is ever un-hardcoded at its one call site in this
+    // file — currently dead code). Neither co-renders here, so exactly one match is expected.
+    // Asserting the count (not just .find()'s first hit) keeps the test from silently picking
+    // the wrong avatar if a future scenario co-renders more than one.
     const avatars = screen.getAllByTestId('gravatar-avatar');
-    const identityRowAvatar = avatars.find(el => el.className.includes('!w-5'));
-    expect(identityRowAvatar).toBeDefined();
+    const identityRowAvatars = avatars.filter(el => el.className.includes('!w-5'));
+    expect(identityRowAvatars).toHaveLength(1);
+    const identityRowAvatar = identityRowAvatars[0];
 
     // Ring: GravatarAvatar sets data-pledger="true" only when the ring is visible.
     expect(identityRowAvatar).toHaveAttribute('data-pledger', 'true');
 
     // Colour: falls back to '#0044CC' when avatarColor is dropped at the component boundary.
     expect(identityRowAvatar!.style.backgroundColor).toBe('rgb(255, 87, 51)');
+
+    // The main story-header avatar (no size-override class) is the other avatar in this
+    // fixture — also fixed by P1109 (StoryCardDetail.tsx:~274) and must show the same ring
+    // and colour, since it reads directly from `story.authorHasPledged` / `authorAvatarColor`.
+    const headerAvatars = avatars.filter(el => !el.className.includes('!w-5'));
+    expect(headerAvatars).toHaveLength(1);
+    expect(headerAvatars[0]).toHaveAttribute('data-pledger', 'true');
+    expect(headerAvatars[0].style.backgroundColor).toBe('rgb(255, 87, 51)');
+  });
+
+  it('shows the pledge ring and avatar colour on the quote-pattern header row (point-detail context)', () => {
+    render(
+      <BrowserRouter>
+        <StoryCardDetail
+          story={mockStory}
+          linkedPoints={[mockPoint]}
+          positionCounts={mockPositionCounts}
+          userPositions={mockUserPositions}
+          currentUserId="viewer-1"
+          context="point-detail"
+          authorPosition="agree"
+        />
+      </BrowserRouter>
+    );
+
+    // showQuotePattern requires context === 'point-detail' && authorPosition (StoryCardDetail.tsx:185)
+    // — this is the third of the four GravatarAvatar call sites fixed by P1109 (~line 193).
+    const avatars = screen.getAllByTestId('gravatar-avatar');
+    const headerRowAvatars = avatars.filter(el => el.className.includes('!w-5'));
+    expect(headerRowAvatars).toHaveLength(1);
+    expect(headerRowAvatars[0]).toHaveAttribute('data-pledger', 'true');
+    expect(headerRowAvatars[0].style.backgroundColor).toBe('rgb(255, 87, 51)');
+  });
+
+  it('shows no pledge ring on the identity row for a non-pledged author (fix must not force the ring on)', () => {
+    const nonPledgedStory: StoryWithAuthor = {
+      ...mockStory,
+      authorHasPledged: false,
+    };
+
+    render(
+      <BrowserRouter>
+        <StoryCardDetail
+          story={nonPledgedStory}
+          linkedPoints={[mockPoint]}
+          positionCounts={mockPositionCounts}
+          userPositions={mockUserPositions}
+          isDetailView
+          currentUserId="viewer-1"
+        />
+      </BrowserRouter>
+    );
+
+    const avatars = screen.getAllByTestId('gravatar-avatar');
+    const identityRowAvatars = avatars.filter(el => el.className.includes('!w-5'));
+    expect(identityRowAvatars).toHaveLength(1);
+
+    // GravatarAvatar only sets data-pledger when the ring is visible — absent means no ring.
+    expect(identityRowAvatars[0]).not.toHaveAttribute('data-pledger');
   });
 });
