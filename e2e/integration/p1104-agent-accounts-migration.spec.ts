@@ -356,6 +356,42 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     ['HARDENING: fullwidth Ａ', 'Ａgent · Real Public Figure'],
     ['HARDENING: U+2024 one-dot leader', 'Agent ․ Real Public Figure'],
     ['HARDENING: U+FF65 halfwidth katakana middle dot', 'Agent ･ Real Public Figure'],
+
+    // ── Second hardening pass (20260820091000 + 20260820092000) ──────────────
+    // Every case above hides a character BETWEEN "Agent" and the separator. The guard was
+    // still fully bypassable by hiding one INSIDE the word: the tokenizer split on any
+    // non-alphanumeric run, so "Ag<invisible>ent" produced the head token 'ag', not 'agent',
+    // and the name passed as ordinary. Found by /finish's migration reviewer and confirmed
+    // against the live test DB — all five below returned NOT-reserved before the fix, while
+    // rendering identically to the reserved marker in a browser.
+    //
+    // Direction of harm: this is the guard's INVERSE failure. It never let an agent escape the
+    // marker; it let a HUMAN wear it, keeping a real pledge ring, round avatar and ear count.
+    //
+    // Written with explicit \u escapes on purpose — the first probe of this class used pasted
+    // literals, two of which did not survive the file write and silently tested the wrong
+    // string. Escapes are verifiable by reading; a pasted invisible is not.
+    ['HARDENING-2: U+FE0F variation selector inside the word', 'Ag️ent · Real Public Figure'],
+    ['HARDENING-2: U+FE0E variation selector inside the word', 'Ag︎ent · Real Public Figure'],
+    ['HARDENING-2: U+E0067 Unicode tag character inside the word', 'Ag\u{E0067}ent · Real Public Figure'],
+    ['HARDENING-2: U+200B zero-width INSIDE the word', 'Ag​ent · Real Public Figure'],
+    ['HARDENING-2: U+200C zero-width non-joiner inside the word', 'Ag‌ent · Real Public Figure'],
+    // A different class again: NFKC *composes* A + U+0301 into Á, which IS alphanumeric, so no
+    // amount of stripping reaches it. 20260820092000 switches to NFKD so the combining mark
+    // stays separate and the allow-list removes it.
+    ['HARDENING-2: U+0301 combining acute on the A', 'Ágent · Real Public Figure'],
+  ];
+
+  // The guard must not become a land-grab on ordinary names. These stay AVAILABLE — asserted
+  // because the fix widened what counts as "agent", and a widening with no counter-test is how
+  // a guard quietly starts rejecting real people.
+  const allowedNames: Array<[string, string]> = [
+    ['Agent Smith — a surname, no separator', 'Agent Smith'],
+    ['Agentic Systems — longer word', 'Agentic Systems'],
+    ['agenda item — shares a prefix', 'agenda item'],
+    ['bare Agent — the word alone', 'Agent'],
+    ['Jane Agent — not the head token', 'Jane Agent'],
+    ['Jose Garcia — diacritics must survive NFKD', 'José García'],
   ];
 
   for (const [label, name] of rejectedNames) {
@@ -385,6 +421,26 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     test(`a DIRECT profiles.update is refused for the reserved form — ${label}`, async () => {
       const { error } = await authed.from('profiles').update({ name }).eq('id', authedUser.user.id);
       expect(error, `"${name}" must not be settable by a direct table update either`).not.toBeNull();
+    });
+  }
+
+  for (const [label, name] of allowedNames) {
+    test(`an ordinary name is still available — ${label}`, async () => {
+      const { error } = await authed.rpc('upsert_my_profile', {
+        p_data: {
+          email: authedUser.email,
+          name,
+          slug: authedUser.slug,
+          role: 'Test Engineer',
+          avatar_color: '#4A90E2',
+        },
+      });
+
+      expect(
+        error,
+        `"${name}" is an ordinary name and must stay settable — the reservation must not ` +
+        `widen into a land-grab on real people's names`,
+      ).toBeNull();
     });
   }
 
