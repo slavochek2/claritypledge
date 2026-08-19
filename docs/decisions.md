@@ -6,6 +6,25 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [process]: The KDD format fix ships with a Stop hook and a composition falsifier, not a rate one
+
+**Context:** Implementing the ninth rewrite of `/kdd`'s founder-facing output, plus the matching `/kdd-private` blocks. Three entries below already record the measurement that reversed the premise, the eight-rewrite base rate, and the fabricated-provenance defect. This entry records what shipped and — the part with no prior home — **how it will be falsified**.
+**Decision:** Ship five things: (1) delete the banned trade-off vocabulary from the options template, since words absent from a template cannot be emitted; (2) fix `/kdd-private`'s dead memory write path and the four adjacent clauses that routed to the same inert destination; (3) rewrite step 7.2 to the `/slava:build:simplify` order — why, cost, do-nothing, ask, pick, depth-on-request — with options as the default and a provenance rule that requires quoting a pass's literal output or writing `not run`; (4) a shared surfacing contract for `/kdd-private`'s three passes; (5) a Stop-hook check in `.claude/hooks/verify-before-stop.py` that blocks a KDD block missing the why-confirmation, the cost line, the do-nothing line or the ask, or using the banned vocabulary. **Measure by composition, not rate.** After each of the next 20 KDD runs, classify the founder's follow-up reply by which section it asks for — why / cost / options / ask — and record the counts. The matcher is frozen here so the baseline is reproducible against typo-dense replies:
+
+```
+why:     exp[a-z]{2,6}n|why it matters|what are we solving|gibberish|(dont|don't|no) (have )?context|too much|simpl[fi]
+cost:    impor|urg[ne]|worth it|why now
+options: \bo[pt]{2}[a-z]*ns?\b|alternativ|what are my
+ask:     what now|so what|what'?s? next|re[oc]{2}m+end|decisi[oa]?s?n
+```
+
+Verified against all four known follow-ups (08-12, 08-03, 07-31, 08-11): 4/4 classified as expected, and 5/5 non-follow-up controls (`commit it`, `yes go ahead`, `/kdd, comit`, `push it`, `looks good`) matched nothing. **Re-baseline from 2026-08-14** — every one of those four quotes predates the simplify-contract rewrite this change propagates.
+**Alternatives rejected:** An aggregate follow-up **rate** as the success measure. Baseline is roughly 4 events in 20 runs; setting "success" at ≤2 gives P(pass | the change did nothing) ≈ 0.24 — it confirms itself one run in four, which is not a test. Composition shows something at n=20 that a rate cannot: *which* section the founder still has to ask for. Also rejected: a format-only ship. Eight prior format-only rewrites died in under ten days (entry below); the hook is the mechanism that makes this one different, and it was accepted only after its failure path was exercised — missing slots exit 2, banned vocabulary exit 2, well-formed exit 0, and a per-session retry limit that fails open on the third block so a format gate cannot trap a turn.
+**Consequences (prediction, not result):** Composition discriminates the two rival explanations. If the remaining follow-ups are **options**-requests, the constraint was never presentation — it was item *selection*, and the fix is the EV gate, not a tenth format. If they are **why**-requests, presentation is still the constraint and the template needs another pass. **Kill condition:** options-requests dominating at n=20 reopens the EV gate and forbids a tenth format rewrite. Known gap: the hook is wired via `$CLAUDE_PROJECT_DIR` in cp's `settings.json` and global settings has no `Stop` array, so `/kdd` is enforced mechanically and `/kdd-private` is not — its contract is prose, which this same session measured as the failure mode.
+**References:** this file, 2026-08-19 [process] "A recurring frustration was measured before it was fixed" · 2026-08-19 [process] "The KDD output format has been rewritten 8 times" · 2026-08-19 [process] "A mandatory provenance field gets fabricated when the provenance does not exist" · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
 ## 2026-08-19 [process]: A recurring frustration was measured before it was fixed — and 86% of the reported failure did not exist
 
 **Context:** The founder reported that `/kdd` and `/kdd-private` output is abandoned every run: proposal → "simplify" → "run adversarial review" → nothing ships. A fix was scoped. Before designing it, the claim was measured against the `~/.claude/projects/` transcripts — 695 deduplicated invocations, 2026-02-11 → 2026-08-18.
