@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 41
 severity: medium
@@ -7,7 +7,6 @@ date_reported: '2026-08-19'
 date_resolved: '2026-08-19'
 created_date: '2026-08-19'
 tags: [avatar, pledge-ring, story-detail, props-drilling]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1109-reproduce.test.tsx
@@ -17,6 +16,7 @@ reproduce_artifact:
   surfaces_deferred: []
   reproduced_at: '2026-08-19'
   surfaces_deferred_correction: "Found false during /fix code review — 3 more GravatarAvatar sites in StoryCardDetail.tsx had the same bug class (missing avatarColor) and were not caught by /reproduce's surface audit. All 3 fixed in this diff (see Resolution). 1 sibling at different files (ClaritySessions.tsx, profile-page-v2.tsx) deferred to P1112."
+completed_at: 2026-08-19
 ---
 
 # P1109: Pledger ring and avatar colour never render on the story-detail identity row
