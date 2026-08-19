@@ -6,7 +6,7 @@ workstream: events
 created_date: '2026-08-18'
 tags: [agents, trust, points, identity]
 delivery_stage: uat
-pipeline_ran: [create-spec, architect, generate-tests, dev]
+pipeline_ran: [create-spec, architect, generate-tests, dev, adversarial-review]
 uat_file: features/uat/p1104.md
 test_files:
   - e2e/integration/p1104-agent-accounts-migration.spec.ts
@@ -364,16 +364,100 @@ around it, so the fixture matches the mechanism.
 
 ---
 
+## Adversarial Review — findings and disposition
+
+Run against commit `2f55f559` (2026-08-19). Threat model: an account carrying a machine's
+reading of a real public figure renders as that person; or the inverse, a human account
+acquires machine-disclosure credibility while keeping human trust signals.
+
+**Method note worth keeping.** Both accepted findings below were caught by **asking the
+live database a question**, not by reading code and not by any test. The full suite was
+green over both defects. This is epistemic gate 7b in its exact shape: green bounded what
+had been modelled, not what was true.
+
+### ACCEPTED — [HIGH] The `Agent ·` reservation was defeatable by one invisible codepoint
+
+**Fixed:** `supabase/migrations/20260819140000_p1104_harden_agent_prefix_guard.sql`.
+
+Probed `upsert_my_profile` with 24 candidate display names as a real authenticated user.
+The guard as shipped matched `lower(btrim(name)) ~ '^agent\s*[·•∙⋅‧・]'`, which a
+zero-width character splits, so the regex never sees the prefix. **Accepted, each
+rendering visually identical to the reserved form:** U+200B zero-width space, U+200D ZWJ,
+U+200F RTL mark, U+2060 word joiner, a leading zero-width, Cyrillic А (U+0410), fullwidth
+Ａ (U+FF21), U+2024 one-dot leader, U+FF65 halfwidth katakana middle dot.
+
+Exploit: any authenticated user calls `upsert_my_profile` with
+`name: 'Agent<U+200B>· {Real Public Figure}'` and gets an account that reads as a
+machine-generated reading while keeping a circular avatar, a real pledge ring, a coloured
+card and an ear count. That is the inversion Decision 4 exists to prevent and the spec
+calls *"actively deceptive"*.
+
+Fixed by normalizing before matching — deleting format/zero-width/bidi characters, folding
+Cyrillic and fullwidth lookalikes to ASCII, widening the separator class — rather than
+extending a blacklist. Re-probed after: all 12 hostile names rejected, four legitimate
+names still accepted including `Jean · Pierre`, which contains a real middle dot. All nine
+bypasses are now permanent test cases, and so are the four acceptances (without those, a
+guard that rejected everything would pass every rejection case and look correct).
+
+### ACCEPTED — [HIGH] The registry read was silently capped at 1000 rows
+
+**Fixed:** `src/app/data/agent-accounts-service.ts`.
+
+`getAgentAccounts()` issued one unbounded `select`. Asked the live API what that returns:
+
+```
+content-range: 0-999/3724
+```
+
+The gateway caps a page at 1000 rows and says nothing about it in the body. Once the
+registry exceeds 1000 entries, agent 1001 onward is absent from the Map and renders as a
+person on every surface.
+
+The failure shape is the worst available: silent, invisible to every existing test
+(fixtures create one or two agents), and **triggered precisely by the pipeline
+succeeding** — P1096 creates one agent per arguing speaker per source, so this is a matter
+of time, not of misuse.
+
+Now paginates to exhaustion. Two details are load-bearing: `ORDER BY profile_id`, because
+Postgres gives no order guarantee without it and paged reads can therefore OMIT rows — and
+an omitted row is an agent rendering as a person; and it throws rather than returning a
+partial Map if `range` ever stops being honoured, because a partial registry is a
+confident wrong answer while a throw keeps consumers pending.
+
+### REFUTED — checked against the live API, not reasoned about
+
+- **The new `agent_accounts` embed breaks link previews.** It does not. All three
+  `api/og.ts` handlers return HTTP 200 for anon, and a human profile gets
+  `agent_accounts: null`. This was the highest-blast-radius risk in the change, since
+  those three queries serve every story/point/profile preview.
+- **`subject_key` leaks through the nested embed.** It does not — `42501`.
+- **The new FK opens a path to `profiles.email`.** It does not — `42501`. P877's column
+  gate holds through the new relationship.
+- **The drained card's CSS `filter` breaks positioned descendants.** No `position: fixed`
+  or portal descendants exist inside the four drained containers; Radix tooltips and
+  dropdowns portal to `document.body`, outside the filtered subtree.
+
+### NOTED, not fixed
+
+- **[LOW] `getInitials('Agent · Jane Doe')` returns `'AD'`** (`src/lib/utils.ts:13-18`) — an
+  avatar-less agent renders initials that read as a person's. Reachable only while an agent
+  has no `avatar_url`; the square silhouette still carries the marker, and production
+  agents carry a portrait. Left alone deliberately: changing `getInitials` touches every
+  avatar in the product to fix a case that the shape channel already covers.
+
+---
+
 ## Test Coverage Strategy
 
-**68 automated tests, all passing.** Command output and per-file counts are in
+**89 automated tests, all passing.** Command output and per-file counts are in
 [features/uat/p1104.md](uat/p1104.md).
 
 | Layer | File | Count |
 |---|---|---|
-| Migration integration (P270) | `e2e/integration/p1104-agent-accounts-migration.spec.ts` | 23 |
-| Unit — registry service | `src/tests/agent-accounts-service.test.ts` | 5 |
+| Migration integration (P270) | `e2e/integration/p1104-agent-accounts-migration.spec.ts` | 35 |
+| Unit — registry service | `src/tests/agent-accounts-service.test.ts` | 10 |
 | Unit — context / fail-closed | `src/tests/agent-accounts-context.test.tsx` | 8 |
+| Unit — provider mounted | `src/tests/agent-accounts-provider-mounted.test.ts` | 4 |
 | Unit — crawler surface | `src/tests/p1104-og-agent-marker.test.ts` | 7 |
 | E2E — render surfaces | `e2e/p1104-agent-marker.spec.ts` | 18 |
 | A11y | `e2e/a11y/p1104-agent-marker-accessibility.spec.ts` | 8 |
