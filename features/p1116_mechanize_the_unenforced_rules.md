@@ -180,6 +180,26 @@ missed the canonical spelling of its own #1 trigger because `INVARIANT 5` forbid
 apostrophe in the fixture; and the "hermetic" canary was writing into the production log
 that measures the hook.
 
+**Line-level code review (separate pass, after the adversarial one): 2 HIGH, 2 MEDIUM.**
+Three fixed, one documented below. Both HIGH findings were new — neither the adversarial
+review nor its residual list had them, which is the case for running both passes rather than
+treating one as a substitute for the other.
+- **HIGH, fixed:** the pre-commit trigger for these three canaries factored the file
+  extension out to a trailing `\.py`, silently dropping `test-route-brief.sh` — a bash file
+  in a list of Python ones. Staging only that canary ran **none** of the three and the commit
+  passed green. No canary could have caught it: a canary cannot detect that it was never
+  invoked. Extensions are now spelled out per name.
+- **HIGH, NOT fixed — added to the residual list:** `git push --force origin` and
+  `git push -f origin` (remote named, no refspec) pass the git guard, because the bare remote
+  counts as a positional so the no-refspec branch never fires. Not a live risk — the hook is
+  unregistered — and deliberately left open: half-fixing one of ~20 findings would make the
+  guard look closer to ready than it is. It must be closed, with a canary case, before
+  re-registration.
+- **MEDIUM, fixed:** a stoplist entry (`opts`) whose letter-multiset matched no anchor —
+  dead weight that read as coverage, which is the exact "silently dead matcher" failure the
+  comment two lines above it warns about. Also dropped a non-word padding entry and corrected
+  the comment, which listed the collisions against the wrong anchor.
+
 **Coverage, honestly:** 4 of 5 reviewers reported, 3 only after being chased, 1 never. The
 evasion lens was run by hand after the channel failed. Every finding was re-verified locally
 before being acted on — none was promoted on a reviewer's word (gate 9).

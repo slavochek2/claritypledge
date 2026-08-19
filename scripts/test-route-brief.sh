@@ -120,7 +120,7 @@ check "NONE" "the next section should be shorter"
 check "NONE" "simplify this code"
 check "NONE" "plan the migration for next week"
 check "NONE" "review the draft and tell me what is weak"
-check "NONE" "we agreed on sonnet for the subagents already, just run it"   # meta fires? see below
+check "NONE" "we agreed on sonnet for the subagents already, just run it"
 check "NONE" "add a status column to the table"
 check "NONE" "fix the model layer in src/app/data"
 # LETTER-MULTISET COLLISIONS WITH REAL ENGLISH. sonnet sorts to ennost, and so do notes /

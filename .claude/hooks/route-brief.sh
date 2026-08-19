@@ -132,13 +132,18 @@ match_triggers() {
 		# --- letter-multiset pass: catches transposition typos, this users dominant
 		# error class. Constants are the SORTED letters of each word. A wrong constant is
 		# a SILENTLY DEAD matcher, not an error — re-derive them, never hand-type them.
-		# COMMON ENGLISH THAT SHARES A LETTER-MULTISET. sonnet sorts to ennost -- and so do
-		# notes, onset, stone, tones; opus sorts to opsu, and so does soup. Each of these
-		# fired the model/effort route on ordinary sentences ("read my notes and tell me how
-		# much effort the migration takes"). The multiset trick is right for typos and wrong
-		# for real words, so real words are excluded by name. (P1116 adversarial review.)
+		# COMMON ENGLISH THAT SHARES A LETTER-MULTISET. Two anchors collide, not one:
+		#   ennost (sonnet, and the typo snonet) <- tenons
+		#   enost  (the typo sonet)              <- notes, onset, stone, tones
+		#   opsu   (opus)                        <- soup
+		# Each fired the model/effort route on an ordinary sentence ("read my notes and tell
+		# me how much effort the migration takes"). The multiset trick is right for typos and
+		# wrong for real words, so real words are excluded by name. Every entry below is a
+		# VERIFIED collision -- re-derive the sorted form before adding one. A stoplist word
+		# whose multiset matches no anchor is dead weight that reads as coverage: `opts`
+		# (opst) was exactly that, and `stonen` was not a word at all. (P1116 code review.)
 		stop["notes"] = 1; stop["onset"] = 1; stop["stone"] = 1; stop["tones"] = 1
-		stop["soup"] = 1; stop["opts"] = 1; stop["tenons"] = 1; stop["stonen"] = 1
+		stop["soup"] = 1; stop["tenons"] = 1
 		n = split(norm, w, " ")
 		for (i = 1; i <= n; i++) {
 			if (w[i] in stop) continue
