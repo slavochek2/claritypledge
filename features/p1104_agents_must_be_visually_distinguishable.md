@@ -438,6 +438,58 @@ confident wrong answer while a throw keeps consumers pending.
   or portal descendants exist inside the four drained containers; Radix tooltips and
   dropdowns portal to `document.body`, outside the filtered subtree.
 
+### Round 2 — five hostile reviewers. 5 of 5 reported.
+
+Lenses: exploit/abuse, fail-open/operational, evasion/coverage, forgeable-and-racy,
+blast-radius-and-test-validity. All five went idle without reporting and had to be chased
+twice; the count is stated because a silent reviewer is indistinguishable from one that
+found nothing.
+
+**Every claim below was re-verified here before being acted on.** Two were refuted on
+re-verification and are recorded as rejected.
+
+#### ACCEPTED and fixed
+
+| Sev | Finding | Why it mattered |
+|---|---|---|
+| **CRITICAL** | **The name reservation guarded a door the product does not use.** `profiles.name` is written by a DIRECT table update from settings-page; `authenticated` holds a table-level UPDATE grant. Measured: the RPC rejected the reserved name while `profiles.update()` accepted it. | Two rounds of regex hardening protected a path nobody takes. Moved the predicate into the profiles guard trigger. |
+| **CRITICAL** | **Separator enumeration was a blacklist.** `Agent . Real Public Figure` — pure ASCII — walked past the hardened guard, along with 30 others. | Replaced with a first-token test after NFKC + confusables folding. The set of "things that end a token" is closed; the set of confusable separators is not. |
+| **HIGH** | **The avatar exemption did not exist.** A descendant `filter: grayscale(0)` cannot undo an ancestor's `grayscale(1)`. Measured: declared `grayscale(0)`, rendered `rgb(54,54,54)`. | The avatar was drained on every surface — the disabled-control reading the spec names as the reason the exemption exists. Filter moved to the avatar's content sibling. |
+| **HIGH** | **The test guarding that exemption could not fail.** It asserted `getComputedStyle(el).filter`, the DECLARED value, true by construction. | Replaced with a rendered-pixel saturation oracle, verified to fail when the defect is reintroduced. |
+| **HIGH** | **The agent's own profile page had no drain and three ungated ear pills** — hand-rolled `<Ear>` spans, so both the suppression and the page-wide test selector missed them. | Gated, tagged with the testid the sweep keys on, and the cards drained. |
+| **HIGH** | **An agent could be registered under a bare person's name.** `p_name` carried a comment, not a check. Humans were forbidden the marker; agents were not required to carry it. | The RPC now asserts the name IS the reserved form. The name is the only channel that survives off-platform and during a pending registry read. |
+| **HIGH** | **A registry row could be deleted out from under a live profile.** The narrowed GRANT never revoked the schema-wide default privileges, so `service_role` kept DELETE and TRUNCATE. | Revoked, plus a BEFORE DELETE trigger that permits removal only as part of the profile cascade. |
+| **MEDIUM-HIGH** | `point-card-with-links` drained a 20px name strip while its sibling drained the whole card. | Card root now marked consistently. |
+| **MEDIUM** | **`subject_key` was stored untrimmed** while the emptiness check trimmed — so `" key"` and `"key"` were different subjects: two agents for one person, able to hold opposing positions on one point without tripping `UNIQUE(point_id, user_id)`. | Stored trimmed and looked up trimmed. |
+| **MEDIUM** | **Reuse discarded the supplied operator**, so operator B could file content that every surface attributed to operator A — failing the same condition the empty-operator check exists to enforce. | Reuse under a different operator now raises. |
+
+**A defect I introduced while fixing another.** Adding `SECURITY DEFINER` to
+`guard_profile_trust_columns` makes `current_user` the owner, which switches the entire
+guard off — not only the new name check but the `is_verified`/`has_pledged` pinning P880
+and P878 depend on. p880:57 says so in a comment I had read. Caught by the probe showing
+direct updates still succeeding, reverted, and now bound by a test.
+
+#### REJECTED, with reasons
+
+- **"29–30 unmarked `GravatarAvatar` call sites are a fail-open by omission."** Real count,
+  wrong conclusion for this spec. Those surfaces are the pledger wall (filtered on
+  `has_pledged`), relationship-scoped search, letters, partner sessions and certificates —
+  none reachable by an agent today, which the reviewers' own traces confirm. Making
+  `isAgent` required would touch ~22 files outside this spec's Surfaces list and contradict
+  its constraint that the marker be additive. **Filed as the successor spec's problem, not
+  ignored** — the residual is that reachability is an argument, not a mechanism.
+- **"The 47px ear-badge layout shift is a regression."** Confirmed as measured, rejected as
+  framed. It is the cost of the `identityPending` design, which exists because the
+  page-level gate the architect specified breaks unrelated tests. Reserving the badge box
+  is a UI change with its own blast radius across every person row in the product. Recorded
+  as an open question for the founder below rather than fixed silently.
+- **"RLS filtering fails open where a GRANT fails loud."** Correct and worth knowing: if the
+  SELECT policy were ever narrowed, the registry would return `[]` with no error and every
+  agent would render as a person. Not fixed here because the proposed remedy (a
+  `SECURITY DEFINER` count function to cross-check) adds a second trust surface to solve a
+  problem that only exists if someone edits this table's policy. Recorded as a constraint
+  on whoever does.
+
 ### NOTED, not fixed
 
 - **[LOW] `getInitials('Agent · Jane Doe')` returns `'AD'`** (`src/lib/utils.ts:13-18`) — an
@@ -448,19 +500,39 @@ confident wrong answer while a throw keeps consumers pending.
 
 ---
 
+## Open for the founder — two calls I did not make
+
+1. **The ring/ear-badge pop-in.** Because suppression is component-level, the pledge ring
+   and ear badge are withheld for *every* human until the registry resolves — one network
+   round-trip on every full page load. A reviewer measured the ear badge's absence as a
+   **47px horizontal shift** on every person row. The alternatives are: reserve the badge
+   box during the pending window (a UI change touching every person row), restore the
+   architect's page-level gate (which breaks two unrelated existing tests), or accept it.
+   **I accepted it and am flagging it rather than deciding it** — it is a visible-quality
+   trade-off across the whole product, not an engineering detail.
+
+2. **The 22 files outside this spec's Surfaces list.** ~30 `GravatarAvatar` call sites take
+   `isAgent`'s default of `false`. None is reachable by an agent today, and the reviewers'
+   traces support that. But the guarantee rests on a reachability *argument* rather than a
+   mechanism, and a new call site is unmarked by default. Making `isAgent` required — the
+   way `isPledger` already is — would let the compiler enumerate them, at the cost of
+   touching every avatar in the product. That is a successor spec, and it should exist.
+
+---
+
 ## Test Coverage Strategy
 
-**89 automated tests, all passing.** Command output and per-file counts are in
+**118 automated tests, all passing.** Command output and per-file counts are in
 [features/uat/p1104.md](uat/p1104.md).
 
 | Layer | File | Count |
 |---|---|---|
-| Migration integration (P270) | `e2e/integration/p1104-agent-accounts-migration.spec.ts` | 35 |
+| Migration integration (P270) | `e2e/integration/p1104-agent-accounts-migration.spec.ts` | 55 |
 | Unit — registry service | `src/tests/agent-accounts-service.test.ts` | 10 |
 | Unit — context / fail-closed | `src/tests/agent-accounts-context.test.tsx` | 8 |
 | Unit — provider mounted | `src/tests/agent-accounts-provider-mounted.test.ts` | 4 |
 | Unit — crawler surface | `src/tests/p1104-og-agent-marker.test.ts` | 7 |
-| E2E — render surfaces | `e2e/p1104-agent-marker.spec.ts` | 18 |
+| E2E — render surfaces | `e2e/p1104-agent-marker.spec.ts` | 21 |
 | A11y | `e2e/a11y/p1104-agent-marker-accessibility.spec.ts` | 8 |
 
 **What's tested, and why it is the right test:**
