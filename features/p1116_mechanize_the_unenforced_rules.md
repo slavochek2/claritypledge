@@ -161,6 +161,27 @@ design, so nothing is lost if every hook is reverted.
       the `/slava:maintain:claude-md` gate; line count unchanged at 109, net prose 0. Nothing
       else in `CLAUDE.md` or `.claude/rules/` was touched by this spec.
 
+## Follow-ups this spec surfaced but did NOT fix
+
+1. **`/dev` and `git-ops.sh ship` disagree on the stamp string.** The no-branch
+   (direct-to-main) closure path greps main for a commit subject carrying `pN` **and
+   "ready for QA"** (`git-ops.sh:2147`). `/fix` emits exactly that (`fix.md:625`).
+   **`/dev` emits "ready for UAT"** (`dev.md:773`). So a spec built through `/dev` and
+   committed directly to main — which this spec *mandates*, since a hook edited in a
+   worktree is not the hook that runs — cannot be closed by the script. Both strings exist
+   in main's history, split by which skill produced them. Hit live while closing P1116.
+   Neither a canary nor the new command-ref validator can catch it: it is a literal string
+   agreement between two skills and a script, not a `/command` pointer.
+2. **`ship.md:160` contradicts P920.** It says "if you're on main (no feature branch) ...
+   just say push, no need for /ship" — but P920 built the no-branch closure arm precisely so
+   `/ship` *would* close such a spec. Following the prose leaves the spec open in `features/`
+   forever and the kanban showing it in-progress.
+3. **Concurrent agents damaged live repo state twice in one session** — a real forced push to
+   `origin` (rejected by the pre-push privacy gate) and `core.bare = true` written into
+   `.git/config`, which broke committing for every session on the checkout until restored.
+   Both adjacent to review subagents running real git commands in the live repo. Red-team
+   agents need a throwaway clone.
+
 ## Adversarial review outcome (2026-08-19) — READ THIS BEFORE /ship
 
 `/slava:think:adversarial-review`, 5 hostile reviewers. **Group 1 is UNREGISTERED.** The
