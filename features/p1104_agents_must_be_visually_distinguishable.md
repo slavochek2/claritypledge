@@ -15,6 +15,7 @@ test_files:
   - e2e/helpers/test-agent-account.ts
   - src/tests/agent-accounts-service.test.ts
   - src/tests/agent-accounts-context.test.tsx
+  - src/tests/agent-accounts-provider-mounted.test.ts
   - src/tests/p1104-og-agent-marker.test.ts
 ---
 
