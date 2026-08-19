@@ -6,6 +6,65 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [product]: The paid rung is a membership LEVEL inside a community, not a third container — and that resolves a definitions.md open item
+
+**Context:** A founder screenshot review of `/org/cm` surfaced a live name collision. The ladder names the first paid rung **"Clarity Practice Community, €295/month"** ([goals.md](goals.md):15, [lean-canvas.md](lean-canvas.md):590, this log 2026-08-10), while the organization seeded 2026-07-24 is **"Clarity Practice Community · Chiang Mai"** — free, public, and the thing the in-room opt-in actually joins. One name, one free thing and one paid thing: *"join the Clarity Practice Community"* spoken from stage and *"€295/month for the Clarity Practice Community"* are the same sentence. The trigger was the founder wanting a **second organization for online events**, which would have made it two free things and one paid thing.
+
+**Decision:** Three layers, named separately.
+
+| Layer | What it is | Value |
+|---|---|---|
+| **Kind** | the container type — what the terms are called, what the schema calls it | **Clarity Organization**, unchanged, never marketed |
+| **Instance** | the communities themselves | **Clarity Practice Community · Chiang Mai** and **· Online** |
+| **Level** | what a member holds inside an instance | free (today's `member`) and paid — `[FOUNDER DECISION: name]` |
+
+The paid rung **stops being a separately-named product**. What it buys is events only paid members may join, **visible on the org page to everyone** — a free member sees the offer sitting there locked, so the upgrade path needs no pitch. The two instances match the topic-source split already recorded: online the founder picks the topic, offline the room brings it.
+
+**Alternatives rejected:** *Rename the paid rung* and *rename the organizations* both keep two separately-named products where there is one place and two levels of access to it. *A third community for paying members* would need its own page, roster and terms to express what is really a property of a person, and contradicts the ladder's own line that *"the in-room opt-in is the Clarity Organization terms, not the CPA."*
+
+**Consequences:**
+- **Resolves a flagged open item.** [definitions.md](definitions.md):194 has carried *"reconciling this with the 'Clarity Practice Community' distinction above is a flagged open item, not yet resolved here"* since 2026-07-23. This is the reconciliation — but note it also **supersedes** :176's framing (*"Not the Clarity Practice Community. The Practice Community is the cross-organizational support network"*), because CPC becomes the **name of instances** rather than a separate network concept. Handed to `/slava:maintain:docs-strategy-update`; `/kdd` does not write definitions.md.
+- **[lean-canvas.md](lean-canvas.md) §Revenue still names the rung "Clarity Practice Community"** and needs the same handoff — it may move a canvas slot, which is why it is gated.
+- **Blocks a top-ranked spec.** [p1087](../features/p1087_program_page_offer_ladder_rebuild.md) (rank 0.25, `today`) rebuilds `/program` with a Tier 2 card headed "Clarity Practice Community · €295/month", the same string in its SEO title and UI Contract, and a Stripe subscription link behind it. Shipping it before the level is named publishes the collision to a public sales page with money attached. **The tier name is now the gating founder decision, not a deferrable one.**
+- **Cohort property moves.** The rung's *3–10 people, weekly* now follows from the size of the paid roster rather than from a wall — it holds at 3–10 paid members and breaks at 30. Cap or split then; nothing to build now.
+- **Gap with no owner:** the rung's month-3 milestone is *"they are running it in their own Clarity Organization"*, but **no create-organization capability exists for anyone**, founder included — [p1010](../features/done/2026-06-10/p1010_clarity_organizations_community_container.md) made `/org/:slug` a lookup and never a creation surface, on purpose. Currently requires hand-seeding an org per member. Fine for member one; needs its own spec before member three.
+- **Falsifier** (recorded in goals.md, `UNTESTED` — zero events run, zero members, zero paid members): if free members who have had locked paid events visible on their page for ~3 months convert at no better rate than event attendees who never joined an organization ⟹ in-page visibility is not an upgrade path, and the paid level should be sold from stage instead.
+
+**References:** [goals.md](goals.md) §NAMING + TIER RESOLUTION · [p1060](../features/p1060_link_events_to_organizations.md) (implementation) · [definitions.md](definitions.md):176,194 · this log 2026-08-10 [product] (the ladder), 2026-07-23 [product] (Clarity Organizations as a community container)
+
+---
+
+## 2026-08-19 [technical]: Attribution had three entry points into `/join`, not the two its own decision entry claimed
+
+**Context:** The 2026-08-16 P1076 entry below records the invite-attribution design and states: *"Attribution (`?from=`) now has two entry points into `/join` (direct link with the param, and org-page-forwarded) — both are covered by e2e tests asserting the exact resulting URL."* Reviewing the org page for an unrelated reason found a **third**: the About tab's "Clarity Organization Terms" link (`org-page.tsx`) is a bare `<Link to={/org/${slug}/join}>` built from the slug alone, so it drops the parameter silently. No test covered it because the entry that enumerated the entry points did not know it existed.
+
+**Decision:** Route **every** in-page link to `/org/:slug/join` through one helper that attaches `?from=` when present, rather than patching the third call site. The count of entry points is the thing that was wrong, so a fix keyed to the current count would be wrong again on the next link added.
+
+**Alternatives rejected:** *Patch the one leaking link* — same change, but leaves the next link free to forget. *Carry the marker in session/local storage instead of the URL* — rejected because URL-borne cannot credit the wrong organization or a stale inviter, and a stripped or hand-edited link still joins normally (the P1076 invariant that *"the link works identically if the parameter is stripped, absent, or invalid"*). Storage adds a way to be wrong that does not exist today, to solve something the URL already solves.
+
+**Consequences:** The leak is about to matter far more than it did: [p1110](../features/p1110_org_invite_landing_and_cta_competition.md) makes About the **landing tab** for invite links, so the dropping link becomes the likely path rather than an obscure one. Attribution is collectable only at the moment of joining and cannot be reconstructed afterwards — a lost one is lost permanently. Generalisable shape: **an enumeration of call sites inside a decision entry is a snapshot, not an invariant** — when a later change makes one of those paths primary, re-derive the list by grep rather than trusting the entry.
+
+**References:** [p1110](../features/p1110_org_invite_landing_and_cta_competition.md) · this log 2026-08-16 [technical] (P1076 invite link)
+
+---
+
+## 2026-08-19 [process]: Retiring a Non-Goal is a recorded act — and "what else is in the queue" is a check, not small talk
+
+**Context:** [p1060](../features/p1060_link_events_to_organizations.md) was filed 2026-08-13 as a schema placeholder with the Non-Goal *"Do NOT change event visibility or access rules here. Column and backfill only"*, and the note *"it becomes blocking the moment a second [organization] does [exist]."* That moment arrived. Separately, the founder asked *"P1110 first then P1060? or what else?"* — and answering the "what else" literally, by listing the board, is what surfaced the P1087 collision above. Nothing in the pipeline would have caught it: P1087 and P1060 share no file, no test, and no import.
+
+**Decision:** Two things, both about how specs are edited rather than what they contain.
+
+1. **Widening a spec retires its Non-Goal explicitly**, in a dated callout naming the condition that changed, with the original scope preserved in a `Superseded scope` section rather than deleted. A Non-Goal that quietly disappears is indistinguishable from scope drift six weeks later; one that is retired on the record is a decision.
+2. **Before sequencing new work, list the board and read it for contradictions with what was just decided** — not to re-prioritise, but because a strategy or naming decision invalidates *specs*, and specs are not compiled. The only mechanism that catches it is someone looking.
+
+**Consequences:** P1060 moved `backlog → week`, `task → story`. P1087's UI Contract now contains a string this session retired, and it is ranked above both specs from this session — recorded here because the collision lives in neither spec's file.
+
+**Also this session, worth naming honestly:** the agent asserted twice in conversation, then wrote into P1110's Risks section as *"founder-accepted"* scope, that generalizing the P844 nav-CTA guard would strip the logged-out audit CTA from event detail pages. The guard already covers **both** CTAs (`simple-navigation.tsx:484`). The claim survived two conversational turns and reached a filed spec; it was falsified only because the agent re-read the file to verify a Done-When line it was about to leave standing. This is [epistemic.md](../.claude/rules/epistemic.md) gate 9 — *"a claim is not evidence until a command confirms it… a spec/code change is the highest-cost promotion target"* — except the unverified claim was the agent's **own**, not a subagent's, and gate 9's text is written entirely about consuming *another agent's* output. **Proposed rules edit (not applied — `.claude/rules/` requires `/slava:maintain:claude-md` first):** extend gate 9's scope line to cover first-person claims, since the promotion path and the cost are identical and only the author differs.
+
+**References:** [p1060](../features/p1060_link_events_to_organizations.md) · [p1110](../features/p1110_org_invite_landing_and_cta_competition.md) · [p1087](../features/p1087_program_page_offer_ladder_rebuild.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 9
+
+---
+
 ## 2026-08-19 [product]: An agent is a persistent reading of ONE PERSON, not a source and not an argument — and nothing about it is autonomous
 
 **Context:** P1104 must make a machine's reading of a public figure unmistakably not-that-person before P1096 can file anything. Designing the marker required first deciding what the account *is*. Three models were live.
