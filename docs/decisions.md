@@ -6,6 +6,27 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [product]: The membership onboards in batches and only then merges into one room — rolling entry was priced correctly and delivered impossibly
+
+**Context:** Rebuilding `/program` from the retired co-founder pair offer (Free / €950-pair / €2450-pair) onto the 2026-08-10 ladder. The billing shape was settled quickly — **€295/month per person, monthly and open-ended, no prepay**, because a 3-month prepay (€885 up front) re-imports the exact budget barrier that made membership rung 1 ahead of the €4,500 install. What was not settled was *entry*.
+
+**Decision:** **Batches start together every 45 days, run the 3-month arc together, then merge into one standing room.** The agent had recommended the opposite — rolling entry into a single shared room, arguing mixed tenure was a feature — and the founder falsified it from delivery: with five people in month 2 and one arriving cold, there is no coordinated knowledge transfer and no way to run the nine situations as a cohort. The recommendation had optimised founder calendar time against delivery quality, which is the wrong direction on this repo's own ranking.
+
+The time objection that produced it is answered by the merge, not by rolling: a 90-day arc at 45-day spacing caps concurrency at **2 live batches + 1 standing room = 3 sessions/week**, permanently, however many batches have graduated. The waiting a batch cadence creates is absorbed by the free repeating events, which is the holding-pattern job already recorded for them; maximum wait is one cadence.
+
+**Also decided:**
+- **Full 9-of-9 badging is excluded from €295**, and the exclusion is not a judgement call — this log's own field data (lean-canvas.md:396, 2026-04-26) measures it at **100–180 minutes per person** with founder-only certifier capacity, so a batch of six is 10–18 hours on top of the sessions. **Partial 1-of-9 badges from group work are included**, which hypotheses.md:385 already treats as the propagation unit. Full badging stays the separate paid engagement.
+- **The page sells one offer, not three.** The existing three-card grid had one product pretending to be three: a free tier the visitor already has, a custom tier that is a different business, and a timeline narrating only the middle card — so the page's own narrative was orphaned from the thing being bought.
+- **No job titles in page copy.** Naming CMO / co-founder / head-of-transformation would put role targeting on a public page while lean-canvas.md:81 holds it at `PROPOSED-PENDING-CONTACT` with zero field contact.
+
+**Alternatives rejected:** *Rolling entry* (above). *3-month prepay* — locks revenue but reverses the reason membership beat the install. *Badging inside the membership* — contradicted by the measured minutes. *Keeping the card grid* — three competing primary actions, against the P955 rule already in the visual-QA checklist.
+
+**Consequences:** P1087 rewritten against this and **blocked on the paid level's name** (see the naming resolution above — "Clarity Practice Community" is now an instance name, so it cannot head this tier). The unpriced Custom Offers tier leaves €295 with no anchor on-page; the anchor now has to come from ladischenski's live prices. **Follow-up with no owner:** ladischenski.com's `app/layout.tsx` structured data publishes €950 / €1,950 / a €2,950 Team Workshop while the live page shows €1,450 / €2,000 and no workshop — machine-readable price disagrees with visible price, in a different repo.
+
+**References:** [features/p1087](../features/p1087_program_page_offer_ladder_rebuild.md) · [lean-canvas.md](lean-canvas.md):396 (badging minutes), :81 (role targeting), :590 (the ladder) · [hypotheses.md](hypotheses.md):385 (partial badges) · [goals.md](goals.md):15 (free events as holding pattern) · this log 2026-08-10 [product], 2026-08-19 [product] (naming)
+
+---
+
 ## 2026-08-19 [process]: `/goal`'s evaluator reads the transcript, so a goal condition can only be as trustworthy as the artifact it names
 
 **Context:** Designing `/goalify` — a skill that prepares any spec so `/goal` can run it unattended. `/goal` is native Claude Code (GA, v2.1.139+): after each turn a small fast model judges a plaintext completion condition and auto-starts another turn if unmet. Extracted from the binary: *"Evaluate the condition against the recent transcript below."* It runs no commands and reads no files.
