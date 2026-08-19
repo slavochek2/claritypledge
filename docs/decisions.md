@@ -6,6 +6,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [technical]: An agent's subject is keyed by a canonical reference to the PERSON — and the publish layer that would use it does not exist
+
+**Context:** The agent pipeline needs to answer *"do we already have an agent for this speaker?"* — required for `p1104`'s accumulation model, and the same key the fail-closed marker lookup needs. A first attempt proposed the source's **YouTube channel URL**.
+
+**Decision:** The key is **one operator-supplied canonical reference to the person**, matched exactly. Preference order: Wikidata entity → Wikipedia page → the person's own site → an internal slug we mint when the subject has no public page (the claimed case). Display names are display-only. When nothing matches, the creating skill shows near-matches by name and **the operator says same-or-new** — that human step is the entire ambiguity mechanism, with no fuzzy matching, no online resolution, and no escalation path. Agents are created **once per subject and reused thereafter**; the creating skill proposes the arguer list and **the operator confirms before any agent exists**, which is the only bound on how many public accounts the pipeline can create.
+
+**Alternatives rejected:** **The channel URL — rejected by the founder within hours of it being proposed, and the reasoning generalises: a channel identifies whoever *publishes* a video, not the person speaking in it.** The same subject appears across many channels, so the channel is not invariant under the thing being identified. *When choosing an identity key, check it is a property of the entity and not of one context the entity appeared in.* Also rejected: fuzzy name matching (fragile — *"Donald Trump"* / *"President Trump"* / *"Trump"*), and automated online identity resolution (a large build for a problem one confirmation prompt solves).
+
+**Consequences:** Improvable later — normalising to Wikidata, alias tables — **without anything already filed having to change**, because filed rows carry the key they were created with. Two things surfaced while settling this. **`/points-publish` does not exist:** `points-prepare` names it as *"the only skill in this chain that writes to the product"*, and there is no skill file, no spec, and no other reference to it anywhere in the repo — it is `p1096`'s unbuilt stage 3, and it is the component that must invoke agent creation before filing. And **`points-prepare` already carries the moderator-exclusion rule** the pipeline needs (*"Identify who ARGUES, not who speaks… five speakers routinely means two or three arguers"*), so that half was specified all along and was about to be re-decided from scratch.
+
+**References:** [features/p1096_public_multisource_point_pipeline.md](../features/p1096_public_multisource_point_pipeline.md), [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md)
+
+---
+
+## 2026-08-19 [technical]: Quote integrity is two different checks, and speaker attribution is solved by source selection rather than by building diarization
+
+**Context:** `p1096` carried the one-liner *"every quote checked against the source before filing"*, and the founder challenged it directly — the video **is** the source, the person **is** in it, so what is being checked? The question was fair; the spec had compressed two distinct failures into one sentence.
+
+**Decision:** State them separately, because they fail differently and are caught by different means. **(1) Fabrication or paraphrase** — the extractor produces a quote the transcript does not contain. Caught by `grep -F` against the cleaned transcript. **(2) Mis-transcription** — auto-captions are a machine's guess at the audio, not a transcript; a dropped negation reverses a claim entirely. Caught only by checking the survivor against the **audio at its timecode**. `/slava:content:points-prepare` already specifies both precisely (*"Verification is a STEP with an artifact, not a promise"*); `p1096`'s summary line was the lossy copy.
+
+**A third failure — speaker misattribution (right words, wrong mouth) — is resolved by source selection, not by build.** Prefer single-speaker or dominant-speaker sources. Local Whisper would improve transcription accuracy but **would not fix attribution**; that needs speaker diarization, a substantially larger build for a problem that choosing better sources removes. Transcript-first now; Whisper and diarization are later iterations, not prerequisites.
+
+**Alternatives rejected:** Building diarization up front (large, and the founder can select single-speaker sources at stage 1 for free). Swapping to local Whisper immediately — deferred: it addresses only one of the three failures, and the cheap structural fix addresses the worst one.
+
+**Consequences:** The publish boundary is **environmental**: a run writes to the **test database**, the founder reads the quotes and edits there, and promotion to prod is a separate deliberate action. This reconciles a one-invocation pipeline with the verification gate **without depending on anyone being diligent at the end of a long automated run** — the more general point, and the reason it beat a publish flag that has to be invented and can be got wrong. Note also the drift this exposed: a precise rule in a skill file was summarised into a spec, and the summary was the version being reasoned from. Where a skill states a rule exactly, specs should point at it rather than restate it.
+
+**References:** [features/p1096_public_multisource_point_pipeline.md](../features/p1096_public_multisource_point_pipeline.md), [.claude/commands/slava/content/points-prepare.md](../.claude/commands/slava/content/points-prepare.md)
+
+---
+
 ## 2026-08-19 [technical]: `avatarColor` gets dropped at the component-props layer too — a 4th recorded layer of the same bug class
 
 **Context:** P1109 — the story-detail identity row rendered a pledged author's avatar with the ring forced off and the colour dropped. Root cause: `StoryCardDetail.tsx`'s `QuotedPoint` sub-component's props interface never declared `authorHasPledged`/`authorAvatarColor`, so the call site couldn't pass them even though the parent `story` object had both. This repo already has two prior instances of the same failure shape at different layers: P745 (`docs/decisions.md:11236`) — a `mapRecord` helper hardcoded `inviterAvatarColor: null`, discarding data the fetch had already returned; P697 (`docs/decisions.md:13415`) — a `profiles` JOIN selected `name` only, omitting `avatar_url`/`avatar_color`/`has_pledged` at the fetch layer itself. P1109 is a third, distinct layer: the data reaches the component, but a **sub-component's own props interface** silently narrows what crosses the boundary — invisible to TypeScript (the field is simply absent from the interface, not typed wrong) and invisible to a code reader scanning the call site (nothing there looks broken; it's what's missing that's the bug).

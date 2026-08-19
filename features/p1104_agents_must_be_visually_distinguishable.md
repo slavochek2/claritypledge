@@ -153,7 +153,9 @@ The failure is worse than the column it replaced, in one specific way: a missing
 
 **The founder's end-state flow (2026-08-19) sharpens this into a single question.** The pipeline is meant to check *"do we already have an agent for this speaker?"* and reuse it — which `p1096` did not previously specify, and which is required for the accumulation model above to mean anything. That check needs a **stable key identifying an agent's subject across sources**, and the marker lookup needs exactly the same key. **Reuse and fail-closed registration are one problem, not two:** a registry keyed by subject is simultaneously the reuse lookup and the agent marker.
 
-Choosing that key is the hard part and is not yet done. A display-name string is fragile across sources (*"Donald Trump"*, *"President Trump"*, *"Trump"*), and the pipeline's speaker labels come from captions, which `p1096` already records as unreliable.
+**The key itself is now chosen (2026-08-19, recorded in `p1096`): one operator-supplied canonical reference to the person** — Wikidata, else Wikipedia, else their own site, else an internal slug for a subject with no public page — matched exactly, with the operator resolving near-misses by hand. A YouTube channel URL was proposed and rejected: a channel identifies the *publisher*, not the person, and the same subject appears across many channels.
+
+**What remains for `/architect` is not which key, but where it lives** — a code constant, a column, or a separate entity — and that is exactly the fail-closed question.
 
 **Worth putting to `/architect` alongside the two options above:** a separate entity for these accounts rather than a flag or a list on `profiles`. If an agent is structurally a different kind of row, *"is this an agent?"* is answered by where the record came from — no constant to forget, no column to omit from a grant list, and the question cannot be got wrong by accident. The existing non-goal forbids **adding a column to `profiles`**; it does not forbid this, and the distinction was not considered when that non-goal was written.
 
