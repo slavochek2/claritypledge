@@ -1,15 +1,22 @@
 ---
-status: week
+status: rejected
 type: task
 rank: 44
 created_date: '2026-08-19'
 tags: [avatar, identity, density, p1104]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
+rejected_date: '2026-08-19'
 driver: heuristic
 ---
 
 # P1111: Restore the app's default avatar size on the row surfaces that shrink it to 20px
+
+> **REJECTED 2026-08-19, same day it was filed.** The founder asked what its value actually was, and the honest answer is: thin. Its strongest argument was that 40px makes the robotified portrait legible as a primary marker — but P1104 does not need that, because the square silhouette carries 20px and the card-greyscale treatment carries it independently of size. What remains is better pledge-ring and avatar-colour visibility for human rows: real, small, and unrequested by anyone in the year the code has shipped that way.
+>
+> **This spec should not have been filed as active work.** It was filed because the measurement was interesting, which is not the same as the change being needed. The measurement is preserved below and is the only reason to keep the file.
+>
+> **What would revive it:** a cold reader who can see the marker but not tell *who* the reading is of, or an actual complaint about the clipped pledge ring recorded at `point-detail-page.tsx:774`. Neither has happened.
 
 ## Problem
 

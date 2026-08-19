@@ -59,6 +59,7 @@ The earlier draft tried to make one mechanism carry the marker, the operator and
 | Carries | Where | Why |
 |---|---|---|
 | **The marker** | the **avatar**, in-app | It never truncates and is always present. Never a photograph of the person. **A robotified portrait of the subject inside a square silhouette** (measured 2026-08-19): the portrait carries recognition and machine-ness from ~40px up; the square carries the marker at the 20px the position row uses (`!w-5 !h-5`), where the portrait's robotic detail falls below the pixel grid. Neither alone is sufficient — see the prototype subsection. |
+| **The marker** | the **card**, in-app | **Every card belonging to one of these accounts renders with its colour drained — stance badge, story pill, chrome — with the avatar exempt.** Founder decision 2026-08-19. Strongest single signal tested: it needs no squinting at 20px and carries unchanged to the profile page. It also states something true — these accounts hold no pledge, oath or reputation, and a card without colour is a card with lower standing. |
 | **The marker** | the **name field**, off-platform | A shared link renders as text only — no avatar, no shape, no colour. The name is the entire disclosure surface there. |
 | **The source** | the **linked story** on the position row | Already rendered. Duplicating it into the name is what made the name unusable. |
 | **The operator** | the **profile page** | Accountability information, not glance information. Provisional wording *"Published by {name}"*. |
@@ -112,6 +113,18 @@ So the portrait is right and cannot be the only carrier — which confirms the r
 
 **Product policy — DECIDED 2026-08-19.** Depicting a real public figure as a robotified avatar **is** acceptable, **conditional on the operator being named on the profile from day one.** The condition is the substance of the approval, not a footnote: a robot face carrying a position the subject never took, with no human named as answerable, is worse than a photograph with one — the disclosure is what makes the artifact fair. **The operator line therefore ships in the same change as the avatar, never after it** (see Done-When). If the operator line is cut or deferred for any reason, the portrait channel is cut with it.
 
+### Colour: the card is drained, the avatar is not
+
+**DECIDED 2026-08-19.** Two versions of *"grey means machine"* were built and measured; they have opposite verdicts, and the distinction is the whole decision.
+
+**Greying the avatar alone fails — on evidence the product already contains.** Measured mean saturation: coloured initials avatars 0.61–1.00, a colour photograph 0.33, the robotified portrait **0.17** (already near-grey, because the avatar skill's frozen prompt specifies a slate palette), and **a real human profile photo on this site: 0.00 — black and white, greyer than any robot.** A grey-avatar rule marks that person as a machine. Black-and-white profile photos are ordinary; no choice of greys makes the rule safe.
+
+**Greying the whole card works, and the same evidence is why.** A person with a black-and-white photo still has a blue stance badge and a blue story button, so the card-level treatment does not collide with them at all. The human keeps colour where it counts; the reading has none anywhere.
+
+**Implementation consequence, not a detail:** the greying applies to card *chrome* with the avatar **exempt**. A blanket `grayscale` filter over the card kills the sensor accent too, and the result reads as a *disabled control* rather than a machine-authored one.
+
+**The sensor eyes stay amber. Red was generated, compared, and rejected** — and not on taste. A red-eyed robot reads as menacing, and this account exists to carry a *fair* reading of someone who never consented to it. A malevolent-looking portrait **editorialises against the subject**: it asserts something about their character that no source supports, which is a variant of the very harm this spec was written to prevent. Red also collides with the interface's existing meaning for that colour (error, destructive action) and is the least reliable hue for colour-blind readers.
+
 ### How the marker reaches a render site — no data plumbing
 
 **A hardcoded list of the account ids, in application code. Not a database column.**
@@ -124,6 +137,18 @@ A constant in application code cannot return `undefined`. **It fails closed.**
 
 The fail-closed argument and the no-plumbing property come from the same decision.
 
+### The list must be written by the thing that creates the accounts — OPEN, and the highest-risk item in this spec
+
+**Surfaced 2026-08-19 by the founder asking who the two subjects are.** They are not chosen in advance and cannot be: `features/p1096_public_multisource_point_pipeline.md` files **"one agent identity per speaker"** per source pair, at runtime. The accounts come into existence when the pipeline runs.
+
+**This breaks the fail-closed argument as written.** A hardcoded list of ids is fail-closed only for accounts that exist when the code is written. The first run produces two; **the second run produces two more, and until someone edits a constant by hand they render as people** — the precise harm this spec exists to prevent. The spec already says *"a third account is the trigger to build the durable version deliberately"* and treated that trigger as distant. It arrives on pipeline run two.
+
+The failure is worse than the column it replaced, in one specific way: a missing column returns `undefined` on a row that at least exists, whereas an unregistered account renders as a fully-formed human with a name, a face and a stance. **The default state of "someone forgot" is the harm.**
+
+**The shape of the answer, for `/architect` to settle rather than for this spec to assert:** the pipeline is the *only* thing that creates these accounts, so the same step that creates one registers its id — the account and its constant entry land in one change, and the account is not reachable until that change is deployed. This keeps the fail-closed property (a constant still cannot return `undefined`) and removes the human step that would otherwise be the point of failure. Alternatives worth weighing against it: creating the accounts from a checked-in manifest rather than at runtime, so the ids exist before the pipeline does; or inverting the default so that any account the pipeline authored is treated as an agent unless proven otherwise.
+
+**Nothing should be implemented until this is resolved.** It is not a detail of the mechanism — it is the mechanism.
+
 ### Disclosure must be structural, never repeated prose
 
 The semantic that must land is *given this source, this is the position that argument commits to* — not what the speaker believes. Stamping that sentence on every row is unusable. **The row's structure says it instead:** name, source link, stance. The full explanation lives once on the profile page, and behind the marker as a tap target.
@@ -134,7 +159,7 @@ The semantic that must land is *given this source, this is the position that arg
 
 - **A marker that is present but weak is worse than none.** **MITIGATE:** tested at the smallest rendering, with a truncating name, on someone who has not read this spec.
 - **A stylized portrait reads as a photograph at 20px.** **CONFIRMED 2026-08-19, not merely feared** — the robotified portrait and the source photograph are indistinguishable at 20px on the plate. **MITIGATED by design, not by care:** the square silhouette carries the marker at that size, so the portrait is never the only channel. The risk is retired as a design constraint; it returns the moment anyone proposes a circular avatar for these accounts.
-- **The list does not scale and must not be allowed to quietly try.** **MITIGATE:** a third account is the trigger to build the durable version deliberately — grant list, write guard, and every accessor that emits a name key. Written into a successor spec, not left to memory.
+- **The list does not scale and must not be allowed to quietly try.** **ESCALATED 2026-08-19 — this is no longer a future risk.** P1096 creates one agent identity per speaker at runtime, so the third account arrives on pipeline run two, not eventually. An unregistered account renders as a fully-formed person. **MITIGATE:** the pipeline registers the id in the same change that creates the account — see the Solution subsection. Unresolved; blocks implementation.
 - **The accessible name is not the visible name.** `point-detail-page.tsx` contains **six** `aria-label` constructions carrying a bare name — lines 755, 797, 882, 920, 948, 1013 — every one in the file. Expanding a story reaches three of them. **MITIGATE:** all six are in scope; one is not evidence about the others.
 - **The embed route builds its own objects.** `/point/:id?embed=true` (`point-detail-page.tsx:60`) constructs `embedProfileOwner` (`:404`) and a `getStoryAuthor` callback (`:476`) and hands them to a card component. Migrating the card does not cover the route. **MITIGATE:** the embed path is an explicit test case, not an inferred one.
 - **Off-platform surfaces cannot carry a shaped marker at all.** **ACCEPT and state it** — this is why the name carries one, and it constrains what these accounts may hold a position on, which is a product decision rather than a rendering one.
@@ -147,7 +172,7 @@ The semantic that must land is *given this source, this is the position that arg
 - **Do NOT build claiming, calibration, or following.** The name already encodes claimed-versus-unclaimed, so nothing downstream is blocked by waiting.
 - **Do NOT enable multiple positions on one point.** `UNIQUE(point_id, user_id)` stands. For the first event each account reads one source, so it never binds. When it does, the answer is readings-per-source, not a dated history — source dates are unreliable or absent, and the existing history log timestamps when a row was written, not when the source is from.
 - **Do NOT fix link-preview truthfulness here.** `features/p1108_link_previews_say_true_things.md` owns it.
-- **Do NOT bump the 20px avatar override to the 40px app default here.** It would help the portrait, but it changes density for human rows on 10 shipped surfaces — a design decision with its own blast radius, and it would make this spec's correctness depend on a density judgement that has nothing to do with disclosure. Successor spec.
+- **Do NOT bump the 20px avatar override to the 40px app default.** Filed as P1111 and **rejected the same day** (`features/archive/2026-08/`) — the square and the card-greyscale carry the marker independently of avatar size, so the change had no remaining argument. Original reasoning: It would help the portrait, but it changes density for human rows on 10 shipped surfaces — a design decision with its own blast radius, and it would make this spec's correctness depend on a density judgement that has nothing to do with disclosure. Successor spec.
 - **Do NOT refactor how people render.** An earlier attempt was filed and its premise did not survive review; the marker is additive and touches nothing about people.
 - **Do NOT name one of these accounts as a bare person's name.** The chosen form is `Agent · {subject}`; a trailing marker is banned because it truncates away (measured).
 
@@ -204,6 +229,9 @@ Bumping those sites to the app default would make the robotified portrait legibl
 - [ ] All six `aria-label`s on the point page read as not-a-person — each read from the rendered output, not inferred
 - [ ] The `?embed=true` route shows the marker — screenshot pasted
 - [ ] `grep` of the id constant returns exactly the in-scope surfaces and no others — output pasted
+- [ ] **An account created by a pipeline run and NOT hand-registered is demonstrated to render as not-a-person** — this is the fail-closed claim's actual test, and it must be run as a deliberate failure, not reasoned about
+- [ ] The card-greyscale treatment renders on the position row, the story and point cards, and the profile page — screenshots at 20px and desktop, both product themes
+- [ ] A human whose profile photo is black and white renders as a person on every in-scope surface — the case that killed the avatar-only greyscale rule
 - [ ] Every surface rendering a profile is either in scope or listed above with its reason
 - [ ] No account's display name is a bare person's name — checkable because both names are chosen by us; **not** generalizable (`.claude/rules/pii.md` records that automated name detection was rejected against a measured false-positive baseline)
 - [x] Founder decision 1 answered and recorded here — **yes, full profile page** (2026-08-19)
