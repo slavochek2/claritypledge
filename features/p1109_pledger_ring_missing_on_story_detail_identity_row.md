@@ -7,8 +7,8 @@ date_reported: '2026-08-19'
 date_resolved: '2026-08-19'
 created_date: '2026-08-19'
 tags: [avatar, pledge-ring, story-detail, props-drilling]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1109-reproduce.test.tsx
   root_cause: "QuotedPoint sub-component's props interface (StoryCardDetail.tsx ~493) never declared authorHasPledged or authorAvatarColor; call site (~421) passes only authorAvatarUrl; render (~566) hardcodes isPledger={false} with no avatarColor — dropping data present on story.authorHasPledged / story.authorAvatarColor since the component boundary."
