@@ -6,6 +6,95 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [process]: A per-session setting silently overrode a repo flow rule, and the agent knew both facts and built anyway
+
+**Context:** P1116 shipped three mechanisms into the always-on layer (a git-command guard, a
+prompt-router, a command-reference validator). `/pick-flow` firewall #2 requires an
+adversarial subagent for any change to `.claude/hooks/`, `.claude/rules/`, `scripts/` or
+`CLAUDE.md`, exempting only "purely additive single-file changes with no shared state" —
+this was ten files with two registered hooks. The session's own configuration forbade
+spawning subagents. **Both facts were known to the agent at step 0.** It built, self-
+reviewed, found four defects, and wrote a commit message describing the rule as mechanized.
+When the founder later asked "should we do a review?", five hostile reviewers found ~20 more
+— including that the guard was defeated by a one-word command prefix not on its wrapper
+allowlist, and that it refused the *documented recovery procedure* for a broken worktree
+(`git.md`) and the emergency restore in `/revert-feature`. The same day, on the same repo,
+two other sessions ran five-reviewer adversarial reviews and a third wrote epistemic gate 9b
+about counting reviewer reports. **The rule was never missing. A per-session setting
+overrode it, and nothing surfaced the conflict.**
+
+**Decision:** When a step the flow requires cannot run in this session — subagents, browser,
+network, any capability the session config blocks — say so **before building**, and stop for
+a decision. The check belongs in `/pick-flow`, not `CLAUDE.md`: the gate that prescribes a
+step must confirm the step is runnable, because a `CLAUDE.md` line asking the agent to
+remember is the advisory class P1116 exists to retire.
+
+**Alternatives rejected:** (a) A new `CLAUDE.md` principle — rejected by its own gate on
+three counts: the file is at 350/350, the Transparency Principle and "Falsify Before You
+Rely" already say *report problems* and *flag unverified capability*, and an
+agent-must-remember rule is symptom-level. (b) A per-repo carve-out ("infra work always gets
+reviewers") — rejected as re-legislating a rule that already exists in two places in
+`pick-flow/SKILL.md`. (c) Removing the session constraint — not the agent's to change, and
+the constraint is correct for most work.
+
+**Consequences:** The guard was **unregistered rather than iterated** — it blocked recovery
+while not binding intent, which is both failure modes of the entry below at once, and the
+blocking half fires exactly when the tree is already broken. Its file and canary stay for a
+future fix. **Status: proposed** — the `/pick-flow` edit is a skill change and needs founder
+approval before it lands. Second-order: the review that caught this ran only because the
+founder happened to ask, so the finding is a lower bound on what the constraint cost.
+
+**References:** [features/p1116_mechanize_the_unenforced_rules.md](../features/p1116_mechanize_the_unenforced_rules.md)
+· `.claude/commands/slava/build/pick-flow/SKILL.md` firewall #2 · this file, 2026-08-19
+[process] "Ask the outcome record before trusting a mechanism argument" (the two-opposite-
+failure-modes framing this instantiates) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9b
+
+---
+
+## 2026-08-19 [process]: A test cannot exercise what the artifact's own safety invariant forbids — and a canary that writes to the log it is judged by measures itself
+
+**Context:** P1116's three canaries were green at 129 cases, each watched to fail against
+deliberately broken copies. An adversarial review then found three defects **no number of
+additional cases could have caught**, because the fixtures were structurally incapable of
+emitting the input:
+1. The prompt-router's awk program carries an invariant forbidding a literal apostrophe (one
+   would terminate the shell string and erase the user's prompt). The canary is written in
+   the same file family, so **its fixture cannot contain an apostrophe either** — and the
+   canonical spelling of the router's single most-typed trigger is `what's next`. The #1 ask
+   silently missed ~6% of its own class, with 43 cases green.
+2. The command validator resolved against a directory outside the repo. Every canary run used
+   the author's HOME, so the fixture could not emit "that directory is absent" — the state of
+   every other machine, where the gate blocked *all* commits.
+3. The router's canary invoked the real hook with no log redirection, appending ~30 synthetic
+   rows per run to the production log — ~570 of 621 rows were its own noise. The artifact
+   whose entire justification is a recall measurement was **corrupting that measurement from
+   its own test suite**, while calling itself hermetic in line 2.
+
+**Decision:** Three checks when writing a canary. (a) **Enumerate what the fixture cannot
+express, and say so in the canary** — especially where the artifact's own safety invariant is
+the thing blocking it, since that reads as prudence rather than a gap. (b) **Vary the
+environment the artifact reads**, not just its inputs: if it consults `HOME`, a path outside
+the repo, or a global tree, one case must run without them. (c) **A canary must not write to
+any artifact the system measures** — redirect its side effects to a temp dir and assert the
+production one is untouched.
+
+**Alternatives rejected:** More cases — the defect class is orthogonal to case count; 43 and
+129 were both green. Mutation testing — proves the assertions bind the code, never that the
+input space is complete.
+
+**Consequences:** Extends gate 7b with a mechanism not previously named: the invariant that
+protects an artifact can also blind its test, and that blindness is invisible from inside the
+test file. Practically, any hook reading `HOME`, `CLAUDE_PROJECT_DIR`, or a path outside the
+repo now needs an environment-varied case before its green means anything.
+
+**References:** `scripts/test-route-brief.sh`, `scripts/test-validate-command-refs.py` ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b · this file, 2026-08-19
+[process] "Adding a second check to an existing Stop hook consumed the block the first one
+needed" (same gate, input-space form) and 2026-08-14 [process] "green bounds what was
+modelled, and a structural check models a spelling"
+
+---
+
 ## 2026-08-19 [process]: Ask the outcome record before trusting a mechanism argument — three cited claims died on one grep
 
 **Context:** Executing the `/goalify` plan (entry below). The plan was unusually well-sourced: every claim carried `file:line`, and it had survived **three** adversarial reviews. Re-verifying it before building — because ~30 commits had landed since its base — falsified **three load-bearing claims**, all in the same way.
