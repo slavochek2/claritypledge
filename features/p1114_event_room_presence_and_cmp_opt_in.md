@@ -1,14 +1,14 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 46
 created_date: '2026-08-19'
 tags: [events, cmp, meet, ready, opt-in, room]
-delivery_stage: generate-tests
+delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_skipped: [challenge-prd -- the /grill-me walkthrough ran the same adversarial pass live with founder answers on all 14 decisions, ux -- spec already carries the 8 states and layout; the 10 copy strings are founder decisions no skill can produce, spec-compact -- the 302 lines are decisions not pipeline residue, decompose -- one coherent surface of one page one table one tab not 5 independent concerns]
-pipeline_ran: [create-spec, architect, generate-tests]
+pipeline_ran: [create-spec, architect, generate-tests, dev]
 driver: heuristic
 ---
 
@@ -728,9 +728,13 @@ colliding with an unrelated feature's key.
 - **Roster flooding → MITIGATE with a soft cap.** `join_event_room` performs a per-`event_id`
   row-count check and rejects past a large N. No new infrastructure, no captcha, and a room of
   twelve never approaches it. Chosen over ACCEPT because, unlike `/ready`'s invisible bad number,
-  this failure mode is visible to everyone in the room at once. **`/dev` must pick N and record
-  it in this spec with its reasoning** — it is a magic number and belongs written down, not
-  buried in a migration.
+  this failure mode is visible to everyone in the room at once. **N = 1000**, set in
+  `join_event_room` (`supabase/migrations/20260819170000_p1114_event_room_rpcs.sql`). Reasoning:
+  the largest event this product runs today is on the order of dozens of people, and the spec's
+  own reference point for "never approaches it" is a room of twelve — 1000 is roughly two orders
+  of magnitude of headroom above any plausible legitimate room size, so no real event is ever
+  refused, while still bounding a flood's damage to a row count small enough for manual cleanup
+  rather than unbounded growth.
 - **UI Contract copy → placeholders now, real copy at `/verify`.** `/dev` builds with **visible**
   `PLACEHOLDER:` markers rendered in the UI — not invented copy, and not empty strings that look
   like a rendering bug. The founder sets the eight remaining strings once they can be seen in a

@@ -106,7 +106,10 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     const anon = makeAnonClient();
     const { data, error } = await anon.rpc('join_event_room', { p_event_id: upcomingEvent.id, p_display_name: 'Guest Practitioner' });
     expect(error, `guest join must succeed: ${error?.message}`).toBeNull();
-    const memberId = (data as { id?: string } | { id: string }[] | null)?.[0 as unknown as keyof typeof data] ?? (data as { id?: string })?.id;
+    // join_event_room RETURNS SETOF event_room_members, so supabase-js yields an array of
+    // ROW objects — the id is row.id, never the row itself. Matches the sibling test below.
+    const joined = Array.isArray(data) ? data[0] : data;
+    const memberId = (joined as { id?: string } | null)?.id;
     expect(memberId, 'join_event_room must return a member id (needed for localStorage persistence, Decision 8)').toBeTruthy();
     if (typeof memberId === 'string') memberIds.push(memberId);
 
@@ -235,15 +238,23 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
   // ─── cascade_count: THE single most important integrity requirement ────
 
   test('cascade_count is server-computed as the count of already-opted-in members BEFORE this answer, and cannot be supplied by the client', async () => {
+    // ISOLATED event, not the shared `upcomingEvent`. cascade_count is an absolute
+    // count over the event, so any other test in this file that opts a member into the
+    // shared fixture inflates it — observed as a non-deterministic "expected 3, received 4"
+    // that passed on retry depending on execution order. The assertion below is only
+    // meaningful when this test owns every opted-in row in its event.
+    const cascadeEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(cascadeEvent.id);
+
     // Seed 3 members already opted in — the pre-existing cascade this new
     // answer must be measured against.
     const already: TestRoomMember[] = [];
     for (let i = 0; i < 3; i++) {
-      already.push(await seedRoomMember(upcomingEvent.id, { optedIn: true, displayName: `P1114 Cascade Baseline ${i}` }));
+      already.push(await seedRoomMember(cascadeEvent.id, { optedIn: true, displayName: `P1114 Cascade Baseline ${i}` }));
     }
     memberIds.push(...already.map((m) => m.id));
 
-    const subject = await seedRoomMember(upcomingEvent.id, { optedIn: null, clientSecret: '66666666-6666-4666-8666-666666666666' });
+    const subject = await seedRoomMember(cascadeEvent.id, { optedIn: null, clientSecret: '66666666-6666-4666-8666-666666666666' });
     memberIds.push(subject.id);
     const anon = makeAnonClient();
 

@@ -34,6 +34,7 @@ test.describe('P1114: event_room_members / event_room_answers — schema, grants
   let host: TestUser;
   let event: TestEvent;
   const memberIds: string[] = [];
+  const extraEventIds: string[] = [];
 
   test.beforeAll(async () => {
     host = await createTestUser({ email: generateTestEmail(), name: 'P1114 Schema Test Host' });
@@ -42,6 +43,7 @@ test.describe('P1114: event_room_members / event_room_answers — schema, grants
 
   test.afterAll(async () => {
     await deleteRoomMembers(memberIds);
+    for (const id of extraEventIds) await deleteTestEvent(id);
     await deleteTestEvent(event.id);
     await deleteTestUser(host.user.id);
   });
@@ -212,15 +214,22 @@ test.describe('P1114: event_room_members / event_room_answers — schema, grants
   });
 
   test('partial unique index (event_id, profile_id) WHERE profile_id IS NOT NULL — one registered row per person per event, unlimited walk-ins', async () => {
-    const first = await seedRoomMember(event.id, { profileId: host.user.id });
+    // ISOLATED event: the preceding test already seeds (event, host) into the shared
+    // fixture, so seeding it again here collides on THIS test's setup rather than on its
+    // assertion — the index doing its job, reported as flake. The duplicate must be one
+    // this test creates deliberately, not one inherited from a sibling.
+    const indexEvent = await createTestEvent(host.user.id, new Date());
+    extraEventIds.push(indexEvent.id);
+
+    const first = await seedRoomMember(indexEvent.id, { profileId: host.user.id });
     memberIds.push(first.id);
-    const dupe = await supabaseAdmin.from('event_room_members').insert({ event_id: event.id, display_name: 'Duplicate', profile_id: host.user.id });
+    const dupe = await supabaseAdmin.from('event_room_members').insert({ event_id: indexEvent.id, display_name: 'Duplicate', profile_id: host.user.id });
     expect(dupe.error?.code, 'a second row for the same (event_id, profile_id) must violate the partial unique index').toBe('23505');
 
     // Two walk-ins for the same event must NOT collide — profile_id IS NULL is
     // excluded from the index by design.
-    const walkIn1 = await seedRoomMember(event.id, { profileId: null });
-    const walkIn2 = await seedRoomMember(event.id, { profileId: null });
+    const walkIn1 = await seedRoomMember(indexEvent.id, { profileId: null });
+    const walkIn2 = await seedRoomMember(indexEvent.id, { profileId: null });
     memberIds.push(walkIn1.id, walkIn2.id);
     expect(walkIn1.id).not.toBe(walkIn2.id);
   });
