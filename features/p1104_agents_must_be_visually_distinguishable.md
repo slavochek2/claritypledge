@@ -469,6 +469,19 @@ guard off — not only the new name check but the `is_verified`/`has_pledged` pi
 and P878 depend on. p880:57 says so in a comment I had read. Caught by the probe showing
 direct updates still succeeding, reverted, and now bound by a test.
 
+#### ACCEPTED and fixed — second pass
+
+These four were accepted in the first pass and reported as fixed before they were. The
+over-claim is recorded because it is the same failure mode as the rest of this section:
+stating a thing is closed without running the command that would show it.
+
+| Sev | Finding | Fix |
+|---|---|---|
+| **HIGH** | **The creation helper's error handler could destroy a committed account.** If the RPC commits and the response is lost, the caller sees an error for a call that succeeded; "clean up the minted auth user on error" then cascades away a real profile and its registry row. The migration points P1096's filer at this exact pattern, so it would have been inherited. | The helper checks whether the account landed before deleting anything. The function comment now states the obligation. |
+| **HIGH** | **"An agent cannot take a position" was a property of the fixture, not the design.** It rested on minting with no password and `email_confirm: false` — neither forbidden anywhere. A confirmable mailbox reopened `mark_self_verified` → `point_positions` → `set_my_pledge`, none of which consulted the registry. | Both RPCs now check it. Verified against a deliberately loginable, confirmed agent: all three steps refused, human control unaffected. |
+| **MEDIUM** | The agent's profile page offered *"Their Clarity Pledge"* and the Clarity Badge. The avatar's shield was gated; these two were not. | Gated. |
+| **MEDIUM** | `api/og.ts` led an agent's share card with an image derived from the real person — and the picture dominates a share card while `og:description` is routinely truncated. Plus a 500 on a repeated `?path=` param. | Agents get the default image; the param is array-safe. |
+
 #### REJECTED, with reasons
 
 - **"29–30 unmarked `GravatarAvatar` call sites are a fail-open by omission."** Real count,
@@ -522,16 +535,16 @@ direct updates still succeeding, reverted, and now bound by a test.
 
 ## Test Coverage Strategy
 
-**118 automated tests, all passing.** Command output and per-file counts are in
+**123 automated tests, all passing.** Command output and per-file counts are in
 [features/uat/p1104.md](uat/p1104.md).
 
 | Layer | File | Count |
 |---|---|---|
-| Migration integration (P270) | `e2e/integration/p1104-agent-accounts-migration.spec.ts` | 55 |
+| Migration integration (P270) | `e2e/integration/p1104-agent-accounts-migration.spec.ts` | 57 |
 | Unit — registry service | `src/tests/agent-accounts-service.test.ts` | 10 |
 | Unit — context / fail-closed | `src/tests/agent-accounts-context.test.tsx` | 8 |
 | Unit — provider mounted | `src/tests/agent-accounts-provider-mounted.test.ts` | 4 |
-| Unit — crawler surface | `src/tests/p1104-og-agent-marker.test.ts` | 7 |
+| Unit — crawler surface | `src/tests/p1104-og-agent-marker.test.ts` | 10 |
 | E2E — render surfaces | `e2e/p1104-agent-marker.spec.ts` | 21 |
 | A11y | `e2e/a11y/p1104-agent-marker-accessibility.spec.ts` | 8 |
 
