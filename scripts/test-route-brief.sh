@@ -130,6 +130,13 @@ check "NONE" "read my notes and tell me how much effort the migration takes"
 check "NONE" "the onset of the effort was messy"
 check "NONE" "these stone tiles took real effort"
 check "NONE" "the soup recipe needs sonnet"
+# "model" alone is ambiguous — business / mental / data model — and this founder writes
+# about all three. Only an LLM model NAME anchors the effort pairing.
+check "NONE" "our pricing model requires low effort from the buyer"
+check "NONE" "rewrite the model effort rule in CLAUDE.md"
+check "NONE" "the mental model here is wrong, low effort to fix"
+# ...but a genuine ask that names no model must still fire, via the literal forms.
+check "model" "which model? which effort?"
 
 echo "== SHOULD NOT FIRE: harness-generated prompts and oversized pastes =="
 check "NONE" "This session is being continued from a previous conversation that ran out of context. whats next"

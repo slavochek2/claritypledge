@@ -33,6 +33,7 @@ Usage:
 
 import os
 import re
+import subprocess
 import sys
 
 _argv = sys.argv[1:]
@@ -151,6 +152,31 @@ def strip_inline_noise(line):
     return re.sub(r"https?://\S+", " ", line)
 
 
+def read_target(path):
+    """Content of `path` AS IT WOULD BE COMMITTED: the index if tracked, else the worktree.
+
+    Reading the worktree made this gate hostile in a repo whose own git.md treats concurrent
+    sessions on a shared checkout as the norm: a co-tenant's half-written rules file, staged
+    by nobody, blocked every OTHER session's unrelated commit — and the failure text told the
+    blocked session to go edit that in-flight work. Verified before the fix (P1116
+    adversarial review). Reading the index is also the more correct semantics for a commit
+    gate: judge what is being committed. It does not weaken the archive-later case, which is
+    the reason this check is not scoped to staged files — when a command is archived, the
+    referring file is unchanged in the index and its now-dangling ref still fails.
+    """
+    if "--root" not in _argv:
+        rel = os.path.relpath(path, ROOT)
+        try:
+            p = subprocess.run(["git", "show", ":" + rel], cwd=ROOT,
+                               capture_output=True, text=True, timeout=10)
+            if p.returncode == 0:
+                return p.stdout.splitlines(True)
+        except Exception:
+            pass
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return fh.readlines()
+
+
 def main():
     report = "--report" in sys.argv
     by_base, by_path = command_files()
@@ -163,31 +189,30 @@ def main():
         if not os.path.isfile(target):
             continue
         rel_target = os.path.relpath(target, ROOT)
-        with open(target, encoding="utf-8", errors="replace") as fh:
-            for lineno, line in enumerate(fh, 1):
-                clean = strip_inline_noise(line)
-                for ref in CANDIDATE.findall(clean):
-                    if ref in BUILTINS or ref in NOT_COMMANDS:
-                        continue
-                    name = ref[1:]
-                    # A NAMESPACED ref must match its namespace. Falling back to the bare
-                    # leaf let `/slava:maintain:dev` (fictional namespace) resolve via
-                    # `slava/build/dev.md` — which is the P1113 defect this gate exists to
-                    # catch, passing green (P1116 adversarial review).
-                    hits = by_path.get(name) or []
-                    if not hits and ":" not in name:
-                        hits = by_base.get(name) or []
-                    if hits and not all(is_archived(h) for h in hits):
-                        resolved.append((rel_target, lineno, ref))
-                    elif "%s:%s" % (rel_target, ref) in KNOWN_RETIRED:
-                        annotated.append((rel_target, lineno, ref, line.strip()))
-                    elif hits:
-                        archived.append((rel_target, lineno, ref, hits[0]))
-                    elif not HAVE_USER_ROOT:
-                        # Cannot resolve what we cannot see. Report, never fail.
-                        unverifiable.append((rel_target, lineno, ref))
-                    else:
-                        dead.append((rel_target, lineno, ref))
+        for lineno, line in enumerate(read_target(target), 1):
+            clean = strip_inline_noise(line)
+            for ref in CANDIDATE.findall(clean):
+                if ref in BUILTINS or ref in NOT_COMMANDS:
+                    continue
+                name = ref[1:]
+                # A NAMESPACED ref must match its namespace. Falling back to the bare
+                # leaf let `/slava:maintain:dev` (fictional namespace) resolve via
+                # `slava/build/dev.md` — which is the P1113 defect this gate exists to
+                # catch, passing green (P1116 adversarial review).
+                hits = by_path.get(name) or []
+                if not hits and ":" not in name:
+                    hits = by_base.get(name) or []
+                if hits and not all(is_archived(h) for h in hits):
+                    resolved.append((rel_target, lineno, ref))
+                elif "%s:%s" % (rel_target, ref) in KNOWN_RETIRED:
+                    annotated.append((rel_target, lineno, ref, line.strip()))
+                elif hits:
+                    archived.append((rel_target, lineno, ref, hits[0]))
+                elif not HAVE_USER_ROOT:
+                    # Cannot resolve what we cannot see. Report, never fail.
+                    unverifiable.append((rel_target, lineno, ref))
+                else:
+                    dead.append((rel_target, lineno, ref))
 
     if report:
         for t, ln, ref in resolved:

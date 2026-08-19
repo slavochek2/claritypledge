@@ -173,8 +173,13 @@ match_triggers() {
 		# the phrase "low effort" appears in this founders product writing about human
 		# behaviour and must not route. Level words (high/medium/low/xhigh) are not
 		# accepted as the model anchor for exactly that reason.
+		# The generic word "model" does NOT satisfy the effort pairing. It is ambiguous —
+		# business model, mental model, data model — and this founder writes about all three,
+		# so "our pricing model requires low effort from the buyer" routed as a model+effort
+		# ask. Only an actual LLM model NAME anchors it; the literal which/what forms below
+		# still catch a genuine ask that names no model. (P1116 adversarial review.)
 		if (opus && sonnet)                                  labels = labels " model"
-		else if (effort && (model || opus || sonnet))        labels = labels " model"
+		else if (effort && (opus || sonnet))                 labels = labels " model"
 		else if (norm ~ / (which|what|whihc|witch) (model|effort) /) labels = labels " model"
 		else if (norm ~ / (model|effort) and (effort|model) /)       labels = labels " model"
 
