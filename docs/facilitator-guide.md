@@ -427,3 +427,36 @@ question fires from the app, and the gap is no longer the facilitator's assertio
 
 Supersedes the standalone 10-minute format spec (P653, closed 2026-08-14) — the measurement it
 described lives here as practice rather than as a separate exercise.
+
+### The bell — who rings it, and what it is for (2026-08-19)
+
+The section above is the facilitator's move on one person. **The bell is the same question turned
+into everyone's move**, and it is the half that was missing: the guide prescribed the ask and never
+said what happens when it lands.
+
+**The mechanic.** Whoever asks *"zero to ten"* rings a bell. If you miss a ring, you pass the bell to
+your neighbour — and anyone may ask you to pass it. Rotation is the point: the ringing role is the
+rewarding one, so it circulates rather than sitting with the facilitator all evening. It works the
+same online and in a physical room, and it does not need the founder present.
+
+**What it is for.** It is a celebration, not a counter. The invocation is what the norm is made of,
+and a bell makes each instance audible to everyone at once — including the people not looking. That
+is the whole mechanism: non-adopters observing adopters do the thing without consequence
+([decisions.md](decisions.md) 2026-08-12).
+
+**Nothing is recorded in the app.** No tally button, no phone, no scoreboard. Every version that
+produces a live number puts a tapping obligation back into a room whose premise is people looking at
+each other. Invocation rate is measured by **sampling** — an observer counts at two or three
+instrumented events, and every other event runs with zero capture.
+
+**Two things to watch.** The bell counts answers, not refusals, so the refusal side of the
+instrument exists only at instrumented events. And if a ring cuts across someone mid-sentence more
+often than it rewards them, drop the sound for a silent tally — and accept that you lose the
+room-wide audibility that was its advantage.
+
+**Distinct from the challenge above.** The challenge is aimed at the person who opted out and is the
+facilitator's to make. The bell rewards anyone who asks anyone — invocation is universal
+([decisions.md](decisions.md) 2026-08-12), so opt-outs ring it too.
+
+**Rationale:** [decisions.md](decisions.md) 2026-08-19 *"Invocation is celebrated by a rotating bell
+and never counted in-app"*.

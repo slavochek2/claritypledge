@@ -116,6 +116,10 @@ Points can't be edited). Correct as-is: the argument narrows, the instrument sta
 Fishbowl not breakouts, and what the event must demonstrate (*these two people did not mean the same
 thing*): [decisions.md](../decisions.md) 2026-08-10.
 
+Block 6's challenge is rewarded with a **rotating bell** — whoever asks rings it, and passes it on
+when they miss. Mechanic, who rings it when you are absent, and why nothing is counted in the app:
+[facilitator-guide.md](../facilitator-guide.md) § "The bell". Do not restate it here.
+
 ---
 
 ## The offer

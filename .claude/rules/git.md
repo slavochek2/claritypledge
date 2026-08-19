@@ -134,6 +134,25 @@ git diff HEAD -- <file>       # verify the file actually has uncommitted changes
 
 Worktrees + concurrent sessions mean `main` and the scripts themselves move under you. When a shared tool/script (`git-ops.sh`, `pre-commit-checks.sh`, a migration helper) fails, before reverse-engineering its internals: run `git log --oneline -5` and `git show <tool>` (or just re-run it) — a co-tenant may have already fixed the tool or advanced `main` since you last read it. P868: ~10 tool calls went into reading `git-ops.sh cmd_ship` internals to design a workaround while the fix was already on `main` and a plain re-run worked.
 
+## Volatile state decays — re-check before telling the user NOT to act
+
+The rule above fires when a shared tool fails. This one fires when nothing fails: a branch,
+worktree, or uncommitted-changes fact you verified earlier in the session and are now relaying as
+current.
+
+**The trigger is an advisory built on another session's work** — *"that's in flight in wN," "don't
+touch it, let that session land first," "there's uncommitted work there."* Those sentences change
+what the user does, and they rest on exactly the facts most likely to have moved since you learned
+them: a co-tenant ships, the worktree is removed, the spec lands in `features/done/`. Re-run the
+check before you say it — `git worktree list`, `git log --oneline -5`, `ls features/done/*/pNNNN*`.
+
+**Distinct from [epistemic.md](epistemic.md) gate 9**, which binds you to verify a subagent's claim
+before promoting it. That verification can pass and the fact still expire afterwards. Incident
+2026-08-19: a correctly-verified *"P1083 is in flight in w3 with uncommitted changes"* was relayed
+twice across ~10 turns — shaping a spec's framing and a "let that session land first"
+recommendation — while P1083 had already shipped to main. Caught only when a link-existence check
+failed at file-write time, after the founder had made design decisions on it.
+
 ## Worktree `scripts/` is a native checkout
 
 `scripts/` and `supabase/migrations/` are hydrated as native git checkouts in every worktree (`3d7a010e`), not symlinks. `git status` is accurate there: a `D` entry for `scripts/` means the file is really missing, not an artifact — recover with `git checkout -- scripts` inside the worktree. Older advice to ignore those entries, or to filter them with `git diff --name-only HEAD`, is obsolete.
