@@ -332,6 +332,11 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
 
   // ── upsert_my_profile: reserved "Agent ·" prefix guard (Decision 4) ───────
 
+  // Every entry below renders visually identical (or near-identical) to the reserved
+  // "Agent · " form. The nine marked HARDENING were ACCEPTED by the guard as originally
+  // written and were caught by probing the live DB during adversarial review, not by any
+  // test — invisible characters split the token so the regex never saw the prefix.
+  // 20260819140000 normalizes them away before matching. Do not narrow this list.
   const rejectedNames: Array<[string, string]> = [
     ['the exact reserved form', 'Agent · Real Public Figure'],
     ['no space, lowercase', 'agent·no space variant'],
@@ -339,6 +344,15 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     ['double space — collapses to the reserved form when rendered as HTML', 'Agent  · Double Space Variant'],
     ['tab separator', 'Agent\t· Tab Variant'],
     ['bullet homoglyph', 'Agent • Bullet Variant'],
+    ['HARDENING: U+200B zero-width space', 'Agent​· Real Public Figure'],
+    ['HARDENING: U+200D zero-width joiner', 'Agent‍· Real Public Figure'],
+    ['HARDENING: U+200F right-to-left mark', 'Agent‏· Real Public Figure'],
+    ['HARDENING: U+2060 word joiner', 'Agent⁠· Real Public Figure'],
+    ['HARDENING: leading zero-width before Agent', '​Agent · Real Public Figure'],
+    ['HARDENING: Cyrillic А homoglyph', 'Аgent · Real Public Figure'],
+    ['HARDENING: fullwidth Ａ', 'Ａgent · Real Public Figure'],
+    ['HARDENING: U+2024 one-dot leader', 'Agent ․ Real Public Figure'],
+    ['HARDENING: U+FF65 halfwidth katakana middle dot', 'Agent ･ Real Public Figure'],
   ];
 
   for (const [label, name] of rejectedNames) {
@@ -377,17 +391,27 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     expect(profile?.name).toBe(newName);
   });
 
-  test('upsert_my_profile accepts a name that contains "agent" without the separator', async () => {
-    const newName = `Agentina Testperson ${Date.now()}`;
-    const { error } = await authed.rpc('upsert_my_profile', {
-      p_data: {
-        email: authedUser.email,
-        name: newName,
-        slug: authedUser.slug,
-        role: 'Test Engineer',
-        avatar_color: '#4A90E2',
-      },
+  // The guard must DISCRIMINATE, not blanket-reject. Without these, a guard that rejected
+  // every name would pass every rejection case above and look correct.
+  const acceptedNames: Array<[string, string]> = [
+    ['a name that merely contains "agent"', 'Agentina Testperson'],
+    ['"Agent" with no separator at all', 'Agent Smith'],
+    ['a real name containing a middle dot', 'Jean · Pierre'],
+    ['a name starting with another word plus a middle dot', 'Author · Someone'],
+  ];
+
+  for (const [label, base] of acceptedNames) {
+    test(`upsert_my_profile still accepts ${label}`, async () => {
+      const { error } = await authed.rpc('upsert_my_profile', {
+        p_data: {
+          email: authedUser.email,
+          name: `${base} ${Date.now()}`,
+          slug: authedUser.slug,
+          role: 'Test Engineer',
+          avatar_color: '#4A90E2',
+        },
+      });
+      expect(error, 'the guard is a prefix+separator reservation, not a word ban').toBeNull();
     });
-    expect(error, 'the guard is a prefix+separator reservation, not a word ban').toBeNull();
-  });
+  }
 });
