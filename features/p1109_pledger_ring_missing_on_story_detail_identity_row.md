@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 41
 severity: medium
 date_reported: '2026-08-19'
 created_date: '2026-08-19'
 tags: [avatar, pledge-ring, story-detail, props-drilling]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p1109-reproduce.test.tsx
+  root_cause: "QuotedPoint sub-component's props interface (StoryCardDetail.tsx ~493) never declared authorHasPledged or authorAvatarColor; call site (~421) passes only authorAvatarUrl; render (~566) hardcodes isPledger={false} with no avatarColor — dropping data present on story.authorHasPledged / story.authorAvatarColor since the component boundary."
+  confidence: high
+  surfaces_in_scope: [story-detail-identity-row]
+  surfaces_deferred: []
+  reproduced_at: '2026-08-19'
 ---
 
 # P1109: Pledger ring and avatar colour never render on the story-detail identity row
@@ -31,6 +38,8 @@ Its structural twin does it correctly: `story-card-with-links.tsx:577-581` carri
 **This is a recurring class in this repo.** `docs/decisions.md:11076` records P745: a `mapRecord` helper hardcoded `inviterIsPledger: false` and `inviterAvatarColor: null`, "silently discarding the data returned by `getOpenLiveInviteForUser`" — the fetch worked, the helper zeroed its output, and it was caught only by post-merge review. `docs/decisions.md:13255` records P697, the fetch-layer version: `avatar_url`, `avatar_color` and `has_pledged` omitted from a select, "invisible to TypeScript (the fields are optional) and invisible in unit tests." Same failure shape, three layers.
 
 Found during adversarial review of P1107 (rejected, `features/archive/2026-08/`).
+
+**Confirmed via `/reproduce` (2026-08-19):** all cited line numbers verified current. `StoryWithAuthor` carries both `authorHasPledged?: boolean` and `authorAvatarColor?: string` (`src/app/types/index.ts:1042,1046`); the sub-component's destructured props and TS interface (`StoryCardDetail.tsx:475-518`) have neither. Canary test `src/tests/p1109-reproduce.test.tsx` renders `StoryCardDetail` with a pledged author and a distinct `authorAvatarColor`, and fails on `expect(identityRowAvatar).toHaveAttribute('data-pledger', 'true')` — `data-pledger` is `null`, proving the ring is absent exactly as described.
 
 ## Reproduction Steps
 
