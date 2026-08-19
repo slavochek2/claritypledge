@@ -419,6 +419,24 @@ bearer-capability one is the kind of two-pattern drift the reuse-inventory check
 to `anon`/`authenticated` is `USING (opted_in = true)`. This is the direct-REST policy, and it is
 **assumed but NOT VERIFIED** to be the realtime `postgres_changes` filter as well.
 
+> **`VERIFIED 2026-08-19` — measured, no longer assumed. Row-level RLS DOES filter Realtime.**
+> `e2e/integration/p1114-realtime-payload.spec.ts` ran green three consecutive times with **no
+> retries and no flakes**, in both directions: an `opted_in = false` row never appeared in any
+> received payload, and a `true → false` UPDATE never delivered the new state. Critically, the
+> **live control fired** — the opted-in row in the same channel, poked identically, DID receive
+> payloads, so the green is not the vacuous kind where silence reads as an all-clear.
+> **Decision 2 stands, and `event_room_members` correctly stays in the `supabase_realtime`
+> publication.** The P1048 fallback (drop from publication, poll-only roster) is NOT needed.
+>
+> **This extends the repo's knowledge, and belongs in `decisions.md` at `/kdd`:**
+> [decisions.md](../docs/decisions.md) 2026-08-17 [technical] (P1057) measured only the
+> **column**-level case and explicitly declined to generalise — *"This does NOT generalise to
+> row-level questions."* That row-level gap is now measured for this project. It remains a
+> measurement, not a vendor guarantee: any future change to this table's SELECT policy silently
+> changes what Realtime delivers, so the canary must be kept in step with the policy — exactly
+> the standing rule P1057 set for the grant.
+>
+> *Historical — the assumption as it stood before the canary ran:*
 > **`UNVERIFIED` — this is the load-bearing assumption of the whole opt-out guarantee.**
 > [decisions.md](../docs/decisions.md) **2026-08-17** [technical] (P1057) measured that Realtime
 > filters payloads by **column-level** SELECT privilege, and closes with: *"This does NOT
