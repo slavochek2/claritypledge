@@ -50,7 +50,9 @@ curl -sL -H "User-Agent: ClarityPledge/1.0 (ops@claritypledge.com)" -o /tmp/agen
 
 **Read the licence line before continuing.** `UNKNOWN LICENCE` is a stop.
 
-> **Open policy question.** Whether depicting a real public figure as a robot avatar is acceptable *product policy* is separate from whether it renders well, and it is **not decided** (P1104). If the subject is a public figure and no decision has been recorded, generate for prototyping but flag the open question rather than shipping the account.
+> **Product policy — decided 2026-08-19 (P1104).** Depicting a real public figure as a robotified avatar is acceptable **on one condition: the operator is named on the account's profile page from the moment the avatar is live.** A robot face carrying a position the subject never took, with no human named as answerable, is worse than a plain photograph with one.
+>
+> **This makes the condition part of this skill's contract.** Before emitting an avatar for a subject who is not the operator, confirm the profile page carries the operator line. If it does not, **stop and say so** — do not generate and leave the wiring to someone else.
 
 ---
 

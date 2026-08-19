@@ -110,7 +110,7 @@ So the portrait is right and cannot be the only carrier — which confirms the r
 
 **Still open:** whether a stranger reads the combination correctly, and whether the robotified portrait of a *claimed* subject (the founder's own) reads differently from an unclaimed one. Neither is answerable from this side of the screen.
 
-**Not resolved here:** whether depicting a real public figure as a robot avatar is acceptable as product policy — a separate question from whether it works. Flagged, not decided.
+**Product policy — DECIDED 2026-08-19.** Depicting a real public figure as a robotified avatar **is** acceptable, **conditional on the operator being named on the profile from day one.** The condition is the substance of the approval, not a footnote: a robot face carrying a position the subject never took, with no human named as answerable, is worse than a photograph with one — the disclosure is what makes the artifact fair. **The operator line therefore ships in the same change as the avatar, never after it** (see Done-When). If the operator line is cut or deferred for any reason, the portrait channel is cut with it.
 
 ### How the marker reaches a render site — no data plumbing
 
@@ -207,6 +207,8 @@ Bumping those sites to the app default would make the robotified portrait legibl
 - [ ] Every surface rendering a profile is either in scope or listed above with its reason
 - [ ] No account's display name is a bare person's name — checkable because both names are chosen by us; **not** generalizable (`.claude/rules/pii.md` records that automated name detection was rejected against a measured false-positive baseline)
 - [x] Founder decision 1 answered and recorded here — **yes, full profile page** (2026-08-19)
+- [ ] **The operator line renders on the profile page in the same change that introduces the avatar** — screenshot pasted. This is the condition the public-figure policy approval was granted on; an avatar shipped without it violates the approval, not merely the plan.
+- [ ] Both subjects named and their source photographs rights-cleared before any avatar is generated (`/slava:content:gen-agent-avatar` Step 0)
 
 ## Acceptance Criteria
 
