@@ -6,6 +6,56 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [product]: An agent is a persistent reading of ONE PERSON, not a source and not an argument — and nothing about it is autonomous
+
+**Context:** P1104 must make a machine's reading of a public figure unmistakably not-that-person before P1096 can file anything. Designing the marker required first deciding what the account *is*. Three models were live.
+
+**Decision:** **An agent is a persistent account representing one person, built from sources someone chose.** It accumulates — many sources over time, one story per source (that speaker's verbatim quotes plus the source link), and a position on each point those sources bear on. A position is defined as **a reading given a source**, never a standing belief.
+
+Two models rejected on structure, not taste:
+- **Agent = one source.** Collapses into the story it holds; cannot accumulate. Founder spotted this.
+- **Agent = one argument** (e.g. *"the case for rent caps"*). The product's only identity slot is a profile, and a profile is read as a somebody. An argument in that slot is a category error a reader hits the moment they click it. It also assumed a cross-source reuse nothing in the pipeline would ever perform — a benefit invented to defend the model.
+
+The objection that killed the accepted model on first pass — *a person contradicts themselves across sources, so which source wins?* — is answered by **neither**. Both readings are true of their own source; the honest output shows both, each anchored to what produced it. That is why the position definition is source-scoped.
+
+**Second decision, and it is the one that makes the artifact fair:** **there is no autonomy.** Nothing goes looking for material. A person selected the sources, shaped the points, and published the result. Every agent has a named **operator**, and naming them is what makes the artifact answerable to a quoted figure who never consented — a human is accountable, not a machine. This also defines the only status distinction worth recording now: **unclaimed** = subject ≠ operator; **claimed** = subject = operator or authorised. **Neither renders as a badge** — the name states the relationship, so the distinction is already visible. Calibration (how far a claimed subject has corrected its output) is a spectrum, is future work, and is deliberately undefined.
+
+**Alternatives rejected:** Excluding agent positions from the room's count — the counts are not load-bearing evidence, a filter is a later addition, and splitting the number now is a decision without evidence behind it. Naming an agent for the argument it holds (the prior spec's rule) — inverted: name the person, because the source-scoping handles the harm the rule was written to prevent, and argument-shaped names produce meaningless initials at the smallest rendering. Making agent stories private — kills the quote, which is the evidence that makes the position checkable; a person who can see the page can object, and the dangerous case is the one who never sees it.
+
+**Consequences:** The marker splits across two mechanisms because one cannot do both jobs: the **avatar** carries it in-app (never a photograph — shape and palette are what survive at the 20px the position row uses), and the **name field** carries it off-platform, where a shared link renders as text only and the name is the entire disclosure surface. Source stays on the linked story; duplicating it into the name is what made an earlier draft's name unusable. Operator lives on the profile. **The marker's actual wording is deliberately unresolved** — *"agent"* implies autonomy that does not exist, *"read by"* implies attention the operator did not perform, *"mirror"* is this repo's own vocabulary but likely opaque to a stranger. It is settled by a prototype in front of someone who has not read the spec, not by prose. This is the first shipping instance of the **mirror agent / digital twin** already documented in `philosophy.md:304`, `definitions.md:340-354`, `lean-canvas.md:634,650` (a revenue line) and `theory-of-change.md:277` (primary cold start) — hand off to `/slava:maintain:docs-strategy-update` for the strategy-doc edit, including the "an agent can hold positions on 40 points the person never could; follow it, watch it accumulate" claim and "claim your agent" as an activation motion.
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [features/p1096_public_multisource_point_pipeline.md](../features/p1096_public_multisource_point_pipeline.md), [features/p1052_agent_persistent_identity_via_staked_positions.md](../features/p1052_agent_persistent_identity_via_staked_positions.md)
+
+---
+
+## 2026-08-19 [technical]: The allowlist that fails closed also removes the data-threading problem — same decision, second payoff
+
+**Context:** The 2026-08-18 entry argued the hardcoded agent-id list over an `is_agent` column on fail-open grounds (`is_admin` is already missing from the P877 read-grant list). A separate question then arose: how does the marker *reach* each render site? An adversarial reviewer argued a shared render component would unify the markup but not the data, since the marker still has to be threaded in from wherever each person-object is constructed — and the point page alone builds four independently (`point-detail-page.tsx` main row, `ExpandableStoryRegion`, `PositionlessStoryRow`, and the `?embed=true` path at `:404`/`:476`).
+
+**Decision:** The threading problem does not exist, **because** the list is a code constant. Verified 2026-08-19: every render site already holds an identifier for the person it shows — `holder.userId` and `authorId` on the point page, `authorId` in the story and point cards, `profileId` on the profile page, `story.authorSlug` in the feed card, and the crawler handlers query the profile row directly. A constant is readable from anywhere, so a site asks "is this one of them?" with what it already has. A column would have to be added to every query and carried through every constructed object.
+
+**Alternatives rejected:** A shared identity component to unify person rendering (filed as P1107, **rejected the same day** — see the process entry below). It was designed to solve exactly this threading problem, which the allowlist decision had already removed.
+
+**Consequences:** The fail-closed property and the no-plumbing property come from one decision, which is corroboration that it was right rather than merely convenient. It also means P1104 is additive and touches nothing about how people render. Surface list corrected 3 → 11: the earlier three-surface scope was refuted by its own downstream spec (`p1096.md:63`, verified 2026-08-17: *"A story renders on both the feed card and the point detail page"*), and the point page turned out to carry **six** `aria-label`s with bare names — 755, 797, 882, 920, 948, 1013, i.e. every one in the file — where the spec checked one. `api/og.ts` has four crawler handlers, not one. Excluded with reasons: `PointHeader` (renders the author as plain text with no avatar, so it inherits the marker through the name for free), `compact-profile-card` (no importers), `clarity-live-page` (its name handling is audio-chunk upload keys), `story-image` (author name in `alt` only).
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [features/archive/2026-08/p1107_one_identity_component_for_people.md](../features/archive/2026-08/p1107_one_identity_component_for_people.md)
+
+---
+
+## 2026-08-19 [process]: A citation from decisions.md is not evidence until the entry is re-read — 5 of 5 supported nothing
+
+**Context:** P1107 was filed and rejected within hours, before any implementation. Its Problem section rested on a table of five "recorded incidents" cited from this log to argue that duplicated identity-row rendering had repeatedly caused escaped defects. An adversarial reviewer pulled each entry in full.
+
+**Decision:** Record the failure rate, because it is the point. **Zero of five supported the claim.** P697 and P940 were fetch-layer bugs — a query never selected the column, and no render component can render data that was never fetched. P793 was a visibility guard (*whether* to show the row, not *which* row). The 2026-03-17 "by {name}" entry was a card-footer string, and the shared component being bypassed was the card, not the avatar. P75→P76 was not an incident at all — debt flagged in code review and ticketed, i.e. the system working. Worse, the same spec cited P940 in its Problem table as evidence of urgency **and**, three sections later, correctly conceded it was fetch-layer and outside scope — using one incident on both sides of its own argument.
+
+**Alternatives rejected:** Reframing the table and keeping the spec. The forward-looking argument was independent of the history, but the spec's premise had already been removed by the allowlist entry above, so the fix was retirement, not repair.
+
+**Consequences:** Extends `.claude/rules/epistemic.md` gate 9 (a subagent's claim is not evidence until a command confirms it) to a case where **the author was the one citing** — every one of those five entries had been read earlier in the same session and then characterised from memory when the spec was written. The genuine pattern in those entries is *cross-surface changes miss surfaces* — P793 missed one of three, the footer fix missed one of four and the founder reported it as not working — which is a real argument, and not the one that was written. Two further checks that were one grep away and not run: `PointHeader` renders no avatar, and `compact-profile-card` has no importers — 2 of 9 named surfaces wrong. The spec's verification bar ("nothing changes visually") was also unenforceable: no visual-diff tooling exists in this repo (`toMatchSnapshot|toHaveScreenshot|percy|chromatic` → 0 hits). **Rejected specs keep their P-number** and P1107 is archived as a record, not as work.
+
+**References:** [features/archive/2026-08/p1107_one_identity_component_for_people.md](../features/archive/2026-08/p1107_one_identity_component_for_people.md), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
 ## 2026-08-18 [technical]: `/ship`'s co-located-spec heuristic couldn't tell FILED from DELIVERED — and its own regression canary was shaped like the bug it existed to catch (P1105)
 
 **Context:** `detect_cospecs()` closed every spec touched by a branch's commits, with no exclusion for a spec the branch merely *created*. Recorded twice before as a known defect (2026-08-13 [process] item 1; 2026-08-17 [process] "New defect 1" above, which named the required fix verbatim) but never implemented — three more incidents landed in between (P1057, P1038, P929), one erasing the only tracking for a live `severity: critical` security fix. Filed as P1105 and fixed this session.
