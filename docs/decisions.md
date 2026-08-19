@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [process]: A recorded decision was reversed six days later — its rationale rested on a command that had already been archived
+
+**Context:** P1113 fixed contradictions in the always-on instruction layer. One edit remapped
+the `"wrap up"` routing target, which pointed at a command that does not exist in either
+command tree. The 2026-08-13 [process] entry had **explicitly considered and rejected**
+rewriting that line, on the stated ground that *"the line remains correct for `/status` and
+`/wrap`."* The `/wrap` half of that ground was false when written: an earlier entry records
+*"`/wrap` and `/ship` archived… `/status` replaces `/wrap` for any 'where are we?' need."*
+The spec's first draft proposed deleting the mapping and **cited neither entry** — it was an
+adversarial reviewer that found the conflict, after which both were verified independently.
+
+**Decision:** Reverse the 2026-08-13 sub-ruling and remap `"wrap up"` → `/status`, the
+replacement the archive entry already designated. Founder approved the reversal. The
+reversal is narrow: the 2026-08-13 entry's *primary* ground — record the measurement, add no
+rule, close the gap with a hook — stands untouched and is the basis for P1116.
+
+**Alternatives rejected:** *Delete the mapping* (first draft) — orphans a phrase the founder
+types ~69 times a month, and ignores that a replacement was already named. *Leave it* —
+respects the recent decision but keeps a menu item pointing at nothing. *Build `/wrap`* —
+the archive entry retired it deliberately as redundant with auto-commit.
+
+**Consequences:** A decision entry is not self-validating: this one was six days old,
+deliberate, and gate-reviewed, and still carried a factually wrong clause. Cite the entry,
+then check the fact it rests on — CLAUDE.md already instructs grepping this log for
+rationale, and the first draft skipped it. Second: the fix is **symptom-level** and the gate
+said so — nothing prevents the next dead pointer. The root cause (no mechanical check that a
+`/command` named in an instruction file exists) is specced as P1116 group 3. Third: the
+instruction layer was measured rather than estimated — ~807 always-on lines loading in 38 of
+44 sessions and re-paid on 77 compactions, while three rules inside it were measured firing
+0/30, missed 75x, and missed 14x. **Advisory text does not bind at this size**; P1116
+converts the load-bearing rules to mechanisms before P1117 removes any prose.
+
+**References:** [P1113](../features/p1113_resolve_always_on_instruction_contradictions.md),
+[P1116](../features/p1116_mechanize_the_unenforced_rules.md), decisions.md 2026-08-13
+[process] (the 0/30 measurement and its control), `.claude/hooks/log-instructions-loaded.sh`
+
 ## 2026-08-19 [process]: Adding a second check to an existing Stop hook consumed the block the first one needed
 
 **Context:** A KDD output-shape check was added to `.claude/hooks/verify-before-stop.py`, which already blocked turns on unverified "it's live" claims. The new check was placed above the old one, each with its own `sys.exit(2)`. Ten failure-path exit codes were pasted before committing, per epistemic gate 7. An adversarial reviewer then read the hooks documentation — which the author had not — and found that `stop_hook_active` gives a Stop hook **exactly one block per user turn**: the second Stop in a continuation chain carries `true` and exits immediately.

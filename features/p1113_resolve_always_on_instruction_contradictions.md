@@ -1,11 +1,12 @@
 ---
-status: in-progress
+status: done
 type: task
 rank: 45.0
 created_date: '2026-08-19'
 tags: [claude-md, rules, contradictions, instruction-layer]
-delivery_stage: dev
+delivery_stage: shipped
 pipeline_ran: [create-spec, dev]
+completed_at: '2026-08-19'
 driver: anomaly
 ---
 
