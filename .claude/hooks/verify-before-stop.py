@@ -51,13 +51,14 @@ EDIT_TOOLS = ("Edit", "Write")
 # The sentinel is the mandatory closing line of /kdd step 7.2. Tolerant of the
 # agent substituting a real item number for the literal N.
 KDD_SENTINEL_RE = re.compile(r"Confirm to apply, or \S+=skip to drop item", re.IGNORECASE)
+KDD_ITEM_RE = re.compile(r"\*\*Item \S+\s+—", re.IGNORECASE)
 
 # Each entry: (human name, regex that must match somewhere in the message).
 KDD_REQUIRED = (
     ("the why, closed by an invitation to confirm", re.compile(r"Does that match what you saw\?", re.IGNORECASE)),
     ("the cost line", re.compile(r"\*\*What it costs you:\*\*", re.IGNORECASE)),
     ("the do-nothing line", re.compile(r"\*\*If we do nothing:\*\*", re.IGNORECASE)),
-    ("the ask", re.compile(r"\*\*Your call:\*\*|One honest fix here:", re.IGNORECASE)),
+    ("the ask", re.compile(r"\*\*Your call:\*\*|One honest fix here:|\*\*Blocked on your call:\*\*", re.IGNORECASE)),
 )
 
 # Banned by /slava:build:simplify section 2 — the agent's concerns, not the
@@ -97,8 +98,11 @@ def _retry_count(session_id, bump=False):
 
 def kdd_violations(text):
     """Return a list of human-readable problems, or [] if the shape is fine."""
-    if not KDD_SENTINEL_RE.search(text):
-        return []  # not a KDD presentation — nothing to check
+    if not (KDD_SENTINEL_RE.search(text) and KDD_ITEM_RE.search(text)):
+        # Not a KDD presentation. The item heading is required alongside the
+        # sentinel so that a session *maintaining* this skill — which quotes the
+        # closing line verbatim — is not blocked on every turn.
+        return []
     problems = []
     missing = [name for name, pattern in KDD_REQUIRED if not pattern.search(text)]
     if missing:
@@ -152,10 +156,24 @@ def main():
                 last_assistant_text = text
                 break
 
-    if not last_assistant_text:
+    # The KDD check reads the WHOLE assistant turn, not just its last message.
+    # /kdd step 7.X (append to the suppression log) runs AFTER 7.2 presentation,
+    # so the skill itself produces a trailing "Suppression log updated." message
+    # — checking only the last message let that disarm the gate entirely.
+    turn_chunks = []
+    for entry in reversed(entries):
+        if entry.get("type") == "user":
+            break
+        if entry.get("type") == "assistant":
+            text = extract_text(get_message_content(entry))
+            if text.strip():
+                turn_chunks.append(text)
+    turn_text = "\n".join(reversed(turn_chunks))
+
+    if not last_assistant_text and not turn_text:
         sys.exit(0)
 
-    problems = kdd_violations(last_assistant_text)
+    problems = kdd_violations(turn_text)
     if problems:
         session_id = data.get("session_id")
         if _retry_count(session_id) >= RETRY_LIMIT:

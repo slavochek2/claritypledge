@@ -367,12 +367,20 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    pass names, no verdict tokens, no `file:line`. Those are the agent's furniture; the
    founder is deciding whether the item is real.
 
-   > ⚠️ **This template is one of four copies of that contract, in two git repos.** The
-   > others are `~/.claude/hooks/decision-brief.sh`,
-   > `~/.claude/commands/slava/build/simplify/SKILL.md`, and `~/.claude/commands/kdd-private.md`
-   > § Surfacing contract. This copy already drifted once — it kept emitting the banned
-   > trade-off vocabulary for five days after the 2026-08-14 rewrite. Change the wording
-   > here and you change it in all four.
+   > ⚠️ **This template is one of FIVE copies of that contract, across two git repos.**
+   > The others: `.claude/hooks/verify-before-stop.py` (in this repo — `KDD_BANNED_RE`
+   > and `KDD_REQUIRED`), `~/.claude/hooks/decision-brief.sh`,
+   > `~/.claude/commands/slava/build/simplify/SKILL.md`, and
+   > `~/.claude/commands/kdd-private.md` § Surfacing contract.
+   >
+   > **`KDD_BANNED_RE` in this repo's hook is the normative list** — it is the only copy
+   > that blocks, so a word banned there and nowhere else produces a block citing a
+   > contract that does not contain it. That was true on the day this shipped. The check
+   > is runnable from cp without leaving the repo:
+   > `grep -n "KDD_BANNED_RE\|KDD_REQUIRED" .claude/hooks/verify-before-stop.py`
+   >
+   > This template already drifted once — it kept emitting the banned trade-off
+   > vocabulary for five days after the 2026-08-14 rewrite.
 
    **Item template — emit one block per item, in this order:**
 
@@ -387,7 +395,9 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    **If we do nothing:** <one line — what recurs, and how soon.>
 
    **Your call:** <A/B with one line of consequence each — OR, when only one honest
-   path exists, "One honest fix here: <action>." Never pad to two.>
+   path exists, "One honest fix here: <action>." Never pad to two. If it needs the
+   `/slava:maintain:claude-md` gate or is yours to judge, write
+   "**Blocked on your call:** <what needs your decision>" instead and make no pick.>
 
    **I'd pick <X>** — <one line; if it prevents the problem without anyone having to
    remember anything, say so.>
