@@ -33,6 +33,8 @@ import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
 import { PracticeRooms } from './PracticeRooms';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
 
@@ -638,6 +640,37 @@ export function EventDetail() {
                 currentUserName={user?.name ?? null}
               />
             )}
+
+            {/* P1114: Room tab — VISIBLE UNCONDITIONALLY, no isLoggedIn gate (unlike
+                PracticeRooms above). Content adapts to before/during/after via the
+                room's own frozen state, computed from EVENT_GRACE_HOURS (P494). */}
+            <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+              <Tabs defaultValue="room">
+                <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
+                  <TabsTrigger
+                    value="room"
+                    className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                  >
+                    PLACEHOLDER: tab label
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="room" className="pt-4">
+                  {Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000 ? (
+                    <p className="text-sm text-muted-foreground">Who was here.</p>
+                  ) : Date.now() < new Date(event.datetime).getTime() ? (
+                    <p className="text-sm text-muted-foreground">The room is open — join early.</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">The room is open now.</p>
+                  )}
+                  <a
+                    href={`/events/${event.slug}/room`}
+                    className="mt-3 inline-block text-sm font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                  >
+                    Open the room
+                  </a>
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
         </div>
       </div>

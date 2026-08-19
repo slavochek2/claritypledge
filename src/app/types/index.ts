@@ -972,6 +972,32 @@ export interface EventPracticeRoom {
   creatorAvatarUrl: string | null;
 }
 
+// P1114: Event room presence + CMP opt-in. Mirrors the RPC return shape of
+// join_event_room / set_room_opt_in / set_room_readiness / get_my_room_status
+// (supabase/migrations/20260819170000_p1114_event_room_rpcs.sql) and the public
+// roster's column-level SELECT grant (20260819160000_p1114_event_room_tables.sql) —
+// client_secret is never exposed to the roster read, only returned by the RPCs
+// that mint/validate it for the calling browser.
+export interface EventRoomMember {
+  id: string;
+  eventId: string;
+  /** null = walk-in, never had (or didn't use) an account */
+  profileId: string | null;
+  displayName: string;
+  /** null = has not answered yet — distinct from false (explicit opt-out) */
+  optedIn: boolean | null;
+  /** null = has not answered yet. 0-10, no expiry (Decision 6 / spec §7). */
+  readinessValue: number | null;
+  joinedAt: string;
+}
+
+/** Only present on the calling browser's own row — join_event_room / get_my_room_status
+ * return this via RETURNING; the public roster SELECT never includes it (column-level
+ * REVOKE). Never persist this anywhere but localStorage. */
+export interface EventRoomSelf extends EventRoomMember {
+  clientSecret: string;
+}
+
 // ============================================================================
 // STORIES, POINTS, AND CALIBRATION TYPES (P117)
 // ============================================================================

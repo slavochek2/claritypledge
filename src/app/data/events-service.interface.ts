@@ -34,6 +34,23 @@ export interface EventsService {
 
 }
 
+/**
+ * P1114: Event room presence + CMP opt-in — documentation-only signatures.
+ * The actual implementation lives in `./event-room-service.ts` as a standalone module,
+ * not as a second `EventsService` implementation — this feature is additive-only with
+ * no mock-vs-real fork (every table/RPC is brand new, so there's nothing for a mock to
+ * simulate). Kept here so the RPC contract is discoverable next to the rest of the
+ * Events surface, per the Architect's Build Sequence step 3.
+ */
+export type EventRoomServiceContract = {
+  joinEventRoom: (eventId: string, displayName: string) => Promise<import('@/app/types').EventRoomSelf>;
+  setRoomOptIn: (memberId: string, secret: string, optedIn: boolean) => Promise<import('@/app/types').EventRoomSelf>;
+  setRoomReadiness: (memberId: string, secret: string, value: number) => Promise<import('@/app/types').EventRoomSelf>;
+  getMyRoomStatus: (memberId: string, secret: string) => Promise<import('@/app/types').EventRoomSelf | null>;
+  getRoomRoster: (eventId: string) => Promise<import('@/app/types').EventRoomMember[]>;
+  subscribeToRoomRoster: (eventId: string, onUpdate: (roster: import('@/app/types').EventRoomMember[]) => void) => () => void;
+};
+
 export interface CreateEventInput {
   title: string;
   description: string;

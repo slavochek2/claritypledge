@@ -6,6 +6,7 @@ import { EditEvent } from './components/EditEvent';
 import { RsvpConfirm } from './components/RsvpConfirm';
 import { NextWebinarRedirect } from './components/NextWebinarRedirect';
 import { WEBINAR_SERIES } from '@/app/data/webinar-series';
+import { EventRoomPage } from './components/EventRoomPage';
 
 /**
  * P1010: `/events` lands on the Clarity Organization page, not the bare list. The nav
@@ -60,6 +61,11 @@ export function EventsPrototype() {
       <Route path=":slug" element={<EventDetail />} />
       <Route path=":slug/edit" element={<EditEvent />} />
       <Route path=":slug/confirm" element={<RsvpConfirm />} />
+      {/* P1114: one shared page, three doors (Architecture Decision 7) — standalone
+          /ready and /meet (outside /events) are untouched and stay roomless. */}
+      <Route path=":slug/room" element={<EventRoomPage focus="join" />} />
+      <Route path=":slug/ready" element={<EventRoomPage focus="ready" />} />
+      <Route path=":slug/meet" element={<EventRoomPage focus="principle" />} />
     </Routes>
   );
 }
