@@ -741,6 +741,41 @@ else
 fi
 echo ""
 
+# 13b3. Goal-gate closure choke-point — a GOALIFIED spec may not be closed unless its
+# gate passes. "Goalified" is decided by the contract pin on main
+# (features/verification/pN/contract.sha256), never by anything on the branch: a run
+# cannot duck the gate by deleting its own contract, because it cannot delete a file
+# that lives on main.
+#
+# This is ACCIDENT PREVENTION, not the boundary. A local hook is forgeable by the actor
+# it binds; the real gate is the required `goal-gate` check on main
+# (.github/workflows/goal-gate.yml). Both exist for the same reason audit-privacy does.
+echo ">>> Checking goal-gate for goalified specs moving to done/..."
+GOAL_GATE_BLOCKED=0
+if [ -n "$STAGED_DONE_FILES" ] && [ -f scripts/goal-gate.sh ]; then
+    while IFS= read -r done_basename; do
+        P_NUM=$(echo "$done_basename" | grep -oE '^p[0-9]+')
+        [ -z "$P_NUM" ] && continue
+        PIN="features/verification/${P_NUM}/contract.sha256"
+        # Pin resolved from main, not the working tree.
+        if git cat-file -e "origin/main:${PIN}" 2>/dev/null || git cat-file -e "main:${PIN}" 2>/dev/null; then
+            if bash scripts/goal-gate.sh "$P_NUM" --tier ci >/tmp/goal-gate-${P_NUM}.txt 2>&1; then
+                echo -e "${GREEN}✓ goal-gate ${P_NUM} passed (ci tier)${NC}"
+            else
+                echo -e "${RED}✗ goal-gate ${P_NUM} FAILED — a goalified spec cannot be closed on a red gate${NC}"
+                tail -20 /tmp/goal-gate-${P_NUM}.txt | sed 's/^/    /'
+                GOAL_GATE_BLOCKED=$((GOAL_GATE_BLOCKED + 1))
+            fi
+        fi
+    done <<< "$STAGED_DONE_FILES"
+fi
+if [ "$GOAL_GATE_BLOCKED" -gt 0 ]; then
+    ERRORS=$((ERRORS + GOAL_GATE_BLOCKED))
+else
+    echo -e "${GREEN}✓ No goalified spec closing on a red gate${NC}"
+fi
+echo ""
+
 # 13b2. /live runtime coverage canary — warn when /live runtime changes ship without an E2E
 # Two-party UI bugs only show on the initiator side; unit tests cannot catch them.
 # See .claude/rules/live.md and features/p827_live_preload_on_story_switch.md.
