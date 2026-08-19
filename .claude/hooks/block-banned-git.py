@@ -263,13 +263,25 @@ def _vals(args):
     return [t.value for t in args]
 
 
+def _is_short_cluster(v):
+    """A short-option cluster: -A, -nm, -fp. Never a quoted VALUE that starts with a dash.
+
+    The whitespace guard is load-bearing, not defensive: without it a commit message like
+    `-m "-n means no-verify"` reads as a cluster carrying `n` and the commit is refused.
+    Caught by an adversarial probe after the canary was already green -- over-blocking is
+    the failure mode that looks like the hook working.
+    """
+    return (len(v) > 1 and v[0] == "-" and v[1] != "-"
+            and not any(c.isspace() for c in v))
+
+
 def _has_short(args, letter):
     """True if a short-option cluster carries `letter` (e.g. -A in `git add -An`)."""
     for t in args:
         v = t.value
         if v == "--":
             return False
-        if len(v) > 1 and v[0] == "-" and v[1] != "-" and letter in v[1:]:
+        if _is_short_cluster(v) and letter in v[1:]:
             return True
     return False
 
@@ -285,7 +297,7 @@ def _positional(args):
     for t in args:
         if t.value == "--":
             break
-        if t.value.startswith("-") and len(t.value) > 1:
+        if t.value.startswith("--") or _is_short_cluster(t.value):
             continue
         out.append(t.value)
     return out

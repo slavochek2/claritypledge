@@ -172,7 +172,7 @@ BLOCKED: `git add -f/--force` is banned (.claude/rules/git.md) -- it overrides .
 which is what keeps .env.local, .mcp.json and .private/ out of a PUBLIC repo. Use instead: ...
 ```
 
-Canary `scripts/test-block-banned-git.py`: **74/74**, covering every row of the git.md
+Canary `scripts/test-block-banned-git.py`: **77/77**, covering every row of the git.md
 banned table, 9 shell-structure wrappings, 21 near-misses that must pass (`git add
 .claude/settings.json`, `git reset HEAD -- file`, `git reset <sha>`, `git restore --staged`,
 `push -n` = dry-run not no-verify, `+feature/x` refspec), and 10 *mentions* that must pass
@@ -220,7 +220,25 @@ touched and a staged-file scan would see nothing.
 
 **Wiring proof.** A deliberate failing case was added to one canary and staged;
 `./scripts/pre-commit-checks.sh` exited **1** with `✗ 1 error(s) - commit blocked`. The
-defect was then reverted and all three canaries re-run green (74 + 43 + 9 = 126 cases).
+defect was then reverted and all three canaries re-run green (77 + 43 + 9 = 129 cases).
+
+**Adversarial pass, run AFTER the canaries were green** — bypass probes rather than
+opinion. It found one genuine over-block that 74 green cases had missed:
+`git commit -m "-n means no-verify"` was refused, because a quoted value beginning with a
+dash was read as a short-flag cluster carrying `n`. Fixed with a whitespace guard
+(`_is_short_cluster`), three regression cases added. This is the failure direction that
+looks like the hook working, which is exactly why the probe had to come after green.
+
+Confirmed-and-documented residuals (all named in the hook header, none silent):
+`bash -c "..."`, `eval`, `git add $(echo .)`, and `g=git; $g add .` pass — a literal
+invocation inside a quoted string or behind a variable reads as a mention. Blocking those
+would re-introduce the over-block class this hook exists to avoid.
+
+`route-brief.sh` was probed with hostile input — apostrophes, command-substitution syntax,
+multi-line, unicode, a null byte, and a JSON-breakout attempt (`whats next", "continue":
+false`). Exit 0 in every case, output always valid JSON, and the emitted object carries
+only `hookSpecificOutput` with `hookEventName` + `additionalContext`: `jq -Rs` makes
+sibling-key injection structurally impossible, so INVARIANT 1 and 2 hold under attack.
 
 ## References
 

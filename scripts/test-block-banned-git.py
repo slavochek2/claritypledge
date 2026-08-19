@@ -143,6 +143,11 @@ check("PASS", "grep -rn 'git add -A' .claude/rules/")
 check("PASS", 'rg "git reset HEAD" docs/')
 check("PASS", "printf '%s' 'git push --force origin main' > /tmp/x")
 check("PASS", 'git log --grep="git add ." --oneline')
+# A quoted VALUE beginning with a dash is not a short-flag cluster. Found by an
+# adversarial probe AFTER this canary was already green -- the over-block direction.
+check("PASS", 'git commit -m "-n means no-verify" -- a.md')
+check("PASS", 'git commit -m "-A stages everything" -- a.md')
+check("PASS", 'git commit -m "-f overrides gitignore" -- a.md')
 check("PASS", "cat <<'EOF' > doc.md\nNever run git add . or git stash here.\nAlso not git push --force origin main.\nEOF")
 check("PASS", "cat <<EOF > doc.md\ngit reset HEAD and git restore file are banned.\nEOF")
 check("PASS", "git commit -m \"$(printf 'chore: ban git add -A')\" -- a.md")
