@@ -20,6 +20,12 @@ export interface PersonRowProps {
   earCount?: number;
   /** Show status label or nothing */
   action?: "going" | "attended" | "none";
+  /**
+   * Whether the avatar and name link to /p/:slug. Defaults to true.
+   * P1114 sets this false for event-room walk-ins, who have no profile — without it
+   * every guest row on the projected roster renders `<Link to="/p/">`, a dead end.
+   */
+  linkToProfile?: boolean;
 }
 
 export function PersonRow({
@@ -31,10 +37,15 @@ export function PersonRow({
   isPledger,
   earCount = 0,
   action = "none",
+  // P1114: room walk-ins have no profile, so there is nothing to link to. Defaults to
+  // true so every pre-existing caller keeps its current behaviour unchanged.
+  linkToProfile = true,
 }: PersonRowProps) {
+  const wrapLink = (children: React.ReactNode) =>
+    linkToProfile ? <Link to={`/p/${slug}`}>{children}</Link> : <>{children}</>;
   return (
     <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-blue-200 transition-colors">
-      <Link to={`/p/${slug}`}>
+      {wrapLink(
         <GravatarAvatar
           name={name}
           avatarColor={avatarColor}
@@ -42,14 +53,18 @@ export function PersonRow({
           size="sm"
           isPledger={isPledger ?? false}
         />
-      </Link>
+      )}
       <div className="flex-1 min-w-0 flex items-center gap-1.5">
-        <Link
-          to={`/p/${slug}`}
-          className="font-medium truncate hover:text-blue-500 transition-colors"
-        >
-          {name}
-        </Link>
+        {linkToProfile ? (
+          <Link
+            to={`/p/${slug}`}
+            className="font-medium truncate hover:text-blue-500 transition-colors"
+          >
+            {name}
+          </Link>
+        ) : (
+          <span className="font-medium truncate">{name}</span>
+        )}
         <EarBadge count={earCount} name={name} className="flex-shrink-0" />
       </div>
       {action === "going" && (

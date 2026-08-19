@@ -171,6 +171,14 @@ REVOKE ALL ON public.event_room_answers FROM anon, authenticated;
 -- generalise to row-level questions." Nobody has measured the row-level case this table's
 -- whole opt-out guarantee depends on.
 --
+-- CANARY RESULT (2026-08-19): GREEN, three consecutive runs, no retries, with its live
+-- control confirmed firing. Row-level RLS DOES filter Realtime postgres_changes for this
+-- table. Decision 2 stands and this table correctly stays in the publication. This closes
+-- the row-level gap that decisions.md 2026-08-17 (P1057) left open after measuring only
+-- the column-level case. It remains a MEASUREMENT, not a vendor guarantee: any change to
+-- this table's SELECT policy silently changes what Realtime delivers, so the canary must
+-- be kept in step with the policy.
+--
 -- THE GATING CANARY: e2e/integration/p1114-realtime-payload.spec.ts, asserting both
 -- directions — (a) an opted_in = false row never appears in any payload, and (b) an UPDATE
 -- flipping a row from true to false never delivers the new false state. IF THAT CANARY IS

@@ -167,32 +167,52 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
     }
   }, [event, guestName]);
 
+  // A silent no-op is indistinguishable from success to the person clicking. The frozen
+  // and stale-secret cases are expected and self-explanatory once the UI reflects them,
+  // but a network drop or 5xx must not look identical to "nothing happened".
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const handleOptIn = useCallback(async (value: boolean) => {
     if (!event || !self) return;
+    setActionError(null);
     try {
       const updated = await setRoomOptIn(self.id, self.clientSecret, value);
       setSelf(updated);
     } catch {
-      // Frozen room or stale secret — self state simply doesn't change; no error surface.
+      setNowMs(Date.now()); // re-evaluate the boundary: a rejection may mean the room just froze
+      setActionError('PLACEHOLDER: could not save your answer — try again');
     }
   }, [event, self]);
 
   const handleReadiness = useCallback(async (value: number) => {
     if (!event || !self) return;
+    setActionError(null);
     try {
       const updated = await setRoomReadiness(self.id, self.clientSecret, value);
       setSelf(updated);
     } catch {
-      // see handleOptIn
+      setNowMs(Date.now()); // see handleOptIn
+      setActionError('PLACEHOLDER: could not save your readiness — try again');
     }
   }, [event, self]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
+  // Ticks so the freeze boundary is evaluated against wall-clock time, not against the
+  // moment the page mounted. `event` is set once and never reassigned, so a useMemo keyed
+  // on [event] evaluates Date.now() exactly once — a room left open across the boundary
+  // (the NORMAL case for an evening event) would never flip to frozen, leaving the opt-in
+  // and readiness controls rendered and clickable while the RPCs correctly reject them.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   const isFrozen = useMemo(() => {
     if (!event) return false;
-    return Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000;
-  }, [event]);
+    return nowMs >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000;
+  }, [event, nowMs]);
 
   const isIdentified = !!self;
   const optInState: 'true' | 'false' | 'unanswered' =
@@ -212,6 +232,11 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
       <div className={present ? 'grid grid-cols-1 gap-8' : 'grid grid-cols-1 md:grid-cols-2 gap-8'}>
         {!present && (
           <div data-testid="room-controls" className="space-y-8">
+            {actionError && (
+              <p data-testid="room-action-error" role="status" className="text-sm text-red-600">
+                {actionError}
+              </p>
+            )}
             {!isIdentified && !isFrozen && (
               <div data-testid="room-join-form" className="space-y-6">
                 <h1 className="text-xl font-semibold">PLACEHOLDER: join screen heading</h1>
@@ -326,6 +351,9 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
                     slug={member.profileId ?? ''}
                     name={member.displayName}
                     avatarColor="#3B82F6"
+                    // Walk-ins have no profile — linking them produces `/p/`, a dead end on
+                    // every guest row, which is the common case on a projected roster.
+                    linkToProfile={!!member.profileId}
                   />
                 </div>
               ))}
