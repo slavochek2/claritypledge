@@ -1,5 +1,5 @@
 ---
-status: today
+status: rejected
 type: comment
 rank: 4
 workstream: content
@@ -7,17 +7,38 @@ created_date: '2026-08-18'
 tags: [ingestion, points, stories, mcp, provenance]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
+superseded_by: p1096
+rejected: '2026-08-19'
+rejection_reason: >-
+  Absorbed. Its central argument — the shared layer is the filing step, not the
+  extraction step — became open question 7 of P1096 within 24h of filing. Its
+  claimed unique gap (no reader for the founder's own notes) was false: sifter-story
+  Mode 1 already reads a brain dump. The one finding that survived was a stale doc
+  claim, fixed directly on 2026-08-19 rather than tracked here.
 driver: heuristic
 ---
 
 # P1101: Any input → filed artifact — direction note
+
+> **REJECTED / ABSORBED 2026-08-19 — superseded by [P1096](../../p1096_public_multisource_point_pipeline.md).**
+> Filed 2026-08-18 as a direction note. Within a day, every part of it had a better home:
+>
+> - **The architecture conclusion** (*holism at the output boundary — one filing contract, N extraction adapters*) is now **P1096 open question 7**: *"What builds and owns `/points-publish`?"* — created 2026-08-19, and the reason `points-prepare` v0.4.0 names a pairing skill that does not exist.
+> - **B1 (visibility)** does not bind P1096 at all — that pipeline uses public material and files public points. It binds only the private-transcript path, which is [P1089](../../p1089_audience_scoped_point_list.md), parked on purpose.
+> - **B2 (a trigger cannot name a room)** is already a rule inside `points-prepare`, added after the 2026-08-17 run that asserted its own room.
+> - **B3 (the doc claimed the mirror agent was live)** was the one finding nothing else covered. **Fixed 2026-08-19** in `definitions.md`; rationale in [decisions.md](../../../docs/decisions.md) 2026-08-19 [product] "The mirror agent is a design, not a shipped surface". It did not need a spec.
+> - **The "missing own-notes adapter" was wrong.** `/slava:content:sifter-story` Mode 1 opens with *"Paste your brain dump — messy thoughts, any length."* The adapter exists; what it cannot do is publish — which is open question 7 again, not a separate gap.
+> - **The three founder decisions** (autonomy, third-party access, provenance) are answered or owned elsewhere: P1096 Q5/Q6 settled operator-confirms-before-creation and test-before-prod on 2026-08-19; provenance is [P1104](../../p1104_agents_must_be_visually_distinguishable.md). Third-party MCP access has prior art — [P143](../p143_mcp_server.md) was rejected 2026-02-12 as *"overengineered… not testing any documented hypothesis."*
+>
+> **Kept for one reason:** the five-input map below records which reader handles which input, and the reasoning behind the output-boundary split. Do not re-derive it; do not re-open it as a build.
+
 
 > **Placeholder. Filed to fix the direction, not to be built.** Nothing here is
 > scoped, and three founder decisions are open. The purpose is that a future
 > session does not re-derive the map below or re-litigate the architecture
 > question, which already has a recorded answer for one half of it.
 >
-> **Hard dependency: [P1089](p1089_audience_scoped_point_list.md), which is itself parked on purpose.**
+> **Hard dependency: [P1089](../../p1089_audience_scoped_point_list.md), which is itself parked on purpose.**
 > Read §Blockers before proposing any build.
 
 ## Problem
@@ -53,7 +74,7 @@ artifact — and which parts of it are genuinely shared versus deliberately not?
 ### The architectural conclusion (load-bearing; do not re-derive)
 
 The instinct is "one function, many input types, exposed over MCP/CLI/REST." **Half
-of that is already recorded as excluded.** [decisions.md](../docs/decisions.md)
+of that is already recorded as excluded.** [decisions.md](../../../docs/decisions.md)
 2026-08-06 [process], verbatim:
 
 > *"eliciting from a live human (can ask a follow-up), a recording (cannot — hence
@@ -115,7 +136,7 @@ name one. **Either the trigger halts for a human, or the filter that makes point
 load-bearing is dropped. Not both.** Any trigger design must state which it chose.
 
 **B3 — doc-vs-reality gap on the in-product interface.**
-[definitions.md](../docs/definitions.md) §Mirror Agent describes it as *"the
+[definitions.md](../../../docs/definitions.md) §Mirror Agent describes it as *"the
 story-filing interface (active now, in `/chat`)."* Reality: `clarity-chat-page.tsx:6`
 — *"NOT ROUTED — /clarity-chat was reverted from prod"*; `/chat` and `/clarity-chat`
 redirect to `/create` (P486); `create-story-page.tsx` is a plain 10 000-char
@@ -157,7 +178,7 @@ endpoint.
   MCP/CLI ships, extraction works, and the output has nowhere valid to land (B1).
   **MITIGATE:** treat P1089 as a gate, not a nice-to-have. Do not start transport
   work while point visibility is public-or-mine.
-- **Supply outruns the scarce side.** [philosophy.md](../docs/philosophy.md) puts
+- **Supply outruns the scarce side.** [philosophy.md](../../../docs/philosophy.md) puts
   error correction in positions and position shifts after story exposure. Cheap
   filing raises supply; nothing here raises the number of people taking positions.
   **MITIGATE:** any build increment must name which side of that ledger it moves,
@@ -204,12 +225,12 @@ a reason, and a filing contract sketched — at which point this spec is re-type
 
 ## References
 
-- [P1089](p1089_audience_scoped_point_list.md) — audience-scoped point list (hard blocker, parked on purpose)
-- [P593](p593_post_session_clarity_pipeline.md) — post-session clarity pipeline (HELD; sifter extraction + `draft` visibility + mirror-agent letter)
-- [P572](p572_ai_point_extraction.md) — AI point extraction from stories (backlog)
-- [P1088](p1088_video_selector_for_point_extraction.md) — choosing which conversation to extract from
-- [story-point-model.md](../docs/story-point-model.md) — §counterparty condition, §Considered and excluded, §How consumers use this
-- [decisions.md](../docs/decisions.md) 2026-08-06 [process] — "Story/point primitives are reusable as definitions and acceptance criteria — never as procedure"
-- [definitions.md](../docs/definitions.md) §Mirror Agent, §Stories vs Points, §Personal AI Calibration
+- [P1089](../../p1089_audience_scoped_point_list.md) — audience-scoped point list (hard blocker, parked on purpose)
+- [P593](../../p593_post_session_clarity_pipeline.md) — post-session clarity pipeline (HELD; sifter extraction + `draft` visibility + mirror-agent letter)
+- [P572](../../p572_ai_point_extraction.md) — AI point extraction from stories (backlog)
+- [P1088](../../p1088_video_selector_for_point_extraction.md) — choosing which conversation to extract from
+- [story-point-model.md](../../../docs/story-point-model.md) — §counterparty condition, §Considered and excluded, §How consumers use this
+- [decisions.md](../../../docs/decisions.md) 2026-08-06 [process] — "Story/point primitives are reusable as definitions and acceptance criteria — never as procedure"
+- [definitions.md](../../../docs/definitions.md) §Mirror Agent, §Stories vs Points, §Personal AI Calibration
 - `.claude/commands/slava/content/points-prepare.md` · `.claude/commands/slava/think/align-create-letter.md`
 - `src/app/pages/clarity-chat-page.tsx` (not routed) · `src/app/pages/create-story-page.tsx` · `src/App.tsx:723-725`

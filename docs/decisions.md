@@ -16,6 +16,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [product]: The mirror agent is a design, not a shipped surface — `definitions.md` claimed it was live
+
+**Context:** [definitions.md](definitions.md) §Mirror Agent stated *"The mirror agent is the story-filing interface (active now, in `/chat`)."* Verified 2026-08-19: [clarity-chat-page.tsx](../src/app/pages/clarity-chat-page.tsx) carries the comment *"NOT ROUTED — /clarity-chat was reverted from prod"*; [App.tsx](../src/App.tsx) routes both `/chat` and `/clarity-chat` to a redirect that forwards to `/create` (P486); [create-story-page.tsx](../src/app/pages/create-story-page.tsx) is a plain textarea form with a 10 000-character cap and no model call in it. The sentence entered the doc in `8ba5a713` and has not been touched since. `/docs-strategy-update` Gate 1 flags it independently: `definitions.md` is a glossary and may carry **no status words at all** — *"active now"* is one.
+
+**Decision:** Strip the as-shipped claim; keep the definition. The mirror agent stays in the glossary as the **intended** story-filing interface, with its current state stated plainly — not routed, `/chat` redirects to the plain `/create` form. The section heading loses its `In-Product` qualifier for the same reason.
+
+**Alternatives rejected:** *Delete the §Mirror Agent entry* — it is load-bearing for [p593](../features/p593_post_session_clarity_pipeline.md) (the clarity-letter pipeline names it) and [theory-of-change.md](theory-of-change.md) Stage 0b makes it the primary cold-start mechanism; deleting a referenced concept to fix a status word trades one defect for a worse one. *Fix the code instead* — building the interface is a feature, not a doc sync, and nothing currently schedules it.
+
+**Consequences:** Anyone designing this surface now reads an accurate status rather than building from a route that redirects. Two adjacent items are flagged and deliberately **not** fixed here: (1) `theory-of-change.md`'s layer diagram renders *"/chat = Asynchronous /live"* in the present tense — it is a design layer rather than a status claim, but it names a route that now redirects, and correcting a diagram's tense is a founder judgment call, not a mechanical fix; (2) **"mirror agent" is now overloaded** — [p1104](../features/p1104_agents_must_be_visually_distinguishable.md) uses the founder's own term for an account carrying a named speaker's quoted argument, which is a different thing from the story-filing chat interface this entry defines. One term, two live senses, and the specs do not distinguish them.
+
+**Falsifier:** the interface ships and this corrected sentence has to be reverted inside a month ⟹ the claim was early rather than false, and the correction cost more than the staleness did.
+
+---
+
 ## 2026-08-19 [product]: Presence is not RSVP — the event is the room, and the CMP opt-in is recorded against it. **UNTESTED.**
 
 **Context:** The `/meet` opt-in writes nothing to the server — one localStorage key, and the page says so deliberately (*"The agreement is witnessed in the room, not recorded"*). But [clarity-practice-event.md](events/clarity-practice-event.md):95 block 6 now gives opt-ins a job — *"challenge each other to give the number"* — and nobody in the room can see who took it, so a non-answer is unreadable: broken promise, or a right never given up. Designing the fix surfaced a second gap: `event_rsvps` records who **said they would come**, and nothing records who **came**.
