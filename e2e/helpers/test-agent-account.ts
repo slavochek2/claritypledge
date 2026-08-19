@@ -74,7 +74,22 @@ export async function createTestAgentAccount(options: {
   });
 
   if (error) {
-    // Do not leave the minted auth user behind when the RPC refuses.
+    // NEVER delete on a bare error. A lost response is indistinguishable from a refusal
+    // at this layer: the RPC may have COMMITTED and the reply been dropped, in which case
+    // proposedId now owns a real profile + registry row, and deleting the auth user
+    // cascades both away — the error handler destroying the account the call created.
+    // Check what actually landed before cleaning anything up.
+    const { data: landed } = await supabaseAdmin
+      .from('agent_accounts')
+      .select('profile_id')
+      .eq('profile_id', proposedId)
+      .maybeSingle();
+
+    if (landed?.profile_id) {
+      console.warn('[TEST HELPER] RPC reported an error but the account exists — treating as success');
+      return { profileId: proposedId, subjectKey, email, name, slug, operatorName };
+    }
+
     await supabaseAdmin.auth.admin.deleteUser(proposedId);
     console.error('[TEST HELPER] Failed to create test agent account:', error);
     throw new Error(`Failed to create test agent account: ${error.message}`);

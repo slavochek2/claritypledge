@@ -484,6 +484,66 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     expect(error!.message).toMatch(/different operator/i);
   });
 
+  test('an agent with a LIVE SESSION cannot verify, position or pledge itself', async () => {
+    // "An agent cannot take a position on its own behalf" was a property of the FIXTURE —
+    // it minted with no password and email_confirm:false. Neither is forbidden anywhere,
+    // so a production filer minting a confirmable mailbox would have reopened the whole
+    // escalation chain. This fixture deliberately mints a LOGINABLE, CONFIRMED auth user
+    // and drives the chain with a real session, which is the case the old fixture could
+    // not express.
+    const email = `p1104-session-agent-${Date.now()}@claritypledge-test.com`;
+    const { data: minted } = await supabaseAdmin.auth.admin.createUser({
+      email, password: TEST_PASSWORD, email_confirm: true,
+    });
+    const agentId = minted!.user.id;
+    strayAuthUserIds.push(agentId);
+
+    const { error: rpcError } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
+      p_profile_id: agentId,
+      p_subject_key: `p1104-session-${Date.now()}`,
+      p_email: email,
+      p_name: 'Agent · Session Subject',
+      p_slug: `agent-session-${Date.now()}`,
+      p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
+    });
+    expect(rpcError).toBeNull();
+
+    const agentClient = await userClient(email);
+
+    expect(
+      await agentClient.rpc('mark_self_verified').then(r => r.data),
+      'an agent must never become a verified account',
+    ).toBe(false);
+
+    expect(
+      await agentClient.rpc('set_my_pledge', { p_pledged: true }).then(r => r.data),
+      'an agent must never hold a pledge',
+    ).toBe(false);
+
+    const { data: after } = await supabaseAdmin
+      .from('profiles').select('is_verified, has_pledged, ears_count').eq('id', agentId).single();
+    expect(after?.is_verified).toBe(false);
+    expect(after?.has_pledged).toBe(false);
+    expect(after?.ears_count).toBe(0);
+  });
+
+  test('a human is unaffected by the agent guard — it discriminates', async () => {
+    // Without this, a guard that refused everyone would pass the test above.
+    const email = `p1104-control-human-${Date.now()}@claritypledge-test.com`;
+    const { data: minted } = await supabaseAdmin.auth.admin.createUser({
+      email, password: TEST_PASSWORD, email_confirm: true,
+    });
+    const humanId = minted!.user.id;
+    strayAuthUserIds.push(humanId);
+    await supabaseAdmin.from('profiles').insert({
+      id: humanId, email, name: 'P1104 Control Human', slug: `p1104-control-${Date.now()}`,
+    });
+
+    const humanClient = await userClient(email);
+    expect(await humanClient.rpc('mark_self_verified').then(r => r.data)).toBe(true);
+    expect(await humanClient.rpc('set_my_pledge', { p_pledged: true }).then(r => r.data)).toBe(true);
+  });
+
   test('upsert_my_profile still accepts an ordinary display name', async () => {
     const newName = `P1104 Migration Ordinary Name ${Date.now()}`;
     const { error } = await authed.rpc('upsert_my_profile', {

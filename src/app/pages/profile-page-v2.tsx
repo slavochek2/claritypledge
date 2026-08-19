@@ -926,7 +926,11 @@ export function ProfilePageV2() {
 
               {/* Details below avatar/name row - full width */}
               <div className="mt-2">
-                {profile.hasPledged ? (
+                {/* P1104: an agent account holds no pledge and no badge, so neither link
+                    may appear on its profile. The avatar's shield was already gated;
+                    these two were not, so a share link landing here could offer "Their
+                    Clarity Pledge" for a machine's reading of a person. */}
+                {!isAgent && profile.hasPledged ? (
                   <Link
                     to={`/p/${profile.slug}/pledge`}
                     className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
@@ -944,7 +948,7 @@ export function ProfilePageV2() {
                   </Link>
                 ) : null}
                 {/* P686: Badge link — shown when profile has at least one verified badge point */}
-                {badgeCount > 0 && (
+                {!isAgent && badgeCount > 0 && (
                   <a
                     href={`/p/${profile.slug}/badge`}
                     className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"

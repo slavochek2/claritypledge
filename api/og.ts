@@ -162,7 +162,13 @@ async function ogForProfile(slug: string): Promise<OgData | null> {
   return {
     title: `${name} | ClarityPledge`,
     description: desc,
-    image: (row.banner_url as string) || (row.avatar_url as string) || DEFAULT_IMAGE,
+    // P1104: an agent's card must not lead with an image derived from the real person.
+    // On a share card the picture is the dominant element and og:description is routinely
+    // truncated or dropped by the platform, so the portrait would carry the whole
+    // impression while the only disclosure got cut.
+    image: operator
+      ? DEFAULT_IMAGE
+      : ((row.banner_url as string) || (row.avatar_url as string) || DEFAULT_IMAGE),
     url: `${BASE_URL}/p/${slug}`,
     type: 'profile',
   };
@@ -227,7 +233,11 @@ export default async function handler(
   }
 
   // The path is passed as a query param by vercel.json rewrite
-  const rawPath = (req.query.path as string) || '/';
+  // Vercel yields an ARRAY when a query param repeats (?path=a&path=b), and arrays have
+  // no .startsWith — the endpoint 500s. /api/og is directly addressable, so this is
+  // reachable without going through the bot-UA rewrite.
+  const pathParam = req.query.path;
+  const rawPath = (Array.isArray(pathParam) ? pathParam[0] : pathParam) || '/';
   const ogPath = rawPath.startsWith('/') && !rawPath.includes('//') ? rawPath : '/';
 
   for (const route of ROUTES) {

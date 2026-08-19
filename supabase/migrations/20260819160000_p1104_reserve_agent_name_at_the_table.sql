@@ -339,4 +339,20 @@ CREATE TRIGGER trg_guard_agent_account_delete
   BEFORE DELETE ON public.agent_accounts
   FOR EACH ROW EXECUTE FUNCTION public.guard_agent_account_delete();
 
+-- ============================================================================
+-- 6. A note the production filer (P1096) must inherit.
+-- ============================================================================
+-- The caller mints the auth user, then calls this function. If the function COMMITS and
+-- the response is lost — an ordinary network timeout — the caller sees an error for a
+-- call that succeeded. A caller that "cleans up the minted auth user on error" then
+-- deletes a real account, and the FK cascade takes the profile and the registry row with
+-- it. The error handler destroys what the call created.
+--
+-- Callers MUST check whether the account landed before cleaning up:
+--   SELECT profile_id FROM agent_accounts WHERE profile_id = <the id you proposed>
+-- and treat a hit as success. e2e/helpers/test-agent-account.ts does this and is the
+-- reference implementation.
+COMMENT ON FUNCTION public.create_or_reuse_agent_account(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) IS
+  'P1104: the only sanctioned path that creates a pipeline agent account. Profile row and registry row commit together. Caller mints the auth.users row first and passes its id. On a lost response the caller MUST check agent_accounts for the proposed id before deleting the auth user — otherwise its cleanup destroys a committed account.';
+
 COMMIT;

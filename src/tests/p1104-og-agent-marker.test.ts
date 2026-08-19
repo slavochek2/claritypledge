@@ -159,6 +159,52 @@ describe('api/og.ts — agent account disclosure (P1104)', () => {
     expect(html).not.toContain('signed the Clarity Pledge');
   });
 
+  it('an agent share card does not lead with an image derived from the real person', async () => {
+    // On a share card the picture is the dominant element, and platforms routinely
+    // truncate or drop og:description — so a portrait would carry the whole impression
+    // while the only disclosure got cut.
+    stubFetch({
+      name: AGENT_NAME, role: null,
+      avatar_url: 'https://example.com/the-real-person.jpg',
+      banner_url: 'https://example.com/a-banner.jpg',
+      agent_accounts: { operator_name: OPERATOR },
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody } = makeRes();
+    await handler(makeReq('/p/agent-a-public-figure'), res);
+
+    const html = getBody();
+    expect(html).not.toContain('the-real-person.jpg');
+    expect(html).not.toContain('a-banner.jpg');
+  });
+
+  it('a human share card still uses their own banner or avatar', async () => {
+    stubFetch({
+      name: 'A Human Name', role: 'Engineer',
+      avatar_url: 'https://example.com/human-avatar.jpg', banner_url: null,
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody } = makeRes();
+    await handler(makeReq('/p/a-human'), res);
+
+    expect(getBody()).toContain('human-avatar.jpg');
+  });
+
+  it('a repeated ?path= query param does not crash the handler', async () => {
+    // Vercel yields an array when a param repeats; arrays have no .startsWith, so the
+    // endpoint 500d. /api/og is directly addressable, not only via the bot-UA rewrite.
+    stubFetch({ name: 'A Human Name', role: null, avatar_url: null, banner_url: null });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getStatus } = makeRes();
+    const req = { query: { path: ['/p/a-human', '/p/other'] } } as unknown as import('@vercel/node').VercelRequest;
+
+    await expect(handler(req, res)).resolves.not.toThrow();
+    expect(getStatus()).toBe(200);
+  });
+
   it('an empty array embed (a human) does not trip the agent branch', async () => {
     stubFetch({
       name: 'A Human Name',
