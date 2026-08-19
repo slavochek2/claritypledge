@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [process]: The most common answer to "do we need a review?" is *no* — so the fix is a skip policy, not a gate
+
+**Context:** P1115 was filed on a transcript count: the pre-ship review decision raised **366 times on 70 of 82 active days**, and it proposed a blocking gate plus coverage extension. Before scoping the build, the same corpus (2026-05-15 → 2026-08-13, deduplicated) was re-extracted and a random 50-message sample was **hand-classified by reading each question and the agent's reply** — not by pattern match. A first regex pass over the answers returned 83% "unclear" and was discarded as a blind probe rather than reported as a finding.
+**Decision:** Do not build the gate. Archive P1115; its legibility half is already P1116 Solution group 2 (which lists the trigger *"do we need adversarial review"* verbatim and is in dev) and its ship-path half is P1040 (open since 2026-08-10, rank 13). Two points carried into P1116: the trigger routes to `/pick-flow`, whose only skip clause is the infrastructure gate (`pick-flow/SKILL.md:132`, scoped to `.claude/**`, `CLAUDE.md`, `scripts/`) — nothing covers `src/`, copy, specs or plans; and the hook is `UserPromptSubmit`, so it improves the answer but structurally cannot reduce the rate of *asking*.
+**Alternatives rejected:** Building the blocking gate as specced — of the 25 sampled asks whose answer was readable, **12 (48%) were answered "no review needed"**, 9 (36%) "yes, run one", 4 (16%) "already ran". A blanket requirement would have been wrong roughly half the time, which is precisely the bypass-training failure P1115's own Risks section named. Also rejected: reporting the 366 as-is — **16 of 50 matches (32%) were false positives**, the word "review" in an unrelated sentence, putting the real rate near 3/active-day.
+**Consequences:** Second instance in one day of a founder-reported recurrence surviving the *frequency* check but failing the *shape* check — the 08-19 `/kdd` entry found 86% of its reported failure did not exist; this one found the failure real and the proposed remedy inverted. Frequency is what transcripts settle cheaply; **the distribution of answers is the part that decides the mechanism, and it costs one hand-classified sample.** Measure it before designing any gate whose premise is "the founder keeps asking X" — a high ask-rate is equally consistent with "the answer is usually no and nobody wrote it down." Sampling caveat: n=25 resolved carries roughly ±20 points, enough to rule out a blanket gate and **not** enough to set a threshold.
+**References:** this file, 2026-08-19 [process] "A recurring frustration was measured before it was fixed — and 86% of the reported failure did not exist" · `features/archive/2026-08/p1115_review_gate_decision_routes_to_founder.md` (rejection reason carries the full split) · `features/p1116_mechanize_the_unenforced_rules.md` Solution group 2 · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9
+
+---
+
 ## 2026-08-19 [process]: A recorded decision was reversed six days later — its rationale rested on a command that had already been archived
 
 **Context:** P1113 fixed contradictions in the always-on instruction layer. One edit remapped

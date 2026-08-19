@@ -1,11 +1,11 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 48.0
 created_date: '2026-08-19'
 tags: [claude-md, rules, hooks, mechanization, instruction-layer]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 driver: anomaly
 ---
 
@@ -70,6 +70,20 @@ silently never fires is indistinguishable from a hook with nothing to catch.
    "opus or sonnet / do we need adversarial review" → `/pick-flow`. Also the unmeasured but
    frequent fourth: "should we compact / plan mode / use subagents" (60 occurrences), which
    has no rule at all today.
+
+   **Two points carried from P1115 (archived 2026-08-19, absorbed here):**
+   - **The review trigger routes to a rule that does not cover most work.** `/pick-flow`'s
+     only skip policy is the infrastructure gate (`pick-flow/SKILL.md:132`, scoped to
+     `.claude/**`, `CLAUDE.md`, `scripts/`). For `src/`, copy, specs and plans the agent
+     re-derives the answer each time. Measured: of 25 readable asks in a hand-classified
+     sample, **12 (48%) were answered "no review needed"** — so the missing artifact is a
+     *skip* policy, not a gate. Routing to a rule with no clause for the asked-about change
+     class satisfies the trigger without answering the question.
+   - **This trigger is reactive by construction.** `decision-brief.sh` is a
+     `UserPromptSubmit` hook: it fires on the founder's text, so it improves the answer's
+     consistency but cannot reduce the ~3×/active-day rate of *asking*. Removing the ask
+     needs a different surface (Stop hook, or an end-of-change statement of review status)
+     and is explicitly **not** in this spec's scope — record it, do not build it here.
 
 3. **Validate that every `/command` named in an instruction file exists.** The root-cause
    fix for the dead-pointer class. P1113 remapped a routing line after its target had been
@@ -154,3 +168,8 @@ design, so nothing is lost if every hook is reverted.
 - `.claude/rules/epistemic.md` gate 7 — a gate you have not seen FAIL is unproven.
 - Instrumentation: `~/.claude/instructions-loaded.log` — which instruction files load, and
   how often the always-on set is re-paid on compaction.
+- P1115 (archived 2026-08-19, `features/archive/2026-08/`) — the review-gate spec absorbed
+  here; its rejection reason carries the measurement that falsified the blocking-gate
+  approach.
+- P1040 (open) — gate 2.7 accepting the review type matching what changed; the ship-path
+  half of P1115, deliberately left there rather than merged into this spec.
