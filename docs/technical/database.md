@@ -137,6 +137,52 @@ Ephemeral, no-auth submissions backing the always-visible distribution on `/read
 
 **Migration:** `supabase/migrations/20260816120000_p1083_ready_submissions.sql`
 
+### agent_accounts (P1104 — machine readings of public figures)
+
+A registry, not a flag. An **agent account** is a persistent machine reading of a real public
+figure, assembled from quoted sources; it carries positions the subject never took and must never
+render as that person. **Row existence — not a column value — answers "is this an agent?"**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| profile_id | uuid | PK, `REFERENCES profiles(id) ON DELETE CASCADE` |
+| subject_key | text | `NOT NULL UNIQUE` — stable identity of the subject across sources |
+| operator_name | text | `NOT NULL` — the human answerable for the account; rendered as "Operated by {name}" |
+| created_at | timestamptz | Row creation time |
+
+**Why row-existence over a boolean column:** a column outside `p877`'s explicit profile-read grant
+list returns `undefined` → falsy → an agent renders as a person. Absence of a row is unambiguous in
+the safe direction, and it replaced seven hand-maintained profile-projection lists. See
+`decisions.md` 2026-08-19 for why an in-code constant was rejected as *more* dangerous, not less.
+
+**Column-level SELECT grant (critical):** `anon`/`authenticated` hold
+`GRANT SELECT (profile_id, operator_name)` only. `subject_key` is deliberately excluded, so
+`select('*')` returns `42501` rather than leaking which real person an account reads. Table-wide
+grants are revoked. Same pattern as `ready_submissions` above (P877/P886 lineage).
+
+**Creation is service-role only:** `create_or_reuse_agent_account(...)` — `SECURITY DEFINER`,
+`EXECUTE` granted to `service_role` alone — commits the `profiles` row and the registry row
+together. `profiles.id` is `uuid references auth.users` with **no default**, so the caller mints the
+GoTrue user first and passes its id. The function sets `is_verified`/`has_pledged` to `false`
+explicitly: `has_pledged` **defaults to TRUE**, so an insert that omits it creates an agent holding
+a pledge.
+
+**Reserved name + no self-promotion:** `is_reserved_agent_name()` (NFKC-normalised, invisible-char
+and homoglyph folded, first-token test) is enforced inside `guard_profile_trust_columns()` — which
+must stay **`SECURITY INVOKER`**; making it `DEFINER` switches `current_user` to the owner and
+disables the P880/P878 trust-column pinning wholesale. `mark_self_verified()` and
+`set_my_pledge(true)` both consult the registry, so an agent holding a live session cannot verify or
+pledge itself. `DELETE`/`TRUNCATE` are revoked from `service_role` and a `BEFORE DELETE` trigger
+guards the table.
+
+**Client read is paginated:** PostgREST caps at `max_rows = 1000` and truncates silently, so
+`agent-accounts-service.ts` pages with an explicit `ORDER BY` and throws rather than returning a
+partial registry — a short read here renders agents as people.
+
+**Migrations:** `20260819120000_p1104_agent_accounts.sql`,
+`20260819160000_p1104_reserve_agent_name_at_the_table.sql`,
+`20260819170000_p1104_agents_cannot_self_promote.sql`
+
 ### Stories, Points & Calibration Tables (P117)
 
 Seven tables added by P117. Full schema details in [architecture.md](architecture.md#stories-points-and-calibration-api).

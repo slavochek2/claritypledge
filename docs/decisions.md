@@ -173,6 +173,135 @@ modelled, and a structural check models a spelling"
 
 ---
 
+## 2026-08-19 [process]: A fixture whose value collides with the fallback makes the test unfalsifiable — twice in one feature
+
+**Context:** P1104 marks agent accounts so they never render as the person they quote. Two of its
+guarantees were asserted by tests that **could not fail**, and both survived a full suite, a
+five-reviewer adversarial pass, and my own review. (1) The avatar's greyscale exemption was
+asserted with `getComputedStyle(el).filter === 'grayscale(0)'` — the *declared* value, true by
+construction; the element rendered `rgb(54,54,54)` the whole time. (2) The point-card colour marker
+was asserted by comparing the card avatar to the profile header avatar — the right property — but
+the shared fixture account is created with `#0044CC`, **byte-identical to `GravatarAvatar`'s own
+fallback colour**. Broken and fixed produced the same pixel, so the test passed against reverted
+code. Only a probe account with `#39424B` separated them: card `rgb(0,68,204)`, header
+`rgb(57,66,75)`.
+
+**Decision:** Two rules, both narrower and more checkable than "write better tests".
+(a) **Never assert a declared value when a rendered one is available** — read the pixel, not the
+CSS property; the declared value is the input to the thing under test.
+(b) **Before trusting a fixture, check its values against the failure values they must be
+distinguished from.** A fixture whose colour, id, or default equals what the bug produces cannot
+express the bug. This is the concrete, per-test form of [epistemic.md](../.claude/rules/epistemic.md)
+gate 7b: green bounds what was *modelled*.
+
+**Alternatives rejected:** (a) Mutation testing — proves assertions bind the code, never that the
+input space contains a distinguishing case; both tests here bind real code. (b) More reviewers —
+five hostile reviewers read the greyscale test and none flagged it; reading a tautological
+assertion does not reveal that it is tautological, running it against reverted code does.
+
+**Consequences:** Gate 7 ("watch it fail") is necessary but was not sufficient here — a revert run
+is what caught (2), and it caught it only because the revert was run *per test* rather than over
+the whole suite. **Follow-up needed:** no mechanical check exists for value-collision between a
+fixture and a component default; the cheapest approximation is requiring every new regression test
+to record the measured pre-fix and post-fix values in a comment, which both P1104 tests now do.
+Status: proposed.
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [e2e/p1104-agent-marker.spec.ts](../e2e/p1104-agent-marker.spec.ts), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
+## 2026-08-19 [process]: The founder found four defects by eye that the suite and five hostile reviewers missed — a Surfaces list is a whitelist
+
+**Context:** P1104 shipped to its UAT gate with 123 feature-specific tests green, a five-lens
+adversarial review complete, and eleven commits. The founder then opened the running page and found
+four defects in a single annotated screenshot: an agent profile rendering **"0 Clarity Partners"**,
+an agent profile offering **"Complete 5 sessions in a listener role"**, an agent's point-card avatar
+in the wrong colour, and an ear count still being fetched for an entity that holds no reputation.
+
+**Decision:** Treat a spec's **Surfaces list as a whitelist, and the un-enumerated remainder as the
+defect surface.** Every one of the four was on the profile page — the surface the spec *did* name —
+but on an element the spec did not: the marker was applied to the avatar, the name and the pledge
+ring because those were listed, and nowhere else. Nothing in the pipeline asks *what else does this
+page assert about its subject?*
+
+**Alternatives rejected:** (a) "The reviewers should have caught it" — they were pointed at the
+diff and the threat model; none of these is reachable from the diff, because the defect is the
+*absence* of a change in a file the diff never touches. (b) "More tests" — a test can only cover a
+surface someone thought of; the same enumeration gap produces the same blind spot in the test.
+
+**Consequences:** For any feature whose job is to **suppress or mark** something (an agent marker, a
+privacy redaction, a disabled state), the enumeration must run in the opposite direction: list what
+the surface *claims about the subject*, then check each claim against the entity type — rather than
+listing the elements to change. The four defects here were all claims a profile makes (partnerships,
+calibration, reputation, identity colour), and three of the four are copy a machine can never
+satisfy. **Second-order:** a founder eyeballing the running page found in two minutes what ~15
+automated and agent-driven checks did not; that is an argument for the browser check being a gate,
+not a courtesy — `.claude/rules/visual-qa.md` already says UI work is not done until a browser check
+confirms it, and this session is the measured instance.
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md), [.claude/rules/visual-qa.md](../.claude/rules/visual-qa.md)
+
+---
+
+## 2026-08-19 [process]: A worktree runs current gates against stale instruction files, and the only escape is the banned one
+
+**Context:** Committing an unrelated five-file change from `w1` was blocked by the command-ref gate
+with five failures, none of them in a file the branch had touched: `CLAUDE.md` routed *"wrap up"* to
+`/wrap`, and `spec-sections.md` named `/create-prd` and `/product-owner` as live commands. Main had
+already fixed all five. The mechanism: `scripts/` is hydrated in every worktree as a native checkout
+of **current main** (`3d7a010e`), while the rest of the worktree stays at the branch's base — here,
+29 commits back. So the worktree ran a gate added in `71727f80` against instruction files that
+predated the fixes it checks for. The validator script itself was absent for the same reason, so the
+gate first failed closed with *"missing — blocking commit"* before it could fail on content.
+
+**Decision:** Record the shape now; the fix is **a gate should judge the commit's own files, not the
+repo's pre-existing state**. Scoping the command-ref validator to instruction files present in the
+diff closes it, and leaves the full-repo sweep to CI where the tree is whole.
+
+**Alternatives rejected:** (a) Hydrate `scripts/` at the branch's version — defeats the purpose;
+worktrees get fresh tooling deliberately. (b) Merge main whenever it bites — what was done here, and
+correct for this branch, but it makes every stale worktree pay for an unrelated main commit. (c)
+`--no-verify` — banned, and the reason this matters at all.
+
+**Consequences:** The risk is not the lost time. A gate that blocks on someone else's stale text
+trains the operator to reach for `--no-verify`, which disables **every** check in the same keystroke
+— including `audit-privacy.sh`, the one standing between a public repo and customer data. A
+false-positive gate is a live argument for turning off the true-positive ones. Any worktree branched
+before a new gate lands hits this, and the frequency rises with each gate added.
+**Status: proposed** — needs a spec.
+
+**References:** [.claude/rules/git.md](../.claude/rules/git.md), [scripts/validate-command-refs.py](../scripts/validate-command-refs.py)
+
+---
+
+## 2026-08-19 [product]: The disclosure verb must match what the operator actually does — "Operated by", not "Published by"
+
+**Context:** An agent account carries positions a real public figure never took, so the profile
+names an answerable human. The provisional wording was *"Published by {name}"*. Asked to choose,
+the founder described the actual job: *he selects the YouTube videos and confirms each filing, but
+may not read all of it.*
+
+**Decision:** **"Operated by {name}"** on the profile page and in all three `api/og.ts` share-card
+descriptions. That sentence rules out the alternatives: *"published by"* claims editorial
+responsibility for the content, which over-claims against "may not read all of it"; *"maintained
+by"* implies upkeep of a self-running thing and hides that the operator **chooses the sources** —
+the most consequential decision in the pipeline.
+
+**Alternatives rejected:** "Published by" (over-claims), "Maintained by" (under-claims the source
+selection).
+
+**Consequences:** The verb still does not disclose that **a human confirmed each filing**, which is
+the part that actually protects the subject; that may want a second line and is not yet decided.
+Separately, `operator_name` remains free text — a string can assert any name. It should become an FK
+to a real `profiles` row so a reader can click through to an accountable human. Approved by the
+founder, **deliberately deferred to a successor spec** rather than added here: it is a migration
+plus an RPC signature change, and P1104 is at its UAT gate with a completed adversarial review that
+would not cover it. Status: proposed.
+
+**References:** [features/p1104_agents_must_be_visually_distinguishable.md](../features/p1104_agents_must_be_visually_distinguishable.md)
+
+---
+
 ## 2026-08-19 [process]: Ask the outcome record before trusting a mechanism argument — three cited claims died on one grep
 
 **Context:** Executing the `/goalify` plan (entry below). The plan was unusually well-sourced: every claim carried `file:line`, and it had survived **three** adversarial reviews. Re-verifying it before building — because ~30 commits had landed since its base — falsified **three load-bearing claims**, all in the same way.
