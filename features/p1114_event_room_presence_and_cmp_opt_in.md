@@ -4,11 +4,11 @@ type: story
 rank: 46
 created_date: '2026-08-19'
 tags: [events, cmp, meet, ready, opt-in, room]
-delivery_stage: architect
+delivery_stage: generate-tests
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_skipped: [challenge-prd -- the /grill-me walkthrough ran the same adversarial pass live with founder answers on all 14 decisions, ux -- spec already carries the 8 states and layout; the 10 copy strings are founder decisions no skill can produce, spec-compact -- the 302 lines are decisions not pipeline residue, decompose -- one coherent surface of one page one table one tab not 5 independent concerns]
-pipeline_ran: [create-spec, architect]
+pipeline_ran: [create-spec, architect, generate-tests]
 driver: heuristic
 ---
 
@@ -732,3 +732,100 @@ on its own. Both follow the spec's own Risks convention of labelling each risk A
 - `src/app/types/index.ts` — `EventRoomMember` type
 - `docs/technical/database.md` — document the two new tables (pattern: existing
   `event_practice_rooms` entry at line 74)
+
+## Test Coverage Strategy
+
+**Phase-0 inventory: zero P1114 tests existed before this pass** (confirmed via glob over
+`e2e/p1114-*.spec.ts`, `e2e/integration/p1114-*.spec.ts`, `e2e/a11y/`, `src/tests/p1114-*`,
+`features/uat/`). Everything below is net-new, written before `/dev` — the tables, RPCs, and
+routes do not exist yet, so every test in the three integration files and the e2e file fails
+today for the correct pre-implementation reason (`PGRST205` relation-not-found /
+`PGRST202` function-not-found / `room-page` test-id not found). Each was run once against the
+test DB during authoring to confirm it fails for THAT reason, not a typo in the test itself —
+evidence, not inference (CLAUDE.md "Falsify Before You Rely").
+
+### The load-bearing test: Decision 2's realtime canary
+
+`e2e/integration/p1114-realtime-payload.spec.ts` is written first and treated as the gate for
+Architecture Decision 2 itself, per that decision's own `UNVERIFIED` block. Modeled structurally
+on `e2e/integration/p1057-realtime-payload.spec.ts` (the repo's only other WebSocket test): a
+control that fails loudly on silence, the triggering write re-fired in a loop (a one-shot
+trigger is what made P1057's canary flaky), and a file header stating plainly what a RED result
+means — Decision 2 is void, and the fallback is Decision 2's own named move (drop
+`event_room_members` from `supabase_realtime`, drive the roster from the Decision 3
+reconciliation poll alone). It asserts BOTH directions the "opt-outs are never shown" guarantee
+requires: (a) a row with `opted_in = false` never appears in any payload, proven against a live
+control row on the same channel in the same window; (b) an UPDATE flipping a row from
+`opted_in = true` to `false` never delivers the new `false` state — the transition Architecture
+Decision 3 named explicitly as untested and unmeasured anywhere in this repo.
+
+### Test ID Contract required of `/dev`
+
+Every user-facing string in the UI Contract is `[FOUNDER DECISION]`, so the e2e file asserts on
+roles/structure/test-ids, never on placeholder copy (the two exceptions are the UI Contract's
+already-resolved slots: label "What should we call you?", button "Join as Guest", reused
+verbatim from `/live`). `/dev` must implement these test-ids for `e2e/p1114-event-room.spec.ts`
+to pass — full contract and rationale is in that file's header comment:
+`room-page` (carries `data-room-focus` = `join`/`ready`/`principle`, Decision 7's `focus` prop
+made observable), `room-join-form`, `room-controls`, `room-roster` (carries `data-present` in
+Present mode), `room-roster-item`, `room-zero-state`, `room-present-toggle` (`aria-pressed`),
+`room-my-opt-in-status` (`data-opted-in` = `true`/`false`/`unanswered`), `room-opt-in-yes` /
+`room-opt-in-no`, `room-frozen-notice`.
+
+### Done-When coverage (17 items — 17 covered, 1 by reference to existing tests, 1 partially)
+
+| # | Done-When | Covered by |
+|---|---|---|
+| 1 | Walk-in joins with name only, appears on roster | `e2e/p1114-event-room.spec.ts` "a walk-in can join…" (identification) + "changing an answer updates…live" (opt-in → roster appearance) + `p1114-room-rpcs.spec.ts` "anon guest can join…" |
+| 2 | Logged-in person passes through without re-entering name | `p1114-event-room.spec.ts` "a logged-in person passes through…" |
+| 3 | `/ready`/`/meet` render same page, different focus | `p1114-event-room.spec.ts` "/room, /ready, and /meet render the SAME page…" (asserts `data-room-focus`) |
+| 4 | Standalone `/ready`/`/meet` unchanged | **Not a new test — by design.** Covered by `e2e/p1077-ready.spec.ts` and `e2e/p1083-ready-distribution.spec.ts`, unmodified. Named explicitly per the Done-When's own wording ("verified by existing tests still passing, unmodified"). |
+| 5 | Roster visible before answering, opt-ins only, no opt-out shown/counted | `p1114-db-schema.spec.ts` "anon SELECT on the roster returns only opted_in = true…" + `p1114-event-room.spec.ts` "the roster is visible before the visitor answers…" |
+| 6 | Second browser's opt-in updates first browser's roster, no reload | `p1114-event-room.spec.ts` "changing an answer updates the room page live…across two browser contexts" |
+| 7 | Changing an answer is possible; prior answer still queryable | `p1114-room-rpcs.spec.ts` "the answer history is retained across multiple changes…" |
+| 8 | Each opt-in row stores the cascade count | `p1114-room-rpcs.spec.ts` "cascade_count is server-computed…" |
+| 9 | Room readiness / general `/ready` don't cross-contaminate | `p1114-room-rpcs.spec.ts` "set_room_readiness never writes to ready_submissions…" **PARTIAL** — the reverse direction (a general `ready_submissions` row never appearing in a room query) is only structurally implied (distinct tables, no shared read path exists to test); not independently probed with a positive seed-and-check. |
+| 10 | Room readiness survives past 10 minutes | `p1114-room-rpcs.spec.ts` "room readiness has no expiry…" |
+| 11 | Present toggle hides controls, enlarges roster, same route | `p1114-event-room.spec.ts` "the Present toggle hides participant controls…" |
+| 12 | Joining creates no `event_rsvps` row | `p1114-room-rpcs.spec.ts` "joining the room creates NO event_rsvps row…" |
+| 13 | Room row distinguishable walk-in vs registered | `p1114-db-schema.spec.ts` "a room row is distinguishable as walk-in…vs registered" |
+| 14 | Past `EVENT_GRACE_HOURS`: rejects new joins/changes, still displays who was there | `p1114-room-rpcs.spec.ts` "join_event_room is refused past the freeze boundary" + "set_room_opt_in is refused past the freeze boundary…" + `p1114-event-room.spec.ts` "a frozen room…still displays who was there…" |
+| 15 | Room at `max_attendees` still accepts joins | `p1114-room-rpcs.spec.ts` "room join is NOT blocked by max_attendees…" |
+| 16 | Org member sees themselves as not opted in until they confirm | `p1114-event-room.spec.ts` "an organization member sees themselves as NOT opted in…" |
+| 17 | Roster degrades to static list on realtime failure, never error/empty | `p1114-event-room.spec.ts` "roster degrades to a readable list…" |
+
+### Acceptance Criteria coverage (6 items — 6 covered, 1 partially)
+
+| # | AC | Covered by |
+|---|---|---|
+| 1 | Walk-in seen on the wall within a minute, no install/register/email | `p1114-event-room.spec.ts` "a walk-in can join…" + the live cross-browser test. **PARTIAL** — "no email" is proven server-side (`profile_id` stays NULL, the table has no email column at all) but the UI's absence of an email field is not independently asserted. |
+| 2 | Person in room can tell who opted in without asking | `p1114-event-room.spec.ts` "the roster is visible before the visitor answers…shows opt-ins only" |
+| 3 | Opt-out-then-opt-in later in the same event is visible on the wall | `p1114-room-rpcs.spec.ts` "the answer history is retained…" (server-side sequencing) + `p1114-event-room.spec.ts` "changing an answer updates the room page live…" (live-wall visibility of the flip) |
+| 4 | Facilitator projects from one link, unchanged during the event | `p1114-event-room.spec.ts` "/room, /ready, and /meet render the SAME page…" + the Present-toggle test's URL-unchanged assertion |
+| 5 | After the event, the event page still shows who was in the room | `p1114-event-room.spec.ts` "a frozen room…still displays who was there…" |
+| 6 | Nothing reveals/counts/implies who opted out | `p1114-event-room.spec.ts` "…an opted-out name never appears" (UI/body-text) + `p1114-realtime-payload.spec.ts` (a)/(b) (data-layer — the strongest form of this guarantee) + `p1114-db-schema.spec.ts` "anon SELECT…returns only opted_in = true" |
+
+### Explicitly NOT covered
+
+- **The two open founder decisions (Implementation Approach) are BLOCKING and unanswered — no
+  tests were written for either**, since writing one would encode an answer the spec explicitly
+  says `/dev` may not settle on its own:
+  - *Wall abuse (soft-hide vs accept).* If BUILD is chosen: needs a host-only RPC to hide a row
+    from the projected/Present view without deleting the underlying record, and a test asserting
+    a hidden row is absent from `room-roster` in Present mode but still present via admin/history
+    read. If ACCEPT: no code, no test — already logged as an accepted risk.
+  - *Roster flooding (accept vs mitigate).* If MITIGATE: needs a test asserting `join_event_room`
+    refuses or soft-caps joins past some per-event N. If ACCEPT: no code, no test.
+- **Profanity/abuse filtering on display names** — the spec's own Security Review states no
+  reliable automated filter exists; not testable, and not attempted.
+- **Concurrent `set_room_opt_in` race on `cascade_count`** — unlike `claim_joiner_seat`'s
+  dedicated `FOR UPDATE` concurrency canary (P1053), no race test was written here. The spec
+  does not name row-locking as a requirement for the cascade counter (a soft research
+  measurement, not a security boundary the way seat occupancy is), so two simultaneous opt-ins
+  could in principle read the same "already opted in" count. Flagged as an **untested gap**, not
+  silently assumed safe — `/dev` should confirm whether `set_room_opt_in` needs `SELECT … FOR
+  UPDATE` on the same idiom as `claim_joiner_seat`, and this file's absence of that test is not
+  evidence either way.
+- **UI Contract copy strings** — deliberately unasserted; all `[FOUNDER DECISION]` placeholders.
+- **Capacity messaging in the UI** — Non-Goal forbids a room capacity check entirely, so there is
+  nothing to test beyond the RPC-level proof that `max_attendees` is ignored.
