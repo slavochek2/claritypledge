@@ -23,6 +23,31 @@ interface GravatarAvatarProps {
   showBadge?: boolean;
   /** Number of verified badge points — used in aria-label when showBadge is true */
   badgeCount?: number;
+  /** P1104: this profile is a machine's reading of a person, not the person.
+   *
+   * Renders a SQUARE silhouette where every person is a circle, and forces the pledger
+   * ring off regardless of `isPledger`. The square is the channel that survives 20px:
+   * measured 2026-08-19, a robotified portrait and the source photograph are
+   * indistinguishable at the position row's `!w-5 !h-5`, because the panel seams and
+   * sensor eyes fall below the pixel grid. The shape does not.
+   *
+   * The ring suppression is defensive — the creation RPC already sets has_pledged false —
+   * because a ring on an agent row is the single strongest human-trust signal the
+   * disclosure exists to withhold. */
+  isAgent?: boolean;
+  /** P1104: the agent registry has not resolved yet, so it is not yet known whether this
+   * profile is a person or a machine's reading of one.
+   *
+   * While true the pledge ring is withheld. The shape stays circular — squaring
+   * speculatively would mark real people as machines, which is the harm the
+   * black-and-white-photo finding rules out — so during this window the disclosure rests
+   * on the name channel ("Agent · {subject}"), which is present in profiles.name from the
+   * moment the account exists and needs no lookup at all.
+   *
+   * Withholding rather than blanking the page is deliberate: it covers every surface
+   * including those with no page-level loading state, and it does not make a shared card
+   * component depend on where in a page's fetch order it happens to mount. */
+  identityPending?: boolean;
 }
 
 const sizeClasses = {
@@ -74,27 +99,37 @@ export function GravatarAvatar({
   showPledgeBadge = false,
   showBadge = false,
   badgeCount,
+  isAgent = false,
+  identityPending = false,
 }: GravatarAvatarProps) {
   const [imageError, setImageError] = useState(false);
 
   // Show photo if we have a URL and it hasn't errored
   const showImage = photoUrl && !imageError;
 
-  const ringVisible = showRing ?? isPledger;
+  // P1104: an agent account never carries the pledger ring, whatever the caller passed —
+  // and neither does an account whose membership is not yet known.
+  const ringVisible = (isAgent || identityPending) ? false : (showRing ?? isPledger);
   const pledgerRingClass = ringVisible ? ringClasses[size] : "";
+
+  // Square at every size. `rounded-sm` (not `rounded-none`) keeps the corner treatment
+  // consistent with the design system's other square surfaces while staying
+  // unmistakably not-a-circle at 20px.
+  const shapeClass = isAgent ? "rounded-sm" : "rounded-full";
 
   return (
     <div className="relative inline-block" data-testid="gravatar-avatar-wrapper">
       <div
         data-testid="gravatar-avatar"
         {...(ringVisible ? { "data-pledger": "true" } : {})}
-        className={`rounded-full flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${pledgerRingClass} ${className} ${!showImage ? "flex items-center justify-center text-white font-bold" : ""}`}
+        {...(isAgent ? { "data-agent": "true" } : {})}
+        className={`${shapeClass} flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${pledgerRingClass} ${className} ${!showImage ? "flex items-center justify-center text-white font-bold" : ""}`}
         style={{ backgroundColor: showImage ? "transparent" : (avatarColor || "#0044CC") }}
       >
         {showImage ? (
           <img
             src={photoUrl}
-            alt={`${name}'s avatar`}
+            alt={isAgent ? `Avatar for ${name}, a machine-generated reading` : `${name}'s avatar`}
             className="w-full h-full object-cover block"
             onError={() => setImageError(true)}
             referrerPolicy="no-referrer"

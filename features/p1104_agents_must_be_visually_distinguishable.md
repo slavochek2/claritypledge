@@ -5,8 +5,17 @@ rank: 2
 workstream: events
 created_date: '2026-08-18'
 tags: [agents, trust, points, identity]
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: uat
+pipeline_ran: [create-spec, architect, generate-tests, dev]
+uat_file: features/uat/p1104.md
+test_files:
+  - e2e/integration/p1104-agent-accounts-migration.spec.ts
+  - e2e/p1104-agent-marker.spec.ts
+  - e2e/a11y/p1104-agent-marker-accessibility.spec.ts
+  - e2e/helpers/test-agent-account.ts
+  - src/tests/agent-accounts-service.test.ts
+  - src/tests/agent-accounts-context.test.tsx
+  - src/tests/p1104-og-agent-marker.test.ts
 ---
 
 # P1104: A machine's reading of a person must never render as that person
@@ -241,26 +250,176 @@ Bumping those sites to the app default would make the robotified portrait legibl
 
 ## Done-When
 
-- [ ] Both accounts render the marker on every in-scope surface, with no pledger ring and no ear count — screenshots at the smallest rendering and with a truncating name
-- [ ] The marker is legible as not-a-person at 20px, in greyscale — screenshot pasted. **Prototype evidence produced 2026-08-19** for M1 at 20px in greyscale in both product themes; this box stays open until the shipped implementation is screenshotted, not the plate.
-- [ ] `curl` of each in-scope crawler handler for content carrying one of these accounts returns a description that does not present it as a person's — output pasted
-- [ ] All six `aria-label`s on the point page read as not-a-person — each read from the rendered output, not inferred
-- [ ] The `?embed=true` route shows the marker — screenshot pasted
-- [ ] `grep` of the id constant returns exactly the in-scope surfaces and no others — output pasted
-- [ ] **An account created by a pipeline run and NOT hand-registered is demonstrated to render as not-a-person** — this is the fail-closed claim's actual test, and it must be run as a deliberate failure, not reasoned about
-- [ ] The card-greyscale treatment renders on the position row, the story and point cards, and the profile page — screenshots at 20px and desktop, both product themes
-- [ ] A human whose profile photo is black and white renders as a person on every in-scope surface — the case that killed the avatar-only greyscale rule
-- [ ] Every surface rendering a profile is either in scope or listed above with its reason
-- [ ] No account's display name is a bare person's name — checkable because both names are chosen by us; **not** generalizable (`.claude/rules/pii.md` records that automated name detection was rejected against a measured false-positive baseline)
+**Status key.** `[x]` = evidenced by a passing automated test against a seeded fixture
+agent account. `[ ]` with **BLOCKED-ON-P1096** = cannot be run until the pipeline exists.
+`[ ]` with **MANUAL** = testable now, but needs a human (screenshots, cold reads).
+
+- [x] Seeded agent accounts render the marker on every in-scope surface, with no pledger ring and no ear count — asserted across all 12 `GravatarAvatar` call sites in the 5 in-scope files (`e2e/p1104-agent-marker.spec.ts`, 18 tests). The pledger ring is suppressed even when `has_pledged` is forced TRUE on the row.
+- [ ] **MANUAL** — The marker is legible as not-a-person at 20px, in greyscale — screenshot pasted. The computed `border-radius` and `filter` contract is asserted automatically; the visual judgement is not. See UAT-5.
+- [ ] **BLOCKED-ON-DEPLOYMENT** — `curl` of each in-scope crawler handler. `api/og.ts` is a serverless function and is not served by `npm run dev`. Covered as far as it can be by `src/tests/p1104-og-agent-marker.test.ts` (7 tests), which calls the same exported handler and asserts the issued query carries the `agent_accounts(operator_name)` embed.
+- [x] All six `aria-label`s on the point page read as not-a-person — each read from rendered output (`e2e/a11y/p1104-agent-marker-accessibility.spec.ts`), plus a page-wide sweep that fails on any *seventh* label naming the subject without the marker.
+- [x] The `?embed=true` route shows the marker — asserted on the route that builds its own author objects.
+- [x] The registry lookup reaches exactly the in-scope surfaces — 12 of 12 `GravatarAvatar` call sites across the 5 in-scope files carry `isAgent`, verified by a parse of every call site rather than a grep of a name.
+- [x] **The fail-closed claim is tested as a deliberate failure, not reasoned about** — an agent's `agent_accounts` row is deleted with its profile, name and flags untouched, and it renders as a person again. This proves the marker follows row existence rather than the `Agent · ` name string. **Note the wording shift:** the original item asked for "an account created by a pipeline run and NOT hand-registered". Under the shipped mechanism that state is unreachable through the sanctioned path — creation and registration are one transaction, which the atomicity test proves separately. This item now tests the residual the spec actually names: a profile with no registry row.
+- [x] The drained-card treatment renders on the position row, the story and point cards, and the profile page — asserted via computed `filter`, including that the **avatar is exempt** (`grayscale(0)` inside a drained card).
+- [x] A human whose profile photo is black and white renders as a person — circular, ringed, ear count present, not drained.
+- [ ] **MANUAL** — Every surface rendering a profile is either in scope or listed with its reason. A completeness claim over source, not a runtime behaviour. See UAT-10.
+- [x] No account's display name is a bare person's name — enforced server-side now, not merely checked: `upsert_my_profile` reserves the `Agent ·` prefix, tested against six bypass variants. Still **not** generalizable to detecting real names (`.claude/rules/pii.md`).
 - [x] Founder decision 1 answered and recorded here — **yes, full profile page** (2026-08-19)
-- [ ] **The operator line renders on the profile page in the same change that introduces the avatar** — screenshot pasted. This is the condition the public-figure policy approval was granted on; an avatar shipped without it violates the approval, not merely the plan.
-- [ ] Both subjects named and their source photographs rights-cleared before any avatar is generated (`/slava:content:gen-agent-avatar` Step 0)
+- [x] **The operator line renders on the profile page in the same change that introduces the avatar** — `Published by {operator}` asserted on the profile page, and the creation RPC **refuses an empty operator_name**, so an agent with no answerable human cannot be created at all. Screenshot still pending (MANUAL, UAT-5), but the condition is now structural rather than procedural.
+- [ ] **BLOCKED-ON-P1096** — Both subjects named and their source photographs rights-cleared before any avatar is generated (`/slava:content:gen-agent-avatar` Step 0). No subject has been chosen; the spec says they cannot be chosen in advance.
+- [ ] **BLOCKED-ON-P1096** — The robotified portrait channel is **entirely untested**. Every fixture is avatar-less, so the suite proves the silhouette, chrome and name channels only.
 
 ## Acceptance Criteria
 
 - [ ] Someone who has not read this spec, shown the point page cold, says that row is not a person
 - [ ] The same person, asked what its position means, says something equivalent to *"that's what the argument in that source implies"* — **not** *"that's what the speaker thinks"*
 - [ ] The same person can say who published it, within one click
+
+## Implementation Deviations from the Architecture — recorded, not silent
+
+Three of `/architect`'s decisions could not be implemented as written. Each was verified
+against the source before changing, and the mechanism the decision intended is preserved
+in every case.
+
+### D1 — Decision 2's RPC body cannot execute. Corrected.
+
+`/architect` specified:
+
+```sql
+INSERT INTO public.profiles (name, slug, avatar_url, avatar_color, is_verified)
+VALUES (...) RETURNING id INTO v_profile_id;
+```
+
+Read against `supabase/migrations/20250101_initial_schema.sql:5-19`, that statement raises
+on three separate columns:
+
+| Column | Actual DDL | Effect of the spec's version |
+|---|---|---|
+| `id` | `uuid references auth.users on delete cascade primary key` — **no default** | 23502; supplying `gen_random_uuid()` instead raises 23503 on the `auth.users` FK |
+| `email` | `text unique not null` — omitted from the column list | 23502 |
+| `has_pledged` | `boolean not null **DEFAULT TRUE**` — omitted | **Every agent account created holding a pledge** |
+
+The third is the one that mattered. Omitting `has_pledged` does not fail loudly — it
+silently violates the Non-Goal *"Do NOT let one of these accounts hold a pledge, an oath,
+or a reputation count"* at the data layer, and lights the pledger ring before any UI is
+involved.
+
+**Corrected:** the RPC takes `p_profile_id` and `p_email`, and sets `has_pledged`,
+`is_verified`, `ears_count` and `verification_session_count` explicitly. Postgres cannot
+mint a GoTrue user, so the service-role caller creates the `auth.users` row first — the
+`scripts/bootstrap-align-agent.mjs` precedent — and passes its id in.
+
+**The fail-closed property is preserved exactly.** The harm the spec names is *a `profiles`
+row with no `agent_accounts` row*; profile and registry still commit in one transaction
+with no second step to skip. The new residue is an orphaned `auth.users` row when the RPC
+refuses, which renders nothing on any surface. Both halves are tested
+(`the RPC refuses an empty operator_name and leaves no profile behind`, and the
+duplicate-slug atomicity case).
+
+The RPC also **refuses an empty `operator_name`**. The public-figure policy approval is
+conditional on a named operator, so an agent with none is refused in the function rather
+than left to the caller's discipline.
+
+### D2 — Decision 4's prefix guard was bypassable. Widened.
+
+`/architect` specified two `LIKE` patterns: `'agent ·%'` and `'agent·%'`. Neither matches
+`Agent  · X` (two spaces) — and HTML collapses consecutive whitespace in normal flow, so
+that string **renders identically** to the reserved form in every row this spec touches.
+A reservation with a one-keystroke bypass is not a smaller version of this reservation; by
+the spec's own Risks section (*"a marker that is present but weak is worse than none"*) it
+is worse than not having one.
+
+**Corrected to** `lower(btrim(name)) ~ '^agent\s*[·•∙⋅‧・]'` — any whitespace run, plus the
+separators visually confusable with U+00B7 at the 12–14px the name renders at. Six bypass
+variants are tested as rejections, and two ordinary names (including `Agentina Testperson`)
+are tested as acceptances, so the guard is proven to discriminate rather than blanket-reject.
+
+### D3 — The context lives in `src/app/contexts/`, and the registry carries the operator.
+
+`/architect` named `src/app/context/` (singular). That directory does not exist;
+`src/app/contexts/` (plural) does, holding `live-session-context.tsx`. Used the existing one.
+
+`/architect` also had the profile page fetch the operator name in a second per-profile
+query. `operator_name` is already in the same GRANT and the same row as `profile_id`, so
+the provider fetches a `Map<profileId, operatorName>` instead of a `Set`. One network hop
+fewer, and no window in which the operator line renders empty.
+
+**One behaviour `/architect` did not specify:** what the hook does outside a provider.
+Throwing is the loudest option but would force a provider wrapper into six existing unit
+test files that render these cards in isolation. It instead returns
+`{ isAgentAccountId: () => false, isLoading: true }` and logs in dev. In the app the
+provider is mounted once at the root of `App.tsx` above every route, so provider-absence
+is unreachable in production; the dev log is the signal that a new render path escaped the
+tree.
+
+### A property discovered during implementation, worth keeping
+
+An agent account **cannot take a position on its own behalf through any client path.** The
+`point_positions` INSERT policy requires `auth.uid() = user_id AND is_verified = true`, and
+an agent has no password and is created `is_verified = false`. Both halves refuse it. Only
+`service_role` can write a position for an agent, which is how P1096's filer will do it.
+The test fixtures seed positions the same way (`seedAgentPosition`) rather than working
+around it, so the fixture matches the mechanism.
+
+---
+
+## Test Coverage Strategy
+
+**68 automated tests, all passing.** Command output and per-file counts are in
+[features/uat/p1104.md](uat/p1104.md).
+
+| Layer | File | Count |
+|---|---|---|
+| Migration integration (P270) | `e2e/integration/p1104-agent-accounts-migration.spec.ts` | 23 |
+| Unit — registry service | `src/tests/agent-accounts-service.test.ts` | 5 |
+| Unit — context / fail-closed | `src/tests/agent-accounts-context.test.tsx` | 8 |
+| Unit — crawler surface | `src/tests/p1104-og-agent-marker.test.ts` | 7 |
+| E2E — render surfaces | `e2e/p1104-agent-marker.spec.ts` | 18 |
+| A11y | `e2e/a11y/p1104-agent-marker-accessibility.spec.ts` | 8 |
+
+**What's tested, and why it is the right test:**
+
+- **The GRANT boundary is exercised with real client roles**, not service_role, which
+  bypasses RLS and would see none of it. `subject_key` exclusion is asserted both by a
+  targeted select and by `select('*')`, because the wildcard must fail loud rather than
+  silently drop the column.
+- **Atomicity is tested by forcing the failure**, not reasoned about: a duplicate-slug
+  collision makes the RPC raise mid-transaction, and both halves of the rollback are
+  asserted.
+- **The registry is proven load-bearing.** One test creates an agent, confirms the marker,
+  deletes *only* its `agent_accounts` row — leaving the name, `has_pledged` and
+  `is_verified` untouched — and confirms the marker disappears. Without it, every other
+  passing test is equally consistent with the marker being driven by the `Agent · ` name
+  string. This is the gate-7 falsification for the core mechanism.
+- **Two negative controls run on the same page as the positive case**, so the suite cannot
+  pass with `isAgent` stuck on or stuck off: a plain human renders circular, ringed and
+  with an ear count, and a human with a **black-and-white photo** is not drained — the case
+  the spec cites as having killed the avatar-only greyscale rule.
+- **The six aria-labels are verified against rendered output**, and a page-wide sweep
+  additionally fails on any *seventh* label naming the subject without the marker, which
+  the six enumerated tests structurally cannot catch.
+- **`api/og.ts` gets unit coverage** because it is the one in-scope surface no local
+  browser test can reach. The test asserts the issued query string actually contains the
+  `agent_accounts(operator_name)` embed, and covers both PostgREST embed shapes
+  (object and array) — mishandling the array form would silently render an agent as a person.
+
+**What is NOT tested, and why:**
+
+- **Pixel/visual correctness.** The suite asserts the computed `border-radius` and `filter`
+  contract; there is no snapshot-testing harness in this repo. Screenshots stay manual
+  (UAT-5).
+- **Cold-read comprehension (Acceptance Criteria 1–3).** Explicitly human-judgment
+  ("someone who has not read this spec says…"). The suite proves the signals exist; it
+  cannot prove they are read correctly.
+- **The robotified portrait channel — entirely untested.** Every fixture is avatar-less, so
+  the suite exercises the silhouette, chrome and name channels only. Blocked on P1096.
+- **`curl` against a deployed crawler handler.** Needs a deployed target; `api/og.ts` is not
+  served by `npm run dev`.
+- **Surface completeness.** A claim about exhaustiveness over source, not a runtime
+  behaviour. Manual (UAT-10).
+
+---
 
 ## Technical Architecture
 

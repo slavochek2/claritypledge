@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { linkifyText } from '@/app/utils/linkify';
@@ -45,6 +46,8 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
   const textRef = useRef<HTMLParagraphElement>(null);
   const [textExpanded, setTextExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(story.authorId);
 
   const checkOverflow = useCallback(() => {
     const el = textRef.current;
@@ -63,7 +66,8 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
     <div
       role="button"
       tabIndex={0}
-      className="bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${isAgent ? ' agent-card-drained' : ''}`}
+      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={handleClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -88,6 +92,8 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
               avatarColor={story.authorAvatarColor}
               size="sm"
               isPledger={story.authorHasPledged ?? false}
+              isAgent={isAgent}
+              identityPending={identityPending}
             />
           </button>
 
@@ -103,7 +109,7 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
                 >
                   {story.authorName}
                 </button>
-                <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
+                {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
               </div>
               <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 {story.authorRole && <span>{story.authorRole} · </span>}

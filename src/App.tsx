@@ -6,6 +6,7 @@ import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { AuthCallbackPage, AuthProvider, useAuth } from "@/auth";
+import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
@@ -275,6 +276,7 @@ export default function ClarityPledgeApp() {
       <ScrollToTop />
       <PwaInstallProvider>
       <AuthProvider>
+      <AgentAccountsProvider>
       <TermsAcceptanceGate>
       <Routes>
         {/* P491: Authenticated users → /feed, anonymous → landing page */}
@@ -913,6 +915,7 @@ export default function ClarityPledgeApp() {
         <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </TermsAcceptanceGate>
+      </AgentAccountsProvider>
       </AuthProvider>
       </PwaInstallProvider>
     </Router>

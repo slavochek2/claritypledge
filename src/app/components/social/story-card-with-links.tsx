@@ -12,6 +12,7 @@ import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
   PositionButtons,
   PositionBadge,
@@ -111,6 +112,8 @@ export function StoryCardWithLinks({
   };
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const isAuthor = currentUserId ? story.authorId === currentUserId : false;
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(story.authorId);
   const rawText = stripHashtags(story.text, tags);
   const fullText = rawText;
   // In embed mode, truncate long story text to keep embed compact
@@ -147,17 +150,19 @@ export function StoryCardWithLinks({
     return (
       <div className="bg-white rounded-lg overflow-hidden">
         {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-        <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+        <div className={`flex items-center gap-1.5 mb-2 text-sm text-gray-700${isAgent ? ' agent-card-drained' : ''}`} {...(isAgent ? { 'data-agent-row': 'true' } : {})}>
           <GravatarAvatar
             name={author.name}
             photoUrl={author.avatarUrl}
             avatarColor={author.avatarColor}
             size="sm"
             isPledger={author.hasPledged ?? false}
+            isAgent={isAgent}
+            identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{author.name}</span>
-          <EarBadge count={author.ear ?? 0} name={author.name} />
+          {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
           <PositionBadge position={profileSubjectPosition} />
         </div>
 
@@ -225,7 +230,8 @@ export function StoryCardWithLinks({
     <div
       role={!isDetailView && !disableNavigation ? 'button' : undefined}
       tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
-      className={cardClassName}
+      className={`${cardClassName}${isAgent ? ' agent-card-drained' : ''}`}
+      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={!isDetailView && !disableNavigation ? (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -252,6 +258,8 @@ export function StoryCardWithLinks({
               avatarColor={author.avatarColor}
               size="sm"
               isPledger={author.hasPledged ?? false}
+              isAgent={isAgent}
+              identityPending={identityPending}
             />
           </button>
 
@@ -269,7 +277,7 @@ export function StoryCardWithLinks({
                 >
                   {author.name}
                 </button>
-                <EarBadge count={author.ear ?? 0} name={author.name} />
+                {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
               </div>
               <p className="text-xs text-gray-500 inline-flex items-center gap-1">
                 <span>{author.role || 'Member'} · {formatTimeAgo(story.createdAt)}</span>
@@ -534,6 +542,8 @@ function QuotedPoint({
   onClear?: () => void;
 }) {
   const { isEmbed, embedNavigate } = useEmbedNavigation();
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(authorId);
   const [userPosition, setUserPosition] = useState<PositionType | null>(
     currentUserId ? point.positions[currentUserId]?.position || null : null
   );
@@ -573,17 +583,19 @@ function QuotedPoint({
     <div className="w-full text-left">
       {/* Identity-and-position row: reserved for the other person. Hidden when viewer === story author. */}
       {profileSubjectPosition && currentUserId !== authorId && (
-        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
+        <div className={`flex items-center gap-1.5 mb-1.5 text-sm text-gray-700${isAgent ? ' agent-card-drained' : ''}`} {...(isAgent ? { 'data-agent-row': 'true' } : {})}>
           <GravatarAvatar
             name={authorName}
             photoUrl={authorAvatarUrl}
             avatarColor={authorAvatarColor}
             size="sm"
             isPledger={authorHasPledged ?? false}
+            isAgent={isAgent}
+            identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{authorName}</span>
-          <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />
+          {!isAgent && !identityPending && <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />}
           <PositionBadge position={profileSubjectPosition} />
         </div>
       )}

@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+import { useAgentAccountIds } from "@/app/contexts/agent-accounts-context";
 import { ImageLightbox } from "@/app/components/shared/image-lightbox";
 import { UnderstoodBadge } from "@/components/ui/understood-badge";
 
@@ -189,6 +190,11 @@ export function ProfilePageV2() {
 
   // P686: Badge count state
   const [badgeCount, setBadgeCount] = useState(0);
+
+  // P1104: is this profile a machine's reading of a person, and who is answerable for it?
+  const { isAgentAccountId, operatorNameFor, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(profile?.id);
+  const operatorName = operatorNameFor(profile?.id);
 
   // Loading state for secondary content (stories, points, calibration)
   const [contentLoading, setContentLoading] = useState(true);
@@ -447,6 +453,7 @@ export function ProfilePageV2() {
       console.error('Failed to load badge count:', err);
     });
   }, [profile]);
+
 
   // P504: Banner state — delegated to shared useBanner hook
   const saveBanner = useCallback(async (newUrl: string | null) => {
@@ -810,10 +817,10 @@ export function ProfilePageV2() {
                   {profile.avatarUrl ? (
                     <button
                       type="button"
-                      className="flex-shrink-0 ring-4 ring-white dark:ring-card rounded-full cursor-pointer hover:scale-105 transition-transform bg-transparent p-0 border-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                      className={`flex-shrink-0 ring-4 ring-white dark:ring-card ${isAgent ? 'rounded-sm' : 'rounded-full'} cursor-pointer hover:scale-105 transition-transform bg-transparent p-0 border-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none`}
                       data-testid="profile-avatar"
                       onClick={() => setAvatarLightboxOpen(true)}
-                      aria-label={`View ${profile.name}'s profile photo`}
+                      aria-label={isAgent ? `View the avatar for ${profile.name}` : `View ${profile.name}'s profile photo`}
                     >
                       <GravatarAvatar
                         name={profile.name}
@@ -821,19 +828,23 @@ export function ProfilePageV2() {
                         avatarColor={profile.avatarColor}
                         size="xl"
                         isPledger={profile.hasPledged}
-                        showBadge={badgeCount > 0}
+                        isAgent={isAgent}
+                        identityPending={identityPending}
+                        showBadge={!isAgent && !identityPending && badgeCount > 0}
                         badgeCount={Math.min(badgeCount, 9)}
                       />
                     </button>
                   ) : (
-                    <div className="flex-shrink-0 ring-4 ring-white dark:ring-card rounded-full" data-testid="profile-avatar">
+                    <div className={`flex-shrink-0 ring-4 ring-white dark:ring-card ${isAgent ? 'rounded-sm' : 'rounded-full'}`} data-testid="profile-avatar">
                       <GravatarAvatar
                         name={profile.name}
                         photoUrl={undefined}
                         avatarColor={profile.avatarColor}
                         size="xl"
                         isPledger={profile.hasPledged}
-                        showBadge={badgeCount > 0}
+                        isAgent={isAgent}
+                        identityPending={identityPending}
+                        showBadge={!isAgent && !identityPending && badgeCount > 0}
                         badgeCount={Math.min(badgeCount, 9)}
                       />
                     </div>
@@ -851,10 +862,12 @@ export function ProfilePageV2() {
                   <div className="min-w-0 pt-[48px]">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
+                      {/* P1104: an agent account holds no reputation count. */}
+                      {!isAgent && !identityPending && (
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-0.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5 cursor-default flex-shrink-0">
+                            <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5 cursor-default flex-shrink-0">
                               <Ear size={14} />
                               {credibilityStats.ear}
                             </span>
@@ -866,7 +879,21 @@ export function ProfilePageV2() {
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
+                      )}
                     </div>
+                    {/* P1104: the operator line. The public-figure policy approval is
+                        CONDITIONAL on this rendering — a robot face carrying a position
+                        the subject never took, with no human named as answerable, is
+                        worse than a photograph with one. It ships in the same change as
+                        the avatar, never after it. */}
+                    {isAgent && (
+                      <p
+                        className="text-sm text-muted-foreground break-words"
+                        data-testid="agent-operator-line"
+                      >
+                        {`Published by ${operatorName}`}
+                      </p>
+                    )}
                     {(profile.role || profile.linkedinUrl) && (
                       <div className="flex items-center gap-1.5">
                         {profile.role && (
@@ -1262,6 +1289,8 @@ function StoryCardFull({
 
   const linkedPoints = story.points || [];
   const strippedContent = stripHashtags(story.content, story.tags);
+  const { isAgentAccountId: isAgentStory, isLoading: storyIdentityPending } = useAgentAccountIds();
+  const storyIsAgent = isAgentStory(story.authorId);
 
   return (
     <>
@@ -1312,6 +1341,8 @@ function StoryCardFull({
               avatarColor={author.avatarColor}
               size="sm"
               isPledger={author.hasPledged}
+              isAgent={storyIsAgent}
+              identityPending={storyIdentityPending}
             />
           </button>
 
@@ -1571,6 +1602,8 @@ function QuotedPointCard({
   currentUserId,
   onPositionSelect,
 }: QuotedPointCardProps) {
+  const { isAgentAccountId: isAgentQuoted, isLoading: quotedIdentityPending } = useAgentAccountIds();
+  const quotedIsAgent = isAgentQuoted(authorId);
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
     (point.userPosition as Position) ?? null
@@ -1614,6 +1647,8 @@ function QuotedPointCard({
             avatarColor={authorAvatarColor}
             size="sm"
             isPledger={authorHasPledged}
+            isAgent={quotedIsAgent}
+            identityPending={quotedIdentityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{authorName}</span>
@@ -1691,6 +1726,8 @@ function PointCardFull({
   profileOwner,
   credibilityStats,
 }: PointCardFullProps) {
+  const { isAgentAccountId: isAgentOwner, isLoading: ownerIdentityPending } = useAgentAccountIds();
+  const ownerIsAgent = isAgentOwner(profileOwner.id);
   const navigate = useNavigate();
   // Profile subject's position (always loaded; causes point to appear on their profile)
   const profileSubjectPosition = point.profileSubjectPosition?.position ?? null;
@@ -1746,6 +1783,8 @@ function PointCardFull({
               name={profileOwner.name}
               size="sm"
               isPledger={profileOwner.hasPledged}
+              isAgent={ownerIsAgent}
+              identityPending={ownerIdentityPending}
               className="!w-5 !h-5 !text-[10px]"
             />
             <span className="font-medium">{profileOwner.name}</span>

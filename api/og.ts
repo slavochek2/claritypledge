@@ -71,22 +71,45 @@ async function ogForEvent(slug: string): Promise<OgData | null> {
   };
 }
 
+// P1104: an agent account carries no avatar, no shape and no colour off-platform — the
+// crawler surface is text only. `agent_accounts(operator_name)` is embedded through the
+// SAME FK-embed mechanism this function already uses for profiles, and the returned row
+// being non-null is what says "this is a machine's reading", not any name-string test.
+const AGENT_EMBED = 'agent_accounts(operator_name)';
+
+/** The operator answerable for this profile, or null when it is an ordinary person. */
+function agentOperator(profile: Record<string, unknown> | null): string | null {
+  if (!profile) return null;
+  // PostgREST returns a one-to-one embed as an object, a one-to-many as an array.
+  // Handle both rather than depending on which shape it picks for this FK.
+  const embed = profile.agent_accounts;
+  const row = Array.isArray(embed) ? embed[0] : embed;
+  if (!row || typeof row !== 'object') return null;
+  const name = (row as Record<string, unknown>).operator_name;
+  return typeof name === 'string' && name.length > 0 ? name : null;
+}
+
 async function ogForStory(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'stories',
-    `id=eq.${encodeURIComponent(id)}&select=title,content,banner_url,profiles!stories_author_id_fkey(name)`,
+    `id=eq.${encodeURIComponent(id)}&select=title,content,banner_url,profiles!stories_author_id_fkey(name,${AGENT_EMBED})`,
   );
   if (!row) return null;
 
   const profile = row.profiles as Record<string, unknown> | null;
   const authorName = (profile?.name as string) || 'Someone';
+  const operator = agentOperator(profile);
   const title = (row.title as string) || 'A Story';
   const content = (row.content as string) || '';
   const excerpt = content.replace(/[#*_~`>[\]]/g, '').slice(0, 160).replace(/\n/g, ' ').trim();
 
   return {
-    title: `${title} \u2014 by ${authorName} | ClarityPledge`,
-    description: excerpt || `A story shared on ClarityPledge by ${authorName}.`,
+    title: operator
+      ? `${title} \u2014 read by ${authorName} | ClarityPledge`
+      : `${title} \u2014 by ${authorName} | ClarityPledge`,
+    description: operator
+      ? `A machine-generated reading, not the person. ${authorName} is published by ${operator} on ClarityPledge.`
+      : (excerpt || `A story shared on ClarityPledge by ${authorName}.`),
     image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/story/${id}`,
     type: 'article',
@@ -96,18 +119,21 @@ async function ogForStory(id: string): Promise<OgData | null> {
 async function ogForPoint(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'points',
-    `id=eq.${encodeURIComponent(id)}&select=statement,banner_url,profiles!points_first_validator_id_fkey(name)`,
+    `id=eq.${encodeURIComponent(id)}&select=statement,banner_url,profiles!points_first_validator_id_fkey(name,${AGENT_EMBED})`,
   );
   if (!row) return null;
 
   const profile = row.profiles as Record<string, unknown> | null;
   const creatorName = (profile?.name as string) || 'Someone';
+  const operator = agentOperator(profile);
   const statement = (row.statement as string) || 'A point';
   const short = statement.length > 70 ? statement.slice(0, 67) + '...' : statement;
 
   return {
     title: `${short} | ClarityPledge`,
-    description: `Shared by ${creatorName} \u2014 take a position on ClarityPledge.`,
+    description: operator
+      ? `Shared by ${creatorName}, a machine-generated reading published by ${operator} \u2014 not the person. Take a position on ClarityPledge.`
+      : `Shared by ${creatorName} \u2014 take a position on ClarityPledge.`,
     image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/point/${id}`,
     type: 'article',
@@ -117,15 +143,21 @@ async function ogForPoint(id: string): Promise<OgData | null> {
 async function ogForProfile(slug: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'profiles',
-    `slug=eq.${encodeURIComponent(slug)}&select=name,role,avatar_url,banner_url`,
+    `slug=eq.${encodeURIComponent(slug)}&select=name,role,avatar_url,banner_url,${AGENT_EMBED}`,
   );
   if (!row) return null;
 
   const name = (row.name as string) || 'A Professional';
   const role = (row.role as string) || '';
-  const desc = role
-    ? `${name} \u2014 ${role}. Signed the Clarity Pledge.`
-    : `${name} signed the Clarity Pledge \u2014 a public commitment to clear communication.`;
+  const operator = agentOperator(row);
+  // An agent account has signed nothing. The pre-P1104 copy asserted the pledge for
+  // every profile, which is false for these accounts in the one place that reaches a
+  // reader who never opens the site.
+  const desc = operator
+    ? `${name} is a machine-generated reading of a person, published by ${operator} on ClarityPledge. It is not that person and holds no pledge.`
+    : (role
+      ? `${name} \u2014 ${role}. Signed the Clarity Pledge.`
+      : `${name} signed the Clarity Pledge \u2014 a public commitment to clear communication.`);
 
   return {
     title: `${name} | ClarityPledge`,

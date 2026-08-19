@@ -198,3 +198,34 @@ body {
 }
 
 /* Design system mode: light */
+/* P1104 — the drained card.
+ *
+ * Every card belonging to a machine's reading of a person renders with its colour
+ * drained: stance badge, story pill, chrome. It states something true — these accounts
+ * hold no pledge, no oath and no reputation, and a card without colour is a card with
+ * lower standing.
+ *
+ * The avatar is EXEMPT, and that exemption is the decision, not a detail. Two findings
+ * drove it (measured 2026-08-19):
+ *   1. A blanket grayscale() over the card kills the robot portrait's amber sensor
+ *      accent too, and the result reads as a DISABLED CONTROL rather than a
+ *      machine-authored one.
+ *   2. Greying the avatar alone fails outright on evidence the product already contains:
+ *      a real human profile photo on this site measures 0.00 mean saturation — greyer
+ *      than the robotified portrait's 0.17. An avatar-saturation rule marks that person
+ *      as a machine. Black-and-white profile photos are ordinary; no choice of greys
+ *      makes that rule safe. The card-level treatment does not collide with them at all,
+ *      because a person with a monochrome photo still has a blue stance badge and a blue
+ *      story button.
+ *
+ * Implemented as a filter on the subtree with an un-filtering child, rather than as a
+ * palette swap, so it carries unchanged over any badge or pill added later without that
+ * component needing to know this rule exists.
+ */
+.agent-card-drained {
+  filter: grayscale(1);
+}
+
+.agent-card-drained [data-testid="gravatar-avatar-wrapper"] {
+  filter: grayscale(0);
+}

@@ -12,6 +12,7 @@ import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
   PointHeader,
   PositionButtons,
@@ -151,6 +152,8 @@ export function PointCardWithLinks({
     : fullText;
   const isTextTruncated = isEmbed && fullText.length > EMBED_TRUNCATE;
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isOwnerAgent = isAgentAccountId(profileOwner?.id);
   const [userPosition, setUserPosition] = useState<Position>(
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
   );
@@ -283,17 +286,19 @@ export function PointCardWithLinks({
           // Quote pattern: "{Name} {verb}:" outside, Point content in quoted box
           <>
             {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped */}
-            <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+            <div className={`flex items-center gap-1.5 mb-2 text-sm text-gray-700${isOwnerAgent ? ' agent-card-drained' : ''}`} {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}>
               <GravatarAvatar
                 name={profileOwner.name}
                 photoUrl={profileOwner.avatarUrl}
                 avatarColor={profileOwner.avatarColor}
                 size="sm"
                 isPledger={profileOwner.hasPledged ?? false}
+                isAgent={isOwnerAgent}
+                identityPending={identityPending}
                 className="!w-5 !h-5 !text-[10px]"
               />
               <span className="font-medium">{profileOwner.name}</span>
-              <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />
+              {!isOwnerAgent && !identityPending && <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />}
               <PositionBadge position={profileOwner.position} />
             </div>
 
@@ -702,6 +707,8 @@ function QuotedStory({
   getStoryAuthor?: (authorId: string) => StoryAuthor | undefined;
 }) {
   const author = getStoryAuthor?.(story.authorId);
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(story.authorId);
   const [textExpanded, setTextExpanded] = useState(false);
   useEffect(() => { setTextExpanded(false); }, [story.id]);
 
@@ -716,7 +723,8 @@ function QuotedStory({
           onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
         }
       }}
-      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      className={`group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
+      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
     >
       {/* Author info at top */}
       {author && (
@@ -743,6 +751,8 @@ function QuotedStory({
               avatarColor={author.avatarColor}
               size="sm"
               isPledger={author.hasPledged ?? false}
+              isAgent={isAgent}
+              identityPending={identityPending}
               className="!w-6 !h-6 !text-[11px]"
             />
           </span>
@@ -766,7 +776,7 @@ function QuotedStory({
             {author.name}
           </span>
           {/* Ear indicator - understanding credibility */}
-          <EarBadge count={author.ear ?? 0} name={author.name} />
+          {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
         </div>
       )}
       {/* Story image — compact in quoted context */}

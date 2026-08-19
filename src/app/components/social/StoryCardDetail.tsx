@@ -19,6 +19,7 @@ import {
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
   PositionButtons,
   PositionBadge,
@@ -160,6 +161,8 @@ export function StoryCardDetail({
   // Default routes
   const storyRoute = routes.story || ((id: string) => `/story/${id}`);
   const pointRoute = routes.point || ((id: string) => `/point/${id}?from=${story.authorId}`);
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(story.authorId);
   const profileRoute = routes.profile || ((id: string) => `/p/${id}`);
 
   const handleCardClick = () => {
@@ -189,17 +192,19 @@ export function StoryCardDetail({
     return (
       <div className="bg-card rounded-lg overflow-hidden">
         {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-        <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
+        <div className={`flex items-center gap-1.5 mb-2 text-sm text-foreground${isAgent ? ' agent-card-drained' : ''}`} {...(isAgent ? { 'data-agent-row': 'true' } : {})}>
           <GravatarAvatar
             name={story.authorName}
             photoUrl={story.authorAvatarUrl}
             avatarColor={story.authorAvatarColor}
             size="sm"
             isPledger={story.authorHasPledged ?? false}
+            isAgent={isAgent}
+            identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{story.authorName}</span>
-          <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
+          {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
           <PositionBadge position={authorPosition} />
         </div>
 
@@ -246,7 +251,8 @@ export function StoryCardDetail({
     <div
       role={!isDetailView && !disableNavigation ? 'button' : undefined}
       tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
-      className={cardClassName}
+      className={`${cardClassName}${isAgent ? ' agent-card-drained' : ''}`}
+      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={
         !isDetailView && !disableNavigation
@@ -271,7 +277,7 @@ export function StoryCardDetail({
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
           >
-            <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} avatarColor={story.authorAvatarColor} size="sm" isPledger={story.authorHasPledged ?? false} />
+            <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} avatarColor={story.authorAvatarColor} size="sm" isPledger={story.authorHasPledged ?? false} isAgent={isAgent} identityPending={identityPending} />
           </button>
 
           {/* Content column - aligned under avatar */}
@@ -289,7 +295,7 @@ export function StoryCardDetail({
                   {story.authorName}
                 </button>
                 {/* Credibility stats */}
-                <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
+                {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
               </div>
               <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 <span>{story.authorRole ? `${story.authorRole} · ` : ''}{formatTimeAgo(story.createdAt)}</span>
@@ -515,6 +521,8 @@ function QuotedPoint({
   onClear?: () => void;
 }) {
   const navigate = useNavigate();
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(storyAuthorId);
   const [storiesExpanded, setStoriesExpanded] = useState(false);
   const userPosition = userPositions.get(point.id);
   // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
@@ -566,17 +574,19 @@ function QuotedPoint({
     <div className="w-full text-left">
       {/* Identity-and-position row: reserved for the other person. Hidden when viewer === story author. */}
       {currentUserId !== storyAuthorId && (
-        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
+        <div className={`flex items-center gap-1.5 mb-1.5 text-sm text-foreground${isAgent ? ' agent-card-drained' : ''}`} {...(isAgent ? { 'data-agent-row': 'true' } : {})}>
           <GravatarAvatar
             name={authorName}
             photoUrl={authorAvatarUrl}
             avatarColor={authorAvatarColor}
             size="sm"
             isPledger={authorHasPledged ?? false}
+            isAgent={isAgent}
+            identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{authorName}</span>
-          <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />
+          {!isAgent && !identityPending && <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />}
           {ownerPosition && <PositionBadge position={ownerPosition.position} />}
         </div>
       )}
@@ -728,6 +738,9 @@ function LinkedStoryCard({
   story: LinkedStory;
   onClick: () => void;
 }) {
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(story.authorId);
+
   return (
     <div
       role="button"
@@ -739,7 +752,8 @@ function LinkedStoryCard({
           onClick();
         }
       }}
-      className="w-full text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className={`w-full text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
+      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
     >
       <div className="flex items-center gap-1.5 mb-1">
         <GravatarAvatar
@@ -748,10 +762,12 @@ function LinkedStoryCard({
           avatarColor={story.authorAvatarColor}
           size="sm"
           isPledger={story.authorHasPledged ?? false}
+          isAgent={isAgent}
+          identityPending={identityPending}
           className="!w-5 !h-5 !text-[10px]"
         />
         <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
-        <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />
+        {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />}
       </div>
       <p className="text-sm text-foreground line-clamp-4 break-words">{linkifyText(story.content)}</p>
     </div>
