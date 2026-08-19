@@ -302,7 +302,7 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
       // The public-figure policy approval is CONDITIONAL on this line. An avatar shipped
       // without it violates the approval, not merely the plan.
-      await expect(page.getByTestId('agent-operator-line')).toHaveText(`Published by ${agent.operatorName}`);
+      await expect(page.getByTestId('agent-operator-line')).toHaveText(`Operated by ${agent.operatorName}`);
     });
 
     test('the profile avatar is square, un-ringed, and exempt from the drain', async ({ page }) => {
@@ -326,6 +326,67 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await page.waitForLoadState('networkidle');
       await expect(page.getByTestId('agent-operator-line')).toHaveCount(0);
       await expect(page.locator('[data-testid="ear-badge"]').first()).toBeVisible({ timeout: 15000 });
+    });
+
+    // The three below are regressions found by eye on the running page, after the suite
+    // was already green. Each is a surface the Surfaces list did not name, which is why
+    // no test covered it: the marker was applied where the spec pointed and nowhere else.
+
+    test('no Clarity Partners line — a partnership is a relationship, not a property', async ({ page }) => {
+      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+      // "0 Clarity Partners" is worse than absent: it implies the count could be non-zero.
+      await expect(page.getByText(/Clarity Partner/i)).toHaveCount(0);
+    });
+
+    test('no listening calibration — it invites a machine to complete sessions', async ({ page }) => {
+      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/Listening calibration/i)).toHaveCount(0);
+      await expect(page.getByText(/sessions in a listener role/i)).toHaveCount(0);
+    });
+
+    test('a human profile keeps both — the suppression is agent-scoped, not a removal', async ({ page }) => {
+      await page.goto(`/p/${human.slug}`);
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByText(agent.name).first()).toHaveCount(0);
+      // Guards the shape of the fix: gating on the wrong condition would blank these for
+      // everyone, and every agent-side assertion above would still pass.
+      await expect(page.getByText(/Clarity Partner/i).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/Listening calibration/i).first()).toBeVisible();
+    });
+
+    test('the point-card avatar uses the account\'s own colour, not the default palette', async ({ page }) => {
+      // Deliberately NOT the shared `agent` fixture. That one is created with #0044CC,
+      // which is byte-identical to GravatarAvatar's own fallback colour — so the broken
+      // and the fixed render produce the same pixel and the assertion can never fail.
+      // Measured: with the fix reverted, this account's card read rgb(0,68,204) while its
+      // header read rgb(57,66,75). A fixture that cannot emit a distinguishing input
+      // makes a green run mean nothing (epistemic.md gate 7b).
+      const slateAgent = await createTestAgentAccount({ avatarColor: '#39424B' });
+      const slatePoint = await createTestPoint(owner.user.id, {
+        statement: `Colour-marker point ${Date.now()}`,
+      });
+      try {
+        await seedAgentPosition(slatePoint.id, slateAgent.profileId, 'agree');
+        await page.goto(`/p/${slateAgent.slug}`);
+        await page.waitForLoadState('networkidle');
+
+        const headerAvatar = page.locator('[data-testid="profile-avatar"] [data-testid="gravatar-avatar"]');
+        const cardAvatar = page.locator('[data-agent-row="true"] [data-testid="gravatar-avatar"]').first();
+        await expect(cardAvatar).toBeVisible({ timeout: 15000 });
+
+        const bgOf = (loc: typeof cardAvatar) =>
+          loc.evaluate((el) => getComputedStyle(el).backgroundColor);
+        const headerBg = await bgOf(headerAvatar);
+        const cardBg = await bgOf(cardAvatar);
+
+        expect(headerBg, 'the header must resolve the account colour to compare against')
+          .toBe('rgb(57, 66, 75)');
+        expect(cardBg, `card avatar ${cardBg} should match the header avatar ${headerBg}`)
+          .toBe(headerBg);
+      } finally {
+        await deleteTestPoint(slatePoint.id);
+        await deleteTestAgentAccount(slateAgent.profileId);
+      }
     });
   });
 

@@ -435,13 +435,21 @@ export function ProfilePageV2() {
   // Load ears count separately
   useEffect(() => {
     if (!profile) return;
+    // P1104: an agent account holds no reputation, so do not ask for one. Waiting for the
+    // registry before deciding matters — isAgent is false while it loads, so firing on the
+    // first pass would query ears for every agent regardless of the gate.
+    if (identityPending) return;
+    if (isAgent) {
+      setRealEarsCount(0);
+      return;
+    }
 
     calibrationService.getEarsCount(profile.id).then(count => {
       setRealEarsCount(count);
     }).catch(err => {
       console.error('Failed to load ears count:', err);
     });
-  }, [profile]);
+  }, [profile, isAgent, identityPending]);
 
   // P686: Load badge count separately
   useEffect(() => {
@@ -891,7 +899,7 @@ export function ProfilePageV2() {
                         className="text-sm text-muted-foreground break-words"
                         data-testid="agent-operator-line"
                       >
-                        {`Published by ${operatorName}`}
+                        {`Operated by ${operatorName}`}
                       </p>
                     )}
                     {(profile.role || profile.linkedinUrl) && (
@@ -957,8 +965,11 @@ export function ProfilePageV2() {
                     {isOwner ? `My Clarity Badge (${Math.min(badgeCount, 9)}/9)` : `See their Clarity Badge (${Math.min(badgeCount, 9)}/9)`}
                   </a>
                 )}
-                {/* P462: Partners count — grouped with pledge link as navigation cluster */}
-                {agreementsLoading ? (
+                {/* P462: Partners count — grouped with pledge link as navigation cluster.
+                     P1104: an agent account has no Clarity Partners. A partnership is a
+                     relationship two people entered; rendering "0 Clarity Partners" on a
+                     machine reading implies it could have some. */}
+                {isAgent || identityPending ? null : agreementsLoading ? (
                   <div className="h-[44px]" />
                 ) : (
                   <div className="mt-2 animate-[clarity-appear_300ms_ease-out_forwards]">
@@ -972,7 +983,10 @@ export function ProfilePageV2() {
                 )}
                 {/* P539: Calibration — shown on all profiles (own + guest).
                      Estimation available: header + bar + label. Not enough data: header + segmented bar + "N more needed". */}
-                {calibrationLoaded && (
+                {/* P1104: calibration measures a listener against their own sessions. An
+                     agent holds no sessions, and "Complete 5 sessions in a listener role"
+                     addressed to a machine reading is an invitation it can never take. */}
+                {calibrationLoaded && !isAgent && !identityPending && (
                   <div className="animate-[clarity-appear_300ms_ease-out_forwards]">
                     <InlineCalibration
                       calibration={calibration}
@@ -1106,6 +1120,10 @@ export function ProfilePageV2() {
                       name: profile.name,
                       hasPledged: profile.hasPledged,
                       avatarUrl: profile.avatarUrl,
+                      // P1104: without this the card falls back to the default palette, so
+                      // an agent's square avatar rendered in another account's colour — the
+                      // shape marker was right and the colour marker was silently absent.
+                      avatarColor: profile.avatarColor,
                       ear: credibilityStats.ear,
                       position: point.positions?.[profile.id]?.position || null,
                     }}

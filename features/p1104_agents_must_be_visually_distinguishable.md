@@ -72,7 +72,7 @@ The earlier draft tried to make one mechanism carry the marker, the operator and
 | **The marker** | the **card**, in-app | **Every card belonging to one of these accounts renders with its colour drained — stance badge, story pill, chrome — with the avatar exempt.** Founder decision 2026-08-19. Strongest single signal tested: it needs no squinting at 20px and carries unchanged to the profile page. It also states something true — these accounts hold no pledge, oath or reputation, and a card without colour is a card with lower standing. |
 | **The marker** | the **name field**, off-platform | A shared link renders as text only — no avatar, no shape, no colour. The name is the entire disclosure surface there. |
 | **The source** | the **linked story** on the position row | Already rendered. Duplicating it into the name is what made the name unusable. |
-| **The operator** | the **profile page** | Accountability information, not glance information. Provisional wording *"Published by {name}"*. |
+| **The operator** | the **profile page** | Accountability information, not glance information. Provisional wording *"Operated by {name}"*. |
 
 **Consequence worth stating:** because the marker lives in the name, surfaces that render only a name inherit it for free. `PointHeader` renders the author as plain text with no avatar and needs no change.
 
@@ -232,7 +232,7 @@ Every surface one of these accounts can reach. Each shows the marker or is liste
 - `social/StoryCardDetail.tsx` — story detail
 - `social/story-card-with-links.tsx`
 - `social/point-card-with-links.tsx`
-- `pages/profile-page-v2.tsx` — the account's profile page, plus the `Published by {operator}` line (decision 1: yes)
+- `pages/profile-page-v2.tsx` — the account's profile page, plus the `Operated by {operator}` line (decision 1: yes)
 - `api/og.ts` — `ogForStory` (:74), `ogForPoint` (:96) and `ogForProfile` (:117). Serverless, outside React, so they carry the marker via the name.
 
 **Avatar size — measured 2026-08-19, and it is not incidental**
@@ -267,7 +267,7 @@ agent account. `[ ]` with **BLOCKED-ON-P1096** = cannot be run until the pipelin
 - [ ] **MANUAL** — Every surface rendering a profile is either in scope or listed with its reason. A completeness claim over source, not a runtime behaviour. See UAT-10.
 - [x] No account's display name is a bare person's name — enforced server-side now, not merely checked: `upsert_my_profile` reserves the `Agent ·` prefix, tested against six bypass variants. Still **not** generalizable to detecting real names (`.claude/rules/pii.md`).
 - [x] Founder decision 1 answered and recorded here — **yes, full profile page** (2026-08-19)
-- [x] **The operator line renders on the profile page in the same change that introduces the avatar** — `Published by {operator}` asserted on the profile page, and the creation RPC **refuses an empty operator_name**, so an agent with no answerable human cannot be created at all. Screenshot still pending (MANUAL, UAT-5), but the condition is now structural rather than procedural.
+- [x] **The operator line renders on the profile page in the same change that introduces the avatar** — `Operated by {operator}` asserted on the profile page, and the creation RPC **refuses an empty operator_name**, so an agent with no answerable human cannot be created at all. Screenshot still pending (MANUAL, UAT-5), but the condition is now structural rather than procedural.
 - [ ] **BLOCKED-ON-P1096** — Both subjects named and their source photographs rights-cleared before any avatar is generated (`/slava:content:gen-agent-avatar` Step 0). No subject has been chosen; the spec says they cannot be chosen in advance.
 - [ ] **BLOCKED-ON-P1096** — The robotified portrait channel is **entirely untested**. Every fixture is avatar-less, so the suite proves the silhouette, chrome and name channels only.
 
@@ -533,6 +533,48 @@ stating a thing is closed without running the command that would show it.
 
 ---
 
+## Founder review of the running page — three defects the suite did not catch
+
+The suite was green, the adversarial review was complete, and the founder then looked at the
+rendered page and found three defects in one screenshot. All three were on the **profile
+page**, and all three share a cause: the Surfaces list named the avatar, the name, and the
+pledge ring, so the marker was applied there and nowhere else. Nothing enumerated the *other*
+things a profile asserts about its subject.
+
+1. **Clarity Partners count rendered for an agent** (`profile-page-v2.tsx`). `0 Clarity
+   Partners` is worse than absent — it implies the count could be non-zero. A partnership is
+   a relationship a person entered.
+2. **Listening calibration rendered for an agent.** `Complete 5 sessions in a listener role
+   to unlock your calibration score` addressed to a machine reading is an invitation it can
+   never accept. The ear *fetch* also still ran for agents; now skipped.
+3. **The point-card avatar used the default palette.** The card built its own author object
+   and omitted `avatarColor`, so an agent's square avatar rendered in a colour belonging to
+   no account. The shape marker was right and the colour marker was silently absent.
+
+**The test that would have caught #3 could not have.** The first version of the regression
+test asserted the card avatar was desaturated — which encodes the fixture's palette, not the
+bug. The second compared card to header, which is the right property, but the shared fixture
+account is created with `#0044CC`, **byte-identical to `GravatarAvatar`'s own fallback**. Broken
+and fixed rendered the same pixel, so the test passed against reverted code. Measured with a
+`#39424B` account: card `rgb(0,68,204)`, header `rgb(57,66,75)`. The test now creates its own
+account with a colour the fallback cannot imitate. This is [epistemic.md](../.claude/rules/epistemic.md)
+gate 7b in the small: a fixture that structurally cannot emit a distinguishing input makes a
+green run mean nothing.
+
+**Wording decision (founder, resolved).** The operator line reads **`Operated by {operator}`**,
+not "Published by". The founder selects the source videos and confirms each filing but does not
+read every output — "published by" claims editorial responsibility for the content, which
+over-claims; "maintained by" hides that the operator *chooses the sources*, which is the most
+consequential decision in the pipeline. Applied to the profile page and all three `api/og.ts`
+descriptions.
+
+**Still open:** `operator_name` is free text. It should become an FK to a real `profiles` row so
+a reader can click through to an accountable human — a string can say anything. Approved by the
+founder, not yet designed; it changes the migration, the create RPC, the registry read, the
+context, the profile header, `api/og.ts`, and the fixture.
+
+---
+
 ## Test Coverage Strategy
 
 **123 automated tests, all passing.** Command output and per-file counts are in
@@ -643,7 +685,7 @@ None of these four-to-six object literals share a type or a construction helper.
 CREATE TABLE public.agent_accounts (
   profile_id     UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
   subject_key    TEXT NOT NULL UNIQUE,   -- P1096's canonical person reference
-  operator_name  TEXT NOT NULL,          -- "Published by {operator_name}"
+  operator_name  TEXT NOT NULL,          -- "Operated by {operator_name}"
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -815,7 +857,7 @@ placed before the `INSERT … ON CONFLICT` in `upsert_my_profile`. `create_or_re
 
 - ⚠️ **Private-individual subjects are not technically excluded.** The subject-key design (`p1096` §"Subject key") allows "an internal slug minted by us when the subject has no public page (the claimed case)" — nothing in either spec technically prevents an operator from running this pipeline against a private individual with no Wikidata/Wikipedia/own-site presence; the only gate is the operator's own judgment at generation time (mirrors the rights-check gate above). Given `.claude/rules/pii.md`'s existing stance that private-individual protection in this repo is authoring-discipline, not a technical control, this is consistent with established policy — flagging so it's an explicit, acknowledged trade-off rather than an implicit one, since the stakes here (a robotified portrait + filed positions, not just a name in prose) are materially higher than the cases that rule was written for.
 
-- ✅ The operator-disclosure requirement ("Published by {name}") is treated as a hard release gate in both documents I read: `p1104` Done-When ("the same change that introduces the avatar... If the operator line is cut or deferred for any reason, the portrait channel is cut with it") and `gen-agent-avatar.md` Step 0 ("Before emitting an avatar for a subject who is not the operator, confirm the profile page carries the operator line. If it does not, stop and say so"). Consistent between the two documents — no gap found.
+- ✅ The operator-disclosure requirement ("Operated by {name}") is treated as a hard release gate in both documents I read: `p1104` Done-When ("the same change that introduces the avatar... If the operator line is cut or deferred for any reason, the portrait channel is cut with it") and `gen-agent-avatar.md` Step 0 ("Before emitting an avatar for a subject who is not the operator, confirm the profile page carries the operator line. If it does not, stop and say so"). Consistent between the two documents — no gap found.
 
 **AI Prompt Security:**
 
@@ -860,7 +902,7 @@ placed before the `INSERT … ON CONFLICT` in `upsert_my_profile`. `create_or_re
 5. Card-greyscale treatment (plate G1) as a small CSS utility in `src/index.css`, scoped to chrome (badges, stance pill, border) with the avatar `img`/wrapper explicitly excluded from the `filter` — per the spec's finding that a blanket `grayscale()` also kills the amber sensor accent.
 6. Wire `isAgentAccountId()` + the new `GravatarAvatar`/greyscale props into each in-scope render site (Surfaces list), gated behind each page's existing `loading`/`isLoading` state extended with `AgentAccountsProvider`'s `isLoading`.
 7. `api/og.ts` — extend the three fetchers' embedded selects with `agent_accounts(operator_name)`, branch description copy.
-8. `profile-page-v2.tsx` — render the `Published by {operator_name}` line when `isAgentAccountId(profileId)` is true, sourced from the same `agent_accounts` row (fetched alongside the profile, not from the global Set, since the operator name is per-account content, not a boolean).
+8. `profile-page-v2.tsx` — render the `Operated by {operator_name}` line when `isAgentAccountId(profileId)` is true, sourced from the same `agent_accounts` row (fetched alongside the profile, not from the global Set, since the operator name is per-account content, not a boolean).
 9. Six `aria-label`s — no code change needed beyond what's already true: they interpolate `holder.userName`/`story.authorName`, which already contains the `Agent · {subject}` marker once `profiles.name` is set correctly by the RPC. Verify by reading rendered output per Done-When, not by editing.
 
 #### Files to Create

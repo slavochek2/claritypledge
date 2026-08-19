@@ -108,7 +108,7 @@ async function ogForStory(id: string): Promise<OgData | null> {
       ? `${title} \u2014 read by ${authorName} | ClarityPledge`
       : `${title} \u2014 by ${authorName} | ClarityPledge`,
     description: operator
-      ? `A machine-generated reading, not the person. ${authorName} is published by ${operator} on ClarityPledge.`
+      ? `A machine-generated reading, not the person. ${authorName} is operated by ${operator} on ClarityPledge.`
       : (excerpt || `A story shared on ClarityPledge by ${authorName}.`),
     image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/story/${id}`,
@@ -132,7 +132,7 @@ async function ogForPoint(id: string): Promise<OgData | null> {
   return {
     title: `${short} | ClarityPledge`,
     description: operator
-      ? `Shared by ${creatorName}, a machine-generated reading published by ${operator} \u2014 not the person. Take a position on ClarityPledge.`
+      ? `Shared by ${creatorName}, a machine-generated reading operated by ${operator} \u2014 not the person. Take a position on ClarityPledge.`
       : `Shared by ${creatorName} \u2014 take a position on ClarityPledge.`,
     image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/point/${id}`,
@@ -154,7 +154,7 @@ async function ogForProfile(slug: string): Promise<OgData | null> {
   // every profile, which is false for these accounts in the one place that reaches a
   // reader who never opens the site.
   const desc = operator
-    ? `${name} is a machine-generated reading of a person, published by ${operator} on ClarityPledge. It is not that person and holds no pledge.`
+    ? `${name} is a machine-generated reading of a person, operated by ${operator} on ClarityPledge. It is not that person and holds no pledge.`
     : (role
       ? `${name} \u2014 ${role}. Signed the Clarity Pledge.`
       : `${name} signed the Clarity Pledge \u2014 a public commitment to clear communication.`);
