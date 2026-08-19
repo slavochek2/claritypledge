@@ -16,7 +16,18 @@
 #  - The TRIGGER is the contract pin on origin/main, never anything on the
 #    branch. A branch cannot delete a file that lives on main, so a run cannot
 #    duck the gate by deleting its own contract — which is exactly what a loop
-#    would do to a row it was about to fail.
+#    would do to a row it was about to fail. Exercised 2026-08-19 against a
+#    throwaway clone: a branch that deletes its own contract STILL selects its
+#    P-number, because the deleted path shows up in the diff and the pin is read
+#    from main regardless.
+#
+#    KNOWN RESIDUAL — stated, not implied away: selection needs the P-number to
+#    appear either in the branch name or in a touched features/ path. A branch
+#    that does neither is not selected and the gate does not run. That run still
+#    cannot merge cleanly (the ship gates require a pN branch and a qa status),
+#    so this is a gap in defence-in-depth, not an open door. Do NOT "fix" it by
+#    scanning every pinned P-number on every push — that couples unrelated
+#    branches to each other's evidence.
 #  - CI tier ONLY. No Supabase credentials, no browser, no Playwright. Putting a
 #    service-role key into a PUBLIC repo's Actions to run BRANCH-AUTHORED tests
 #    would hand the unattended loop admin credentials on the database its own
