@@ -351,7 +351,12 @@ echo ""
 # near-miss/mention PASSES. Without the second half a guard silently becomes a tax on
 # legitimate work — already observed: the push-guard refused P1116's own spec because the
 # PROSE quoted a banned command.
-P1116_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.claude/hooks/(block-banned-git\.py|route-brief\.sh)|scripts/(test-block-banned-git|test-route-brief|test-validate-command-refs|validate-command-refs)\.(py|sh))$' || true)
+# Deliberately NOT $STAGED_FILES: that list is built with --diff-filter=d, which EXCLUDES
+# deletions, so `git rm` on a hook or the validator would make this trigger see nothing and
+# the commit would pass green with the gate silently removed. Adding settings.json too — the
+# registration is as load-bearing as the file. (P1116 adversarial review.)
+P1116_ALL_STAGED=$(git diff --cached --name-only 2>/dev/null || echo "")
+P1116_STAGED=$(echo "$P1116_ALL_STAGED" | grep -E '^(\.claude/(settings\.json|hooks/(block-banned-git\.py|route-brief\.sh))|scripts/(test-block-banned-git|test-route-brief|test-validate-command-refs|validate-command-refs)\.py)$' || true)
 if [ -n "$P1116_STAGED" ]; then
     for _p1116 in \
         "Banned-git hook canary (P1116):python3 scripts/test-block-banned-git.py" \
@@ -681,7 +686,10 @@ if [ -f "./scripts/validate-command-refs.py" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 else
-    echo -e "${YELLOW}⚠ Command-ref validator not found${NC}"
+    echo -e "${RED}✗ scripts/validate-command-refs.py missing — blocking commit${NC}"
+    echo -e "${YELLOW}  A gate that vanishes silently is worse than no gate. Restore it, or"
+    echo -e "  remove section 12b deliberately in its own commit.${NC}"
+    ERRORS=$((ERRORS + 1))
 fi
 echo ""
 

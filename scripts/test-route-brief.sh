@@ -16,6 +16,11 @@
 
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Actually hermetic: without this the canary appended ~30 synthetic FIRE rows per run to
+# ~/.claude/logs/route-brief.log — the production log any future recall measurement reads.
+ROUTE_BRIEF_LOG_DIR="$(mktemp -d)"
+export ROUTE_BRIEF_LOG_DIR
+trap 'rm -rf "$ROUTE_BRIEF_LOG_DIR"' EXIT
 HOOK="${1:-$ROOT/.claude/hooks/route-brief.sh}"
 FAILURES=0
 CHECKED=0
@@ -68,6 +73,14 @@ check "status" "whats next luma post done"
 check "status" "remind me what we did here and whats next"
 check "status" "ok what now? how do i use it in the futrue?"
 check "status" "whats status with p920?"
+# THE APOSTROPHE CLASS. The canonical spelling of the #1 ask did not fire in the first
+# shipped version — norm collapsed the apostrophe to a space, so "what s next" matched no
+# adjacency pattern. ~6% of that class, silently missed. These cases exist because the
+# fixture could not previously contain an apostrophe at all (INVARIANT 5).
+check "status" "what$(printf "\047")s next?"
+check "status" "what$(printf "\047")s the status"
+check "status" "so what$(printf "\047")s next then"
+check "status" "what$(printf "\342\200\231")s next?"
 
 echo "== SHOULD FIRE model: real 'opus or sonnet / which effort' asks (14 across 12) =="
 check "model" "opus or sonnet"
@@ -110,6 +123,13 @@ check "NONE" "review the draft and tell me what is weak"
 check "NONE" "we agreed on sonnet for the subagents already, just run it"   # meta fires? see below
 check "NONE" "add a status column to the table"
 check "NONE" "fix the model layer in src/app/data"
+# LETTER-MULTISET COLLISIONS WITH REAL ENGLISH. sonnet sorts to ennost, and so do notes /
+# onset / stone / tones; opus sorts to opsu, and so does soup. Each fired the model route
+# on an ordinary sentence before the stoplist. (P1116 adversarial review.)
+check "NONE" "read my notes and tell me how much effort the migration takes"
+check "NONE" "the onset of the effort was messy"
+check "NONE" "these stone tiles took real effort"
+check "NONE" "the soup recipe needs sonnet"
 
 echo "== SHOULD NOT FIRE: harness-generated prompts and oversized pastes =="
 check "NONE" "This session is being continued from a previous conversation that ran out of context. whats next"

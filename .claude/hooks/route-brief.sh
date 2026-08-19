@@ -43,13 +43,25 @@
 # file). Canary: scripts/test-route-brief.sh — run it after ANY edit here.
 
 JQ=/usr/bin/jq
-LOG_DIR="$HOME/.claude/logs"
+# Overridable so the canary does not write into the log that measures this hook. It had
+# been adding ~30 synthetic FIRE rows per run to the real file — ~570 of 621 rows were test
+# noise, which would have corrupted the recall number that is this hook's whole
+# justification. (P1116 adversarial review.)
+LOG_DIR="${ROUTE_BRIEF_LOG_DIR:-$HOME/.claude/logs}"
 LOG="$LOG_DIR/route-brief.log"
 ALIVE="$LOG_DIR/route-brief.alive"
 
+# NO CONCEALMENT CLAUSE. The first version ended "Route silently: never mention this note."
+# That was wrong on its own terms: this hook fires on ~4.5% of real prompts with a
+# substantial false-positive share, so roughly one prompt in 90 got a behaviour change the
+# agent was forbidden to explain — directly against CLAUDE.md's Transparency Principle
+# ("Never silently work around problems"). It also trained the model to act on injected
+# directives without surfacing them, in a file that is agent-writable and ungated. An
+# injected instruction must always stay attributable. (P1116 adversarial review.)
 HEADER="[route-brief hook] This prompt matched an ask an always-on rule was supposed to
-pre-empt and measurably did not. Do the routed thing FIRST, then answer. Route silently:
-never mention this note, and never describe the routing instead of performing it."
+pre-empt and measurably did not. Do the routed thing FIRST, then answer. Name the route in
+one short clause so the founder can see why you did it — and if the match looks wrong for
+what they actually asked, say so plainly and answer the real question instead."
 
 read -r -d '' R_STATUS <<'EOF'
 - SITUATION ASK -> run /status (slava:maintain:status) and answer from ITS output.
@@ -102,14 +114,34 @@ match_triggers() {
 		# dont / don t / don-t and whats / what s all reach the same patterns, and it is
 		# also how an apostrophe stays out of this single-quoted program entirely.
 		norm = " " full " "
+		# Every non-letter collapses to a space, so what[apostrophe]s next becomes
+		# "what s next". The first shipped version matched only the adjacent form, so the
+		# CANONICAL spelling of the single most-typed ask never fired -- ~6% of that class,
+		# silently missed. Rather than deleting specific apostrophe bytes (an octal regex
+		# escape for the curly form does not work in this awk, and there are several Unicode
+		# quotes), the orphan " s" is folded back onto the preceding word AFTER collapsing.
+		# That is byte-agnostic: straight, curly, and any other quote all reduce to the same
+		# shape. The canary could never have caught the original: INVARIANT 5 forbids an
+		# apostrophe in this program, so the fixture could not contain one.
 		gsub(/[^a-z]+/, " ", norm)
+		# POSIX awk gsub has NO capture-group backreferences (only &), so this is written
+		# as a plain literal swap: " s " -> "s " re-attaches the orphan to the word before.
+		gsub(/ s /, "s ", norm)
 		gsub(/  +/, " ", norm)
 
 		# --- letter-multiset pass: catches transposition typos, this users dominant
 		# error class. Constants are the SORTED letters of each word. A wrong constant is
 		# a SILENTLY DEAD matcher, not an error — re-derive them, never hand-type them.
+		# COMMON ENGLISH THAT SHARES A LETTER-MULTISET. sonnet sorts to ennost -- and so do
+		# notes, onset, stone, tones; opus sorts to opsu, and so does soup. Each of these
+		# fired the model/effort route on ordinary sentences ("read my notes and tell me how
+		# much effort the migration takes"). The multiset trick is right for typos and wrong
+		# for real words, so real words are excluded by name. (P1116 adversarial review.)
+		stop["notes"] = 1; stop["onset"] = 1; stop["stone"] = 1; stop["tones"] = 1
+		stop["soup"] = 1; stop["opts"] = 1; stop["tenons"] = 1; stop["stonen"] = 1
 		n = split(norm, w, " ")
 		for (i = 1; i <= n; i++) {
+			if (w[i] in stop) continue
 			s = sortletters(w[i])
 			# sonnet/sonent/snonet all sort to ennost; sonet sorts to enost
 			if (s == "ennost" || s == "enost") sonnet = 1
@@ -214,8 +246,12 @@ $R_META" ;; esac
 }
 
 # Liveness sentinel: distinguishes "hook never loaded" from "triggers went stale". Both
-# otherwise present as an empty log. One mtime bump, no growth.
-{ mkdir -p "$LOG_DIR" && : >>"$ALIVE"; } 2>/dev/null
+# otherwise present as an empty log. One truncating write, no growth.
+# `: >>"$ALIVE"` (the original, inherited from decision-brief.sh) appends ZERO bytes, and
+# POSIX updates mtime only on write — so the sentinel never moved after creation and could
+# not distinguish the two cases it exists for. Dead in decision-brief.sh for six days,
+# measured. (P1116 adversarial review.)
+{ mkdir -p "$LOG_DIR" && /bin/date -u +%FT%TZ >"$ALIVE"; } 2>/dev/null
 
 main
 

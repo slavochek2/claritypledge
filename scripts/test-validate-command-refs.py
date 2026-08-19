@@ -65,8 +65,24 @@ def fixture(claude_md, rules=None, commands=()):
 
 
 print("== the real repo: must pass as it stands (Done-When: passes on CLAUDE.md after P1113) ==")
-case("real repo resolves clean", [], 0, want_in_output="all resolve")
+case("real repo resolves clean", [], 0, want_in_output="instruction files resolve")
 case("real repo, --report lists resolved refs", ["--report"], 0, want_in_output="  ok  ")
+
+# THE CRITICAL REGRESSION. Wired unconditionally into pre-commit, the first shipped version
+# exited 1 here — blocking every commit on a fresh clone, in CI, on a second machine, and
+# for every contributor to this public repo. This case could not have caught it before,
+# because it always ran with the author's HOME; it now runs with HOME pointed elsewhere.
+_empty_home = tempfile.mkdtemp(prefix="p1116-nohome-")
+tmpdirs_early = [_empty_home]
+_saved_home = os.environ.get("HOME")
+os.environ["HOME"] = _empty_home
+try:
+    case("no ~/.claude/commands: reports, never blocks", [], 0,
+         want_in_output="unverifiable")
+finally:
+    if _saved_home is not None:
+        os.environ["HOME"] = _saved_home
+    shutil.rmtree(_empty_home, ignore_errors=True)
 
 tmpdirs = []
 try:
@@ -96,14 +112,41 @@ try:
                 commands=["slava/build/dev.md", "slava/build/verify/SKILL.md",
                           "slava/build/finish/SKILL.md"])
     tmpdirs.append(d)
-    case("bare, namespaced, and SKILL.md forms", ["--root", d], 0, want_in_output="all resolve")
+    case("bare, namespaced, and SKILL.md forms", ["--root", d], 0, want_in_output="instruction files resolve")
 
-    print("== a MENTION marked retired is reported, not failed ==")
-    d = fixture("## Business Layer (from /create-prd - legacy, now /product-owner enrichment)\n",
+    print("== prose can NEVER excuse a dead pointer (P1116 adversarial review) ==")
+    # Each of these passed in the first shipped version. The last one still passed after
+    # the vocabulary was narrowed AND proximity required, which is why the heuristic was
+    # replaced by an explicit KNOWN_RETIRED declaration.
+    for label, text in [
+        ("active line saying 'no longer optional'",
+         "The /gone-command flow is no longer optional - always run it.\n"),
+        ("'archived elsewhere' aside", "Use /gone-command (archived elsewhere, still fine).\n"),
+        ("'in the future'", "Route to /gone-command in the future.\n"),
+        ("one marker amnestying a whole line",
+         "Legacy note. Always run /dead-one, then /dead-two.\n"),
+    ]:
+        d = fixture(text, commands=["slava/build/dev.md"])
+        tmpdirs.append(d)
+        case(label, ["--root", d], 1, want_in_output="does not resolve")
+
+    print("== a NAMESPACED ref must match its namespace, not just the leaf ==")
+    d = fixture("Route to /slava:maintain:dev when implementing.\n",
                 commands=["slava/build/dev.md"])
     tmpdirs.append(d)
-    case("retired-annotated mention", ["--root", d], 0,
-         want_in_output="the line marks it retired")
+    case("fictional namespace rejected", ["--root", d], 1,
+         want_in_output="/slava:maintain:dev does not resolve")
+
+    print("== a rules/ or references/ PAYLOAD file is not an invokable command ==")
+    d = fixture("Route to /js-early-exit for perf work.\n",
+                commands=["pkg/rules/js-early-exit.md", "slava/build/dev.md"])
+    tmpdirs.append(d)
+    case("payload file rejected", ["--root", d], 1,
+         want_in_output="/js-early-exit does not resolve")
+
+    print("== --root with no argument must not traceback ==")
+    case("--root missing argument", ["--root"], 1,
+         want_in_output="requires a directory argument")
 
     print("== non-command tokens must not be mistaken for pointers ==")
     d = fixture(
@@ -112,7 +155,7 @@ try:
         "Paths: `/tmp/pw.log`, `/src`, /*.md\n",
         commands=["slava/build/dev.md"])
     tmpdirs.append(d)
-    case("paths, URLs, routes, built-ins", ["--root", d], 0, want_in_output="all resolve")
+    case("paths, URLs, routes, built-ins", ["--root", d], 0, want_in_output="instruction files resolve")
 
     print("== must NOT pass vacuously when there is nothing to resolve against ==")
     d = fixture("Run `/dev`.\n", commands=[])

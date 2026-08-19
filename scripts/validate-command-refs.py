@@ -36,6 +36,9 @@ import re
 import sys
 
 _argv = sys.argv[1:]
+HAVE_USER_ROOT = True
+if "--root" in _argv and _argv.index("--root") + 1 >= len(_argv):
+    sys.exit("validate-command-refs.py: --root requires a directory argument")
 if "--root" in _argv:
     ROOT = os.path.abspath(_argv[_argv.index("--root") + 1])
     # A fixture must be hermetic: the user's real command tree would otherwise resolve
@@ -43,10 +46,21 @@ if "--root" in _argv:
     COMMAND_ROOTS = [os.path.join(ROOT, ".claude", "commands")]
 else:
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    COMMAND_ROOTS = [
-        os.path.join(ROOT, ".claude", "commands"),
-        os.path.expanduser("~/.claude/commands"),
-    ]
+    COMMAND_ROOTS = [os.path.join(ROOT, ".claude", "commands")]
+    # The user's global command tree is NOT in this repo. Five always-on routing lines
+    # legitimately point into it (/slava:maintain:claude-md, /slava:build:simplify,
+    # /slava:think:falsify, /falsify, /adversarial-review), so on a machine that has it we
+    # resolve against it — but its ABSENCE must never fail the gate. It did, in the first
+    # shipped version: with HOME elsewhere this produced 10 errors and, wired
+    # unconditionally into pre-commit, blocked EVERY commit on a fresh clone, in CI, on a
+    # second machine, and for every contributor to this public repo. The gate's own
+    # remediation text then told them to "correct the reference" — i.e. to delete routes
+    # that are correct. Found by the P1116 adversarial review; the canary could not catch
+    # it because it always ran with the author's HOME.
+    _USER_ROOT = os.path.expanduser("~/.claude/commands")
+    HAVE_USER_ROOT = os.path.isdir(_USER_ROOT)
+    if HAVE_USER_ROOT:
+        COMMAND_ROOTS.append(_USER_ROOT)
 
 _RULES_DIR = os.path.join(ROOT, ".claude", "rules")
 TARGETS = [os.path.join(ROOT, "CLAUDE.md")] + sorted(
@@ -81,17 +95,22 @@ NOT_COMMANDS = {
     "/e2e", "/supabase", "/public", "/dist", "/node-modules", "/or", "/exclude",
 }
 
-# A MENTION IS NOT A POINTER -- the same distinction block-banned-git.py needed, applied
-# to prose instead of shell. A line that itself marks the target as retired is describing
-# history, not routing to it, and a dangling reference there is not the defect this gate
-# exists to catch. Real instance, found by this validator on its first run:
-#     ## Business Layer (from /create-prd -- legacy, now /product-owner enrichment)
-# /create-prd was absorbed by /create-spec (P647) and /product-owner was never built; the
-# line is accurate as written. These are REPORTED every run rather than skipped silently,
-# so an annotation can never quietly become a hiding place.
-RETIRED_CONTEXT = re.compile(
-    r"\b(legacy|archived?|absorbed|deprecated|superseded|replaced by|formerly|"
-    r"no longer|used to be|not yet built|future)\b", re.I)
+# A HISTORICAL MENTION IS DECLARED, NEVER INFERRED.
+#
+# The first version inferred it: a line containing "legacy", "archived", "no longer" etc.
+# excused any unresolvable ref on it. The P1116 adversarial review broke that twice --
+# "The /dead-command flow is no longer optional, always run it" passed (an ACTIVE mandatory
+# routing line), and one marker amnestied every ref on its line. Narrowing the vocabulary
+# and requiring proximity fixed both cases and still leaked on "Legacy note. Always run
+# /dead-one" -- because prose about legacy and a retired pointer are not distinguishable by
+# proximity, at any window size.
+#
+# So the escape is now explicit: name the exact "<file>:<ref>" here with a reason. Prose can
+# never trigger it, and every exception is greppable and reviewable in one place. Empty
+# today, which is the point -- the repo has no dead pointers.
+KNOWN_RETIRED = {
+    # ".claude/rules/example.md:/old-command": "P123 archived it; line is historical.",
+}
 
 
 def command_files():
@@ -113,8 +132,13 @@ def command_files():
                     name_parts = parts[:-1] + [fn[:-3]]
                 if not name_parts:
                     continue
-                by_base.setdefault(name_parts[-1], []).append(full)
                 by_path.setdefault(":".join(name_parts), []).append(full)
+                # PAYLOAD FILES ARE NOT COMMANDS. `rules/` and `references/` hold content a
+                # skill loads, not invokable commands, and indexing them by basename let
+                # `/js-early-exit` and `/conn-pooling` satisfy references to commands that
+                # do not exist (P1116 adversarial review).
+                if "rules" not in parts[:-1] and "references" not in parts[:-1]:
+                    by_base.setdefault(name_parts[-1], []).append(full)
     return by_base, by_path
 
 
@@ -134,7 +158,7 @@ def main():
         print("✗ no command files found under any command root — refusing to pass vacuously")
         return 1
 
-    dead, archived, resolved, annotated = [], [], [], []
+    dead, archived, resolved, annotated, unverifiable = [], [], [], [], []
     for target in TARGETS:
         if not os.path.isfile(target):
             continue
@@ -146,13 +170,22 @@ def main():
                     if ref in BUILTINS or ref in NOT_COMMANDS:
                         continue
                     name = ref[1:]
-                    hits = by_path.get(name) or by_base.get(name.split(":")[-1]) or []
+                    # A NAMESPACED ref must match its namespace. Falling back to the bare
+                    # leaf let `/slava:maintain:dev` (fictional namespace) resolve via
+                    # `slava/build/dev.md` — which is the P1113 defect this gate exists to
+                    # catch, passing green (P1116 adversarial review).
+                    hits = by_path.get(name) or []
+                    if not hits and ":" not in name:
+                        hits = by_base.get(name) or []
                     if hits and not all(is_archived(h) for h in hits):
                         resolved.append((rel_target, lineno, ref))
-                    elif RETIRED_CONTEXT.search(clean):
+                    elif "%s:%s" % (rel_target, ref) in KNOWN_RETIRED:
                         annotated.append((rel_target, lineno, ref, line.strip()))
                     elif hits:
                         archived.append((rel_target, lineno, ref, hits[0]))
+                    elif not HAVE_USER_ROOT:
+                        # Cannot resolve what we cannot see. Report, never fail.
+                        unverifiable.append((rel_target, lineno, ref))
                     else:
                         dead.append((rel_target, lineno, ref))
 
@@ -161,12 +194,20 @@ def main():
             print("  ok  %s:%d  %s" % (t, ln, ref))
 
     for t, ln, ref, text in annotated:
-        print("  note %s:%d  %s does not resolve, but the line marks it retired: %s"
-              % (t, ln, ref, text[:100]))
+        print("  note %s:%d  %s does not resolve; declared in KNOWN_RETIRED: %s"
+              % (t, ln, ref, KNOWN_RETIRED.get("%s:%s" % (t, ref), "")[:80]))
+    for t, ln, ref in unverifiable:
+        print("  note %s:%d  %s unverifiable — it may live in ~/.claude/commands, which is "
+              "not present on this machine" % (t, ln, ref))
 
     if not dead and not archived:
-        print("✓ Command refs: %d references in %d instruction files all resolve"
-              " (%d annotated-as-retired)" % (len(resolved), len(TARGETS), len(annotated)))
+        extra = ""
+        if annotated:
+            extra += ", %d annotated-as-retired" % len(annotated)
+        if unverifiable:
+            extra += ", %d unverifiable (no user command tree)" % len(unverifiable)
+        print("✓ Command refs: %d references in %d instruction files resolve%s"
+              % (len(resolved), len(TARGETS), extra))
         return 0
 
     for t, ln, ref, path in archived:
@@ -180,6 +221,8 @@ def main():
     print("  - the command was archived                      -> route to its replacement")
     print("  - the token is NOT a command (a route, a path)  -> declare it in")
     print("    scripts/validate-command-refs.py NOT_COMMANDS, with a reason")
+    print("  - the line is a HISTORICAL mention of a retired command -> add")
+    print("    \"<file>:<ref>\" to KNOWN_RETIRED, with a reason")
     return 1
 
 
