@@ -6,6 +6,52 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-19 [process]: `/goal`'s evaluator reads the transcript, so a goal condition can only be as trustworthy as the artifact it names
+
+**Context:** Designing `/goalify` — a skill that prepares any spec so `/goal` can run it unattended. `/goal` is native Claude Code (GA, v2.1.139+): after each turn a small fast model judges a plaintext completion condition and auto-starts another turn if unmet. Extracted from the binary: *"Evaluate the condition against the recent transcript below."* It runs no commands and reads no files.
+
+**Decision:** A goal condition must terminate on **one committed script's exit code**, never on prose. The first draft carried seven clauses of the shape *"command X reports Y, output pasted"* — test results, a UAT scorecard, a blind reviewer's verdict, screenshots. Two independent adversarial reviews (mechanism lens, decay lens) found 6 + 6 BLOCKERs and converged on the same prescription without coordination. Scored against the 2026-06-25 rule (a gate sticks only with canary + forgery-proof boundary + mechanical choke-point), all nine of the draft's controls had **zero of three**.
+
+**And state the residual honestly** — a third review (Fable) established what the first two missed: the loop still stops on the agent's *paste* of the exit code, because that is the only channel the evaluator has. Nothing inside `/goal` can change that. What a committed gate buys is that **forgery and decay are caught at the merge boundary, not at loop termination**. Sell "batched, end-loaded founder turns with a real merge gate", never "self-proven branch".
+
+**Alternatives rejected:** (a) Phrase clauses carefully enough to be trustworthy — the evaluator cannot distinguish a real Playwright summary from a plausible one; careful phrasing is still self-report. (b) Let the agent stop mid-loop to ask (an escalation clause) — founder rejected: an escape hatch masks the gaps in the preparation step and destroys the measurement the whole design exists to produce. (c) A required CI check running the full gate including Playwright — needs a service-role key in a **public** repo's Actions running **branch-authored** tests, handing the unattended loop admin credentials on the database its own tests assert against. Split into a CI tier (typecheck/lint/unit/shape/hash) and a local advisory tier instead.
+
+**Consequences:** Any future autonomous-loop design in this repo starts from "what artifact does the terminating condition name, and who authors it?" Criteria must be **pinned outside the branch being judged** (commit the approved contract's SHA-256 to `main`, `privacy-scan.yml` pattern) — otherwise the gate reads its judging criteria from the branch it judges. Plan at `~/.claude/plans/` (not executed). Follow-up specs listed in the entry below.
+
+**References:** [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7b, 9 · decisions.md 2026-06-25 "gates need canary + forgery-proof + choke-point"
+
+## 2026-08-19 [process]: Six delivery-pipeline controls audited — the one at the choke-point is hollow, and the three that work all wait to be invoked
+
+**Context:** Before building on the existing verification machinery, each control was checked against its artifact rather than its documentation. The results invert what the docs claim.
+
+**Decision:** Record the audit and file a repair spec per finding rather than layering a new control on top — this repo's own rule says a fix that re-proposes a shipped-and-decayed control is the default failure mode.
+
+- **The p955 deterministic UI gate never evaluates a real component.** `assertOnePrimary` and siblings are called only inside `src/tests/p955-gate.test.ts`, against a constant fixture. The result is independent of the staged diff; CI has been green every run since it shipped. `ui-gate` is also **not** a required check on `main` — `audit-privacy` is the only one — despite the workflow header describing itself as the boundary.
+- **`/verify` → `/ship` cannot complete as written.** `verify/SKILL.md` stamps `delivery_stage: verify` "before any other work", then its own step-6a guard refuses the `status: qa` flip unless `delivery_stage` is `dev` or `uat`; `/ship` gate 2.5 requires `qa`. The non-vacuous fix checks **`dev ∈ pipeline_ran`** (which the stamp preserves), not adding `verify` to the allowlist — that would make the guard block nothing. `.claude/rules/features.md` states the same gate as "past `dev`", contradicting verify's own allowlist, and needs the same edit.
+- **Most UAT scorecards carry no result marks**; the most recent marked one is 2026-04-13. `/verify` *is* invoked — the skeleton gets written and the run never completes.
+- **`/view` is unbuilt.** P748 closed `all-done` with 0 of 17 criteria ticked, including its own stated validation criterion. Its output directory has never existed; `view_locked` is set on zero specs; the retired `_proto` path is hardcoded in both `view.md` and `dev.md`.
+- **`/critique-ux` → `/polish` has never had a legal input** — the punch list exists only in conversation, so `## Punch List` appears in zero specs.
+- **`/sim` is dead** — one output file ever, no severity class matching what callers assume, zero references from other skills.
+- **Four `CLAUDE.md` process facts have drifted false** — the file every agent loads every turn. It names a `delivery_stage` the build skill forbids, tells agents to set a `status` nothing writes, contradicts a recorded 2026-04-02 decision on default flow, and routes bugs past `/reproduce` when bugs are the largest spec type.
+
+**Alternatives rejected:** Retire `/ux` and `/ui` on low usage (7 and 4 lifetime, none since June) — usage is largely correct routing, and **nothing here has ever been scored**. Prune only once a gate makes "same spec with and without it, count the rounds" a measurement instead of an argument.
+
+**Consequences:** `docs/CHARTER.md`'s routing tree has **no branch for process facts** — its nine rules route only strategy docs — which is the structural reason these scattered. A rule 10 is proposed. Also confirmed: `docs/software-delivery-process.md` has **zero runtime consumers** (four prose pointers; no skill, rule, script or hook reads it), so the suspected pick-flow duplication was not the problem.
+
+**References:** [.claude/rules/visual-qa.md](../.claude/rules/visual-qa.md) · decisions.md 2026-06-25 (P955 reframe, state-reach cost as primary)
+
+## 2026-08-19 [process]: Counts from research subagents are the highest-drift claim class — carry the command, not the number
+
+**Context:** Three research subagents produced a plan's factual base. Every `file:line` citation into skills and scripts held up under a hostile re-check. **Every derived count was wrong**: `.test.tsx` files reported as 74 (actual 102), UAT scorecards as "34 of 34 unmarked" (actual 31 files, 6 marked), and a spec-type table where every row was off. Worse, the hostile reviewer's own recount disagreed with a third independent recount — so the counting *method* was unreliable, not just one pass.
+
+**Decision:** Extend epistemic gate 9 in practice: when promoting a subagent's claim, **a count is not a fact — it is a query result that must carry its query**. Write the reproducible command into the doc instead of the number, unless the number is load-bearing enough to re-derive at the point of use. Two independent counts that disagree mean the glob is ambiguous (nested `features/done/*/` vs `features/**/`, archive included or not) — resolve the glob before quoting either.
+
+**Alternatives rejected:** Re-derive once and pin the number — it rots on the next spec created, and a plan meant to be executed in a *later* session would carry a stale figure presented as verified.
+
+**Consequences:** Line-number citations into `docs/decisions.md` are the same class and worse: the file prepends newest-first, so every line reference rots with each `/kdd`. Four such citations in one plan were already pointing at unrelated entries days after being written. **Cite decisions.md by date + heading, never by line.**
+
+**References:** [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 9, 9b
+
 ## 2026-08-19 [process]: The most common answer to "do we need a review?" is *no* — so the fix is a skip policy, not a gate
 
 **Context:** P1115 was filed on a transcript count: the pre-ship review decision raised **366 times on 70 of 82 active days**, and it proposed a blocking gate plus coverage extension. Before scoping the build, the same corpus (2026-05-15 → 2026-08-13, deduplicated) was re-extracted and a random 50-message sample was **hand-classified by reading each question and the agent's reply** — not by pattern match. A first regex pass over the answers returned 83% "unclear" and was discarded as a blind probe rather than reported as a finding.

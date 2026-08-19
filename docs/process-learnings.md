@@ -494,3 +494,28 @@ here because the shape recurs: an append-only log checked from the middle of the
 stops covering everything added below it.
 
 `due: month`
+
+---
+
+## `/goalify-update` — build the improver once the runs exist (2026-08-19)
+
+`/goalify` (planned, not built) leaves one `feedback.md` per feature carrying two numbers: corrections
+the founder gave, and turns consumed. **After 3–5 goalify runs, read those files and create the
+`/goalify-update` spec.** Not before — a spec written today would be empty of the only thing that
+matters: which pattern the improver should look for.
+
+What it should do: read the accumulated feedback, find the repeated correction ("four of the last five
+runs, the same class of thing got fixed by hand"), and **propose** changes — a new question for the
+decision sheet, a tightened gate check, a skill worth retiring or rewriting.
+
+**Propose, never apply.** CLAUDE.md already requires approval before creating, modifying or deleting
+any skill; a goalify that silently rewrites its own instructions is the agent grading and then editing
+its own homework. Manual invocation, not an automatic step at the end of each run — automatic
+self-modification means the system drifts between the founder's looks at it.
+
+This is also when skill retirement becomes answerable: accumulated feedback plus a working gate turns
+"is `/ux` any good?" into "run the same spec with and without it, count the rounds."
+
+Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08-19 (three entries).
+
+`due: month`
