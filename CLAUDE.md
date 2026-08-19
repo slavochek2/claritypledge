@@ -50,7 +50,7 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 
 > **Principle:** When recommending build options, time is not a criterion — unless iteration speed genuinely blocks a hypothesis test. In that case, tag it `[SPEED: blocks hypothesis <name>]`; it may never outrank correctness or security.
 
-Rank reasons: (1) user outcome / mission fit, (2) correctness, (3) security, (4) stability, (5) sustainability, (6) runtime complexity. `[SPEED:]` may enter at (1) only when blocking a stated hypothesis; it can never displace (2) or (3).
+Rank reasons: (1) user outcome / mission fit, (2) correctness, (3) security, (4) stability, (5) cost — monetary / token / runtime spend, NEVER authoring effort, (6) sustainability, (7) runtime complexity. `[SPEED:]` may enter at (1) only when blocking a stated hypothesis; it can never displace (2) or (3).
 
 **Runtime complexity** = observable units only: processes, network hops, state-machine states, failure modes, external dependencies, concurrent actors. NOT lines of code — authoring effort.
 
@@ -74,7 +74,7 @@ When the claim can be tested: simulate the failure, apply the fix, simulate agai
 
 ### Evidence Over Declaration
 
-> **Principle:** Never say "done." Provide evidence; the user decides completion.
+> **Principle:** No completion claim without per-AC evidence. Provide evidence; the user decides completion.
 
 Present observable output — test results, screenshots, query output, command logs — and say: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is. Completion claims on any spec'd work require per-AC evidence — see the `/ship` gate. "Tests pass" is evidence for the ACs the tests cover, nothing more.
 
@@ -126,11 +126,11 @@ When asked for an opinion — give one. "It depends" when you have a view is a f
 
 **Reversibility classifier — three lists, no judgment needed:**
 
-ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting a single uncommitted edit you made yourself this session, npm install (devDependencies).
+ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting a single uncommitted edit you made yourself this session (Edit-tool inverse only — NEVER via `git checkout HEAD --`/`git restore`, which is ALWAYS-ASK), npm install (devDependencies).
 
-ALWAYS-ASK (never skip): `git push`, deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
+ALWAYS-ASK (never skip): `git push`, `git checkout HEAD --`/`git restore` (no reflog recovery — see git.md), deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
 
-JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes, discarding uncommitted work via `git checkout HEAD --`/`git restore` on more than one file, or on any file you did not just edit yourself — see [.claude/rules/git.md](.claude/rules/git.md).
+JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes — see [.claude/rules/git.md](.claude/rules/git.md).
 
 **Latest vs stable:** Always surface both; never silently default to stable. Applies to: models, libraries, APIs, framework versions.
 
@@ -172,7 +172,7 @@ Tests are specs — fix code, not tests. Full rules in [.claude/rules/tests.md](
 
 > **Pattern to watch:** The founder accumulates changes rather than commits incrementally.
 
-**Commit autonomous, push always needs your OK.** In skills: commit when tests pass — no need to ask. In open conversation: suggest "Good checkpoint for a commit?" When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. The index may hold files that aren't yours — parallel founder edits, prior-session leftovers, subagent staging. Verify `git diff --cached --name-only` before commit, and commit with an explicit `git commit -m "..." -- <paths>` so bystanders stay staged, not committed.
+**Commit autonomous, push always needs your OK.** In skills running in the main session: commit when tests pass — no need to ask. A skill running as a subagent stages only; the main session commits ([git.md](.claude/rules/git.md)). In open conversation: suggest "Good checkpoint for a commit?" When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. The index may hold files that aren't yours — parallel founder edits, prior-session leftovers, subagent staging. Verify `git diff --cached --name-only` before commit, and commit with an explicit `git commit -m "..." -- <paths>` so bystanders stay staged, not committed.
 
 Run `./scripts/pre-commit-checks.sh` before committing. Full workflow [git-workflow.md](docs/technical/git-workflow.md); banned commands in [.claude/rules/git.md](.claude/rules/git.md). Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
 
@@ -285,7 +285,7 @@ Run `/pick-flow` to choose a development flow. It classifies the task, names ris
 
 **Proactive `/status` trigger:** When user asks "what's next?", "where are we?", or starts a session with no clear task — run `/status` first. Don't answer from memory.
 
-**Name skills when informal language maps to them:** "simplify this" → `/slava:build:simplify`, "what now" → `/status`, "wrap up" → `/wrap`.
+**Name skills when informal language maps to them:** "simplify this" → `/slava:build:simplify`, "what now" → `/status`, "wrap up" → `/status`.
 
 | Situation | Invoke |
 |-----------|--------|
