@@ -71,6 +71,19 @@ Candidates carry different defects. *"Agent"* implies autonomy that does not exi
 
 **No wording is chosen in this spec.** It is settled by putting candidates in front of someone who has not read any of this and asking what they think they are looking at. Choosing it in prose here would be a guess wearing a recommendation's clothes.
 
+#### The prototype exists — built 2026-08-19, cold reader not yet run
+
+A calibration plate rendering the position-holder row at the product's real geometry (12px padding, 20px avatar, `truncate` on the name, the actual `bg-muted`/`blue-100`/`blue-700` token values), with controls for avatar size, greyscale, product theme and simulated viewport width. Six rows — three people, three readings — presented with no explanation above them, which is the cold-read condition the Acceptance Criteria require. Four avatar shapes (M1–M4) and six name wordings (N1–N6, including the spec's three named candidates) are on the plate so the spec's own rejections get tested rather than assumed.
+
+**Two constraints the plate produced, both screenshot-backed and neither in the spec before it was built:**
+
+1. **A trailing marker is not a marker.** `{subject} (quoted)` — the least intrusive candidate — truncates to a bare person's name at a 320px row width, which is the exact harm this spec exists to prevent, reintroduced by word order alone. **Every surviving wording must lead with the marker.** This is a hard filter on candidates, not a preference, and it is decidable without a cold reader.
+2. **A single fixed fill fails the product's dark theme.** A slate marker (`#39424B`) against the dark row ground (`#27272A`) drops to near-zero contrast while every human avatar keeps its saturated colour — **the signal inverts**, and the machine-assembled account becomes the quietest row in the list. "One consistent palette" cannot mean one constant colour. What stays constant is the **silhouette**; the fill must be a theme token like every other colour in the product.
+
+Finding 2 also strengthens the shape argument the spec already makes: silhouette is the only channel that survives 20px, greyscale, low contrast *and* a theme swap simultaneously. A hexagon (M2) resolves to a circle by ~24px; a split-fill circle (M3) keeps the human silhouette and reads as a badly cropped photograph; an outline-only square (M4) loses to the row's own 1px border. Only M1 — a filled rounded square against a product where every person is a circle — distinguishes itself by something that is not a detail.
+
+**Still open:** the wording itself, and whether the glyph inside M1 reads as a logo. Neither is answerable from this side of the screen; both need someone who has not read this spec.
+
 ### How the marker reaches a render site — no data plumbing
 
 **A hardcoded list of the account ids, in application code. Not a database column.**
@@ -119,8 +132,8 @@ The semantic that must land is *given this source, this is the position that arg
 
 ## Open Questions for /architect
 
-1. **Does one of these accounts get a profile page?** `[FOUNDER DECISION]` — **recommending yes.** A persistent accumulating account needs somewhere its stories and positions live, the operator line needs a home, and claiming later needs a page to claim. A shared profile link would carry a false pledge claim, but that is pre-existing for every non-pledger and is P1108's, not a blocker here.
-2. **The marker's wording, and the operator line's wording** — resolved by the prototype, not by this spec.
+1. **Does one of these accounts get a profile page?** `[FOUNDER DECISION]` — **ANSWERED 2026-08-19: yes, the full profile page.** Not a separate stripped-down page: a new page is a new surface with its own render sites, which is exactly the threading cost the constant was chosen to avoid. The account uses `pages/profile-page-v2.tsx` and carries the marker there, with the pledge ring and ear count suppressed by the same branch as everywhere else. Rationale as recommended: a persistent accumulating account needs somewhere its stories and positions live, the operator line needs a home, and claiming later needs a page to claim. A shared profile link would carry a false pledge claim, but that is pre-existing for every non-pledger and is P1108's, not a blocker here.
+2. **The marker's wording, and the operator line's wording** — resolved by the prototype, not by this spec. **Plate built 2026-08-19** (see Solution). It has already eliminated every trailing-marker wording on truncation grounds and constrained the marker's fill to a theme token. The remaining half — which leading wording a stranger reads correctly — needs a cold reader and is the next action on this spec.
 
 ## Surfaces
 
@@ -137,8 +150,8 @@ Every surface one of these accounts can reach. Each shows the marker or is liste
 - `social/StoryCardDetail.tsx` — story detail
 - `social/story-card-with-links.tsx`
 - `social/point-card-with-links.tsx`
-- `pages/profile-page-v2.tsx` — subject to founder decision 1
-- `api/og.ts` — `ogForStory` (:74) and `ogForPoint` (:96); `ogForProfile` (:117) if decision 1 is yes. Serverless, outside React, so they carry the marker via the name.
+- `pages/profile-page-v2.tsx` — the account's profile page, plus the `Published by {operator}` line (decision 1: yes)
+- `api/og.ts` — `ogForStory` (:74), `ogForPoint` (:96) and `ogForProfile` (:117). Serverless, outside React, so they carry the marker via the name.
 
 **Excluded, with reasons**
 
@@ -151,14 +164,14 @@ Every surface one of these accounts can reach. Each shows the marker or is liste
 ## Done-When
 
 - [ ] Both accounts render the marker on every in-scope surface, with no pledger ring and no ear count — screenshots at the smallest rendering and with a truncating name
-- [ ] The marker is legible as not-a-person at 20px, in greyscale — screenshot pasted
+- [ ] The marker is legible as not-a-person at 20px, in greyscale — screenshot pasted. **Prototype evidence produced 2026-08-19** for M1 at 20px in greyscale in both product themes; this box stays open until the shipped implementation is screenshotted, not the plate.
 - [ ] `curl` of each in-scope crawler handler for content carrying one of these accounts returns a description that does not present it as a person's — output pasted
 - [ ] All six `aria-label`s on the point page read as not-a-person — each read from the rendered output, not inferred
 - [ ] The `?embed=true` route shows the marker — screenshot pasted
 - [ ] `grep` of the id constant returns exactly the in-scope surfaces and no others — output pasted
 - [ ] Every surface rendering a profile is either in scope or listed above with its reason
 - [ ] No account's display name is a bare person's name — checkable because both names are chosen by us; **not** generalizable (`.claude/rules/pii.md` records that automated name detection was rejected against a measured false-positive baseline)
-- [ ] Founder decision 1 answered and recorded here
+- [x] Founder decision 1 answered and recorded here — **yes, full profile page** (2026-08-19)
 
 ## Acceptance Criteria
 
