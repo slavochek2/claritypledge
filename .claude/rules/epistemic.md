@@ -67,3 +67,28 @@ This gate binds the **consumer** of agent output, not the producer. Producer sel
 **Test the claim, not the quote under it.** Every one of those three was built on a real, correctly-attributed quote. An anchor test (`grep -F` the quote) passes on all of them, because it verifies the quote exists — never that the assertion built on it is true. Distinct from gate 5, which asks whether the *call succeeded*: these calls all succeeded and returned well-formed output.
 
 **In practice:** before promoting any agent claim into a doc, a spec (including Root Cause / Acceptance Criteria text), a decision, code (e.g. a regex or condition change derived from the claim), or a user-facing summary, run the command that would falsify it — `grep` the negative, count the occurrences, re-derive the number. Absence claims ("X never appears") are the highest-risk class and the cheapest to check. If you cannot test it, forward it labelled as the agent's claim, not as a finding. A spec/code change is the highest-cost promotion target — P1041 propagated an adversarial reviewer's unverified "this migration matches the bug shape" into both a regex widening and a spec's Root Cause section before a failing test caught it (2026-08-11).
+
+## 9b. Count the reports against the agents you spawned
+
+Gate 9 binds you to verify a subagent's claim. This binds the reviews that **never arrived** — a
+different failure, and the quieter one: gate 9 fires on something you can read, this one fires on
+an absence you have to notice.
+
+**After any fan-out, state `<reports received> of <agents spawned>` in the output**, and name which
+lens is missing. A silent subagent is indistinguishable from a subagent that found nothing, so
+without the count a partial review reads as a complete one — and the agent that summarizes it will
+describe the coverage it *intended*, not the coverage it *got*.
+
+Two things follow. A report that arrives only after you chase it still counts as a miss for the
+ratio — the default outcome was silence. And when a lens never reports, either re-run it or say
+plainly that it was not covered; never let "3 reviewers were spawned" stand in for "3 reviewers
+reported".
+
+Measured: 2026-08-19, one session spawned 3 hostile reviewers — 1 delivered unprompted, 1 after two
+explicit requests, 1 never; a 4th agent spawned to critique *this very finding* also never reported.
+Two of the confirmed findings that session came from the reviewer that had to be chased twice, one
+of them a shipped Stop hook that was disabling an existing safety gate. The repo's own
+`.finish-reviewed` log carries four earlier instances across four branches ("two subagent reviewers
+(code, migrations) never reported"; "spawned reviewer returned no report" ×2; "ux-review reported
+late (post-ship)") — each recorded by hand, none by a gate. See [docs/decisions.md](../../docs/decisions.md)
+2026-08-19 "Adding a second check to an existing Stop hook".
