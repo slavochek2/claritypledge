@@ -58,6 +58,21 @@ driver: heuristic
 
 **The `/align-*` family is not reusable here** and should not be extended to fit. `/align-decompose` authors a story about one person's experience for that person to rate — a different job, and its story-authoring is precisely what this pipeline forbids.
 
+### The end-state the founder described, 2026-08-19 — and the reuse rule it turns on
+
+One invocation: *given these two videos, produce the rest.* The pipeline identifies the speakers, **checks whether an agent already exists for each one and reuses it if so**, creates the points, finds each speaker's quotes, files a story per speaker and a position per point, and returns a tag feed URL. The founder opens that feed and sees the points with positions already filed on behalf of every covered speaker.
+
+**The reuse clause is not a convenience — it is what makes the account model work at all, and this spec currently contradicts it.** Stage 3 above says *"one agent identity per speaker"* per source pair and says nothing about reuse, so a second run covering the same speaker creates a **second** agent. `p1104` defines an account as *"a persistent reading of one person… it accumulates: many sources over time, one story per source"* — accumulation is impossible if every run mints a new identity. Two agents for one person is also worse than a duplicate: they can hold **different positions on the same point**, and `UNIQUE(point_id, user_id)` will not catch it, because they are different users.
+
+**Corrected rule: an agent is created once per subject and reused thereafter.** A run adds a story and positions to an existing agent; it creates one only when the subject has never been covered.
+
+**This makes reuse and the P1104 registration problem the same question.** Reuse requires asking *"do we already have an agent for this person?"*, which requires a stable key for a subject; registration requires knowing which accounts are agents, which requires the same key. Answer it once and both are solved — the registry keyed by subject is both the reuse lookup and the marker lookup. **The key itself is the hard part** and is not yet chosen: a display-name string is fragile across sources (*"Donald Trump"*, *"President Trump"*, *"Trump"*), and the pipeline's own speaker labels come from captions, which this spec already records as unreliable. Routed to `/architect` on P1104, because the fail-closed property depends on it.
+
+### Two things the described flow assumes but has not decided
+
+- **Which speakers get an agent.** The founder's own phrasing was *"all participants… or all approved participants"*. Not everyone audible in a video should get a persistent public account carrying positions — a caller, a clip of a third party, a host reading someone else's words. **Who or what approves a speaker into an agent is undecided**, and it is the gate that keeps the account set from growing by accident.
+- **Where the run stops.** *"One skill, give me a link"* files public content quoting real people with no pause. This spec's own Done-When requires that **every quote be checked against its source, not just the captions**, and its risk list says that for any content class where a misquote causes real harm this *"stops being a step and becomes a gate."* A fully autonomous run either performs that check mechanically or skips it. **The flow and the gate are not yet reconciled** — the likely shape is that the pipeline stops with everything staged and unpublished, and the link the founder opens is a review surface rather than a live feed.
+
 ### Why a story rather than the point's own context field
 
 A story renders on both the feed card and the point detail page; the point's `context` column renders on one and is written by nothing (`features/p1095_retire_dead_point_context_field.md`). The story is also the model's own answer to *why does this point exist*. Verified 2026-08-17.
@@ -130,6 +145,9 @@ Sources: a 33-minute defence (28,847 views) and a 56-minute critique (49,516 vie
 1b. **Does a synthesized point split harder than a restated one?** New question, created by run 1. Same answer needed from the same room.
 2. **Which selector mode yields the best material** — two creators, or one panel that already contains its disagreement? See P1088.
 3. **What does the room do with a point whose two poles are both evidenced?** Unknown until a room does it.
+4. **What is the stable key that identifies an agent's subject across sources?** Created 2026-08-19 by the end-state flow above. Blocks agent reuse here and the fail-closed registration in `p1104`. Routed to `/architect` on P1104.
+5. **Who approves a speaker into becoming an agent?** Created 2026-08-19. Undecided; it is the only thing bounding how many public accounts this pipeline can create.
+6. **Does the run publish, or stage for review?** Created 2026-08-19. The described one-shot flow and the quote-verification Done-When are not yet reconciled.
 
 ## Done-When
 
@@ -138,6 +156,7 @@ Sources: a 33-minute defence (28,847 views) and a 56-minute critique (49,516 vie
 - [ ] Every quote used has been checked against its source, not just against the captions
 - [ ] Points and stories filed public under one event tag, reachable at a tag feed URL
 - [ ] No agent holds a position captioned as a person's own, asserted as a negative check
+- [ ] A second run covering a speaker already covered **adds to that speaker's existing agent** rather than creating a new one — asserted by running it twice, not by reading the code
 - [ ] No story contains first-person text for any person, asserted as a negative check
 
 ## Acceptance Criteria
@@ -153,5 +172,6 @@ Sources: a 33-minute defence (28,847 views) and a 56-minute critique (49,516 vie
 - `features/p1088_video_selector_for_point_extraction.md` — stage 1
 - `features/p1089_audience_scoped_point_list.md` — parked; the private-source case
 - `features/p1095_retire_dead_point_context_field.md` — why grounding lives in a story
+- `features/p1104_agents_must_be_visually_distinguishable.md` — blocks this spec; owns the agent marker and the subject-key question
 - `features/p1084_crux_letter.md` — the private-dyad predecessor line
 - `.claude/commands/slava/content/points-prepare.md` — stage 2
