@@ -362,37 +362,88 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    If 0 items survive 7.1c: output "Clean session after EV filter — no recommendations. Suppressed items logged to `~/.claude/kdd-suppressed-log.md` for periodic review." and exit.
 
-   For each surviving item:
+   Presentation follows the `/slava:build:simplify` contract: **why first, cost second,
+   options third, depth last and skippable.** Plain language above the depth offer — no
+   pass names, no verdict tokens, no `file:line`. Those are the agent's furniture; the
+   founder is deciding whether the item is real.
+
+   > ⚠️ **This template is one of four copies of that contract, in two git repos.** The
+   > others are `~/.claude/hooks/decision-brief.sh`,
+   > `~/.claude/commands/slava/build/simplify/SKILL.md`, and `~/.claude/commands/kdd-private.md`
+   > § Surfacing contract. This copy already drifted once — it kept emitting the banned
+   > trade-off vocabulary for five days after the 2026-08-14 rewrite. Change the wording
+   > here and you change it in all four.
+
+   **Item template — emit one block per item, in this order:**
 
    ```
-   Item N: <one-sentence what-happened>
-   Confidence: <Opus EV verdict — HIGH/MEDIUM>
-   Action: <exact command, file path, line number — no abstractions>
+   **Item N — <plain-language what went wrong, no identifiers>**
+
+   <2–3 sentences. Why it matters, built around one real artifact from this session.>
+   Does that match what you saw?
+
+   **What it costs you:** <1–2 lines, in the `/slava:build:simplify` section-2 lenses:
+   business · cost · product · user · you as the operator.>
+   **If we do nothing:** <one line — what recurs, and how soon.>
+
+   **Your call:** <A/B with one line of consequence each — OR, when only one honest
+   path exists, "One honest fix here: <action>." Never pad to two.>
+
+   **I'd pick <X>** — <one line; if it prevents the problem without anyone having to
+   remember anything, say so.>
+
+   <provenance line — see the rule below>. Depth on request: the verdicts, the exact
+   command, and file:line.
    ```
 
    End with: `Confirm to apply, or N=skip to drop item N.`
 
-   *Note: removed the prior "filter to 3-4" step. Volume is not a goal.*
+   **Options are the default, not the exception.** Do NOT gate the options block on a
+   `SIMPLIFY` verdict from 7.1b — that token fired twice in 355 logged runs (~0.6%), so
+   gating on it deletes options entirely, while *"what are my options"* is what the
+   founder actually types. Gate instead on a test you evaluate here, at presentation,
+   independent of any 7.1b token: **can option B's real consequence be written in one
+   line without inventing it?** If yes → two options. If only one honest path exists →
+   say so plainly and stop. Never manufacture a second option to fill the slot.
 
-   **7.3 `/simplify` block format for decisions (used only when 7.1b returns SIMPLIFY):**
+   **Evidence gate — it widens the why, it never drops the item.** Build the why on a
+   verbatim session artifact: a founder sentence, a number, a failed command, subagent
+   output, or the two competing statements in a direction reversal. Every one of the six
+   friction categories in 7.0 qualifies — including a re-spawned subagent and a
+   mid-session direction change, which produce no founder quote. If no verbatim artifact
+   exists, **keep the item** and label the why as reconstructed. Never drop an item for
+   want of a quote, and never log "did not meet the 7.0 bar" when the real reason was a
+   missing quote.
+
+   **Provenance rule — quote it or say `not run`. No synthesis.** Every clause about a
+   prior pass must carry that pass's literal returned output, or the token `not run`.
+   Count only passes that actually returned something for *this* item: 7.1 is an
+   extractor with an EV gate, **not** an adversarial pass, so an item suppressed at 7.1
+   never reached 7.1b or 7.1c and must not be described as reviewed. Never render
+   `SURVIVES` and `WEAKENED` together — 7.1b can send a WEAKENED item forward with a
+   rewritten cause, so write either "the critic rewrote the cause: <X>" or "the critic
+   found nothing to change", never both. A fabricated review trail is worse than no
+   trail: its entire purpose is to earn the trust that stops the founder asking for
+   another review.
+
+   Render it in plain language, no verdict tokens:
 
    ```
-   **Situation:** [1 sentence — what friction occurred]
-
-   **Options:**
-   A) [option] — [one line of real consequence, in the lenses of `/slava:build:simplify`
-      section 2: business · cost · product · user · the founder as operator]
-   B) [option] — [same]
-   C) [option, if exists] — [same]
-
-   **Recommendation:** [Option X] — prevents this by [mechanism] (mechanical: yes/no). Main risk: [Y].
-
-   Reply: "A", "B", or "C"
+   <N> hostile checks ran on this; <M> other candidates dropped.
    ```
 
-   *mechanical = prevents the problem automatically without future discipline. Prefer mechanical solutions. Use 3 options only when a genuine middle path exists — don't invent one to fill the format.*
+   `<N>` counts **spawned critics that returned a verdict for this item** — 7.1b and
+   7.1c when they ran as two spawns, `1` when one critic covered both roles, `0` when
+   neither ran. 7.1 is never counted. `<M>` is this run's suppression count from 7.X.
+   If `<N>` is 0, write `No hostile review ran on this one.` instead of the line above.
 
-   End with: "Reply with choices, e.g. 1=A, 2=B."
+   **The re-review note is conditional.** Mention `/slava:think:adversarial-review` only
+   when the founder asks for a re-review. Its frequency-of-need is unmeasured; its cost
+   is certain on the 86% of runs that already ship.
+
+   *Note: removed the prior "filter to 3-4" step. Volume is not a goal. The former 7.3
+   `/simplify` block is folded into the item template above — options now live inside
+   the item, not in a separate format reached by a verdict that almost never fires.*
 
    If it requires `/slava:maintain:claude-md` gate or user judgement: flag as a block, don't act unilaterally.
 
