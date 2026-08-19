@@ -104,7 +104,7 @@ So the portrait is right and cannot be the only carrier — which confirms the r
 | **Robotified portrait** | recognition + machine-ness from ~40px | invisible at 20px |
 | **Name** (`Agent · {subject}`) | off-platform, where there is no avatar at all | truncates |
 
-**The specimen to build is the combination** — robotified portrait, square silhouette, `Agent ·` name. No defect was found in it. **The specimen to avoid is a robotified portrait in a circle with a bare name:** it feels like a solution while being indistinguishable from the status quo at the size that matters most.
+**The specimen to build is the combination** — robotified portrait, square silhouette, `Agent ·` name. **APPROVED by the founder 2026-08-19** (plate row E): *"square more different than circle as well."* No defect was found in it. Avatars are generated through `/slava:content:gen-agent-avatar`, which freezes the prompt so every agent account's avatar comes from the same system, and gates each one at 20/40/96px plus an SSIM check against the source photograph. **The specimen to avoid is a robotified portrait in a circle with a bare name:** it feels like a solution while being indistinguishable from the status quo at the size that matters most.
 
 **A second finding, against the abstract glyph.** A single fixed fill (`#39424B`) drops to near-zero contrast on the product's dark row ground (`#27272A`) while human avatars keep their saturated colour — the signal inverts and the machine account becomes the quietest row in the list. A photographic avatar carries its own value range and does not have this failure. Any remaining flat fill must be a theme token, never a constant.
 
@@ -147,6 +147,7 @@ The semantic that must land is *given this source, this is the position that arg
 - **Do NOT build claiming, calibration, or following.** The name already encodes claimed-versus-unclaimed, so nothing downstream is blocked by waiting.
 - **Do NOT enable multiple positions on one point.** `UNIQUE(point_id, user_id)` stands. For the first event each account reads one source, so it never binds. When it does, the answer is readings-per-source, not a dated history — source dates are unreliable or absent, and the existing history log timestamps when a row was written, not when the source is from.
 - **Do NOT fix link-preview truthfulness here.** `features/p1108_link_previews_say_true_things.md` owns it.
+- **Do NOT bump the 20px avatar override to the 40px app default here.** It would help the portrait, but it changes density for human rows on 10 shipped surfaces — a design decision with its own blast radius, and it would make this spec's correctness depend on a density judgement that has nothing to do with disclosure. Successor spec.
 - **Do NOT refactor how people render.** An earlier attempt was filed and its premise did not survive review; the marker is additive and touches nothing about people.
 - **Do NOT name one of these accounts as a bare person's name.** The chosen form is `Agent · {subject}`; a trailing marker is banned because it truncates away (measured).
 
@@ -180,6 +181,12 @@ Every surface one of these accounts can reach. Each shows the marker or is liste
 - `social/point-card-with-links.tsx`
 - `pages/profile-page-v2.tsx` — the account's profile page, plus the `Published by {operator}` line (decision 1: yes)
 - `api/og.ts` — `ogForStory` (:74), `ogForPoint` (:96) and `ogForProfile` (:117). Serverless, outside React, so they carry the marker via the name.
+
+**Avatar size — measured 2026-08-19, and it is not incidental**
+
+The app's own default is **40px** (`size="sm"` → `w-10 h-10`), used at 29 of 58 `GravatarAvatar` call sites. The 20px used by the position row is an **override** (`!w-5 !h-5`), applied at exactly 12 sites — and **10 of those 12 are this spec's in-scope surfaces** (the other 2 are the partner-session files excluded below). The size problem and this spec's scope are very nearly the same set.
+
+Bumping those sites to the app default would make the robotified portrait legible as the primary marker everywhere P1104 touches. **It is deliberately not in this spec's scope:** it changes row height and list density for *human* rows on 10 shipped surfaces, which contradicts this spec's own constraint that the marker be additive and touch nothing about how people render. Filed as a successor decision, not folded in — see Non-Goals.
 
 **Excluded, with reasons**
 
