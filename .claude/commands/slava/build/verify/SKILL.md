@@ -475,7 +475,7 @@ find features -name "p{N}_*.md" -not -path "*/done/*" -not -path "*/archive/*"
 
 **3. Apply guards (stop on first hit):**
 - `locked_at:` present → status not changed
-- `delivery_stage:` absent OR not in [`dev`, `uat`] → status not changed
+- Neither `dev` nor `fix` present in `pipeline_ran` → status not changed. **Test `pipeline_ran`, never `delivery_stage`:** the Pipeline Stamp at the top of this skill overwrites `delivery_stage` with `verify` *before this step runs*, so any `delivery_stage` test here is either self-blocking or vacuous. `pipeline_ran` is append-only and preserves the history the guard is actually asking about. `fix` counts because bug specs reach here through `/fix`, not `/dev`, and bugs are the largest spec type.
 - `status:` not `in-progress` → status not changed
 - **Any `## Acceptance Criteria` or `## Done-When` checkbox still `[ ]` → status not changed.** A green runtime pass does not override an incomplete checklist — the drive only tests paths that exist, not the ones still missing. Override the verdict to **BLOCKED-by-state**, list every unticked item, and report what is left to build.
 

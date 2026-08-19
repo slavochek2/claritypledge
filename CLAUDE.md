@@ -12,7 +12,7 @@ This file provides guidance for AI agents working with code in this repository. 
 
 **Clarity Pledge** — Vite + React 19 SPA (NOT Next.js) for calibrated communication practice — routes in `src/App.tsx`, pages in `src/app/pages/`, Supabase backend.
 
-**Development pattern:** Read spec → implement → test → `/dev` stops at UAT gate (`delivery_stage: uat`, stays on feature branch). You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed.
+**Development pattern:** Read spec → implement → test → `/dev` stops at the UAT gate, staying on the feature branch. You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed. Spec-field values are owned by [.claude/rules/features.md](.claude/rules/features.md) — never named here.
 
 **Deep dive:** See `docs/technical/` for architecture, auth, database, testing guides.
 
@@ -249,7 +249,7 @@ See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol
 
 Use `/slava:build:create-spec` — never create spec files manually. When starting non-trivial work, suggest: "Want me to create a tracking task?" If user declines, don't ask again.
 
-**Type classification:** `story` (user value) · `task` (technical) · `bug` (fix) · `comment` (decisions). Update to `status: done` when complete.
+**Type classification:** `story` (user value) · `task` (technical) · `bug` (fix) · `comment` (decisions). Status transitions belong to the pipeline skills and `/ship`, not to you by hand — [.claude/rules/features.md](.claude/rules/features.md) owns the values and who writes each.
 
 **Deferred work → the task inbox, never the founder's memory.** Anything worth doing later but not now — friction, a follow-up, a date to re-check — goes to `docs/process-learnings.md` via `/note` (infra, credentials, or absolute paths route to the `.private/docs/` half). File it; never end a session telling the founder to remember something. `/weekly` step 2.5 surfaces **and closes** `due: week` entries; `/monthly` owns `due: month`.
 
@@ -277,7 +277,7 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: customer/perso
 
 ### Sequential Flow
 
-Run `/pick-flow` to choose a development flow. It classifies the task, names risks, and picks steps that address them. Default: start with `/dev`, pull upstream steps when stuck.
+Run `/pick-flow` to choose a development flow. It classifies the task, names risks, and picks steps that address them. Quality steps are **in by default** — opt out explicitly ([decisions.md](docs/decisions.md) 2026-04-02). `/pick-flow` owns the routing table; it is never restated here.
 
 ### Skill Invocation — After Approval
 
@@ -290,7 +290,7 @@ Run `/pick-flow` to choose a development flow. It classifies the task, names ris
 | Situation | Invoke |
 |-----------|--------|
 | New feature approved | `/create-spec` |
-| Bug fix approved | `/fix` |
+| Bug fix approved | `/reproduce` → `/fix` — skip `/reproduce` only when trivial **and** the cause is self-evident |
 | Shipped design was wrong | `/change-request` |
 | Implementation ready (spec exists) | `/dev` |
 

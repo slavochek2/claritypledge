@@ -21,7 +21,7 @@ tags: []              # REQUIRED: can be empty array
 
 `backlog` → `week` → `today` → `in-progress` → `blocked` → `qa` → `done` → `all-done`
 
-- When `status: qa` → feature is implemented, awaiting user review before shipping. Stays on feature branch; run `/ship pN` to merge to prod. **Hard gate:** before setting `qa`, all `## Acceptance Criteria` **and** `## Done-When` checkboxes must be `[x]` and `delivery_stage` must be past `dev`. If any `[ ]` remain (or `delivery_stage: dev`), do not set `qa` — report the unchecked items. Enforced in `/fix` (Feature QA Gate step 0), `/dev` (UAT gate step 1), and `/verify` (a PASS may not transition a feature to `qa` while these are unmet — return BLOCKED-by-state and list the gaps instead of PASS).
+- When `status: qa` → feature is implemented, awaiting user review before shipping. Stays on feature branch; run `/ship pN` to merge to prod. **Hard gate:** before setting `qa`, all `## Acceptance Criteria` **and** `## Done-When` checkboxes must be `[x]` and `pipeline_ran` must contain `dev` or `fix`. If any `[ ]` remain (or neither `dev` nor `fix` has run), do not set `qa` — report the unchecked items. Enforced in `/fix` (Feature QA Gate step 0), `/dev` (UAT gate step 1), and `/verify` (a PASS may not transition a feature to `qa` while these are unmet — return BLOCKED-by-state and list the gaps instead of PASS).
 - When `status: done` → move file to `features/done/`, add `completed_at`
 - When `status: all-done` → move file to `features/done/` (same as `done`), `completed_at` not required. Use for permanently closed features that should remain visually prominent on the kanban.
 - When rejected → move to `features/archive/`, set `status: rejected`
