@@ -380,9 +380,10 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    **Situation:** [1 sentence — what friction occurred]
 
    **Options:**
-   A) [option] — [tradeoff: sustainability / thinking cost / error risk]
-   B) [option] — [tradeoff: sustainability / thinking cost / error risk]
-   C) [option, if exists] — [tradeoff: sustainability / thinking cost / error risk]
+   A) [option] — [one line of real consequence, in the lenses of `/slava:build:simplify`
+      section 2: business · cost · product · user · the founder as operator]
+   B) [option] — [same]
+   C) [option, if exists] — [same]
 
    **Recommendation:** [Option X] — prevents this by [mechanism] (mechanical: yes/no). Main risk: [Y].
 
