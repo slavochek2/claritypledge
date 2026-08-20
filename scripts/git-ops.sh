@@ -678,6 +678,38 @@ release_main_lock() {
   fi
 }
 
+# commit_staged_exact <message> <path> [path...] — plain `git commit`, not a
+# pathspec commit. `git commit -- <paths>` re-reads those paths from the
+# WORKING TREE before committing (git-commit(1) -o/--only, the default
+# whenever any path is given) rather than the index — found 2026-08-20 when
+# this exact shape silently swept a co-tenant's uncommitted docs/decisions.md
+# WIP into a commit. A plain commit uses the index as-is instead, which is
+# safe ONLY under acquire_main_lock — every caller of this function must
+# already hold it — because the lock is what makes the staging+commit
+# sequence atomic against every other commit-to-main-shaped caller; a bare
+# `git commit` was already unsafe on this checkout WITHOUT that atomicity in
+# two earlier incidents (docs/decisions.md 2026-08-17 P1057, 2026-06-06).
+# Refuses (does not commit) if the index holds anything other than exactly
+# the given paths, rather than trusting that no stray content is staged.
+commit_staged_exact() {
+  local message="$1"; shift
+  local -a paths=("$@")
+  local staged expected
+  # --no-renames: without it, git's default rename detection collapses a
+  # staged `git mv` (delete-old + add-new) into ONE line (the destination),
+  # so a two-path expected list (old, new) never matches — found running
+  # this fix's own test suite against a real spec-close rename.
+  staged=$(cd "$REPO_ROOT" && git diff --cached --name-only --no-renames | sort)
+  expected=$(printf '%s\n' "${paths[@]}" | sort)
+  if [[ "$staged" != "$expected" ]]; then
+    echo "commit_staged_exact: staged set does not match the requested paths -- refusing to commit" >&2
+    echo "  requested: ${paths[*]}" >&2
+    echo "  staged:    $(printf '%s ' $staged)" >&2
+    return 1
+  fi
+  ( cd "$REPO_ROOT" && git commit -q -m "$message" )
+}
+
 # ----------------------------------------------------------------------------
 # Subcommand: gc
 # Lists stale feature/fix branches (no lockfile, no recent commits).
@@ -1084,8 +1116,9 @@ cmd_commit_to_main() {
       fi
     done ) >&2
 
-  # Commit with explicit file list so bystander staged files are excluded.
-  ( cd "$REPO_ROOT" && git commit -m "$message" -- "${files[@]}" ) >&2
+  # commit_staged_exact: plain commit (not pathspec), guarded — see its own
+  # comment for why that's safe here (acquire_main_lock, held above).
+  commit_staged_exact "$message" "${files[@]}" >&2 || exit 1
 
   echo "git-ops commit-to-main: committed ${#files[@]} file(s) to main" >&2
   # P919 D4: this commit is main-bound and subject to the privacy-scan required check
@@ -2242,7 +2275,9 @@ PY
       title="$(ship_extract_title "$REPO_ROOT/$spec_dest")"
       [[ -z "$title" ]] && title="close $pn"
       # Include $spec_file so the git mv source deletion is committed too.
-      if ! ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn (direct-to-main) — $title" -- "$spec_dest" "$spec_file" ); then
+      # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
+      # (held for this whole block); see its own comment for why.
+      if ! commit_staged_exact "chore: close $pn (direct-to-main) — $title" "$spec_dest" "$spec_file"; then
         ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
         die "ship: spec-close commit failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
       fi
@@ -2437,8 +2472,9 @@ The branch is authoritative for shipped migrations. Compare each file with
       die "ship: cannot find creation commit for $branch_spec_file on $branch (seed-to-match failed)"
     printf '%s' "$_creation_blob" > "$REPO_ROOT/$branch_spec_file"
     ( cd "$REPO_ROOT" && git add -- "$branch_spec_file" ) >/dev/null
-    ( cd "$REPO_ROOT" && git commit -q \
-        -m "seed ${pn} spec for ship (creation blob)" -- "$branch_spec_file" ) || \
+    # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
+    # (held for this whole block); see its own comment for why.
+    commit_staged_exact "seed ${pn} spec for ship (creation blob)" "$branch_spec_file" >/dev/null || \
       die "ship: branch-born seed commit failed"
     echo "ship: branch-born spec $branch_spec_file seeded on main (creation blob — cherry-picks will replay cleanly)" >&2
     spec_file="$(resolve_ship_spec "$pn")"
@@ -2763,9 +2799,15 @@ The branch is authoritative for shipped migrations. Compare each file with
         title="close $pn"
       fi
       # Include $spec_file so the git mv source deletion is committed (not left staged).
-      # On --resume when spec was already moved, $spec_file no longer exists in the index
-      # and the pathspec is a no-op — safe.
-      ( cd "$REPO_ROOT" && git commit -q -m "chore: close $pn — $title" -- "$spec_dest" "$spec_file" ) \
+      # On --resume when spec was already moved, $spec_file's deletion may already
+      # be committed from a prior partial run — only expect it if it's still staged.
+      # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
+      # (held for this whole block); see its own comment for why.
+      local _expected_paths=("$spec_dest")
+      if [[ -n "$(cd "$REPO_ROOT" && git diff --cached --name-only --diff-filter=D -- "$spec_file" 2>/dev/null)" ]]; then
+        _expected_paths+=("$spec_file")
+      fi
+      commit_staged_exact "chore: close $pn — $title" "${_expected_paths[@]}" \
         || die "ship: spec-close commit failed"
       ship_set_journal_flag "$pn" "spec_closed"
     fi
@@ -2838,9 +2880,10 @@ The branch is authoritative for shipped migrations. Compare each file with
           fi
           continue
         fi
-        ( cd "$REPO_ROOT" && git commit -q \
-            -m "chore: close ${cospec_pn} (co-located with ${pn})" \
-            -- "$cospec_dest" "$cospec_file" ) || true
+        # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
+        # (held for this whole block); see its own comment for why.
+        commit_staged_exact "chore: close ${cospec_pn} (co-located with ${pn})" \
+          "$cospec_dest" "$cospec_file" || true
       fi
     done
   fi
