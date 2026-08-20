@@ -40,18 +40,22 @@ async function supabaseGet(
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
-/** Throws if `column` is not present (as a substring — matches a nested embed
- *  selector too, e.g. `profiles!fkey(name,agent_accounts(operator_name))`) in
- *  `selectedColumns`. Adversarial review (2026-08-20) found the original
- *  exact-membership check let a caller declare a claim/column binding against
- *  an array that was never used to build the actual query — a decorative
- *  check. `selectedColumns` must now BE the source the select string is built
+/** Throws if `column` is not present, boundary-anchored, in `selectedColumns`
+ *  — a bare `,`/`(`/`)`/string-edge on both sides, so it matches a nested embed
+ *  selector (`profiles!fkey(name,agent_accounts(operator_name))`) without also
+ *  matching a column name that merely appears as a SUBSTRING of an unrelated
+ *  one (e.g. `role` inside a future `moderator_role`). `/finish` code review
+ *  (2026-08-20, MEDIUM) found the original plain-substring check (from the
+ *  same-day adversarial-review fix) had exactly that false-positive shape,
+ *  untested. `selectedColumns` must BE the source the select string is built
  *  from (`selectedColumns.join(',')`), so this check is causally upstream of
  *  the fetch: editing the query without editing the array is impossible.
  *  Runs at MODULE LOAD, not per-request: a handler that claims a column it
  *  forgot to select fails on the very first import, not in a code review. */
 export function bindClaim(selectedColumns: readonly string[], column: string, claim: string): void {
-  if (!selectedColumns.some((c) => c.includes(column))) {
+  const escaped = column.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const boundary = new RegExp(`(^|[,(])${escaped}([,)]|$)`);
+  if (!selectedColumns.some((c) => boundary.test(c))) {
     throw new Error(
       `og.ts claim binding violated: "${claim}" requires column "${column}" to be ` +
         `selected, but only [${selectedColumns.join(', ')}] is fetched.`,
@@ -68,9 +72,23 @@ export function bindClaim(selectedColumns: readonly string[], column: string, cl
  *  ever interpolated, so the phrase can only originate from the verified
  *  boolean, never from a user-authored field — applied unconditionally
  *  (not just when `has_pledged` is false) so its presence stays a reliable
- *  signal regardless of the subject's real pledge status. */
+ *  signal regardless of the subject's real pledge status.
+ *
+ *  `/finish` code review (2026-08-20, HIGH) found the first version of this
+ *  function used `\s+` between words, which does not match zero-width or
+ *  other invisible Unicode format characters (U+200B, bidi overrides, etc.) —
+ *  a role like `"Engineer. Signed" + U+200B + "the" + U+200B + "Clarity" + U+200B + "Pledge"`
+ *  reads identically to a human/crawler while defeating the `\s+` match entirely,
+ *  re-opening the CRITICAL bug through the function built to close it.
+ *  Stripping every Unicode format character (`\p{Cf}`) first closes that, and
+ *  incidentally also closes a separate LOW finding from the same review round
+ *  (bidi override characters surviving into the rendered card). */
 export function stripForgeableClaims(s: string): string {
-  return s.replace(/signed\s+the\s+clarity\s+pledge/gi, '').replace(/\s{2,}/g, ' ').trim();
+  return s
+    .replace(/\p{Cf}/gu, '')
+    .replace(/signed\s+the\s+clarity\s+pledge/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // ── OG data types ───────────────────────────────────────────────────────

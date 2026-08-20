@@ -141,7 +141,9 @@ precisely what that comment forbids.
 
 - [x] A failed or unreadable agent lookup never produces the ordinary-person preview — the handler
       fails loud instead, demonstrated by forcing the failure (epistemic gate 7), not by reasoning
+      — see `src/tests/p1108-fail-loud.test.ts` (SA-1 row, `## Verification Contract`)
 - [x] "No agent account exists" and "the agent lookup failed" are distinguishable in the handler
+      — see `src/tests/p1108-fail-loud.test.ts` cases (c)/(d) (SA-2 row, `## Verification Contract`)
 
 ## Resolved Decisions
 
@@ -364,9 +366,9 @@ Scope: the change P1108 proposes to `api/og.ts` — truthful preview description
   `has_pledged` is on that list. `email`, `linkedin_url`, `reason` are the only three columns held back from anon/authenticated (per the P877 header comment, `supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql:5-14`), and none of those are touched by this spec. Adding `has_pledged` to the REST select in `api/og.ts` requires no RLS/grant change.
 - ✅ **`has_pledged` is documented as not-PII and already publicly exposed elsewhere.** `supabase/migrations/20260727140000_p1010_members_has_pledged.sql:19,64`: *"has_pledged is NOT PII: it is already returned ungated by get_featured_profiles"* — and it's also returned unconditionally by `get_profile_by_id`/`get_profile_by_slug` (`supabase/migrations/20260602160000_p877_profiles_pii_column_grants.sql:71`). So exposing it per-slug in a link preview discloses nothing the profile page and existing public RPCs don't already disclose.
 - ✅ **`agent_accounts(operator_name)` embed IS anon-readable today — this is NOT the cause of the fail-open.** The task asked me to check whether the embed being unreadable is itself the root cause; it is not. `supabase/migrations/20260819120000_p1104_agent_accounts.sql`:
-  - `REVOKE ALL ON TABLE public.agent_accounts FROM PUBLIC, anon, authenticated;` (L36)
-  - `GRANT SELECT (profile_id, operator_name) ON public.agent_accounts TO anon, authenticated;` (L46) — explicitly includes `operator_name`, the only column `AGENT_EMBED` (`api/og.ts:78`) selects.
-  - `CREATE POLICY "agent_accounts are publicly readable" ON public.agent_accounts FOR SELECT USING (true);` (L48-50)
+  - `REVOKE ALL ON TABLE public.agent_accounts FROM PUBLIC, anon, authenticated;` (L46)
+  - `GRANT SELECT (profile_id, operator_name) ON public.agent_accounts TO anon, authenticated;` (L57) — explicitly includes `operator_name`, the only column `AGENT_EMBED` (`api/og.ts:78`) selects.
+  - `CREATE POLICY "agent_accounts are publicly readable" ON public.agent_accounts FOR SELECT USING (true);` (L59-61)
   - `subject_key` is deliberately withheld (not granted), but it is never selected by `api/og.ts`.
   Checked the two later P1104 migrations for anything that narrows this: `20260819140000_p1104_harden_agent_prefix_guard.sql` and `20260819160000_p1104_reserve_agent_name_at_the_table.sql` touch only `create_or_reuse_agent_account` and `DELETE/TRUNCATE` on `service_role` — no SELECT grant or policy change. **This changes the fix framing the spec should adopt:** the fail-open (`api/og.ts:80-90`, `agentOperator()` returning `null` on any missing/malformed embed, combined with `supabaseGet` at `api/og.ts:28` collapsing every non-OK response to `null`) is caused by conflating "the embed came back structurally empty" with "the request itself failed" (network error, timeout, or — per the spec's own P1124 note — an embed that becomes ambiguous once a second FK to `profiles` exists and PostgREST 300s). It is not an RLS/grant gap today. The fix belongs in `supabaseGet`/`agentOperator`'s error handling (distinguish HTTP status / ambiguous-embed error from "0 rows"), not in RLS.
 - ✅ `events`, `stories`, `points` are all `USING (true)`-readable with no column-level REVOKE found (`supabase/migrations/20260118_create_events.sql:42`, `supabase/migrations/20260204_stories_points_calibration.sql:319,345`) — the existing embeds (`profiles!stories_author_id_fkey(name,agent_accounts(operator_name))` etc.) already work today; nothing about this spec's changes alters that surface.
@@ -406,27 +408,7 @@ Three findings, three outcomes.
 | ⚠️ | finding | verdict | action |
 |---|---|---|---|
 | 1 | Fail-loud must not leak Supabase/PostgREST error text to the unauthenticated caller | **consistent** | Decision 2 already specifies `console.error` server-side + a generic body with no name, no claim, no error text. No change. |
-| 2 | Keep a cache policy on the failure path or a forced failure becomes an unbounded, uncached DB-hit path a spoofed-UA caller can drive | **CONTRADICTED** | Decision 2 originally specified `no-store`, which is the uncached case Security named. **Changed to `public, s-maxage=60, stale-while-revalidate=0`** in Decision 2, `#### Files to Modify`, `> **SUPERSEDED by `## Verification Contract` — the single test file below is split into four.**
-> This section was written before the contract was measured. It proposed one file,
-> `src/tests/p1108-og-truthful-claims.test.ts`, with per-row `-t` name filters. That was dropped
-> after measuring that **vitest exits 0 when a `-t` filter matches nothing in a file that exists**
-> (`--passWithNoTests=false` does not change it — checked against a control). One trivial test
-> would then have turned every filtered contract row green having asserted nothing.
->
-> The contract therefore runs **whole files**, whose absence is a measured exit 1. Write these four
-> instead of the single file named below, keeping every behaviour this section specifies — nothing
-> about the coverage changes, only how it is distributed:
->
-> | file | covers |
-> |---|---|
-> | `src/tests/p1108-pledge-claim.test.ts` | DW-2 + DW-3 — non-pledger omits the pledge sentence, pledger still asserts it |
-> | `src/tests/p1108-claim-binding.test.ts` | DW-4 — `bindClaim` throws when a claimed column is not in the select list |
-> | `src/tests/p1108-fail-loud.test.ts` | DW-5 + SA-1 + SA-2 — `ok:false`, a rejecting fetch, and the (c)/(d) key-absent vs malformed-embed pair |
-> | `src/tests/p1108-esc.test.ts` | ESC-1 — `esc()` escapes all five characters |
->
-> All four keep the `p1108-` prefix `goal-gate.sh` CHECK 1 globs for, and all four are CI-tier.
-
-#### Files to Create` (the test asserts the literal header), and Build Sequence step 2. |
+| 2 | Keep a cache policy on the failure path or a forced failure becomes an unbounded, uncached DB-hit path a spoofed-UA caller can drive | **CONTRADICTED** | Decision 2 originally specified `no-store`, which is the uncached case Security named. **Changed to `public, s-maxage=60, stale-while-revalidate=0`** in Decision 2, `#### Files to Modify`, `#### Files to Create` (the test asserts the literal header), and Build Sequence step 2. |
 | 3 | `esc()` omits `>` and `'` — defense-in-depth, explicitly "not a blocker" | **not addressed** | Deliberately left OUT of scope. See below. |
 
 **On ⚠️2, why 60s and not `no-store` or 3600.** The architect's stated reason for `no-store` was

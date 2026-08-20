@@ -58,4 +58,22 @@ describe('api/og.ts — bindClaim (P1108 Decision 4)', () => {
       /og\.ts claim binding violated/,
     );
   });
+
+  // /finish code review (2026-08-20, MEDIUM): a bare substring match (the version above,
+  // before this fix) would silently pass when the claimed column name happens to be a
+  // substring of an unrelated sibling column — e.g. claiming 'role' as fetched would not
+  // throw if the array merely contained 'moderator_role'. bindClaim's whole purpose is
+  // "fails on import if the claim isn't really backed" — a false-positive match defeats
+  // that as surely as the original decorative-array bug did.
+  it('does NOT match a claimed column that is merely a substring of an unrelated selected column', () => {
+    const COLUMNS = ['name', 'moderator_role', 'avatar_url'] as const;
+    expect(() => bindClaim(COLUMNS, 'role', 'signed the Clarity Pledge')).toThrow(
+      /og\.ts claim binding violated/,
+    );
+  });
+
+  it('still matches the claimed column when it is the exact whole entry', () => {
+    const COLUMNS = ['name', 'role', 'avatar_url'] as const;
+    expect(() => bindClaim(COLUMNS, 'role', 'a role-backed claim')).not.toThrow();
+  });
 });

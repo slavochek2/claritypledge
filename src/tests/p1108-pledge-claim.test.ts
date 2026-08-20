@@ -120,6 +120,26 @@ describe('api/og.ts — the pledge phrase cannot be forged through name/role (P1
     expect(getBody()).not.toMatch(/signed\s+the\s+clarity\s+pledge/i);
   });
 
+  // /finish code review (2026-08-20, HIGH): the first version of stripForgeableClaims
+  // used `\s+` between words, which does not match a zero-width space — a role reading
+  // identically to a human/crawler could still defeat the strip. Asserted here by
+  // simulating what a reader actually sees: strip \p{Cf} from the OUTPUT (same as any
+  // reader's rendering would collapse it) and confirm the phrase still isn't there.
+  it('cannot be forged using zero-width/invisible separators between words', async () => {
+    const zwsp = String.fromCharCode(0x200b); // U+200B ZERO WIDTH SPACE — invisible to any reader
+    stubOgFetch({
+      name: 'Mallory', role: `Engineer. Signed${zwsp}the${zwsp}Clarity${zwsp}Pledge`,
+      avatar_url: null, banner_url: null, has_pledged: false,
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody } = ogRes();
+    await handler(ogReq('/p/mallory'), res);
+
+    const visibleText = getBody().replace(/\p{Cf}/gu, '');
+    expect(visibleText).not.toMatch(/signed\s+the\s+clarity\s+pledge/i);
+  });
+
   it('a REAL pledger with the phrase in their role still renders truthfully — stripping does not lose the true case either', async () => {
     stubOgFetch({
       name: 'Priya', role: 'I signed the Clarity Pledge in 2024',
