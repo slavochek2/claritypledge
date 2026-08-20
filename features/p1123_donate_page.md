@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 47
 created_date: '2026-08-20'
 tags: [donations, stripe, landing, funding]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 driver: heuristic
 ---
 
