@@ -249,6 +249,85 @@ Bumping those sites to the app default would make the robotified portrait legibl
 - `shared/story-image.tsx` — uses the author name in `alt` text only, which reads correctly
 - letters (10 files), partner sessions (3), story-guide (2) — 1:1, invite-scoped, or a composer for one's own content
 
+**Re-derived audit, 2026-08-20 — UAT-10 does not pass as written.**
+
+Re-derived rather than trusting the recorded count, as UAT-10 itself instructs. Two discrepancies:
+
+**1. The in-scope count is stale.** The Done-When line below says "all 12 `GravatarAvatar` call
+sites in the 5 in-scope files". Measured today: **17 call sites across 6 files** carry `isAgent`
+(`profile-page-v2` 5, `StoryCardDetail` 4, `story-card-with-links` 3, `point-detail-page` 2,
+`point-card-with-links` 2, `feed-story-card` 1). The number grew with the 2026-08-19/20 founder-
+review fixes. Not a defect — a stale count in a checked box, which is its own problem, since the
+box reads as evidence.
+
+**2. Eleven files render an avatar and appear in neither list.** The Excluded list accounts for
+letters, partner sessions, story-guide, and four named files. It does not account for these, each
+verified to have live importers (a first probe returned zero importers for all eleven; a known-good
+control through the same probe also returned results, proving the probe blind — the corrected
+counts are below):
+
+| File | Call sites | Importers |
+|---|---|---|
+| `components/agreements/agreement-certificate.tsx` | 1 | 12 |
+| `components/layout/simple-navigation.tsx` | 2 | 8 |
+| `components/ui/person-avatar.tsx` | 1 | 9 |
+| `components/shared/PersonRow.tsx` | 1 | 3 |
+| `components/social/pledger-card.tsx` | 1 | 3 |
+| `components/profile/profile-certificate.tsx` | 2 | 3 |
+| `components/profile/badge-certificate.tsx` | 2 | 2 |
+| `components/shared/profile-picker-input.tsx` | 2 | 2 |
+| `components/sessions/session-list.tsx` | 1 | 1 |
+| `pages/explain-back-view-page.tsx` | 1 | 1 |
+| `components/social/ClaritySessions.tsx` | 1 | 0 (dead) |
+
+Also: the Excluded list says "letters (10 files), partner sessions (3), story-guide (2)". Measured:
+**7** letters files carry `GravatarAvatar`, **4** partner-session files do, and **no** story-guide
+file does. The exclusion reasons may still be right; the counts backing them are not.
+
+**What this does and does not mean.** It is not evidence that an agent renders as a person on
+those eleven surfaces — most plausibly cannot be reached by an agent account at all (a certificate
+renders the pledger who earned it; the nav renders the signed-in user). It means the spec's
+completeness *claim* is not currently true, and UAT-10 asks for exactly that claim. Each of the
+eleven needs the same one-line reachability judgement the letters and partner-session groups got —
+then the box can be checked honestly.
+
+**Reachability judgement for the eleven, completed 2026-08-20.** Ten cannot be reached by an
+agent account. One can, narrowly.
+
+*Not reachable — renders the signed-in user or a party an agent can never be:*
+
+- `simple-navigation.tsx` (×2) — `user.name` from the session. Nobody signs in as an agent; agent
+  accounts are minted by a service-role RPC and have no auth path.
+- `agreement-certificate.tsx`, `badge-certificate.tsx`, `profile-certificate.tsx` — render the
+  person who earned the thing. Agents hold no pledge, and the profile page already suppresses the
+  Clarity Partners block for agents.
+- `pledger-card.tsx` — the pledger wall, gated on `has_pledged`. An agent never pledges.
+- `session-list.tsx` → `my-sessions-page` — the caller's own sessions.
+- `explain-back-view-page.tsx` — a live-session partner. Agents do not join sessions.
+- `person-avatar.tsx` (9 importers) and `PersonRow.tsx` (3) — traced every importer: landing
+  social-proof, letters cohort table, letter overview, sign-pledge, and the events prototypes.
+  All render pledgers, letter counterparties or event attendees.
+- `ClaritySessions.tsx` — dead, zero importers.
+
+*Reachable, admin-only:*
+
+- ⚠️ **`profile-picker-input.tsx` (×2)** — used by `letter-receiver-modal.tsx` and
+  `create-agreement-page.tsx`. It types ahead over `search_profiles`
+  (`20260605150000_p878_search_profiles_rpc.sql:165`). Read directly: the non-admin branch is
+  scoped by `p878_relationship_scope`, which an agent will not be inside — but **the admin branch
+  has no scope restriction**, matching on `name`/`slug` alone. An agent's display name begins
+  `Agent · `, so an admin typing "Agent" into the letter-receiver or agreement picker sees the
+  account listed **with a round avatar and no marker**, indistinguishable from a person.
+
+  Not public-facing and not a reason to hold the ship: the only viewer is an admin, who knows
+  agents exist. Recorded rather than silently excluded, because the exclusion reason is "the
+  audience already knows", which is weaker than every other reason on this list. Filed as the
+  successor decision, not folded in — wiring the picker means threading the registry into a
+  search-result shape that has no profile id contract today.
+
+**This audit is the only thing UAT-10 needs; it does not require new code.** The evidence is
+above; the box is left for the founder to check, per Evidence Over Declaration.
+
 ## Done-When
 
 **Status key.** `[x]` = evidenced by a passing automated test against a seeded fixture
