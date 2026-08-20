@@ -173,6 +173,45 @@ modelled, and a structural check models a spelling"
 
 ---
 
+## 2026-08-20 [process]: A pipe ate a gate's exit code twice in one session, and both times the output still looked like success
+
+**Context:** Two checks were run through `| tail` to keep the output short. Both times the reported
+exit code belonged to `tail`, not to the command being checked.
+
+The first was the ship gate. It printed `[GATE 2.5] FAIL: spec status is 'in-progress'` and the
+wrapper reported `EXIT=0`. The real exit was `1` — a hard stop. The FAIL line happened to be
+visible, so it was caught by reading, not by the check.
+
+The second was `git-ops.sh commit-to-main`, invoked with a positional message instead of the
+`--message` / `--files` flags it requires. It exited `2` with `unknown flag`, printed nothing else,
+and the tail'd output showed the trailing lines of the *message being echoed back* — which read
+exactly like a successful commit. It was caught only because `git status` was run afterwards and
+the files were still staged.
+
+**Decision:** When the point of running a command is its **verdict**, capture the exit code from
+the command itself — redirect to a file and echo `$?`, or set `pipefail` — never from the tail of a
+pipeline. Reserve `| tail` for commands whose output is being read, not whose status is being
+tested.
+
+**Alternatives rejected:** Relying on reading the output. That worked once and failed once, in the
+same session, for the same reason — the failure text of a well-designed tool is loud, and the
+failure text of a usage error is a single line that scrolls off.
+
+**Consequences:** [epistemic.md](../.claude/rules/epistemic.md) gate 7 already names this mechanism
+for committed artifacts — `script | tee` under `bash -e` without `pipefail`, where tee's exit 0
+masks the script's exit 1. What this session adds is that **the same hole exists in the agent's own
+ad-hoc verification commands**, where no reviewer, canary or hook is watching. A gate that reports
+green because a pipe swallowed its verdict is indistinguishable from a gate that passed, and the
+second instance shows the dangerous shape: a command that fails *before doing anything* can echo
+its own arguments back and look like it worked.
+
+Both were self-caught here. Neither was caught by the pipeline that ran them.
+
+**References:** [epistemic.md](../.claude/rules/epistemic.md) gate 7 · `scripts/ship-gates.sh` ·
+`scripts/git-ops.sh commit-to-main`
+
+---
+
 ## 2026-08-20 [technical]: Two paths render the same disclosure, and they fail in opposite directions
 
 **Context:** P1104's whole promise is that an agent account — a machine reading of a real public
