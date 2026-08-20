@@ -60,22 +60,28 @@ git reset HEAD -- <file>        # unstage any bystanders before staging your own
 
 Do this **before** `git add`, not after. After `git add` both sets are mixed and the review looks correct — prior-session files are invisible among your own staged files. This is what causes the wrong-files-in-commit bug.
 
-## Always use explicit file names — on both `git add` AND `git commit`
+## Always use explicit file names on `git add` — then commit with NO path arguments
 
 ```bash
 # ✅ Correct
+git diff --cached --name-only   # confirm the index holds only your files (see sections above)
+git reset HEAD -- <bystander>   # unstage anything not yours, if any turned up
 git add src/app/pages/MyPage.tsx src/components/Button.tsx
-git commit -m "fix: preview persistence" -- src/app/pages/MyPage.tsx src/components/Button.tsx
+git commit -m "fix: preview persistence"
 
 # ❌ Never
 git add .
 git add -A
-git commit -m "fix: ..."   # without explicit file list when sharing a worktree
+git commit -m "fix: ..."                                              # dirty index, no bystander check first
+git commit -m "fix: ..." -- src/app/pages/MyPage.tsx src/components/Button.tsx   # see below — NOT safe
 ```
 
-**Why `git commit -- <files>` matters:** When multiple sessions share a worktree, each session stages its own files independently. A plain `git commit` sweeps ALL staged files into your commit — including files staged by other sessions. Listing files explicitly on the commit command limits the commit to only those paths, even if other files are staged. The other sessions' files stay staged but uncommitted.
+**Why NOT `git commit -- <files>` — corrected 2026-08-20, this rule previously recommended it.**
+`git commit` given a pathspec does not commit the staged INDEX for those paths — per `git-commit(1)` (`-o`/`--only`, the default mode whenever any path is given), it re-reads them from the CURRENT WORKING TREE first. If a co-tenant session has unsaved edits sitting in the same file, they ride along into your commit under your message, and `git status` shows clean afterward — no signal anything went wrong. First found 2026-04-22 (P783, ship-phase temp-index finding — decisions.md) and hit again 2026-08-20, when it silently pulled another session's uncommitted `docs/decisions.md` WIP into a `/kdd` commit; recovered with `git hash-object` + `git update-index --cacheinfo` to stage the exact intended blob, then a plain commit.
 
-**`git mv` needs BOTH paths in the pathspec.** A rename stages as delete(old)+add(new). `git commit -- new_path` only matches the addition — the deletion of `old_path` stays staged and invisible until the next `git status`. Use `git commit -- old_path new_path`, or run `git status --short` right after committing a rename to confirm nothing is left staged.
+The original concern — a plain `git commit` sweeping in files OTHER sessions staged elsewhere in the shared index — is still real, but the pathspec form is not the fix for it; it trades that risk for a worse one (silently wrong CONTENT for the very files you're committing, not just wrong file selection). The actual fix is upstream, using what the two sections above already prescribe: verify the index and clear bystanders **before** you `git add`, so by the time you commit, the index already contains nothing but your own staged content — then commit with no pathspec at all. A clean index plus a plain commit is safe against both failure modes; a pathspec commit is safe against neither once the file itself carries any working-tree content you didn't stage.
+
+**`git mv` needs both paths confirmed staged.** A rename stages as delete(old)+add(new); `git mv` does this atomically. Run `git status --short` right after `git mv` to confirm both sides show staged, then commit with a plain `git commit` (no pathspec) as above — a pathspec naming only the new path (or missing the old one) leaves the deletion staged and invisible until the next `git status`.
 
 ## Privacy Gate
 

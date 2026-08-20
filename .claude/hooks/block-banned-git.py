@@ -347,7 +347,9 @@ def check(args):
         if nxt in ("", "push", "save", "create", "store"):
             return ("`git stash` is banned (.claude/rules/git.md) -- it hides uncommitted work "
                     "silently and the founder loses visibility into what moved. "
-                    'Use instead: git commit -m "wip: <description>" -- <explicit paths>, then '
+                    'Use instead: git add <explicit paths>, then git commit -m "wip: <description>" '
+                    "(no path args on the commit itself -- that form re-reads the working tree, "
+                    "not the index, for the paths listed), then "
                     "`git log -1` to confirm HEAD is YOUR wip commit and `git reset <absolute-sha>` "
                     "to undo it later (never HEAD~1 -- the main checkout's HEAD is shared). "
                     "`git stash list/show/pop/apply` are not blocked.")
