@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 2
 workstream: events
@@ -378,6 +378,19 @@ agent account. `[ ]` with **BLOCKED-ON-P1096** = cannot be run until the pipelin
 - [ ] **BLOCKED-ON-P1096** — The robotified portrait channel is **entirely untested**. Every fixture is avatar-less, so the suite proves the silhouette, chrome and name channels only.
 
 ## Acceptance Criteria
+
+**WAIVED by the founder, 2026-08-20 — these three were never run.** The three boxes below are the
+cold-read test: a person who has not read this spec, shown the page, saying what they see. No such
+reading took place. The founder waived them explicitly to close the spec; they are recorded as
+**waived, not passed**, and the boxes stay unticked so nothing downstream reads them as evidence.
+
+What this costs: the cold read is the only check that tests the feature's actual claim — that a
+stranger does not mistake an agent for the person it reads. Every other box tests a mechanism
+(border-radius, filter, a suppressed ring); this one tests the outcome. It remains untested, and
+the first real reader is the first test.
+
+Cheapest way to retire the waiver later: open an agent's point page, show it to anyone who has not
+seen this work, and ask two questions — "is that a person?" and "who published it?"
 
 - [ ] Someone who has not read this spec, shown the point page cold, says that row is not a person
 - [ ] The same person, asked what its position means, says something equivalent to *"that's what the argument in that source implies"* — **not** *"that's what the speaker thinks"*
