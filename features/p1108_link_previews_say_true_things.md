@@ -5,8 +5,8 @@ rank: 40
 created_date: '2026-08-19'
 tags: [previews, og, truthfulness, crawlers]
 feature_type: backend
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: ship
+pipeline_ran: [create-spec, architect, ship]
 driver: anomaly
 ---
 
