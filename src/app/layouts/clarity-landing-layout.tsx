@@ -105,10 +105,18 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // was renamed under it — a rename that silently switched the footer back ON for the one
   // page whose whole design depends on it being off. `/terms-of-service` is a different,
   // genuinely legal page and must keep its footer, so the anchors stay.
-  const isMeetingTermsPage = /^\/meet\/?$/.test(location.pathname);
+  //
+  // P1114 rev2: also matches the room's own `/events/:slug/meet` — the `compact` prop
+  // alone only silences the top nav (SimpleNavigation above), never the footer, so the
+  // room's three routes need the same path-based guard the standalone pages use. A
+  // signed-out visitor on the gate screen surfaced this: LegalFooter still rendered
+  // below the fold (found via a Playwright DOM match, not visually — the gate's centred
+  // layout pushed it out of the viewport, which is why a screenshot alone didn't catch it).
+  const isMeetingTermsPage = /^\/(meet|events\/[^/]+\/meet)\/?$/.test(location.pathname);
   // P1077: /ready is the same single-focus surface as /meet — one question, one action —
-  // the footer's site links would compete with that.
-  const isReadyPage = /^\/ready\/?$/.test(location.pathname);
+  // the footer's site links would compete with that. P1114 rev2: also matches the room's
+  // own `/events/:slug/ready`, and the gate itself (`/events/:slug/room`) — same reasoning.
+  const isReadyPage = /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
   return (
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
