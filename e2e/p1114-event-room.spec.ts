@@ -1,66 +1,47 @@
 /**
  * @file p1114-event-room.spec.ts
- * @description E2E behavior coverage for the P1114 event room
- * (`/events/:slug/room`, `/events/:slug/ready`, `/events/:slug/meet` — one shared
- * `EventRoomPage`, per Architecture Decision 7 of
- * features/p1114_event_room_presence_and_cmp_opt_in.md).
+ * @description E2E behavior coverage for the P1114 event room, revision 2 —
+ * `/events/:slug/room` (gate), `/events/:slug/ready` (readiness), `/events/:slug/meet`
+ * (principle + roster + decision). Every scenario below signs in as a REGISTERED
+ * attendee (rsvpToEvent + setTestSession) — the gate itself is e2e/p1114-gate.spec.ts's
+ * job, not this file's.
  *
- * COPY IS `[FOUNDER DECISION]` for nearly every user-facing string in this
- * feature (spec's UI Contract). This file therefore asserts on ROLES,
- * TEST-IDS, and STRUCTURE — never on placeholder copy — except the two slots
- * the spec itself resolves against the shipped `/live` guest form (Build
- * Sequence step 8): the name field's label "What should we call you?" and the
- * submit button "Join as Guest".
- *
- * TEST-ID CONTRACT this file requires /dev to implement (none of these exist
- * yet — this file is written before /dev, same TDD convention as the
- * integration files in e2e/integration/p1114-*.spec.ts):
- *   - `room-page`            — root container, carries `data-room-focus` =
- *                               "join" | "ready" | "principle" (Decision 7's
- *                               `focus` prop, made observable for tests)
- *   - `room-join-form`       — guest join form, rendered only when not yet
- *                               identified (name input + "Join as Guest")
- *   - `room-controls`        — wraps every participant-facing control (join
- *                               form, opt-in control, readiness control) —
- *                               this is what Present mode must hide
- *   - `room-roster`          — the opt-ins-only roster container, ALWAYS
- *                               rendered (spec §3: "must be visible the whole
- *                               time"), carries `data-present` when Present
- *                               mode is active
- *   - `room-roster-item`     — one per visible (opted-in) person
- *   - `room-zero-state`      — shown when the roster has zero opted-in people
- *   - `room-present-toggle`  — button, `aria-pressed` reflects state
- *   - `room-my-opt-in-status`— the participant's OWN state, carries
- *                               `data-opted-in` = "true" | "false" | "unanswered"
+ * TEST-ID CONTRACT this file exercises:
+ *   - `room-ready`, `room-meet`      — the two page roots
+ *   - `room-roster`                  — the opt-ins-only roster container
+ *   - `room-roster-item`             — one per visible (opted-in) person
+ *   - `room-zero-state`              — shown when the roster has zero opted-in people
+ *   - `room-my-opt-in-status`        — the participant's OWN state, `data-opted-in`
  *   - `room-opt-in-yes` / `room-opt-in-no` — the answer controls
- *   - `room-frozen-notice`   — shown once the event is past EVENT_GRACE_HOURS
+ *   - `room-frozen-notice`           — shown once the event is past EVENT_GRACE_HOURS
  *
- * Regression note (Non-Goals: "Do NOT modify standalone /ready or /meet"): this
- * file does not re-test standalone `/ready`/`/meet` — that coverage already
- * exists, unmodified, in e2e/p1077-ready.spec.ts and
- * e2e/p1083-ready-distribution.spec.ts. See the spec's Test Coverage Strategy
- * section for how those two files serve as this Done-When item's evidence.
+ * Regression note (Non-Goals: "Do NOT modify standalone /ready or /meet"): this file
+ * does not re-test standalone `/ready`/`/meet` — that coverage stays unmodified in
+ * e2e/p1077-ready.spec.ts and e2e/p1083-ready-distribution.spec.ts.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, generateTestEmail, setTestSession, type TestUser } from './helpers/test-user';
-import { createTestEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
+import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
 import { createTestOrganization, createTestMembership, deleteTestOrganization, type TestOrganization } from './helpers/test-organization';
 import { seedRoomMember, deleteRoomMembers } from './helpers/test-event-room';
 
 const EVENT_GRACE_HOURS = 5; // P494 / events-service-real.ts:16 — see src/tests/p1114-grace-hours-sync.test.ts
 
-const roomPage = (page: Page) => page.getByTestId('room-page');
 const roster = (page: Page) => page.getByTestId('room-roster');
 const rosterItems = (page: Page) => page.getByTestId('room-roster-item');
-const guestNameInput = (page: Page) => page.getByLabel('What should we call you?');
-const guestSubmit = (page: Page) => page.getByRole('button', { name: 'Join as Guest' });
 
-test.describe('P1114 event room', () => {
+async function signInRegistered(page: Page, event: TestEvent, user: TestUser) {
+  await rsvpToEvent(event.id, user.user.id);
+  await setTestSession(page, user.email);
+}
+
+test.describe('P1114 event room (rev2, registered + signed in)', () => {
   let host: TestUser;
   let event: TestEvent;
   const memberIds: string[] = [];
   const eventIds: string[] = [];
   const orgIds: string[] = [];
+  const userIds: string[] = [];
 
   test.beforeAll(async () => {
     host = await createTestUser({ email: generateTestEmail(), name: 'P1114 E2E Host' });
@@ -75,44 +56,31 @@ test.describe('P1114 event room', () => {
     await deleteRoomMembers(memberIds);
     for (const id of eventIds) await deleteTestEvent(id);
     for (const id of orgIds) await deleteTestOrganization(id);
+    for (const id of userIds) await deleteTestUser(id);
     await deleteTestUser(host.user.id);
   });
 
-  test('a walk-in can join with a name only and appears on the roster — no account, no email', async ({ page }) => {
-    await page.goto(`/events/${event.slug}/room`);
-    await expect(roomPage(page)).toBeVisible();
-    await guestNameInput(page).fill('Walk-in Wanda');
-    await guestSubmit(page).click();
+  async function freshUser(name: string): Promise<TestUser> {
+    const user = await createTestUser({ email: generateTestEmail(), name });
+    userIds.push(user.user.id);
+    return user;
+  }
 
-    // Joining alone doesn't opt them in — the roster only shows opt-ins — so
-    // this proves identification succeeded, not roster membership. The room
-    // page itself must now reflect "identified": the join form is gone.
-    await expect(page.getByTestId('room-join-form')).not.toBeVisible();
-    await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
+  test('a registered visitor lands on readiness first, with no name field anywhere', async ({ page }) => {
+    const visitor = await freshUser('P1114 First Visit');
+    await signInRegistered(page, event, visitor);
+    await page.goto(`/events/${event.slug}/room`);
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
+    await expect(page.getByTestId('room-ready')).toBeVisible();
+    await expect(page.getByText('What should we call you?')).toHaveCount(0);
   });
 
-  test('a logged-in person passes through the join screen without re-entering their name', async ({ page }) => {
-    await setTestSession(page, host.email);
-    await page.goto(`/events/${event.slug}/room`);
-    await expect(roomPage(page)).toBeVisible();
-    await expect(page.getByTestId('room-join-form')).not.toBeVisible();
-  });
-
-  test('/room, /ready, and /meet render the SAME page, focused differently, with the roster always present', async ({ page }) => {
-    const seeded = await seedRoomMember(event.id, { optedIn: true, displayName: 'P1114 Same-Page Check' });
-    memberIds.push(seeded.id);
-
-    await page.goto(`/events/${event.slug}/room`);
-    await expect(roomPage(page)).toHaveAttribute('data-room-focus', 'join');
-    await expect(roster(page)).toBeVisible();
-
+  test('setting readiness and continuing lands on the principle page', async ({ page }) => {
+    const visitor = await freshUser('P1114 Ready Continue');
+    await signInRegistered(page, event, visitor);
     await page.goto(`/events/${event.slug}/ready`);
-    await expect(roomPage(page)).toHaveAttribute('data-room-focus', 'ready');
-    await expect(roster(page)).toBeVisible();
-
-    await page.goto(`/events/${event.slug}/meet`);
-    await expect(roomPage(page)).toHaveAttribute('data-room-focus', 'principle');
-    await expect(roster(page)).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByTestId('room-meet')).toBeVisible();
   });
 
   test('the roster is visible before the visitor answers anything, and shows opt-ins only — an opted-out name never appears', async ({ page }) => {
@@ -120,8 +88,9 @@ test.describe('P1114 event room', () => {
     const hidden = await seedRoomMember(event.id, { optedIn: false, displayName: 'P1114 Hidden Person' });
     memberIds.push(visible.id, hidden.id);
 
-    // Never joined, never answered — the roster must already show the seeded state.
-    await page.goto(`/events/${event.slug}/room`);
+    const visitor = await freshUser('P1114 Roster Viewer');
+    await signInRegistered(page, event, visitor);
+    await page.goto(`/events/${event.slug}/meet`);
     await expect(roster(page)).toContainText('P1114 Visible Person');
     await expect(rosterItems(page)).toHaveCount(1); // the visible seed only — never the hidden one
 
@@ -129,54 +98,35 @@ test.describe('P1114 event room', () => {
     expect(bodyText, 'an opted-out name must never appear anywhere on the room page').not.toContain('P1114 Hidden Person');
   });
 
-  test('zero-state: a freshly-joined visitor on an otherwise-empty roster sees a zero-state, never an error', async ({ page }) => {
-    await page.goto(`/events/${event.slug}/room`);
-    await guestNameInput(page).fill('First To Arrive');
-    await guestSubmit(page).click();
+  test('zero-state: a freshly-arrived registered visitor on an otherwise-empty roster sees a zero-state, never an error', async ({ page }) => {
+    const visitor = await freshUser('P1114 First To Arrive');
+    await signInRegistered(page, event, visitor);
+    await page.goto(`/events/${event.slug}/meet`);
 
     await expect(page.getByTestId('room-zero-state')).toBeVisible();
     const bodyText = (await page.locator('body').innerText()) ?? '';
     expect(bodyText).not.toMatch(/error|failed|unavailable/i);
   });
 
-  test('the Present toggle hides participant controls and marks the roster as present-mode, on the same route', async ({ page }) => {
-    // REVISED 2026-08-20: the page now renders one scroll — readiness, principle,
-    // roster, buttons — and the roster sits BETWEEN the readiness/principle block
-    // and the opt-in buttons (spec's Solution REVISED block). `room-controls` now
-    // wraps only readiness+principle; the buttons got their own wrapper,
-    // `room-answer-controls`, since they can no longer share one contiguous
-    // container with `room-controls` once the always-visible roster sits between
-    // them. Present must still hide both regions, so this test now checks both.
-    await page.goto(`/events/${event.slug}/room`);
-    await guestNameInput(page).fill('Toggler');
-    await guestSubmit(page).click();
+  test('opting in shows the caller\'s own status and appears on the roster; changing an answer updates a SECOND browser live, without a reload', async ({ browser }) => {
+    const viewer = await freshUser('P1114 Live Viewer');
+    const actor = await freshUser('P1114 Live Opt-in Actor');
 
-    const toggle = page.getByTestId('room-present-toggle');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByTestId('room-controls')).not.toBeVisible();
-    await expect(page.getByTestId('room-answer-controls')).not.toBeVisible();
-    await expect(roster(page)).toHaveAttribute('data-present', 'true');
-    // Still the same route — Present is a state, not a navigation (Non-Goal: no /screen route).
-    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/room/?$`));
-  });
-
-  test('changing an answer updates the room page live, without a reload, across two browser contexts', async ({ browser }) => {
     const viewerContext = await browser.newContext();
     const actorContext = await browser.newContext();
     const viewerPage = await viewerContext.newPage();
     const actorPage = await actorContext.newPage();
 
     try {
-      await viewerPage.goto(`/events/${event.slug}/room`);
-      await viewerPage.getByLabel('What should we call you?').fill('Viewer');
-      await viewerPage.getByRole('button', { name: 'Join as Guest' }).click();
+      await signInRegistered(viewerPage, event, viewer);
+      await viewerPage.goto(`/events/${event.slug}/meet`);
+      await expect(viewerPage.getByTestId('room-zero-state')).toBeVisible();
 
-      await actorPage.goto(`/events/${event.slug}/room`);
-      await actorPage.getByLabel('What should we call you?').fill('P1114 Live Opt-in Actor');
-      await actorPage.getByRole('button', { name: 'Join as Guest' }).click();
+      await signInRegistered(actorPage, event, actor);
+      await actorPage.goto(`/events/${event.slug}/meet`);
+      await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
       await actorPage.getByTestId('room-opt-in-yes').click();
+      await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'true');
 
       // No page.reload() on the viewer — the app's own delivery mechanism
       // (realtime + Decision 3's reconciliation poll) must surface this.
@@ -187,29 +137,31 @@ test.describe('P1114 event room', () => {
     }
   });
 
-  test('a frozen room (past EVENT_GRACE_HOURS) still displays who was there, and offers no way to join or change an answer', async ({ page }) => {
+  test('a frozen room (past EVENT_GRACE_HOURS) still displays who was there, and offers no way to change an answer', async ({ page }) => {
     const frozenEvent = await createTestEvent(host.user.id, new Date(Date.now() - (EVENT_GRACE_HOURS + 2) * 60 * 60 * 1000));
     eventIds.push(frozenEvent.id);
     const attendee = await seedRoomMember(frozenEvent.id, { optedIn: true, displayName: 'P1114 Frozen Attendee' });
     memberIds.push(attendee.id);
 
-    await page.goto(`/events/${frozenEvent.slug}/room`);
+    const visitor = await freshUser('P1114 Frozen Visitor');
+    await signInRegistered(page, frozenEvent, visitor);
+    await page.goto(`/events/${frozenEvent.slug}/meet`);
     await expect(page.getByTestId('room-frozen-notice')).toBeVisible();
-    await expect(page.getByTestId('room-join-form')).not.toBeVisible();
+    await expect(page.getByTestId('room-opt-in-yes')).toHaveCount(0);
     await expect(roster(page)).toContainText('P1114 Frozen Attendee');
   });
 
   test('an organization member sees themselves as NOT opted in until they confirm in the room', async ({ page }) => {
     const org: TestOrganization = await createTestOrganization();
     orgIds.push(org.id);
-    await createTestMembership(org.id, host.user.id);
+    const member = await freshUser('P1114 Org Member');
+    await createTestMembership(org.id, member.user.id);
 
-    await setTestSession(page, host.email);
+    await signInRegistered(page, event, member);
     await page.goto(`/events/${event.slug}/meet`);
 
-    // Non-Goal: "membership does not auto-opt-in." A pre-filled context line
-    // about standing commitment is allowed (UI Contract), but the actual
-    // opt-in state must read unanswered until the member explicitly confirms.
+    // Non-Goal: "membership does not auto-opt-in." The actual opt-in state must
+    // read unanswered until the member explicitly confirms.
     await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
   });
 
@@ -220,8 +172,10 @@ test.describe('P1114 event room', () => {
     // which is the actual degrade path under test (not a UI fallback state).
     await page.route('**/realtime/v1/websocket**', (route) => route.abort());
 
-    await page.goto(`/events/${event.slug}/room`);
-    await expect(roomPage(page)).toBeVisible();
+    const visitor = await freshUser('P1114 Poll-Only Visitor');
+    await signInRegistered(page, event, visitor);
+    await page.goto(`/events/${event.slug}/meet`);
+    await expect(page.getByTestId('room-meet')).toBeVisible();
     const bodyTextBefore = (await page.locator('body').innerText()) ?? '';
     expect(bodyTextBefore).not.toMatch(/error|failed|unavailable/i);
 
@@ -232,5 +186,35 @@ test.describe('P1114 event room', () => {
     await expect(roster(page)).toContainText('P1114 Poll-Only Latecomer', { timeout: 35_000 });
     const bodyTextAfter = (await page.locator('body').innerText()) ?? '';
     expect(bodyTextAfter).not.toMatch(/error|failed|unavailable/i);
+  });
+});
+
+test.describe('P1114 event page: tab state', () => {
+  let host: TestUser;
+  let event: TestEvent;
+  const eventIds: string[] = [];
+
+  test.beforeAll(async () => {
+    host = await createTestUser({ email: generateTestEmail(), name: 'P1114 Tab E2E Host' });
+    event = await createTestEvent(host.user.id, new Date());
+    eventIds.push(event.id);
+  });
+
+  test.afterAll(async () => {
+    for (const id of eventIds) await deleteTestEvent(id);
+    await deleteTestUser(host.user.id);
+  });
+
+  test('tab selection lives in the URL; one Back press moves one tab', async ({ page }) => {
+    await page.goto(`/events/${event.slug}`);
+    await expect(page.getByRole('tab', { name: 'Details' })).toHaveAttribute('data-state', 'active');
+
+    await page.getByRole('tab', { name: 'Clarity Meeting Principle' }).click();
+    await expect(page).toHaveURL(/[?&]tab=cmp/);
+    await expect(page.getByRole('tab', { name: 'Clarity Meeting Principle' })).toHaveAttribute('data-state', 'active');
+
+    await page.goBack();
+    await expect(page.getByRole('tab', { name: 'Details' })).toHaveAttribute('data-state', 'active');
+    await expect(page).not.toHaveURL(/[?&]tab=cmp/);
   });
 });
