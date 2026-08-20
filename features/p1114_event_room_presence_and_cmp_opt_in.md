@@ -51,6 +51,52 @@ marked `[FOUNDER DECISION]`.
 
 ## Solution
 
+> ## ⚠ REVISED 2026-08-20 — read this before anything below it
+>
+> The first UI build was **rejected by the founder on sight**: it reinvented controls that already
+> ship (an eleven-button 0–10 ladder next to an already-extracted `SliderTrack`), and it framed the
+> feature as "a room" when the thing a person actually does is **review the Clarity Meeting
+> Principle and opt in, in front of people who already have**.
+>
+> ### Built, green, and NOT to be rebuilt
+> | Layer | State |
+> |---|---|
+> | `event_room_members` + `event_room_answers`, RLS, grants, CHECKs | done — **28/28** integration, serial and parallel |
+> | Four `SECURITY DEFINER` RPCs (join / opt-in / readiness / self-status) | done — freeze guard + server-computed cascade counter verified |
+> | Realtime row-level filtering | **measured green ×3** with a live control — see Decision 2 |
+> | `event-room-service.ts`, types, three routes | done |
+> | `guest-or-account-join` + `SliderTrack` reuse | done — guarded by `src/tests/p1114-shared-component-reuse.test.tsx` |
+>
+> **The data model, the RPCs and the security design are unchanged by this revision.** Only the
+> page's composition, order and wording change. Do not re-derive the backend.
+>
+> ### The revised page — one scroll, this order
+> 1. **Readiness** — "How up for thinking are you right now?", the shipped `SliderTrack`.
+> 2. **The Clarity Meeting Principle** — the terms themselves.
+> 3. **Who opted in** — *before* the buttons. Seeing eight names already opted in is the strongest
+>    thing that can sit in front of person nine; putting it after the decision wastes it.
+> 4. **Opt in / Opt out** — the page **ends here**, on the decision. An earlier draft placed a
+>    readiness distribution below this and it was cut: ending on a chart buries the call to action.
+>
+> ### Naming
+> **Nothing is called a "room" in user-facing copy.** The word survives only in table and route
+> names, which are internal. The tab reads **Clarity Meeting Principle**; the page heading is
+> **Review the Clarity Meeting Principle**. There is no "empty room" state — an unanswered page is
+> simply one where nobody has opted in yet.
+>
+> ### The event page keeps its existing shape
+> **Two tabs only: `Details` and `Clarity Meeting Principle`.** Practice Rooms stay exactly where
+> they are today, inside Details, untouched — this spec does not restructure that page. The tab
+> selection must live in the URL so the browser back button behaves the way a person expects.
+>
+> ### The roster renders people properly
+> Signed-in attendees render as the **normal person row used elsewhere in the product** — full name,
+> link to profile, avatar image, pledge ring, ear badge. Not a stripped-down text list. This needs a
+> read-side join to `profiles` for those fields; no schema change. **Walk-ins have no profile**, so
+> they render as name-only with no link — the truthful rendering, not a degraded one, since there is
+> nothing to link to.
+
+
 A **room** is an event. Joining a room is a separate act from RSVPing, and the room is where
 the Clarity Meeting Principle opt-in is recorded, displayed, and projected.
 
@@ -282,29 +328,23 @@ room), after (who was there, frozen).
 
 ## UI Contract
 
-`[FOUNDER DECISION]` on every user-facing string below — these are placeholders marking where
-copy is required, not proposed copy.
+**Approved by the founder 2026-08-20.** These are decided copy, not placeholders. The build must use
+them verbatim. Any string NOT listed here is still `[FOUNDER DECISION]` and must render as a visible
+`PLACEHOLDER: ...` marker — never invented, never blank.
 
-**Resolution strategy (2026-08-19):** `/dev` renders each unresolved string as a **visible**
-`PLACEHOLDER:` marker and the founder writes the real copy at `/verify`, against the rendered
-room rather than against this table. Two rows are already resolved by lookup, not decision, and
-`/dev` uses them verbatim: the guest field and the account path both reuse the shipped `/live`
-guest form (`src/app/pages/clarity-live-page.tsx`) — label *"What should we call you?"*,
-placeholder *"Enter your name"*, submit *"Join as Guest"*, divider *"or join as guest"*, account
-path `GoogleAuthButton` + *"Log in with email"*.
-
-| Element | Value | Context |
+| Element | Value | Note |
 |---|---|---|
-| Tab label | `[FOUNDER DECISION]` — "Room"? | Event page tab |
-| Join screen heading | `[FOUNDER DECISION]` | `/events/:slug/room` |
-| Guest join field label | `[FOUNDER DECISION]` | Join screen, name-only path |
-| Account path label | Reuse `/live`'s existing wording | Join screen |
-| Roster heading | `[FOUNDER DECISION]` | Room page + Present mode |
-| Readiness dot caption | Must **not** contain "anonymous" / "anonymised" | Below the dots |
-| Member pre-fill line | `[FOUNDER DECISION]` — shows standing commitment as context, must not read as already opted in | Principle section |
-| Frozen-room notice | `[FOUNDER DECISION]` | After grace boundary |
-| Present toggle label | `[FOUNDER DECISION]` | Room page |
-| Zero-state line | `[FOUNDER DECISION]` | Empty roster |
+| Event-page tab | `Clarity Meeting Principle` | Second tab; first is `Details`. Selection lives in the URL so back works. |
+| Page heading | `Review the Clarity Meeting Principle` | Replaces the rejected "Join the room" — the person is reviewing terms, not entering a place. |
+| Readiness question | `How up for thinking are you right now?` | Reused verbatim from the shipped `/ready`, with its `Keep it light / Neutral / Go deep` anchors. |
+| Readiness caption | `Shown on the wall as a dot. Not labelled — but not anonymous either.` | Must never claim anonymity — values are stored against the person (§7). This is the honest phrasing. |
+| Roster heading | `Who opted in` | Deliberately **not** "who's here": opt-outs are never shown, so a presence claim would be false. |
+| Opt-in buttons | `Opt in` / `Opt out` | Chosen over `Accept`/`Decline`, which read as a legal form. |
+| Member pre-fill line | `Your organization runs on the Clarity Organization Terms. This is a separate yes.` | Shows the standing commitment as context; must not read as already opted in (§9). |
+| Zero state | `No one has opted in yet.` | Also what a projector shows before anyone arrives. |
+| Frozen notice | `This has closed. Here's who opted in.` | Frozen means still visible, not gone. |
+| Present toggle | `Project` | A verb the facilitator does, one tap before the event starts. |
+| Guest join form | Shipped `/live` wording, verbatim | `What should we call you?` · `Enter your name` · `Join as Guest` · `or join as guest` · `Log in with email` — reused via the shared component, not re-authored. |
 
 ## Related
 
