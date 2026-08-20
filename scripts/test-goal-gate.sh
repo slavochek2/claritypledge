@@ -190,6 +190,12 @@ m_uat_checkbox()   { printf '\n## Extra\n\n- [ ] never verified\n' >> "$1/featur
 #   subject (known-bad):  features/uat/p1010.md — one of the 25 unmarked ones
 m_real_marked()    { cp "$REPO/features/uat/p699.md"  "$1/features/uat/${PN}.md"; }
 m_real_unmarked()  { cp "$REPO/features/uat/p1010.md" "$1/features/uat/${PN}.md"; }
+# Regression for the CHECK 4 hardcoded-path bug (P1108, 2026-08-20): features.md:28
+# says the UAT file "always moves" with its spec into features/done/{sprint}/uat/ —
+# a real, reachable state the pre-fix hardcoded $UAT path could not find (it would
+# report "missing ... it never existed" for a file that plainly exists, just moved).
+# Must stay GREEN: a moved UAT file is not a missing one.
+m_uat_moved()      { mkdir -p "$1/features/done/2026-01-01/uat" && mv "$1/features/uat/${PN}.md" "$1/features/done/2026-01-01/uat/${PN}.md"; }
 m_hash_forged()    { printf 'TAMPERED\n' > "$1/features/verification/$PN/shot-320.png"; }   # verdict untouched, pixels changed
 m_shot_missing()   { rm -f "$1/features/verification/$PN/shot-desktop.png"; }
 m_one_pass_only()  { sed -i.bak 's/^VERDICT: PASS/VERDICT: FAIL/' "$1/features/verification/$PN/review-round-1.md"; }
@@ -220,6 +226,7 @@ expect 1 "4c skip reason outside the whitelist"       ci  m_uat_badskip "outside
 expect 1 "4d unticked checkbox row"                   ci  m_uat_checkbox "carry no result"
 expect 1 "4e REAL unmarked scorecard (p1010)"          ci  m_real_unmarked "carry no result"
 expect 0 "4f REAL marked scorecard (p699) — control"   ci  m_real_marked ""
+expect 0 "4g UAT moved to features/done/*/uat/ per convention"  ci  m_uat_moved ""
 echo "${DIM}CHECK 5 — three forgeries${NC}"
 expect 1 "5a screenshot changed, verdict untouched"   ci  m_hash_forged "hash mismatch"
 expect 1 "5b a judged screenshot is missing"          ci  m_shot_missing "screenshot missing on disk"

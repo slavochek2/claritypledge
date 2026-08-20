@@ -262,7 +262,15 @@ fi
 if want ci; then
   head_ "CHECK 4  UAT scorecard fully marked"
   CHECKS_RUN=$((CHECKS_RUN+1))
-  UAT="features/uat/${PN}.md"
+  # Same class as $SPEC above: features.md:28 says the UAT companion "always
+  # moves" alongside its spec into features/done/{sprint}/uat/ once shipped,
+  # but that move is manual, unenforced housekeeping (git-ops.sh never does
+  # it) — so a moved UAT file must still resolve here, or this check fails
+  # with "it never existed" on the exact commit that follows the convention.
+  # Incident: P1108, 2026-08-20 — reproduced by moving features/uat/p1108.md
+  # per the stated convention and watching this check go red on a real file.
+  UAT=$(find features -path "*/uat/${PN}.md" -not -path "*/archive/*" 2>/dev/null | head -1)
+  [[ -z "$UAT" ]] && UAT="features/uat/${PN}.md"
   if [[ ! -f "$UAT" ]]; then
     fail "${UAT} missing — a contract with no scorecard cannot decay, it never existed"
   else
