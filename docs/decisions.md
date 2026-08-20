@@ -173,6 +173,114 @@ modelled, and a structural check models a spelling"
 
 ---
 
+## 2026-08-20 [technical]: Two paths render the same disclosure, and they fail in opposite directions
+
+**Context:** P1104's whole promise is that an agent account — a machine reading of a real public
+figure — is never mistaken for that person. Two independent code paths carry that disclosure: the
+in-app render, and the crawler-facing link-preview handler that builds the card people see when a
+link is pasted into a chat.
+
+Both resolve the same fact through a lookup that can come back empty. They disagree about what
+empty means.
+
+`src/app/data/agent-accounts-service.ts:24-29` throws rather than returning an empty result, and
+its comment states why: treating a failed fetch as "no agents" would render every agent account as
+a person — *"the exact harm P1104 exists to prevent."* It fails **closed**, deliberately.
+
+`api/og.ts:28` returns `null` on any non-OK response, and `:81` returns `null` on any missing or
+malformed embed. A permission error, a timeout, and a genuinely absent agent row all become the
+same value — and that value is the sole gate on the agent branch at `:108`, `:111`, `:135`, `:157`.
+It fails **open**, doing precisely what the other file's comment forbids.
+
+**Decision:** Record the asymmetry as the finding, and route the fix to
+[p1108](../features/p1108_link_previews_say_true_things.md) — which already exists for the same
+class of defect (a crawler description asserting the reader signed the pledge without checking) —
+rather than to P1104 or to the operator-FK successor. Verified by reading the four gate lines, not
+inferred from the review that raised it.
+
+**Alternatives rejected:** Fixing it inside the operator-FK spec, which is where it surfaced. It
+would have sat unfixed behind two unrelated gates — that spec is blocked on P1104 shipping, which
+is blocked on manual checks and prod migrations. A defect in what you are about to ship does not
+belong behind the thing shipping after it.
+
+**Consequences:** The generalisable rule is the one worth carrying: **when a disclosure has more
+than one render path, the failure modes must be compared explicitly, because the paths get written
+months apart by people solving different problems.** A browser never takes the crawler path, so
+nothing about opening the page yourself can reveal the divergence — which is why this survived, and
+why the pledge-assertion bug in the same file survived before it. Status: proposed, tracked in
+P1108.
+
+**References:** [p1108](../features/p1108_link_previews_say_true_things.md) ·
+[p1104](../features/p1104_agents_must_be_visually_distinguishable.md)
+
+---
+
+## 2026-08-20 [process]: A comment that credits the wrong guard is worse than no comment
+
+**Context:** A test in P1104 carried this comment: *"Agent Smith is a person the reservation
+deliberately leaves available, so the helper must not strip his surname down to one initial."* The
+assertion underneath tested a different string entirely. Running the real case:
+`stripAgentPrefix('Agent Smith')` returns `'Smith'` — the helper does exactly what the comment
+promised it would not.
+
+Agent Smith is in fact safe, but by a different mechanism: the caller only invokes the helper when
+the row is already known to be an agent, and a human never satisfies that.
+
+**Decision:** Assert the true behaviour, name the mechanism that actually protects the case, and
+state in the test what happens if that mechanism is ever removed.
+
+**Alternatives rejected:** Correcting the comment to match the tested string. That would have left
+the untested case untested and the real guard unnamed.
+
+**Consequences:** A wrong attribution is more dangerous than silence, and the danger is delayed: it
+makes removing the *real* guard look safe. Someone deleting the caller-side check would grep for
+what protects this case, find a comment saying the helper does, and be wrong. **A comment naming a
+guarantee should name the line that enforces it** — and a test whose comment describes a case it
+does not assert is a false-confidence generator, not documentation. Both defects here were in a
+file written the previous day by the same session that then reviewed it and missed them; a
+second reviewer found them in one pass.
+
+**References:** `src/lib/utils.ts` · `src/tests/p1104-agent-initials.test.ts`
+
+---
+
+## 2026-08-20 [process]: A checked box freezes a number, and the correction needs the same scrutiny as the error
+
+**Context:** P1104's UAT-10 asks for a completeness claim over source and explicitly says to
+re-derive rather than trust the recorded count. A `[x]` Done-When box asserted the marker was wired
+at "all 12 call sites in the 5 in-scope files". Measured: **17 across 6**. The count grew when
+founder-review defects were fixed; nothing updates a box that is already ticked.
+
+The same pass found eleven files rendering an avatar that appeared in neither the in-scope nor the
+excluded list, and three wrong counts inside the excluded list itself.
+
+Then the correction was independently re-derived by a second reviewer, which found **three errors
+in the correction**: one of its own re-counted numbers was off by one, an importer count was wrong,
+and one exclusion cited a reason the code contradicts (the surface renders the session *partner*,
+not the caller). All three confirmed by command before being fixed.
+
+**Decision:** Record the corrected numbers, and state plainly which claims are independently
+verified and which remain single-sourced — six of the eleven files were not re-checked at render
+level.
+
+**Alternatives rejected:** Presenting the re-derived audit as authoritative because it was a
+correction. Being the fix for a stale-count problem confers no immunity from stale counts.
+
+**Consequences:** Two things generalise. **A ticked checkbox is a snapshot, not an invariant** — it
+carries the number true on the day it was ticked, and it reads as evidence forever after, which is
+strictly worse than an unticked box because nobody re-examines it. **And a re-derivation is an
+ordinary claim** — it inherits none of its target's suspicion and deserves all of it.
+
+One method note worth keeping: the first importer probe returned zero for all eleven files, which
+would have read as "all dead, nothing to check". A known-good control through the identical probe
+returned results, proving the probe blind rather than the files dead. The control-probe habit is
+what stood between a blind result and a false all-clear.
+
+**References:** [p1104](../features/p1104_agents_must_be_visually_distinguishable.md) §Re-derived
+audit · `features/uat/p1104.md` UAT-10
+
+---
+
 ## 2026-08-19 [process]: A fixture whose value collides with the fallback makes the test unfalsifiable — twice in one feature
 
 **Context:** P1104 marks agent accounts so they never render as the person they quote. Two of its
