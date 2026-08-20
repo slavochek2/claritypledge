@@ -262,6 +262,7 @@
       "create-and-sign": "c00bd7c3e15f23b2a8f5badc8abad80bfd614ecd9be58278f4b59e32419d70e6",
       "dispatch-event-emails": "88aa12ff3f3c5a84bda43ac943f3c08bf3bd1c366e79cbf0ffaa3d82d3f1e1dd",
       "enqueue-transcription": "0290afe00f87b306774b378baf199e457fadcba7445e41ba3ad733634d68bb99",
+      "explain-back-signed-url": "84583bb6269af9d7d9b74c4aa5305e76a91fbfc9f4d54e4af158222f706a12ad",
       "gcs-signed-url": "3942eab8ae881648bd517fe2d7b2d2e57ad9f7bfc4186c6ecd51e66a4aeda700",
       "generate-banner": "5b96686679069aafbb369cb225e3d13d28025e05c9af92e60c9e84cc9535b571",
       "generate-event-banner": "d05ff142159cdc43b4cf6658bcb615be341044e03ae6a8913c993372ab60757d",
@@ -273,7 +274,7 @@
       "send-letter-response-signin": "3b16dac8ac9feb06993e4f8f4909d066849419c4b0571498aa99c4618f8a0526",
       "story-guide-chat": "db27441eb5ec5f62e9043edb1b2110ab6b1fee6d8c523e54f199997ac25c3993"
     },
-    "functions_deployed_at": "2026-06-18T07:20:46Z",
+    "functions_deployed_at": "2026-08-19T18:46:41Z",
     "migrations": [
       "20250101",
       "20250117",
@@ -504,8 +505,15 @@
       "20260818090000",
       "20260818134500",
       "20260818140000",
-      "20260818150000"
+      "20260818150000",
+      "20260819120000",
+      "20260819140000",
+      "20260819160000",
+      "20260819170000",
+      "20260820090000",
+      "20260820091000",
+      "20260820092000"
     ],
-    "migrations_deployed_at": "2026-08-18T07:11:29Z"
+    "migrations_deployed_at": "2026-08-19T18:46:41Z"
   }
 }
