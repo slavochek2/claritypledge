@@ -82,9 +82,11 @@ describe('OffersSection — Stripe membership link state (P1087)', () => {
 describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () => {
   it('shows all three offers, with the membership as the one selected card', () => {
     const { container } = renderSection();
-    expect(screen.getByText('Clarity Champions')).toBeInTheDocument();
-    expect(screen.getByText('Partnership Clarity Package')).toBeInTheDocument();
-    expect(screen.getByText('Custom Offers')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Clarity Champions Program' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Partnership Clarity Package' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Coaching, Training & Consulting' })
+    ).toBeInTheDocument();
 
     // Exactly one card carries the "selected" treatment.
     expect(container.querySelectorAll('.border-blue-500.border-2')).toHaveLength(1);
@@ -110,9 +112,11 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     renderSection();
     const ctas = [
       screen.getByRole('link', { name: /start at €295\/month/i }),
-      screen.getByRole('link', { name: /see the package/i }),
-      screen.getByRole('link', { name: /book 15 minutes/i }),
+      // Both non-self-serve rungs now carry the SAME label (founder UAT), so there are
+      // two of these — getAllBy, not getBy, or the query throws on the ambiguity.
+      ...screen.getAllByRole('link', { name: /book 15 minutes/i }),
     ];
+    expect(ctas).toHaveLength(3);
     // Consistent shape — the thing founder UAT flagged as lost ("before we had the
     // consistency, and now we don't anymore").
     for (const cta of ctas) {
@@ -123,18 +127,46 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     expect(ctas.filter((c) => c.className.includes('bg-blue-500'))).toHaveLength(1);
   });
 
-  it('routes each CTA to its own destination', () => {
+  it('sends both talk-first rungs to /intro and keeps the off-site link gone', () => {
     renderSection();
-    expect(screen.getByRole('link', { name: /see the package/i })).toHaveAttribute(
-      'href',
-      'https://ladischenski.com'
-    );
-    expect(screen.getByRole('link', { name: /book 15 minutes/i })).toHaveAttribute('href', '/intro');
+    const talkFirst = screen.getAllByRole('link', { name: /book 15 minutes/i });
+    expect(talkFirst).toHaveLength(2);
+    for (const cta of talkFirst) {
+      expect(cta).toHaveAttribute('href', '/intro');
+    }
+    // "See the package" → ladischenski.com was cut at UAT: it sent a reader off-site to
+    // learn what the card should already say, and the card now carries those bullets.
+    expect(screen.queryByRole('link', { name: /see the package/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /ladischenski/i })).not.toBeInTheDocument();
   });
 
-  it('names training, coaching and consulting on the Custom Offers card', () => {
+  it('names the third rung for what it is, and never says "Custom" twice', () => {
     renderSection();
-    expect(screen.getByText(/training, coaching, and consulting/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Coaching, Training & Consulting' })
+    ).toBeInTheDocument();
+    // The heading "Custom Offers" over a "Custom" price said the same word twice and
+    // named nothing (founder UAT). "Offers" must be gone from the section entirely —
+    // otherwise the page carries two labels ("Pricing" and "Offers") for one thing.
+    expect(screen.queryByText(/custom offers/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\bOffers\b/)).not.toBeInTheDocument();
+  });
+
+  it('states why the two secondary rungs are on a page about one program', () => {
+    renderSection();
+    // The founder-named confusion: "the whole page is about Clarity Champions... and then
+    // strangely we show these three offers". A bare "Pricing" label promises three options
+    // for one thing; the subhead is what makes the other two legible instead of random.
+    expect(screen.getByText(/Clarity Champions is the program above/i)).toBeInTheDocument();
+  });
+
+  it('mirrors the partnership bullets from the page that actually sells it', () => {
+    renderSection();
+    // Verbatim from ladischenski.com — this page does not own that offer, so it must not
+    // paraphrase it. The old "Four 1:1 sessions" bullet appeared nowhere on the source.
+    expect(screen.getByText(/9 situations that break most partnerships/i)).toBeInTheDocument();
+    expect(screen.getByText(/signed Clarity Partnership Agreement you both own/i)).toBeInTheDocument();
+    expect(screen.queryByText(/four 1:1 sessions/i)).not.toBeInTheDocument();
   });
 });
 

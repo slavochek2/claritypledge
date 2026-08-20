@@ -33,7 +33,7 @@ export function OffersPage() {
   return (
     <div className="bg-background text-foreground">
       <SEO
-        title="Clarity Champions — Clarity Pledge"
+        title="Clarity Champions Program — Clarity Pledge"
         url="/program"
         description="Weekly live practice with a small batch of peers, €295/month, cancel anytime. Full refund if the first two sessions aren't for you."
       />

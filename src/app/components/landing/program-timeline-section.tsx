@@ -106,7 +106,11 @@ export function ProgramTimelineSection({ className = "" }: { className?: string 
     <section className={`px-4 pb-14 lg:pb-16 ${className}`}>
       <div className="container mx-auto max-w-5xl">
         <Reveal className="text-center">
-          <SectionHeader title={<><span className="text-blue-500">Clarity Champions</span> — your first three months</>} />
+          {/* "Program" is load-bearing, not decoration (founder UAT): the page names one
+              program and then shows a three-card grid, so every surface that means THE
+              PROGRAM says the same words — this title, the offer card, the assurance band,
+              the SEO title. Anything shorter and the card heading reads as a fourth name. */}
+          <SectionHeader title={<><span className="text-blue-500">Clarity Champions Program</span> — your first three months</>} />
           {/* "monthly, open-ended" removed (P1087 UAT) — the price line already reads
               "/ month", so the chip restated it. The two survivors carry facts nothing
               else on the page states at a glance. */}
