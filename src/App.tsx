@@ -27,6 +27,7 @@ const SignupPage = lazy(() => import("@/app/pages/signup-page").then(m => ({ def
 const ShortLinkRedirect = lazy(() => import("@/app/pages/short-link-redirect").then(m => ({ default: m.ShortLinkRedirect })));
 
 // Lazy loaded pages - split into separate chunks
+const DonatePage = lazy(() => import("@/app/pages/donate-page").then(m => ({ default: m.DonatePage })));
 const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
 const IntroPage = lazy(() => import("@/app/pages/intro-page").then(m => ({ default: m.IntroPage })));
 const ChiangMaiPage = lazy(() => import("@/app/pages/chiang-mai-page").then(m => ({ default: m.ChiangMaiPage })));
@@ -577,6 +578,30 @@ export default function ClarityPledgeApp() {
         <Route
           path="/understanding-champions"
           element={<Navigate to="/pledgers" replace />}
+        />
+
+        {/* P1123: /donate/:amount presets the Stripe amount. Unmapped amounts fall
+            through to the base link inside the page — never a 404. */}
+        <Route
+          path="/donate"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <DonatePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/donate/:amount"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <DonatePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
         />
 
         <Route
