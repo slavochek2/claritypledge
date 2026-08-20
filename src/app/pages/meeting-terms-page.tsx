@@ -585,7 +585,11 @@ function ScrollCue() {
   );
 }
 
-function LevelTrack({
+// Exported: P1114's room /meet portals this into the same nav slot, locked at level 3
+// and never interactive — the room has no level picker, but the track is still what
+// makes the page read as /meet rather than a bespoke document. Blind review caught
+// its absence reading as "a different page," not merely "a missing control."
+export function LevelTrack({
   level,
   locked,
   onSelect,

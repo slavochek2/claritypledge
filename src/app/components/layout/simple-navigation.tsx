@@ -390,7 +390,19 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
               below it. ABSOLUTELY POSITIONED on purpose: it takes no part in this
               row's flex layout, so on every page that portals nothing (all of them
               but /terms) its presence cannot shift the logo or the right-hand group.
-              The horizontal padding keeps portaled content clear of both. */}
+              The horizontal padding keeps portaled content clear of both.
+
+              P1114 note: this slot's own padding is tuned against /terms's usual
+              anonymous visitor (a bare hamburger on the right). The room's
+              /events/:slug/meet portals the same track for an always-signed-in
+              visitor, whose right-hand control is a wider GravatarAvatar chip — at
+              320px the track's own nowrap labels are wider than any padding
+              redistribution here can clear (their min-content width alone exceeds
+              the slot's total available space once logo+avatar clearance is
+              reserved). Fixed on the CONSUMER side instead (EventRoomMeet.tsx hides
+              its portal below 375px) rather than changing this shared slot's
+              padding, which does not by itself solve the narrowest case and would
+              only add unnecessary risk to /terms's unrelated anonymous rendering. */}
           <div
             id={NAV_CENTER_SLOT_ID}
             className="pointer-events-none absolute inset-y-0 left-1/2 flex w-full max-w-lg -translate-x-1/2 items-center px-14 lg:px-0 [&>*]:pointer-events-auto [&>*]:w-full"

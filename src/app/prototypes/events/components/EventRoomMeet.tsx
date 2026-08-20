@@ -14,8 +14,16 @@
  * and no phone-handoff action after it — both exist for a two-person handoff (host
  * holds the phone, asks the number out loud); in a room of forty nobody asks, and
  * there is no phone to hand back.
+ *
+ * The level track still renders, LOCKED at 3 — "no level picker" (spec) means
+ * nothing is selectable, not that the track disappears. Blind review (round 1,
+ * COMPARABLE row "recognisably the same page as /meet") caught its total absence
+ * reading as a different, bespoke document rather than the same page with one
+ * control disabled; portaled into the same nav slot the shipped page uses, so a
+ * shared projected link shows the identical header either way.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -24,8 +32,9 @@ import {
 } from '@/app/components/agreements/certificate-frame';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { PersonRow } from '@/app/components/shared/PersonRow';
+import { NAV_CENTER_SLOT_ID } from '@/app/components/layout/simple-navigation';
 import { sectionsForLevel, type MeetingTermsLevel } from '@/app/content/meeting-terms';
-import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
+import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS, LevelTrack } from '@/app/pages/meeting-terms-page';
 import { setRoomOptIn, subscribeToRoomRoster } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
@@ -38,6 +47,10 @@ const PRINCIPLE_TITLE = 'Clarity Meeting Principle';
 export function EventRoomMeet() {
   const { slug, event, loading, granted } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
+  const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setNavSlot(document.getElementById(NAV_CENTER_SLOT_ID));
+  }, []);
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
 
   useEffect(() => {
@@ -66,6 +79,20 @@ export function EventRoomMeet() {
 
   return (
     <div data-testid="room-meet" className="pb-24">
+      {/* hidden below 375px: the room's always-signed-in avatar chip eats into the
+          nav row's right-hand clearance that /terms's usually-anonymous visitor
+          doesn't cost it — the track's own non-wrapping labels are wider than what
+          fits in what's left at 320px (measured: 202.65px of label content against
+          145px of padded slot width). Rather than shrink the shared track's text or
+          widen the shared slot (both change /terms's unrelated rendering), the
+          narrowest breakpoint simply goes back to no stepper, same as before this
+          fix — 375px and above show it exactly like /meet. */}
+      {navSlot && createPortal(
+        <div className="hidden min-[375px]:block w-full">
+          <LevelTrack level={PRINCIPLE_LEVEL} locked onSelect={() => {}} />
+        </div>,
+        navSlot,
+      )}
       <h1 className="sr-only">{PRINCIPLE_TITLE}</h1>
 
       <div className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
