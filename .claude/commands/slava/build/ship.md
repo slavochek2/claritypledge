@@ -22,7 +22,7 @@ Before any other work in this skill:
 1. Read spec frontmatter
 2. Set `delivery_stage: ship`
 3. Append `ship` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, ship]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [ship]`. Always inline format.
-4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `ship` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `ship` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill, (d) **`ship` is not in `pipeline_plan`** → there is no "skill before `ship`" to look up, so skip the check and fall through to step 5. (`/ship` is deliberately absent from `/pick-flow`'s command list; 26 of 35 plans omit it. Do not add it there — that would resolve the predecessor to `verify` and hard-stop the ship path whenever `/verify` was skipped or `/park` was used.)
 5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 
 ---

@@ -359,7 +359,7 @@ Before marking reproduction as done:
 - `/create-bug` — files the spec (or `/reproduce` auto-invokes it for inline descriptions)
 - `/screenshot-debug` — for initial triage from a screenshot when you don't yet have a spec or reproduction steps
 - Debugging protocol (`docs/technical/debugging.md`) — for deep investigation when even hypotheses are hard to form
-- `/dd:frame-analyze` — when root cause is truly unclear and needs structured problem framing
+- `/slava:dd:frame-analyze` — when root cause is truly unclear and needs structured problem framing
 
 **After /reproduce:**
 - `/fix` — reads the `reproduce_artifact`, skips its own reproduce phases, goes straight to fixing code

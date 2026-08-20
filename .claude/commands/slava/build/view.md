@@ -186,9 +186,7 @@ Before any other work:
 2. Set `delivery_stage: view`
 3. Append `view` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`,
    replace with `pipeline_ran: [existing, items, view]`. Always inline format.
-4. Predecessor check: if `pipeline_plan` exists, find the skill before `view` in the plan.
-   If that skill is NOT in `pipeline_ran` → stop: "Run /{predecessor} first."
-   Skip check if pipeline_plan absent or pipeline_ran absent/empty and this is first planned skill.
+4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `view` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
 5. If `view` is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
 
 **Step 2 — Read spec inputs**

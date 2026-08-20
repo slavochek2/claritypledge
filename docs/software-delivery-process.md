@@ -54,11 +54,11 @@ These live in [PRINCIPLES.md](../.claude/commands/slava/PRINCIPLES.md) and guide
 
 The process includes 30+ skills for thinking, maintenance, and learning. That's a lot. Most sit idle until you need them — you don't memorize `man` pages either. Three worth knowing about:
 
-- **`/dd:frame-analyze`** — structured root-cause analysis (SCQ + 5-Why) for bugs with unclear cause *
+- **`/slava:dd:frame-analyze`** — structured root-cause analysis (SCQ + 5-Why) for bugs with unclear cause *
 - **[`/kdd`](../.claude/commands/slava/maintain/kdd/SKILL.md)** — captures decisions and learnings after shipping, so context survives across sessions
 - **`/dd:conjecture` + `/dd:critic`** — form a hypothesis, then try to kill it before building on it *
 
-\* The `/dd:*` thinking skills are global (installed in `~/.claude/commands/`, not in this repo). They're portable — ask Claude Code "show me how /dd:frame-analyze works" to see the skill file and adapt it.
+\* The `/dd:*` thinking skills are global (installed in `~/.claude/commands/`, not in this repo). They're portable — ask Claude Code "show me how /slava:dd:frame-analyze works" to see the skill file and adapt it.
 
 Also part of the workflow:
 

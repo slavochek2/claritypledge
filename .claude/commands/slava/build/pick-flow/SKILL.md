@@ -47,7 +47,7 @@ Skip for: bugs, refactors, infrastructure, and when user has confirmed the use c
 | **Feature** (spec exists) | Check `pipeline_plan`/`pipeline_ran` → resume from first unrun step. If absent, check `delivery_stage:` (legacy). If neither → Step 1 |
 | **Bug** (trivial, self-evident cause) | `/fix` → done |
 | **Bug** (root cause known, needs proof) | `/reproduce` → `/fix` → done |
-| **Bug** (root cause unclear) | `/dd:frame-analyze` → `/reproduce` → `/fix` → done |
+| **Bug** (root cause unclear) | `/slava:dd:frame-analyze` → `/reproduce` → `/fix` → done |
 | **Redesign** (design was wrong, code works) | `/change-request` → `/challenge-prd` → risk assessment (Step 1) |
 | **Refactor** (no behavior change) | `/create-spec` (type: task) → `/dev` |
 | **Data migration** | `/create-spec` (type: task) → `/generate-tests` → `/dev` |
@@ -156,6 +156,16 @@ Most flows split: **Opus to plan, Sonnet to execute.** Name the switch point in 
 
 ## Available commands (sequence order)
 
-`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/view` · `/generate-tests` · `/spec-review` · `/spec-compact` · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd`
+`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/view` · `/generate-tests` · `/spec-review` · `/spec-compact` † · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd` †
 
-Also: `/reproduce` (bug confirmation + failing test) · `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/dd:frame-analyze` (unclear root cause) · `/park` (done on branch, merge later)
+Also: `/reproduce` (bug confirmation + failing test) · `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/slava:dd:frame-analyze` (unclear root cause) · `/park` (done on branch, merge later)
+
+† **Non-stamping — never put these in `pipeline_plan`.** `/spec-compact` and `/kdd` do not write
+`pipeline_ran`. Every tracked skill's predecessor check is an **exact string match** against
+`pipeline_ran`, so a plan naming a non-stamping skill deadlocks whatever step follows it —
+permanently, with no way to satisfy the check. (Live instance: `p686`'s plan carries
+`spec-compact`, which hard-stops `/decompose` on that spec.)
+
+**Rule when editing these two lines:** before adding a name, grep its skill file for
+`pipeline_ran`. No hit → mark it `†` here, or leave it out. This list is the plan vocabulary;
+anything in it must be a name some skill will stamp.
