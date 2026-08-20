@@ -140,6 +140,13 @@ test.describe('P1114 event room', () => {
   });
 
   test('the Present toggle hides participant controls and marks the roster as present-mode, on the same route', async ({ page }) => {
+    // REVISED 2026-08-20: the page now renders one scroll — readiness, principle,
+    // roster, buttons — and the roster sits BETWEEN the readiness/principle block
+    // and the opt-in buttons (spec's Solution REVISED block). `room-controls` now
+    // wraps only readiness+principle; the buttons got their own wrapper,
+    // `room-answer-controls`, since they can no longer share one contiguous
+    // container with `room-controls` once the always-visible roster sits between
+    // them. Present must still hide both regions, so this test now checks both.
     await page.goto(`/events/${event.slug}/room`);
     await guestNameInput(page).fill('Toggler');
     await guestSubmit(page).click();
@@ -149,6 +156,7 @@ test.describe('P1114 event room', () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('room-controls')).not.toBeVisible();
+    await expect(page.getByTestId('room-answer-controls')).not.toBeVisible();
     await expect(roster(page)).toHaveAttribute('data-present', 'true');
     // Still the same route — Present is a state, not a navigation (Non-Goal: no /screen route).
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/room/?$`));

@@ -989,6 +989,17 @@ export interface EventRoomMember {
   /** null = has not answered yet. 0-10, no expiry (Decision 6 / spec §7). */
   readinessValue: number | null;
   joinedAt: string;
+  /** Read-side join to `profiles`, populated only by the public roster query
+   * (getRoomRoster) — REVISED 2026-08-20: the roster renders registered attendees
+   * as the normal person row used elsewhere (full name, profile link, avatar,
+   * pledge ring, ear badge). Always null on a walk-in (profileId is null) and on
+   * the four RPC responses (join/opt-in/readiness/self-status never join profiles —
+   * the caller already has its own display_name/identity). */
+  profileSlug: string | null;
+  profileAvatarColor: string | null;
+  profileAvatarUrl: string | null;
+  profileHasPledged: boolean;
+  profileEarCount: number;
 }
 
 /** Only present on the calling browser's own row — join_event_room / get_my_room_status

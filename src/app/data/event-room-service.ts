@@ -12,6 +12,7 @@
  * events-service.interface.ts) rather than a second implementation.
  */
 import { supabase } from '@/lib/supabase';
+import { earCountOf } from './ear-count';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
 // Decision 3: 30s reconciliation poll — both the required degrade-to-static-list path
@@ -28,6 +29,14 @@ interface DbRoomMemberRow {
   readiness_value: number | null;
   joined_at: string;
   client_secret?: string;
+  // Only present on getRoomRoster's join (see below) — the four RPCs never join profiles.
+  profile?: {
+    slug: string | null;
+    avatar_color: string | null;
+    avatar_url: string | null;
+    has_pledged: boolean | null;
+    ears_count: number | null;
+  } | null;
 }
 
 function mapMember(row: DbRoomMemberRow): EventRoomMember {
@@ -39,6 +48,11 @@ function mapMember(row: DbRoomMemberRow): EventRoomMember {
     optedIn: row.opted_in,
     readinessValue: row.readiness_value,
     joinedAt: row.joined_at,
+    profileSlug: row.profile?.slug ?? null,
+    profileAvatarColor: row.profile?.avatar_color ?? null,
+    profileAvatarUrl: row.profile?.avatar_url ?? null,
+    profileHasPledged: row.profile?.has_pledged ?? false,
+    profileEarCount: earCountOf(row.profile),
   };
 }
 
@@ -103,11 +117,26 @@ export async function getMyRoomStatus(memberId: string, secret: string): Promise
 
 /** Public roster — RLS-filtered, can only ever return opted_in = true rows (Decision 2).
  * Never throws to an error state on failure; callers should treat [] as "show zero-state
- * or leave the prior list," per the Risks "never an empty wall on a transient failure". */
+ * or leave the prior list," per the Risks "never an empty wall on a transient failure".
+ *
+ * REVISED 2026-08-20: joins `profiles` (read-side only, no schema change) so registered
+ * attendees render as the normal person row used elsewhere — full name, profile link,
+ * avatar, pledge ring, ear badge. Walk-ins (profile_id IS NULL) get no embed and render
+ * name-only — the same `profile:profiles!<fk>(...)` shape events-service-real.ts already
+ * uses for event_rsvps attendees (getEventAttendees), applied to this table's FK. */
 export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]> {
   const { data, error } = await supabase
     .from('event_room_members')
-    .select('id, event_id, profile_id, display_name, opted_in, readiness_value, joined_at')
+    .select(`
+      id, event_id, profile_id, display_name, opted_in, readiness_value, joined_at,
+      profile:profiles!event_room_members_profile_id_fkey (
+        slug,
+        avatar_color,
+        avatar_url,
+        has_pledged,
+        ears_count
+      )
+    `)
     .eq('event_id', eventId)
     .order('joined_at', { ascending: true });
   if (error) return [];

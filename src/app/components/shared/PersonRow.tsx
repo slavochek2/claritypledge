@@ -26,6 +26,12 @@ export interface PersonRowProps {
    * every guest row on the projected roster renders `<Link to="/p/">`, a dead end.
    */
   linkToProfile?: boolean;
+  /**
+   * "lg" enlarges the avatar, name, and ear badge — for a projected/wall view where
+   * the row needs to read from across a room. Defaults to "sm", unchanged from every
+   * pre-existing caller. P1114's room Present mode is the first "lg" consumer.
+   */
+  size?: "sm" | "lg";
 }
 
 export function PersonRow({
@@ -40,17 +46,18 @@ export function PersonRow({
   // P1114: room walk-ins have no profile, so there is nothing to link to. Defaults to
   // true so every pre-existing caller keeps its current behaviour unchanged.
   linkToProfile = true,
+  size = "sm",
 }: PersonRowProps) {
   const wrapLink = (children: React.ReactNode) =>
     linkToProfile ? <Link to={`/p/${slug}`}>{children}</Link> : <>{children}</>;
   return (
-    <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-blue-200 transition-colors">
+    <div className={`flex items-center gap-3 bg-card border border-border rounded-xl hover:border-blue-200 transition-colors ${size === "lg" ? "p-5" : "p-4"}`}>
       {wrapLink(
         <GravatarAvatar
           name={name}
           avatarColor={avatarColor}
           photoUrl={avatarUrl ?? undefined}
-          size="sm"
+          size={size === "lg" ? "lg" : "sm"}
           isPledger={isPledger ?? false}
         />
       )}
@@ -58,14 +65,14 @@ export function PersonRow({
         {linkToProfile ? (
           <Link
             to={`/p/${slug}`}
-            className="font-medium truncate hover:text-blue-500 transition-colors"
+            className={`font-medium truncate hover:text-blue-500 transition-colors ${size === "lg" ? "text-lg" : ""}`}
           >
             {name}
           </Link>
         ) : (
-          <span className="font-medium truncate">{name}</span>
+          <span className={`font-medium truncate ${size === "lg" ? "text-lg" : ""}`}>{name}</span>
         )}
-        <EarBadge count={earCount} name={name} className="flex-shrink-0" />
+        <EarBadge count={earCount} name={name} size={size === "lg" ? 16 : 12} className="flex-shrink-0" />
       </div>
       {action === "going" && (
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">

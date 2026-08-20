@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { EventRoomPage } from './EventRoomPage';
 import { renderMarkdownSafe } from '@/lib/markdown';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -34,7 +35,6 @@ import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
 import { PracticeRooms } from './PracticeRooms';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
 
@@ -42,6 +42,34 @@ export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // P1114 REVISED 2026-08-20: two tabs, Details and Clarity Meeting Principle — tab
+  // state lives in the URL (?tab=) so the browser back button behaves the way a
+  // person expects, same idiom as letters-page.tsx's ?tab=drafts|sent|inbox.
+  const VALID_EVENT_TABS = ['details', 'cmp'] as const;
+  type EventDetailTab = (typeof VALID_EVENT_TABS)[number];
+  const tabParam = searchParams.get('tab');
+  const activeTab: EventDetailTab =
+    tabParam && (VALID_EVENT_TABS as readonly string[]).includes(tabParam)
+      ? (tabParam as EventDetailTab)
+      : 'details';
+  // Radix TabsTrigger fires onValueChange twice per click (focus activation + click)
+  // before the URL-driven re-render lands — dedupe with a ref, same fix as
+  // letters-page.tsx, so the browser Back button needs one press per tab switch.
+  const lastPushedEventTabRef = useRef(activeTab);
+  lastPushedEventTabRef.current = activeTab;
+  const handleEventTabChange = useCallback(
+    (value: string) => {
+      if (lastPushedEventTabRef.current === value) return;
+      lastPushedEventTabRef.current = value as EventDetailTab;
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', value);
+        return next;
+      }, { replace: false });
+    },
+    [setSearchParams],
+  );
 
   // Real auth state
   const { user, session } = useAuth();
@@ -630,7 +658,44 @@ export function EventDetail() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
 
+        {/* P1114 REVISED 2026-08-20: two tabs only — Details and Clarity Meeting
+            Principle. Deliberately OUTSIDE the two-column flex row above (title/RSVP/
+            description on the left, Organizer/Participants on the right keep their
+            existing shape, untouched) rather than nested inside the narrow `lg:w-96`
+            sidebar column: `flex-shrink-0` on that column stops it from shrinking, so
+            embedding EventRoomPage's own `max-w-3xl` layout inside it forced the whole
+            sidebar past its intended width (found via screenshot, not guessed) — full
+            width here is a forced correction, not a preference. Practice Rooms moves
+            from its own standalone sidebar card into the Details tab — the component
+            itself is untouched, only where it renders. The CMP tab is VISIBLE
+            UNCONDITIONALLY, no isLoggedIn gate (unlike Practice Rooms) — gating
+            protects nothing here (spec §4), and it embeds the same EventRoomPage the
+            standalone /meet route renders, so the tab and a shared projected link show
+            identical content.
+
+            Page-level nav uses the bare underline idiom (org-page.tsx), not a bg-card
+            box: both tab contents already bring their own card styling (PracticeRooms)
+            or full-page layout (EventRoomPage) — wrapping them in a second card
+            produced a card-inside-a-card look. */}
+        <Tabs value={activeTab} onValueChange={handleEventTabChange}>
+          <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger
+              value="details"
+              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              Details
+            </TabsTrigger>
+            <TabsTrigger
+              value="cmp"
+              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              Clarity Meeting Principle
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="details" className="pt-4">
             {/* P406: Practice Rooms — P844: hidden for logged-out visitors */}
             {isLoggedIn && (
               <PracticeRooms
@@ -640,39 +705,11 @@ export function EventDetail() {
                 currentUserName={user?.name ?? null}
               />
             )}
-
-            {/* P1114: Room tab — VISIBLE UNCONDITIONALLY, no isLoggedIn gate (unlike
-                PracticeRooms above). Content adapts to before/during/after via the
-                room's own frozen state, computed from EVENT_GRACE_HOURS (P494). */}
-            <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-              <Tabs defaultValue="room">
-                <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
-                  <TabsTrigger
-                    value="room"
-                    className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-                  >
-                    PLACEHOLDER: tab label
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="room" className="pt-4">
-                  {Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000 ? (
-                    <p className="text-sm text-muted-foreground">Who was here.</p>
-                  ) : Date.now() < new Date(event.datetime).getTime() ? (
-                    <p className="text-sm text-muted-foreground">The room is open — join early.</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">The room is open now.</p>
-                  )}
-                  <a
-                    href={`/events/${event.slug}/room`}
-                    className="mt-3 inline-block text-sm font-medium text-blue-600 hover:text-blue-700 underline underline-offset-2"
-                  >
-                    Open the room
-                  </a>
-                </TabsContent>
-              </Tabs>
-            </div>
-          </div>
-        </div>
+          </TabsContent>
+          <TabsContent value="cmp" className="pt-4">
+            <EventRoomPage focus="principle" />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Bottom padding — mobile needs ~136px clearance (sticky bar ~72px + BottomNav 64px) when bar renders.
