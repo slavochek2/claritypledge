@@ -70,6 +70,44 @@ Direction only; `/architect` owns the design.
 
 Each handler is a pure function of a fetched row; reverting one is restoring its previous string. No data, no schema, no migration.
 
+## A second untrue thing the same handler says (found 2026-08-20, verified)
+
+The pledge claim above asserts something false about a **person**. There is a second defect in the
+same file that asserts something false about an **agent**, and it has the same root shape: a value
+that can be absent for two different reasons, collapsed into one.
+
+`api/og.ts` decides whether to add the agent disclosure — *"a machine-generated reading, not the
+person"* — from a single embedded lookup. `supabaseGet()` returns `null` on **any** non-OK
+response (`api/og.ts:28`), and `agentOperator()` returns `null` on any missing or malformed embed
+(`api/og.ts:81`). A permission error, a timeout, and a genuinely absent agent row all become the
+same `null`.
+
+That value is the **sole** gate on the agent branch at lines 108, 111, 135 and 157. So when the
+lookup fails for any reason, the card renders the **non-agent branch**: an agent account is
+presented to the crawler as an ordinary human, with the disclosure removed from both title and
+description. The page itself stays correctly marked — only the shared preview lies, which is
+exactly why this class of defect survives here.
+
+**Verified 2026-08-20** by reading those lines, not inferred from a review.
+
+**Why this belongs to P1108, not P1104 or P1124.** It is not agent-specific in mechanism — it is
+the same "unchecked claim in a hand-written crawler description" pattern this spec exists to close,
+and the same fail-open collapse. P1104 ships the agent marker but does not touch this behaviour;
+P1124 (operator FK) makes the lookup *more* likely to fail, because a second foreign key to
+`profiles` makes the existing embed ambiguous and an ambiguous embed fails at request time.
+
+**The asymmetry that makes it a defect rather than a design choice.** The in-app path fails
+**closed** on purpose: `src/app/data/agent-accounts-service.ts:24-29` throws rather than returning
+an empty result, and its comment states that treating a failed fetch as "no agents" would render
+every agent account as a person — *"the exact harm P1104 exists to prevent."* The crawler path does
+precisely what that comment forbids.
+
+**Adds to this spec's scope:**
+
+- [ ] A failed or unreadable agent lookup never produces the ordinary-person preview — the handler
+      fails loud instead, demonstrated by forcing the failure (epistemic gate 7), not by reasoning
+- [ ] "No agent account exists" and "the agent lookup failed" are distinguishable in the handler
+
 ## Done-When
 
 - [ ] Each of the four live handlers is listed with every factual claim its description makes, and the column backing that claim — or the claim removed
