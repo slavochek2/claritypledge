@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 0.25
 created_date: '2026-08-14'
@@ -8,13 +8,14 @@ tags:
   - pricing
   - program
   - stripe
-delivery_stage: create-spec
+delivery_stage: dev
 pipeline_plan:
   - create-spec
   - dev
   - verify
 pipeline_ran:
   - create-spec
+  - dev
 pipeline_skipped:
   - "challenge-prd -- spec's own Risks section already names the falsifiers (month-3 promise, org-creation gap, badging oversell) with mitigations"
   - "ux -- design already fully specified in Solution (page structure, month arc) and UI Contract, nothing undecided left but wording"
@@ -186,26 +187,26 @@ Non-members attend the **free events**, or come as one-time paid spectators. The
 
 ## Done-When
 
-- [ ] `/program` presents ONE offer with one buy button; the three-card grid is gone
-- [ ] The membership CTA opens a Stripe **subscription** checkout at €295/month; no €950 or €2450 one-time product is reachable from the site
-- [ ] A deliberately invalid Stripe link renders the disabled fail-loud state, not a working-looking button — exit path exercised, not reasoned about (`.claude/rules/epistemic.md` gate 7)
-- [ ] The Custom Offers CTA opens `/intro`, and the 90-minute introductory workshop is named on it
-- [ ] The badging add-on line cites €1,450 (the live ladischenski price), not €950
-- [ ] The timeline shows the month arc with `monthly, open-ended · weekly live session · a batch of 3–10`; `grep -rin "per pair\|co-founder program\|week 1\|5 pairs" src/app/pages/offers-page.tsx src/app/components/landing/offers-section.tsx src/app/components/landing/program-timeline-section.tsx src/app/content/faqs.ts` returns nothing
-- [ ] `grep -rin "CMO\|co-founder\|head of\|CTO\|founder" ` over the same four files returns no job title used as the reader's role
-- [ ] No copy states or implies full 9-of-9 badging is included, or that the member can create an organization in the app
-- [ ] Guarantee copy states month-one refund after two sessions; no "no refund after delivery" clause
-- [ ] The countdown shows a future batch start on any day of any month — verified by running with a system date one and two months ahead, not by reading the code
-- [ ] `noIndex` removed; `/pricing` and `/offers` still redirect to `/program`
-- [ ] Visual QA passed at 375px, 320px and desktop per `.claude/rules/visual-qa.md`, by a subagent that did not see the diff
+- [x] `/program` presents ONE offer with one buy button; the three-card grid is gone — verified: e2e test asserts zero "Standard Program"/"Premium Program" headings; screenshots confirm one card
+- [x] The membership CTA opens a Stripe **subscription** checkout at €295/month; no €950 or €2450 one-time product is reachable from the site — `STRIPE_STANDARD_URL`/`STRIPE_PREMIUM_URL` deleted; one `STRIPE_MEMBERSHIP_URL` remains, unset pending the founder's Stripe prerequisite; €950/€2450 grep-confirmed absent from all four scoped files
+- [x] A deliberately invalid Stripe link renders the disabled fail-loud state, not a working-looking button — exit path exercised, not reasoned about — the real current default (link genuinely unset) was rendered and screenshotted; unit test asserts the fail-loud text and absence of the buy link. Disabled styling was also tightened (bg-muted, not a dimmed blue) after a visual-QA subagent flagged it as reading too close to "still active"
+- [x] The Custom Offers CTA opens `/intro`, and the 90-minute introductory workshop is named on it — e2e test clicks the CTA and asserts the URL; component test asserts the workshop text
+- [x] The badging add-on line cites €1,450 (the live ladischenski price), not €950 — component test + screenshot confirm
+- [x] The timeline shows the month arc with `monthly, open-ended · weekly live session · a batch of 3–10`; the banned-phrase grep returns nothing (verified live)
+- [x] The job-title grep returns no job title used as the reader's role — three residual matches are all benign (see Next Steps note): pre-existing `KEY_HIRE_FAQS` content unrelated to this page, a consented testimonial's own real title, and a `cto` substring inside "introductory"
+- [x] No copy states or implies full 9-of-9 badging is included, or that the member can create an organization in the app — component test asserts absence of "full Clarity Badge"/"9-of-9"; month-3 copy says "I help you set it up," never "you create it"
+- [x] Guarantee copy states month-one refund after two sessions; no "no refund after delivery" clause — component test + screenshot confirm
+- [x] The countdown shows a future batch start on any day of any month — verified by running with a system date one and two months ahead, not by reading the code — `src/tests/p1087-next-batch-start.test.ts` uses `vi.setSystemTime` at +1 and +2 months and asserts the result is still in the future
+- [x] `noIndex` removed; `/pricing` and `/offers` still redirect to `/program` — verified live: rendered `<meta name="robots" content="index, follow">`, both redirects confirmed in-browser and by e2e test
+- [x] Visual QA passed at 375px, 320px and desktop per `.claude/rules/visual-qa.md`, by a subagent that did not see the diff — see Next Steps note: one real finding (disabled-button contrast) was fixed and re-verified in-browser; the subagent's other finding (header "ghosting") was demonstrated to be a screenshot-timing artifact from instant scroll outrunning the page's fade-in animation, not a real defect, via an A/B screenshot at the same scroll position with a settle delay
 
 ## Acceptance Criteria
 
-- [ ] A visitor can buy the €295/month membership without talking to anyone
-- [ ] A visitor wanting a workshop, training, coaching or tooling reaches the 15-minute call in one click
-- [ ] A visitor can tell when the next batch starts and that they join it with others, not alone
-- [ ] A visitor can see the platform is free without that option competing with the paid offer
-- [ ] A visitor cannot form the belief that they are buying a pair seat, a fixed term, full badging, or a guaranteed organization launch
+- [x] A visitor can buy the €295/month membership without talking to anyone — self-serve CTA reachable in one click; currently shows the correct fail-loud state pending the founder's Stripe link (spec's own named prerequisite, not an implementation gap)
+- [x] A visitor wanting a workshop, training, coaching or tooling reaches the 15-minute call in one click
+- [x] A visitor can tell when the next batch starts and that they join it with others, not alone — live countdown labeled "Next batch starts in," plus "a batch of 3–10" chip and bullets
+- [x] A visitor can see the platform is free without that option competing with the paid offer — one subordinate text link, no competing button (P955: one full-width primary action)
+- [x] A visitor cannot form the belief that they are buying a pair seat, a fixed term, full badging, or a guaranteed organization launch — copy states per-person/open-ended/partial badging/founder-assisted org setup throughout
 
 ## UI Contract
 

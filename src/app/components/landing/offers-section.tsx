@@ -1,59 +1,47 @@
 /**
- * OffersSection — transparent pricing (P937/P951).
+ * OffersSection — the Clarity Champions membership offer (P1087, superseding P937/P951's
+ * three-card grid).
  *
- * `variant="full"` powers /pricing (P951 cut pricing from the landing — the landing's job
- * is the webinar, so OffersSection no longer mounts there). The `compact` variant is kept
- * for a possible future inline mount but has no current caller. Full variant routes both
- * paid CTAs straight to Stripe Payment Links (PaidCta); a missing/invalid link fails loud.
+ * ONE offer, self-serve: €295/month per person, monthly and open-ended, via a Stripe
+ * subscription Payment Link. The CTA fails loud (PaidCta) if the link is missing/invalid —
+ * never silently routes to the webinar, which would be a checkout that looks like it
+ * worked but lost the sale invisibly (P954).
  *
- * Tiers, per-pair pricing:
- *   - Free Platform — €0 (the app; reassurance, lighter weight).
- *   - Standard Program — €950/pair (featured "Recommended"; the product). A live countdown
- *     to the cohort enrollment deadline (CohortCountdown) carries urgency.
- *   - Premium Program — €2450/pair (P951). Personal verification of the 9 stories + Clarity
- *     Badge + guidance on one high-stakes conversation. It anchors the €950 middle tier.
- *
- * The 25% founding discount (both tiers, Stripe promo code) is the WEBINAR-EXCLUSIVE close
- * and is deliberately NOT named here. The discount is contingent on the pair recording a
- * video testimonial — announced verbally at the webinar (not Stripe-enforced; recorded in
- * docs/cofounder-program-facilitator-guide.md). The risk-free guarantee IS public (shared
- * assurance band). Layout adapted from the ladischenski.com pricing grid, rebuilt in cp's
- * design system (semantic tokens, blue actions). See features/p937 + p951.
+ * Below the offer card, a visibly lighter subordinate band: the free platform (demoted to
+ * one line, not removed), Custom Offers (unpriced, call-first via /intro), and a discovery
+ * link to /org/cm. One primary action on the page — the membership buy button; everything
+ * else here is secondary by design (P955).
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import * as Sentry from "@sentry/react";
-import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon, GithubIcon, UserIcon } from "lucide-react";
+import { CheckIcon, ShieldCheckIcon, ArrowRightIcon, ClockIcon, LinkedinIcon, UserIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { getCountdownParts } from "@/app/utils/format-time";
 import {
   WEBINAR_REGISTER_URL,
-  COHORT_ENROLLMENT_CLOSES_ISO,
+  getNextBatchStartISO,
 } from "@/app/content/webinar";
 
 /**
- * Stripe Payment Links (P951/P954). These are PUBLIC URLs — a Stripe payment link exposes
- * nothing secret (the secret key never leaves Stripe), so they live as in-source constants,
- * NOT env vars. P954: the env-var indirection caused a silent prod checkout outage — the
- * links were set in local `.env.local` (gitignored) but never in Vercel's build env, so the
- * deployed bundle baked empty strings and every paid CTA fell to "Checkout temporarily
- * unavailable". Hardcoding removes that "works local, broken prod" failure mode for values
- * that are public by nature. An env var still overrides (test-mode links) when set.
+ * Stripe subscription Payment Link (P1087/P954). Public URL — a Stripe payment link
+ * exposes nothing secret, so it lives as an in-source constant, NOT an env var by default
+ * (P954: env-var indirection baked empty strings into the prod bundle and every paid CTA
+ * fell to "Checkout temporarily unavailable"). An env var still overrides (test-mode links)
+ * when set.
  *
- * The founding discount is a Stripe promotion code (25% off, both tiers) entered at
- * checkout — there is deliberately no app-side discount field.
+ * NO DEFAULT VALUE YET — the €295/month Stripe subscription link is a prerequisite owed
+ * from the Stripe dashboard (spec Risks: "Dashboard action, not agent work"). Until it's
+ * set, MEMBERSHIP_IS_SET is correctly false and PaidCta renders its fail-loud state — this
+ * is the intended state, not a bug, until the real link is created and hardcoded here.
  *
  * Validation is host-pinned, not scheme-only: a config-derived URL that reaches an
  * <a href> must be an actual Stripe checkout link (`.claude/rules/src.md` — User-
- * Controlled URL Sinks; an ad-hoc `startsWith('http')` check does not qualify). On the
- * full (/pricing) variant a missing/invalid link is a misconfiguration and the CTA
- * FAILS LOUD (disabled + notice) rather than silently routing to the webinar — a webinar
- * that looks like checkout is a broken checkout that loses the sale invisibly.
+ * Controlled URL Sinks; an ad-hoc `startsWith('http')` check does not qualify). A
+ * missing/invalid link is a misconfiguration and the CTA FAILS LOUD (disabled + notice)
+ * rather than silently routing to the webinar.
  */
-const STRIPE_STANDARD_URL =
-  import.meta.env.VITE_STRIPE_STANDARD_URL ?? "https://buy.stripe.com/aFa28rgxXex14FlaGo1Jm01";
-const STRIPE_PREMIUM_URL =
-  import.meta.env.VITE_STRIPE_PREMIUM_URL ?? "https://buy.stripe.com/aFafZh2H7ex1go3g0I1Jm00";
+const STRIPE_MEMBERSHIP_URL = import.meta.env.VITE_STRIPE_MEMBERSHIP_URL ?? "";
 const isStripeLink = (u: string) => {
   try {
     return new URL(u).host === "buy.stripe.com";
@@ -61,41 +49,18 @@ const isStripeLink = (u: string) => {
     return false;
   }
 };
-const STANDARD_IS_SET = isStripeLink(STRIPE_STANDARD_URL);
-const PREMIUM_IS_SET = isStripeLink(STRIPE_PREMIUM_URL);
+const MEMBERSHIP_IS_SET = isStripeLink(STRIPE_MEMBERSHIP_URL);
 
-// Mirrors the program timeline (Week 1–3): live webinar + Clarity Letter exchange,
-// cross-pair 1-on-1 sessions with calibration measured, guidance to sign the agreement.
-// "Open-source Platform included" renders as an inheritance label above this list, not
-// as a checkmark — scope statements use the label pattern, not the feature checklist.
-const PROGRAM_BULLETS = [
-  "Live Clarity Experiments — learn the protocol through real interactions, Q&A, and live demos",
-  "Async Clarity Letters exchange with your partner",
-  "1-on-1 live sessions with your partner — your listening calibration is quantified",
-  "Personal guidance on your Clarity Partner Agreement terms",
-];
-
-// The five how-it-works moves, expressed as concrete free-platform features
-// (will → skill → friction → align → pitfalls). Pledge/badge closes the list as the
-// outcome — not the hook — since the how-it-works arc earns it.
-const PLATFORM_BULLETS = [
-  "Separate a claim's meaning from its validity with stories and points",
-  "Cut time and emotional friction with async Clarity Letters",
-  "Sign and manage your Clarity Partner Agreements",
-  "Transcribe live sessions and track verification progress",
-  "Showcase your commitment with a public clarity pledge and badge",
-];
-
-// Premium tier (P951): the program PLUS personal verification of the 9 stories
-// (issued Clarity Badge) and guidance on one real high-stakes conversation. The lead
-// value is "kill the illusion of understanding" — first on the protocol, then on what
-// matters most. Shown only on /offers (full variant), where it anchors the €950.
-// "Everything in the Standard Program included" renders as an inheritance label above
-// this list — same label pattern as Standard's "Open-source Platform included".
-const PREMIUM_BULLETS = [
-  "I personally verify you and your co-founder both understand the clarity protocol deeply — not just feel you do — and fill every gap I find",
-  "Issued Clarity Badge — verified proof you share the framework",
-  "Personal guidance applying the protocol to one real highest-stakes conversation",
+// What's included — settled verbatim in the spec ("confirmed, ship as written").
+const MEMBERSHIP_BULLETS = [
+  "Weekly live practice sessions with your batch (3–10 people)",
+  "The nine situations every working relationship eventually hits, learned by running them",
+  "Partial Clarity Badges on the situations you cover",
+  "Practice partners on tap, so you always have someone to run a real exchange with",
+  "Help taking the practice to people in your own organization",
+  "Help opening your Clarity Organization and running your first events",
+  "The standing practice community after month three, for as long as you stay",
+  "Cancel any month. Full refund of month one if the first two sessions aren't for you",
 ];
 
 /** Renders an internal `<Link>` for in-app paths and an external `<a>` otherwise. */
@@ -150,11 +115,15 @@ function PaidCta({
   onClick: () => void;
 }) {
   if (broken) {
+    // Muted/gray, not a dimmed version of the active blue CTA — a lighter blue still
+    // reads as "a working button" in a screenshot (visual QA finding on P1087). The
+    // design system's own disabled/neutral pattern (bg-muted + text-muted-foreground +
+    // border-border, no shadow) is unmistakably inactive at a glance.
     return (
       <div className="text-center">
         <span
           aria-disabled="true"
-          className={`${className} pointer-events-none opacity-50`}
+          className="inline-flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-border bg-muted px-6 text-sm font-semibold text-muted-foreground"
         >
           Checkout temporarily unavailable
         </span>
@@ -179,32 +148,25 @@ function PaidCta({
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Live countdown to the founding cohort's enrollment deadline (COHORT_ENROLLMENT_CLOSES_ISO).
- * Ticks once per second; degrades to a static "closed" line once the deadline passes (never
- * shows negative numbers). Urgency is carried by the ticking digits and a blue assurance band
- * — the design system reserves amber/orange/red, so no red "hurry" color is used.
+ * Live countdown to the next Clarity Champions batch start — recomputed via
+ * getNextBatchStartISO on every mount/interval tick, so it is ALWAYS a future instant
+ * (P1087; the prior single hardcoded COHORT_ENROLLMENT_CLOSES_ISO rendered a permanent
+ * "expired" state once its one fixed deadline passed). Ticks once per second. Urgency is
+ * carried by the ticking digits and a blue assurance band — the design system reserves
+ * amber/orange/red, so no red "hurry" color is used.
  */
-function CohortCountdown() {
-  const target = useMemo(() => new Date(COHORT_ENROLLMENT_CLOSES_ISO).getTime(), []);
+function BatchCountdown() {
   const [now, setNow] = useState(() => Date.now());
+  const target = useMemo(() => new Date(getNextBatchStartISO(new Date(now))).getTime(), [now]);
 
   useEffect(() => {
-    if (Number.isNaN(target)) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [target]);
+  }, []);
 
   if (Number.isNaN(target)) return null;
 
-  const { expired, days, hours, minutes, seconds } = getCountdownParts(target, now);
-
-  if (expired) {
-    return (
-      <p className="mt-4 rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-center text-xs font-medium text-muted-foreground">
-        Enrollment for this cohort has closed &mdash; the next cohort opens on the webinar.
-      </p>
-    );
-  }
+  const { days, hours, minutes, seconds } = getCountdownParts(target, now);
 
   const units = [
     { value: days, label: "days" },
@@ -217,12 +179,12 @@ function CohortCountdown() {
     <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
       <div className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
         <ClockIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        Enrollment closes in
+        Next batch starts in
       </div>
       <div
         className="mt-2 flex items-stretch justify-center gap-1.5"
         role="timer"
-        aria-label={`Enrollment closes in ${days} days, ${hours} hours, ${minutes} minutes`}
+        aria-label={`Next batch starts in ${days} days, ${hours} hours, ${minutes} minutes`}
       >
         {units.map((u) => (
           <div
@@ -317,227 +279,153 @@ export function Testimonials() {
   );
 }
 
-export function OffersSection({
-  variant = "full",
-  className = "",
-}: {
-  variant?: "full" | "compact";
-  className?: string;
-}) {
-  const full = variant === "full";
+export function OffersSection({ className = "" }: { className?: string }) {
+  const membershipHref = STRIPE_MEMBERSHIP_URL;
+  const membershipBroken = !MEMBERSHIP_IS_SET;
 
-  // Standard program CTA. On /pricing (full) it goes straight to Stripe checkout — the
-  // page's job is buying. On the landing (compact) it stays webinar registration — the
-  // landing's job is to drive the live intro. The webinar fallback is INTENTIONAL only on
-  // compact; on full, a missing/invalid Stripe link is a misconfiguration → standardBroken
-  // makes the CTA fail loud (see PaidCta) instead of silently routing to the webinar.
-  const standardToStripe = full && STANDARD_IS_SET;
-  const standardBroken = full && !STANDARD_IS_SET;
-  const programHref = standardToStripe ? STRIPE_STANDARD_URL : WEBINAR_REGISTER_URL;
-  // Short label so the CTA stays one line in the side-by-side card grid at ~768px.
-  const programCtaLabel = standardToStripe ? "Reserve your seat" : "Reserve one of 3 spots";
-  const programDestination = standardToStripe ? "stripe" : "webinar";
-
-  // Premium CTA (full variant only) — straight to its Stripe link; fails loud if unset.
-  const premiumToStripe = full && PREMIUM_IS_SET;
-  const premiumBroken = full && !PREMIUM_IS_SET;
-  const premiumHref = premiumToStripe ? STRIPE_PREMIUM_URL : WEBINAR_REGISTER_URL;
-
-  // Monitoring (P951 review): a broken paid CTA on the live /pricing page is a missing/
-  // invalid VITE_STRIPE_* var — a silent revenue outage. Alert on mount so it surfaces on
-  // the first prod page load, not after a lost sale. Sentry is prod-only (no-op in dev).
+  // Monitoring (P951/P1087): a broken membership CTA on the live /program page is a
+  // missing/invalid VITE_STRIPE_MEMBERSHIP_URL — a silent revenue outage. Alert on mount
+  // so it surfaces on the first prod page load, not after a lost sale. Sentry is
+  // prod-only (no-op in dev).
   useEffect(() => {
-    if (standardBroken || premiumBroken) {
-      Sentry.captureMessage("P951: Stripe payment link unset/invalid on /pricing", {
+    if (membershipBroken) {
+      Sentry.captureMessage("P1087: Stripe membership payment link unset/invalid on /program", {
         level: "error",
         tags: { source: "offers-section", area: "pricing-checkout" },
-        extra: { standardBroken, premiumBroken },
       });
     }
-  }, [standardBroken, premiumBroken]);
+  }, [membershipBroken]);
 
-  // h-full + items-stretch (grid): both cards take the taller card's height on desktop.
-  const cardBase =
-    "flex h-full flex-col rounded-2xl border bg-card p-8 shadow-sm";
-  // Both paid tiers share one identical blue action (founder: standard + premium
-  // CTAs look the same). Free Platform keeps the lighter outline button.
+  const cardBase = "flex flex-col rounded-2xl border bg-card p-8 shadow-sm";
   const paidCta =
     "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-500 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30";
 
   return (
     <>
       {/* Social proof as its OWN section — separated from pricing by a full-width rule so it
-          reads as a testimonial rather than the top of the price block. No section eyebrow:
-          the "Founder" label is already in the attribution below, so a "From a founder" eyebrow
-          would just repeat it. The separator is a BORDER, not a background fill, because
-          OffersSection mounts on two different page backgrounds (white /offers + the muted band
-          on the program page) — a fill that separates on one would blend on the other. */}
+          reads as a testimonial rather than the top of the price block. */}
       <section className="border-b border-border px-4 pb-14 lg:pb-16">
         <Testimonials />
       </section>
 
       <section className={`px-4 pt-14 lg:pt-16 ${className}`}>
         <div className="container mx-auto max-w-4xl">
-          {/* P971: enrollment-deadline countdown sits ABOVE the pricing so the deadline
-              creates urgency before the visitor weighs the price. Full variant only — the
-              landing (compact) has no pricing cards, so it must not show the countdown. */}
-          {full && (
-            <div className="mb-10 flex justify-center">
-              <CohortCountdown />
-            </div>
-          )}
+          {/* P971/P1087: the next-batch-start countdown sits ABOVE the price so the
+              upcoming batch frames the offer before the visitor reads the number. */}
+          <div className="mb-10 flex justify-center">
+            <BatchCountdown />
+          </div>
           <div className="text-center">
-            {/* A single "Pricing" label, styled as an eyebrow to match the testimonial's
-                "From a founder" label. The price cards below carry the visual weight — that's
-                where the eye should land. (Dropped the marketing h2 "Simple, transparent
-                pricing": the Free/€950 cards + guarantee band prove transparency better than a
-                headline claiming it.) */}
             <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
               Pricing
             </h2>
           </div>
 
-        {/* items-stretch + h-full on the cards: founder wants the boxes the same height
-            on desktop. The lighter Platform card stretches to match; its CTA stays
-            bottom-aligned via mt-auto. /offers shows three tiers, the landing two. */}
-        <div
-          className={`mt-10 grid grid-cols-1 ${full ? "md:grid-cols-3" : "md:grid-cols-2"} gap-5 sm:gap-6 items-stretch`}
-        >
-          {/* Platform — free, reassurance (lighter weight) */}
-          <div className={`${cardBase} border-border`}>
-            <h3 className="text-lg font-bold">Platform</h3>
-            <p className="mt-4 text-4xl font-bold tracking-tight text-foreground">Free</p>
-            <div className="mt-6">
-              <a
-                href="https://github.com/slavochek2/claritypledge"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-500/15"
-              >
-                <GithubIcon className="h-3.5 w-3.5 shrink-0" />
-                Open source
-              </a>
-            </div>
-            <ul className="mt-4 space-y-3">
-              {PLATFORM_BULLETS.map((b) => (
-                <li key={b} className="flex items-start gap-2.5 text-sm">
-                  <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-                  <span className="text-muted-foreground">{b}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-auto pt-8">
-              <Link
-                to="/signup"
-                className="inline-flex h-12 w-full items-center justify-center rounded-md border border-border bg-card px-6 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-                onClick={() => analytics.track("offers_cta_clicked", { tier: "platform", variant })}
-              >
-                Create a free account
-              </Link>
-            </div>
-          </div>
-
-          {/* Co-Founder Program — featured, the product */}
-          <div className={`${cardBase} relative border-2 border-blue-500 shadow-lg shadow-blue-500/25`}>
-            <span className="absolute -top-3 right-6 rounded-full bg-blue-500 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
-              Recommended
-            </span>
-            <h3 className="text-lg font-bold">Standard Program</h3>
+          {/* ONE offer — Clarity Champions. No grid, no competing cards (P1087: the prior
+              three-card grid had one real product pretending to be three). */}
+          <div className={`${cardBase} mx-auto mt-10 max-w-xl border-2 border-blue-500 shadow-lg shadow-blue-500/25`}>
+            <h3 className="text-lg font-bold">Clarity Champions</h3>
             <p className="mt-4 flex items-baseline gap-1.5">
-              <span className="text-4xl font-bold tracking-tight text-foreground">€950<sup className="text-lg font-medium text-muted-foreground">*</sup></span>
-              <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
+              <span className="text-4xl font-bold tracking-tight text-foreground">€295<sup className="text-lg font-medium text-muted-foreground">*</sup></span>
+              <span className="text-lg font-semibold text-muted-foreground">/ month</span>
             </p>
-            <div className="mt-6">
-              <span className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                Free Platform included
-              </span>
-            </div>
-            <ul className="mt-4 space-y-3">
-              {PROGRAM_BULLETS.map((b) => (
+            <p className="mt-1 text-sm text-muted-foreground">monthly, open-ended</p>
+
+            <ul className="mt-6 space-y-3">
+              {MEMBERSHIP_BULLETS.map((b) => (
                 <li key={b} className="flex items-start gap-2.5 text-sm">
                   <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
                   <span className="text-muted-foreground">{b}</span>
                 </li>
               ))}
             </ul>
-            <div className="mt-auto pt-8">
+
+            <div className="mt-8">
               <PaidCta
-                broken={standardBroken}
-                href={programHref}
-                label={programCtaLabel}
+                broken={membershipBroken}
+                href={membershipHref}
+                label="Start at €295/month"
                 className={paidCta}
                 onClick={() =>
-                  analytics.track("offers_cta_clicked", {
-                    tier: "program",
-                    variant,
-                    destination: programDestination,
-                  })
+                  analytics.track("offers_cta_clicked", { tier: "membership", destination: membershipBroken ? "broken" : "stripe" })
                 }
               />
             </div>
-          </div>
 
-          {/* Co-Founder Program Premium — /pricing only. Anchors the €950 and carries the
-              deep "verified understanding" value. The 25% founding promo applies to both
-              tiers, so the €950/€2450 ratio (and the anchor) holds at any promo state. */}
-          {full && (
-            <div className={`${cardBase} border-border`}>
-              <h3 className="text-lg font-bold">Premium Program</h3>
-              <p className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-4xl font-bold tracking-tight text-foreground">€2450<sup className="text-lg font-medium text-muted-foreground">*</sup></span>
-                <span className="text-lg font-semibold text-muted-foreground">/ pair</span>
-              </p>
-              <div className="mt-6">
-                <span className="inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                  Standard Program included
-                </span>
-              </div>
-              <ul className="mt-4 space-y-3">
-                {PREMIUM_BULLETS.map((b) => (
-                  <li key={b} className="flex items-start gap-2.5 text-sm">
-                    <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-                    <span className="text-muted-foreground">{b}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-auto pt-8">
-                <PaidCta
-                  broken={premiumBroken}
-                  href={premiumHref}
-                  label="Reserve your seat"
-                  className={paidCta}
-                  onClick={() =>
-                    analytics.track("offers_cta_clicked", {
-                      tier: "premium",
-                      variant,
-                      destination: premiumToStripe ? "stripe" : "webinar",
-                    })
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Shared assurance band — the refund guarantee + VAT note apply to BOTH paid
-            programs, so they live once here instead of duplicated per card. The enrollment
-            countdown moved ABOVE the cards (P971) so the deadline frames the price.
-            Full variant only (the landing has no pricing). */}
-        {full && (
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <p className="max-w-md text-center text-xs text-muted-foreground/80">
-              * Prices exclude VAT. VAT is calculated at checkout based on your location;
-              EU businesses can enter a VAT ID for reverse charge.
-            </p>
-            <div className="flex items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-3 text-center">
+            <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-5 py-3 text-center">
               <ShieldCheckIcon className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
               <p className="text-sm font-semibold text-foreground">
-                Both programs are risk-free: full refund if it&rsquo;s not for you.
+                Try the first two sessions. If it&rsquo;s not for you, full refund on month one.
               </p>
             </div>
+
+            {/* Badging add-on — one line, personalized-delivery framing (not "get badged"),
+                naming the live ladischenski.com €1,450 price. FCO retainer deliberately NOT
+                named here — it would anchor against €295/month in the wrong direction. */}
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              Want it done with you personally, not in a batch? The{" "}
+              <a
+                href="https://ladischenski.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                Partnership Clarity Package
+              </a>
+              : four 1:1 sessions for two people, €1,450, on ladischenski.com.
+            </p>
+
+            <p className="mt-3 text-center text-xs text-muted-foreground/80">
+              * Price excludes VAT. VAT is calculated at checkout based on your location;
+              EU businesses can enter a VAT ID for reverse charge.
+            </p>
           </div>
-        )}
-      </div>
+
+          {/* ── Subordinate band, visibly lighter: free platform (demoted, not removed),
+              Custom Offers (unpriced, call-first), and a discovery link to the org page.
+              Neither competes with the membership CTA above — no full-width primary
+              buttons here (P955). ── */}
+          <div className="mx-auto mt-12 max-w-xl space-y-8 text-center">
+            <Link
+              to="/signup"
+              className="inline-block text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 hover:text-foreground"
+              onClick={() => analytics.track("offers_cta_clicked", { tier: "platform" })}
+            >
+              The platform itself is free, always. The membership is for people who want a
+              room, not just the tool.
+            </Link>
+
+            <div className="rounded-xl border border-border bg-muted/20 p-6 text-left">
+              <h3 className="text-sm font-bold text-foreground">Custom Offers</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                For organizations: workshops, training, coaching, or custom setup. Joining
+                solo? The membership above is the easier way in.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                A 90-minute introductory workshop for your team, training, coaching, tooling
+                customisation, consulting, or help onboarding the colleagues you bring in
+                during month two.
+              </p>
+              <div className="mt-4">
+                <CtaLink
+                  href="/intro"
+                  className="inline-flex h-11 items-center justify-center rounded-md border border-border bg-card px-6 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                  onClick={() => analytics.track("offers_cta_clicked", { tier: "custom", destination: "intro" })}
+                >
+                  Book 15 minutes
+                </CtaLink>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Already a member?{" "}
+              <Link to="/org/cm" className="underline hover:text-foreground">
+                See what a practice community looks like
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
       </section>
     </>
   );

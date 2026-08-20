@@ -1,9 +1,9 @@
 export const PROGRAM_FAQS = [
-  { q: "Do we need to be in conflict first?", a: "No. The best time is before the first real fight — when you can still choose clarity over self-protection." },
-  { q: "Can one of us do this alone?", a: "No — the founding cohort is for pairs. Both co-founders take part and you enroll together; the whole method is about verifying that the two of you actually understand each other, which only works with both in the room." },
-  { q: "How is this different from therapy?", a: "Therapy explores feelings. The program teaches you a protocol. By the end, you can surface contradictions and close gaps yourselves — that's the point." },
-  { q: "What happens after the program?", a: "You keep the process. The Partner Agreement isn't a one-time document — it's a practice. When a new decision comes up, you already know how to check whether you actually agree." },
-  { q: "What if it surfaces something we can't fix?", a: "Then you find out now, with two sessions invested, instead of two years and a cap table. Most gaps are bridgeable. The ones that aren't — you needed to know." },
+  { q: "What happens if fewer than 3 people sign up for a batch?", a: "Your batch rolls to the next start, 45 days later. You're not charged until your batch actually runs." },
+  { q: "Can I cancel anytime?", a: "Yes. Month-to-month, no minimum term. Cancel before the next billing date and you're not charged again." },
+  { q: "What does 'open-ended' mean?", a: "No fixed end date. After your batch's first three months, you move into the standing practice community and stay as long as you keep paying, no re-enrollment." },
+  { q: "What if the first two sessions aren't for me?", a: "Full refund of month one. No questions." },
+  { q: "How is this different from the free platform?", a: "The platform is the tool, always free. The membership is the room: a live batch, a facilitator, and eventually the standing community." },
 ];
 
 export const KEY_HIRE_FAQS = [

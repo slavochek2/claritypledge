@@ -1,11 +1,11 @@
 /**
- * Pricing Page — P937/P951 (public, /pricing; /offers redirects here).
+ * Program Page — Clarity Champions membership (P1087, superseding P937/P951's
+ * three-tier pricing-grid page).
  *
- * A thin, shareable pricing surface: a single URL ("claritypledge.com/pricing") to
- * drop in the webinar chat / a DM / an email, and the home for the program buy-links.
- * Not promoted in nav — a direct-link / post-webinar destination. Body is the shared
- * <OffersSection variant="full" /> (three tiers). Wrapped in ClarityLandingLayout at
- * the route (App.tsx), like the program/coach pages.
+ * The canonical URL for the offer ("claritypledge.com/program"); /pricing and /offers
+ * redirect here. ONE self-serve membership — no more three-card grid. Body is the
+ * shared <OffersSection /> (the offer card + subordinate band). Wrapped in
+ * ClarityLandingLayout at the route (App.tsx), like the coach page.
  */
 import { SEO } from "@/app/components/seo";
 import { OffersSection } from "@/app/components/landing/offers-section";
@@ -22,14 +22,13 @@ export function OffersPage() {
   return (
     <div className="bg-background text-foreground">
       <SEO
-        title="Co-Founder Program — Clarity Pledge"
+        title="Clarity Champions — Clarity Pledge"
         url="/program"
-        description="The app is free forever. The coached Co-Founder Program is €950 per pair. Transparent, per-pair pricing with a full money-back guarantee."
-        noIndex
+        description="Weekly live practice with a small batch of peers, €295/month, cancel anytime. Full refund if the first two sessions aren't for you."
       />
       <ProgramTimelineSection className="pt-24 lg:pt-28" />
       <div className="py-20 lg:py-28">
-        <OffersSection variant="full" />
+        <OffersSection />
       </div>
       <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
         <div className="container mx-auto max-w-3xl">
