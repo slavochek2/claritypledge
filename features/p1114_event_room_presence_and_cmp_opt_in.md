@@ -14,6 +14,27 @@ driver: heuristic
 
 # P1114: The event room — who is here, and who opted in
 
+## Run This
+
+Run from `<cp-root>/.claude/worktrees/w2` — the claimed worktree for this spec, already on
+`feature/p1114-event-room`.
+
+    /goal "./scripts/goal-gate.sh p1114 exits 0, output pasted. Stop after 30 turns."
+
+`/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke
+it for them. The condition names an exit code on purpose: the loop's evaluator reads the
+transcript and runs nothing, so the only trustworthy condition is one naming an artifact the
+agent cannot author.
+
+**What this does and does not guarantee.** The loop still stops on the agent's *paste* of the
+exit code, and nothing here changes that. What the pinned contract buys is that forgery and
+decay are caught at the merge boundary by CI, before anything reaches `main`. Expect a
+walk-back that is usually-but-not-always green — not a self-proven branch.
+
+**The loop stops at a committed branch.** Merging, migrating prod, deploying and pushing are
+all ALWAYS-ASK and none of them are pre-approvable.
+
+
 ## Problem
 
 **Situation:** The Clarity Meeting Principle opt-in at `/meet` writes nothing to the
@@ -289,6 +310,52 @@ standing commitment shown as pre-filled context.
 Two reasons: in a room of mostly members, auto-opt-in makes the display show near-total
 opt-in and teaches us nothing — the variance *is* the measurement. And the opt-in's value is
 that it is taken in the room, in front of the people it binds.
+
+## Resolved Decisions
+
+Answered by the founder 2026-08-20 during `/goalify`. These close the last open
+`[FOUNDER DECISION]` markers; the build uses them verbatim.
+
+**Gate copy** — what an unregistered or signed-out visitor sees, and the whole screen:
+
+| Slot | Value |
+|---|---|
+| Heading | `This is for people coming to the event` |
+| Body | `Register for the event to see the Clarity Meeting Principle and who has opted in.` |
+| Primary action | `Register for this event` |
+| Secondary action | `Sign in` |
+
+Nothing else renders on that screen — no roster, no readiness, no principle text, no
+count of who has opted in. *Learns nothing else about the room* is an acceptance
+criterion, not a preference.
+
+**Register path.** `Register for this event` navigates to `/events/:slug` — the existing
+event page, with the RSVP button it already has. **No second RSVP-creating path is
+built.** A person RSVPs there and returns. Rejected: inline RSVP on the gate — one tap
+fewer, at the price of a second place that writes `event_rsvps` and has to stay in step
+with the first one forever.
+
+**Return visit — founder chose the non-recommended option, deliberately.** A registered,
+signed-in person opening `/events/:slug/room` goes to `…/meet` **if they have already set
+readiness for this event**, and to `…/ready` otherwise.
+
+*"Already set" means a readiness value was committed for this member — i.e. they pressed
+`Continue` at least once in this event.* It does **not** mean the slider sits somewhere:
+`ready-page.tsx` cannot distinguish untouched from deliberately-left-at-Neutral (its own
+`touched` flag exists for exactly that reason), so slider position is not a usable signal.
+A committed row is.
+
+The consequence, recorded because it was chosen with eyes open: the room link lands
+different people on different screens, so *"open the room link and set your readiness"*
+stops being true for anyone on their second visit. Readiness stays changeable from
+`…/meet` by going back.
+
+**Blind-reviewer reference.** The live `/ready` and `/meet` pages, captured at 320px,
+375px and desktop at review time. The reference is the shipped product itself, so it
+cannot drift from it. The reviewer receives those six images, the six matching room
+images, and the empty state — and **never** the diff, the spec, or any statement of
+intent.
+
 
 ## Risks / Non-Goals
 
@@ -931,6 +998,80 @@ colliding with an unrelated feature's key.
 - `src/app/types/index.ts` — `EventRoomMember` type
 - `docs/technical/database.md` — document the two new tables (pattern: existing
   `event_practice_rooms` entry at line 74)
+
+## Verification Contract
+
+**Pinned to main.** The gate reads this section from `main`, never from the branch it is
+judging — otherwise a loop can delete the row it is about to fail. Adding a heading inside
+this section breaks the digest; put new prose above it.
+
+**33 Done-When and Acceptance-Criteria lines: 30 MECHANICAL, 2 COMPARABLE, 1 HUMAN-ONLY.**
+HUMAN-ONLY is 3% — well under goalify's 25% refusal bar.
+
+| line | class | decided by | artifact |
+|---|---|---|---|
+| DW-gate copy verbatim, leaks nothing, register routes to the event page; DW-pages mirror shipped /ready and /meet; DW-roster above the bar, no duplicate decision control, no understanding number; DW-guest door gone from the room but intact in /live; DW-compact layout on all three routes; DW-tab bar above the event card; DW-Practice Rooms outside any tab | MECHANICAL | `npx vitest run src/tests/p1114-room-composition.test.tsx` | src/tests/p1114-room-composition.test.tsx |
+| DW-anon holds no EXECUTE on the four RPCs; DW-no anon table grant; DW-no client_secret in the client path; DW-no room identity in localStorage | MECHANICAL | `npx vitest run src/tests/p1114-no-anon-surface.test.ts` | src/tests/p1114-no-anon-surface.test.ts |
+| DW-the room's freeze boundary stays pinned to EVENT_GRACE_HOURS | MECHANICAL | `npx vitest run src/tests/p1114-grace-hours-sync.test.ts` | src/tests/p1114-grace-hours-sync.test.ts |
+| DW-shared components are reused, not re-reinvented (guard survives the split) | MECHANICAL | `npx vitest run src/tests/p1114-shared-component-reuse.test.tsx` | src/tests/p1114-shared-component-reuse.test.tsx |
+| DW-whole unit suite green — the regression baseline for everything above | MECHANICAL | `npx vitest run` | package.json |
+| AC-a signed-out visitor is turned away at every door and learns nothing about the room; AC-a signed-in but unregistered person is turned away too; DW-no name field on any room route; DW-no footer on either page | MECHANICAL | `npx playwright test e2e/p1114-gate.spec.ts` | e2e/p1114-gate.spec.ts |
+| DW-roster shows opt-ins only; DW-realtime update without reload; DW-answer changeable with history retained; DW-cascade counter; DW-freeze behaviour; DW-cap does not block; DW-no event_rsvps row written; DW-org member not auto-opted-in; DW-roster degrades to a static list | MECHANICAL | `npx playwright test e2e/p1114-event-room.spec.ts` | e2e/p1114-event-room.spec.ts |
+| DW-schema, RLS and RPC contracts hold under a real database | MECHANICAL | `npx playwright test e2e/integration/p1114-db-schema.spec.ts e2e/integration/p1114-room-rpcs.spec.ts` | e2e/integration/p1114-*.spec.ts |
+| DW-row-level RLS filtering of realtime still holds (the load-bearing canary) | MECHANICAL | `npx playwright test e2e/integration/p1114-realtime-payload.spec.ts` | e2e/integration/p1114-realtime-payload.spec.ts |
+| DW-standalone /ready and /meet behave identically to before this spec | MECHANICAL | `npx playwright test e2e/p1077-ready.spec.ts e2e/p1016-meeting-terms.spec.ts e2e/p1083-ready-distribution.spec.ts` | e2e/p1077-ready.spec.ts, e2e/p1016-meeting-terms.spec.ts, e2e/p1083-ready-distribution.spec.ts |
+| DW-tab selection lives in the URL; one Back press moves one tab | MECHANICAL | `npx playwright test e2e/p1114-event-room.spec.ts --grep "tab"` | e2e/p1114-event-room.spec.ts |
+| AC-the two room pages are recognisably the same pages as /ready and /meet, at 320/375/desktop | COMPARABLE | blind-reviewer | features/verification/p1114/review-round-*.md |
+| AC-a person can tell who has opted in without asking anyone; the roster reads as people, not a list | COMPARABLE | blind-reviewer | features/verification/p1114/review-round-*.md |
+| DW-no `it.fails` marker survives — the red-first tests assert for real, not merely expect to fail | MECHANICAL | `bash -c '! grep -rqn "it\.fails" src/tests/p1114-room-composition.test.tsx src/tests/p1114-no-anon-surface.test.ts'` | src/tests/p1114-*.test.ts* |
+| AC-the gate copy is the right thing to say to someone standing outside | HUMAN-ONLY | founder | — |
+
+### The blind reviewer
+
+**It must not be the agent that built the thing.** That is the one durable constraint here:
+every defect in the two rejected builds was found by someone given renders and nothing else,
+and every rejected version had already passed its own implementer's review.
+
+**Given:** twelve images — the live `/ready` and `/meet` at 320px, 375px and desktop (the
+named reference, captured at review time so it cannot drift from the shipped product), and
+the room's `…/ready` and `…/meet` at the same three widths — plus the roster's empty state.
+
+**Forbidden:** the diff, the spec, the rationale, this contract, and any statement of what
+the build was trying to do.
+
+**Writes** `features/verification/p1114/review-round-N.md` itself: `VERDICT: PASS|FAIL`, then
+one `SCREENSHOT: <sha256>  <path>` line per image judged. The gate re-hashes every image
+itself and never trusts a hash it is handed.
+
+### Evidence
+
+| file | holds |
+|---|---|
+| `contract.sha256` | the pin |
+| `review-round-N.md` | the verdict and the image hashes |
+| `assumptions.md` | every call the loop made alone. There is no escalation clause — the agent decides, logs, continues |
+| `feedback.md` | **two numbers**: corrections given, and turns consumed. Quality bought with runaway spend reads as success on a one-axis scoreboard |
+
+### Red-first (run 2026-08-20, before the loop existed)
+
+| command | result |
+|---|---|
+| `npx vitest run src/tests/p1114-room-composition.test.tsx` | **13 failed, 1 passed** — the pass is `/live` still importing `GuestOrAccountJoin`, which must stay green throughout |
+| `npx vitest run src/tests/p1114-no-anon-surface.test.ts` | **3 failed, 1 passed** — the pass is the absence of anon *table* grants, already true |
+| `npx playwright test e2e/p1114-gate.spec.ts` | **unproven at pin time** — needs a seeded fixture event and a running dev server; flagged rather than counted as evidence |
+
+Two of the three commands were watched failing for the right reason. The third is flagged
+**unproven**: a check nobody has seen fail is not a check, and saying so is cheaper than
+discovering it later.
+
+**The `it.fails` caveat, stated rather than buried.** The two vitest files are committed under
+this repo's `it.fails` convention (P835/P895) so `npm test` stays green while the build is
+outstanding. While that marker is present those commands exit 0 over assertions nobody has
+satisfied — a vacuous green. The row above is what closes it: the gate cannot pass until every
+`.fails` is gone, at which point the assertions are load-bearing for real. Two tests carry no
+marker at all, because they are already true and must stay true: `/live` keeping its
+guest-join import, and the absence of anon table grants.
+
 
 ## Test Coverage Strategy
 
