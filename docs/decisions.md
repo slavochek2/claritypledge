@@ -4,6 +4,105 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [process]: `/pick-flow` push-back measured by hand — the rate is not distinguishable from the regex estimate, but the *direction* reversed in May and the skill is barely used any more
+
+**Context:** P1127 phase 1. Three earlier probes of the transcript corpus disagreed (292 vs 252
+invocations) and a regex classifier put founder push-back at 14%, which a reviewer argued was a
+floor. Phase 1 rebuilt the frame structurally and hand-classified a seeded random sample, with an
+independent blind re-classification as a reliability check.
+
+**The frame.** A genuine invocation is a transcript line that is `type: user`, not `isSidechain`,
+not `isMeta`, `promptSource` not in `{sdk, system}`, whose text survives stripping of
+`<system-reminder>` / `<task-notification>` / `<command-*>` / hook-context wrappers and is not a
+compaction summary or `<teammate-message>` — **or** an assistant `Skill` tool_use of
+`slava:build:pick-flow`. Events within 6 lines merge. **365 events, 2026-02-24 to 2026-08-20.**
+The two channels reconcile exactly: 83 skill-only + 60 both = 143 = the independent `Skill`
+tool_use count.
+
+*Structural fields, not prose heuristics, are what separate a founder turn from an injected one.*
+`isMeta: true` marks injected skill bodies (456 of them carry the string); `promptSource: "sdk"`
+marks agent prompts. **`isSidechain` is a no-op here — zero sidechain lines contain the string** —
+so the exclusion the spec proposed would have removed nothing. The 292-vs-252 gap is explained by
+injected context, not by resumed-session forking: a dedup pass finds **0 cross-file duplicate
+events**, only 3 same-session re-invocations (365 → 362, monthly shape unchanged).
+
+**Three spec premises were wrong.** (1) The corpus begins **2026-02-24**, not 2026-04-02, so a
+pre-v2 window does exist. (2) The two worktree project dirs contain `/pick-flow` **only in
+`attachment` lines** — zero founder invocations — so the Done-When warning that globbing one
+directory "silently drops worktree sessions" does not hold. (3) `entrypoint` is absent in
+pre-March transcripts; filtering on it silently deleted the entire February corpus in the first
+build of this frame — the same class of error as the three probes before it, caught by a control
+run, not by inspection.
+
+**Decision:** Record the following as the phase 1 result.
+
+**Rate — and the claim it does *not* support.** 50 events drawn with
+`random.Random(1127).sample(pool, 50)` over the 364 events with a genuine founder reply, pool
+sorted by `(ts, file, idx)`. 35 were eligible (a recommendation was produced *and* a real reply
+followed); 15 were not (9 no-recommendation, 4 prose-about-the-skill, 2 junk replies).
+
+| denominator | rate | 95% CI (Wilson) |
+|---|---|---|
+| eligible events (35) | 25.7% (9) | 14.2 – 42.1% |
+| all sampled turns (50) — the regex probe's denominator | 18.0% (9) | 9.8 – 30.8% |
+
+**The 14% regex estimate falls inside both intervals.** The hand point-estimate is higher, but
+**n=50 cannot establish that 14% is too low**, and the spec's "14% is a floor, not a ceiling"
+remains *unproven* rather than confirmed. Sizing a sample to settle that would need a stated
+precision target, which the spec deliberately declined to set.
+
+**Reliability.** An independent rater classified the same items blind from raw text. On the 46
+items where both had the same option set: **40/46 = 87% exact agreement**, and **14/14 = 100% on
+direction** (add vs remove). All five disagreements were adopted after re-reading — three were
+`/kdd` appended as closing bookkeeping (accept, not contested rigor), one was `"ok lets do , after
+/verify"` which reads equally as sequencing behind an in-flight `/verify` (unclear), and one had
+its push-back in the *invocation* turn rather than the measured reply. The remaining five
+"disagreements" were an artifact of my own prompt, which gave the blind rater no ineligible option.
+**Both raters independently land on 9.**
+
+**The direction reversed — this is the load-bearing finding.** Pre-May sample: **9 add : 0 remove**.
+All 16 post-April events then read as a census: **2 add : 3 remove**, the removes being *"that
+overlkill dont you think that ux and ui is strangithrosw4rd?"*, *"our ux and ui are shit … we
+deprecitate them"*, and *"but tits too much? … why we need deocmpose and architect and tests anc
+hcallenge? makes no sense"*. Fisher exact, one-tailed, that all three removes fall in the
+post-April group: **p = 0.0125**. The spec's title premise — *the founder adds back the steps it
+drops* — was true in February–April and is **not** true after it.
+
+**Where the adds concentrate.** 6 of 9 named a step the recommendation never mentioned at all; where
+it enumerated what it was skipping and why, the founder mostly accepted. 8 of 9 sit in the `src/`
+family — the path class **no** skip clause in the skill covers, confirming RQ6's live question.
+A per-version era table is **not separable at n=50** (cells of 26 / 5 / 4 / 9 across
+pre-v2 / v2 / v3 / v3.1); only the pooled pre-May vs post-April split resolves.
+
+**`/pick-flow` was largely abandoned after April.** As a share of all founder turns that month:
+2.54% (Mar), 1.25% (Apr), then 0.11 / 0.12 / 0.06 / 0.24% (May–Aug). Control: total founder turns
+did *not* collapse comparably (7,388 in April vs 1,900–4,838 after) — a ~10–20× drop in **rate**,
+not in activity. 87% of all invocations ever are Feb–Apr.
+
+**Alternatives rejected:** Reporting one push-back rate. Two denominators are required because the
+regex probe counted every turn while only 70% of turns carry a recommendation to push back on;
+quoting one against the other compares different populations. Also rejected: dropping the
+inter-rater pass and reporting 13/35 = 37% — that was the pre-reconciliation number, and three of
+its four extra cases were `/kdd` bookkeeping.
+
+**Consequences:** The spec's stopping rule was *"stop if the confirmed push-backs do not concentrate
+on a nameable cause."* They do — on **steps the recommendation never named** — so phase 2 is
+warranted. But its premise must be inverted: the fix is **not** to add steps back by default (the
+founder now removes them), it is to make every omission *visible* so it can be declined rather than
+discovered. Two facts bound what phase 2 is worth: the skill is invoked a handful of times a month
+now, and the pending P1116 `/pick-flow` edit (this file, *"Status: proposed"*) still blocks phase 2
+by the spec's own Non-Goal.
+
+**Reproduce:** `scripts/archive/migrations/20260820-p1127-pickflow-frame.py` (frame build + seeded
+draw + Wilson/Fisher); classifications in `.private/docs/p1127-classification.json`.
+
+**References:** [features/p1127_pick_flow_under_recommends_measure_then_fix.md](../features/p1127_pick_flow_under_recommends_measure_then_fix.md)
+· decisions.md 2026-04-02 (quality-by-default inversion) · 2026-04-05 (v3, principles over tables)
+· 2026-06-10 (v3.1) · 2026-08-19 (hand-sample overturning a frequency premise)
+· [.claude/commands/slava/build/pick-flow/SKILL.md](../.claude/commands/slava/build/pick-flow/SKILL.md)
+
+---
+
 ## 2026-08-20 [process]: The exit-code lesson was recorded, committed, and repeated twenty minutes later
 
 **Context:** A decision entry was written this session about losing a command's verdict to a pipe —
