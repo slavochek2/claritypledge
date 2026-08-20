@@ -5,8 +5,8 @@ rank: 2
 workstream: events
 created_date: '2026-08-18'
 tags: [agents, trust, points, identity]
-delivery_stage: uat
-pipeline_ran: [create-spec, architect, generate-tests, dev, adversarial-review]
+delivery_stage: ship
+pipeline_ran: [create-spec, architect, generate-tests, dev, adversarial-review, ship]
 uat_file: features/uat/p1104.md
 test_files:
   - e2e/integration/p1104-agent-accounts-migration.spec.ts
