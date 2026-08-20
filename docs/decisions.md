@@ -59,6 +59,24 @@ is not a verdict (`/decompose` at 8 genuinely applies to few specs; `/ux` at 7 i
 identical in the table, opposite in meaning), and a **graduation rule** — opted into and kept three
 times running, and the step is no longer bottom-tier.
 
+**Two further defects, caught by self-running the review lines the spawned critic never returned.**
+
+**The narrowed `/ux` trigger was the only subjective test among countable ones.** Its neighbours are
+*"DB schema changes or new data model"*, *"5+ files or 3+ independent concerns"*, *"spec is stale
+(>14 days)"* — all checkable. *"A design decision is still open"* is not, and an agent can argue it
+either way. It now has to **produce an artifact**: write the unresolved question as a sentence
+(*"what does the empty state show?"*, *"which of the two layouts?"*) into the Risks line. If you
+cannot write the sentence, the design is settled and `/ux` does not go in.
+
+**`/ux` was accidentally double-gated** — a narrowed trigger *and* the under-10-runs demotion. At 7
+runs it would have gone to zero without anyone deciding it should, which is the same silent-omission
+failure this change exists to fix. A count and a trigger are now explicitly **one test**: if a
+bottom-tier step's trigger fired on a *named, written-down* open decision, it is in, and the count
+does not demote it again. The count only argues against steps included on vague grounds.
+
+`polish.md` also still routed new visual surfaces to `/view` in two places; both now point at
+`/ux` + `/verify` and name `/view` as retired-from-routing but runnable on request.
+
 No dependent needed changing, precisely because `/view` was removed from *routing* rather than
 deleted: `dev.md`'s `view_locked` handling, `polish.md`'s explicit-request pointer, and `src.md`'s
 proto-route cleanup all still work.
