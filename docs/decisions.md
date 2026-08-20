@@ -4,6 +4,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [technical]: Row-level RLS DOES filter Realtime `postgres_changes` — the question P1057 measured only for columns and explicitly declined to generalise (P1114)
+
+**Context:** P1114's core privacy guarantee is *"opt-ins are shown, opt-outs are never shown."* That cannot be a UI rule — anyone with the anon key reads the table directly, and `postgres_changes` broadcasts row payloads to every subscriber regardless of what a component chooses to render. The design therefore rests on one assumption: that a restrictive `SELECT` policy (`USING (opted_in = true)`) governs the realtime channel as well as REST. [decisions.md](decisions.md) 2026-08-17 [technical] (P1057) measured the **column**-level case and closed with *"This does NOT generalise to row-level questions."* Nobody had measured the row-level case. An earlier draft of the P1114 spec cited that entry as if it had, with the wrong date attached — caught before implementation, and the assumption was labelled `UNVERIFIED` in the spec with a named falsifier and a rollback path.
+
+**Decision:** Answered by measurement, not documentation. `e2e/integration/p1114-realtime-payload.spec.ts` ran green **three consecutive times, no retries, no flakes**, asserting both directions: an `opted_in = false` row never appears in a received payload, and an UPDATE flipping `true → false` never delivers the new state. Modelled on P1057's canary, including the two properties that make its green mean anything — a **live control** row on the same channel, poked identically, whose silence fails the test loudly; and a re-fired trigger loop, because `SUBSCRIBED` means joined, not forwarding. `event_room_members` stays in the `supabase_realtime` publication.
+
+**Alternatives rejected:** Shipping on the assumption — the spec's own `UNVERIFIED` block existed precisely to stop that. Pre-emptively taking the P1048 route (drop the table from the publication, drive the roster from the 30s reconciliation poll) — that was written down as the rollback if the canary went red, and the canary did not.
+
+**Consequences:** Row-level RLS is now a **verified** control on both REST and Realtime for this project, so a restrictive read policy can be relied on as a privacy boundary without also editing publication membership. It remains a **measurement, not a vendor guarantee** — the same standing rule P1057 set for its grant now applies here: **any future change to this table's `SELECT` policy silently changes what Realtime delivers**, with no error anywhere, so the canary must be kept in step with the policy. It does not retire P1048's rule that every delivery surface must be enumerated; one more surface simply has an answer instead of a promise. Note the asymmetry that makes this cheap to lose: the failure mode is silent, visible only to whoever is subscribed, and no test outside this canary would go red.
+
+**References:** [features/p1114_event_room_presence_and_cmp_opt_in.md](../features/p1114_event_room_presence_and_cmp_opt_in.md) Decision 2 · `e2e/integration/p1114-realtime-payload.spec.ts` · `supabase/migrations/20260819160000_p1114_event_room_tables.sql` · decisions.md 2026-08-17 [technical] (P1057, the column-level half) · decisions.md 2026-08-13 [technical] (P1048, publication membership) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b
+
+---
+
+## 2026-08-20 [technical]: A single append-only table cannot satisfy "current state is X" under an RLS filter — the superseded row still matches the policy (P1114)
+
+**Context:** P1114 needs both a person's **current** opt-in state and the **full history** of their answers, because the in-room flip from opted-out to opted-in after watching the norm work is the conversion signal the feature exists to measure. Storing only current state overwrites it permanently. The obvious shape is one append-only table with a `USING (opted_in = true)` read policy, and the spec's own Appetite asked for **one new table**.
+
+**Decision:** Two tables. `event_room_members` holds current state, mutated in place, and is the only client-readable surface. `event_room_answers` is append-only history plus the cascade counter — service-role only, no client grant at all, never in the realtime publication. Recorded as a **flagged deviation** from the spec's stated Appetite rather than a silent one.
+
+**Alternatives rejected:** Pure event-sourcing with latest-row-wins, and a single table with an `is_current` flag. Both are **incorrect**, not merely less tidy: a naive `opted_in = true` filter on either still returns the person's **stale opted-in row** after they later opted out, because that row continues to satisfy the policy. The privacy guarantee would read as enforced while leaking exactly the state it promised to hide.
+
+**Consequences:** Generalisable beyond this feature: **whenever an RLS policy expresses "current state is X" over a table that also retains superseded rows, the policy is wrong by construction** — the filter matches history as readily as the present. Either split current state from history, or make the policy exclude superseded rows explicitly; do not rely on the value alone. This is the row-level sibling of the 2026-08-17 P1083 finding that row policies say nothing about which columns a client may set.
+
+**References:** [features/p1114_event_room_presence_and_cmp_opt_in.md](../features/p1114_event_room_presence_and_cmp_opt_in.md) Decision 6 · `supabase/migrations/20260819160000_p1114_event_room_tables.sql` · decisions.md 2026-08-17 [technical] (P1083, column-grant sibling)
+
+---
+
 ## 2026-08-20 [process]: Adversarial review corrected the headline claim and left the evidence beneath it unchecked
 
 **Context:** P1126 had already been through `/adversarial-review`, and the review worked: it
