@@ -6,6 +6,71 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-20 [process]: Two checks that silently did not run — a canary dropped from its own trigger, and a close gate no `/dev` spec can satisfy
+
+**Context:** Closing P1116 surfaced two independent instances of the same failure shape: a
+check that is present, passes, and never actually runs.
+1. The pre-commit trigger for P1116's three canaries listed four script names and factored
+   the extension out to a trailing `\.py` — silently dropping `test-route-brief.sh`, a bash
+   file among Python ones. Staging only that canary ran **none** of the three, green. Found
+   by line-level code review *after* a five-reviewer adversarial pass had finished.
+2. `git-ops.sh ship`'s no-branch (direct-to-main) closure gate greps main for a commit
+   subject carrying `pN` **and "ready for QA"** (`git-ops.sh:2147`). `/fix` emits exactly
+   that (`fix.md:625`); **`/dev` emits "ready for UAT"** (`dev.md:773`). Both strings exist
+   in main's history, split by which skill produced them.
+
+**Decision:** Spell extensions per name in any multi-file trigger regex — never factor one
+out across names of differing type. And treat a literal string shared between two skills and
+a script as a contract that needs a single source or a test; today it has neither.
+
+**Alternatives rejected:** Adding a canary case for #1 — **a canary cannot detect that it was
+never invoked**, which is precisely why line-level review is not redundant with adversarial
+review. They fail in different directions and neither substitutes for the other.
+
+**Consequences:** #1 is fixed. **#2 is open and blocks every future `/dev`-built
+direct-to-main spec from closing** — the exact path P1116 mandates, since a hook edited in a
+worktree is not the hook that runs. Worked around once by using the string the script
+requires, with the mismatch recorded rather than silently conformed to. Related:
+`ship.md:160` tells you not to run `/ship` at all when on main with no branch, contradicting
+the P920 arm built to do that closure. **Status: proposed** — no spec filed for either.
+
+**References:** `scripts/git-ops.sh:2147` · `.claude/commands/slava/build/dev.md:773` ·
+`.claude/commands/slava/build/fix.md:625` · `.claude/commands/slava/build/ship.md:160` ·
+[features/done/2026-06-10/p1116_mechanize_the_unenforced_rules.md](../features/done/2026-06-10/p1116_mechanize_the_unenforced_rules.md)
+
+---
+
+## 2026-08-20 [process]: `core.bare = true` recurred a third time — and the likeliest source is this repo's own canary runs, not a co-tenant
+
+**Context:** Mid-session every working-tree git command began failing with "must be run in a
+work tree" while `git log` kept working — the exact split documented on 2026-08-11. Third
+recorded occurrence (2026-04-22, 2026-08-11, today). I initially attributed it to a review
+subagent that had run real git commands in this checkout. **That attribution was wrong and
+the log already said so:** the 2026-04-22 entry names the suspected cause as canary
+invocations with `GIT_DIR` set. This session ran three canaries dozens of times plus several
+`git init` temp-repo fixtures — a far better match than a co-tenant.
+
+**Decision:** On the next occurrence, run `git config --list --show-origin | grep bare`
+*before* fixing, to finally identify which config layer receives the write — the diagnostic
+the 2026-04-22 entry asked for and no occurrence since has performed, including this one.
+Recurrence alone is now sufficient evidence to stop treating it as a mystery.
+
+**Alternatives rejected:** Recording it again as an unexplained incident — three occurrences
+across four months with the diagnostic never run is not a mystery, it is an unperformed
+check.
+
+**Consequences:** Restored with `git config core.bare false`; nothing lost. **Process miss
+worth naming: the 2026-08-11 entry says to confirm with the founder before changing shared
+repo config (git-safety JUDGMENT tier), and this session did not** — it fixed unilaterally
+because every session on the checkout was blocked. Right outcome, skipped step. Any canary
+or fixture that shells out to `git` in a temp repo should `unset GIT_DIR GIT_WORK_TREE`
+first. **Status: proposed** — no canary hardening done.
+
+**References:** this file, 2026-04-22 [technical] "`git config core.bare=true` mystery" and
+2026-08-11 [process] "`git status`/`rev-parse` silently broke"
+
+---
+
 ## 2026-08-19 [process]: A per-session setting silently overrode a repo flow rule, and the agent knew both facts and built anyway
 
 **Context:** P1116 shipped three mechanisms into the always-on layer (a git-command guard, a
