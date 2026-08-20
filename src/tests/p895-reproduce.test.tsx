@@ -120,6 +120,10 @@ vi.mock('@/lib/mixpanel', () => ({
     setUserProperties: vi.fn(),
     reset: vi.fn(),
   },
+  // P1133: AuthCallbackPage also imports isInternalAccount — stub it so the
+  // module shape matches; this test's assertions are about which analytics
+  // event fires, not about internal-account tagging.
+  isInternalAccount: vi.fn(() => false),
 }));
 
 // -----------------------------------------------------------------------------

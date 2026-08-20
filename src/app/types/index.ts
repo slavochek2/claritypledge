@@ -53,6 +53,7 @@ export interface Profile {
   bio?: string | null; // P414: Optional self-description, max 160 chars
   bannerUrl?: string; // P504: AI-generated profile banner image
   bannerGenerationAttempted?: boolean; // P504: Whether banner generation was attempted
+  isTestAccount?: boolean; // P1133: plumbed through for Mixpanel is_internal tagging
 }
 
 /**

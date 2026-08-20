@@ -138,6 +138,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Identify user in analytics on session restore (returning users)
           // This ensures Mixpanel knows who the user is even without going through magic link
           analytics.identify(userId);
+          // P1133: is_internal is NOT re-set here. It's a Mixpanel People property
+          // (people.set), which is persistent current-state — once AuthCallbackPage
+          // sets it at login, it stays on the profile. Re-setting it here on every
+          // page load would be a redundant network call, and would trust
+          // profile.email (user-writable via upsert_my_profile, unverified against
+          // auth.users) instead of the session's authenticated email.
         } else if (previousUserRef.current === null) {
           // Profile not found and we have no cached user - this is a new/deleted user
           setUser(null);

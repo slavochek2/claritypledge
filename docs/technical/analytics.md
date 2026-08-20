@@ -1011,11 +1011,29 @@ Properties set on the user profile in Mixpanel (via `analytics.setUserProperties
 | `created_at` | string | ISO timestamp of profile creation | Auth callback |
 | `has_pledged` | boolean | Whether user signed the pledge (P50) | Auth callback |
 | `registration_source` | string | How user registered: `pledge`, `signup`, `live`, or `returning` (P64) | Auth callback |
+| `is_internal` | boolean | True for known non-customer accounts — `is_test_account`-flagged profiles, any `@claritypledge.com` email, or a hashed email in `VITE_INTERNAL_ACCOUNT_EMAIL_HASHES` (P1133) | Auth callback only |
 
 These properties enable segmentation in Mixpanel:
 - **Pledgers vs Non-pledgers**: Filter by `has_pledged`
 - **Registration cohorts**: Group by `registration_source`
 - **Profile completeness**: Filter by `has_role`, `has_linkedin`
+- **Customer-only funnels**: Filter `is_internal != true` — without this, founder/test/service
+  account activity can look like real signup-funnel activity (P1133). Three coverage gaps to know
+  before trusting a query:
+  1. **Anonymous/pre-login events carry no `is_internal` at all, in any time window.** It's a
+     Mixpanel *People* property, which requires `identify()` first — every pre-login pageview
+     (e.g. `/signup` views before the visitor authenticates) is structurally untaggable, not just
+     historically untagged. This is usually the widest part of a funnel.
+  2. **Events recorded before this property shipped are untagged**, and — because it's a People
+     property, not an event property — it's also not retroactive the other way: an already-signed-in
+     user's People profile only gets `is_internal` set the next time they complete a fresh
+     magic-link/OAuth login, not on their next ordinary page load with a persisted session.
+  3. **A real customer given a `@claritypledge.com` address (design partner, certifier, future
+     employee) is classified internal by construction**, silently — there's no separate signal.
+     `isInternalAccount()` logs a console warning in production whenever the domain branch (not
+     `is_test_account`) is what matched, specifically so this is auditable rather than invisible.
+  When in doubt, cross-check a `is_internal != true` result against `auth.users`/`profiles`
+  directly rather than trusting the filter alone for anything that matters.
 
 ---
 

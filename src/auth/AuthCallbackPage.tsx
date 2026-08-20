@@ -30,7 +30,7 @@ import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import * as Sentry from "@sentry/react";
-import { analytics } from "@/lib/mixpanel";
+import { analytics, isInternalAccount } from "@/lib/mixpanel";
 import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId, isValidUUID } from "@/lib/auth-gate-utils";
 import { pointsService } from "@/app/data/points-service";
 import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
@@ -264,6 +264,10 @@ export function AuthCallbackPage() {
             witnesses: [],
             reciprocations: 0,
             pledgeVersion: profileByEmail.pledge_version,
+            // P1133: without this, a /live migration silently drops is_test_account
+            // (the delete+upsert below never carries it), so a test account loses
+            // its is_internal tagging the moment it migrates.
+            isTestAccount: profileByEmail.is_test_account ?? false,
           };
         }
       }
@@ -513,17 +517,31 @@ export function AuthCallbackPage() {
       // Fire analytics async — don't block the redirect on network I/O
       const registrationSource = source || (isReturningUser ? 'returning' : 'pledge');
       analytics.identify(authUser.id);
-      analytics.setUserProperties({
-        email: authUser.email,
-        name,
-        has_role: !!upsertData.role,
-        has_linkedin: !!upsertData.linkedin_url,
-        profile_slug: slug,
-        created_at: new Date().toISOString(),
-        has_pledged: hasPledged,
-        registration_source: registrationSource,
-        auth_method: isGoogleAuth ? 'google' : 'magic_link',
-      });
+      // P1133: is_internal needs an async hash lookup (isInternalAccount), so its
+      // setUserProperties call is deferred into this detached IIFE — best-effort,
+      // never awaited, never allowed to throw into the caller. This file is the
+      // only writer of new profiles; a stall here must not strand the user.
+      void (async () => {
+        let isInternal = false;
+        try {
+          isInternal = await isInternalAccount(authUser.email, existingProfile?.isTestAccount);
+        } catch (err) {
+          console.warn('⚠️ isInternalAccount failed (non-fatal):', err);
+        }
+        analytics.setUserProperties({
+          email: authUser.email,
+          name,
+          has_role: !!upsertData.role,
+          has_linkedin: !!upsertData.linkedin_url,
+          profile_slug: slug,
+          created_at: new Date().toISOString(),
+          has_pledged: hasPledged,
+          registration_source: registrationSource,
+          auth_method: isGoogleAuth ? 'google' : 'magic_link',
+          // P1133: exclude known non-customer accounts from funnel numbers
+          is_internal: isInternal,
+        });
+      })();
       analytics.track(isReturningUser ? 'login_complete' : 'profile_created', {
         slug,
         has_role: !!upsertData.role,

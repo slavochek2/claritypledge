@@ -568,12 +568,20 @@ function mapProfileSummaryFromDb(
 }
 
 /**
- * A private helper function to map data from the database (snake_case) to the frontend-friendly `Profile` interface (camelCase).
+ * Maps data from the database (snake_case) to the frontend-friendly `Profile` interface (camelCase).
  * It also ensures a valid slug exists, generating one from the user's name if necessary.
+ * Applies zero validation — feed it output from the P877 SECURITY DEFINER accessors
+ * (get_profile_by_id, get_profile_by_slug, etc.), never a raw `profiles.select()` row;
+ * those column-gated rows won't carry email, and this function will silently coalesce
+ * it to ''.
  * @param dbProfile - The database profile row
  * @param reciprocations - Count of profiles where this user is a witness (how many people they've inspired)
  */
-function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Profile {
+// P1133: exported (was module-private) so isTestAccount plumbing can be
+// unit-tested as a pure function, without mocking Supabase (see
+// src/tests/events-api.test.ts's precedent for why). Test-only export — no other
+// caller exists in src/, e2e/, or scripts/ as of this writing.
+export function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Profile {
   // P50: Preserve null slugs for /live users who haven't verified yet
   // Only use DB slug - do NOT auto-generate from name
   // Null slug means user hasn't completed verification/pledge flow
@@ -607,6 +615,7 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     bio: dbProfile.bio ?? null, // P414: Short self-description
     bannerUrl: dbProfile.banner_url ?? undefined, // P504: AI-generated profile banner
     bannerGenerationAttempted: dbProfile.banner_generation_attempted ?? false, // P504
+    isTestAccount: dbProfile.is_test_account ?? false, // P1133: Mixpanel is_internal tagging
   };
 }
 
