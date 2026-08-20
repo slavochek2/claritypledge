@@ -13,17 +13,10 @@
  * a grant that is still written in a migration is a grant that still ships.
  */
 /**
- * RED-FIRST, via this repo's `it.fails` convention (P835/P895). Every assertion below is
- * written before the build and currently fails, so `it.fails` keeps `npm test` green until
- * the build lands — and flips the test RED the moment the behaviour becomes correct, forcing
- * whoever fixes it to delete the `.fails` and lock the assertion in.
- *
- * That convention opens a hole: while `.fails` is present, `npx vitest run <this file>` exits
- * 0 over assertions that are not actually satisfied. The Verification Contract closes it with
- * its own row — no `.fails` marker may survive in any p1114 test file — so the gate cannot go
- * green on a suite that is passing only because it expects to fail.
- *
- * The tests NOT marked `.fails` are the ones already true and required to stay true.
+ * Was RED-FIRST via this repo's red-first-marker convention (P835/P895) — every
+ * assertion below was written before the build and marked to expect failure until the
+ * build landed. The build has landed and every marker is gone: these assertions are
+ * now real, permanently-passing locks on the closed surface, not placeholders.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -42,7 +35,7 @@ function roomMigrations(): { name: string; sql: string }[] {
 }
 
 describe('P1114 rev2: no unauthenticated database surface', () => {
-  it.fails('grants EXECUTE on none of the four room RPCs to anon', () => {
+  it('grants EXECUTE on none of the four room RPCs to anon', () => {
     for (const { name, sql } of roomMigrations()) {
       for (const line of sql.split('\n')) {
         if (!/GRANT\s+EXECUTE/i.test(line)) continue;
@@ -68,7 +61,7 @@ describe('P1114 rev2: no unauthenticated database surface', () => {
     }
   });
 
-  it.fails('keeps no bearer secret in the client read/write path', () => {
+  it('keeps no bearer secret in the client read/write path', () => {
     const service = readFileSync(join(process.cwd(), 'src/app/data/event-room-service.ts'), 'utf-8');
     expect(
       /client_secret|clientSecret/.test(service),
@@ -76,7 +69,7 @@ describe('P1114 rev2: no unauthenticated database surface', () => {
     ).toBe(false);
   });
 
-  it.fails('stores no room identity in localStorage', () => {
+  it('stores no room identity in localStorage', () => {
     const service = readFileSync(join(process.cwd(), 'src/app/data/event-room-service.ts'), 'utf-8');
     expect(
       /localStorage/.test(service),

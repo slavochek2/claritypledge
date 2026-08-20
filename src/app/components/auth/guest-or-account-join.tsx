@@ -46,9 +46,10 @@ export interface GuestOrAccountJoinProps {
 
 /**
  * The two-door join UI: Google sign-in / "Log in with email" above a divider, guest
- * name field + "Join as Guest" below. Renders identically wherever it's used — the
- * room reusing this is what P1114's `EventRoomPage` fix is for (see
- * `features/p1114_event_room_presence_and_cmp_opt_in.md` UI Contract).
+ * name field + "Join as Guest" below. Renders identically wherever it's used. P1114
+ * extracted this out of clarity-live-page.tsx; the event room does NOT reuse it as
+ * of revision 2 (registration + sign-in gates the room instead — see
+ * `features/p1114_event_room_presence_and_cmp_opt_in.md`, Solution "REVISED (2)").
  */
 export function GuestOrAccountJoin({
   name,

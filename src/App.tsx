@@ -77,6 +77,9 @@ const LandingV3 = lazy(() => import("@/app/pages/landing-v3").then(m => ({ defau
 const LandingV4 = lazy(() => import("@/app/pages/landing-v4").then(m => ({ default: m.LandingV4 })));
 const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
+const EventRoomGate = lazy(() => import("@/app/prototypes/events/components/EventRoomGate").then(m => ({ default: m.EventRoomGate })));
+const EventRoomReady = lazy(() => import("@/app/prototypes/events/components/EventRoomReady").then(m => ({ default: m.EventRoomReady })));
+const EventRoomMeet = lazy(() => import("@/app/prototypes/events/components/EventRoomMeet").then(m => ({ default: m.EventRoomMeet })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
 const NotFoundPage = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundPage })));
@@ -904,6 +907,17 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}
+        {/* P1114 rev2: the three room routes, hoisted OUT of the /events/* wildcard
+            below (Solution, "REVISED (2)" — "/room collapses to the gate"). The
+            wildcard wraps everything in the full ClarityLandingLayout (marketing nav,
+            footer); these three mount under `compact` instead, same as the shipped
+            standalone /ready and /meet. Must be declared before the wildcard so React
+            Router's ranking never has to arbitrate — an explicit three-segment path
+            outranks `/events/*` regardless of declaration order, but keeping them
+            adjacent to the routes they hoist out of documents the relationship. */}
+        <Route path="/events/:slug/room" element={<ClarityLandingLayout compact><LazyRoute><EventRoomGate /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/ready" element={<ClarityLandingLayout compact><LazyRoute><EventRoomReady /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/meet" element={<ClarityLandingLayout compact><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />
         {/* PROD-REACHABLE: /events is a live, nav-linked production feature (events list + RSVP), not a prototype — never dev-gate it. */}
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
         {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}

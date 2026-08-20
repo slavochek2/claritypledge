@@ -128,8 +128,11 @@ const SCROLL_CUE_THRESHOLD_PX = 8;
  * The outlined navy treatment, shared by every non-committing action on this page:
  * "Opt out", the opt-out exit, and "End meeting". Identical box metrics to
  * PRIMARY_BUTTON_CLASS — only the fill differs.
+ *
+ * Exported: P1114's room /meet reuses this exact treatment for its own "Opt out" —
+ * same identical decision, same identical page.
  */
-const ANSWER_BUTTON_CLASS =
+export const ANSWER_BUTTON_CLASS =
   "min-h-[44px] py-4 text-base font-semibold border-2 border-[#002B5C] bg-transparent text-[#002B5C] hover:bg-[#002B5C]/10 dark:border-blue-400 dark:text-blue-400";
 
 /**

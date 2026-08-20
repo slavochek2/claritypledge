@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { EventRoomPage } from './EventRoomPage';
+import { EventRoomMeet } from './EventRoomMeet';
 import { renderMarkdownSafe } from '@/lib/markdown';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -34,7 +34,7 @@ import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
 import { PracticeRooms } from './PracticeRooms';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
 
@@ -374,6 +374,29 @@ export function EventDetail() {
           Events
         </Link>
 
+        {/* P1114 REVISED 2026-08-20: the tab bar sits directly under "← Events", above
+            the event card — the founder annotated "the menu should be here!" pointing
+            here. Tabs switch the whole page body below (the plain {activeTab === ...}
+            blocks further down), not a strip squeezed beneath the card. Page-level nav
+            uses the bare underline idiom (org-page.tsx), not a bg-card box. */}
+        <Tabs value={activeTab} onValueChange={handleEventTabChange} className="mb-6">
+          <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger
+              value="details"
+              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              Details
+            </TabsTrigger>
+            <TabsTrigger
+              value="cmp"
+              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+            >
+              Clarity Meeting Principle
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {activeTab === 'details' && (
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Column - Event Details */}
           <div className="flex-1">
@@ -658,45 +681,13 @@ export function EventDetail() {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* P1114 REVISED 2026-08-20: two tabs only — Details and Clarity Meeting
-            Principle. Deliberately OUTSIDE the two-column flex row above (title/RSVP/
-            description on the left, Organizer/Participants on the right keep their
-            existing shape, untouched) rather than nested inside the narrow `lg:w-96`
-            sidebar column: `flex-shrink-0` on that column stops it from shrinking, so
-            embedding EventRoomPage's own `max-w-3xl` layout inside it forced the whole
-            sidebar past its intended width (found via screenshot, not guessed) — full
-            width here is a forced correction, not a preference. Practice Rooms moves
-            from its own standalone sidebar card into the Details tab — the component
-            itself is untouched, only where it renders. The CMP tab is VISIBLE
-            UNCONDITIONALLY, no isLoggedIn gate (unlike Practice Rooms) — gating
-            protects nothing here (spec §4), and it embeds the same EventRoomPage the
-            standalone /meet route renders, so the tab and a shared projected link show
-            identical content.
-
-            Page-level nav uses the bare underline idiom (org-page.tsx), not a bg-card
-            box: both tab contents already bring their own card styling (PracticeRooms)
-            or full-page layout (EventRoomPage) — wrapping them in a second card
-            produced a card-inside-a-card look. */}
-        <Tabs value={activeTab} onValueChange={handleEventTabChange}>
-          <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
-            <TabsTrigger
-              value="details"
-              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-            >
-              Details
-            </TabsTrigger>
-            <TabsTrigger
-              value="cmp"
-              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-            >
-              Clarity Meeting Principle
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="details" className="pt-4">
-            {/* P406: Practice Rooms — P844: hidden for logged-out visitors */}
+            {/* P406: Practice Rooms — P844: hidden for logged-out visitors. P1114
+                REVISED 2026-08-20: back in its original position (founder-annotated
+                "leave it where it was!") — an earlier build moved it into the Details
+                tab, which was uninstructed scope creep on top of an already-shipped,
+                untouched component. It renders here unconditionally (not gated by
+                which tab is active), exactly as it does on main. */}
             {isLoggedIn && (
               <PracticeRooms
                 eventId={event.id}
@@ -705,11 +696,27 @@ export function EventDetail() {
                 currentUserName={user?.name ?? null}
               />
             )}
-          </TabsContent>
-          <TabsContent value="cmp" className="pt-4">
-            <EventRoomPage focus="principle" />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
+        )}
+
+        {/* P1114 REVISED 2026-08-20: the CMP tab renders the room's principle+roster
+            page, full width — deliberately NOT nested inside the narrow `lg:w-96`
+            sidebar column above: `flex-shrink-0` on that column stops it from
+            shrinking, so embedding EventRoomMeet's own layout inside it forced the
+            whole sidebar past its intended width (found via screenshot, not guessed).
+            Visible unconditionally, no isLoggedIn gate (unlike Practice Rooms) —
+            gating protects nothing here (spec §4), and it embeds the same
+            EventRoomMeet the standalone /meet route renders, so the tab and a shared
+            projected link show identical content. A plain conditional, not a Radix
+            tab panel, so the two tabs fully replace the page body instead of
+            stacking — the founder's "the menu should be here... tabs switch the whole
+            page body, not a strip beneath it." */}
+        {activeTab === 'cmp' && (
+          <div className="pt-4">
+            <EventRoomMeet />
+          </div>
+        )}
       </div>
 
       {/* Bottom padding — mobile needs ~136px clearance (sticky bar ~72px + BottomNav 64px) when bar renders.

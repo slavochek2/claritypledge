@@ -975,9 +975,12 @@ export interface EventPracticeRoom {
 // P1114: Event room presence + CMP opt-in. Mirrors the RPC return shape of
 // join_event_room / set_room_opt_in / set_room_readiness / get_my_room_status
 // (supabase/migrations/20260819170000_p1114_event_room_rpcs.sql) and the public
-// roster's column-level SELECT grant (20260819160000_p1114_event_room_tables.sql) —
-// client_secret is never exposed to the roster read, only returned by the RPCs
-// that mint/validate it for the calling browser.
+// roster's column-level SELECT grant (20260819160000_p1114_event_room_tables.sql).
+//
+// REVISED 2026-08-20 (spec Solution, "REVISED (2)" block): identity is auth.uid()
+// now, not a bearer secret — the table still carries a `client_secret` column
+// (kept for e2e/integration/p1114-db-schema.spec.ts's confidentiality guard) but no
+// client type or function reads or returns it any more.
 export interface EventRoomMember {
   id: string;
   eventId: string;
@@ -1002,12 +1005,12 @@ export interface EventRoomMember {
   profileEarCount: number;
 }
 
-/** Only present on the calling browser's own row — join_event_room / get_my_room_status
- * return this via RETURNING; the public roster SELECT never includes it (column-level
- * REVOKE). Never persist this anywhere but localStorage. */
-export interface EventRoomSelf extends EventRoomMember {
-  clientSecret: string;
-}
+/** The calling browser's OWN room row — returned by join_event_room / set_room_opt_in /
+ * set_room_readiness / get_my_room_status. Identical shape to EventRoomMember: the
+ * caller's session (auth.uid()) is what makes these calls "self" calls, so there is no
+ * extra field to carry. Kept as a distinct alias (not merged into EventRoomMember) so
+ * call sites read intent — "this is MY row" vs "this is A roster row." */
+export type EventRoomSelf = EventRoomMember;
 
 // ============================================================================
 // STORIES, POINTS, AND CALIBRATION TYPES (P117)

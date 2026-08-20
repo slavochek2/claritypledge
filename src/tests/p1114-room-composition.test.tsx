@@ -12,17 +12,10 @@
  * survives a source read intact. The behavioural half lives in `e2e/p1114-gate.spec.ts`.
  */
 /**
- * RED-FIRST, via this repo's `it.fails` convention (P835/P895). Every assertion below is
- * written before the build and currently fails, so `it.fails` keeps `npm test` green until
- * the build lands — and flips the test RED the moment the behaviour becomes correct, forcing
- * whoever fixes it to delete the `.fails` and lock the assertion in.
- *
- * That convention opens a hole: while `.fails` is present, `npx vitest run <this file>` exits
- * 0 over assertions that are not actually satisfied. The Verification Contract closes it with
- * its own row — no `.fails` marker may survive in any p1114 test file — so the gate cannot go
- * green on a suite that is passing only because it expects to fail.
- *
- * The tests NOT marked `.fails` are the ones already true and required to stay true.
+ * Was RED-FIRST via this repo's red-first-marker convention (P835/P895) — every
+ * assertion below was written before the build and marked to expect failure until the
+ * build landed. The build has landed and every marker is gone: these assertions are
+ * now real, permanently-passing locks on the composition, not placeholders.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
@@ -42,7 +35,7 @@ function read(path: string): string {
 }
 
 describe('P1114 rev2: the gate', () => {
-  it.fails('renders the four approved gate strings verbatim', () => {
+  it('renders the four approved gate strings verbatim', () => {
     const s = read(GATE);
     for (const copy of [
       'This is for people coming to the event',
@@ -54,14 +47,14 @@ describe('P1114 rev2: the gate', () => {
     }
   });
 
-  it.fails('leaks nothing about the room to someone who cannot enter', () => {
+  it('leaks nothing about the room to someone who cannot enter', () => {
     const s = read(GATE);
     for (const leak of ['SliderTrack', 'CertificateFrame', 'PersonRow', 'Who opted in', 'sectionsForLevel']) {
       expect(s.includes(leak), `EventRoomGate.tsx references "${leak}". The gate must show the four approved strings and nothing else — no roster, no readiness, no principle text, no count. "Learns nothing else about the room" is an acceptance criterion.`).toBe(false);
     }
   });
 
-  it.fails('sends registration to the existing event page, and mints no second RSVP path', () => {
+  it('sends registration to the existing event page, and mints no second RSVP path', () => {
     const s = read(GATE);
     expect(/\/events\/\$\{[^}]*slug[^}]*\}(?!\/)/.test(s) || /to=\{`\/events\/\$\{/.test(s), 'EventRoomGate.tsx does not navigate to /events/:slug. "Register for this event" must go to the existing event page and reuse the RSVP button already there.').toBe(true);
     expect(/event_rsvps|createRsvp|rsvpToEvent/.test(s), 'EventRoomGate.tsx writes RSVPs itself. The founder chose the event page for this deliberately: a second RSVP-creating path has to stay in step with the first one forever.').toBe(false);
@@ -69,27 +62,27 @@ describe('P1114 rev2: the gate', () => {
 });
 
 describe('P1114 rev2: the readiness page mirrors the shipped /ready', () => {
-  it.fails('uses the shared SliderTrack, not a bespoke control', () => {
+  it('uses the shared SliderTrack, not a bespoke control', () => {
     const s = read(ROOM_READY);
     expect(/import\s*\{[^}]*\bSliderTrack\b[^}]*\}\s*from\s*['"]@\/app\/components\/partners\/slider-track['"]/.test(s), 'EventRoomReady.tsx does not import SliderTrack. A rejected build reinvented this as eleven bare 0-10 buttons.').toBe(true);
     expect(/Array\.from\(\s*\{\s*length:\s*11\s*\}/.test(s), 'EventRoomReady.tsx contains Array.from({length: 11}) — the exact shape of the rejected 0-10 button ladder.').toBe(false);
   });
 
-  it.fails('carries no caption under the slider', () => {
+  it('carries no caption under the slider', () => {
     const s = read(ROOM_READY);
     expect(/Shown on the wall|Not labelled|not anonymous either/.test(s), 'EventRoomReady.tsx still renders the readiness caption. The founder annotated it "delete" on 2026-08-20; the UI Contract row is retired.').toBe(false);
   });
 });
 
 describe('P1114 rev2: the principle page mirrors the shipped /meet', () => {
-  it.fails('uses the shipped certificate shell and fixed bottom bar', () => {
+  it('uses the shipped certificate shell and fixed bottom bar', () => {
     const s = read(ROOM_MEET);
     expect(/from\s*['"]@\/app\/components\/agreements\/certificate-frame['"]/.test(s), 'EventRoomMeet.tsx does not import the shared CertificateFrame. The principle must render as the same document the standalone /meet shows, never a re-authored copy.').toBe(true);
     expect(/FixedBottomBar/.test(s), 'EventRoomMeet.tsx does not use FixedBottomBar. The Opt in / Opt out decision lives in the pinned bar, exactly as it does on the shipped /meet.').toBe(true);
     expect(/PersonRow/.test(s), 'EventRoomMeet.tsx does not import PersonRow. Signed-in attendees render as the normal person row — full name, profile link, avatar, pledge ring, ear badge.').toBe(true);
   });
 
-  it.fails('places the roster ABOVE the decision bar', () => {
+  it('places the roster ABOVE the decision bar', () => {
     const s = read(ROOM_MEET);
     const roster = s.indexOf('Who opted in');
     const bar = s.indexOf('FixedBottomBar');
@@ -97,20 +90,20 @@ describe('P1114 rev2: the principle page mirrors the shipped /meet', () => {
     expect(roster < bar, 'The roster renders after the decision bar in EventRoomMeet.tsx. Seeing who has already opted in is the strongest thing that can sit in front of the next person; placing it after the decision wastes it.').toBe(true);
   });
 
-  it.fails('carries no loose duplicate of the decision buttons', () => {
+  it('carries no loose duplicate of the decision buttons', () => {
     const s = read(ROOM_MEET);
     const optIns = (s.match(/>\s*Opt in\s*</g) ?? []).length;
     expect(optIns, `EventRoomMeet.tsx renders "Opt in" ${optIns} times. It belongs once, in the fixed bar. A rejected build rendered a loose copy at the end of the scroll, duplicating a control the shipped page already carries.`).toBeLessThanOrEqual(1);
   });
 
-  it.fails('has no understanding-number step and no Start meeting button', () => {
+  it('has no understanding-number step and no Start meeting button', () => {
     const s = read(ROOM_MEET);
     expect(/ComprehensionRatingCard|Start meeting/.test(s), 'EventRoomMeet.tsx carries the understanding number or "Start meeting". Both exist for one situation — two people, one phone, a host standing there to ask the follow-up out loud. In a room of forty nobody asks, and there is no phone to hand back. This is the one deliberate divergence from /meet (spec revision 2).').toBe(false);
   });
 });
 
 describe('P1114 rev2: the guest door is gone from the room, and only from the room', () => {
-  it.fails('no room page imports the guest join form', () => {
+  it('no room page imports the guest join form', () => {
     for (const p of [GATE, ROOM_READY, ROOM_MEET]) {
       expect(/GuestOrAccountJoin/.test(read(p)), `${p} still imports GuestOrAccountJoin. Entry is gated by event registration + sign-in; there is no guest door in the room any more.`).toBe(false);
     }
@@ -123,7 +116,7 @@ describe('P1114 rev2: the guest door is gone from the room, and only from the ro
 });
 
 describe('P1114 rev2: chrome and routing', () => {
-  it.fails('all three room routes mount under the compact layout', () => {
+  it('all three room routes mount under the compact layout', () => {
     const s = read(APP);
     for (const route of ['/events/:slug/room', '/events/:slug/ready', '/events/:slug/meet']) {
       const i = s.indexOf(route);
@@ -133,7 +126,7 @@ describe('P1114 rev2: chrome and routing', () => {
     }
   });
 
-  it.fails('the event page tab bar sits above the event card', () => {
+  it('the event page tab bar sits above the event card', () => {
     const s = read(EVENT_DETAIL);
     const tabs = s.indexOf('<Tabs');
     const title = s.indexOf('{event.title}</h1>');
@@ -142,7 +135,7 @@ describe('P1114 rev2: chrome and routing', () => {
     expect(tabs < title, 'The tab bar renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card — tabs switch the whole page body, not a strip beneath it.').toBe(true);
   });
 
-  it.fails('Practice Rooms is not inside a tab', () => {
+  it('Practice Rooms is not inside a tab', () => {
     const s = read(EVENT_DETAIL);
     const pr = s.lastIndexOf('<PracticeRooms');
     const tabContentOpen = s.indexOf('<TabsContent');

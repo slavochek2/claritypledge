@@ -5,6 +5,12 @@
  * supabase/migrations/20260819170000_p1114_event_room_rpcs.sql) plus the public roster
  * read and its realtime + reconciliation-poll subscription (Architecture Decision 3).
  *
+ * REVISED 2026-08-20 (spec Solution, "REVISED (2)" block): the founder retired the
+ * walk-in. Every caller here is registered + signed in, so identity is the signed-in
+ * profile (auth.uid()) — there is no bearer token in this module and nothing this
+ * module writes to browser storage. `get_my_room_status` is keyed by event id alone;
+ * the server reads the caller's own row via their session.
+ *
  * Standalone module, not routed through the mock/real `EventsService` split — this
  * feature has no mock variant (Non-Goals: additive-only, no existing behavior to fork),
  * and every RPC/table here is genuinely new, so there's nothing for a mock to stand in
@@ -28,7 +34,6 @@ interface DbRoomMemberRow {
   opted_in: boolean | null;
   readiness_value: number | null;
   joined_at: string;
-  client_secret?: string;
   // Only present on getRoomRoster's join (see below) — the four RPCs never join profiles.
   profile?: {
     slug: string | null;
@@ -56,13 +61,10 @@ function mapMember(row: DbRoomMemberRow): EventRoomMember {
   };
 }
 
-function mapSelf(row: DbRoomMemberRow): EventRoomSelf {
-  return { ...mapMember(row), clientSecret: row.client_secret ?? '' };
-}
-
-/** The only INSERT path onto event_room_members (Decision 1). Rejoining with an existing
- * profile_id upserts onto the same row (join_event_room's ON CONFLICT) and returns the
- * existing client_secret rather than minting a new one. */
+/** The only INSERT path onto event_room_members. Rejoining with an existing row (a
+ * second device, or a return visit) upserts onto the same row (join_event_room's ON
+ * CONFLICT) rather than creating a duplicate. Caller must be signed in — the RPC's
+ * grant is authenticated-only. */
 export async function joinEventRoom(eventId: string, displayName: string): Promise<EventRoomSelf> {
   const { data, error } = await supabase.rpc('join_event_room', {
     p_event_id: eventId,
@@ -71,59 +73,55 @@ export async function joinEventRoom(eventId: string, displayName: string): Promi
   if (error || !data || !Array.isArray(data) || data.length === 0) {
     throw new Error(error?.message ?? 'Could not join this room');
   }
-  return mapSelf(data[0] as DbRoomMemberRow);
+  return mapMember(data[0] as DbRoomMemberRow);
 }
 
 /** Changes the caller's own opt-in answer. Server computes the cascade counter and writes
- * the append-only history row (Decision 6) — this function never sees or sends that count. */
-export async function setRoomOptIn(memberId: string, secret: string, optedIn: boolean): Promise<EventRoomSelf> {
+ * the append-only history row (Decision 6) — this function never sees or sends that count.
+ * Ownership is auth.uid() = profile_id, enforced server-side. */
+export async function setRoomOptIn(memberId: string, optedIn: boolean): Promise<EventRoomSelf> {
   const { data, error } = await supabase.rpc('set_room_opt_in', {
     p_member_id: memberId,
-    p_secret: secret,
     p_opted_in: optedIn,
   });
   if (error || !data || !Array.isArray(data) || data.length === 0) {
     throw new Error(error?.message ?? 'Could not update your answer');
   }
-  return mapSelf(data[0] as DbRoomMemberRow);
+  return mapMember(data[0] as DbRoomMemberRow);
 }
 
 /** Changes the caller's own room readiness value (0-10). Distinct from — never mixed
  * with — the general /ready `ready_submissions` table (spec §7). */
-export async function setRoomReadiness(memberId: string, secret: string, value: number): Promise<EventRoomSelf> {
+export async function setRoomReadiness(memberId: string, value: number): Promise<EventRoomSelf> {
   const { data, error } = await supabase.rpc('set_room_readiness', {
     p_member_id: memberId,
-    p_secret: secret,
     p_value: value,
   });
   if (error || !data || !Array.isArray(data) || data.length === 0) {
     throw new Error(error?.message ?? 'Could not update your readiness');
   }
-  return mapSelf(data[0] as DbRoomMemberRow);
+  return mapMember(data[0] as DbRoomMemberRow);
 }
 
-/** The only sanctioned read of the caller's own row when it is not (or not yet) opted
- * in — bypasses the public "opted_in = true" SELECT policy via SECURITY DEFINER, once
- * the secret checks out (Decision 2). Returns null on a stale/invalid localStorage
- * secret so the caller can degrade to "rejoin with a new name" rather than error. */
-export async function getMyRoomStatus(memberId: string, secret: string): Promise<EventRoomSelf | null> {
+/** The caller's OWN room status for one event, keyed by their session (auth.uid()) —
+ * bypasses the public "opted_in = true" SELECT policy via SECURITY DEFINER. Returns
+ * null when the caller has never joined this event's room, so callers degrade to
+ * "not yet joined" rather than treating an empty result as an error. */
+export async function getMyRoomStatus(eventId: string): Promise<EventRoomSelf | null> {
   const { data, error } = await supabase.rpc('get_my_room_status', {
-    p_member_id: memberId,
-    p_secret: secret,
+    p_event_id: eventId,
   });
   if (error || !data || !Array.isArray(data) || data.length === 0) return null;
-  return mapSelf(data[0] as DbRoomMemberRow);
+  return mapMember(data[0] as DbRoomMemberRow);
 }
 
 /** Public roster — RLS-filtered, can only ever return opted_in = true rows (Decision 2).
  * Never throws to an error state on failure; callers should treat [] as "show zero-state
  * or leave the prior list," per the Risks "never an empty wall on a transient failure".
  *
- * REVISED 2026-08-20: joins `profiles` (read-side only, no schema change) so registered
- * attendees render as the normal person row used elsewhere — full name, profile link,
- * avatar, pledge ring, ear badge. Walk-ins (profile_id IS NULL) get no embed and render
- * name-only — the same `profile:profiles!<fk>(...)` shape events-service-real.ts already
- * uses for event_rsvps attendees (getEventAttendees), applied to this table's FK. */
+ * Joins `profiles` (read-side only, no schema change) so registered attendees render as
+ * the normal person row used elsewhere — full name, profile link, avatar, pledge ring,
+ * ear badge. */
 export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]> {
   const { data, error } = await supabase
     .from('event_room_members')
