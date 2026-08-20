@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 40
 created_date: '2026-08-19'
 tags: [previews, og, truthfulness, crawlers]
 feature_type: backend
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, ship]
 driver: anomaly
+completed_at: 2026-08-20
 ---
 
 # P1108: Link previews must say true things, and keep saying them
