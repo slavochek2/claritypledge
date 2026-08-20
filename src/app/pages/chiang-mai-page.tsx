@@ -51,7 +51,7 @@ export function ChiangMaiPage() {
           href={SUBSCRIBE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-full items-center whitespace-nowrap text-sm text-blue-600 hover:underline dark:text-blue-400"
+          className="flex shrink-0 items-center whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
         >
           Add this calendar to yours
         </a>
