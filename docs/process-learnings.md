@@ -542,3 +542,25 @@ if the room grows its own copy of a shared control again. Note the asymmetry: th
 Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08-19 (three entries).
 
 `due: month`
+
+## Activate the goal-gate boundary — push, prove it red, then mark it required
+
+**Date:** 2026-08-20
+**Status:** proposed
+**due:** week
+
+The `goal-gate` CI check exists and is proven locally (28-case canary, red-first) but has
+never run on GitHub, so it is currently **advisory at the boundary** — a red gate does not
+block a merge. Do these in order, because each step unblocks the next: (1) push, so the
+workflow runs once and GitHub learns the check name — it does not appear in the ruleset
+picker until then; (2) push a branch that deliberately fails one check and confirm CI goes
+red, since the gate has been watched failing 22× locally and 0× in CI; (3) run
+`/slava:think:adversarial-review` with **one** reviewer on the single lens "can this gate be
+made to pass without the work being done" — cheap, and a broken-green finding would
+invalidate everything downstream; (4) add `goal-gate` to the `main-privacy-gate` ruleset's
+required checks (founder-only, ALWAYS-ASK).
+
+Done when a red gate demonstrably blocks a merge. Droppable if `/goalify` is abandoned — the
+gate protects nothing until a spec is goalified, and no spec is today.
+
+---
