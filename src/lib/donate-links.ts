@@ -49,11 +49,34 @@ const tierUrl = (tier: DonateTier): string | undefined => {
   return byTier[tier];
 };
 
-/** Parse a route param into a known tier, or null. Rejects 0, negatives, decimals, junk. */
+/**
+ * Parse a route param into a tier, resolving to the NEAREST one.
+ * /donate/55 -> $50, /donate/145 -> $150. Any positive whole number reaches a
+ * sensible preset instead of silently landing on the default.
+ *
+ * Ties break UPWARD (/donate/10 -> $15, /donate/100 -> $150): rounding should
+ * never quietly lower the ask the donor was sent.
+ *
+ * Returns null for junk, zero, negatives and decimals — those fall to the default.
+ * Note /donate/1000 resolves DOWN to $500, the top tier; the donor can still edit
+ * the amount at Stripe, so a generous giver is inconvenienced, never blocked.
+ */
 export const parseTier = (raw: string | undefined): DonateTier | null => {
   if (!raw || !/^\d+$/.test(raw)) return null;
   const n = Number(raw);
-  return (DONATE_TIERS as readonly number[]).includes(n) ? (n as DonateTier) : null;
+  if (!Number.isFinite(n) || n <= 0) return null;
+
+  let best: DonateTier = DONATE_TIERS[0];
+  let bestGap = Math.abs(n - best);
+  for (const tier of DONATE_TIERS) {
+    const gap = Math.abs(n - tier);
+    // `<=` with ascending DONATE_TIERS makes an exact tie select the higher tier.
+    if (gap <= bestGap) {
+      best = tier;
+      bestGap = gap;
+    }
+  }
+  return best;
 };
 
 /**

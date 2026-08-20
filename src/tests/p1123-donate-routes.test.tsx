@@ -58,8 +58,32 @@ describe('P1123 donate routes redirect straight to Stripe', () => {
     expect(replace).toHaveBeenCalledExactlyOnceWith(expected);
   });
 
-  it.each(['/donate/37', '/donate/0', '/donate/abc', '/donate/-5', '/donate/5.5'])(
-    'unmapped %s redirects to the base link, never 404',
+  it.each([
+    // Nearest tier, so any positive whole number reaches a sensible preset.
+    ['/donate/55', 'tier50'],
+    ['/donate/145', 'tier150'],
+    ['/donate/37', 'tier50'],
+    ['/donate/7', 'tier5'],
+    ['/donate/1', 'tier5'],
+    ['/donate/1000', 'tier500'],
+    ['/donate/999999', 'tier500'],
+  ])('%s resolves to the nearest tier (%s)', (path, tier) => {
+    renderAt(path);
+    expect(replace).toHaveBeenCalledExactlyOnceWith(`https://buy.stripe.com/${tier}`);
+  });
+
+  it.each([
+    // Ties break UPWARD — rounding must never quietly lower the ask.
+    ['/donate/10', 'tier15'],
+    ['/donate/100', 'tier150'],
+    ['/donate/325', 'tier500'],
+  ])('%s breaks the tie upward (%s)', (path, tier) => {
+    renderAt(path);
+    expect(replace).toHaveBeenCalledExactlyOnceWith(`https://buy.stripe.com/${tier}`);
+  });
+
+  it.each(['/donate/0', '/donate/abc', '/donate/-5', '/donate/5.5', '/donate/%20'])(
+    'non-amount %s redirects to the default, never 404',
     (path) => {
       renderAt(path);
       expect(replace).toHaveBeenCalledExactlyOnceWith('https://buy.stripe.com/base');

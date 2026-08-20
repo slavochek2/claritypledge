@@ -30,9 +30,13 @@ page. The ask is a link you paste into an email, a talk, or a footer, and it lan
 the donor on checkout. Nothing renders except the failure state.
 
 Amount presets: bare `/donate` → $15; `/donate/5|15|50|150|500` → that amount.
+Any other positive whole number resolves to the **nearest** tier — `/donate/55` →
+$50, `/donate/145` → $150 — so a number someone invents still lands somewhere
+sensible. Ties break upward (`/donate/10` → $15) because rounding must never
+quietly lower the ask.
 Every link is a *preset*, not a fixed charge — the donor can still edit it at
-Stripe, so a tier link never turns away someone who can give less. An unmapped
-amount (`/donate/37`) falls through to the default rather than 404ing.
+Stripe, so a tier link never turns away someone who can give less. Non-amounts (`/donate/abc`, `0`, negatives, decimals) fall through to the default
+rather than 404ing.
 
 URLs are read from `VITE_STRIPE_DONATE_URL*` and validated with an https +
 exactly-`buy.stripe.com` host check. If the URL is missing or malformed, the route
@@ -61,7 +65,8 @@ donate link that silently dead-ends is an invisible lost gift.
 
 - [x] `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500` each redirect to the matching Stripe link
 - [x] Bare `/donate` redirects to the $15 preset
-- [x] An unmapped amount (`/donate/37`) redirects to the default rather than 404
+- [x] An invented amount resolves to the nearest tier (`/donate/55` → $50, `/donate/145` → $150), ties upward
+- [x] A non-amount (`/donate/abc`, `0`, `-5`, `5.5`) redirects to the default rather than 404
 - [x] No interstitial page renders — the route goes straight to Stripe
 - [x] The Stripe page shows a donor-editable amount at the expected preset
 - [x] With the URL unset or non-`buy.stripe.com`, the route does not redirect, shows a notice, and alerts Sentry
@@ -93,7 +98,8 @@ Recorded 2026-08-20 via `/goalify` Phase 1.
 |---|---|
 | Tier URLs | `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500`, plus bare `/donate` |
 | Fixed vs preset | **Preset** — donor can still edit the amount at Stripe |
-| Unmapped amount | Falls through to the default link, never 404 |
+| Unmapped amount | **Nearest tier**, ties upward. Non-amounts fall to the default. Never 404. |
+| Above the top tier | `/donate/1000` resolves down to $500. The donor can still edit at Stripe, so a generous giver is inconvenienced, never blocked. |
 | Page vs redirect | **Redirect.** Revised 2026-08-20 after the first build shipped an interstitial page the founder did not want. No page copy is needed. |
 | Default amount | **$15** on bare `/donate` (was $5). A $5 default anchors low; $15 lifts the average without the flinch that closes the tab. |
 | Address bar during checkout | Shows `buy.stripe.com`. Accepted — the alternative is the Buy Button embed, rejected above. |
@@ -129,7 +135,8 @@ duplicate $5). Do not reuse them.
 |---|---|
 | build + typecheck + tests pass | `npm run build && npm test` |
 | all six routes redirect to the correct Stripe URL | `npx vitest run src/tests/p1123-donate-routes.test.tsx` |
-| unmapped amount redirects to default, never 404 | same |
+| an invented amount resolves to the nearest tier, ties upward | same |
+| a non-amount redirects to the default, never 404 | same |
 | no interstitial page renders | same |
 | invalid/unset URL does not redirect, shows notice, alerts Sentry | `npx vitest run src/tests/p1123-donate-guard.test.tsx` |
 | a manual fallback link renders from first paint (blocked/slow redirect) | `npx vitest run src/tests/p1123-donate-routes.test.tsx` |
