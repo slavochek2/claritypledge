@@ -5,19 +5,28 @@
  * pages, because the roster must stay visible the whole time (spec §3). `focus`
  * only decides initial scroll/expansion; every section always renders.
  *
+ * REUSE, NOT REINVENTION (2026-08-20): an earlier version of this page rendered its
+ * own eleven-button 0-10 grid and its own inline guest-join markup — reinventions of
+ * two controls that already ship elsewhere (`/ready`'s `SliderTrack`, `/live`'s guest
+ * join form). The founder rejected that build. This version imports both instead:
+ * `SliderTrack` (`@/app/components/partners/slider-track`, same anchor labels as
+ * `ready-page.tsx`) for readiness, and `GuestOrAccountJoin`
+ * (`@/app/components/auth/guest-or-account-join`, extracted from `clarity-live-page.tsx`
+ * in the same pass) for the join screen. `src/tests/p1114-shared-component-reuse.test.tsx`
+ * is the mechanical guard against a second copy appearing.
+ *
  * COPY: every string marked `[FOUNDER DECISION]` in the spec's UI Contract renders
  * here as a VISIBLE `PLACEHOLDER: ...` marker (resolution strategy, 2026-08-19) —
  * never invented copy, never an empty string. The two resolved slots (guest field
  * label/placeholder, submit button, divider, account path) reuse `/live`'s shipped
- * wording verbatim (clarity-live-page.tsx ~4020-4055).
+ * wording verbatim, now via the shared `GuestOrAccountJoin` component.
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
+import { GuestOrAccountJoin } from '@/app/components/auth/guest-or-account-join';
+import { SliderTrack } from '@/app/components/partners/slider-track';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
@@ -31,6 +40,12 @@ import {
 import type { EventWithHost, EventRoomMember, EventRoomSelf } from '@/app/types';
 
 export type EventRoomFocus = 'join' | 'ready' | 'principle';
+
+// Same anchor labels as ready-page.tsx (P1077) — the room's readiness question is the
+// same question, so it must look and read like the same control, not a lookalike.
+const READINESS_MIDPOINT_LABEL = 'Neutral';
+const READINESS_MIDPOINT_VALUE = 5;
+const READINESS_POLE_LABELS = { low: 'Keep it light', high: 'Go deep' };
 
 interface StoredIdentity {
   memberId: string;
@@ -196,6 +211,17 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
     }
   }, [event, self]);
 
+  // Local slider draft: mirrors ready-page.tsx's own [value, touched] pair, but backed
+  // by `self.readinessValue` (this room's stored answer) instead of local-only state.
+  // onChange (every pointermove) only updates the draft; onDebouncedChange (300ms,
+  // SliderTrack's own built-in debounce — see its docstring) is what actually calls
+  // setRoomReadiness. A raw onChange->RPC wire would fire one write per pointermove.
+  const [readinessDraft, setReadinessDraft] = useState(READINESS_MIDPOINT_VALUE);
+  useEffect(() => {
+    if (self?.readinessValue != null) setReadinessDraft(self.readinessValue);
+  }, [self?.readinessValue]);
+  const readinessTouched = self?.readinessValue != null;
+
   // ── Derived state ─────────────────────────────────────────────────────────
 
   // Ticks so the freeze boundary is evaluated against wall-clock time, not against the
@@ -222,14 +248,18 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
   if (!event) return <div data-testid="room-page">This room could not be found.</div>;
 
   return (
-    <div data-testid="room-page" data-room-focus={focus} className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+    <div
+      data-testid="room-page"
+      data-room-focus={focus}
+      className="mx-auto max-w-3xl px-4 py-10 sm:py-14"
+    >
       {isFrozen && (
-        <div data-testid="room-frozen-notice" className="rounded-lg border border-border bg-muted p-4 text-sm">
+        <div data-testid="room-frozen-notice" className="mb-8 rounded-lg border border-border bg-muted p-4 text-sm">
           PLACEHOLDER: frozen-room notice
         </div>
       )}
 
-      <div className={present ? 'grid grid-cols-1 gap-8' : 'grid grid-cols-1 md:grid-cols-2 gap-8'}>
+      <div className={present ? 'grid grid-cols-1 gap-10' : 'grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start'}>
         {!present && (
           <div data-testid="room-controls" className="space-y-8">
             {actionError && (
@@ -238,80 +268,55 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
               </p>
             )}
             {!isIdentified && !isFrozen && (
-              <div data-testid="room-join-form" className="space-y-6">
-                <h1 className="text-xl font-semibold">PLACEHOLDER: join screen heading</h1>
+              <div data-testid="room-join-form" className="mx-auto w-full max-w-sm space-y-8">
+                <h1 className="text-center text-xl font-semibold leading-snug text-foreground sm:text-2xl">
+                  PLACEHOLDER: join screen heading
+                </h1>
 
-                <div className="space-y-3">
-                  <GoogleAuthButton context="event-room" source="login" />
-                  <div className="text-center">
-                    <a href={`/login`} className="text-sm text-blue-600 hover:text-blue-700 underline underline-offset-2">
-                      Log in with email
-                    </a>
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">or join as guest</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="room-guest-name">What should we call you?</Label>
-                  <Input
-                    id="room-guest-name"
-                    placeholder="Enter your name"
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-
-                {joinError && <p className="text-sm text-red-600">{joinError}</p>}
-
-                <Button onClick={handleGuestJoin} disabled={joining} className="w-full" size="lg">
-                  {joining ? 'Joining…' : 'Join as Guest'}
-                </Button>
+                <GuestOrAccountJoin
+                  name={guestName}
+                  onNameChange={setGuestName}
+                  onGuestSubmit={handleGuestJoin}
+                  submitting={joining}
+                  error={joinError}
+                  googleContext="event-room"
+                  loginHref="/login"
+                />
               </div>
             )}
 
             {isIdentified && !isFrozen && (
-              <div className="space-y-8">
+              <div className="space-y-10">
                 {/* Readiness section (focus="ready") */}
-                <section data-focused={focus === 'ready'} className="space-y-3">
-                  <h2 className="text-lg font-semibold">Readiness</h2>
-                  <div className="flex gap-1 flex-wrap" role="group" aria-label="Readiness">
-                    {Array.from({ length: 11 }, (_, i) => i).map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => handleReadiness(n)}
-                        aria-pressed={self?.readinessValue === n}
-                        className={
-                          'h-8 w-8 rounded-full border text-xs ' +
-                          (self?.readinessValue === n ? 'bg-blue-500 text-white border-blue-500' : 'border-border')
-                        }
-                      >
-                        {n}
-                      </button>
-                    ))}
+                <section data-focused={focus === 'ready'} className="space-y-4">
+                  <h2 className="text-lg font-semibold text-foreground">Readiness</h2>
+                  <div className="pt-2">
+                    <SliderTrack
+                      value={readinessDraft}
+                      onChange={setReadinessDraft}
+                      onDebouncedChange={handleReadiness}
+                      showValue={false}
+                      ariaLabel="Readiness"
+                      midpointLabel={READINESS_MIDPOINT_LABEL}
+                      poleLabels={READINESS_POLE_LABELS}
+                      muted={!readinessTouched}
+                      bipolarFill
+                      expandedHitArea
+                    />
                   </div>
                   <p className="text-xs text-muted-foreground">PLACEHOLDER: readiness dot caption</p>
                 </section>
 
                 {/* Principle / opt-in section (focus="principle") */}
-                <section data-focused={focus === 'principle'} className="space-y-3">
-                  <h2 className="text-lg font-semibold">Clarity Meeting Principle</h2>
+                <section data-focused={focus === 'principle'} className="space-y-4">
+                  <h2 className="text-lg font-semibold text-foreground">Clarity Meeting Principle</h2>
                   {user && (
                     <p className="text-sm text-muted-foreground">PLACEHOLDER: member pre-fill line</p>
                   )}
                   <div
                     data-testid="room-my-opt-in-status"
                     data-opted-in={optInState}
-                    className="text-sm"
+                    className="text-sm text-foreground"
                   >
                     {optInState === 'true' && 'You are opted in.'}
                     {optInState === 'false' && 'You are opted out.'}
@@ -335,11 +340,11 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
         <div
           data-testid="room-roster"
           data-present={present ? 'true' : undefined}
-          className="space-y-3"
+          className={present ? 'mx-auto w-full max-w-2xl space-y-4' : 'space-y-4'}
         >
-          <h2 className="text-lg font-semibold">PLACEHOLDER: roster heading</h2>
+          <h2 className="text-lg font-semibold text-foreground">PLACEHOLDER: roster heading</h2>
           {roster.length === 0 ? (
-            <div data-testid="room-zero-state" className="text-sm text-muted-foreground py-8 text-center">
+            <div data-testid="room-zero-state" className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
               PLACEHOLDER: zero-state line
             </div>
           ) : (
@@ -362,14 +367,16 @@ export function EventRoomPage({ focus }: { focus: EventRoomFocus }) {
         </div>
       </div>
 
-      <Button
-        data-testid="room-present-toggle"
-        aria-pressed={present}
-        variant="outline"
-        onClick={() => setPresent((p) => !p)}
-      >
-        PLACEHOLDER: present toggle label
-      </Button>
+      <div className="mt-10 flex justify-center">
+        <Button
+          data-testid="room-present-toggle"
+          aria-pressed={present}
+          variant="outline"
+          onClick={() => setPresent((p) => !p)}
+        >
+          PLACEHOLDER: present toggle label
+        </Button>
+      </div>
     </div>
   );
 }

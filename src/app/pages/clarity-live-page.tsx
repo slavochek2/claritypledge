@@ -78,7 +78,7 @@ import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
 import { SessionEventsCollector } from '@/lib/session-events-collector';
-import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
+import { GuestOrAccountJoin } from '@/app/components/auth/guest-or-account-join';
 import { toast } from 'sonner';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { useLiveSession, getActiveSessionFromStorage, clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
@@ -4012,55 +4012,22 @@ export function ClarityLivePage() {
                 )}
               </div>
             ) : (
-              /* P396: Guest join form — name only, no email collected */
+              /* P396: Guest join form — name only, no email collected. Presentation
+                 lives in the shared GuestOrAccountJoin (P1114 extraction); this page
+                 still owns validation, submit, and consent flow. */
               <div className="space-y-6">
-                {/* Login option for registered users who aren't logged in */}
-                <div className="space-y-3">
-                  <GoogleAuthButton
-                    context="live-join"
-                    source="login"
-                    redirect={sessionRedirectUrl}
-                  />
-                  <div className="text-center">
-                    <Link
-                      to={`/login?redirect=${encodeURIComponent(sessionRedirectUrl)}`}
-                      className="text-sm text-blue-600 hover:text-blue-700 underline underline-offset-2"
-                    >
-                      Log in with email
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">or join as guest</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="name">What should we call you?</Label>
-                  <Input
-                    id="name"
-                    placeholder="Enter your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-
-                {error && <p className="text-sm text-red-600">{error}</p>}
-
-                <Button
-                  onClick={handleJoin}
-                  disabled={isLoading || consentLoading || !canJoinViaLink}
-                  className="w-full bg-blue-500 hover:bg-blue-600"
-                  size="lg"
-                >
-                  {isLoading || consentLoading ? 'Joining...' : 'Join as Guest'}
-                </Button>
+                <GuestOrAccountJoin
+                  name={name}
+                  onNameChange={setName}
+                  onGuestSubmit={handleJoin}
+                  submitting={isLoading || consentLoading}
+                  submitDisabled={!canJoinViaLink}
+                  error={error}
+                  googleContext="live-join"
+                  googleSource="login"
+                  redirect={sessionRedirectUrl}
+                  loginHref={`/login?redirect=${encodeURIComponent(sessionRedirectUrl)}`}
+                />
 
                 <Link
                   to="/live"
