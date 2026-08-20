@@ -12,6 +12,27 @@ driver: anomaly
 
 # P1108: Link previews must say true things, and keep saying them
 
+## Run This
+
+Run from `<cp-root>/.claude/worktrees/w1` — the claimed worktree for this spec:
+
+    /goal "./scripts/goal-gate.sh p1108 exits 0, output pasted. Stop after 30 turns."
+
+That one line is the whole invocation. `/goal` is native Claude Code, not a repo
+skill, so the founder types it — no agent can invoke it on their behalf. The
+condition names an exit code deliberately: `/goal`'s evaluator judges the
+**transcript** and runs nothing itself, so the only condition it cannot be talked
+out of is one naming an artifact the loop cannot author. `goal-gate.sh` reads
+this spec's `## Verification Contract` and nothing else; the criteria are pinned
+by SHA-256 on `main` so the branch under judgement cannot delete a row it is
+about to fail.
+
+Everything the loop needs is below. Nothing else has to be passed to it.
+
+Still the founder's, after the loop is green: **DW-7** (live `curl` with a
+crawler user-agent against a deployed URL — nothing here touches a deployed
+target) and the push, which is never pre-approvable.
+
 ## Problem
 
 **Situation:** Two independent preview systems exist. Thirty page files set their own meta tags in the app. Four page types — events, stories, points, profiles — have a **second**, separately hand-written preview built by `api/og.ts`. `vercel.json:117-135` routes only those four paths to it, and only for a fixed crawler user-agent list (Facebook, Twitter, Telegram, WhatsApp, LinkedIn, Slack, Discord). Everything else falls through to the SPA, whose meta tags no crawler executes.
