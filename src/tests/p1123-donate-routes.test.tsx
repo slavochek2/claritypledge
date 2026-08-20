@@ -82,6 +82,21 @@ describe('P1123 donate routes redirect straight to Stripe', () => {
     expect(replace).toHaveBeenCalledExactlyOnceWith(`https://buy.stripe.com/${tier}`);
   });
 
+  it('a digit string large enough to overflow to Infinity falls to the default', () => {
+    // Guards the Number.isFinite() check: without it this coerces to Infinity and
+    // the gap arithmetic compares NaN, silently picking tier 5.
+    renderAt(`/donate/${'9'.repeat(400)}`);
+    expect(replace).toHaveBeenCalledExactlyOnceWith('https://buy.stripe.com/base');
+  });
+
+  it.each([
+    ['/donate/007', 'tier5'],
+    ['/donate/0050', 'tier50'],
+  ])('leading zeros in %s still resolve (%s)', (path, tier) => {
+    renderAt(path);
+    expect(replace).toHaveBeenCalledExactlyOnceWith(`https://buy.stripe.com/${tier}`);
+  });
+
   it.each(['/donate/0', '/donate/abc', '/donate/-5', '/donate/5.5', '/donate/%20'])(
     'non-amount %s redirects to the default, never 404',
     (path) => {
