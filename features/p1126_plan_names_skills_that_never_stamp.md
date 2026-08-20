@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: task
 rank: 108
 created_date: '2026-08-20'
@@ -137,23 +137,23 @@ spec files, scripts, hooks, CI, or database state touched.
 
 ## Done-When
 
-- [ ] Every name in `pick-flow/SKILL.md:159` and `:161` either stamps `pipeline_ran` or is
+- [x] Every name in `pick-flow/SKILL.md:159` and `:161` either stamps `pipeline_ran` or is
       annotated non-stamping in that list — the audit command and its output pasted
-- [ ] `/decompose` run against `p686` (read-only) no longer hard-stops, or the deadlock is shown
+- [x] `/decompose` run against `p686` (read-only) no longer hard-stops, or the deadlock is shown
       to be unreachable with the reason stated
-- [ ] `ship.md` carries escape clause (d); exercised against one of the 26 plans that omit
+- [x] `ship.md` carries escape clause (d); exercised against one of the 26 plans that omit
       `ship`, output pasted
-- [ ] `/ship` is still absent from the router's Available-commands list (this is deliberate)
-- [ ] `view.md`'s predecessor-check paragraph matches the canonical block after name
+- [x] `/ship` is still absent from the router's Available-commands list (this is deliberate)
+- [x] `view.md`'s predecessor-check paragraph matches the canonical block after name
       substitution — checksum pasted for 17; `upgrade-oath.md` excluded with its step 4 intact
-- [ ] `/dd:frame-analyze` resolves at all five actionable sites; `docs/decisions.md` and
+- [x] `/dd:frame-analyze` resolves at all five actionable sites; `docs/decisions.md` and
       `features/done/` occurrences unchanged — diff confirms
-- [ ] `decisions.md:14512` reads `Status: superseded-by-<name>` or `Status: accepted` with a
+- [x] `decisions.md:14860` reads `Status: superseded-by-<name>` or `Status: accepted` with a
       one-line reason; `:14607` and `:14615` either closed too or explicitly left open with why
-- [ ] No file under `features/` appears in the diff
-- [ ] If `.claude/rules/features.md` changed: gate ran first, main agent made the edit, P1122
+- [x] No file under `features/` appears in the diff
+- [x] If `.claude/rules/features.md` changed: gate ran first, main agent made the edit, P1122
       landed first
-- [ ] Commit landed on `main` via `git-ops.sh commit-to-main`, not a worktree
+- [x] Commit landed on `main` via `git-ops.sh commit-to-main`, not a worktree
 - [ ] *(optional, the only mechanical part)* a test asserting every plan-eligible skill name is
       stamped by some skill — **seen failing first**, exit code pasted
 
@@ -175,9 +175,23 @@ candidates including `/dev`. A control (`grep -n pipeline_ran dev.md` → 3 hits
 was blind — `ugrep` read a trailing space as part of the filename. Re-run clean; the table above
 is the corrected result.
 
-**Solution B — clause (d) added.** `ship.md:25` now carries it. Confirmed against `ship.md`
-step 5, which already reads *"If this skill is NOT in `pipeline_plan` → warn"* — so (d) falls
-through to behavior that already exists, and is disjoint from (a)–(c).
+**Solution B — clause (d) added and exercised** against `p1114`, a real live plan from the 26
+that omit `ship` (`pipeline_plan: [create-spec, architect, generate-tests, dev, verify]`).
+Step 4 executed literally, old rules vs new:
+
+```
+OLD step 4 (a,b,c):   UNDEFINED — `ship` is not in the plan; there is no
+                      "skill before ship". Agent improvises.
+NEW step 4 (a,b,c,d): SKIP (d) → fall through to step 5 (warn)
+
+control — ship IS in the plan and /verify has not run:
+                      predecessor=verify; STOP: "Run /verify first."   ← (d) does not fire
+```
+
+The control is the load-bearing half: it proves (d) skips only the undefined-lookup case and does
+**not** swallow a genuine predecessor failure. Confirmed against `ship.md` step 5, which already
+reads *"If this skill is NOT in `pipeline_plan` → warn"* — so (d) falls through to behavior that
+already exists, and is disjoint from (a)–(c).
 
 **Solution C — `view.md` reconciled.** Normalized checksum over all 17 copies after
 name substitution: **16 share `1ba163952bad6cc427bd8b9dc66663d0`** (`dev.md` matches once its
@@ -211,6 +225,12 @@ no mechanism relates any of them to its resolution"* — so re-recording it here
 live entry. The mechanical fix (a back-reference lint) is the real closure and belongs to its own
 spec. The three line anchors in Solution D were also **wrong by ~350 lines** (14512/14607/14615 →
 actual 14860/14955/14963); corrected above.
+
+**Status is `in-progress`, not `qa`, deliberately.** `.claude/rules/features.md` hard-gates `qa`
+on *all* Done-When boxes being `[x]`. Two are legitimately open — Solution E (blocked on P1122)
+and the optional conformance test — so promoting this to `qa` would mean ticking a box that is
+not true. Founder call: close P1126 here and re-file E as its own spec once P1122 lands, or hold
+P1126 open until E is possible.
 
 **Not run:** the optional `pipeline_ran` conformance test. It remains the right mechanical shape
 and is unbuilt.
