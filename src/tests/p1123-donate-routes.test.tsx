@@ -6,7 +6,8 @@
  * These links are LIVE-mode. Tests assert the redirect target only — never a checkout.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { DonatePage } from '@/app/pages/donate-page';
 
@@ -36,7 +37,7 @@ const renderAt = (path: string) =>
 
 describe('P1123 donate routes redirect straight to Stripe', () => {
   beforeEach(() => {
-    replace.mockClear();
+    replace.mockReset();
     vi.stubGlobal('location', { replace });
     for (const [k, v] of Object.entries(URLS)) vi.stubEnv(k, v);
   });
@@ -65,13 +66,37 @@ describe('P1123 donate routes redirect straight to Stripe', () => {
     },
   );
 
-  it('renders nothing — there is no interstitial page', () => {
-    const { container } = renderAt('/donate/50');
-    expect(container).toBeEmptyDOMElement();
+  it('renders a manual fallback link from the first paint', () => {
+    // A blocked navigation (tracker blocker, proxy) gives no callback to react to,
+    // so the fallback cannot be scheduled after the fact — it must already be there.
+    renderAt('/donate/50');
+    expect(screen.getByRole('link', { name: /continue to checkout/i })).toHaveAttribute(
+      'href',
+      'https://buy.stripe.com/tier50',
+    );
   });
 
-  it('uses replace(), not assign() — Back must not bounce into a redirect loop', () => {
-    renderAt('/donate');
-    expect(replace).toHaveBeenCalled();
+  it('redirects exactly once under StrictMode (double-invoked effects)', () => {
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/donate/50']}>
+          <Routes>
+            <Route path="/donate/:amount" element={<DonatePage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    );
+    expect(replace).toHaveBeenCalledExactlyOnceWith('https://buy.stripe.com/tier50');
+  });
+
+  it('survives a throwing location.replace — link stays usable, Sentry alerted', async () => {
+    const Sentry = await import('@sentry/react');
+    replace.mockImplementation(() => { throw new Error('SecurityError'); });
+    renderAt('/donate/50');
+    expect(screen.getByRole('link', { name: /continue to checkout/i })).toBeInTheDocument();
+    expect(Sentry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining('threw'),
+      expect.objectContaining({ level: 'error' }),
+    );
   });
 });

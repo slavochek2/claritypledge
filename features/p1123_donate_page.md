@@ -77,6 +77,10 @@ donate link that silently dead-ends is an invisible lost gift.
 
 - **Happy path:** open the link → Stripe checkout, amount prefilled and editable.
 - **Misconfigured:** no redirect; a plain notice renders and Sentry is alerted.
+- **Blocked or slow redirect:** a "Continue to checkout" link is on screen from the
+  first paint, so a navigation that never happens leaves a working link rather than
+  a white page. A blocked navigation fires no callback, so this cannot be scheduled
+  after the fact — it has to render up front.
 - `window.location.replace()`, not `assign()` — Back from Stripe must not bounce
   the donor through the route into a redirect loop.
 - No landing layout on these routes: nav and footer would flash before the redirect.
@@ -128,7 +132,20 @@ duplicate $5). Do not reuse them.
 | unmapped amount redirects to default, never 404 | same |
 | no interstitial page renders | same |
 | invalid/unset URL does not redirect, shows notice, alerts Sentry | `npx vitest run src/tests/p1123-donate-guard.test.tsx` |
+| a manual fallback link renders from first paint (blocked/slow redirect) | `npx vitest run src/tests/p1123-donate-routes.test.tsx` |
+| redirect fires exactly once under StrictMode | same (mutation-checked: fails without the ref guard) |
+| a throwing `location.replace` leaves the link usable and alerts Sentry | same |
 | host-validation rejects lookalikes, userinfo tricks, http, javascript: | same |
+
+### Known limitations — reviewed, accepted, not fixed
+
+Recorded so a future reader does not mistake green tests for full coverage.
+
+| limitation | why accepted |
+|---|---|
+| Tests stub `window.location`, so real navigation semantics are not exercised. The back-button guarantee in the code comment is asserted by no test. | Verified by hand in a real browser 2026-08-20: `/about` → `/donate/50` → Back lands on `/about`, not a redirect loop. Tested, just not by the suite. |
+| A repriced or removed tier silently downgrades already-distributed links to the default preset, with no operator signal. | The fallback is the desired behaviour for a donor (a working page beats a 404). The cost lands only if a tier is ever repriced — treat this table as the warning to re-issue links if that happens. |
+| Nothing validates that `VITE_STRIPE_DONATE_URL_50` really points at a $50-preset link. A swapped pair of env values would pass every test and every gate. | Verified by hand against live Stripe 2026-08-20: all five presets matched their route ($5/$15/$50/$150/$500, each editable). Automating it means calling Stripe at build time — more machinery in the money path than the risk warrants. Re-verify by hand whenever a link is regenerated. |
 
 **Live-payment boundary.** No test may complete a real payment. The Stripe URLs
 are live-mode; tests assert the redirect target, never a checkout.

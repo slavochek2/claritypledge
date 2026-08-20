@@ -29,7 +29,7 @@ const renderAt = (path: string) =>
 describe('P1123 donate URL guard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    replace.mockClear();
+    replace.mockReset();
     vi.stubGlobal('location', { replace });
   });
   afterEach(() => {
