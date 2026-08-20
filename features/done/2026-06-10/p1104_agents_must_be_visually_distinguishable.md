@@ -1,11 +1,10 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 2
 workstream: events
 created_date: '2026-08-18'
 tags: [agents, trust, points, identity]
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, generate-tests, dev, adversarial-review, ship]
 uat_file: features/uat/p1104.md
 test_files:
@@ -17,6 +16,7 @@ test_files:
   - src/tests/agent-accounts-context.test.tsx
   - src/tests/agent-accounts-provider-mounted.test.ts
   - src/tests/p1104-og-agent-marker.test.ts
+completed_at: 2026-08-20
 ---
 
 # P1104: A machine's reading of a person must never render as that person
@@ -676,7 +676,7 @@ bug. The second compared card to header, which is the right property, but the sh
 account is created with `#0044CC`, **byte-identical to `GravatarAvatar`'s own fallback**. Broken
 and fixed rendered the same pixel, so the test passed against reverted code. Measured with a
 `#39424B` account: card `rgb(0,68,204)`, header `rgb(57,66,75)`. The test now creates its own
-account with a colour the fallback cannot imitate. This is [epistemic.md](../.claude/rules/epistemic.md)
+account with a colour the fallback cannot imitate. This is [epistemic.md](../../../.claude/rules/epistemic.md)
 gate 7b in the small: a fixture that structurally cannot emit a distinguishing input makes a
 green run mean nothing.
 
@@ -697,7 +697,7 @@ context, the profile header, `api/og.ts`, and the fixture.
 ## Test Coverage Strategy
 
 **123 automated tests, all passing.** Command output and per-file counts are in
-[features/uat/p1104.md](uat/p1104.md).
+[features/uat/p1104.md](../../uat/p1104.md).
 
 | Layer | File | Count |
 |---|---|---|
