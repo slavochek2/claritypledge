@@ -9,9 +9,20 @@ tags:
   - program
   - stripe
 delivery_stage: create-spec
+pipeline_plan:
+  - create-spec
+  - dev
+  - verify
 pipeline_ran:
   - create-spec
+pipeline_skipped:
+  - "challenge-prd -- spec's own Risks section already names the falsifiers (month-3 promise, org-creation gap, badging oversell) with mitigations"
+  - "ux -- design already fully specified in Solution (page structure, month arc) and UI Contract, nothing undecided left but wording"
+  - "architect -- no new architecture; reuses the existing verified Stripe host-pinned-validation + fail-loud pattern, folded into dev's own checks"
+  - "generate-tests -- the one new business logic (countdown date resolution) is covered by dev's own TDD, no separate pass needed"
+  - "decompose -- 5 files but one cohesive page rebuild, not independent concerns"
 driver: heuristic
+flow: dev
 locked_at: '2026-08-17T07:29:45.667Z'
 ---
 
@@ -19,16 +30,13 @@ locked_at: '2026-08-17T07:29:45.667Z'
 
 > **Supersedes the offer structure set by [P937](done/2026-06-10/p937_webinar_funnel_landing_and_offers_page.md) (offers page + Free/Standard tiers) and [P951](done/2026-06-10/p951_premium_tier_stripe_offers.md) (Premium tier + Stripe links).** Those specs are not wrong; the offer they encode was retired. [P971](done/2026-06-10/p971_countdown_above_pricing.md)'s countdown stays — only the date it counts to changes.
 
-## Blocking — the paid level has no name yet
+## Naming — resolved 2026-08-20
 
-**This spec cannot ship until the paid level is named** ([decisions.md](../docs/decisions.md) 2026-08-19 [product], the three-layer naming resolution). That decision split the naming into **Kind** (Clarity Organization — the container, never marketed), **Instance** (Clarity Practice Community · Chiang Mai / · Online — the communities themselves), and **Level** (what a member holds inside an instance: free, and paid — `[FOUNDER DECISION: name]`).
+The paid-level naming block ([decisions.md](../docs/decisions.md) 2026-08-19 [product], the three-layer naming resolution: Kind = Clarity Organization, unmarketed container; Instance = Clarity Practice Community · Chiang Mai / · Online; Level = what a member holds inside an instance) is settled: the paid level is named **Clarity Champions** — deliberately not "community" (that word stays reserved for Instance names, which is the exact collision that triggered this naming pass) and worn from day one of payment, not only after month 3 (graduation is when the name is *earned in practice*, not when it's first granted).
 
-Two consequences for this page, both structural rather than cosmetic:
+`/program` stays the sales surface, unchanged in mechanism — self-serve, no qualifying call. Two reasons converged: (1) the founder's own funnel already double-qualifies before anyone reaches this page — free-event attendance first, the money-back guarantee second — so a call gate would be a third, redundant filter; (2) at the event, the founder's own instinct was "go to `/program`," not "go to `/intro`" — confirming self-serve was always the intended path for standard membership interest. `/intro` stays reserved for what it already covers: workshops, training, org-level asks — never the standard membership path.
 
-1. **"Clarity Practice Community" is now the name of an instance, not of this offer.** Using it as the tier heading, the SEO title, or the page lead publishes the collision to a public sales page with a Stripe subscription behind it.
-2. **The paid rung stops being a separately-named product.** What it buys is events only paid members may join, visible-but-locked on the org page to every free member. That is a different page than "a third card in a pricing grid" — the upgrade path needs no pitch because the locked events *are* the pitch. Whether `/program` remains the surface that sells it, or whether the org page does, is unresolved.
-
-Everything below is written against the offer's mechanics, which the naming decision did not change. The naming is the gate.
+**New, small addition:** `/program` and `/org/cm` (and `/org/online` once it exists) cross-link — `/program` references what a member's practice community looks like; the org page's locked paid-only events (already decided to show free members, per the naming resolution) link back to `/program` to buy. Neither page gates the other; it's discovery in both directions, not a funnel stage.
 
 ## Problem
 
@@ -61,6 +69,8 @@ The three-card grid is removed. The membership runs top to bottom; everything el
      "The platform itself is free" (one line)
      Custom Offers → book 15 minutes
 6  FAQ
+7  Cross-link to /org/cm (and /org/online once it exists) — "see what a practice
+   community looks like" — discovery, not a gate
 ```
 
 One primary action per view, per the P955 rule already in `.claude/rules/visual-qa.md`.
@@ -81,7 +91,7 @@ One primary action per view, per the P955 rule already in `.claude/rules/visual-
 - **Waiting is held by the free events** — the recorded holding pattern for the not-yet-convinced ([goals.md](../docs/goals.md):15). Maximum wait is one cadence, ~6 weeks.
 - **Countdown:** keep the component, repoint the date. `COHORT_ENROLLMENT_CLOSES_ISO` (`src/app/content/webinar.ts`) is a hardcoded `2026-08-31T23:59:00+07:00` that renders the expired state permanently from September. It must resolve the **next batch start**.
 
-### What's included — draft, `[FOUNDER DECISION: final wording]`
+### What's included — confirmed, ship as written
 
 ```
 Weekly live practice sessions with your batch (3–10 people)
@@ -96,7 +106,7 @@ Cancel any month. Full refund of month one if the first two sessions aren't for 
 
 **Full 9-of-9 badging is NOT included** and must not be implied. Field data ([lean-canvas.md](../docs/lean-canvas.md):396, 2026-04-26): 100–180 minutes per person, founder-only certifier capacity. It is the separate Partnership Clarity Package. **Partial badges (1-of-9 from group work) ARE honest** — [hypotheses.md](../docs/hypotheses.md):385 treats them as the propagation unit.
 
-### The month arc — draft, `[FOUNDER DECISION: final wording]`
+### The month arc — confirmed, ship as written
 
 Section chips replace `3 weeks, live · ~7 hours · a cohort of 5 pairs` with `monthly, open-ended · weekly live session · a batch of 3–10`.
 
@@ -128,7 +138,7 @@ past the two or three early adopters who said yes first.
 
 ### Badging add-on line — under the price block
 
-A single line offering the **Partnership Clarity Package (€1,450, four sessions, two people, full Clarity Badge)** on ladischenski.com. Two jobs: it answers "how do I get properly badged", and it puts a number above €295 at the moment the visitor reads the price. `[FOUNDER DECISION: wording and whether the FCO retainer (€2,000/month) is named here instead or as well — same billing shape as the membership, so it anchors harder.]`
+A single line offering the **Partnership Clarity Package (€1,450, four sessions, two people, full Clarity Badge)** on ladischenski.com. Two jobs: it answers "how do I get properly badged", and it puts a number above €295 at the moment the visitor reads the price. **Resolved, see UI Contract** — wording leads with personalized delivery, not badge status; the FCO retainer (€2,000/month) is deliberately NOT named here, it anchors the wrong direction against €295/month.
 
 ### Custom Offers — unpriced, call-first
 
@@ -171,6 +181,8 @@ Non-members attend the **free events**, or come as one-time paid spectators. The
 - Do **NOT** invent prices, button labels, FAQ answers or tier bullets. Every one is `[FOUNDER DECISION]`; ask.
 - Do **NOT** edit the ladischenski repo from this spec.
 - Do **NOT** update strategy docs here — the workshop rung folding into Custom Offers, the install leaving the public surface, and the batch cadence go through `/slava:maintain:docs-strategy-update` separately.
+- Do **NOT** add a qualifying call gate in front of the membership CTA — self-serve is the confirmed mechanism (see Naming). `/intro` stays reserved for Custom Offers only.
+- Do **NOT** build the `/org/cm` → `/program` reverse link (locked events pointing back to buy) — that lives with the locked-events-on-org-page mechanic, [P1060](p1060_link_events_to_organizations.md)'s territory. This spec only adds the one outbound link, `/program` → `/org/cm`.
 
 ## Done-When
 
@@ -201,7 +213,7 @@ Settled values below. Everything marked `[FOUNDER DECISION]` is collected before
 
 | Element | Value | Context |
 |---|---|---|
-| Offer name | `[FOUNDER DECISION: paid level name]` — NOT "Clarity Practice Community" (retired as a product name, see Blocking) | page lead |
+| Offer name | Clarity Champions — NOT "Clarity Practice Community" (that name is reserved for the free Instance, see Naming) | page lead |
 | Price | €295 | per month, per person |
 | Billing note | monthly, open-ended | under the price |
 | Batch size | 3–10 | chips |
@@ -213,10 +225,22 @@ Settled values below. Everything marked `[FOUNDER DECISION]` is collected before
 | Month 1 heading | Practise together, and learn how and why the clarity principle works | timeline |
 | Month 2 heading | Take it to a few people you actually work with | timeline |
 | Month 3 heading | Open your Clarity Organization and start running events | timeline |
-| Buy button label | `[FOUNDER DECISION]` | — |
-| Custom CTA label | `[FOUNDER DECISION]` | — |
-| Custom qualifier line | `[FOUNDER DECISION]` | who it is for |
-| Free-platform line | `[FOUNDER DECISION]` | subordinate band |
-| Guarantee line | `[FOUNDER DECISION]` — must carry: full refund of month one within the first two sessions | assurance band |
-| SEO title / description | `[FOUNDER DECISION]` | `offers-page.tsx` |
-| FAQ set | `[FOUNDER DECISION]` | `PROGRAM_FAQS` |
+| Buy button label | "Start at €295/month" | — |
+| Custom CTA label | "Book 15 minutes" | — |
+| Custom qualifier line | "For organizations: workshops, training, coaching, or custom setup. Joining solo? The membership above is the easier way in." | who it is for |
+| Free-platform line | "The platform itself is free, always. The membership is for people who want a room, not just the tool." | subordinate band |
+| Guarantee line | "Try the first two sessions. If it's not for you, full refund on month one." | assurance band |
+| SEO title / description | Title: "Clarity Champions — Clarity Pledge" · Description: "Weekly live practice with a small batch of peers, €295/month, cancel anytime. Full refund if the first two sessions aren't for you." | `offers-page.tsx` |
+| FAQ set | See below | `PROGRAM_FAQS` |
+| Badging add-on line | "Want it done with you personally, not in a batch? The Partnership Clarity Package: four 1:1 sessions for two people, €1,450, on ladischenski.com." (FCO retainer NOT named — anchors the wrong direction against €295/month) | line under the price |
+| Countdown anchor | First batch starts **2026-10-01**. Every subsequent batch = anchor + 45×N days, computed forward from today, never hardcoded again | `COHORT_ENROLLMENT_CLOSES_ISO` replacement logic |
+
+**FAQ set (`PROGRAM_FAQS`) — 5 pairs:**
+
+1. Q: "What happens if fewer than 3 people sign up for a batch?" A: "Your batch rolls to the next start, 45 days later. You're not charged until your batch actually runs."
+2. Q: "Can I cancel anytime?" A: "Yes. Month-to-month, no minimum term. Cancel before the next billing date and you're not charged again."
+3. Q: "What does 'open-ended' mean?" A: "No fixed end date. After your batch's first three months, you move into the standing practice community and stay as long as you keep paying, no re-enrollment."
+4. Q: "What if the first two sessions aren't for me?" A: "Full refund of month one. No questions."
+5. Q: "How is this different from the free platform?" A: "The platform is the tool, always free. The membership is the room: a live batch, a facilitator, and eventually the standing community."
+
+**Guests confirmed as spec'd:** no one joins another member's batch. Colleagues (month 2) are practiced with inside the member's own organization, never as visitors to the shared room — consistent with "batches start together" (Non-Goals).
