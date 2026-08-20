@@ -77,9 +77,11 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 **How to reason (examples, not a lookup table):**
 
 - "Users will see something new or different" → `/verify` (confirm in browser). Add `/ux` **only**
-  when a design decision is still open — a layout, flow, or state nobody has settled yet. If the
-  design is already decided (in conversation, a mock, an existing pattern being reused), `/ux` has
-  nothing to resolve and must not be included.
+  when you can **write the unresolved design question as a sentence** — *"what does the empty state
+  show?"*, *"which of the two layouts?"*, *"what does the user see after they submit?"* — and
+  nobody in the thread has answered it. **If you cannot write that sentence, the design is settled
+  and `/ux` does not go in.** Put the sentence in the Risks line so it can be checked; the other
+  triggers here are countable, and this one has to produce an artifact instead.
 - "DB schema changes or new data model" → `/architect` (structure review) + `/generate-tests` (lock behavior)
 - "Auth, RLS, or permissions logic" → `/architect` (security review) + `/generate-tests`
 - "Multiple viable approaches, trade-offs unclear" → research the options before `/architect`
@@ -144,6 +146,11 @@ threshold forever, and no step can ever earn its way back. Two things prevent th
 - **Graduation.** If a step is opted into and *kept* (not struck) three times running, it is no
   longer bottom-tier — recommend it by default again and say why. Nothing else is needed; the
   count regenerates from `pipeline_ran` on its own.
+- **No double-gating.** A low count and a trigger are **one** test, not two. If a bottom-tier
+  step's trigger fired on a *named, written-down* open decision, it is in — the count does not
+  demote it a second time. The count only argues against steps included on vague grounds
+  ("it's a UI change"). Otherwise `/ux` at 7 runs would face a narrowed trigger *and* a demotion
+  rule, and would go to zero without anyone deciding it should.
 
 **Why this section exists:** the founder's push-back was measured — over the recent window he
 removes steps far more often than he adds them, and `/ux`, `/ui` and `/view` are the ones he names
