@@ -85,6 +85,92 @@ decisions.md 2026-08-20 [process] (P1104 merge-commit `--mark-landed` precedent,
 
 ---
 
+## 2026-08-20 [technical]: `/points-publish` — three decisions, and a reading of P1104 that was stale by six migrations (P1130)
+
+**Context:** P1096 stage 3 — the filer that writes a prepared disagreement to the product — was
+specced and drafted (`features/p1130_points_publish_filer.md`,
+`.claude/commands/slava/content/points-publish.md`). Three decisions were delegated rather than
+inherited.
+
+**Decision (a): agent provisioning is a SEPARATE skill, `/slava:content:provision-agent`.** The
+filer resolves-or-halts and has **no creation path**. The argument against — one caller, YAGNI —
+loses to one fact: provisioning spans a **deploy**. `gen-agent-avatar` emits the avatar as a static
+asset, so the sequence is generate → commit → deploy → mint the `auth.users` row → RPC. A filer
+that pauses mid-run for a human to ship an asset is already two skills.
+
+**Decision (b): agent positions DO count in the aggregate tally.** Not for the code cost — for
+**P543**. All three feed paths end in `.filter(p => p.totalPositions > 0)`
+(`points-service-real.ts:406,723,842`), so excluding agent positions would make every freshly filed
+point invisible on the exact tag URL the skill returns, until a human answered a point they could
+not reach. *Residue:* each position row is disclosed (`Agent · {subject}`, drained card), the
+aggregate bar is not. Any reading of a room's answers as evidence must exclude agent `user_id`s at
+query time. *Falsifier:* if anyone at the first event reads the bar as the room's own split,
+exclusion becomes a real spec and P543 gets revisited with it.
+
+**Decision (c): dry-run is the default, and the plan IS the request envelope.** Not a document
+describing the write — the exact artifact sent, carrying **the destination URL inside it**, hashed,
+gated, re-hashed, with the URL read back out at write time.
+
+**What the adversarial review changed, and the one that matters most.** Both artifacts cited
+`20260819120000_p1104_agent_accounts.sql` as the home of the RPC. There are **seven** `p1104`
+migrations; `create_or_reuse_agent_account` was redefined at `20260819160000` and the definition
+that was read is dead. Four caller obligations exist that the first file does not state — a
+reserved-name check at the table, `btrim` on the subject key, a raise when a subject is reused under
+a **different operator** (the operator is a per-subject invariant, not a per-run string), and a
+must-check-before-cleanup rule on a lost response. `service_role` has also lost DELETE on the
+registry. **The failure was reading one file whose name matched and treating it as the manifest** —
+epistemic gate 4, and the standing "enumerate dependents before changing anything shared" rule.
+`ls supabase/migrations/ | grep p1104` would have cost one command.
+
+**Six further defects the review found, all now closed in the skill:**
+
+1. **The destination sat outside the hash.** Body hashed, target ref in the curl URL — so an agent
+   could gate on test and send the byte-identical body to prod, with read-back confirming its own
+   mistake. Fixed by hashing an envelope that carries `{url, env, body}`.
+2. **The operator never saw the SQL.** The gate printed a bullet list of stories/points/positions,
+   which has no slot for a statement that is not one of those — an appended
+   `UPDATE profiles SET has_pledged = true` renders an identical list, is covered by the hash, and
+   passes all five read-back asserts. Fixed: print the raw SQL, plus a whitelist/count shape assert.
+3. **The PostgREST fallback silently left the hash regime** (PostgREST does not accept SQL, so it
+   would rebuild unhashed bodies) — removed entirely; a blocked API is now a STOP.
+4. **The event tag is transformed by the trigger three ways** — `lower()`, `\w` excluding `-`
+   (`#ea-debate` → `ea`), and outright dropping of `understanding`/`st\d+`/`v\d+`. A hyphenated
+   slug, the most natural event-tag shape, silently split the artifact across two tags.
+5. **A markdown link inside a quote publishes a disguised link under a real person's agent story.**
+   `linkify.ts:17` emits an anchor whose label is independent of its href, and `/points-prepare`
+   harvests comment sections. At the gate the operator reads raw text; the viewer sees a clean link
+   elsewhere. XSS is blocked; phishing under a named person's account was not.
+6. **Only the prod (ref, key) pair was named** while a test run was mandated and `.env.local` was
+   banned as a URL source — leaving "write to prod and label the ledger `env:test`" as the reachable
+   improvisation. Both targets are now named in a table, and `env:` is derived from the ref used.
+
+**Three more from a fifth reviewer that arrived late**, the most important being that **nothing
+bound a story to the right agent**: swapping the two `author_id`s passed all five read-back asserts
+while publishing each person's verbatim quotes under the other person's machine identity. The
+attribution rule binds quote→speaker *inside the transcript*; nothing revisited speaker→`author_id`,
+which is where the binding lands. Closed with a sixth assert joining `stories → agent_accounts` and
+comparing `subject_key` per story against the payload mapping.
+
+**Two reviewers contradicted each other, and the disagreement was settled by measurement, not by
+picking one.** One held the avatar HTTP-200 check blind on an SPA host (a missing `.png` returning
+200 `text/html`); the other held it sound, citing a negative lookahead in `vercel.json`. Probing prod
+directly: a missing `/agents/*.png` returns **404 `text/plain`**, an SPA route returns 200
+`text/html`. The check is not blind. A third claim from the same reviewer — a service worker serving
+a pre-marker bundle — was rejected outright: **the app has no service worker.** Both were plausible,
+well-cited, and wrong; a review consumed without verification would have added two mechanisms
+against non-existent failures. (Gate 9, on the consuming side.)
+
+**Process finding, recorded because it cost a full fan-out.** Five hostile reviewers were spawned
+and **0 of 5 delivered** — their findings were returned as final chat text, which
+`.claude/rules/skills.md` records as silently discarded for background subagents (measured
+2026-07-30). Re-run with a `Write`-to-file contract, **5 of 5 delivered**. The rule existed and was
+not applied; it is path-triggered on `.claude/commands/slava/**`, so it loads when an agent *edits* a
+skill and not when one *spawns agents from a conversation* — which is precisely when it is needed.
+**Two lenses reported only after the synthesis was already written**, so an intermediate report of
+"4 of 5" was published and had to be corrected; the late one carried the highest-severity finding of
+the whole review.
+
+
 ## 2026-08-20 [process]: `/pick-flow` gets a cost axis, `/view` leaves routing after four months and zero runs
 
 **Context:** The P1127 measurement (entry above) established that the founder now *removes* steps

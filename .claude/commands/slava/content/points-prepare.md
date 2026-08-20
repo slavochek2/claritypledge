@@ -2,7 +2,7 @@
 name: points-prepare
 description: "Read one or more sources — YouTube videos, a recorded conversation, an event panel — and prepare everything needed to file a disagreement: Points aimed at a named ROOM, one story draft per arguer holding only that speaker's verbatim quotes, each agent's position on each Point, and a sealed prediction. Terminal output only; writes nothing to the product. With an opposed PAIR of sources it builds synthesized Points — claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends."
 when_to_use: "When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only. Pairs with /points-publish, which is the only skill in this chain that writes to the product."
-version: 0.4.0
+version: 0.5.0
 ---
 
 # /points-prepare
@@ -196,9 +196,31 @@ Never merge a strong half and a weak half into one confident number.
 >
 > **Consequence, stated because it contradicts what this stage used to claim:** calibration is a property of a *sequence*, and reading across runs is forbidden. So a sealed prediction can only ever be scored **within its own run**, against that run's room. **Cross-run calibration of the agent is unavailable by design** — an accepted gap, not a purpose this file can deliver. Earlier wording said scoring was "the whole reason the prediction exists"; that was incompatible with the rule two lines above it.
 
-## Stage 8 — Story drafts
+## Stage 8 — Story drafts, and the handoff the filer needs
 
 One per arguer: a summary plus **only that speaker's verbatim quotes**, with the source link. These are drafts for a later filing step. **This skill files nothing.**
+
+### Record the subject key per arguer — the filer cannot guess it
+
+`/slava:content:points-publish` matches each arguer to an existing agent account by an exact **`subject_key`**, and it must read that key from a written artifact rather than from someone's memory. Emit one line per arguer into the run file:
+
+```
+arguer: <Display Name> | subject_key: <canonical person reference> | source: <URL>
+```
+
+The key is a canonical reference to the **person** — Wikidata entity, Wikipedia page, their own site, or an internal slug when they have no public page. **Never a YouTube channel URL:** a channel identifies whoever *publishes*, not who speaks, and the same person appears across many channels. If you do not know the key, write `subject_key: UNKNOWN` and say so — an honest gap stops the filer, a guessed one publishes a person's words under someone else's account.
+
+### Label the attribution basis per quote
+
+The filer treats attribution as a **third** check, separate from the two below — `grep -F` proves a quote is in the transcript, the audio check proves the caption robot heard it right, and **neither proves the right person said it.** Tag every quote:
+
+| Label | Meaning |
+|---|---|
+| `speaker-labelled` | the source carries real speaker labels |
+| `single-speaker` | only one person speaks in this source |
+| `turn-inferred` | attributed from `>>` markers or content alone |
+
+**`turn-inferred` on a multi-speaker source is a stop at filing time**, so surface it here rather than letting it be discovered later.
 
 ---
 
@@ -238,7 +260,7 @@ Close with: how much was read, audience sizes, the origin tally, how many candid
 ## Not yet built (name the boundary if asked)
 
 - **Source selection** — `features/p1088_video_selector_for_point_extraction.md`. Argument density falls as reach rises: measured 2026-08-17 across six videos, from 1.7 comments per thousand views at 751k views to 13.4 at 49k. Trending is the wrong filter.
-- **Filing** — nothing writes these to the product yet.
+- **Filing** — `/slava:content:points-publish` writes these to the product; `/slava:content:provision-agent` creates the agent accounts it files under. Both exist. This skill still writes nothing.
 
 ## Open questions for v3
 
