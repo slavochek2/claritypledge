@@ -25,7 +25,7 @@ const MIDPOINT_VALUE = 5;
 const POLE_LABELS = { low: 'Keep it light', high: 'Go deep' };
 
 export function EventRoomReady() {
-  const { slug, event, loading, granted } = useEventRoomAccess();
+  const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const navigate = useNavigate();
 
@@ -58,7 +58,7 @@ export function EventRoomReady() {
   }, [self, value, refresh, navigate, slug]);
 
   if (loading || (granted && selfLoading)) return null;
-  if (!granted) return <EventRoomGateScreen slug={slug} />;
+  if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
   const isFrozen = event
     ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000

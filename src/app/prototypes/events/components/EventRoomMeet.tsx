@@ -44,8 +44,11 @@ import type { EventRoomMember } from '@/app/types';
 const PRINCIPLE_LEVEL: MeetingTermsLevel = 3;
 const PRINCIPLE_TITLE = 'Clarity Meeting Principle';
 
-export function EventRoomMeet() {
-  const { slug, event, loading, granted } = useEventRoomAccess();
+/** `embedded`: true when rendered inside EventDetail's "cmp" tab rather than as the
+ * standalone `/meet` route — forwarded to the gate fallback so it doesn't add a
+ * second near-full-viewport of centering on top of the page content already above it. */
+export function EventRoomMeet({ embedded = false }: { embedded?: boolean } = {}) {
+  const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
@@ -71,7 +74,9 @@ export function EventRoomMeet() {
   }, [self, refresh]);
 
   if (loading || (granted && selfLoading)) return null;
-  if (!granted) return <EventRoomGateScreen slug={slug} />;
+  if (!granted) {
+    return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} fullHeight={!embedded} />;
+  }
 
   const isFrozen = event
     ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000

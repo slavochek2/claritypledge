@@ -4,6 +4,8 @@
  * (`/events/:slug/room`, `/ready`, `/meet`). Entry is gated by registration AND
  * sign-in (spec Solution, "REVISED (2)" block): `event_rsvps` is the room's gate,
  * reusing `eventsService.isUserRsvpd` rather than a second registration mechanism.
+ * The event's own host is exempt from that RSVP check — an organizer is registered
+ * for their own event by definition, not by having a row in `event_rsvps`.
  *
  * The gate SCREEN itself (the four approved strings) lives in `EventRoomGate.tsx`,
  * not here — src/tests/p1114-room-composition.test.tsx reads that file's own source
@@ -22,8 +24,12 @@ export interface EventRoomAccess {
   slug: string | undefined;
   event: EventWithHost | null;
   loading: boolean;
-  /** true once the event has loaded, the caller is signed in, AND registered
-   * (event_rsvps holds a row for them). */
+  /** True once a `session` exists — independent of `granted`, so the gate screen
+   * can tell "signed in but not registered" apart from "signed out" and stop
+   * offering a redundant Sign in control to someone already signed in. */
+  isLoggedIn: boolean;
+  /** true once the event has loaded, the caller is signed in, AND (registered —
+   * event_rsvps holds a row for them — OR is the event's host). */
   granted: boolean;
 }
 
@@ -66,7 +72,8 @@ export function useEventRoomAccess(): EventRoomAccess {
     return () => { cancelled = true; };
   }, [slug, isLoggedIn, user?.id]);
 
-  return { slug, event, loading, granted: isLoggedIn && isRegistered };
+  const isHost = !!(event && user && event.hostId === user.id);
+  return { slug, event, loading, isLoggedIn, granted: isLoggedIn && (isRegistered || isHost) };
 }
 
 export interface EventRoomSelfState {

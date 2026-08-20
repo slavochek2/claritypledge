@@ -125,4 +125,36 @@ test.describe('P1114 rev2: the registration gate', () => {
     await expect(page.getByTestId('room-meet')).toBeVisible();
     await expect(page.getByTestId('room-gate')).toHaveCount(0);
   });
+
+  test('the event host reaches the room without registering', async ({ page }) => {
+    await setTestSession(page, host.email);
+    await page.goto(`/events/${event.slug}/room`);
+    await expect(
+      page.getByTestId('room-gate'),
+      "The event's own host was gated out of their own room's readiness/principle flow — an organizer is registered for their own event by definition, not by an event_rsvps row.",
+    ).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
+  });
+
+  test('a signed-in but unregistered person sees no Sign in control on the gate', async ({ page }) => {
+    await setTestSession(page, unregistered.email);
+    await page.goto(`/events/${event.slug}/room`);
+    await expect(page.getByTestId('room-gate-register')).toBeVisible();
+    await expect(
+      page.getByTestId('room-gate-signin'),
+      'A person already signed in was offered a Sign in control on the gate — dead and confusing for someone who already has a live session.',
+    ).toHaveCount(0);
+  });
+
+  test('the gate embedded in the event page tab does not stack a second full-viewport of centering', async ({ page }) => {
+    await setTestSession(page, unregistered.email);
+    await page.goto(`/events/${event.slug}?tab=cmp`);
+    const gate = page.getByTestId('room-gate');
+    await expect(gate).toBeVisible();
+    const box = await gate.boundingBox();
+    expect(
+      box?.y,
+      'The gate embedded in EventDetail\'s "cmp" tab is stacking a near-full-viewport min-height on top of the page header/tabs already above it, pushing the gate copy far below the fold.',
+    ).toBeLessThan(700);
+  });
 });

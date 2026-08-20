@@ -714,7 +714,7 @@ export function EventDetail() {
             page body, not a strip beneath it." */}
         {activeTab === 'cmp' && (
           <div className="pt-4">
-            <EventRoomMeet />
+            <EventRoomMeet embedded />
           </div>
         )}
       </div>
