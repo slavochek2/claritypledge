@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: task
 rank: 40
 created_date: '2026-08-19'
