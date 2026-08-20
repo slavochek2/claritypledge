@@ -516,6 +516,29 @@ self-modification means the system drifts between the founder's looks at it.
 This is also when skill retirement becomes answerable: accumulated feedback plus a working gate turns
 "is `/ux` any good?" into "run the same spec with and without it, count the rounds."
 
+**First data point, logged 2026-08-20 (P1114) — and it answers the `/ux` question from the wrong
+direction.** `/pick-flow` dropped `/ux` from the flow on the argument that the spec already carried
+the eight UI states and that the ten `[FOUNDER DECISION]` copy strings needed the founder anyway, so
+`/ux` could not produce them. Both premises were true; the conclusion was wrong. **Listing the states
+a screen can be in is not the same as deciding what it looks like** — and `/ux`'s real deliverable
+here was neither states nor copy, it was the *reuse/extend/extract/new* classification per element.
+With that step gone, every element defaulted to **new**: the room hand-rolled an eleven-button 0–10
+ladder while `SliderTrack` — already extracted, already imported by `ready-page.tsx` — sat unused in
+the same repo. The founder rejected the page on sight; cost was a full page rebuild plus a component
+extraction that should have been decided before any code was written. The spec had *said* layout was
+"a `/ux` question, not settled here"; the flow overrode the spec's own deferral.
+
+Two things worth measuring when the improver exists: (a) `/pick-flow`'s skip reasons are currently
+free prose and nothing checks a skip against what the spec explicitly deferred — a mechanical
+cross-check is cheap; (b) this is a **skip-quality** failure, not a skill-quality one, so
+"is `/ux` any good?" was never the right question here — `/ux` was never run. The improver needs to
+distinguish *the step was bad* from *the step was skipped*, or it will retire skills that were never
+given a turn.
+
+A durable guard shipped alongside the fix — `src/tests/p1114-shared-component-reuse.test.tsx` fails
+if the room grows its own copy of a shared control again. Note the asymmetry: that catches the
+*second* instance, never the first. Only the flow step catches the first.
+
 Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08-19 (three entries).
 
 `due: month`
