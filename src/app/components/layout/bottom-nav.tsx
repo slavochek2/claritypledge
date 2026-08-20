@@ -61,10 +61,16 @@ export function BottomNav() {
   // here: nothing else lives under /meet.
   // P1077: /ready is the same kind of single-focus surface as /meet — one question,
   // one action — so the bottom nav's browse affordances don't belong on it either.
+  // P1114 rev2: the room's own /events/:slug/{room,ready,meet} carry the exact same
+  // sticky action bar (meet) or single action (ready, and the gate) — found via a
+  // captured screenshot at 320px, where BottomNav rendered fixed at the bottom
+  // directly on top of the room's Opt in / Opt out bar, both position:fixed and
+  // fighting for the same pixels. Every registered visitor is signed in (the room
+  // requires it), so BottomNav always renders here unless excluded.
   const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r))
     || /^\/org\/[^/]+\/join\/?$/.test(location.pathname)
-    || /^\/meet\/?$/.test(location.pathname)
-    || /^\/ready\/?$/.test(location.pathname);
+    || /^\/(meet|events\/[^/]+\/meet)\/?$/.test(location.pathname)
+    || /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
   const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
   if (onFocusRoute && !completedLetterReading) {
     return null;
