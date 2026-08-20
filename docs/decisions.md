@@ -4,6 +4,78 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [process]: The exit-code lesson was recorded, committed, and repeated twenty minutes later
+
+**Context:** A decision entry was written this session about losing a command's verdict to a pipe —
+two instances, `ship-gates.sh` and `git-ops.sh commit-to-main`, both reporting the exit code of
+`tail` rather than the command under test. It was committed.
+
+Roughly twenty minutes later, a background ship loop was launched as `/tmp/shiploop.sh 2>&1 |
+tail -25`. The script exited **5**. The task notification reported **exit code 0** — `tail`'s. The
+run had stopped on an unhandled merge commit with twelve commits already landed on main, and the
+only reason that was noticed is that the output text was read.
+
+Third instance, same session, after the lesson was written down.
+
+**Decision:** Record the recurrence rather than quietly fixing it, because the recurrence is the
+finding. A decision entry changed nothing about the next command typed twenty minutes later.
+
+**Alternatives rejected:** Treating instance three as a repeat of an already-logged item and
+omitting it. The count *is* the evidence — one instance is a slip; three in one session, after
+documentation, is a claim about what documentation can and cannot do.
+
+**Consequences:** **Writing a rule down is not a control.** This repo already knows it — the
+2026-06-25 finding that a gate sticks only with a canary, a forgery-proof boundary and a mechanical
+choke-point says exactly this, and the pipe habit has none of the three. The honest conclusion is
+that this class recurs until something mechanical catches it; until then it is caught by reading
+output, which is luck wearing diligence's clothes.
+
+Narrow, checkable form: when a command is run for its **verdict**, its exit code must not travel
+through a pipe. Redirect and echo `$?`, or set `pipefail`.
+
+**References:** [decisions.md](decisions.md) 2026-08-20 "A pipe ate a gate's exit code twice" ·
+[epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
+## 2026-08-20 [process]: `/ship` cannot cherry-pick a merge commit, and merging main into a feature branch is ordinary
+
+**Context:** P1104's branch contained `Merge branch 'main' into feature/p1104-...`, made mid-feature
+to pick up scripts the worktree needed. `git-ops.sh ship` cherry-picks each branch commit onto main
+in order; git refuses a merge commit without `-m`, so the ship stalled — **after twelve of
+twenty-two commits had already landed on main**, leaving the feature half-shipped with the branch
+still live.
+
+Nothing was corrupted (the journal records exactly which commits landed, and the state is
+resumable), but the failure lands mid-merge rather than at a gate, which is the expensive place for
+it.
+
+**Decision:** Resolve with the tool's own escape hatch: `git-ops ship pN --mark-landed <merge-sha>
+<merge-sha^2>`. The merge's second parent is the main commit it merged, verified to be an ancestor
+of main before recording. Honest rather than a fudge — the merge authored no content of its own;
+its 5,299 changed lines came *from* main, so re-applying it to main would apply main to itself. The
+tool refuses to record a landing that did not happen, which is what makes the check worth anything.
+
+**Alternatives rejected:** Forcing `cherry-pick -m 1`, which would re-apply main's own content as a
+new commit on main. Deleting the journal and restarting, with twelve commits already landed.
+
+**Consequences:** **Prefer rebase over merge when syncing a feature branch here** — ship is
+cherry-pick-based, so a merge commit is a landmine that only detonates at ship time. When one
+already exists, `--mark-landed` against `^2` is the supported route; do not improvise with
+`cherry-pick --continue`, `--skip` or `--abort`, all of which the tool's diagnostics warn against
+mid-sequence.
+
+Adjacent friction, same ship: every branch commit touching `supabase/deploy-manifest.json`
+conflicted against main's copy, one resolution each. Resolution is always "keep main" (the
+superset). The guard that matters is that the **prod** block must not gain the feature's migrations
+— it records what is actually deployed, and a false entry makes the deploy-drift check report clean
+while the live database lacks the schema.
+
+**References:** `scripts/git-ops.sh` (`--mark-landed`, `resolve_ship_sprint_dir`) ·
+[git.md](../.claude/rules/git.md)
+
+---
+
 ## 2026-08-20 [technical]: A decisions.md entry re-fired at ship time, not at design time — the P954 env-var pattern was rebuilt from scratch (P1123)
 
 **Context:** P1123 added `/donate` with five preset Stripe payment links, reading every URL from `VITE_STRIPE_DONATE_URL*`. That is precisely the pattern decisions.md 2026-06-19 (P954) bans, after env-var-only Stripe links took `/pricing` checkout down in production. The repeat was caught by the `/kdd` step that greps decisions.md — **after** the feature had passed three code reviews, a blind visual QA, every pre-commit gate, and merged to main. None of those catch it: reviewers see the diff, not the seven-month-old decision; gates check shape, not precedent. Compounding it, the agent asserted "no CI workflow builds the app, so `.env.local` supplies the vars" from a `grep` of `.github/workflows` — Vercel builds on push and is not a GitHub workflow, so the absence-grep produced a confident false conclusion about the deploy path.
