@@ -4,6 +4,77 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [technical]: The migration chain cannot build a database from empty — five defect classes, and CI never needed the CLI to find out
+
+**Context:** P1085 needs a database for an E2E core in CI. The obvious route — `supabase start` against
+`supabase/migrations/` — fails on the *second* file. Measured by applying all 238 files via `psql` in
+filename order with `ON_ERROR_STOP=1`, checking each exit code: **five distinct defect classes**, not one.
+Baseline re-declaration (`20250101_initial_schema.sql` is a consolidated snapshot that later dated files
+re-declare); file-internal ordering (`20260209` alone stacked three, each hidden by the one above it);
+objects that exist live and in no migration (P1054's class — a table and two columns, hit on this path);
+**four duplicated version keys across eight files**; and a self-excluding tombstone whose skip-ness exists
+only as a hand-inserted `schema_migrations` row on two servers.
+
+**Decision:** CI does not use the CLI's migration runner. Applying the `.sql` files directly via `psql`
+skips the history table whose primary key the duplicate versions collide on — **238 files, ~23s, and no
+filename changes**. Scope P1132 to the idempotency half only: 15 guards across 6 files. Explicitly do NOT
+rename anything, because a rename makes a file newly-pending on the live databases, and
+`20260413100000_p701_st_swap.sql` bypasses the `system_tags` write-protection trigger to perform a 3-way
+tag rotation written to run exactly once — a second run corrupts silently, with no error.
+
+**Alternatives rejected:** (a) Seed CI from a schema-only dump of the live database — rejected: this repo
+is public, and the dump would publish exactly the out-of-band objects P1054 keeps private. (b) Rename the
+eight colliding files — rejected: the corruption path above. (c) Edit history and push through the gates —
+rejected: `pre-commit-checks.sh` scans a modified migration's *entire* contents against current standards,
+so touching a 20-month-old file drags all its pre-existing content into today's review. That is the gate
+working correctly, and it is a real cost of editing history that the plan had not priced.
+
+**Consequences:** The CI build path is settled and free. **P1132's own Done-When cannot be met until P1054
+lands** — a from-empty build needs two objects that exist only in the live databases, so two specs now
+claim one criterion and P1054 owns the blocking half; this run is the first measurement of its blast
+radius on a build path. The skip list is a net gain independent of CI: it is the first artifact in the repo
+recording that a tombstone migration must never run, a fact that until now lived only in two databases.
+One Done-When was **withdrawn** — re-run safety was never required (CI builds once and discards; live
+databases are version-tracked), and demanding it was over-specification; measured anyway at 86% for the
+record. Status: guards applied on `feature/p1132-migration-replay-guards`, uncommitted, gate-blocked —
+approach decision (script vs. history edit) pending.
+
+**References:** [p1132](../features/p1132_migration_chain_cannot_replay_from_empty.md) ·
+[p1085](../features/p1085_trusted_e2e_core_in_ci.md) ·
+[p1054](../features/p1054_out_of_band_objects_absent_from_migrations.md)
+
+---
+
+## 2026-08-20 [process]: A survey that continues past errors reports one defect per file and reads like a complete census
+
+**Context:** The first enumeration of the broken migration chain ran with `ON_ERROR_STOP=0` and produced a
+confident table: 12 files, 37 error lines, buckets, distribution, a root-cause count of 3. It was used to
+scope a spec. It was wrong in a way no amount of re-reading it would reveal — `20260209` reported a
+default-cast failure (42804), and only *fixing* that exposed a policy dependency (0A000), and only fixing
+*that* exposed a CHECK constraint re-validated mid-conversion (42883), plus an unguarded `CREATE TYPE`
+underneath. **Three of the five defect classes were invisible to the survey that was meant to find them**,
+and a prior report had marked that file "VERIFIED — applied and re-ran clean."
+
+**Decision:** For any defect enumeration where fixes can unmask further failures, the authoritative run is
+the one that **stops at the first error**. A continue-past-errors pass is a triage aid, never a census, and
+must be labelled as such wherever its numbers are quoted.
+
+**Alternatives rejected:** Trusting the bucket counts and sampling a few for verification — the sampling
+would have had to land on the specific file whose second error was masked, and the classifier's own
+documented limits (four of them, including a 26% swing from case-sensitivity) already said the buckets were
+directional.
+
+**Consequences:** Generalises past migrations to any layered-failure domain: linters with `--continue`,
+test runners with `--no-bail`, batch scripts with `|| true`. The tell is that fixing one item changes what
+the next run reports. Related to gate 7b — green bounds what was *modelled*; here, the error count bounded
+only what the first failure per file permitted the tool to see. Cost paid: three round trips and a spec
+scoped on wrong numbers, caught only because the shipped guard text was required to be the exercised text.
+
+**References:** [p1132](../features/p1132_migration_chain_cannot_replay_from_empty.md) ·
+[epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
 ## 2026-08-20 [technical]: A fix reviewed as safe reopened the exact defect class it closed — twice, at two different layers, same session (P1108)
 
 **Context:** Closing P1108 needed two rounds of fixes to shared repo tooling, both caught only
