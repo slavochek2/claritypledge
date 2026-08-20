@@ -110,7 +110,9 @@ NOT_COMMANDS = {
 # never trigger it, and every exception is greppable and reviewable in one place. Empty
 # today, which is the point -- the repo has no dead pointers.
 KNOWN_RETIRED = {
-    # ".claude/rules/example.md:/old-command": "P123 archived it; line is historical.",
+    ".claude/rules/features.md:/quick-feature": "P1122 — /quick-feature was absorbed into "
+        "/create-spec; the flow: quick-feature value is legacy/read-only, this line documents "
+        "the retired command it's named after.",
 }
 
 

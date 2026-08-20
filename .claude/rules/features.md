@@ -74,7 +74,7 @@ When rewriting a `type: bug` spec (scope expanded, layers peeled), preserve the 
 flow: fix    # fix | dev | inline | quick-feature
 ```
 
-Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `quick-feature` = spec skeleton only, minimal pipeline.
+Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `quick-feature` = spec skeleton only, minimal pipeline — **legacy, read-only**: `/quick-feature` was absorbed into `/create-spec`, so `/pick-flow` no longer offers this value on new specs; it stays valid only to read/resume the 4 closed specs in `features/done/` that already carry `flow: quick-feature` as history (`grep -rl 'flow: quick-feature' features/done/`).
 
 **When `flow:` is set, the implementing agent must validate the chosen flow still matches actual scope before starting work.** If `flow: fix` is set but the scope has grown (multiple concerns, DB migration, 5+ files), flag the mismatch and confirm before proceeding.
 
@@ -101,7 +101,7 @@ pipeline_ran: [create-spec, challenge-prd, ux, architect]
 pipeline_skipped: [research-arch -- no novel tech, decompose -- under 5 files]
 ```
 
-- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `challenge-prd`, `ux`, `research-arch`, `architect`, `ui`, `view`, `generate-tests`, `spec-review`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated.
+- **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `challenge-prd`, `ux`, `research-arch`, `architect`, `ui`, `view`, `generate-tests`, `spec-review`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated. `research-arch` is a **deliberately reserved placeholder** — no skill exists yet. `features/archive/p659_pipeline_delivery_tracking.md:83` recorded it as an optional pre-`architect` step at design time; the current `pick-flow/SKILL.md` carries no reference to it as of this writing. The stamp pattern gets added if a `research-arch` skill is ever built.
 - **`pipeline_plan:`** — ordered skill list for this spec's flow. Set by `/pick-flow` when user confirms. Never deleted.
 - **`pipeline_ran:`** — skills that started, in order. Each tracked skill appends on entry. Re-runs get `.2` suffix (`.3` for third, etc.). Matching is exact string only. Means "started" not "completed" — downstream skills verify upstream output sections exist.
 - **`pipeline_skipped:`** — skills intentionally skipped, each with `--` separator and reason. Set by `/pick-flow`. Never deleted.

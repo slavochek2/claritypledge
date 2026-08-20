@@ -86,9 +86,9 @@ This is the last line of defense — ideally you're already on a feature branch 
 
 ### Deploying to production
 
-Vercel auto-deploys on every push to `main`. There is no staging gate — pushing to main IS deploying to prod.
+Vercel auto-deploys on every push to `main` — there is no separate deploy environment to test in first, so a push to main IS deploying to prod. (Landing a push on `main` still goes through the mandatory staging-branch **hop** below — that's a CI gate, not a deploy environment.)
 
-- **Feature branches:** use `/ship pN` — merges branch → main → pushes → Vercel deploys
+- **Feature branches:** use `/ship pN` — merges branch → main. What `/ship` does after that is owned by [ship.md](../../.claude/commands/slava/build/ship.md): it never pushes on its own — it prints "Ready to push" and stops for the user.
 - **Small infra/doc work on main:** just say "push" — no `/ship` needed
 - **Agent rule:** never push autonomously; always ask first, even if everything looks clean
 

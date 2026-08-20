@@ -211,7 +211,7 @@ Most flows split: **Opus to plan, Sonnet to execute.** Name the switch point in 
 1. **Spec gate:** Work needs a P-number before building. Route to creation skill first.
 2. **Infrastructure gate:** Changes to `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, or `scripts/` → draft → adversarial subagent → `decisions.md` → implement. Skip only for purely additive single-file changes with no shared state.
 3. **`/finish` is inside `/dev`:** Never list it as a separate step.
-4. **`flow:` frontmatter:** Write exactly one of: `fix`, `dev`, `inline`, `quick-feature`.
+4. **`flow:` frontmatter:** Write exactly one of: `fix`, `dev`, `inline`. (`quick-feature` is a legacy value — read/resume it on old specs, never assign it to a new one; `/quick-feature` was absorbed into `/create-spec`.)
 5. **Resume from pipeline trail:** If spec has `pipeline_plan` and `pipeline_ran`, diff them — first item in plan not in ran = resume point. Present remaining pipeline. If spec has old-format `delivery_stage` (numbered: `1-prd`, `2-ux-review`, etc.) without `pipeline_plan`, use legacy resume table below.
 
 ### Legacy resume table (old-format specs only)
@@ -227,7 +227,7 @@ Most flows split: **Opus to plan, Sonnet to execute.** Name the switch point in 
 
 ## After user confirms
 
-- Set `flow:` in spec frontmatter if spec exists (values: `fix|dev|inline|quick-feature`)
+- Set `flow:` in spec frontmatter if spec exists (values: `fix|dev|inline` — `quick-feature` is legacy, never newly assigned; see `.claude/rules/features.md`)
 - **Set `pipeline_plan:`** — ordered inline list of all tracked skills in the confirmed flow. Example: `pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, dev, verify]`
 - **Set `pipeline_skipped:`** — inline list of skipped skills with reasons. Example: `pipeline_skipped: [ux -- no net-new visual component, decompose -- under 5 files]`. Omit if nothing skipped.
 - **Initialize `pipeline_ran: []`** (empty — skills fill this as they run)
