@@ -63,6 +63,42 @@ this session) · commits `541401c5`, `94070cf6`, `1408961a`
 
 ---
 
+## 2026-08-20 [process]: Correction to the entry below — "since P1116 shipped… six weeks" and "every worktree commit" were both overclaims, caught by an independent Opus review during the same session's own /kdd meta-reflection
+
+**Context:** The entry immediately below this one (P1131, GIT_DIR fourth-surface) shipped to main
+with two factual errors, both caught the same session by an Opus critic pass spawned as part of
+`/kdd`'s own meta-reflection step — not by any downstream reader. (1) **Scope:** "broke worktree
+commits since the day it shipped" / P1131's original "100% for any real git commit from a
+worktree" — false. `pre-commit-checks.sh:363` gates this canary group on seven specific staged
+paths; the P1122 commit that surfaced the bug tripped it only because it staged
+`scripts/validate-command-refs.py`, one of the seven, for an unrelated reason. (2) **Timeline:**
+"since P785… six weeks" — false. `git log --follow -- scripts/test-block-banned-git.py` shows the
+fixture landed 2026-08-19, one day before discovery, not six weeks. The wrong date came from
+reading `features/done/2026-06-10/` — the folder P1122's and P1116's own spec files happen to sit
+in — as a ship-date bucket; both files were actually last touched 2026-08-20.
+
+**Decision:** Corrected both claims in `features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md`
+(Reproduction Steps, Severity, Actual Behavior, Context) rather than silently editing the entry
+below — decisions.md is append-only, so the record stays: the original overclaim, then this
+correction, both visible.
+
+**Alternatives rejected:** Silently rewriting the entry below in place — rejected; it would erase
+evidence that the overclaim happened and how it was caught, which is the more useful fact for a
+future session than a quietly-corrected number.
+
+**Consequences:** A "how long has this been broken" claim needs `git log -- <the actual file>`,
+never the name of the `features/done/<date>/` folder a spec happens to sit in — that folder name
+records nothing about when the *code* changed. Also worth naming: this session's own `/kdd`
+extraction pass proposed both P1131 and the "self-fabricated claims" item as new meta-reflection
+findings without first grepping whether they were already in decisions.md — they were, in the very
+commit two entries below this one. The extractor should grep `docs/decisions.md` for the session's
+own date before proposing an item, the same discipline gate 9 already asks of every other claim.
+
+**References:** `features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md`;
+`scripts/pre-commit-checks.sh:358-368`; the entry immediately below.
+
+---
+
 ## 2026-08-20 [technical]: The GIT_* env-leak pattern (P785/P787/P1041) has a fourth surface — the P1116 canary's own cherry-pick fixture, and it broke worktree commits since the day it shipped
 
 **Context:** P1122 (a docs-only fix) hit "FIXTURE BROKEN: sequencer dir not resolvable" on every
