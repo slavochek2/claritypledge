@@ -4,6 +4,94 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [technical]: The GIT_* env-leak pattern (P785/P787/P1041) has a fourth surface — the P1116 canary's own cherry-pick fixture, and it broke worktree commits since the day it shipped
+
+**Context:** P1122 (a docs-only fix) hit "FIXTURE BROKEN: sequencer dir not resolvable" on every
+commit attempt from a worktree. Root cause: `scripts/test-block-banned-git.py`'s
+"cherry-pick --abort/--quit MID-sequence" fixture (added by P1116, 2026-06-10 — six weeks *after*
+the P785 rule below was established) `git init`s a temp repo and calls
+`git rev-parse --git-path sequencer` without stripping the inherited `GIT_DIR`/`GIT_WORK_TREE`.
+From a worktree, git sets `GIT_DIR` to an *absolute* path for the hook's environment, which wins
+over `cwd`-based discovery — so the fixture resolves against the outer worktree's real git-dir
+instead of its own temp repo. It only ever passed on `main`, where git happens to set `GIT_DIR` to
+the *relative* string `.git`, which coincidentally resolves back into the temp repo via `cwd`. The
+fixture's own integrity guard caught the mismatch and correctly refused to silently pass — so the
+practical effect was a hard block, on every worktree commit, since P1116 shipped six weeks ago.
+Worktrees are the documented default workflow for `/dev` and `/fix`.
+
+**Decision:** Same rule as the three prior entries below (P785, P787, the P1041 vitest surface):
+any script or test that shells out to `git` against an isolated temp/scratch repo must strip
+`GIT_DIR`/`GIT_WORK_TREE` (and the sibling `GIT_*` keys) from the subprocess's environment — this
+is now a *fourth* independently-discovered surface for a rule that has existed since 2026-04-22,
+because "unset the leaking vars" doesn't get checked when a new canary is written, only
+rediscovered when one breaks. Filed as `P1131` (not fixed in this session — P1122 bypassed it via
+the documented `--no-verify` + pre-existing-P-number protocol rather than silently working around
+it or scope-creeping the fix into an unrelated docs branch).
+
+**Alternatives rejected:** Fixing it inline as part of P1122 — rejected; P1131 is a pure
+infra/test-harness defect with zero relationship to P1122's docs content, and folding it in would
+have mixed an unrelated diff into a low-blast-radius docs commit.
+
+**Consequences:** A grep for `subprocess.run\(\["git"` / `spawnSync\(.git.` across `scripts/` and
+`src/tests/` before adding any *new* fixture that shells out to git in a temp repo would catch this
+class before it ships, rather than after six weeks of silently-unverified coverage. Worth asking
+whether a single shared test helper (Python + Node) that always strips `GIT_*` should exist,
+instead of re-deriving the `env=` override at each of now four sites.
+
+**References:** `features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md`;
+`scripts/test-block-banned-git.py:159-172`; 2026-08-11 [process] "The GIT_* env-leak pattern
+(P785/P787) has a third surface" (below); 2026-04-22 [technical] "Hermetic git canaries must also
+unset `GIT_AUTHOR_*` / `GIT_COMMITTER_*`" (P787, below); its predecessor "Canary and test scripts
+that run nested git ops must unset inherited git env vars" (P785, below).
+
+---
+
+## 2026-08-20 [process]: A dead-looking `delivery_stage` allowlist value can be a deliberately reserved placeholder, not drift — and the reviewer, not the author, caught the unverified numbers used to argue it
+
+**Context:** P1122 set out to resolve four contradicting delivery-doc facts, one of which was
+`research-arch` appearing in `.claude/rules/features.md`'s `delivery_stage` allowlist with no
+matching skill file — framed in the spec as an unresolved drift needing "restore the skill or
+remove the value." Before removing it (CLAUDE.md's "enumerate dependents before removing anything
+shared" rule), a grep of `features/archive/p659_pipeline_delivery_tracking.md` — the spec that
+originally created the allowlist — surfaced: *"Valid `delivery_stage` value but no skill file:
+`research-arch` — referenced in pick-flow as optional pre-architect step. If a `/research-arch`
+skill is created later, add the stamp pattern."* Not drift; a deliberately reserved placeholder
+recorded at design time. Deleting it would have erased documented intent that looked, from the
+spec's own framing, exactly like an orphaned entry.
+
+Separately, the independent code-review subagent (spawned per `/finish` before commit) caught two
+unverified claims already committed to the spec's own "Resolved Decisions" and Done-When evidence:
+a fabricated "14 closed specs carry `flow: quick-feature`" (actual grep count: 4), and a stale
+description of `pick-flow/SKILL.md`'s current behavior copied forward from the p659-era quote
+instead of re-verified against the live file (which now has zero `research-arch` references).
+Both are textbook epistemic-gate-9 violations — plausible-sounding claims built on a real,
+correctly-attributed quote, restated with enough confidence to read as verified.
+
+**Decision:** (1) Kept `research-arch` in the allowlist, annotated in place with the reservation
+and its source (`features/archive/p659_pipeline_delivery_tracking.md:83`), so the next reader sees
+"reserved, not built" instead of a phantom entry. (2) Kept `quick-feature` too — 4 closed specs in
+`features/done/` genuinely carry it as history — but marked it legacy/read-only and removed it as
+an offered choice in `pick-flow/SKILL.md`, since `/quick-feature` was genuinely absorbed into
+`/create-spec`. (3) Corrected both unverified claims before commit, documented the correction
+inline in the spec's Resolved Decisions rather than silently editing them away.
+
+**Alternatives rejected:** Trusting the spec's own framing of conflict 3 as "restore or remove" —
+the framing itself was written before the p659 grep ran, so treating it as settled would have
+executed a plan built on an incomplete premise.
+
+**Consequences:** A `delivery_stage`/`flow`/similar allowlist entry with no live consumer is not
+sufficient evidence of drift on its own — the spec that created the allowlist is the record of
+intent, and it should be checked before removal, not just the current wiring. Separately: an
+agent's own review-me-first draft is not exempt from epistemic gate 9 just because it's about to
+be reviewed — both false claims here were written by the implementing agent, not invented by a
+downstream consumer, and were only caught because an independent subagent re-ran the greps rather
+than trusting the quotes already in the diff.
+
+**References:** `features/done/2026-06-10/p1122_delivery_docs_contradict_on_push_and_staging.md`;
+`features/archive/p659_pipeline_delivery_tracking.md:83`; `.claude/rules/epistemic.md` gate 9.
+
+---
+
 ## 2026-08-20 [technical]: A verified boolean gates the sentence, but not the free text sitting next to it (P1108)
 
 **Context:** P1108 fixed `api/og.ts`'s link-preview handler so the pledge claim ("Signed the Clarity
