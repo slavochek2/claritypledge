@@ -1,12 +1,12 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 101
 created_date: '2026-08-19'
 tags: [docs, git-workflow, ship, push-safety, charter]
-delivery_stage: ship
 pipeline_ran: [create-spec, fix, ship]
 driver: anomaly
+completed_at: 2026-08-20
 ---
 
 # P1122: The delivery docs contradict each other on push, on staging, and on two stage values
