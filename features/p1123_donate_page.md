@@ -52,14 +52,14 @@ Stripe objects already created (live mode): product `prod_V6cBZRlqvIv38x`, price
 
 ## Done-When
 
-- [ ] `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500` each open the matching Stripe link
-- [ ] An unmapped amount (`/donate/37`) falls through to `/donate` rather than 404
-- [ ] `/donate` renders the page on desktop, 375px, and 320px with no horizontal overflow
-- [ ] The primary button opens the Stripe donation link in a new tab
-- [ ] The Stripe page shows a donor-editable amount defaulting to $5 USD
-- [ ] With `VITE_STRIPE_DONATE_URL` unset or non-`buy.stripe.com`, the button renders disabled with a visible notice and does not navigate
+- [x] `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500` each open the matching Stripe link
+- [x] An unmapped amount (`/donate/37`) falls through to `/donate` rather than 404
+- [x] `/donate` renders the page on desktop, 375px, and 320px with no horizontal overflow
+- [x] The primary button opens the Stripe donation link in a new tab
+- [x] The Stripe page shows a donor-editable amount defaulting to $5 USD (verified: `customUnitAmount` = US$5.00, `readOnly: false`)
+- [x] With `VITE_STRIPE_DONATE_URL` unset or non-`buy.stripe.com`, the button renders disabled with a visible notice and does not navigate
 - [ ] Page copy on the deployed page is the founder's text, not placeholder
-- [ ] `npm run build` and `npm test` pass
+- [x] `npm run build` and `npm test` pass
 
 ## Acceptance Criteria
 
