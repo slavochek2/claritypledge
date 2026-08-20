@@ -40,17 +40,37 @@ async function supabaseGet(
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
-/** Throws if `column` is not present in `selectedColumns` — a preview sentence
- *  asserting `claim` must be backed by a column this handler actually fetches.
+/** Throws if `column` is not present (as a substring — matches a nested embed
+ *  selector too, e.g. `profiles!fkey(name,agent_accounts(operator_name))`) in
+ *  `selectedColumns`. Adversarial review (2026-08-20) found the original
+ *  exact-membership check let a caller declare a claim/column binding against
+ *  an array that was never used to build the actual query — a decorative
+ *  check. `selectedColumns` must now BE the source the select string is built
+ *  from (`selectedColumns.join(',')`), so this check is causally upstream of
+ *  the fetch: editing the query without editing the array is impossible.
  *  Runs at MODULE LOAD, not per-request: a handler that claims a column it
  *  forgot to select fails on the very first import, not in a code review. */
 export function bindClaim(selectedColumns: readonly string[], column: string, claim: string): void {
-  if (!selectedColumns.includes(column)) {
+  if (!selectedColumns.some((c) => c.includes(column))) {
     throw new Error(
       `og.ts claim binding violated: "${claim}" requires column "${column}" to be ` +
         `selected, but only [${selectedColumns.join(', ')}] is fetched.`,
     );
   }
+}
+
+/** Adversarial review (2026-08-20, CRITICAL): `bindClaim` proves a claim's
+ *  COLUMN is fetched, but a free-text column (`name`, `role`) that lands in
+ *  the SAME sentence as a verified claim can just contain the claim's own
+ *  words — no gate reads that. Any user can set `role: "Engineer. Signed the
+ *  Clarity Pledge"` and render exactly the sentence the `has_pledged` check
+ *  exists to prevent. Strips the pledge phrase from free text before it is
+ *  ever interpolated, so the phrase can only originate from the verified
+ *  boolean, never from a user-authored field — applied unconditionally
+ *  (not just when `has_pledged` is false) so its presence stays a reliable
+ *  signal regardless of the subject's real pledge status. */
+export function stripForgeableClaims(s: string): string {
+  return s.replace(/signed\s+the\s+clarity\s+pledge/gi, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 // ── OG data types ───────────────────────────────────────────────────────
@@ -112,6 +132,14 @@ type AgentLookup =
 
 function agentOperator(profile: Record<string, unknown> | null): AgentLookup {
   if (!profile) return { kind: 'no-agent' };
+  // Adversarial review (2026-08-20): PostgREST can pick an array shape for a
+  // to-one embed (the same ambiguity handled below for `agent_accounts`
+  // itself). `row.profiles` reaches here through an unchecked cast — an
+  // array here means the embed didn't resolve the way this code assumes,
+  // not that no agent exists. Misclassifying it as 'no-agent' silently
+  // dropped the P1104 disclosure for the array shape; 'malformed' throws
+  // instead (caught by handler()'s try/catch — Decision 2).
+  if (Array.isArray(profile)) return { kind: 'malformed' };
   if (!('agent_accounts' in profile)) return { kind: 'no-agent' };
   const embed = profile.agent_accounts;
   if (embed === null) return { kind: 'no-agent' };
@@ -135,13 +163,17 @@ function requireAgentOperator(profile: Record<string, unknown> | null): string |
   return lookup.kind === 'agent' ? lookup.operator : null;
 }
 
-const STORY_COLUMNS = ['title', 'content', 'banner_url', AGENT_EMBED] as const;
+// The array IS the select query (joined below) — not a separate declaration that
+// can drift from it. Adversarial review found the prior version declared this
+// array and hand-wrote an identical-looking select string beside it; deleting the
+// embed from the string left the array (and bindClaim) untouched and green.
+const STORY_COLUMNS = ['title', 'content', 'banner_url', `profiles!stories_author_id_fkey(name,${AGENT_EMBED})`] as const;
 bindClaim(STORY_COLUMNS, AGENT_EMBED, 'is a machine-generated reading, operated by {operator}');
 
 async function ogForStory(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'stories',
-    `id=eq.${encodeURIComponent(id)}&select=title,content,banner_url,profiles!stories_author_id_fkey(name,${AGENT_EMBED})`,
+    `id=eq.${encodeURIComponent(id)}&select=${STORY_COLUMNS.join(',')}`,
   );
   if (!row) return null;
 
@@ -165,13 +197,14 @@ async function ogForStory(id: string): Promise<OgData | null> {
   };
 }
 
-const POINT_COLUMNS = ['statement', 'banner_url', AGENT_EMBED] as const;
+// Same causal fix as STORY_COLUMNS above — the array builds the query.
+const POINT_COLUMNS = ['statement', 'banner_url', `profiles!points_first_validator_id_fkey(name,${AGENT_EMBED})`] as const;
 bindClaim(POINT_COLUMNS, AGENT_EMBED, 'a machine-generated reading operated by {operator}');
 
 async function ogForPoint(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'points',
-    `id=eq.${encodeURIComponent(id)}&select=statement,banner_url,profiles!points_first_validator_id_fkey(name,${AGENT_EMBED})`,
+    `id=eq.${encodeURIComponent(id)}&select=${POINT_COLUMNS.join(',')}`,
   );
   if (!row) return null;
 
@@ -203,8 +236,10 @@ async function ogForProfile(slug: string): Promise<OgData | null> {
   );
   if (!row) return null;
 
-  const name = (row.name as string) || 'A Professional';
-  const role = (row.role as string) || '';
+  // Strip before defaulting: a name that IS entirely the forged phrase must not
+  // collapse to an empty string — it should read as if no name was supplied.
+  const name = stripForgeableClaims((row.name as string) || '') || 'A Professional';
+  const role = stripForgeableClaims((row.role as string) || '');
   const operator = requireAgentOperator(row);
   // An agent account has signed nothing. The pre-P1108 copy asserted the pledge for
   // every profile regardless of `has_pledged` — false for every non-pledger in the
@@ -337,8 +372,17 @@ export default async function handler(
         return;
       }
       if (og) {
+        // Adversarial review (2026-08-20, HIGH): the prior 3600/86400 pairing
+        // let a card that asserts a claim about a real person (the pledge, or
+        // the agent disclosure) stay stale for up to ~25h after a state change
+        // this OWN edge cache controls — e.g. `set_my_pledge(false)` right
+        // after a "Signed the Clarity Pledge" card was cached. This does not
+        // touch the separate, already-accepted risk of third-party platforms
+        // (Facebook/LinkedIn/Slack) caching a scrape from before this deploy —
+        // no header here can reach that. Shrunk to bound the window this
+        // header DOES control to roughly an hour worst-case.
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
         res.status(200).send(ogHtml(og));
         return;
       }

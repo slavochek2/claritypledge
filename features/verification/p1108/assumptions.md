@@ -42,13 +42,64 @@ catching it at the right layer). Flagging both paths rather than picking silentl
 Matches Decision 4 verbatim — no deviation, recorded for completeness since it's the mechanism DW-4
 demonstrates failing.
 
-## 3. Story/Point `*_COLUMNS` arrays list `AGENT_EMBED` as a flat entry even though the real `select=`
-   string nests it inside `profiles!fkey(name,AGENT_EMBED)`
+## 3. SUPERSEDED — was: "Story/Point `*_COLUMNS` arrays list `AGENT_EMBED` as a flat entry ... not
+   treated as a new gap." That call was wrong; correction below.
 
-**Why:** the architect's own `PROFILE_COLUMNS` example does the same thing (embed listed as its own
-array entry despite the select being non-flat for other columns). Both usages reference the same
-`AGENT_EMBED` constant rather than a duplicated literal, so they cannot drift on the embed's own
-text — only on whether the constant is still interpolated into the select string, which is the same
-residual gap the spec's Decision 4 trade-off paragraph already names ("bindClaim … cannot prove the
-claim's boolean logic correctly reads that column"). Not treated as a new gap; the ordinary unit
-tests in `p1108-fail-loud.test.ts` exercise the actual fetched query shape via the stubbed rows.
+**Original claim (2026-08-20, pre-review):** the architect's own `PROFILE_COLUMNS` example lists the
+embed as its own array entry despite the select being non-flat for other columns; both usages
+reference the same `AGENT_EMBED` constant, so "they cannot drift on the embed's own text — only on
+whether the constant is still interpolated into the select string ... not a new gap; the ordinary
+unit tests in `p1108-fail-loud.test.ts` exercise the actual fetched query shape via the stubbed
+rows."
+
+**That last sentence was false**, and the falsity is the whole gap. `p1108-fail-loud.test.ts` (as
+originally written) never captured the fetch URL — its `stubOgFetch` took no `url` parameter at all.
+Nothing in the P1108 suite inspected the query shape. Four independent adversarial reviewers (all
+Opus, distinct lenses) each proved this by the same experiment: delete `${AGENT_EMBED}` from the
+hand-written select string at the `ogForPoint`/`ogForStory` call sites, leave `STORY_COLUMNS`/
+`POINT_COLUMNS` and their `bindClaim` calls untouched — all 32 tests, including `bindClaim`'s own,
+stayed green. `bindClaim(POINT_COLUMNS, AGENT_EMBED, ...)` was checking `POINT_COLUMNS` against
+itself; `POINT_COLUMNS` was never joined into the query PROFILE_COLUMNS-style. I re-ran this
+mutation myself (`python3` string-replace + restore, see session transcript) and confirmed: exit 1
+before the fix existed as designed here, exit 0 (green) against the code as originally shipped in
+commit `9b98bafe` — the bug was real and shipped.
+
+**Fixed, same day, same branch (post-review commit):**
+1. `bindClaim` widened from exact array-membership to substring-match across each entry
+   (`selectedColumns.some(c => c.includes(column))`), so it can match a bare embed name nested
+   inside a compound selector string like `profiles!fkey(name,agent_accounts(operator_name))`.
+2. `STORY_COLUMNS`/`POINT_COLUMNS` changed from listing `AGENT_EMBED` as a bare entry to listing the
+   full nested selector string (built from `AGENT_EMBED`, so it can't duplicate-drift on the embed's
+   own text), and the query is now built with `${STORY_COLUMNS.join(',')}` / `${POINT_COLUMNS.join(',')}`
+   instead of a separate hand-written literal — the array IS the query, causally, the same property
+   `PROFILE_COLUMNS` already had.
+3. Added `p1108-fail-loud.test.ts` tests that capture the fetch URL and assert it contains the agent
+   embed for both routes — closing the "nothing inspects the query shape" gap directly, independent
+   of `bindClaim`.
+
+**Lesson for future assumption-log entries:** "not a new gap, X already covers it" is itself a claim
+that needs the same falsifier discipline as everything else in this file — I asserted `p1108-fail-loud.test.ts`
+covered something I had not re-read at the time of writing. Should have grepped for the assertion
+before citing it as evidence.
+
+## 4. Two more fixes from the same adversarial-review pass, same session, same commit
+
+- **CRITICAL — pledge claim forgeable via `name`/`role`.** `ogForProfile`'s free-text `name`/`role`
+  fields landed in the same sentence as the verified `has_pledged` claim with no content check. A
+  non-pledger setting `role: "Engineer. Signed the Clarity Pledge"` rendered exactly that string.
+  Fixed with `stripForgeableClaims()`, applied unconditionally (not just when `has_pledged` is
+  false) so the phrase's presence stays a reliable signal regardless of the subject's real status.
+- **HIGH — an array-shaped outer `profiles` embed failed open for story/point.** `agentOperator`
+  never checked whether its `profile` argument was itself array-shaped (the to-many PostgREST shape
+  for the same relation) before testing `'agent_accounts' in profile` — false on an array, so it
+  silently classified as `'no-agent'`. Fixed: `Array.isArray(profile)` now returns `'malformed'`,
+  which `requireAgentOperator` throws on, caught by the existing subject-silent fallback.
+
+**Not fixed in this pass, explicitly deferred (user asked for CRITICAL + 3 HIGH only):** `og:image`
+unauthenticated on non-agent profiles (arguably belongs to a separate spec per this spec's own
+Non-Goals — "text truthfulness only, not images/layout"); `operator_name` hijacking the agent
+disclosure sentence (MEDIUM, same forgery class as the CRITICAL but on the agent branch); the
+module-load `bindClaim` throw's sitewide blast radius if it ever reached prod (MEDIUM, requires a
+broken commit to skip CI to manifest); several LOW findings (bidi/control chars in `esc()`, the
+missing-env-var path's cache header, UAT test-count/wording overstatements). These remain open —
+see the adversarial-review transcript for the full ranked list.

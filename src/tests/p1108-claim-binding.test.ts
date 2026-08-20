@@ -37,4 +37,25 @@ describe('api/og.ts — bindClaim (P1108 Decision 4)', () => {
     // call stays in place, this import throws — the permanent regression for DW-4.
     await expect(import('../../api/og')).resolves.toBeDefined();
   });
+
+  // Adversarial review (2026-08-20, HIGH): the original bindClaim used exact array
+  // membership (`selectedColumns.includes(column)`), which only ever checked STORY_
+  // COLUMNS/POINT_COLUMNS against themselves — those arrays were never used to build
+  // the real select query, so the check was decorative. Fixed by (a) making bindClaim
+  // match a column as a SUBSTRING of any selected-column entry (so a nested embed
+  // selector like `profiles!fkey(name,agent_accounts(operator_name))` still matches
+  // the bare embed name), and (b) making the arrays themselves the source the query
+  // is built from (`STORY_COLUMNS.join(',')`), so editing the query without editing
+  // the array is no longer possible. These two tests pin (a) directly.
+  it('matches a claimed column when it appears NESTED inside a compound select entry (a to-one embed)', () => {
+    const COLUMNS = ['title', 'content', 'profiles!fkey(name,agent_accounts(operator_name))'] as const;
+    expect(() => bindClaim(COLUMNS, 'agent_accounts(operator_name)', 'operated by {operator}')).not.toThrow();
+  });
+
+  it('still throws when the nested embed is absent from every entry, not just missing as a bare element', () => {
+    const COLUMNS = ['title', 'content', 'profiles!fkey(name)'] as const;
+    expect(() => bindClaim(COLUMNS, 'agent_accounts(operator_name)', 'operated by {operator}')).toThrow(
+      /og\.ts claim binding violated/,
+    );
+  });
 });

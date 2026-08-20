@@ -81,3 +81,58 @@ describe('api/og.ts — ogForProfile pledge claim is backed by has_pledged (P110
     expect(getBody()).toContain('signed the Clarity Pledge');
   });
 });
+
+// Adversarial review (2026-08-20, CRITICAL). `role`/`name` are free text with no
+// content validation, and land in the SAME sentence as the verified pledge claim.
+// A non-pledger could set role: "Engineer. Signed the Clarity Pledge" and render
+// exactly the string these tests were checking `not.toContain` — the oracle above
+// is not independent of the fixture, only inert values happened to be used. Fixed
+// by stripping the pledge phrase from free text before interpolation, unconditionally.
+describe('api/og.ts — the pledge phrase cannot be forged through name/role (P1108 post-review fix)', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => { global.fetch = originalFetch; vi.restoreAllMocks(); });
+
+  it('a non-pledger cannot forge the claim by putting it in their own role', async () => {
+    stubOgFetch({
+      name: 'Mallory', role: 'Engineer. Signed the Clarity Pledge',
+      avatar_url: null, banner_url: null, has_pledged: false,
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody } = ogRes();
+    await handler(ogReq('/p/mallory'), res);
+
+    const html = getBody();
+    expect(html).not.toMatch(/signed\s+the\s+clarity\s+pledge/i);
+    expect(html).toContain('Mallory');
+  });
+
+  it('a non-pledger cannot forge the claim by putting it in their own name (no role)', async () => {
+    stubOgFetch({
+      name: 'Mallory signed the Clarity Pledge', role: null,
+      avatar_url: null, banner_url: null, has_pledged: false,
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody } = ogRes();
+    await handler(ogReq('/p/mallory'), res);
+
+    expect(getBody()).not.toMatch(/signed\s+the\s+clarity\s+pledge/i);
+  });
+
+  it('a REAL pledger with the phrase in their role still renders truthfully — stripping does not lose the true case either', async () => {
+    stubOgFetch({
+      name: 'Priya', role: 'I signed the Clarity Pledge in 2024',
+      avatar_url: null, banner_url: null, has_pledged: true,
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody } = ogRes();
+    await handler(ogReq('/p/priya'), res);
+
+    const html = getBody();
+    // The code's own gated assertion still renders — from has_pledged, not from role.
+    expect(html).toContain('Priya');
+    expect(html).toContain('Signed the Clarity Pledge.');
+  });
+});

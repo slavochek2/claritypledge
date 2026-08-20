@@ -35,12 +35,20 @@ type StubMode =
   | { ok: false; status: number }
   | { reject: Error };
 
-function stubOgFetch(mode: StubMode) {
-  global.fetch = vi.fn(async () => {
+/** Returns the URLs `fetch` was called with, so a test can inspect the ACTUAL
+ * query issued — not just the rendered HTML. Adversarial review (2026-08-20)
+ * found that no P1108 handler test captured the fetch URL, which is exactly
+ * why `bindClaim`'s original (decorative) check on STORY_COLUMNS/POINT_COLUMNS
+ * went unnoticed: nothing asserted the query the array was supposed to guard. */
+function stubOgFetch(mode: StubMode): string[] {
+  const calls: string[] = [];
+  global.fetch = vi.fn(async (url: string | URL | Request) => {
+    calls.push(String(url));
     if ('reject' in mode) throw mode.reject;
     if (!mode.ok) return { ok: false, status: mode.status } as unknown as Response;
     return { ok: true, json: async () => [mode.row] } as unknown as Response;
   }) as unknown as typeof fetch;
+  return calls;
 }
 
 const FAIL_CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=0';
@@ -133,6 +141,97 @@ describe('api/og.ts — "no agent" vs "lookup failed" are distinguishable (P1108
     expect(html).not.toContain('Signed the Clarity Pledge');
     expect(html.toLowerCase()).not.toContain('machine-generated reading');
     expect(html).not.toContain('A Human');
+    expect(html).toContain('Preview temporarily unavailable');
+    expect(getHeaders()['Cache-Control']).toBe(FAIL_CACHE_CONTROL);
+  });
+});
+
+// Adversarial review (2026-08-20, HIGH ×2). Both findings converged, independently,
+// across all 4 reviewers on the same root cause: STORY_COLUMNS/POINT_COLUMNS were
+// declared and bindClaim'd, but never used to build the real select query — the
+// query was a hand-written literal beside them. Deleting the agent embed from that
+// literal left every P1108 test green because none of them captured the fetch URL.
+// Fixed by building the query FROM the array; these tests pin the query shape
+// directly, closing the gap the fixture-shape analysis (gate 7b) identified.
+describe('api/og.ts — story/point queries are built from the bound columns, not beside them (P1108 post-review fix)', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => { global.fetch = originalFetch; vi.restoreAllMocks(); });
+
+  it('the fetched query for /story/:id actually contains the agent embed bindClaim guards', async () => {
+    const calls = stubOgFetch({
+      ok: true,
+      row: { title: 'T', content: 'C', banner_url: null, profiles: { name: 'Author' } },
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res } = ogRes();
+    await handler(ogReq('/story/some-story'), res);
+
+    expect(calls[0]).toContain('agent_accounts(operator_name)');
+  });
+
+  it('the fetched query for /point/:id actually contains the agent embed bindClaim guards', async () => {
+    const calls = stubOgFetch({
+      ok: true,
+      row: { statement: 'S', banner_url: null, profiles: { name: 'Creator' } },
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res } = ogRes();
+    await handler(ogReq('/point/some-point'), res);
+
+    expect(calls[0]).toContain('agent_accounts(operator_name)');
+  });
+});
+
+// Adversarial review (2026-08-20, HIGH). `agentOperator` cast `row.profiles` to an
+// object without checking it wasn't actually the array-shaped embed PostgREST can
+// return for the same relation — the exact ambiguity Decision 3's comment already
+// names for the INNER `agent_accounts` embed, just unhandled one level up at the
+// OUTER `profiles` relation. An array silently classified as 'no-agent' (via
+// `'agent_accounts' in profile` returning false on an array), reopening the P1104
+// disclosure bug for story/point specifically.
+describe('api/og.ts — an array-shaped profiles embed fails LOUD, not open (P1108 post-review fix)', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => { global.fetch = originalFetch; vi.restoreAllMocks(); });
+
+  it('/story/:id — a real agent hidden behind an array-shaped profiles embed renders the subject-silent card, not the ordinary-person card', async () => {
+    stubOgFetch({
+      ok: true,
+      row: {
+        title: 'T', content: 'C', banner_url: null,
+        profiles: [{ name: 'Ada', agent_accounts: { operator_name: 'Acme' } }],
+      },
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody, getStatus, getHeaders } = ogRes();
+    await handler(ogReq('/story/some-story'), res);
+
+    expect(getStatus()).toBe(200);
+    const html = getBody();
+    expect(html).not.toContain('Ada');
+    expect(html.toLowerCase()).not.toContain('machine-generated reading');
+    expect(html).toContain('Preview temporarily unavailable');
+    expect(getHeaders()['Cache-Control']).toBe(FAIL_CACHE_CONTROL);
+  });
+
+  it('/point/:id — same array-shaped embed, same subject-silent outcome', async () => {
+    stubOgFetch({
+      ok: true,
+      row: {
+        statement: 'S', banner_url: null,
+        profiles: [{ name: 'Ada', agent_accounts: { operator_name: 'Acme' } }],
+      },
+    });
+
+    const { default: handler } = await import('../../api/og');
+    const { res, getBody, getStatus, getHeaders } = ogRes();
+    await handler(ogReq('/point/some-point'), res);
+
+    expect(getStatus()).toBe(200);
+    const html = getBody();
+    expect(html).not.toContain('Ada');
     expect(html).toContain('Preview temporarily unavailable');
     expect(getHeaders()['Cache-Control']).toBe(FAIL_CACHE_CONTROL);
   });
