@@ -191,7 +191,18 @@ while IFS=$'\t' read -r class cmd artifact; do
   if printf '%s' "$cmd" | $GREP -qiE 'playwright|npx +pw|e2e/'; then row_tier=local; else row_tier=ci; fi
   if ! want "$row_tier"; then skip "[${row_tier}] ${cmd}"; continue; fi
   CHECKS_RUN=$((CHECKS_RUN+1))
-  out=$(bash -o pipefail -c "$cmd" 2>&1); rc=$?
+  # A pinned row's command is data — it was written against wherever the spec
+  # lived AT PIN TIME (pre-ship: features/pN_*.md). /ship's spec-close step
+  # moves the file to features/done/{sprint}/ as part of the SAME commit this
+  # check validates, so a literal path baked into the row goes stale the
+  # moment the spec closes — every goalified spec with a self-referencing row
+  # hits this on its first ship. Substitute at EXECUTION time only, against
+  # the actual dynamically-resolved $SPEC: this rewrites the local $cmd
+  # variable used to run the check, never the pinned markdown itself, so
+  # contract_hash() (CHECK 7) is untouched and no re-pin is needed.
+  # Incident: P1108, 2026-08-20 — first goalified spec shipped through this path.
+  run_cmd=$(printf '%s' "$cmd" | sed -E "s#features/${PN}_[A-Za-z0-9_-]*\.md#${SPEC}#g")
+  out=$(bash -o pipefail -c "$run_cmd" 2>&1); rc=$?
   if [[ $rc -eq 0 ]]; then pass "[${row_tier}] ${cmd}"
   else
     fail "[${row_tier}] ${cmd} → exit ${rc}"
