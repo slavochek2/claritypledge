@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 108
 created_date: '2026-08-20'
 tags: [infrastructure, skills, pipeline]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
+completed_at: '2026-08-20'
 driver: anomaly
 ---
 
@@ -154,8 +154,11 @@ spec files, scripts, hooks, CI, or database state touched.
 - [x] If `.claude/rules/features.md` changed: gate ran first, main agent made the edit, P1122
       landed first
 - [x] Commit landed on `main` via `git-ops.sh commit-to-main`, not a worktree
-- [ ] *(optional, the only mechanical part)* a test asserting every plan-eligible skill name is
-      stamped by some skill — **seen failing first**, exit code pasted
+- [~] *(optional, the only mechanical part)* a test asserting every plan-eligible skill name is
+      stamped by some skill — **NOT BUILT.** Deliberately left: it is the right mechanical shape
+      and the annotation added by Solution A is prose, so this remains the durable fix. Not
+      re-filed as a spec — it is one assertion, and the next agent to touch `/pick-flow`'s
+      command list should write it there.
 
 ## Evidence (2026-08-20, commit `0df06236`)
 
@@ -226,11 +229,16 @@ live entry. The mechanical fix (a back-reference lint) is the real closure and b
 spec. The three line anchors in Solution D were also **wrong by ~350 lines** (14512/14607/14615 →
 actual 14860/14955/14963); corrected above.
 
-**Status is `in-progress`, not `qa`, deliberately.** `.claude/rules/features.md` hard-gates `qa`
-on *all* Done-When boxes being `[x]`. Two are legitimately open — Solution E (blocked on P1122)
-and the optional conformance test — so promoting this to `qa` would mean ticking a box that is
-not true. Founder call: close P1126 here and re-file E as its own spec once P1122 lands, or hold
-P1126 open until E is possible.
+**Closed 2026-08-20 at `all-done`, with Solution E carved out to P1129.** Founder call: the four
+landed solutions have no dependency on E's blocker, and holding a spec open on unscheduled work
+is how it rots. E is now **P1129** (`status: backlog`, blocked on P1122), which carries the full
+context including the 17-vs-18 grep trap and the proof that normalizing the 76 specs is
+mechanically impossible.
+
+This spec never went to `qa` — it went straight to `all-done`. `.claude/rules/features.md` gates
+`qa` on *all* Done-When boxes being `[x]`, and one is deliberately unbuilt; ticking it would have
+been false. The work landed directly on `main` (no feature branch, no `/ship`), so the `qa`
+review step had nothing to gate.
 
 **Not run:** the optional `pipeline_ran` conformance test. It remains the right mechanical shape
 and is unbuilt.
