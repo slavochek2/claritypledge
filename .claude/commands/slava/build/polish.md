@@ -1,7 +1,7 @@
 ---
 name: polish
 description: Post-critique visual fix loop — takes a punch list, makes design decisions, implements fixes to existing components, and verifies each one in the browser before moving on.
-when_to_use: After /critique-ux produces a punch list. NOT for new surfaces (use /view) and NOT for redesigns that touch shared components or page structure (use /change-request).
+when_to_use: After /critique-ux produces a punch list. NOT for new surfaces (route those through /ux + /verify; /view is retired from routing as of 2026-08-20 and runs only on explicit request) and NOT for redesigns that touch shared components or page structure (use /change-request).
 version: 0.1.0
 ---
 
@@ -27,7 +27,9 @@ version: 0.1.0
 ❌ **Do NOT use /polish for:**
 - Components used outside this feature's route tree (e.g. `JourneyToUnderstanding`, `RatingDots`) → `/change-request`
 - Page layout / structural changes → `/change-request`
-- New visual surfaces → `/view`
+- New visual surfaces → `/ux` (only if a design decision is still open) + `/verify`.
+  **Not `/view`** — retired from routing 2026-08-20 (zero runs in four months); it still runs on
+  explicit request. See `docs/decisions.md` 2026-08-20.
 - Net-new behavior or features → `/create-spec`
 - Items with no punch list input — `/polish` always requires a punch list
 
