@@ -1,9 +1,19 @@
 ---
 name: view
 description: Produce a polished view component + demo wrapper for UI-heavy features, catching visual polish issues before /dev
-when_to_use: After /ui, before /generate-tests — for ui-heavy features needing visual polish within the existing design system
-version: 1.0.0
+when_to_use: >
+  RETIRED FROM ROUTING 2026-08-20 — /pick-flow no longer recommends this skill and must not put it
+  in a recommended flow. Still runnable on request. Originally: after /ui, before /generate-tests,
+  for ui-heavy features needing visual polish within the existing design system.
+version: 1.1.0
 ---
+
+> **Retired from routing, not deleted (2026-08-20).** Created 2026-04-14, recommended in flows, and
+> **run zero times in four months** while `/dev` ran 92. Not new — never once chosen. Kept because
+> retiring costs nothing to reverse and the open question is whether producing a design artifact
+> beats it. **What would settle it:** run both on the same feature and compare. Until someone does,
+> it stays out of recommended flows. See `docs/decisions.md` 2026-08-20 and
+> `.claude/commands/slava/build/pick-flow/SKILL.md` § Retired from routing.
 
 # View Component Polish
 

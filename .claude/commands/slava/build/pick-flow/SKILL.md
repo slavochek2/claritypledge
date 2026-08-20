@@ -9,7 +9,7 @@ when_to_use: >
   process is unclear. Proactively offer at the start of any non-trivial task (P-number
   mentioned, bug described, "what do we do next" asked). Skip for one-liner fixes, typo
   edits, or when the user has already named the exact commands to run.
-version: 3.1.0
+version: 3.2.0
 ---
 
 # pick-flow
@@ -76,7 +76,10 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 
 **How to reason (examples, not a lookup table):**
 
-- "Users will see something new or different" → `/ux` (resolve design) + `/verify` (confirm in browser)
+- "Users will see something new or different" → `/verify` (confirm in browser). Add `/ux` **only**
+  when a design decision is still open — a layout, flow, or state nobody has settled yet. If the
+  design is already decided (in conversation, a mock, an existing pattern being reused), `/ux` has
+  nothing to resolve and must not be included.
 - "DB schema changes or new data model" → `/architect` (structure review) + `/generate-tests` (lock behavior)
 - "Auth, RLS, or permissions logic" → `/architect` (security review) + `/generate-tests`
 - "Multiple viable approaches, trade-offs unclear" → research the options before `/architect`
@@ -85,9 +88,75 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 - "5+ files or 3+ independent concerns" → `/decompose`
 - "Conditional rendering, state changes, business logic" → `/generate-tests`
 - "Spec has grown past 100 lines with pipeline residue" → `/spec-compact`
-- "Feature is a new visual surface where polish will splinter across /dev iterations" → `/view` (between `/ui` and `/generate-tests`)
+- "Feature is a new visual surface where polish will splinter across /dev iterations" → say so in
+  the spec and let `/verify` catch it. **Do not recommend `/view`** — see "Retired from routing".
 
 **If you cannot name a risk that a step addresses, don't include that step.**
+
+## Step 1.5: Weigh cost against track record
+
+Naming a risk is only half the case for a step. **A step must also be worth what it costs**, and
+the honest measure of worth is whether it has ever actually been chosen.
+
+Every step you recommend adds at least one approval turn before `/dev` can start. That is the cost,
+and it is paid by the founder, every time, whether or not the step earns it.
+
+**Track record (snapshot 2026-08-20 — regenerate before trusting it):**
+
+```bash
+python3 - <<'EOF'
+import re, glob, collections
+c = collections.Counter()
+for f in glob.glob('features/**/*.md', recursive=True):
+    m = re.search(r'^pipeline_ran:\s*\[(.*?)\]', open(f, errors='replace').read(), re.M)
+    if m:
+        for i in m.group(1).split(','):
+            step = re.sub(r'\.\d+$', '', i.strip().strip('"\''))
+            if step: c[step] += 1
+for k, v in c.most_common(): print(f"{v:5d}  /{k}")
+EOF
+```
+
+Parse the field — do **not** `grep -c` for step names. `grep -c` counts matching *lines*, not
+occurrences, and bare step names collide with other words; that error put six of the ten numbers
+below out by one or two when this section was first written.
+
+| `/ship` 180 | `/fix` 168 | `/create-bug` 157 | `/create-spec` 154 | `/dev` 93 | `/reproduce` 80 |
+|---|---|---|---|---|---|
+| `/architect` 33 | `/challenge-prd` 27 | `/generate-tests` 21 | `/spec-review` 19 | `/verify` 15 | `/change-request` 15 |
+| `/decompose` 8 | `/ux` **7** | `/ui` **4** | `/ascii-flows` 2 | `/spec-compact` 1 | `/view` **0** |
+
+(375 specs carry the field, of 1040 scanned.)
+
+**The rule:** a step in the bottom tier (`/ux`, `/ui`, and anything else under ~10 runs) is
+**opt-in, not default**. Include it only when you can say what specific open decision it closes.
+"It's a UI change" is not that. If the founder has already settled the design, the step closes
+nothing and adding it is pure cost.
+
+**A low count is a prompt to justify, not a ban — and it must be escapable.** Left alone, this
+rule is a ratchet: an opt-in step gets recommended less, so it runs less, so it stays below the
+threshold forever, and no step can ever earn its way back. Two things prevent that:
+
+- **A count is not a verdict.** "Rarely needed" and "always struck out" look identical in the
+  table and mean opposite things. `/decompose` at 8 is a step that genuinely applies to few
+  specs; `/ux` at 7 is a step the founder actively removes. Before demoting on the number alone,
+  check which one you are looking at — the founder's own words in the thread usually say.
+- **Graduation.** If a step is opted into and *kept* (not struck) three times running, it is no
+  longer bottom-tier — recommend it by default again and say why. Nothing else is needed; the
+  count regenerates from `pipeline_ran` on its own.
+
+**Why this section exists:** the founder's push-back was measured — over the recent window he
+removes steps far more often than he adds them, and `/ux`, `/ui` and `/view` are the ones he names
+(`decisions.md` 2026-08-20). The router had no cost side to its ledger at all: it reasoned only
+about risk, so every named risk produced a step and nothing ever argued the other way.
+
+### Retired from routing
+
+- **`/view`** — created 2026-04-14, recommended in flows, and **run zero times in four months**
+  while `/dev` ran 92. Not new, not untested-because-recent: never once chosen. Removed from
+  routing. The skill file is kept, not deleted, because retiring costs nothing to reverse and the
+  open question is whether a design-artifact pass beats it. **What would settle it:** run both on
+  the same feature and compare. Until someone does, do not put it back in a recommended flow.
 
 ## Step 2: Output
 
@@ -101,6 +170,10 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
 
 ### Recommended flow
 /cmd1 → /cmd2 → ... → /dev
+
+### What this costs
+[one line per non-/dev step: the gate or turn it adds, and its track record —
+ e.g. "/ux: one approval turn before /dev. Has run 8x against /dev's 92."]
 
 ### Model + effort
 [e.g. Opus/xhigh through /architect → switch to Sonnet/low for /dev]
@@ -156,7 +229,7 @@ Most flows split: **Opus to plan, Sonnet to execute.** Name the switch point in 
 
 ## Available commands (sequence order)
 
-`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/view` · `/generate-tests` · `/spec-review` · `/spec-compact` † · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd` †
+`/create-spec` · `/challenge-prd` · `/ux` · `/architect` · `/ui` · `/generate-tests` · `/spec-review` · `/spec-compact` † · `/decompose` · `/dev` · `/verify` · `/park` · `/kdd` †
 
 Also: `/reproduce` (bug confirmation + failing test) · `/fix` (bugs) · `/change-request` (redesigns) · `/create-bug` (bug without P-number) · `/slava:dd:frame-analyze` (unclear root cause) · `/park` (done on branch, merge later)
 

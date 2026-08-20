@@ -4,6 +4,72 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [process]: `/pick-flow` gets a cost axis, `/view` leaves routing after four months and zero runs
+
+**Context:** The P1127 measurement (entry above) established that the founder now *removes* steps
+more often than he adds them, and named `/ux`, `/ui` and `/view` as the ones he doubts. Asked
+directly, he corrected the framing: he did not stop using the router — *"its recommendations are
+not the one that I follow. It overcomplicates things and specifically UX, UI ... I'm not even sure
+what is the value of those skills."* He also asked whether cost-effectiveness had ever been added
+to the router, recalling it had been added to `/goalify`. It had — `goalify/SKILL.md:173` requires
+**two numbers, never one**: corrections given *and* turns consumed. The router had **no** cost,
+value, or worth axis anywhere in its 171 lines. It reasoned only about risk, so every named risk
+produced a step and nothing ever argued the other way. That asymmetry is the mechanism behind the
+eight-step pipelines he strikes out.
+
+**The track record settles the doubt.** Parsed from `pipeline_ran` across 375 specs:
+`/dev` 93 · `/architect` 33 · `/challenge-prd` 27 · `/generate-tests` 21 · `/spec-review` 19 ·
+`/verify` 15 · `/decompose` 8 · **`/ux` 7 · `/ui` 4 · `/view` 0.** The three the founder named are
+the three at the bottom. `/view` was created 2026-04-14 and has **never run once** in four months.
+
+**Decision:** `/pick-flow` v3.1.0 → v3.2.0, four changes.
+
+1. **`/view` is removed from routing, not deleted** (`view.md` v1.1.0 carries the same note, so the
+   two cannot drift). Zero runs in four months is not "untested because new" — it was available and
+   never chosen. Deleting destroys the option for no gain; recommending it injected an unproven step
+   into every UI flow. **What would settle it:** run `/view` and a design-artifact pass on the same
+   feature and compare. Until then it stays out of recommended flows.
+2. **The `/ux` trigger is narrowed** from *"Users will see something new or different"* — which
+   fires on nearly every feature — to: add `/ux` only when a design decision is genuinely still
+   open. If the design is already settled in conversation, a mock, or a reused pattern, `/ux`
+   closes nothing.
+3. **New Step 1.5 — weigh cost against track record.** Naming a risk is half the case; a step must
+   also be worth what it costs, and every step adds at least one approval turn before `/dev` starts.
+   Steps under ~10 runs are opt-in, not default.
+4. **The output template gains a "What this costs" block** — one line per non-`/dev` step naming
+   the gate it adds and its track record.
+
+**Alternatives rejected:** (a) Deleting `/view` — irreversible, and the comparison that would
+justify it has never been run. (b) Merging `/ux` and `/ui` — a bigger change than the evidence
+supports; both are used, just rarely. (c) Adding the cost axis without demoting anything — leaves
+the router making better arguments for a step nothing has ever run. (d) Building the benchmark the
+founder asked about before changing anything — the friction is live now and the demotion is free to
+reverse.
+
+**Consequences:** Two defects were caught while writing this and are worth carrying forward.
+
+**The counts were wrong on the first pass.** They came from `grep -c "\bstep\b"` — which counts
+matching *lines*, not occurrences — and six of ten were out by one or two. The skill now embeds a
+parser and says explicitly not to grep for step names. *A regeneration command that returns the
+wrong number is worse than none, because it looks reproducible.*
+
+**The demotion rule was a ratchet.** An opt-in step is recommended less, so it runs less, so it
+stays below the threshold forever and can never earn its way back. Two guards were added: a count
+is not a verdict (`/decompose` at 8 genuinely applies to few specs; `/ux` at 7 is actively struck —
+identical in the table, opposite in meaning), and a **graduation rule** — opted into and kept three
+times running, and the step is no longer bottom-tier.
+
+No dependent needed changing, precisely because `/view` was removed from *routing* rather than
+deleted: `dev.md`'s `view_locked` handling, `polish.md`'s explicit-request pointer, and `src.md`'s
+proto-route cleanup all still work.
+
+**References:** [decisions.md](decisions.md) 2026-08-20 (the P1127 measurement this acts on) ·
+[.claude/commands/slava/build/pick-flow/SKILL.md](../.claude/commands/slava/build/pick-flow/SKILL.md)
+§ Step 1.5 · [.claude/commands/slava/build/view.md](../.claude/commands/slava/build/view.md) ·
+`goalify/SKILL.md:173` (the two-numbers rule this borrows)
+
+---
+
 ## 2026-08-20 [technical]: Row-level RLS DOES filter Realtime `postgres_changes` — the question P1057 measured only for columns and explicitly declined to generalise (P1114)
 
 **Context:** P1114's core privacy guarantee is *"opt-ins are shown, opt-outs are never shown."* That cannot be a UI rule — anyone with the anon key reads the table directly, and `postgres_changes` broadcasts row payloads to every subscriber regardless of what a component chooses to render. The design therefore rests on one assumption: that a restrictive `SELECT` policy (`USING (opted_in = true)`) governs the realtime channel as well as REST. [decisions.md](decisions.md) 2026-08-17 [technical] (P1057) measured the **column**-level case and closed with *"This does NOT generalise to row-level questions."* Nobody had measured the row-level case. An earlier draft of the P1114 spec cited that entry as if it had, with the wrong date attached — caught before implementation, and the assumption was labelled `UNVERIFIED` in the spec with a named falsifier and a rollback path.
