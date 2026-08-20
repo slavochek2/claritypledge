@@ -217,6 +217,18 @@ discovered. Two facts bound what phase 2 is worth: the skill is invoked a handfu
 now, and the pending P1116 `/pick-flow` edit (this file, *"Status: proposed"*) still blocks phase 2
 by the spec's own Non-Goal.
 
+**Robustness — five attack lines run, two defects, three negatives.** The two defects are above.
+The negatives: **dedup** — 0 cross-file duplicate events, so resumed-session forking does *not*
+explain the 292-vs-252 gap (injected context does); **the 6-line merge** — 66 collapses, 41 of them
+1–2 lines apart (the founder-turn → skill-load pattern), only 2 windows holding 3+ raw events, so at
+worst ~10 events (2%) could be mis-merged; **prose mentions** — projected ~30 events (6.4%), *all*
+confined to the inline-`founder` channel at 13.8% of it and 0% in the other three, which are
+invocations by construction. Prose mentions are already excluded as ineligible, so the
+eligible-denominator rate is unaffected and the all-turns rate errs conservative. One caveat on
+provenance: of two hostile reviewers spawned, **one never reported** (epistemic gate 9b) — the blind
+re-classifier delivered and materially changed the result; the frame-breaker went idle without
+output, and all five of its attack lines were ultimately run by hand instead.
+
 **Reproduce:** `scripts/archive/20260820-p1127-pickflow-frame.py` (frame build, seeded draw,
 stratified estimate, Fisher). Classifications, rubric, and the blind rater's verdicts:
 `.private/docs/p1127-classification.json`.
