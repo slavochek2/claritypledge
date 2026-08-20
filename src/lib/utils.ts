@@ -7,10 +7,6 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Generate initials from a full name (e.g., "John Doe" -> "JD")
- * Returns up to 2 uppercase characters. Returns "?" for empty/undefined names.
- */
-/**
  * Strips the reserved "Agent ·" prefix from an agent account's display name.
  *
  * P1104: every agent account is named `Agent · {subject}`, so `getInitials` read the leading
@@ -24,7 +20,15 @@ export function cn(...inputs: ClassValue[]) {
  *
  * Tolerant of the separator because the display name is data: the DB guard normalises what may
  * be RESERVED, not what must be RENDERED, so a name may reach here with any separator glyph or
- * none. Falls back to the original string when stripping would leave nothing.
+ * none. Precisely: ONE run of separator characters is consumed, which is what the creation RPC
+ * emits. A hand-built name with two separated runs ("Agent -- · X") keeps the second one and the
+ * monogram picks it up — measured, not assumed. Falls back to the original string when stripping
+ * would leave nothing.
+ *
+ * Only reached when the caller already knows the row is an agent (`gravatar-avatar.tsx`), which
+ * is what keeps a HUMAN named "Agent Smith" — a name the reserved-name guard deliberately leaves
+ * available — from being shortened to "Smith". The gate is the protection; this function has no
+ * opinion about it.
  */
 export function stripAgentPrefix(name?: string): string | undefined {
   if (!name?.trim()) return name;
@@ -34,6 +38,10 @@ export function stripAgentPrefix(name?: string): string | undefined {
   return stripped.trim() ? stripped : name;
 }
 
+/**
+ * Generate initials from a full name (e.g., "John Doe" -> "JD")
+ * Returns up to 2 uppercase characters. Returns "?" for empty/undefined names.
+ */
 export function getInitials(fullName?: string): string {
   if (!fullName?.trim()) return "?";
   const parts = fullName.trim().split(/\s+/);

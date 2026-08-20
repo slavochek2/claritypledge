@@ -44,9 +44,37 @@ describe('stripAgentPrefix (P1104)', () => {
   });
 
   it('does not eat a real name that merely starts with Agent', () => {
-    // "Agent Smith" is a person the reservation deliberately leaves available, so the helper
-    // must not strip his surname down to one initial.
+    // The word must END at "agent" for the prefix to count — "Agentic" fails the lookahead and
+    // never matches at all.
     expect(stripAgentPrefix('Agentic Systems')).toBe('Agentic Systems');
+    expect(stripAgentPrefix('Jane Agent')).toBe('Jane Agent');
+  });
+
+  it('WOULD strip "Agent Smith" — the caller gate, not this helper, is what protects him', () => {
+    // An earlier version of this comment claimed "Agent Smith" was guarded here. It is not:
+    // "Agent" is a whole word followed by a space, so the prefix matches and the surname is all
+    // that survives. Asserting the real behaviour rather than the one the comment wished for.
+    expect(stripAgentPrefix('Agent Smith')).toBe('Smith');
+    // He is safe because a human never reaches this function: gravatar-avatar.tsx only calls it
+    // when isAgent is true, and the reserved-name guard deliberately leaves "Agent Smith"
+    // AVAILABLE as a human name (see the p1104 reserved-name migration). If that gate is ever
+    // removed, this line is the one that starts lying.
+  });
+
+  it('consumes exactly one separator run, and says so', () => {
+    // The RPC emits a single separator. A hand-built name with two runs keeps the second, and
+    // the monogram then picks up punctuation. Documented rather than silently tolerated.
+    expect(stripAgentPrefix('Agent -- \u00B7 Jordan Rivera')).toBe('\u00B7 Jordan Rivera');
+  });
+
+  it('handles inputs the RPC does not emit but a fixture might', () => {
+    expect(stripAgentPrefix('')).toBe('');
+    expect(stripAgentPrefix('  Agent \u00B7 Jordan Rivera')).toBe('Jordan Rivera');
+    expect(stripAgentPrefix('AGENT \u00B7 JORDAN RIVERA')).toBe('JORDAN RIVERA');
+    // \p{N} in the lookahead: "Agent2" is one word, so nothing is stripped.
+    expect(stripAgentPrefix('Agent2 Rivera')).toBe('Agent2 Rivera');
+    // Non-Latin subjects keep their own initials.
+    expect(getInitials(stripAgentPrefix('Agent \u00B7 \u5F35 \u5049'))).toBe('\u5F35\u5049');
   });
 
   it('falls back rather than returning an empty monogram', () => {
