@@ -10,6 +10,30 @@ export function cn(...inputs: ClassValue[]) {
  * Generate initials from a full name (e.g., "John Doe" -> "JD")
  * Returns up to 2 uppercase characters. Returns "?" for empty/undefined names.
  */
+/**
+ * Strips the reserved "Agent ·" prefix from an agent account's display name.
+ *
+ * P1104: every agent account is named `Agent · {subject}`, so `getInitials` read the leading
+ * "Agent" as the first name and produced "AR" for `Agent · Jordan Rivera` — and "A" plus one
+ * letter for EVERY agent in the product. Half the monogram carried no information, and at row
+ * size agents stopped being distinguishable from each other.
+ *
+ * The subject's initials are used instead. That the row is a machine reading is already carried
+ * by four other channels — the square silhouette, the drained colour, the missing pledge ring,
+ * and the name itself — so the avatar's remaining job is saying WHICH reading this is.
+ *
+ * Tolerant of the separator because the display name is data: the DB guard normalises what may
+ * be RESERVED, not what must be RENDERED, so a name may reach here with any separator glyph or
+ * none. Falls back to the original string when stripping would leave nothing.
+ */
+export function stripAgentPrefix(name?: string): string | undefined {
+  if (!name?.trim()) return name;
+  // (?![\p{L}\p{N}]) is load-bearing: without it "Agentic Systems" matched the leading "Agent"
+  // and became "ic Systems". The prefix only counts when the word ENDS there.
+  const stripped = name.replace(/^\s*agent(?![\p{L}\p{N}])\s*[^\p{L}\p{N}\s]*\s*/iu, '');
+  return stripped.trim() ? stripped : name;
+}
+
 export function getInitials(fullName?: string): string {
   if (!fullName?.trim()) return "?";
   const parts = fullName.trim().split(/\s+/);

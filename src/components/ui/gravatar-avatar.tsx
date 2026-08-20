@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getInitials } from "@/lib/utils";
+import { getInitials, stripAgentPrefix } from "@/lib/utils";
 import { Check, Shield } from "lucide-react";
 
 interface GravatarAvatarProps {
@@ -135,7 +135,7 @@ export function GravatarAvatar({
             referrerPolicy="no-referrer"
           />
         ) : (
-          getInitials(name)
+          getInitials(isAgent ? stripAgentPrefix(name) : name)
         )}
       </div>
       {showPledgeBadge && (
