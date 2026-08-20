@@ -12,9 +12,9 @@ driver: anomaly
 # P1127: `/pick-flow` still under-recommends — the founder adds back the steps it drops
 
 > **Title superseded by the phase 1 measurement (2026-08-20).** The founder added steps in
-> Feb–Apr and **removes** them from May onward (2 add : 3 remove in the post-April census,
-> Fisher one-tailed p = 0.0125). The rate itself is not distinguishable from the 14% regex
-> estimate at n=50. See **Phase 1 Result** below before acting on anything in Problem.
+> Feb–Apr and **removes** them from May onward (**2 add : 5 remove** in the post-April census,
+> Fisher one-tailed **p = 0.00175**). The rate itself is not distinguishable from the 14% regex
+> estimate at these sample sizes. See **Phase 1 Result** below before acting on anything in Problem.
 
 ## Problem
 
@@ -184,24 +184,30 @@ verdicts, the 16-event post-April census, the blind rater's verdicts, and the re
 `.private/docs/p1127-classification.json`.
 
 - [x] 50 founder turns hand-classified, raw counts pasted, and the draw **reproducible**:
-      `random.Random(1127).sample(pool, 50)` over the 364 events carrying a genuine founder reply,
-      pool sorted by `(ts, file, idx)`; corpus `~/.claude/projects/*claritypledge*/*.jsonl`.
+      `random.Random(1127).sample(...)` with `(ts, file, idx)` ordering, over a **471-event** frame;
+      corpus `~/.claude/projects/*claritypledge*/*.jsonl`. Stratified: 50 from the 361 events the
+      first frame had, 20 from the 108 added by a **third invocation channel the spec never named**
+      (`<command-name>/slava:build:pick-flow</command-name>` — invisible to a `/pick[- ]flow` regex
+      *and* to wrapper-stripping; **106 events, 22% of the corpus, were missing on the first pass**).
       **Correction to this item's premise:** the two worktree project dirs contain `/pick-flow`
       only in `attachment` lines — **zero** founder invocations — so globbing the main directory
       drops nothing. The real silent-drop risk was `entrypoint`, which is absent in pre-March
       transcripts and deleted the entire February corpus on the first build.
 - [x] Push-back rate reported with its interval, and explicitly compared against the 14% regex
-      estimate — **9/35 = 25.7% [14.2–42.1%]** on eligible events, **9/50 = 18.0% [9.8–30.8%]** on
-      the regex probe's own denominator. **14% falls inside both intervals**; n=50 cannot establish
-      it is too low, so the spec's "14% is a floor" reads as *unproven*, not confirmed.
-- [x] Add-versus-remove split reported, with the most-added steps named — **9 add : 0 remove**
-      pre-May; **2 add : 3 remove** in the post-April census (Fisher one-tailed **p = 0.0125**).
+      estimate — stratified **21.9% [13.2–30.7%]** on the regex probe's own denominator, **30.8%** on
+      eligible events. **14% falls inside the interval**; these samples cannot establish it is too
+      low, so the spec's "14% is a floor" reads as *unproven*, not confirmed. Note stratum B (the
+      deliberate standalone invocation) pushes back **47%** vs stratum A's **26%** — a probe that
+      samples one channel misestimates in a known direction.
+- [x] Add-versus-remove split reported, with the most-added steps named — **15 add : 1 remove**
+      pre-May; **2 add : 5 remove** in the post-April census, deduped by reply turn (Fisher
+      one-tailed **p = 0.00175**).
       Most-added: diagnosis/5-why, `/ux` + `/ascii-flows`, a heavier spec skill, `/generate-tests`,
       `/verify`, code review.
 - [x] For each confirmed push-back, recorded whether the spec articulated the relevant risk at
-      routing time — **6 of 9 named a step the recommendation never mentioned at all.**
+      routing time — **10 of 15 named a step the recommendation never mentioned at all.**
 - [x] Pre- and post-v3 rates compared, or stated as not separable with the reason — **not
-      separable at n=50**: era cells are 26 / 5 / 4 / 9 across pre-v2 / v2 / v3 / v3.1. Only the
+      separable at these sample sizes**: era cells are single-digit for v2 and v3. Only the
       pooled pre-May vs post-April direction split resolves. (RQ5's premise was also wrong: the
       corpus begins **2026-02-24**, not 2026-04-02, so a pre-v2 window does exist.)
 - [x] A `decisions.md` entry exists carrying the result
@@ -211,15 +217,15 @@ verdicts, the 16-event post-April census, the blind rater's verdicts, and the re
 ## Phase 1 Result — read this before starting phase 2
 
 **The stopping rule is met and phase 2 is warranted, but its premise must be inverted.**
-Push-backs concentrate on a nameable cause — *steps the recommendation never named* (6/9), in the
-`src/` path class no skip clause covers (8/9). But the spec's title premise is era-bound: the
-founder added steps in Feb–Apr and **removes** them now (*"that overlkill…"*, *"but tits too much?
-… makes no sense"*). Phase 2's fix is therefore **not** "add steps back by default" — it is to make
+Push-backs concentrate on a nameable cause — *steps the recommendation never named* (10/15), in
+the `src/` path class no skip clause covers (13/15). But the spec's title premise is era-bound: the
+founder added steps in Feb–Apr and **removes** them now (*"that overlkill…"*, *"why we need ux and
+architect if we just build a prototpye?"*, *"but tits too much? … makes no sense"*). Phase 2's fix is therefore **not** "add steps back by default" — it is to make
 every omission *visible* so it can be declined rather than discovered.
 
 **Two facts bound what phase 2 is worth.** `/pick-flow` is now invoked a handful of times a month:
-as a share of founder turns, 2.54% (Mar) → 1.25% (Apr) → 0.11 / 0.12 / 0.06 / 0.24% (May–Aug),
-while total founder activity did *not* collapse comparably. 87% of all invocations ever are Feb–Apr.
+as a share of founder turns, 3.23% (Mar) → 1.53% (Apr) → 0.21 / 0.12 / 0.06 / 0.37% (May–Aug),
+while total founder activity did *not* collapse comparably. 95% of all invocations ever are Feb–Apr.
 And the pending **P1116 `/pick-flow` edit** is still `Status: proposed` (`docs/decisions.md`,
 2026-08-19 entry) — this spec's own Non-Goal blocks phase 2 until it resolves.
 

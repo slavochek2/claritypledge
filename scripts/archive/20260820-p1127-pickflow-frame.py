@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""P1127 phase 1 reproducer — /pick-flow invocation frame, seeded draw, and statistics.
+"""P1127 phase 1 reproducer (v4 - adds the third invocation channel) — /pick-flow invocation frame, seeded draw, and statistics.
 
 Usage:  python3 20260820-p1127-pickflow-frame.py [events.jsonl]
 
@@ -77,6 +77,19 @@ def assistant_text(o):
     return '\n'.join(b.get('text','') for b in c
                      if isinstance(b, dict) and b.get('type') == 'text')
 
+NAMESPACED = '<command-name>/slava:build:pick-flow</command-name>'
+def namespaced_invocation(o):
+    """Channel C: the founder typed the FULL-NAMESPACE form `/slava:build:pick-flow`.
+
+    This is a THIRD invocation channel; the spec named only two. It is invisible to a
+    `/pick[- ]flow` regex (the string is `/slava:build:pick-flow`, which has no `/pick`)
+    AND to wrapper-stripping (the name lives inside the <command-name> tag that gets
+    stripped). Missing it drops 106 of 471 events - 22% of the corpus."""
+    if o.get('type') != 'user' or o.get('isSidechain') or o.get('isMeta') is True:
+        return False
+    c = o.get('message', {}).get('content')
+    return NAMESPACED in (c if isinstance(c, str) else json.dumps(c))
+
 def skill_invocation(o):
     if o.get('type') != 'assistant' or o.get('isSidechain'): return False
     c = o.get('message', {}).get('content')
@@ -100,6 +113,8 @@ def main():
                 ft = founder_text(o)
                 if ft and PICK.search(ft):
                     raw_ev.append((i, 'founder', ft, o))
+                elif namespaced_invocation(o):
+                    raw_ev.append((i, 'namespaced', '/slava:build:pick-flow', o))
                 elif skill_invocation(o):
                     raw_ev.append((i, 'skill', '', o))
             # merge: a founder event followed within 6 lines by a skill event = one event
@@ -107,7 +122,7 @@ def main():
             for e in raw_ev:
                 if merged and e[0] - merged[-1]['idx'] <= 6 and merged[-1]['ch'] != e[1]:
                     merged[-1]['ch'] = 'both'
-                    if e[1] == 'founder': merged[-1]['invoke_text'] = e[2]
+                    if e[1] in ('founder', 'namespaced'): merged[-1]['invoke_text'] = e[2]
                     continue
                 merged.append({'idx': e[0], 'ch': e[1], 'invoke_text': e[2], 'o': e[3]})
             # for each event: capture assistant recommendation + next founder turn
@@ -166,9 +181,25 @@ if __name__ == '__main__':
     out_path = sys.argv[1] if len(sys.argv) > 1 else 'events.jsonl'
     main()
     stats(out_path)
-    # Reconciled hand-classification result (see .private/docs/p1127-classification.json)
-    for label, k, n in [("eligible events", 9, 35), ("all sampled turns", 9, 50)]:
-        p, lo, hi = wilson(k, n)
-        print(f"  {label:<20} {k}/{n} = {p*100:4.1f}%  95% CI [{lo*100:.1f}%, {hi*100:.1f}%]")
-    print(f"  Fisher one-tailed, all 3 'remove' push-backs in the post-April group: "
-          f"p = {comb(11,3)/comb(44,3):.4f}")
+    # ---- hand-classification result (see .private/docs/p1127-classification.json) ----
+    # Stratified, because the third invocation channel was found AFTER the first draw:
+    #   stratum A = the 361 events frame v3 already had  (n=50, 35 eligible,  9 push-back)
+    #   stratum B = the 108 events channel C adds        (n=20, 15 eligible,  7 push-back)
+    NA, nA, pbA = 361, 50, 9
+    NB, nB, pbB = 108, 20, 7
+    N = NA + NB; WA, WB = NA / N, NB / N
+    pA, pB = pbA / nA, pbB / nB
+    est = WA * pA + WB * pB
+    var = (WA**2) * (pA*(1-pA)/nA) * (1-nA/NA) + (WB**2) * (pB*(1-pB)/nB) * (1-nB/NB)
+    se = math.sqrt(var)
+    print(f"  push-back, all turns (stratified) = {est*100:4.1f}%  "
+          f"95% CI [{(est-1.96*se)*100:.1f}%, {(est+1.96*se)*100:.1f}%]   (regex probe said 14%)")
+    print(f"  push-back, eligible denominator   = "
+          f"{(WA*pA+WB*pB)/(WA*35/nA+WB*15/nB)*100:4.1f}%")
+    # direction: removes, pre-May sample vs post-April census (18 unique events)
+    def hyp(k, N, K, n):
+        return comb(K, k) * comb(N-K, n-k) / comb(N, n)
+    a, b, c, d = 1, 46, 5, 9      # pre-May 1 remove/47 ; post-April 5 remove/14
+    pval = sum(hyp(k, a+b+c+d, a+c, c+d) for k in range(c, min(a+c, c+d)+1))
+    print(f"  direction: pre-May 15 add : 1 remove   post-April 2 add : 5 remove")
+    print(f"  Fisher exact one-tailed on removes: p = {pval:.5f}")
