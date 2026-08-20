@@ -721,7 +721,18 @@ if [ -n "$STAGED_DONE_FILES" ]; then
             continue
         fi
 
+        # Same class as goal-gate.sh CHECK 4 (fixed 2026-08-20): features.md:28 says
+        # the UAT file "always moves" alongside its spec into features/done/{sprint}/uat/
+        # once shipped — a later edit to an already-closed spec re-stages it under
+        # features/done/, re-triggering this advisory check, and a properly-moved UAT
+        # file would otherwise report a false "No UAT file found". Scoped to the same
+        # two sanctioned locations, first match wins (advisory-only, so ambiguity here
+        # just warns rather than failing the commit).
         UAT_FILE="features/uat/${P_NUM}.md"
+        if [ ! -f "$UAT_FILE" ]; then
+            _uat_done_hit=$(find features/done -mindepth 1 -maxdepth 3 -path "*/uat/${P_NUM}.md" 2>/dev/null | head -1)
+            [ -n "$_uat_done_hit" ] && UAT_FILE="$_uat_done_hit"
+        fi
         if [ -f "$UAT_FILE" ]; then
             # Count only table rows ("| UAT-..." rows) to avoid false positives from
             # Legend lines and Success Criteria bullets that also contain ⬜/✅.

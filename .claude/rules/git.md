@@ -62,12 +62,22 @@ Do this **before** `git add`, not after. After `git add` both sets are mixed and
 
 ## Always use explicit file names on `git add` — then commit with NO path arguments
 
+**In a worktree this is enough** — each worktree has its own private index, unreachable
+by any other session. **On the shared main checkout it is NOT enough on its own** — the
+index and HEAD there are shared across every concurrent session, and the sequence below
+still has a real gap between the bystander check and the commit. Use `git-ops.sh
+commit-to-main` there instead (Merge Strategy Matrix, below) — it holds a lock across
+the whole staging+commit sequence, which is what actually closes that gap.
+
 ```bash
-# ✅ Correct
+# ✅ Correct — worktree
 git diff --cached --name-only   # confirm the index holds only your files (see sections above)
 git reset HEAD -- <bystander>   # unstage anything not yours, if any turned up
 git add src/app/pages/MyPage.tsx src/components/Button.tsx
 git commit -m "fix: preview persistence"
+
+# ✅ Correct — shared main checkout
+./scripts/git-ops.sh commit-to-main --message "fix: ..." --files src/app/pages/MyPage.tsx src/components/Button.tsx
 
 # ❌ Never
 git add .
@@ -79,9 +89,11 @@ git commit -m "fix: ..." -- src/app/pages/MyPage.tsx src/components/Button.tsx  
 **Why NOT `git commit -- <files>` — corrected 2026-08-20, this rule previously recommended it.**
 `git commit` given a pathspec does not commit the staged INDEX for those paths — per `git-commit(1)` (`-o`/`--only`, the default mode whenever any path is given), it re-reads them from the CURRENT WORKING TREE first. If a co-tenant session has unsaved edits sitting in the same file, they ride along into your commit under your message, and `git status` shows clean afterward — no signal anything went wrong. First found 2026-04-22 (P783, ship-phase temp-index finding — decisions.md) and hit again 2026-08-20, when it silently pulled another session's uncommitted `docs/decisions.md` WIP into a `/kdd` commit; recovered with `git hash-object` + `git update-index --cacheinfo` to stage the exact intended blob, then a plain commit.
 
-The original concern — a plain `git commit` sweeping in files OTHER sessions staged elsewhere in the shared index — is still real, but the pathspec form is not the fix for it; it trades that risk for a worse one (silently wrong CONTENT for the very files you're committing, not just wrong file selection). The actual fix is upstream, using what the two sections above already prescribe: verify the index and clear bystanders **before** you `git add`, so by the time you commit, the index already contains nothing but your own staged content — then commit with no pathspec at all. A clean index plus a plain commit is safe against both failure modes; a pathspec commit is safe against neither once the file itself carries any working-tree content you didn't stage.
+The original concern — a plain `git commit` sweeping in files OTHER sessions staged elsewhere in the shared index — is still real, but the pathspec form is not the fix for it; it trades that risk for a worse one (silently wrong CONTENT for the very files you're committing, not just wrong file selection).
 
-**`git mv` needs both paths confirmed staged.** A rename stages as delete(old)+add(new); `git mv` does this atomically. Run `git status --short` right after `git mv` to confirm both sides show staged, then commit with a plain `git commit` (no pathspec) as above — a pathspec naming only the new path (or missing the old one) leaves the deletion staged and invisible until the next `git status`.
+**The worktree/main-checkout distinction above is load-bearing, not decoration — a bystander-checked plain commit is still not safe on the shared checkout.** "Verify the index, then `git add`, then plain commit" still has a real gap: another session can stage or edit something between your check and your commit. This repo's own incident log records exactly that failure on the shared main checkout twice (2026-08-17 P1057, 2026-06-06) — a plain commit corrupted a co-tenant's work even though the verify-before-commit rule had been followed, because the verify→commit window was not atomic. A private worktree closes that gap by construction; the shared main checkout needs an actual lock, held for the whole sequence — that is what `commit-to-main` provides and a hand-run `git add` + `git commit` does not. **Never run a bare add-then-commit sequence directly on the shared main checkout, bystander-checked or not — always go through `git-ops.sh commit-to-main`.**
+
+**`git mv` needs both paths confirmed staged, and the check must disable rename detection.** A rename stages as delete(old)+add(new); `git mv` does this atomically. `git status --short` and `git diff --cached --name-only` both COLLAPSE a staged rename into one line by default (rename detection) — use `git status --short --no-renames` (or add `--no-renames` to the diff form) to see both halves. This matters twice: confirming your own rename is fully staged, AND when unstaging a bystander's rename — `git reset HEAD -- <bystander>` on only the destination path leaves the source deletion staged and invisible to the same collapsed check. Reset BOTH paths of a rename, never just one.
 
 ## Privacy Gate
 

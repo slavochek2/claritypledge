@@ -39,7 +39,7 @@ Before any other work in this skill:
 
 3. **Stamp spec (FIRST — before anything else)** — edit the spec frontmatter on the feature branch:
    - `delivery_stage: park` (pipeline stamp already did this, but verify it's set)
-   - Commit the stamp on the feature branch: `git commit -m "chore: park pN — stamp" -- features/pN_*.md`
+   - Commit the stamp on the feature branch (worktree pattern, `.claude/rules/git.md`): `git add features/pN_*.md && git commit -m "chore: park pN — stamp"`
    - Update journal: `spec_stamped: true`
 
 4. **Commit stamp to main** — use `git-ops.sh commit-to-main` to send the spec update to main. This acquires main.lock and commits atomically. From the **main repo root**:
