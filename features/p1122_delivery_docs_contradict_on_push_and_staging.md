@@ -4,8 +4,8 @@ type: bug
 rank: 101
 created_date: '2026-08-19'
 tags: [docs, git-workflow, ship, push-safety, charter]
-delivery_stage: fix
-pipeline_ran: [create-spec, fix]
+delivery_stage: ship
+pipeline_ran: [create-spec, fix, ship]
 driver: anomaly
 ---
 
