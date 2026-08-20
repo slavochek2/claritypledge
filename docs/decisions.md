@@ -4,86 +4,182 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
-## 2026-08-20 [process]: `/pick-flow` push-back measured by hand — the rate is not distinguishable from the regex estimate, but the *direction* reversed in May and the skill is barely used any more
+## 2026-08-20 [process]: Adversarial review corrected the headline claim and left the evidence beneath it unchecked
+
+**Context:** P1126 had already been through `/adversarial-review`, and the review worked: it
+falsified a CRITICAL claim that the pipeline stamp "silently fails" on 76 block-format specs, cut a
+76-file reformat, and the spec carries a header saying so. Implementing it surfaced three further
+errors the review had passed over — all in the material the surviving claims rested on.
+
+1. The Problem section named a **live instance** as proof of a hard stop: `p686`'s plan carries
+   `spec-compact`, which never stamps, so `/decompose` "hard-stops" on it. `p686`'s `pipeline_ran`
+   **already contains `spec-compact`**, alongside `decompose` and `ship`. Nothing hard-stopped.
+   The mechanism defect is real (`spec-compact.md` has zero stamp instructions) but no live
+   deadlock has ever been observed.
+2. Three line anchors into `decisions.md` were wrong by ~350 lines (`14512/14607/14615` → actual
+   `14860/14955/14963`). The *entries* existed and read as described, so the claim looked verified.
+3. "Close these three `Status: proposed` entries" was scoped against a population of three. There
+   are **14** such headings, and this log already carries the durable finding on the class at the
+   2026-08-15 staleness entry.
+
+**Decision:** Treat "this artifact passed adversarial review" as evidence about the **conclusions**
+reviewed, never about the **citations** underneath them. A hostile reviewer optimizes for breaking
+the load-bearing claim; once it breaks, the supporting anchors beneath it are the least-read text in
+the document — and a rewrite that follows the review re-anchors everything without re-checking it.
+
+**Alternatives rejected:** Running a second adversarial pass before implementing. It would not have
+helped — all three errors are line-level facts a reviewer confirms by running one command, not by
+reasoning harder, and the first review demonstrably read past them. Four `grep`/`sed` calls at
+implementation time found all three.
+
+**Consequences:** Cheap and specific: before implementing a spec, **re-run the spec's own citations**
+— every `file:line`, count, and "live instance" — as the first act of implementation, not as
+verification afterwards. Post-review rewrites are the highest-risk text in any spec, because the
+review's authority attaches to the whole document while the rewrite is unreviewed by construction.
+Related but distinct from [epistemic.md](../.claude/rules/epistemic.md) gate 9, which binds an
+*agent's* claim; this binds a **reviewed document's** claim, where the review is what makes it feel
+already-checked.
+
+**References:** [features/done/2026-06-10/p1126_plan_names_skills_that_never_stamp.md](../features/done/2026-06-10/p1126_plan_names_skills_that_never_stamp.md) ·
+[decisions.md](decisions.md) 2026-08-15 (`Status: proposed` staleness) · P1129 (carve-out)
+
+---
+
+## 2026-08-20 [process]: Three false greens in one session — an empty index, a blind grep, and a pipe (4th instance)
+
+**Context:** Implementing P1126 produced three tool results that reported success or emptiness while
+having tested nothing. All three were caught, none by a gate.
+
+1. **A gate that read nothing.** `./scripts/pre-commit-checks.sh` was run **before** staging.
+   It printed `✓ All checks passed`. Every line under it read `skipped (no … staged)` — including
+   the skill-frontmatter check, the only one relevant to the change. An empty index and a clean
+   changeset produce **identical** output. Re-run after staging, it read the files and passed for
+   real.
+2. **A probe blind by construction.** An audit resolved 19 skill names and grepped each for
+   `pipeline_ran`. It returned "no stamp" for **all 19**, including `/dev`, which visibly stamps in
+   three places. Cause: the filename was interpolated from an unquoted shell variable carrying a
+   trailing space, and `ugrep` (aliased to `grep` here) treated the space as part of the path —
+   `No such file or directory`, on stderr, invisible under `wc -l`. Caught by the control-probe
+   rule in `~/.claude/CLAUDE.md`: every candidate empty → run a known-positive through the identical
+   probe.
+3. **A pipe, again.** `git-ops.sh commit-to-main … | tail -25` exited 2 (wrong flag form); `tail`
+   returned 0. The commit did not happen and the output looked like a commit message scrolling by.
+   Caught by `git log`, not by the exit code. This is the **fourth** instance, the first in a fresh
+   session, and it happened after the agent had read and cited the entry recording the first three.
+
+**Decision:** Record the fourth pipe instance in the existing entry's terms rather than re-deriving
+it, and add the two new shapes. The common form across all three: **the tool's success signal is
+computed over a set that was empty, and emptiness renders identically to success.**
+
+**Alternatives rejected:** Filing a spec to make `pre-commit-checks.sh` fail loudly on an empty
+index. Tempting and probably right, but it is a real change to the gate every commit runs through,
+and it should not be bolted on inside an unrelated task. Filed as the observation; the spec is
+someone's deliberate call.
+
+**Consequences:** Narrow, checkable additions to habits this repo already holds. **(a)** Stage
+first, then run the gate — and read at least one line proving it saw *your* file, not just the
+summary. `✓ All checks passed` over an empty index is the same string as a real pass. **(b)** When a
+probe interpolates a path from a variable, quote it; an unquoted trailing space is a silent
+`No such file` under `ugrep`. **(c)** The pipe rule is unchanged and unfixed — four instances, one
+of them by an agent that had just cited the rule. Documentation has now demonstrably failed to
+prevent it four times, which is the same conclusion the 2026-06-25 entry reached about gates
+generally: it recurs until something mechanical catches it.
+
+**References:** [decisions.md](decisions.md) 2026-08-20 "The exit-code lesson was recorded,
+committed, and repeated twenty minutes later" · [decisions.md](decisions.md) 2026-08-20 "Two checks
+that silently did not run" · [epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
+## 2026-08-20 [process]: `/pick-flow` push-back measured by hand — the rate is not distinguishable from the regex estimate, but the *direction* reversed in May, and the frame missed a third invocation channel on the first pass
 
 **Context:** P1127 phase 1. Three earlier probes of the transcript corpus disagreed (292 vs 252
-invocations) and a regex classifier put founder push-back at 14%, which a reviewer argued was a
-floor. Phase 1 rebuilt the frame structurally and hand-classified a seeded random sample, with an
-independent blind re-classification as a reliability check.
+invocations) and a regex classifier put founder push-back at 14%. Phase 1 rebuilt the frame
+structurally, hand-classified seeded samples, and used an independent blind re-classification as a
+reliability check.
 
-**The frame.** A genuine invocation is a transcript line that is `type: user`, not `isSidechain`,
-not `isMeta`, `promptSource` not in `{sdk, system}`, whose text survives stripping of
-`<system-reminder>` / `<task-notification>` / `<command-*>` / hook-context wrappers and is not a
-compaction summary or `<teammate-message>` — **or** an assistant `Skill` tool_use of
-`slava:build:pick-flow`. Events within 6 lines merge. **365 events, 2026-02-24 to 2026-08-20.**
-The two channels reconcile exactly: 83 skill-only + 60 both = 143 = the independent `Skill`
-tool_use count.
+**A fourth probe failure, self-caught — record it, because it is the finding's own shape.** The
+first rebuild of this frame counted 365 events and produced a full result set. A false-negative
+sweep run *afterwards* found a **third invocation channel the spec never named**: the founder
+typing the full-namespace form `/slava:build:pick-flow`. It is invisible twice over — the string
+contains no `/pick`, so the regex misses it, and the name lives inside the `<command-name>` tag
+that wrapper-stripping removes. **106 of 471 events — 22% of the corpus — were missing.** Every
+number below is from the corrected frame. The lesson is not "check for channel three"; it is that
+each of the four probes failed on *a different* invisible shape, and only a sweep that asks "what
+shapes could I be missing?" — rather than "is my number plausible?" — has caught any of them.
 
-*Structural fields, not prose heuristics, are what separate a founder turn from an injected one.*
-`isMeta: true` marks injected skill bodies (456 of them carry the string); `promptSource: "sdk"`
-marks agent prompts. **`isSidechain` is a no-op here — zero sidechain lines contain the string** —
-so the exclusion the spec proposed would have removed nothing. The 292-vs-252 gap is explained by
-injected context, not by resumed-session forking: a dedup pass finds **0 cross-file duplicate
-events**, only 3 same-session re-invocations (365 → 362, monthly shape unchanged).
+A second defect from the same sweep: **34 events (7.2%) share a reply turn with another event** —
+two invocations minutes apart, one founder answer. The post-April census is deduped by reply turn
+(20 → 18) for this reason.
+
+**The frame.** An invocation event is (A) a founder-typed user line — not `isSidechain`, not
+`isMeta`, `promptSource` not in `{sdk, system}`, surviving wrapper-stripping, not a compaction
+summary or `<teammate-message>` — containing `/pick-flow`; (B) an assistant `Skill` tool_use of
+`slava:build:pick-flow`; or (C) the full-namespace `<command-name>` envelope. Events ≤6 lines apart
+merge. **471 events, 2026-02-24 to 2026-08-20.**
+
+Structural fields, not prose heuristics, separate a founder turn from an injected one. **`isSidechain`
+is a no-op here — zero sidechain lines carry the string**, so the exclusion the spec proposed would
+have removed nothing. The 292-vs-252 gap is injected context, not resumed-session forking: a dedup
+pass finds **0 cross-file duplicate events**.
 
 **Three spec premises were wrong.** (1) The corpus begins **2026-02-24**, not 2026-04-02, so a
-pre-v2 window does exist. (2) The two worktree project dirs contain `/pick-flow` **only in
-`attachment` lines** — zero founder invocations — so the Done-When warning that globbing one
-directory "silently drops worktree sessions" does not hold. (3) `entrypoint` is absent in
-pre-March transcripts; filtering on it silently deleted the entire February corpus in the first
-build of this frame — the same class of error as the three probes before it, caught by a control
-run, not by inspection.
+pre-v2 window exists. (2) The worktree project dirs carry `/pick-flow` **only in `attachment`
+lines** — zero founder invocations — so the Done-When warning about globbing one directory does not
+hold. (3) `entrypoint` is absent in pre-March transcripts; filtering on it silently deleted the
+entire February corpus on the first build.
 
 **Decision:** Record the following as the phase 1 result.
 
-**Rate — and the claim it does *not* support.** 50 events drawn with
-`random.Random(1127).sample(pool, 50)` over the 364 events with a genuine founder reply, pool
-sorted by `(ts, file, idx)`. 35 were eligible (a recommendation was produced *and* a real reply
-followed); 15 were not (9 no-recommendation, 4 prose-about-the-skill, 2 junk replies).
+**Rate — and the claim it does *not* support.** Because channel C was found after the first draw,
+the estimate is stratified: stratum A (the 361 events the first frame had) n=50, 35 eligible,
+9 push-back; stratum B (the 108 channel-C events) n=20, 15 eligible, 7 push-back. Draws are
+`random.Random(1127).sample(...)` over pools sorted by `(ts, file, idx)`.
 
-| denominator | rate | 95% CI (Wilson) |
+| denominator | rate | 95% CI |
 |---|---|---|
-| eligible events (35) | 25.7% (9) | 14.2 – 42.1% |
-| all sampled turns (50) — the regex probe's denominator | 18.0% (9) | 9.8 – 30.8% |
+| all sampled turns — the regex probe's denominator | **21.9%** | 13.2 – 30.7% |
+| eligible events (a recommendation *and* a real reply) | **30.8%** | — (ratio estimate) |
 
-**The 14% regex estimate falls inside both intervals.** The hand point-estimate is higher, but
-**n=50 cannot establish that 14% is too low**, and the spec's "14% is a floor, not a ceiling"
-remains *unproven* rather than confirmed. Sizing a sample to settle that would need a stated
-precision target, which the spec deliberately declined to set.
+**The 14% regex estimate falls inside the interval.** The hand point-estimate is higher, but
+**these samples cannot establish that 14% is too low**, so the spec's "14% is a floor" reads as
+*unproven*, not confirmed.
 
-**Reliability.** An independent rater classified the same items blind from raw text. On the 46
-items where both had the same option set: **40/46 = 87% exact agreement**, and **14/14 = 100% on
-direction** (add vs remove). All five disagreements were adopted after re-reading — three were
-`/kdd` appended as closing bookkeeping (accept, not contested rigor), one was `"ok lets do , after
-/verify"` which reads equally as sequencing behind an in-flight `/verify` (unclear), and one had
-its push-back in the *invocation* turn rather than the measured reply. The remaining five
-"disagreements" were an artifact of my own prompt, which gave the blind rater no ineligible option.
-**Both raters independently land on 9.**
+**Stratum B pushes back roughly twice as often as stratum A (47% vs 26% of eligible).** The
+deliberate standalone invocation — the founder typing the command on its own line — is where
+disagreement concentrates; the inline `/pick-flow` mention is diluted by prose about the skill.
+Any future probe that samples one channel will misestimate, in a *known direction*.
 
-**The direction reversed — this is the load-bearing finding.** Pre-May sample: **9 add : 0 remove**.
-All 16 post-April events then read as a census: **2 add : 3 remove**, the removes being *"that
-overlkill dont you think that ux and ui is strangithrosw4rd?"*, *"our ux and ui are shit … we
-deprecitate them"*, and *"but tits too much? … why we need deocmpose and architect and tests anc
-hcallenge? makes no sense"*. Fisher exact, one-tailed, that all three removes fall in the
-post-April group: **p = 0.0125**. The spec's title premise — *the founder adds back the steps it
-drops* — was true in February–April and is **not** true after it.
+**Reliability.** An independent rater classified stratum A blind from raw text. On the 46 items
+where both had the same option set: **40/46 = 87% exact agreement, 14/14 = 100% on direction**. All
+five disagreements were adopted after re-reading — three were `/kdd` appended as closing
+bookkeeping, one read equally as sequencing behind an in-flight `/verify`, and one had its push-back
+in the *invocation* turn rather than the measured reply. The other five apparent disagreements were
+an artifact of my prompt, which gave the blind rater no ineligible option.
 
-**Where the adds concentrate.** 6 of 9 named a step the recommendation never mentioned at all; where
-it enumerated what it was skipping and why, the founder mostly accepted. 8 of 9 sit in the `src/`
-family — the path class **no** skip clause in the skill covers, confirming RQ6's live question.
-A per-version era table is **not separable at n=50** (cells of 26 / 5 / 4 / 9 across
-pre-v2 / v2 / v3 / v3.1); only the pooled pre-May vs post-April split resolves.
+**The direction reversed — this is the load-bearing finding.** Pre-May sampled eligible: **15 add :
+1 remove**. Post-April, all events read as a census (18 unique, 14 eligible): **2 add : 5 remove**,
+a 50% push-back rate, the removes being *"that overlkill dont you think that ux and ui is
+strangithrosw4rd?"*, *"why we need ux and architect if we just build a prototpye?"*, *"our ux and ui
+are shit … we deprecitate them"*, *"but tits too much? … makes no sense"*, and *"I'm not sure it
+needs all of that. Maybe we don't need challenge PRD, UX, Architect."* Fisher exact, one-tailed, on
+removes: **p = 0.00175**. The spec's title premise — *the founder adds back the steps it drops* —
+was true in Feb–Apr and is **not** true after it.
+
+**Where the adds concentrate.** 10 of 15 named a step the recommendation never mentioned at all;
+13 of 15 sit in the `src/` family — the path class **no** skip clause in the skill covers,
+confirming RQ6's live question. A per-version era table is **not separable at these sample sizes**.
 
 **`/pick-flow` was largely abandoned after April.** As a share of all founder turns that month:
-2.54% (Mar), 1.25% (Apr), then 0.11 / 0.12 / 0.06 / 0.24% (May–Aug). Control: total founder turns
+3.23% (Mar), 1.53% (Apr), then 0.21 / 0.12 / 0.06 / 0.37% (May–Aug). Control: total founder turns
 did *not* collapse comparably (7,388 in April vs 1,900–4,838 after) — a ~10–20× drop in **rate**,
-not in activity. 87% of all invocations ever are Feb–Apr.
+not in activity. 95% of all invocations ever are Feb–Apr.
 
-**Alternatives rejected:** Reporting one push-back rate. Two denominators are required because the
-regex probe counted every turn while only 70% of turns carry a recommendation to push back on;
-quoting one against the other compares different populations. Also rejected: dropping the
-inter-rater pass and reporting 13/35 = 37% — that was the pre-reconciliation number, and three of
-its four extra cases were `/kdd` bookkeeping.
+**Alternatives rejected:** Reporting one push-back rate — two denominators are required because the
+regex probe counted every turn while only ~70% carry a recommendation to push back on. Reporting
+the pre-correction numbers (365 events, 18.0%, p=0.0125) — superseded, and left here only as the
+record that the first pass was wrong. Pooling the two strata unweighted, which would over-represent
+stratum B by 4×.
 
 **Consequences:** The spec's stopping rule was *"stop if the confirmed push-backs do not concentrate
 on a nameable cause."* They do — on **steps the recommendation never named** — so phase 2 is
@@ -93,8 +189,9 @@ discovered. Two facts bound what phase 2 is worth: the skill is invoked a handfu
 now, and the pending P1116 `/pick-flow` edit (this file, *"Status: proposed"*) still blocks phase 2
 by the spec's own Non-Goal.
 
-**Reproduce:** `scripts/archive/migrations/20260820-p1127-pickflow-frame.py` (frame build + seeded
-draw + Wilson/Fisher); classifications in `.private/docs/p1127-classification.json`.
+**Reproduce:** `scripts/archive/20260820-p1127-pickflow-frame.py` (frame build, seeded draw,
+stratified estimate, Fisher). Classifications, rubric, and the blind rater's verdicts:
+`.private/docs/p1127-classification.json`.
 
 **References:** [features/p1127_pick_flow_under_recommends_measure_then_fix.md](../features/p1127_pick_flow_under_recommends_measure_then_fix.md)
 · decisions.md 2026-04-02 (quality-by-default inversion) · 2026-04-05 (v3, principles over tables)
