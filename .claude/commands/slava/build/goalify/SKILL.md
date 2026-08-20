@@ -213,16 +213,46 @@ cat /tmp/claim-stderr.log
 
 One argument exits 2. The sentinel `eval` form is required so the nonce exports.
 
-**3. `cd` into the worktree before printing the goal line.** Not optional. A loop
-left running in the main checkout violates the one-worktree-one-branch invariant,
-shares an index and HEAD with co-tenant sessions, and can flip verification into
-**prod mode** — writing rows to the live database, unattended.
+**3. Check where the session already is — never *tell* the founder to `cd`.**
 
-**4. Print the goal line and stop.**
+Run `pwd`. The claim in step 2 may have put this very session in the slot, in
+which case an instruction to "run it from wN" describes somewhere they are
+already standing, and reads as a second task that does not exist. Compare against
+the claimed slot path and say which of the two is true:
 
+- **already there** → say so in those words, then print the line alone.
+- **not there** → put the `cd` *inside* the copy-pasteable block, never beside it.
+  One paste, one action.
+
+The invariant behind this is unchanged and is why the check exists at all: a loop
+left running in the main checkout shares an index and HEAD with co-tenant
+sessions and can flip verification into **prod mode** — writing rows to the live
+database, unattended.
+
+**4. Write the goal line into the spec *before* printing it.**
+
+A line that exists only in a chat message is lost to the next compaction, and the
+founder is then reconstructing a security-relevant command from memory. Insert a
+`## Run This` section immediately after the spec's H1 title — top of file, so it
+survives skimming:
+
+```markdown
+## Run This
+
+Run from `<absolute slot path>` (this is the claimed worktree for this spec):
+
+    /goal "./scripts/goal-gate.sh pN exits 0, output pasted. Stop after 30 turns."
+
+`/goal` is native Claude Code, not a repo skill — the founder types it; no agent
+can invoke it for them. The condition names an exit code on purpose: the
+evaluator reads the transcript and runs nothing, so the only trustworthy
+condition is one naming an artifact the agent cannot author.
 ```
-/goal "./scripts/goal-gate.sh pN exits 0, output pasted. Stop after 30 turns."
-```
+
+**Top of file, never inside `## Verification Contract`** — the pin hashes that
+section alone, and a new heading inside it silently breaks the digest.
+
+**5. Print the same line and stop.**
 
 No adjectives in the goal condition. Ever.
 
