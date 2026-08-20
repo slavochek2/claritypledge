@@ -120,13 +120,21 @@ test.describe('P987: CP Front-Door Realignment', () => {
     await expect(page).toHaveURL(/\/sign-pledge/, { timeout: 10000 });
   });
 
-  test('UAT-10: /program out of nav, still reachable, noindex, price kept', async ({ page }) => {
+  test('UAT-10: /program out of nav, still reachable, now indexable, membership price kept', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('link', { name: /co-founder program/i })).toHaveCount(0);
 
+    // P1087: /program's noIndex was removed and its price rebuilt around the €295/month
+    // Clarity Champions membership — this test's premises moved with it. See
+    // e2e/p951-pricing-routing.spec.ts for the rebuilt page's own dedicated coverage.
     await page.goto('/program');
-    await expect(page.getByText(/€950/i).first()).toBeVisible();
-    const robotsMeta = page.locator('meta[name="robots"]');
-    await expect(robotsMeta).toHaveAttribute('content', /noindex/i);
+    await expect(page.getByText('€295').first()).toBeVisible();
+    // Two robots tags coexist in the DOM: index.html's static default and the SEO
+    // component's dynamic per-page tag (marked data-rh="true", src/app/components/seo.tsx)
+    // — assert the dynamic one, since that's the one that actually reflects this page's
+    // noIndex prop rather than always reading the shell's default.
+    const robotsMeta = page.locator('meta[name="robots"][data-rh="true"]');
+    await expect(robotsMeta).toHaveAttribute('content', /index/i);
+    await expect(robotsMeta).not.toHaveAttribute('content', /noindex/i);
   });
 });

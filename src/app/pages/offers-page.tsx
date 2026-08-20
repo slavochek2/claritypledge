@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { PROGRAM_FAQS } from "@/app/content/faqs";
+import { CHAMPIONS_FAQS } from "@/app/content/faqs";
 
 export function OffersPage() {
   return (
@@ -33,7 +33,7 @@ export function OffersPage() {
       <section className="px-4 py-20 lg:py-28 bg-muted/30 border-t border-border">
         <div className="container mx-auto max-w-3xl">
           <Accordion type="single" collapsible>
-            {PROGRAM_FAQS.map((faq, i) => (
+            {CHAMPIONS_FAQS.map((faq, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border-b border-border">
                 <AccordionTrigger className="text-base font-medium text-left hover:no-underline py-5">
                   {faq.q}

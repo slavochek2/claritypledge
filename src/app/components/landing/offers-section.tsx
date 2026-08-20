@@ -44,7 +44,12 @@ import {
 const STRIPE_MEMBERSHIP_URL = import.meta.env.VITE_STRIPE_MEMBERSHIP_URL ?? "";
 const isStripeLink = (u: string) => {
   try {
-    return new URL(u).host === "buy.stripe.com";
+    const parsed = new URL(u);
+    // Host-pinned AND protocol-pinned — host alone lets a non-special scheme
+    // (`javascript://buy.stripe.com/...`, `data://buy.stripe.com`) parse an authority
+    // and pass the host check (code review finding, P1087). `.claude/rules/src.md`
+    // requires both checks together.
+    return parsed.host === "buy.stripe.com" && parsed.protocol === "https:";
   } catch {
     return false;
   }

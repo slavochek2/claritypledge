@@ -3,31 +3,75 @@
  *
  * P1087 Done-When: "A deliberately invalid Stripe link renders the disabled fail-loud
  * state, not a working-looking button — exit path exercised, not reasoned about"
- * (epistemic.md gate 7). No VITE_STRIPE_MEMBERSHIP_URL is set in this test env, which is
- * the real deployed state until the founder creates the Stripe subscription link — so
- * this exercises the actual current default, not a synthetic broken value.
+ * (epistemic.md gate 7). Both branches of `STRIPE_MEMBERSHIP_URL` are tested explicitly
+ * via `vi.stubEnv` + `vi.resetModules()` (the module reads the env var at import time),
+ * not by relying on the ambient test-env default — code review flagged the earlier
+ * version of this file for exactly that: it broke the moment the founder's own named
+ * prerequisite (creating the real Stripe link) was fulfilled, and never modelled the
+ * working checkout path at all.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OffersSection } from '@/app/components/landing/offers-section';
 
-function renderSection() {
+function renderSection(Component: typeof OffersSection = OffersSection) {
   return render(
     <MemoryRouter>
-      <OffersSection />
+      <Component />
     </MemoryRouter>
   );
 }
 
-describe('OffersSection — Clarity Champions membership (P1087)', () => {
-  it('fails loud when the Stripe membership link is unset (the current real default)', () => {
-    renderSection();
+describe('OffersSection — Stripe membership link state (P1087)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('fails loud when the Stripe membership link is unset', async () => {
+    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', '');
+    vi.resetModules();
+    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
+
+    renderSection(FreshSection);
     expect(screen.getByText(/checkout temporarily unavailable/i)).toBeInTheDocument();
     // The confident-looking buy button must NOT be present when broken.
     expect(screen.queryByRole('link', { name: /start at €295\/month/i })).not.toBeInTheDocument();
   });
 
+  it('renders a real working checkout link when a valid Stripe subscription URL is set', async () => {
+    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', 'https://buy.stripe.com/test_abc123');
+    vi.resetModules();
+    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
+
+    renderSection(FreshSection);
+    expect(screen.queryByText(/checkout temporarily unavailable/i)).not.toBeInTheDocument();
+    const cta = screen.getByRole('link', { name: /start at €295\/month/i });
+    expect(cta).toHaveAttribute('href', 'https://buy.stripe.com/test_abc123');
+    expect(cta).toHaveAttribute('target', '_blank');
+    expect(cta).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('fails loud on a non-Stripe host even when the scheme/path look plausible (host-pinned, not startsWith)', async () => {
+    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', 'https://evil.example/buy.stripe.com');
+    vi.resetModules();
+    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
+
+    renderSection(FreshSection);
+    expect(screen.getByText(/checkout temporarily unavailable/i)).toBeInTheDocument();
+  });
+
+  it('fails loud on a non-https scheme even with the right host (protocol-pinned, not host-only)', async () => {
+    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', 'javascript://buy.stripe.com/%0aalert(1)');
+    vi.resetModules();
+    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
+
+    renderSection(FreshSection);
+    expect(screen.getByText(/checkout temporarily unavailable/i)).toBeInTheDocument();
+  });
+});
+
+describe('OffersSection — Clarity Champions membership (P1087)', () => {
   it('shows exactly one membership offer, not a three-card grid', () => {
     renderSection();
     expect(screen.getByText('Clarity Champions')).toBeInTheDocument();
