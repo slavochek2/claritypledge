@@ -51,6 +51,86 @@ marked `[FOUNDER DECISION]`.
 
 ## Solution
 
+> ## ⚠ REVISED (2) 2026-08-20 — supersedes the block below it
+>
+> **The founder retired the walk-in.** Asked directly whether an unregistered person ever
+> shows up — even at an in-person event — the answer was: *"this person doesn't exist even for
+> normal events."* That single fact invalidates the largest and most exotic part of this spec.
+>
+> ### Entry is gated by registration + sign-in
+> A person reaches the principle only if they are **registered for this event AND signed in**.
+> Anyone else sees one screen: *register for this event, or sign in if you already have.*
+>
+> Superseded by this: §1's third state (**"unregistered and present"** — deleted, two states
+> remain), §2 (**"Identity: name or login"** — name-only entry is deleted; identity is the
+> signed-in profile), and §4's *"Visible to everyone, no permission logic."* §4's premise was
+> *"gating protects nothing, because the walk-in arrives by the room link and never sees the
+> tab."* With no walk-in the premise is void — and note it cut the other way even while true:
+> if the walk-in never saw the tab, gating the tab never cost the walk-in anything.
+>
+> `event_rsvps` is now the room's gate. It was already the gate for RSVP — one rule, not two.
+>
+> ### `/room` collapses to the gate
+> | Route | Job |
+> |---|---|
+> | `/events/:slug/room` | Gate only. Registered + signed in → redirect to `…/ready`. Otherwise the register-or-sign-in screen. Renders no content of its own. |
+> | `/events/:slug/ready` | Readiness. The shipped `/ready` composition, event-scoped. |
+> | `/events/:slug/meet` | The principle, the roster, the decision. |
+>
+> Supersedes revision (1)'s **"one scroll, this order"** and §3's *"One page, not three."* The
+> founder approved a two-page flow in ASCII on 2026-08-20 after seeing the one-scroll build:
+> the merged page read as two shipped pages crammed together, annotated *"this is a page
+> before! /read and now we are on /meet."*
+>
+> ### The two pages mirror the shipped ones exactly
+> **`…/ready`** — `ready-page.tsx`'s composition unchanged: one question, `SliderTrack`,
+> `Continue`, vertically centred. Only the distribution differs (this event's people, not the
+> global last-10-minutes). **No caption under the slider** — the `Readiness caption` row in the
+> UI Contract is retired, founder-annotated *delete*.
+>
+> **`…/meet`** — `meeting-terms-page.tsx`'s composition: `CertificateFrame` scrolling under a
+> `FixedBottomBar`. **The decision lives in that bar** — the loose `Opt in` / `Opt out` block
+> below the scroll is deleted; it duplicated a control the shipped page already carries. Roster
+> renders **above the bar, below the certificate** (founder-chosen: faces sit where the decision
+> is made). Level stays 3; the room has no level picker.
+>
+> **Both pages mount under `ClarityLandingLayout compact`** — no marketing nav, no footer.
+> Resolves two founder annotations (*hide footer*, *delete* on the `Project` chip) with one
+> change. The Present toggle leaves this surface entirely; the `Present toggle` UI Contract row
+> is retired with it.
+>
+> **No understanding number in the room.** Shipped `/meet` asks it after opting in, then offers
+> `Start meeting`. Both are built for one situation — two people, one phone, a host standing
+> there to ask the follow-up out loud. In a room of forty nobody asks, so the number is a number
+> with no question attached, and there is no phone to hand back. This is the ONE deliberate
+> divergence from `/meet`; everything else is the same components in the same order.
+>
+> ### The anonymous machinery is removed, not kept dormant
+> The bearer-secret design existed solely to let a person with no account mutate their own row.
+> With no such person, it is replaced by the pattern used everywhere else in this codebase:
+> `auth.uid()`-based ownership.
+>
+> - **Supersedes Architecture Decision 1** in full, and the Security Review findings that rest
+>   on it.
+> - `GRANT EXECUTE … TO anon` on all four RPCs is **revoked** — an unauthenticated surface with
+>   no user is a surface, not a spare part.
+> - `client_secret` and the localStorage identity are removed from the read/write path.
+> - **`GuestOrAccountJoin` is NOT deleted.** It is `/live`'s production join form
+>   (`clarity-live-page.tsx`:4019); this spec only extracted it. `src/tests/p1114-shared-component-reuse.test.tsx`'s
+>   assertion that *the room* imports it is retired; the assertion that `/live` does must stay.
+>
+> *Rejected: keeping the machinery dormant for a future walk-in.* The future case is
+> unregistered people entering an event, decided against twice in one sitting. If it returns it
+> returns as a decision, not as code that happened to survive.
+>
+> ### Event page — two founder corrections
+> 1. **The tab bar moves above the event card**, directly under `← Events`. Tabs switch the whole
+>    page body, not a strip beneath it.
+> 2. **Practice Rooms returns to its position on `main`** — inside the left column, after the
+>    description. Moving it into a tab was uninstructed scope creep, annotated *"leave it where
+>    it was!"* Revision (1) already said Practice Rooms stays untouched; the build broke that.
+
+
 > ## ⚠ REVISED 2026-08-20 — read this before anything below it
 >
 > The first UI build was **rejected by the founder on sight**: it reinvented controls that already
@@ -270,31 +350,55 @@ because X."* **Opt-outs owe nothing.** Nothing in this spec may restrict who can
 
 ## Done-When
 
-- [ ] A person can open `/events/:slug/room`, join with a name only (no account, no email),
-      and appear on that event's roster
-- [ ] A logged-in person passes through the join screen without re-entering their name
-- [ ] `/events/:slug/ready` and `/events/:slug/meet` render the same page, positioned at
-      readiness and at the principle respectively
-- [ ] Standalone `/ready` and `/meet` behave identically to before this spec (verified by
-      existing tests still passing, unmodified)
-- [ ] The roster is visible before the person answers, and shows opt-ins only — no opt-out
-      is displayed or counted anywhere in the UI
-- [ ] A second browser opting in causes the first browser's roster to update **without a
-      reload**
+**Revised 2026-08-20 (revision 2).** Three items are struck rather than edited, because the
+walk-in they tested no longer exists: *"join with a name only",* *"a room row is distinguishable
+as walk-in vs registered",* and *"the Present toggle hides controls and enlarges the roster."*
+
+### The gate
+- [ ] Someone not registered for the event, or not signed in, sees only *register for this
+      event / sign in* — no roster, no principle, no readiness, nothing that leaks the room
+- [ ] A registered, signed-in person opening `/events/:slug/room` lands on `…/ready` without
+      typing a name or seeing a join form
+- [ ] `anon` holds **no** `EXECUTE` on any of this spec's four RPCs
+- [ ] No `client_secret` value is read or written anywhere in the client path
+- [ ] `clarity-live-page.tsx` still imports `GuestOrAccountJoin` (the extraction survives the
+      room dropping it — guarded by the reuse test)
+
+### The two pages
+- [ ] `…/ready` renders the shipped `/ready` composition — one question, `SliderTrack`,
+      `Continue` — with **no caption** beneath the slider
+- [ ] Its distribution shows this event's people only, and general `/ready` submissions never
+      appear in it
+- [ ] `…/meet` renders the shipped certificate composition with **`Opt in` / `Opt out` in the
+      fixed bottom bar** — no loose duplicate of that control anywhere on the page
+- [ ] The roster renders **above the bar, below the certificate**
+- [ ] Neither page renders the marketing nav, the footer, or a Present/`Project` control
+- [ ] The room has **no** understanding-number step and no `Start meeting` button
+- [ ] Standalone `/ready` and `/meet` behave identically to before this spec (existing tests
+      pass unmodified)
+
+### The roster and the record
+- [ ] The roster is visible before the person answers, and shows opt-ins only — no opt-out is
+      displayed or counted anywhere in the UI
+- [ ] Signed-in attendees render as the normal person row — full name, profile link, avatar,
+      pledge ring, ear badge
+- [ ] A second browser opting in causes the first browser's roster to update **without a reload**
 - [ ] Changing an answer is possible, and the prior answer is still queryable afterwards
 - [ ] Each opt-in row stores how many people had already opted in at that moment
-- [ ] Room readiness values do not appear in the general `/ready` distribution, and general
-      `/ready` submissions do not appear in any room
 - [ ] Room readiness values survive longer than 10 minutes
-- [ ] The Present toggle hides controls and enlarges the roster on the same route
-- [ ] Joining the room does **not** create an `event_rsvps` row
-- [ ] A room row is distinguishable as walk-in vs registered
-- [ ] After `EVENT_GRACE_HOURS` past event start, the room rejects new joins and answer
-      changes, and still displays who was there
-- [ ] A room with `max_attendees` already reached still accepts new room joins
-- [ ] An organization member sees themselves as **not** opted in until they confirm in the room
-- [ ] Roster degrades to a static readable list if realtime fails — never an error state or
-      an empty wall
+- [ ] Opting in does **not** create an `event_rsvps` row
+- [ ] After `EVENT_GRACE_HOURS` past event start, the room rejects new answers and still
+      displays who was there
+- [ ] A room with `max_attendees` already reached still accepts opt-ins
+- [ ] An organization member sees themselves as **not** opted in until they confirm
+- [ ] Roster degrades to a static readable list if realtime fails — never an error state or an
+      empty wall
+
+### The event page
+- [ ] The tab bar sits **above the event card**, directly under `← Events`
+- [ ] Practice Rooms renders at its `main` position, inside the left column after the
+      description — byte-identical placement to `main`
+- [ ] Tab selection lives in the URL; one Back press moves one tab
 
 ## UX Notes
 
@@ -317,14 +421,20 @@ room), after (who was there, frozen).
 
 ## Acceptance Criteria
 
-- [ ] A walk-in with no account can join the room and be seen on the wall within one minute
-      of arriving, without installing, registering, or giving an email
+**Revised 2026-08-20 (revision 2)** — the walk-in criterion is struck and replaced by its
+inverse.
+
+- [ ] A registered, signed-in attendee opens the room link and is on the roster within a
+      minute, without being asked anything they have already told us
+- [ ] Someone who is not registered is told what to do about it in one screen, and learns
+      nothing else about the room
 - [ ] A person in the room can tell who has opted in without asking anyone
 - [ ] A person who opted out at the start can opt in later in the same event, and that change
-      is visible on the wall
-- [ ] The facilitator can project the room from one link that does not change during the event
+      is visible to everyone
 - [ ] After the event, the event page still shows who was in the room
 - [ ] Nothing in the room UI reveals, counts, or implies who opted out
+- [ ] The two pages are recognisably the same pages as `/ready` and `/meet` — a person who has
+      used one is not learning a new screen
 
 ## UI Contract
 
@@ -337,14 +447,17 @@ them verbatim. Any string NOT listed here is still `[FOUNDER DECISION]` and must
 | Event-page tab | `Clarity Meeting Principle` | Second tab; first is `Details`. Selection lives in the URL so back works. |
 | Page heading | `Review the Clarity Meeting Principle` | Replaces the rejected "Join the room" — the person is reviewing terms, not entering a place. |
 | Readiness question | `How up for thinking are you right now?` | Reused verbatim from the shipped `/ready`, with its `Keep it light / Neutral / Go deep` anchors. |
-| Readiness caption | `Shown on the wall as a dot. Not labelled — but not anonymous either.` | Must never claim anonymity — values are stored against the person (§7). This is the honest phrasing. |
 | Roster heading | `Who opted in` | Deliberately **not** "who's here": opt-outs are never shown, so a presence claim would be false. |
 | Opt-in buttons | `Opt in` / `Opt out` | Chosen over `Accept`/`Decline`, which read as a legal form. |
 | Member pre-fill line | `Your organization runs on the Clarity Organization Terms. This is a separate yes.` | Shows the standing commitment as context; must not read as already opted in (§9). |
 | Zero state | `No one has opted in yet.` | Also what a projector shows before anyone arrives. |
 | Frozen notice | `This has closed. Here's who opted in.` | Frozen means still visible, not gone. |
-| Present toggle | `Project` | A verb the facilitator does, one tap before the event starts. |
-| Guest join form | Shipped `/live` wording, verbatim | `What should we call you?` · `Enter your name` · `Join as Guest` · `or join as guest` · `Log in with email` — reused via the shared component, not re-authored. |
+| ~~Readiness caption~~ | **RETIRED (rev 2)** | Founder-annotated *delete*. The marks sit on the visitor's own track and need no caption. |
+| ~~Present toggle~~ | **RETIRED (rev 2)** | Founder-annotated *delete*. Projection leaves this surface entirely. |
+| ~~Guest join form~~ | **RETIRED (rev 2)** | The room no longer has a guest door. `GuestOrAccountJoin` stays in the codebase as `/live`'s form. |
+| Gate heading | `[FOUNDER DECISION]` → renders as `PLACEHOLDER: gate heading` | New in rev 2. What an unregistered visitor is told. |
+| Gate body | `[FOUNDER DECISION]` → renders as `PLACEHOLDER: gate body` | Must offer both: register for this event, and sign in if already registered. |
+| Gate actions | `[FOUNDER DECISION]` → renders as `PLACEHOLDER: gate primary` / `PLACEHOLDER: gate secondary` | Two routes out of one screen. |
 
 ## Related
 
