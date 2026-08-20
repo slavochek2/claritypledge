@@ -111,7 +111,10 @@ describe('api/og.ts — agent account disclosure (P1104)', () => {
   });
 
   it('ogForProfile still gives an ordinary human the pledge copy — the branch is additive, not a rewrite', async () => {
-    stubFetch({ name: 'A Human Name', role: 'Engineer', avatar_url: null, banner_url: null });
+    // P1108: has_pledged is now a required, bindClaim-bound column (NOT NULL DEFAULT
+    // true in the schema, so a real fetch always returns it once selected) — stubbed
+    // explicitly rather than left absent, which is a shape live Supabase cannot produce.
+    stubFetch({ name: 'A Human Name', role: 'Engineer', avatar_url: null, banner_url: null, has_pledged: true });
 
     const { default: handler } = await import('../../api/og');
     const { res, getBody, getStatus } = makeRes();
@@ -206,11 +209,13 @@ describe('api/og.ts — agent account disclosure (P1104)', () => {
   });
 
   it('an empty array embed (a human) does not trip the agent branch', async () => {
+    // P1108: has_pledged stubbed explicitly — see the other 'ordinary human' fixture above.
     stubFetch({
       name: 'A Human Name',
       role: 'Engineer',
       avatar_url: null,
       banner_url: null,
+      has_pledged: true,
       agent_accounts: [],
     });
 

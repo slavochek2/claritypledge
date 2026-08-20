@@ -13,6 +13,16 @@ const DEFAULT_IMAGE = `${BASE_URL}/clarity-pledge-icon.png`;
 
 // ── Supabase REST ───────────────────────────────────────────────────────
 
+/** A non-OK HTTP response from the Supabase REST call. P1108: this used to be
+ *  collapsed into the same `null` as "row not found", which meant a permission
+ *  error or a timeout silently rendered as an absent row. Thrown so the caller
+ *  can tell the two apart. */
+class OgFetchError extends Error {
+  constructor(public readonly status: number) {
+    super(`og.ts: Supabase REST request failed with status ${status}`);
+  }
+}
+
 async function supabaseGet(
   table: string,
   query: string,
@@ -25,9 +35,22 @@ async function supabaseGet(
       Accept: 'application/json',
     },
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new OgFetchError(res.status);
   const rows = await res.json();
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
+/** Throws if `column` is not present in `selectedColumns` — a preview sentence
+ *  asserting `claim` must be backed by a column this handler actually fetches.
+ *  Runs at MODULE LOAD, not per-request: a handler that claims a column it
+ *  forgot to select fails on the very first import, not in a code review. */
+export function bindClaim(selectedColumns: readonly string[], column: string, claim: string): void {
+  if (!selectedColumns.includes(column)) {
+    throw new Error(
+      `og.ts claim binding violated: "${claim}" requires column "${column}" to be ` +
+        `selected, but only [${selectedColumns.join(', ')}] is fetched.`,
+    );
+  }
 }
 
 // ── OG data types ───────────────────────────────────────────────────────
@@ -48,6 +71,9 @@ async function ogForEvent(slug: string): Promise<OgData | null> {
     `slug=eq.${encodeURIComponent(slug)}&select=title,description,datetime,location,banner_url`,
   );
   if (!row) return null;
+  // No bindClaim here: every word below is either a fetched column verbatim
+  // (`description`) or a formatted `datetime`/`location` — no synthesized
+  // assertion is made, so there is nothing to bind.
 
   const date = row.datetime
     ? new Date(row.datetime as string).toLocaleDateString('en-US', {
@@ -60,7 +86,7 @@ async function ogForEvent(slug: string): Promise<OgData | null> {
   const rawDesc = (row.description as string) || '';
   const desc = rawDesc
     ? rawDesc.replace(/[#*_~`>[\]]/g, '').slice(0, 200)
-    : [date, location].filter(Boolean).join(' \u2014 ');
+    : [date, location].filter(Boolean).join(' — ');
 
   return {
     title: `${(row.title as string) || 'Event'} | ClarityPledge`,
@@ -77,17 +103,40 @@ async function ogForEvent(slug: string): Promise<OgData | null> {
 // being non-null is what says "this is a machine's reading", not any name-string test.
 const AGENT_EMBED = 'agent_accounts(operator_name)';
 
-/** The operator answerable for this profile, or null when it is an ordinary person. */
-function agentOperator(profile: Record<string, unknown> | null): string | null {
-  if (!profile) return null;
-  // PostgREST returns a one-to-one embed as an object, a one-to-many as an array.
-  // Handle both rather than depending on which shape it picks for this FK.
+/** "No agent account exists" and "the agent lookup failed" must be distinguishable —
+ *  a `null` collapse of both is the P1108 fail-open bug, one level below the row fetch. */
+type AgentLookup =
+  | { kind: 'no-agent' }
+  | { kind: 'agent'; operator: string }
+  | { kind: 'malformed' };
+
+function agentOperator(profile: Record<string, unknown> | null): AgentLookup {
+  if (!profile) return { kind: 'no-agent' };
+  if (!('agent_accounts' in profile)) return { kind: 'no-agent' };
   const embed = profile.agent_accounts;
-  const row = Array.isArray(embed) ? embed[0] : embed;
-  if (!row || typeof row !== 'object') return null;
+  if (embed === null) return { kind: 'no-agent' };
+  const row = Array.isArray(embed) ? (embed.length > 0 ? embed[0] : null) : embed;
+  if (row === null) return { kind: 'no-agent' };
+  if (typeof row !== 'object') return { kind: 'malformed' };
   const name = (row as Record<string, unknown>).operator_name;
-  return typeof name === 'string' && name.length > 0 ? name : null;
+  if (typeof name !== 'string' || name.length === 0) return { kind: 'malformed' };
+  return { kind: 'agent', operator: name };
 }
+
+/** Reads an AgentLookup for a synthesized "operated by" claim. Throws on
+ *  `'malformed'` — a shape a correctly-functioning PostgREST response would
+ *  never produce — so `handler()`'s try/catch (Decision 2) turns it into the
+ *  subject-silent fallback instead of silently rendering the ordinary-person card. */
+function requireAgentOperator(profile: Record<string, unknown> | null): string | null {
+  const lookup = agentOperator(profile);
+  if (lookup.kind === 'malformed') {
+    throw new Error('og.ts: malformed agent_accounts embed — refusing to render either card');
+  }
+  return lookup.kind === 'agent' ? lookup.operator : null;
+}
+
+const STORY_COLUMNS = ['title', 'content', 'banner_url', AGENT_EMBED] as const;
+bindClaim(STORY_COLUMNS, AGENT_EMBED, 'is a machine-generated reading, operated by {operator}');
 
 async function ogForStory(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
@@ -98,15 +147,15 @@ async function ogForStory(id: string): Promise<OgData | null> {
 
   const profile = row.profiles as Record<string, unknown> | null;
   const authorName = (profile?.name as string) || 'Someone';
-  const operator = agentOperator(profile);
+  const operator = requireAgentOperator(profile);
   const title = (row.title as string) || 'A Story';
   const content = (row.content as string) || '';
   const excerpt = content.replace(/[#*_~`>[\]]/g, '').slice(0, 160).replace(/\n/g, ' ').trim();
 
   return {
     title: operator
-      ? `${title} \u2014 read by ${authorName} | ClarityPledge`
-      : `${title} \u2014 by ${authorName} | ClarityPledge`,
+      ? `${title} — read by ${authorName} | ClarityPledge`
+      : `${title} — by ${authorName} | ClarityPledge`,
     description: operator
       ? `A machine-generated reading, not the person. ${authorName} is operated by ${operator} on ClarityPledge.`
       : (excerpt || `A story shared on ClarityPledge by ${authorName}.`),
@@ -115,6 +164,9 @@ async function ogForStory(id: string): Promise<OgData | null> {
     type: 'article',
   };
 }
+
+const POINT_COLUMNS = ['statement', 'banner_url', AGENT_EMBED] as const;
+bindClaim(POINT_COLUMNS, AGENT_EMBED, 'a machine-generated reading operated by {operator}');
 
 async function ogForPoint(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
@@ -125,39 +177,47 @@ async function ogForPoint(id: string): Promise<OgData | null> {
 
   const profile = row.profiles as Record<string, unknown> | null;
   const creatorName = (profile?.name as string) || 'Someone';
-  const operator = agentOperator(profile);
+  const operator = requireAgentOperator(profile);
   const statement = (row.statement as string) || 'A point';
   const short = statement.length > 70 ? statement.slice(0, 67) + '...' : statement;
 
   return {
     title: `${short} | ClarityPledge`,
     description: operator
-      ? `Shared by ${creatorName}, a machine-generated reading operated by ${operator} \u2014 not the person. Take a position on ClarityPledge.`
-      : `Shared by ${creatorName} \u2014 take a position on ClarityPledge.`,
+      ? `Shared by ${creatorName}, a machine-generated reading operated by ${operator} — not the person. Take a position on ClarityPledge.`
+      : `Shared by ${creatorName} — take a position on ClarityPledge.`,
     image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/point/${id}`,
     type: 'article',
   };
 }
 
+const PROFILE_COLUMNS = ['name', 'role', 'avatar_url', 'banner_url', 'has_pledged', AGENT_EMBED] as const;
+bindClaim(PROFILE_COLUMNS, 'has_pledged', 'signed the Clarity Pledge');
+bindClaim(PROFILE_COLUMNS, AGENT_EMBED, 'is a machine-generated reading, operated by {operator}');
+
 async function ogForProfile(slug: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'profiles',
-    `slug=eq.${encodeURIComponent(slug)}&select=name,role,avatar_url,banner_url,${AGENT_EMBED}`,
+    `slug=eq.${encodeURIComponent(slug)}&select=${PROFILE_COLUMNS.join(',')}`,
   );
   if (!row) return null;
 
   const name = (row.name as string) || 'A Professional';
   const role = (row.role as string) || '';
-  const operator = agentOperator(row);
-  // An agent account has signed nothing. The pre-P1104 copy asserted the pledge for
-  // every profile, which is false for these accounts in the one place that reaches a
-  // reader who never opens the site.
+  const operator = requireAgentOperator(row);
+  // An agent account has signed nothing. The pre-P1108 copy asserted the pledge for
+  // every profile regardless of `has_pledged` — false for every non-pledger in the
+  // one place that reaches a reader who never opens the site.
   const desc = operator
     ? `${name} is a machine-generated reading of a person, operated by ${operator} on ClarityPledge. It is not that person and holds no pledge.`
-    : (role
-      ? `${name} \u2014 ${role}. Signed the Clarity Pledge.`
-      : `${name} signed the Clarity Pledge \u2014 a public commitment to clear communication.`);
+    : (row.has_pledged === true
+      ? (role
+        ? `${name} — ${role}. Signed the Clarity Pledge.`
+        : `${name} signed the Clarity Pledge — a public commitment to clear communication.`)
+      : (role
+        ? `${name} — ${role}.`
+        : `${name} on ClarityPledge.`));
 
   return {
     title: `${name} | ClarityPledge`,
@@ -176,9 +236,17 @@ async function ogForProfile(slug: string): Promise<OgData | null> {
 
 // ── HTML builder ────────────────────────────────────────────────────────
 
+/** ESC-1: escapes all five of `&`, `"`, `<`, `>`, `'`. `&` runs first so the entities
+ *  this function itself introduces are never re-escaped. */
+export const esc = (s: string): string =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;');
+
 function ogHtml(og: OgData): string {
-  const esc = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -243,7 +311,31 @@ export default async function handler(
   for (const route of ROUTES) {
     const match = ogPath.match(route.pattern);
     if (match) {
-      const og = await route.handler(match);
+      let og: OgData | null;
+      try {
+        og = await route.handler(match);
+      } catch (err) {
+        // A failed or malformed fetch must never fall through to the generic
+        // route-miss card below (BASE_URL, sitewide) OR — the P1108 bug — silently
+        // render as an ordinary-person card. Fail loud, respond safe: log the real
+        // error server-side, and respond with a card that asserts nothing about
+        // the subject. Cache-Control is a SHORT positive TTL (not `no-store`): the
+        // degraded card self-clears within a minute, and origin load stays bounded
+        // at roughly one request per URL per minute at the edge — an uncached
+        // failure path would let a spoofed-UA caller drive unbounded DB hits during
+        // exactly the window the database is already unhealthy.
+        console.error('og.ts: route handler failed', err);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=0');
+        res.status(200).send(ogHtml({
+          title: 'ClarityPledge',
+          description: 'Preview temporarily unavailable.',
+          image: DEFAULT_IMAGE,
+          url: `${BASE_URL}${ogPath}`,
+          type: 'website',
+        }));
+        return;
+      }
       if (og) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');

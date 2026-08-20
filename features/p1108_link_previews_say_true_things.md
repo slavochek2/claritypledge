@@ -488,6 +488,34 @@ Recorded as a deliberate widening of `## Non-Goals`' "text truthfulness only" �
 7. Live verification against a deployed URL (`curl` with a crawler UA) for Done-When bullets 2 and 3 specifically (the pledge claim) — needs `scripts/dev-agent-fixture.mjs` (or an existing test-DB profile) for a live non-pledger/pledger row; this step is local-tier, not CI-tier, per `goal-gate.sh`'s two-tier split. Done-When bullet 5 (agent lookup fails) is already covered CI-tier by step 5's (d) case above — a live forced-failure curl is not required to satisfy it, only the phrasing of the Done-When line invites reading it that way.
 8. `./scripts/goal-gate.sh p1108` — requires `/goalify` to have run first and written the `## Verification Contract` section this spec does not yet have.
 
+## Claim Audit
+
+DW-1. Every factual claim each live handler's description makes, and the fetched column backing it
+— re-derived against the implemented `api/og.ts` on `feature/p1108-truthful-previews`, not copied
+from the pre-implementation table in `### Technical Analysis` above.
+
+- **ogForEvent** — claims: formatted date (`datetime`), location (`location`), or the raw
+  `description` text verbatim. Backed by: `datetime`, `location`, `description`, all in
+  `select=title,description,datetime,location,banner_url`. No synthesized assertion; no `bindClaim`
+  call — the code comment at its call site states why.
+- **ogForStory** — claims: `"{title} — by {authorName}"` / `"— read by {authorName}"` (author's
+  name), an excerpt or `"A story shared … by {authorName}"`, and the agent branch `"A
+  machine-generated reading … operated by {operator}"`. Backed by: `title`, `content`, `banner_url`,
+  `profiles.name`, and `AGENT_EMBED` (`agent_accounts(operator_name)`), all in the `select=` string;
+  `AGENT_EMBED` additionally bound by `bindClaim(STORY_COLUMNS, AGENT_EMBED, …)` at module load.
+- **ogForPoint** — claims: `"Shared by {creatorName}"`, and the agent branch `"a machine-generated
+  reading operated by {operator}"`. Backed by: `statement`, `banner_url`, `profiles.name`, and
+  `AGENT_EMBED` — same embed pattern as `ogForStory`; `AGENT_EMBED` bound by
+  `bindClaim(POINT_COLUMNS, AGENT_EMBED, …)`.
+- **ogForProfile** — claims: `"{name} signed the Clarity Pledge"` / `"{name} — {role}. Signed the
+  Clarity Pledge."` (the P1108 root-cause claim), and the agent branch `"{name} is a
+  machine-generated reading … operated by {operator} … holds no pledge"`. Backed by: `name`, `role`,
+  `avatar_url`, `banner_url`, `has_pledged`, `AGENT_EMBED` — all in `PROFILE_COLUMNS`, joined
+  directly into the `select=` string so the fetch and the binding cannot drift apart. `has_pledged`
+  bound by `bindClaim(PROFILE_COLUMNS, 'has_pledged', …)`; `AGENT_EMBED` bound the same way as the
+  other two handlers. This is the handler Decision 1 fixes — the pledge sentence is now gated on
+  `row.has_pledged === true` instead of asserted unconditionally.
+
 ## Verification Contract
 
 Seven rows. One HUMAN-ONLY (14%), under goalify's 25% refusal threshold. Zero COMPARABLE — a
