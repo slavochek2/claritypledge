@@ -38,7 +38,10 @@ Every link is a *preset*, not a fixed charge — the donor can still edit it at
 Stripe, so a tier link never turns away someone who can give less. Non-amounts (`/donate/abc`, `0`, negatives, decimals) fall through to the default
 rather than 404ing.
 
-URLs are read from `VITE_STRIPE_DONATE_URL*` and validated with an https +
+URLs are **hardcoded in source** with `VITE_STRIPE_DONATE_URL*` as an override
+only (decisions.md 2026-06-19 / P954: Vercel builds the prod bundle and never sees
+`.env.local`, so an env-var-only public URL bakes as `undefined` and takes checkout
+down silently — that already happened once on `/pricing`). They are validated with an https +
 exactly-`buy.stripe.com` host check. If the URL is missing or malformed, the route
 does **not** redirect: it renders a visible notice and alerts Sentry on mount. A
 donate link that silently dead-ends is an invisible lost gift.

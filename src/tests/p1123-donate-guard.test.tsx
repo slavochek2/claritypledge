@@ -38,7 +38,6 @@ describe('P1123 donate URL guard', () => {
   });
 
   it.each([
-    ['unset', undefined],
     ['empty', ''],
     ['not a URL', 'not-a-url'],
     ['wrong host', 'https://evil.example.com/pay'],
@@ -54,6 +53,21 @@ describe('P1123 donate URL guard', () => {
 
     expect(replace).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // P954 regression: Stripe links must be hardcoded in source with the env var as
+  // an override only. Vercel builds the prod bundle and never sees .env.local, so an
+  // env-var-only public URL bakes as undefined and takes checkout down silently.
+  // That already happened once on /pricing — decisions.md 2026-06-19.
+  it.each([
+    ['/donate', 'eVqcN5epPex1dbR4i01Jm05'],
+    ['/donate/5', 'aFa4gz5Tj60vc7N29S1Jm04'],
+    ['/donate/50', '7sY3cvepP1Kf6NtdSA1Jm06'],
+    ['/donate/150', 'dRmbJ13Lb60vc7NaGo1Jm07'],
+    ['/donate/500', '00w14n3Lb9cHc7NcOw1Jm08'],
+  ])('with NO env vars set, %s still reaches the hardcoded prod link', (path, id) => {
+    renderAt(path);
+    expect(replace).toHaveBeenCalledExactlyOnceWith(`https://buy.stripe.com/${id}`);
   });
 
   it('alerts Sentry on mount when the link is broken', () => {

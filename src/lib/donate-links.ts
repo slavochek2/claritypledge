@@ -33,18 +33,41 @@ export const isStripeLink = (u: string | undefined): boolean => {
   }
 };
 
-/** Base (pay-what-you-want, $5 preset) link — the fallback for every route. */
-const baseUrl = (): string | undefined => import.meta.env.VITE_STRIPE_DONATE_URL;
+/**
+ * Hardcoded prod links, env var as override only.
+ *
+ * These are PUBLIC URLs — they embed a product and price, never a credential, so
+ * there is no security rationale for env-var indirection. Env-var-only `VITE_*`
+ * for a public value is a silent prod outage waiting to happen: Vite bakes
+ * `VITE_*` at build time, Vercel builds the prod bundle, and a var that lives
+ * only in a gitignored `.env.local` becomes `undefined` there. That exact failure
+ * took /pricing's checkout down once already — decisions.md 2026-06-19 (P954).
+ *
+ * Verify they are baked into prod with:
+ *   curl -s https://claritypledge.com/assets/index-*.js | grep -o "buy.stripe.com/[A-Za-z0-9]*"
+ */
+const PROD_LINKS = {
+  base: "https://buy.stripe.com/eVqcN5epPex1dbR4i01Jm05", // $15 default
+  5: "https://buy.stripe.com/aFa4gz5Tj60vc7N29S1Jm04",
+  15: "https://buy.stripe.com/eVqcN5epPex1dbR4i01Jm05",
+  50: "https://buy.stripe.com/7sY3cvepP1Kf6NtdSA1Jm06",
+  150: "https://buy.stripe.com/dRmbJ13Lb60vc7NaGo1Jm07",
+  500: "https://buy.stripe.com/00w14n3Lb9cHc7NcOw1Jm08",
+} as const;
+
+/** Base (pay-what-you-want, $15 preset) link — the fallback for every route. */
+const baseUrl = (): string | undefined =>
+  import.meta.env.VITE_STRIPE_DONATE_URL ?? PROD_LINKS.base;
 
 const tierUrl = (tier: DonateTier): string | undefined => {
   // Indexed rather than computed: Vite statically replaces import.meta.env.X at
   // build time, so a template-literal key would resolve to undefined in prod.
   const byTier: Record<DonateTier, string | undefined> = {
-    5: import.meta.env.VITE_STRIPE_DONATE_URL_5,
-    15: import.meta.env.VITE_STRIPE_DONATE_URL_15,
-    50: import.meta.env.VITE_STRIPE_DONATE_URL_50,
-    150: import.meta.env.VITE_STRIPE_DONATE_URL_150,
-    500: import.meta.env.VITE_STRIPE_DONATE_URL_500,
+    5: import.meta.env.VITE_STRIPE_DONATE_URL_5 ?? PROD_LINKS[5],
+    15: import.meta.env.VITE_STRIPE_DONATE_URL_15 ?? PROD_LINKS[15],
+    50: import.meta.env.VITE_STRIPE_DONATE_URL_50 ?? PROD_LINKS[50],
+    150: import.meta.env.VITE_STRIPE_DONATE_URL_150 ?? PROD_LINKS[150],
+    500: import.meta.env.VITE_STRIPE_DONATE_URL_500 ?? PROD_LINKS[500],
   };
   return byTier[tier];
 };
