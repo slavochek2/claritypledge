@@ -542,3 +542,21 @@ regression baseline — the shipped P1104 suite, 10 tests, currently green. Its 
 exercised here, because doing so would mean breaking `api/og.ts` on main. It is a real check (it
 fails the moment P1104's behaviour regresses) but this pass did not watch it fail, and per goalify's
 own rule that is recorded rather than assumed.
+
+## Artifacts the gate requires beyond the code (repo facts, discovered by running it)
+
+Running `./scripts/goal-gate.sh p1108 --tier ci` on the empty branch surfaced three required
+artifacts that the Verification Contract does not itself name. Recorded here so the run does not
+discover them at turn 25:
+
+- `features/uat/p1108.md` — CHECK 4. Every scorecard row must carry a result; the gate's words are
+  *"a contract with no scorecard cannot decay, it never existed."*
+- `features/verification/p1108/assumptions.md` — CHECK 6. Every call made alone. There is no
+  escalation clause: decide, log, continue. The log is the price of not being interrupted.
+- `features/verification/p1108/feedback.md` — CHECK 6. **Two numbers, never one**: `corrections
+  given` and `turns consumed`. The gate greps for both strings and fails if either is absent —
+  quality bought with runaway spend reads as success on a one-axis scoreboard.
+
+CHECK 5 (blind-reviewer rounds) **skipped itself** on this run — confirmed empirically, not
+predicted: the contract has zero COMPARABLE rows, so no reviewer is owed and none should be
+manufactured.
