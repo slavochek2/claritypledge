@@ -187,25 +187,25 @@ Non-members attend the **free events**, or come as one-time paid spectators. The
 
 ## Done-When
 
-- [x] `/program` presents ONE offer with one buy button; the three-card grid is gone — verified: e2e test asserts zero "Standard Program"/"Premium Program" headings; screenshots confirm one card
-- [x] The membership CTA opens a Stripe **subscription** checkout at €295/month; no €950 or €2450 one-time product is reachable from the site — `STRIPE_STANDARD_URL`/`STRIPE_PREMIUM_URL` deleted; one `STRIPE_MEMBERSHIP_URL` remains, unset pending the founder's Stripe prerequisite; €950/€2450 grep-confirmed absent from all four scoped files
+- [x] ~~`/program` presents ONE offer with one buy button; the three-card grid is gone~~ **REVISED at founder UAT** → `/program` presents a THREE-card ladder with exactly ONE selected card and ONE primary buy button. What P1087 was actually retiring was the *P951 Standard/Premium/Free tiers*, not the three-card shape; collapsing to a single card also lost the CTA consistency the page used to have. Verified: e2e asserts zero "Standard Program"/"Premium Program" headings and all three new headings present; unit test asserts exactly one `.border-2.border-blue-500` card and exactly one `bg-blue-500` CTA
+- [x] The membership CTA opens a Stripe **subscription** checkout at €295/month; no €950 or €2450 one-time product is reachable from the site — `STRIPE_STANDARD_URL`/`STRIPE_PREMIUM_URL` deleted; one `STRIPE_MEMBERSHIP_URL` remains; €950/€2450 grep-confirmed absent from all four scoped files. **Prerequisite discharged at UAT:** the live product/price/payment-link were created via the Stripe API at founder request (see UI Contract), the link returns HTTP 200, and both the e2e smoke test and a unit test assert the CTA points at a `buy.stripe.com` URL with no fail-loud state on the page
 - [x] A deliberately invalid Stripe link renders the disabled fail-loud state, not a working-looking button — exit path exercised, not reasoned about — the real current default (link genuinely unset) was rendered and screenshotted; unit test asserts the fail-loud text and absence of the buy link. Disabled styling was also tightened (bg-muted, not a dimmed blue) after a visual-QA subagent flagged it as reading too close to "still active"
-- [x] The Custom Offers CTA opens `/intro`, and the 90-minute introductory workshop is named on it — e2e test clicks the CTA and asserts the URL; component test asserts the workshop text
+- [x] The Custom Offers CTA opens `/intro` — e2e test clicks the CTA and asserts the URL. **REVISED at UAT:** the "90-minute introductory workshop" line was cut (it read as a second, conflicting commitment next to a "Book 15 minutes" button); the card now names training, coaching and consulting instead, asserted by unit test
 - [x] The badging add-on line cites €1,450 (the live ladischenski price), not €950 — component test + screenshot confirm
-- [x] The timeline shows the month arc with `monthly, open-ended · weekly live session · a batch of 3–10`; the banned-phrase grep returns nothing (verified live)
+- [x] The timeline shows the month arc with `weekly live session · a batch of 3–10`; the banned-phrase grep returns nothing (verified live). **REVISED at UAT:** the `monthly, open-ended` chip was cut as a restatement of the "/ month" price line
 - [x] The job-title grep returns no job title used as the reader's role in this page's own copy — residual matches are all benign, not P1087 copy: the restored `PROGRAM_FAQS` (co-founder-pair content, correctly reinstated for `/founder` after a code-review catch — see commit history), pre-existing `KEY_HIRE_FAQS` unrelated to this page, a consented testimonial's own real title, and a `cto` substring inside "introductory". `CHAMPIONS_FAQS` and the rest of the actual `/program` copy carry no job titles
 - [x] No copy states or implies full 9-of-9 badging is included, or that the member can create an organization in the app — component test asserts absence of "full Clarity Badge"/"9-of-9"; month-3 copy says "I help you set it up," never "you create it"
-- [x] Guarantee copy states month-one refund after two sessions; no "no refund after delivery" clause — component test + screenshot confirm
+- [x] Guarantee copy states month-one refund after two sessions; no "no refund after delivery" clause — component test + screenshot confirm. **REVISED at UAT:** moved OUT of the offer card into a shared band below the grid (pre-P1087 placement) and scoped to Champions by name; unit test asserts no `.rounded-2xl` card contains it and that its text names the offer
 - [x] The countdown shows a future batch start on any day of any month — verified by running with a system date one and two months ahead, not by reading the code — `src/tests/p1087-next-batch-start.test.ts` uses `vi.setSystemTime` at +1 and +2 months and asserts the result is still in the future
 - [x] `noIndex` removed; `/pricing` and `/offers` still redirect to `/program` — verified live: rendered `<meta name="robots" content="index, follow">`, both redirects confirmed in-browser and by e2e test
 - [x] Visual QA passed at 375px, 320px and desktop per `.claude/rules/visual-qa.md`, by a subagent that did not see the diff — see Next Steps note: one real finding (disabled-button contrast) was fixed and re-verified in-browser; the subagent's other finding (header "ghosting") was demonstrated to be a screenshot-timing artifact from instant scroll outrunning the page's fade-in animation, not a real defect, via an A/B screenshot at the same scroll position with a settle delay
 
 ## Acceptance Criteria
 
-- [x] A visitor can buy the €295/month membership without talking to anyone — self-serve CTA reachable in one click; currently shows the correct fail-loud state pending the founder's Stripe link (spec's own named prerequisite, not an implementation gap)
+- [x] A visitor can buy the €295/month membership without talking to anyone — self-serve CTA reachable in one click, now pointing at the live Stripe subscription checkout (created at UAT; link verified HTTP 200). The fail-loud path remains covered by unit tests that blank the env var
 - [x] A visitor wanting a workshop, training, coaching or tooling reaches the 15-minute call in one click
 - [x] A visitor can tell when the next batch starts and that they join it with others, not alone — live countdown labeled "Next batch starts in," plus "a batch of 3–10" chip and bullets
-- [x] A visitor can see the platform is free without that option competing with the paid offer — one subordinate text link, no competing button (P955: one full-width primary action)
+- [x] A visitor can see the platform is free without that option competing with the paid offer — **REVISED at UAT:** the founder cut the subordinate free-platform link from this page as "spam". The fact is still available here via the FAQ pair "How is this different from the free platform?" ("The platform is the tool, always free"), and the free platform remains promoted on `/` and in the nav. P955 unaffected: still exactly one full-width primary action
 - [x] A visitor cannot form the belief that they are buying a pair seat, a fixed term, full badging, or a guaranteed organization launch — copy states per-person/open-ended/partial badging/founder-assisted org setup throughout
 
 ## UI Contract
@@ -216,24 +216,31 @@ Settled values below. Everything marked `[FOUNDER DECISION]` is collected before
 |---|---|---|
 | Offer name | Clarity Champions — NOT "Clarity Practice Community" (that name is reserved for the free Instance, see Naming) | page lead |
 | Price | €295 | per month, per person |
-| Billing note | monthly, open-ended | under the price |
-| Batch size | 3–10 | chips |
+| Billing note | ~~monthly, open-ended~~ **CUT at UAT** — the price line already reads "/ month"; the FAQ still defines "open-ended" | was: under the price + chips |
+| Batch size | 3–10 | chips ONLY — cut from the membership bullet at UAT (stated twice) |
 | Batch minimum | 3 paid, else rolls to next start | copy + FAQ |
 | Batch cadence | a new batch every 45 days | countdown source |
 | Badging add-on | Partnership Clarity Package, €1,450 | line under the price |
 | Custom Offers price | *(none)* | no price displayed |
 | Custom Offers CTA target | `/intro` | 15-minute call |
-| Month 1 heading | Practise together, and learn how and why the clarity principle works | timeline |
-| Month 2 heading | Take it to a few people you actually work with | timeline |
-| Month 3 heading | Open your Clarity Organization and start running events | timeline |
+| Month 1 heading | Practise together weekly, and learn why the clarity principle works. | timeline — **one sentence, no second paragraph** (UAT) |
+| Month 2 heading | Take it to a few people you actually work with. | timeline — one sentence |
+| Month 3 heading | Open your Clarity Organization and run your first events. | timeline — one sentence |
+| Month explainer paragraphs | *(none)* | **CUT at UAT** — "just need one sentence, what's the goal of this month, and not too much info" |
 | Buy button label | "Start at €295/month" | — |
 | Custom CTA label | "Book 15 minutes" | — |
-| Custom qualifier line | "For organizations: workshops, training, coaching, or custom setup. Joining solo? The membership above is the easier way in." | who it is for |
-| Free-platform line | "The platform itself is free, always. The membership is for people who want a room, not just the tool." | subordinate band |
-| Guarantee line | "Try the first two sessions. If it's not for you, full refund on month one." | assurance band |
+| Custom Offers bullets | "Training, coaching, and consulting, shaped around your situation" · "For a team, a department, or one person" | UAT: "be more specific… custom training, coaching, and consulting", and NOT co-founder-only |
+| Free-platform line | *(none)* | **CUT at UAT** ("spam") — the free platform is still covered by the FAQ pair "How is this different from the free platform?" |
+| `/org/cm` cross-link | *(none)* | **CUT at UAT** ("spam") — reverses the 2026-08-20 founder decision that added it |
+| Webinar fallback under the broken CTA | *(none)* | **CUT at UAT** ("spam") — the disabled control alone states the fact |
+| Guarantee line | "Clarity Champions is risk-free: try the first two sessions, and if it's not for you, full refund on month one." | assurance band **BELOW the grid**, not inside a card (UAT question: "do we really put it inside the package… or outside as it was before?" — outside, matching the pre-P1087 shared band). Scoped to Champions by name because the other two rungs don't carry it. |
 | SEO title / description | Title: "Clarity Champions — Clarity Pledge" · Description: "Weekly live practice with a small batch of peers, €295/month, cancel anytime. Full refund if the first two sessions aren't for you." | `offers-page.tsx` |
 | FAQ set | See below | `PROGRAM_FAQS` |
-| Badging add-on line | "Want it done with you personally, not in a batch? The Partnership Clarity Package: four 1:1 sessions for two people, €1,450, on ladischenski.com." (FCO retainer NOT named — anchors the wrong direction against €295/month) | line under the price |
+| Badging add-on line | ~~footnote under the price~~ **PROMOTED at UAT to its own card** — the Partnership Clarity Package is rung 2 of a three-card ladder, not fine print. Bullets: "Four 1:1 sessions, run personally rather than in a batch" · "For two people who work together" · "Booked and delivered on ladischenski.com". CTA "See the package" → `https://ladischenski.com`. (FCO retainer still NOT named — anchors the wrong direction against €295/month.) | card 2 of 3 |
+| Offer ladder | THREE cards, one selected: Clarity Champions €295/month (selected, primary CTA) · Partnership Clarity Package €1,450 one-off · Custom Offers, unpriced ("Custom") | UAT: "maybe they should be like two packages near each other, like we did in the past… and the third one, the Clarity Partnership Package — if it is, let's put it. I think one of them is selected." |
+| CTA geometry | All three CTAs `h-12 w-full`; ONLY Champions is filled blue (P955: one primary action) | UAT: "they have to be consistent as before. Before we had the consistency, and now we don't anymore." |
+| Countdown position | Directly under the page title, above the month arc | UAT: "the next batch starts maybe much higher — maybe it's the first thing" |
+| Stripe membership link | `https://buy.stripe.com/fZu8wPchH88D9ZFaGo1Jm09` — hardcoded default (P954), env-overridable. Live `price_1U6UwuFXhjM6Ief0bOfULOPg`: €295/month EUR recurring, `tax_behavior=exclusive`, automatic tax + VAT-ID collection on, redirect to `/signup` | created live at founder request during UAT |
 | Countdown anchor | First batch starts **2026-10-01**. Every subsequent batch = anchor + 45×N days, computed forward from today, never hardcoded again | `COHORT_ENROLLMENT_CLOSES_ISO` replacement logic |
 
 **FAQ set (`PROGRAM_FAQS`) — 5 pairs:**

@@ -5,15 +5,19 @@
  * state, not a working-looking button — exit path exercised, not reasoned about"
  * (epistemic.md gate 7). Both branches of `STRIPE_MEMBERSHIP_URL` are tested explicitly
  * via `vi.stubEnv` + `vi.resetModules()` (the module reads the env var at import time),
- * not by relying on the ambient test-env default — code review flagged the earlier
- * version of this file for exactly that: it broke the moment the founder's own named
- * prerequisite (creating the real Stripe link) was fulfilled, and never modelled the
- * working checkout path at all.
+ * not by relying on the ambient test-env default.
+ *
+ * NOTE on the unset case: the module now carries the LIVE payment link as its hardcoded
+ * default (P954 — env indirection baked empty strings into the prod bundle), so an unset
+ * env var is the WORKING state, not the broken one. `''` is therefore stubbed explicitly
+ * to reach the fail-loud branch; the ambient default is asserted separately as working.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OffersSection } from '@/app/components/landing/offers-section';
+
+const LIVE_LINK = 'https://buy.stripe.com/fZu8wPchH88D9ZFaGo1Jm09';
 
 function renderSection(Component: typeof OffersSection = OffersSection) {
   return render(
@@ -23,28 +27,27 @@ function renderSection(Component: typeof OffersSection = OffersSection) {
   );
 }
 
+async function renderWithStripeUrl(value: string) {
+  vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', value);
+  vi.resetModules();
+  const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
+  return renderSection(FreshSection);
+}
+
 describe('OffersSection — Stripe membership link state (P1087)', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it('fails loud when the Stripe membership link is unset', async () => {
-    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', '');
-    vi.resetModules();
-    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
-
-    renderSection(FreshSection);
+  it('fails loud when the Stripe membership link is explicitly blanked', async () => {
+    await renderWithStripeUrl('');
     expect(screen.getByText(/checkout temporarily unavailable/i)).toBeInTheDocument();
     // The confident-looking buy button must NOT be present when broken.
     expect(screen.queryByRole('link', { name: /start at €295\/month/i })).not.toBeInTheDocument();
   });
 
   it('renders a real working checkout link when a valid Stripe subscription URL is set', async () => {
-    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', 'https://buy.stripe.com/test_abc123');
-    vi.resetModules();
-    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
-
-    renderSection(FreshSection);
+    await renderWithStripeUrl('https://buy.stripe.com/test_abc123');
     expect(screen.queryByText(/checkout temporarily unavailable/i)).not.toBeInTheDocument();
     const cta = screen.getByRole('link', { name: /start at €295\/month/i });
     expect(cta).toHaveAttribute('href', 'https://buy.stripe.com/test_abc123');
@@ -52,74 +55,129 @@ describe('OffersSection — Stripe membership link state (P1087)', () => {
     expect(cta).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
 
-  it('fails loud on a non-Stripe host even when the scheme/path look plausible (host-pinned, not startsWith)', async () => {
-    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', 'https://evil.example/buy.stripe.com');
-    vi.resetModules();
-    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
+  it('falls back to the hardcoded LIVE payment link when no env override is set', () => {
+    renderSection();
+    const cta = screen.getByRole('link', { name: /start at €295\/month/i });
+    expect(cta).toHaveAttribute('href', LIVE_LINK);
+    expect(screen.queryByText(/checkout temporarily unavailable/i)).not.toBeInTheDocument();
+  });
 
-    renderSection(FreshSection);
+  it('fails loud on a non-Stripe host even when the scheme/path look plausible (host-pinned, not startsWith)', async () => {
+    await renderWithStripeUrl('https://evil.example/buy.stripe.com');
     expect(screen.getByText(/checkout temporarily unavailable/i)).toBeInTheDocument();
   });
 
   it('fails loud on a non-https scheme even with the right host (protocol-pinned, not host-only)', async () => {
-    vi.stubEnv('VITE_STRIPE_MEMBERSHIP_URL', 'javascript://buy.stripe.com/%0aalert(1)');
-    vi.resetModules();
-    const { OffersSection: FreshSection } = await import('@/app/components/landing/offers-section');
-
-    renderSection(FreshSection);
+    await renderWithStripeUrl('javascript://buy.stripe.com/%0aalert(1)');
     expect(screen.getByText(/checkout temporarily unavailable/i)).toBeInTheDocument();
+  });
+
+  it('drops the "next Clarity Experiment" fallback line from the broken state (founder UAT)', async () => {
+    await renderWithStripeUrl('');
+    expect(screen.queryByText(/next clarity experiment/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/to enroll/i)).not.toBeInTheDocument();
   });
 });
 
-describe('OffersSection — Clarity Champions membership (P1087)', () => {
-  it('shows exactly one membership offer, not a three-card grid', () => {
-    renderSection();
+describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () => {
+  it('shows all three offers, with the membership as the one selected card', () => {
+    const { container } = renderSection();
     expect(screen.getByText('Clarity Champions')).toBeInTheDocument();
+    expect(screen.getByText('Partnership Clarity Package')).toBeInTheDocument();
+    expect(screen.getByText('Custom Offers')).toBeInTheDocument();
+
+    // Exactly one card carries the "selected" treatment.
+    expect(container.querySelectorAll('.border-blue-500.border-2')).toHaveLength(1);
+
+    // The retired P937/P951 tier names must not come back.
     expect(screen.queryByText('Standard Program')).not.toBeInTheDocument();
     expect(screen.queryByText('Premium Program')).not.toBeInTheDocument();
-    expect(screen.getByText('€295')).toBeInTheDocument();
   });
 
-  it('states the guarantee with the exact required refund terms, no "no refund after delivery" clause', () => {
+  it('prices each card: €295/month, €1,450 one-off, and Custom (never €950)', () => {
     renderSection();
-    expect(
-      screen.getByText(/full refund on month one/i)
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/no refund after delivery/i)).not.toBeInTheDocument();
-  });
-
-  it('cites the badging add-on at €1,450, never €950', () => {
-    renderSection();
-    expect(screen.getByText(/€1,450/)).toBeInTheDocument();
+    // Scoped to the price element — a bare /€295/ also matches the CTA label
+    // ("Start at €295/month") and the wrapping <p>.
+    expect(screen.getByText(/^€295/, { selector: 'span.text-4xl' })).toBeInTheDocument();
+    expect(screen.getByText('/ month')).toBeInTheDocument();
+    expect(screen.getByText('€1,450')).toBeInTheDocument();
+    expect(screen.getByText('one-off')).toBeInTheDocument();
+    expect(screen.getByText('Custom')).toBeInTheDocument();
     expect(screen.queryByText(/€950/)).not.toBeInTheDocument();
   });
 
-  it('the Custom Offers CTA opens /intro and names the 90-minute introductory workshop', () => {
+  it('gives all three cards the same CTA geometry, with only the membership primary', () => {
     renderSection();
-    const cta = screen.getByRole('link', { name: /book 15 minutes/i });
-    expect(cta).toHaveAttribute('href', '/intro');
-    expect(screen.getByText(/90-minute introductory workshop/i)).toBeInTheDocument();
+    const ctas = [
+      screen.getByRole('link', { name: /start at €295\/month/i }),
+      screen.getByRole('link', { name: /see the package/i }),
+      screen.getByRole('link', { name: /book 15 minutes/i }),
+    ];
+    // Consistent shape — the thing founder UAT flagged as lost ("before we had the
+    // consistency, and now we don't anymore").
+    for (const cta of ctas) {
+      expect(cta.className).toContain('h-12');
+      expect(cta.className).toContain('w-full');
+    }
+    // P955: exactly ONE primary (filled blue) action on the page.
+    expect(ctas.filter((c) => c.className.includes('bg-blue-500'))).toHaveLength(1);
   });
 
-  it('the free-platform line links to /signup and does not compete with the paid CTA', () => {
+  it('routes each CTA to its own destination', () => {
     renderSection();
-    const freeLine = screen.getByText(/the platform itself is free, always/i);
-    expect(freeLine.closest('a')).toHaveAttribute('href', '/signup');
+    expect(screen.getByRole('link', { name: /see the package/i })).toHaveAttribute(
+      'href',
+      'https://ladischenski.com'
+    );
+    expect(screen.getByRole('link', { name: /book 15 minutes/i })).toHaveAttribute('href', '/intro');
   });
 
-  it('cross-links to /org/cm as discovery, not a gate', () => {
+  it('names training, coaching and consulting on the Custom Offers card', () => {
     renderSection();
-    const orgLink = screen.getByRole('link', { name: /see what a practice community looks like/i });
-    expect(orgLink).toHaveAttribute('href', '/org/cm');
+    expect(screen.getByText(/training, coaching, and consulting/i)).toBeInTheDocument();
+  });
+});
+
+describe('OffersSection — assurance band and de-duplicated bullets (P1087, founder UAT)', () => {
+  it('states the guarantee OUTSIDE the cards, scoped to the membership, with no "no refund after delivery" clause', () => {
+    const { container } = renderSection();
+    const guarantee = screen.getByText(/full refund on month one/i);
+    expect(guarantee).toBeInTheDocument();
+    expect(screen.queryByText(/no refund after delivery/i)).not.toBeInTheDocument();
+
+    // It must not live inside any offer card — the pre-P1087 placement, restored.
+    const cards = Array.from(container.querySelectorAll('.rounded-2xl'));
+    expect(cards.some((card) => card.contains(guarantee))) .toBe(false);
+    // …and it must say which offer it covers, since two of the three don't carry it.
+    expect(guarantee.textContent).toMatch(/clarity champions/i);
   });
 
-  it('renders all 8 "what\'s included" bullets verbatim from the spec', () => {
+  it('keeps the VAT note with the guarantee band, below the grid', () => {
     renderSection();
-    expect(screen.getByText(/weekly live practice sessions with your batch \(3–10 people\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/price excludes VAT/i)).toBeInTheDocument();
+  });
+
+  it('drops every membership bullet that another part of the page already states', () => {
+    renderSection();
+    // Kept — nothing else on the page says these.
     expect(screen.getByText(/partial clarity badges on the situations you cover/i)).toBeInTheDocument();
     expect(screen.getByText(/the standing practice community after month three/i)).toBeInTheDocument();
+
+    // Cut at UAT: duplicated the batch-size chip, the "/ month" price line, and the
+    // Month 2 / Month 3 headings respectively.
+    expect(screen.queryByText(/3–10 people/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cancel any month/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/help taking the practice to people in your own organization/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/help opening your Clarity Organization/i)).not.toBeInTheDocument();
+
     // Full 9-of-9 badging must never be implied.
     expect(screen.queryByText(/full clarity badge/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/9-of-9/i)).not.toBeInTheDocument();
+  });
+
+  it('drops the free-platform line and the /org/cm cross-link (founder UAT: both cut)', () => {
+    renderSection();
+    expect(screen.queryByText(/the platform itself is free, always/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /see what a practice community looks like/i })).not.toBeInTheDocument();
   });
 });

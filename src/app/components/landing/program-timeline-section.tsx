@@ -1,26 +1,19 @@
-import { CalendarIcon, ClockIcon, UsersIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ClockIcon, UsersIcon } from "lucide-react";
 import { motion, type Variants } from "framer-motion";
 import { SectionHeader } from "@/app/components/landing/section-header";
+import { getCountdownParts } from "@/app/utils/format-time";
+import { getNextBatchStartISO } from "@/app/content/webinar";
 
-// The month arc — settled verbatim in the spec ("confirmed, ship as written"). No job
-// titles anywhere (Non-Goals): stays readable across roles, from a startup pair to a
-// change lead in a 5,000-person company. Month 3 promises personal support, never a launch.
+// The month arc — ONE sentence per month, naming that month's goal and nothing else
+// (P1087 UAT: the explanatory second paragraph was the page's biggest text block and
+// repeated what the offer card already lists). No job titles anywhere (Non-Goals): stays
+// readable across roles, from a startup pair to a change lead in a 5,000-person company.
+// Month 3 promises personal support, never a launch.
 const MONTH_ARC = [
-  {
-    when: "Month 1",
-    heading: "Practise together, and learn how and why the clarity principle works.",
-    what: "Weekly live sessions where you run the protocol on real disagreements. The nine situations are the material: you learn each one by verifying you understood it, so the practice and the theory are the same activity. You leave able to practise deliberately rather than by imitation, and able to answer the questions you will get asked.",
-  },
-  {
-    when: "Month 2",
-    heading: "Take it to a few people you actually work with.",
-    what: "You pick a small number of people in your own organization and start running real exchanges with them, with a Clarity Partner Agreement where it fits and Clarity Letters when someone cannot sit in a session. I help you onboard them. This is where the practice stops being yours and becomes something two people do.",
-  },
-  {
-    when: "Month 3",
-    heading: "Open your Clarity Organization and start running events.",
-    what: "I help you set it up and design your first Clarity events, so the practice reaches past the two or three early adopters who said yes first.",
-  },
+  { when: "Month 1", heading: "Practise together weekly, and learn why the clarity principle works." },
+  { when: "Month 2", heading: "Take it to a few people you actually work with." },
+  { when: "Month 3", heading: "Open your Clarity Organization and run your first events." },
 ];
 
 const STAGGER_CONTAINER: Variants = {
@@ -47,16 +40,77 @@ function Reveal({ children, className }: { children: React.ReactNode; className?
   );
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Live countdown to the next Clarity Champions batch start — recomputed via
+ * getNextBatchStartISO on every mount/interval tick, so it is ALWAYS a future instant
+ * (P1087; the prior single hardcoded COHORT_ENROLLMENT_CLOSES_ISO rendered a permanent
+ * "expired" state once its one fixed deadline passed). Ticks once per second.
+ *
+ * Lives HERE, directly under the page title, rather than above the price (P1087 UAT:
+ * "the next batch starts maybe much higher — maybe it's the first thing"). The upcoming
+ * batch is the frame for the whole page, not just for the number. Urgency is carried by
+ * the ticking digits and a blue band — the design system reserves amber/orange/red, so
+ * no red "hurry" color is used.
+ */
+export function BatchCountdown() {
+  const [now, setNow] = useState(() => Date.now());
+  const target = useMemo(() => new Date(getNextBatchStartISO(new Date(now))).getTime(), [now]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (Number.isNaN(target)) return null;
+
+  const { days, hours, minutes, seconds } = getCountdownParts(target, now);
+
+  const units = [
+    { value: days, label: "days" },
+    { value: hours, label: "hrs" },
+    { value: minutes, label: "min" },
+    { value: seconds, label: "sec" },
+  ];
+
+  return (
+    <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
+      <div className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
+        <ClockIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        Next batch starts in
+      </div>
+      <div
+        className="mt-2 flex items-stretch justify-center gap-1.5"
+        role="timer"
+        aria-label={`Next batch starts in ${days} days, ${hours} hours, ${minutes} minutes`}
+      >
+        {units.map((u) => (
+          <div
+            key={u.label}
+            className="flex min-w-[3.25rem] flex-col items-center rounded-lg bg-card px-2 py-1.5 shadow-sm"
+          >
+            <span className="text-xl font-bold tabular-nums text-foreground">{pad(u.value)}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {u.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ProgramTimelineSection({ className = "" }: { className?: string }) {
   return (
-    <section className={`px-4 py-20 lg:py-28 bg-muted/30 ${className}`}>
+    <section className={`px-4 pb-14 lg:pb-16 ${className}`}>
       <div className="container mx-auto max-w-5xl">
         <Reveal className="text-center">
           <SectionHeader title={<><span className="text-blue-500">Clarity Champions</span> — your first three months</>} />
-          <div className="-mt-10 mb-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 shrink-0 text-blue-500" /> monthly, open-ended
-            </span>
+          {/* "monthly, open-ended" removed (P1087 UAT) — the price line already reads
+              "/ month", so the chip restated it. The two survivors carry facts nothing
+              else on the page states at a glance. */}
+          <div className="-mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> weekly live session
             </span>
@@ -64,9 +118,12 @@ export function ProgramTimelineSection({ className = "" }: { className?: string 
               <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a batch of 3–10
             </span>
           </div>
+          <div className="mt-8 flex justify-center">
+            <BatchCountdown />
+          </div>
         </Reveal>
         <motion.ol
-          className="mx-auto max-w-2xl space-y-4"
+          className="mx-auto mt-12 max-w-2xl space-y-3"
           variants={STAGGER_CONTAINER}
           initial="hidden"
           whileInView="show"
@@ -85,7 +142,6 @@ export function ProgramTimelineSection({ className = "" }: { className?: string 
               <div className="flex-1 rounded-xl border border-border bg-card p-5 shadow-sm text-left">
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-500">{t.when}</div>
                 <p className="text-sm font-semibold text-foreground">{t.heading}</p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t.what}</p>
               </div>
             </motion.li>
           ))}
