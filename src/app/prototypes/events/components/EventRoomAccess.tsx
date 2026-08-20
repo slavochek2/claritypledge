@@ -12,7 +12,7 @@
  * on every door," not decoration on one route.
  */
 import { useParams } from 'react-router-dom';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
 import { getMyRoomStatus, joinEventRoom } from '@/app/data/event-room-service';
@@ -79,11 +79,31 @@ export interface EventRoomSelfState {
  * they land on any of the three routes — passes straight through on a return visit,
  * per spec §3 ("passes straight through if already identified"). No name field: the
  * display name is always the signed-in profile's, per REVISED (2) removing the
- * name-only join screen entirely. */
+ * name-only join screen entirely.
+ *
+ * `pendingKeyRef` closes a real race: `useEventRoomAccess`'s `loading` and `granted`
+ * both flip on the SAME render (set together at the end of one async block), so a
+ * consumer like EventRoomGate sees `granted: true` the instant it stops seeing
+ * `loading: true` — but THIS hook's own effect (which reacts to `granted` becoming
+ * true) hasn't run yet at that point; effects fire after paint. Without the ref, the
+ * consumer reads this hook's `loading` from the render BEFORE that transition —
+ * still `false` from the earlier "not granted yet" pass — and renders its decision
+ * against a `self` that is `null` only because nothing has fetched it yet, not
+ * because the visitor truly has no room row. Caught via a return-visit repro: a
+ * visitor who set readiness, left, and came back to /room was redirected to /ready
+ * again instead of /meet, even though readiness_value was correctly persisted. */
 export function useEventRoomSelf(event: EventWithHost | null, granted: boolean): EventRoomSelfState {
   const { user } = useAuth();
   const [self, setSelf] = useState<EventRoomSelf | null>(null);
   const [loading, setLoading] = useState(true);
+  // The (event, granted) pair the effect below has actually STARTED processing —
+  // set synchronously as the effect's first act, independent of whether the async
+  // work inside it has finished. Distinct from `loading`: `loading` answers "is a
+  // load in flight," this answers "has the effect even run yet for the CURRENT
+  // props" — the two go out of sync for exactly one render on a granted
+  // false->true transition, which is the render this hook's `loading` return value
+  // must not lie on.
+  const startedKeyRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!event || !granted) return;
@@ -100,11 +120,15 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     }
   }, [event, granted, user?.name]);
 
+  const currentKey = granted && event ? event.id : null;
+
   useEffect(() => {
     if (!event || !granted) {
+      startedKeyRef.current = null;
       setLoading(false);
       return;
     }
+    startedKeyRef.current = event.id;
     let cancelled = false;
     setLoading(true);
     (async () => {
@@ -119,5 +143,12 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     await load();
   }, [load]);
 
-  return { self, loading, refresh };
+  // Render-time correction for the race described above: if this render's
+  // (event, granted) says a load should be running for a key the effect hasn't
+  // started on yet, report loading regardless of the `loading` state left over
+  // from a prior render — once the effect HAS started (startedKeyRef matches),
+  // defer to the real `loading` state, which correctly tracks in-flight vs done.
+  const effectiveLoading = currentKey !== null && startedKeyRef.current !== currentKey ? true : loading;
+
+  return { self, loading: effectiveLoading, refresh };
 }

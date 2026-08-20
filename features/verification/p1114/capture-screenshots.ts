@@ -45,25 +45,31 @@ async function main() {
 
       await page.goto(`${BASE_URL}/events/${event.slug}/ready`);
       await page.waitForSelector('[data-testid="room-ready"]');
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(1000);
       await page.screenshot({ path: `${OUT_DIR}/ready-${vp.name}.png`, fullPage: false });
 
       await page.goto(`${BASE_URL}/events/${event.slug}/meet`);
       await page.waitForSelector('[data-testid="room-meet"]');
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(1000);
       await page.screenshot({ path: `${OUT_DIR}/meet-${vp.name}.png`, fullPage: false });
 
       await context.close();
     }
-    // Also grab the shipped standalone /ready and /meet for the reviewer to compare against.
+    // Also grab the shipped standalone /ready and /meet for the reviewer to compare
+    // against — SIGNED IN as the same visitor, not anonymous. An anonymous capture
+    // here made round 1 flag a fake difference (room meet showing an avatar chip the
+    // "standalone" shot didn't) that was really just this script comparing a
+    // signed-in page against a signed-out one; the shared nav renders the exact same
+    // avatar chip on standalone /meet for anyone actually signed in.
     for (const vp of VIEWPORTS) {
-      const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
+      const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, baseURL: BASE_URL });
       const page = await context.newPage();
+      await setTestSession(page, visitor.email);
       await page.goto(`${BASE_URL}/ready`);
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(1000);
       await page.screenshot({ path: `${OUT_DIR}/standalone-ready-${vp.name}.png`, fullPage: false });
       await page.goto(`${BASE_URL}/meet`);
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(1000);
       await page.screenshot({ path: `${OUT_DIR}/standalone-meet-${vp.name}.png`, fullPage: false });
       await context.close();
     }
