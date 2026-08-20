@@ -1,17 +1,19 @@
 /**
  * @file p1123-donate-routes.test.tsx
- * @description P1123 DW-2/DW-3: every donate route resolves to the correct Stripe
- * payment link, and an unmapped amount falls through to /donate rather than 404ing.
+ * @description P1123 DW-2/DW-3: every donate route redirects to the correct Stripe
+ * payment link, and an unmapped amount falls through to the base link rather than 404.
  *
- * These links are LIVE-mode. Tests assert the href only — never a checkout.
+ * These links are LIVE-mode. Tests assert the redirect target only — never a checkout.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { DonatePage } from '@/app/pages/donate-page';
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 vi.mock('@sentry/react', () => ({ captureMessage: vi.fn() }));
+
+const replace = vi.fn();
 
 const URLS: Record<string, string> = {
   VITE_STRIPE_DONATE_URL: 'https://buy.stripe.com/base',
@@ -32,11 +34,16 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
-describe('P1123 donate routes', () => {
+describe('P1123 donate routes redirect straight to Stripe', () => {
   beforeEach(() => {
+    replace.mockClear();
+    vi.stubGlobal('location', { replace });
     for (const [k, v] of Object.entries(URLS)) vi.stubEnv(k, v);
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
 
   it.each([
     ['/donate', 'https://buy.stripe.com/base'],
@@ -45,33 +52,26 @@ describe('P1123 donate routes', () => {
     ['/donate/50', 'https://buy.stripe.com/tier50'],
     ['/donate/150', 'https://buy.stripe.com/tier150'],
     ['/donate/500', 'https://buy.stripe.com/tier500'],
-  ])('%s links to %s', (path, expected) => {
+  ])('%s redirects to %s', (path, expected) => {
     renderAt(path);
-    const cta = screen.getByRole('link', { name: /support the work/i });
-    expect(cta).toHaveAttribute('href', expected);
-    expect(cta).toHaveAttribute('target', '_blank');
-    expect(cta).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    expect(replace).toHaveBeenCalledExactlyOnceWith(expected);
   });
 
   it.each(['/donate/37', '/donate/0', '/donate/abc', '/donate/-5', '/donate/5.5'])(
-    'unmapped %s falls through to the base link, never 404',
+    'unmapped %s redirects to the base link, never 404',
     (path) => {
       renderAt(path);
-      const cta = screen.getByRole('link', { name: /support the work/i });
-      expect(cta).toHaveAttribute('href', 'https://buy.stripe.com/base');
+      expect(replace).toHaveBeenCalledExactlyOnceWith('https://buy.stripe.com/base');
     },
   );
 
-  it('shows the founder-approved headline and funding copy', () => {
-    renderAt('/donate');
-    expect(screen.getByRole('heading', { name: /support clarity pledge/i })).toBeInTheDocument();
-    expect(
-      screen.getByText(/open source and free to use.*hosting.*research/i),
-    ).toBeInTheDocument();
+  it('renders nothing — there is no interstitial page', () => {
+    const { container } = renderAt('/donate/50');
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders exactly one primary action (P955)', () => {
-    renderAt('/donate/50');
-    expect(screen.getAllByRole('link', { name: /support the work/i })).toHaveLength(1);
+  it('uses replace(), not assign() — Back must not bounce into a redirect loop', () => {
+    renderAt('/donate');
+    expect(replace).toHaveBeenCalled();
   });
 });

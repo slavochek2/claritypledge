@@ -25,13 +25,19 @@ Low blast radius — one new route and one new page component; no existing flow,
 
 ## Solution
 
-A `/donate` route rendering a page with:
-- A headline and a short explanation of what donations fund `[FOUNDER DECISION: page copy]`
-- A single primary button linking out to the Stripe payment link (new tab)
+`/donate` and `/donate/:amount` **redirect straight to Stripe** — no interstitial
+page. The ask is a link you paste into an email, a talk, or a footer, and it lands
+the donor on checkout. Nothing renders except the failure state.
 
-The link URL is read from `VITE_STRIPE_DONATE_URL`, validated with the same `new URL(u).host === "buy.stripe.com"` check used at `src/app/components/landing/offers-section.tsx:53-65`, and fails loud the same way — if the env var is missing or malformed, the button renders disabled with a visible notice rather than silently linking somewhere wrong. A donate button that looks live but is not is an invisible loss of a gift.
+Amount presets: bare `/donate` → $15; `/donate/5|15|50|150|500` → that amount.
+Every link is a *preset*, not a fixed charge — the donor can still edit it at
+Stripe, so a tier link never turns away someone who can give less. An unmapped
+amount (`/donate/37`) falls through to the default rather than 404ing.
 
-Stripe objects already created (live mode): product `prod_V6cBZRlqvIv38x`, price `price_1U6OzbFXhjM6Ief0MXtLb4MG` (custom amount, USD, preset $5, min $1, max $5,000), payment link `plink_1U6OzcFXhjM6Ief0j8ihLRTK`.
+URLs are read from `VITE_STRIPE_DONATE_URL*` and validated with an https +
+exactly-`buy.stripe.com` host check. If the URL is missing or malformed, the route
+does **not** redirect: it renders a visible notice and alerts Sentry on mount. A
+donate link that silently dead-ends is an invisible lost gift.
 
 ## Risks / Non-Goals
 
@@ -41,7 +47,8 @@ Stripe objects already created (live mode): product `prod_V6cBZRlqvIv38x`, price
 - **Donation framing read as a tax-deductible charitable gift.** Clarity Pledge is not a registered charity. Mitigation: copy must not use "tax-deductible", "charity", or "nonprofit" unless the founder confirms that status.
 
 ### Non-Goals
-- Do NOT embed Stripe checkout in-page (`<stripe-buy-button>` or embedded Checkout) — both add an external script or a server endpoint for the same outcome as an outbound link.
+- Do NOT embed Stripe checkout in-page. Keeping `claritypledge.com` in the address bar requires Stripe's Buy Button: a `js.stripe.com` script, a CSP allowance (guarded by the `csp-smoke` workflow), and Dashboard-created button objects a restricted API key cannot create — three moving parts in the money path. **Accepted trade-off: the address bar shows `buy.stripe.com` during checkout.**
+- Do NOT build an interstitial donate page. Rejected after the first implementation: the founder's ask is a link that goes to Stripe, not a page explaining it.
 - Do NOT add recurring/monthly donations — one-time only for now.
 - Do NOT create *fixed-charge* tier links. The five tier links are presets — the donor can still edit the amount at Stripe (see Resolved Decisions).
 - Do NOT use opaque tier slugs (`/donate/a`, `/donate/b`). A letter's meaning is mutable; a repriced tier silently changes the amount for every already-shared link. The URL states the amount.
@@ -52,38 +59,27 @@ Stripe objects already created (live mode): product `prod_V6cBZRlqvIv38x`, price
 
 ## Done-When
 
-- [x] `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500` each open the matching Stripe link
-- [x] An unmapped amount (`/donate/37`) falls through to `/donate` rather than 404
-- [x] `/donate` renders the page on desktop, 375px, and 320px with no horizontal overflow
-- [x] The primary button opens the Stripe donation link in a new tab
-- [x] The Stripe page shows a donor-editable amount defaulting to $5 USD (verified: `customUnitAmount` = US$5.00, `readOnly: false`)
-- [x] With `VITE_STRIPE_DONATE_URL` unset or non-`buy.stripe.com`, the button renders disabled with a visible notice and does not navigate
-- [ ] Page copy on the deployed page is the founder's text, not placeholder
+- [x] `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500` each redirect to the matching Stripe link
+- [x] Bare `/donate` redirects to the $15 preset
+- [x] An unmapped amount (`/donate/37`) redirects to the default rather than 404
+- [x] No interstitial page renders — the route goes straight to Stripe
+- [x] The Stripe page shows a donor-editable amount at the expected preset
+- [x] With the URL unset or non-`buy.stripe.com`, the route does not redirect, shows a notice, and alerts Sentry
 - [x] `npm run build` and `npm test` pass
 
 ## Acceptance Criteria
 
-- [ ] A supporter who wants to give but not buy a program seat can do so from claritypledge.com
-- [ ] Before clicking through to Stripe, the supporter can read what the money funds
+- [ ] A supporter can give without buying a program seat, from a link that can be pasted anywhere
+- [ ] A tier link presets the amount without locking the donor to it
 - [ ] A misconfigured donation URL is visible to the operator rather than silently failing
 
 ## UX Notes
 
-- **Happy path:** land on `/donate` → read headline + funding explanation → click the button → Stripe checkout in a new tab.
-- **Misconfigured state:** button disabled, notice visible explaining the link is unavailable.
-- No loading or empty state — the page is static content plus one link.
-- One primary action only, per the P955 rule in `.claude/rules/visual-qa.md`.
-
-## UI Contract
-
-| Element | Value | Context |
-|---------|-------|---------|
-| Route | `/donate` | `src/App.tsx` |
-| Headline | `[FOUNDER DECISION]` | Top of page |
-| Funding explanation | `[FOUNDER DECISION]` — 1–2 sentences | Below headline |
-| Button label | `[FOUNDER DECISION]` (e.g. "Donate") | Single primary CTA |
-| Button target | `VITE_STRIPE_DONATE_URL` | `target="_blank" rel="noopener noreferrer"` |
-| Disabled notice | Reuse the wording pattern from `offers-section.tsx` | When URL invalid/unset |
+- **Happy path:** open the link → Stripe checkout, amount prefilled and editable.
+- **Misconfigured:** no redirect; a plain notice renders and Sentry is alerted.
+- `window.location.replace()`, not `assign()` — Back from Stripe must not bounce
+  the donor through the route into a redirect loop.
+- No landing layout on these routes: nav and footer would flash before the redirect.
 
 ## Resolved Decisions
 
@@ -91,12 +87,12 @@ Recorded 2026-08-20 via `/goalify` Phase 1.
 
 | open question | decision |
 |---|---|
-| Tier URLs | `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500`, plus bare `/donate` preset at $5 |
+| Tier URLs | `/donate/5`, `/donate/15`, `/donate/50`, `/donate/150`, `/donate/500`, plus bare `/donate` |
 | Fixed vs preset | **Preset** — donor can still edit the amount at Stripe |
-| Unmapped amount | Falls through to `/donate`, never 404 |
-| Headline | "Support Clarity Pledge" — matches the Stripe product name the donor sees at checkout |
-| Funding copy | "Clarity Pledge is open source and free to use. Donations cover hosting and fund the research behind it." |
-| Button label | "Support the work" |
+| Unmapped amount | Falls through to the default link, never 404 |
+| Page vs redirect | **Redirect.** Revised 2026-08-20 after the first build shipped an interstitial page the founder did not want. No page copy is needed. |
+| Default amount | **$15** on bare `/donate` (was $5). A $5 default anchors low; $15 lifts the average without the flinch that closes the tab. |
+| Address bar during checkout | Shows `buy.stripe.com`. Accepted — the alternative is the Buy Button embed, rejected above. |
 
 **Why no URL parameter.** Stripe Payment Link URLs accept only `utm_*`,
 `client_reference_id`, `prefilled_email`, and `prefilled_promo_code`
@@ -112,7 +108,8 @@ Product `prod_V6cBZRlqvIv38x` — "Support Clarity Pledge". All prices USD,
 
 | route | env var | preset |
 |---|---|---|
-| `/donate` and `/donate/5` | `VITE_STRIPE_DONATE_URL`, `VITE_STRIPE_DONATE_URL_5` | $5 |
+| `/donate/5` | `VITE_STRIPE_DONATE_URL_5` | $5 |
+| `/donate` (default) | `VITE_STRIPE_DONATE_URL` | $15 |
 | `/donate/15` | `VITE_STRIPE_DONATE_URL_15` | $15 |
 | `/donate/50` | `VITE_STRIPE_DONATE_URL_50` | $50 |
 | `/donate/150` | `VITE_STRIPE_DONATE_URL_150` | $150 |
@@ -126,13 +123,12 @@ duplicate $5). Do not reuse them.
 
 | line | decided by |
 |---|---|
-| DW-1 build + typecheck + tests pass | `npm run build && npm test` |
-| DW-2 all six routes resolve and link to the correct Stripe URL | `npx vitest run src/tests/p1123-donate-routes.test.tsx` |
-| DW-3 unmapped amount falls through to `/donate`, never 404 | same |
-| DW-4 invalid/unset URL renders disabled button + notice, does not navigate | `npx vitest run src/tests/p1123-donate-guard.test.tsx` |
-| DW-5 renders at 320 / 375 / desktop with no horizontal overflow | visual QA at the UAT gate |
-| DW-6 one primary action, hierarchy leads to it (P955) | visual QA at the UAT gate |
-| DW-7 deployed copy is the founder's text | founder |
+| build + typecheck + tests pass | `npm run build && npm test` |
+| all six routes redirect to the correct Stripe URL | `npx vitest run src/tests/p1123-donate-routes.test.tsx` |
+| unmapped amount redirects to default, never 404 | same |
+| no interstitial page renders | same |
+| invalid/unset URL does not redirect, shows notice, alerts Sentry | `npx vitest run src/tests/p1123-donate-guard.test.tsx` |
+| host-validation rejects lookalikes, userinfo tricks, http, javascript: | same |
 
 **Live-payment boundary.** No test may complete a real payment. The Stripe URLs
-are live-mode; tests assert the `href`, never a checkout.
+are live-mode; tests assert the redirect target, never a checkout.

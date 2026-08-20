@@ -580,29 +580,11 @@ export default function ClarityPledgeApp() {
           element={<Navigate to="/pledgers" replace />}
         />
 
-        {/* P1123: /donate/:amount presets the Stripe amount. Unmapped amounts fall
-            through to the base link inside the page — never a 404. */}
-        <Route
-          path="/donate"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <DonatePage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        <Route
-          path="/donate/:amount"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <DonatePage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
+        {/* P1123: /donate and /donate/:amount redirect straight to Stripe — no
+            interstitial page, so no landing layout (nav + footer would flash before
+            the redirect). Unmapped amounts fall through to the base link, never 404. */}
+        <Route path="/donate" element={<LazyRoute><DonatePage /></LazyRoute>} />
+        <Route path="/donate/:amount" element={<LazyRoute><DonatePage /></LazyRoute>} />
 
         <Route
           path="/about"
