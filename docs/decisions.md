@@ -4,6 +4,65 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [technical]: A fix reviewed as safe reopened the exact defect class it closed — twice, at two different layers, same session (P1108)
+
+**Context:** Closing P1108 needed two rounds of fixes to shared repo tooling, both caught only
+because the founder asked for an Opus adversarial review of the "safe" first-pass fix rather than
+accepting it. (1) `goal-gate.sh` CHECK 4's UAT-scorecard path was hardcoded; the first fix globbed
+`features/**/uat/${PN}.md` and picked `find | head -1`. Reproduced exploitable by 2 of 3 reviewers
+independently: `find`'s traversal order is unspecified, so a stale or forged GREEN scorecard
+dropped anywhere else under `features/` (e.g. `features/research/uat/`) could silently outrank the
+real, decayed one — a branch controlling which data a trusted, pinned gate reads, without editing
+the gate script itself. Fixed by scoping to exactly the two locations `features.md:28` sanctions
+and failing loud on ambiguity, never silently picking one. (2) `.claude/rules/git.md`'s corrected
+commit guidance ("plain `git commit`, no pathspec, is safe") was documentation-only — the actual
+MECHANIZED path this repo mandates for shared-checkout commits, `git-ops.sh commit-to-main` (plus
+4 more call sites inside `/ship`'s spec-close), still ran the exact pathspec form just declared
+unsafe. Worse, the new guidance over-claimed: this repo's own incident log already recorded a
+plain commit corrupting work on the shared main checkout specifically (2026-08-17 P1057,
+2026-06-06) — the missing piece was atomicity between staging and committing, which a private
+worktree's index has by construction and the shared checkout does not.
+
+**Decision:** goal-gate.sh CHECK 4 now fails ambiguity loud instead of resolving it silently, with
+2 new regression tests (a decoy at a real but unsanctioned location; a genuine duplicate at both
+sanctioned locations) verified red-first against the actual previously-shipped vulnerable code, not
+a synthetic mutation. git-ops.sh got a shared `commit_staged_exact()` helper — asserts the staged
+set matches exactly what was requested, then commits with no pathspec — wired into all 5 call sites,
+each already running under `acquire_main_lock`; git.md now explicitly scopes "plain commit is safe"
+to worktrees and routes shared-checkout commits through the lock instead of a hand-run sequence.
+Wiring the helper into `/ship`'s rename paths surfaced a THIRD instance of the same shape: `git
+diff --cached --name-only` collapses a staged `git mv` into one line by default (rename detection),
+so a two-path expected list for a rename never matched — caught by `test-git-ops-ship.sh`, not
+reasoned about, fixed with `--no-renames`.
+
+**Alternatives rejected:** Accepting the first-pass fixes as done because they were reviewed by the
+implementing agent and passed the existing test suites — that is exactly the confidence level that
+shipped the original P1108 bug and both of these regressions. Fixing only the CRITICAL and treating
+the git-ops.sh contradiction as lower priority — rejected once found, because commit-to-main is the
+tool nearly every commit in this session (and this repo) already goes through; a doc-only fix that
+doesn't touch the mechanized path protects nobody.
+
+**Consequences:** **The same defect class can reopen at a second, deeper layer immediately after
+the first layer is fixed and reviewed** — this is the "Two paths render the same disclosure"
+lesson (same file, three weeks earlier) recurring at the level of THIS session's own fixes, not the
+original feature. A "safe" fix that only touches documentation while the enforced/mechanized path
+still contradicts it is not a fix, only a description of one — grep for every ACTUAL caller of the
+pattern being corrected, not just its written-down description, before considering the correction
+complete. Three of these four defects (the CRITICAL, the git-ops.sh contradiction, the rename
+collapse) were found ONLY because adversarial review was explicitly requested a second time on the
+"already-fixed" state — the review that would have caught them by default (this session's own
+first pass) did not, because reviewing your own fix inherits the same blind spot that produced the
+bug. Full verification: `test-goal-gate.sh` 31/31, `test-git-ops-extensions.sh` A-K, `test-git-ops-ship.sh`
+K-Y/Z2/Z3/AA-JJ/KK-ZZ/R2, all green — each exercising the exact call sites and rename paths touched.
+
+**References:** `scripts/goal-gate.sh` (CHECK 2, CHECK 4) · `scripts/git-ops.sh`
+(`commit_staged_exact`, `cmd_commit_to_main`, `cmd_ship`) · `.claude/rules/git.md` ·
+[p1108](../features/done/2026-06-10/p1108_link_previews_say_true_things.md) ·
+[p1136](../features/p1136_goal_gate_git_safety_residual_findings.md) (residual findings not fixed
+this session) · commits `541401c5`, `94070cf6`, `1408961a`
+
+---
+
 ## 2026-08-20 [technical]: The GIT_* env-leak pattern (P785/P787/P1041) has a fourth surface — the P1116 canary's own cherry-pick fixture, and it broke worktree commits since the day it shipped
 
 **Context:** P1122 (a docs-only fix) hit "FIXTURE BROKEN: sequencer dir not resolvable" on every
@@ -700,34 +759,44 @@ the P920 arm built to do that closure. **Status: proposed** — no spec filed fo
 
 ---
 
-## 2026-08-20 [process]: `core.bare = true` recurred a third time — and the likeliest source is this repo's own canary runs, not a co-tenant
+## 2026-08-20 [process]: `core.bare = true` recurred a FOURTH time, same day — the canary-run hypothesis now has a same-session repeat, and the requested diagnostic still didn't run
 
 **Context:** Mid-session every working-tree git command began failing with "must be run in a
-work tree" while `git log` kept working — the exact split documented on 2026-08-11. Third
-recorded occurrence (2026-04-22, 2026-08-11, today). I initially attributed it to a review
-subagent that had run real git commands in this checkout. **That attribution was wrong and
-the log already said so:** the 2026-04-22 entry names the suspected cause as canary
-invocations with `GIT_DIR` set. This session ran three canaries dozens of times plus several
-`git init` temp-repo fixtures — a far better match than a co-tenant.
+work tree" while `git log` kept working — the exact split documented on 2026-08-11. Fourth
+recorded occurrence (2026-04-22, 2026-08-11, earlier today, and this one) — the third and
+fourth landed in the SAME calendar day, in what reads as two different sessions. I initially
+attributed it to a review subagent that had run real git commands in this checkout. **That
+attribution was wrong and the log already said so:** the 2026-04-22 entry names the suspected
+cause as canary invocations with `GIT_DIR` set. This occurrence surfaced immediately after
+running `scripts/test-git-ops-ship.sh` and `scripts/test-git-ops-extensions.sh` repeatedly
+(both build `git init` temp-repo fixtures) while committing a fix to `git-ops.sh` itself — the
+same class of trigger the earlier-today entry named, now a second same-day instance.
 
-**Decision:** On the next occurrence, run `git config --list --show-origin | grep bare`
-*before* fixing, to finally identify which config layer receives the write — the diagnostic
-the 2026-04-22 entry asked for and no occurrence since has performed, including this one.
-Recurrence alone is now sufficient evidence to stop treating it as a mystery.
+**Decision:** Restored with `git config core.bare false` after asking the founder first (this
+occurrence blocked commit-to-main for a spec file, not mid-fix on a shared script — there was
+time to ask, unlike the immediately-prior entry's unilateral fix). **Still did not run the
+diagnostic the 2026-04-22 and earlier-today entries both asked for**
+(`git config --list --show-origin | grep bare`, to identify which config layer receives the
+write) — fixed and moved on under session-length pressure, the same omission as every prior
+occurrence. Recorded plainly rather than silently repeating the same gap a third time.
 
-**Alternatives rejected:** Recording it again as an unexplained incident — three occurrences
-across four months with the diagnostic never run is not a mystery, it is an unperformed
-check.
+**Alternatives rejected:** Recording it again as a fresh mystery — four occurrences across four
+months, two on the same day, with the diagnostic never run, is not a mystery. It is a check
+that has now been asked for twice and skipped four times.
 
-**Consequences:** Restored with `git config core.bare false`; nothing lost. **Process miss
-worth naming: the 2026-08-11 entry says to confirm with the founder before changing shared
-repo config (git-safety JUDGMENT tier), and this session did not** — it fixed unilaterally
-because every session on the checkout was blocked. Right outcome, skipped step. Any canary
-or fixture that shells out to `git` in a temp repo should `unset GIT_DIR GIT_WORK_TREE`
-first. **Status: proposed** — no canary hardening done.
+**Consequences:** Nothing lost; commit succeeded immediately after the restore. The
+canary-run hypothesis is now stronger (two same-day instances, both immediately following
+heavy canary/fixture activity) but still UNCONFIRMED — the one diagnostic that would confirm
+or falsify it has been asked for by name in two separate entries and run zero times. **Status:
+proposed, escalating** — until `test-git-ops-ship.sh` / `test-git-ops-extensions.sh` (and any
+other canary that shells `git init` in a temp dir) are audited for an `unset GIT_DIR
+GIT_WORK_TREE` guard, or someone actually runs the requested diagnostic on the next
+occurrence, this will recur. This entry is itself evidence that "record it and move on" doesn't
+converge — the fix needs to land in the canary scripts, not in another paragraph here.
 
-**References:** this file, 2026-04-22 [technical] "`git config core.bare=true` mystery" and
-2026-08-11 [process] "`git status`/`rev-parse` silently broke"
+**References:** this file, 2026-04-22 [technical] "`git config core.bare=true` mystery",
+2026-08-11 [process] "`git status`/`rev-parse` silently broke", and the earlier-today entry
+this one replaces · `scripts/test-git-ops-ship.sh` · `scripts/test-git-ops-extensions.sh`
 
 ---
 
