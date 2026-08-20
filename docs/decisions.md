@@ -4,6 +4,19 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-20 [technical]: A decisions.md entry re-fired at ship time, not at design time — the P954 env-var pattern was rebuilt from scratch (P1123)
+
+**Context:** P1123 added `/donate` with five preset Stripe payment links, reading every URL from `VITE_STRIPE_DONATE_URL*`. That is precisely the pattern decisions.md 2026-06-19 (P954) bans, after env-var-only Stripe links took `/pricing` checkout down in production. The repeat was caught by the `/kdd` step that greps decisions.md — **after** the feature had passed three code reviews, a blind visual QA, every pre-commit gate, and merged to main. None of those catch it: reviewers see the diff, not the seven-month-old decision; gates check shape, not precedent. Compounding it, the agent asserted "no CI workflow builds the app, so `.env.local` supplies the vars" from a `grep` of `.github/workflows` — Vercel builds on push and is not a GitHub workflow, so the absence-grep produced a confident false conclusion about the deploy path.
+
+**Decision:** Hardcode the five public links plus the default in source, env var as override, matching P954. Recorded here because the *process* finding outranks the code fix: **CLAUDE.md already instructs grepping decisions.md before building, and the instruction did not fire** — the agent read it as applying to "why is it built this way" questions about existing code, not to writing new code in a domain (`buy.stripe.com` URLs) the log already covers.
+
+**Alternatives rejected:** (1) Add the vars to Vercel — P954 already rejected this as treating the symptom. (2) A pre-deploy checklist item — P954 records that a checklist failed silently for this exact class. (3) Treat it as a one-off agent miss — it is the second occurrence of the same defect in the same file family, which is the definition of a pattern.
+
+**Consequences:** A grep of decisions.md keyed on the **nouns the change introduces** (`stripe`, `buy.stripe.com`, `VITE_`) belongs at design time, before the first line is written, not at `/kdd`. Any future work touching a public third-party URL should assume the log has an opinion. Also: an absence-grep scoped to one mechanism (`.github/workflows`) cannot support a claim about the deploy path as a whole — the control here was that the no-env build **failed**, making every "MISSING" result meaningless until the probe was rerun with only the donate vars stripped.
+
+**References:** `src/lib/donate-links.ts` · decisions.md 2026-06-19 [technical] (P954) · `features/done/2026-06-10/p1123_donate_page.md`
+
+
 ---
 
 ## 2026-08-20 [process]: Two checks that silently did not run — a canary dropped from its own trigger, and a close gate no `/dev` spec can satisfy
