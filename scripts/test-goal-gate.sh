@@ -188,14 +188,52 @@ m_uat_checkbox()   { printf '\n## Extra\n\n- [ ] never verified\n' >> "$1/featur
 # identical probe, scored on the identical metric).
 #   control (known-good): features/uat/p699.md  — the last marked scorecard, 2026-04-13
 #   subject (known-bad):  features/uat/p1010.md — one of the 25 unmarked ones
-m_real_marked()    { cp "$REPO/features/uat/p699.md"  "$1/features/uat/${PN}.md"; }
-m_real_unmarked()  { cp "$REPO/features/uat/p1010.md" "$1/features/uat/${PN}.md"; }
+#
+# Adversarial review (2026-08-20, CRITICAL): these two mutators originally hardcoded
+# the pre-move source path. p1010 and p699 are real corpus files subject to the SAME
+# features.md:28 move convention CHECK 4 itself must resolve — if either is ever
+# moved, `cp` from a stale hardcoded path fails, `expect()` does not check a
+# mutation function's own exit code, and the fixture silently keeps its default
+# 'true' DW-1 content — passing having tested nothing. Resolved dynamically instead,
+# the same way goal-gate.sh resolves $UAT, with a hard failure (not a silent no-op)
+# if the source isn't found at either sanctioned location.
+_find_real_uat() {
+  local f="$REPO/features/uat/$1.md"
+  [[ -f "$f" ]] && { echo "$f"; return; }
+  f=$(find "$REPO/features/done" -mindepth 1 -maxdepth 3 -path "*/uat/$1.md" 2>/dev/null | head -1)
+  if [[ -z "$f" ]]; then
+    echo "FATAL: real corpus file $1.md not found at either sanctioned location — fixture is stale" >&2
+    exit 1
+  fi
+  echo "$f"
+}
+m_real_marked()    { cp "$(_find_real_uat p699)"  "$1/features/uat/${PN}.md"; }
+m_real_unmarked()  { cp "$(_find_real_uat p1010)" "$1/features/uat/${PN}.md"; }
 # Regression for the CHECK 4 hardcoded-path bug (P1108, 2026-08-20): features.md:28
 # says the UAT file "always moves" with its spec into features/done/{sprint}/uat/ —
 # a real, reachable state the pre-fix hardcoded $UAT path could not find (it would
 # report "missing ... it never existed" for a file that plainly exists, just moved).
 # Must stay GREEN: a moved UAT file is not a missing one.
 m_uat_moved()      { mkdir -p "$1/features/done/2026-01-01/uat" && mv "$1/features/uat/${PN}.md" "$1/features/done/2026-01-01/uat/${PN}.md"; }
+# Adversarial review (2026-08-20, CRITICAL): the FIRST fix for the above globbed
+# features/**/uat/${PN}.md and picked `find | head -1` — proven exploitable, twice
+# independently: `find`'s order is unspecified, so a stale or FORGED green scorecard
+# dropped anywhere else under features/ (e.g. features/research/uat/, a directory
+# with no sanctioned UAT role at all) could silently outrank the real, decayed one.
+# The real fix scopes to exactly the two locations features.md:28 sanctions and
+# ignores everything else — this proves a decoy elsewhere is inert, not merely that
+# the happy path still works.
+m_uat_shadow() {
+  mkdir -p "$1/features/research/uat"
+  sed 's/| UAT-2: empty state renders | ✅ |/| UAT-2: empty state renders |  |/' "$1/features/uat/${PN}.md" > "$1/t" && mv "$1/t" "$1/features/uat/${PN}.md"
+  cp "$(_find_real_uat p699)" "$1/features/research/uat/${PN}.md"   # forged green decoy, WRONG location
+}
+# A genuine duplicate (an interrupted move leaves a stale copy at BOTH the old and
+# new sanctioned locations) must fail loud as ambiguous, never silently pick one.
+m_uat_duplicate() {
+  mkdir -p "$1/features/done/2026-01-01/uat"
+  cp "$1/features/uat/${PN}.md" "$1/features/done/2026-01-01/uat/${PN}.md"
+}
 m_hash_forged()    { printf 'TAMPERED\n' > "$1/features/verification/$PN/shot-320.png"; }   # verdict untouched, pixels changed
 m_shot_missing()   { rm -f "$1/features/verification/$PN/shot-desktop.png"; }
 m_one_pass_only()  { sed -i.bak 's/^VERDICT: PASS/VERDICT: FAIL/' "$1/features/verification/$PN/review-round-1.md"; }
@@ -226,7 +264,9 @@ expect 1 "4c skip reason outside the whitelist"       ci  m_uat_badskip "outside
 expect 1 "4d unticked checkbox row"                   ci  m_uat_checkbox "carry no result"
 expect 1 "4e REAL unmarked scorecard (p1010)"          ci  m_real_unmarked "carry no result"
 expect 0 "4f REAL marked scorecard (p699) — control"   ci  m_real_marked ""
-expect 0 "4g UAT moved to features/done/*/uat/ per convention"  ci  m_uat_moved ""
+expect 0 "4g UAT moved to features/done/*/uat/ per convention"  ci  m_uat_moved "features/done/2026-01-01/uat/${PN}.md: every row"
+expect 1 "4h forged decoy elsewhere does not shadow the real (unmarked) file" ci m_uat_shadow "carry no result"
+expect 1 "4i duplicate at both sanctioned locations — ambiguous, not silently picked" ci m_uat_duplicate "ambiguous"
 echo "${DIM}CHECK 5 — three forgeries${NC}"
 expect 1 "5a screenshot changed, verdict untouched"   ci  m_hash_forged "hash mismatch"
 expect 1 "5b a judged screenshot is missing"          ci  m_shot_missing "screenshot missing on disk"

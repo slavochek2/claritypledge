@@ -269,11 +269,29 @@ if want ci; then
   # with "it never existed" on the exact commit that follows the convention.
   # Incident: P1108, 2026-08-20 — reproduced by moving features/uat/p1108.md
   # per the stated convention and watching this check go red on a real file.
-  UAT=$(find features -path "*/uat/${PN}.md" -not -path "*/archive/*" 2>/dev/null | head -1)
-  [[ -z "$UAT" ]] && UAT="features/uat/${PN}.md"
-  if [[ ! -f "$UAT" ]]; then
-    fail "${UAT} missing — a contract with no scorecard cannot decay, it never existed"
+  #
+  # SCOPED to the two locations features.md:28 actually sanctions — pre-move
+  # (features/uat/${PN}.md) and post-move (features/done/*/uat/${PN}.md) —
+  # and ambiguity FAILS rather than silently resolving. A first version of
+  # this fix globbed all of features/**/uat/${PN}.md and picked `| head -1`;
+  # adversarial review (2026-08-20) proved that exploitable: `find`'s order
+  # is unspecified (differs by filesystem, differs local vs CI), so a stale
+  # or forged green scorecard dropped anywhere else under features/ (e.g.
+  # features/research/uat/) could silently outrank the real, decayed one —
+  # a branch controlling which data a trusted gate reads, without editing
+  # the gate itself. Two matches is itself a real, non-adversarial state too
+  # (an interrupted move leaves a stale copy behind) and must fail the same way.
+  UAT_HITS=()
+  [[ -f "features/uat/${PN}.md" ]] && UAT_HITS+=("features/uat/${PN}.md")
+  while IFS= read -r _u; do [[ -n "$_u" ]] && UAT_HITS+=("$_u"); done \
+    < <(find features/done -mindepth 1 -maxdepth 3 -path "*/uat/${PN}.md" 2>/dev/null | sort)
+  if [[ ${#UAT_HITS[@]} -gt 1 ]]; then
+    fail "${PN} UAT scorecard is ambiguous: ${#UAT_HITS[@]} matches (${UAT_HITS[*]}) — resolve to one before this can pass"
   else
+    if [[ ${#UAT_HITS[@]} -eq 1 ]]; then UAT="${UAT_HITS[0]}"; else UAT="features/uat/${PN}.md"; fi
+    if [[ ! -f "$UAT" ]]; then
+      fail "${UAT} missing — a contract with no scorecard cannot decay, it never existed"
+    else
     # Only the execution log; '## Manual-Only Scenarios' is a different table shape
     # (| Scenario | Why manual |) and carries no result column by design.
     body=$(awk '
@@ -306,6 +324,7 @@ if want ci; then
       fail "${UAT}: ${badskip} skip(s) with a reason outside the whitelist (NOT-BUILT, ENV-UNAVAILABLE, HUMAN-ONLY, SUPERSEDED)"
     else
       pass "${UAT}: every row carries a result"
+    fi
     fi
   fi
 fi
