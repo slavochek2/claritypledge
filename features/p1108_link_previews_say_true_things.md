@@ -139,9 +139,9 @@ precisely what that comment forbids.
 
 **Adds to this spec's scope:**
 
-- [ ] A failed or unreadable agent lookup never produces the ordinary-person preview — the handler
+- [x] A failed or unreadable agent lookup never produces the ordinary-person preview — the handler
       fails loud instead, demonstrated by forcing the failure (epistemic gate 7), not by reasoning
-- [ ] "No agent account exists" and "the agent lookup failed" are distinguishable in the handler
+- [x] "No agent account exists" and "the agent lookup failed" are distinguishable in the handler
 
 ## Resolved Decisions
 
@@ -173,12 +173,12 @@ defect in the same file"). This spec accepts that routing rather than revisiting
 
 ## Done-When
 
-- [ ] Each of the four live handlers is listed with every factual claim its description makes, and the column backing that claim — or the claim removed
-- [ ] `curl` with a crawler user-agent against a **non-pledger** profile returns a description that does not say they signed the pledge — output pasted
-- [ ] `curl` with a crawler user-agent against a pledger profile still says so — output pasted, so the fix is not "delete the sentence"
-- [ ] The mechanism from step 4 has been watched to fail on a deliberately false preview, with a non-zero exit or a visibly failing check — output pasted
-- [ ] A crawler request for an agent profile whose agent lookup FAILS does not render the ordinary-person card — forced-failure output pasted
-- [ ] `./scripts/goal-gate.sh p1108` exits 0, output pasted
+- [x] Each of the four live handlers is listed with every factual claim its description makes, and the column backing that claim — or the claim removed — see `## Claim Audit`
+- [ ] `curl` with a crawler user-agent against a **non-pledger** profile returns a description that does not say they signed the pledge — output pasted — **BLOCKED: not deployed.** Reclassified `HUMAN-ONLY`/post-deploy as `## Verification Contract` row DW-7 (`## Resolved Decisions (goalify)`); unit-level equivalent in `src/tests/p1108-pledge-claim.test.ts`.
+- [ ] `curl` with a crawler user-agent against a pledger profile still says so — output pasted, so the fix is not "delete the sentence" — **BLOCKED: not deployed.** Same DW-7 reclassification as above.
+- [x] The mechanism from step 4 has been watched to fail on a deliberately false preview, with a non-zero exit or a visibly failing check — output pasted (delete a column from a `*_COLUMNS` array, `npx vitest run src/tests/p1108-claim-binding.test.ts` → exit 1, restored; permanent unit tests pin the same fail path)
+- [x] A crawler request for an agent profile whose agent lookup FAILS does not render the ordinary-person card — forced-failure output pasted; unit-level per goalify's resolution (`## Resolved Decisions (goalify)`) via `src/tests/p1108-fail-loud.test.ts` cases (d) [malformed embed] and the array-shaped-embed cases added in the post-review fix pass
+- [x] `./scripts/goal-gate.sh p1108` exits 0, output pasted (commit `943d60eb`, all 12 check groups pass)
 
 ## Phase 0 Triage (goalify)
 
