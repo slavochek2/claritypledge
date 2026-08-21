@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 57
 severity: high
@@ -7,7 +7,6 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: '2026-08-21'
 root_cause: "Absolute-predicate write policies (USING(true)/WITH CHECK(true), no TO <role>) written permissive at creation, never revisited. clarity_verifications/demo_rounds/ideas/live_turns had zero live callers (clarity_verifications' write path is dead code in an unrouted page — the spec's original write-path audit was wrong, corrected empirically before the fix). ml_training_sessions carried a stray out-of-band policy duplicating an already-correct TO authenticated one; the upstream GCS signed-URL edge function already required a JWT, so no legitimate guest write depended on the broad policy."
@@ -20,6 +19,7 @@ reproduce_artifact:
   surfaces_deferred: []
   scenarios_excluded: "clarity_idea_votes — founder decision, 20260211_tighten_idea_feed_rls.sql keeps USING(true) deliberately for anonymous voting"
   reproduced_at: '2026-08-21'
+completed_at: 2026-08-21
 ---
 
 # P1138: A group of tables accepts unauthenticated writes on prod — original policies never tightened
