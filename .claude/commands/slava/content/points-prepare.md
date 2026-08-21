@@ -40,11 +40,25 @@ Stated here in full rather than inherited from a sibling skill: a safety propert
 
 **YouTube** (no API key, no account):
 
+Use `yt` — a drop-in wrapper taking identical arguments to `yt-dlp`.
+It tries the direct connection first and only falls back if YouTube walls you.
+
 ```bash
-yt-dlp --skip-download --write-auto-subs --write-subs --sub-langs "en.*" \
+yt --skip-download --write-auto-subs --write-subs --sub-langs "en.*" \
   --sub-format vtt -o "yt_%(id)s.%(ext)s" "<URL>"
-yt-dlp --skip-download --print "%(title)s | %(uploader)s | %(duration_string)s | %(view_count)s views | %(comment_count)s comments" "<URL>"
+yt --skip-download --print "%(title)s | %(uploader)s | %(duration_string)s | %(view_count)s views | %(comment_count)s comments" "<URL>"
 ```
+
+**If YouTube blocks the request** ("Sign in to confirm you're not a bot", HTTP 429/403),
+the wrapper handles it automatically: it rotates through 10 free residential proxies in
+different countries until one works. You do nothing.
+
+**Exit code 7 means every path was walled** — the free 1 GB/month allowance is spent.
+Do NOT retry, and never purchase anything yourself. Surface it to the founder:
+"YouTube blocked every route and the free proxy quota is used up. A ~$3.50 top-up
+(≈280 more transcripts) unlocks it — want to approve?" Only act on an explicit yes.
+
+Check quota any time with `yt --proxy-status`.
 
 Clean the VTT: strip timestamps and inline tags, drop consecutive duplicate lines (auto-captions roll), keep a coarse timecode every ~30s so quotes stay locatable. Write intermediates to the session scratchpad, never to the repo.
 
