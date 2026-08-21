@@ -692,10 +692,11 @@ an artifact of my prompt, which gave the blind rater no ineligible option.
 
 **The direction reversed — this is the load-bearing finding.** Pre-May sampled eligible: **15 add :
 1 remove**. Post-April, all events read as a census (18 unique, 14 eligible): **2 add : 5 remove**,
-a 50% push-back rate, the removes being *"that overlkill dont you think that ux and ui is
-strangithrosw4rd?"*, *"why we need ux and architect if we just build a prototpye?"*, *"our ux and ui
-are shit … we deprecitate them"*, *"but tits too much? … makes no sense"*, and *"I'm not sure it
-needs all of that. Maybe we don't need challenge PRD, UX, Architect."* Fisher exact, one-tailed, on
+a 50% push-back rate, the removes being *"isn't that overkill — don't you think UX and architect
+are the wrong shape here?"*, *"why do we need UX and architect if we're just building a
+prototype?"*, *"our UX and UI steps are useless … we should deprecate them"*, *"but isn't this too
+much? … it doesn't make sense"*, and *"I'm not sure it needs all of that. Maybe we don't need
+challenge PRD, UX, Architect."* Fisher exact, one-tailed, on
 removes: **p = 0.00175**. The spec's title premise — *the founder adds back the steps it drops* —
 was true in Feb–Apr and is **not** true after it.
 
@@ -1312,22 +1313,22 @@ The mechanism reasoning was not sloppy; it was **valid and still wrong**. Stamp-
 
 ## 2026-08-19 [product]: The membership onboards in batches and only then merges into one room — rolling entry was priced correctly and delivered impossibly
 
-**Context:** Rebuilding `/program` from the retired co-founder pair offer (Free / €950-pair / €2450-pair) onto the 2026-08-10 ladder. The billing shape was settled quickly — **€295/month per person, monthly and open-ended, no prepay**, because a 3-month prepay (€885 up front) re-imports the exact budget barrier that made membership rung 1 ahead of the €4,500 install. What was not settled was *entry*.
+**Context:** Rebuilding `/program` from the retired co-founder pair offer onto the 2026-08-10 ladder. The billing shape (monthly, open-ended, no prepay) was settled quickly. What was not settled was *entry*.
 
-**Decision:** **Batches start together every 45 days, run the 3-month arc together, then merge into one standing room.** The agent had recommended the opposite — rolling entry into a single shared room, arguing mixed tenure was a feature — and the founder falsified it from delivery: with five people in month 2 and one arriving cold, there is no coordinated knowledge transfer and no way to run the nine situations as a cohort. The recommendation had optimised founder calendar time against delivery quality, which is the wrong direction on this repo's own ranking.
+**Decision:** **Batches start together on a fixed cadence, run their arc together, then merge into one standing room.** The agent had recommended the opposite — rolling entry into a single shared room, arguing mixed tenure was a feature — and the founder falsified it from delivery: with cohort members at different stages and one arriving cold, there is no coordinated knowledge transfer and no way to run the nine situations as a cohort. The recommendation had optimised founder calendar time against delivery quality, which is the wrong direction on this repo's own ranking.
 
-The time objection that produced it is answered by the merge, not by rolling: a 90-day arc at 45-day spacing caps concurrency at **2 live batches + 1 standing room = 3 sessions/week**, permanently, however many batches have graduated. The waiting a batch cadence creates is absorbed by the free repeating events, which is the holding-pattern job already recorded for them; maximum wait is one cadence.
+The time objection that produced it is answered by the merge, not by rolling: a fixed-cadence arc caps live-batch concurrency permanently, however many batches have graduated. The waiting a batch cadence creates is absorbed by the free repeating events, which is the holding-pattern job already recorded for them; maximum wait is one cadence.
 
 **Also decided:**
-- **Full 9-of-9 badging is excluded from €295**, and the exclusion is not a judgement call — this log's own field data (lean-canvas.md:396, 2026-04-26) measures it at **100–180 minutes per person** with founder-only certifier capacity, so a batch of six is 10–18 hours on top of the sessions. **Partial 1-of-9 badges from group work are included**, which hypotheses.md:385 already treats as the propagation unit. Full badging stays the separate paid engagement.
+- **Full 9-of-9 badging is excluded from the membership price**, and the exclusion is not a judgement call — this log's own field data (lean-canvas.md:396, 2026-04-26) measures certifier time at a level that makes a batch's full badging a substantial addition on top of the sessions. **Partial 1-of-9 badges from group work are included**, which hypotheses.md:385 already treats as the propagation unit. Full badging stays the separate paid engagement.
 - **The page sells one offer, not three.** The existing three-card grid had one product pretending to be three: a free tier the visitor already has, a custom tier that is a different business, and a timeline narrating only the middle card — so the page's own narrative was orphaned from the thing being bought.
 - **No job titles in page copy.** Naming CMO / co-founder / head-of-transformation would put role targeting on a public page while lean-canvas.md:81 holds it at `PROPOSED-PENDING-CONTACT` with zero field contact.
 
-**Alternatives rejected:** *Rolling entry* (above). *3-month prepay* — locks revenue but reverses the reason membership beat the install. *Badging inside the membership* — contradicted by the measured minutes. *Keeping the card grid* — three competing primary actions, against the P955 rule already in the visual-QA checklist.
+**Alternatives rejected:** *Rolling entry* (above). *Prepay* — locks revenue but reverses the reason membership beat the install. *Badging inside the membership* — contradicted by the measured minutes. *Keeping the card grid* — three competing primary actions, against the P955 rule already in the visual-QA checklist.
 
-**Consequences:** P1087 rewritten against this and **blocked on the paid level's name** (see the naming resolution above — "Clarity Practice Community" is now an instance name, so it cannot head this tier). The unpriced Custom Offers tier leaves €295 with no anchor on-page; the anchor now has to come from ladischenski's live prices. **Follow-up with no owner:** ladischenski.com's `app/layout.tsx` structured data publishes €950 / €1,950 / a €2,950 Team Workshop while the live page shows €1,450 / €2,000 and no workshop — machine-readable price disagrees with visible price, in a different repo.
+**Consequences:** P1087 rewritten against this and **blocked on the paid level's name** (see the naming resolution above — "Clarity Practice Community" is now an instance name, so it cannot head this tier). Exact pricing figures and the ladischenski.com anchor-price follow-up are recorded privately (business rationale, not a technical lesson).
 
-**References:** [features/p1087](../features/p1087_program_page_offer_ladder_rebuild.md) · [lean-canvas.md](lean-canvas.md):396 (badging minutes), :81 (role targeting), :590 (the ladder) · [hypotheses.md](hypotheses.md):385 (partial badges) · [goals.md](goals.md):15 (free events as holding pattern) · this log 2026-08-10 [product], 2026-08-19 [product] (naming)
+**References:** [features/p1087](../features/p1087_program_page_offer_ladder_rebuild.md) · [lean-canvas.md](lean-canvas.md):396 (badging minutes), :81 (role targeting), :590 (the ladder) · [hypotheses.md](hypotheses.md):385 (partial badges) · [goals.md](goals.md):15 (free events as holding pattern) · this log 2026-08-10 [product], 2026-08-19 [product] (naming) · `.private/docs/business/pricing-decisions.md` (full figures)
 
 ---
 
@@ -1481,7 +1482,7 @@ converts the load-bearing rules to mechanisms before P1117 removes any prose.
 
 ## 2026-08-19 [product]: Invocation is celebrated by a rotating bell and never counted in-app — measurement is sampled, not universal. **UNTESTED.**
 
-**Context:** Wanting a high invocation rate **and** proof it happened, the founder hit the contradiction directly: *"then people would sit in front of their handys and they don't like it."* Every capture surface considered — a lightweight version of `/live`'s speak button, per-person tallies, a live scoreboard — put a device in the middle of a room whose entire premise is people looking at each other. A physical token was proposed and beaten by the founder's own alternative.
+**Context:** Wanting a high invocation rate **and** proof it happened, the founder hit the contradiction directly: *"then people would sit staring at their phones, and they don't like that."* Every capture surface considered — a lightweight version of `/live`'s speak button, per-person tallies, a live scoreboard — put a device in the middle of a room whose entire premise is people looking at each other. A physical token was proposed and beaten by the founder's own alternative.
 
 **Decision:** **A bell, rung by whoever asks the question, passed to a neighbour when someone misses.** No digital count, no tapping obligation, no in-app invocation record — the bell is celebration, audible to the whole room, and rotation spreads the rewarding role so it survives the founder's absence. **Measurement is sampled:** instrument two or three events with an observer, and let every other event run with zero capture. **Routing decided, edit still outstanding:** it belongs in one home — [facilitator-guide.md](facilitator-guide.md) under "The comprehension challenge" — with a pointer from run-of-show block 6, because the guide already prescribes the ask and the bell is the missing acknowledgement half of the same move. Both files carrying it would be the copy-drift the repo forbids.
 
