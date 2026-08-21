@@ -2,7 +2,7 @@
 name: provision-agent
 description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, uploads it to the agent-avatars storage bucket, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Records the subject_key for the pipeline that will file under it."
 when_to_use: "Before /slava:content:points-publish can file anything for a speaker who has never been covered, and whenever an existing agent's avatar must be regenerated. Run it once per environment — test and prod are separate databases and an agent in one is not an agent in the other. This is the ONLY skill that creates an agent account. May be invoked inline by /slava:content:points-publish at its halt point (P1135 decision (c)) — the gate below runs unmodified either way."
-version: 0.2.0
+version: 0.2.1
 ---
 
 # /provision-agent
@@ -55,13 +55,23 @@ It gates the result at 20/40/96px and runs a similarity check against the source
 
 ## Step 3 — Upload the asset, before the account exists
 
-`/slava:content:gen-agent-avatar` Step 4 emits a 512px square PNG at a scratch path and hands it to this skill. Upload it to the **`agent-avatars`** storage bucket (P1135), object key `<subject-slug>/<uuid>.png`, `upsert: false`:
+`/slava:content:gen-agent-avatar` Step 4 emits a 512px square PNG at a scratch path and hands it to this skill. Upload it to the **`agent-avatars`** storage bucket (P1135), object key `<subject-slug>/<uuid>.png`, `upsert: false`.
+
+**Credential and ref pair, by environment** (same variable-name discipline as `/slava:content:points-publish`'s environment table — never merge the two files):
+
+| Target | URL from | Service key from |
+|---|---|---|
+| **test** | `.env.local: VITE_SUPABASE_URL` | `.env.local: TEST_SUPABASE_SERVICE_ROLE_KEY` |
+| **prod** | `.env.prod: VITE_SUPABASE_URL` | `.env.local: PROD_SUPABASE_SERVICE_ROLE_KEY` |
 
 ```bash
-curl -X POST "$TARGET_URL/storage/v1/object/agent-avatars/<subject-slug>/<uuid>.png" \
+UPLOAD_STATUS="$(curl -s -o /tmp/agent-avatar-upload.log -w '%{http_code}' -X POST \
+  -H "apikey: $SERVICE_ROLE_KEY" \
   -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
   -H "Content-Type: image/png" \
-  --data-binary @<scratch-path>.png
+  --data-binary @<scratch-path>.png \
+  "$TARGET_URL/storage/v1/object/agent-avatars/<subject-slug>/<uuid>.png")"
+[ "$UPLOAD_STATUS" = "200" ] || { echo "upload failed: $UPLOAD_STATUS — $(cat /tmp/agent-avatar-upload.log)"; exit 1; }
 ```
 
 Take the returned public URL — `$TARGET_URL/storage/v1/object/public/agent-avatars/<subject-slug>/<uuid>.png` — and pass it as `p_avatar_url` in Step 5.
