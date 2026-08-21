@@ -617,3 +617,40 @@ Done when a red gate demonstrably blocks a merge. Droppable if `/goalify` is aba
 gate protects nothing until a spec is goalified, and no spec is today.
 
 ---
+
+## Check whether the P1087 analytics tier rename broke live Mixpanel funnels
+
+**Date:** 2026-08-21
+**Status:** proposed
+**due:** week
+
+P1087 renamed the `offers_cta_clicked` tier values (`program` / `premium` →
+`membership` / `partnership` / `custom`) and added a `placement` prop. Nothing in the
+repo defines dashboards, so an adversarial reviewer could confirm neither breakage nor
+safety — any live funnel or saved report keyed on the old strings is silently broken,
+and a silently broken funnel reads as "nobody clicked" rather than as an error.
+
+Open Mixpanel (or use the Mixpanel MCP in a `c`/`ce`/`cf` session), find reports filtering
+`offers_cta_clicked` on the old tier values, and either repoint them or note that none
+exist. Done when the answer is written down either way. Droppable if no such report exists.
+
+---
+
+## No test binds the hardcoded Stripe link IDs to the prices they claim
+
+**Date:** 2026-08-21
+**Status:** proposed
+**due:** month
+
+`offers-section.tsx` hardcodes two live Payment Links and documents in comments what each
+one costs (€295/month; €1,450 one-off). `isStripeLink` validates the URL *shape* only —
+nothing proves link → price → product correspondence, so a copy-paste of the wrong link
+would ship a page that charges the wrong amount while every test stays green. This is an
+infra fact, not a component-testable one (adversarial review, P1087, gate 7b).
+
+Possible shape: a script hitting the Stripe API to assert each link's price matches the
+displayed figure, run in `/day` or pre-deploy rather than in the unit suite. Worth doing
+only if a third paid link appears — with two, the blast radius is small and the comments
+are accurate today. Droppable if the links move to a CMS or env config with its own check.
+
+---
