@@ -15,9 +15,11 @@
  *   - `room-roster-item`             — one per visible person, any answer state
  *   - `room-roster-rating`           — "understood at N/10" on an answered row (2026-08-21)
  *   - `room-roster-all-answered`     — replaces the Undecided group once it empties
- *   - Empty groups render NOTHING (2026-08-21 round 2, founder: "hide groups that have 0,
- *     no need to count totals"). The only zero-state left is the whole-roster one, which
- *     exists because getRoomRoster returns [] on any failure.
+ *   - Empty groups render NOTHING (2026-08-21 round 2, founder: "hide groups that have 0").
+ *     The only zero-state left is the whole-roster one, which exists because
+ *     getRoomRoster returns [] on any failure. Round 4 reversed the OTHER half of that
+ *     round-2 call — group headings now carry a count again ("Opted in (2)") — so a
+ *     non-empty group's heading DOES show "(N)"; only the zero-member hide survives.
  *   - `room-my-opt-in-status`        — the participant's OWN state, `data-opted-in`,
  *                                      ALWAYS MOUNTED, in all three steps. Reports SERVER
  *                                      state, so it stays "unanswered" through the rating
@@ -137,11 +139,13 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
   });
 
   test('a freshly-arrived registered visitor sees themselves listed as Undecided, with the empty groups rendering nothing at all', async ({ page }) => {
-    // REVISED TWICE on 2026-08-21. First: there is no separate zero-state any more —
-    // arriving auto-joins the room (useEventRoomSelf), so the visitor's own row makes the
-    // roster non-empty within a moment regardless. Then: the empty groups stopped
-    // rendering "(0) / No one yet." and now render nothing, per the founder's "hide groups
-    // that have 0, no need to count totals, not needed".
+    // REVISED THREE TIMES on 2026-08-21. First: there is no separate zero-state any
+    // more — arriving auto-joins the room (useEventRoomSelf), so the visitor's own row
+    // makes the roster non-empty within a moment regardless. Then (round 2): the empty
+    // groups stopped rendering "(0) / No one yet." and now render nothing, per the
+    // founder's "hide groups that have 0". Then (round 4): the founder asked for the
+    // count back on non-empty headings — "Opted in (2)" — reversing only the "(N)"
+    // half of the round-2 call; the empty-group hide itself stays.
     const visitor = await freshUser('P1114 First To Arrive');
     await signInRegistered(page, event, visitor);
     await page.goto(`/events/${event.slug}/meet`);
@@ -149,9 +153,9 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await expect(page.getByTestId('room-roster-undecided')).toContainText('P1114 First To Arrive');
     await expect(page.getByTestId('room-roster-in')).toHaveCount(0);
     await expect(page.getByTestId('room-roster-out')).toHaveCount(0);
-    // The counts are gone with them — "(1)" next to a heading was the other half of that
-    // instruction.
-    await expect(page.getByTestId('room-roster-undecided')).not.toContainText('(1)');
+    // Round 4 reversed the "no counts" half of the round-2 call: a non-empty group's
+    // heading now shows "(N)" again.
+    await expect(page.getByTestId('room-roster-undecided')).toContainText('(1)');
     const bodyText = (await page.locator('body').innerText()) ?? '';
     expect(bodyText).not.toMatch(/error|failed|unavailable/i);
   });
@@ -432,15 +436,15 @@ test.describe('P1114 event page: tab row', () => {
     await expect(page).not.toHaveURL(/[?&]tab=/);
   });
 
-  test('a first-time registered attendee: "View Principle" routes through the readiness question first, not straight to the principle', async ({ page }) => {
+  test('a first-time registered attendee: "Start event" routes through the readiness question first, not straight to the principle', async ({ page }) => {
     const attendee = await freshRegistered('P1114 Tab E2E First Visit');
     await setTestSession(page, attendee.email);
     await page.goto(`/events/${event.slug}`);
 
-    await page.getByRole('link', { name: 'View Principle' }).click();
+    await page.getByRole('link', { name: 'Start event' }).click();
     await expect(
       page,
-      '"View Principle" must link to /room (the smart entry point that decides readiness-vs-principle), not straight to /meet — linking to /meet directly bypasses the readiness question entirely, even for a first-time visitor (founder repro, 2026-08-21: a fresh account never saw the slider).',
+      '"Start event" must link to /room (the smart entry point that decides readiness-vs-principle), not straight to /meet — linking to /meet directly bypasses the readiness question entirely, even for a first-time visitor (founder repro, 2026-08-21: a fresh account never saw the slider).',
     ).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
     await expect(page.getByTestId('room-ready')).toBeVisible();
 
@@ -451,7 +455,7 @@ test.describe('P1114 event page: tab row', () => {
     ).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
   });
 
-  test('a returning attendee who already set readiness: "View Principle" skips straight to the principle page', async ({ page }) => {
+  test('a returning attendee who already set readiness: "Start event" skips straight to the principle page', async ({ page }) => {
     const attendee = await freshRegistered('P1114 Tab E2E Returning');
     await setTestSession(page, attendee.email);
     // First pass through /ready sets readiness_value — reuses the real flow rather
@@ -461,14 +465,14 @@ test.describe('P1114 event page: tab row', () => {
     await expect(page.getByTestId('room-meet')).toBeVisible();
 
     await page.goto(`/events/${event.slug}`);
-    await page.getByRole('link', { name: 'View Principle' }).click();
+    await page.getByRole('link', { name: 'Start event' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
     await expect(page.getByTestId('room-meet')).toBeVisible();
   });
 
-  test('a signed-out visitor clicking "View Principle" reaches the gate, not the room content', async ({ page }) => {
+  test('a signed-out visitor clicking "Start event" reaches the gate, not the room content', async ({ page }) => {
     await page.goto(`/events/${event.slug}`);
-    await page.getByRole('link', { name: 'View Principle' }).click();
+    await page.getByRole('link', { name: 'Start event' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/room$`));
     await expect(page.getByTestId('room-gate')).toBeVisible();
     await expect(page.getByTestId('room-meet')).toHaveCount(0);

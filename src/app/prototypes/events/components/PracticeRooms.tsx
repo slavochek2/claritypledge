@@ -1,7 +1,11 @@
 /**
  * P406: Practice Rooms — Event-Native Session Start
  *
- * Renders an open-room discovery section on the event detail page.
+ * Renders an open-room discovery section. P1114 round 4 moved the only render site from
+ * the event Details page to `/events/:slug/meet`, under the room roster — the `returnTo`
+ * paths below are hardcoded to `/meet` for that reason, not left generic on `eventSlug`
+ * alone: a bare `/events/${eventSlug}` would land a finished /live session back on
+ * Details, outside the room the person actually launched from (code review, round 4).
  * Polls for active rooms every 5s. Allows participants to signal
  * readiness and join each other without out-of-band link exchange.
  */
@@ -63,7 +67,7 @@ export function PracticeRooms({ eventId, eventSlug, currentUserId, currentUserNa
     try {
       const session = await createClaritySession(currentUserName, currentUserId);
       await eventsService.openPracticeRoom(eventId, currentUserId, session.id, session.code);
-      navigate(`/live/${session.code}?returnTo=${encodeURIComponent(`/events/${eventSlug}`)}&insights=off`);
+      navigate(`/live/${session.code}?returnTo=${encodeURIComponent(`/events/${eventSlug}/meet`)}&insights=off`);
     } catch (err) {
       console.error('[PracticeRooms] Failed to open room:', err);
       setIsOpening(false);
@@ -88,7 +92,7 @@ export function PracticeRooms({ eventId, eventSlug, currentUserId, currentUserNa
 
   function handleJoin(room: EventPracticeRoom) {
     if (!room.sessionCode) return;
-    navigate(`/live/${room.sessionCode}?returnTo=${encodeURIComponent(`/events/${eventSlug}`)}`);
+    navigate(`/live/${room.sessionCode}?returnTo=${encodeURIComponent(`/events/${eventSlug}/meet`)}`);
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────

@@ -150,19 +150,22 @@ describe('P1114 rev2: the principle page mirrors the shipped /meet', () => {
 
   it('keeps the roster readable when it is empty, rather than rendering nothing', () => {
     const s = read(ROOM_MEET);
-    // Every group hides itself at zero (founder: "hide groups that have 0, no need to
-    // count totals"). That makes a top-level fallback load-bearing rather than decorative:
-    // getRoomRoster returns [] on ANY failure and the 30s reconciliation poll pushes that
-    // [] through unconditionally, so without this the whole section renders as blank space
-    // on a transient fetch failure — the "empty wall" the spec's Risks forbid.
+    // Every group still hides itself at zero (founder, round 3: "hide groups that have 0").
+    // That makes a top-level fallback load-bearing rather than decorative: getRoomRoster
+    // returns [] on ANY failure and the 30s reconciliation poll pushes that [] through
+    // unconditionally, so without this the whole section renders as blank space on a
+    // transient fetch failure — the "empty wall" the spec's Risks forbid.
     expect(
       /roster\.length === 0/.test(s),
       'EventRoomMeet.tsx has no top-level empty-roster branch. With every group hiding itself when empty, a failed poll would render the roster section as nothing at all.',
     ).toBe(true);
+    // Round 4 reverses the round-3 "no need to count totals, not needed" call: the roster
+    // is now a card that reads like EventDetail.tsx's Participants card, which always
+    // carries a count, and the founder asked for it again this round.
     expect(
       /\(\{members\.length\}\)|\{members\.length\}\)/.test(s),
-      'EventRoomMeet.tsx still renders a "(N)" count in a roster group heading. The founder removed the counts ("no need to count totals, not needed").',
-    ).toBe(false);
+      'EventRoomMeet.tsx does not render a "(N)" count in a roster group heading. Round 4 reversed the round-3 "no counts" call — headings should read "Opted in (2)".',
+    ).toBe(true);
   });
 });
 
@@ -190,32 +193,44 @@ describe('P1114 rev2: chrome and routing', () => {
     }
   });
 
-  it('the "View Principle" row sits above the event card', () => {
+  it('the "Start event" row sits above the event card', () => {
     const s = read(EVENT_DETAIL);
-    const row = s.indexOf('View Principle');
+    const row = s.indexOf('Start event');
     const title = s.indexOf('{event.title}</h1>');
-    expect(row, 'EventDetail.tsx no longer renders "View Principle" (was "Clarity Principle" — shortened 2026-08-21).').toBeGreaterThan(-1);
+    expect(row, 'EventDetail.tsx no longer renders "Start event" (round 4 — was "View Principle", itself shortened from "Clarity Principle" 2026-08-21).').toBeGreaterThan(-1);
     expect(title, 'EventDetail.tsx no longer renders the event title heading.').toBeGreaterThan(-1);
-    expect(row < title, 'The "View Principle" row renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card.').toBe(true);
+    expect(row < title, 'The "Start event" row renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card.').toBe(true);
   });
 
-  it('Practice Rooms is not gated by tab state — the "cmp" tab concept no longer exists in this file', () => {
+  it('the tab concept stays gone — no tab-state variable, no Radix Tabs, and Practice Rooms has moved off this file', () => {
     const s = read(EVENT_DETAIL);
-    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "View Principle" is a plain navigation Link to the room now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
+    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "Start event" is a plain navigation Link to the room now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
     expect(/<Tabs[\s>]|<TabsList|<TabsTrigger|<TabsContent/.test(s), 'EventDetail.tsx still imports/renders a Radix Tabs component. onValueChange double-fires per click and roving-focus arrow keys would fire it too — wrong tool for a same-row link that performs a real route change.').toBe(false);
-    const pr = s.lastIndexOf('<PracticeRooms');
-    expect(pr, 'EventDetail.tsx no longer renders PracticeRooms.').toBeGreaterThan(-1);
+    // Round 4 reverses the round-2 "leave it where it was!" call: Practice Rooms moves
+    // into /meet (see the matching assertion below), off the event Details page entirely.
+    expect(
+      /<PracticeRooms/.test(s),
+      'EventDetail.tsx still renders <PracticeRooms>. Round 4 moved Practice Rooms into /meet, under the roster card — it no longer belongs on the event Details page.',
+    ).toBe(false);
   });
 
-  it('"View Principle" links to /room, not directly to /meet — /room is what decides readiness-vs-principle', () => {
+  it('Practice Rooms renders in EventRoomMeet.tsx, under the roster', () => {
+    const s = read(ROOM_MEET);
+    expect(
+      /<PracticeRooms/.test(s),
+      'EventRoomMeet.tsx does not render <PracticeRooms>. Round 4 moved it here, below the roster card, reversing the round-2 "leave it where it was!" call.',
+    ).toBe(true);
+  });
+
+  it('"Start event" links to /room, not directly to /meet — /room is what decides readiness-vs-principle', () => {
     const s = read(EVENT_DETAIL);
     expect(
       /to=\{`\/events\/\$\{slug\}\/room`\}/.test(s),
-      'EventDetail.tsx does not link "View Principle" to /events/:slug/room. Linking straight to /meet skips the readiness question for a first-time visitor — /room (EventRoomGate) is the route that checks readiness_value and decides whether to send them to /ready or /meet (founder repro, 2026-08-21: a fresh account went straight to the principle page).',
+      'EventDetail.tsx does not link "Start event" to /events/:slug/room. Linking straight to /meet skips the readiness question for a first-time visitor — /room (EventRoomGate) is the route that checks readiness_value and decides whether to send them to /ready or /meet (founder repro, 2026-08-21: a fresh account went straight to the principle page).',
     ).toBe(true);
     expect(
       /to=\{`\/events\/\$\{slug\}\/meet`\}/.test(s),
-      'EventDetail.tsx still links "View Principle" directly to /meet.',
+      'EventDetail.tsx still links "Start event" directly to /meet.',
     ).toBe(false);
   });
 });

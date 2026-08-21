@@ -58,9 +58,6 @@ vi.mock('@/app/components/shared/mobile-tooltip', () => ({
 vi.mock('@/app/components/shared/confirm-dialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('@/app/components/shared/PersonRow', () => ({ PersonRow: () => null }));
 vi.mock('@/components/ui/person-avatar', () => ({ PersonAvatar: () => null }));
-vi.mock('@/app/prototypes/events/components/PracticeRooms', () => ({
-  PracticeRooms: () => null,
-}));
 vi.mock('@/app/components/shared/banner', () => ({
   BannerDisplay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   BannerControls: () => null,

@@ -71,6 +71,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/auth';
 import {
   CertificateFrame,
   CertificateOathBody,
@@ -90,31 +91,51 @@ import { setRoomOptIn, resetRoomAnswer, subscribeToRoomRoster } from '@/app/data
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
+import { PracticeRooms } from './PracticeRooms';
 import type { EventRoomMember } from '@/app/types';
 
 const PRINCIPLE_LEVEL: MeetingTermsLevel = 3;
 const PRINCIPLE_TITLE = 'Clarity Meeting Principle';
 
 /**
- * Two columns from `xl` (1280px), not `lg` (1024px) — founder, 2026-08-21: "on desktop we
- * can put these people right to the main screen? that way we see both principle and the
- * list of people."
+ * Three columns from `min-[1600px]`, not `xl` (1280px) — round 4, founder: "the clarity
+ * meeting principle is now not the main thing, but it should be the main thing… the drawer
+ * and the action, the CTAs, they have to be in the middle… otherwise it's too weird to see
+ * CTA shifted left." The certificate sits on the PAGE's centre line (column 2), the roster
+ * is a narrow right-margin card (column 3, capped below), and column 1 is an empty spacer —
+ * matching column 3's `minmax(0,1fr)` share so the certificate centres in the viewport
+ * rather than merely in the content left of a wide roster.
  *
- * `xl` rather than `lg` is measured, not taste. The certificate holds its shipped 42rem
- * measure in the left column; at a 1024px viewport that leaves the roster column ~288px —
- * NARROWER than the 320px mobile case, and the roster row (avatar + name + "understood at
- * 6/10") has already overflowed once at that width. The squeeze band sits between `lg` and
- * `max-w-7xl`, so nothing at 375px, 320px or 1440px would have shown it. At 1280 the roster
- * column gets ~500px.
+ * `min-[1600px]` is derived, not guessed, from the layout's own numbers: cert(42rem=672px)
+ * + 2 gaps(2×4rem=128px) + 2×roster-cap(2×22rem=704px) + page padding(2×2rem=64px) = 1568px
+ * is the exact viewport where both flanking columns first reach a full 22rem each; 1600
+ * rounds that up for a small safety margin. Below that point the two-way split still gives
+ * the roster LESS than 22rem (its cap is a ceiling, not a floor), which visual QA caught
+ * squeezing the roster row into an avatar/badge/rating-text collision at 1400–1440px — the
+ * same overflow class already documented below 320px on the OLD two-column geometry, just
+ * reached from the desktop end this time. Below 1600: unchanged single stacked column.
  *
  * gap-16 (4rem) clears the certificate's own `shadow-[0_20px_60px_-15px]`, which extends
- * roughly 60px sideways and would otherwise bleed under the first roster rows.
+ * roughly 60px sideways and would otherwise bleed under the first roster rows. Both flanking
+ * columns are `minmax(0,1fr)`, NOT bare `1fr` — bare `1fr` is shorthand for
+ * `minmax(auto,1fr)`, so its minimum is the CONTENT's min-content width, not 0. A bare `1fr`
+ * column 3 blows out past its fair share to fit the roster's content while empty column 1
+ * shrinks to compensate, visibly un-centring the certificate (visual QA, round 4
+ * verification pass — this is what a `minmax(0,1fr)` breakpoint recheck actually caught,
+ * distinct from the squeeze issue above). `minmax(0,…)` pins the minimum to 0 so both
+ * flanking tracks split remaining space equally regardless of content, and the roster's own
+ * `max-w-[22rem]` handles sizing within its track.
  */
 // Built ON the shipped page's BAR_INNER_CLASS rather than restating its value, so the
-// mobile/tablet measure the two surfaces share stays one string. Only the xl widening is
-// this page's own.
-const PAGE_CONTAINER = cn(BAR_INNER_CLASS, 'xl:max-w-7xl');
-const TWO_COLUMN = 'xl:grid xl:grid-cols-[minmax(0,42rem)_minmax(18rem,1fr)] xl:gap-16 xl:items-start';
+// mobile/tablet measure the two surfaces share stays one string. `max-w-7xl` (1280px) is
+// dropped at this breakpoint — capping the container at 1280 would re-create the exact
+// squeeze this breakpoint move exists to avoid.
+const PAGE_CONTAINER = cn(BAR_INNER_CLASS, 'min-[1600px]:max-w-none min-[1600px]:px-8');
+const THREE_COLUMN =
+  'min-[1600px]:grid min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,42rem)_minmax(0,1fr)] min-[1600px]:gap-16 min-[1600px]:items-start';
+/** Column 3's cap — without it the roster grows to fill its whole `1fr` track instead of
+ * reading as a narrow margin card. */
+const ROSTER_COLUMN_CLASS = 'min-[1600px]:max-w-[22rem]';
 
 /** One roster row: PersonRow plus what that person answered, spelled out rather than
  * abbreviated — founder, 2026-08-21: "put here what they answered e.g. 'understood at
@@ -159,8 +180,11 @@ function RosterRow({ member }: { member: EventRoomMember }) {
   );
 }
 
-/** Renders nothing when the group is empty — founder, 2026-08-21: "hide groups that have 0,
- * no need to count totals, not needed". Both halves of that: no group, and no "(N)".
+/** Renders nothing when the group is empty — founder, 2026-08-21 round 3: "hide groups that
+ * have 0, no need to count totals, not needed". Round 4 reverses the second half of that:
+ * the roster is now a card that reads like `EventDetail.tsx`'s Participants card, which
+ * always carries a count, and the founder asked for it again this round — headings now read
+ * "Opted in (2)". The empty-group hide stays; only the "(N)" omission is reversed.
  *
  * The blank-roster case this could produce is covered one level up, NOT here: a group that
  * knows only about itself cannot tell "nobody is undecided" (worth saying) from "the whole
@@ -169,7 +193,7 @@ function RosterGroup({ title, testId, members }: { title: string; testId: string
   if (members.length === 0) return null;
   return (
     <div data-testid={testId} className="space-y-2">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <h3 className="text-sm font-semibold text-foreground">{title} ({members.length})</h3>
       <div className="space-y-2">
         {members.map((member) => (
           <div key={member.id} data-testid="room-roster-item">
@@ -184,6 +208,7 @@ function RosterGroup({ title, testId, members }: { title: string; testId: string
 export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
   /** Which answer the person has chosen but not yet committed with a number. Local, never
@@ -340,7 +365,7 @@ export function EventRoomMeet() {
 
       {/* Page chrome sits above the columns, at the container's own left edge, rather than
           inside the certificate column — so it does not shift sideways when the layout
-          splits in two at xl. */}
+          splits into three at min-[1600px]. */}
       <div className={cn(PAGE_CONTAINER, 'pt-4')}>
         <FocusHeader
           onBack={() => navigate(`/events/${slug}/ready`)}
@@ -349,7 +374,12 @@ export function EventRoomMeet() {
         />
       </div>
 
-      <div className={cn(PAGE_CONTAINER, TWO_COLUMN, 'pt-4')}>
+      <div className={cn(PAGE_CONTAINER, THREE_COLUMN, 'pt-4')}>
+        {/* Column 1 — empty spacer. Its only job is to be the same `1fr` share as column 3
+            so column 2 (the certificate) lands on the page's centre line rather than merely
+            centred in the space left of a wide roster. */}
+        <div aria-hidden="true" className="hidden min-[1600px]:block" />
+
         <div className="space-y-4">
           <CertificateFrame
             ariaLabel={PRINCIPLE_TITLE}
@@ -372,48 +402,81 @@ export function EventRoomMeet() {
             permanently out of reach — there is no second scroll container to recover it
             (adversarial review, 2026-08-21). The whole page scrolls instead, which is also
             what the fixed decision bar already assumes. */}
-        <div data-testid="room-roster" className="mt-6 space-y-6 xl:mt-0">
-          {roster.length === 0 ? (
-            /* The one case a per-group empty state cannot express. `getRoomRoster` returns
-               [] on ANY failure and the 30s reconciliation poll pushes that [] through
-               unconditionally, so this branch covers a transient fetch failure as well as
-               the pre-first-paint moment — and the spec's Risks require this to degrade to
-               readable text, "never an error state or an empty wall". With every group
-               hiding itself when empty, without this the section would render as nothing
-               at all. */
-            <p className="text-sm text-muted-foreground">Loading who is here…</p>
-          ) : (
-            <>
-              <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} />
-              <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} />
-              <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} />
-              {undecidedMembers.length === 0 && (
-                /* Empty-Undecided is the payoff of this whole feature, not a nothing —
-                   it is the moment the facilitator's "move yourself out of undecided" has
-                   landed for everyone. Hiding the group per the founder's instruction and
-                   saying nothing would render that moment as a heading quietly vanishing,
-                   which on a projected screen is indistinguishable from still loading. */
-                <p data-testid="room-roster-all-answered" className="text-sm text-muted-foreground">
-                  Everyone has answered.
-                </p>
-              )}
-            </>
+        <div className={cn('mt-6 space-y-6 min-[1600px]:mt-0', ROSTER_COLUMN_CLASS)}>
+          {/* Roster card — matches EventDetail.tsx's Participants card (`bg-card
+              rounded-xl border border-border shadow-sm p-6`), round 4: the roster reads as
+              a right-margin card, not a co-equal column. */}
+          <div data-testid="room-roster" className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
+            {roster.length === 0 ? (
+              /* The one case a per-group empty state cannot express. `getRoomRoster` returns
+                 [] on ANY failure and the 30s reconciliation poll pushes that [] through
+                 unconditionally, so this branch covers a transient fetch failure as well as
+                 the pre-first-paint moment — and the spec's Risks require this to degrade to
+                 readable text, "never an error state or an empty wall". With every group
+                 hiding itself when empty, without this the section would render as nothing
+                 at all. */
+              <p className="text-sm text-muted-foreground">Loading who is here…</p>
+            ) : (
+              <>
+                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} />
+                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} />
+                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} />
+                {undecidedMembers.length === 0 && (
+                  /* Empty-Undecided is the payoff of this whole feature, not a nothing —
+                     it is the moment the facilitator's "move yourself out of undecided" has
+                     landed for everyone. Hiding the group per the founder's instruction and
+                     saying nothing would render that moment as a heading quietly vanishing,
+                     which on a projected screen is indistinguishable from still loading. */
+                  <p data-testid="room-roster-all-answered" className="text-sm text-muted-foreground">
+                    Everyone has answered.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Practice Rooms — round 4 reverses the round-2 "leave it where it was!" call
+              (founder, confirmed again this round): it now lives in `/meet`, under the
+              roster card, not on the event Details page. `granted` (from
+              `useEventRoomAccess`) already gates the whole view to signed-in + registered
+              callers, so no extra `isLoggedIn` check is needed here — unlike EventDetail.tsx,
+              which is reachable by logged-out visitors and gates it explicitly.
+
+              Gated on `!isFrozen`, unlike the roster above: a closed event has no more live
+              practice to start, and `/meet` — unlike the old event Details page — is a
+              surface people keep open for an event's whole duration, so an ungated render
+              here would leave PracticeRooms' 5s poll running indefinitely in any tab left
+              open past the freeze boundary (code review, round 4). */}
+          {event && !isFrozen && (
+            <PracticeRooms
+              eventId={event.id}
+              eventSlug={slug ?? event.slug}
+              currentUserId={user?.id ?? null}
+              currentUserName={user?.name ?? null}
+            />
           )}
         </div>
       </div>
 
       {/* px-0 cancels FixedBottomBar's own p-4 horizontally so BAR_INNER_CLASS can own it —
-          that is the only way the bar's contents line up with the certificate above (see
-          BAR_INNER_CLASS's own comment). Shadow + top fade are what stop the hard cut where
-          scrolling content meets an opaque fixed bar reading as clipped content.
+          that is the only way the bar's contents stay centred on the page at every width.
+          Shadow + top fade are what stop the hard cut where scrolling content meets an
+          opaque fixed bar reading as clipped content.
 
-          At xl the bar's own chrome is switched OFF and re-applied to the certificate
-          column below. The bar is `fixed inset-x-0`, so its opaque background, border and
-          fade span the full width — which under a two-column layout means the tall rating
-          step painted a white band straight across the roster, hiding rows that have
-          nothing to do with the decision (caught in visual QA, 2026-08-21, at 1280 and
-          1440). Below xl there is only one column, so the full-width bar is correct and
-          nothing changes. */}
+          INVARIANT (round 4, founder, twice): the CTA/drawer is centred on the whole
+          viewport unconditionally, decoupled from wherever the certificate sits. It no
+          longer tracks the certificate column — the panel below is `BAR_INNER_CLASS`
+          itself (`mx-auto w-full max-w-2xl px-4`), the same measure the shipped /meet page
+          uses, at every width including min-[1600px]. Do not re-couple it to `THREE_COLUMN`
+          or `PAGE_CONTAINER` — that coupling is exactly what round 4 reverses.
+
+          At min-[1600px] the bar's own chrome is switched OFF and re-applied to the panel
+          below instead. The bar is `fixed inset-x-0`, so its opaque background, border and
+          fade span the full width — which under the three-column layout would paint a white
+          band straight across the roster during the tall rating step, hiding rows that have
+          nothing to do with the decision (this is why `pointer-events` moves to the panel
+          alone, not the bar — see below). Below min-[1600px] there is only one column, so
+          the full-width bar is correct and nothing changes. */}
       {!isFrozen && (
         <FixedBottomBar
           ref={setBarRef}
@@ -421,30 +484,28 @@ export function EventRoomMeet() {
             'px-0 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]',
             BAR_FADE_CLASS,
             // pointer-events-none is NOT cosmetic pairing with the transparency above it:
-            // FixedBottomBar is `fixed inset-x-0 z-50`, so at xl the now-invisible bar
-            // still spans BOTH columns and swallows clicks over the roster — every
-            // profile link in the band behind it would be silently dead, with nothing on
-            // screen to explain why (adversarial code review, 2026-08-21). Re-enabled on
-            // the panel itself below, which is the only part that holds controls.
-            'xl:border-transparent xl:bg-transparent xl:shadow-none xl:backdrop-blur-none xl:before:hidden xl:pointer-events-none',
+            // FixedBottomBar is `fixed inset-x-0 z-50`, so at min-[1600px] the now-invisible
+            // bar still spans the full width including the roster column and swallows
+            // clicks over it — every profile link in the band behind it would be silently
+            // dead, with nothing on screen to explain why (adversarial code review,
+            // 2026-08-21). Re-enabled on the panel itself below, which is the only part
+            // that holds controls.
+            'min-[1600px]:border-transparent min-[1600px]:bg-transparent min-[1600px]:shadow-none min-[1600px]:backdrop-blur-none min-[1600px]:before:hidden min-[1600px]:pointer-events-none',
           )}
         >
-          {/* The bar's controls track the CERTIFICATE column, not the page centre: at xl the
-              certificate is no longer centred, and a centred bar would sit under the gutter
-              between the two columns. Same container + same grid definition as the content
-              above, so the two cannot drift. Column 2 is deliberately empty — the roster has
-              no controls. */}
-          <div className={cn(PAGE_CONTAINER, TWO_COLUMN)}>
+          {/* Page-centred panel, not the certificate/roster grid — see the INVARIANT comment
+              above. `BAR_INNER_CLASS` is the exact measure the shipped /meet page's own
+              bar uses (`mx-auto w-full max-w-2xl px-4`), reused directly rather than
+              restated, so the two surfaces can never drift apart. */}
+          <div className={BAR_INNER_CLASS}>
             <div className={cn(
               'space-y-3',
-              // The chrome the bar gave up above, re-applied to this column alone at xl.
-              // The negative margin cancels the padding's effect on CONTENT position: the
-              // panel's box grows 16px wider each side while its contents stay on the
-              // certificate's own left edge. Without it the padding inset the buttons 18px
-              // (measured) from the certificate at 1280 while staying flush at 1024 —
-              // alignment that changed with the breakpoint, which is exactly what
-              // BAR_INNER_CLASS exists to prevent.
-              'xl:pointer-events-auto xl:-mx-4 xl:rounded-t-xl xl:border xl:border-b-0 xl:border-border xl:bg-background/95 xl:p-4 xl:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] xl:backdrop-blur',
+              // The chrome the bar gave up above, re-applied to this panel alone at
+              // min-[1600px]. No negative-margin cancellation here — the previous `-mx-4`
+              // existed only to keep the panel's content flush with the certificate's own
+              // left edge, and that alignment is exactly what round 4 removes (the panel is
+              // self-contained and page-centred, not certificate-relative).
+              'min-[1600px]:pointer-events-auto min-[1600px]:rounded-t-xl min-[1600px]:border min-[1600px]:border-b-0 min-[1600px]:border-border min-[1600px]:bg-background/95 min-[1600px]:p-4 min-[1600px]:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] min-[1600px]:backdrop-blur',
             )}>
               {/* Mounted in EVERY step, with the same testid and data attribute throughout.
                   An earlier build rendered it only once answered, which broke every check

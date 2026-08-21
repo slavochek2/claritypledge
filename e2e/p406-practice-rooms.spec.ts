@@ -2,7 +2,8 @@
  * @file p406-practice-rooms.spec.ts
  * @description E2E tests for P406: Practice Rooms — Event-Native Session Start
  *
- * Tests the user flows for the Practice Rooms feature on the event detail page:
+ * Tests the user flows for the Practice Rooms feature, now hosted on `/meet` (P1114
+ * round 4 — Practice Rooms moved off the event Details page, under the room roster):
  * 1. Empty state: Practice Rooms section visible with [+ Open a room] button
  * 2. Open a room: [+ Open a room] navigates to /live with returnTo param set
  * 3. Rooms list: waiting room shows creator name + [Join →] button
@@ -11,9 +12,17 @@
  * 6. [Leave]: removes your room from the list (optimistic update)
  * 7. [Join →]: navigates to /live/[code] join flow
  * 8. [+ Open a room] disabled when you already have an open room
- * 9. Unauthenticated user: [+ Open a room] prompts sign-in instead of navigating
  *
- * Test data setup: rooms created directly via supabaseAdmin (bypasses RLS).
+ * No unauthenticated-access test: `/meet` has no anonymous path (it sits behind
+ * `useEventRoomAccess`'s `granted = isLoggedIn && (isRegistered || isHost)` gate, same as
+ * every other room route), unlike the old event Details page which rendered Practice
+ * Rooms for logged-out visitors too. The P406 "unauthenticated user sees Practice Rooms
+ * but [+ Open a room] requires auth" case has no equivalent on `/meet` and is deleted
+ * rather than retargeted.
+ *
+ * Test data setup: rooms created directly via supabaseAdmin (bypasses RLS). Every
+ * viewing user is either the event host or `rsvpToEvent`'d, so `granted` passes and
+ * `/meet` actually renders instead of the gate screen.
  * No live real-time polling is tested here — that is covered by integration tests.
  * No actual two-party /live session is started.
  *
@@ -28,7 +37,7 @@ import {
   setTestSession,
   deleteTestUser,
 } from './helpers/test-user';
-import { createTestEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
+import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,7 +90,7 @@ test.describe('P406: Practice Rooms — empty state', () => {
       });
 
       await setTestSession(page, testUser.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       // Practice Rooms section heading
@@ -126,7 +135,7 @@ test.describe('P406: Practice Rooms — open a room', () => {
       });
 
       await setTestSession(page, testUser.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       await page.getByRole('button', { name: /open a room/i }).click();
@@ -134,10 +143,13 @@ test.describe('P406: Practice Rooms — open a room', () => {
       // Should navigate to /live (waiting screen) — may be /live directly or with params
       await expect(page).toHaveURL(/\/live/, { timeout: 10000 });
 
-      // returnTo param must point back to this event slug
+      // returnTo must point back to /meet specifically, not just the event slug — a bare
+      // `/events/${slug}` (no /meet) would land a finished /live session on the event
+      // Details page, outside the room the person actually launched from. Round 4's only
+      // render site is /meet now (code review finding), so this is the one correct target.
       const url = page.url();
       expect(url).toContain(`returnTo=`);
-      expect(url).toContain(encodeURIComponent(`/events/${event.slug}`) || event.slug);
+      expect(url).toContain(encodeURIComponent(`/events/${event.slug}/meet`));
     } finally {
       if (event) await deletePracticeRooms(event.id);
       if (event) await deleteTestEvent(event.id);
@@ -171,7 +183,7 @@ test.describe('P406: Practice Rooms — rooms list (waiting state)', () => {
 
       // View the event page as a different user
       await setTestSession(page, viewer.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       // Creator's name should appear in the rooms list
@@ -185,8 +197,13 @@ test.describe('P406: Practice Rooms — rooms list (waiting state)', () => {
       ).toBeVisible({ timeout: 10000 });
 
       // [Join →] button for this room
-      const joinBtn = page.getByRole('button', { name: /join/i })
-        .or(page.getByRole('link', { name: /join/i }))
+      // Anchored to the START of the accessible name ("Join …'s room"), not a bare
+      // substring match: on `/meet` (P1114 round 4 moved Practice Rooms here) the
+      // viewing user is auto-joined into the visible public roster, and a test fixture
+      // name that happens to CONTAIN "join" (e.g. "P406 JoinViewer") would otherwise
+      // collide with this locator via their own roster PersonRow link.
+      const joinBtn = page.getByRole('button', { name: /^join /i })
+        .or(page.getByRole('link', { name: /^join /i }))
         .first();
       await expect(joinBtn).toBeVisible({ timeout: 10000 });
     } finally {
@@ -236,14 +253,21 @@ test.describe('P406: Practice Rooms — rooms list (waiting state)', () => {
         sessionId: claritySessionId,
       });
 
-      // View as a different user and join
+      // View as a different user and join — must be registered (or host) for `/meet`'s
+      // access gate to pass.
+      await rsvpToEvent(event.id, viewer.user.id);
       await setTestSession(page, viewer.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       // Wait for the [Join →] button and click it
-      const joinBtn = page.getByRole('button', { name: /join/i })
-        .or(page.getByRole('link', { name: /join/i }))
+      // Anchored to the START of the accessible name ("Join …'s room"), not a bare
+      // substring match: on `/meet` (P1114 round 4 moved Practice Rooms here) the
+      // viewing user is auto-joined into the visible public roster, and a test fixture
+      // name that happens to CONTAIN "join" (e.g. "P406 JoinViewer") would otherwise
+      // collide with this locator via their own roster PersonRow link.
+      const joinBtn = page.getByRole('button', { name: /^join /i })
+        .or(page.getByRole('link', { name: /^join /i }))
         .first();
       await expect(joinBtn).toBeVisible({ timeout: 10000 });
       await joinBtn.click();
@@ -285,8 +309,10 @@ test.describe('P406: Practice Rooms — in-session room (locked)', () => {
         status: 'active',
       });
 
+      // Must be registered (or host) for `/meet`'s access gate to pass.
+      await rsvpToEvent(event.id, viewer.user.id);
       await setTestSession(page, viewer.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       // Should show "in session" indicator
@@ -294,9 +320,11 @@ test.describe('P406: Practice Rooms — in-session room (locked)', () => {
         page.getByText(/in session/i)
       ).toBeVisible({ timeout: 10000 });
 
-      // No [Join →] button for an active room
-      const joinBtn = page.getByRole('button', { name: /join/i })
-        .or(page.getByRole('link', { name: /join/i }));
+      // No [Join →] button for an active room. Anchored — see the comment on the
+      // earlier locator in this file for why a bare /join/i substring match is unsafe
+      // on `/meet`.
+      const joinBtn = page.getByRole('button', { name: /^join /i })
+        .or(page.getByRole('link', { name: /^join /i }));
       await expect(joinBtn).not.toBeVisible({ timeout: 5000 });
     } finally {
       if (event) await deletePracticeRooms(event.id);
@@ -328,7 +356,7 @@ test.describe('P406: Practice Rooms — your own room', () => {
       });
 
       await setTestSession(page, creator.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       // Should show "You" in the row (not the creator's name)
@@ -368,7 +396,7 @@ test.describe('P406: Practice Rooms — your own room', () => {
       });
 
       await setTestSession(page, creator.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       // [+ Open a room] must be disabled / aria-disabled
@@ -404,7 +432,7 @@ test.describe('P406: Practice Rooms — your own room', () => {
       });
 
       await setTestSession(page, creator.email);
-      await page.goto(`/events/${event.slug}`);
+      await page.goto(`/events/${event.slug}/meet`);
       await page.waitForLoadState('networkidle');
 
       // Confirm room is shown
@@ -424,43 +452,6 @@ test.describe('P406: Practice Rooms — your own room', () => {
       if (event) await deletePracticeRooms(event.id);
       if (event) await deleteTestEvent(event.id);
       if (creator) await deleteTestUser(creator.user.id);
-    }
-  });
-});
-
-test.describe('P406: Practice Rooms — unauthenticated access', () => {
-  test.describe.configure({ timeout: 30000 });
-
-  test('unauthenticated user sees Practice Rooms section but [+ Open a room] requires auth', async ({ page }) => {
-    let host: Awaited<ReturnType<typeof createTestUser>> | null = null;
-    let event: TestEvent | null = null;
-
-    try {
-      host = await createTestUser({ name: 'P406 Auth Event Host' });
-      event = await createTestEvent(host.user.id, undefined, {
-        title: 'P406 Auth Check Event',
-      });
-
-      // Navigate without setting a session (unauthenticated)
-      await page.goto(`/events/${event.slug}`);
-      await page.waitForLoadState('networkidle');
-
-      // Practice Rooms section should still render (public read)
-      await expect(
-        page.getByRole('heading', { name: /practice rooms/i })
-      ).toBeVisible({ timeout: 10000 });
-
-      // Clicking [+ Open a room] without auth should trigger sign-in flow
-      const openBtn = page.getByRole('button', { name: /open a room/i });
-      await expect(openBtn).toBeVisible({ timeout: 10000 });
-      await openBtn.click();
-
-      // Should redirect to /login or /signup (not to /live)
-      await expect(page).toHaveURL(/\/(login|signup)/, { timeout: 10000 });
-    } finally {
-      if (event) await deletePracticeRooms(event.id);
-      if (event) await deleteTestEvent(event.id);
-      if (host) await deleteTestUser(host.user.id);
     }
   });
 });
