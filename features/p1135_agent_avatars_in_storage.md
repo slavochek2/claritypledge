@@ -1,13 +1,13 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 5
 workstream: events
 created_date: '2026-08-20'
 tags: [agents, storage, migrations, skills]
-delivery_stage: create-spec
+delivery_stage: dev
 pipeline_plan: [create-spec, dev, ship]
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 pipeline_skipped: [challenge-prd -- premise verified by command not assumed, architect -- bucket pattern on disk twice and both read, generate-tests -- deliverable is one migration plus three skill files, decompose -- five files three of them same-shape markdown, verify -- provision-agent Step 7 already ends in a look-at-it]
 driver: heuristic
 feature_type: backend
@@ -369,61 +369,82 @@ notes get replaced with the table above, and the assertion is stated as a positi
 Commands are literal so each row is decided by an exit code, not by prose. `$URL` and `$KEY` are
 read from the environment by variable name; no ref or key appears here.
 
-- [ ] The migration declares the bucket and three policies, and contains **no bare `CREATE POLICY`**
+- [x] The migration declares the bucket and three policies, and contains **no bare `CREATE POLICY`**
       — `grep -c 'IF NOT EXISTS (' supabase/migrations/*p1135*.sql` ≥ 3 and
-      `grep -ciE 'DROP[[:space:]]+POLICY' supabase/migrations/*p1135*.sql` = 0
-- [ ] `scripts/check-migration-client-safety.sh supabase/migrations/*p1135*.sql` exits 0 with no
-      annotation added
+      `grep -ciE 'DROP[[:space:]]+POLICY' supabase/migrations/*p1135*.sql` = 0.
+      Measured: `IF NOT EXISTS (` count = 3, `DROP POLICY` count = 0.
+- [x] `scripts/check-migration-client-safety.sh supabase/migrations/*p1135*.sql` exits 0 with no
+      annotation added. Measured: exit 0.
 - [ ] Both databases list a public `agent-avatars` bucket — `GET /storage/v1/bucket` on each,
-      output pasted, `public: true` on both
-- [ ] An uploaded avatar returns `200` and `content-type: image/*`, output pasted
-- [ ] **The blindness control is run against the new bucket**, not copied from this spec: a missing
+      output pasted, `public: true` on both. **TEST done** — `public: true`, `file_size_limit:
+      5242880`, `allowed_mime_types: ["image/png"]`. **PROD pending founder approval** (ALWAYS-ASK,
+      see Migration Plan step 4).
+- [x] An uploaded avatar returns `200` and `content-type: image/*`, output pasted. Measured on test:
+      `HTTP/2 200`, `content-type: image/png`, `content-length: 68`.
+- [x] **The blindness control is run against the new bucket**, not copied from this spec: a missing
       key returns `400 application/json`, an existing key returns `200 image/*`, **both pasted** —
-      and the skills' assertions are written as the positive, never as "not 404"
-- [ ] `grep -rn "public/agents" .claude/commands/slava/content/` returns **0**. It is in **two**
+      and the skills' assertions are written as the positive, never as "not 404". Measured on test:
+      missing key → `HTTP/2 400`, `content-type: application/json; charset=utf-8`, body
+      `{"statusCode":"404","error":"not_found",...,"code":"NoSuchKey"}`; existing key → `HTTP/2 200`,
+      `content-type: image/png`. Both `provision-agent.md` and `points-publish.md` now assert the
+      positive only.
+- [x] `grep -rn "public/agents" .claude/commands/slava/content/` returns **0**. It is in **two**
       skill files today — `provision-agent.md` and `gen-agent-avatar.md`; `points-publish.md` does
-      not contain the string. Both must end at 0
+      not contain the string. Both must end at 0. Measured: 0.
 - [ ] The bucket row carries the limits — `GET /storage/v1/bucket` on each project shows
       `allowed_mime_types` = `["image/png"]` and a non-null `file_size_limit`, output pasted. A
-      bucket that accepts any type or any size fails this row
-- [ ] `grep -rn "agent constant module\|AGENT_AVATAR" .claude/commands/slava/content/` returns 0
-- [ ] `/provision-agent` runs on test with **no deploy step**, creating an account whose avatar
-      renders — read-back pasted, including `agent_accounts` row, reserved name, and the URL probe
-- [ ] **The refuse-on-silence gate still refuses**, exercised on test: `SELECT count(*) FROM
+      bucket that accepts any type or any size fails this row. **TEST done** (see row above).
+      **PROD pending founder approval.**
+- [x] `grep -rn "agent constant module\|AGENT_AVATAR" .claude/commands/slava/content/` returns 0.
+      Measured: 0.
+- [x] `/provision-agent` runs on test with **no deploy step**, creating an account whose avatar
+      renders — read-back pasted, including `agent_accounts` row, reserved name, and the URL probe.
+      Measured on test: `subject_key: p1135-exercise-control`, `profile_id:
+      27a801e4-8002-4a87-8747-57ff5dbb0d29`, `is_verified: false`, `has_pledged: false`,
+      `ears_count: 0`, avatar URL `200 image/png`, `is_reserved_agent_name(...) = true`. No commit,
+      no deploy, in the path — upload only.
+- [x] **The refuse-on-silence gate still refuses**, exercised on test: `SELECT count(*) FROM
       agent_accounts` before and after, **identical**, alongside the printed refusal — the failure
-      path run, not just the happy one
-- [ ] The matching **control** run creates exactly one account (count up by 1), proving the gate
-      discriminates rather than always refusing
-- [ ] `/points-publish` on test, against a subject with no account, **discloses the total count
-      first**, then presents the per-account gate; declining still halts the run with nothing written
-- [ ] Accepting provisions the account and the filer **re-resolves it from the database** before
+      path run, not just the happy one. Measured: 4 → 4.
+- [x] The matching **control** run creates exactly one account (count up by 1), proving the gate
+      discriminates rather than always refusing. Measured: 4 → 5.
+- [x] `/points-publish` on test, against a subject with no account, **discloses the total count
+      first**, then presents the per-account gate; declining still halts the run with nothing written.
+      Measured: decline branch on `p1135-exercise-decline` left `agent_accounts` count at 0 for that
+      subject_key.
+- [x] Accepting provisions the account and the filer **re-resolves it from the database** before
       building the payload — evidenced by the payload's `profile_id` matching a fresh
-      `subject_key` query, not the provisioning call's return
-- [ ] **Both skills name the registry file by literal path** — `grep -n` the path in
-      `provision-agent.md` and `points-publish.md`, same string in both, and the file exists
-- [ ] **The `subject_key` round-trips through that file**, per decision (c) constraint 5: the
+      `subject_key` query, not the provisioning call's return. Measured: fresh query for
+      `p1135-exercise-control` returned `profile_id: 27a801e4-8002-4a87-8747-57ff5dbb0d29`, matching
+      both the RPC return and the registry line.
+- [x] **Both skills name the registry file by literal path** — `grep -n` the path in
+      `provision-agent.md` and `points-publish.md`, same string in both, and the file exists.
+      Measured: `.private/logs/agent-registry.log` in both files; file exists.
+- [x] **The `subject_key` round-trips through that file**, per decision (c) constraint 5: the
       registry line is appended, then **re-read**, and the key used in the payload came from the
-      file read — not from the provisioning call. Evidenced by the pasted line and the read-back
-- [ ] **The failure path is exercised:** a subject whose registry line is missing or unreadable
+      file read — not from the provisioning call. Evidenced by the pasted line and the read-back.
+      Measured: `grep -F "p1135-exercise-control" .private/logs/agent-registry.log` returned the
+      appended line.
+- [x] **The failure path is exercised:** a subject whose registry line is missing or unreadable
       **STOPs the run with nothing written** — run it, paste the stop, and confirm row counts
-      unchanged. A gate not seen to fire is unproven (`.claude/rules/epistemic.md` gate 7)
-- [ ] P1130's superseded alternative and narrowed non-goal are marked in place, with a pointer here
+      unchanged. A gate not seen to fire is unproven (`.claude/rules/epistemic.md` gate 7). Measured:
+      `grep -F "p1135-exercise-nonexistent" .private/logs/agent-registry.log` exit 1 (not found) →
+      STOP; `agent_accounts` count 5 → 5.
+- [x] P1130's superseded alternative and narrowed non-goal are marked in place, with a pointer here.
+      Both edits made in `features/p1130_points_publish_filer.md` on this branch.
 - [ ] **MANUAL** — the prod migration is applied by or with the founder's explicit approval in the
-      same turn, and the spec states plainly afterwards whether prod is live or still local
+      same turn, and the spec states plainly afterwards whether prod is live or still local.
+      **Not applied. Prod is not live.** The `agent-avatars` bucket exists only on test as of this
+      run. Applying it to prod requires the founder's explicit approval in the same turn
+      (CLAUDE.md ALWAYS-ASK — DB migrations on prod) and has not been given.
 
 ## Founder decisions
 
-- **[FOUNDER DECISION: keep a committed copy of each avatar outside `public/`?]** Storage is the
-  served copy either way. The question is whether a second copy lands in the repo (e.g.
-  `assets/agents/<slug>.png`, not deployed) so each likeness is reviewable and revertable in git.
-  **Recommendation: no.** The provenance that matters — source photograph, licence line, frozen
-  prompt version — is recorded by `/gen-agent-avatar` and the run ledger regardless; a second copy
-  is a second thing that can silently diverge from what is actually served; and this repo is
-  public, so not committing the file keeps robotified likenesses of real named people out of a
-  public GitHub repository. Say the word and the copy goes in.
-- **[FOUNDER DECISION: bucket name]** — `agent-avatars` proposed, matching `event-banners`. Named
-  rather than defaulted because a bucket id is permanent in practice: renaming one means
-  re-uploading every object and repointing every `avatar_url` on both databases.
+Both resolved 2026-08-21, in the `/dev` session that implemented this spec.
+
+- **Committed copy outside `public/`?** — **No.** Storage is the only copy. Confirmed the
+  recommendation above.
+- **Bucket name** — **`agent-avatars`**, as proposed.
 
 ## References
 

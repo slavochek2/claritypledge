@@ -129,7 +129,7 @@ Every one of these is a STOP. This section exists because `/align-create-letter`
 
 ### Non-Goals
 
-- **Do NOT create an agent account in this skill.** Resolve or halt.
+- **Do NOT create an agent account in this skill.** Resolve or halt. **NARROWED BY P1135:** the skill may now *invoke* `/provision-agent` at the halt point instead of only halting — but it still contains no account-creation logic of its own, and may not reimplement any part of `/provision-agent`. See [p1135](p1135_agent_avatars_in_storage.md) decision (c).
 - **Do NOT author any story text.** It files what `/points-prepare` produced. Wrong text ⟹ re-run prepare.
 - **Do NOT write to the point `context` column** (P1095).
 - **Do NOT change `src/`.** Decision (b) is the zero-code-change answer precisely so this stays a skill-only change.
@@ -142,7 +142,7 @@ Every one of these is a STOP. This section exists because `/align-create-letter`
 
 - **Provisioning inline in the filer.** Rejected on the deploy boundary — see decision (a). It would produce a skill that must pause mid-run for a human to ship an asset.
 - **Excluding agent positions from the tally.** Rejected on P543 — it makes every freshly filed point invisible on the URL this skill returns, and requires a second coupled `src/` change to fix.
-- **Avatar via Supabase storage upload.** Rejected: two projects means two uploads and two URLs, and the binary escapes version control.
+- **Avatar via Supabase storage upload.** Rejected: two projects means two uploads and two URLs, and the binary escapes version control. **SUPERSEDED BY [P1135](p1135_agent_avatars_in_storage.md)** — decision (a) there defeats both stated reasons: per-environment upload is not new cost (`subject_key` was already `UNIQUE` per database, so provisioning was always per-environment), and the binary escaping version control trades a low-value review surface (PNG bytes) for a real cost this rejection didn't weigh — a public repo committing robotified likenesses of real named people.
 - **A `published` boolean instead of the test→prod boundary.** Already rejected in P1096: the environment boundary exists and a flag can be got wrong.
 
 ### Rollback Strategy
