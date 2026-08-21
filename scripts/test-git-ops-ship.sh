@@ -2401,6 +2401,48 @@ rm -f "$TT_MOVED"
 pass "TT: --resume re-bases a spec that was moved but not re-based (crash-window recovery, P1094 item 1)"
 
 # -----------------------------------------------------------------------------
+# AB. P1135/P1130 (2026-08-21): a co-located spec's link to a SIBLING spec that
+#     has ALREADY moved earlier in the same ship run. `resolved_before` checks
+#     whether the link resolves from the file's OLD directory — but if the
+#     target itself moved first (the primary spec closes before its co-located
+#     secondary), it no longer resolves from there either, `resolved_before` is
+#     already False, and the round-trip safety check is vacuously satisfied by
+#     a path that names nothing real. Observed live: P1130's `[P1135](p1135_..md)`
+#     links got rewritten to `../../p1135_..md` even though both specs landed in
+#     the identical directory, where the correct link was the unchanged text.
+# -----------------------------------------------------------------------------
+
+AB_FN="$SCRATCH/ab-fn.sh"
+awk '/^ship_rebase_doc_links\(\) \{$/,/^\}$/' "$GIT_OPS" > "$AB_FN"
+if ! grep -q '^ship_rebase_doc_links() {$' "$AB_FN"; then
+  fail "AB: could not extract ship_rebase_doc_links from git-ops.sh — declaration shape changed"
+fi
+
+AB_ROOT="$SCRATCH/ab"
+mkdir -p "$AB_ROOT/features/done/2026-06-10"
+# The sibling has ALREADY moved to its final location — nothing at the old path.
+echo "# sibling" > "$AB_ROOT/features/done/2026-06-10/p_sibling.md"
+# The file under test is written directly at its OWN new path (ship_rebase_doc_links
+# always reads/writes new_rel — the git mv has already happened by the time it runs).
+cat > "$AB_ROOT/features/done/2026-06-10/ab_demo.md" <<'EOF'
+# ab demo
+
+See [sibling](p_sibling.md) for details.
+EOF
+
+# shellcheck source=/dev/null
+( source "$AB_FN" && ship_rebase_doc_links "$AB_ROOT" "features/ab_demo.md" \
+    "features/done/2026-06-10/ab_demo.md" ) >/dev/null \
+  || fail "AB: re-base exited non-zero"
+AB_AFTER="$(cat "$AB_ROOT/features/done/2026-06-10/ab_demo.md")"
+if ! echo "$AB_AFTER" | grep -qF '](p_sibling.md)'; then
+  echo "$AB_AFTER" >&2
+  fail "AB: link to a sibling that already lives in the SAME new directory was rewritten instead of left alone — it now points at a stale pre-move path (P1135/P1130 regression)"
+fi
+rm -rf "$AB_ROOT" "$AB_FN"
+pass "AB: re-base leaves a link untouched when its target already resolves from the new directory (co-located sibling that moved first, P1135/P1130)"
+
+# -----------------------------------------------------------------------------
 # UU. Phase 2b must not strand Phase 3 (the "shipped but worktree survived" bug).
 #     Phase 3 (branch + worktree cleanup) runs LAST, so any abort after Phase 1
 #     landed the commits leaves a live branch + worktree while main already looks
@@ -2916,4 +2958,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, UU, VV, WW, XX, YY, ZZ, R2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, UU, VV, WW, XX, YY, ZZ, R2) hold"

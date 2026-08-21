@@ -1928,6 +1928,20 @@ def rebase(target):
     if from_root.startswith('..'):
         return None  # escapes the repo root — nothing sane to re-base onto
     resolved_before = exists(from_root)
+    if not resolved_before:
+        # The target doesn't resolve from THIS file's old location. That's expected
+        # when the link was already dead — but it's also what a co-located sibling
+        # spec looks like once IT has already moved earlier in the same ship run
+        # (P1135/P1130, 2026-08-21): the naive old-dir rebase math below is still
+        # internally consistent (round-trip matches), so nothing catches that it now
+        # points at nothing. Before trusting that math, check whether the ORIGINAL,
+        # unrebased link text already resolves from the NEW directory — the case
+        # exactly when the target independently moved to (or already lived in) this
+        # same directory. If so, the link is already correct; leave it untouched
+        # rather than rebase a path that's stale on both ends.
+        as_is_from_new = os.path.normpath(os.path.join(new_dir, fs)) if new_dir else fs
+        if exists(as_is_from_new):
+            return None
     new_fs = os.path.relpath(from_root, new_dir) if new_dir else from_root
     # The rewrite must name the SAME file from the new directory. If the round
     # trip disagrees, or a link that resolved before does not now, the path math

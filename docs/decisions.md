@@ -25,28 +25,35 @@ already moved to `done/2026-06-10/` earlier in the same ship. With `resolved_bef
 because the round-trip path-math on the OLD location is internally consistent — it just no longer
 points anywhere real.
 
-**Decision:** Fixed by hand for this ship (both specs land in the identical directory, so the correct
-links are same-directory: `p1135_agent_avatars_in_storage.md`, no `../../`), then committed as a
-separate `chore: close p1130` after `chore: close p1135`. Not fixed in `git-ops.sh` — the general case
-(N co-located specs cross-referencing each other, closing in the same batch, landing in the same or
-different dated folders) needs the rebase to resolve link targets against the OTHER specs' **post-move**
-paths when they're being closed in the same run, not against pre-move disk state. That's a real fix to
-`ship_rebase_doc_links()` and its caller, worth its own spec.
+**Decision:** Fixed by hand for this ship's own commit (both specs land in the identical directory, so
+the correct links are same-directory: `p1135_agent_avatars_in_storage.md`, no `../../`), committed as a
+separate `chore: close p1130` after `chore: close p1135`. **Then fixed at the root in `git-ops.sh`,
+same session:** `rebase()` now checks, whenever `resolved_before` is False, whether the *unrebased*
+link text already resolves from the **new** directory — the exact signature of a target that
+independently moved to (or already lived in) the same place. If so, the link is left untouched instead
+of being rebased against stale pre-move disk state. Verified both directions before landing: the
+reproduction fixture (co-located siblings landing in the same directory) was run against the
+pre-fix function extracted from git history and confirmed to reproduce the exact bad rewrite, then
+against the fixed function and confirmed the link is left correct. Pinned as canary `AB` in
+`scripts/test-git-ops-ship.sh`; full suite (63 canaries) re-run green.
 
 **Alternatives rejected:** *Rely on the pre-commit doc-link gate as the safety net* — it worked this
 time (caught all four, blocked the commit before it landed), but it only fires because the target
 doc happens to be staged doc content the ratchet checks; a co-located pair whose cross-links point at
 files the gate doesn't scan would land silently broken.
 
-**Consequences:** Any future ship that auto-closes co-located specs which cross-reference EACH OTHER
-should expect this exact failure — a `SUPERSEDED BY`/`See pN` link from the secondary spec to the
-primary spec, rewritten to a stale path once the primary has already moved. Distinct from the
-2026-08-18 P1105/P1094 finding (which covers *inbound* links from other files scattered across the
-repo, and *depth* miscounts on a single spec's own move) — this is a co-located PAIR's links to EACH
-OTHER, broken by move-ordering within one ship run.
+**Consequences:** The fix closes the common shape — co-located specs landing in the **same** dated
+folder, which is how `git-ops.sh` closes them today (one sprint dir per ship). **It does not close the
+general case:** if a future change ever let co-located specs land in *different* directories, a link
+from one to the other would need actual rebase math, and the new check (target already resolves
+unrebased from `new_dir`) would correctly decline to fire, falling through to the same stale-math path
+this entry describes — unfixed for that shape. Flag it if that day comes. Distinct from the 2026-08-18
+P1105/P1094 finding (which covers *inbound* links from other files scattered across the repo, and
+*depth* miscounts on a single spec's own move) — this is a co-located PAIR's links to EACH OTHER,
+broken by move-ordering within one ship run.
 
 **References:** `scripts/git-ops.sh` `ship_rebase_doc_links()` `:1861`, callers at `:2261`, `:2781`,
-`:2864` · [features/done/2026-06-10/p1130_points_publish_filer.md](../features/done/2026-06-10/p1130_points_publish_filer.md)
+`:2864` · `scripts/test-git-ops-ship.sh` canary `AB` · [features/done/2026-06-10/p1130_points_publish_filer.md](../features/done/2026-06-10/p1130_points_publish_filer.md)
 · [features/done/2026-06-10/p1135_agent_avatars_in_storage.md](../features/done/2026-06-10/p1135_agent_avatars_in_storage.md)
 · decisions.md 2026-08-18 [technical] (P1105/P1094, the related-but-distinct link-rebase findings)
 
