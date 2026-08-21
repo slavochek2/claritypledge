@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 53
 workstream: analytics
@@ -168,17 +168,9 @@ untaggable regardless of time window).
       ships to the public bundle. `vercel env add VITE_INTERNAL_ACCOUNT_EMAIL_HASHES production`
 
 ### Deploy commands
-- [ ] Trigger Vercel redeploy (VITE_* vars baked at build time — redeploy required)
-
-### Post-deploy verification
-- [ ] Smoke test: log in with the founder's own account in prod (a fresh magic-link/OAuth
-      completion, not just an already-persisted session), confirm `is_internal: true` on the
-      Mixpanel People profile
-- [ ] Confirm no `[P1133] VITE_INTERNAL_ACCOUNT_EMAIL_HASHES is unset` warning appears in the
-      browser console on that login
-- [ ] `curl` the deployed bundle and confirm the digest, not any plaintext email, is what's present:
-      `curl -s https://claritypledge.com/assets/index-*.js | grep -c "@"` should show no email-shaped
-      string beyond `@claritypledge.com`
+- N/A — Vercel auto-deploys on push to `main`; no manual redeploy command needed. `VITE_*` vars are
+  baked at build time, so the secret above must be provisioned BEFORE the push that ships this
+  code, not after.
 
 ### Alternatives Considered
 - **Filter internal accounts inside Mixpanel dashboards/saved reports instead of at the
@@ -190,6 +182,14 @@ untaggable regardless of time window).
   up.
 
 ## Done-When
+
+**`/verify` deliberately skipped, founder-confirmed 2026-08-21.** No `.tsx` diff in this spec
+renders anything differently — the two `.tsx` files touched (`AuthCallbackPage.tsx`,
+`AuthContext.tsx`) only gained analytics property calls, no JSX/render changes. The deterministic
+`p955-gate` (Chrome-independent, runs at every pre-commit) passed on every commit this spec
+produced — that's the actual blocking check `/dev`'s own UAT gate treats as mandatory; the
+Chrome-based perceptual pass it layers on top has nothing to check here. `status: qa` set directly
+on that basis rather than running `/verify` against no visual surface.
 
 - [x] `analytics.setUserProperties()` includes `is_internal: true|false` for every identified user
       at `AuthCallbackPage.tsx`, computed from `isTestAccount` OR `@claritypledge.com` domain OR a
@@ -217,12 +217,26 @@ untaggable regardless of time window).
       internal
 - [x] The new analytics block cannot block or strand the calling auth flow on any failure — wrapped
       in a detached, try/caught async IIFE
-- [ ] Verified in Mixpanel live view: a fresh login (not a persisted-session page load) from the
-      founder's own account shows `is_internal: true` on the People profile
-- [ ] Verified: `curl`-ing the deployed prod bundle does not contain the founder's plaintext email
 - [x] `docs/technical/analytics.md` notes the `is_internal` property and its four coverage gaps
       (anonymous events untaggable, People-property persistence/non-reversibility, silent
       domain-branch misclassification risk, `/live` migration not persisting `is_test_account`)
 - [x] A test exercises the REAL call site (`AuthCallbackPage.tsx`'s deferred IIFE calling
       `setUserProperties({..., is_internal})`), not just `isInternalAccount()` and
       `mapProfileFromDb()` in isolation — added to `p895-reproduce.test.tsx`
+
+**Dev-time verification is complete as of the checkboxes above** — code-path audit (this Done-When
+list) plus unit-test coverage. Prod runtime behavior (does it actually tag correctly on a real
+login) is not achievable pre-deploy by this codebase's own established analytics-spec convention
+(`src/lib/mixpanel.ts` short-circuits every call outside production — see
+`docs/decisions.md` 2026-05-22 [technical]) — see Post-Deploy Follow-up below instead of treating
+it as a blocking Done-When item.
+
+## Post-Deploy Follow-up (within 24h of shipping)
+
+- [ ] Log in with the founder's own account in prod (a fresh magic-link/OAuth completion, not just
+      an already-persisted session) — confirm `is_internal: true` on the Mixpanel People profile
+- [ ] Confirm no `[P1133] VITE_INTERNAL_ACCOUNT_EMAIL_HASHES is unset` warning appears in the
+      browser console on that login
+- [ ] `curl` the deployed bundle and confirm only a hash digest, never a plaintext email, is
+      present: `curl -s https://claritypledge.com/assets/index-*.js | grep -c "@"` should show no
+      email-shaped string beyond `@claritypledge.com`
