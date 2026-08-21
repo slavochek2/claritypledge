@@ -1,14 +1,14 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 46
 created_date: '2026-08-19'
 tags: [events, cmp, meet, ready, opt-in, room]
-delivery_stage: dev
+delivery_stage: verify
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_skipped: [challenge-prd -- the /grill-me walkthrough ran the same adversarial pass live with founder answers on all 14 decisions, ux -- spec already carries the 8 states and layout; the 10 copy strings are founder decisions no skill can produce, spec-compact -- the 302 lines are decisions not pipeline residue, decompose -- one coherent surface of one page one table one tab not 5 independent concerns]
-pipeline_ran: [create-spec, architect, generate-tests, dev]
+pipeline_ran: [create-spec, architect, generate-tests, dev, verify]
 driver: heuristic
 ---
 
@@ -422,50 +422,78 @@ walk-in they tested no longer exists: *"join with a name only",* *"a room row is
 as walk-in vs registered",* and *"the Present toggle hides controls and enlarges the roster."*
 
 ### The gate
-- [ ] Someone not registered for the event, or not signed in, sees only *register for this
+- [x] Someone not registered for the event, or not signed in, sees only *register for this
       event / sign in* — no roster, no principle, no readiness, nothing that leaks the room
-- [ ] A registered, signed-in person opening `/events/:slug/room` lands on `…/ready` without
-      typing a name or seeing a join form
-- [ ] `anon` holds **no** `EXECUTE` on any of this spec's four RPCs
-- [ ] No `client_secret` value is read or written anywhere in the client path
-- [ ] `clarity-live-page.tsx` still imports `GuestOrAccountJoin` (the extraction survives the
-      room dropping it — guarded by the reuse test)
+      (UAT-1, UAT-2)
+- [x] A registered, signed-in person opening `/events/:slug/room` lands on `…/ready` without
+      typing a name or seeing a join form (UAT-6)
+- [x] `anon` holds **no** `EXECUTE` on any of this spec's RPCs (verified 2026-08-21 by reading
+      `supabase/migrations/20260819170000_p1114_event_room_rpcs.sql` and
+      `20260821120000_p1114_public_roster_reversal.sql` — every `join_event_room`,
+      `set_room_opt_in`, `set_room_readiness`, `get_my_room_status`, `reset_room_answer` carries
+      `REVOKE ALL ... FROM PUBLIC, anon` + `GRANT EXECUTE ... TO authenticated`)
+- [x] No `client_secret` value is read or written anywhere in the client path (verified
+      2026-08-21: only occurrences in `src/` are the type definition and the dedicated guard
+      `src/tests/p1114-no-anon-surface.test.ts`, 4/4 passing)
+- [x] `clarity-live-page.tsx` still imports `GuestOrAccountJoin` (verified 2026-08-21:
+      `src/app/pages/clarity-live-page.tsx:81`; `src/tests/p1114-shared-component-reuse.test.tsx`
+      5/5 passing)
 
 ### The two pages
-- [ ] `…/ready` renders the shipped `/ready` composition — one question, `SliderTrack`,
-      `Continue` — with **no caption** beneath the slider
+- [x] `…/ready` renders the shipped `/ready` composition — one question, `SliderTrack`,
+      `Continue` — with **no caption** beneath the slider (UAT-7)
 - [ ] Its distribution shows this event's people only, and general `/ready` submissions never
-      appear in it
-- [ ] `…/meet` renders the shipped certificate composition with **`Opt in` / `Opt out` in the
-      fixed bottom bar** — no loose duplicate of that control anywhere on the page
-- [ ] The roster renders **above the bar, below the certificate**
-- [ ] Neither page renders the marketing nav, the footer, or a Present/`Project` control
-- [ ] The room has **no** understanding-number step and no `Start meeting` button
-- [ ] Standalone `/ready` and `/meet` behave identically to before this spec (existing tests
-      pass unmodified)
+      appear in it — **not independently re-verified 2026-08-21**; AC-to-test mapping (§ line
+      ~1127) already marks the reverse direction PARTIAL/structural-only, not positively tested
+- [x] `…/meet` renders the shipped certificate composition with **`Opt in` / `Opt out` in the
+      fixed bottom bar** — no loose duplicate of that control anywhere on the page (UAT-9, UAT-12)
+- [x] **SUPERSEDED 2026-08-21 (round 4):** replaced by "the certificate is centered via a
+      3-column grid, roster as a narrow right-margin card" — see UAT-26/27. The original
+      single-column "roster above the bar, below the certificate" layout no longer exists by
+      design (founder-driven redesign, not a regression).
+- [x] Neither page renders the marketing nav, the footer, or a Present/`Project` control (UAT-18)
+- [x] The room has **no** understanding-number step and no `Start meeting` button (UAT-13)
+- [x] Standalone `/ready` and `/meet` behave identically to before this spec (existing tests
+      pass unmodified) (UAT-24)
 
 ### The roster and the record
-- [ ] The roster is visible before the person answers, and shows opt-ins only — no opt-out is
-      displayed or counted anywhere in the UI
-- [ ] Signed-in attendees render as the normal person row — full name, profile link, avatar,
-      pledge ring, ear badge
-- [ ] A second browser opting in causes the first browser's roster to update **without a reload**
-- [ ] Changing an answer is possible, and the prior answer is still queryable afterwards
-- [ ] Each opt-in row stores how many people had already opted in at that moment
-- [ ] Room readiness values survive longer than 10 minutes
-- [ ] Opting in does **not** create an `event_rsvps` row
-- [ ] After `EVENT_GRACE_HOURS` past event start, the room rejects new answers and still
-      displays who was there
-- [ ] A room with `max_attendees` already reached still accepts opt-ins
-- [ ] An organization member sees themselves as **not** opted in until they confirm
-- [ ] Roster degrades to a static readable list if realtime fails — never an error state or an
-      empty wall
+- [x] **SUPERSEDED 2026-08-21 (commit `ccd8dee3`, founder-confirmed):** "shows opt-ins only, no
+      opt-out displayed/counted" was deliberately reversed — a facilitator running a live,
+      projected room wants "who's still undecided" visible to everyone present. The roster now
+      shows all three groups (opted in / opted out / undecided) by name; RLS was widened to match
+      (`20260821120000_p1114_public_roster_reversal.sql`) and the realtime canary was rewritten to
+      assert the opposite invariant. Recorded in `docs/decisions.md`. Not a leak — an intentional,
+      documented pivot.
+- [x] Signed-in attendees render as the normal person row — full name, profile link, avatar,
+      pledge ring, ear badge (UAT-11)
+- [x] A second browser opting in causes the first browser's roster to update **without a reload**
+      (UAT-14)
+- [x] Changing an answer is possible, and the prior answer is still queryable afterwards (UAT-15)
+- [ ] Each opt-in row stores how many people had already opted in at that moment — **checked
+      2026-08-21, not found**: no `opted_in_count`/`position_at`-style column in
+      `event_room_members` (`20260819160000_p1114_event_room_tables.sql`). Appears unbuilt, not
+      just untested.
+- [x] Room readiness values survive longer than 10 minutes (verified 2026-08-21: no cleanup/TTL
+      job exists against `event_room_members` in any p1114 migration — an ordinary table row,
+      durable by default; absence-of-cleanup check, not a positive timed test)
+- [x] Opting in does **not** create an `event_rsvps` row (verified 2026-08-21: no `event_rsvps`
+      reference anywhere in `set_room_opt_in`'s migration)
+- [x] After `EVENT_GRACE_HOURS` past event start, the room rejects new answers and still
+      displays who was there (UAT-20)
+- [ ] A room with `max_attendees` already reached still accepts opt-ins — **not independently
+      re-verified 2026-08-21**
+- [ ] An organization member sees themselves as **not** opted in until they confirm — **not
+      independently re-verified 2026-08-21**
+- [x] Roster degrades to a static readable list if realtime fails — never an error state or an
+      empty wall (the 30s reconciliation poll documented in UAT-15/Decision 3 is this fallback,
+      confirmed working live in that check)
 
 ### The event page
-- [ ] The tab bar sits **above the event card**, directly under `← Events`
-- [ ] Practice Rooms renders at its `main` position, inside the left column after the
-      description — byte-identical placement to `main`
-- [ ] Tab selection lives in the URL; one Back press moves one tab
+- [x] The tab bar sits **above the event card**, directly under `← Events` (UAT-21)
+- [x] **SUPERSEDED 2026-08-21 (round 4):** `<PracticeRooms>` moved off the Details page entirely,
+      into `/meet` below the roster — reverses the round-2 "leave it where it was!" call. See
+      UAT-28.
+- [x] Tab selection lives in the URL; one Back press moves one tab (UAT-23)
 
 ## UX Notes
 
@@ -491,17 +519,19 @@ room), after (who was there, frozen).
 **Revised 2026-08-20 (revision 2)** — the walk-in criterion is struck and replaced by its
 inverse.
 
-- [ ] A registered, signed-in attendee opens the room link and is on the roster within a
-      minute, without being asked anything they have already told us
-- [ ] Someone who is not registered is told what to do about it in one screen, and learns
-      nothing else about the room
-- [ ] A person in the room can tell who has opted in without asking anyone
-- [ ] A person who opted out at the start can opt in later in the same event, and that change
-      is visible to everyone
-- [ ] After the event, the event page still shows who was in the room
-- [ ] Nothing in the room UI reveals, counts, or implies who opted out
-- [ ] The two pages are recognisably the same pages as `/ready` and `/meet` — a person who has
-      used one is not learning a new screen
+- [x] A registered, signed-in attendee opens the room link and is on the roster within a
+      minute, without being asked anything they have already told us (UAT-6, UAT-8, UAT-12)
+- [x] Someone who is not registered is told what to do about it in one screen, and learns
+      nothing else about the room (UAT-1, UAT-2)
+- [x] A person in the room can tell who has opted in without asking anyone (UAT-9, UAT-11)
+- [x] A person who opted out at the start can opt in later in the same event, and that change
+      is visible to everyone (UAT-15)
+- [x] After the event, the event page still shows who was in the room (UAT-20)
+- [x] **SUPERSEDED 2026-08-21 (commit `ccd8dee3`, founder-confirmed):** same reversal as the
+      Done-When roster item above — a facilitator wants opted-out people visible too. Now reads
+      "the roster shows every member's current answer, grouped opted in / opted out / undecided."
+- [x] The two pages are recognisably the same pages as `/ready` and `/meet` — a person who has
+      used one is not learning a new screen (UAT-7, UAT-9)
 
 ## UI Contract
 
