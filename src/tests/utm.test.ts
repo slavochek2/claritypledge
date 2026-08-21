@@ -12,7 +12,8 @@ describe('withUtm', () => {
       medium: 'community-group',
       campaign: 'chiang-mai-run',
     });
-    const u = new URL(result);
+    expect(result).toBeDefined();
+    const u = new URL(result!);
     expect(u.searchParams.get('utm_source')).toBe('facebook');
     expect(u.searchParams.get('utm_medium')).toBe('community-group');
     expect(u.searchParams.get('utm_campaign')).toBe('chiang-mai-run');
@@ -24,7 +25,8 @@ describe('withUtm', () => {
       medium: 'calendar-subscribe',
       campaign: 'chiang-mai-calendar',
     });
-    const u = new URL(result);
+    expect(result).toBeDefined();
+    const u = new URL(result!);
     expect(u.searchParams.get('cid')).toBe('abc123');
     expect(u.searchParams.get('utm_source')).toBe('cm-page');
   });
@@ -35,7 +37,18 @@ describe('withUtm', () => {
       medium: 'email',
       campaign: 'test',
     });
-    const u = new URL(result);
+    expect(result).toBeDefined();
+    const u = new URL(result!);
     expect(u.searchParams.getAll('utm_source')).toEqual(['new']);
+  });
+
+  it('returns undefined for a relative URL instead of throwing', () => {
+    const result = withUtm('/cm', { source: 'facebook', medium: 'dm', campaign: 'test' });
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined for a javascript: URL', () => {
+    const result = withUtm('javascript:alert(1)', { source: 'facebook', medium: 'dm', campaign: 'test' });
+    expect(result).toBeUndefined();
   });
 });
