@@ -1,8 +1,8 @@
 ---
 name: provision-agent
-description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, commits and deploys the asset, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Records the subject_key for the pipeline that will file under it."
-when_to_use: "Before /slava:content:points-publish can file anything for a speaker who has never been covered, and whenever an existing agent's avatar must be regenerated. Run it once per environment — test and prod are separate databases and an agent in one is not an agent in the other. This is the ONLY skill that creates an agent account."
-version: 0.1.0
+description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, uploads it to the agent-avatars storage bucket, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Records the subject_key for the pipeline that will file under it."
+when_to_use: "Before /slava:content:points-publish can file anything for a speaker who has never been covered, and whenever an existing agent's avatar must be regenerated. Run it once per environment — test and prod are separate databases and an agent in one is not an agent in the other. This is the ONLY skill that creates an agent account. May be invoked inline by /slava:content:points-publish at its halt point (P1135 decision (c)) — the gate below runs unmodified either way."
+version: 0.2.0
 ---
 
 # /provision-agent
@@ -53,21 +53,28 @@ It gates the result at 20/40/96px and runs a similarity check against the source
 
 > **What the avatar is, since it is easy to mis-picture:** slate greys with one warm accent in the sensor eyes — *not* black and white. The **card** around it renders with its colour drained; the **avatar is deliberately exempt**, because a drained portrait stops being recognisable as a particular person, and recognition is the one thing the portrait channel exists to carry.
 
-> **Correcting `gen-agent-avatar` Step 4 — it is stale and this skill must not follow it.** It says to write the asset and *"register it beside the account id in the agent constant module."* **No such module exists** (`grep -rn "AGENT_ACCOUNT\|AGENT_AVATAR" src/` → 0 hits), and `public/agents/` does not exist either. P1104 shipped the `agent_accounts` **table** — row existence answers "is this an agent?" — not a constant. Its stated rationale ("no column that can return undefined") is also false: `p_avatar_url` is a free-text RPC parameter landing in `profiles.avatar_url`, and nothing validates it. **This skill sets `avatar_url` to the asset path and Step 4 gets corrected in the same change that first uses it.**
+## Step 3 — Upload the asset, before the account exists
 
-## Step 3 — Commit and DEPLOY the asset, before the account exists
+`/slava:content:gen-agent-avatar` Step 4 emits a 512px square PNG at a scratch path and hands it to this skill. Upload it to the **`agent-avatars`** storage bucket (P1135), object key `<subject-slug>/<uuid>.png`, `upsert: false`:
 
-Write `public/agents/<slug>.png` (512px, square, no transparency), commit it, and **deploy**.
+```bash
+curl -X POST "$TARGET_URL/storage/v1/object/agent-avatars/<subject-slug>/<uuid>.png" \
+  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+  -H "Content-Type: image/png" \
+  --data-binary @<scratch-path>.png
+```
 
-**This ordering is the reason provisioning is its own skill.** The avatar is a static asset, not a database value — so it must be *live on the target host* before the account is created, or the portrait channel silently drops to the initials fallback (`gravatar-avatar.tsx:134`) and the account renders with one fewer marker than it is supposed to have.
+Take the returned public URL — `$TARGET_URL/storage/v1/object/public/agent-avatars/<subject-slug>/<uuid>.png` — and pass it as `p_avatar_url` in Step 5.
+
+**This ordering is still the reason provisioning is its own skill**, even though the deploy is gone: the avatar must exist as a real object at a real URL before the account is created, or the portrait channel silently drops to the initials fallback (`gravatar-avatar.tsx:134`) and the account renders with one fewer marker than it is supposed to have. What changed is *what* "live" means — a storage upload, not a commit-and-deploy.
 
 Assert it with the credential a browser uses, and check the **content type**, not only the status:
 
 ```bash
-curl -sI "$TARGET_HOST/agents/<slug>.png" | grep -iE '^(HTTP/|content-type|content-length)'
+curl -sI "$TARGET_URL/storage/v1/object/public/agent-avatars/<subject-slug>/<uuid>.png" | grep -iE '^(HTTP/|content-type|content-length)'
 ```
 
-Must be `200` **and** `content-type: image/*` with a non-trivial length. *Measured 2026-08-20:* a missing `/agents/*.png` on prod returns a real `404 text/plain`, so a 200 here is meaningful on this host today — the content-type assert keeps it honest if the rewrite rules ever change.
+Must be `200` **and** `content-type: image/*` with a non-trivial length. **Against storage, do not assert "not 404" — assert the positive only** (P1135 decision (d)). Measured 2026-08-21 with a control: a missing object in a public bucket returns `HTTP/2 400`, `content-type: application/json`, body `{"statusCode":"404","error":"not_found",…,"code":"NoSuchKey"}` — the status **line** is 400, only the JSON body says 404. An existing object in the same bucket returns `HTTP/2 200`, `content-type: image/*`. A check written as "assert not 404" passes on every missing avatar on this host.
 
 ## Step 4 — The creation gate
 
@@ -111,7 +118,13 @@ Read back and **paste** the output:
 - the avatar URL still returns `200 image/*`;
 - `is_reserved_agent_name(<the name>)` returns **true** on the target.
 
-Then **record the key where the filer will read it** — append to the subject registry the pipeline uses, one line: `<Display Name> | <subject_key> | <profile_id> | <environment>`. Without this the next skill has no written source for the key and someone types it from memory, which is how a person's quotes end up under another person's account.
+Then **record the key where the filer will read it.** The registry file is `.private/logs/agent-registry.log` (gitignored — `.private/` — since a line carries a real name and a real UUID; this repo is public). Append one line:
+
+```
+<Display Name> | <subject_key> | <profile_id> | <environment>
+```
+
+**Then re-read the line back from the file** — `grep -F "<subject_key>" .private/logs/agent-registry.log` — and paste it. A value held only in this run's memory is not what P1135 decision (c) constraint 5 means by "a written artifact": the write must be confirmed by a read, not assumed from the write call succeeding. Without this the next skill has no written source for the key and someone types it from memory, which is how a person's quotes end up under another person's account.
 
 ## Step 7 — Look at it
 
@@ -123,7 +136,7 @@ Open the agent's profile page on the target host and confirm by eye: square avat
 
 ## Regenerating an avatar for an EXISTING agent
 
-A separate branch, deliberately: re-run Step 2 and Step 3, then `UPDATE profiles SET avatar_url = …` for that `profile_id`. **Never** call the creation RPC — the account exists. When `gen-agent-avatar` bumps its frozen prompt, every existing avatar is regenerated, or the accounts stop looking like one system.
+A separate branch, deliberately: re-run Step 2 and Step 3 (new object, new key — **never** `upsert: true` over the old one, decision (b)), then `UPDATE profiles SET avatar_url = …` for that `profile_id`, then delete the previous object at its old key. **Never** call the creation RPC — the account exists. A new key per generation makes `avatar_url` itself the version pointer; deleting the old object is best-effort cleanup, not a correctness requirement — an orphaned object on a failed delete is inert (P1135 Risks). When `gen-agent-avatar` bumps its frozen prompt, every existing avatar is regenerated, or the accounts stop looking like one system.
 
 ## Exercising the refuse-on-silence gate (required before this skill is trusted)
 
@@ -144,12 +157,12 @@ SELECT count(*) FROM agent_accounts;
 
 - [ ] **Reuse was checked BEFORE any photo or avatar work**, by exact `subject_key`.
 - [ ] **The avatar came from `/slava:content:gen-agent-avatar`**, not a hand-written prompt, and passed its 40px and similarity gates.
-- [ ] **The asset was committed AND deployed before creation**, asserted `200` + `content-type: image/*`.
+- [ ] **The asset was uploaded to `agent-avatars` storage before creation**, asserted `200` + `content-type: image/*` (never "not 404" — see decision (d)).
 - [ ] **The gate received an explicit affirmative** on the operator's own turn; silence treated as refusal.
 - [ ] **The display name is `Agent · <Subject>`** and `is_reserved_agent_name` returns true on the target.
 - [ ] **A lost response was handled by CHECKING, never by blind cleanup.**
 - [ ] **Reuse returning a different id was compared**, and only the freshly-minted auth user was removed.
-- [ ] **The subject_key was written to the registry file** the filer reads.
+- [ ] **The subject_key was written to `.private/logs/agent-registry.log` and re-read back**, not held only in memory.
 - [ ] **Read-back output was pasted, not summarised.**
 - [ ] **No literal secret or identity** — no address, password, key, profile UUID or person's name written into this file, any skill file, or any tracked artifact. This repo is public.
 
@@ -175,3 +188,5 @@ Append one line on **every** exit to `.private/logs/points-runs.log`:
 - `/slava:content:points-prepare` — upstream of both; produces the material.
 - `supabase/migrations/*p1104*.sql` — **seven** files, read as a set; the RPC lives in `20260819160000`, not the first one.
 - `e2e/helpers/test-agent-account.ts` — the reference implementation for mint-then-register.
+- `supabase/migrations/*p1135*.sql` — the `agent-avatars` bucket this skill uploads to.
+- `features/p1135_agent_avatars_in_storage.md` — why the avatar is a storage object and not a repo file.

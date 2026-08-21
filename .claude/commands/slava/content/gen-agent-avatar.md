@@ -2,7 +2,7 @@
 name: gen-agent-avatar
 description: Generate the avatar for an agent account — a robotified portrait of the subject that is recognizable as them and unmistakably not a photograph, verified at the sizes the product actually renders.
 when_to_use: Whenever an agent account is created or its subject's avatar is regenerated. Every agent account must get its avatar through this skill — consistency across accounts is the reason it exists, and a hand-rolled prompt breaks it.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Generate Agent Avatar
@@ -170,20 +170,19 @@ Note the SSIM output goes to **stderr** and the `All:` token only appears with t
 
 ---
 
-## Step 4 — Emit the asset
+## Step 4 — Emit the asset to a scratch path; the caller uploads
 
-Agent avatars are **static assets, not database rows.** This mirrors P1104's fail-closed decision: the same application-code constant that identifies an agent account also names its avatar, so there is no column that can return `undefined` and no upload pipeline that can be half-run.
+**Corrected under P1135.** This step previously said to write a static file under `public/` (a per-subject filename beneath an `agents` subfolder) and to register it beside the account id in a source constant that does not exist in `src/` — see `features/p1135_agent_avatars_in_storage.md` for the exact grep that established that. Its stated rationale ("no column that can return `undefined`") was also false: `p_avatar_url` is a free-text RPC parameter landing in `profiles.avatar_url`. This skill does not touch storage or the database — it emits a file and hands it back.
 
 ```bash
-mkdir -p public/agents
-sips -Z 512 agent-robot.png --out public/agents/{slug}.png
+sips -Z 512 agent-robot.png --out /tmp/agent-avatar-{slug}.png
 ```
 
 - `{slug}` — lowercase, hyphenated subject name (`donald-trump`, `slava-ladischenski`)
 - 512px is enough for every render site (largest current avatar is 96px, `xl`)
 - PNG, square, no transparency
 
-Register it beside the account id in the agent constant module, and set the display name to the P1104 form:
+Hand the scratch path back to the caller (`/slava:content:provision-agent` Step 3), which uploads it to the `agent-avatars` storage bucket and sets `p_avatar_url`. This skill sets the display name to the P1104 form for the caller to use:
 
 ```
 Agent · {Subject Name}
@@ -214,7 +213,7 @@ The first two avatars generated with this prompt (2026-08-19, `gemini-3-pro-imag
 - **Panel seams read as deliberate lines**, not texture noise
 - The subject's **hair silhouette and jaw line survive** — that is what carries recognition
 
-Once the first agent accounts ship, `public/agents/` **is** the reference set. Match it.
+Once the first agent accounts ship, the **`agent-avatars` storage bucket** (P1135) **is** the reference set. Match it.
 
 ---
 
@@ -222,4 +221,5 @@ Once the first agent accounts ship, `public/agents/` **is** the reference set. M
 
 - `features/p1104_agents_must_be_visually_distinguishable.md` — why the avatar exists, the three-channel design, the 20px measurement
 - `/slava:content:gen-image` — general-purpose image generation (Postiz-bound); shares the Nano Banana mechanics, different purpose
+- `features/p1135_agent_avatars_in_storage.md` — why Step 4 emits to scratch instead of the old static path
 - `.claude/rules/pii.md` — public figures vs private individuals

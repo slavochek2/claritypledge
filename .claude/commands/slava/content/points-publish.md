@@ -1,8 +1,8 @@
 ---
 name: points-publish
-description: "File a prepared disagreement to the product: one story per arguer holding only that speaker's verbatim quotes with the source link, the points public under one event tag, and each agent's position on each point. Reuses an existing agent per subject and NEVER creates one. Dry-run by default — it prints the exact payload it would write, and writes only that payload after an explicit affirmative. Returns the tag feed URL."
-when_to_use: "After /slava:content:points-prepare has produced points, story drafts and agent positions for a named room, every arguer already has an agent account, and the quotes have been checked against the source. Run it against TEST first; the prod run is a second, deliberate invocation. This is the only skill in the points chain that writes to the product."
-version: 0.6.0
+description: "File a prepared disagreement to the product: one story per arguer holding only that speaker's verbatim quotes with the source link, the points public under one event tag, and each agent's position on each point. Never creates an account itself; on a missing agent it may invoke /slava:content:provision-agent (P1135 decision (c)) rather than only halting. Dry-run by default — it prints the exact payload it would write, and writes only that payload after an explicit affirmative. Returns the tag feed URL."
+when_to_use: "After /slava:content:points-prepare has produced points, story drafts and agent positions for a named room, and the quotes have been checked against the source. Existing agent accounts are reused; missing ones may be provisioned inline, one gated confirmation each. Run it against TEST first; the prod run is a second, deliberate invocation. This is the only skill in the points chain that writes to the product."
+version: 0.7.0
 ---
 
 # /points-publish
@@ -32,16 +32,16 @@ Check all of them before building anything. A run where every gate passes and th
 | **P1104's TABLE is live on the target ref, READABLE BY ANON** | `agent_accounts` responds to a select **with the anon key**, not the service role | Service role bypasses RLS and column grants. The client reads `.select('profile_id, operator_name')` with the **anon** key (`agent-accounts-service.ts:46`), which needs `GRANT SELECT (profile_id, operator_name) … TO anon` to have landed. A service-role probe returns rows while the browser gets 403 — and on a failed fetch `isAgent` is `false` while pending, so the card renders **undrained, round, unmarked**. Probe with the credential the browser uses. |
 | **The filing identity is a HUMAN account** | an explicit `profile_id`, asserted `NOT EXISTS (SELECT 1 FROM agent_accounts WHERE profile_id = <it>)` | `first_validator_id` renders as the point's creator on the feed card and detail page (`points-service-real.ts:262,323,352,525,680,775`). Take it as an explicit id — never resolve it from an env var. **Do not reach for `OPS_EMAIL`:** the only prod identity this repo resolves from it is `bootstrap-align-agent.mjs:69`, the machine `Clarity Agent` account, which would file every point under a machine. |
 | **P1104's CLIENT is DEPLOYED to the target host** | the command below, `>= 1` | See the warning under this table. This is the assert that was prose in the first draft, and prose is what let `/align-create-letter` reach a green run measuring the wrong thing. |
-| **An `agent_accounts` row for every arguer** | exact match on `subject_key` | Reuse is the account model (P1096). A miss is a **halt**, not a create — see below. |
+| **An `agent_accounts` row for every arguer** | exact match on `subject_key` | Reuse is the account model (P1096). A miss halts or offers `/provision-agent` inline — never a create inside this skill. See below. |
 | **The arguers resolve to DISTINCT agents** | compare the resolved `profile_id`s | Two arguers on one agent (the same person speaking in both sources, or a duplicated `subject_key`) collides on `story_points_author_point_unique UNIQUE (author_id, point_id)` and again on `point_positions UNIQUE(point_id, user_id)`. Atomically that aborts everything, which is safe — but catch it at resolve time rather than by transaction failure, and note that one agent cannot hold two positions on one point anyway, so there is no artifact to salvage. |
 | **Speaker attribution was checked, not assumed** | named per quote, with the basis | Right words, wrong mouth is a **different failure** from mis-transcription and neither check below catches it. See the warning after the deploy check. |
 | **Every story body is under 10,000 characters** | `char_length` per story, before the write | `stories.content` carries `CHECK (char_length(content) <= 10000)` (P427). Summary + quotes + inference chains approach it. The transaction aborts on violation, which is safe — but a length check at build time tells you which story to shorten, instead of a Postgres error that tells you only that one of them was too long. |
-| **Each agent's avatar renders** | probe the URL **read back from `profiles.avatar_url` on the target ref** — never a path you reconstructed — and assert `200` **and** `content-type: image/*` | A 404 drops the portrait channel to the initials fallback (`gravatar-avatar.tsx:134`) silently. *Measured 2026-08-20:* a missing `/agents/*.png` on prod really does 404 (`text/plain`, 79 bytes) while an SPA route returns 200 `text/html` — so the status check is **not** blind on this host today. The content-type assert costs one line and keeps it honest if the rewrite rules ever change. |
+| **Each agent's avatar renders** | probe the URL **read back from `profiles.avatar_url` on the target ref** — never a path you reconstructed — and assert `200` **and** `content-type: image/*` | A missing avatar drops the portrait channel to the initials fallback (`gravatar-avatar.tsx:134`) silently. **Against storage, never assert "not 404"** (P1135 decision (d)) — *measured 2026-08-21 with a control:* a missing object in the `agent-avatars` bucket returns `HTTP/2 400`, `content-type: application/json`, body carrying `"code":"NoSuchKey"`; only the JSON says 404, the status **line** is 400. An existing object returns `HTTP/2 200`, `content-type: image/*`. Assert the positive (`200` + `image/*`) only — a "not 404" check passes on every missing avatar on this host. |
 | **Quote verification artifacts exist** | the per-quote `grep -F` exit codes against the cleaned transcript, **and** the audio-at-timecode check with who ran it and when | Prose saying "checked before filing" is the sentence that lets the check not happen. |
 | **The prediction seal FILE exists** | `.points-run-seals/<slug>.sha256` is committed | Absent ⟹ **STOP**. Present ⟹ proceed, and see the honesty note below: presence is all this skill can check. |
 | **The (ref, key) pair for the CHOSEN target** | the table below | Credentials by **variable name only**. **`OPS_EMAIL` is deliberately NOT listed** — this run never signs in, so it needs no account credential, and naming one is what points an agent at the `Clarity Agent` machine profile. |
 | **`SUPABASE_ACCESS_TOKEN`** in `.env.prod` | present by name | The Management API token. Without it the atomic path is unavailable — and since there is no fallback, its absence is a STOP rather than a silent downgrade. |
-| **`subject_key` came from a WRITTEN artifact** | the `arguer: … \| subject_key: … \| source: …` lines in `/points-prepare`'s run file, cross-checked against the registry `/provision-agent` appends to | It must not be typed from memory. Both upstream skills now emit it (prepare v0.5.0 Stage 8, provision-agent Step 6). A `subject_key: UNKNOWN` is a STOP. |
+| **`subject_key` came from a WRITTEN artifact** | the `arguer: … \| subject_key: … \| source: …` lines in `/points-prepare`'s run file, cross-checked against `.private/logs/agent-registry.log` — the file `/provision-agent` appends to and this skill re-reads from | It must not be typed from memory, including when this skill provisioned the account itself inline (P1135 decision (c) constraint 5). Both upstream skills now emit it (prepare v0.5.0 Stage 8, provision-agent Step 6). A `subject_key: UNKNOWN` is a STOP. |
 | **Attribution basis labelled per quote** | `speaker-labelled` / `single-speaker` / `turn-inferred`, from prepare's Stage 8 | `turn-inferred` on a multi-speaker source is a STOP — drop the quote or supply a single-speaker source. |
 
 ### The environment table — BOTH targets are named, because only naming prod is what sends a "test" run to prod
@@ -85,15 +85,23 @@ For each quote, state the attribution basis: `speaker-labelled` / `single-speake
 
 > **A missing variable is a STOP, never a search.** Do not go looking for a nearby variable that would satisfy the name. `/align-create-letter` records exactly this: an undefined variable sat two lines from the shared e2e prod test account, whose address and password are literals in a tracked file, and every downstream assert in that run would still have passed while filing under a fixture identity.
 
-### On a missing agent: HALT. Never create.
+### On a missing agent: HALT, or invoke `/provision-agent` inline (P1135 decision (c))
 
-**This skill has no account-creation path and none may be added.** Creating one spans a rights-cleared photograph, `/slava:content:gen-agent-avatar` with its own blocking gates, a committed asset, **a deploy**, an `auth.users` mint through the admin API, and `create_or_reuse_agent_account`. A filer cannot pause for a deploy.
+**This skill still contains no account-creation logic of its own, and none may be added.** What changed under P1135 is that at the halt point it may **invoke** `/slava:content:provision-agent` — a separate skill running its own gate — rather than only halting and telling the operator to run it themselves. Every constraint below is binding, not optional:
 
-On a miss, print the near-matches **by display name** and stop:
+1. **Disclose the complete list before the first creation.** Before provisioning anything, print every arguer in this run with no `agent_accounts` row and state the count as what it is: *"this run will create N permanent public identities."* The operator sees the total up front, not discovered one at a time.
+2. **One confirmation per account, never batched.** `/provision-agent` Step 4 runs unmodified and in full for each — including its permanence warning verbatim, never abbreviated for a second or third subject in the same run. There is no "yes to all", no flag, and none may be added.
+3. **Provisioning completes before the payload is built.** Order is: disclose the count → provision each missing subject (full `/provision-agent` gate per account) → **re-resolve every subject from the database by `subject_key`** → build the payload → hash → gate → write. The payload's `profile_id`s must never be placeholders filled in after hashing — that is the destination-outside-the-hash defect this repo already found once.
+4. **Re-resolution goes through the same path as a pre-existing account.** Never carry a `profile_id` forward from the provisioning call in conversation memory — same query, same code path, no special case for a subject created in this run.
+5. **The `subject_key` is written to `.private/logs/agent-registry.log` and re-read from it before use** — see the precondition table above. This is the case that breaks the "written artifact" precondition if skipped: a subject provisioned inline has its key **originated by `/provision-agent` and consumed by this skill inside one run**, so without the file round-trip there is no independent artifact and the cross-check degenerates to comparing the run with itself. A subject whose registry line cannot be read back is a **STOP**, identical to the `subject_key: UNKNOWN` stop.
 
-> "No agent for `<subject_key>`. Near matches: `<names>`. Run `/slava:content:provision-agent` for this subject, or confirm one of the above is the same person and supply its key."
+**Two gates now sit in one run and they must never be merged:** the per-account creation gate (`/provision-agent` Step 4) and the per-run payload gate (Stage 4 below). They protect different irreversibilities — one account, one publication.
 
-The operator's answer is the entire ambiguity mechanism — no fuzzy matching, no online resolution, no escalation path (P1096, deliberate).
+On a miss, print the near-matches **by display name** and offer the choice:
+
+> "No agent for `<subject_key>`. Near matches: `<names>`. Run `/slava:content:provision-agent` for this subject now, confirm one of the above is the same person and supply its key, or halt."
+
+Declining still halts the run with nothing written — this offer replaces nothing about that. The operator's answer is the entire ambiguity mechanism — no fuzzy matching, no online resolution, no escalation path (P1096, deliberate).
 
 > **Danger in that second branch.** "Confirm one of the above is the same person and supply its key" is the *right* answer for a genuine near-match — but on a key that differs only by case, a diacritic, or word order, the reachable action is provisioning a **second agent for one person**. That harm is measured and recorded in this repo (`20260819160000_p1104_reserve_agent_name_at_the_table.sql:268-272`): two agents for one subject can hold **opposing positions on the same point**, and `UNIQUE(point_id, user_id)` does not catch it because they are different users. The distinct-agents precondition above catches the collision case, not this one — the ids differ. When in doubt, stop and ask; do not provision.
 
@@ -369,8 +377,12 @@ The instrument is the before/after counts from stage 1.
 ## Quality Gates (self-review)
 
 - [ ] **Target ref came from `.env.prod`**, credentials from `.env.local` by variable name, the two files never merged, and the ref printed before the first write.
-- [ ] **No agent was created by this skill.** Every arguer resolved to an existing `agent_accounts` row, or the run halted.
-- [ ] **Every avatar returned 200** on the target host before the write.
+- [ ] **This skill contains no account-creation logic of its own.** Every arguer resolved to an existing `agent_accounts` row, or was provisioned by invoking `/slava:content:provision-agent` (never reimplemented inline), or the run halted.
+- [ ] **When provisioning ran, the total count was disclosed before the first creation gate.**
+- [ ] **A provisioned subject was re-resolved from the database by `subject_key`** before the payload was built — never carried forward as the value `/provision-agent` returned.
+- [ ] **Every provisioned `subject_key` was re-read from `.private/logs/agent-registry.log`**, not held only in memory, before entering the payload.
+- [ ] **The registry-miss STOP was exercised**, not just described — a subject whose registry line cannot be read back halted the run with row counts unchanged.
+- [ ] **Every avatar returned 200** on the target host before the write, asserted as the positive — never as "not 404".
 - [ ] **P1104's table AND client were both asserted** — the bundle grep returned `>= 1` for `agent_accounts`, with a non-zero control in the same file. Pasted, not summarised.
 - [ ] **Attribution basis stated per quote**, and nothing inferred-from-turn-markers on a multi-speaker source was filed.
 - [ ] **Every story body was length-checked against the 10,000-char CHECK** before the write.
@@ -406,7 +418,7 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | points-publish | <mod
 ## What this is NOT
 
 - **Not an author.** `/slava:content:points-prepare` produces the text. Wrong text ⟹ re-run prepare.
-- **Not a provisioner.** It creates no accounts, mints no auth users, generates no avatars.
+- **Not a provisioner.** It mints no auth users itself and generates no avatars itself — that logic lives entirely in `/slava:content:provision-agent` and `/slava:content:gen-agent-avatar`. It may **invoke** provisioning (P1135 decision (c)); it may not reimplement any part of it.
 - **Not a promoter.** There is no copy-from-test operation. The prod run is a second full invocation with its own dry-run and its own gate.
 - **Not re-runnable the way prepare is.** Every confirmed run writes. A second run files a second set.
 - **Not a `src/` change.** It writes rows the existing product already renders.
@@ -414,9 +426,10 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | points-publish | <mod
 ## Related
 
 - `/slava:content:points-prepare` — upstream; produces everything this files.
-- `/slava:content:provision-agent` — creates the accounts this requires, and appends the `subject_key` registry line this skill reads. **Built (v0.1.0).**
+- `/slava:content:provision-agent` — creates the accounts this requires, and appends the `subject_key` registry line this skill reads. May now be invoked inline from this skill's halt point (P1135). **Built (v0.2.0).**
 - `/slava:content:gen-agent-avatar` — mandatory for every new account; invoked by provision-agent, never by this skill.
 - `/slava:think:align-create-letter` — the prod-write precedent: credential discipline, the confirm gate, the constraints.
 - `features/p1130_points_publish_filer.md` — this skill's spec.
+- `features/p1135_agent_avatars_in_storage.md` — why a missing agent is now an offer, not only a halt.
 - `features/p1096_public_multisource_point_pipeline.md` — the pipeline.
 - `features/done/2026-06-10/p1104_agents_must_be_visually_distinguishable.md` — the marker and the registry.
