@@ -11,13 +11,13 @@ delivery_stage: reproduce
 pipeline_ran: [create-bug, reproduce]
 reproduce_artifact:
   test_file: e2e/integration/p1139-reproduce.spec.ts
-  root_cause: "Four INSERT policies created as `FOR INSERT WITH CHECK (true)` with no `TO <role>` scope and never revisited; the two later migrations that tightened this table family only touched UPDATE. anon holds the table-level INSERT grant, so the policy is the only gate. Confirmed empirically on test via the real unauthenticated REST path — not a policy-catalogue read. Crucially, unlike P1138's ml_training_sessions, NO table here has a legitimate client write path: every DB-touching idea-feed function in api.ts has zero callers repo-wide."
+  root_cause: "Four INSERT policies created with an unconditional write predicate and never revisited; the two later migrations that tightened this table family only touched UPDATE. anon holds the table-level INSERT grant, so the policy is the only gate. Confirmed empirically on test via the real unauthenticated REST path — not a policy-catalogue read. Crucially, unlike P1138's affected table, NO table here has a legitimate client write path: zero callers repo-wide. See .private/docs/security-log.md 2026-08-21 entry for affected tables/functions."
   confidence: high
-  surfaces_in_scope: [clarity_feed_ideas, clarity_idea_comments, clarity_idea_votes, clarity_idea_vote_history]
+  surfaces_in_scope: "see .private/docs/security-log.md 2026-08-21 entry"
   surfaces_deferred: []
-  surface_audit_anchor: "createFeedIdea|voteOnIdea|addIdeaComment|elevateCommentToIdea|getFeedIdeas|subscribeToFeed"
+  surface_audit_anchor: "see .private/docs/security-log.md 2026-08-21 entry"
   surface_audit_hits: 0
-  scenarios_excluded: "clarity_idea_votes UPDATE — allowlisted founder decision (scripts/rls-drift-allowlist.txt). INSERT side is in scope."
+  scenarios_excluded: "one sibling UPDATE carve-out — allowlisted founder decision (scripts/rls-drift-allowlist.txt). INSERT side is in scope."
   reproduced_at: '2026-08-21'
 ---
 
@@ -38,21 +38,20 @@ permissive at creation, never revisited), different tables and a different write
 
 ## Root Cause
 
-**Confirmed empirically 2026-08-21 on test (`gfjctyxqlwexxwsmkakq`). Prod never touched.**
+**Confirmed empirically 2026-08-21 on test. Prod never touched.** Affected tables, exact
+policy state, and reproduction detail are in the private log, not here (see banner above).
 
-All four policies are `FOR INSERT WITH CHECK (true)` with no `TO <role>` clause, exactly as
+All four policies carry an unconditional write predicate with no role scope, exactly as
 written at table creation. Neither later migration that tightened this family touched the
 INSERT side — both operated on UPDATE only. `anon` holds the table-level INSERT grant, so
 the policy is the only gate, and it admits everything.
 
 **The decisive finding, which changes the fix from P1138's:** none of the four tables has a
 legitimate client write path at all. Every DB-touching idea-feed function in
-`src/app/data/api.ts` — `createFeedIdea`, `voteOnIdea`, `addIdeaComment`,
-`elevateCommentToIdea`, `getFeedIdeas`, `getIdeaComments`, `getIdeaVoters`, `getVoteHistory`,
-`subscribeToFeed` — has **zero callers anywhere in the repo** (whole-repo grep; the only hits
-are `api.ts`'s own internal calls and a unit test covering the localStorage helpers). The
-`/feed` route serves P491's hashtag feed, an unrelated feature. This is the same shape as
-P1138's `clarity_verifications` finding: a write path that exists only in dead code.
+`src/app/data/api.ts` has **zero callers anywhere in the repo** (whole-repo grep; the only
+hits are `api.ts`'s own internal calls and a unit test covering the localStorage helpers).
+The `/feed` route serves P491's hashtag feed, an unrelated feature. This is the same shape as
+P1138's dead-code finding: a write path that exists only in code nothing calls.
 
 So the spec's original framing — "unless a table's write path is genuinely anonymous by
 product design" — resolves to: there is no write path to preserve on any of the four. The
@@ -60,14 +59,11 @@ only writes these policies can admit today are hostile ones.
 
 **Second class of defect, found during the scenario audit.** RLS is row-level only and says
 nothing about which *columns* a client may set. None of the four tables carries
-`GRANT INSERT (col)` scoping, so an unauthenticated caller can also set server-owned columns
-directly — proven on test by pinning `clarity_feed_ideas.created_at` to 2099 (which would
-permanently occupy the top of the feed's `order('created_at', desc)` query) and backdating
-`clarity_idea_vote_history.changed_at` to 2020 (planting a fabricated position-change ahead
-of the real one). This is the exact defect P1083's adversarial review caught on
-`ready_submissions` (2026-08-17) and closed with `REVOKE INSERT` + `GRANT INSERT (value)`.
-That table's migration cites `clarity_feed_ideas` as its precedent — the precedent itself
-was never given the same treatment.
+column-scoped INSERT grants, so an unauthenticated caller can also set server-owned columns
+directly — full reproduction technique in the private log. This is the exact defect P1083's
+adversarial review caught on `ready_submissions` (2026-08-17) and closed with
+`REVOKE INSERT` + `GRANT INSERT (value)`. That table's migration cites this same family as
+its precedent — the precedent itself was never given the same treatment.
 
 Originally discovered as a direct side effect of extending `scripts/rls-drift-check.py` for P1138's
 AC4 — a new leg that flags any `PERMISSIVE` write policy with an unconditional predicate
@@ -87,12 +83,12 @@ state via the Management API, both environments, 2026-08-21. `/reproduce` has no
 
 ## Reproduction Steps
 
-**Empirically reproduced 2026-08-21, test only (`gfjctyxqlwexxwsmkakq`).** All four tables
-were exploited end-to-end via the real unauthenticated REST path (anon key, no session, no
-ownership relationship). Every write landed. Verified by a service-role re-read after each
-attempt, never by reading the policy back. Per the P1138 pitfall, the anon writes are issued
-without `.select()` chained, so a SELECT-policy refusal on the echo-back can never be
-mistaken for a `WITH CHECK` refusal.
+**Empirically reproduced 2026-08-21, test only.** Full reproduction technique, affected
+tables, and project ref are in `.private/docs/security-log.md` — not here (see banner
+above). Every write landed; verified by a service-role re-read after each attempt, never by
+reading the policy back. Per the P1138 pitfall, the anon writes are issued without
+`.select()` chained, so a SELECT-policy refusal on the echo-back can never be mistaken for a
+`WITH CHECK` refusal.
 
 All seeded and exploited rows cleaned up after; zero residue confirmed by a follow-up
 service-role read, with row totals back to the exact pre-run baseline. Prod was never
@@ -148,14 +144,14 @@ place. Removing the feature outright would close it permanently and is the only 
 prevents this class recurring here a third time. Out of scope for this spec either way — but
 it is the actual root question, and it needs an answer rather than another policy patch.
 
-**Related latent bug, not filed:** `elevateCommentToIdea` (`api.ts:2727`) issues an `UPDATE`
-on `clarity_idea_comments` whose UPDATE policy was dropped by an earlier migration, and does
-not check the error — so it fails silently. Unreachable today (zero callers); it only matters
-if the feature is revived rather than removed.
+**Related latent bug, not filed:** one idea-feed function (see private log) issues an
+`UPDATE` whose policy was dropped by an earlier migration, and does not check the error — so
+it fails silently. Unreachable today (zero callers); it only matters if the feature is
+revived rather than removed.
 
 ## Non-Goals
 
-- The already-accepted `clarity_idea_votes` UPDATE carve-out (anonymous voting, no
+- The already-accepted sibling UPDATE carve-out (anonymous voting, no
   `auth.uid()` to bind against) is out of scope — already allowlisted, not a bug.
 - Read-side policies are out of scope; this spec covers writes only.
 - Removing the idea-feed feature itself (tables + `api.ts` code) is out of scope — see the

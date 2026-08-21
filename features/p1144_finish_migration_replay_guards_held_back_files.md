@@ -47,9 +47,9 @@ questions belong to the two blocking items below, not here.
    settled, write the `-- intentionally-public:` (or scoped) annotation truthfully and commit
    the already-written publication-membership guards.
 2. File and run `/reproduce` on the untriaged finding logged at
-   `.private/docs/security-log.md` 2026-08-21 ("clarity_sessions_creator_update grants
-   broader access than its documented intent") — not yet a P-number. Once settled, annotate
-   and commit the already-written guards in `20260223_p396_host_rls_and_session_constraints.sql`.
+   `.private/docs/security-log.md` 2026-08-21 entry — not yet a P-number. Once settled,
+   annotate and commit the already-written guards in
+   `20260223_p396_host_rls_and_session_constraints.sql`.
 3. Re-run the full from-empty `supabase start` verification P1132 did for the other 4 files,
    confirming the complete 6-file guard set (P1132's original scope) works together.
 
@@ -67,17 +67,17 @@ questions belong to the two blocking items below, not here.
 - Do NOT re-litigate P1132's own guard SQL — it is already written and verified; this spec
   only unblocks committing it.
 - Do NOT perform the RLS security triage inside this spec. That belongs to P1139 (already
-  filed) and a new bug spec for the `clarity_sessions_creator_update` finding (not yet filed
-  — file it via `/create-bug` when picking this up, referencing
-  `.private/docs/security-log.md` 2026-08-21).
+  filed) and a new bug spec for the finding logged at `.private/docs/security-log.md`
+  2026-08-21 (not yet filed — file it via `/create-bug` when picking this up, referencing
+  that entry).
 
 ## Done-When
 
 - [ ] `20251218_p19_3_idea_feed.sql`'s publication-membership guards are committed with a
       truthful annotation, sourced from P1139's `/reproduce` outcome
 - [ ] `20260223_p396_host_rls_and_session_constraints.sql`'s guards are committed with a
-      truthful annotation, sourced from a proper `/reproduce` on the `clarity_sessions_creator_update`
-      finding
+      truthful annotation, sourced from a proper `/reproduce` on the finding logged at
+      `.private/docs/security-log.md` 2026-08-21
 - [ ] `supabase start` applies the full from-empty chain including all 6 P1132-scope guarded
       files with zero errors (subject to P1132's own remaining P1054 dependency for
       `ml_training_sessions`), wall-clock recorded here
