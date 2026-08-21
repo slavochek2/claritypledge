@@ -99,7 +99,9 @@ export const PRIMARY_BUTTON_CLASS =
  * reading the text they are about to answer for, and a hard cut mid-sentence reads as
  * broken content rather than as "scroll for more".
  */
-const BAR_FADE_CLASS =
+// Exported: the room's /meet portals this in too (EventRoomMeet.tsx) — same fixed-bar-
+// over-scrolling-content shape, same "hard cut reads as broken content" problem.
+export const BAR_FADE_CLASS =
   "before:content-[''] before:absolute before:inset-x-0 before:-top-16 before:h-16 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none";
 
 /**

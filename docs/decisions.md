@@ -1729,6 +1729,20 @@ would not cover it. Status: proposed.
 
 ---
 
+## 2026-08-21 [product]: P1114 room roster — reversed opt-out visibility, reinstated the comprehension rating
+
+**Context:** P1114's original build (2026-08-19) made the event room's roster show ONLY opted-in members — a security-reviewed, canary-tested RLS policy (`opted_in = true`), on the reasoning that an opted-out or non-answering person shouldn't be publicly exposed. Manual testing surfaced two problems with that shape: (1) an opt-out never updated a projected roster live — traced to the SAME RLS filter silently blocking realtime delivery for any transition into a hidden state, not a separate bug; (2) the founder's actual use case is a facilitator running a live, in-person, projected room, where seeing who's still undecided is the explicit point — "let's have clarity who is in, who is not."
+
+**Decision:** Reversed the roster visibility policy — every room member is now shown by name, grouped into Opted in / Opted out / Undecided (`supabase/migrations/20260821120000_p1114_public_roster_reversal.sql`). This is a deliberate context call, not a walkback of the original security review: the original policy guarded against an anonymous crowd where a non-answer becomes unwanted public pressure; this room's attendees are already physically present and already know who is and isn't answering. `client_secret`'s column-level exclusion — the actual write-authorization boundary — is untouched; only row visibility widened.
+
+Alongside it, reinstated the "how much do you understand" 0-10 comprehension rating that P1114's original build deliberately cut (reasoned for a two-person phone handoff, judged not to apply to a room) — the founder reconsidered because a facilitator can ask the same question out loud to a whole room. It's now required before EITHER opt-in or opt-out (`set_room_opt_in`, now 3 args), shown publicly next to each answered name, with a new `reset_room_answer` RPC ("change my choice") that clears both the answer and the rating back to undecided together — not merely overwritten by a new answer.
+
+**Consequences:** `set_room_opt_in`'s old 2-arg signature was dropped outright (never shipped past this branch). The realtime canary (`e2e/integration/p1114-realtime-payload.spec.ts`) was rewritten to assert the opposite invariant of before — every state change now delivers, proven live rather than assumed. `docs/decisions.md` 2026-08-19 [technical]/[process] entries about the original opted-in-only policy stay as the historical record of what shipped first and why; this entry supersedes the visibility call, not the reasoning process that produced it.
+
+**References:** [supabase/migrations/20260821120000_p1114_public_roster_reversal.sql](../supabase/migrations/20260821120000_p1114_public_roster_reversal.sql) · [src/app/prototypes/events/components/EventRoomMeet.tsx](../src/app/prototypes/events/components/EventRoomMeet.tsx) · [features/p1114_event_room_presence_and_cmp_opt_in.md](../features/p1114_event_room_presence_and_cmp_opt_in.md)
+
+---
+
 ## 2026-08-19 [process]: Ask the outcome record before trusting a mechanism argument — three cited claims died on one grep
 
 **Context:** Executing the `/goalify` plan (entry below). The plan was unusually well-sourced: every claim carried `file:line`, and it had survived **three** adversarial reviews. Re-verifying it before building — because ~30 commits had landed since its base — falsified **three load-bearing claims**, all in the same way.

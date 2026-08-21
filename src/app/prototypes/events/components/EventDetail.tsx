@@ -347,9 +347,11 @@ export function EventDetail() {
         {/* P1114 REVISED 2026-08-21: the row sits directly under "← Back to Events",
             above the event card — the founder annotated "the menu should be here!"
             pointing here. Not a Radix Tabs component: "Details" is the only page
-            state this component ever renders now, and "Clarity Principle" is a plain
-            navigation (a real <Link>, not a tab selection) to the room's smart entry
-            point — full screen, the same page a shared link already opens. Using a
+            state this component ever renders now, and "View Principle" (was "Clarity
+            Principle" — shortened for the nav row, same founder pass that added the
+            room's public roster + comprehension rating, decisions.md 2026-08-21) is a
+            plain navigation (a real <Link>, not a tab selection) to the room's smart
+            entry point — full screen, the same page a shared link already opens. Using a
             Tabs/TabsTrigger for a same-page-selection widget to drive a real route
             change doesn't fit Radix's model: onValueChange double-fires per click
             (focus activation + click) with no way to suppress the second call once
@@ -373,7 +375,7 @@ export function EventDetail() {
             to={`/events/${slug}/room`}
             className="inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Clarity Principle
+            View Principle
           </Link>
         </div>
 

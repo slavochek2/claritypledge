@@ -53,7 +53,7 @@ test.describe('P1114: event_room_members / event_room_answers — schema, grants
   test('event_room_members table and columns exist (admin, bypasses RLS)', async () => {
     const { error } = await supabaseAdmin
       .from('event_room_members')
-      .select('id, event_id, profile_id, display_name, client_secret, opted_in, readiness_value, joined_at')
+      .select('id, event_id, profile_id, display_name, client_secret, opted_in, readiness_value, comprehension_rating, joined_at')
       .limit(1);
     expect(error, `Migration not applied: ${error?.message}`).toBeNull();
   });
@@ -135,18 +135,36 @@ test.describe('P1114: event_room_members / event_room_answers — schema, grants
         'anyone reading the public roster can lift edit tokens and impersonate every attendee.',
     ).toBe('42501');
 
+    // CORRECTED 2026-08-21: `select('*')` does NOT silently omit the ungranted column —
+    // Postgres's column-privilege model requires privilege on EVERY column a wildcard
+    // expands to, so a wildcard select against a table where any column is restricted
+    // fails the WHOLE query with 42501 (confirmed live: `permission denied for table
+    // event_room_members`, not a partial row). The old version of this assertion
+    // (`keys.not.toContain('client_secret')`) was vacuously true either way, since a
+    // failed query returns no keys at all regardless of what leaked — it never actually
+    // exercised the wildcard path. Asserting the 42501 directly is the real guarantee,
+    // and it's a STRONGER one: wildcard access is categorically blocked, not filtered.
     const star = await anonClient.from('event_room_members').select('*').eq('id', visible.id);
-    const keys = star.data?.[0] ? Object.keys(star.data[0]) : [];
     expect(
-      keys,
-      `SELECT * on a visible row exposed client_secret via a wildcard even though the named ` +
-        `column select was rejected. Keys returned: ${keys.join(', ')}`,
-    ).not.toContain('client_secret');
+      star.error?.code,
+      'SELECT * must be rejected outright (42501) when any column on the table is not ' +
+        'granted to anon — this table intentionally excludes client_secret from its grant.',
+    ).toBe('42501');
+
+    // Positive control, via a NAMED select (the only path that can actually succeed on
+    // this table for anon) — confirms comprehension_rating (added 2026-08-21) really is
+    // in the re-issued column grant, not just that client_secret stayed excluded.
+    const named2 = await anonClient.from('event_room_members').select('comprehension_rating').eq('id', visible.id);
+    expect(named2.error, `comprehension_rating must be readable by anon: ${named2.error?.message}`).toBeNull();
   });
 
-  // ─── Roster SELECT policy: opted_in = true only (Decision 2) ─────────────────
+  // ─── Roster SELECT policy: every answer state visible (Decision 2, REVISED 2026-08-21) ──
 
-  test('anon SELECT on the roster returns only opted_in = true rows — not false, not NULL (not-yet-answered)', async () => {
+  test('anon SELECT on the roster returns every row regardless of opted_in — true, false, AND NULL (not-yet-answered)', async () => {
+    // REVISED 2026-08-21 (decisions.md): this test asserted the OPPOSITE before —
+    // see 20260821120000_p1114_public_roster_reversal.sql for the reversal's
+    // rationale. The policy is now `USING (true)`; nothing in this table is
+    // filtered by answer state any more.
     const optedIn = await seedRoomMember(event.id, { optedIn: true, displayName: 'P1114 Roster Visible' });
     const optedOut = await seedRoomMember(event.id, { optedIn: false, displayName: 'P1114 Roster Opted Out' });
     const notAnswered = await seedRoomMember(event.id, { optedIn: null, displayName: 'P1114 Roster Not Answered' });
@@ -160,8 +178,8 @@ test.describe('P1114: event_room_members / event_room_answers — schema, grants
 
     const ids = data?.map((r) => r.id) ?? [];
     expect(ids, 'the opted-in row must be visible on the roster').toContain(optedIn.id);
-    expect(ids, 'an opted-OUT row must never be visible on the roster').not.toContain(optedOut.id);
-    expect(ids, 'a not-yet-answered (NULL) row must not be visible on the roster').not.toContain(notAnswered.id);
+    expect(ids, 'an opted-out row must be visible on the roster (reversed 2026-08-21)').toContain(optedOut.id);
+    expect(ids, 'a not-yet-answered (NULL) row must be visible on the roster (reversed 2026-08-21)').toContain(notAnswered.id);
   });
 
   // ─── display_name CHECK constraint (Build Sequence step 1 / Security Review Input Validation) ──

@@ -991,6 +991,9 @@ export interface EventRoomMember {
   optedIn: boolean | null;
   /** null = has not answered yet. 0-10, no expiry (Decision 6 / spec §7). */
   readinessValue: number | null;
+  /** null = has not rated yet. 0-10. Required by set_room_opt_in to answer at all
+   * (2026-08-21 reinstatement) — never set without opted_in also being set, and vice versa. */
+  comprehensionRating: number | null;
   joinedAt: string;
   /** Read-side join to `profiles`, populated only by the public roster query
    * (getRoomRoster) — REVISED 2026-08-20: the roster renders registered attendees

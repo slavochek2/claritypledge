@@ -116,6 +116,10 @@ GRANT EXECUTE ON FUNCTION public.join_event_room(uuid, text) TO authenticated;
 -- ============================================================================
 -- 2. set_room_opt_in — the only path that changes opted_in, and writes history
 -- ============================================================================
+-- REVISED 2026-08-21 (decisions.md) — SUPERSEDED. This 2-arg signature was dropped and
+-- replaced by a 3-arg version (adds a required comprehension rating) in
+-- 20260821120000_p1114_public_roster_reversal.sql, which is authoritative for the current
+-- signature. Left here, unedited, as the historical record of what originally shipped.
 
 CREATE OR REPLACE FUNCTION public.set_room_opt_in(p_member_id uuid, p_opted_in boolean)
 RETURNS SETOF public.event_room_members

@@ -84,10 +84,17 @@ describe('P1114 rev2: the principle page mirrors the shipped /meet', () => {
 
   it('places the roster ABOVE the decision bar', () => {
     const s = read(ROOM_MEET);
-    const roster = s.indexOf('Who opted in');
-    const bar = s.indexOf('FixedBottomBar');
-    expect(roster, 'EventRoomMeet.tsx has no "Who opted in" roster heading.').toBeGreaterThan(-1);
-    expect(roster < bar, 'The roster renders after the decision bar in EventRoomMeet.tsx. Seeing who has already opted in is the strongest thing that can sit in front of the next person; placing it after the decision wastes it.').toBe(true);
+    const roster = s.indexOf('data-testid="room-roster"');
+    // <FixedBottomBar (the JSX open tag), not the bare word — the bare word also matches
+    // this file's own import statement, which always precedes any JSX in source order and
+    // would make this assertion pass for the wrong reason regardless of actual render order
+    // (caught 2026-08-21: the previous version of this check, `s.indexOf('FixedBottomBar')`,
+    // only ever passed because an unrelated doc-comment happened to mention "Who opted in"
+    // even earlier in the file than the import — a coincidence, not a real ordering check).
+    const bar = s.indexOf('<FixedBottomBar');
+    expect(roster, 'EventRoomMeet.tsx has no room-roster element.').toBeGreaterThan(-1);
+    expect(bar, 'EventRoomMeet.tsx does not render <FixedBottomBar as JSX.').toBeGreaterThan(-1);
+    expect(roster < bar, 'The roster renders after the decision bar in EventRoomMeet.tsx. Seeing who has already answered is the strongest thing that can sit in front of the next person; placing it after the decision wastes it.').toBe(true);
   });
 
   it('carries no loose duplicate of the decision buttons', () => {
@@ -96,9 +103,22 @@ describe('P1114 rev2: the principle page mirrors the shipped /meet', () => {
     expect(optIns, `EventRoomMeet.tsx renders "Opt in" ${optIns} times. It belongs once, in the fixed bar. A rejected build rendered a loose copy at the end of the scroll, duplicating a control the shipped page already carries.`).toBeLessThanOrEqual(1);
   });
 
-  it('has no understanding-number step and no Start meeting button', () => {
+  it('gates opt-in/opt-out behind a comprehension rating, but not via the full pre-built card, and has no Start meeting button', () => {
     const s = read(ROOM_MEET);
-    expect(/ComprehensionRatingCard|Start meeting/.test(s), 'EventRoomMeet.tsx carries the understanding number or "Start meeting". Both exist for one situation — two people, one phone, a host standing there to ask the follow-up out loud. In a room of forty nobody asks, and there is no phone to hand back. This is the one deliberate divergence from /meet (spec revision 2).').toBe(false);
+    // REVISED 2026-08-21 (decisions.md): the room build originally cut the
+    // understanding-number step entirely (spec revision 2 — two-person phone-handoff
+    // reasoning). The founder reinstated it for a facilitated room, gating BOTH opt-in
+    // and opt-out on a rating first — but via the bare RatingButtons primitive, not the
+    // full ComprehensionRatingCard (that card ships its own single generic Submit
+    // button; this page needs two — Opt in / Opt out — sharing one rating value).
+    expect(/RatingButtons/.test(s), 'EventRoomMeet.tsx does not use RatingButtons. The comprehension rating (required before answering, 2026-08-21) must reuse the shared 0-10 primitive, not a bespoke control.').toBe(true);
+    expect(/from\s*['"]@\/app\/components\/shared\/comprehension-rating-card['"]/.test(s), 'EventRoomMeet.tsx imports the full ComprehensionRatingCard. That card renders its own single Submit button; this page needs the rating to gate TWO buttons (Opt in / Opt out) sharing one selected value, so it composes RatingButtons directly instead. (A doc-comment mention of the name, explaining why it is NOT used, is fine — only an actual import should fail this check.)').toBe(false);
+    expect(/Start meeting/.test(s), 'EventRoomMeet.tsx carries "Start meeting". That exists for one situation — two people, one phone, a host standing there to ask the follow-up out loud. In a room of forty nobody asks, and there is no phone to hand back. This remains the one deliberate divergence from /meet.').toBe(false);
+  });
+
+  it('"change my choice" resets both the answer and the rating, not just one', () => {
+    const s = read(ROOM_MEET);
+    expect(/resetRoomAnswer/.test(s), 'EventRoomMeet.tsx does not call resetRoomAnswer. "Change my choice" must clear BOTH the opt-in/out answer and the comprehension rating back to undecided (founder: "they go back to Undecided") — overwriting just one with a new answer is a different, rejected shape.').toBe(true);
   });
 });
 
@@ -126,32 +146,32 @@ describe('P1114 rev2: chrome and routing', () => {
     }
   });
 
-  it('the "Clarity Principle" row sits above the event card', () => {
+  it('the "View Principle" row sits above the event card', () => {
     const s = read(EVENT_DETAIL);
-    const row = s.indexOf('Clarity Principle');
+    const row = s.indexOf('View Principle');
     const title = s.indexOf('{event.title}</h1>');
-    expect(row, 'EventDetail.tsx no longer renders "Clarity Principle".').toBeGreaterThan(-1);
+    expect(row, 'EventDetail.tsx no longer renders "View Principle" (was "Clarity Principle" — shortened 2026-08-21).').toBeGreaterThan(-1);
     expect(title, 'EventDetail.tsx no longer renders the event title heading.').toBeGreaterThan(-1);
-    expect(row < title, 'The "Clarity Principle" row renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card.').toBe(true);
+    expect(row < title, 'The "View Principle" row renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card.').toBe(true);
   });
 
   it('Practice Rooms is not gated by tab state — the "cmp" tab concept no longer exists in this file', () => {
     const s = read(EVENT_DETAIL);
-    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "Clarity Principle" is a plain navigation Link to the room now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
+    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "View Principle" is a plain navigation Link to the room now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
     expect(/<Tabs[\s>]|<TabsList|<TabsTrigger|<TabsContent/.test(s), 'EventDetail.tsx still imports/renders a Radix Tabs component. onValueChange double-fires per click and roving-focus arrow keys would fire it too — wrong tool for a same-row link that performs a real route change.').toBe(false);
     const pr = s.lastIndexOf('<PracticeRooms');
     expect(pr, 'EventDetail.tsx no longer renders PracticeRooms.').toBeGreaterThan(-1);
   });
 
-  it('"Clarity Principle" links to /room, not directly to /meet — /room is what decides readiness-vs-principle', () => {
+  it('"View Principle" links to /room, not directly to /meet — /room is what decides readiness-vs-principle', () => {
     const s = read(EVENT_DETAIL);
     expect(
       /to=\{`\/events\/\$\{slug\}\/room`\}/.test(s),
-      'EventDetail.tsx does not link "Clarity Principle" to /events/:slug/room. Linking straight to /meet skips the readiness question for a first-time visitor — /room (EventRoomGate) is the route that checks readiness_value and decides whether to send them to /ready or /meet (founder repro, 2026-08-21: a fresh account went straight to the principle page).',
+      'EventDetail.tsx does not link "View Principle" to /events/:slug/room. Linking straight to /meet skips the readiness question for a first-time visitor — /room (EventRoomGate) is the route that checks readiness_value and decides whether to send them to /ready or /meet (founder repro, 2026-08-21: a fresh account went straight to the principle page).',
     ).toBe(true);
     expect(
       /to=\{`\/events\/\$\{slug\}\/meet`\}/.test(s),
-      'EventDetail.tsx still links "Clarity Principle" directly to /meet.',
+      'EventDetail.tsx still links "View Principle" directly to /meet.',
     ).toBe(false);
   });
 });

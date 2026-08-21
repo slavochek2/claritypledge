@@ -116,6 +116,12 @@ GRANT SELECT (id, event_id, profile_id, display_name, opted_in, readiness_value,
 -- not just true of what a UI component chooses to render. A not-yet-answered (NULL) row is
 -- exactly as invisible as an opted-out (false) row — both fail `opted_in = true`.
 --
+-- REVISED 2026-08-21 (decisions.md) — SUPERSEDED. This policy was widened to show every
+-- room member regardless of answer. See 20260821120000_p1114_public_roster_reversal.sql
+-- for the reversal and its rationale; that migration is authoritative for the CURRENT
+-- policy text. Left here, unedited, as the historical record of what originally shipped
+-- and why — do not edit this block to describe the new behavior; describe it there.
+--
 -- The participant's own device reads its own row — including a legitimate opt-out — through
 -- get_my_room_status (companion migration), which is SECURITY DEFINER and therefore bypasses
 -- this policy once the caller proves it holds the row's client_secret.
@@ -187,6 +193,12 @@ REVOKE ALL ON public.event_room_answers FROM anon, authenticated;
 -- out of supabase_realtime rather than trusting a row-level filter) and drive the roster
 -- from the Decision 3 reconciliation poll alone, client-side. Do NOT "fix" a red canary by
 -- loosening the SELECT policy above — that reopens the exact leak Decision 2 exists to close.
+--
+-- REVISED 2026-08-21 (decisions.md) — SUPERSEDED. The "do NOT loosen the SELECT policy"
+-- warning above described a leak; 20260821120000_p1114_public_roster_reversal.sql widens
+-- the policy on purpose, for a different reason than that warning anticipated (see that
+-- migration's own comment for the rationale). That file also carries the canary's rewrite
+-- to the new invariant. Left here, unedited, as the historical record.
 --
 -- event_room_answers is never added here. It has no client-facing surface at all
 -- (section 2 above), so there is nothing for any client to subscribe to.

@@ -90,7 +90,7 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
   test('all four RPCs exist under their new (no-secret) signatures', async () => {
     const calls: Array<[string, Record<string, unknown>]> = [
       ['join_event_room', { p_event_id: upcomingEvent.id, p_display_name: 'schema check' }],
-      ['set_room_opt_in', { p_member_id: '00000000-0000-4000-8000-000000000000', p_opted_in: true }],
+      ['set_room_opt_in', { p_member_id: '00000000-0000-4000-8000-000000000000', p_opted_in: true, p_comprehension: 5 }],
       ['set_room_readiness', { p_member_id: '00000000-0000-4000-8000-000000000000', p_value: 5 }],
       ['get_my_room_status', { p_event_id: upcomingEvent.id }],
     ];
@@ -108,7 +108,7 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     const join = await anon.rpc('join_event_room', { p_event_id: upcomingEvent.id, p_display_name: 'Anon Attempt' });
     expect(join.error, 'join_event_room must refuse an anonymous caller — revision 2 retired the walk-in.').not.toBeNull();
 
-    const optIn = await anon.rpc('set_room_opt_in', { p_member_id: seeded.id, p_opted_in: true });
+    const optIn = await anon.rpc('set_room_opt_in', { p_member_id: seeded.id, p_opted_in: true, p_comprehension: 5 });
     expect(optIn.error, 'set_room_opt_in must refuse an anonymous caller.').not.toBeNull();
 
     const readiness = await anon.rpc('set_room_readiness', { p_member_id: seeded.id, p_value: 5 });
@@ -215,15 +215,72 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     memberIds.push(memberId);
 
     const outsiderClient = await signInAs(outsider);
-    const wrong = await outsiderClient.rpc('set_room_opt_in', { p_member_id: memberId, p_opted_in: true });
+    const wrong = await outsiderClient.rpc('set_room_opt_in', { p_member_id: memberId, p_opted_in: true, p_comprehension: 5 });
     expect(wrong.error, 'set_room_opt_in must reject a caller who does not own this row').not.toBeNull();
     const afterWrong = await readRoomMember(memberId);
     expect(afterWrong?.opted_in, 'state must be unchanged after a rejected cross-owner attempt').toBeNull();
 
-    const right = await client.rpc('set_room_opt_in', { p_member_id: memberId, p_opted_in: true });
+    const right = await client.rpc('set_room_opt_in', { p_member_id: memberId, p_opted_in: true, p_comprehension: 8 });
     expect(right.error, `set_room_opt_in must succeed for the row's own owner: ${right.error?.message}`).toBeNull();
     const afterRight = await readRoomMember(memberId);
     expect(afterRight?.opted_in).toBe(true);
+    expect(afterRight?.comprehension_rating, 'the comprehension rating must be written together with the answer').toBe(8);
+  });
+
+  test('set_room_opt_in rejects a NULL/omitted comprehension rating — a rating is required to answer at all, opt-in or opt-out', async () => {
+    // ISOLATED event — a fresh member with a KNOWN starting state (opted_in: null),
+    // not `joiner`'s row on the shared `upcomingEvent`, which other tests in this
+    // file already answer.
+    const ratingGateEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(ratingGateEvent.id);
+    const member = await seedRoomMember(ratingGateEvent.id, { optedIn: null, profileId: joiner.user.id });
+    memberIds.push(member.id);
+    const client = await signInAs(joiner);
+
+    const missing = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: null });
+    expect(missing.error, 'a NULL comprehension rating must be rejected — reinstated 2026-08-21, required for both opt-in and opt-out').not.toBeNull();
+    const after = await readRoomMember(member.id);
+    expect(after?.opted_in, 'state must be unchanged after a rejected missing-rating attempt').toBeNull();
+
+    const outOk = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: false, p_comprehension: 2 });
+    expect(outOk.error, 'a valid rating must be required for OPT-OUT too, not just opt-in').toBeNull();
+    const afterOut = await readRoomMember(member.id);
+    expect(afterOut?.opted_in).toBe(false);
+    expect(afterOut?.comprehension_rating).toBe(2);
+  });
+
+  test('reset_room_answer clears both the answer and the rating back to undecided, and rejects a non-owner', async () => {
+    const resetEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(resetEvent.id);
+    const member = await seedRoomMember(resetEvent.id, { optedIn: true, comprehensionRating: 7, profileId: joiner.user.id });
+    memberIds.push(member.id);
+    const client = await signInAs(joiner);
+
+    const outsiderClient = await signInAs(outsider);
+    const wrong = await outsiderClient.rpc('reset_room_answer', { p_member_id: member.id });
+    expect(wrong.error, 'reset_room_answer must reject a caller who does not own this row').not.toBeNull();
+    const afterWrong = await readRoomMember(member.id);
+    expect(afterWrong?.opted_in, 'state must be unchanged after a rejected cross-owner reset').toBe(true);
+
+    const { error } = await client.rpc('reset_room_answer', { p_member_id: member.id });
+    expect(error, `reset_room_answer must succeed for the row's own owner: ${error?.message}`).toBeNull();
+    const after = await readRoomMember(member.id);
+    expect(after?.opted_in, 'opted_in must be cleared back to NULL (undecided)').toBeNull();
+    expect(after?.comprehension_rating, 'comprehension_rating must be cleared back to NULL too, not just opted_in').toBeNull();
+  });
+
+  test('reset_room_answer is refused past the freeze boundary on an already-existing member', async () => {
+    // `outsider`, not `joiner` — `joiner` already holds a row on the shared frozenEvent
+    // from the set_room_opt_in freeze test above, and the partial unique index
+    // (event_id, profile_id) allows only one row per person per event.
+    const member = await seedRoomMember(frozenEvent.id, { optedIn: true, comprehensionRating: 6, profileId: outsider.user.id });
+    memberIds.push(member.id);
+    const client = await signInAs(outsider);
+    const { error } = await client.rpc('reset_room_answer', { p_member_id: member.id });
+    expect(error, 'a reset attempt on a frozen event must be rejected server-side, not just hidden by the UI').not.toBeNull();
+    const after = await readRoomMember(member.id);
+    expect(after?.opted_in, 'state must be unchanged after a rejected frozen-room reset').toBe(true);
+    expect(after?.comprehension_rating).toBe(6);
   });
 
   test("one member's session cannot mutate a DIFFERENT member's row", async () => {
@@ -237,7 +294,7 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     memberIds.push(memberA.id, memberB.id);
 
     const clientA = await signInAs(joiner);
-    const cross = await clientA.rpc('set_room_opt_in', { p_member_id: memberB.id, p_opted_in: true });
+    const cross = await clientA.rpc('set_room_opt_in', { p_member_id: memberB.id, p_opted_in: true, p_comprehension: 5 });
     expect(cross.error, "member A's session must not authorize a mutation of member B's row").not.toBeNull();
     const after = await readRoomMember(memberB.id);
     expect(after?.opted_in, "member B's opt-in must be unchanged").toBeNull();
@@ -247,7 +304,7 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     const member = await seedRoomMember(frozenEvent.id, { optedIn: null, profileId: joiner.user.id });
     memberIds.push(member.id);
     const client = await signInAs(joiner);
-    const { error } = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true });
+    const { error } = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: 5 });
     expect(error, 'an answer change on a frozen event must be rejected server-side').not.toBeNull();
     const after = await readRoomMember(member.id);
     expect(after?.opted_in).toBeNull();
@@ -273,14 +330,15 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     const client = await signInAs(joiner);
 
     // Attempt to spoof the counter via an extra parameter the RPC signature
-    // (per the migration: p_member_id, p_opted_in only) does not define.
+    // (per the migration: p_member_id, p_opted_in, p_comprehension only) does not define.
     const spoof = await client.rpc('set_room_opt_in', {
       p_member_id: subject.id,
       p_opted_in: true,
+      p_comprehension: 5,
       p_cascade_count: 999,
     } as never);
     if (spoof.error) {
-      const real = await client.rpc('set_room_opt_in', { p_member_id: subject.id, p_opted_in: true });
+      const real = await client.rpc('set_room_opt_in', { p_member_id: subject.id, p_opted_in: true, p_comprehension: 5 });
       expect(real.error, `real (unspoofed) call must succeed: ${real.error?.message}`).toBeNull();
     }
 
@@ -304,11 +362,11 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     memberIds.push(member.id);
     const client = await signInAs(joiner);
 
-    const optIn1 = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true });
+    const optIn1 = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: 5 });
     expect(optIn1.error, `first opt-in failed: ${optIn1.error?.message}`).toBeNull();
-    const optOut = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: false });
+    const optOut = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: false, p_comprehension: 3 });
     expect(optOut.error, `opt-out failed: ${optOut.error?.message}`).toBeNull();
-    const optIn2 = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true });
+    const optIn2 = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: 9 });
     expect(optIn2.error, `second opt-in failed: ${optIn2.error?.message}`).toBeNull();
 
     const current = await readRoomMember(member.id);
@@ -346,7 +404,7 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     // A room member joined 20 minutes ago with readiness already set — well past
     // ready_submissions' 10-minute RLS cutoff (20260816120000_p1083_ready_submissions.sql).
     const member = await seedRoomMember(upcomingEvent.id, {
-      optedIn: true, // must be opted-in to pass the roster's own SELECT policy at all
+      optedIn: true, // opted-in isn't required for visibility any more (2026-08-21) — kept true here just to exercise a realistic answered row
       readinessValue: 4,
       joinedAt: new Date(Date.now() - 20 * 60_000).toISOString(),
     });

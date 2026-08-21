@@ -60,7 +60,10 @@ test.describe('P1114 rev2: the registration gate', () => {
     // required to show. Scoped to an actual heading instead, which is what the real
     // principle page renders and the gate must not.
     await expect(page.getByTestId('room-roster')).toHaveCount(0);
-    await expect(page.getByText('Who opted in')).toHaveCount(0);
+    // REVISED 2026-08-21: the roster now groups into three named sections (Opted in /
+    // Opted out / Undecided) rather than one "Who opted in" heading — check the group
+    // testid rather than a heading string that no longer exists anywhere in the app.
+    await expect(page.getByTestId('room-roster-undecided')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Clarity Meeting Principle' })).toHaveCount(0);
     await expect(page.getByRole('slider')).toHaveCount(0);
   });

@@ -1,57 +1,44 @@
 /**
  * @file p1114-realtime-payload.spec.ts
- * @description The WebSocket canary Architecture Decision 2 of
- * features/p1114_event_room_presence_and_cmp_opt_in.md exists for, and which that
- * decision's `UNVERIFIED` block explicitly requires to run "at /generate-tests
- * before any of this ships."
+ * @description The WebSocket canary for `event_room_members` realtime delivery,
+ * REWRITTEN 2026-08-21 (decisions.md) for the public-roster reversal in
+ * 20260821120000_p1114_public_roster_reversal.sql. This file used to prove the
+ * OPPOSITE invariant — see git history / the migration's own comment for the
+ * original rationale, which does not apply any more.
  *
- * WHAT'S UNVERIFIED, PRECISELY. Decision 2's whole design — "opt-ins are shown,
- * opt-outs are never shown" as a DATA-LAYER guarantee, not a frontend-rendering
- * choice — rests on `USING (opted_in = true)` being the filter `postgres_changes`
- * applies too, not just the filter `.from()` REST reads apply. decisions.md
- * 2026-08-17 [technical] (P1057) measured that Realtime filters payload COLUMNS by
- * column-level SELECT privilege, and closed with: "This does NOT generalise to
- * row-level questions." This spec needs the ROW-level case — a row disappearing
- * from what an anon subscriber can see, not a column disappearing from a row it
- * can still see. Nobody has measured that before this file.
+ * WHAT THIS PROVES NOW. The SELECT policy on `event_room_members` is `USING (true)`
+ * — every room member is visible to every subscriber, any answer state. Since
+ * decisions.md 2026-08-17 [technical] (P1057) and this file's own prior version
+ * established that row-level RLS DOES filter `postgres_changes` payloads the same
+ * way it filters a SELECT, the corollary now is the reverse of before: nothing
+ * should be filtered any more. This file proves that corollary rather than assuming
+ * it — a policy change silently NOT taking effect on the realtime path (stale
+ * publication state, a cached policy plan) is exactly the kind of thing P1057 and
+ * the old version of this file existed to catch, and "the SQL says USING (true)"
+ * is not the same claim as "a live anon subscriber actually receives it."
  *
- * The repo has already refused to take the vendor's word on an adjacent question
- * once: 20260812130000_p1048_close_chat_realtime_channel.sql removed a table from
- * the publication rather than rely on documented behaviour.
+ * TWO THINGS PROVEN:
+ *   (a) an UPDATE on an opted_in = false (or NULL / undecided) row DOES reach a live
+ *       anon subscriber — the opposite of what this file asserted before 2026-08-21.
+ *   (b) the opt-in -> opt-out TRANSITION itself delivers the new (false) state —
+ *       also the opposite of before. Nothing about this transition is special any
+ *       more; it is just another UPDATE.
  *
- * TWO DIRECTIONS, BOTH REQUIRED BY "OPT-OUTS ARE NEVER SHOWN":
- *   (a) a row with opted_in = false must never appear in a payload at all — the
- *       row-level equivalent of P1057's column check.
- *   (b) an UPDATE that flips a row from opted_in = true to opted_in = false must
- *       not deliver the new (false) state to a subscriber — the RLS-visible ->
- *       RLS-invisible TRANSITION. Architecture Decision 3 names this direction
- *       explicitly as having "no proven live-removal signal in this repo" and
- *       flags it UNTESTED; no Done-When item covers it on its own, but "opt-outs
- *       are never shown" is not true in general without it.
+ * WHAT DID NOT CHANGE: `client_secret`'s column-level exclusion (REVOKE/GRANT in
+ * both migrations) is untouched by any of this — the roster reversal widens which
+ * ROWS are visible, never which COLUMNS are. Both tests below also assert
+ * `client_secret` never appears as a key in any received payload, which is the
+ * actual security-relevant guarantee left standing after the row-level reversal.
  *
- * STRUCTURE, matched to e2e/integration/p1057-realtime-payload.spec.ts (the only
- * other WebSocket test in this repo) on purpose:
+ * STRUCTURE, kept from the pre-2026-08-21 version on purpose (matched to
+ * e2e/integration/p1057-realtime-payload.spec.ts):
  *   1. A CONTROL that FAILS on an empty payload set, so silence can never read as
  *      an all-clear (epistemic gate 7b, .claude/rules/epistemic.md).
  *   2. The triggering write is RE-FIRED IN A LOOP, not sent once. `SUBSCRIBED`
  *      means the channel joined, not that the replication slot is already
- *      forwarding this table — P1057's canary went 16s-miss-then-1.2s-pass on a
- *      single trigger, and "passes on retry" is not evidence of anything.
+ *      forwarding this table.
  *   3. RECORD THE RESULT EITHER WAY. If either assertion below fails, that is a
- *      real finding about the channel, not a flaky test. The follow-up is NOT to
- *      retry this file — it's Architecture Decision 2's own named fallback: pull
- *      `event_room_members` out of the `supabase_realtime` publication entirely
- *      (the P1048 move) and drive the roster from Decision 3's 30s reconciliation
- *      poll alone. Build Sequence step 1 makes publication membership conditional
- *      on this file passing.
- *
- * PRE-IMPLEMENTATION STATE: `event_room_members` does not exist yet (this file
- * was authored at /generate-tests, before /dev). Every test below will fail with
- * "relation \"event_room_members\" does not exist" until the migration lands —
- * expected, not a bug in this file. Once the migration exists but BEFORE the
- * table is added to `supabase_realtime`, expect the channel to never reach a
- * useful state / the control to time out — also expected, and exactly the signal
- * that publication membership (Build Sequence step 1) hasn't landed yet either.
+ *      real finding about the channel or the policy, not a flaky test.
  */
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../helpers/supabase-admin';
@@ -106,10 +93,9 @@ async function subscribeToEventRoom(
 
 /** Re-fires an UPDATE (touching `readiness_value`, which is never the thing
  * under test in either direction) in a loop until `stop()` returns true or the
- * deadline passes. Mirrors P1057's re-fire loop — a one-shot trigger sent
- * immediately after SUBSCRIBED can land in the window before the replication
- * slot is forwarding, and that miss is indistinguishable from a real filter
- * without the loop. */
+ * deadline passes. A one-shot trigger sent immediately after SUBSCRIBED can land
+ * in the window before the replication slot is forwarding, and that miss is
+ * indistinguishable from a real filter without the loop. */
 async function pokeUntil(memberId: string, deadline: number, stop: () => boolean): Promise<void> {
   let n = 0;
   while (!stop() && Date.now() < deadline) {
@@ -125,7 +111,7 @@ async function pokeUntil(memberId: string, deadline: number, stop: () => boolean
   }
 }
 
-test.describe('P1114 Decision 2: event_room_members realtime row-level opt-out filtering', () => {
+test.describe('P1114: event_room_members realtime delivers every row, client_secret excluded', () => {
   let host: TestUser;
   let event: TestEvent;
   const memberIds: string[] = [];
@@ -141,59 +127,51 @@ test.describe('P1114 Decision 2: event_room_members realtime row-level opt-out f
     await deleteTestUser(host.user.id);
   });
 
-  test('(a) a row with opted_in = false never appears in a received payload, proven against a live control channel', async () => {
+  test('(a) an opted_in = false row DOES reach a live anon subscriber, and client_secret never appears in any payload', async () => {
     test.setTimeout(60_000);
 
-    const visible: TestRoomMember = await seedRoomMember(event.id, { optedIn: true, displayName: 'P1114 Realtime Control (visible)' });
-    const hidden: TestRoomMember = await seedRoomMember(event.id, { optedIn: false, displayName: 'P1114 Realtime Hidden (opted out)' });
-    memberIds.push(visible.id, hidden.id);
+    const optedOut: TestRoomMember = await seedRoomMember(event.id, { optedIn: false, displayName: 'P1114 Realtime Opted-Out Subject' });
+    memberIds.push(optedOut.id);
 
     const anon = makeAnonClient();
-    const receivedByMember: Record<string, Payload[]> = { [visible.id]: [], [hidden.id]: [] };
+    const received: Payload[] = [];
     let channel: RealtimeChannel | null = null;
 
     try {
       channel = await subscribeToEventRoom(anon, event.id, (p) => {
-        const id = p.id as string;
-        if (id in receivedByMember) receivedByMember[id].push(p);
+        if (p.id === optedOut.id) received.push(p);
       });
 
       const deadline = Date.now() + PAYLOAD_TIMEOUT_MS;
-      // Poke BOTH rows every round — the control and the hidden row get identical
-      // treatment, so a difference in what arrives is attributable to the RLS
-      // filter and nothing else (test setup asymmetry).
-      await pokeUntil(visible.id, deadline, () => receivedByMember[visible.id].length > 0);
-      await pokeUntil(hidden.id, Date.now() + 3_000, () => false); // a few extra pokes on the hidden row after the control lands
+      await pokeUntil(optedOut.id, deadline, () => received.length > 0);
 
-      // THE CONTROL. If this is empty, the test proves nothing about row
-      // filtering — silence must fail loudly, never read as an all-clear.
+      // THE ASSERTION. Silence here would mean either the reversal isn't actually
+      // in effect on the realtime path, or the channel itself is broken — either
+      // way, not something to let pass quietly (epistemic gate 7b).
       expect(
-        receivedByMember[visible.id].length,
-        'no realtime payload arrived for the CONTROL (opted_in = true) row — the canary ' +
-          'cannot conclude anything about row-level filtering from silence (publication ' +
-          'membership, the channel itself, or something else entirely may be the reason). ' +
-          'Investigate before trusting any green OR red run of this file.',
+        received.length,
+        'no realtime payload arrived for an opted_in = false row. Per the 2026-08-21 ' +
+          'reversal (20260821120000_p1114_public_roster_reversal.sql), every room member\'s ' +
+          'updates should now reach every subscriber — this row not delivering means either ' +
+          'the policy change did not actually take effect on the realtime path, or the ' +
+          'channel itself is broken. Investigate before trusting any run of this file.',
       ).toBeGreaterThan(0);
 
-      // THE ASSERTION. The opted_in = false row's updates must never have reached
-      // this subscriber, on the same channel, in the same time window, as proven
-      // live by the control above.
+      // client_secret's column-level exclusion is untouched by the row-level reversal —
+      // still the actual security boundary here.
       expect(
-        receivedByMember[hidden.id].length,
-        `ROW-LEVEL REALTIME LEAK: an anon subscriber received ${receivedByMember[hidden.id].length} ` +
-          `payload(s) for event_room_members row ${hidden.id}, which has opted_in = false. ` +
-          `Architecture Decision 2 is VOID if this fails — the fallback is Decision 2's own ` +
-          `named move: drop event_room_members from the supabase_realtime publication and ` +
-          `drive the roster from the Decision 3 reconciliation poll alone. Received: ` +
-          `${JSON.stringify(receivedByMember[hidden.id])}`,
-      ).toBe(0);
+        received.every((p) => !('client_secret' in p)),
+        `COLUMN-LEVEL REALTIME LEAK: client_secret appeared in a payload for member ${optedOut.id}. ` +
+          `This is unrelated to the 2026-08-21 row-visibility reversal and must never happen — ` +
+          `see the column-level REVOKE/GRANT in both migrations.`,
+      ).toBe(true);
     } finally {
       if (channel) await anon.removeChannel(channel);
       await anon.removeAllChannels();
     }
   });
 
-  test('(b) flipping a row from opted_in = true to false is not delivered as the new (false) state', async () => {
+  test('(b) the opt-in -> opt-out TRANSITION delivers the new (false) state', async () => {
     test.setTimeout(60_000);
 
     const member: TestRoomMember = await seedRoomMember(event.id, { optedIn: true, displayName: 'P1114 Realtime Flip Subject' });
@@ -208,10 +186,9 @@ test.describe('P1114 Decision 2: event_room_members realtime row-level opt-out f
         if (p.id === member.id) received.push(p);
       });
 
-      // Phase 1 — CONTROL: prove the channel delivers for this row while it is
-      // still genuinely visible (opted_in = true). Without this, a later "no
-      // false-state payload arrived" reading is indistinguishable from the
-      // channel never delivering for this row at all.
+      // Phase 1 — CONTROL: prove the channel delivers for this row at all, before
+      // the flip. Without this, a later "the flip delivered" reading could just be
+      // luck on a channel that happens to deliver everything regardless.
       const phase1Deadline = Date.now() + PAYLOAD_TIMEOUT_MS;
       await pokeUntil(member.id, phase1Deadline, () => received.length > 0);
       expect(
@@ -221,34 +198,34 @@ test.describe('P1114 Decision 2: event_room_members realtime row-level opt-out f
       ).toBeGreaterThan(0);
       expect(received.every((p) => p.opted_in === true), 'control-phase payloads must all show the pre-flip state').toBe(true);
 
-      // Phase 2 — THE FLIP. This is the transition Architecture Decision 3 flags
-      // UNTESTED: an UPDATE that moves the row from matching the SELECT policy
-      // to NOT matching it.
+      // Phase 2 — THE FLIP.
+      const beforeFlipCount = received.length;
       const { error: flipError } = await supabaseAdmin
         .from('event_room_members')
         .update({ opted_in: false })
         .eq('id', member.id);
       expect(flipError, 'the flip UPDATE itself must succeed').toBeNull();
 
-      // Keep poking after the flip (touching readiness_value, same as the
-      // control loop) so any further WAL activity on this row has every chance
-      // to reach the subscriber if the row is still (wrongly) visible.
-      await pokeUntil(member.id, Date.now() + PAYLOAD_TIMEOUT_MS, () => false);
+      // Wait for a payload showing the post-flip state to arrive, re-poking
+      // (touching readiness_value, same as the control loop) so the flip's own
+      // WAL entry has every chance to be followed by something the loop can see.
+      const phase2Deadline = Date.now() + PAYLOAD_TIMEOUT_MS;
+      await pokeUntil(member.id, phase2Deadline, () => received.some((p) => p.opted_in === false));
 
-      // THE ASSERTION. Whatever DID or did not arrive after the flip, no
-      // received payload for this row may ever show opted_in = false — that is
-      // the literal content of "opt-outs are never shown," independent of
-      // whether Realtime represents the transition as an UPDATE, a synthesized
-      // DELETE, or nothing at all.
+      // THE ASSERTION. The new (false) state must have reached this subscriber —
+      // the reverse of what this file asserted before 2026-08-21.
       expect(
         received.some((p) => p.opted_in === false),
-        `ROW-LEVEL REALTIME LEAK on the opt-in -> opt-out TRANSITION: a payload showing ` +
-          `opted_in = false for member ${member.id} reached an anon subscriber. Architecture ` +
-          `Decision 3 flagged this direction UNTESTED — this is that test, and it failed. ` +
-          `Fallback is the same as direction (a): drop event_room_members from ` +
-          `supabase_realtime and rely on the reconciliation poll. Received after flip: ` +
-          `${JSON.stringify(received.filter((p) => received.indexOf(p) >= 0))}`,
-      ).toBe(false);
+        `the opt-in -> opt-out transition never delivered a payload showing opted_in = false ` +
+          `for member ${member.id}. Per the 2026-08-21 reversal this transition should deliver ` +
+          `like any other UPDATE — this failing means the reversal is not actually in effect on ` +
+          `the realtime path. Received: ${JSON.stringify(received.slice(beforeFlipCount))}`,
+      ).toBe(true);
+
+      expect(
+        received.every((p) => !('client_secret' in p)),
+        `COLUMN-LEVEL REALTIME LEAK: client_secret appeared in a payload for member ${member.id}.`,
+      ).toBe(true);
     } finally {
       if (channel) await anon.removeChannel(channel);
       await anon.removeAllChannels();

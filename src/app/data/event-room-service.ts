@@ -33,6 +33,7 @@ interface DbRoomMemberRow {
   display_name: string;
   opted_in: boolean | null;
   readiness_value: number | null;
+  comprehension_rating: number | null;
   joined_at: string;
   // Only present on getRoomRoster's join (see below) — the four RPCs never join profiles.
   profile?: {
@@ -52,6 +53,7 @@ function mapMember(row: DbRoomMemberRow): EventRoomMember {
     displayName: row.display_name,
     optedIn: row.opted_in,
     readinessValue: row.readiness_value,
+    comprehensionRating: row.comprehension_rating,
     joinedAt: row.joined_at,
     profileSlug: row.profile?.slug ?? null,
     profileAvatarColor: row.profile?.avatar_color ?? null,
@@ -78,14 +80,32 @@ export async function joinEventRoom(eventId: string, displayName: string): Promi
 
 /** Changes the caller's own opt-in answer. Server computes the cascade counter and writes
  * the append-only history row (Decision 6) — this function never sees or sends that count.
- * Ownership is auth.uid() = profile_id, enforced server-side. */
-export async function setRoomOptIn(memberId: string, optedIn: boolean): Promise<EventRoomSelf> {
+ * Ownership is auth.uid() = profile_id, enforced server-side.
+ *
+ * comprehension is REQUIRED (2026-08-21 reinstatement) — the RPC rejects a null rating for
+ * either answer, opt-in or opt-out alike. Callers must not offer opt-in/opt-out without a
+ * rating already selected. */
+export async function setRoomOptIn(memberId: string, optedIn: boolean, comprehension: number): Promise<EventRoomSelf> {
   const { data, error } = await supabase.rpc('set_room_opt_in', {
     p_member_id: memberId,
     p_opted_in: optedIn,
+    p_comprehension: comprehension,
   });
   if (error || !data || !Array.isArray(data) || data.length === 0) {
     throw new Error(error?.message ?? 'Could not update your answer');
+  }
+  return mapMember(data[0] as DbRoomMemberRow);
+}
+
+/** "Change my choice" — clears the caller's own answer AND rating back to undecided
+ * (2026-08-21). Writes no history row: this withdraws a prior answer, it isn't itself a new
+ * one — see the RPC's own comment for why event_room_answers doesn't need to know. */
+export async function resetRoomAnswer(memberId: string): Promise<EventRoomSelf> {
+  const { data, error } = await supabase.rpc('reset_room_answer', {
+    p_member_id: memberId,
+  });
+  if (error || !data || !Array.isArray(data) || data.length === 0) {
+    throw new Error(error?.message ?? 'Could not reset your answer');
   }
   return mapMember(data[0] as DbRoomMemberRow);
 }
@@ -103,10 +123,12 @@ export async function setRoomReadiness(memberId: string, value: number): Promise
   return mapMember(data[0] as DbRoomMemberRow);
 }
 
-/** The caller's OWN room status for one event, keyed by their session (auth.uid()) —
- * bypasses the public "opted_in = true" SELECT policy via SECURITY DEFINER. Returns
- * null when the caller has never joined this event's room, so callers degrade to
- * "not yet joined" rather than treating an empty result as an error. */
+/** The caller's OWN room status for one event, keyed by their session (auth.uid()) via
+ * SECURITY DEFINER — kept even though the public roster policy no longer filters by answer
+ * state (2026-08-21), because this is still the auth.uid()-keyed lookup the client relies
+ * on to know "which row is mine" without scanning the roster for it. Returns null when the
+ * caller has never joined this event's room, so callers degrade to "not yet joined" rather
+ * than treating an empty result as an error. */
 export async function getMyRoomStatus(eventId: string): Promise<EventRoomSelf | null> {
   const { data, error } = await supabase.rpc('get_my_room_status', {
     p_event_id: eventId,
@@ -115,7 +137,9 @@ export async function getMyRoomStatus(eventId: string): Promise<EventRoomSelf | 
   return mapMember(data[0] as DbRoomMemberRow);
 }
 
-/** Public roster — RLS-filtered, can only ever return opted_in = true rows (Decision 2).
+/** Public roster — every room member, any answer state (Decision 2, REVISED 2026-08-21:
+ * the RLS policy used to filter this to opted_in = true rows only; it no longer filters at
+ * all, so callers must group/label by `optedIn` themselves — see EventRoomMeet.tsx).
  * Never throws to an error state on failure; callers should treat [] as "show zero-state
  * or leave the prior list," per the Risks "never an empty wall on a transient failure".
  *
@@ -126,7 +150,7 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
   const { data, error } = await supabase
     .from('event_room_members')
     .select(`
-      id, event_id, profile_id, display_name, opted_in, readiness_value, joined_at,
+      id, event_id, profile_id, display_name, opted_in, readiness_value, comprehension_rating, joined_at,
       profile:profiles!event_room_members_profile_id_fkey (
         slug,
         avatar_color,
@@ -141,9 +165,12 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
   return (data as DbRoomMemberRow[]).map(mapMember);
 }
 
-/** Realtime channel (Decision 3) + a 30s reconciliation poll that is BOTH the required
- * degrade path (channel never reaches SUBSCRIBED, or drops) and the backstop for the
- * untested opt-out-flip-back removal case. Always calls `onUpdate` with a fresh roster
+/** Realtime channel (Decision 3) + a 30s reconciliation poll that is the required degrade
+ * path (channel never reaches SUBSCRIBED, or drops). Pre-2026-08-21 this poll was also the
+ * only way an opt-out ever reached another viewer's roster (RLS silently dropped that
+ * payload) — with every state now visible, that case delivers over the realtime channel
+ * like any other, and the poll is purely the degrade backstop. Always calls `onUpdate` with
+ * a fresh roster
  * fetch on every relevant event — never partial/optimistic patching, so a dropped or
  * out-of-order payload can never leave the roster in a state a full re-fetch wouldn't
  * also produce. Returns an unsubscribe function. */

@@ -32,6 +32,7 @@ export interface TestRoomMember {
   client_secret: string;
   opted_in: boolean | null;
   readiness_value: number | null;
+  comprehension_rating: number | null;
   joined_at: string;
 }
 
@@ -59,6 +60,7 @@ export async function seedRoomMember(
     profileId: string | null;
     optedIn: boolean | null;
     readinessValue: number | null;
+    comprehensionRating: number | null;
     clientSecret: string;
     joinedAt: string;
   }> = {},
@@ -70,13 +72,14 @@ export async function seedRoomMember(
   };
   if (overrides.optedIn !== undefined) insert.opted_in = overrides.optedIn;
   if (overrides.readinessValue !== undefined) insert.readiness_value = overrides.readinessValue;
+  if (overrides.comprehensionRating !== undefined) insert.comprehension_rating = overrides.comprehensionRating;
   if (overrides.clientSecret !== undefined) insert.client_secret = overrides.clientSecret;
   if (overrides.joinedAt !== undefined) insert.joined_at = overrides.joinedAt;
 
   const { data, error } = await supabaseAdmin
     .from('event_room_members')
     .insert(insert)
-    .select('id, event_id, profile_id, display_name, client_secret, opted_in, readiness_value, joined_at')
+    .select('id, event_id, profile_id, display_name, client_secret, opted_in, readiness_value, comprehension_rating, joined_at')
     .single();
   if (error || !data) throw new Error(`seedRoomMember failed: ${error?.message}`);
   return data as TestRoomMember;
@@ -87,7 +90,7 @@ export async function seedRoomMember(
 export async function readRoomMember(id: string): Promise<TestRoomMember | null> {
   const { data, error } = await supabaseAdmin
     .from('event_room_members')
-    .select('id, event_id, profile_id, display_name, client_secret, opted_in, readiness_value, joined_at')
+    .select('id, event_id, profile_id, display_name, client_secret, opted_in, readiness_value, comprehension_rating, joined_at')
     .eq('id', id)
     .maybeSingle();
   if (error) throw new Error(`readRoomMember failed: ${error.message}`);

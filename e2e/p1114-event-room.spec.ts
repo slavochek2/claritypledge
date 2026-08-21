@@ -8,11 +8,21 @@
  *
  * TEST-ID CONTRACT this file exercises:
  *   - `room-ready`, `room-meet`      — the two page roots
- *   - `room-roster`                  — the opt-ins-only roster container
- *   - `room-roster-item`             — one per visible (opted-in) person
- *   - `room-zero-state`              — shown when the roster has zero opted-in people
- *   - `room-my-opt-in-status`        — the participant's OWN state, `data-opted-in`
- *   - `room-opt-in-yes` / `room-opt-in-no` — the answer controls
+ *   - `room-roster`                  — the full-roster container (REVISED 2026-08-21:
+ *                                      every answer state, not opt-ins-only — see below)
+ *   - `room-roster-in` / `room-roster-out` / `room-roster-undecided` — the three grouped
+ *                                      sections (2026-08-21)
+ *   - `room-roster-item`             — one per visible person, any answer state
+ *   - `room-roster-rating`           — the public "N/10" pill on an answered row (2026-08-21)
+ *   - No top-level zero-state any more (2026-08-21, retired): a visitor auto-joins on
+ *     arrival, so their own row always makes the roster non-empty within a moment —
+ *     each group's own "(0)" + "No one yet." covers the empty case instead.
+ *   - `room-my-opt-in-status`        — the participant's OWN state, `data-opted-in`,
+ *                                      ALWAYS rendered (both undecided and answered)
+ *   - `room-opt-in-yes` / `room-opt-in-no` — the answer controls, disabled until a
+ *                                      comprehension rating is selected (2026-08-21)
+ *   - `room-change-choice`           — resets the caller's own answer + rating to
+ *                                      undecided (2026-08-21)
  *   - `room-frozen-notice`           — shown once the event is past EVENT_GRACE_HOURS
  *
  * Regression note (Non-Goals: "Do NOT modify standalone /ready or /meet"): this file
@@ -28,7 +38,6 @@ import { seedRoomMember, deleteRoomMembers } from './helpers/test-event-room';
 const EVENT_GRACE_HOURS = 5; // P494 / events-service-real.ts:16 — see src/tests/p1114-grace-hours-sync.test.ts
 
 const roster = (page: Page) => page.getByTestId('room-roster');
-const rosterItems = (page: Page) => page.getByTestId('room-roster-item');
 
 async function signInRegistered(page: Page, event: TestEvent, user: TestUser) {
   await rsvpToEvent(event.id, user.user.id);
@@ -83,27 +92,43 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await expect(page.getByTestId('room-meet')).toBeVisible();
   });
 
-  test('the roster is visible before the visitor answers anything, and shows opt-ins only — an opted-out name never appears', async ({ page }) => {
-    const visible = await seedRoomMember(event.id, { optedIn: true, displayName: 'P1114 Visible Person' });
-    const hidden = await seedRoomMember(event.id, { optedIn: false, displayName: 'P1114 Hidden Person' });
-    memberIds.push(visible.id, hidden.id);
+  test('the roster shows every answer state — opted-in, opted-out, and undecided — grouped and named, each with its public rating', async ({ page }) => {
+    // REVISED 2026-08-21 (decisions.md): the old version of this test locked in the
+    // OPPOSITE guarantee ("an opted-out name never appears"). That guarantee was
+    // reversed on purpose — see 20260821120000_p1114_public_roster_reversal.sql for the
+    // rationale (a facilitator running a live, in-person, projected room deliberately
+    // wants "who's still undecided" visible to everyone present).
+    const in_ = await seedRoomMember(event.id, { optedIn: true, comprehensionRating: 8, displayName: 'P1114 Opted In Person' });
+    const out = await seedRoomMember(event.id, { optedIn: false, comprehensionRating: 3, displayName: 'P1114 Opted Out Person' });
+    const undecided = await seedRoomMember(event.id, { displayName: 'P1114 Undecided Person' });
+    memberIds.push(in_.id, out.id, undecided.id);
 
     const visitor = await freshUser('P1114 Roster Viewer');
     await signInRegistered(page, event, visitor);
     await page.goto(`/events/${event.slug}/meet`);
-    await expect(roster(page)).toContainText('P1114 Visible Person');
-    await expect(rosterItems(page)).toHaveCount(1); // the visible seed only — never the hidden one
 
-    const bodyText = (await page.locator('body').innerText()) ?? '';
-    expect(bodyText, 'an opted-out name must never appear anywhere on the room page').not.toContain('P1114 Hidden Person');
+    await expect(page.getByTestId('room-roster-in')).toContainText('P1114 Opted In Person');
+    await expect(page.getByTestId('room-roster-in')).toContainText('8/10');
+    await expect(page.getByTestId('room-roster-out')).toContainText('P1114 Opted Out Person');
+    await expect(page.getByTestId('room-roster-out')).toContainText('3/10');
+    await expect(page.getByTestId('room-roster-undecided')).toContainText('P1114 Undecided Person');
+    // Undecided members never carry a rating — it's required at the moment of
+    // answering, so an undecided row must never show an "N/10" pill.
+    await expect(page.getByTestId('room-roster-undecided').getByTestId('room-roster-rating')).toHaveCount(0);
   });
 
-  test('zero-state: a freshly-arrived registered visitor on an otherwise-empty roster sees a zero-state, never an error', async ({ page }) => {
+  test('a freshly-arrived registered visitor sees themselves listed as Undecided, and no error', async ({ page }) => {
+    // REVISED 2026-08-21 (decisions.md): there is no separate zero-state any more —
+    // arriving auto-joins the room (useEventRoomSelf), so the visitor's own row makes
+    // the roster non-empty within a moment regardless. What used to be "shows a
+    // zero-state" is now "shows yourself, correctly, as undecided."
     const visitor = await freshUser('P1114 First To Arrive');
     await signInRegistered(page, event, visitor);
     await page.goto(`/events/${event.slug}/meet`);
 
-    await expect(page.getByTestId('room-zero-state')).toBeVisible();
+    await expect(page.getByTestId('room-roster-undecided')).toContainText('P1114 First To Arrive');
+    await expect(page.getByTestId('room-roster-in')).toContainText('No one yet.');
+    await expect(page.getByTestId('room-roster-out')).toContainText('No one yet.');
     const bodyText = (await page.locator('body').innerText()) ?? '';
     expect(bodyText).not.toMatch(/error|failed|unavailable/i);
   });
@@ -120,11 +145,16 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     try {
       await signInRegistered(viewerPage, event, viewer);
       await viewerPage.goto(`/events/${event.slug}/meet`);
-      await expect(viewerPage.getByTestId('room-zero-state')).toBeVisible();
+      // Before the actor answers, the viewer sees only their own row, Undecided.
+      await expect(roster(viewerPage)).toContainText('P1114 Live Viewer');
+      await expect(viewerPage.getByTestId('room-roster-in')).toContainText('No one yet.');
 
       await signInRegistered(actorPage, event, actor);
       await actorPage.goto(`/events/${event.slug}/meet`);
       await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
+      // A comprehension rating is required before either decision button is enabled
+      // (2026-08-21 reinstatement) — select one first.
+      await actorPage.getByRole('button', { name: 'Rate 7' }).click();
       await actorPage.getByTestId('room-opt-in-yes').click();
       await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'true');
 
@@ -135,6 +165,30 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
       await viewerContext.close();
       await actorContext.close();
     }
+  });
+
+  test('opt-in/opt-out stay disabled until a rating is picked; "change my choice" resets both the answer and the rating to undecided', async ({ page }) => {
+    const visitor = await freshUser('P1114 Rating Gate Visitor');
+    await signInRegistered(page, event, visitor);
+    await page.goto(`/events/${event.slug}/meet`);
+
+    await expect(page.getByTestId('room-opt-in-yes')).toBeDisabled();
+    await expect(page.getByTestId('room-opt-in-no')).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Rate 6' }).click();
+    await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
+    await page.getByTestId('room-opt-in-yes').click();
+
+    await expect(page.getByTestId('room-my-opt-in-status')).toContainText('You opted in.');
+    await expect(page.getByTestId('room-my-opt-in-status')).toContainText('6/10');
+    // Answered: the live decision buttons are replaced by a locked summary + "change
+    // my choice" — founder: a live yes/no toggle gave no feedback an answer registered.
+    await expect(page.getByTestId('room-opt-in-yes')).toHaveCount(0);
+
+    await page.getByTestId('room-change-choice').click();
+    await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
+    // Back to the ungated undecided state — the rating was cleared too, not just the answer.
+    await expect(page.getByTestId('room-opt-in-yes')).toBeDisabled();
   });
 
   test('a frozen room (past EVENT_GRACE_HOURS) still displays who was there, and offers no way to change an answer', async ({ page }) => {
@@ -225,15 +279,15 @@ test.describe('P1114 event page: tab row', () => {
     await expect(page).not.toHaveURL(/[?&]tab=/);
   });
 
-  test('a first-time registered attendee: "Clarity Principle" routes through the readiness question first, not straight to the principle', async ({ page }) => {
+  test('a first-time registered attendee: "View Principle" routes through the readiness question first, not straight to the principle', async ({ page }) => {
     const attendee = await freshRegistered('P1114 Tab E2E First Visit');
     await setTestSession(page, attendee.email);
     await page.goto(`/events/${event.slug}`);
 
-    await page.getByRole('link', { name: 'Clarity Principle' }).click();
+    await page.getByRole('link', { name: 'View Principle' }).click();
     await expect(
       page,
-      '"Clarity Principle" must link to /room (the smart entry point that decides readiness-vs-principle), not straight to /meet — linking to /meet directly bypasses the readiness question entirely, even for a first-time visitor (founder repro, 2026-08-21: a fresh account never saw the slider).',
+      '"View Principle" must link to /room (the smart entry point that decides readiness-vs-principle), not straight to /meet — linking to /meet directly bypasses the readiness question entirely, even for a first-time visitor (founder repro, 2026-08-21: a fresh account never saw the slider).',
     ).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
     await expect(page.getByTestId('room-ready')).toBeVisible();
 
@@ -244,7 +298,7 @@ test.describe('P1114 event page: tab row', () => {
     ).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
   });
 
-  test('a returning attendee who already set readiness: "Clarity Principle" skips straight to the principle page', async ({ page }) => {
+  test('a returning attendee who already set readiness: "View Principle" skips straight to the principle page', async ({ page }) => {
     const attendee = await freshRegistered('P1114 Tab E2E Returning');
     await setTestSession(page, attendee.email);
     // First pass through /ready sets readiness_value — reuses the real flow rather
@@ -254,14 +308,14 @@ test.describe('P1114 event page: tab row', () => {
     await expect(page.getByTestId('room-meet')).toBeVisible();
 
     await page.goto(`/events/${event.slug}`);
-    await page.getByRole('link', { name: 'Clarity Principle' }).click();
+    await page.getByRole('link', { name: 'View Principle' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
     await expect(page.getByTestId('room-meet')).toBeVisible();
   });
 
-  test('a signed-out visitor clicking "Clarity Principle" reaches the gate, not the room content', async ({ page }) => {
+  test('a signed-out visitor clicking "View Principle" reaches the gate, not the room content', async ({ page }) => {
     await page.goto(`/events/${event.slug}`);
-    await page.getByRole('link', { name: 'Clarity Principle' }).click();
+    await page.getByRole('link', { name: 'View Principle' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/room$`));
     await expect(page.getByTestId('room-gate')).toBeVisible();
     await expect(page.getByTestId('room-meet')).toHaveCount(0);
