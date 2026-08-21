@@ -5,8 +5,8 @@ rank: 54
 workstream: analytics
 created_date: '2026-08-20'
 tags: [analytics, mixpanel, attribution, utm]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: verify
+pipeline_ran: [create-spec, dev, verify]
 driver: anomaly
 ---
 
