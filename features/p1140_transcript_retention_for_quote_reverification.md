@@ -140,17 +140,70 @@ it.
 
 ## Done-When
 
-- [ ] A transcript fetched by `/points-prepare` is still readable, byte-identical, in a later
-      session
-- [ ] The retained artifact is keyed such that two different caption tracks of the same video ID do
-      not collide (the 2026-08-17 vs 2026-08-21 case resolves to two distinct entries)
-- [ ] A points run records which retained artifact its quotes were verified against, resolvable
-      later without a network fetch
-- [ ] No transcript content appears in any git-tracked path — verified by a grep of the tracked
-      tree, not by inspection
-- [ ] The staleness policy is stated in the skill, and its failure path has been exercised: a
+- [x] A transcript fetched by `/points-prepare` is still readable, byte-identical, in a later
+      session — `yt`'s store makes a HIT return the stored bytes byte-identical to the original
+      fetch, offline, with the stub never re-invoked. Verified against a stubbed `yt-dlp`.
+- [x] ~~The retained artifact is keyed such that two different caption tracks of the same video ID
+      do not collide (the 2026-08-17 vs 2026-08-21 case resolves to two distinct entries)~~
+      **Rewritten, 2026-08-21 (adversarial review) — this item described the wrong outcome.** The
+      founder chose never-fetch-twice, under which the 08-21 run would have *reused* the 08-17
+      bytes: the divergence is *prevented*, not recorded as two entries. Replaced with: **two
+      different caption tracks of the same video are retained as distinct, type-labelled files and
+      never overwrite each other.** Satisfied by construction: every store write is content-hash-
+      gated (identical bytes → no-op, differing bytes → a numbered sibling, e.g. `en.2.vtt`),
+      verified live — original file unchanged after `YT_STORE=refresh` with altered content, `cmp`
+      clean against a pre-copy, sibling created, both recorded in `fetches.jsonl`.
+- [x] A points run records which retained artifact its quotes were verified against, resolvable
+      later without a network fetch — `points-prepare.md` now writes
+      `source | track | raw_sha256 | clean_sha256 | vtt-clean version` per source to
+      `.points-run-seals/<slug>.transcripts.sha256` (hashes only, safe for the public repo); the
+      store's own `fetches.jsonl` independently records key, files, exit code, route per fetch.
+- [x] No transcript content appears in any git-tracked path — verified by a grep of the tracked
+      tree, not by inspection — `git ls-files | xargs grep -l WEBVTT` returns empty in **both** cp
+      and pp (the tool now lives in pp; the store lives outside either repo, under
+      `~/.local/share/yt-store/`).
+- [x] The staleness policy is stated in the skill, and its failure path has been exercised: a
       deliberately stale entry produces the intended non-silent outcome, with the observed result
-      pasted
-- [ ] The consumer list is enumerated with an explicit include/exclude decision recorded per skill
-- [ ] `/points-prepare` line 49 no longer instructs discarding intermediates, or states the
-      retention path instead
+      pasted — policy: never auto-refresh; `YT_STORE=refresh` is the only way to see upstream
+      changes, and it never overwrites, so a divergence becomes a visible sibling+diff rather than
+      a silent replacement. Exercised: original `en.vtt` hash before/after refresh identical;
+      `en.2.vtt` sibling created holding the new bytes; `fetches.jsonl` carries both fetches.
+- [x] The consumer list is enumerated with an explicit include/exclude decision recorded per skill
+      — see **Consumers** below (moved from the working plan into this spec so the record
+      survives past the plan file).
+- [x] `/points-prepare` line 49 no longer instructs discarding intermediates, or states the
+      retention path instead — that instruction now lives at Stage 1 (the file moved lines during
+      earlier edits) and points at the store + `vtt-clean` instead of the scratchpad.
+
+## Consumers (enumerated 2026-08-21, verified by command against `yt`, `yt-dlp`, `yt-dlp-resilient`, `YT_DLP`, `youtube.com/watch`, `youtu.be`)
+
+| Consumer | Decision | Why |
+|---|---|---|
+| cp `/points-prepare` | **include** | Sole cp fetcher; benefits via `yt`'s store |
+| cp `/points-publish` | no change | Reads what prepare produced; never fetches |
+| readfirst `server.mjs` | **include** | Already calls `yt`; zero edits needed |
+| `video-publish` | exclude | Uploads, never fetches |
+| `video-edit-interview`, `gen-thumbnail`, `analyze-demo-meeting`, `analyze-transcripts`, `create-letter-from-transcript`, `align-decompose`, `align-create-letter`, `align-detect` | **exclude** | Zero YouTube-fetch matches — local recordings and private participant speech. No shared store, no leak surface. |
+
+## Implementation notes (2026-08-21)
+
+Built: `pp/scripts/{yt,yt-store-lib.py,vtt-clean}`, symlinked to `~/.local/bin/{yt,vtt-clean}`
+(`yt-dlp-resilient` resolves through `yt` as a 2-hop symlink). Full design:
+`pp/docs/infra/youtube.md`. 33/33 automated checks passed against a stubbed `yt-dlp` (PATH
+shadowing) covering miss→store, offline hit with exact exit-code replay (including a non-zero
+partial-fetch exit code), differing-key miss, `YT_STORE=refresh` immutability, 5 id-gate defect
+regressions (playlist-without-`--no-playlist`, truncated id, non-YouTube host, `ytsearch`, an id
+starting with `-`), 5 general pass-through cases, and an offline `vtt-clean` + `grep -F`
+re-verification against the stored raw track.
+
+**Two residual gaps, stated rather than hidden:**
+- Whether yt-dlp can make a genuine human track and an auto track collide on the identical
+  `<lang>.vtt` filename when both are requested together was **not tested live** (would need a
+  real network fetch against a video with both tracks sharing a lang code). The content-hash-gated
+  write closes the *safety* gap regardless (a collision becomes a sibling, never an overwrite) but
+  `fetches.jsonl` records `human_requested`/`auto_requested` booleans rather than a confident
+  per-file label in that case.
+- The two real consumers (`/points-prepare`, readfirst) were verified structurally (their exact
+  invocation shapes pass the classifier's cacheable gate; stdout/stderr separation is preserved on
+  a metadata hit) but **not** re-run live end-to-end against real YouTube — that would consume real
+  proxy quota. Flagged per epistemic gate 5 rather than claimed as confirmed.

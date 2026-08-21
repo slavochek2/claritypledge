@@ -2,7 +2,7 @@
 name: points-prepare
 description: "Read one or more sources — YouTube videos, a recorded conversation, an event panel — and prepare everything needed to file a disagreement: Points aimed at a named ROOM, one story draft per arguer holding only that speaker's verbatim quotes, each agent's position on each Point, and a sealed prediction. Terminal output only; writes nothing to the product. With an opposed PAIR of sources it builds synthesized Points — claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends."
 when_to_use: "When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only. Pairs with /points-publish, which is the only skill in this chain that writes to the product."
-version: 0.5.0
+version: 0.6.0
 ---
 
 # /points-prepare
@@ -42,6 +42,10 @@ Stated here in full rather than inherited from a sibling skill: a safety propert
 
 Use `yt` — a drop-in wrapper taking identical arguments to `yt-dlp`.
 It tries the direct connection first and only falls back if YouTube walls you.
+It also caches: the same (video, sub-langs, sub-format) request is fetched at most once per
+machine, into `~/.local/share/yt-store/` — so the raw track a quote was checked against survives
+the session and a later run can re-verify it without a re-fetch (P1140). `YT_STORE=off` bypasses
+it if a genuine re-fetch is ever needed; nothing in the store is ever overwritten.
 
 ```bash
 yt --skip-download --write-auto-subs --write-subs --sub-langs "en.*" \
@@ -60,7 +64,13 @@ Do NOT retry, and never purchase anything yourself. Surface it to the founder:
 
 Check quota any time with `yt --proxy-status`.
 
-Clean the VTT: strip timestamps and inline tags, drop consecutive duplicate lines (auto-captions roll), keep a coarse timecode every ~30s so quotes stay locatable. Write intermediates to the session scratchpad, never to the repo.
+Clean the raw `.vtt` with `vtt-clean <path>` — a deterministic program, not an improvised reading:
+it handles inline karaoke tags, rolling auto-caption cue dedup (naive joining garbles the text —
+`vtt-clean` doesn't), apostrophe/quote normalization, and coarse `[MM:SS]` timecodes every ~30s so
+quotes stay locatable. The raw track is retained by `yt`'s store (see above); write the cleaned
+text beside it, e.g. `vtt-clean ~/.local/share/yt-store/<id>/en.vtt -o ~/.local/share/yt-store/<id>/en.clean.txt`
+— never to the repo, and never *only* to the session scratchpad, since that is exactly the
+artifact the 2026-08-21 incident showed does not survive.
 
 > **Auto-captions are unverified text** — they mangle names, numbers and occasional words, and censor profanity inconsistently. Flag every quote as caption-sourced.
 >
@@ -69,6 +79,19 @@ Clean the VTT: strip timestamps and inline tags, drop consecutive duplicate line
 > ```bash
 > while IFS= read -r q; do printf '%s :: ' "$q"; grep -cF "$q" <transcript> || echo 0; done < quotes.txt
 > ```
+
+**Record the provenance per source, before extracting.** `vtt-clean`'s version is part of what a
+quote is checked against — changing the cleaner changes what `grep -F` matches. Append one line
+per source to `.points-run-seals/<slug>.transcripts.sha256` (hashes and filenames only, no
+transcript content — safe for a public repo):
+
+```bash
+printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: %s\n' \
+  "<video-id>" "<lang>" \
+  "$(shasum -a 256 ~/.local/share/yt-store/<id>/<lang>.vtt | cut -d' ' -f1)" \
+  "$(shasum -a 256 ~/.local/share/yt-store/<id>/<lang>.clean.txt | cut -d' ' -f1)" \
+  "$(vtt-clean --version)" >> .points-run-seals/<slug>.transcripts.sha256
+```
 
 **Report audience size before extracting.** A video with no viewers has no audience to split and no opposing camp to read (a 53-minute podcast with 86 views produced zero usable counter-quotes — the run that motivated this skill). Under a few thousand views, say so and ask whether to continue.
 
@@ -146,7 +169,7 @@ When a private-source run must also travel, emit **two forms** — one sharp for
 **Read the opposition. Never imagine it.** In priority order:
 
 1. **A second, opposed source** — strongest. Those people argued at length, on the record.
-2. **The comment section**, when the source is public: `yt-dlp --write-comments --extractor-args "youtube:comment_sort=top;max_comments=<N>,all,<N>"`.
+2. **The comment section**, when the source is public: `yt --write-comments --extractor-args "youtube:comment_sort=top;max_comments=<N>,all,<N>"` — use `yt`, not raw `yt-dlp`, so this fetch gets the proxy ladder too (a 2026-08-21 run bypassed both the ladder and the store by calling `yt-dlp` directly here). **Comment retention is a separate, unresolved question** — comments are edited and deleted by their authors after the fact, unlike a caption track — flag it to the founder rather than assuming the same store applies.
 3. **The web**, for a published counter-position held seriously.
 
 > **Kill rule:** if no real camp holds the counter-position, the point is not polarizing — it is contrarian phrasing. Drop it or restate it until a real camp appears.
