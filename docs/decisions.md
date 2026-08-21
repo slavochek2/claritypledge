@@ -4,6 +4,61 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-21 [process]: Two security bugs on the same dead table family forced a features-can't-stay-undecided-forever rule
+
+**Context:** P1138 (UPDATE side) and P1139 (INSERT side) were the same root cause on the same
+four idea-feed tables, six weeks apart — permissive RLS written at table creation, never
+revisited, because nobody was maintaining the feature. Both fixes were policy patches. Neither
+answered the actual question: the feature has no UI route, zero callers of any exported
+function repo-wide, and 1 idea + 1 vote total on prod.
+
+**Decision:** Patching a dead feature's RLS a third time is the predictable next incident if the
+existence question never gets asked. Filed `features/p1146_decide_idea_feed_fate.md` — a
+lightweight decision-only spec (no implementation, `type: comment`) whose Done-When is the
+founder answering remove-vs-park and that answer landing in `docs/decisions.md`, not another
+patch. Surfaced and filed during `/fix p1139`, not after — the pattern was visible at fix time
+(second bug, same table family, same root cause), and the /fix skill's Tier-2 deferral-scan gate
+now catches this class going forward (a fix on a repeat-offender table without a linked fate
+decision is a flagged deferral).
+
+**Alternatives rejected:** Fix P1139's RLS and move on (leaves the actual root cause — an
+unowned feature — open for a third incident). Decide unilaterally to remove the feature as part
+of the security fix (scope creep on a security spec; removal is a product call, not a fix-time
+one, and CLAUDE.md requires `[FOUNDER DECISION: ...]` markers rather than silent removal).
+
+**Consequences:** Once P1146 resolves, either a follow-up implementation spec removes the four
+tables + ~500 lines of `src/app/data/api.ts`, or the "park" decision itself becomes the durable
+record that stops a future security sweep from re-litigating this table family's existence.
+
+**References:** [features/done/2026-06-10/p1138_world_writable_rls_policies_never_tightened.md](../features/done/2026-06-10/p1138_world_writable_rls_policies_never_tightened.md), [features/done/2026-06-10/p1139_idea_feed_insert_policies_unconditional.md](../features/done/2026-06-10/p1139_idea_feed_insert_policies_unconditional.md), [features/p1146_decide_idea_feed_fate.md](../features/p1146_decide_idea_feed_fate.md)
+
+## 2026-08-21 [technical]: Dropping a policy with zero legitimate callers needs no REVOKE — RLS default-denies on zero matching PERMISSIVE policies
+
+**Context:** P1139 fixed four INSERT policies carrying an unconditional write predicate, same
+class as P1138's UPDATE-side fix. Unlike P1138's `ml_training_sessions` (which had a genuine
+anonymous write path to preserve via column-scoped `REVOKE`+`GRANT`, see P1083's precedent),
+P1139's four tables had zero legitimate callers on any of them — nothing to preserve, so the
+question was whether `DROP POLICY` alone is sufficient or whether the table-level INSERT grant
+`anon`/`authenticated` still hold also needs revoking.
+
+**Decision:** `DROP POLICY` alone is sufficient. Postgres RLS with `ENABLE ROW LEVEL SECURITY`
+default-denies an operation when **zero** PERMISSIVE policies match it — the table-level grant
+becomes moot without a policy present to admit any row. No `REVOKE INSERT` needed for a policy
+being dropped outright (as opposed to P1083/P1047's shape: a policy being kept but narrowed,
+where the grant is the only lever left and column-level REVOKE+GRANT is required).
+
+**Alternatives rejected:** Belt-and-suspenders `REVOKE INSERT` alongside the `DROP POLICY`,
+matching P1083's shape. Rejected as unnecessary diff on a security fix that already closes the
+hole; the RLS default-deny is the actual security boundary here, not the grant.
+
+**Consequences:** For any future dead-code RLS fix (zero callers, policy being dropped
+outright): `DROP POLICY` closes the hole completely, verified by re-running the canary under
+the real unauthenticated REST path — no column-grant migration is needed. Reserve
+`REVOKE`+`GRANT (col)` for the P1083/P1047 shape, where a legitimate anonymous write path is
+being *kept* and column-level scoping is the only remaining lever.
+
+**References:** [features/done/2026-06-10/p1139_idea_feed_insert_policies_unconditional.md](../features/done/2026-06-10/p1139_idea_feed_insert_policies_unconditional.md), [supabase/migrations/20260821150000_p1139_close_idea_feed_insert_policies.sql](../supabase/migrations/20260821150000_p1139_close_idea_feed_insert_policies.sql), [features/done/2026-06-10/p1138_world_writable_rls_policies_never_tightened.md](../features/done/2026-06-10/p1138_world_writable_rls_policies_never_tightened.md)
+
 ## 2026-08-21 [technical]: The quote-verification check greps against an artifact no program produces
 
 **Context:** Planning [p1140](../features/p1140_transcript_retention_for_quote_reverification.md) (retain transcripts so published quotes stay re-verifiable). `/points-publish` gates filing on per-quote `grep -F` exit codes **"against the cleaned transcript"**, and the 2026-08-19 entry below cites that same grep as the check that catches fabrication. Measured this session: cp has **no cleaning program** — `/points-prepare` describes cleaning in English prose an agent improvises each run (verified: nothing matching vtt/caption/transcript under `scripts/`). Two agents cleaning the *same* caption file disagreed about which track contained a published-shape quote: one found it in the auto track, the other got the auto track's rolling cues collapsed into garbage (*"the principles of computer th…"*) and found it only in the human track. The raw caption file returns **0 hits** for a genuine quote in every case — inline karaoke tags, rolling duplicate cues and typographic characters mean no published quote appears verbatim in it.
