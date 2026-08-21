@@ -1046,6 +1046,60 @@ These properties enable segmentation in Mixpanel:
 
 ---
 
+## Channel Attribution (UTM)
+
+P1134: most traffic showed no referrer at all ($direct) because no outbound link this project
+controls carried a channel-identifying param. Every new outbound link gets tagged with standard
+`utm_source`/`utm_medium`/`utm_campaign` query params via the `withUtm()` helper in
+[src/lib/utm.ts](../../src/lib/utm.ts):
+
+```typescript
+import { withUtm } from '@/lib/utm';
+
+const link = withUtm('https://claritypledge.com/events/my-event', {
+  source: 'whatsapp',
+  medium: 'dm',
+  campaign: 'my-event',
+});
+```
+
+**Verified (2026-08-21):** Mixpanel's web SDK auto-registers `utm_source`/`utm_medium`/
+`utm_campaign` from the query string as super properties on page load — they're included on
+every subsequent event (including the `$mp_web_page_view` autocapture event) with no custom
+capture code. Confirmed live: a tagged pageview against production surfaced as a filterable
+`utm_source` property on `$mp_web_page_view` within the same session.
+
+**`utm_source` — the channel/platform:**
+
+| Value | Channel |
+|-------|---------|
+| `whatsapp` | WhatsApp/Telegram DM or group share |
+| `facebook` | Facebook group event post |
+| `luma` | Luma event listing |
+| `eventbrite` | Eventbrite listing |
+| `email` | Email/newsletter |
+| `sola` | Sola app listing |
+| `todo-today` | Todo.Today listing |
+| `cm-page` | Outbound link on the `/cm` calendar page itself |
+
+**`utm_medium` — the type of touchpoint:**
+
+| Value | Touchpoint |
+|-------|-----------|
+| `dm` | 1:1 direct message |
+| `community-group` | Post in a group/community (e.g. Facebook group event) |
+| `event-listing` | Listing on a third-party events platform |
+| `newsletter` | Email send |
+| `calendar-subscribe` | The `/cm` page's "Add this calendar to yours" link |
+
+**`utm_campaign`** — the event slug or promo identifier, e.g. `chiang-mai-run-2026-09`.
+
+**Not the same mechanism as `?referrer=<profile_id>`** (person-to-person sharing, e.g.
+`witness-card.tsx`) — that answers "which person shared this," a separate question from "which
+channel." Leave it as-is; do not conflate the two.
+
+---
+
 ## Known event gaps (open)
 
 Carried forward from P578 when it closed on 2026-08-14. These are **not** recoverable by the

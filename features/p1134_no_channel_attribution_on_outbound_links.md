@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 54
 workstream: analytics
 created_date: '2026-08-20'
 tags: [analytics, mixpanel, attribution, utm]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 driver: anomaly
 ---
 
@@ -18,7 +18,7 @@ driver: anomaly
 all in Mixpanel ($direct) — only ~11 were attributable to Facebook, Google, or the blog subdomain.
 Top-traffic pages include `/cm` (an embedded Chiang Mai events calendar, 394 pageviews — the
 single highest-traffic page on the site) and one pledger's public profile page (40 pageviews in 30
-days, despite no further login activity on that account since the original signup).
+days, despite that pledger never logging in again after her original signup).
 
 **Complication:** None of the site's outbound-facing links — event promotion posts, WhatsApp/
 Telegram shares, the `/cm` calendar's own "Add this calendar to yours" link, individual pledgers
@@ -104,14 +104,23 @@ this session:
 
 ## Done-When
 
-- [ ] Verified (Mixpanel live view, screenshot or query result) whether `utm_source`/`utm_medium`/
+- [x] Verified (Mixpanel live view, screenshot or query result) whether `utm_source`/`utm_medium`/
       `utm_campaign` are auto-promoted to first-class properties, or whether explicit parsing was
-      needed — and if needed, implemented
-- [ ] A documented convention (in `docs/technical/analytics.md` or equivalent) states the
+      needed — and if needed, implemented. **Confirmed auto-promoted, no parsing needed:**
+      navigated production (`claritypledge.com/?utm_source=p1134test&utm_medium=verification&
+      utm_campaign=p1134`), read `window.mixpanel.persistence.properties()` in-page — utm_source/
+      utm_medium/utm_campaign were registered as super properties on load. Then ran a Mixpanel
+      query (`$mp_web_page_view` filtered `utm_source = p1134test`, today) — returned 2 events,
+      confirming the property reaches the actual event payload as a filterable, breakdown-usable
+      property. No custom capture code added.
+- [x] A documented convention (in `docs/technical/analytics.md` or equivalent) states the
       `utm_source`/`utm_medium`/`utm_campaign` values to use per channel (e.g. `whatsapp`,
-      `facebook-event`, `luma`, `email`), so future promotion content stays consistent
-- [ ] The `/cm` page's "Add this calendar to yours" link carries UTM params
-- [ ] At least one `slava:events:promote-*` skill's generated share links carry UTM params, as a
-      working example for the rest to follow
+      `facebook-event`, `luma`, `email`), so future promotion content stays consistent — see
+      "Channel Attribution (UTM)" section
+- [x] The `/cm` page's "Add this calendar to yours" link carries UTM params
+- [x] At least one `slava:events:promote-*` skill's generated share links carry UTM params, as a
+      working example for the rest to follow — `promote-facebook.md` (landed on main separately,
+      per skill-file branch rule)
 - [ ] A follow-up Mixpanel query, run 2+ weeks after this ships, shows at least one non-$direct,
-      non-search-engine `utm_source` value in the referrer/attribution breakdown
+      non-search-engine `utm_source` value in the referrer/attribution breakdown — **cannot be
+      completed this session; inherently deferred until 2+ weeks of live traffic accrue**

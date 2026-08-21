@@ -129,7 +129,7 @@ describe('P909: /cm full-screen chrome-free layout', () => {
     expect(getCalendarIframe().src).toContain('mode=WEEK');
   });
 
-  it('slim row: logo links home, subscribe link unchanged, no h1 title', () => {
+  it('slim row: logo links home, subscribe link carries UTM tagging, no h1 title', () => {
     mockMatchMedia(true);
     renderPage();
 
@@ -139,8 +139,14 @@ describe('P909: /cm full-screen chrome-free layout', () => {
     const home = screen.getByRole('link', { name: /clarity pledge — home/i });
     expect(home, 'logo link is the only way back to the site').toHaveAttribute('href', '/');
 
+    // P1134: subscribe link carries UTM channel-attribution params (see docs/technical/analytics.md)
     const subscribe = screen.getByRole('link', { name: /add this calendar to yours/i });
-    expect(subscribe).toHaveAttribute('href', `https://calendar.google.com/calendar/u/0?cid=${btoa(CALENDAR_ID)}`);
+    const subscribeHref = subscribe.getAttribute('href')!;
+    expect(subscribeHref.startsWith(`https://calendar.google.com/calendar/u/0?cid=${btoa(CALENDAR_ID)}`)).toBe(true);
+    const params = new URL(subscribeHref).searchParams;
+    expect(params.get('utm_source')).toBe('cm-page');
+    expect(params.get('utm_medium')).toBe('calendar-subscribe');
+    expect(params.get('utm_campaign')).toBe('chiang-mai-calendar');
     expect(subscribe).toHaveAttribute('target', '_blank');
     expect(subscribe).toHaveAttribute('rel', 'noopener noreferrer');
   });

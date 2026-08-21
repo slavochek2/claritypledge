@@ -13,9 +13,17 @@ import { Link } from "react-router-dom";
 import { SEO } from "@/app/components/seo";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { buildEmbedUrl, SUBSCRIBE_URL } from "@/lib/chiang-mai-calendar";
+import { withUtm } from "@/lib/utm";
 
 // md breakpoint — below it the week grid is unreadably cramped, agenda list wins
 const DESKTOP_QUERY = "(min-width: 768px)";
+
+// P1134: channel attribution — see docs/technical/analytics.md for the convention
+const SUBSCRIBE_LINK = withUtm(SUBSCRIBE_URL, {
+  source: "cm-page",
+  medium: "calendar-subscribe",
+  campaign: "chiang-mai-calendar",
+});
 
 export function ChiangMaiPage() {
   const [isDesktop, setIsDesktop] = useState(
@@ -48,7 +56,7 @@ export function ChiangMaiPage() {
           <ClarityLogo size="xs" className="hidden sm:inline-flex" />
         </Link>
         <a
-          href={SUBSCRIBE_URL}
+          href={SUBSCRIBE_LINK}
           target="_blank"
           rel="noopener noreferrer"
           className="flex shrink-0 items-center whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
