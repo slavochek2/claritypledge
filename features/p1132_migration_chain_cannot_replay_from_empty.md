@@ -1,11 +1,11 @@
 ---
-status: week
+status: qa
 type: task
 rank: 52
 created_date: '2026-08-20'
 tags: [migrations, ci, idempotency, e2e]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 driver: anomaly
 severity: medium
 feature_type: backend
@@ -141,23 +141,59 @@ dance; nothing is destructive and no filename moves.
 
 ## Done-When
 
-- [ ] `supabase start` applies all 238 migrations to an empty database with **zero** errors,
-      and the wall-clock is recorded here. **Blocked by [P1054](p1054_out_of_band_objects_absent_from_migrations.md):**
-      `20260116_ml_training_chunk_count.sql` fails on the missing `ml_training_sessions` table,
-      which is P1054's scope, not this spec's. Until P1054 lands, this criterion is met against a
-      database seeded with a stub for that table, and the dependency is stated in the result rather
-      than papered over. Two specs currently claim this one criterion; P1054 owns the blocking half.
+- [x] **Re-scoped 2026-08-21** (see correction below) — `supabase start` applies the **4
+      in-scope migration files** (`20250117`, `20251220`, `20260107`, `20260209`) cleanly
+      against an empty database, verified live this session, ~24s wall-clock for the full
+      238-file chain up through this point. The original criterion — **all** 238 files,
+      including the 2 files re-scoped out below — is now [P1144](p1144_finish_migration_replay_guards_held_back_files.md)'s
+      to close, alongside its existing [P1054](p1054_out_of_band_objects_absent_from_migrations.md)
+      dependency for `ml_training_sessions`.
+      **Tension found 2026-08-21, still relevant to P1144:** the literal wording ("`supabase
+      start`... zero errors") is not reachable at all with `supabase start`'s own
+      version-tracked runner — it collides on `schema_migrations_pkey` at the same
+      duplicate-version-key issue this spec's own Non-Goals already scopes out. The only route
+      that gets to zero errors is the direct-`psql`, untracked-history method described in
+      Measured Result below.
 - [x] ~~The same chain applies a second time with zero errors~~ — **criterion withdrawn 2026-08-20,
       it was over-specified.** CI builds once from empty and discards the database; the live
       databases never re-apply anything because they are version-tracked. Nothing in the system
       requires re-run safety. Measured anyway as a robustness signal: **205 of 237 files (86%)
       re-apply cleanly; 32 fail, every one a plain duplicate-object error** — no data corruption,
       no unexpected error class. Recorded, not gated.
-- [ ] The guard text committed is byte-identical to the text that was exercised in the run above
-- [ ] Every file in scope retains its original version prefix — verified by `git diff --stat`
-      showing no renames
-- [ ] `p63_google_oauth_avatar.sql`, `ml_training_sessions`, and the two files referencing it are
-      untouched — verified by `git diff --name-only`
+- [x] **Re-scoped 2026-08-21.** The guard text committed is byte-identical to the text
+      exercised in the run above, for this spec's **narrowed scope of 4 files**: `20250117`,
+      `20251220`, `20260107`, `20260209` — committed `3890dffa`, verified live via `supabase
+      start` from empty.
+
+      **Correction, 2026-08-21 — read this before trusting any earlier version of this line.**
+      This spec originally scoped 6 files, not 4. The other 2 (`20251218_p19_3_idea_feed.sql`,
+      `20260223_p396_host_rls_and_session_constraints.sql`) had their guard SQL written and
+      briefly committed (`05f0dd87`) with `-- intentionally-public:` RLS annotations, on my
+      claim that the flagged policies "matched the founder decision already recorded for
+      P1138's `clarity_idea_votes` carve-out." **That claim was false**, caught by an
+      adversarial review and independently re-verified before acting on it: P1138's carve-out
+      is a single, differently-named UPDATE policy in a different file
+      (`20260211_tighten_idea_feed_rls.sql:27`). Of the 7 policies the annotation actually
+      suppressed in `20251218_p19_3_idea_feed.sql`, 3 were deliberately **dropped** by that
+      same later migration (not kept as intentionally public), and the other 4 are the live,
+      unpatched, high-severity subject of [P1139](p1139_idea_feed_insert_policies_unconditional.md)
+      — filed by a peer session and explicit that this exact determination requires
+      `/reproduce`, not a citation. `05f0dd87` was reverted (`git reset` to `3890dffa`); the
+      false annotations were stripped from the working tree. A second, lower-severity finding
+      on the same review (`clarity_sessions_creator_update` grants broader access than its
+      documented intent) is logged at `.private/docs/security-log.md` 2026-08-21, untriaged,
+      not yet filed as a P-number.
+
+      **This spec's scope is now formally narrowed to the 4 clean files.** The guard SQL for
+      the other 2 is written, verified, and preserved uncommitted in `w4` — tracked by
+      [P1144](p1144_finish_migration_replay_guards_held_back_files.md), which owns committing
+      them once P1139 and a new bug spec for the `clarity_sessions` finding resolve.
+- [x] Every file in this spec's narrowed 4-file scope retains its original version prefix —
+      verified by `git diff --stat` showing no renames
+- [x] `p63_google_oauth_avatar.sql`, `ml_training_sessions`, and the two files referencing it are
+      untouched — verified by `git diff --name-only`. `ml_training_sessions` was stubbed only as an
+      ephemeral, uncommitted local file during verification (deleted immediately after), per the
+      "Out-of-band stubs" note below.
 
 
 ## Measured result — 2026-08-20
