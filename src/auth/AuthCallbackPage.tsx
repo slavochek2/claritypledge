@@ -264,9 +264,15 @@ export function AuthCallbackPage() {
             witnesses: [],
             reciprocations: 0,
             pledgeVersion: profileByEmail.pledge_version,
-            // P1133: without this, a /live migration silently drops is_test_account
-            // (the delete+upsert below never carries it), so a test account loses
-            // its is_internal tagging the moment it migrates.
+            // P1133: fixes is_internal for THIS login's analytics event only.
+            // upsert_my_profile's INSERT column list never includes is_test_account
+            // (P571's RLS pins it against ordinary client writes — same trust-column
+            // class as is_verified/has_pledged), so the delete+upsert below still
+            // persists the new row with is_test_account=false regardless of this
+            // value. Every login AFTER this migration reads is_test_account:false
+            // from the DB again. A real fix needs a SECURITY DEFINER RPC (like
+            // markSelfVerified/setMyPledge below) and is out of scope for P1133's
+            // Non-Goals (no schema/RPC changes) — tracked separately, see spec Risks.
             isTestAccount: profileByEmail.is_test_account ?? false,
           };
         }

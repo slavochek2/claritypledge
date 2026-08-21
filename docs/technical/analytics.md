@@ -1031,7 +1031,16 @@ These properties enable segmentation in Mixpanel:
   3. **A real customer given a `@claritypledge.com` address (design partner, certifier, future
      employee) is classified internal by construction**, silently — there's no separate signal.
      `isInternalAccount()` logs a console warning in production whenever the domain branch (not
-     `is_test_account`) is what matched, specifically so this is auditable rather than invisible.
+     `is_test_account`) is what matched, specifically so this is auditable rather than invisible. A
+     separate warning (once per page load, not once per login) fires if
+     `VITE_INTERNAL_ACCOUNT_EMAIL_HASHES` is unprovisioned — check the Vercel dashboard if you ever
+     see it.
+  4. **A profile that migrates from `/live` (anonymous session → magic-link auth) does not carry
+     `is_test_account` through to the new database row**, even though its Mixpanel `is_internal`
+     tag is correct for that one migration login — `upsert_my_profile`'s RLS pins the column
+     against client writes (P571), so every *subsequent* login re-reads `is_test_account: false`
+     from the DB. Fixing this for real needs a dedicated SECURITY DEFINER RPC; out of scope for
+     P1133, tracked as a follow-up.
   When in doubt, cross-check a `is_internal != true` result against `auth.users`/`profiles`
   directly rather than trusting the filter alone for anything that matters.
 

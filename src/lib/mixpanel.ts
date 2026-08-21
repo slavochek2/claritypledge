@@ -70,12 +70,22 @@ function canonicalizeGmailFamily(lowerEmail: string): string {
  * the CANONICAL form (see canonicalizeGmailFamily below) — the googlemail.com domain
  * variant and any +tag must be normalized away first, or the hash won't match.
  */
+// P1133: lets the "unset" warning below fire at most once per page load instead
+// of on every single customer's login for as long as the var stays unprovisioned
+// in Vercel (it would otherwise leak internal jargon into every ordinary
+// visitor's production console, forever). Deliberately NOT caching the parsed
+// Set itself alongside this flag — import.meta.env.VITE_* is a build-time
+// constant in real production, but test envs mutate it between cases
+// (vi.stubEnv), and a stale cached Set silently defeats that.
+let warnedUnset = false;
+
 function internalEmailHashAllowlist(): Set<string> {
   const raw = import.meta.env.VITE_INTERNAL_ACCOUNT_EMAIL_HASHES as string | undefined;
   if (!raw) {
     // P1133: silent-forever gap otherwise — this is the only place absence is
     // observable, since setUserProperties() itself is a no-op outside production.
-    if (import.meta.env.PROD) {
+    if (import.meta.env.PROD && !warnedUnset) {
+      warnedUnset = true;
       console.warn(
         '[P1133] VITE_INTERNAL_ACCOUNT_EMAIL_HASHES is unset in production — ' +
         'non-domain internal accounts (e.g. a personal login) will be tagged is_internal:false.'

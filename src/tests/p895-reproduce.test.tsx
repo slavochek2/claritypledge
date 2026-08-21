@@ -113,16 +113,18 @@ vi.mock('@/app/data/api', () => ({
 
 // Spy on analytics — the assertion target. AuthContext also imports identify/reset.
 const mockTrack = vi.fn();
+const mockSetUserProperties = vi.fn();
 vi.mock('@/lib/mixpanel', () => ({
   analytics: {
     track: (event: string, props?: unknown) => mockTrack(event, props),
     identify: vi.fn(),
-    setUserProperties: vi.fn(),
+    setUserProperties: (props?: unknown) => mockSetUserProperties(props),
     reset: vi.fn(),
   },
   // P1133: AuthCallbackPage also imports isInternalAccount — stub it so the
-  // module shape matches; this test's assertions are about which analytics
-  // event fires, not about internal-account tagging.
+  // module shape matches. Real setUserProperties({is_internal}) wiring (not
+  // isInternalAccount's own internal logic, covered elsewhere) is asserted
+  // below via mockSetUserProperties.
   isInternalAccount: vi.fn(() => false),
 }));
 
@@ -197,6 +199,15 @@ describe('P895: profile_created fired for returning users', () => {
     expect(mockTrack).toHaveBeenCalledWith('login_complete', expect.objectContaining({
       registration_source: 'login',
     }));
+
+    // P1133: the real call site actually wires is_internal into
+    // setUserProperties — not just isInternalAccount() in isolation. This
+    // fires inside a fire-and-forget async IIFE, so wait for it explicitly.
+    await waitFor(() => {
+      expect(mockSetUserProperties).toHaveBeenCalledWith(
+        expect.objectContaining({ is_internal: false })
+      );
+    });
   });
 
   it('guard: genuinely new user still fires profile_created', async () => {
