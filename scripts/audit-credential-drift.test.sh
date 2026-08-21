@@ -260,13 +260,13 @@ assert_out "C1 registry -> consumer: documented credential, no env entry anywher
 assert_out "C2 registry -> consumer: claims a location it does not occupy" \
                                        "REGISTRY_LOCATION_MISMATCH:FAKE_MISLOCATED_SECRET"
 assert_out "C2 detail: mismatch names both the claimed and the found file" \
-                                       "claimed=${REG_DIR}"
+                                       "claimed=${ENV_DIR}/fixture-env-a.env"
 assert_out "D  registry -> registry: same key, two different Tier values" \
                                        "REGISTRY_MISMATCH:FAKE_DUAL_REGISTERED_KEY"
 assert_out "E  retirement candidate: registered+present, zero live consumers" \
                                        "RETIREMENT_CANDIDATE:FAKE_RETIRED_SECRET"
 assert_out "E2 stale consumer list: documented=1, live=2" \
-                                       "CONSUMER_LIST_STALE:FAKE_STALE_CONSUMER_KEY:documented=1:live=2"
+                                       "CONSUMER_LIST_STALE:FAKE_STALE_CONSUMER_KEY:${REG_DIR}/registry-a.md:documented=1:live=2"
 assert_out "Non-Goal violation caught: plaintext value inline in a registry row" \
                                        "PLAINTEXT_IN_REGISTRY:FAKE_PLAINTEXT_LEAK_KEY"
 
