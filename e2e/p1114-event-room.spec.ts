@@ -436,15 +436,15 @@ test.describe('P1114 event page: tab row', () => {
     await expect(page).not.toHaveURL(/[?&]tab=/);
   });
 
-  test('a first-time registered attendee: "Start event" routes through the readiness question first, not straight to the principle', async ({ page }) => {
+  test('a first-time registered attendee: "Join now" routes through the readiness question first, not straight to the principle', async ({ page }) => {
     const attendee = await freshRegistered('P1114 Tab E2E First Visit');
     await setTestSession(page, attendee.email);
     await page.goto(`/events/${event.slug}`);
 
-    await page.getByRole('link', { name: 'Start event' }).click();
+    await page.getByRole('link', { name: 'Join now' }).click();
     await expect(
       page,
-      '"Start event" must link to /room (the smart entry point that decides readiness-vs-principle), not straight to /meet — linking to /meet directly bypasses the readiness question entirely, even for a first-time visitor (founder repro, 2026-08-21: a fresh account never saw the slider).',
+      '"Join now" must link to /room (the smart entry point that decides readiness-vs-principle), not straight to /meet — linking to /meet directly bypasses the readiness question entirely, even for a first-time visitor (founder repro, 2026-08-21: a fresh account never saw the slider).',
     ).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
     await expect(page.getByTestId('room-ready')).toBeVisible();
 
@@ -455,7 +455,7 @@ test.describe('P1114 event page: tab row', () => {
     ).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
   });
 
-  test('a returning attendee who already set readiness: "Start event" skips straight to the principle page', async ({ page }) => {
+  test('a returning attendee who already set readiness: "Join now" skips straight to the principle page', async ({ page }) => {
     const attendee = await freshRegistered('P1114 Tab E2E Returning');
     await setTestSession(page, attendee.email);
     // First pass through /ready sets readiness_value — reuses the real flow rather
@@ -465,14 +465,14 @@ test.describe('P1114 event page: tab row', () => {
     await expect(page.getByTestId('room-meet')).toBeVisible();
 
     await page.goto(`/events/${event.slug}`);
-    await page.getByRole('link', { name: 'Start event' }).click();
+    await page.getByRole('link', { name: 'Join now' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
     await expect(page.getByTestId('room-meet')).toBeVisible();
   });
 
-  test('a signed-out visitor clicking "Start event" reaches the gate, not the room content', async ({ page }) => {
+  test('a signed-out visitor clicking "Join now" reaches the gate, not the room content', async ({ page }) => {
     await page.goto(`/events/${event.slug}`);
-    await page.getByRole('link', { name: 'Start event' }).click();
+    await page.getByRole('link', { name: 'Join now' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/room$`));
     await expect(page.getByTestId('room-gate')).toBeVisible();
     await expect(page.getByTestId('room-meet')).toHaveCount(0);

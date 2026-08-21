@@ -193,18 +193,18 @@ describe('P1114 rev2: chrome and routing', () => {
     }
   });
 
-  it('the "Start event" row sits above the event card', () => {
+  it('the "Join now" row sits above the event card', () => {
     const s = read(EVENT_DETAIL);
-    const row = s.indexOf('Start event');
+    const row = s.indexOf('Join now');
     const title = s.indexOf('{event.title}</h1>');
-    expect(row, 'EventDetail.tsx no longer renders "Start event" (round 4 — was "View Principle", itself shortened from "Clarity Principle" 2026-08-21).').toBeGreaterThan(-1);
+    expect(row, 'EventDetail.tsx no longer renders "Join now" (round 4 second pass — was "Start event", itself replacing "View Principle" / "Clarity Principle" in earlier passes, 2026-08-21).').toBeGreaterThan(-1);
     expect(title, 'EventDetail.tsx no longer renders the event title heading.').toBeGreaterThan(-1);
-    expect(row < title, 'The "Start event" row renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card.').toBe(true);
+    expect(row < title, 'The "Join now" row renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card.').toBe(true);
   });
 
   it('the tab concept stays gone — no tab-state variable, no Radix Tabs, and Practice Rooms has moved off this file', () => {
     const s = read(EVENT_DETAIL);
-    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "Start event" is a plain navigation Link to the room now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
+    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "Join now" is a plain navigation Link to the room now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
     expect(/<Tabs[\s>]|<TabsList|<TabsTrigger|<TabsContent/.test(s), 'EventDetail.tsx still imports/renders a Radix Tabs component. onValueChange double-fires per click and roving-focus arrow keys would fire it too — wrong tool for a same-row link that performs a real route change.').toBe(false);
     // Round 4 reverses the round-2 "leave it where it was!" call: Practice Rooms moves
     // into /meet (see the matching assertion below), off the event Details page entirely.
@@ -222,15 +222,15 @@ describe('P1114 rev2: chrome and routing', () => {
     ).toBe(true);
   });
 
-  it('"Start event" links to /room, not directly to /meet — /room is what decides readiness-vs-principle', () => {
+  it('"Join now" links to /room, not directly to /meet — /room is what decides readiness-vs-principle', () => {
     const s = read(EVENT_DETAIL);
     expect(
       /to=\{`\/events\/\$\{slug\}\/room`\}/.test(s),
-      'EventDetail.tsx does not link "Start event" to /events/:slug/room. Linking straight to /meet skips the readiness question for a first-time visitor — /room (EventRoomGate) is the route that checks readiness_value and decides whether to send them to /ready or /meet (founder repro, 2026-08-21: a fresh account went straight to the principle page).',
+      'EventDetail.tsx does not link "Join now" to /events/:slug/room. Linking straight to /meet skips the readiness question for a first-time visitor — /room (EventRoomGate) is the route that checks readiness_value and decides whether to send them to /ready or /meet (founder repro, 2026-08-21: a fresh account went straight to the principle page).',
     ).toBe(true);
     expect(
       /to=\{`\/events\/\$\{slug\}\/meet`\}/.test(s),
-      'EventDetail.tsx still links "Start event" directly to /meet.',
+      'EventDetail.tsx still links "Join now" directly to /meet.',
     ).toBe(false);
   });
 });
