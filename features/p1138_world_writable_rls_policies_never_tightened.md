@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: '2026-08-21'
 root_cause: "Absolute-predicate write policies (USING(true)/WITH CHECK(true), no TO <role>) written permissive at creation, never revisited. clarity_verifications/demo_rounds/ideas/live_turns had zero live callers (clarity_verifications' write path is dead code in an unrouted page — the spec's original write-path audit was wrong, corrected empirically before the fix). ml_training_sessions carried a stray out-of-band policy duplicating an already-correct TO authenticated one; the upstream GCS signed-URL edge function already required a JWT, so no legitimate guest write depended on the broad policy."
 resolution: "Migration 20260821140000_p1138_close_unauthenticated_write_policies.sql: dropped the 4 dead UPDATE policies outright; dropped the stray ml_training_sessions INSERT policy; reconstructed its missing CREATE TABLE. Extended scripts/rls-drift-check.py with a new unconditional-write leg (fires regardless of prod/test/file agreement) plus self-tests proving it catches the class and doesn't false-positive. Applied to test only — prod requires separate explicit approval per this spec's Non-Goals. Sibling finding on a different table family filed as P1139."
