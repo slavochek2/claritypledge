@@ -16,7 +16,7 @@ import { getNextBatchStartISO } from "@/app/content/webinar";
 // continues is the practice community — that is the thing being paid for from month four
 // on, and the page never said so.
 const MONTH_ARC = [
-  { when: "Month 1", heading: "Practise together weekly, and learn why the clarity principle works." },
+  { when: "Month 1", heading: "Practise together every week, and learn why it works." },
   { when: "Month 2", heading: "Take it to a few people you actually work with." },
   { when: "Month 3", heading: "Open your Clarity Organization and run your first events." },
   {
@@ -58,12 +58,14 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * (P1087; the prior single hardcoded COHORT_ENROLLMENT_CLOSES_ISO rendered a permanent
  * "expired" state once its one fixed deadline passed). Ticks once per second.
  *
- * Rendered by the CLOSING Champions CTA at the bottom of the page, not here (P1087 UAT,
- * round 3). The founder's own reasoning decided the placement against their first guess:
- * "people don't care about the batch start before they know what it is, and they read what
- * it is by looking at the months." A deadline is only urgent once the reader wants the
- * thing, so it sits beside the last buy button rather than above the fold. Exported so the
- * page can compose it there. Urgency is carried by the ticking digits and a blue band —
+ * Rendered by the PAGE, directly under the pricing grid's guarantee + VAT line (P1087 UAT
+ * round 4: "I think next batch starts needs to be higher... maybe it should be below the
+ * price excludes"). Round 3 had put it at the page close on the opposite reasoning —
+ * "people don't care about the batch start before they know what it is" — and round 4
+ * overrode that. Under the price it is read while the €295 is still on screen, which is
+ * where a start date is actually a reason to act. Exported so the page composes it, since
+ * it now sits between two sections and belongs to neither. Urgency is carried by the
+ * ticking digits and a blue band —
  * the design system reserves amber/orange/red, so no red "hurry" color is used.
  */
 export function BatchCountdown() {

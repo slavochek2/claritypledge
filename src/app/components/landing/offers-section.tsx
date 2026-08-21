@@ -86,7 +86,7 @@ const MEMBERSHIP_BULLETS = [
   "Learn the practice by doing it weekly with a small batch of peers",
   "Carry it into your own organization with help, instead of alone",
   "Keep growing with people on the same path, long after month three",
-  "Partial Clarity Badges — verifiable proof of the situations you have calibrated",
+  "Clarity Badges you can show — proof of the situations you have practised",
 ];
 
 /**
@@ -99,8 +99,8 @@ const MEMBERSHIP_BULLETS = [
  * earlier "four 1:1 sessions" bullet appeared nowhere on the source).
  */
 const PARTNERSHIP_BULLETS = [
-  "De-risk one working relationship before it costs you",
-  "Both of you know that you both know — gaps surfaced, then bridged",
+  "Make one working relationship safe before it costs you",
+  "Both of you know that you both know — you find the gaps, then close them",
   "More trust, fewer avoidable mistakes, disagreements that stay productive",
   "A signed Clarity Partnership Agreement you both own, with a public Clarity Badge",
 ];
@@ -114,7 +114,7 @@ const PARTNERSHIP_BULLETS = [
 const CUSTOM_BULLETS = [
   "For a problem you already feel: rework, turnover, decisions that keep reopening",
   "Disagreements that go nowhere, or people who stopped saying what they think",
-  "Coaching, training and consulting shaped around your situation, not a curriculum",
+  "Coaching, training and consulting shaped around your situation",
 ];
 
 /** Renders an internal `<Link>` for in-app paths and an external `<a>` otherwise. */
@@ -205,7 +205,12 @@ const TESTIMONIALS: {
 }[] = [
   {
     quote:
-      "Slava’s workshop is an exceptional tool for any founding team focused on long-term alignment. Even for co-founders with a shared vision, mastering the nuances of high-level communication is key to scaling. Slava introduced us to a practical, structured framework where we parsed real business scenarios, actively reflecting and scoring our understanding of each other’s points. It was an incredibly effective calibration exercise that sharpened our daily communication. It’s a masterclass in turning safe alignment into a strategic advantage.",
+      // Trimmed at founder UAT (round 4) from the full LinkedIn recommendation — five
+      // sentences next to Jan's two made one card roughly triple the other's height, and
+      // the imbalance read as one weak testimonial rather than two good ones. Cut only
+      // whole sentences, verbatim and in order: nothing was reworded, so it remains an
+      // accurate excerpt of what Nitzan wrote. Full text: the LinkedIn recommendation.
+      "Slava introduced us to a practical, structured framework where we parsed real business scenarios, actively reflecting and scoring our understanding of each other’s points. It was an incredibly effective calibration exercise that sharpened our daily communication.",
     name: "Nitzan Mantel",
     linkedinUrl: "https://www.linkedin.com/in/nitzan-mantel-564a381bb/",
     role: "CCO at Stealth Startup",

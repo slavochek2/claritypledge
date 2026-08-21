@@ -6,10 +6,11 @@
  * redirect here. Reading order, REVERSED at founder UAT round 3:
  *
  *   1. The three-card offer ladder + assurance band              (OffersSection)
- *   2. What Clarity Champions is + Month 1 / 2 / 3 / 4-and-beyond (ProgramTimelineSection)
- *   3. Two testimonials                                          (Testimonials)
- *   4. Closing CTA on Champions alone + next-batch countdown     (ChampionsCloseCta)
- *   5. FAQ
+ *   2. Next-batch countdown, under the price line               (BatchCountdown)
+ *   3. What Clarity Champions is + Month 1 / 2 / 3 / 4-and-beyond (ProgramTimelineSection)
+ *   4. Two testimonials                                          (Testimonials)
+ *   5. Closing CTA on Champions alone, with its own heading      (ChampionsCloseCta)
+ *   6. FAQ
  *
  * Why the reversal (founder: "first show the pricing at the top, then show the specific
  * details of the Clarity Champions program, because it's kind of chosen, right?"): the old
@@ -17,9 +18,11 @@
  * read as three sizes of the thing just described. Leading with the grid makes the three
  * offers a choice, and everything after it is detail on the one most people take.
  *
- * The countdown moved to the CLOSE for the founder's own stated reason — "people don't care
- * about the batch start before they know what it is." A deadline converts only after the
- * reader wants the thing.
+ * The countdown sits under the PRICE (UAT round 4: "I think next batch starts needs to be
+ * higher... maybe it should be below the price excludes"). Round 3 had placed it at the
+ * close on the opposite reasoning — "people don't care about the batch start before they
+ * know what it is" — and the founder overrode it. Both readings are defensible; under the
+ * price, the start date is next to the number it qualifies.
  *
  * Section paddings are deliberately tighter than the site default (py-20/28 stacked against
  * the timeline's own padding put roughly 14rem of dead space between sections).
@@ -52,19 +55,33 @@ export function OffersPage() {
         url="/program"
         description="Weekly live practice with a small batch of peers, €295/month, cancel anytime. Full refund if the first two sessions aren't for you."
       />
-      <OffersSection className="pt-20 pb-16 lg:pt-24 lg:pb-20" />
+      <OffersSection className="pt-20 pb-8 lg:pt-24 lg:pb-10" />
+      {/* The batch deadline sits directly under the price + VAT line (UAT round 4), not at
+          the page close where round 3 put it. It is read while €295 is still on screen. */}
+      <section className="flex justify-center px-4 pb-16 lg:pb-20">
+        <BatchCountdown />
+      </section>
       <ProgramTimelineSection className="border-t border-border pt-16 lg:pt-20" />
       <section className="px-4 pb-16 lg:pb-20">
         <Testimonials />
       </section>
-      {/* Closing action on Champions alone, with the batch deadline beside it — the last
-          thing before the FAQ, and the only place on the page urgency is asserted. */}
-      {/* Plain background — the FAQ directly below is bg-muted/30, and two stacked muted
+      {/* Closing action on Champions alone. It now carries its own heading and one line of
+          subtitle (UAT round 4): a bare "Start at €295/month" after the testimonials had
+          lost its subject — "start what? Maybe they lost the idea." The heading names the
+          thing, the line says what it is for, the button prices it.
+          Plain background — the FAQ directly below is bg-muted/30, and two stacked muted
           bands read as one section with a stray button in it. */}
       <section className="border-t border-border px-4 py-16 lg:py-20">
-        <div className="container mx-auto flex max-w-2xl flex-col items-center gap-6 text-center">
-          <BatchCountdown />
-          <ChampionsCloseCta />
+        <div className="container mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Join the Clarity Champions Program
+          </h2>
+          <p className="text-pretty text-base text-muted-foreground">
+            Bring clarity into your organization.
+          </p>
+          <div className="mt-2">
+            <ChampionsCloseCta />
+          </div>
         </div>
       </section>
       <section className="px-4 py-16 lg:py-20 bg-muted/30 border-t border-border">

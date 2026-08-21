@@ -15,7 +15,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { OffersSection, ChampionsCloseCta } from '@/app/components/landing/offers-section';
+import { OffersSection, ChampionsCloseCta, Testimonials } from '@/app/components/landing/offers-section';
 import { ProgramTimelineSection } from '@/app/components/landing/program-timeline-section';
 
 const LIVE_LINK = 'https://buy.stripe.com/fZu8wPchH88D9ZFaGo1Jm09';
@@ -166,7 +166,7 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     // The founder-named defect: three feature lists made three offers look like three sizes
     // of one thing, because features are the axis on which they overlap. Each card now leads
     // with who has the problem and what changes.
-    expect(screen.getByText(/De-risk one working relationship/i)).toBeInTheDocument();
+    expect(screen.getByText(/one working relationship safe before it costs you/i)).toBeInTheDocument();
     expect(screen.getByText(/you know that you both know/i)).toBeInTheDocument();
     expect(screen.getByText(/Carry it into your own organization/i)).toBeInTheDocument();
     expect(screen.getByText(/a problem you already feel/i)).toBeInTheDocument();
@@ -178,6 +178,33 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     // Delivery mechanics cut at UAT: "who cares about that? We need to stay high level."
     expect(screen.queryByText(/retainer available/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/fixed curriculum/i)).not.toBeInTheDocument();
+  });
+
+  it('carries no in-house vocabulary in the bullets (UAT round 4 jargon pass)', () => {
+    renderSection();
+    // Founder: "the whole page, we need to scan and see what is jargony... delete it."
+    // These are words that mean something INSIDE the project and nothing to a first-time
+    // reader. Product names that denote a real, purchasable thing (Clarity Badge, Clarity
+    // Partnership Agreement, Clarity Organization) are NOT jargon and stay.
+    expect(screen.queryByText(/de-risk/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/gaps surfaced/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/calibrated/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not a curriculum/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps both testimonials within one length band of each other (UAT round 4)', () => {
+    render(
+      <MemoryRouter>
+        <Testimonials />
+      </MemoryRouter>
+    );
+    const quotes = screen.getAllByRole('figure').map((f) => f.querySelector('blockquote')!.textContent!.length);
+    expect(quotes).toHaveLength(2);
+    // The imbalance the founder flagged was ~3.5x. Anything under 3x reads as two quotes
+    // rather than one quote and one footnote; this asserts the SHAPE, not an exact length,
+    // so a future copy edit that keeps the balance does not fail the suite.
+    const [longest, shortest] = [Math.max(...quotes), Math.min(...quotes)];
+    expect(longest / shortest).toBeLessThan(3);
   });
 });
 
@@ -203,7 +230,7 @@ describe('OffersSection — assurance band and de-duplicated bullets (P1087, fou
   it('drops every membership bullet that another part of the page already states', () => {
     renderSection();
     // Kept — nothing else on the page says these.
-    expect(screen.getByText(/partial clarity badges/i)).toBeInTheDocument();
+    expect(screen.getByText(/clarity badges you can show/i)).toBeInTheDocument();
     expect(screen.getByText(/long after month three/i)).toBeInTheDocument();
 
     // Cut at UAT: duplicated the batch-size chip, the "/ month" price line, and the

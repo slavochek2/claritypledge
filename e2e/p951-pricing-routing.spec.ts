@@ -38,6 +38,12 @@ test('smoke: /program loads with the three-card offer ladder and no console erro
   await expect(page.getByText(/Clarity Champions is the program above/i)).toHaveCount(0);
   await expect(page.getByText(/your first three months/i)).toHaveCount(0);
   await expect(page.getByText('Month 4 and beyond')).toBeVisible();
+  // UAT round 4: the batch countdown sits ABOVE the program detail (under the price line),
+  // and the closing CTA carries its own heading so "Start at €295/month" has a subject.
+  const countdownY = (await page.getByRole('timer').boundingBox())!.y;
+  const arcY = (await page.getByText('Month 1').boundingBox())!.y;
+  expect(countdownY).toBeLessThan(arcY);
+  await expect(page.getByRole('heading', { name: 'Join the Clarity Champions Program' })).toBeVisible();
   // One label for the section: "Offers" was retired with the third card's old name.
   await expect(page.getByText('Custom Offers')).toHaveCount(0);
   // The membership CTA must be the live Stripe checkout, not the fail-loud state. It appears
