@@ -28,6 +28,7 @@ import {
   BookOpenIcon,
   CalendarIcon,
   HistoryIcon,
+  TagIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { AUDIENCE_LINKS, EVENTS_NAV_TO } from './nav-links';
@@ -102,17 +103,33 @@ export function NavigationMenuItems({
               <AwardIcon className="w-4 h-4 inline mr-2" />
               Pledgers
             </Link>
-            {AUDIENCE_LINKS.filter((a) => a.to !== pathname).map((a) => (
+            {/* P1087: grouped under one "Use cases" label and NO LONGER self-filtered —
+                the page you are on used to be the one entry missing, so there was no way
+                to see where you were in the set. */}
+            <div className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Use cases
+            </div>
+            {AUDIENCE_LINKS.map((a) => (
               <Link
                 key={a.to}
                 to={a.to}
-                className={mobileLinkClass}
+                aria-current={a.to === pathname ? "page" : undefined}
+                className={`${mobileLinkClass}${a.to === pathname ? " font-semibold text-foreground" : ""}`}
                 onClick={handleItemClick}
               >
                 <a.Icon className="w-4 h-4 inline mr-2" />
                 {a.label}
               </Link>
             ))}
+            <Link
+              to="/pricing"
+              aria-current={pathname === "/pricing" ? "page" : undefined}
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <TagIcon className="w-4 h-4 inline mr-2" />
+              Pricing
+            </Link>
             <Link
               to="/manifesto"
               className={mobileLinkClass}
@@ -287,14 +304,29 @@ export function NavigationMenuItems({
           {/* P987: this dropdown carried NO audience links at all — the switcher lived
               only in the desktop header and the mobile menu, so on any surface where the
               header collapses to the hamburger, /coach and /founder were unreachable. */}
-          {AUDIENCE_LINKS.filter((a) => a.to !== pathname).map((a) => (
+          {/* P1087: no longer self-filtered — see the mobile menu above. */}
+          {AUDIENCE_LINKS.map((a) => (
             <DropdownMenuItem key={a.to} asChild>
-              <Link to={a.to} className="cursor-pointer">
+              <Link
+                to={a.to}
+                aria-current={a.to === pathname ? "page" : undefined}
+                className={`cursor-pointer${a.to === pathname ? " font-semibold text-foreground" : ""}`}
+              >
                 <a.Icon className="w-4 h-4 mr-2" />
                 {a.label}
               </Link>
             </DropdownMenuItem>
           ))}
+          <DropdownMenuItem asChild>
+            <Link
+              to="/pricing"
+              aria-current={pathname === "/pricing" ? "page" : undefined}
+              className="cursor-pointer"
+            >
+              <TagIcon className="w-4 h-4 mr-2" />
+              Pricing
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
             <Link to="/sign-pledge" className="cursor-pointer">

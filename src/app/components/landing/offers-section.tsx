@@ -51,6 +51,23 @@ import { analytics } from "@/lib/mixpanel";
  */
 const STRIPE_MEMBERSHIP_URL =
   import.meta.env.VITE_STRIPE_MEMBERSHIP_URL ?? "https://buy.stripe.com/fZu8wPchH88D9ZFaGo1Jm09";
+
+/**
+ * Partnership Clarity Package — €1,450 one-off (P1087 UAT round 5). Same in-source-constant
+ * rule and same host-pinned validation as the membership link above.
+ *
+ * LIVE link for price_1U6m5aFXhjM6Ief0P1Zns7JE (prod_V705q5JLbzLr1s), EUR one-time,
+ * tax_behavior=exclusive, automatic tax + VAT-ID collection + billing address, created
+ * against the live account at founder request during UAT.
+ *
+ * Why it stopped routing to /intro: the 15-minute call is the gate for work that has to be
+ * SCOPED before it can be priced. This package has a fixed price and a fixed deliverable,
+ * so the call was friction the founder was charging themselves — "so it doesn't go through
+ * the 15 minutes. The 15 minutes only for the custom ones." Coaching/Training/Consulting
+ * keeps "Book 15 minutes" for exactly the reason this one loses it.
+ */
+const STRIPE_PARTNERSHIP_URL =
+  import.meta.env.VITE_STRIPE_PARTNERSHIP_URL ?? "https://buy.stripe.com/4gM14na9z3Snc7N29S1Jm0a";
 const isStripeLink = (u: string) => {
   try {
     const parsed = new URL(u);
@@ -64,6 +81,7 @@ const isStripeLink = (u: string) => {
   }
 };
 const MEMBERSHIP_IS_SET = isStripeLink(STRIPE_MEMBERSHIP_URL);
+const PARTNERSHIP_IS_SET = isStripeLink(STRIPE_PARTNERSHIP_URL);
 
 /**
  * WHAT EACH RUNG IS FOR — not what it contains. Rewritten at founder UAT round 3, which
@@ -338,7 +356,14 @@ export function OffersSection({ className = "" }: { className?: string }) {
   // on the first prod page load, not after a lost sale. Sentry is prod-only (no-op in dev).
   useEffect(() => {
     if (membershipBroken) {
-      Sentry.captureMessage("P1087: Stripe membership payment link unset/invalid on /program", {
+      Sentry.captureMessage("P1087: Stripe membership payment link unset/invalid on /pricing", {
+        level: "error",
+        tags: { source: "offers-section", area: "pricing-checkout" },
+      });
+    }
+    // Both paid rungs check out on Stripe now, so both are silent-revenue-outage surfaces.
+    if (!PARTNERSHIP_IS_SET) {
+      Sentry.captureMessage("P1087: Stripe partnership payment link unset/invalid on /pricing", {
         level: "error",
         tags: { source: "offers-section", area: "pricing-checkout" },
       });
@@ -408,26 +433,29 @@ export function OffersSection({ className = "" }: { className?: string }) {
           <div className={cardBase}>
             <h3 className={cardHeading}>Partnership Clarity Package</h3>
             <p className="mt-4 flex items-baseline gap-1.5">
-              <span className="text-4xl font-bold tracking-tight text-foreground">€1,450</span>
+              <span className="text-4xl font-bold tracking-tight text-foreground">
+                €1,450<sup className="text-lg font-medium text-muted-foreground">*</sup>
+              </span>
               <span className="text-base font-semibold text-muted-foreground">one-off</span>
             </p>
             <CardBullets items={PARTNERSHIP_BULLETS} />
             <div className="mt-auto pt-8">
-              {/* "Book 15 minutes" on both non-self-serve rungs (founder UAT: "let's just
-                  say book 15 minutes call as well"). Same label, same destination — a
-                  €1,450 engagement between two named people is qualified on a call, not
-                  bought from a grid. The bullets above now carry the detail that the old
-                  "See the package" link sent people off-site to read. */}
-              <CtaLink
-                href="/intro"
+              {/* Buys directly now (UAT round 5) — see STRIPE_PARTNERSHIP_URL above for why
+                  the 15-minute call is no longer in front of a fixed-price package. Kept in
+                  the SECONDARY treatment despite being a real buy button: P955 allows one
+                  full-width primary per view and the membership owns it. */}
+              <PaidCta
+                broken={!PARTNERSHIP_IS_SET}
+                href={STRIPE_PARTNERSHIP_URL}
+                label="Buy for €1,450"
                 className={secondaryCta}
                 onClick={() =>
-                  analytics.track("offers_cta_clicked", { tier: "partnership", destination: "intro" })
+                  analytics.track("offers_cta_clicked", {
+                    tier: "partnership",
+                    destination: PARTNERSHIP_IS_SET ? "stripe" : "broken",
+                  })
                 }
-              >
-                Book 15 minutes
-                <ArrowRightIcon className="h-4 w-4 shrink-0" />
-              </CtaLink>
+              />
             </div>
           </div>
 
@@ -478,7 +506,7 @@ export function OffersSection({ className = "" }: { className?: string }) {
             </p>
           </div>
           <p className="mt-3 text-center text-xs text-muted-foreground/80">
-            * Price excludes VAT. VAT is calculated at checkout based on your location;
+            * Prices exclude VAT. VAT is calculated at checkout based on your location;
             EU businesses can enter a VAT ID for reverse charge.
           </p>
         </div>

@@ -12,9 +12,10 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
@@ -124,6 +125,53 @@ function LoggedOutPrimaryCta({
 }
 
 /**
+ * The four audience landings, collapsed behind one "Use cases" trigger (P1087).
+ *
+ * Before this, all four sat flat in the header AND self-filtered — the page you were on
+ * was the one page missing from the list. The founder named the defect: "if I'm on one of
+ * the pages, it's not really listed... it's a bit weird to always switch." Two consequences
+ * fixed here: the header stops spending four slots on a switcher (leaving room for the
+ * Pricing link beside it), and NOTHING is filtered out any more, so the set is the same
+ * from every page and the one you are on is marked rather than removed.
+ *
+ * Removing the self-filter is strictly safer than the old rule, not just tidier: filtering
+ * is what stranded /founder under P916's two-way toggle. A menu that always lists every
+ * destination cannot strand any of them.
+ */
+function UseCasesMenu({ pathname }: { pathname: string }) {
+  const onUseCase = AUDIENCE_LINKS.some((a) => a.to === pathname);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={`inline-flex items-center gap-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md ${
+          onUseCase ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Use cases
+        <ChevronDownIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={8} className="w-56">
+        {AUDIENCE_LINKS.map((a) => {
+          const active = a.to === pathname;
+          return (
+            <DropdownMenuItem key={a.to} asChild>
+              <Link
+                to={a.to}
+                aria-current={active ? "page" : undefined}
+                className={`cursor-pointer ${active ? "font-semibold text-foreground" : ""}`}
+              >
+                <a.Icon className="mr-2 h-4 w-4 shrink-0" />
+                {a.label}
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
  * DOM id of the nav's out-of-flow centre slot. A page portals a control into this
  * node to place it in the nav row; see `meeting-terms-page.tsx`.
  */
@@ -170,6 +218,13 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
       segments[1] !== 'experiment' // P957: canonical registration redirect, not an event detail
     );
   })();
+  // P1087: same reasoning as P844 above, applied to the pricing page. The nav's blue "Book
+  // a free alignment audit" is a second, equally loud primary sitting directly above a page
+  // whose whole job is the €295 buy button — and it routes to a FREE call, so it undercuts
+  // the paid action it competes with. The page's own CTAs are the only actions offered here.
+  const isPricingPage = ["/program", "/pricing", "/offers"].includes(location.pathname);
+  const hidePrimaryCta = isEventDetailPage || isPricingPage;
+
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -345,7 +400,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     <div className="h-10 w-[80px] bg-muted rounded-md" />
                   </div>
                   {/* P844: Hide Start-a-Session CTA on event detail pages (competing primary action) */}
-                  {!isEventDetailPage && (
+                  {!hidePrimaryCta && (
                     <Link
                       to="/live"
                       title="Start a live clarity session"
@@ -377,7 +432,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   {/* My Profile slot: skeleton until profile resolves */}
                   <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
                   {/* P844: Hide Start-a-Session CTA on event detail pages */}
-                  {!isEventDetailPage && (
+                  {!hidePrimaryCta && (
                     <Link
                       to="/live"
                       title="Start a live clarity session"
@@ -418,7 +473,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   </Link>
                 )}
                 {/* P844: Hide Start-a-Session CTA on event detail pages */}
-                {!compact && !isEventDetailPage && (
+                {!compact && !hidePrimaryCta && (
                   <Link
                     to="/live"
                     title="Start a live clarity session"
@@ -467,21 +522,16 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             ) : compact ? null : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {/* P987: three public audience landings, so show the two you are NOT on.
-                    Shares AUDIENCE_LINKS with the mobile menu — a duplicated list is how
-                    /founder ended up in one menu and not the other. */}
-                {AUDIENCE_LINKS.filter((a) => a.to !== location.pathname).map((a) => (
-                  <Link
-                    key={a.to}
-                    to={a.to}
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {a.label}
-                  </Link>
-                ))}
+                <UseCasesMenu pathname={location.pathname} />
+                <Link
+                  to="/pricing"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Pricing
+                </Link>
                 {/* P844: Hide CTA on event detail pages */}
                 {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
-                {!isEventDetailPage && (
+                {!hidePrimaryCta && (
                   <LoggedOutPrimaryCta device="desktop" sizeClass="h-10" />
                 )}
                 {/* Secondary action — visible Log in right of the main CTA (Airtable
@@ -529,7 +579,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             <div className="lg:hidden flex items-center gap-2">
               {/* Mobile Start Session CTA — only for authenticated users, hidden in compact mode */}
               {/* P844: Hide on event detail pages (competing primary action) */}
-              {showUserMenu && !compact && !isEventDetailPage && (
+              {showUserMenu && !compact && !hidePrimaryCta && (
                 <Link
                   to="/live"
                   title="Start a live clarity session"

@@ -305,18 +305,21 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
-        {/* Co-founder program offer page — canonical URL is /program.
-            /pricing and /offers redirect here for previously shared links. */}
+        {/* Offer page — canonical URL is /pricing (P1087, UAT round 5). It was /program,
+            with /pricing redirecting here; the direction is now reversed. "Pricing" is the
+            word people scan a nav for, and it matches both the new nav item and the page's
+            own opening label. /program and /offers redirect in, so every previously shared
+            link — and the many in-app and doc references to /program — still resolve. */}
         <Route
-          path="/program"
+          path="/pricing"
           element={
             <ClarityLandingLayout>
               <LazyRoute><OffersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
-        <Route path="/pricing" element={<Navigate to="/program" replace />} />
-        <Route path="/offers" element={<Navigate to="/program" replace />} />
+        <Route path="/program" element={<Navigate to="/pricing" replace />} />
+        <Route path="/offers" element={<Navigate to="/pricing" replace />} />
 
         <Route
           path="/login"

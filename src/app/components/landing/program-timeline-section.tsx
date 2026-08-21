@@ -92,7 +92,10 @@ export function BatchCountdown() {
     <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
       <div className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-blue-700">
         <ClockIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        Next batch starts in
+        {/* Names the program (UAT round 5). It now renders inside the Champions section
+            rather than beside the price, where "batch" alone had the heading two lines
+            above to lean on; here it must say which batch on its own. */}
+        Next Clarity Champions batch starts in
       </div>
       <div
         className="mt-2 flex items-stretch justify-center gap-1.5"
@@ -146,6 +149,12 @@ export function ProgramTimelineSection({ className = "" }: { className?: string 
             <span className="inline-flex items-center gap-2">
               <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a batch of 3–10
             </span>
+          </div>
+          {/* The batch deadline sits with the two facts it belongs to — weekly session,
+              batch of 3–10, and when the next one starts. Round 4 had it under the price
+              line; round 5 moved it here, where "batch" is already the subject. */}
+          <div className="mt-6 flex justify-center">
+            <BatchCountdown />
           </div>
         </Reveal>
         <motion.ol

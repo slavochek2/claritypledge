@@ -5,9 +5,14 @@ import { BriefcaseIcon, UsersIcon, TargetIcon } from "lucide-react";
  * header, the desktop dropdown and the mobile menu can all read ONE list — duplicating it
  * is how /founder ended up reachable from one menu and not the others (P987).
  *
- * Callers filter out the current pathname: show the audiences you are NOT on. Do not
- * reintroduce a two-way toggle — with three landings it strands whichever page it is on
- * (P916's toggle left /founder with no link back to "/").
+ * Callers render ALL of them, grouped under a "Use cases" menu, and mark the current one
+ * with aria-current (P1087). The old rule was the opposite — filter out the current
+ * pathname — which meant the page you were on was the one entry missing from the list, so
+ * the set looked different from every page and never showed you where you were.
+ *
+ * Do not reintroduce filtering in any form, including a two-way toggle: P916's toggle left
+ * /founder with no link back to "/". A menu that always lists every destination cannot
+ * strand any of them, which is why marking beats removing here.
  */
 // "For hiring", not "For founders": every co-founder IS a founder, so "For founders" +
 // "For co-founders" in one menu named an overlap, not a choice.

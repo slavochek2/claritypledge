@@ -113,9 +113,10 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     renderSection();
     const ctas = [
       screen.getByRole('link', { name: /start at €295\/month/i }),
-      // Both non-self-serve rungs now carry the SAME label (founder UAT), so there are
-      // two of these — getAllBy, not getBy, or the query throws on the ambiguity.
-      ...screen.getAllByRole('link', { name: /book 15 minutes/i }),
+      // Round 5: the three labels are no longer two — each rung asks for what it actually
+      // wants (buy the membership, buy the package, book a call to scope the custom work).
+      screen.getByRole('link', { name: /buy for €1,450/i }),
+      screen.getByRole('link', { name: /book 15 minutes/i }),
     ];
     expect(ctas).toHaveLength(3);
     // Consistent shape — the thing founder UAT flagged as lost ("before we had the
@@ -128,13 +129,19 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     expect(ctas.filter((c) => c.className.includes('bg-blue-500'))).toHaveLength(1);
   });
 
-  it('sends both talk-first rungs to /intro and keeps the off-site link gone', () => {
+  it('gates ONLY the unpriced rung behind a call, and keeps the off-site link gone', () => {
     renderSection();
+    // Round 5: the 15-minute call is the gate for work that must be SCOPED before it can be
+    // priced. The €1,450 package has a fixed price and a fixed deliverable, so it buys
+    // directly; a second "Book 15 minutes" here means a fixed-price offer silently regained
+    // a call in front of its checkout.
     const talkFirst = screen.getAllByRole('link', { name: /book 15 minutes/i });
-    expect(talkFirst).toHaveLength(2);
-    for (const cta of talkFirst) {
-      expect(cta).toHaveAttribute('href', '/intro');
-    }
+    expect(talkFirst).toHaveLength(1);
+    expect(talkFirst[0]).toHaveAttribute('href', '/intro');
+    expect(screen.getByRole('link', { name: /buy for €1,450/i })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^https:\/\/buy\.stripe\.com\//)
+    );
     // "See the package" → ladischenski.com was cut at UAT: it sent a reader off-site to
     // learn what the card should already say, and the card now carries those bullets.
     expect(screen.queryByRole('link', { name: /see the package/i })).not.toBeInTheDocument();
@@ -224,7 +231,9 @@ describe('OffersSection — assurance band and de-duplicated bullets (P1087, fou
 
   it('keeps the VAT note with the guarantee band, below the grid', () => {
     renderSection();
-    expect(screen.getByText(/price excludes VAT/i)).toBeInTheDocument();
+    // Plural since round 5 — the Partnership package is tax-exclusive on Stripe too, so
+    // the note now covers both priced rungs, not just the membership.
+    expect(screen.getByText(/prices exclude VAT/i)).toBeInTheDocument();
   });
 
   it('drops every membership bullet that another part of the page already states', () => {
@@ -278,7 +287,9 @@ describe('Page close — Champions-only CTA and the month arc (P1087, founder UA
     expect(screen.getByText(/help each other grow the practice/i)).toBeInTheDocument();
     // The lead no longer promises three months, because the arc no longer stops there.
     expect(screen.queryByText(/your first three months/i)).not.toBeInTheDocument();
-    // The countdown moved to the page close — it is not part of this section any more.
-    expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+    // Round 5: the countdown lives HERE, with the batch facts it describes — the only place
+    // on the page where the word "batch" already has a referent on screen.
+    expect(screen.getByRole('timer')).toBeInTheDocument();
+    expect(screen.getByText(/next clarity champions batch starts in/i)).toBeInTheDocument();
   });
 });

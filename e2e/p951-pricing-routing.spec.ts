@@ -1,30 +1,31 @@
 /**
  * @file p951-pricing-routing.spec.ts
- * Routing + offer-surface regression coverage for /program.
+ * Routing + offer-surface regression coverage for /pricing.
  *
  * Originally P951 (Standard/Premium/Free grid); rewritten under P1087, which retires those
  * tiers (spec: "Supersedes... those specs are not wrong; the offer they encode was
  * retired") for a three-card ladder built on the self-serve Clarity Champions membership:
  * Clarity Champions Program €295/month (the one selected card) · Partnership Clarity
  * Package €1,450 · unpriced Coaching, Training & Consulting. Guards the same three seams:
- *   1. /program loads cleanly and shows the three-card ladder.
- *   2. /pricing and /offers both redirect to /program (preserves previously shared links).
+ *   1. /pricing loads cleanly and shows the three-card ladder.
+ *   2. /program and /offers both redirect to /pricing (P1087 round 5 flipped the canonical
+ *      URL from /program to /pricing; both old paths must keep resolving).
  *   3. The landing ("/") still renders no pricing cards — its job is the alignment-audit
  *      CTA, unrelated to this offer. A silent regression here would re-add pricing there.
  */
 
 import { test, expect } from '@playwright/test';
 
-test('smoke: /program loads with the three-card offer ladder and no console errors', async ({ page }) => {
+test('smoke: /pricing loads with the three-card offer ladder and no console errors', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', msg => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
-  await page.goto('/program');
+  await page.goto('/pricing');
   await page.waitForLoadState('networkidle');
 
-  expect(consoleErrors, `Console errors on /program: ${consoleErrors.join(', ')}`).toHaveLength(0);
+  expect(consoleErrors, `Console errors on /pricing: ${consoleErrors.join(', ')}`).toHaveLength(0);
   // "Clarity Champions Program" is the ONE name the program carries — page lead, offer
   // card, assurance band and SEO title all say it (founder UAT). Target the offer-card
   // heading exactly — the offer card and the program section below it share the name.
@@ -38,8 +39,9 @@ test('smoke: /program loads with the three-card offer ladder and no console erro
   await expect(page.getByText(/Clarity Champions is the program above/i)).toHaveCount(0);
   await expect(page.getByText(/your first three months/i)).toHaveCount(0);
   await expect(page.getByText('Month 4 and beyond')).toBeVisible();
-  // UAT round 4: the batch countdown sits ABOVE the program detail (under the price line),
-  // and the closing CTA carries its own heading so "Start at €295/month" has a subject.
+  // UAT round 5: the batch countdown sits with the "weekly live session / batch of 3–10"
+  // facts, above the month arc; the closing CTA has its own heading so the buy button has
+  // a subject. The countdown moved three times across UAT — this pins where it landed.
   const countdownY = (await page.getByRole('timer').boundingBox())!.y;
   const arcY = (await page.getByText('Month 1').boundingBox())!.y;
   expect(countdownY).toBeLessThan(arcY);
@@ -59,22 +61,22 @@ test('smoke: /program loads with the three-card offer ladder and no console erro
   await expect(page.getByRole('heading', { name: 'Premium Program' })).toHaveCount(0);
 });
 
-test('/pricing redirects to /program', async ({ page }) => {
-  await page.goto('/pricing');
+test('/program redirects to /pricing', async ({ page }) => {
+  await page.goto('/program');
   await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveURL(/\/program$/);
+  await expect(page).toHaveURL(/\/pricing$/);
   // "Clarity Champions Program" is the ONE name the program carries — page lead, offer
   // card, assurance band and SEO title all say it (founder UAT). Target the offer-card
   // heading exactly — the offer card and the program section below it share the name.
   await expect(page.getByRole('heading', { name: 'Clarity Champions Program', exact: true }).first()).toBeVisible();
 });
 
-test('/offers redirects to /program', async ({ page }) => {
+test('/offers redirects to /pricing', async ({ page }) => {
   await page.goto('/offers');
   await page.waitForLoadState('networkidle');
 
-  await expect(page).toHaveURL(/\/program$/);
+  await expect(page).toHaveURL(/\/pricing$/);
   // "Clarity Champions Program" is the ONE name the program carries — page lead, offer
   // card, assurance band and SEO title all say it (founder UAT). Target the offer-card
   // heading exactly — the offer card and the program section below it share the name.
@@ -89,14 +91,50 @@ test('landing ("/") still renders no pricing cards', async ({ page }) => {
   await expect(page.getByText('€295')).toHaveCount(0);
 });
 
-test('both talk-first CTAs open /intro', async ({ page }) => {
-  await page.goto('/program');
+test('the ONLY talk-first CTA is the unpriced rung, and it opens /intro', async ({ page }) => {
+  await page.goto('/pricing');
   await page.waitForLoadState('networkidle');
 
-  // Two rungs now share the label (founder UAT), so .first() is required — a bare
-  // getByRole would throw on the strict-mode violation rather than click either one.
+  // P1087 round 5: the €1,450 Partnership package now buys directly on Stripe, so the
+  // 15-minute call survives on exactly ONE rung — the unpriced one, where the call exists
+  // to scope work that cannot be priced without it. A second "Book 15 minutes" appearing
+  // here means a fixed-price offer has silently regained a call gate in front of it.
   const talkFirst = page.getByRole('link', { name: 'Book 15 minutes' });
-  await expect(talkFirst).toHaveCount(2);
-  await talkFirst.first().click();
+  await expect(talkFirst).toHaveCount(1);
+
+  // ...and the Partnership rung checks out on Stripe instead.
+  const partnershipBuy = page.getByRole('link', { name: /Buy for €1,450/ });
+  await expect(partnershipBuy).toHaveAttribute('href', /^https:\/\/buy\.stripe\.com\//);
+
+  await talkFirst.click();
   await expect(page).toHaveURL(/\/intro/);
+});
+
+test('the nav collapses the audience landings under "Use cases" and lists ALL of them', async ({ page }) => {
+  await page.goto('/coach');
+  await page.waitForLoadState('networkidle');
+
+  // P1087: the four landings used to sit flat in the header AND self-filter, so the page
+  // you were on was the one entry missing. Opening the menu FROM /coach must still list
+  // /coach — that absence is the defect this guards.
+  await page.getByRole('button', { name: /Use cases/i }).click();
+  await expect(page.getByRole('menuitem', { name: 'For coaches' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'For builders' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'For co-founders' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'For hiring' })).toBeVisible();
+});
+
+test('the nav CTA is hidden on /pricing so it does not undercut the paid action', async ({ page }) => {
+  await page.goto('/pricing');
+  await page.waitForLoadState('networkidle');
+
+  // A free-call CTA in the header directly above a page selling €295/month competes with
+  // the thing the page exists to sell (same reasoning as P844 on event detail pages).
+  await expect(page.getByRole('link', { name: /Book a free alignment audit/i })).toHaveCount(0);
+
+  // Control: it IS present on a page that is not selling anything, so this test fails if
+  // the CTA disappears globally rather than just here.
+  await page.goto('/manifesto');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('link', { name: /Book a free alignment audit/i }).first()).toBeVisible();
 });

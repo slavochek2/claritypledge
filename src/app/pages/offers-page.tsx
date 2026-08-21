@@ -2,15 +2,15 @@
  * Program Page — Clarity Champions (P1087, superseding P937/P951's three-tier
  * pricing-grid page).
  *
- * The canonical URL for the offer ("claritypledge.com/program"); /pricing and /offers
+ * The canonical URL for the offer ("claritypledge.com/pricing"); /program and /offers
  * redirect here. Reading order, REVERSED at founder UAT round 3:
  *
  *   1. The three-card offer ladder + assurance band              (OffersSection)
- *   2. Next-batch countdown, under the price line               (BatchCountdown)
- *   3. What Clarity Champions is + Month 1 / 2 / 3 / 4-and-beyond (ProgramTimelineSection)
- *   4. Two testimonials                                          (Testimonials)
- *   5. Closing CTA on Champions alone, with its own heading      (ChampionsCloseCta)
- *   6. FAQ
+ *   2. What Clarity Champions is, its facts + next-batch countdown,
+ *      then Month 1 / 2 / 3 / 4-and-beyond                       (ProgramTimelineSection)
+ *   3. Two testimonials                                          (Testimonials)
+ *   4. Closing CTA on Champions alone, with its own heading      (ChampionsCloseCta)
+ *   5. FAQ
  *
  * Why the reversal (founder: "first show the pricing at the top, then show the specific
  * details of the Clarity Champions program, because it's kind of chosen, right?"): the old
@@ -18,11 +18,10 @@
  * read as three sizes of the thing just described. Leading with the grid makes the three
  * offers a choice, and everything after it is detail on the one most people take.
  *
- * The countdown sits under the PRICE (UAT round 4: "I think next batch starts needs to be
- * higher... maybe it should be below the price excludes"). Round 3 had placed it at the
- * close on the opposite reasoning — "people don't care about the batch start before they
- * know what it is" — and the founder overrode it. Both readings are defensible; under the
- * price, the start date is next to the number it qualifies.
+ * The countdown moved three times across UAT and landed inside the Champions section, with
+ * the "weekly live session / a batch of 3–10" facts (round 5). Round 3 put it at the page
+ * close, round 4 under the price line. It belongs with the batch facts: that is the only
+ * place where the word "batch" already has a referent on screen.
  *
  * Section paddings are deliberately tighter than the site default (py-20/28 stacked against
  * the timeline's own padding put roughly 14rem of dead space between sections).
@@ -35,10 +34,7 @@ import {
   Testimonials,
   ChampionsCloseCta,
 } from "@/app/components/landing/offers-section";
-import {
-  ProgramTimelineSection,
-  BatchCountdown,
-} from "@/app/components/landing/program-timeline-section";
+import { ProgramTimelineSection } from "@/app/components/landing/program-timeline-section";
 import {
   Accordion,
   AccordionContent,
@@ -52,15 +48,10 @@ export function OffersPage() {
     <div className="bg-background text-foreground">
       <SEO
         title="Clarity Champions Program — Clarity Pledge"
-        url="/program"
+        url="/pricing"
         description="Weekly live practice with a small batch of peers, €295/month, cancel anytime. Full refund if the first two sessions aren't for you."
       />
-      <OffersSection className="pt-20 pb-8 lg:pt-24 lg:pb-10" />
-      {/* The batch deadline sits directly under the price + VAT line (UAT round 4), not at
-          the page close where round 3 put it. It is read while €295 is still on screen. */}
-      <section className="flex justify-center px-4 pb-16 lg:pb-20">
-        <BatchCountdown />
-      </section>
+      <OffersSection className="pt-20 pb-16 lg:pt-24 lg:pb-20" />
       <ProgramTimelineSection className="border-t border-border pt-16 lg:pt-20" />
       <section className="px-4 pb-16 lg:pb-20">
         <Testimonials />
