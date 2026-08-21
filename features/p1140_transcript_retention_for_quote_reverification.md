@@ -207,3 +207,12 @@ re-verification against the stored raw track.
   invocation shapes pass the classifier's cacheable gate; stdout/stderr separation is preserved on
   a metadata hit) but **not** re-run live end-to-end against real YouTube — that would consume real
   proxy quota. Flagged per epistemic gate 5 rather than claimed as confirmed.
+
+**Two follow-ups the plan flagged for the founder, resolved same session:**
+- **`proxy` moved into pp too** (`pp/scripts/proxy`, symlinked to `~/.local/bin/proxy`) — it shared
+  `yt`'s exact untracked-single-file exposure. Unmodified move, no functional change.
+- **Comment retention:** comments now cache in the same store as captions (content-hash-gated,
+  `<id>/info.json`, keyed by id + `--extractor-args`), accepting the same staleness risk already
+  accepted for captions rather than building a second policy. `points-prepare.md`'s comment-fetch
+  command corrected to a complete, runnable invocation (`--write-info-json` was missing — without
+  it `--write-comments --skip-download` writes nothing to disk at all).

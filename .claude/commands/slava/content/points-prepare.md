@@ -2,7 +2,7 @@
 name: points-prepare
 description: "Read one or more sources — YouTube videos, a recorded conversation, an event panel — and prepare everything needed to file a disagreement: Points aimed at a named ROOM, one story draft per arguer holding only that speaker's verbatim quotes, each agent's position on each Point, and a sealed prediction. Terminal output only; writes nothing to the product. With an opposed PAIR of sources it builds synthesized Points — claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends."
 when_to_use: "When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only. Pairs with /points-publish, which is the only skill in this chain that writes to the product."
-version: 0.6.0
+version: 0.6.1
 ---
 
 # /points-prepare
@@ -169,7 +169,16 @@ When a private-source run must also travel, emit **two forms** — one sharp for
 **Read the opposition. Never imagine it.** In priority order:
 
 1. **A second, opposed source** — strongest. Those people argued at length, on the record.
-2. **The comment section**, when the source is public: `yt --write-comments --extractor-args "youtube:comment_sort=top;max_comments=<N>,all,<N>"` — use `yt`, not raw `yt-dlp`, so this fetch gets the proxy ladder too (a 2026-08-21 run bypassed both the ladder and the store by calling `yt-dlp` directly here). **Comment retention is a separate, unresolved question** — comments are edited and deleted by their authors after the fact, unlike a caption track — flag it to the founder rather than assuming the same store applies.
+2. **The comment section**, when the source is public:
+   ```bash
+   yt --write-comments --write-info-json --extractor-args "youtube:comment_sort=top;max_comments=<N>,all,<N>" \
+     --skip-download -o "yt_%(id)s.%(ext)s" "<URL>"
+   ```
+   Use `yt`, not raw `yt-dlp`, so this fetch gets the proxy ladder too (a 2026-08-21 run bypassed
+   both the ladder and the store by calling `yt-dlp` directly here). Comment fetches cache in the
+   same store as captions, at the founder's decision (2026-08-21) — accept the same staleness risk
+   already accepted for captions (comments are edited/deleted by their authors after the fact;
+   `YT_STORE=refresh` is the same escape hatch for both).
 3. **The web**, for a published counter-position held seriously.
 
 > **Kill rule:** if no real camp holds the counter-position, the point is not polarizing — it is contrarian phrasing. Drop it or restate it until a real camp appears.
