@@ -654,3 +654,32 @@ only if a third paid link appears — with two, the blast radius is small and th
 are accurate today. Droppable if the links move to a CMS or env config with its own check.
 
 ---
+
+## Harvested YouTube comments may carry private individuals' identifiers onto a public page — unverified
+
+*due: month · surfaced by the P1141 security review, 2026-08-21*
+
+`/slava:content:points-prepare` harvests comment sections as opposition material. The subjects being
+quoted are public figures cited from public recordings, which `.claude/rules/pii.md` explicitly does
+not treat as a violation. **Commenters are not.** They are arbitrary private individuals, and if a
+comment carrying a third party's name or handle is selected as quote material, an agent account
+publishes that identifier on a public page under a real person's name.
+
+The public-figure exemption does not reach this, and neither does the pre-commit gate — that gate is
+allowlist/pattern-based and will not flag an arbitrary name (`.claude/rules/pii.md` says so
+directly). Nor does the roles-not-names authoring rule, which governs prose an agent *writes*, not
+third-party text it *quotes*.
+
+**Explicitly unverified.** The security agent flagged it without reading the skill's selection logic
+end to end, so it is a question, not a confirmed defect. Two outcomes are both fine: the selection
+logic already excludes comment text from quotes (then record that and close this), or it does not
+(then it needs a filter before the next run that harvests comments).
+
+Recorded as a build-sequence item in `features/p1141_story_carries_a_video_with_jumpable_quotes.md`
+under the skill-updates step — answer or scope out, do not let it pass silently. Noted here too so
+it survives if P1141 is descoped or parked.
+
+**Resolves at:** read `/slava:content:points-prepare`'s opposition-selection section end to end and
+state whether harvested comment text can reach `stories.content` or a quote. If it can, filter it.
+
+---
