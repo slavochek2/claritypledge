@@ -137,9 +137,33 @@ describe('P1114 rev2: chrome and routing', () => {
 
   it('Practice Rooms is not gated by tab state — the "cmp" tab concept no longer exists in this file', () => {
     const s = read(EVENT_DETAIL);
-    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "Clarity Principle" is a plain navigation Link to /meet now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
+    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "Clarity Principle" is a plain navigation Link to the room now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
     expect(/<Tabs[\s>]|<TabsList|<TabsTrigger|<TabsContent/.test(s), 'EventDetail.tsx still imports/renders a Radix Tabs component. onValueChange double-fires per click and roving-focus arrow keys would fire it too — wrong tool for a same-row link that performs a real route change.').toBe(false);
     const pr = s.lastIndexOf('<PracticeRooms');
     expect(pr, 'EventDetail.tsx no longer renders PracticeRooms.').toBeGreaterThan(-1);
+  });
+
+  it('"Clarity Principle" links to /room, not directly to /meet — /room is what decides readiness-vs-principle', () => {
+    const s = read(EVENT_DETAIL);
+    expect(
+      /to=\{`\/events\/\$\{slug\}\/room`\}/.test(s),
+      'EventDetail.tsx does not link "Clarity Principle" to /events/:slug/room. Linking straight to /meet skips the readiness question for a first-time visitor — /room (EventRoomGate) is the route that checks readiness_value and decides whether to send them to /ready or /meet (founder repro, 2026-08-21: a fresh account went straight to the principle page).',
+    ).toBe(true);
+    expect(
+      /to=\{`\/events\/\$\{slug\}\/meet`\}/.test(s),
+      'EventDetail.tsx still links "Clarity Principle" directly to /meet.',
+    ).toBe(false);
+  });
+});
+
+describe('P1114 rev2: back navigation out of the room', () => {
+  it('EventRoomReady.tsx and EventRoomMeet.tsx use FocusHeader, not a hand-rolled back button', () => {
+    for (const p of [ROOM_READY, ROOM_MEET]) {
+      const s = read(p);
+      expect(
+        /from\s*['"]@\/app\/components\/layout\/focus-header['"]/.test(s),
+        `${p} does not import FocusHeader. src.md: "Never define inline BackButton components — use FocusHeader." Without a back control, a signed-in attendee on /ready or /meet has no way out except the browser's own back button.`,
+      ).toBe(true);
+    }
   });
 });

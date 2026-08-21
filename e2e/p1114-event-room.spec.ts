@@ -191,23 +191,32 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
 
 test.describe('P1114 event page: tab row', () => {
   let host: TestUser;
-  let registered: TestUser;
   let event: TestEvent;
   const eventIds: string[] = [];
+  const userIds: string[] = [];
 
   test.beforeAll(async () => {
     host = await createTestUser({ email: generateTestEmail(), name: 'P1114 Tab E2E Host' });
     event = await createTestEvent(host.user.id, new Date());
     eventIds.push(event.id);
-    registered = await createTestUser({ email: generateTestEmail(), name: 'P1114 Tab E2E Registered' });
-    await rsvpToEvent(event.id, registered.user.id);
   });
 
   test.afterAll(async () => {
     for (const id of eventIds) await deleteTestEvent(id);
+    for (const id of userIds) await deleteTestUser(id);
     await deleteTestUser(host.user.id);
-    await deleteTestUser(registered.user.id);
   });
+
+  // Each stateful test below gets its OWN registered user rather than sharing one —
+  // readiness_value is written by these tests, and sharing a user across tests would
+  // couple later tests to execution order (whichever test happens to run first sets
+  // the state the next one silently depends on).
+  async function freshRegistered(name: string): Promise<TestUser> {
+    const user = await createTestUser({ email: generateTestEmail(), name });
+    userIds.push(user.user.id);
+    await rsvpToEvent(event.id, user.user.id);
+    return user;
+  }
 
   test('"Details" is a static label, not an interactive tab — the page carries no Radix tab role at all', async ({ page }) => {
     await page.goto(`/events/${event.slug}`);
@@ -216,29 +225,61 @@ test.describe('P1114 event page: tab row', () => {
     await expect(page).not.toHaveURL(/[?&]tab=/);
   });
 
-  test('a registered, signed-in attendee: "Clarity Principle" is a real link to /meet, and one Back press returns to the event page', async ({ page }) => {
-    await setTestSession(page, registered.email);
+  test('a first-time registered attendee: "Clarity Principle" routes through the readiness question first, not straight to the principle', async ({ page }) => {
+    const attendee = await freshRegistered('P1114 Tab E2E First Visit');
+    await setTestSession(page, attendee.email);
     await page.goto(`/events/${event.slug}`);
 
     await page.getByRole('link', { name: 'Clarity Principle' }).click();
     await expect(
       page,
-      'Clicking "Clarity Principle" is a navigation to the standalone room route now, not a same-page tab switch — the old embedded composition collided the room\'s level-track portal with this page\'s own primary nav, both targeting the same dead-center nav slot.',
-    ).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
-    await expect(page.getByTestId('room-meet')).toBeVisible();
+      '"Clarity Principle" must link to /room (the smart entry point that decides readiness-vs-principle), not straight to /meet — linking to /meet directly bypasses the readiness question entirely, even for a first-time visitor (founder repro, 2026-08-21: a fresh account never saw the slider).',
+    ).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
+    await expect(page.getByTestId('room-ready')).toBeVisible();
 
     await page.goBack();
     await expect(
       page,
-      'One Back press from /meet did not return to the event page — a real <a> navigation pushes exactly one history entry, unlike the old Radix TabsTrigger whose onValueChange could double-fire per click.',
+      'One Back press from the room did not return to the event page — a real <a> navigation pushes exactly one history entry, unlike the old Radix TabsTrigger whose onValueChange could double-fire per click.',
     ).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
   });
 
-  test('a signed-out visitor clicking "Clarity Principle" reaches the gate at /meet, not the room content', async ({ page }) => {
+  test('a returning attendee who already set readiness: "Clarity Principle" skips straight to the principle page', async ({ page }) => {
+    const attendee = await freshRegistered('P1114 Tab E2E Returning');
+    await setTestSession(page, attendee.email);
+    // First pass through /ready sets readiness_value — reuses the real flow rather
+    // than a seeded fixture, so this exercises exactly what a real return visit does.
+    await page.goto(`/events/${event.slug}/ready`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByTestId('room-meet')).toBeVisible();
+
     await page.goto(`/events/${event.slug}`);
     await page.getByRole('link', { name: 'Clarity Principle' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
+    await expect(page.getByTestId('room-meet')).toBeVisible();
+  });
+
+  test('a signed-out visitor clicking "Clarity Principle" reaches the gate, not the room content', async ({ page }) => {
+    await page.goto(`/events/${event.slug}`);
+    await page.getByRole('link', { name: 'Clarity Principle' }).click();
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/room$`));
     await expect(page.getByTestId('room-gate')).toBeVisible();
     await expect(page.getByTestId('room-meet')).toHaveCount(0);
+  });
+
+  test('back navigation: /meet goes back to /ready, and /ready goes back to the event page', async ({ page }) => {
+    const attendee = await freshRegistered('P1114 Tab E2E Back Nav');
+    await setTestSession(page, attendee.email);
+    // Reach /meet via the real flow (through /ready) so this doesn't depend on
+    // /room's smart-redirect branch, which the two tests above already cover.
+    await page.goto(`/events/${event.slug}/ready`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByTestId('room-meet')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
+
+    await page.getByRole('button', { name: 'Back to event' }).click();
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
   });
 });

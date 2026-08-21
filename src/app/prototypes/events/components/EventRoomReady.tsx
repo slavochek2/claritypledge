@@ -7,10 +7,15 @@
  *
  * Gated the same way as every room door: EventRoomGate.tsx's screen renders here too
  * when the caller is not registered + signed in.
+ *
+ * Back button (2026-08-21 founder repro): goes to the event page — the step before
+ * this one in the room's pipeline (event page → /room → /ready). Uses FocusHeader
+ * per src.md's focus-page convention, not a hand-rolled Link.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { SliderTrack } from '@/app/components/partners/slider-track';
 import { PRIMARY_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
 import { setRoomReadiness } from '@/app/data/event-room-service';
@@ -71,32 +76,42 @@ export function EventRoomReady() {
   return (
     <div
       data-testid="room-ready"
-      className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-4 py-10 lg:min-h-[calc(100vh-5rem)]"
+      className="flex min-h-[calc(100vh-4rem)] flex-col px-4 py-10 lg:min-h-[calc(100vh-5rem)]"
     >
       <h1 className="sr-only">Before you meet</h1>
 
-      <div className="flex w-full max-w-sm flex-col gap-10">
-        <p className="text-center text-xl font-semibold leading-snug text-foreground sm:text-2xl">
-          {QUESTION}
-        </p>
+      <div className="mx-auto w-full max-w-sm">
+        <FocusHeader
+          onBack={() => navigate(`/events/${slug}`)}
+          label="Back to event"
+          aria-label="Back to event"
+        />
+      </div>
 
-        <div className="pt-4">
-          <SliderTrack
-            value={value}
-            onChange={handleChange}
-            showValue={false}
-            ariaLabel={QUESTION}
-            midpointLabel={MIDPOINT_LABEL}
-            poleLabels={POLE_LABELS}
-            muted={!touched}
-            bipolarFill
-            expandedHitArea
-          />
+      <div className="flex flex-1 flex-col items-center justify-center">
+        <div className="flex w-full max-w-sm flex-col gap-10">
+          <p className="text-center text-xl font-semibold leading-snug text-foreground sm:text-2xl">
+            {QUESTION}
+          </p>
+
+          <div className="pt-4">
+            <SliderTrack
+              value={value}
+              onChange={handleChange}
+              showValue={false}
+              ariaLabel={QUESTION}
+              midpointLabel={MIDPOINT_LABEL}
+              poleLabels={POLE_LABELS}
+              muted={!touched}
+              bipolarFill
+              expandedHitArea
+            />
+          </div>
+
+          <Button onClick={handleContinue} size="lg" className={cn(PRIMARY_BUTTON_CLASS, 'w-full')}>
+            Continue
+          </Button>
         </div>
-
-        <Button onClick={handleContinue} size="lg" className={cn(PRIMARY_BUTTON_CLASS, 'w-full')}>
-          Continue
-        </Button>
       </div>
     </div>
   );
