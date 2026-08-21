@@ -438,6 +438,22 @@ read from the environment by variable name; no ref or key appears here.
       run. Applying it to prod requires the founder's explicit approval in the same turn
       (CLAUDE.md ALWAYS-ASK — DB migrations on prod) and has not been given.
 
+## Post-implementation review (2026-08-21)
+
+Three parallel reviewers ran against this branch (skills, migration safety, spec quality) — 3 of
+3 reported. Migration review: clean, no findings. Skills and spec reviews converged on the same
+root cause: the three skill files were committed directly to `main` (correct, per Branch Guard),
+but this branch never merged main back in, so (a) two of this spec's own Done-When grep checks
+were true against `main` but false against the branch that records them, inverting the
+branch-freshness invariant, and (b) P1130's `main` copy lacked the supersession marker even
+though `main`'s skill files already implemented the new behavior. Fixed: merged `main` into this
+branch (twice — once for the initial skill commit, once for the Step 3 fix below), re-verified
+both greps return 0 from the branch. Skills review also found `provision-agent.md` Step 3's new
+storage-upload `curl` never bound its `$TARGET_URL`/`$SERVICE_ROLE_KEY` to a literal env var name
+(HIGH — it's the skill's first credentialed call), was missing the `apikey` header this repo's
+own upload precedent (`event-photo-prep.sh`) always sends (MEDIUM), and didn't capture/check its
+own HTTP status (MEDIUM). All three fixed in `provision-agent.md` v0.2.1.
+
 ## Founder decisions
 
 Both resolved 2026-08-21, in the `/dev` session that implemented this spec.
