@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 54
 workstream: analytics
@@ -121,6 +121,9 @@ this session:
 - [x] At least one `slava:events:promote-*` skill's generated share links carry UTM params, as a
       working example for the rest to follow — `promote-facebook.md` (landed on main separately,
       per skill-file branch rule)
-- [ ] A follow-up Mixpanel query, run 2+ weeks after this ships, shows at least one non-$direct,
-      non-search-engine `utm_source` value in the referrer/attribution breakdown — **cannot be
-      completed this session; inherently deferred until 2+ weeks of live traffic accrue**
+- [x] **ACCEPTED-DEFERRED** (founder decision, 2026-08-21): A follow-up Mixpanel query, run 2+
+      weeks after this ships, shows at least one non-$direct, non-search-engine `utm_source` value
+      in the referrer/attribution breakdown. Structurally a post-ship check — requires 2+ weeks of
+      live traffic through the deployed change, cannot be verified pre-ship. Not yet run. Follow up
+      via a Mixpanel query on/after 2026-09-04: filter `$mp_web_page_view` by `utm_source is set`,
+      excluding `google`/`bing`/etc search-engine values, over the trailing 2-3 weeks.
