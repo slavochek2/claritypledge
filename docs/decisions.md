@@ -4,6 +4,64 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-21 [process]: The points pipeline picks its cast LAST — every downstream artifact is built assuming a roster nobody has approved
+
+**Context:** First end-to-end run of `/points-prepare` → `/points-publish` on an opposed video pair for a named room. The run selected sources, read both transcripts in full, built 6 synthesized points, wrote 3 story drafts, assigned 17 positions and sealed a prediction — and only at the filing step did the question *"should this person be an agent at all?"* arise, as `/points-publish`'s missing-agent halt. Two of the six points were constructed around one arguer's cross-camp split; dropping him would have invalidated them. The founder named it directly: *"we already selected the video, created the points, created the stories, created positions. And now we're like, oh, by the way, maybe the whole work is wasted."*
+
+**Decision:** Agent selection moves **before** point construction, into a new selection step upstream of `/points-prepare`. The ordering is not a preference: a synthesized point is built *so that* specific named people land at opposite ends, so the roster is an **input** to point construction, not a review of its output. Choosing the source is already choosing the cast — the two decisions are the same decision and must happen together.
+
+**Alternatives rejected:** *Keep the roster question at filing time* — that is where it lives today and it is what produced the waste. *Ask it after points are built but before stories* — halves the waste and preserves the defect, since the points themselves encode the roster. *Leave it to operator judgement per run* — it was left to judgement this run, and the judgement arrived too late to be free.
+
+**Consequences:** The selection step owns four things discovered this session, none of which is a taste question: which sources to pair and why, popularity versus argument quality as an explicit trade-off rather than one an agent silently resolves, rights clearance (see the next entry), and **reuse — it must check existing agents on BOTH test and prod before recommending anyone**, because `subject_key` is unique per database and two agents for one person can hold opposing positions on the same point. Spec to be produced via `/grill-me`; the story-shape half of the same restructure is gated on P1141, which changes what a story can hold. **Status: proposed** — the selection step is not built.
+
+**References:** `/slava:content:points-prepare` · `/slava:content:points-publish` · [p1096](../features/p1096_public_multisource_point_pipeline.md) · [p1141](../features/p1141_story_carries_a_video_with_jumpable_quotes.md)
+
+---
+
+## 2026-08-21 [product]: Requiring a rights-cleared portrait for every agent silently restricts the product to arguments between famous people
+
+**Context:** Provisioning three agents for a published disagreement. Two subjects had Creative Commons portraits on Wikimedia; the third — the entire opposing side of the argument — is a pseudonymous YouTuber with no encyclopedia page (verified: 404 on both spellings) and no free-licensed image anywhere (0 relevant Commons results). His only images are his own channel art, which is copyrighted. `/provision-agent`'s rights check is a hard stop, so the run could not create him, and without him five of six points had nobody arguing the other half.
+
+**Decision:** A subject with no rights-cleared photograph gets **no avatar**, and the product's existing initials fallback carries the identity. Verified in code before relying on it (`src/components/ui/gravatar-avatar.tsx`): the shape and pledge-ring classes are applied independently of whether an image loads, so an agent without a portrait still renders square, drained, unringed and operator-named. The marker set survives; only the portrait channel is absent.
+
+**The generalisation, which is the part worth keeping:** a portrait requirement is not a neutral quality bar. **One side of a real argument is routinely anonymous** — pseudonymous critics are where a large share of good opposing argument lives — while establishment figures reliably have Wikipedia photos. A pipeline that can only publish participants with licensed portraits therefore biases every debate it ships toward the institutional side, by construction and invisibly. Rights clearance is a **selection criterion**, not a provisioning detail, and belongs in the selection step above.
+
+**Alternatives rejected:** *Use a video thumbnail or channel art* — the creator's copyright; laundering it through a rights check whose purpose is to catch exactly that is not a fix. *Generate an unrelated synthetic face* — a fabricated likeness of a real person is worse than no likeness. *Drop the subject* — this was the reachable outcome and it silently deletes the opposing camp, which is the failure being described.
+
+**Consequences:** The initials path is now a **designed answer for pseudonymous subjects**, not a degradation to be prevented — which conflicts with `/points-publish`'s precondition that every agent avatar returns `200 image/*`. That check was written to catch an avatar going missing *by accident*; a deliberate absence must be distinguishable from an accidental one, and currently is not. Separately, both cleared photos are share-alike with **attribution required, and the product has no surface that credits a photographer** — contained on test, a blocker before any public run. Photo credit is routed to the story/image component work, not to the points pipeline.
+
+**References:** `/slava:content:provision-agent` · `/slava:content:points-publish` · [p1135](../features/done/2026-06-10/p1135_agent_avatars_in_storage.md)
+
+---
+
+## 2026-08-21 [process]: Loading one credential by sourcing the whole env file exposes every other credential in it
+
+**Context:** `/slava:content:gen-agent-avatar` instructs `set -a; source .env.local; set +a` to load one API key. Run as written, several unrelated third-party credentials were echoed into the session transcript: `.env.local` contains lines that are not valid shell assignments, so the shell attempted to execute them and printed their contents. The affected credentials are being rotated in a separate session; specifics stay in `.private/`.
+
+**Decision:** Read the single variable you need, never the file: `grep '^KEY=' .env.local | head -1 | cut -d= -f2-`. This touches nothing else in the file and cannot execute any of it. Applies to every skill and script that needs a credential — the blast radius of `source` is the entire file, always, and grows silently every time a line is added.
+
+**Alternatives rejected:** *Normalise `.env.local` so it is valid shell* — fixes today's four lines and re-breaks the next time anyone adds an entry with a space or a dotted name; it makes the file's safety a thing humans must maintain. *Redirect the source output to `/dev/null`* — hides the symptom while the shell still executes attacker-controlled-in-principle lines. *Accept it as low-risk because the file is gitignored* — gitignore governs the repo, not the terminal, and the exposure was to the transcript.
+
+**Consequences:** The unsafe instruction is still in the skill and will do this again to the next caller — a fix is queued, not applied, because skill edits need their own approval. **Note this reverses standing guidance:** an earlier entry in this log recommends `source "$(git rev-parse --show-toplevel)/.env.local"` as the portable pattern for credential scripts. That advice solved a real cwd problem and is safe only while every line in the file happens to be valid shell — which is not a property anyone is maintaining. Prefer the targeted read at every call site. **Status: proposed** — the skill still carries the unsafe line.
+
+**References:** `/slava:content:gen-agent-avatar` · decisions.md 2026-04-09 `[process]` (the `source`-based pattern this narrows)
+
+---
+
+## 2026-08-21 [process]: In an unlabelled transcript, the interlocutor is better evidence of who spoke than any turn marker
+
+**Context:** Verifying quote attribution for a two-speaker podcast before publishing verbatim quotes under named people's machine accounts. `/points-prepare` attributes by content plus `>>` turn markers and records those markers as unreliable. Measured this run: a `>>` sits **mid-turn**, inside a continuous passage where one speaker says *"my last book, which is the early Quakers"* — a book only he wrote. The markers are not speaker boundaries at all on this source.
+
+**Decision:** Attribute by **what the other party says back**. Two attributions were established firmly this way — one speaker is confirmed as the pledge-taker because his interlocutor answers *"firstly thanks for bringing up the your 10% pledge"*, and the other is confirmed as the respondent because his line directly answers the question just asked. An interlocutor's reply is produced by a different person than the quote and cannot be forged by a caption artifact, which makes it strictly stronger than any in-band marker. Where neither content nor interlocutor resolves it, the quote is marked unattributed and dropped — one was, this run, rather than guessed.
+
+**Alternatives rejected:** *Trust `>>` markers* — falsified above. *Build speaker diarization* — reverses the standing 2026-08-19 ruling that attribution is solved by source selection, and would not have helped here, since a single-speaker source removes the problem outright. *Publish with attribution flagged as uncertain* — the harm is publishing a person's words under another person's identity, which a caveat does not undo.
+
+**Consequences:** `turn-inferred` on a multi-speaker source remains a hard stop at filing, and it blocked the intended prod-shaped run. The durable practice is to **prefer single-speaker sources**, which the selection step above now owns. Two supporting findings: a quote reconstructed from memory was caught by `grep -F` against the transcript because the transcript's own text carried a transcription error the memory had silently corrected — the mechanical check earned its keep against the agent that wrote it. And a per-run guard proved sound: probes returning empty for every candidate were re-run with a known-good control through the identical query before absence was believed.
+
+**References:** `/slava:content:points-prepare` · `/slava:content:points-publish` · [p1140](../features/p1140_transcript_retention_for_quote_reverification.md) · decisions.md 2026-08-19 (attribution by source selection)
+
+---
+
 ## 2026-08-21 [process]: A pre-commit gate you satisfy with an annotation is a security decision, not a formatting fix — don't self-certify it (P1132)
 
 **Context:** P1132's guard-only migration fix hit a pre-commit gate (P1039) blocking two
