@@ -18,7 +18,7 @@ driver: anomaly
 all in Mixpanel ($direct) — only ~11 were attributable to Facebook, Google, or the blog subdomain.
 Top-traffic pages include `/cm` (an embedded Chiang Mai events calendar, 394 pageviews — the
 single highest-traffic page on the site) and one pledger's public profile page (40 pageviews in 30
-days, despite that pledger never logging in again after her original signup).
+days, despite no further login activity on that account since the original signup).
 
 **Complication:** None of the site's outbound-facing links — event promotion posts, WhatsApp/
 Telegram shares, the `/cm` calendar's own "Add this calendar to yours" link, individual pledgers
