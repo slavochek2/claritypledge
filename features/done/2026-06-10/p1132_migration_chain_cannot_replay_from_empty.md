@@ -1,14 +1,14 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 52
 created_date: '2026-08-20'
 tags: [migrations, ci, idempotency, e2e]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 driver: anomaly
 severity: medium
 feature_type: backend
+completed_at: 2026-08-21
 ---
 
 # P1132: The migration chain cannot be replayed from empty
@@ -25,7 +25,7 @@ publication members, a duplicate column, a duplicate trigger. A full replay was 
 forward one migration at a time and work fine; `scripts/migrate.sh` tracks by version string
 extracted from the filename and skips anything already recorded, so a broken file is invisible
 once its version is in `schema_migrations`. The gap only appears when a database is built from
-scratch — which is exactly what [P1085](p1085_trusted_e2e_core_in_ci.md) needs in order to run
+scratch — which is exactly what [P1085](../../p1085_trusted_e2e_core_in_ci.md) needs in order to run
 an E2E core in CI, and exactly what a new contributor does when following the README.
 
 **Question:** What is the minimum change that makes the chain apply cleanly from empty, without
@@ -101,7 +101,7 @@ inertness claim above.
   a live-data mutation that has never executed on prod. Renaming makes it newly-pending and fires
   that UPDATE for real. **[FOUNDER DECISION]** and out of scope here.
 - Do NOT create `ml_training_sessions`. Three migrations reference a table nothing creates; it
-  exists live, out-of-band. That belongs to [P1054](p1054_out_of_band_objects_absent_from_migrations.md),
+  exists live, out-of-band. That belongs to [P1054](../../p1054_out_of_band_objects_absent_from_migrations.md),
   which already owns the whole out-of-band-objects problem and was filed 2026-08-12.
 - Do NOT edit `20260116_ml_training_chunk_count.sql` or `20260404120000_security_backlog_rls.sql`.
   They are version-recorded and prod-inert; editing them serves no purpose and touches P1054's scope.
@@ -145,8 +145,8 @@ dance; nothing is destructive and no filename moves.
       in-scope migration files** (`20250117`, `20251220`, `20260107`, `20260209`) cleanly
       against an empty database, verified live this session, ~24s wall-clock for the full
       238-file chain up through this point. The original criterion — **all** 238 files,
-      including the 2 files re-scoped out below — is now [P1144](p1144_finish_migration_replay_guards_held_back_files.md)'s
-      to close, alongside its existing [P1054](p1054_out_of_band_objects_absent_from_migrations.md)
+      including the 2 files re-scoped out below — is now [P1144](../../p1144_finish_migration_replay_guards_held_back_files.md)'s
+      to close, alongside its existing [P1054](../../p1054_out_of_band_objects_absent_from_migrations.md)
       dependency for `ml_training_sessions`.
       **Tension found 2026-08-21, still relevant to P1144:** the literal wording ("`supabase
       start`... zero errors") is not reachable at all with `supabase start`'s own
@@ -176,7 +176,7 @@ dance; nothing is destructive and no filename moves.
       (`20260211_tighten_idea_feed_rls.sql:27`). Of the 7 policies the annotation actually
       suppressed in `20251218_p19_3_idea_feed.sql`, 3 were deliberately **dropped** by that
       same later migration (not kept as intentionally public), and the other 4 are the live,
-      unpatched, high-severity subject of [P1139](p1139_idea_feed_insert_policies_unconditional.md)
+      unpatched, high-severity subject of [P1139](../../p1139_idea_feed_insert_policies_unconditional.md)
       — filed by a peer session and explicit that this exact determination requires
       `/reproduce`, not a citation. `05f0dd87` was reverted (`git reset` to `3890dffa`); the
       false annotations were stripped from the working tree. A second, lower-severity finding
@@ -186,7 +186,7 @@ dance; nothing is destructive and no filename moves.
 
       **This spec's scope is now formally narrowed to the 4 clean files.** The guard SQL for
       the other 2 is written, verified, and preserved uncommitted in `w4` — tracked by
-      [P1144](p1144_finish_migration_replay_guards_held_back_files.md), which owns committing
+      [P1144](../../p1144_finish_migration_replay_guards_held_back_files.md), which owns committing
       them once P1139 and a new bug spec for the `clarity_sessions` finding resolve.
 - [x] Every file in this spec's narrowed 4-file scope retains its original version prefix —
       verified by `git diff --stat` showing no renames
