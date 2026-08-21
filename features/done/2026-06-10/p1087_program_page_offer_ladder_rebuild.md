@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 0.25
 created_date: '2026-08-14'
@@ -8,7 +8,6 @@ tags:
   - pricing
   - program
   - stripe
-delivery_stage: ship
 pipeline_plan:
   - create-spec
   - dev
@@ -23,15 +22,16 @@ pipeline_skipped:
 driver: heuristic
 flow: dev
 locked_at: '2026-08-17T07:29:45.667Z'
+completed_at: 2026-08-21
 ---
 
 # P1087: Rebuild /program to the membership offer ladder
 
-> **Supersedes the offer structure set by [P937](done/2026-06-10/p937_webinar_funnel_landing_and_offers_page.md) (offers page + Free/Standard tiers) and [P951](done/2026-06-10/p951_premium_tier_stripe_offers.md) (Premium tier + Stripe links).** Those specs are not wrong; the offer they encode was retired. [P971](done/2026-06-10/p971_countdown_above_pricing.md)'s countdown stays — only the date it counts to changes.
+> **Supersedes the offer structure set by [P937](p937_webinar_funnel_landing_and_offers_page.md) (offers page + Free/Standard tiers) and [P951](p951_premium_tier_stripe_offers.md) (Premium tier + Stripe links).** Those specs are not wrong; the offer they encode was retired. [P971](p971_countdown_above_pricing.md)'s countdown stays — only the date it counts to changes.
 
 ## Naming — resolved 2026-08-20
 
-The paid-level naming block ([decisions.md](../docs/decisions.md) 2026-08-19 [product], the three-layer naming resolution: Kind = Clarity Organization, unmarketed container; Instance = Clarity Practice Community · Chiang Mai / · Online; Level = what a member holds inside an instance) is settled: the paid level is named **Clarity Champions** — deliberately not "community" (that word stays reserved for Instance names, which is the exact collision that triggered this naming pass) and worn from day one of payment, not only after month 3 (graduation is when the name is *earned in practice*, not when it's first granted).
+The paid-level naming block ([decisions.md](../../../docs/decisions.md) 2026-08-19 [product], the three-layer naming resolution: Kind = Clarity Organization, unmarketed container; Instance = Clarity Practice Community · Chiang Mai / · Online; Level = what a member holds inside an instance) is settled: the paid level is named **Clarity Champions** — deliberately not "community" (that word stays reserved for Instance names, which is the exact collision that triggered this naming pass) and worn from day one of payment, not only after month 3 (graduation is when the name is *earned in practice*, not when it's first granted).
 
 `/program` stays the sales surface, unchanged in mechanism — self-serve, no qualifying call. Two reasons converged: (1) the founder's own funnel already double-qualifies before anyone reaches this page — free-event attendance first, the money-back guarantee second — so a call gate would be a third, redundant filter; (2) at the event, the founder's own instinct was "go to `/program`," not "go to `/intro`" — confirming self-serve was always the intended path for standard membership interest. `/intro` stays reserved for what it already covers: workshops, training, org-level asks — never the standard membership path.
 
@@ -43,7 +43,7 @@ The paid-level naming block ([decisions.md](../docs/decisions.md) 2026-08-19 [pr
 
 **Complication:** Two things are wrong at once.
 
-1. **The offer changed.** The paid unit is now one **person** at **€295/month**, monthly and open-ended ([goals.md](../docs/goals.md):15 · [lean-canvas.md](../docs/lean-canvas.md):590 · [decisions.md](../docs/decisions.md) 2026-08-10, refined by founder decision 2026-08-14/19). Every price, tier name, timeline entry and FAQ on the page describes something not for sale, and both Stripe links sell retired products.
+1. **The offer changed.** The paid unit is now one **person** at **€295/month**, monthly and open-ended ([goals.md](../../../docs/goals.md):15 · [lean-canvas.md](../../../docs/lean-canvas.md):590 · [decisions.md](../../../docs/decisions.md) 2026-08-10, refined by founder decision 2026-08-14/19). Every price, tier name, timeline entry and FAQ on the page describes something not for sale, and both Stripe links sell retired products.
 2. **The page's structure never worked.** It has one product and a three-card grid pretending it has three. The timeline describes card 2 only; card 1 is a free thing the visitor already has; card 3 is a different business. Nothing ties them, so the narrative is orphaned from the thing being bought.
 
 **Question:** What does `/program` become so a visitor can buy the membership self-serve, book a call for anything custom, and read one coherent offer instead of three unrelated ones?
@@ -87,7 +87,7 @@ One primary action per view, per the P955 rule already in `.claude/rules/visual-
 **Members do not join a running group.** A batch starts together and runs the 3-month arc together; coordinated delivery is impossible otherwise (a new arrival in someone else's month 2 cannot be brought along). On finishing, every batch merges into **one standing community room** — which is what open-ended billing buys after month 3.
 
 - **Cadence: a new batch every 45 days.** A 90-day arc at 45-day spacing means **at most 2 live batches** plus the standing room = **3 sessions/week**, steady state. Batches never multiply beyond that.
-- **Waiting is held by the free events** — the recorded holding pattern for the not-yet-convinced ([goals.md](../docs/goals.md):15). Maximum wait is one cadence, ~6 weeks.
+- **Waiting is held by the free events** — the recorded holding pattern for the not-yet-convinced ([goals.md](../../../docs/goals.md):15). Maximum wait is one cadence, ~6 weeks.
 - **Countdown:** keep the component, repoint the date. `COHORT_ENROLLMENT_CLOSES_ISO` (`src/app/content/webinar.ts`) is a hardcoded `2026-08-31T23:59:00+07:00` that renders the expired state permanently from September. It must resolve the **next batch start**.
 
 ### What's included — confirmed, ship as written
@@ -103,7 +103,7 @@ The standing practice community after month three, for as long as you stay
 Cancel any month. Full refund of month one if the first two sessions aren't for you
 ```
 
-**Full 9-of-9 badging is NOT included** and must not be implied. Field data ([lean-canvas.md](../docs/lean-canvas.md):396, 2026-04-26): 100–180 minutes per person, founder-only certifier capacity. It is the separate Partnership Clarity Package. **Partial badges (1-of-9 from group work) ARE honest** — [hypotheses.md](../docs/hypotheses.md):385 treats them as the propagation unit.
+**Full 9-of-9 badging is NOT included** and must not be implied. Field data ([lean-canvas.md](../../../docs/lean-canvas.md):396, 2026-04-26): 100–180 minutes per person, founder-only certifier capacity. It is the separate Partnership Clarity Package. **Partial badges (1-of-9 from group work) ARE honest** — [hypotheses.md](../../../docs/hypotheses.md):385 treats them as the propagation unit.
 
 ### The month arc — confirmed, ship as written
 
@@ -131,7 +131,7 @@ I help you set it up and design your first Clarity events, so the practice reach
 past the two or three early adopters who said yes first.
 ```
 
-**No job titles anywhere in this copy.** Naming roles (CMO, co-founder, head of transformation) narrows the reader to a demographic that is explicitly untested — [lean-canvas.md](../docs/lean-canvas.md):81 holds role targeting at `PROPOSED-PENDING-CONTACT` with zero field contact. The page must stay readable by a co-founder and by a change lead in a 5,000-person company alike.
+**No job titles anywhere in this copy.** Naming roles (CMO, co-founder, head of transformation) narrows the reader to a demographic that is explicitly untested — [lean-canvas.md](../../../docs/lean-canvas.md):81 holds role targeting at `PROPOSED-PENDING-CONTACT` with zero field contact. The page must stay readable by a co-founder and by a change lead in a 5,000-person company alike.
 
 **Month 3 promises support, never a launch.** See Risks.
 
@@ -163,7 +163,7 @@ Non-members attend the **free events**, or come as one-time paid spectators. The
 ### Risks
 
 - **Creating a Clarity Organization is not built.** `OrganizationsService` (`src/app/data/organizations-service.interface.ts`) exposes `getOrganizationBySlug`, `getMembers`, `getMyMembership`, `joinOrganization`, `leaveOrganization` — **no create**; the interface comment records the two existing orgs as DB-seeded. `createEvent` *does* exist (`events-service-real.ts`). P1076 (org invite link) is built but unshipped on `feature/p1076-org-invite-link` in worktree w2; its spec file is not on `main`. **Mitigation:** month-3 copy promises founder help only. Never imply the member can create an organization in the app today.
-- **Month 3's promise is a recorded falsifier, not a deliverable.** [lean-canvas.md](../docs/lean-canvas.md):604 — *if no member runs a verified exchange with a colleague inside 3 months, this is a peer group and not a champion engine.* Selling the launch as an outcome converts the test into a guarantee and destroys its value as a test.
+- **Month 3's promise is a recorded falsifier, not a deliverable.** [lean-canvas.md](../../../docs/lean-canvas.md):604 — *if no member runs a verified exchange with a colleague inside 3 months, this is a peer group and not a champion engine.* Selling the launch as an outcome converts the test into a guarantee and destroys its value as a test.
 - **Implying full badging oversells by 100–180 minutes per person.** Copy that says "get badged" without "partial" commits founder time that does not exist at €295.
 - **Stripe misconfiguration is a silent revenue outage.** P954: env-var indirection baked empty strings into the prod bundle and every paid CTA fell to "Checkout temporarily unavailable". **Mitigation:** keep the hardcoded-constant-with-env-override pattern, the host-pinned `buy.stripe.com` validation, and `PaidCta`'s fail-loud state.
 - **Founder prerequisite:** the €295/month Stripe **subscription** Payment Link must exist before ship. Dashboard action, not agent work.
@@ -173,7 +173,7 @@ Non-members attend the **free events**, or come as one-time paid spectators. The
 
 - Do **NOT** build organization creation. Dependency, named above, its own spec.
 - Do **NOT** implement rolling/anytime join, or per-batch routing beyond one start date. Batches start together.
-- Do **NOT** add a free-events section or next-event CTA — that is [P1028](p1028_reusable_event_cta_across_landings.md)'s scope (`status: today`).
+- Do **NOT** add a free-events section or next-event CTA — that is [P1028](../../p1028_reusable_event_cta_across_landings.md)'s scope (`status: today`).
 - Do **NOT** touch `/hiring`, `/founder`, `/coach`, `/`, `/intro`, or the calendar embed.
 - Do **NOT** delete the Free Platform tier — demoted to one line, not removed.
 - Do **NOT** name job titles in any page copy.
@@ -181,7 +181,7 @@ Non-members attend the **free events**, or come as one-time paid spectators. The
 - Do **NOT** edit the ladischenski repo from this spec.
 - Do **NOT** update strategy docs here — the workshop rung folding into Custom Offers, the install leaving the public surface, and the batch cadence go through `/slava:maintain:docs-strategy-update` separately.
 - Do **NOT** add a qualifying call gate in front of the membership CTA — self-serve is the confirmed mechanism (see Naming). `/intro` stays reserved for Custom Offers only.
-- Do **NOT** build the `/org/cm` → `/program` reverse link (locked events pointing back to buy) — that lives with the locked-events-on-org-page mechanic, [P1060](p1060_link_events_to_organizations.md)'s territory. This spec only adds the one outbound link, `/program` → `/org/cm`.
+- Do **NOT** build the `/org/cm` → `/program` reverse link (locked events pointing back to buy) — that lives with the locked-events-on-org-page mechanic, [P1060](../../p1060_link_events_to_organizations.md)'s territory. This spec only adds the one outbound link, `/program` → `/org/cm`.
 
 ## Done-When
 
