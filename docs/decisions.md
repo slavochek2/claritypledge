@@ -4,6 +4,86 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-21 [technical]: `ship`'s co-located-spec link rebase trusts a target's OLD location once that target has already moved in the same ship
+
+**Context:** P1135's ship auto-closed its co-located sibling P1130 (edited on the same branch, per
+P1105's FILED-vs-DELIVERED heuristic). P1130 carries four Markdown links to P1135's spec
+(`p1135_agent_avatars_in_storage.md`, no path prefix — same-directory at the time they were written)
+added this session, marking two of its own statements superseded. Both specs moved to
+`features/done/2026-06-10/` in the same ship — P1135 first, P1130 second (co-located specs close
+after the primary). `ship_rebase_doc_links()` (`scripts/git-ops.sh:1861`) rewrote P1130's links to
+`../../p1135_agent_avatars_in_storage.md` — pointing at the OLD root-level path P1135 no longer
+occupied, since it had already moved. `pre-commit-checks.sh`'s doc-link ratchet caught all four as
+dead links (`validate-doc-links.cjs`) and blocked the closure commit.
+
+**Root cause, traced through the function, not guessed:** the rewrite's safety net
+(`resolved_before and not exists(round_trip)`) only fires when a link was previously resolvable and
+would become unresolvable after rebase. Here `resolved_before = exists(old_dir + link)` was already
+**False** by the time P1130's rebase ran — P1135 had vanished from `features/` root because *it* had
+already moved to `done/2026-06-10/` earlier in the same ship. With `resolved_before` false, the
+`and`-guarded safety check is vacuously skipped, and the (wrong, stale) rebase target is written
+because the round-trip path-math on the OLD location is internally consistent — it just no longer
+points anywhere real.
+
+**Decision:** Fixed by hand for this ship (both specs land in the identical directory, so the correct
+links are same-directory: `p1135_agent_avatars_in_storage.md`, no `../../`), then committed as a
+separate `chore: close p1130` after `chore: close p1135`. Not fixed in `git-ops.sh` — the general case
+(N co-located specs cross-referencing each other, closing in the same batch, landing in the same or
+different dated folders) needs the rebase to resolve link targets against the OTHER specs' **post-move**
+paths when they're being closed in the same run, not against pre-move disk state. That's a real fix to
+`ship_rebase_doc_links()` and its caller, worth its own spec.
+
+**Alternatives rejected:** *Rely on the pre-commit doc-link gate as the safety net* — it worked this
+time (caught all four, blocked the commit before it landed), but it only fires because the target
+doc happens to be staged doc content the ratchet checks; a co-located pair whose cross-links point at
+files the gate doesn't scan would land silently broken.
+
+**Consequences:** Any future ship that auto-closes co-located specs which cross-reference EACH OTHER
+should expect this exact failure — a `SUPERSEDED BY`/`See pN` link from the secondary spec to the
+primary spec, rewritten to a stale path once the primary has already moved. Distinct from the
+2026-08-18 P1105/P1094 finding (which covers *inbound* links from other files scattered across the
+repo, and *depth* miscounts on a single spec's own move) — this is a co-located PAIR's links to EACH
+OTHER, broken by move-ordering within one ship run.
+
+**References:** `scripts/git-ops.sh` `ship_rebase_doc_links()` `:1861`, callers at `:2261`, `:2781`,
+`:2864` · [features/done/2026-06-10/p1130_points_publish_filer.md](../features/done/2026-06-10/p1130_points_publish_filer.md)
+· [features/done/2026-06-10/p1135_agent_avatars_in_storage.md](../features/done/2026-06-10/p1135_agent_avatars_in_storage.md)
+· decisions.md 2026-08-18 [technical] (P1105/P1094, the related-but-distinct link-rebase findings)
+
+## 2026-08-21 [technical]: Every storage bucket is outside RLS drift detection, and the check reads clean either way (P1135)
+
+**Context:** P1135 adds an `agent-avatars` bucket and listed "storage objects are outside the repo's drift
+detection" as a risk, mitigated by `scripts/rls-drift-check.py` plus a Done-When row requiring no policy
+drift. An adversarial pass tested the mitigation instead of accepting it. `rls-drift-check.py:64-68` queries
+`from pg_policies where schemaname = 'public'`. Storage policies live on `storage.objects`, schema `storage`.
+The script states the exclusion in its own `NOT COVERED` block (`:469`): *"not policies on other schemas
+(**storage.objects in particular**)."* Nothing else in `scripts/` reads that schema — the only grep hit for
+it is that disclaimer.
+
+**Decision:** The Done-When row was **downgraded from MITIGATE to a stated ACCEPT** rather than left citing a
+gate that cannot fire, and the migration plan now forbids offering a drift-check run as evidence for this
+bucket — the three policies are read back from each project directly instead. A real storage-policy check is
+worth its own spec and was deliberately not widened into P1135.
+
+**Alternatives rejected:** *Extend `rls-drift-check.py` to the storage schema inside P1135* — widening a
+live security check's blast radius while shipping an unrelated bucket is the wrong place for it, and the
+same reasoning already appears at [decisions.md](decisions.md) 2026-08-18 for the P1065 2-element-key gap.
+*Leave the row as written* — a passing check that structurally cannot fail is worse than no check, because
+it reports success to the next reader.
+
+**Consequences:** **This is not new and not P1135's fault — `banners` and `event-banners` have sat in the
+same blind spot since P504 and the event-banner work respectively.** Three buckets, zero drift coverage, and
+a dashboard-created policy on any of them would read as clean forever. Until a storage-aware check exists,
+"the bucket exists only as a migration" is a **procedural** guarantee enforced by the person running it, not
+a mechanical one — say so rather than implying coverage. The general lesson generalizes past storage: this
+repo's drift checks each answer a **narrower question than their name suggests** (see also 2026-08-18, where
+`--env prod` turned out to be a claim about what had been *pushed*), so before citing one as a mitigation,
+read its own scope disclaimer. Status: storage-policy check proposed, unspecced.
+
+**References:** [scripts/rls-drift-check.py](../scripts/rls-drift-check.py) (`:64-68` the query, `:469` the
+disclaimer) · [features/p1135_agent_avatars_in_storage.md](../features/done/2026-06-10/p1135_agent_avatars_in_storage.md) ·
+[features/p1054_out_of_band_objects_absent_from_migrations.md](../features/p1054_out_of_band_objects_absent_from_migrations.md)
+
 ## 2026-08-20 [technical]: The migration chain cannot build a database from empty — five defect classes, and CI never needed the CLI to find out
 
 **Context:** P1085 needs a database for an E2E core in CI. The obvious route — `supabase start` against
