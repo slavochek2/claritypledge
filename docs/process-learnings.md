@@ -36,10 +36,10 @@ an empty file is the healthy state.
 **Status:** proposed
 **due:** week
 
-`deploy-manifest.json` lists `20260211_tighten_idea_feed_rls.sql` in both the test and prod arrays.
-Test reflects its effects; prod does not. Either it never executed against prod, or the objects it
-dropped were re-created out-of-band afterwards. Recorded in the private security log 2026-08-10 and
-still unaddressed.
+`deploy-manifest.json` lists a migration as applied in both the test and prod arrays. Test reflects
+its effects; prod does not. Either it never executed against prod, or the objects it changed were
+altered out-of-band afterwards. Detail (which migration, what it touches) is in the private security
+log — unpatched status, not for the public repo. Still unaddressed.
 
 The consequence is not the one migration. **Every audit that treats the manifest as evidence of live
 state inherits this**, and this repo has a documented habit of doing exactly that. It is strictly
