@@ -14,6 +14,27 @@ driver: heuristic
 
 # P1141: A story carries a video instead of a picture, and its quotes jump
 
+## Run This
+
+Run from `<cp-root>/.claude/worktrees/w3` — the claimed worktree for this spec, already on
+`feature/p1141-story-video-quotes`.
+
+    /goal "./scripts/goal-gate.sh p1141 exits 0, output pasted. Stop after 30 turns."
+
+`/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke
+it for them. The condition names an exit code on purpose: the loop's evaluator reads the
+transcript and runs nothing, so the only trustworthy condition is one naming an artifact the
+agent cannot author.
+
+**What this does and does not guarantee.** The loop still stops on the agent's *paste* of the
+exit code, and nothing here changes that. What the pinned contract buys is that forgery and
+decay are caught at the merge boundary by CI, before anything reaches `main`. Expect a
+walk-back that is usually-but-not-always green — not a self-proven branch.
+
+**The loop stops at a committed branch.** Merging, migrating prod, deploying and pushing are
+all ALWAYS-ASK and none of them are pre-approvable. The **test**-database migration is
+authorised (RD-4); prod is not.
+
 ## Problem
 
 **Situation:** Agent stories are filed from YouTube sources. A story carries a still image and a
@@ -614,3 +635,140 @@ code. Labeled accordingly.
 - `.claude/commands/slava/content/points-publish.md` — Quality Gate line, row-shape update
 - `features/p1096_public_multisource_point_pipeline.md` — non-goal pointer update
 - `docs/technical/database.md` — new `stories` columns documented
+
+## Resolved Decisions
+
+Taken 2026-08-21 in the `/goalify` decision sweep. **Append-only** — nothing above this line
+was rewritten.
+
+**RD-1 — The agent-story footer, verbatim.** The UI Contract required two sentences and named
+none. Decided:
+
+> A machine account operated by ClarityPledge wrote this reading of {Full Name}. Nothing here
+> is {Full Name}'s own words except the quotes, which come from the linked video.
+>
+> `How machine accounts work →`
+
+Leads with the machine, names the quote exception second, and the link label is the third
+element the UI Contract already called for. `{Full Name}` interpolates the same value the
+byline uses.
+
+**RD-2 — The explainer link resolves to a new `/machines` holding page.** No explainer route
+exists today: `grep '<Route' src/App.tsx` returns no `/machines`, no `/agents`, and
+`content/articles/` carries no agent-explainer piece. Done-When requires the footer link to
+**resolve**, so this spec adds the route and a one-paragraph holding page — and nothing more.
+The Non-Goal *"Do NOT write the explainer page's content here"* stands: the page's real
+content is separate work, and this decision exists so the URL is stable when that work lands.
+Pointing at `/about` was rejected — it resolves and tells the reader nothing about machine
+accounts, which is a link that works and misleads.
+
+**RD-3 — Harvested comment text is not filtered for third-party identifiers.** The architect's
+security review flagged that `/points-prepare` harvests comment sections written by private
+individuals, and that `points-publish.md:181` documents comment text surviving into a quoted
+span in `stories.content`. **The founder ruled 2026-08-21 that a public comment on a public
+video is public speech and is quotable, and that no filter is warranted.** Recorded as a
+decision, not as an open gap — do not re-raise it inside this spec's build.
+
+The distinction the ruling covers, stated once so a later reader is not guessing at its scope:
+it covers the commenter's own words. The narrower case the review actually raised — a person
+*named inside* someone else's comment, who never posted — is covered by the same ruling.
+Nothing in P1141 widens either path: comments feed the **opposing-camp** stage, and this
+spec's quotes section carries **subject-transcript** quotes only.
+
+**RD-4 — The loop may run `./scripts/migrate.sh` against the TEST database.** Without it the
+sealed-letter contract — the surface this spec's own Appetite names as the sharp edge, already
+broken twice — would reach `/ship` never having been exercised against a real database. Prod
+migration remains ALWAYS-ASK and is not pre-approved by this decision.
+
+## Verification Contract
+
+**Pinned to main.** The gate reads this section's digest from `main`, never from the branch it
+is judging — otherwise a loop can delete the row it is about to fail. Adding a heading inside
+this section breaks the digest; put new prose above it.
+
+**19 rows over the 13 Done-When and 4 Acceptance-Criteria lines: 14 MECHANICAL, 2 COMPARABLE,
+3 HUMAN-ONLY.** HUMAN-ONLY is 15%, under goalify's 25% refusal bar. All three HUMAN-ONLY rows
+are the same class of thing: they need a story to have been **filed**, which means running the
+publish pipeline under an agent account — an external, irreversible, ALWAYS-ASK action the
+loop may not take. They are not taste; they are out of the loop's reach by design.
+
+| line | class | decided by | artifact |
+|---|---|---|---|
+| DW-1 player renders where the picture used to be; DW-5 card and off-site surfaces get the thumbnail with a play affordance and link into the story | MECHANICAL | `npx vitest run src/tests/p1141-story-media.test.tsx` | src/tests/p1141-story-media.test.tsx |
+| DW-2 a timecode seeks in place and brings the player into view with no reload; DW-3 a blocked player still renders the whole story and every timecode opens the source at the right second; AC-1 one click to check a quote | MECHANICAL | `npx vitest run src/tests/p1141-video-seek.test.tsx` | src/tests/p1141-video-seek.test.tsx |
+| DW-4 an absent or unparseable video is treated exactly as today; the host allowlist is the enforcement point and nothing bypasses it | MECHANICAL | `npx vitest run src/tests/p1141-video-lib.test.ts` | src/tests/p1141-video-lib.test.ts |
+| DW-7 byline, machine chip and the RD-1 footer render with a resolving RD-2 link; DW-12 no verified count and no Verify affordance on an agent story, a human story unchanged, render held while the registry is still loading | MECHANICAL | `npx vitest run src/tests/p1141-agent-story-chrome.test.tsx` | src/tests/p1141-agent-story-chrome.test.tsx |
+| DW-8 structure renders, and a link whose label differs from its destination does not render as a link across all five bypass classes the security review enumerated | MECHANICAL | `npx vitest run src/tests/p1141-linkify-structure.test.tsx` | src/tests/p1141-linkify-structure.test.tsx |
+| DW-6 the seal RPC writes videoUrl and videoQuotes, and imageUrl still survives alongside them | MECHANICAL | `npx vitest run src/tests/p1141-seal-rpc-video-canary.test.ts` | src/tests/p1141-seal-rpc-video-canary.test.ts |
+| DW-6 the three-layer snapshot contract holds and a letter sealed before this change maps identically after it | MECHANICAL | `npx vitest run src/tests/p1141-letter-snapshot-contract.test.ts` | src/tests/p1141-letter-snapshot-contract.test.ts |
+| DW-6 the generalized SECURITY DEFINER canary still passes with the new predicates added | MECHANICAL | `npx vitest run src/tests/sd-guard-completeness.test.ts` | src/tests/sd-guard-completeness.test.ts |
+| DW-5 the crawler card derives the thumbnail from the video and falls back to banner_url when absent | MECHANICAL | `npx vitest run src/tests/p1141-og-video-thumbnail.test.ts` | src/tests/p1141-og-video-thumbnail.test.ts |
+| DW-11 the voice rules and the section label live in exactly one skill with the choice stated; DW-13 timecodes resolve from the retained raw caption file and never from the cleaned transcript; the P1096 non-goal points here; every UI Contract and RD-1 string appears verbatim | MECHANICAL | `npx vitest run src/tests/p1141-pipeline-rules.test.ts` | src/tests/p1141-pipeline-rules.test.ts |
+| DW-4 nothing else regressed — the whole unit suite is the baseline, green at pin time | MECHANICAL | `npx vitest run` | package.json |
+| DW-1 DW-2 DW-3 DW-4 DW-12 AC-1 driven on the real route with real auth at 320, 375 and desktop | MECHANICAL | `npx playwright test e2e/p1141-story-video.spec.ts` | e2e/p1141-story-video.spec.ts |
+| the video_url CHECK constraint rejects a non-allowlisted host through a raw REST insert; video_quotes defaults to the empty shape; the sealed snapshot carries both keys under a real database | MECHANICAL | `npx playwright test e2e/integration/p1141-video-schema.spec.ts` | e2e/integration/p1141-video-schema.spec.ts |
+| no test in this set is neutered — no it.fails, no test.fails, no .skip( — and the row fails when the files are absent, not passes vacuously | MECHANICAL | `bash -c 'ls src/tests/p1141-*.test.ts* >/dev/null 2>&1 && ! grep -rqE -e "it\.fails" -e "test\.fails" -e "\.skip\(" src/tests/p1141-*'` | src/tests/p1141-*.test.ts* |
+| AC-2 a reader can tell at a glance which words the machine wrote and which were quoted | COMPARABLE | blind-reviewer | features/verification/p1141/review-round-*.md |
+| AC-3 a reader arriving from email or a shared link sees the video is a video and reaches the story to play it | COMPARABLE | blind-reviewer | features/verification/p1141/review-round-*.md |
+| DW-9 filed story text uses the subject's full name and carries no pronoun referring to the subject | HUMAN-ONLY | founder | — |
+| DW-10 for one real story, every timecode lands within a few seconds of the words it points at, verified by playing it | HUMAN-ONLY | founder | — |
+| AC-4 nothing a reader sees claims the named person holds the position the agent states | HUMAN-ONLY | founder | — |
+
+### The blind reviewer
+
+**It must not be the agent that built the thing.** That is the one durable constraint here:
+every defect across the four rounds P1083 needed was found by a reviewer given renders and
+nothing else, and every rejected version had already passed its own implementer's review.
+
+**Given:** the approved visual reference
+(`https://claude.ai/code/artifact/6c28e57e-cb11-4144-b99f-7312428714de`) as the named
+reference, and renders of the built surfaces at **320px, 375px, desktop, and the empty state**
+— story page with the player loaded, story page with the player blocked, a story with no
+quotes, a feed card, an off-site thumbnail card, and an untouched image-path story.
+
+**The real-route render is owed and the artifact does not discharge it.** The reference is
+static markup, and the spec says so on its own page. Renders must come from the real route
+driven with real auth (`getTestAuthContext()` in `e2e/helpers/auth-context.ts`), not from a
+component fed mock props — a component in isolation cannot reach the gated states where every
+recorded UI complaint has come from.
+
+**Judge the player's own chrome in the browser.** The reference's player is a stand-in; a
+published page cannot load an external embed, so the real player's chrome and aspect
+behaviour are unverified by the reference and must be judged against the build.
+
+**Matching tokens is necessary and not sufficient.** The reference's own fidelity pass caught
+a 4px `blue-500` left rail on production story cards that a 15/15 colour-token diff had
+missed. A surface can use every correct value and still not look like the product.
+
+**Forbidden:** the diff, the spec, the rationale, this contract, and any statement of what the
+build was trying to do.
+
+**Writes** `features/verification/p1141/review-round-N.md` itself: `VERDICT: PASS|FAIL`, then
+one `SCREENSHOT: <sha256>  <path>` line per image judged. The gate re-hashes every image and
+never trusts a hash it is handed.
+
+### Evidence
+
+| file | holds |
+|---|---|
+| `contract.sha256` | the pin |
+| `review-round-N.md` | the verdict and the image hashes |
+| `assumptions.md` | every call the loop made alone. There is no escalation clause — the agent decides, logs, continues. The log is the price of not being interrupted |
+| `feedback.md` | **two numbers**: corrections given, and turns consumed. Quality bought with runaway spend reads as success on a one-axis scoreboard |
+| `features/uat/p1141.md` | the UAT scorecard. The gate fails on an unmarked row and on a skip whose reason is outside `NOT-BUILT / ENV-UNAVAILABLE / HUMAN-ONLY / SUPERSEDED`. It does not exist yet — this spec never ran `/generate-tests` |
+
+### Red-first (run 2026-08-21, before the loop existed)
+
+| command | result at pin time |
+|---|---|
+| `npx vitest run src/tests/p1141-video-lib.test.ts` | **exit 1** — `No test files found`. Same for all nine `p1141-*` vitest rows: the files do not exist |
+| `npx playwright test e2e/p1141-story-video.spec.ts` | **exit 1** — `No tests found`. The webserver did start, so the local tier is live, not aspirational |
+| the anti-cheat row | **exercised on all three paths**: exit 1 with no files, exit 0 with a clean file, exit 1 with `it.fails` present. A first draft of this row passed *vacuously* when the files were absent — `grep`'s error inverted to success under `!`. Rewritten to require the files first |
+| `npx vitest run` | **exit 0** — 274 files, 3054 tests. Green **by design**: this row is a regression baseline, not a red-first assertion, and it is labelled as such |
+| `npx vitest run src/tests/sd-guard-completeness.test.ts` | **exit 0** — the existing canary passes and must keep passing once extended. Its failure path is **unproven at pin time**; per epistemic gate 7 the build must drop the key locally and watch it go red before this row counts as evidence |
+
+**Unproven at pin time, flagged rather than counted as evidence:** the nine `p1141-*` vitest
+rows fail only with *"no test files found"* — a genuine non-zero exit, but it proves the
+absence of a file, not that any assertion has teeth. This spec never ran `/generate-tests`, so
+unlike P1114 there is no red-with-real-assertions baseline behind them. The two Playwright
+rows additionally need a seeded story carrying a video and the RD-4 test migration applied.
