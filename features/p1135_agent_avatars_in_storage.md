@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 5
 workstream: events
@@ -68,7 +68,19 @@ shape); one is genuinely the founder's (whether a copy of each avatar stays in v
 
 ## The other prod blocker
 
-**This spec does not make prod reachable, and must not be read as claiming it does.** P1104 — the
+**UPDATE 2026-08-21, post-implementation:** everything below this line describes the state at spec
+creation. It has since changed — the founder pushed `main` to `origin/main` (confirmed identical
+HEADs) and, in the same `/dev` session, explicitly approved applying all 8 pending prod migrations
+(the 7 P1104 migrations plus this spec's bucket) when `migrate.sh --env prod` reported them as one
+batch. **P1104 is now live on prod, DB and client both** — re-measured against the deployed bundle
+today: `agent_accounts` appears **1** time (was 0), against the same controls P1130 used
+(`point_positions` 5, `profiles` 26, unchanged) — a real transition, not a blind probe. This was a
+consequence of the founder's approval, not this spec's own deliverable — the reasoning below for
+why it was originally out of scope is kept as the historical record of that decision, not because
+it's still true.
+
+**This spec does not make prod reachable, and must not be read as claiming it does.** *(As of spec
+creation — see UPDATE above for current state.)* P1104 — the
 entire agent-account mechanism this pipeline writes through — **is not in prod.** Measured today:
 
 ```
@@ -375,10 +387,11 @@ read from the environment by variable name; no ref or key appears here.
       Measured: `IF NOT EXISTS (` count = 3, `DROP POLICY` count = 0.
 - [x] `scripts/check-migration-client-safety.sh supabase/migrations/*p1135*.sql` exits 0 with no
       annotation added. Measured: exit 0.
-- [ ] Both databases list a public `agent-avatars` bucket — `GET /storage/v1/bucket` on each,
-      output pasted, `public: true` on both. **TEST done** — `public: true`, `file_size_limit:
-      5242880`, `allowed_mime_types: ["image/png"]`. **PROD pending founder approval** (ALWAYS-ASK,
-      see Migration Plan step 4).
+- [x] Both databases list a public `agent-avatars` bucket — `GET /storage/v1/bucket` on each,
+      output pasted, `public: true` on both. TEST: `public: true`, `file_size_limit: 5242880`,
+      `allowed_mime_types: ["image/png"]`. PROD (2026-08-21, founder-approved): identical —
+      `public: true`, `file_size_limit: 5242880`, `allowed_mime_types: ["image/png"]`. All three
+      policies read back from `pg_policies` on prod too, matching test and the migration exactly.
 - [x] An uploaded avatar returns `200` and `content-type: image/*`, output pasted. Measured on test:
       `HTTP/2 200`, `content-type: image/png`, `content-length: 68`.
 - [x] **The blindness control is run against the new bucket**, not copied from this spec: a missing
@@ -391,10 +404,10 @@ read from the environment by variable name; no ref or key appears here.
 - [x] `grep -rn "public/agents" .claude/commands/slava/content/` returns **0**. It is in **two**
       skill files today — `provision-agent.md` and `gen-agent-avatar.md`; `points-publish.md` does
       not contain the string. Both must end at 0. Measured: 0.
-- [ ] The bucket row carries the limits — `GET /storage/v1/bucket` on each project shows
+- [x] The bucket row carries the limits — `GET /storage/v1/bucket` on each project shows
       `allowed_mime_types` = `["image/png"]` and a non-null `file_size_limit`, output pasted. A
-      bucket that accepts any type or any size fails this row. **TEST done** (see row above).
-      **PROD pending founder approval.**
+      bucket that accepts any type or any size fails this row. Confirmed on both test and prod
+      (see row above).
 - [x] `grep -rn "agent constant module\|AGENT_AVATAR" .claude/commands/slava/content/` returns 0.
       Measured: 0.
 - [x] `/provision-agent` runs on test with **no deploy step**, creating an account whose avatar
@@ -432,11 +445,18 @@ read from the environment by variable name; no ref or key appears here.
       STOP; `agent_accounts` count 5 → 5.
 - [x] P1130's superseded alternative and narrowed non-goal are marked in place, with a pointer here.
       Both edits made in `features/p1130_points_publish_filer.md` on this branch.
-- [ ] **MANUAL** — the prod migration is applied by or with the founder's explicit approval in the
+- [x] **MANUAL** — the prod migration is applied by or with the founder's explicit approval in the
       same turn, and the spec states plainly afterwards whether prod is live or still local.
-      **Not applied. Prod is not live.** The `agent-avatars` bucket exists only on test as of this
-      run. Applying it to prod requires the founder's explicit approval in the same turn
-      (CLAUDE.md ALWAYS-ASK — DB migrations on prod) and has not been given.
+      **Applied 2026-08-21, with explicit founder approval given in this session.** `./scripts/
+      migrate.sh --env prod --yes` applied **8** pending migrations — the 7 P1104 migrations
+      (`agent_accounts` table, `create_or_reuse_agent_account` RPC, name-reservation guards) plus
+      this spec's `agent-avatars` bucket migration — since P1104 was also not in prod (see "The
+      other prod blocker" above) and `migrate.sh` applies all pending migrations together, not
+      selectively. The founder was asked specifically about this (8, not 1) before approving.
+      Mandatory post-migrate `prod-smoke-test.mjs` passed 8/8. **Prod is now live** for both the
+      bucket and the underlying P1104 agent-account mechanism — the "other prod blocker" this spec
+      called out as separate and out-of-scope is now also resolved, as a consequence of this
+      approval rather than as this spec's own deliverable.
 
 ## Post-implementation review (2026-08-21)
 
