@@ -2,7 +2,7 @@
 name: promote-facebook
 description: "Create Facebook Events in local groups for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Promote Event on Facebook Groups
@@ -101,7 +101,7 @@ Upload the Unsplash photo downloaded in Step 2 using the cover photo field at th
 For trail runs:
 ```
 [1-line hook]
-Full details & registration: claritypledge.com/events/[SLUG]
+Full details & registration: claritypledge.com/events/[SLUG]?utm_source=facebook&utm_medium=community-group&utm_campaign=[SLUG]
 
 • [distance] loop through [terrain]
 • [elevation]m elevation gain · [key highlight]
@@ -113,7 +113,7 @@ Full details & registration: claritypledge.com/events/[SLUG]
 What to bring: trail shoes, water (1.5L+), snacks, small backpack
 
 Registration is required. Full details and sign-up:
-claritypledge.com/events/[SLUG]
+claritypledge.com/events/[SLUG]?utm_source=facebook&utm_medium=community-group&utm_campaign=[SLUG]
 ```
 
 ### 6. Report to user
@@ -132,7 +132,7 @@ Also list any **private groups not yet joined** so the user can request to join 
 ## Conventions
 
 - **Account**: the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski) — verify session before starting
-- **One link only**: `claritypledge.com/events/[slug]` — registration page and source of truth
+- **One link only**: `claritypledge.com/events/[slug]?utm_source=facebook&utm_medium=community-group&utm_campaign=[slug]` — registration page and source of truth, tagged for channel attribution (P1134 — see `docs/technical/analytics.md`)
 - **Cover photo**: the event's claritypledge.com banner (auto-generated); Unsplash generation is the founder-only fallback
 - **End time**: always fill — start time + duration_minutes from DB
 - **Location**: use the meeting point name; choose "Just use [text]" if Facebook doesn't find the exact venue
