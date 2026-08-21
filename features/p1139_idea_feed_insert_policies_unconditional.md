@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p1139-reproduce.spec.ts
   root_cause: "Four INSERT policies created with an unconditional write predicate and never revisited; the two later migrations that tightened this table family only touched UPDATE. anon holds the table-level INSERT grant, so the policy is the only gate. Confirmed empirically on test via the real unauthenticated REST path — not a policy-catalogue read. Crucially, unlike P1138's affected table, NO table here has a legitimate client write path: zero callers repo-wide. See .private/docs/security-log.md 2026-08-21 entry for affected tables/functions."
