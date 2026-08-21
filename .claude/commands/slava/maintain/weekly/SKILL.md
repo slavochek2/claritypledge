@@ -423,6 +423,35 @@ If **not** clean (gitleaks findings OR a `.env*` blob in history): add to ACTION
 
 ---
 
+### 2.10.2 Credential Drift Audit (P1147, runs in background — parallel with 2.8, 2.10, 2.10.1)
+
+Read-only classification/drift check, distinct from 2.10.1 (which scans git history for a leak).
+This checks the **live inventory**: every local secret classified against the two private
+registries, in three directions. It never mints, writes, rotates, or revokes anything.
+
+```bash
+# run from the cp repo root
+scripts/audit-credential-drift.sh --audit \
+  --env-dir "$(pwd)" \
+  --registry .private/docs/accounts.md \
+  --registry .private/docs/edge-function-secrets.md \
+  --consumers-dir src --consumers-dir supabase/functions --consumers-dir scripts \
+  --not-enumerated "ci-secrets:GitHub Actions secrets store — agent's credential has no API access, HTTP 403 by design" \
+  2>&1 | tee /tmp/p1147-weekly-audit.txt | grep -c '^CONSUMER_ONLY:\|^REGISTRY_ONLY:\|^REGISTRY_LOCATION_MISMATCH:\|^REGISTRY_MISMATCH:\|^PLAINTEXT_IN_REGISTRY:'
+grep '^COVERAGE:' /tmp/p1147-weekly-audit.txt
+```
+
+Merge into Evidence Picture as:
+```
+CRED DRIFT:   ✅ N/N classified, 0 drift findings / ⚠️ [coverage]/[total] classified, [N] drift findings
+```
+
+If exit code is 1 (a `PLAINTEXT_IN_REGISTRY` hard-fail) OR any `REGISTRY_LOCATION_MISMATCH`/`REGISTRY_MISMATCH` finding exists: add to ACTIONS (step 5): "· Credential drift found — see `/tmp/p1147-weekly-audit.txt` — a registry disagrees with itself or claims a location it doesn't occupy." A `PLAINTEXT_IN_REGISTRY` hit is the higher-severity one (a real secret value inline in a doc) — call it out first if both fire.
+
+If `COVERAGE` shows unclassified live keys (`CONSUMER_ONLY` findings) or `RETIREMENT_CANDIDATE`/`CONSUMER_LIST_STALE` entries: these are backlog, not a break — do NOT add to ACTIONS unless the count has grown since the last run (compare against the prior week's `/tmp/p1147-weekly-audit.txt` if still present, else note the baseline). Classification is a founder-paced pass, not something this check should nag about every week.
+
+---
+
 ### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.9.1)
 
 Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
