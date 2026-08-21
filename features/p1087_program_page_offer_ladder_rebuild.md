@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 0.25
 created_date: '2026-08-14'
@@ -8,14 +8,12 @@ tags:
   - pricing
   - program
   - stripe
-delivery_stage: dev
+delivery_stage: ship
 pipeline_plan:
   - create-spec
   - dev
   - verify
-pipeline_ran:
-  - create-spec
-  - dev
+pipeline_ran: [create-spec, dev, ship]
 pipeline_skipped:
   - "challenge-prd -- spec's own Risks section already names the falsifiers (month-3 promise, org-creation gap, badging oversell) with mitigations"
   - "ux -- design already fully specified in Solution (page structure, month arc) and UI Contract, nothing undecided left but wording"
@@ -252,3 +250,61 @@ Settled values below. Everything marked `[FOUNDER DECISION]` is collected before
 5. Q: "How is this different from the free platform?" A: "The platform is the tool, always free. The membership is the room: a live batch, a facilitator, and eventually the standing community."
 
 **Guests confirmed as spec'd:** no one joins another member's batch. Colleagues (month 2) are practiced with inside the member's own organization, never as visitors to the shared room — consistent with "batches start together" (Non-Goals).
+
+---
+
+## Shipped shape — deltas from the spec above (UAT rounds 1–6)
+
+The spec body describes the design as approved. Six rounds of founder UAT changed it
+materially, and the Acceptance Criteria above are still met in substance but not always in
+wording. What actually shipped:
+
+**Canonical URL flipped.** `/pricing`, not `/program`. `/program` and `/offers` redirect
+in; the sitemap lists only `/pricing`. Anywhere the spec says "/program", read "/pricing".
+
+**Page order reversed.** Pricing grid first, then what Champions is + the month arc, then
+testimonials, then a Champions-only closing CTA with its own heading, then the FAQ. The
+original order described one program at length and *then* showed three cards, so the grid
+read as three sizes of that program rather than three distinct offers.
+
+**The month arc runs to four.** "Month 4 and beyond" was added: the price is monthly and
+open-ended, so an arc stopping at three read like a course that then charges forever.
+
+**Bullets are benefit-led, not feature lists.** Founder diagnosis: three feature lists made
+three offers look alike, because features are the axis on which they genuinely overlap.
+Each card now names who has the problem; its last bullet is the outcome.
+
+**The €1,450 Partnership package buys directly.** A live Stripe product was created during
+UAT (`prod_V705q5JLbzLr1s` / `price_1U6m5aFXhjM6Ief0P1Zns7JE`, EUR one-off, automatic tax +
+VAT ID). It no longer routes to `/intro` — the 15-minute call is the gate for work that
+must be *scoped* before it can be priced, which a fixed-price fixed-deliverable package is
+not. AC #2 still holds: the unpriced Coaching/Training/Consulting rung keeps the call.
+
+**Countdown label and placement.** AC #3 says "Next batch starts in"; it ships as "Next
+Clarity Champions batch starts in" and sits with the batch facts inside the Champions
+section. It moved three times across rounds 3–5; an e2e assertion now pins where it landed.
+
+**SITE-WIDE nav changes — beyond this spec's stated scope, done at founder request.** The
+four audience landings collapsed under a "Use cases" dropdown beside a new "Pricing" link,
+rendered from one shared `PUBLIC_NAV_GROUPS` structure (Use cases → Product → Learn) by
+both the mobile sandwich and the desktop hamburger. Self-filtering was removed everywhere:
+the page you were on used to be the one entry missing from the list. The nav's marketing
+CTA is suppressed on the pricing URLs.
+
+**Adversarial review (3 hostile reviewers): 2 HIGH, 4 MEDIUM, all fixed.** The two HIGHs
+are worth carrying forward. (1) A single CTA-suppression flag also hid the logged-in
+"Start a Clarity Session" button on `/pricing`; the bottom nav has no `/live` entry, so a
+signed-in user had no route to the core product from anywhere in the chrome. Split into
+`hideMarketingCta` / `hideSessionCta`. (2) `CHAMPIONS_FAQS` had zero coverage of any kind,
+while its answers make contractual claims (billing trigger, cancellation, refund scope)
+that overlap the assurance band — the tests now bind the two so they cannot drift apart.
+
+**Known-stale, deliberately not fixed here:** `e2e/p967-calibration-breakdown.spec.ts:371`
+asserts a CTA absent from `src/` on this branch *and* on main — a pre-existing orphan,
+verified by grep on both, outside this branch's scope.
+
+**Unverified by any test, flagged for the founder:** the analytics `tier` values changed
+(`program`/`premium` → `membership`/`partnership`/`custom`), so any live Mixpanel funnel
+keyed on the old strings is silently broken — nothing in the repo defines dashboards, so
+this could not be checked here. And no test proves the hardcoded Stripe link IDs actually
+correspond to the described prices; that is an infra fact, not a component-testable one.
