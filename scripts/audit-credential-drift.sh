@@ -16,7 +16,7 @@
 #       UNPARSEABLE:<file>:<line> — zero lines silently dropped. Exit 0.
 #
 #   scripts/audit-credential-drift.sh --audit --env-dir DIR \
-#       --registry FILE [--registry FILE ...] [--consumers-dir DIR] \
+#       --registry FILE [--registry FILE ...] [--consumers-dir DIR ...] \
 #       [--not-enumerated NAME:REASON ...]
 #       Full three-direction drift report. Exit 1 if any registry row carries
 #       an inline plaintext value (the one hard-fail finding class); exit 0
@@ -59,7 +59,7 @@ _safe_echo() {
 
 MODE=""
 ENV_DIR=""
-CONSUMERS_DIR=""
+CONSUMERS_DIRS=()
 REGISTRIES=()
 NOT_ENUM=()
 
@@ -71,8 +71,8 @@ while [ $# -gt 0 ]; do
     --env-dir=*) ENV_DIR="${1#--env-dir=}"; shift ;;
     --registry) REGISTRIES+=("$2"); shift 2 ;;
     --registry=*) REGISTRIES+=("${1#--registry=}"); shift ;;
-    --consumers-dir) CONSUMERS_DIR="$2"; shift 2 ;;
-    --consumers-dir=*) CONSUMERS_DIR="${1#--consumers-dir=}"; shift ;;
+    --consumers-dir) CONSUMERS_DIRS+=("$2"); shift 2 ;;
+    --consumers-dir=*) CONSUMERS_DIRS+=("${1#--consumers-dir=}"); shift ;;
     --not-enumerated) NOT_ENUM+=("$2"); shift 2 ;;
     --not-enumerated=*) NOT_ENUM+=("${1#--not-enumerated=}"); shift ;;
     -h|--help)
@@ -126,24 +126,96 @@ parse_env_file() {
   done < "$f"
 }
 
-# parse_registry FILE — one tab-separated row per classified data row of
-# the markdown table: regfile, key, loc, consumers, tier, interval,
-# lastrotated, status, value. (awk's -F option does not reliably expand a
-# \x1f-style hex escape on this platform's awk — a literal tab is the
-# portable delimiter and none of these columns legitimately contain one.)
-# The key-shape filter on column 1 is what skips the header and separator
-# rows without any special-casing.
+# parse_registry FILE — one tab-separated row per classified data row,
+# per KEY (a row whose identifier cell holds multiple `KEY_A` / `KEY_B`
+# names emits one output row per key, sharing the row's other columns —
+# a single-key parse would silently drop the second key, the same failure
+# class Done-When forbids for env files). Output: regfile, key, loc,
+# consumers, tier, interval, lastrotated, status, value.
+#
+# Header-driven, not fixed-position: this file may hold more than one
+# markdown table, and different registries (and different tables within
+# one registry) use different column sets/orders for the same concept
+# (`Env var` vs `Secret`; `Consumers` vs `Referenced by` vs `Where used`).
+# Each header+separator pair seen resets the active column map; a column
+# this table doesn't have resolves to empty, not an error. (awk's -F
+# option does not reliably expand a \x1f-style hex escape on this
+# platform's awk — a literal tab is the portable output delimiter and
+# none of these columns legitimately contain one.)
 parse_registry() {
   local regfile="$1"
   awk -F'|' -v regfile="$regfile" '
-    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); gsub(/`/, "", s); return s }
+    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    function striptick(s) { gsub(/`/, "", s); return s }
+    function is_sep(line,    t) {
+      t = line; gsub(/[ \t]/, "", t)
+      return (t ~ /^\|?[-:|]+\|?$/)
+    }
+    # resolve NAMES — NAMES is a "|"-separated priority list of candidate
+    # header substrings (e.g. "consumers|referenced by|where used"); returns
+    # the column index of the first header (in left-to-right header order)
+    # containing the first candidate that matches ANY header, or 0 if none
+    # of the candidates appear in this table at all. Substring, not exact
+    # match, because real headers are verbose ("Value (must be empty)").
+    function resolve(names,    i, j, n, nm) {
+      n = split(names, parts, "|")
+      for (i = 1; i <= n; i++) {
+        nm = parts[i]
+        for (j = 1; j <= ncols; j++) {
+          if (index(hlow[j], nm) > 0) return j
+        }
+      }
+      return 0
+    }
+    function cell(rowfields, idx) {
+      if (idx == 0) return ""
+      return trim(rowfields[idx])
+    }
     {
-      if ($0 !~ /^[ \t]*\|/) next
-      key = trim($2)
-      if (key !~ /^[A-Z_][A-Z0-9_]*$/) next
-      loc = trim($3); cons = trim($4); tier = trim($5)
-      interval = trim($6); lastrot = trim($7); status = trim($8); val = trim($9)
-      printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", regfile, key, loc, cons, tier, interval, lastrot, status, val
+      line = $0
+      if (pending_header && is_sep(line)) {
+        ncols = split(pendingline, hf, "|")
+        delete hlow
+        for (i = 1; i <= ncols; i++) hlow[i] = tolower(trim(hf[i]))
+        keycol = resolve("env var|secret|key")
+        loccol = resolve("location|stored elsewhere")
+        conscol = resolve("consumers|referenced by|where used")
+        tiercol = resolve("tier")
+        intcol = resolve("interval")
+        lastcol = resolve("last rotated|first set")
+        statcol = resolve("status")
+        valcol = resolve("value")
+        in_table = 1
+        pending_header = 0
+        next
+      }
+      if (line ~ /^[ \t]*\|/) {
+        if (!in_table) {
+          pendingline = line
+          pending_header = 1
+          next
+        }
+        pending_header = 0
+        n = split(line, rf, "|")
+        keyraw = striptick(cell(rf, keycol))
+        if (keyraw == "") next
+        kn = split(keyraw, keys, "/")
+        loc = striptick(cell(rf, loccol))
+        cons = striptick(cell(rf, conscol))
+        tier = cell(rf, tiercol)
+        interval = cell(rf, intcol)
+        lastrot = cell(rf, lastcol)
+        status = cell(rf, statcol)
+        val = striptick(cell(rf, valcol))
+        for (i = 1; i <= kn; i++) {
+          key = trim(keys[i])
+          if (key !~ /^[A-Z_][A-Z0-9_]*$/) continue
+          printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", regfile, key, loc, cons, tier, interval, lastrot, status, val
+        }
+        next
+      }
+      in_table = 0
+      pending_header = 0
     }
   ' "$regfile"
 }
@@ -230,14 +302,14 @@ for key in $DUP_KEYS; do
 done
 
 # RETIREMENT_CANDIDATE / CONSUMER_LIST_STALE — needs --consumers-dir.
-if [[ -n "$CONSUMERS_DIR" ]]; then
+if [[ ${#CONSUMERS_DIRS[@]} -gt 0 ]]; then
   LIVE_AND_REGISTERED=$(comm -12 <(printf '%s\n' "$LIVE_KEYS") <(printf '%s\n' "$REG_KEYS") 2>/dev/null | grep -v '^$' || true)
   for key in $LIVE_AND_REGISTERED; do
     row=$(printf '%s\n' "$ALL_REG_ROWS" | awk -F'\t' -v k="$key" '$2==k {print; exit}')
     regfile=$(printf '%s' "$row" | awk -F'\t' '{print $1}')
     cons=$(printf '%s' "$row" | awk -F'\t' '{print $4}')
-    documented=$(printf '%s' "$cons" | awk -F',' '{n=0; for(i=1;i<=NF;i++){t=$i; gsub(/^[ \t]+|[ \t]+$/,"",t); if(t!="") n++} print n}')
-    live_n=$(grep -rl -- "$key" "$CONSUMERS_DIR" 2>/dev/null | wc -l | tr -d ' ')
+    documented=$(printf '%s\n' "$cons" | awk -F',' '{n=0; for(i=1;i<=NF;i++){t=$i; gsub(/^[ \t]+|[ \t]+$/,"",t); if(t!="") n++} print n}')
+    live_n=$(grep -rl -- "$key" "${CONSUMERS_DIRS[@]}" 2>/dev/null | wc -l | tr -d ' ')
     if [[ "$live_n" -eq 0 ]]; then
       _safe_echo "RETIREMENT_CANDIDATE:${key}:${regfile}"
     elif [[ "$live_n" != "$documented" ]]; then
