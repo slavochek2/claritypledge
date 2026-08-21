@@ -307,6 +307,23 @@ else
 fi
 echo ""
 
+# 4.7g. RLS drift checker canary (P1138) — runs when the drift checker or its
+# self-test is staged. Proves the checker still catches P1046-shape drift, an
+# out-of-band policy, AND an unconditional write policy present identically
+# across prod/test/files (P1138's own blind-spot leg) — so a future concurrent-
+# branch merge on this shared script can't silently ship a semantic break the
+# way the P1135/P1138 key-shape merge almost did (git auto-merged clean, no
+# conflict markers, but the merged result crashed at runtime).
+RLS_DRIFT_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(rls-drift-check|test-rls-drift-check)\.py$' || true)
+if [ -n "$RLS_DRIFT_STAGED" ]; then
+    if ! run_quiet "RLS drift checker canary (P1138)" python3 scripts/test-rls-drift-check.py; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> RLS drift checker canary skipped (no RLS drift checker staged)"
+fi
+echo ""
+
 # 4.7b. Typecheck gate canary (P861) — runs when the TypeScript gate or its
 # canary is staged. Proves scripts/typecheck-gate.sh still BLOCKS an undeclared
 # identifier in app code (the P859 ReferenceError class) and ALLOWS clean code,
