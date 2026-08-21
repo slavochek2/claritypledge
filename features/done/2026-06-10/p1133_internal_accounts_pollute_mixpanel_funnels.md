@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 53
 workstream: analytics
 created_date: '2026-08-20'
 tags: [analytics, mixpanel, instrumentation]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 driver: anomaly
+completed_at: 2026-08-21
 ---
 
 # P1133: Internal accounts pollute Mixpanel funnel numbers
