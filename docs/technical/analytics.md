@@ -1040,7 +1040,7 @@ These properties enable segmentation in Mixpanel:
      tag is correct for that one migration login — `upsert_my_profile`'s RLS pins the column
      against client writes (P571), so every *subsequent* login re-reads `is_test_account: false`
      from the DB. Fixing this for real needs a dedicated SECURITY DEFINER RPC; out of scope for
-     P1133, tracked as a follow-up.
+     P1133, tracked as P1137.
   When in doubt, cross-check a `is_internal != true` result against `auth.users`/`profiles`
   directly rather than trusting the filter alone for anything that matters.
 

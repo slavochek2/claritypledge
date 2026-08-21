@@ -207,8 +207,8 @@ untaggable regardless of time window).
       out with `is_test_account: false` after migration (P571's RLS pins that column against
       client writes; `upsert_my_profile`'s INSERT list doesn't carry it, and no dedicated
       SECURITY DEFINER RPC exists to set it, unlike `is_verified`/`has_pledged`). Every login
-      *after* the migration one re-reads `false` from the DB. Real DB-level fix is out of scope
-      (schema/RPC change, contradicts this spec's Non-Goals) — filed separately, see Risks
+      *after* the migration one re-reads `false` from the DB. Real DB-level fix (P1137) is out of
+      scope here (schema/RPC change, contradicts this spec's Non-Goals)
 - [x] `isInternalAccount()` is a single named, exported, async helper in `src/lib/mixpanel.ts` with
       a comment pointing future internal/service-account creators to the domain check or the hashed
       env var
