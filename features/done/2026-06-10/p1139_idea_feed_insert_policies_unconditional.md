@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 57
 severity: high
@@ -7,7 +7,6 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p1139-reproduce.spec.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   surface_audit_hits: 0
   scenarios_excluded: "one sibling UPDATE carve-out — allowlisted founder decision (scripts/rls-drift-allowlist.txt). INSERT side is in scope."
   reproduced_at: '2026-08-21'
+completed_at: 2026-08-21
 ---
 
 # P1139: Idea-feed INSERT policies carry an unconditional write predicate — same class as P1138, different tables
