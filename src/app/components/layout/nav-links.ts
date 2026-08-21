@@ -1,4 +1,14 @@
-import { BriefcaseIcon, UsersIcon, TargetIcon } from "lucide-react";
+import {
+  BriefcaseIcon,
+  UsersIcon,
+  TargetIcon,
+  TagIcon,
+  CalendarIcon,
+  AwardIcon,
+  ScrollTextIcon,
+  BookOpenIcon,
+  InfoIcon,
+} from "lucide-react";
 
 /**
  * The three public audience landings. Lives here, not in a component file, so the desktop
@@ -54,6 +64,45 @@ export function isEventsNavActive(pathname: string): boolean {
     pathname.startsWith("/events/")
   );
 }
+
+/**
+ * The public menu, as GROUPS (P1087). Both the mobile sandwich and the desktop hamburger
+ * render this one structure, in this one order.
+ *
+ * Two separate defects motivated it. First, the flat list had grown to ten unlabelled
+ * items — the founder's read was "it's a bit of chaos", and labelling only the Use-cases
+ * block made the unlabelled remainder look like leftovers rather than a group. Second,
+ * and invisible until you compare the files: the two menus listed the SAME items in
+ * DIFFERENT orders (mobile ran Events → Pledgers → audiences → Pricing → Manifesto → Blog
+ * → About; the dropdown ran Events → Blog → Pledgers → Manifesto → About → audiences →
+ * Pricing). One structure makes divergence impossible rather than merely unlikely.
+ *
+ * Use cases leads, per the founder: it is the question a first-time visitor is actually
+ * asking. Account actions (Take the Pledge / Log In / Create Account) are deliberately NOT
+ * here — they carry test ids, a `hideLoginItem` case and analytics, and they sit below a
+ * separator in the dropdown. Keeping them hand-written keeps this structure simple.
+ *
+ * `external: true` renders an <a target="_blank">; everything else is a router <Link>.
+ */
+export const PUBLIC_NAV_GROUPS = [
+  { label: "Use cases", items: AUDIENCE_LINKS },
+  {
+    label: "Product",
+    items: [
+      { to: "/pricing", label: "Pricing", Icon: TagIcon },
+      { to: EVENTS_NAV_TO, label: "Events", Icon: CalendarIcon },
+      { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },
+    ],
+  },
+  {
+    label: "Learn",
+    items: [
+      { to: "/manifesto", label: "Manifesto", Icon: ScrollTextIcon },
+      { to: "https://blog.claritypledge.com", label: "Blog", Icon: BookOpenIcon, external: true },
+      { to: "/about", label: "About", Icon: InfoIcon },
+    ],
+  },
+] as const;
 
 // Navigation links config - used by footer
 // Desktop nav bar shows Events + Blog as visible links; rest in dropdown menu

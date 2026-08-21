@@ -642,9 +642,12 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
-              {/* Primary CTA — hidden in compact mode */}
+              {/* Primary CTA — hidden in compact mode, and on the pricing page for the same
+                  reason the desktop one is (P1087): this is the FIRST thing in the mobile
+                  sandwich, so a free-call CTA sits above every link on a page selling
+                  €295/month. The desktop guard alone left it standing here. */}
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
-              {!compact && (
+              {!compact && !hidePrimaryCta && (
                 <>
                   {showUserMenu ? (
                     <Link
@@ -676,7 +679,12 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
               {/* Mobile menu - Events and Create Story removed (available in bottom nav) */}
               {/* All content navigation (Pledgers, Manifesto, Blog, About) now in NavigationMenuItems */}
 
-              {!showUserMenu && <div className="border-t border-border my-2"></div>}
+              {/* Separates the CTA above from the links below — so it must not render when
+                  there is no CTA above it (P1087). On /pricing it was left stranded at the
+                  very top of the menu as a rule with nothing on either side of it. */}
+              {!showUserMenu && !compact && !hidePrimaryCta && (
+                <div className="border-t border-border my-2"></div>
+              )}
 
               {/* KISS: Two states only - using shared NavigationMenuItems */}
               <NavigationMenuItems

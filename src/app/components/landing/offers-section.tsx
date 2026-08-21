@@ -116,11 +116,25 @@ const MEMBERSHIP_BULLETS = [
  * delivered — this page does not own that offer and must not invent its deliverables (an
  * earlier "four 1:1 sessions" bullet appeared nowhere on the source).
  */
-const PARTNERSHIP_BULLETS = [
+const PARTNERSHIP_BULLETS: React.ReactNode[] = [
   "Make one working relationship safe before it costs you",
   "Both of you know that you both know — you find the gaps, then close them",
   "More trust, fewer avoidable mistakes, disagreements that stay productive",
-  "A signed Clarity Partnership Agreement you both own, with a public Clarity Badge",
+  // The outcome bullet links to the live template (UAT round 6). /partner-template is an
+  // existing PUBLIC static page rendering a read-only AgreementCertificate — the actual
+  // artifact you end up holding, not a description of it. Internal route, so <Link>: no
+  // new page, no off-site hop, and the reader can check the deliverable before paying
+  // €1,450 for it.
+  <>
+    A signed{" "}
+    <Link
+      to="/partner-template"
+      className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
+    >
+      Clarity Partnership Agreement
+    </Link>{" "}
+    you both own, with a public Clarity Badge
+  </>,
 ];
 
 /**
@@ -334,11 +348,14 @@ export function ChampionsCloseCta() {
   );
 }
 
-function CardBullets({ items }: { items: string[] }) {
+function CardBullets({ items }: { items: readonly React.ReactNode[] }) {
   return (
     <ul className="mt-6 space-y-3">
-      {items.map((b) => (
-        <li key={b} className="flex items-start gap-2.5 text-sm">
+      {items.map((b, i) => (
+        // Index key: one bullet is now JSX (the Partnership template link), so the string
+        // itself is no longer available as a stable key. These lists are module-level
+        // constants — never reordered, filtered or appended at runtime — so index is stable.
+        <li key={i} className="flex items-start gap-2.5 text-sm">
           <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
           <span className="text-muted-foreground">{b}</span>
         </li>

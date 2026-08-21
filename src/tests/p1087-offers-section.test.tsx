@@ -179,7 +179,12 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     expect(screen.getByText(/a problem you already feel/i)).toBeInTheDocument();
 
     // The deliverable stays verbatim from ladischenski.com, which owns and sells it.
-    expect(screen.getByText(/signed Clarity Partnership Agreement you both own/i)).toBeInTheDocument();
+    // Round 6: the agreement name is now a link to the live /partner-template page, so the
+    // bullet's text is split across elements — assert the LINK, which is the stronger claim
+    // (the reader can reach the actual artifact before paying for it).
+    const template = screen.getByRole('link', { name: /Clarity Partnership Agreement/i });
+    expect(template).toHaveAttribute('href', '/partner-template');
+    expect(screen.getByText(/you both own, with a public Clarity Badge/i)).toBeInTheDocument();
     expect(screen.queryByText(/four 1:1 sessions/i)).not.toBeInTheDocument();
 
     // Delivery mechanics cut at UAT: "who cares about that? We need to stay high level."

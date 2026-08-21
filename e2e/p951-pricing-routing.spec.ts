@@ -132,9 +132,42 @@ test('the nav CTA is hidden on /pricing so it does not undercut the paid action'
   // the thing the page exists to sell (same reasoning as P844 on event detail pages).
   await expect(page.getByRole('link', { name: /Book a free alignment audit/i })).toHaveCount(0);
 
+  // MOBILE too — a desktop-only assertion passed here while the mobile sandwich still
+  // rendered the CTA as its FIRST item, which is exactly where it does the most damage.
+  // Caught by a screenshot, not by this test, until this line was added.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: /menu/i }).first().click();
+  await expect(page.locator('#mobile-navigation-menu')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Book a free alignment audit/i })).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 800 });
+
   // Control: it IS present on a page that is not selling anything, so this test fails if
   // the CTA disappears globally rather than just here.
   await page.goto('/manifesto');
   await page.waitForLoadState('networkidle');
   await expect(page.getByRole('link', { name: /Book a free alignment audit/i }).first()).toBeVisible();
+});
+
+test('the mobile menu renders every public link under a labelled group, Use cases first', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/pricing');
+  await page.waitForLoadState('networkidle');
+
+  await page.getByRole('button', { name: /menu/i }).first().click();
+  const menu = page.locator('#mobile-navigation-menu');
+  await expect(menu).toBeVisible();
+
+  // P1087 round 6: the founder's read of the flat list was "it's a bit of chaos". Every
+  // group carries a label now — labelling only "Use cases" made the rest read as
+  // leftovers. Order is asserted because the desktop dropdown renders the SAME structure:
+  // if these ever diverge again, one of the two menus is wrong and nothing else would say so.
+  const labels = await menu.locator('div.uppercase.tracking-wider').allTextContents();
+  expect(labels.map((l) => l.trim())).toEqual(['Use cases', 'Product', 'Learn']);
+
+  // The Partnership template link must reach the real artifact, not 404.
+  await page.goto('/partner-template');
+  await page.waitForLoadState('networkidle');
+  await expect(page).toHaveURL(/\/partner-template$/);
 });

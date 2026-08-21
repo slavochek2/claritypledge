@@ -14,6 +14,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { analytics } from '@/lib/mixpanel';
 import {
   DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -26,12 +28,10 @@ import {
   ScrollTextIcon,
   InfoIcon,
   BookOpenIcon,
-  CalendarIcon,
   HistoryIcon,
-  TagIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
-import { AUDIENCE_LINKS, EVENTS_NAV_TO } from './nav-links';
+import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS } from './nav-links';
 
 interface NavigationMenuItemsProps {
   onSignOut: () => void;
@@ -84,78 +84,48 @@ export function NavigationMenuItems({
         {/* Public menu - Nav links + actions */}
         {showPublicCTAs && (
           <>
-            <Link
-              to={EVENTS_NAV_TO}
-              className={mobileLinkClass}
-              onClick={() => {
-                analytics.track('org_events_nav_clicked', { source: 'mobile_menu' });
-                handleItemClick();
-              }}
-            >
-              <CalendarIcon className="w-4 h-4 inline mr-2" />
-              Events
-            </Link>
-            <Link
-              to="/pledgers"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <AwardIcon className="w-4 h-4 inline mr-2" />
-              Pledgers
-            </Link>
-            {/* P1087: grouped under one "Use cases" label and NO LONGER self-filtered —
-                the page you are on used to be the one entry missing, so there was no way
-                to see where you were in the set. */}
-            <div className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Use cases
-            </div>
-            {AUDIENCE_LINKS.map((a) => (
-              <Link
-                key={a.to}
-                to={a.to}
-                aria-current={a.to === pathname ? "page" : undefined}
-                className={`${mobileLinkClass}${a.to === pathname ? " font-semibold text-foreground" : ""}`}
-                onClick={handleItemClick}
-              >
-                <a.Icon className="w-4 h-4 inline mr-2" />
-                {a.label}
-              </Link>
+            {/* P1087: ONE grouped structure, shared with the dropdown below. Every group
+                carries a label — labelling only "Use cases" made the rest read as
+                leftovers, which is the "bit of chaos" the founder named. */}
+            {PUBLIC_NAV_GROUPS.map((group) => (
+              <div key={group.label} className="flex flex-col">
+                <div className="px-1 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {group.label}
+                </div>
+                {group.items.map((item) =>
+                  'external' in item && item.external ? (
+                    <a
+                      key={item.to}
+                      href={item.to}
+                      className={mobileLinkClass}
+                      onClick={handleItemClick}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <item.Icon className="w-4 h-4 inline mr-2" />
+                      {item.label}
+                    </a>
+                  ) : (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      aria-current={item.to === pathname ? 'page' : undefined}
+                      className={`${mobileLinkClass}${item.to === pathname ? ' font-semibold text-foreground' : ''}`}
+                      onClick={() => {
+                        if (item.to === EVENTS_NAV_TO) {
+                          analytics.track('org_events_nav_clicked', { source: 'mobile_menu' });
+                        }
+                        handleItemClick();
+                      }}
+                    >
+                      <item.Icon className="w-4 h-4 inline mr-2" />
+                      {item.label}
+                    </Link>
+                  )
+                )}
+              </div>
             ))}
-            <Link
-              to="/pricing"
-              aria-current={pathname === "/pricing" ? "page" : undefined}
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <TagIcon className="w-4 h-4 inline mr-2" />
-              Pricing
-            </Link>
-            <Link
-              to="/manifesto"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <ScrollTextIcon className="w-4 h-4 inline mr-2" />
-              Manifesto
-            </Link>
-            <a
-              href="https://blog.claritypledge.com"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <BookOpenIcon className="w-4 h-4 inline mr-2" />
-              Blog
-            </a>
-            <Link
-              to="/about"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <InfoIcon className="w-4 h-4 inline mr-2" />
-              About
-            </Link>
+            <div className="mt-3 border-t border-border pt-3 flex flex-col">
             <Link
               to="/sign-pledge"
               className={mobileLinkClass}
@@ -183,6 +153,7 @@ export function NavigationMenuItems({
               <UserPlusIcon className="w-4 h-4 inline mr-2" />
               Create Account
             </Link>
+            </div>
           </>
         )}
 
@@ -262,71 +233,45 @@ export function NavigationMenuItems({
       {/* Public menu - Nav links + actions */}
       {showPublicCTAs && (
         <>
-          <DropdownMenuItem asChild>
-            <Link
-              to={EVENTS_NAV_TO}
-              className="cursor-pointer"
-              onClick={() => analytics.track('org_events_nav_clicked', { source: 'desktop_dropdown' })}
-            >
-              <CalendarIcon className="w-4 h-4 mr-2" />
-              Events
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <a
-              href="https://blog.claritypledge.com"
-              className="cursor-pointer flex items-center"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <BookOpenIcon className="w-4 h-4 mr-2" />
-              Blog
-            </a>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/pledgers" className="cursor-pointer">
-              <AwardIcon className="w-4 h-4 mr-2" />
-              Pledgers
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/manifesto" className="cursor-pointer">
-              <ScrollTextIcon className="w-4 h-4 mr-2" />
-              Manifesto
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/about" className="cursor-pointer">
-              <InfoIcon className="w-4 h-4 mr-2" />
-              About
-            </Link>
-          </DropdownMenuItem>
-          {/* P987: this dropdown carried NO audience links at all — the switcher lived
-              only in the desktop header and the mobile menu, so on any surface where the
-              header collapses to the hamburger, /coach and /founder were unreachable. */}
-          {/* P1087: no longer self-filtered — see the mobile menu above. */}
-          {AUDIENCE_LINKS.map((a) => (
-            <DropdownMenuItem key={a.to} asChild>
-              <Link
-                to={a.to}
-                aria-current={a.to === pathname ? "page" : undefined}
-                className={`cursor-pointer${a.to === pathname ? " font-semibold text-foreground" : ""}`}
-              >
-                <a.Icon className="w-4 h-4 mr-2" />
-                {a.label}
-              </Link>
-            </DropdownMenuItem>
+          {/* P1087: same PUBLIC_NAV_GROUPS as the mobile menu, so the two can no longer
+              drift in ORDER — before this they listed identical items in two different
+              sequences, which no test would have caught. */}
+          {PUBLIC_NAV_GROUPS.map((group) => (
+            <DropdownMenuGroup key={group.label}>
+              <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {group.label}
+              </DropdownMenuLabel>
+              {group.items.map((item) => (
+                <DropdownMenuItem key={item.to} asChild>
+                  {'external' in item && item.external ? (
+                    <a
+                      href={item.to}
+                      className="cursor-pointer flex items-center"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <item.Icon className="w-4 h-4 mr-2" />
+                      {item.label}
+                    </a>
+                  ) : (
+                    <Link
+                      to={item.to}
+                      aria-current={item.to === pathname ? 'page' : undefined}
+                      className={`cursor-pointer${item.to === pathname ? ' font-semibold text-foreground' : ''}`}
+                      onClick={() => {
+                        if (item.to === EVENTS_NAV_TO) {
+                          analytics.track('org_events_nav_clicked', { source: 'desktop_dropdown' });
+                        }
+                      }}
+                    >
+                      <item.Icon className="w-4 h-4 mr-2" />
+                      {item.label}
+                    </Link>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
           ))}
-          <DropdownMenuItem asChild>
-            <Link
-              to="/pricing"
-              aria-current={pathname === "/pricing" ? "page" : undefined}
-              className="cursor-pointer"
-            >
-              <TagIcon className="w-4 h-4 mr-2" />
-              Pricing
-            </Link>
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
             <Link to="/sign-pledge" className="cursor-pointer">
