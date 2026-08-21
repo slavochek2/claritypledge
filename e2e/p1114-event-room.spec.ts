@@ -189,8 +189,9 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
   });
 });
 
-test.describe('P1114 event page: tab state', () => {
+test.describe('P1114 event page: tab row', () => {
   let host: TestUser;
+  let registered: TestUser;
   let event: TestEvent;
   const eventIds: string[] = [];
 
@@ -198,23 +199,46 @@ test.describe('P1114 event page: tab state', () => {
     host = await createTestUser({ email: generateTestEmail(), name: 'P1114 Tab E2E Host' });
     event = await createTestEvent(host.user.id, new Date());
     eventIds.push(event.id);
+    registered = await createTestUser({ email: generateTestEmail(), name: 'P1114 Tab E2E Registered' });
+    await rsvpToEvent(event.id, registered.user.id);
   });
 
   test.afterAll(async () => {
     for (const id of eventIds) await deleteTestEvent(id);
     await deleteTestUser(host.user.id);
+    await deleteTestUser(registered.user.id);
   });
 
-  test('tab selection lives in the URL; one Back press moves one tab', async ({ page }) => {
+  test('"Details" is a static label, not an interactive tab — the page carries no Radix tab role at all', async ({ page }) => {
     await page.goto(`/events/${event.slug}`);
-    await expect(page.getByRole('tab', { name: 'Details' })).toHaveAttribute('data-state', 'active');
+    await expect(page.getByText('Details', { exact: true })).toBeVisible();
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page).not.toHaveURL(/[?&]tab=/);
+  });
 
-    await page.getByRole('tab', { name: 'Clarity Meeting Principle' }).click();
-    await expect(page).toHaveURL(/[?&]tab=cmp/);
-    await expect(page.getByRole('tab', { name: 'Clarity Meeting Principle' })).toHaveAttribute('data-state', 'active');
+  test('a registered, signed-in attendee: "Clarity Principle" is a real link to /meet, and one Back press returns to the event page', async ({ page }) => {
+    await setTestSession(page, registered.email);
+    await page.goto(`/events/${event.slug}`);
+
+    await page.getByRole('link', { name: 'Clarity Principle' }).click();
+    await expect(
+      page,
+      'Clicking "Clarity Principle" is a navigation to the standalone room route now, not a same-page tab switch — the old embedded composition collided the room\'s level-track portal with this page\'s own primary nav, both targeting the same dead-center nav slot.',
+    ).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
+    await expect(page.getByTestId('room-meet')).toBeVisible();
 
     await page.goBack();
-    await expect(page.getByRole('tab', { name: 'Details' })).toHaveAttribute('data-state', 'active');
-    await expect(page).not.toHaveURL(/[?&]tab=cmp/);
+    await expect(
+      page,
+      'One Back press from /meet did not return to the event page — a real <a> navigation pushes exactly one history entry, unlike the old Radix TabsTrigger whose onValueChange could double-fire per click.',
+    ).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
+  });
+
+  test('a signed-out visitor clicking "Clarity Principle" reaches the gate at /meet, not the room content', async ({ page }) => {
+    await page.goto(`/events/${event.slug}`);
+    await page.getByRole('link', { name: 'Clarity Principle' }).click();
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
+    await expect(page.getByTestId('room-gate')).toBeVisible();
+    await expect(page.getByTestId('room-meet')).toHaveCount(0);
   });
 });

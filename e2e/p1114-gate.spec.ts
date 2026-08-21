@@ -146,15 +146,4 @@ test.describe('P1114 rev2: the registration gate', () => {
     ).toHaveCount(0);
   });
 
-  test('the gate embedded in the event page tab does not stack a second full-viewport of centering', async ({ page }) => {
-    await setTestSession(page, unregistered.email);
-    await page.goto(`/events/${event.slug}?tab=cmp`);
-    const gate = page.getByTestId('room-gate');
-    await expect(gate).toBeVisible();
-    const box = await gate.boundingBox();
-    expect(
-      box?.y,
-      'The gate embedded in EventDetail\'s "cmp" tab is stacking a near-full-viewport min-height on top of the page header/tabs already above it, pushing the gate copy far below the fold.',
-    ).toBeLessThan(700);
-  });
 });

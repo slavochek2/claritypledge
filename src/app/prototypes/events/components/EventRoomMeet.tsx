@@ -44,10 +44,7 @@ import type { EventRoomMember } from '@/app/types';
 const PRINCIPLE_LEVEL: MeetingTermsLevel = 3;
 const PRINCIPLE_TITLE = 'Clarity Meeting Principle';
 
-/** `embedded`: true when rendered inside EventDetail's "cmp" tab rather than as the
- * standalone `/meet` route — forwarded to the gate fallback so it doesn't add a
- * second near-full-viewport of centering on top of the page content already above it. */
-export function EventRoomMeet({ embedded = false }: { embedded?: boolean } = {}) {
+export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
@@ -75,7 +72,7 @@ export function EventRoomMeet({ embedded = false }: { embedded?: boolean } = {})
 
   if (loading || (granted && selfLoading)) return null;
   if (!granted) {
-    return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} fullHeight={!embedded} />;
+    return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
   }
 
   const isFrozen = event

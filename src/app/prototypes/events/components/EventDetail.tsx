@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { EventRoomMeet } from './EventRoomMeet';
 import { renderMarkdownSafe } from '@/lib/markdown';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -34,7 +33,6 @@ import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
 import { PracticeRooms } from './PracticeRooms';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
 
@@ -42,34 +40,6 @@ export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // P1114 REVISED 2026-08-20: two tabs, Details and Clarity Meeting Principle — tab
-  // state lives in the URL (?tab=) so the browser back button behaves the way a
-  // person expects, same idiom as letters-page.tsx's ?tab=drafts|sent|inbox.
-  const VALID_EVENT_TABS = ['details', 'cmp'] as const;
-  type EventDetailTab = (typeof VALID_EVENT_TABS)[number];
-  const tabParam = searchParams.get('tab');
-  const activeTab: EventDetailTab =
-    tabParam && (VALID_EVENT_TABS as readonly string[]).includes(tabParam)
-      ? (tabParam as EventDetailTab)
-      : 'details';
-  // Radix TabsTrigger fires onValueChange twice per click (focus activation + click)
-  // before the URL-driven re-render lands — dedupe with a ref, same fix as
-  // letters-page.tsx, so the browser Back button needs one press per tab switch.
-  const lastPushedEventTabRef = useRef(activeTab);
-  lastPushedEventTabRef.current = activeTab;
-  const handleEventTabChange = useCallback(
-    (value: string) => {
-      if (lastPushedEventTabRef.current === value) return;
-      lastPushedEventTabRef.current = value as EventDetailTab;
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', value);
-        return next;
-      }, { replace: false });
-    },
-    [setSearchParams],
-  );
 
   // Real auth state
   const { user, session } = useAuth();
@@ -371,32 +341,34 @@ export function EventDetail() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          Events
+          Back to Events
         </Link>
 
-        {/* P1114 REVISED 2026-08-20: the tab bar sits directly under "← Events", above
-            the event card — the founder annotated "the menu should be here!" pointing
-            here. Tabs switch the whole page body below (the plain {activeTab === ...}
-            blocks further down), not a strip squeezed beneath the card. Page-level nav
-            uses the bare underline idiom (org-page.tsx), not a bg-card box. */}
-        <Tabs value={activeTab} onValueChange={handleEventTabChange} className="mb-6">
-          <TabsList className="h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
-            <TabsTrigger
-              value="details"
-              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-            >
-              Details
-            </TabsTrigger>
-            <TabsTrigger
-              value="cmp"
-              className="min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-            >
-              Clarity Meeting Principle
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* P1114 REVISED 2026-08-21: the row sits directly under "← Back to Events",
+            above the event card — the founder annotated "the menu should be here!"
+            pointing here. Not a Radix Tabs component: "Details" is the only page
+            state this component ever renders now, and "Clarity Principle" is a plain
+            navigation (a real <Link>, not a tab selection) to the standalone /meet
+            route — full screen, the same page a shared link already opens. Using a
+            Tabs/TabsTrigger for a same-page-selection widget to drive a real route
+            change doesn't fit Radix's model: onValueChange double-fires per click
+            (focus activation + click) with no way to suppress the second call once
+            the target value is permanently unselectable, and arrow-key roving focus
+            would fire the same navigation. A plain styled Link has neither problem.
+            Page-level nav uses the bare underline idiom (org-page.tsx), not a
+            bg-card box. */}
+        <div className="mb-6 flex w-full items-center justify-start gap-6 overflow-x-auto border-b border-border">
+          <span className="inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 border-blue-500 px-1 pb-3 text-base font-medium text-foreground">
+            Details
+          </span>
+          <Link
+            to={`/events/${slug}/meet`}
+            className="inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Clarity Principle
+          </Link>
+        </div>
 
-        {activeTab === 'details' && (
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Column - Event Details */}
           <div className="flex-1">
@@ -698,25 +670,7 @@ export function EventDetail() {
             )}
           </div>
         </div>
-        )}
 
-        {/* P1114 REVISED 2026-08-20: the CMP tab renders the room's principle+roster
-            page, full width — deliberately NOT nested inside the narrow `lg:w-96`
-            sidebar column above: `flex-shrink-0` on that column stops it from
-            shrinking, so embedding EventRoomMeet's own layout inside it forced the
-            whole sidebar past its intended width (found via screenshot, not guessed).
-            Visible unconditionally, no isLoggedIn gate (unlike Practice Rooms) —
-            gating protects nothing here (spec §4), and it embeds the same
-            EventRoomMeet the standalone /meet route renders, so the tab and a shared
-            projected link show identical content. A plain conditional, not a Radix
-            tab panel, so the two tabs fully replace the page body instead of
-            stacking — the founder's "the menu should be here... tabs switch the whole
-            page body, not a strip beneath it." */}
-        {activeTab === 'cmp' && (
-          <div className="pt-4">
-            <EventRoomMeet embedded />
-          </div>
-        )}
       </div>
 
       {/* Bottom padding — mobile needs ~136px clearance (sticky bar ~72px + BottomNav 64px) when bar renders.

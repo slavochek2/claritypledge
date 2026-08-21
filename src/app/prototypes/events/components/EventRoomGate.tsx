@@ -25,27 +25,24 @@ const GATE_BODY =
  *
  * `isLoggedIn` drops the Sign in control for a caller who already has a session —
  * offering to sign in to someone already signed in is a dead, confusing control,
- * not a harmless extra. `fullHeight` (default true) is for the three standalone
- * `/room`, `/ready`, `/meet` routes, where this screen IS the page; EventDetail's
- * "cmp" tab embeds EventRoomMeet's gate fallback below its own header/tabs, so it
- * passes `fullHeight={false}` — without it, the same near-full-viewport centering
- * that's correct standalone instead stacks on top of everything already on the
- * page, pushing the gate copy far below the fold. */
+ * not a harmless extra. This screen is only ever rendered as the whole page — the
+ * three standalone `/room`, `/ready`, `/meet` routes — so the centering height is
+ * unconditional. (EventDetail's "cmp" tab used to embed EventRoomMeet's gate
+ * fallback inline and needed a `fullHeight` escape hatch for that; the tab now
+ * navigates to the standalone `/meet` route instead, so the escape hatch is gone.) */
 export function EventRoomGateScreen({
   slug,
   isLoggedIn,
-  fullHeight = true,
 }: {
   slug: string | undefined;
   isLoggedIn: boolean;
-  fullHeight?: boolean;
 }) {
   return (
     <div
       data-testid="room-gate"
       className={cn(
         'mx-auto flex max-w-sm flex-col items-center justify-center gap-6 px-4 py-10 text-center',
-        fullHeight && 'min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]',
+        'min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]',
       )}
     >
       <h1 className="text-xl font-semibold leading-snug text-foreground sm:text-2xl">

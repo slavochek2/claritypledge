@@ -126,21 +126,20 @@ describe('P1114 rev2: chrome and routing', () => {
     }
   });
 
-  it('the event page tab bar sits above the event card', () => {
+  it('the "Clarity Principle" row sits above the event card', () => {
     const s = read(EVENT_DETAIL);
-    const tabs = s.indexOf('<Tabs');
+    const row = s.indexOf('Clarity Principle');
     const title = s.indexOf('{event.title}</h1>');
-    expect(tabs, 'EventDetail.tsx has no <Tabs>.').toBeGreaterThan(-1);
+    expect(row, 'EventDetail.tsx no longer renders "Clarity Principle".').toBeGreaterThan(-1);
     expect(title, 'EventDetail.tsx no longer renders the event title heading.').toBeGreaterThan(-1);
-    expect(tabs < title, 'The tab bar renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card — tabs switch the whole page body, not a strip beneath it.').toBe(true);
+    expect(row < title, 'The "Clarity Principle" row renders after the event card in EventDetail.tsx. The founder annotated "the menu should be here!" pointing above the card.').toBe(true);
   });
 
-  it('Practice Rooms is not inside a tab', () => {
+  it('Practice Rooms is not gated by tab state — the "cmp" tab concept no longer exists in this file', () => {
     const s = read(EVENT_DETAIL);
+    expect(/\bactiveTab\b/.test(s), 'EventDetail.tsx still references activeTab. The redesign removed the embedded "cmp" tab entirely — "Clarity Principle" is a plain navigation Link to /meet now, not a second page state, so no tab-state variable (or Radix <Tabs>) should remain in this file.').toBe(false);
+    expect(/<Tabs[\s>]|<TabsList|<TabsTrigger|<TabsContent/.test(s), 'EventDetail.tsx still imports/renders a Radix Tabs component. onValueChange double-fires per click and roving-focus arrow keys would fire it too — wrong tool for a same-row link that performs a real route change.').toBe(false);
     const pr = s.lastIndexOf('<PracticeRooms');
-    const tabContentOpen = s.indexOf('<TabsContent');
     expect(pr, 'EventDetail.tsx no longer renders PracticeRooms.').toBeGreaterThan(-1);
-    const insideATab = tabContentOpen > -1 && pr > tabContentOpen;
-    expect(insideATab, 'PracticeRooms renders inside a TabsContent. The founder annotated "leave it where it was!" — it belongs in the left column after the description, exactly where it sits on main. Moving it was uninstructed scope creep.').toBe(false);
   });
 });
