@@ -171,3 +171,17 @@ test('the mobile menu renders every public link under a labelled group, Use case
   await page.waitForLoadState('networkidle');
   await expect(page).toHaveURL(/\/partner-template$/);
 });
+
+test('the FAQ block renders all five questions and opens', async ({ page }) => {
+  await page.goto('/pricing');
+  await page.waitForLoadState('networkidle');
+
+  // The FAQ had no coverage of any kind — not even that it renders (adversarial review).
+  // The unit tests bind its CLAIMS to the page's; this binds the render path, which the
+  // unit tests cannot reach: the accordion is composed at the page, not in OffersSection.
+  const questions = page.getByRole('button', { name: /\?$/ });
+  await expect(questions).toHaveCount(5);
+
+  await page.getByRole('button', { name: "What if the first two sessions aren't for me?" }).click();
+  await expect(page.getByText(/Full refund of month one/i)).toBeVisible();
+});

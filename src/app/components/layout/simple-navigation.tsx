@@ -223,7 +223,19 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   // whose whole job is the €295 buy button — and it routes to a FREE call, so it undercuts
   // the paid action it competes with. The page's own CTAs are the only actions offered here.
   const isPricingPage = ["/program", "/pricing", "/offers"].includes(location.pathname);
-  const hidePrimaryCta = isEventDetailPage || isPricingPage;
+
+  // TWO flags, not one. An earlier P1087 revision used a single flag for both CTAs, which
+  // suppressed the logged-IN "Start a Clarity Session" button on /pricing as well —
+  // and the bottom nav carries no /live entry, so a signed-in user on that page had NO
+  // route to the core product from anywhere in the chrome (adversarial review, P1087).
+  //
+  // The two CTAs are different things and only one of them was ever the problem:
+  //   · the MARKETING cta offers a free call — a rival offer to the page's paid one, and
+  //     the only thing the founder pointed at. Hidden on pricing AND on event detail.
+  //   · the SESSION cta is product navigation, not an offer. It stays hidden on event
+  //     detail (P844: it competes with RSVP there) but returns on pricing.
+  const hideMarketingCta = isEventDetailPage || isPricingPage;
+  const hideSessionCta = isEventDetailPage;
 
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
@@ -400,7 +412,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     <div className="h-10 w-[80px] bg-muted rounded-md" />
                   </div>
                   {/* P844: Hide Start-a-Session CTA on event detail pages (competing primary action) */}
-                  {!hidePrimaryCta && (
+                  {!hideSessionCta && (
                     <Link
                       to="/live"
                       title="Start a live clarity session"
@@ -432,7 +444,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   {/* My Profile slot: skeleton until profile resolves */}
                   <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
                   {/* P844: Hide Start-a-Session CTA on event detail pages */}
-                  {!hidePrimaryCta && (
+                  {!hideSessionCta && (
                     <Link
                       to="/live"
                       title="Start a live clarity session"
@@ -473,7 +485,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   </Link>
                 )}
                 {/* P844: Hide Start-a-Session CTA on event detail pages */}
-                {!compact && !hidePrimaryCta && (
+                {!compact && !hideSessionCta && (
                   <Link
                     to="/live"
                     title="Start a live clarity session"
@@ -531,7 +543,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 </Link>
                 {/* P844: Hide CTA on event detail pages */}
                 {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
-                {!hidePrimaryCta && (
+                {!hideMarketingCta && (
                   <LoggedOutPrimaryCta device="desktop" sizeClass="h-10" />
                 )}
                 {/* Secondary action — visible Log in right of the main CTA (Airtable
@@ -579,7 +591,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             <div className="lg:hidden flex items-center gap-2">
               {/* Mobile Start Session CTA — only for authenticated users, hidden in compact mode */}
               {/* P844: Hide on event detail pages (competing primary action) */}
-              {showUserMenu && !compact && !hidePrimaryCta && (
+              {showUserMenu && !compact && !hideSessionCta && (
                 <Link
                   to="/live"
                   title="Start a live clarity session"
@@ -647,7 +659,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   sandwich, so a free-call CTA sits above every link on a page selling
                   €295/month. The desktop guard alone left it standing here. */}
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
-              {!compact && !hidePrimaryCta && (
+              {!compact && !(showUserMenu ? hideSessionCta : hideMarketingCta) && (
                 <>
                   {showUserMenu ? (
                     <Link
@@ -682,7 +694,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
               {/* Separates the CTA above from the links below — so it must not render when
                   there is no CTA above it (P1087). On /pricing it was left stranded at the
                   very top of the menu as a rule with nothing on either side of it. */}
-              {!showUserMenu && !compact && !hidePrimaryCta && (
+              {!showUserMenu && !compact && !hideMarketingCta && (
                 <div className="border-t border-border my-2"></div>
               )}
 

@@ -368,9 +368,17 @@ export function OffersSection({ className = "" }: { className?: string }) {
   const membershipHref = STRIPE_MEMBERSHIP_URL;
   const membershipBroken = !MEMBERSHIP_IS_SET;
 
-  // Monitoring (P951/P1087): a broken membership CTA on the live /program page is a
+  // Monitoring (P951/P1087): a broken paid CTA on the live /pricing page is a
   // missing/invalid Stripe link — a silent revenue outage. Alert on mount so it surfaces
   // on the first prod page load, not after a lost sale. Sentry is prod-only (no-op in dev).
+  //
+  // `partnershipBroken` is derived here rather than read from the module constant inside
+  // the effect, so BOTH revenue-outage alerts sit in the dependency array. Adversarial
+  // review (P1087) called the omission harmless-today-but-latent: the constants are
+  // build-time, so nothing is missed now, but if either link ever becomes dynamic (feature
+  // flag, fetched config) an un-listed dep makes the alert silently stop firing — and a
+  // monitoring gap on a revenue outage is invisible precisely when it matters.
+  const partnershipBroken = !PARTNERSHIP_IS_SET;
   useEffect(() => {
     if (membershipBroken) {
       Sentry.captureMessage("P1087: Stripe membership payment link unset/invalid on /pricing", {
@@ -379,13 +387,13 @@ export function OffersSection({ className = "" }: { className?: string }) {
       });
     }
     // Both paid rungs check out on Stripe now, so both are silent-revenue-outage surfaces.
-    if (!PARTNERSHIP_IS_SET) {
+    if (partnershipBroken) {
       Sentry.captureMessage("P1087: Stripe partnership payment link unset/invalid on /pricing", {
         level: "error",
         tags: { source: "offers-section", area: "pricing-checkout" },
       });
     }
-  }, [membershipBroken]);
+  }, [membershipBroken, partnershipBroken]);
 
   const cardBase = "flex h-full flex-col rounded-2xl border bg-card p-6 shadow-sm sm:p-7";
   // Reserves two lines of heading so the €295 / €1,450 / Custom rows share a baseline —

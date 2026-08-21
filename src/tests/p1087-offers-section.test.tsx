@@ -17,6 +17,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OffersSection, ChampionsCloseCta, Testimonials } from '@/app/components/landing/offers-section';
 import { ProgramTimelineSection } from '@/app/components/landing/program-timeline-section';
+import { CHAMPIONS_FAQS, PROGRAM_FAQS } from '@/app/content/faqs';
 
 const LIVE_LINK = 'https://buy.stripe.com/fZu8wPchH88D9ZFaGo1Jm09';
 
@@ -296,5 +297,57 @@ describe('Page close — Champions-only CTA and the month arc (P1087, founder UA
     // on the page where the word "batch" already has a referent on screen.
     expect(screen.getByRole('timer')).toBeInTheDocument();
     expect(screen.getByText(/next clarity champions batch starts in/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * The /pricing FAQ (CHAMPIONS_FAQS) had ZERO coverage — no unit test, no e2e assertion,
+ * not even a smoke check that the block renders (adversarial review, P1087).
+ *
+ * "Does it render" is the weak half. These answers make CONTRACTUAL claims — billing
+ * trigger, cancellation terms, refund scope — and the page states overlapping claims in
+ * its assurance band and price row. Two surfaces asserting the same commitment in
+ * different words is how a refund promise silently drifts out of sync with the one the
+ * checkout actually honours. These tests bind the two together.
+ */
+describe('CHAMPIONS_FAQS — the /pricing FAQ makes claims the page must not contradict', () => {
+  it('covers the five questions the offer actually raises', () => {
+    expect(CHAMPIONS_FAQS).toHaveLength(5);
+    for (const faq of CHAMPIONS_FAQS) {
+      expect(faq.q.trim().endsWith('?'), `not a question: ${faq.q}`).toBe(true);
+      expect(faq.a.trim().length).toBeGreaterThan(20);
+    }
+  });
+
+  it('is a SEPARATE constant from the /founder set, which sells a different live offer', () => {
+    // Sharing one array would let a /pricing copy edit silently rewrite /founder, a page
+    // P1087 is explicitly barred from touching (spec Non-Goals).
+    const overlap = CHAMPIONS_FAQS.filter((c) => PROGRAM_FAQS.some((p) => p.q === c.q));
+    expect(overlap).toHaveLength(0);
+  });
+
+  it('states the same refund scope as the assurance band above it', () => {
+    renderSection();
+    const band = screen.getByText(/full refund on month one/i);
+    expect(band).toBeInTheDocument();
+    // The FAQ answer must promise month one too — never a broader or narrower window.
+    const refundFaq = CHAMPIONS_FAQS.find((f) => /first two sessions aren't for me/i.test(f.q));
+    expect(refundFaq).toBeDefined();
+    expect(refundFaq!.a).toMatch(/month one/i);
+    expect(refundFaq!.a).not.toMatch(/month two|first month and|pro-?rata|no refund/i);
+  });
+
+  it('never contradicts the cancel-anytime and open-ended claims the price row implies', () => {
+    const cancel = CHAMPIONS_FAQS.find((f) => /cancel anytime/i.test(f.q));
+    expect(cancel!.a).toMatch(/no minimum term/i);
+    // A minimum term would contradict the "/ month" price row and the cancel-anytime SEO
+    // description; assert the contradiction cannot be introduced silently.
+    expect(cancel!.a).not.toMatch(/minimum of|\b\d+[- ]month (minimum|commitment)/i);
+
+    const openEnded = CHAMPIONS_FAQS.find((f) => /open-ended/i.test(f.q));
+    expect(openEnded!.a).toMatch(/no fixed end date/i);
+    // The month arc runs to "Month 4 and beyond" — the FAQ must agree that month three
+    // is not an exit.
+    expect(openEnded!.a).toMatch(/three months/i);
   });
 });

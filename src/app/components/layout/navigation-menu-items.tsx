@@ -88,8 +88,21 @@ export function NavigationMenuItems({
                 carries a label — labelling only "Use cases" made the rest read as
                 leftovers, which is the "bit of chaos" the founder named. */}
             {PUBLIC_NAV_GROUPS.map((group) => (
-              <div key={group.label} className="flex flex-col">
-                <div className="px-1 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              // role="group" + aria-labelledby, not a bare styled div: the desktop
+              // dropdown gets real grouping semantics from Radix's DropdownMenuGroup /
+              // DropdownMenuLabel, and without this the mobile menu announced one flat
+              // undifferentiated list — the visual grouping existed only for sighted
+              // users (adversarial review, P1087).
+              <div
+                key={group.label}
+                role="group"
+                aria-labelledby={`nav-group-${group.label.replace(/\s+/g, '-').toLowerCase()}`}
+                className="flex flex-col"
+              >
+                <div
+                  id={`nav-group-${group.label.replace(/\s+/g, '-').toLowerCase()}`}
+                  className="px-1 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
                   {group.label}
                 </div>
                 {group.items.map((item) =>
