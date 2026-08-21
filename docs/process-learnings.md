@@ -30,6 +30,59 @@ an empty file is the healthy state.
 
 ---
 
+## The deploy record can say a fix shipped when it did not — the manifest itself needs a trust check
+
+**Date:** 2026-08-21
+**Status:** proposed
+**due:** week
+
+`deploy-manifest.json` lists `20260211_tighten_idea_feed_rls.sql` in both the test and prod arrays.
+Test reflects its effects; prod does not. Either it never executed against prod, or the objects it
+dropped were re-created out-of-band afterwards. Recorded in the private security log 2026-08-10 and
+still unaddressed.
+
+The consequence is not the one migration. **Every audit that treats the manifest as evidence of live
+state inherits this**, and this repo has a documented habit of doing exactly that. It is strictly
+worse than the migration-files-can-lie finding, because the manifest is the repo's *own record of
+what shipped* — the thing you consult precisely when the files are in doubt.
+
+Twice in one session on 2026-08-20 an agent nearly told the founder "that's already fixed" on the
+strength of the manifest. `scripts/rls-drift-check.py` (P1048) already does live-vs-file diffing for
+the policy slice; the open question is whether that generalises into a manifest-vs-live check, and
+what it should do when they disagree.
+
+Deferred deliberately 2026-08-21: important, not urgent. Filed here rather than left in the founder's
+memory. Needs its own spec — do NOT fold it into the spec that closes the security hole, or it gets
+closed when the hole closes and the systemic problem walks away untracked.
+
+---
+
+## A probe that returns a loud wrong number is not covered by the run-a-control rule
+
+**Date:** 2026-08-21
+**Status:** proposed
+**due:** week
+
+The global rule fires when a probe returns **emptiness** for every candidate: run a known-good control
+through the identical probe, and if the control is also empty, the probe is blind. It works — it caught
+two blind probes on 2026-08-20.
+
+It does not fire when the probe returns *plenty and wrong*. Same session: `ps aux | grep -c playwright`
+returned **46**, reported to the founder as 46 competing test processes. Listing the actual command
+lines showed 39 of 41 matches were idle MCP browser servers and **exactly one** real test runner. A
+valid experiment was stood down on that number, and the subagent running it adopted the wrong framing
+and reported its own healthy 3m53s run as "not converging."
+
+Candidate rule: a count used to justify a decision must be re-run in a form that enumerates the items
+it counted, before the decision. Three occurrences in one four-hour session (the count above, a grep
+whose five file arguments collapsed into one filename and printed "NONE", and a TSV parsed on the
+wrong column returning empty).
+
+Presented at `/kdd` 2026-08-21; founder deferred. Needs the `/slava:maintain:claude-md` gate before any
+edit to the global rules.
+
+---
+
 ## An objection is a conjecture, not a refutation — pre-commit the falsifier before the conversation
 
 **Date:** 2026-07-27
