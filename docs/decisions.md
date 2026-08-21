@@ -140,7 +140,23 @@ broken by move-ordering within one ship run.
 
 ## 2026-08-21 [technical]: Every storage bucket is outside RLS drift detection, and the check reads clean either way (P1135)
 
-**Context:** P1135 adds an `agent-avatars` bucket and listed "storage objects are outside the repo's drift
+**UPDATE, same session:** fixed. `rls-drift-check.py`'s query now reads
+`where schemaname in ('public', 'storage')`, and the key everywhere in the script (live-vs-live,
+live-vs-migrations, display) is now `(schema, table, policy)`, not `(table, policy)` — closing a real
+collision class this widening would otherwise have opened: a `storage.objects` policy and a same-named
+`public.<table>` policy no longer share an identity, so neither can launder the other's legitimacy
+(a migration-created `storage.objects` policy could otherwise have made an out-of-band `public.objects`
+policy of the identical name read as "in the files"). Verified live against real prod+test: all 9
+existing storage policies (`banners`, `event-banners`, `agent-avatars` × 3 each) matched cleanly with
+zero new findings; the pre-existing PUBLIC-schema drift the check already reported (`profiles`,
+`event_room_members`, etc.) is unrelated and untouched. Added a dedicated regression test (section 7,
+`test-rls-drift-check.py`) proving the collision class was real: run against the pre-fix checker with a
+storage.objects-vs-public.objects same-name fixture, the out-of-band `public.objects` policy was silently
+absorbed into "in the files" with no `NOT IN MIGRATIONS` finding at all — a genuine gap, not a
+hypothetical, confirmed reproducible before the fix and closed after it. Both the checker's self-test
+(37/37) and the live run were exercised before landing.
+
+**Context (as originally written, kept for the record):** P1135 adds an `agent-avatars` bucket and listed "storage objects are outside the repo's drift
 detection" as a risk, mitigated by `scripts/rls-drift-check.py` plus a Done-When row requiring no policy
 drift. An adversarial pass tested the mitigation instead of accepting it. `rls-drift-check.py:64-68` queries
 `from pg_policies where schemaname = 'public'`. Storage policies live on `storage.objects`, schema `storage`.
@@ -159,14 +175,14 @@ same reasoning already appears at [decisions.md](decisions.md) 2026-08-18 for th
 *Leave the row as written* — a passing check that structurally cannot fail is worse than no check, because
 it reports success to the next reader.
 
-**Consequences:** **This is not new and not P1135's fault — `banners` and `event-banners` have sat in the
-same blind spot since P504 and the event-banner work respectively.** Three buckets, zero drift coverage, and
-a dashboard-created policy on any of them would read as clean forever. Until a storage-aware check exists,
-"the bucket exists only as a migration" is a **procedural** guarantee enforced by the person running it, not
-a mechanical one — say so rather than implying coverage. The general lesson generalizes past storage: this
-repo's drift checks each answer a **narrower question than their name suggests** (see also 2026-08-18, where
-`--env prod` turned out to be a claim about what had been *pushed*), so before citing one as a mitigation,
-read its own scope disclaimer. Status: storage-policy check proposed, unspecced.
+**Consequences (as originally written):** ~~This is not new and not P1135's fault — `banners` and
+`event-banners` have sat in the same blind spot since P504 and the event-banner work respectively.~~
+**No longer true — see the UPDATE above; all three buckets are covered as of this session.** The general
+lesson still generalizes past storage: this repo's drift checks each answer a **narrower question than
+their name suggests** (see also 2026-08-18, where `--env prod` turned out to be a claim about what had
+been *pushed*), so before citing one as a mitigation, read its own scope disclaimer — that discipline is
+what found this gap in the first place. ~~Status: storage-policy check proposed, unspecced.~~ **Status:
+shipped, same session.**
 
 **References:** [scripts/rls-drift-check.py](../scripts/rls-drift-check.py) (`:64-68` the query, `:469` the
 disclaimer) · [features/p1135_agent_avatars_in_storage.md](../features/done/2026-06-10/p1135_agent_avatars_in_storage.md) ·

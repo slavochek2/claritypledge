@@ -64,8 +64,8 @@ POLICY_QUERY = """
 select schemaname, tablename, policyname, permissive,
        roles::text as roles, cmd, qual, with_check
 from pg_policies
-where schemaname = 'public'
-order by tablename, policyname
+where schemaname in ('public', 'storage')
+order by schemaname, tablename, policyname
 """
 
 API_HOST = "https://api.supabase.com"
@@ -225,7 +225,10 @@ def load_snapshot(path):
 # --------------------------------------------------------------------------
 
 def key_of(row):
-    return (row.get("tablename") or "", row.get("policyname") or "")
+    # Schema-qualified: 'public' and 'storage' can both name a table 'objects'
+    # (no public table does today, but the guard is structural, not coincidental
+    # — same reasoning as the (table, name) keying below it).
+    return (row.get("schemaname") or "", row.get("tablename") or "", row.get("policyname") or "")
 
 
 def definition_of(row):
@@ -262,9 +265,14 @@ def index_by_key(rows):
 # membership entry and so raising a FALSE out-of-band alarm. No such name exists
 # in the corpus today; fixed because a false alarm in this leg is exactly what
 # trains a reader to stop believing the check.
+# The schema prefix before the table (group 3/4) is CAPTURING, not discarded —
+# `ON storage.objects` must key differently from a same-named `public` table.
+# Absent (bare `ON tablename`) defaults to 'public' at the call site below,
+# matching every migration in this repo, which never relies on a non-default
+# search_path for a CREATE POLICY target.
 CREATE_POLICY_RE = re.compile(
     r'CREATE\s+POLICY\s+(?:"((?:[^"]|"")*)"|([A-Za-z_][A-Za-z0-9_$]*))'
-    r'\s+ON\s+(?:(?:"[^"]*"|[A-Za-z_][A-Za-z0-9_$]*)\s*\.\s*)?'
+    r'\s+ON\s+(?:(?:"([^"]*)"|([A-Za-z_][A-Za-z0-9_$]*))\s*\.\s*)?'
     r'(?:"([^"]*)"|([A-Za-z_][A-Za-z0-9_$]*))',
     re.IGNORECASE,
 )
@@ -274,7 +282,7 @@ SQL_COMMENT_RE = re.compile(r'--[^\n]*|/\*.*?\*/', re.DOTALL)
 
 
 def policy_keys_in_migrations(migrations_dir):
-    """Every (table, policy-name) pair any migration has ever CREATEd.
+    """Every (schema, table, policy-name) triple any migration has ever CREATEd.
 
     This is a MEMBERSHIP test, not a replay. It answers exactly one question:
     "was this live policy ever created by a file in this repo?" A pair absent
@@ -287,12 +295,13 @@ def policy_keys_in_migrations(migrations_dir):
     emits phantom drift, and phantom drift is what gets a check ignored. Whether
     a policy that IS in the files is still correct is the prod-vs-test leg's job.
 
-    KEYED BY (table, name), NOT by name alone. Postgres allows the same policy
-    name on different tables, so a flat name set lets an out-of-band policy on
-    table A borrow legitimacy from an unrelated migration-created policy of the
-    same name on table B — defeating the only leg that detects origin 2. No
-    cross-table name collision exists in the corpus today; the guard is
-    structural, closing the hole before it is reachable rather than after.
+    KEYED BY (schema, table, name), NOT by name alone. Postgres allows the same
+    policy name on different tables, so a flat name set lets an out-of-band
+    policy on table A borrow legitimacy from an unrelated migration-created
+    policy of the same name on table B — defeating the only leg that detects
+    origin 2. No public table is named `objects` today, so `storage.objects`
+    and any future `public.objects` collide only in this comment — the guard
+    is structural, closing the hole before it is reachable rather than after.
 
     COMMENTS ARE STRIPPED FIRST. The regex alone happily matches
     `CREATE POLICY "Foo"` inside a `--` comment, which would insert `Foo` into
@@ -314,8 +323,12 @@ def policy_keys_in_migrations(migrations_dir):
                 name = m.group(1).replace('""', '"')
             else:
                 name = m.group(2)
-            table = m.group(3) if m.group(3) is not None else m.group(4)
-            keys.add((table, name))
+            if m.group(3) is not None or m.group(4) is not None:
+                schema = m.group(3) if m.group(3) is not None else m.group(4)
+            else:
+                schema = "public"
+            table = m.group(5) if m.group(5) is not None else m.group(6)
+            keys.add((schema, table, name))
     return keys, len(files)
 
 
@@ -354,34 +367,35 @@ def compute_findings(prod_rows, test_rows, file_keys):
     findings = []
 
     for key in sorted(set(prod) | set(test)):
-        table, policy = key
+        schema, table, policy = key
         in_prod, in_test = key in prod, key in test
         if in_prod and not in_test:
             findings.append({
-                "direction": DIR_PROD_ONLY, "table": table, "policy": policy,
+                "direction": DIR_PROD_ONLY, "schema": schema, "table": table, "policy": policy,
                 "detail": definition_of(prod[key]),
             })
         elif in_test and not in_prod:
             findings.append({
-                "direction": DIR_TEST_ONLY, "table": table, "policy": policy,
+                "direction": DIR_TEST_ONLY, "schema": schema, "table": table, "policy": policy,
                 "detail": definition_of(test[key]),
             })
         else:
             d_prod, d_test = definition_of(prod[key]), definition_of(test[key])
             if d_prod != d_test:
                 findings.append({
-                    "direction": DIR_DIFFERS, "table": table, "policy": policy,
+                    "direction": DIR_DIFFERS, "schema": schema, "table": table, "policy": policy,
                     "detail": {"prod": d_prod, "test": d_test},
                 })
 
     # Origin 2: live in either environment, created by no migration in the repo.
     for key in sorted(set(prod) | set(test)):
-        table, policy = key
-        # (table, policy), never policy alone — a name created by a migration on
-        # a DIFFERENT table must not launder an out-of-band policy on this one.
-        if (table, policy) not in file_keys:
+        schema, table, policy = key
+        # (schema, table, policy), never policy alone — a name created by a
+        # migration on a DIFFERENT table (any schema) must not launder an
+        # out-of-band policy on this one.
+        if key not in file_keys:
             findings.append({
-                "direction": DIR_NOT_IN_FILES, "table": table, "policy": policy,
+                "direction": DIR_NOT_IN_FILES, "schema": schema, "table": table, "policy": policy,
                 "detail": {"live_in": [e for e, idx in (("prod", prod), ("test", test)) if key in idx]},
             })
 
@@ -464,9 +478,11 @@ HEADINGS = {
 }
 
 NOT_COVERED = """WHAT THIS CHECK DOES NOT COVER
-  - Only RLS policies on schema `public`. Not table/column GRANTs, not role
-    memberships, not RPC definitions, not SECURITY DEFINER function bodies, and
-    not policies on other schemas (storage.objects in particular).
+  - Only RLS policies on schemas `public` and `storage` (2026-08-21: widened
+    from public-only, P1135 — see decisions.md same date for the migration
+    that surfaced the gap). Not table/column GRANTs, not role memberships, not
+    RPC definitions, not SECURITY DEFINER function bodies, and not policies on
+    any OTHER schema — this repo has none today, so none is named.
   - Not the realtime publication. A table can be denied to anon by RLS and still
     be a member of `supabase_realtime`; membership is a separate surface with a
     separate gate. Check pg_publication_tables yourself. (P1048 shipped a fix
@@ -504,7 +520,8 @@ def render(findings, counts, allowlist_path, migration_file_count):
             continue
         out.append(HEADINGS[direction])
         for f in group:
-            out.append(f"  {f['table']}.{f['policy']}")
+            prefix = f"{f['schema']}." if f.get("schema") not in (None, "public") else ""
+            out.append(f"  {prefix}{f['table']}.{f['policy']}")
             detail = f["detail"]
             if direction == DIR_DIFFERS:
                 for side in ("prod", "test"):
@@ -520,7 +537,8 @@ def render(findings, counts, allowlist_path, migration_file_count):
     if suppressed:
         out.append(f"ALLOWLISTED ({len(suppressed)}) — see {allowlist_path}")
         for f in suppressed:
-            out.append(f"  [{f['direction']}] {f['table']}.{f['policy']}")
+            prefix = f"{f['schema']}." if f.get("schema") not in (None, "public") else ""
+            out.append(f"  [{f['direction']}] {prefix}{f['table']}.{f['policy']}")
         out.append("")
 
     failing = [f for f in active if f["direction"] in FAILING_DIRECTIONS]

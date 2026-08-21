@@ -1,0 +1,22 @@
+[
+    {
+        "schemaname": "storage",
+        "tablename": "objects",
+        "policyname": "public can read agent avatars",
+        "permissive": "PERMISSIVE",
+        "roles": "{anon,authenticated}",
+        "cmd": "SELECT",
+        "qual": "(bucket_id = 'agent-avatars'::text)",
+        "with_check": null
+    },
+    {
+        "schemaname": "public",
+        "tablename": "objects",
+        "policyname": "duplicate name test",
+        "permissive": "PERMISSIVE",
+        "roles": "{anon}",
+        "cmd": "SELECT",
+        "qual": "true",
+        "with_check": null
+    }
+]

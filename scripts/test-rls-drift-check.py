@@ -224,6 +224,34 @@ for path in (full_baseline, partial_baseline, corrupt_baseline):
 
 
 # --------------------------------------------------------------------------
+section("7. Schema-qualified keys: storage.objects is covered, and a same-named "
+        "policy on public.objects does not launder an out-of-band policy (P1135, 2026-08-21)")
+
+STORAGE_PROD = os.path.join(FIXTURES, "storage-schema-prod.json")
+STORAGE_TEST = os.path.join(FIXTURES, "storage-schema-test.json")
+
+code, out, err = run(["--prod-json", STORAGE_PROD, "--test-json", STORAGE_TEST])
+
+check("a storage.objects policy identical on both envs and present in a "
+      "migration raises no finding at all",
+      "public can read agent avatars" not in out, f"stdout: {out[:600]}")
+check("a public.objects policy of the SAME name, live on prod only and in no "
+      "migration, IS classified prod-only",
+      "PROD-ONLY" in out and "duplicate name test" in out.split("PROD-ONLY")[1].split("\n\n")[0])
+check("that public.objects policy is ALSO flagged absent from migrations — the "
+      "identically-named storage.objects policy in the fixture migration must "
+      "not launder it",
+      "NOT IN MIGRATIONS" in out and "duplicate name test" in out.split("NOT IN MIGRATIONS")[1].split("\n\n")[0])
+check("public schema stays unprefixed in the report (only non-public schemas "
+      "get a schema. prefix) — 'objects.duplicate name test', not "
+      "'public.objects.duplicate name test'",
+      "objects.duplicate name test" in out and "public.objects.duplicate name test" not in out,
+      f"stdout: {out[:900]}")
+check("exits non-zero — the out-of-band public.objects policy gates the run",
+      code == 1, f"got exit {code}")
+
+
+# --------------------------------------------------------------------------
 print()
 failed = [name for name, ok, _ in results if not ok]
 print("=" * 70)

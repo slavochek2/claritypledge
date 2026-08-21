@@ -1,0 +1,12 @@
+[
+    {
+        "schemaname": "storage",
+        "tablename": "objects",
+        "policyname": "public can read agent avatars",
+        "permissive": "PERMISSIVE",
+        "roles": "{anon,authenticated}",
+        "cmd": "SELECT",
+        "qual": "(bucket_id = 'agent-avatars'::text)",
+        "with_check": null
+    }
+]
