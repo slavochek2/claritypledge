@@ -1,13 +1,13 @@
 ---
-status: today
+status: all-done
 type: task
 rank: 4
 workstream: events
 created_date: '2026-08-20'
 tags: [points, agents, events, skills]
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: heuristic
+completed_at: 2026-08-21
 ---
 
 # P1130: points-publish — the filer that writes a prepared disagreement to the product
