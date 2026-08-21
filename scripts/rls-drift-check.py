@@ -17,7 +17,14 @@ it; one caused a proven unauthenticated read of private data. Two distinct origi
 
 Origin 1 is caught by comparing live prod against live test.
 Origin 2 is caught by comparing live policy names against every CREATE POLICY in the
-repo's migrations. Nothing else in the repo detects either.
+repo's migrations.
+
+P1138 found a third class this check was structurally blind to: write policies with
+an unconditional predicate (USING(true)/WITH CHECK(true)) and no TO <role> scope,
+written permissive at creation and never revisited — identical across prod, test AND
+migration files, so neither leg above has anything to compare against. A third leg
+below inspects each live policy's own shape (write command + PERMISSIVE + true-ish
+qual/with_check + default {public} role) independent of cross-source agreement.
 
 Why Python and not bash
 -----------------------
@@ -43,7 +50,7 @@ Project refs are derived from VITE_SUPABASE_URL in the same file, or from
 $SUPABASE_PROJECT_REF_PROD / $SUPABASE_PROJECT_REF_TEST.
 
 Exit codes:
-  0  no unallowlisted prod-only or live-but-absent-from-files policy
+  0  no unallowlisted prod-only, live-but-absent-from-files, or unconditional-write policy
   1  drift found (details on stdout)
   2  the check could not run (missing credentials, API error, unreadable migrations)
 
@@ -76,9 +83,10 @@ DIR_PROD_ONLY = "prod-only"
 DIR_NOT_IN_FILES = "not-in-files"
 DIR_TEST_ONLY = "test-only"
 DIR_DIFFERS = "differs"
+DIR_UNCONDITIONAL_WRITE = "unconditional-write"
 
-FAILING_DIRECTIONS = (DIR_PROD_ONLY, DIR_NOT_IN_FILES)
-ALL_DIRECTIONS = (DIR_PROD_ONLY, DIR_NOT_IN_FILES, DIR_TEST_ONLY, DIR_DIFFERS)
+FAILING_DIRECTIONS = (DIR_PROD_ONLY, DIR_NOT_IN_FILES, DIR_UNCONDITIONAL_WRITE)
+ALL_DIRECTIONS = (DIR_PROD_ONLY, DIR_NOT_IN_FILES, DIR_UNCONDITIONAL_WRITE, DIR_TEST_ONLY, DIR_DIFFERS)
 
 
 # --------------------------------------------------------------------------
@@ -250,6 +258,48 @@ def index_by_key(rows):
     return {key_of(r): r for r in rows}
 
 
+# "ALL" is what pg_policies.cmd reads for a policy created with no FOR clause —
+# it governs SELECT/INSERT/UPDATE/DELETE together, so an unconditional FOR ALL
+# policy is a write hole too (and a worse one — it also opens SELECT). Found by
+# code review: the original list silently let this variant pass the leg it
+# exists to catch, on a repo that actively uses FOR ALL policies elsewhere
+# (with TO service_role, but nothing stops a future one from omitting it).
+WRITE_CMDS = ("INSERT", "UPDATE", "DELETE", "ALL")
+
+
+def is_unconditional_write(row):
+    """P1138: a write policy with no real predicate and no role scope.
+
+    Mirrors the exact detection method the P1138 investigation used to find this
+    class live (.private/docs/security-log.md, 2026-08-21): treat a NULL qual/
+    with_check as equivalent to 'true' (Postgres applies the other clause's value,
+    or an unconditional pass, when one is omitted — the catalog just shows NULL),
+    require PERMISSIVE (a RESTRICTIVE true-clause narrows, it does not open), and
+    require `public` be a member of the role list — a policy scoped `TO
+    some_admin_role` (and only that) is not reachable by anon/authenticated
+    regardless of its predicate, but `TO public, some_role` is exactly as open as
+    the no-TO-clause default despite not being a `{public}` exact match.
+
+    This is the leg P1046/P1048 never had: it fires on a LIVE policy's own shape,
+    independent of whether prod, test and migration files all agree — the exact
+    blind spot P1138's root cause names (three sources agreeing on the same wrong
+    thing is invisible to a pure diff).
+    """
+    if (row.get("cmd") or "").upper() not in WRITE_CMDS:
+        return False
+    if (row.get("permissive") or "").upper() != "PERMISSIVE":
+        return False
+    roles_raw = (row.get("roles") or "").strip()
+    role_list = [r.strip() for r in roles_raw.strip("{}").split(",")] if roles_raw else []
+    if "public" not in role_list:
+        return False
+
+    def is_true_ish(v):
+        return v is None or str(v).strip().lower() == "true"
+
+    return is_true_ish(row.get("qual")) and is_true_ish(row.get("with_check"))
+
+
 # --------------------------------------------------------------------------
 # The migration-files leg
 # --------------------------------------------------------------------------
@@ -399,6 +449,23 @@ def compute_findings(prod_rows, test_rows, file_keys):
                 "detail": {"live_in": [e for e, idx in (("prod", prod), ("test", test)) if key in idx]},
             })
 
+    # P1138: a write policy with no real predicate and no role scope — fires on
+    # the policy's OWN shape, regardless of whether prod/test/files agree. This is
+    # the leg the other two cannot provide: origin 1 and origin 2 above only ever
+    # compare environments/files against each other, so three sources agreeing on
+    # the same unconditional policy is invisible to both.
+    for key in sorted(set(prod) | set(test)):
+        schema, table, policy = key
+        live_in = [e for e, idx in (("prod", prod), ("test", test)) if key in idx]
+        if any(is_unconditional_write((prod if e == "prod" else test)[key]) for e in live_in):
+            findings.append({
+                "direction": DIR_UNCONDITIONAL_WRITE, "schema": schema, "table": table, "policy": policy,
+                "detail": {
+                    "live_in": ", ".join(live_in),
+                    "cmd": (prod.get(key) or test.get(key) or {}).get("cmd"),
+                },
+            })
+
     return findings
 
 
@@ -473,6 +540,7 @@ def write_baseline(path, findings, note):
 HEADINGS = {
     DIR_PROD_ONLY: "PROD-ONLY — live on prod, absent from test (security-relevant)",
     DIR_NOT_IN_FILES: "NOT IN MIGRATIONS — live but created by no migration in this repo (security-relevant)",
+    DIR_UNCONDITIONAL_WRITE: "UNCONDITIONAL WRITE — PERMISSIVE write policy, no predicate, no TO <role> (security-relevant, P1138)",
     DIR_DIFFERS: "DIFFERS — same policy, different definition between environments (review)",
     DIR_TEST_ONLY: "TEST-ONLY — live on test, absent from prod (usually expected)",
 }

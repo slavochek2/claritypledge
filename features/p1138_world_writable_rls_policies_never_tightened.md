@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 57
 severity: high
@@ -7,8 +7,11 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+date_resolved: '2026-08-21'
+root_cause: "Absolute-predicate write policies (USING(true)/WITH CHECK(true), no TO <role>) written permissive at creation, never revisited. clarity_verifications/demo_rounds/ideas/live_turns had zero live callers (clarity_verifications' write path is dead code in an unrouted page — the spec's original write-path audit was wrong, corrected empirically before the fix). ml_training_sessions carried a stray out-of-band policy duplicating an already-correct TO authenticated one; the upstream GCS signed-URL edge function already required a JWT, so no legitimate guest write depended on the broad policy."
+resolution: "Migration 20260821140000_p1138_close_unauthenticated_write_policies.sql: dropped the 4 dead UPDATE policies outright; dropped the stray ml_training_sessions INSERT policy; reconstructed its missing CREATE TABLE. Extended scripts/rls-drift-check.py with a new unconditional-write leg (fires regardless of prod/test/file agreement) plus self-tests proving it catches the class and doesn't false-positive. Applied to test only — prod requires separate explicit approval per this spec's Non-Goals. Sibling finding on a different table family filed as P1139."
 reproduce_artifact:
   test_file: e2e/integration/p1138-reproduce.spec.ts
   root_cause: "Absolute-predicate write policies (USING(true)/WITH CHECK(true), no TO <role>) written permissive at creation, never revisited; anon+authenticated hold table-level INSERT/UPDATE/DELETE grants so the policy is the only gate. Confirmed empirically on test via the real unauthenticated REST path — not just policy/grant catalogue reads."
@@ -155,15 +158,30 @@ Sequenced, test first, prod only on explicit founder approval:
 
 ## Acceptance Criteria
 
-- [ ] An unauthenticated write to each affected table is refused **on test**, demonstrated by a
-      canary observed failing first, not by reading the policy back
-- [ ] Every legitimate in-app write path on the affected tables still succeeds — verified per
-      table against a real caller, not asserted
-- [ ] The out-of-band table has a `CREATE TABLE` in `supabase/migrations/`
-- [ ] `scripts/rls-drift-check.py` flags an unconditional write predicate even when prod, test
+- [x] An unauthenticated write to each affected table is refused **on test**, demonstrated by a
+      canary observed failing first, not by reading the policy back — `e2e/integration/
+      p1138-reproduce.spec.ts` failed 5/5 for the right reason before the migration, passed
+      6/6 (including a new authenticated-path regression test) after it
+- [x] Every legitimate in-app write path on the affected tables still succeeds — verified per
+      table against a real caller, not asserted. `clarity_verifications`/`demo_rounds`/`ideas`/
+      `live_turns`: grep-verified zero live UPDATE callers (`clarity_verifications`'s only
+      callers live in the unrouted `clarity-chat-page.tsx` — dead code), so nothing to
+      preserve; `ml_training_sessions`: new canary test signs in a real test user and confirms
+      the authenticated INSERT still lands
+- [x] The out-of-band table has a `CREATE TABLE` in `supabase/migrations/` — reconstructed in
+      `20260821140000_p1138_close_unauthenticated_write_policies.sql`, columns confirmed
+      against a live test-DB read (service role)
+- [x] `scripts/rls-drift-check.py` flags an unconditional write predicate even when prod, test
       and migration files all agree, **and has been observed exiting non-zero** on a staged
-      failure
+      failure — `scripts/test-rls-drift-check.py` §7 constructs exactly that scenario
+      (converged, migration-created, still `USING(true)`) and asserts exit 1; also confirmed
+      it does NOT false-positive on a properly-scoped policy. 38/38 self-test assertions pass.
+      Live run against real prod+test also exercised the new leg (found this fix not yet on
+      prod, plus 4 unrelated pre-existing findings on a different table family — filed as
+      P1139, Tier-1 same-class-different-surface)
 - [ ] Live policy state on prod shows the fix applied, re-queried after deploy with the project
-      ref stated explicitly in the evidence
-- [ ] Private log entry updated from unpatched to fixed, with the re-query output
-- [ ] No console errors in the affected user flows after the change
+      ref stated explicitly in the evidence `[post-deploy]`
+- [ ] Private log entry updated from unpatched to fixed, with the re-query output `[post-deploy]`
+- [x] No console errors in the affected user flows after the change — no `*.tsx`/UI files
+      touched; the only functional call site (`ml_training_sessions` authenticated INSERT) is
+      covered by the new e2e regression test, which passed with no errors

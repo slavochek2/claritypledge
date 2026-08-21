@@ -1,10 +1,11 @@
 # RLS drift allowlist (P1048) — read by scripts/rls-drift-check.py
 #
 # Format:  direction|table|policyname      # reason, dated
-# Directions: prod-only | not-in-files | test-only | differs
+# Directions: prod-only | not-in-files | unconditional-write | test-only | differs
 #
-# Only prod-only and not-in-files gate the exit code. test-only and differs are
-# reported for review and never fail the check, so they rarely need an entry.
+# prod-only, not-in-files and unconditional-write gate the exit code. test-only
+# and differs are reported for review and never fail the check, so they rarely
+# need an entry.
 #
 # RULES FOR ADDING AN ENTRY
 #   1. Every entry needs a reason on the line and a date. No bare entries.
@@ -26,3 +27,14 @@
 # worktrees. The spec names this exact case as expected divergence.
 test-only|worktree_status|Allow all operations on worktree_status
 not-in-files|worktree_status|Allow all operations on worktree_status
+# FOR ALL (cmd='ALL'), USING(true), TO public — same local-dev-only table as
+# above. No prod exposure, no real users; caught by the P1138 leg's FOR ALL fix.
+unconditional-write|worktree_status|Allow all operations on worktree_status
+
+# --- 2026-08-21, P1138 ------------------------------------------------------
+
+# Founder decision (P1138 spec, Non-Goals): anonymous voting has no auth.uid()
+# for RLS to bind against; 20260211_tighten_idea_feed_rls.sql keeps USING(true)
+# deliberately, enforced app-side via .eq(voter_session_id, ...) in api.ts.
+# Closing it would require sign-in to vote — a product decision, not a bug.
+unconditional-write|clarity_idea_votes|Voters can update their own votes

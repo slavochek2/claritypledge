@@ -21,6 +21,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
+import { createTestUser, deleteTestUser, TEST_PASSWORD } from '../helpers/test-user';
 
 function makeAnonClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL!;
@@ -201,5 +202,39 @@ test.describe('P1138: unauthenticated writes must be refused on affected tables'
     }
 
     expect(after?.length ?? 0, 'unauthenticated caller must not be able to insert a training row').toBe(0);
+  });
+
+  test('ml_training_sessions: authenticated caller can still insert (legitimate path preserved)', async () => {
+    const testUser = await createTestUser({ reason: 'p1138 legitimate-path canary' });
+    const sessionCode = 'P1138AUTHINS';
+
+    try {
+      const authedClient = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { error: signInErr } = await authedClient.auth.signInWithPassword({
+        email: testUser.email,
+        password: TEST_PASSWORD,
+      });
+      expect(signInErr, `sign-in failed: ${signInErr?.message}`).toBeNull();
+
+      const { error: insertErr } = await authedClient.from('ml_training_sessions').insert({
+        session_code: sessionCode,
+        user_name: SENTINEL,
+        audio_path: 'gs://none/none.webm',
+        duration_ms: 1000,
+        chunk_count: 1,
+      });
+      expect(insertErr, `authenticated insert must succeed: ${insertErr?.message}`).toBeNull();
+
+      const { data: after } = await supabaseAdmin
+        .from('ml_training_sessions')
+        .select('id')
+        .eq('session_code', sessionCode);
+      expect(after?.length ?? 0, 'authenticated caller write must land').toBe(1);
+    } finally {
+      await supabaseAdmin.from('ml_training_sessions').delete().eq('session_code', sessionCode);
+      await deleteTestUser(testUser.user.id);
+    }
   });
 });

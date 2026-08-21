@@ -185,6 +185,12 @@ with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
         ["prod-only", "clarity_idea_votes", "Anyone can update their own votes"],
         ["prod-only", "clarity_sessions", "Anyone can read sessions"],
         ["not-in-files", "clarity_sessions", "Anyone can read sessions"],
+        # P1138 leg: all three UPDATE policies above are also unconditional
+        # (USING(true)/WITH CHECK(true), TO public) — a second, independent
+        # finding on the same (table, policy) that must be baselined too.
+        ["unconditional-write", "clarity_feed_ideas", "Anyone can update feed ideas"],
+        ["unconditional-write", "clarity_idea_comments", "Anyone can update comments"],
+        ["unconditional-write", "clarity_idea_votes", "Anyone can update their own votes"],
     ]}, fh)
     full_baseline = fh.name
 
@@ -249,6 +255,112 @@ check("public schema stays unprefixed in the report (only non-public schemas "
       f"stdout: {out[:900]}")
 check("exits non-zero — the out-of-band public.objects policy gates the run",
       code == 1, f"got exit {code}")
+
+
+# --------------------------------------------------------------------------
+section("8. P1138: unconditional write caught even when prod, test AND files all agree")
+
+# The exact scenario the other two legs cannot see: identical live state on both
+# environments, created by a real migration (fixture migrations do CREATE this
+# policy), yet still USING(true)/WITH CHECK(true), TO public. Origin 1 (prod vs
+# test) and origin 2 (not in migrations) both have nothing to report here — only
+# the P1138 leg should fire.
+converged_unconditional_row = {
+    "schemaname": "public", "tablename": "clarity_feed_ideas",
+    "policyname": "Anyone can update feed ideas",
+    "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "UPDATE",
+    "qual": "true", "with_check": "true",
+}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    _json.dump([converged_unconditional_row], fh)
+    converged_unconditional = fh.name
+
+code, out, err = run(["--prod-json", converged_unconditional, "--test-json", converged_unconditional])
+check("exits non-zero purely on the P1138 leg", code == 1, f"got exit {code}; stderr: {err[:200]}")
+check("names the policy under UNCONDITIONAL WRITE",
+      "UNCONDITIONAL WRITE" in out
+      and "Anyone can update feed ideas" in out.split("UNCONDITIONAL WRITE")[1].split("\n\n")[0])
+check("NOT classified prod-only (both environments agree)", "PROD-ONLY" not in out)
+check("NOT classified not-in-files (a migration creates it)", "NOT IN MIGRATIONS" not in out)
+check("reports DRIFT verdict", "RESULT: DRIFT" in out)
+
+# A properly-scoped policy (TO authenticated, real predicate) must NOT trip this
+# leg — otherwise every legitimately-tightened write policy in the repo would
+# false-positive on every run, which is exactly the failure mode that trains a
+# reader to stop believing a check (see the docstring on CREATE_POLICY_RE).
+scoped_row = {
+    "schemaname": "public", "tablename": "clarity_feed_ideas",
+    "policyname": "Anyone can update feed ideas",
+    "permissive": "PERMISSIVE", "roles": "{authenticated}", "cmd": "UPDATE",
+    "qual": "(author_id = auth.uid())", "with_check": "(author_id = auth.uid())",
+}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    _json.dump([scoped_row], fh)
+    scoped_fixture = fh.name
+
+code, out, err = run(["--prod-json", scoped_fixture, "--test-json", scoped_fixture])
+check("a properly-scoped policy does not false-positive", code == 0, f"got exit {code}")
+
+for path in (converged_unconditional, scoped_fixture):
+    os.unlink(path)
+
+# A "FOR ALL" policy (no FOR clause) reads cmd="ALL" in pg_policies — governs
+# SELECT/INSERT/UPDATE/DELETE together, so an unconditional one is a write hole
+# too (worse — it also opens SELECT). Code review on P1138 found the original
+# WRITE_CMDS list missed this variant entirely.
+all_cmd_row = {
+    "schemaname": "public", "tablename": "clarity_feed_ideas",
+    "policyname": "Anyone can do anything",
+    "permissive": "PERMISSIVE", "roles": "{public}", "cmd": "ALL",
+    "qual": "true", "with_check": "true",
+}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    _json.dump([all_cmd_row], fh)
+    all_cmd_fixture = fh.name
+
+code, out, err = run(["--prod-json", all_cmd_fixture, "--test-json", all_cmd_fixture])
+check("a FOR ALL unconditional policy is caught", code == 1, f"got exit {code}")
+check("FOR ALL policy named under UNCONDITIONAL WRITE", "Anyone can do anything" in out)
+os.unlink(all_cmd_fixture)
+
+# `TO public, some_role` is exactly as reachable by anon/authenticated as the
+# no-TO-clause default (public is a member either way) but does not equal the
+# literal string "{public}" — an exact-match check would miss it. Code review
+# on P1138 found the original check used `roles != "{public}"`.
+multi_role_row = {
+    "schemaname": "public", "tablename": "clarity_feed_ideas",
+    "policyname": "Anyone plus a role can update",
+    "permissive": "PERMISSIVE", "roles": "{public,some_role}", "cmd": "UPDATE",
+    "qual": "true", "with_check": "true",
+}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    _json.dump([multi_role_row], fh)
+    multi_role_fixture = fh.name
+
+code, out, err = run(["--prod-json", multi_role_fixture, "--test-json", multi_role_fixture])
+check("a multi-role list including public is caught", code == 1, f"got exit {code}")
+check("multi-role policy named under UNCONDITIONAL WRITE", "Anyone plus a role can update" in out)
+os.unlink(multi_role_fixture)
+
+# A role list that does NOT include public — e.g. TO authenticated, some_role —
+# must still not false-positive, even with an unconditional predicate: neither
+# role is reachable by an anon-key holder.
+no_public_row = {
+    "schemaname": "public", "tablename": "clarity_feed_ideas",
+    # Reuse a policy name the fixture migrations DO create (same as scoped_row
+    # above) — a made-up name would trip the unrelated not-in-files leg and
+    # confound this assertion, which is testing the role-membership check only.
+    "policyname": "Anyone can update feed ideas",
+    "permissive": "PERMISSIVE", "roles": "{authenticated,some_role}", "cmd": "UPDATE",
+    "qual": "true", "with_check": "true",
+}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+    _json.dump([no_public_row], fh)
+    no_public_fixture = fh.name
+
+code, out, err = run(["--prod-json", no_public_fixture, "--test-json", no_public_fixture])
+check("a multi-role list WITHOUT public does not false-positive", code == 0, f"got exit {code}")
+os.unlink(no_public_fixture)
 
 
 # --------------------------------------------------------------------------
