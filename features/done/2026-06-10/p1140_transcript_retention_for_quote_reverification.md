@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 58
 workstream: events
 created_date: '2026-08-21'
 tags: [points, transcripts, provenance, youtube]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 driver: anomaly
 ---
 
 # P1140: Retain fetched transcripts so published quotes stay re-verifiable
 
-Child concern of [P1096](p1096_public_multisource_point_pipeline.md). That spec makes quote
+Child concern of [P1096](../../p1096_public_multisource_point_pipeline.md). That spec makes quote
 verification the non-negotiable gate; this one makes the artifact that gate runs against survive
 the session.
 
