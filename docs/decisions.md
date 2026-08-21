@@ -4,6 +4,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-21 [technical]: The quote-verification check greps against an artifact no program produces
+
+**Context:** Planning [p1140](../features/p1140_transcript_retention_for_quote_reverification.md) (retain transcripts so published quotes stay re-verifiable). `/points-publish` gates filing on per-quote `grep -F` exit codes **"against the cleaned transcript"**, and the 2026-08-19 entry below cites that same grep as the check that catches fabrication. Measured this session: cp has **no cleaning program** — `/points-prepare` describes cleaning in English prose an agent improvises each run (verified: nothing matching vtt/caption/transcript under `scripts/`). Two agents cleaning the *same* caption file disagreed about which track contained a published-shape quote: one found it in the auto track, the other got the auto track's rolling cues collapsed into garbage (*"the principles of computer th…"*) and found it only in the human track. The raw caption file returns **0 hits** for a genuine quote in every case — inline karaoke tags, rolling duplicate cues and typographic characters mean no published quote appears verbatim in it.
+
+**Decision:** The cleaned text is the provenance artifact, not the raw download, so **the cleaner becomes a versioned program** (`vtt-clean`) whose output is stored beside the raw file, and each run records the chosen track, the hashes of both forms, and the cleaner version. Retention alone was not enough and the gap is not about retention.
+
+**Alternatives rejected:** *"Keeping the raw bytes IS the provenance record"* — this was the central claim of the first plan for P1140 and it is **falsified by measurement**, not by argument: re-running the exact check the gate demands against the retained raw file returns 0 for a valid quote, indistinguishable from a fabricated one. *Recover the choice after the fact by grepping every retained track* — returns a contradiction rather than an answer where tracks disagree (one renders a word the other mis-hears, and auto-captions censor profanity inconsistently). *Leave cleaning improvised and store only its output* — fixes past runs while every future run keeps producing a different transcript from the same video.
+
+**Consequences:** Quotes already published on 2026-08-17 cannot be re-verified against the text they were checked against; that is now a known limit, not an open question. Two further findings ride with it: the caption **track** is selected by different unwritten rules in each consumer (this repo picked a human `en-GB` track by in-session judgement; a second consumer outside this repo picks the smallest file), and two tracks of one video measured **byte-identical under different language names**, so a filename does not identify which track a quote came from. **Status: proposed** — `vtt-clean` is not built; the plan lives with P1140.
+
+**References:** [p1140](../features/p1140_transcript_retention_for_quote_reverification.md) · [p1141](../features/p1141_story_carries_a_video_with_jumpable_quotes.md) · `/slava:content:points-prepare` · `/slava:content:points-publish` · decisions.md 2026-08-19 (quote integrity is two different checks)
+
+---
+
 ## 2026-08-21 [process]: The points pipeline picks its cast LAST — every downstream artifact is built assuming a roster nobody has approved
 
 **Context:** First end-to-end run of `/points-prepare` → `/points-publish` on an opposed video pair for a named room. The run selected sources, read both transcripts in full, built 6 synthesized points, wrote 3 story drafts, assigned 17 positions and sealed a prediction — and only at the filing step did the question *"should this person be an agent at all?"* arise, as `/points-publish`'s missing-agent halt. Two of the six points were constructed around one arguer's cross-camp split; dropping him would have invalidated them. The founder named it directly: *"we already selected the video, created the points, created the stories, created positions. And now we're like, oh, by the way, maybe the whole work is wasted."*
