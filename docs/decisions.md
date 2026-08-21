@@ -4,6 +4,20 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-21 [technical]: RLS drift checker gains a third leg — unconditional write policy, independent of prod/test/file agreement (P1138)
+
+**Context:** P1138 found five tables with write RLS policies carrying an unconditional predicate (no real `USING`/`WITH CHECK`, no `TO <role>` scope), reachable by anyone holding the public anon key. All five were identical across prod, test, and migration files — the existing drift checker (P1048) only ever compares those three sources against each other, so three sources agreeing on the same wrong policy was structurally invisible to it. The 2026-08-10 `[technical]` entry ("`CREATE POLICY` without `TO <role>` defaults to `PUBLIC`") had already predicted this exact gap: "A CI/lint check ... not yet built."
+
+**Decision:** Extended `scripts/rls-drift-check.py` with a third leg that inspects each live policy's own shape — write command (including `FOR ALL`), `PERMISSIVE`, true-ish `qual`/`with_check`, and `public` present in the role list — independent of whether prod/test/files agree. Adversarial code review before shipping caught two real gaps in the first version: the write-command list omitted `FOR ALL` (which governs `SELECT` too — a worse hole than any of the five original findings), and the role check used brittle exact-string matching (`roles == "{public}"`) that a `TO public, some_role` policy would have slipped past despite being equally open. Both fixed, with self-test coverage proving the check now catches them (this repo's "watch a gate fail before trusting it" rule).
+
+**Alternatives rejected:** None — this was the one gap the existing check structurally could not close by design (it only ever diffs sources against each other); a new leg inspecting a policy's own shape was the only way to cover it.
+
+**Consequences:** First live run of the new leg immediately surfaced 4 more unconditional-write policies on a different table family (idea-feed INSERT side, never touched by an earlier UPDATE-only tightening pass) — filed as P1139. Two known-legitimate cases (anonymous voting with no `auth.uid()` to bind against; a local-dev-only worktree-coordination table) are now allowlisted with reasons, matching the existing allowlist's convention. Resolves the "not yet built" line from the 2026-08-10 entry.
+
+**References:** `scripts/rls-drift-check.py`, `scripts/test-rls-drift-check.py`, `features/done/2026-06-10/p1138_world_writable_rls_policies_never_tightened.md`, `features/p1139_idea_feed_insert_policies_unconditional.md`, `.private/docs/security-log.md` 2026-08-21.
+
+---
+
 ## 2026-08-21 [process]: Two `/ship` frictions from the P1135 KDD meta-reflection, both fixed same session
 
 **Context:** `/kdd`'s meta-reflection pass (3-stage EV-gated review: sonnet extraction → opus
