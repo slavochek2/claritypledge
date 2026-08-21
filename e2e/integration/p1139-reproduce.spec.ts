@@ -51,7 +51,13 @@ function fakeSessionId(): string {
 }
 
 test.describe('P1139: unauthenticated INSERTs must be refused on the idea-feed tables', () => {
-  test.describe.configure({ timeout: 30000 });
+  // mode: 'serial' — this suite's beforeAll/afterAll share the idea-feed tables by SENTINEL,
+  // not by worker. Under the repo's default fullyParallel + 3-worker config, one worker's
+  // afterAll cleanup can delete another worker's just-seeded row mid-test, turning a real
+  // RLS pass into a false pass via an FK-constraint failure instead (P1083 "shared table"
+  // pattern — docs/technical/e2e-testing-guide.md). Serial mode confines all six tests to
+  // one worker, closing the race for this file.
+  test.describe.configure({ timeout: 30000, mode: 'serial' });
 
   /** Seeded via service role so each table has a real parent row to attach to. */
   let ideaId: string;

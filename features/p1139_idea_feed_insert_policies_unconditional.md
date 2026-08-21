@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 57
 severity: high
@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p1139-reproduce.spec.ts
   root_cause: "Four INSERT policies created with an unconditional write predicate and never revisited; the two later migrations that tightened this table family only touched UPDATE. anon holds the table-level INSERT grant, so the policy is the only gate. Confirmed empirically on test via the real unauthenticated REST path — not a policy-catalogue read. Crucially, unlike P1138's affected table, NO table here has a legitimate client write path: zero callers repo-wide. See .private/docs/security-log.md 2026-08-21 entry for affected tables/functions."
@@ -143,11 +143,13 @@ its UPDATE side, where two policies were dropped outright for the same reason.
 place. Removing the feature outright would close it permanently and is the only option that
 prevents this class recurring here a third time. Out of scope for this spec either way — but
 it is the actual root question, and it needs an answer rather than another policy patch.
+**Filed as `features/p1146_decide_idea_feed_fate.md`.**
 
-**Related latent bug, not filed:** one idea-feed function (see private log) issues an
-`UPDATE` whose policy was dropped by an earlier migration, and does not check the error — so
-it fails silently. Unreachable today (zero callers); it only matters if the feature is
-revived rather than removed.
+**Related latent bug:** one idea-feed function (see private log) issues an `UPDATE` whose
+policy was dropped by an earlier migration, and does not check the error — so it fails
+silently. Unreachable today (zero callers); it only matters if the feature is revived rather
+than removed. **Folded into `p1146` rather than filed separately** — moot if that spec
+resolves to removal.
 
 ## Non-Goals
 
@@ -163,17 +165,63 @@ revived rather than removed.
 - [x] *(reproduce half)* A canary was observed failing first, before any fix —
       `e2e/integration/p1139-reproduce.spec.ts`, 6/6 failing on test, each for the right
       reason (service-role re-read shows the unauthenticated write landed)
-- [ ] An unauthenticated write to each affected table is refused **on test**, demonstrated by
-      that same canary turning green after the fix
+- [x] An unauthenticated write to each affected table is refused **on test**, demonstrated by
+      that same canary turning green after the fix — `20260821150000_p1139_close_idea_feed_
+      insert_policies.sql` applied to test, canary re-run single-worker (the file's
+      `fullyParallel` default races `beforeAll`/`afterAll` across workers on this shared-table
+      suite — see Resolution): 6/6 passed
 - [x] Every legitimate in-app write path on the affected tables still succeeds — vacuously
       satisfied and grep-verified: there are **no** client write paths on any of the four
       tables, so there is nothing to preserve. Whole-repo grep of every exported idea-feed
       function returned zero callers outside `api.ts` itself
-- [ ] Live policy state on prod shows the fix applied, re-queried after deploy with the
-      project ref stated explicitly in the evidence
-- [ ] Private log entry updated from unpatched to fixed, with the re-query output
-- [ ] Column-level INSERT grants scope what an anon caller may set, so server-owned timestamp
-      columns cannot be pinned — canary tests 5 and 6 turn green (moot if the policies are
-      dropped outright, which removes the write entirely; keep the assertions as regression
-      cover either way)
-- [ ] No console errors in the affected user flows after the change
+- [ ] `[post-deploy]` Live policy state on prod shows the fix applied, re-queried after deploy
+      with the project ref stated explicitly in the evidence — blocked on separate explicit
+      founder approval per Non-Goals; not actionable pre-deploy
+- [ ] `[post-deploy]` Private log entry updated from unpatched to fixed, with the re-query
+      output — depends on the prod re-query above
+- [x] Column-level INSERT grants scope what an anon caller may set, so server-owned timestamp
+      columns cannot be pinned — canary tests 5 and 6 turn green (moot, as anticipated: the
+      policies were dropped outright, which removes the write entirely — RLS default-denies
+      with zero matching PERMISSIVE policies, so no column-grant migration was needed;
+      assertions kept as regression cover)
+- [x] No console errors in the affected user flows after the change — vacuously satisfied,
+      no in-app flow reaches these tables (zero callers, confirmed above)
+
+## Resolution
+
+**Fixed on test:** 2026-08-21. **Prod: still unpatched — separate explicit founder approval
+required before applying there, per Non-Goals.**
+
+**Migration:** `supabase/migrations/20260821150000_p1139_close_idea_feed_insert_policies.sql`
+— drops the four unconditional INSERT policies (`Anyone can create feed ideas`,
+`Anyone can insert comments`, `Anyone can insert votes`, `Anyone can insert vote history`).
+Policy-only, same minimal shape as `20260821140000_p1138_...` — no `REVOKE INSERT` needed:
+with zero matching PERMISSIVE INSERT policies, RLS default-denies regardless of the
+table-level grant anon/authenticated still hold.
+
+**Verification:**
+- Canary (`e2e/integration/p1139-reproduce.spec.ts`) pre-fix: 6/6 failed, each for the right
+  reason (service-role re-read shows the unauthenticated write landed). Post-fix: 6/6 passed.
+  Discovered mid-verification: the suite's default `fullyParallel` + 3-worker config raced
+  `beforeAll`/`afterAll` across workers on this shared-table fixture (same class as the
+  P1083 "shared table" pattern in `docs/technical/e2e-testing-guide.md`) — one worker's
+  cleanup could delete a sibling worker's just-seeded idea before its insert ran, turning
+  a real RLS pass into a false pass via an FK-constraint failure instead. Fixed in-scope
+  (user-approved Tier-2 same-file extension): added `mode: 'serial'` to the suite's
+  `test.describe.configure`, confining all six tests to one worker. Re-verified under the
+  repo's **default** worker settings (no `--workers=1` override) post-fix: 6/6 passed.
+- Dead-code founder decision (`[FOUNDER DECISION: ...]` in Fix Approach) filed as
+  `features/p1146_decide_idea_feed_fate.md` per user approval, committed to main
+  (`b9b6356e`) — not on this branch, since spec creation always happens on main.
+- `scripts/rls-drift-check.py`: the four tables' unconditional-write findings changed from
+  `live_in='prod, test'` to `live_in='prod'` only — confirms the fix landed on test and
+  prod remains exposed, matching the P1138 precedent.
+- Regression: `e2e/integration/security-tighten-rls.spec.ts` (12 tests, SELECT-side
+  visibility on `clarity_feed_ideas`, seeds via service role) and
+  `e2e/integration/p1138-reproduce.spec.ts` — both green post-fix, single-worker.
+- `npx tsc --noEmit` — clean (no application code touched; DB-only fix).
+
+**Why DROP and not scope:** zero legitimate callers exist on any of the four tables
+(whole-repo grep of every exported idea-feed function in `src/app/data/api.ts` — the only
+hits are `api.ts`'s own internal calls and a unit test covering the localStorage helpers).
+There is no anonymous-write path to preserve, unlike P1138's `ml_training_sessions`.
