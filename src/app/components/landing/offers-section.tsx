@@ -7,11 +7,16 @@
  * with consistent CTA buttons is the pattern this page carried before P1087 collapsed it to
  * a single card plus a footnote — restored at founder UAT.
  *
- * These are NOT three options for the same thing, and the subhead above the grid says so.
- * Champions is the offer the page argues for; the other two exist because each catches a
- * visitor Champions loses (a pair who won't join a batch; an org that can't send one person
- * into a public room) and because both price ABOVE €295/month, which is what makes the
- * membership read as the cheap way in. An offer that does neither does not belong here.
+ * These are NOT three options for the same thing. Champions is the offer the page argues
+ * for; the other two exist because each catches a visitor Champions loses (a pair who won't
+ * join a batch; an org that can't send one person into a public room) and because both price
+ * ABOVE €295/month, which is what makes the membership read as the cheap way in. An offer
+ * that does neither does not belong here.
+ *
+ * That used to be stated in a subhead. It is now carried STRUCTURALLY instead (UAT round 3):
+ * the grid opens the page, the Champions detail follows it, and the bullets are benefit-led
+ * so each card names its own buyer. Prose explaining why three cards are on the page was
+ * only ever needed because the page order made them look like three sizes of one thing.
  *
  * The refund guarantee and the VAT note live in a shared band BELOW the grid, not inside
  * the membership card — the same placement the pre-P1087 page used, and the reason it
@@ -61,44 +66,55 @@ const isStripeLink = (u: string) => {
 const MEMBERSHIP_IS_SET = isStripeLink(STRIPE_MEMBERSHIP_URL);
 
 /**
- * What the membership includes. Trimmed at founder UAT to remove every line another part
- * of the page already carries: the month arc above states "practise weekly", "take it to
- * your organization", and "open your Clarity Organization", so those three bullets went;
- * "(3–10 people)" duplicated the batch-size chip under the title; and "Cancel any month"
- * restated the "/ month" on the price line directly above it.
+ * WHAT EACH RUNG IS FOR — not what it contains. Rewritten at founder UAT round 3, which
+ * named the defect precisely: "it looks too similar now to the partnership package in
+ * terms of the check marks... but what we need there is benefits. We list their features."
+ *
+ * Three feature lists made three offers look like three sizes of one thing, because
+ * features are the axis on which they genuinely overlap (all three practise the same nine
+ * situations). The thing that actually separates them is WHO has the problem and WHAT
+ * changes for them — a pair de-risking one relationship, a person carrying the practice
+ * into an organization, an organization with a specific symptom. On that axis they barely
+ * touch, which is the whole reason all three belong on the page.
+ *
+ * Each card's LAST bullet is its outcome — the thing you hold afterwards. Everything
+ * above it is the change it produces. No delivery mechanics (session counts, retainers,
+ * curriculum shape): "who cares about that? That's not really that important. We need to
+ * stay high level." [FOUNDER DECISION: wording]
  */
 const MEMBERSHIP_BULLETS = [
-  "Weekly live practice sessions with your batch",
-  "The nine situations every working relationship hits",
-  "Partial Clarity Badges on the situations you cover",
-  "Practice partners on tap",
-  "The standing practice community after month three",
+  "Learn the practice by doing it weekly with a small batch of peers",
+  "Carry it into your own organization with help, instead of alone",
+  "Keep growing with people on the same path, long after month three",
+  "Partial Clarity Badges — verifiable proof of the situations you have calibrated",
 ];
 
 /**
- * Verbatim from the package's own page on ladischenski.com, where it is sold and
- * delivered (founder UAT: "replicate the same of what we have"). The earlier bullets
- * here — "four 1:1 sessions", "booked and delivered on ladischenski.com" — were this
- * page's paraphrase of an offer it does not own, and one of them (the session count)
- * appears nowhere on the source. A second surface describing someone else's offer in
- * its own words is a divergence waiting to happen.
+ * De-risking ONE named relationship, framed as the founder described it: "making sure you
+ * both know that you both know how to reveal the gaps in understanding and bridge them, so
+ * you increase trust, avoid unnecessary mistakes, keep conflict productive."
+ *
+ * The outcome bullet stays verbatim from ladischenski.com, where the package is sold and
+ * delivered — this page does not own that offer and must not invent its deliverables (an
+ * earlier "four 1:1 sessions" bullet appeared nowhere on the source).
  */
 const PARTNERSHIP_BULLETS = [
-  "Work through the 9 situations that break most partnerships, before they break yours",
-  "A signed Clarity Partnership Agreement you both own",
-  "A public Clarity Badge — verifiable proof your partnership is aligned",
+  "De-risk one working relationship before it costs you",
+  "Both of you know that you both know — gaps surfaced, then bridged",
+  "More trust, fewer avoidable mistakes, disagreements that stay productive",
+  "A signed Clarity Partnership Agreement you both own, with a public Clarity Badge",
 ];
 
 /**
- * Deliberately NOT co-founder-scoped (founder UAT). The retainer bullet reuses the
- * Fractional Chief Clarity Officer shape from ladischenski.com without inheriting its
- * "for co-founders and teams who've done the alignment work" framing or its €2,000/month
- * price — this rung is quoted, not listed.
+ * The problem-first rung: this is work done INSIDE someone's organization on a symptom they
+ * already feel. Named by symptom rather than by method, because the buyer arrives with the
+ * symptom — the method is what they are hiring, not what they are shopping for. The
+ * "retainer available" bullet was cut at UAT as delivery mechanics.
  */
 const CUSTOM_BULLETS = [
-  "Shaped around your situation, not a fixed curriculum",
-  "For a team, a department, or one person",
-  "Retainer available: a weekly session, async in between, a quarterly deep-dive",
+  "For a problem you already feel: rework, turnover, decisions that keep reopening",
+  "Disagreements that go nowhere, or people who stopped saying what they think",
+  "Coaching, training and consulting shaped around your situation, not a curriculum",
 ];
 
 /** Renders an internal `<Link>` for in-app paths and an external `<a>` otherwise. */
@@ -147,12 +163,15 @@ function PaidCta({
   href,
   label,
   className,
+  brokenClassName = "h-12 w-full",
   onClick,
 }: {
   broken: boolean;
   href: string;
   label: string;
   className: string;
+  /** Geometry for the disabled notice — the closing CTA is auto-width, the card one is not. */
+  brokenClassName?: string;
   onClick: () => void;
 }) {
   if (broken) {
@@ -163,7 +182,7 @@ function PaidCta({
     return (
       <span
         aria-disabled="true"
-        className="inline-flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-border bg-muted px-6 text-sm font-semibold text-muted-foreground"
+        className={`inline-flex ${brokenClassName} cursor-not-allowed items-center justify-center gap-2 rounded-md border border-border bg-muted px-6 text-sm font-semibold text-muted-foreground`}
       >
         Checkout temporarily unavailable
       </span>
@@ -254,6 +273,44 @@ export function Testimonials() {
   );
 }
 
+// Module-level so the in-grid buy button and the closing CTA below the page share one
+// definition (`.claude/rules/src.md` — DRY Trigger). Only the GRID button is full-width
+// primary; the closing one is auto-width, so the page still has exactly one full-width
+// primary action (P955).
+const PRIMARY_CTA_BASE =
+  "inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30";
+
+/**
+ * The page's closing action, scoped to Clarity Champions ALONE (founder UAT round 3:
+ * "again, the call to action on the Clarity Champions program alone, because it's the
+ * easiest start"). The grid at the top of the page offers the choice; by the time a reader
+ * has gone through the month arc and the testimonials, they are reading about one program,
+ * so the close asks for that one thing.
+ *
+ * Auto-width, not full-width: the buy button in the grid is the page's single full-width
+ * primary (P955), and a second one here would read as a competing primary rather than a
+ * repeat of the same offer.
+ */
+export function ChampionsCloseCta() {
+  const broken = !MEMBERSHIP_IS_SET;
+  return (
+    <PaidCta
+      broken={broken}
+      href={STRIPE_MEMBERSHIP_URL}
+      label="Start at €295/month"
+      className={`${PRIMARY_CTA_BASE} h-12 w-auto`}
+      brokenClassName="h-12 w-auto"
+      onClick={() =>
+        analytics.track("offers_cta_clicked", {
+          tier: "membership",
+          placement: "page-close",
+          destination: broken ? "broken" : "stripe",
+        })
+      }
+    />
+  );
+}
+
 function CardBullets({ items }: { items: string[] }) {
   return (
     <ul className="mt-6 space-y-3">
@@ -295,31 +352,27 @@ export function OffersSection({ className = "" }: { className?: string }) {
   // One primary action on the page — the membership buy button (P955). The other two cards
   // carry the SAME button geometry in a secondary treatment, so the three CTAs line up
   // without competing.
-  const primaryCta =
-    "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-500 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30";
+  const primaryCta = `${PRIMARY_CTA_BASE} h-12 w-full`;
   const secondaryCta =
     "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-card px-6 text-sm font-semibold text-foreground transition-colors hover:bg-muted";
 
   return (
     <section className={`px-4 ${className}`}>
       <div className="container mx-auto max-w-6xl">
-        {/* The grid is one offer plus two exits, not three options for the same thing.
-            Founder UAT named the confusion exactly ("the whole page is about Clarity
-            Champions... and then strangely we show these three offers") — the cause is a
-            bare "Pricing" label promising a comparison of equals. The subhead states the
-            relationship instead, which is what makes the other two rungs legible rather
-            than random. [FOUNDER DECISION: wording] */}
+        {/* The explanatory subhead ("Clarity Champions is the program above. Two other ways
+            in...") was cut at UAT round 3 — "it's weird to write so much text... let's kill
+            it. That's not really needed, is it?" It answered a confusion the page no longer
+            creates: the grid used to arrive AFTER a long description of one program, so it
+            read as three versions of that program. Now the grid comes first and the program
+            detail follows it, so the three cards are simply the three offers, and the
+            benefit-led bullets say who each one is for without a paragraph on top. */}
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
             Pricing
           </h2>
-          <p className="mt-3 text-pretty text-base text-muted-foreground">
-            Clarity Champions is the program above. Two other ways in, if a weekly batch
-            isn&rsquo;t your shape.
-          </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 items-stretch gap-5 md:grid-cols-3 sm:gap-6">
+        <div className="mt-8 grid grid-cols-1 items-stretch gap-5 md:grid-cols-3 sm:gap-6">
           {/* ── Selected offer: the self-serve membership ── */}
           <div className={`${cardBase} border-2 border-blue-500 shadow-lg shadow-blue-500/25`}>
             <h3 className={cardHeading}>Clarity Champions Program</h3>

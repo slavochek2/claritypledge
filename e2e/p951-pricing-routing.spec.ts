@@ -27,21 +27,26 @@ test('smoke: /program loads with the three-card offer ladder and no console erro
   expect(consoleErrors, `Console errors on /program: ${consoleErrors.join(', ')}`).toHaveLength(0);
   // "Clarity Champions Program" is the ONE name the program carries — page lead, offer
   // card, assurance band and SEO title all say it (founder UAT). Target the offer-card
-  // heading exactly; the page lead adds "— your first three months".
-  await expect(page.getByRole('heading', { name: 'Clarity Champions Program', exact: true })).toBeVisible();
+  // heading exactly — the offer card and the program section below it share the name.
+  await expect(page.getByRole('heading', { name: 'Clarity Champions Program', exact: true }).first()).toBeVisible();
   await expect(page.getByText('€295').first()).toBeVisible();
   // The other two rungs of the ladder, restored at founder UAT.
   await expect(page.getByRole('heading', { name: 'Partnership Clarity Package' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Coaching, Training & Consulting' })).toBeVisible();
-  // The subhead that makes a three-card grid legible on a page about one program.
-  await expect(page.getByText(/Clarity Champions is the program above/i)).toBeVisible();
+  // UAT round 3: the explanatory subhead was cut, and the page order reversed so the grid
+  // comes FIRST and the program detail follows it. The month arc now runs past month three.
+  await expect(page.getByText(/Clarity Champions is the program above/i)).toHaveCount(0);
+  await expect(page.getByText(/your first three months/i)).toHaveCount(0);
+  await expect(page.getByText('Month 4 and beyond')).toBeVisible();
   // One label for the section: "Offers" was retired with the third card's old name.
   await expect(page.getByText('Custom Offers')).toHaveCount(0);
-  // The membership CTA must be the live Stripe checkout, not the fail-loud state.
-  await expect(page.getByRole('link', { name: /Start at €295\/month/ })).toHaveAttribute(
-    'href',
-    /^https:\/\/buy\.stripe\.com\//
-  );
+  // The membership CTA must be the live Stripe checkout, not the fail-loud state. It appears
+  // TWICE now — in the grid and as the page's closing action on Champions alone.
+  const buy = page.getByRole('link', { name: /Start at €295\/month/ });
+  await expect(buy).toHaveCount(2);
+  for (const link of await buy.all()) {
+    await expect(link).toHaveAttribute('href', /^https:\/\/buy\.stripe\.com\//);
+  }
   await expect(page.getByText('Checkout temporarily unavailable')).toHaveCount(0);
   // The retired P951 tier names must not be reachable from here.
   await expect(page.getByRole('heading', { name: 'Standard Program' })).toHaveCount(0);
@@ -55,8 +60,8 @@ test('/pricing redirects to /program', async ({ page }) => {
   await expect(page).toHaveURL(/\/program$/);
   // "Clarity Champions Program" is the ONE name the program carries — page lead, offer
   // card, assurance band and SEO title all say it (founder UAT). Target the offer-card
-  // heading exactly; the page lead adds "— your first three months".
-  await expect(page.getByRole('heading', { name: 'Clarity Champions Program', exact: true })).toBeVisible();
+  // heading exactly — the offer card and the program section below it share the name.
+  await expect(page.getByRole('heading', { name: 'Clarity Champions Program', exact: true }).first()).toBeVisible();
 });
 
 test('/offers redirects to /program', async ({ page }) => {
@@ -66,8 +71,8 @@ test('/offers redirects to /program', async ({ page }) => {
   await expect(page).toHaveURL(/\/program$/);
   // "Clarity Champions Program" is the ONE name the program carries — page lead, offer
   // card, assurance band and SEO title all say it (founder UAT). Target the offer-card
-  // heading exactly; the page lead adds "— your first three months".
-  await expect(page.getByRole('heading', { name: 'Clarity Champions Program', exact: true })).toBeVisible();
+  // heading exactly — the offer card and the program section below it share the name.
+  await expect(page.getByRole('heading', { name: 'Clarity Champions Program', exact: true }).first()).toBeVisible();
 });
 
 test('landing ("/") still renders no pricing cards', async ({ page }) => {

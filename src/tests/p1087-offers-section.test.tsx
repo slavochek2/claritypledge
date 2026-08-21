@@ -15,7 +15,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { OffersSection } from '@/app/components/landing/offers-section';
+import { OffersSection, ChampionsCloseCta } from '@/app/components/landing/offers-section';
+import { ProgramTimelineSection } from '@/app/components/landing/program-timeline-section';
 
 const LIVE_LINK = 'https://buy.stripe.com/fZu8wPchH88D9ZFaGo1Jm09';
 
@@ -152,21 +153,31 @@ describe('OffersSection — three-card offer ladder (P1087, founder UAT)', () =>
     expect(screen.queryByText(/\bOffers\b/)).not.toBeInTheDocument();
   });
 
-  it('states why the two secondary rungs are on a page about one program', () => {
+  it('carries no explanatory subhead above the grid (UAT round 3)', () => {
     renderSection();
-    // The founder-named confusion: "the whole page is about Clarity Champions... and then
-    // strangely we show these three offers". A bare "Pricing" label promises three options
-    // for one thing; the subhead is what makes the other two legible instead of random.
-    expect(screen.getByText(/Clarity Champions is the program above/i)).toBeInTheDocument();
+    // The grid now OPENS the page and the program detail follows it, so the three cards no
+    // longer read as three sizes of one program — the prose that said so is unnecessary.
+    expect(screen.queryByText(/Clarity Champions is the program above/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/two other ways in/i)).not.toBeInTheDocument();
   });
 
-  it('mirrors the partnership bullets from the page that actually sells it', () => {
+  it('sells each rung on its outcome, not on a feature list (UAT round 3)', () => {
     renderSection();
-    // Verbatim from ladischenski.com — this page does not own that offer, so it must not
-    // paraphrase it. The old "Four 1:1 sessions" bullet appeared nowhere on the source.
-    expect(screen.getByText(/9 situations that break most partnerships/i)).toBeInTheDocument();
+    // The founder-named defect: three feature lists made three offers look like three sizes
+    // of one thing, because features are the axis on which they overlap. Each card now leads
+    // with who has the problem and what changes.
+    expect(screen.getByText(/De-risk one working relationship/i)).toBeInTheDocument();
+    expect(screen.getByText(/you know that you both know/i)).toBeInTheDocument();
+    expect(screen.getByText(/Carry it into your own organization/i)).toBeInTheDocument();
+    expect(screen.getByText(/a problem you already feel/i)).toBeInTheDocument();
+
+    // The deliverable stays verbatim from ladischenski.com, which owns and sells it.
     expect(screen.getByText(/signed Clarity Partnership Agreement you both own/i)).toBeInTheDocument();
     expect(screen.queryByText(/four 1:1 sessions/i)).not.toBeInTheDocument();
+
+    // Delivery mechanics cut at UAT: "who cares about that? We need to stay high level."
+    expect(screen.queryByText(/retainer available/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/fixed curriculum/i)).not.toBeInTheDocument();
   });
 });
 
@@ -192,8 +203,8 @@ describe('OffersSection — assurance band and de-duplicated bullets (P1087, fou
   it('drops every membership bullet that another part of the page already states', () => {
     renderSection();
     // Kept — nothing else on the page says these.
-    expect(screen.getByText(/partial clarity badges on the situations you cover/i)).toBeInTheDocument();
-    expect(screen.getByText(/the standing practice community after month three/i)).toBeInTheDocument();
+    expect(screen.getByText(/partial clarity badges/i)).toBeInTheDocument();
+    expect(screen.getByText(/long after month three/i)).toBeInTheDocument();
 
     // Cut at UAT: duplicated the batch-size chip, the "/ month" price line, and the
     // Month 2 / Month 3 headings respectively.
@@ -211,5 +222,36 @@ describe('OffersSection — assurance band and de-duplicated bullets (P1087, fou
     renderSection();
     expect(screen.queryByText(/the platform itself is free, always/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /see what a practice community looks like/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('Page close — Champions-only CTA and the month arc (P1087, founder UAT round 3)', () => {
+  it('repeats the membership buy as an AUTO-width primary, so the grid keeps the only full-width one', () => {
+    render(
+      <MemoryRouter>
+        <ChampionsCloseCta />
+      </MemoryRouter>
+    );
+    const cta = screen.getByRole('link', { name: /start at €295\/month/i });
+    expect(cta).toHaveAttribute('href', LIVE_LINK);
+    // P955: exactly one full-width primary per view. The grid's buy button owns that slot,
+    // so the closing repeat must NOT be w-full or the page carries two competing primaries.
+    expect(cta.className).toContain('w-auto');
+    expect(cta.className).not.toContain('w-full');
+    expect(cta.className).toContain('bg-blue-500');
+  });
+
+  it('runs the month arc past month three, where the monthly price keeps charging', () => {
+    render(
+      <MemoryRouter>
+        <ProgramTimelineSection />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Month 4 and beyond')).toBeInTheDocument();
+    expect(screen.getByText(/help each other grow the practice/i)).toBeInTheDocument();
+    // The lead no longer promises three months, because the arc no longer stops there.
+    expect(screen.queryByText(/your first three months/i)).not.toBeInTheDocument();
+    // The countdown moved to the page close — it is not part of this section any more.
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument();
   });
 });

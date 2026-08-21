@@ -10,10 +10,20 @@ import { getNextBatchStartISO } from "@/app/content/webinar";
 // repeated what the offer card already lists). No job titles anywhere (Non-Goals): stays
 // readable across roles, from a startup pair to a change lead in a 5,000-person company.
 // Month 3 promises personal support, never a launch.
+//
+// "Month 4 and beyond" added at UAT: the price is monthly and open-ended, so an arc that
+// stops at three reads like a three-month course that then charges forever. What actually
+// continues is the practice community — that is the thing being paid for from month four
+// on, and the page never said so.
 const MONTH_ARC = [
   { when: "Month 1", heading: "Practise together weekly, and learn why the clarity principle works." },
   { when: "Month 2", heading: "Take it to a few people you actually work with." },
   { when: "Month 3", heading: "Open your Clarity Organization and run your first events." },
+  {
+    when: "Month 4 and beyond",
+    heading:
+      "Keep practising with the others — exchange what works, help each other grow the practice.",
+  },
 ];
 
 const STAGGER_CONTAINER: Variants = {
@@ -48,11 +58,13 @@ const pad = (n: number) => String(n).padStart(2, "0");
  * (P1087; the prior single hardcoded COHORT_ENROLLMENT_CLOSES_ISO rendered a permanent
  * "expired" state once its one fixed deadline passed). Ticks once per second.
  *
- * Lives HERE, directly under the page title, rather than above the price (P1087 UAT:
- * "the next batch starts maybe much higher — maybe it's the first thing"). The upcoming
- * batch is the frame for the whole page, not just for the number. Urgency is carried by
- * the ticking digits and a blue band — the design system reserves amber/orange/red, so
- * no red "hurry" color is used.
+ * Rendered by the CLOSING Champions CTA at the bottom of the page, not here (P1087 UAT,
+ * round 3). The founder's own reasoning decided the placement against their first guess:
+ * "people don't care about the batch start before they know what it is, and they read what
+ * it is by looking at the months." A deadline is only urgent once the reader wants the
+ * thing, so it sits beside the last buy button rather than above the fold. Exported so the
+ * page can compose it there. Urgency is carried by the ticking digits and a blue band —
+ * the design system reserves amber/orange/red, so no red "hurry" color is used.
  */
 export function BatchCountdown() {
   const [now, setNow] = useState(() => Date.now());
@@ -109,21 +121,29 @@ export function ProgramTimelineSection({ className = "" }: { className?: string 
           {/* "Program" is load-bearing, not decoration (founder UAT): the page names one
               program and then shows a three-card grid, so every surface that means THE
               PROGRAM says the same words — this title, the offer card, the assurance band,
-              the SEO title. Anything shorter and the card heading reads as a fourth name. */}
-          <SectionHeader title={<><span className="text-blue-500">Clarity Champions Program</span> — your first three months</>} />
+              the SEO title. Anything shorter and the card heading reads as a fourth name.
+
+              "— your first three months" was cut at UAT: the arc now runs to month four and
+              beyond, so the subtitle contradicted the content directly under it. */}
+          <SectionHeader title={<><span className="text-blue-500">Clarity Champions Program</span></>} />
+          {/* This section now sits BELOW the pricing grid, so it has to say what the program
+              IS before the months make sense — the grid above named it and priced it, nothing
+              more. High-level on purpose: an acceleration program for people bringing the
+              practice into their own organization, run as a group. [FOUNDER DECISION: wording] */}
+          <p className="-mt-10 mx-auto max-w-2xl text-pretty text-base text-muted-foreground">
+            An acceleration program for people who want to bring the clarity practice into
+            their organization — run as a group, so you learn it by doing it with others.
+          </p>
           {/* "monthly, open-ended" removed (P1087 UAT) — the price line already reads
               "/ month", so the chip restated it. The two survivors carry facts nothing
               else on the page states at a glance. */}
-          <div className="-mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <ClockIcon className="h-4 w-4 shrink-0 text-blue-500" /> weekly live session
             </span>
             <span className="inline-flex items-center gap-2">
               <UsersIcon className="h-4 w-4 shrink-0 text-blue-500" /> a batch of 3–10
             </span>
-          </div>
-          <div className="mt-8 flex justify-center">
-            <BatchCountdown />
           </div>
         </Reveal>
         <motion.ol
