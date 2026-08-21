@@ -1410,6 +1410,35 @@ ship_init_journal() {
     die "ship: branch '$branch' has no commits ahead of main — nothing to ship"
   fi
 
+  # Pre-flight merge-commit warning (2026-08-21, P1135 KDD). Cherry-pick refuses
+  # a merge commit without -m, so each one on the branch is a guaranteed Phase 1
+  # failure — recovered via the documented `--mark-landed <sha> <sha^2>` escape
+  # hatch (decisions.md 2026-08-20, P1104: this stalled a ship after 12 of 22
+  # commits had already landed). Merging main into a feature branch is "ordinary"
+  # here (that same entry's own words), so this fires often enough to be worth a
+  # batch print rather than N one-at-a-time discoveries. Warn-and-continue only:
+  # this does NOT skip or auto-record anything — Phase 1 still stops on the first
+  # merge exactly as before; the operator just has every recipe up front instead
+  # of finding them one failure at a time.
+  local merge_shas
+  merge_shas="$( cd "$REPO_ROOT" && git rev-list --merges --reverse "main..${branch}" 2>/dev/null )"
+  if [[ -n "$merge_shas" ]]; then
+    echo "ship: branch '$branch' contains $(printf '%s\n' "$merge_shas" | wc -l | tr -d ' ') merge commit(s)."
+    echo "  Cherry-pick cannot apply a merge without -m, so Phase 1 will stop on the first"
+    echo "  one below. Resolve each in turn with the recipe printed at that failure, or"
+    echo "  pre-resolve all of them now:"
+    local _m _m2
+    while IFS= read -r _m; do
+      [[ -n "$_m" ]] || continue
+      _m2="$( cd "$REPO_ROOT" && git rev-parse "${_m}^2" 2>/dev/null )"
+      if [[ -n "$_m2" ]] && ( cd "$REPO_ROOT" && git merge-base --is-ancestor "$_m2" main 2>/dev/null ); then
+        echo "    ./scripts/git-ops.sh ship $pn --mark-landed $_m $_m2"
+      else
+        echo "    $_m merges something other than main — inspect by hand, no recipe below it"
+      fi
+    done <<< "$merge_shas"
+  fi
+
   mkdir -p "$SHIP_JOURNAL_DIR"
   local started_at session_id
   started_at="$(iso_now)"

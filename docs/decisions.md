@@ -4,6 +4,61 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-21 [process]: Two `/ship` frictions from the P1135 KDD meta-reflection, both fixed same session
+
+**Context:** `/kdd`'s meta-reflection pass (3-stage EV-gated review: sonnet extraction → opus
+root-cause/EV critic → sonnet lean critic) surfaced two frictions from the P1135 `/ship` run, both
+ACCEPTed after the full pipeline.
+
+**Decision (1) — `ship.md`'s prod-migration ASK named the precondition, not the command that
+satisfies it.** `.claude/commands/slava/build/ship.md:66` said "pass `--yes` only after this ASK has
+shown the user the enumerated pending list" but never named the list-producing command. The agent
+paraphrased the spec's own framing ("apply the bucket migration") into the ASK instead, got approval,
+then ran `./scripts/migrate.sh --env prod` and found **8** pending migrations, not 1 — a second
+approval round-trip on a prod action. Verified: `migrate.sh --env prod` with no `--yes` genuinely
+lists-and-exits-1 without applying anything (prod gate 1); that exit 1 is the safe, expected outcome
+an agent can otherwise mistake for breakage. Fixed: `ship.md:66` now names the exact command and
+states the exit-1-with-list is expected, and to quote its actual output rather than the spec's framing.
+
+**Decision (2) — a branch with N merge commits produced N one-at-a-time `/ship` failures, not one
+upfront list.** `git-ops.sh:1408` (`ship_init_journal`) built the cherry-pick journal via
+`git log --reverse main..branch` with no `--no-merges` filter, so every merge commit entered the
+journal as its own `source_sha` and Phase 1 hit each as a separate cherry-pick failure — recovered
+each time via the documented `--mark-landed <sha> <sha^2>` escape hatch (2026-08-20 entry below,
+P1104 origin: 12 of 22 commits landed before that ship first stalled on this). P1135 hit it 3 times
+in one session (2 merges from `git merge main` run twice into the branch, mid-session, to fix a
+different bug — see the co-located-link-rebase entry immediately below this one). The existing
+mitigation was prose-only ("prefer rebase over merge") and had already failed to prevent a second
+same-day recurrence when it was written (2026-08-20, ~20 minutes after being logged) — an unenforced
+"prefer X" note doesn't stick, matching this repo's own epistemic-gate-7 finding. Fixed: `ship_init_journal`
+now runs `git rev-list --merges main..branch` before Phase 1 and prints every merge's exact
+`--mark-landed <sha> <sha^2>` recipe up front (warn-and-continue — Phase 1 still stops on the first
+merge exactly as before; the operator now has the full batch instead of discovering one at a time).
+Pinned as canary `AC` in `test-git-ops-ship.sh`, verified absent in the pre-fix committed source
+(`git show HEAD:scripts/git-ops.sh | grep -c merge_shas` → 0) before landing.
+
+**Alternatives rejected (item 2):** *Warn before the merge itself* — `git-ops.sh` has no subcommand
+or wrapper around a plain `git merge` (the agent runs it directly via bash), so there is no
+interception point inside the tool; a pre-merge hook is a different subsystem entirely and would fire
+on every merge repo-wide, not just feature-branch-into-ship. *Refuse-with-recipe* (block the ship
+entirely until every merge is pre-resolved) and *auto-converge* (record all merges as landed
+automatically once `^2`-ancestry is verified) were both considered and set aside in favor of the
+smaller, semantics-preserving warn-and-continue — ancestry verification alone doesn't establish the
+operator has reviewed what a given merge actually brought in, which auto-converge would skip past.
+
+**Consequences:** Neither fix changes what `/ship` or a prod migrate *does* — both are visibility
+fixes at points this repo's own history shows recur ("merging main into a feature branch is
+ordinary" — 2026-08-20 entry below; prod-migration scope surprises recur across the P1104→P1131→
+P1132→P1135 chain). Full pipeline output — extraction, opus critic (ROOT CAUSE / EV verdicts), lean
+critic (REJECT/DEFER/ACCEPT with cited justification) — kept in this session's transcript, not
+duplicated here.
+
+**References:** `.claude/commands/slava/build/ship.md:66` (now longer, see file) ·
+`scripts/git-ops.sh:1408-1436` (`ship_init_journal`) · `scripts/test-git-ops-ship.sh` canary `AC` ·
+decisions.md 2026-08-20 [process] (`--mark-landed`, P1104 origin) · decisions.md 2026-08-20 [process]
+("A decisions.md entry re-fired at ship time, not at design time" — same recurrence-despite-documentation
+shape) · `.claude/rules/epistemic.md` gate 7.
+
 ## 2026-08-21 [product]: Page ORDER decided whether three offers read as three offers or three sizes of one
 
 **Context:** P1087's offer page described the Clarity Champions program at length and then

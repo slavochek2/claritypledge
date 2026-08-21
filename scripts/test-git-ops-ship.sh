@@ -2443,6 +2443,49 @@ rm -rf "$AB_ROOT" "$AB_FN"
 pass "AB: re-base leaves a link untouched when its target already resolves from the new directory (co-located sibling that moved first, P1135/P1130)"
 
 # -----------------------------------------------------------------------------
+# AC. P1135 KDD (2026-08-21): a branch carrying a merge commit gets the FULL
+#     --mark-landed recipe printed up front, before Phase 1 ever cherry-picks
+#     (and fails on) the first one. Proves the pre-flight fires — this canary
+#     is run against the CURRENT code (already patched); its purpose is to pin
+#     the behavior going forward, not to demonstrate the old failure (that was
+#     verified by hand against the pre-fix function during development, per
+#     decisions.md 2026-08-21).
+# -----------------------------------------------------------------------------
+
+scratch_feature p168 1
+AC_MAIN_BEFORE="$( cd "$SCRATCH/main" && git rev-parse main )"
+( cd "$SCRATCH/main" && echo "advance" > main-advance.txt && git add main-advance.txt && \
+    git commit -qm "unrelated: advance main" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q feature/p168-demo && \
+    git merge -q --no-edit main && git checkout -q main ) >/dev/null
+AC_MERGE_SHA="$( cd "$SCRATCH/main" && git rev-parse feature/p168-demo )"
+AC_PARENT2="$( cd "$SCRATCH/main" && git rev-parse "feature/p168-demo^2" )"
+
+AC_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p168 2>&1)" || true
+if ! echo "$AC_OUT" | grep -qF "ship: branch 'feature/p168-demo' contains 1 merge commit(s)."; then
+  echo "$AC_OUT" >&2
+  fail "AC: pre-flight merge count was not printed before Phase 1 ran"
+fi
+if ! echo "$AC_OUT" | grep -qF "./scripts/git-ops.sh ship p168 --mark-landed $AC_MERGE_SHA $AC_PARENT2"; then
+  echo "$AC_OUT" >&2
+  fail "AC: pre-flight did not print the exact --mark-landed recipe for the merge commit"
+fi
+# The pre-flight must print BEFORE Phase 1's cherry-pick failure, not after —
+# an operator reading top-to-bottom needs the batch view first.
+AC_PREFLIGHT_LINE="$(echo "$AC_OUT" | grep -n "contains 1 merge commit" | head -1 | cut -d: -f1)"
+AC_FAILURE_LINE="$(echo "$AC_OUT" | grep -n "is a merge but no -m option" | head -1 | cut -d: -f1)"
+if [[ -z "$AC_PREFLIGHT_LINE" || -z "$AC_FAILURE_LINE" || "$AC_PREFLIGHT_LINE" -ge "$AC_FAILURE_LINE" ]]; then
+  echo "$AC_OUT" >&2
+  fail "AC: pre-flight warning did not appear before the cherry-pick failure it warns about"
+fi
+scratch_reset p168
+# Reset to the exact pre-test SHA — Phase 1 landed the branch's one real commit
+# onto main before failing on the merge, so HEAD is 2 commits ahead here, not 1.
+( cd "$SCRATCH/main" && git reset -q --hard "$AC_MAIN_BEFORE" ) >/dev/null
+rm -f "$SCRATCH/main/main-advance.txt" "$SCRATCH/main/p168-c1.txt"
+pass "AC: a branch with a merge commit gets the full --mark-landed recipe printed before Phase 1 fails on it (P1135 KDD)"
+
+# -----------------------------------------------------------------------------
 # UU. Phase 2b must not strand Phase 3 (the "shipped but worktree survived" bug).
 #     Phase 3 (branch + worktree cleanup) runs LAST, so any abort after Phase 1
 #     landed the commits leaves a live branch + worktree while main already looks
@@ -2958,4 +3001,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, UU, VV, WW, XX, YY, ZZ, R2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, AC, UU, VV, WW, XX, YY, ZZ, R2) hold"
