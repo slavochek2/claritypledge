@@ -5,9 +5,9 @@ rank: 5
 workstream: events
 created_date: '2026-08-20'
 tags: [agents, storage, migrations, skills]
-delivery_stage: dev
+delivery_stage: ship
 pipeline_plan: [create-spec, dev, ship]
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec, dev, ship]
 pipeline_skipped: [challenge-prd -- premise verified by command not assumed, architect -- bucket pattern on disk twice and both read, generate-tests -- deliverable is one migration plus three skill files, decompose -- five files three of them same-shape markdown, verify -- provision-agent Step 7 already ends in a look-at-it]
 driver: heuristic
 feature_type: backend
