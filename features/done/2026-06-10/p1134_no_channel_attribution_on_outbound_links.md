@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 54
 workstream: analytics
 created_date: '2026-08-20'
 tags: [analytics, mixpanel, attribution, utm]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, verify, ship]
 driver: anomaly
+completed_at: 2026-08-21
 ---
 
 # P1134: No channel attribution on outbound links
