@@ -1,5 +1,8 @@
 -- P37.2a: Recording Consent Mechanism
 -- Provides: terms_acceptances, session_consents tables + profiles column
+-- client-safe: version-recorded and already applied on both live databases;
+-- the guards below only execute on a from-empty build and are never re-run
+-- against a live DB (P1132 Appetite/Risks).
 
 -- ============================================================================
 -- 1. Add accepted_terms_version to profiles (for quick lookup)
@@ -35,11 +38,13 @@ CREATE INDEX IF NOT EXISTS idx_terms_acceptances_user_id ON terms_acceptances(us
 ALTER TABLE terms_acceptances ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users can insert (includes anonymous auth users)
+DROP POLICY IF EXISTS "Authenticated users can record acceptance" ON terms_acceptances;
 CREATE POLICY "Authenticated users can record acceptance"
   ON terms_acceptances FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Users can view their own (authenticated users)
+DROP POLICY IF EXISTS "Users can view own acceptances" ON terms_acceptances;
 CREATE POLICY "Users can view own acceptances"
   ON terms_acceptances FOR SELECT
   USING (auth.uid() = user_id);
@@ -73,11 +78,13 @@ CREATE INDEX IF NOT EXISTS idx_session_consents_user_id ON session_consents(user
 ALTER TABLE session_consents ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users can insert (includes anonymous auth users)
+DROP POLICY IF EXISTS "Authenticated users can record consent" ON session_consents;
 CREATE POLICY "Authenticated users can record consent"
   ON session_consents FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Users can view their own
+DROP POLICY IF EXISTS "Users can view own consents" ON session_consents;
 CREATE POLICY "Users can view own consents"
   ON session_consents FOR SELECT
   USING (auth.uid() = user_id);

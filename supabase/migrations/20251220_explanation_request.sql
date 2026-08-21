@@ -4,10 +4,11 @@
 
 -- Add column to track when explanation was requested
 ALTER TABLE public.clarity_chat_messages
-ADD COLUMN explanation_requested_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ADD COLUMN IF NOT EXISTS explanation_requested_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
 -- Create trigger to clear request when verification is created
 -- This ensures the request is "answered" when someone explains back
+-- diffed against: 20250101_initial_schema.sql — logic unchanged, comment-only diff
 CREATE OR REPLACE FUNCTION clear_explanation_request()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -20,6 +21,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS on_verification_created ON public.clarity_verifications;
 CREATE TRIGGER on_verification_created
   AFTER INSERT ON public.clarity_verifications
   FOR EACH ROW
