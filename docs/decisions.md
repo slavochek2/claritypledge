@@ -4,6 +4,87 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-21 [product]: Page ORDER decided whether three offers read as three offers or three sizes of one
+
+**Context:** P1087's offer page described the Clarity Champions program at length and then
+produced a three-card grid. Every UAT round hit the same complaint from a different angle —
+the cards "look too similar," the checkmarks "look the same." The first fix was prose: a
+subhead explaining that the other two cards were different offers, not tiers. The founder
+rejected it — *"it's weird to write so much text... let's kill it. Really? That's not really
+needed, is it?"* — and separately asked to reverse the page. Reversing removed the need for
+the subhead entirely: once the grid opens the page, three cards are simply three offers,
+because nothing has been described yet for them to be three sizes OF.
+
+**Decision:** Fix comparison-frame defects with sequence and content, never with prose that
+explains the frame. Concretely: lead with the choice, follow with detail on the one most
+people take. And sell each rung on **who has the problem**, not on what it contains — the
+three offers overlapped almost totally on features (all practise the same nine situations)
+and barely at all on buyer, so a feature list was guaranteed to make them look alike.
+
+**Alternatives rejected:** The explanatory subhead (shipped for one round, then cut — it
+answered a confusion the page's own order was creating). Differentiating by feature list,
+which is the axis on which these offers genuinely overlap.
+
+**Consequences:** A subhead that exists to explain why a page's elements are arranged as
+they are is a signal the arrangement is wrong. When cards on one page look interchangeable,
+check the order and the differentiating axis before writing copy about the difference.
+
+**References:** [features/done/2026-06-10/p1087](../features/done/2026-06-10/p1087_program_page_offer_ladder_rebuild.md) § Shipped shape
+
+## 2026-08-21 [product]: A talk-to-us gate belongs only in front of work that cannot be priced without the conversation
+
+**Context:** Two of P1087's three rungs routed to a 15-minute call. The founder cut the call
+from the €1,450 Partnership package: *"so it doesn't go through the 15 minutes. The 15
+minutes only for the custom ones, because this is another thing that we are kind of selling,
+right?"* A live Stripe product was created during UAT and the card now checks out directly.
+
+**Decision:** The call is the gate for work that must be **scoped** before it can be priced.
+A fixed price with a fixed deliverable already answers what the call would have established,
+so putting a call in front of it is friction the seller charges themselves. The unpriced
+Coaching/Training/Consulting rung keeps the call for exactly the reason the package loses it.
+
+**Alternatives rejected:** Uniform CTAs across all rungs (the prior state — it read as
+consistency but priced nothing). Keeping the call as a qualification step for a €1,450
+purchase, on the theory that larger sums warrant human contact — the sum is not what makes
+scoping necessary; unknown scope is.
+
+**Consequences:** Ask of any "book a call" CTA: what does this conversation determine that
+the page has not already fixed? If the answer is nothing, it is a checkout with extra steps.
+A regression test now asserts exactly one talk-first CTA on the page, so a fixed-price offer
+cannot silently regain a call gate.
+
+**References:** [features/done/2026-06-10/p1087](../features/done/2026-06-10/p1087_program_page_offer_ladder_rebuild.md) § Shipped shape · `e2e/p951-pricing-routing.spec.ts`
+
+## 2026-08-21 [technical]: A nav CTA is either a competing OFFER or product navigation — one suppression flag cannot serve both
+
+**Context:** P1087 hid the nav's "Book a free alignment audit" on the pricing page, so a free
+call would not undercut the €295/month buy button (the same reasoning P844 applied to event
+detail pages). The implementation used one `hidePrimaryCta` flag, which gated seven call
+sites — five of them the logged-**in** "Start a Clarity Session" button. The bottom nav has
+no `/live` entry, so a signed-in user on `/pricing` had no route to the core product from
+anywhere in the chrome. Found by an adversarial reviewer, not by the suite: no test in the
+repo touched this component's changed paths, so the whole suite stayed green because nothing
+exercised the code — not because the behaviour was verified (epistemic.md gate 7b).
+
+**Decision:** Two flags with different predicates. `hideMarketingCta` (a rival offer —
+suppressed on pricing AND event detail) and `hideSessionCta` (product navigation —
+suppressed on event detail only, preserving P844). Both are covered by
+`src/tests/p1087-nav-groups.test.tsx`, whose key assertion was verified by reintroducing the
+regression and watching it go red.
+
+**Alternatives rejected:** Keeping one flag and accepting the logged-in suppression as
+intended — a defensible reading of "hide the top CTA," but it removes a navigation
+affordance rather than a competing offer, and nothing replaces it.
+
+**Consequences:** Before reusing an existing visibility flag, name what the flag *means*, not
+where it currently fires. `isEventDetailPage` meant "something else is the primary action
+here"; extending it to pricing silently reclassified a navigation control as an offer. When a
+refactor touches a site-wide shared component, assume zero coverage until a grep proves
+otherwise — a green suite says nothing about code no test imports.
+
+**References:** `src/app/components/layout/simple-navigation.tsx` · `src/tests/p1087-nav-groups.test.tsx` · [epistemic.md](../.claude/rules/epistemic.md) gate 7b · this log P844
+
+
 ## 2026-08-21 [technical]: `ship`'s co-located-spec link rebase trusts a target's OLD location once that target has already moved in the same ship
 
 **Context:** P1135's ship auto-closed its co-located sibling P1130 (edited on the same branch, per
