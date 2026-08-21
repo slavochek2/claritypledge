@@ -400,25 +400,104 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     expect((await readRoomMember(member.id))?.readiness_value, 'readiness must be unchanged after the wrong-owner and out-of-range attempts').toBe(7);
   });
 
+  test('the readiness distribution is readable only by someone actually in that room', async () => {
+    // Before 20260821180000, EXECUTE was granted to `authenticated` with no check on who
+    // was asking — any signed-in account anywhere could read any event's distribution from
+    // an event id alone. "Event-scoped" has to mean scoped to the people in the event.
+    const scopedEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(scopedEvent.id);
+    const inRoom = await seedRoomMember(scopedEvent.id, { profileId: joiner.user.id, readinessValue: 6 });
+    const someoneElse = await seedRoomMember(scopedEvent.id, { readinessValue: 9 });
+    memberIds.push(inRoom.id, someoneElse.id);
+
+    // POSITIVE CONTROL FIRST: a member does get values. Without this the negative below
+    // would pass just as well against a function that returns empty for everyone.
+    const memberClient = await signInAs(joiner);
+    const asMember = await memberClient.rpc('get_room_readiness_distribution', { p_event_id: scopedEvent.id });
+    expect(asMember.error, `member read errored: ${asMember.error?.message}`).toBeNull();
+    expect(
+      asMember.data,
+      'a member of the room cannot read the distribution — the membership guard is too tight.',
+    ).toContain(9);
+
+    // The actual assertion: a signed-in account with no row in THIS room gets nothing.
+    const outsiderClient = await signInAs(outsider);
+    const asOutsider = await outsiderClient.rpc('get_room_readiness_distribution', { p_event_id: scopedEvent.id });
+    expect(asOutsider.error, `outsider read errored unexpectedly: ${asOutsider.error?.message}`).toBeNull();
+    expect(
+      asOutsider.data,
+      'a signed-in account that was never in this room read its readiness distribution. ' +
+        'EXECUTE is granted to all authenticated users, so the membership guard inside ' +
+        'get_room_readiness_distribution is the only thing scoping this to the room.',
+    ).toEqual([]);
+  });
+
   test("room readiness has no expiry — a value set long ago is still visible on the roster read, unlike ready_submissions' 10-minute window", async () => {
+    // ISOLATED event, same reason as the answer-history test above — and specifically
+    // because this test must seed a row for `outsider` itself (the distribution RPC only
+    // answers room members since 20260821180000). Seeding that onto the SHARED
+    // upcomingEvent collided with a row another test in this file already created for the
+    // same profile, against the partial unique index on (event_id, profile_id) — it showed
+    // up as a flake, green on retry only because retries re-run beforeAll with fresh users.
+    const expiryEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(expiryEvent.id);
+
     // A room member joined 20 minutes ago with readiness already set — well past
     // ready_submissions' 10-minute RLS cutoff (20260816120000_p1083_ready_submissions.sql).
-    const member = await seedRoomMember(upcomingEvent.id, {
+    const member = await seedRoomMember(expiryEvent.id, {
       optedIn: true, // opted-in isn't required for visibility any more (2026-08-21) — kept true here just to exercise a realistic answered row
       readinessValue: 4,
       joinedAt: new Date(Date.now() - 20 * 60_000).toISOString(),
     });
     memberIds.push(member.id);
 
-    const anon = makeAnonClient();
-    const { data, error } = await anon.from('event_room_members').select('id, readiness_value').eq('id', member.id);
-    expect(error, `roster read errored: ${error?.message}`).toBeNull();
+    // Read through the distribution RPC, not a column select. readiness_value left the
+    // anon/authenticated column grant on 2026-08-21 (20260821170000) because the room's
+    // readiness is an ANONYMOUS distribution while the row it sits on is public by name —
+    // the RPC is now the only path to it. What this test asserts is unchanged: no expiry.
+    //
+    // The caller must itself be in the room (20260821180000), so `outsider` is given a row
+    // here rather than reading someone else's room from outside it.
+    const callerRow = await seedRoomMember(expiryEvent.id, { profileId: outsider.user.id });
+    memberIds.push(callerRow.id);
+    const outsiderClient = await signInAs(outsider);
+    const { data, error } = await outsiderClient.rpc('get_room_readiness_distribution', {
+      p_event_id: expiryEvent.id,
+    });
+    expect(error, `distribution read errored: ${error?.message}`).toBeNull();
     expect(
-      data?.[0]?.readiness_value,
+      data,
       'a room readiness value must remain visible past 10 minutes — the room has no expiry ' +
         '(spec §7: "no expiry ... a room is bounded and has an evening"), unlike the general ' +
         '/ready page.',
-    ).toBe(4);
+    ).toContain(4);
+
+    // The anonymity contract itself: the same value must NOT be reachable with its owner
+    // attached. A distribution that is anonymous only because no UI draws the join is not
+    // anonymous — see the migration header.
+    const anon = makeAnonClient();
+    const leak = await anon
+      .from('event_room_members')
+      .select('id, display_name, readiness_value')
+      .eq('id', member.id);
+    expect(
+      leak.error?.code,
+      'readiness_value is still selectable alongside display_name. The room roster is public ' +
+        'BY NAME on purpose, so leaving readiness in the column grant hands every client the ' +
+        'name-to-readiness join that 20260821170000 exists to prevent.',
+    ).toBe('42501');
+
+    // CONTROL: the same anon client must still read the columns that ARE public, or the
+    // 42501 above proves nothing about readiness specifically.
+    const stillPublic = await anon
+      .from('event_room_members')
+      .select('id, display_name, comprehension_rating')
+      .eq('id', member.id);
+    expect(
+      stillPublic.error,
+      'the anon client cannot read the public roster columns either, so the readiness ' +
+        'permission-denied above is not evidence about readiness — the probe is blind.',
+    ).toBeNull();
   });
 
   test('set_room_readiness never writes to ready_submissions — the two readiness stores are fully separate (Non-Goal)', async () => {

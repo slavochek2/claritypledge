@@ -32,6 +32,19 @@ export interface PersonRowProps {
    * pre-existing caller. P1114's room Present mode is the first "lg" consumer.
    */
   size?: "sm" | "lg";
+  /**
+   * Optional content pinned to the row's right edge, INSIDE the card. Additive and
+   * optional — every pre-existing caller renders identically without it.
+   *
+   * P1114's room roster is the first consumer: it shows what each person answered
+   * ("understood at 6/10"). Rendering that as a sibling NEXT TO PersonRow instead left it
+   * floating outside the card's own border, which reads as a stray label rather than as
+   * part of the row (founder screenshot, 2026-08-21 — the annotation pointed at the empty
+   * space INSIDE the card).
+   *
+   * Sits in the same slot as `action`, so pass one or the other, not both.
+   */
+  trailing?: React.ReactNode;
 }
 
 export function PersonRow({
@@ -47,6 +60,7 @@ export function PersonRow({
   // true so every pre-existing caller keeps its current behaviour unchanged.
   linkToProfile = true,
   size = "sm",
+  trailing,
 }: PersonRowProps) {
   const wrapLink = (children: React.ReactNode) =>
     linkToProfile ? <Link to={`/p/${slug}`}>{children}</Link> : <>{children}</>;
@@ -74,6 +88,7 @@ export function PersonRow({
         )}
         <EarBadge count={earCount} name={name} size={size === "lg" ? 16 : 12} className="flex-shrink-0" />
       </div>
+      {trailing}
       {action === "going" && (
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">
           <CheckCircle2 className="w-3 h-3" />

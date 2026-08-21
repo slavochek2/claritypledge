@@ -63,7 +63,11 @@ type Answer = "in" | "out" | null;
 
 const PRINCIPLE_TITLE = "Clarity Meeting Principle";
 
-const UNDERSTANDING_QUESTION =
+// Exported: the room's /meet asks the identical question from the identical component
+// (founder, 2026-08-21: "lets reuse same component, content and behaviour please for event
+// room!"). Exported rather than copied so the two surfaces cannot drift — a second literal
+// is the failure this repo's Reference-Over-Duplication rule names.
+export const UNDERSTANDING_QUESTION =
   "How much do you think you understand your conversation partner's intended meaning behind this principle?";
 
 /**
@@ -118,7 +122,11 @@ export const BAR_FADE_CLASS =
  * container owns it. `FixedBottomBar` ships `p-4`, so the rating bar cancels the horizontal
  * half with `px-0`.
  */
-const BAR_INNER_CLASS = "mx-auto w-full max-w-2xl px-4";
+// Exported (value UNCHANGED — read the paragraph above before touching it): the room's
+// /meet has the identical fixed-bar-over-certificate shape and had drifted 16px out of
+// alignment by rolling its own bare `w-full max-w-2xl`, which does not cancel
+// FixedBottomBar's `p-4`. Consumers must still pair it with `px-0` on the bar itself.
+export const BAR_INNER_CLASS = "mx-auto w-full max-w-2xl px-4";
 
 /**
  * Below this many pixels of remaining scroll, the cue has nothing useful left to point at.

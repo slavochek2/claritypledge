@@ -60,10 +60,14 @@ test.describe('P1114 rev2: the registration gate', () => {
     // required to show. Scoped to an actual heading instead, which is what the real
     // principle page renders and the gate must not.
     await expect(page.getByTestId('room-roster')).toHaveCount(0);
-    // REVISED 2026-08-21: the roster now groups into three named sections (Opted in /
-    // Opted out / Undecided) rather than one "Who opted in" heading — check the group
-    // testid rather than a heading string that no longer exists anywhere in the app.
-    await expect(page.getByTestId('room-roster-undecided')).toHaveCount(0);
+    // REVISED 2026-08-21: the roster now groups into named sections rather than carrying
+    // one "Who opted in" heading, so the old heading-string check has nothing to match.
+    // Asserted on the PERSON rows rather than on a group testid: as of round 2 the groups
+    // hide themselves when empty, so "no undecided group" became true for legitimately
+    // granted visitors too and would no longer distinguish a leak from an empty section.
+    // A named person appearing is the leak; `room-roster-item` is exactly that, at any
+    // answer state.
+    await expect(page.getByTestId('room-roster-item')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Clarity Meeting Principle' })).toHaveCount(0);
     await expect(page.getByRole('slider')).toHaveCount(0);
   });

@@ -103,22 +103,66 @@ describe('P1114 rev2: the principle page mirrors the shipped /meet', () => {
     expect(optIns, `EventRoomMeet.tsx renders "Opt in" ${optIns} times. It belongs once, in the fixed bar. A rejected build rendered a loose copy at the end of the scroll, duplicating a control the shipped page already carries.`).toBeLessThanOrEqual(1);
   });
 
-  it('gates opt-in/opt-out behind a comprehension rating, but not via the full pre-built card, and has no Start meeting button', () => {
+  it('asks the comprehension rating through the shared card, with the shared question, and has no Start meeting button', () => {
     const s = read(ROOM_MEET);
-    // REVISED 2026-08-21 (decisions.md): the room build originally cut the
-    // understanding-number step entirely (spec revision 2 — two-person phone-handoff
-    // reasoning). The founder reinstated it for a facilitated room, gating BOTH opt-in
-    // and opt-out on a rating first — but via the bare RatingButtons primitive, not the
-    // full ComprehensionRatingCard (that card ships its own single generic Submit
-    // button; this page needs two — Opt in / Opt out — sharing one rating value).
-    expect(/RatingButtons/.test(s), 'EventRoomMeet.tsx does not use RatingButtons. The comprehension rating (required before answering, 2026-08-21) must reuse the shared 0-10 primitive, not a bespoke control.').toBe(true);
-    expect(/from\s*['"]@\/app\/components\/shared\/comprehension-rating-card['"]/.test(s), 'EventRoomMeet.tsx imports the full ComprehensionRatingCard. That card renders its own single Submit button; this page needs the rating to gate TWO buttons (Opt in / Opt out) sharing one selected value, so it composes RatingButtons directly instead. (A doc-comment mention of the name, explaining why it is NOT used, is fine — only an actual import should fail this check.)').toBe(false);
+    // REVISED TWICE, both on 2026-08-21 — read both halves before changing this.
+    //
+    // (1) The room build originally cut the understanding-number step entirely (spec
+    //     revision 2 — two-person phone-handoff reasoning). The founder reinstated it,
+    //     required before BOTH opt-in and opt-out.
+    // (2) That reinstatement first composed the bare RatingButtons primitive, so one
+    //     rating could gate two buttons; this very assertion used to REQUIRE that and
+    //     to FORBID the card import. The founder then annotated the result "ugly!" and
+    //     annotated the shipped page's card "lets reuse same component, content and
+    //     behaviour please for event room!" — so the room now runs /meet's own three
+    //     steps and the card is mandatory rather than forbidden. The rating still gates
+    //     both answers; it is asked after the answer instead of before it.
+    expect(
+      /from\s*['"]@\/app\/components\/shared\/comprehension-rating-card['"]/.test(s),
+      'EventRoomMeet.tsx does not import ComprehensionRatingCard. The founder asked for the shipped /meet\'s own rating card, content and behaviour — a bespoke rating control in the room is the shape that got annotated "ugly!".',
+    ).toBe(true);
+    expect(
+      /UNDERSTANDING_QUESTION/.test(s),
+      'EventRoomMeet.tsx does not use the shared UNDERSTANDING_QUESTION from meeting-terms-page. "Same content" means the same sentence, imported — a second literal is how the two surfaces drift apart.',
+    ).toBe(true);
+    // Anchored to the CARD's own JSX element, not a bare /disabled={submitting}/ — that
+    // bare form matches five places in this file (two comments and three other controls),
+    // so deleting the prop from the card would leave the test green while the defect it
+    // names is live (adversarial code review, 2026-08-21).
+    expect(
+      /<ComprehensionRatingCard[\s\S]*?disabled=\{submitting\}[\s\S]*?\/>/.test(s),
+      'The ComprehensionRatingCard in EventRoomMeet.tsx is not disabled while submitting. Its own Submit guards only on "no rating picked", and this page awaits a round trip — every call INSERTs a cascade-counted row into event_room_answers, so a double tap writes two history rows into the table the research question reads.',
+    ).toBe(true);
+    // The synchronous latch is the real guard (the disabled prop only styles, and React
+    // state cannot close a same-frame double tap) — proven by e2e, asserted here so it
+    // cannot be quietly dropped.
+    expect(
+      /inFlight\.current/.test(s),
+      'EventRoomMeet.tsx no longer holds a synchronous in-flight latch. `submitting` is React state and cannot prevent two taps dispatched in the same frame from both passing the guard — measured: three taps wrote three answer-history rows.',
+    ).toBe(true);
     expect(/Start meeting/.test(s), 'EventRoomMeet.tsx carries "Start meeting". That exists for one situation — two people, one phone, a host standing there to ask the follow-up out loud. In a room of forty nobody asks, and there is no phone to hand back. This remains the one deliberate divergence from /meet.').toBe(false);
   });
 
-  it('"change my choice" resets both the answer and the rating, not just one', () => {
+  it('"change your choice" resets both the answer and the rating, not just one', () => {
     const s = read(ROOM_MEET);
-    expect(/resetRoomAnswer/.test(s), 'EventRoomMeet.tsx does not call resetRoomAnswer. "Change my choice" must clear BOTH the opt-in/out answer and the comprehension rating back to undecided (founder: "they go back to Undecided") — overwriting just one with a new answer is a different, rejected shape.').toBe(true);
+    expect(/resetRoomAnswer/.test(s), 'EventRoomMeet.tsx does not call resetRoomAnswer. "Change your choice" must clear BOTH the opt-in/out answer and the comprehension rating back to undecided (founder: "they go back to Undecided") — overwriting just one with a new answer is a different, rejected shape.').toBe(true);
+  });
+
+  it('keeps the roster readable when it is empty, rather than rendering nothing', () => {
+    const s = read(ROOM_MEET);
+    // Every group hides itself at zero (founder: "hide groups that have 0, no need to
+    // count totals"). That makes a top-level fallback load-bearing rather than decorative:
+    // getRoomRoster returns [] on ANY failure and the 30s reconciliation poll pushes that
+    // [] through unconditionally, so without this the whole section renders as blank space
+    // on a transient fetch failure — the "empty wall" the spec's Risks forbid.
+    expect(
+      /roster\.length === 0/.test(s),
+      'EventRoomMeet.tsx has no top-level empty-roster branch. With every group hiding itself when empty, a failed poll would render the roster section as nothing at all.',
+    ).toBe(true);
+    expect(
+      /\(\{members\.length\}\)|\{members\.length\}\)/.test(s),
+      'EventRoomMeet.tsx still renders a "(N)" count in a roster group heading. The founder removed the counts ("no need to count totals, not needed").',
+    ).toBe(false);
   });
 });
 

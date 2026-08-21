@@ -165,6 +165,30 @@ test.describe('P1114: event_room_members realtime delivers every row, client_sec
           `This is unrelated to the 2026-08-21 row-visibility reversal and must never happen — ` +
           `see the column-level REVOKE/GRANT in both migrations.`,
       ).toBe(true);
+
+      // POSITIVE CONTROL for the two absence assertions around it. Both of those pass
+      // trivially if payloads carry no row columns at all (a broken channel, a changed
+      // payload shape, a subscriber filtered to nothing) — this proves the payload really
+      // does carry this row's columns, so "readiness_value is not among them" is a fact
+      // about the grant rather than about an empty object.
+      expect(
+        received.some((p) => 'display_name' in p),
+        'no payload carried display_name, so the client_secret/readiness_value absence ' +
+          'assertions in this test prove nothing. Fix the subscription before trusting them.',
+      ).toBe(true);
+
+      // readiness_value joined client_secret outside the column grant on 2026-08-21
+      // (20260821170000_p1114_room_readiness_distribution.sql): the room's readiness is an
+      // ANONYMOUS distribution, while the row it lives on is public BY NAME. A payload
+      // carrying both display_name and readiness_value would hand every subscriber exactly
+      // the name-to-readiness join that migration exists to prevent — the direct SELECT
+      // path being closed is worth nothing if the realtime path stays open.
+      expect(
+        received.every((p) => !('readiness_value' in p)),
+        `COLUMN-LEVEL REALTIME LEAK: readiness_value appeared in a payload for member ${optedOut.id}, ` +
+          `alongside display_name. Readiness is anonymous by contract (founder, 2026-08-21) and this ` +
+          `payload de-anonymises it. See the REVOKE/GRANT in 20260821170000.`,
+      ).toBe(true);
     } finally {
       if (channel) await anon.removeChannel(channel);
       await anon.removeAllChannels();

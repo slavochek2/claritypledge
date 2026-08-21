@@ -1,9 +1,10 @@
 /**
  * @file event-room-service.ts
- * @description P1114: typed wrappers for the event room's four SECURITY DEFINER RPCs
+ * @description P1114: typed wrappers for the event room's SECURITY DEFINER RPCs
  * (join_event_room, set_room_opt_in, set_room_readiness, get_my_room_status —
- * supabase/migrations/20260819170000_p1114_event_room_rpcs.sql) plus the public roster
- * read and its realtime + reconciliation-poll subscription (Architecture Decision 3).
+ * supabase/migrations/20260819170000_p1114_event_room_rpcs.sql; reset_room_answer and
+ * get_room_readiness_distribution were added by the two 2026-08-21 follow-ups) plus the
+ * public roster read and its realtime + reconciliation-poll subscription (Decision 3).
  *
  * REVISED 2026-08-20 (spec Solution, "REVISED (2)" block): the founder retired the
  * walk-in. Every caller here is registered + signed in, so identity is the signed-in
@@ -32,7 +33,12 @@ interface DbRoomMemberRow {
   profile_id: string | null;
   display_name: string;
   opted_in: boolean | null;
-  readiness_value: number | null;
+  /** Optional because the two shapes mapMember handles differ (2026-08-21): the four
+   * SECURITY DEFINER RPCs return the whole row including this, but `getRoomRoster`'s
+   * public select no longer requests it — anon/authenticated lost the column grant when
+   * readiness became an anonymous distribution (migration 20260821170000). Absent here
+   * means "this shape doesn't carry it", never "the member has no readiness". */
+  readiness_value?: number | null;
   comprehension_rating: number | null;
   joined_at: string;
   // Only present on getRoomRoster's join (see below) — the four RPCs never join profiles.
@@ -52,7 +58,7 @@ function mapMember(row: DbRoomMemberRow): EventRoomMember {
     profileId: row.profile_id,
     displayName: row.display_name,
     optedIn: row.opted_in,
-    readinessValue: row.readiness_value,
+    readinessValue: row.readiness_value ?? null,
     comprehensionRating: row.comprehension_rating,
     joinedAt: row.joined_at,
     profileSlug: row.profile?.slug ?? null,
@@ -137,6 +143,32 @@ export async function getMyRoomStatus(eventId: string): Promise<EventRoomSelf | 
   return mapMember(data[0] as DbRoomMemberRow);
 }
 
+/** Everyone else's readiness values for one event, as bare numbers — feeds SliderTrack's
+ * `others` marks on the room's /ready, the same way `getReadyDistribution()` feeds the
+ * general /ready (P1083). Founder, 2026-08-21: "i want the same functionality in the event
+ * rooms!", event-scoped and ANONYMOUS.
+ *
+ * Goes through an RPC rather than selecting the column, because anonymous is a real
+ * contract here and not a UI convention: the roster row is public BY NAME on purpose, so
+ * leaving readiness_value in the column grant would let any client in the room join a
+ * readiness number to a person even with no UI drawing it. The server returns values with
+ * no identifiers, in random order, minus the caller's own. See migration
+ * 20260821170000_p1114_room_readiness_distribution.sql.
+ *
+ * Empty on any failure — same silent degrade as the general /ready: a missing distribution
+ * costs a decoration, and must never block someone answering. */
+export async function getRoomReadinessDistribution(eventId: string): Promise<number[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_room_readiness_distribution', {
+      p_event_id: eventId,
+    });
+    if (error || !Array.isArray(data)) return [];
+    return (data as number[]).filter((value) => typeof value === 'number');
+  } catch {
+    return [];
+  }
+}
+
 /** Public roster — every room member, any answer state (Decision 2, REVISED 2026-08-21:
  * the RLS policy used to filter this to opted_in = true rows only; it no longer filters at
  * all, so callers must group/label by `optedIn` themselves — see EventRoomMeet.tsx).
@@ -150,7 +182,7 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
   const { data, error } = await supabase
     .from('event_room_members')
     .select(`
-      id, event_id, profile_id, display_name, opted_in, readiness_value, comprehension_rating, joined_at,
+      id, event_id, profile_id, display_name, opted_in, comprehension_rating, joined_at,
       profile:profiles!event_room_members_profile_id_fkey (
         slug,
         avatar_color,
