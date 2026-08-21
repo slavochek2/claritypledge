@@ -154,22 +154,46 @@ value.
 ## Done-When
 
 - [ ] Every key in every **reachable** consumer surface is classified in a registry, or listed as
-      an accepted exclusion with a reason
+      an accepted exclusion with a reason — **remaining:** schema landed on both real registries
+      (`tier`/`consumers`/`interval`/`last_rotated`/`status`/`location`), ~20 existing rows carry a
+      `candidate` tier proposal pending founder confirm, but real `--audit` run
+      (`COVERAGE:10/84`) still shows ~70+ live keys as `CONSUMER_ONLY` with zero registry entry —
+      the founder-paced classification pass itself has not happened
 - [ ] Every surface the agent's credential **cannot** enumerate is named in the audit's output as
-      not-enumerated, and excluded from any coverage percentage
-- [ ] Each `never-rotate` row states what breaks, and whether that is data loss or inconvenience
-- [ ] Every newly classified key has been screened for the `never-rotate` property
-- [ ] The audit reports each of the 3 drift instances that exist today: the credentials with no
-      env entry, the registry-vs-registry disagreement, and a stale consumer list
-- [ ] Running the audit against a deliberately unregistered key with a **malformed, non-`KEY=VALUE`
+      not-enumerated, and excluded from any coverage percentage — mechanism verified (test case F
+      + one real example wired into `/weekly`: GitHub Actions secrets store), but the example is
+      not itself confirmed live (never actually hit the 403) and no exhaustive pass over every
+      real unreachable surface has run
+- [ ] Each `never-rotate` row states what breaks, and whether that is data loss or inconvenience —
+      the one row classified `candidate never-rotate` so far (`IP_HASH_SECRET`) does; not yet true
+      of the ~70+ still-unclassified keys
+- [ ] Every newly classified key has been screened for the `never-rotate` property — true of the
+      ~20 rows this session touched, not yet true of the unclassified majority
+- [x] The audit reports each of the 3 drift instances that exist today: the credentials with no
+      env entry, the registry-vs-registry disagreement, and a stale consumer list — verified
+      against **real, current data**, not just synthetic fixtures: `REGISTRY_ONLY` found
+      `GCS_SERVICE_ACCOUNT_KEY` with zero env entry anywhere (matches the Problem section's
+      "service-account key with no local copy" instance exactly) and `CONSUMER_LIST_STALE` found
+      `TALLY_FORM_ID:documented=1:live=2` (matches "documented with one consumer and has two"
+      exactly). **Known gap:** a key registered in both registries picks the first `--registry`
+      flag's row for its consumer count rather than merging both — `MAILGUN_API_KEY`'s
+      accounts.md row (blank Consumers) shadows edge-function-secrets.md's real 5-consumer list,
+      so the spec's "documented with five and has six" instance isn't independently reproduced.
+      Flagged as follow-up, not fixed this session.
+- [x] Running the audit against a deliberately unregistered key with a **malformed, non-`KEY=VALUE`
       name** reports it as a finding (failure path exercised per epistemic gate 7 — a well-formed
-      fixture certifies a parser proven blind to 8 real lines)
-- [ ] Every non-blank non-comment line in every env file produces either a classified key or an
-      explicit unparseable-line finding — zero silently dropped
-- [ ] Running the audit against a registry row with no live consumer reports a retirement candidate
-- [ ] No secret value appears in the audit output, either registry, the terminal, or any commit
-- [ ] The audit runs as a `/weekly` sub-step
-- [ ] The registry contains no inline plaintext secret value
+      fixture certifies a parser proven blind to 8 real lines) — test case A; also reproduced
+      against real `.env.local` (10 UNPARSEABLE lines found, close to the spec's own "8 of 84")
+- [x] Every non-blank non-comment line in every env file produces either a classified key or an
+      explicit unparseable-line finding — zero silently dropped — test + real-data verified
+- [x] Running the audit against a registry row with no live consumer reports a retirement candidate
+      — test case E; also reproduced on real data (`GHOST_ADMIN_API_KEY`, `UNSPLASH_SECRET_KEY`)
+- [x] No secret value appears in the audit output, either registry, the terminal, or any commit —
+      test-verified (independent fingerprint oracle) + real-run verified (zero raw values in
+      output; no plaintext exists in either real registry today, confirmed by entropy grep)
+- [x] The audit runs as a `/weekly` sub-step — wired as step 2.10.2, committed to `main`
+- [x] The registry contains no inline plaintext secret value — confirmed via real-audit run
+      (no `PLAINTEXT_IN_REGISTRY` finding) and a manual entropy grep of both files
 
 ## Test Coverage Strategy
 
