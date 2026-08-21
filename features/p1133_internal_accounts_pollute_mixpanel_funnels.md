@@ -162,10 +162,12 @@ untaggable regardless of time window).
 ## Pre-deploy Checklist
 
 ### Secrets to provision
-- [ ] `VITE_INTERNAL_ACCOUNT_EMAIL_HASHES` — comma-separated SHA-256 hex digests (lowercase,
+- [x] `VITE_INTERNAL_ACCOUNT_EMAIL_HASHES` — comma-separated SHA-256 hex digests (lowercase,
       gmail-family-canonicalized) of non-`@claritypledge.com` internal emails. Generate with
       `echo -n "someone@example.com" | shasum -a 256`. **Never the plaintext address** — this var
-      ships to the public bundle. `vercel env add VITE_INTERNAL_ACCOUNT_EMAIL_HASHES production`
+      ships to the public bundle. Provisioned via Vercel dashboard (Production + Preview,
+      Sensitive) — Vercel itself flagged the VITE_ prefix as browser-exposed on save, confirming
+      the hash-not-plaintext design.
 
 ### Deploy commands
 - N/A — Vercel auto-deploys on push to `main`; no manual redeploy command needed. `VITE_*` vars are
