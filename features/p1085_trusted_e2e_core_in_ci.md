@@ -114,15 +114,18 @@ Supabase project was provisioned, decommission it. Reverts to today's state with
 **1. Which database do the CI runs use? — blocks everything else.**
    - **(a) A dedicated CI Supabase project.** Isolated from local sessions. Costs money; needs
      migrations applied on every schema change and service keys in GitHub secrets.
-     **[FOUNDER DECISION: is a paid project acceptable, and at what tier?]**
+     **[FOUNDER DECISION, resolved 2026-08-21: rejected — no paid CI Supabase project.]**
    - **(b) An ephemeral local Supabase inside the runner.** Free, perfectly isolated, no secret
      sprawl — but must apply **222 migrations** and serve **17 edge functions** per run. Startup
-     cost and edge-function parity are both unverified.
-   - **(c) Something else.**
+     cost and edge-function parity are both unverified. **[FOUNDER DECISION, resolved 2026-08-21:
+     chosen — keep it simple, no paid project.]** Depends on P1132 landing first: that spec is what
+     makes a from-empty migration apply possible at all.
+   - **(c) Something else.** Ruled out by the decision above.
 
    **Deliverable: a measured answer, not a survey** — actual migration apply-time in a runner, and
    confirmation that the edge functions the core touches behave locally. There is no seed file
-   (`supabase/seed*.sql` does not exist), so fixture creation cost must be measured too.
+   (`supabase/seed*.sql` does not exist), so fixture creation cost must be measured too. The
+   database choice is settled; this measurement is still outstanding.
 
 **2. What is in the core?** Produce the list by applying criteria (a)–(d) to the 159 green files.
    Output: a committed list plus, for each entry, the critical path it covers.
