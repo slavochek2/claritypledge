@@ -509,7 +509,10 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
     # 2a. Known secret patterns (API keys, tokens, password assignments)
     # Exclude files that legitimately discuss secret patterns (scanner config, docs, decisions log)
     # Gitleaks (Layer 1) handles src/, supabase/, scripts/, and services/ with proper rules — grep only scans config/root files
-    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|supabase/config\.toml|features/|src/|api/|e2e/|\.claude/commands/|\.claude/rules/|\.claude/_archive/|scripts/|services/)' || true)
+    # .agents/skills/ is byte-identical to .claude/commands/ (P1151 projects it as symlinks). Excluded for the
+    # same reason and no other: those files DISCUSS secret patterns as subject matter. Layer 1 scans all staged
+    # files with no path exclusion, so real coverage of both paths is unchanged by this entry.
+    GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|supabase/config\.toml|features/|src/|api/|e2e/|\.claude/commands/|\.agents/skills/|\.claude/rules/|\.claude/_archive/|scripts/|services/)' || true)
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         # Flag a file only if a secret-pattern line is an actual VALUE, not a bare env-var
