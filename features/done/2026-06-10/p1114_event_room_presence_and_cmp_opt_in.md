@@ -1,15 +1,15 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 46
 created_date: '2026-08-19'
 tags: [events, cmp, meet, ready, opt-in, room]
-delivery_stage: ship
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_skipped: [challenge-prd -- the /grill-me walkthrough ran the same adversarial pass live with founder answers on all 14 decisions, ux -- spec already carries the 8 states and layout; the 10 copy strings are founder decisions no skill can produce, spec-compact -- the 302 lines are decisions not pipeline residue, decompose -- one coherent surface of one page one table one tab not 5 independent concerns]
 pipeline_ran: [create-spec, architect, generate-tests, dev, verify, ship]
 driver: heuristic
+completed_at: 2026-08-21
 ---
 
 # P1114: The event room — who is here, and who opted in
@@ -39,16 +39,16 @@ all ALWAYS-ASK and none of them are pre-approvable.
 
 **Situation:** The Clarity Meeting Principle opt-in at `/meet` writes nothing to the
 server. It lives in one localStorage key (`cp.meeting-terms.v1`,
-[meeting-terms-page.tsx](../src/app/pages/meeting-terms-page.tsx):57), and the file says so
+[meeting-terms-page.tsx](../../../src/app/pages/meeting-terms-page.tsx):57), and the file says so
 deliberately: *"Deliberately has no backend… The agreement is witnessed in the room, not
 recorded."* Separately, `event_rsvps` records who said they would come, and nothing records
 who actually came.
 
 **Complication:** The event run-of-show now depends on both facts.
-[clarity-practice-event.md](../docs/events/clarity-practice-event.md):95 block 6 gives opt-ins
+[clarity-practice-event.md](../../../docs/events/clarity-practice-event.md):95 block 6 gives opt-ins
 a job — *"challenge each other to give the number"* — but nobody in the room can see who
 opted in, so nobody knows whose non-answer is a broken promise and whose is a right they
-never gave up. And [p1055](p1055_norm_measurement_instrument.md) measures what people
+never gave up. And [p1055](../../p1055_norm_measurement_instrument.md) measures what people
 *believe* about the principle; nothing measures whether anyone acted on it. The norm is the
 product, and the norm currently leaves no trace.
 
@@ -60,7 +60,7 @@ looking at phones — and without the record lying about who was there?
 **Blast radius: medium.** One new table, one new page inside the existing events router, one
 new tab on the event page. Nothing existing changes behaviour: standalone `/ready` and
 `/meet` are untouched, `event_rsvps` is untouched, and
-[p1083](done/2026-06-10/p1083_ready_live_distribution_reveal.md) — **shipped** — requires no
+[p1083](p1083_ready_live_distribution_reveal.md) — **shipped** — requires no
 change.
 
 **Reversibility: high.** Additive migration, new routes, one tab. Removing the tab and the
@@ -208,7 +208,7 @@ display name, a profile id **when the person has one**, when they joined, their 
 with **full history**, their readiness value, and a cascade counter.
 
 `event_rsvps` is untouched and stays account-only —
-[EventDetail.tsx](../src/app/prototypes/events/components/EventDetail.tsx):168 redirects
+[EventDetail.tsx](../../../src/app/prototypes/events/components/EventDetail.tsx):168 redirects
 anonymous users to `/signup`, and that behaviour does not change. RSVP means *"I said I'd
 come."* The room means *"I was here."* Three valid states, all fine: registered and absent,
 registered and present, unregistered and present.
@@ -218,14 +218,14 @@ Walk-in versus registered attendee is readable from whether the room row carries
 ### 2. Identity: name or login
 
 Reuse the two-state guest pattern already shipped in `/live` (P396,
-[clarity-live-page.tsx](../src/app/pages/clarity-live-page.tsx):3318 and :4015) — continue
+[clarity-live-page.tsx](../../../src/app/pages/clarity-live-page.tsx):3318 and :4015) — continue
 with an account, or join with a name only. No email collected, no profile created. Logged-in
 users are pre-filled. A name persists locally so a refresh does not eject someone mid-event.
 
 ### 3. Routes
 
 All three go inside the existing nested events router
-([index.tsx](../src/app/prototypes/events/index.tsx):54-63, which already carries
+([index.tsx](../../../src/app/prototypes/events/index.tsx):54-63, which already carries
 `:slug/edit` and `:slug/confirm`):
 
 | Route | Job |
@@ -242,7 +242,7 @@ from Point links who have never heard of us. The event key is purely additive.
 
 ### 4. A Room tab on the event page
 
-Reuse the tab pattern from [org-page.tsx](../src/app/pages/org-page.tsx):24-34.
+Reuse the tab pattern from [org-page.tsx](../../../src/app/pages/org-page.tsx):24-34.
 `EventDetail` has no tabs today, so this is new work on that page.
 
 **Visible to everyone, no permission logic** — gating by registration protects nothing,
@@ -255,7 +255,7 @@ Open **any time before** the event — early opt-ins mean names are already on t
 the evening starts, and the cascade is running before anyone sits down.
 
 **Frozen read-only** at the existing `EVENT_GRACE_HOURS` boundary
-([events-service-real.ts](../src/app/data/events-service-real.ts):16 — value `5`, anchored to
+([events-service-real.ts](../../../src/app/data/events-service-real.ts):16 — value `5`, anchored to
 event **start**, not end, per P494). The room is open exactly as long as the event is in
 "upcoming," and closes when it drops out. One constant, one rule.
 
@@ -270,7 +270,7 @@ who is visibly standing in the room is not a thing software should do.
 Everyone passes through the principle. **Default is opt-out.**
 
 The roster is visible **before** the person answers — consistent with
-[p1083](done/2026-06-10/p1083_ready_live_distribution_reveal.md), which shows its
+[p1083](p1083_ready_live_distribution_reveal.md), which shows its
 distribution ungated on load, and because seeing eight names already opted in is the strongest thing that can sit in
 front of person nine.
 
@@ -389,7 +389,7 @@ intent.
 
 - Do **NOT** modify standalone `/ready` or `/meet`. They stay roomless and behave exactly as
   today.
-- Do **NOT** modify [p1083](done/2026-06-10/p1083_ready_live_distribution_reveal.md) or its
+- Do **NOT** modify [p1083](p1083_ready_live_distribution_reveal.md) or its
   shipped `ready_submissions` table (migration `20260816120000_p1083_ready_submissions.sql`).
   It needs no room key — the room stores its own readiness, separately.
 - Do **NOT** modify `event_rsvps`, its RLS, or the RSVP flow. Room presence is a separate
@@ -403,15 +403,15 @@ intent.
 - Do **NOT** grant an opt-in from organization membership, and do **NOT** edit the Clarity
   Organization Agreement.
 - Do **NOT** gate the room on having opted in. Opt-outs are load-bearing —
-  [decisions.md](../docs/decisions.md) 2026-08-12 records them as a carrier mechanic, not a
+  [decisions.md](../../../docs/decisions.md) 2026-08-12 records them as a carrier mechanic, not a
   filter.
 - Do **NOT** link events to organizations here — that is
-  [p1060](p1060_link_events_to_organizations.md).
+  [p1060](../../p1060_link_events_to_organizations.md).
 - Do **NOT** show opt-outs on the roster, in any form, including a count.
 
 ### Governing prior decision — do not contradict
 
-[decisions.md](../docs/decisions.md) 2026-08-12 [product]: **invocation is universal.** Anyone
+[decisions.md](../../../docs/decisions.md) 2026-08-12 [product]: **invocation is universal.** Anyone
 in the room may ask anyone. **Opt-ins owe an answer** — a number, or an explicit *"not now,
 because X."* **Opt-outs owe nothing.** Nothing in this spec may restrict who can ask.
 
@@ -558,16 +558,16 @@ them verbatim. Any string NOT listed here is still `[FOUNDER DECISION]` and must
 
 ## Related
 
-- [p1055](p1055_norm_measurement_instrument.md) — the CMP Point Set; this spec records the
+- [p1055](../../p1055_norm_measurement_instrument.md) — the CMP Point Set; this spec records the
   opt-in that its flow step 1 assumes
-- [p1083](done/2026-06-10/p1083_ready_live_distribution_reveal.md) — general `/ready`
+- [p1083](p1083_ready_live_distribution_reveal.md) — general `/ready`
   distribution, shipped 2026-08-16; deliberately untouched
-- [p1060](p1060_link_events_to_organizations.md) — events belong to an organization; the
+- [p1060](../../p1060_link_events_to_organizations.md) — events belong to an organization; the
   reach count this spec's data eventually feeds
-- [decisions.md](../docs/decisions.md) 2026-08-12 — universal invocation
-- [clarity-practice-event.md](../docs/events/clarity-practice-event.md):95 — run-of-show
+- [decisions.md](../../../docs/decisions.md) 2026-08-12 — universal invocation
+- [clarity-practice-event.md](../../../docs/events/clarity-practice-event.md):95 — run-of-show
   blocks 2, 3 and 6
-- [facilitator-guide.md](../docs/facilitator-guide.md):406 — the comprehension challenge; the
+- [facilitator-guide.md](../../../docs/facilitator-guide.md):406 — the comprehension challenge; the
   bell is a docs-only change filed there, **not** part of this spec
 
 ## Technical Architecture
@@ -679,7 +679,7 @@ to `anon`/`authenticated` is `USING (opted_in = true)`. This is the direct-REST 
 > publication.** The P1048 fallback (drop from publication, poll-only roster) is NOT needed.
 >
 > **This extends the repo's knowledge, and belongs in `decisions.md` at `/kdd`:**
-> [decisions.md](../docs/decisions.md) 2026-08-17 [technical] (P1057) measured only the
+> [decisions.md](../../../docs/decisions.md) 2026-08-17 [technical] (P1057) measured only the
 > **column**-level case and explicitly declined to generalise — *"This does NOT generalise to
 > row-level questions."* That row-level gap is now measured for this project. It remains a
 > measurement, not a vendor guarantee: any future change to this table's SELECT policy silently
@@ -688,7 +688,7 @@ to `anon`/`authenticated` is `USING (opted_in = true)`. This is the direct-REST 
 >
 > *Historical — the assumption as it stood before the canary ran:*
 > **`UNVERIFIED` — this is the load-bearing assumption of the whole opt-out guarantee.**
-> [decisions.md](../docs/decisions.md) **2026-08-17** [technical] (P1057) measured that Realtime
+> [decisions.md](../../../docs/decisions.md) **2026-08-17** [technical] (P1057) measured that Realtime
 > filters payloads by **column-level** SELECT privilege, and closes with: *"This does NOT
 > generalise to row-level questions."* This spec needs the **row-level** case, which nobody has
 > measured. The neighbouring 2026-08-13 [technical] entries are about feed tag filters and
