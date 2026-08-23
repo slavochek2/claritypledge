@@ -13,6 +13,22 @@ drafted_by: opus
 
 # P1149: `/transcribe` — the live room transcription chat
 
+## Run This
+
+Run from `~/Projects/public/claritypledge/.claude/worktrees/w5` — the claimed worktree for this
+spec, on branch `feature/p1149-transcribe-room`:
+
+    cd ~/Projects/public/claritypledge/.claude/worktrees/w5
+    /goal "./scripts/goal-gate.sh p1149 exits 0, output pasted. Stop after 30 turns."
+
+`/goal` is native Claude Code, not a repo skill — you type it; no agent can invoke it for you.
+The condition names an exit code on purpose: the evaluator reads the transcript and runs
+nothing, so the only trustworthy condition is one naming an artifact the agent cannot author.
+
+**The gate is not a ship signal.** It closes the 12 machine- and reviewer-decidable rows. The
+four physical checks in [P1152](p1152_transcribe_physical_device_verification.md) run against
+the finished branch before it merges.
+
 ## Problem
 
 **Situation:** Transcription in this product is post-hoc and one-pair-at-a-time. `/live`
@@ -117,8 +133,12 @@ stream once, start `MediaRecorder`, then start speech recognition on top of it.
 
 **3. The chat.** The room's shared surface. Every finalized utterance appears as a message
 with speaker name and timestamp — your own words and everyone else's, in the order they were
-said. A filter switches between everyone and just-me. Interim (not-yet-final) words show only
-to the speaker, in a distinct visual state, and are never broadcast.
+said. Interim (not-yet-final) words show only to the speaker, in a distinct visual state, and
+are never broadcast.
+
+**No me/everyone filter in v1** (founder decision, 2026-08-23). At room-sized volume there is
+not enough content to filter, and it is a state to build, test, review at three widths and
+explain. Add it when a real room asks. Screen 5 of the reference shows it — ignore that screen.
 
 **4. Two transcripts, on purpose.** The live chat text is the *display* record: fast, rough,
 no reliable punctuation. The GPU transcript produced afterwards is the *authoritative* record
@@ -221,31 +241,131 @@ pending · corrected transcript ready.
 
 - [ ] A signed-in person cannot reach the recorder without passing the consent screen
 - [ ] A person's spoken words appear in the room chat, attributed to them, with a timestamp
-- [ ] Every participant sees every other participant's messages, live
-- [ ] A person can filter the chat to just their own messages and back
+- [ ] Every participant sees every other participant's messages, live (physical check: P1152)
 - [ ] Audio from each participant lands in the ML bucket under the room prefix
 - [ ] A corrected transcript is produced for each participant after the session ends
-- [ ] Live recognition survives a sustained multi-minute session without silently dying
+- [ ] Live recognition recovers rather than dying silently when it drops (physical check: P1152)
 - [ ] A participant on an unsupported browser can still join and have audio recorded
 
 ## Done-When
 
-- [ ] Gate 0 has run on one physical Android phone and one physical iPhone, with pasted
-      observed output, and the outcome (pass / partial / fail) is recorded in this spec
-- [ ] `/transcribe` is reachable only when signed in; signed-out visitors are redirected
-- [ ] Consent screen blocks mic access until accepted; declining leaves the room
-- [ ] Two people in the same room on two devices each see the other's words appear live
-- [ ] Each message shows speaker name and timestamp; the filter toggles me/everyone
-- [ ] Interim words are visible only to the speaker and never appear in anyone else's chat
-- [ ] Bucket listing after a real room shows audio under the room prefix and `sessions/`
-      unchanged
-- [ ] Transcription jobs for the room complete with diarization off
-- [ ] Eight simultaneous participants complete transcription (verifies the queue holds jobs
-      6-8 rather than dropping them)
-- [ ] Killing recognition mid-session (airplane mode toggle) shows a visible dropped state and
-      recovers when restored
-- [ ] Screenshots at 320px, 375px, and desktop
-- [ ] Existing `/live` and `/chat` speech behavior verified unchanged
+Four physical checks were carved out to [P1152](p1152_transcribe_physical_device_verification.md)
+on 2026-08-23 — Gate 0 on real phones, two-device live delivery, radio-drop recovery, and
+eight-way concurrency. **P1149 does not merge until P1152 closes.** A green gate here covers
+what a command can decide; it is not a ship signal on its own.
+
+- [ ] DW-1 `/transcribe` is reachable only when signed in; signed-out visitors are redirected
+- [ ] DW-2 Consent screen blocks mic access until accepted; declining leaves the room
+- [ ] DW-3 Each message shows the speaker's name and a timestamp
+- [ ] DW-4 Interim words are never written to the server and never reach another participant
+- [ ] DW-5 A non-member cannot read a room's messages (RLS enforced, tested from a non-member)
+- [ ] DW-6 Room audio lands under the `rooms/` prefix and `sessions/` is unchanged
+- [ ] DW-7 Transcription jobs for the room are created with diarization off
+- [ ] DW-8 Existing `/live` and `/chat` speech behavior verified unchanged
+- [ ] DW-9 Join, room, and ended states render correctly at 320px, 375px, and desktop
+- [ ] DW-10 The empty room (you are first) and the dropped-recognition state both render
+      correctly at all three widths
+- [ ] DW-11 Visual hierarchy, density, and sibling weight hold against the approved reference
+- [ ] DW-12 The listening indicator is the most prominent element in the room footer in every
+      state that has one
+
+## Resolved Decisions (goalify Phase 1, 2026-08-23)
+
+**Visual reference — the published prototype, as-is.** The 10-screen artifact is the approved
+reference. Blind reviewers receive renders plus that page and score the build against it.
+Because it is drawn in cp's real `index.css` tokens, Inter and Playfair, "matches the design
+system" is a checkable claim rather than an opinion. **Exception: screen 5 (the me/everyone
+filter) is out of scope** — see below.
+
+**The me/everyone filter is CUT from v1.** Not enough content at room size to justify a state
+that must be built, tested, reviewed at three widths and explained. Revisit when a real room
+asks for it.
+
+**Review depth — hard.** The reviewer succeeds by finding problems, not by confirming quality.
+It is given renders and the reference; it is forbidden the diff, the spec's rationale, and any
+statement of intent. It scores against the full `.claude/rules/visual-qa.md` checklist **plus**
+the three design-quality questions — hierarchy, density, sibling weight. Two consecutive PASS
+rounds close it. Three to four rounds is the expected cost, and that cost is the point: it is
+what replaces the founder finding obvious problems by hand.
+
+
+## Goalify Triage (Phase 0, 2026-08-23) — PASSES after the carve-out
+
+The first triage refused: 4 of 12 lines were HUMAN-ONLY (33%), over the 25% ceiling. Those four
+are physical — speech on real phones, a radio toggle, real GPU contention — and no test-writing
+converts them. They moved to [P1152](p1152_transcribe_physical_device_verification.md).
+
+**After the carve-out: 0 of 12 HUMAN-ONLY (0%).** Every remaining row is decided by a command
+or by a blind reviewer against a named reference.
+
+| line | class | decided by |
+|---|---|---|
+| DW-1 signed-in only; signed-out redirected | MECHANICAL | Playwright |
+| DW-2 consent blocks mic; declining leaves | MECHANICAL | Playwright |
+| DW-3 name + timestamp on every message | MECHANICAL | Playwright |
+| DW-4 interim never written, never delivered | MECHANICAL | vitest |
+| DW-5 non-member cannot read messages | MECHANICAL | vitest (RLS) |
+| DW-6 `rooms/` prefix present, `sessions/` unchanged | MECHANICAL | shell (local tier) |
+| DW-7 jobs created with diarization off | MECHANICAL | vitest |
+| DW-8 `/live` and `/chat` speech unchanged | MECHANICAL | vitest |
+| DW-9 three widths, three states | COMPARABLE | blind reviewer |
+| DW-10 empty + dropped states, three widths | COMPARABLE | blind reviewer |
+| DW-11 hierarchy / density / sibling weight | COMPARABLE | blind reviewer |
+| DW-12 listening indicator is most prominent | COMPARABLE | blind reviewer |
+
+**Four COMPARABLE rows, deliberately.** DW-9 through DW-12 are what stop obvious visual
+problems reaching the founder. The gate requires **two consecutive PASS rounds** from a
+reviewer that did not build the thing and never sees the diff — one round of luck does not
+close it.
+
+## Verification Contract
+
+Pinned to main. The gate reads its judging criteria from the pinned copy, not from the branch
+it is judging.
+
+| line | class | decided by | artifact |
+|---|---|---|---|
+| DW-1 signed-out visitors are redirected off `/transcribe` | MECHANICAL | `npx playwright test --project=chromium e2e/p1149-auth-gate.spec.ts` | e2e/p1149-auth-gate.spec.ts |
+| DW-2 consent blocks mic; declining leaves the room | MECHANICAL | `npx playwright test --project=chromium e2e/p1149-consent-gate.spec.ts` | e2e/p1149-consent-gate.spec.ts |
+| DW-3 name + timestamp on every message | MECHANICAL | `npx playwright test --project=chromium e2e/p1149-chat-render.spec.ts` | e2e/p1149-chat-render.spec.ts |
+| DW-4 interim never written, never delivered | MECHANICAL | `npx vitest run src/tests/p1149-interim-never-persists.test.ts` | src/tests/p1149-interim-never-persists.test.ts |
+| DW-5 a non-member cannot read a room's messages | MECHANICAL | `npx vitest run src/tests/p1149-messages-rls.test.ts` | src/tests/p1149-messages-rls.test.ts |
+| DW-6 `rooms/` prefix used, `sessions/` untouched | MECHANICAL | `npx vitest run src/tests/p1149-gcs-prefix.test.ts` | src/tests/p1149-gcs-prefix.test.ts |
+| DW-7 jobs created with diarization off | MECHANICAL | `npx vitest run src/tests/p1149-job-no-diarization.test.ts` | src/tests/p1149-job-no-diarization.test.ts |
+| DW-8 `/live` and `/chat` speech behavior unchanged | MECHANICAL | `npx vitest run src/tests/useSpeechToText.regression.test.ts` | src/tests/useSpeechToText.regression.test.ts |
+| DW-9 three states render correctly at 320 / 375 / desktop | COMPARABLE | blind-reviewer | features/verification/p1149/review-round-*.md |
+| DW-10 empty room and dropped-recognition states, all widths | COMPARABLE | blind-reviewer | features/verification/p1149/review-round-*.md |
+| DW-11 hierarchy, density, sibling weight vs the reference | COMPARABLE | blind-reviewer | features/verification/p1149/review-round-*.md |
+| DW-12 the listening indicator is the footer's most prominent element | COMPARABLE | blind-reviewer | features/verification/p1149/review-round-*.md |
+
+**Tier:** the three Playwright rows are **local tier** — CI has no browser and no database
+credentials, by design.
+
+### Reviewer roster
+
+One blind reviewer, run to **two consecutive PASS** rounds.
+
+- **Given:** the rendered screenshots, and the approved reference (the published prototype,
+  screens 1-4 and 6-10; screen 5 is out of scope, the filter was cut).
+- **Forbidden:** the diff, the implementation, the spec's rationale, any statement of intent,
+  and the identity of the agent that built it. **The reviewer must not be the agent that built
+  the thing** — the one durable independence constraint.
+- **Guaranteed to be given:** 320px, 375px, desktop, **and the empty state**, per
+  `.claude/rules/visual-qa.md`.
+- **Scored on:** the full visual-QA checklist, plus hierarchy, density and sibling weight
+  against the reference. It succeeds by finding problems, not by confirming quality.
+
+### Evidence
+
+`features/verification/p1149/` holds:
+
+| file | holds |
+|---|---|
+| `contract.sha256` | the pin |
+| `review-round-N.md` | `VERDICT: PASS\|FAIL`, then one `SCREENSHOT: <sha256>  <path>` line per image judged. The reviewer writes this file directly; the gate re-hashes every image itself |
+| `assumptions.md` | every call the loop made alone. No escalation clause — decide, log, continue |
+| `feedback.md` | two numbers, written when corrections are given: `corrections given` and `turns consumed` |
+
 
 ## Architecture (narrow pass, 2026-08-21)
 
