@@ -430,25 +430,35 @@ This checks the **live inventory**: every local secret classified against the tw
 registries, in three directions. It never mints, writes, rotates, or revokes anything.
 
 ```bash
-# run from the cp repo root
+# run from the cp repo root. Output holds key names/tiers/reasoning, never a
+# raw value — but it's still a credential-topology map, so it's written
+# private (600) rather than left at the default world-readable /tmp perms.
+AUDIT_OUT=/tmp/p1147-weekly-audit.txt
+(umask 077; : > "$AUDIT_OUT")
 scripts/audit-credential-drift.sh --audit \
   --env-dir "$(pwd)" \
   --registry .private/docs/accounts.md \
   --registry .private/docs/edge-function-secrets.md \
   --consumers-dir src --consumers-dir supabase/functions --consumers-dir scripts \
   --not-enumerated "ci-secrets:GitHub Actions secrets store — agent's credential has no API access, HTTP 403 by design" \
-  2>&1 | tee /tmp/p1147-weekly-audit.txt | grep -c '^CONSUMER_ONLY:\|^REGISTRY_ONLY:\|^REGISTRY_LOCATION_MISMATCH:\|^REGISTRY_MISMATCH:\|^PLAINTEXT_IN_REGISTRY:'
-grep '^COVERAGE:' /tmp/p1147-weekly-audit.txt
+  > "$AUDIT_OUT" 2>&1
+AUDIT_EXIT=$?
+chmod 600 "$AUDIT_OUT"
+grep -c '^CONSUMER_ONLY:\|^REGISTRY_ONLY:\|^REGISTRY_LOCATION_MISMATCH:\|^REGISTRY_MISMATCH:\|^PLAINTEXT_IN_REGISTRY:\|^PLAINTEXT_CHECK_SKIPPED:' "$AUDIT_OUT"
+grep '^COVERAGE:' "$AUDIT_OUT"
+echo "exit=$AUDIT_EXIT"
 ```
+
+Read `$AUDIT_EXIT` directly (do not infer the audit's own exit status from `grep`'s — a `grep -c` with zero matches exits 1, which is unrelated to whether the audit itself ran cleanly).
 
 Merge into Evidence Picture as:
 ```
 CRED DRIFT:   ✅ N/N classified, 0 drift findings / ⚠️ [coverage]/[total] classified, [N] drift findings
 ```
 
-If exit code is 1 (a `PLAINTEXT_IN_REGISTRY` hard-fail) OR any `REGISTRY_LOCATION_MISMATCH`/`REGISTRY_MISMATCH` finding exists: add to ACTIONS (step 5): "· Credential drift found — see `/tmp/p1147-weekly-audit.txt` — a registry disagrees with itself or claims a location it doesn't occupy." A `PLAINTEXT_IN_REGISTRY` hit is the higher-severity one (a real secret value inline in a doc) — call it out first if both fire.
+If `$AUDIT_EXIT` is non-zero (a `PLAINTEXT_IN_REGISTRY` hard-fail, or a usage/fatal error), OR any `REGISTRY_LOCATION_MISMATCH`/`REGISTRY_MISMATCH`/`PLAINTEXT_CHECK_SKIPPED` finding exists: add to ACTIONS (step 5): "· Credential drift found — see `/tmp/p1147-weekly-audit.txt` — a registry disagrees with itself, claims a location it doesn't occupy, or the hard-fail plaintext check didn't run for one of its tables." A `PLAINTEXT_IN_REGISTRY` hit is the highest-severity one (a real secret value inline in a doc) — call it out first if multiple fire. A non-zero `$AUDIT_EXIT` with none of the other three findings present means something else went wrong (a bad `--registry` path, a usage error) — read the raw output before assuming it's the plaintext hard-fail.
 
-If `COVERAGE` shows unclassified live keys (`CONSUMER_ONLY` findings) or `RETIREMENT_CANDIDATE`/`CONSUMER_LIST_STALE` entries: these are backlog, not a break — do NOT add to ACTIONS unless the count has grown since the last run (compare against the prior week's `/tmp/p1147-weekly-audit.txt` if still present, else note the baseline). Classification is a founder-paced pass, not something this check should nag about every week.
+If `COVERAGE` shows unclassified live keys (`CONSUMER_ONLY` findings), `RETIREMENT_CANDIDATE`/`CONSUMER_LIST_STALE` entries, or `MULTI_KEY_ROW_BUNDLED`: these are backlog, not a break — do NOT add to ACTIONS unless the count has grown since the last run (compare against the prior week's `/tmp/p1147-weekly-audit.txt` if still present, else note the baseline). Classification is a founder-paced pass, not something this check should nag about every week.
 
 ---
 
