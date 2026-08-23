@@ -60,6 +60,12 @@ git reset HEAD -- <file>        # unstage any bystanders before staging your own
 
 Do this **before** `git add`, not after. After `git add` both sets are mixed and the review looks correct — prior-session files are invisible among your own staged files. This is what causes the wrong-files-in-commit bug.
 
+## Unstaging leaves the file on disk — delete it when moving work to a worktree
+
+`git reset HEAD -- <file>` is index-only. The file itself stays on the shared main checkout, uncommitted and unstaged, available for the next broad `git add` or commit that happens to touch that directory — regardless of who runs it or what they intended to commit. When work created on the main checkout moves into a worktree, delete the abandoned copy from the main checkout's working tree in the same step; unstaging it is not cleanup.
+
+A stray file left this way is not passively inert — a different session can find it, mistake it for live work, and actively build on it. P1147 (2026-08-23): a test file created on main before its worktree existed was unstaged when work moved to the worktree but never deleted; hours later a different concurrent session found the two-day-old orphan, fixed its assertions, and committed it — producing a real cherry-pick conflict when the original branch was later shipped. See [decisions.md](../../docs/decisions.md) 2026-08-23 [process].
+
 ## Always use explicit file names on `git add` — then commit with NO path arguments
 
 **In a worktree this is enough** — each worktree has its own private index, unreachable
