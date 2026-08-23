@@ -59,7 +59,7 @@ therefore: create a **real directory** per skill containing a **symlinked `SKILL
 directory-per-skill while keeping `.claude/` the single source of truth.
 
 **D8 — The `name` field must equal the projected directory name.** Measured: **118 of 119**
-sources already satisfy this. The single exception is `script/claude-sync-download.md`
+sources already satisfy this (count is over qualifying sources, pre-collision-resolution). The single exception is `script/claude-sync-download.md`
 (`name: script-claude-sync-download`). Fix that one source, or let the generator hard-fail on
 the mismatch. Frontmatter fields beyond `name`/`description` (this repo uses `when_to_use`,
 `version`) are unvalidated against the spec — run `skills-ref validate` on one projected skill
@@ -87,8 +87,8 @@ directory name. Without this exception a naive basename flatten collides **25** 
 
 **D4 — Collision policy: hard-fail, listing the pair.** Never last-writer-wins — one of
 the colliding pairs sits under `util/archive/`, so silent shadowing could route a live
-command to an archived one. Under D2 + D3 + the `archive/` exclusion, the scan yields
-**119 links and exactly 1 collision**: `slava/note.md` vs `slava/util/note.md`. That pair
+command to an archived one. Under D2 + D3 + the `archive/` exclusion, the scan yields **119 qualifying
+sources**, which resolve to **118 output directories** (the colliding pair collapses to one): `slava/note.md` vs `slava/util/note.md`. That pair
 is a deliberate alias (the former's description reads *"Shortcut alias for
 /slava:util:note"*) — resolution: skip alias files, link the canonical one.
 
@@ -246,7 +246,8 @@ containing its target path.
       frontmatter `name`+`description`, `name` == directory name. Evidence in section 4.
 - [ ] AC1: `AGENTS.md` exists as a valid symlink to `CLAUDE.md`, and is committed.
 - [ ] AC2: `./scripts/sync-agent-skills.sh` generates flat symlinks in `.agents/skills/`
-      for exactly the files matching D2/D5 — currently **119** — as directories containing a
+      for the files matching D2/D5 — **119 qualifying sources resolving to 118 output
+      directories** after the alias pair collapses (D4) — as directories containing a
       symlinked `SKILL.md` (D7), with **0** unresolved collisions, every target carrying a
       `description:`, and `skills-ref validate` passing on a sampled skill.
 - [ ] AC3: `.agents/skills/` is tracked in git; a fresh `git clone` into a temp dir
