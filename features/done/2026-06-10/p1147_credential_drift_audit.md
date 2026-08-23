@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 63
 workstream: infrastructure
 created_date: '2026-08-21'
 tags: [security, credentials, audit, drift]
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, generate-tests, dev, ship]
 driver: anomaly
 uat_file: features/uat/p1147.md
 test_files:
   - scripts/audit-credential-drift.test.sh
+completed_at: 2026-08-23
 ---
 
 # P1147: Credential drift audit — classify every secret, detect drift in three directions
@@ -78,7 +78,7 @@ Two rules on `tier`, both structural rather than left to judgment:
 
 - **Meta-authority is `browser-assisted` by definition.** Any credential that can mint,
   administer, or revoke *other* credentials is barred from `auto-api` — not classified into it by
-  a judgment call. This is [decisions.md](../docs/decisions.md) 2026-06-27's reusable pattern
+  a judgment call. This is [decisions.md](../../../docs/decisions.md) 2026-06-27's reusable pattern
   ("the agent's credential must be unable to administer the gate it's subject to") applied to a
   static registry field instead of a runtime property.
 - **`never-rotate` must state what breaks**, and distinguish *data loss* from *inconvenience*.
