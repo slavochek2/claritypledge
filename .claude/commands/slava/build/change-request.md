@@ -140,6 +140,7 @@ Slug from the redesign description, not the predecessor title.
 ---
 status: week
 type: change-request
+drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, never updated
 rank: {calculated}
 changes: p{predecessor_N}
 chain_root: p{root_N}    # ONLY if predecessor is itself a change-request. Omit otherwise.

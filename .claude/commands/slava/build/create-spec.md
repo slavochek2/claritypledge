@@ -237,6 +237,7 @@ created_date: '{YYYY-MM-DD}'
 tags: [{2-4 relevant tags}]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
+drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, never updated
 driver: heuristic | anomaly    # OPTIONAL — see below; omit if genuinely unclear
 ---
 ```

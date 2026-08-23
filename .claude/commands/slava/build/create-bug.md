@@ -260,6 +260,7 @@ severity: critical | high | medium | low
 workstream: {infer from context, or omit if unclear}
 date_reported: {today YYYY-MM-DD}
 created_date: {today YYYY-MM-DD}
+drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, never updated
 tags: [{relevant tags, 2-4}]
 delivery_stage: create-bug
 pipeline_ran: [create-bug]
