@@ -6,9 +6,9 @@
  * Visual: Blue left border, author avatar, linked Points shown below with thread lines.
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { linkifyText } from '@/app/utils/linkify';
+import { linkifyText, renderStoryText } from '@/app/utils/linkify';
 import {
   ChevronDown,
   ChevronRight,
@@ -29,7 +29,13 @@ import {
   ThreadLineGroup,
   ThreadLineItem,
 } from '@/app/components/shared';
-import { StoryImage } from '@/app/components/shared/story-image';
+import { StoryMedia } from '@/app/components/shared/story-media';
+import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
+import { AgentByline } from '@/app/components/shared/agent-byline';
+import type { StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
+import { normalizeVideoQuotes } from '@/lib/video';
+import { stripAgentPrefix } from '@/lib/utils';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
@@ -163,6 +169,11 @@ export function StoryCardDetail({
   const pointRoute = routes.point || ((id: string) => `/point/${id}?from=${story.authorId}`);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
+  // P1141 — story content NEVER waits on the player. These drive the quotes
+  // section's seek-vs-open-a-tab choice only.
+  const playerRef = useRef<StoryVideoPlayerHandle>(null);
+  const [playerBlocked, setPlayerBlocked] = useState(false);
+  const videoQuotes = useMemo(() => normalizeVideoQuotes(story.videoQuotes), [story.videoQuotes]);
   const profileRoute = routes.profile || ((id: string) => `/p/${id}`);
 
   const handleCardClick = () => {
@@ -292,9 +303,13 @@ export function StoryCardDetail({
                     e.stopPropagation();
                     navigate(profileRoute(story.authorSlug));
                   }}
-                  className="font-semibold text-foreground hover:underline text-sm"
+                  className="font-semibold text-foreground hover:underline text-sm min-w-0"
                 >
-                  {story.authorName}
+                  {/* P1141: `Reading of {Full Name}` + the machine chip. Production reads
+                      `Agent · {Name}` with no chip today; both halves are a deliberate change. */}
+                  {isAgent && !identityPending
+                    ? <AgentByline name={story.authorName} />
+                    : story.authorName}
                 </button>
                 {/* Credibility stats */}
                 {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
@@ -305,30 +320,64 @@ export function StoryCardDetail({
               </div>
             </div>
 
-            {/* P591: Story supporting image */}
-            {imageUrl && (
+            {/* P591: story supporting image. P1141: StoryMedia picks video over image
+                and leaves the image path byte-identical when there is no parseable video. */}
+            {(story.videoUrl || imageUrl) && (
               <div className="mb-3">
-                <StoryImage
-                  src={imageUrl}
-                  authorName={story.authorName}
-                  onChangeImage={isDetailView ? onChangeImage : undefined}
-                  onRemoveImage={isDetailView ? onRemoveImage : undefined}
+                <StoryMedia
+                  ref={playerRef}
+                  videoUrl={story.videoUrl}
+                  durationSeconds={videoQuotes.durationSeconds}
+                  mode={isDetailView ? 'player' : 'thumbnail'}
+                  storyHref={`/story/${story.id}`}
+                  onBlockedChange={setPlayerBlocked}
                   className="mt-1"
+                  imageProps={imageUrl ? {
+                    src: imageUrl,
+                    authorName: story.authorName,
+                    onChangeImage: isDetailView ? onChangeImage : undefined,
+                    onRemoveImage: isDetailView ? onRemoveImage : undefined,
+                    className: 'mt-1',
+                  } : undefined}
                 />
               </div>
             )}
 
             {/* Story text - indented under author */}
-            <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
-              {linkifyText(stripHashtags(story.content, story.tags))}
-            </p>
+            <div className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
+              {renderStoryText(stripHashtags(story.content, story.tags))}
+            </div>
+
+            {/* P1141: quotes sit BELOW the argument, never inside it — the separation is
+                itself the honesty signal about which words the machine wrote. */}
+            {isDetailView && (
+              <StoryVideoQuotes
+                videoUrl={story.videoUrl ?? ''}
+                quotes={videoQuotes.quotes}
+                durationSeconds={videoQuotes.durationSeconds}
+                subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
+                playerBlocked={playerBlocked}
+                onSeek={(seconds) => {
+                  playerRef.current?.seekTo(seconds);
+                  // DW-2: bring the player into view as well as seeking it — a seek
+                  // the reader cannot see reads as a dead click.
+                  document
+                    .querySelector('[data-testid="story-video-player"]')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+              />
+            )}
 
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <UnderstoodBadge count={story.understoodCount} />
+                {/* P1141: gate on identityPending, not on isAgent alone. useAgentAccountIds()
+                    keeps isLoading true forever on fetch failure — deliberately fail-closed —
+                    and reading isAgent while the registry loads renders an agent story as a
+                    human one, complete with the count this spec removes. */}
+              {!isAgent && !identityPending && <UnderstoodBadge count={story.understoodCount} />}
               </div>
-              {showVerifyButton && (
+              {showVerifyButton && !isAgent && !identityPending && (
                 <button
                   onClick={onVerify}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
@@ -343,6 +392,9 @@ export function StoryCardDetail({
               const effectiveTags = story.tags && story.tags.length > 0 ? story.tags : extractHashtags(story.content);
               return effectiveTags.length > 0 || (story.systemTags?.length ?? 0) > 0 ? <TagPills tags={effectiveTags} systemTags={story.systemTags} context="detail" className="mt-2" /> : null;
             })()}
+
+            {/* P1141 RD-1: attribution level 2 of 3 — under every agent story. */}
+            {isAgent && !identityPending && <AgentStoryFooter name={story.authorName} />}
           </div>
         </div>
       </div>

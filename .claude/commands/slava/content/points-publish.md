@@ -169,6 +169,7 @@ Build the **complete** write payload — every row, every field, fully interpola
 |---|---|---|
 | `points` | `tags: ['<event-tag>']`, written directly by the inserter | — |
 | `stories` | **`#<event-tag>` must appear in `content`** | `extract_hashtags_from_content()` fires `BEFORE INSERT OR UPDATE OF content` and **overwrites** any `tags` the inserter supplied with what it parses out of the text. A story without the hashtag in its body is invisible in the tag feed while the points are visible — half an artifact, and it looks like a feed bug. |
+| `stories` | **`video_url` + `video_quotes` (P1141)** | A story that carries a video stores the canonical watch URL in `video_url`, and `{"quotes": [{"text": ..., "seconds": ...}], "durationSeconds": ...}` in `video_quotes`. Both come from the prepare run file — `video_url:`, `duration_seconds:` and the per-quote `seconds:` lines. Omit BOTH for a story with no video: the columns are nullable and the empty JSONB shape is the default, and a story with no video must render exactly as it did before P1141. |
 
 > **Every `#word` in a QUOTE becomes a tag on that person's agent story.** The trigger extracts *all* `#(\w+)` from `content` — it does not know which ones you meant. A speaker who says "#MeToo" in the transcript publishes a story authored by `Agent · {their name}` into that tag's public feed and into the global tag cloud, associating a named real person's machine reading with a topic nobody chose for it.
 >
@@ -399,6 +400,9 @@ The instrument is the before/after counts from stage 1.
 - [ ] **Every interpolated text field was dollar-quoted with a collision-checked tag**, and the check was actually run against the content rather than assumed.
 - [ ] **The JSON body was built with an encoder** and sent with `--data-binary @file`.
 - [ ] **Every story carries `#<event-tag>` in its text**, verified from the read-back `tags` array, not from the text you wrote.
+- [ ] **Every story with a video carries `Supporting quotes from {Full Name}` verbatim in its text**, verified from the read-back, not from the text you wrote. A mechanical backstop mirroring the hashtag check above — this skill does NOT author the rule. The voice rules and the label live in `/slava:content:points-prepare` and nowhere else; wrong text ⟹ re-run prepare.
+- [ ] **Every `video_url` written is a canonical watch URL on the host allowlist**, not a channel URL, an embed URL, or a bare id. The `stories.video_url` CHECK constraint rejects the rest — a rejected insert here is the constraint working, not a bug to route around.
+- [ ] **Every quote in `video_quotes` carries an integer `seconds` resolved from the RAW `.vtt`**, never from the ~30s cleaned transcript. A timecode off by half a minute reads as a broken feature.
 - [ ] **No story contains first-person text for any person**, and no position is captioned as a person's own.
 - [ ] **`reasoning` is NULL** and `context` is NULL on every row.
 - [ ] **Read-back output was pasted, not summarised.**

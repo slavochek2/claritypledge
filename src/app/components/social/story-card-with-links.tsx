@@ -26,7 +26,9 @@ import type { PositionType } from '@/app/types';
 import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Story, Point } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
-import { StoryImage } from '@/app/components/shared/story-image';
+import { StoryMedia } from '@/app/components/shared/story-media';
+import { AgentByline } from '@/app/components/shared/agent-byline';
+import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags } from '@/lib/utils';
 import type { StoryAuthor } from '@/app/components/social/point-card-with-links';
 
@@ -277,7 +279,8 @@ export function StoryCardWithLinks({
                   }}
                   className="font-semibold text-gray-900 hover:underline text-sm"
                 >
-                  {author.name}
+                  {/* P1141: `Reading of {Full Name}` + the machine chip. */}
+                  {isAgent && !identityPending ? <AgentByline name={author.name} /> : author.name}
                 </button>
                 {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
               </div>
@@ -287,12 +290,19 @@ export function StoryCardWithLinks({
               </p>
             </div>
 
-            {/* Supporting image */}
-            {story.imageUrl && (
-              <StoryImage
-                src={story.imageUrl}
-                authorName={author.name}
+            {/* Supporting image. P1141: video wins when present; the image path is untouched. */}
+            {(story.videoUrl || story.imageUrl) && (
+              <StoryMedia
+                videoUrl={story.videoUrl}
+                durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
+                mode="thumbnail"
+                storyHref={`/story/${story.id}`}
                 className="mt-1 mb-2"
+                imageProps={story.imageUrl ? {
+                  src: story.imageUrl,
+                  authorName: author.name,
+                  className: 'mt-1 mb-2',
+                } : undefined}
               />
             )}
 
@@ -331,10 +341,12 @@ export function StoryCardWithLinks({
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-1 text-sm text-gray-600">
-                <UnderstoodBadge count={story.understoodCount} />
+                {/* P1141: gated on identityPending too — the registry fails closed, and reading
+                    isAgent while it loads renders an agent story as a human one. */}
+                {!isAgent && !identityPending && <UnderstoodBadge count={story.understoodCount} />}
               </div>
               <div className="flex items-center gap-1">
-                {showVerifyButton && onVerify && (
+                {showVerifyButton && onVerify && !isAgent && !identityPending && (
                   <button
                     onClick={onVerify}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"

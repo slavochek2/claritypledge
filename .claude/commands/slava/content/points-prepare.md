@@ -256,6 +256,60 @@ arguer: <Display Name> | subject_key: <canonical person reference> | source: <UR
 
 The key is a canonical reference to the **person** — Wikidata entity, Wikipedia page, their own site, or an internal slug when they have no public page. **Never a YouTube channel URL:** a channel identifies whoever *publishes*, not who speaks, and the same person appears across many channels. If you do not know the key, write `subject_key: UNKNOWN` and say so — an honest gap stops the filer, a guessed one publishes a person's words under someone else's account.
 
+### Voice — a machine writing about a person (P1141)
+
+**This skill is the ONE place these rules live.** They are drafted narrative content, and this is
+where narrative content is drafted — `/slava:content:points-publish` explicitly disclaims
+authorship and only enforces mechanical string checks at filing time. It carries a Quality Gate
+line asserting the section label is present verbatim; it does not author the rule. Do not add a
+second copy of anything below to any other skill.
+
+Story text is a machine account writing **about** a named person, never a familiar narrator.
+
+- **Full name or surname — never a bare pronoun referring to the subject.** Beyond tone this
+  closes a real defect: this pipeline reads auto-captions and has **no reliable information about
+  any subject's pronouns.** A guess misgenders a real person under an account bearing their own
+  name. Full name sidesteps it entirely.
+- **Never impute a position to the subject.** Unchanged, and it applies to the framed argument as
+  much as to the points.
+- The quotes section **names the person it quotes**, using this exact label:
+
+      Supporting quotes from {Full Name}
+
+  `{Full Name}` is the same value the byline renders. The string is verbatim — the filer greps for
+  it, and a paraphrase fails the gate.
+
+### Per-quote timecodes — read the RAW `.vtt`, never the cleaned transcript (P1141 / P1140)
+
+Every quote carries the **exact second it starts at**, captured in this pass while the cue is
+already in hand.
+
+> **The trap, stated so nobody walks into it.** `vtt-clean` emits a coarse `[MM:SS]` marker only
+> every ~30 seconds, and the cleaned transcript is what this skill's own Stage 1 produces — so it
+> is what an implementer will naturally read. A jump built from it lands up to half a minute off
+> and reads as a broken feature rather than as the wrong input file.
+
+Resolve each quote against the retained raw track at
+`~/.local/share/yt-store/<video-id>/<lang>.vtt` (P1140 — permanent, content-hash-gated, never
+overwritten). A WebVTT cue carries an exact start and end time, so precise per-quote times survive
+the session and a later run can re-derive them without a re-fetch.
+
+Emit, per quote, alongside its attribution label:
+
+```
+quote: <verbatim text> | seconds: <integer start second> | basis: <attribution label>
+```
+
+And once per arguer, the video identity and its duration — the two fields the filer writes:
+
+```
+video_url: <canonical watch URL>   # https://www.youtube.com/watch?v=... or https://youtu.be/...
+duration_seconds: <integer>
+```
+
+**Not the channel URL, not an embed URL, not a bare id.** The filer stores this one string and
+every surface re-derives the player, the thumbnail and the open-at-timestamp link from it.
+
 ### Label the attribution basis per quote
 
 The filer treats attribution as a **third** check, separate from the two below — `grep -F` proves a quote is in the transcript, the audio check proves the caption robot heard it right, and **neither proves the right person said it.** Tag every quote:

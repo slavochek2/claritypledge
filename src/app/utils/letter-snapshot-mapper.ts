@@ -8,6 +8,7 @@
  * 3. Hidden points filtered from output
  */
 
+import { normalizeVideoQuotes, type StoryVideoQuotesData } from '@/lib/video';
 import type { LetterStorySnapshot, StoryWithPoints, PointSummary, PositionType, ContentVisibility, StoryVisibility, DocStory } from '@/app/types';
 import type { Point, PositionEntry } from '@/app/components/shared/prototype-types';
 
@@ -23,6 +24,16 @@ interface PointConfig {
   storyText?: string;
   storyTitle?: string;
   imageUrl?: string;
+  /**
+   * P1141: the story's video reference, sealed alongside the image rather than
+   * replacing it. ABSENT on every letter sealed before P1141 — and absent is
+   * the CORRECT value there, not a gap: those stories legitimately have no
+   * video, so the reader falls through to imageUrl and the letter renders
+   * identically to how it did before this change.
+   */
+  videoUrl?: string;
+  /** P1141: `{ quotes: { text, seconds }[], durationSeconds }`. Absent on pre-P1141 letters. */
+  videoQuotes?: StoryVideoQuotesData;
   points?: PointConfigPoint[];
   hidden?: string[];
   order?: string[];
@@ -170,6 +181,8 @@ export function snapshotToStoryWithPoints(
     authorId: '',
     content: config.storyText ?? '',
     imageUrl: config.imageUrl || undefined,
+    videoUrl: config.videoUrl || undefined,
+    videoQuotes: normalizeVideoQuotes(config.videoQuotes),
     visibility: (snapshot.visibility === 'private' ? 'private' : 'public') as StoryVisibility,
     currentVersion: 1,
     understoodCount: 0,
@@ -211,6 +224,8 @@ export function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
       storyText: docStory.story.content,
       storyTitle: docStory.story.title ?? '',
       imageUrl: docStory.story.imageUrl,
+      videoUrl: docStory.story.videoUrl,
+      videoQuotes: docStory.story.videoQuotes,
       points: docStory.story.points.map((p) => ({
         id: p.id,
         text: p.statement,

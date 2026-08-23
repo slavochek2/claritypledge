@@ -99,6 +99,23 @@ interface CriticalPredicate {
 }
 const CRITICAL_PREDICATES: ReadonlyArray<CriticalPredicate> = [
   {
+    fn: 'seal_and_send_letter',
+    needle: "'videoUrl', COALESCE(s.video_url, '')",
+    note: 'P1141: the sealed-letter snapshot carries the story video reference. The ' +
+      'imageUrl key next to it has already been dropped TWICE by a CREATE OR REPLACE from ' +
+      'a stale base (P751 added it, P749/P757 dropped it, P819 restored it, P833 again). ' +
+      'Without this predicate the same silent drop takes videoUrl with it and letters seal ' +
+      'with no video at all — with no error and nothing to notice until a recipient reads one.',
+  },
+  {
+    fn: 'seal_and_send_letter',
+    needle: "'videoQuotes', COALESCE(s.video_quotes,",
+    note: 'P1141: the quotes and their per-quote timecodes travel in the same snapshot as ' +
+      'the video they point at. Dropped separately from videoUrl, a letter renders a player ' +
+      'with no quotes under it — the half-broken state that reads as a bug rather than as an ' +
+      'absent feature.',
+  },
+  {
     fn: 'get_letter_position_stories',
     needle: 'author_id IN (v_sender_id, v_receiver_id)',
     note: 'P977: two-participant author whitelist — without it, third-party-authored ' +

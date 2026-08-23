@@ -4,6 +4,7 @@
  * No mock service needed; docs are a new feature with no legacy mock layer.
  */
 
+import { normalizeVideoQuotes } from '@/lib/video';
 import * as Sentry from '@sentry/react';
 import type { DocsService } from './docs-service.interface';
 import { logDbError, throwDbError } from './db-error-logger';
@@ -74,6 +75,8 @@ interface DbStoryWithAuthor {
   tags: string[];
   banner_url?: string | null;
   image_url?: string | null;
+  video_url?: string | null; // P1141
+  video_quotes?: unknown; // P1141
   author: {
     id: string;
     name: string | null;
@@ -129,6 +132,8 @@ function mapStoryWithAuthorFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     authorEarsCount: earCountOf(row.author),
     authorHasPledged: row.author?.has_pledged ?? false,
     imageUrl: row.image_url ?? undefined,
+    videoUrl: row.video_url ?? undefined,
+    videoQuotes: normalizeVideoQuotes(row.video_quotes),
   };
 }
 

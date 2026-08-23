@@ -3,6 +3,7 @@
  * @description P117: Real Supabase stories service implementation
  */
 
+import { normalizeVideoQuotes } from '@/lib/video';
 import * as Sentry from '@sentry/react';
 import type { StoriesService } from './stories-service.interface';
 import { logDbError } from './db-error-logger';
@@ -39,6 +40,8 @@ interface DbStoryWithAuthor {
   system_tags: string[]; // P630
   banner_url?: string | null;
   image_url?: string | null;
+  video_url?: string | null; // P1141
+  video_quotes?: unknown; // P1141 — normalized via normalizeVideoQuotes()
   author: {
     id: string;
     name: string | null;
@@ -96,6 +99,9 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     systemTags: row.system_tags || [],
     bannerUrl: row.banner_url ?? undefined,
     imageUrl: row.image_url ?? undefined,
+    // P1141: the one stored video field, plus its quotes + timecodes.
+    videoUrl: row.video_url ?? undefined,
+    videoQuotes: normalizeVideoQuotes(row.video_quotes),
     // Author info from joined profile
     authorName: row.author?.name ?? 'Unknown',
     authorSlug: row.author?.slug ?? '',
@@ -198,6 +204,8 @@ export const realStoriesService: StoriesService = {
       systemTags: data.system_tags || [],
       bannerUrl: data.banner_url ?? undefined,
       imageUrl: data.image_url ?? undefined,
+      videoUrl: data.video_url ?? undefined,
+      videoQuotes: normalizeVideoQuotes(data.video_quotes),
     };
 
     // P504: Fire-and-forget banner generation after successful insert
@@ -588,6 +596,8 @@ export const realStoriesService: StoriesService = {
       systemTags: data.system_tags || [],
       bannerUrl: data.banner_url ?? undefined,
       imageUrl: data.image_url ?? undefined,
+      videoUrl: data.video_url ?? undefined,
+      videoQuotes: normalizeVideoQuotes(data.video_quotes),
     };
   },
 
@@ -670,6 +680,8 @@ export const realStoriesService: StoriesService = {
       systemTags: (s as { system_tags?: string[] }).system_tags ?? [],
       bannerUrl: s.banner_url ?? undefined,
       imageUrl: (s as { image_url?: string | null }).image_url ?? undefined,
+      videoUrl: (s as { video_url?: string | null }).video_url ?? undefined,
+      videoQuotes: normalizeVideoQuotes((s as { video_quotes?: unknown }).video_quotes),
     };
   },
 

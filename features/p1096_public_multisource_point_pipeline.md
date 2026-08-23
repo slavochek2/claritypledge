@@ -97,7 +97,17 @@ A story renders on both the feed card and the point detail page; the point's `co
 ### Non-Goals
 
 - **Do NOT let any agent write in a person's first person**, or claim what a person believes, would answer, or would vote.
-- **Do NOT build video embedding or jump-to-timestamp in stories.** A clickable source link under the quote does the job for the first runs. Stories carry an image today; there is no video support anywhere.
+- **~~Do NOT build video embedding or jump-to-timestamp in stories.~~ SUPERSEDED by
+  `features/p1141_story_carries_a_video_with_jumpable_quotes.md`** (founder ruling 2026-08-21).
+  This non-goal was written to protect the first run from scope creep, before any run had
+  happened. P1096 is the v1 design and not the source of truth — it was never implemented under
+  its own number, while the pipeline shipped under P1104, P1130 and P1135. P1141 builds both the
+  embedded player and the jump-to-timestamp quotes. The original text, for the record: *"A
+  clickable source link under the quote does the job for the first runs. Stories carry an image
+  today; there is no video support anywhere."*
+  **P1096's separate markdown non-goal still stands as written** — P1141 narrows that ban to what
+  the 2026-08-20 security finding actually supports (structure allowed, link label must match its
+  destination); it does not lift it.
 - **Do NOT add markdown rendering to stories** for this. Story text renders plain with links made clickable; a 10,000-character limit means a long summary already fits.
 - **Do NOT write to the point `context` column.**
 - **Do NOT provision the YouTube API key for the first run.** Search, view counts, comments and subtitles all work with no key and no account; the key is for selecting from large volumes later.

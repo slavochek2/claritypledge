@@ -9,6 +9,68 @@ import type { ReactNode } from 'react';
  * Dangerous schemes (javascript:, vbscript:, data:, blob:) are never emitted.
  * Bare domain hrefs are prefixed with https:// to avoid relative URL resolution.
  */
+/**
+ * P1141 — a link may render as a link only when its visible label and its
+ * destination are the same place. The 2026-08-20 finding is exactly this:
+ * harvested comment text can display one label while pointing somewhere else,
+ * published under a real person's agent account.
+ *
+ * The comparison is made on PARSED urls, never raw strings — percent- and
+ * punycode-encoding otherwise split what this check saw from what the browser
+ * renders. The raw label token is compared, not a rendered one, so nested
+ * markup (`[**Real Site**](https://evil.com)`) cannot diverge the comparison
+ * from what the reader actually sees.
+ */
+
+/** Latin plus the marks that legitimately decorate it. Anything else is another script. */
+const LATIN_SAFE_HOST = /^[a-z0-9.-]+$/;
+
+/**
+ * A destination host that mixes scripts, or is written in a non-Latin script at
+ * all, cannot be judged by matching: a Cyrillic `а` in `аpple.com` is
+ * byte-identical in label and href and passes any match rule. This is a
+ * separate check because matching structurally cannot express it.
+ */
+export function hasConfusableHost(href: string): boolean {
+  let host: string;
+  try {
+    host = new URL(href).hostname.toLowerCase();
+  } catch {
+    return true;
+  }
+  // `URL` punycodes non-Latin hosts on parse; both forms are rejected.
+  if (host.startsWith('xn--') || host.includes('.xn--')) return true;
+  return !LATIN_SAFE_HOST.test(host);
+}
+
+/** Normalizes a parsed URL down to what a reader would call "the same place". */
+function urlIdentity(raw: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+  const path = parsed.pathname.replace(/\/+$/, '');
+  return `${host}${path}${parsed.search}`;
+}
+
+/**
+ * True when the label may be rendered as a clickable link to `href`.
+ * Fail-safe: anything unparseable, confusable, or mismatched returns false and
+ * the caller renders the label as plain, non-clickable text.
+ */
+export function labelMatchesDestination(rawLabel: string, href: string): boolean {
+  if (hasConfusableHost(href)) return false;
+  const labelIdentity = urlIdentity(rawLabel.trim());
+  if (!labelIdentity) return false;
+  const hrefIdentity = urlIdentity(href.trim());
+  if (!hrefIdentity) return false;
+  return labelIdentity === hrefIdentity;
+}
+
 export function linkifyText(text: string): ReactNode[] {
   if (!text) return [];
 
@@ -40,15 +102,23 @@ export function linkifyText(text: string): ReactNode[] {
 
   for (const segment of segments) {
     if (segment.type === 'mdlink') {
-      nodes.push(
-        createElement('a', {
-          key: `md-${segment.key}`,
-          href: segment.href,
-          target: '_blank',
-          rel: 'noopener noreferrer',
-          className: 'text-blue-500 hover:underline',
-        }, segment.label)
-      );
+      if (!labelMatchesDestination(segment.label, segment.href)) {
+        // Fail-safe: content is preserved, but a disguised link never reaches
+        // the DOM. Rendered as the reader wrote it, plain and non-clickable.
+        nodes.push(
+          createElement('span', { key: `md-plain-${segment.key}` }, segment.label)
+        );
+      } else {
+        nodes.push(
+          createElement('a', {
+            key: `md-${segment.key}`,
+            href: segment.href,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            className: 'text-blue-500 hover:underline',
+          }, segment.label)
+        );
+      }
     } else {
       // Auto-URL detection on plain text segments
       const urlNodes = linkifyUrls(segment.value, keyCounter);
@@ -72,7 +142,10 @@ function linkifyUrls(text: string, keyOffset: number): ReactNode[] {
   // lookbehind would have done is replicated in the match loop below instead
   // (see "Skip bare domains glued to a preceding word char").
   const URL_PATTERN = /(?:https?:\/\/[^\s]+|[\w-]+\.(?:com|org|net|io|co|me|dev|app|ai|uk|de|fr|au|ca|edu|gov|info|biz|tv|fm|ly|gl|gg|pm|club)(?:\/[^\s]*)?)/gi;
-  const TRAILING_PUNCT = /[.,;:!?)]+$/;
+  // P1141 (d): `>` joins the trailing set. An autolink `<https://example.com>`
+  // otherwise emits an href carrying the closing bracket — a link that renders
+  // as correct and resolves to a 404. Confirmed by test, not by assumption.
+  const TRAILING_PUNCT = /[.,;:!?)>]+$/;
 
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
@@ -140,5 +213,106 @@ function linkifyUrls(text: string, keyOffset: number): ReactNode[] {
     nodes.push(text.slice(lastIndex));
   }
 
+  return nodes;
+}
+
+/**
+ * P1141 — story text renders structure.
+ *
+ * P1096 banned markdown in story text outright, but that ban came from exactly
+ * one finding (2026-08-20): a link can display one label while pointing
+ * somewhere else. Bold, line breaks, blockquotes and headings were never the
+ * concern, and a framed-argument story needs them to be readable. This is the
+ * narrow parser that allows those four and nothing else — inline content still
+ * goes through `linkifyText`, so the label/destination match applies inside
+ * every structure.
+ *
+ * Headings map to `h3`/`h4`, never `h1`: story text is nested inside a page
+ * that already owns its document outline.
+ */
+export function renderStoryText(text: string): ReactNode[] {
+  if (!text) return [];
+
+  const lines = text.split('\n');
+  const blocks: ReactNode[] = [];
+  let paragraph: string[] = [];
+
+  const flushParagraph = (key: number) => {
+    if (paragraph.length === 0) return;
+    const body = paragraph.join('\n');
+    blocks.push(
+      createElement(
+        'p',
+        { key: `p-${key}`, className: 'whitespace-pre-wrap' },
+        ...renderInline(body)
+      )
+    );
+    paragraph = [];
+  };
+
+  lines.forEach((line, index) => {
+    const heading = /^(#{1,2})\s+(.*)$/.exec(line);
+    const quote = /^>\s?(.*)$/.exec(line);
+
+    if (heading) {
+      flushParagraph(index);
+      const tag = heading[1].length === 1 ? 'h3' : 'h4';
+      const className =
+        tag === 'h3' ? 'text-lg font-semibold mt-4 mb-2' : 'text-base font-semibold mt-3 mb-1';
+      blocks.push(
+        createElement('h' + (tag === 'h3' ? '3' : '4'), { key: `h-${index}`, className },
+          ...renderInline(heading[2]))
+      );
+      return;
+    }
+
+    if (quote) {
+      flushParagraph(index);
+      blocks.push(
+        createElement(
+          'blockquote',
+          {
+            key: `bq-${index}`,
+            className: 'border-l-4 border-gray-300 dark:border-gray-600 pl-3 italic my-2',
+          },
+          ...renderInline(quote[1])
+        )
+      );
+      return;
+    }
+
+    if (line.trim() === '') {
+      flushParagraph(index);
+      return;
+    }
+
+    paragraph.push(line);
+  });
+
+  flushParagraph(lines.length);
+  return blocks;
+}
+
+/** Bold spans, then links, within one block of text. */
+function renderInline(text: string): ReactNode[] {
+  const BOLD = /\*\*([^*]+)\*\*/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  BOLD.lastIndex = 0;
+  while ((match = BOLD.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(...linkifyText(text.slice(lastIndex, match.index)));
+    }
+    nodes.push(
+      createElement('strong', { key: `b-${match.index}`, className: 'font-semibold' },
+        ...linkifyText(match[1]))
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(...linkifyText(text.slice(lastIndex)));
+  }
   return nodes;
 }

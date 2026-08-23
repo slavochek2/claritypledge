@@ -730,3 +730,25 @@ longer matches. Scope: docs that name `.claude/commands/` as the only skill loca
 `CLAUDE.md` as the only instruction entry point. Drop if P1151 is reverted or never shipped.
 
 ---
+
+## Pre-existing 320px horizontal overflow on the story detail page
+<!-- filed 2026-08-23, during P1141 -->
+
+`due: month` — **Not caused by P1141.** A control probe during P1141's e2e work measured the
+overflow at 320px on a story with NO video and on a story WITH one, and got an *identical* set of
+offending elements both times:
+
+```
+DIV.flex items-center gap-1        right=339 w=172
+SPAN.inline-flex                   right=339 w=44
+BUTTON.min-w-[44px] min-h-[44px]   right=339 w=44
+```
+
+A 44px-min toolbar button row inside a `flex items-center gap-1` container spills ~19px past a
+320px viewport. P1141's own subtree is clean at every viewport; its e2e overflow assertion is
+therefore scoped to that subtree, with the reason recorded inline in
+`e2e/p1141-story-video.spec.ts`, rather than asserting on `documentElement` and either failing for
+someone else's defect or quietly fixing out-of-scope UI.
+
+Falsifier: set a 320px viewport on any `/story/:id` route on `main` and check
+`document.documentElement.scrollWidth > clientWidth`.

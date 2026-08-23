@@ -1,3 +1,4 @@
+import type { StoryVideoQuotesData } from '@/lib/video';
 /**
  * Core TypeScript interfaces for the Clarity Pledge application
  */
@@ -1077,6 +1078,16 @@ export interface Story {
   systemTags: string[]; // P630: System tags (st-group, version, category)
   bannerUrl?: string; // P504: AI-generated banner image
   imageUrl?: string; // P591: Story supporting image
+  /**
+   * P1141: the canonical watch URL of the story's source video — the ONE stored
+   * field. Player, thumbnail and the open-at-timestamp fallback are all
+   * re-derived from it, so no two stored fields can drift apart. Absent or
+   * unparseable is treated identically to "this story has no video", and every
+   * surface then renders exactly as it did before P1141.
+   */
+  videoUrl?: string;
+  /** P1141: the supporting quotes and their per-quote timecodes, plus the video's duration. */
+  videoQuotes?: StoryVideoQuotesData;
 }
 
 /** Story with author profile info for display */

@@ -1,3 +1,4 @@
+import { getThumbnailUrl } from '../src/lib/video';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Vercel Serverless Function — serves dynamic OG meta tags to bot crawlers.
@@ -185,7 +186,7 @@ function requireAgentOperator(profile: Record<string, unknown> | null): string |
 // can drift from it. Adversarial review found the prior version declared this
 // array and hand-wrote an identical-looking select string beside it; deleting the
 // embed from the string left the array (and bindClaim) untouched and green.
-const STORY_COLUMNS = ['title', 'content', 'banner_url', `profiles!stories_author_id_fkey(name,${AGENT_EMBED})`] as const;
+const STORY_COLUMNS = ['title', 'content', 'banner_url', 'video_url', `profiles!stories_author_id_fkey(name,${AGENT_EMBED})`] as const;
 bindClaim(STORY_COLUMNS, AGENT_EMBED, 'is a machine-generated reading, operated by {operator}');
 
 async function ogForStory(id: string): Promise<OgData | null> {
@@ -209,7 +210,13 @@ async function ogForStory(id: string): Promise<OgData | null> {
     description: operator
       ? `A machine-generated reading, not the person. ${authorName} is operated by ${operator} on ClarityPledge.`
       : (excerpt || `A story shared on ClarityPledge by ${authorName}.`),
-    image: (row.banner_url as string) || DEFAULT_IMAGE,
+    // P1141: a story with a video shows the video's own thumbnail, derived from
+    // the single stored field by the same pure parser the app uses — so no
+    // crawler card can ever show a still that has drifted from its video. No
+    // play overlay is baked into the image: a static meta-tag card cannot carry
+    // one (Slack/Twitter/Discord unfurls never do), which is an industry limit
+    // rather than a deviation from the UI Contract.
+    image: getThumbnailUrl(row.video_url as string | null) || (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/story/${id}`,
     type: 'article',
   };

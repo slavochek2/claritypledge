@@ -19,7 +19,9 @@ import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
 import { InlineVisibilityIcon } from '@/app/components/shared';
-import { StoryImage } from '@/app/components/shared/story-image';
+import { StoryMedia } from '@/app/components/shared/story-media';
+import { AgentByline } from '@/app/components/shared/agent-byline';
+import { normalizeVideoQuotes } from '@/lib/video';
 import type { StoryWithAuthor } from '@/app/types';
 
 interface FeedStoryCardProps {
@@ -107,7 +109,8 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
                   }}
                   className="font-semibold text-foreground hover:underline text-sm"
                 >
-                  {story.authorName}
+                  {/* P1141: `Reading of {Full Name}` + the machine chip. */}
+                  {isAgent && !identityPending ? <AgentByline name={story.authorName} /> : story.authorName}
                 </button>
                 {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
               </div>
@@ -118,13 +121,20 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
               </div>
             </div>
 
-            {/* Supporting image */}
-            {story.imageUrl && (
-              <StoryImage
-                src={story.imageUrl}
-                authorName={story.authorName}
-                onClick={() => navigate(`/story/${story.id}`)}
+            {/* Supporting image. P1141: video wins when present; the image path is untouched. */}
+            {(story.videoUrl || story.imageUrl) && (
+              <StoryMedia
+                videoUrl={story.videoUrl}
+                durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
+                mode="thumbnail"
+                storyHref={`/story/${story.id}`}
                 className="mt-2 mb-2"
+                imageProps={story.imageUrl ? {
+                  src: story.imageUrl,
+                  authorName: story.authorName,
+                  onClick: () => navigate(`/story/${story.id}`),
+                  className: 'mt-2 mb-2',
+                } : undefined}
               />
             )}
 
@@ -157,7 +167,9 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
 
             {/* Stats + share */}
             <div className="mt-2 flex items-center gap-2">
-              <UnderstoodBadge count={story.understoodCount} size="xs" />
+{/* P1141: gated on identityPending too — the registry fails closed, and reading
+                    isAgent while it loads renders an agent story as a human one. */}
+                {!isAgent && !identityPending && <UnderstoodBadge count={story.understoodCount} size="xs" />}
               <div className="flex-1" />
               <button
                 onClick={async (e) => {

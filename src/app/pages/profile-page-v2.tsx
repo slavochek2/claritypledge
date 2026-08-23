@@ -1479,7 +1479,12 @@ function StoryCardFull({
 
             {/* Stats row */}
             <div className="flex items-center gap-1 mt-3 text-sm text-muted-foreground">
-              <UnderstoodBadge count={story.understoodCount} />
+              {/* P1141: an agent account cannot sit in a live session and cannot rate a
+                  paraphrase, so this count reads 0 permanently. A reader who knows the metric
+                  reads that as "nobody understood this", when the truth is "this metric does
+                  not describe an agent story". Hidden unconditionally, never hide-when-zero.
+                  Gated on identityPending too — the registry fails closed. */}
+              {!storyIsAgent && !storyIdentityPending && <UnderstoodBadge count={story.understoodCount} />}
             </div>
           </div>
         </div>

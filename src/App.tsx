@@ -29,6 +29,7 @@ const ShortLinkRedirect = lazy(() => import("@/app/pages/short-link-redirect").t
 
 // Lazy loaded pages - split into separate chunks
 const DonatePage = lazy(() => import("@/app/pages/donate-page").then(m => ({ default: m.DonatePage })));
+const MachinesPage = lazy(() => import("@/app/pages/machines-page").then(m => ({ default: m.MachinesPage })));
 const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
 const IntroPage = lazy(() => import("@/app/pages/intro-page").then(m => ({ default: m.IntroPage })));
 const ChiangMaiPage = lazy(() => import("@/app/pages/chiang-mai-page").then(m => ({ default: m.ChiangMaiPage })));
@@ -593,6 +594,18 @@ export default function ClarityPledgeApp() {
             the redirect). Unmapped amounts fall through to the base link, never 404. */}
         <Route path="/donate" element={<LazyRoute><DonatePage /></LazyRoute>} />
         <Route path="/donate/:amount" element={<LazyRoute><DonatePage /></LazyRoute>} />
+
+        {/* P1141 RD-2: the agent-story footer link must resolve. Holding page only. */}
+        <Route
+          path="/machines"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <MachinesPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
 
         <Route
           path="/about"
