@@ -799,6 +799,8 @@ meaning.
 
 Announce before invoking: *"cm-events: refreshing the CM Events calendar now."* If Beeper Desktop is closed the skill pauses and warns — surface that to the founder, never silently skip.
 
+**Relay the pipeline's final `[concerns]` block verbatim** — impossible times, a person's name published as a venue, self-contradicting entries. Every run, including a clean one. A check whose output nobody repeats is a check that does not exist (2026-08-23); the block is printed last precisely so it is the thing still on screen when the run ends.
+
 **8a. Beeper token pre-flight — run this BEFORE invoking cm-events:**
 
 ```bash
