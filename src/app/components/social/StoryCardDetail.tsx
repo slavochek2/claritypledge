@@ -394,7 +394,12 @@ export function StoryCardDetail({
             })()}
 
             {/* P1141 RD-1: attribution level 2 of 3 — under every agent story. */}
-            {isAgent && !identityPending && <AgentStoryFooter name={story.authorName} />}
+            {isAgent && !identityPending && (
+              <AgentStoryFooter
+                name={story.authorName}
+                hasQuotes={videoQuotes.quotes.length > 0}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -80,6 +80,38 @@ describe('p1141 DW-7 / RD-1 — attribution level 2: the footer, verbatim', () =
     expect(screen.getByTestId('agent-story-footer').textContent).toContain('Jane Doe');
   });
 
+  it('a story with NO quotes does not claim quotes exist', () => {
+    // Blind review round 3, defect 1. RD-1 fixes the two sentences verbatim and
+    // the second says "except the quotes". On a no-quotes story that clause
+    // points at nothing — a false claim on the one surface whose job is telling
+    // a reader which words the machine wrote.
+    wrap(<AgentStoryFooter name="Agent · Jane Doe" hasQuotes={false} />);
+    const text = screen.getByTestId('agent-story-footer').textContent ?? '';
+    expect(text).toContain("Nothing here is Jane Doe's own words.");
+    expect(text).not.toContain('except the quotes');
+    expect(text).not.toContain('linked video');
+  });
+
+  it('the machine sentence is unchanged either way', () => {
+    for (const hasQuotes of [true, false]) {
+      const view = wrap(<AgentStoryFooter name="Agent · Jane Doe" hasQuotes={hasQuotes} />);
+      expect(view.getByTestId('agent-story-footer').textContent).toContain(
+        'A machine account operated by ClarityPledge wrote this reading of Jane Doe.'
+      );
+      view.unmount();
+    }
+  });
+
+  it('the detail surface passes hasQuotes from the story, not a hardcoded true', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const src = readFileSync(
+      join(__dirname, '..', 'app/components/social/StoryCardDetail.tsx'),
+      'utf8'
+    );
+    expect(src).toMatch(/hasQuotes=\{videoQuotes\.quotes\.length > 0\}/);
+  });
+
   it('the operator name is ClarityPledge — a founder decision already taken', () => {
     wrap(<AgentStoryFooter name="Agent · Jane Doe" />);
     expect(screen.getByTestId('agent-story-footer').textContent).toContain('ClarityPledge');

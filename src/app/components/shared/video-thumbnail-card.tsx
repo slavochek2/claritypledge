@@ -9,6 +9,13 @@ interface VideoThumbnailCardProps {
   sourceHref?: string;
   className?: string;
   alt?: string;
+  /**
+   * Shown on the card itself. The blocked-player state passes "Watch on
+   * YouTube" so the play button reads as the working control it is — blind
+   * review round 3 found an unlabelled button under a "could not load"
+   * caption reads as a dead control.
+   */
+  actionLabel?: string;
 }
 
 /**
@@ -29,6 +36,7 @@ export function VideoThumbnailCard({
   sourceHref,
   className = '',
   alt = 'Video thumbnail',
+  actionLabel,
 }: VideoThumbnailCardProps) {
   const thumbnail = getThumbnailUrl(videoUrl);
   if (!thumbnail) return null;
@@ -55,6 +63,14 @@ export function VideoThumbnailCard({
           </svg>
         </span>
       </span>
+      {actionLabel && (
+        <span
+          className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-1 text-xs font-medium text-white"
+          data-testid="video-action-label"
+        >
+          {actionLabel}
+        </span>
+      )}
       {typeof durationSeconds === 'number' && durationSeconds > 0 && (
         <span
           className="absolute bottom-2 right-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-medium text-white"
@@ -73,7 +89,7 @@ export function VideoThumbnailCard({
     <a
       href={target}
       data-testid="video-thumbnail-link"
-      aria-label="Play video"
+      aria-label={actionLabel ?? 'Play video'}
       {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
       {inner}

@@ -113,30 +113,31 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
             videoUrl={videoUrl}
             sourceHref={videoUrl}
             durationSeconds={durationSeconds}
-            alt="Video thumbnail — the player could not load, opens the source"
+            alt="Video thumbnail — the player is blocked here; opens the source"
+            actionLabel="Watch on YouTube"
           />
           {/*
-            Blind review, round 2, defect 7: the fallback was structurally
-            identical to a working embed — same thumbnail, same play button,
-            same duration chip — so a reader pressed play expecting inline
-            playback and was sent off-site with no warning. A fallback the eye
-            cannot distinguish from the real thing is not a fallback; it is a
-            silent redirect. Say what happened and where the control goes.
+            Blind review, round 2 defect 7: the fallback was structurally
+            identical to a working embed, so a reader pressed play expecting
+            inline playback and was sent off-site with no warning.
+
+            Round 3 defects 2-4: the FIRST fix over-corrected. It said "could
+            not load" directly under a large play button and put the working
+            control in a 12px grey inline link — so the biggest, most clickable
+            thing in the frame was the one the caption had just called broken,
+            and the only real escape hatch was styled as a footnote that wrapped
+            mid-phrase. Hierarchy inverted.
+
+            The card IS the control and always was: it links to the source. So
+            say that on the card, and let the sentence below explain rather than
+            compete. One action, and it is the prominent one.
           */}
           <p
             data-testid="story-video-blocked-notice"
             className="mt-2 text-xs text-gray-500 dark:text-gray-400"
           >
-            The player could not load here — it may be blocked by an extension or
-            a network policy.{' '}
-            <a
-              href={videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              Watch on YouTube →
-            </a>
+            The player is blocked here, probably by an extension or a network
+            policy. The thumbnail above opens the video at its source.
           </p>
         </div>
       );

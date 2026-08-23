@@ -54,6 +54,14 @@ export function StoryVideoQuotes({
         </span>
       </div>
 
+      {/*
+        The timecode measures 40px tall — verified by boundingBox in
+        e2e/p1141-story-video.spec.ts, at 320, 375 and desktop. But TWO
+        independent blind reviewers, given the renders alone, both read it as a
+        label rather than a control and both reported it as an undersized touch
+        target. A hit area the eye cannot see is not a hit area a reader will
+        use. The measurement was never the disagreement; the affordance was.
+      */}
       <ul className="mt-3 space-y-3">
         {quotes.map((quote, index) => {
           const timecode = formatTimecode(quote.seconds);
@@ -77,7 +85,7 @@ export function StoryVideoQuotes({
                   data-testid="story-video-quote-timecode"
                   data-seconds={quote.seconds}
                   aria-label={`Play from ${timecode}`}
-                  className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded px-2 text-sm font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
+                  className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50/60 px-2.5 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900"
                 >
                   <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
                     <path d="M8 5v14l11-7z" />
@@ -92,7 +100,7 @@ export function StoryVideoQuotes({
                   data-testid="story-video-quote-timecode"
                   data-seconds={quote.seconds}
                   aria-label={`Open the source at ${timecode} in a new tab`}
-                  className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded px-2 text-sm font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
+                  className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50/60 px-2.5 text-sm font-medium text-blue-600 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900"
                 >
                   <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
                     <path d="M8 5v14l11-7z" />

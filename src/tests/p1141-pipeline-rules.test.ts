@@ -115,9 +115,14 @@ describe('p1141 — every UI Contract and RD-1 string appears verbatim where it 
     expect(read(file)).toContain(needle);
   });
 
-  it('the footer names the quote exception, the second of RD-1\'s two sentences', () => {
+  it("the footer names the quote exception, the second of RD-1's two sentences", () => {
+    // Asserted on the RENDERED text, not the source: the sentence is now built
+    // from a conditional (a no-quotes story must not claim quotes exist — blind
+    // review round 3, defect 1), so it is split across JSX lines in the file
+    // while still reaching the reader verbatim. The reader is what RD-1 binds.
     const footer = read('src/app/components/shared/agent-story-footer.tsx');
-    expect(footer).toContain("own words except the quotes, which come from the linked video.");
+    expect(footer).toContain('own words except the quotes, which come from the linked');
+    expect(footer).toContain('video.');
   });
 
   it('the operator name is ClarityPledge everywhere it appears', () => {

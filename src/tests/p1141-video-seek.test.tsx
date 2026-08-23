@@ -184,11 +184,17 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
     await act(async () => { vi.advanceTimersByTime(31_000); });
 
     const notice = screen.getByTestId('story-video-blocked-notice');
-    expect(notice.textContent).toMatch(/could not load/i);
-    // And it must say where the control goes, not just that something failed.
-    const out = notice.querySelector('a');
-    expect(out?.getAttribute('href')).toBe(VIDEO);
-    expect(out?.getAttribute('target')).toBe('_blank');
+    expect(notice.textContent).toMatch(/blocked/i);
+
+    // The CARD is the control, and it must say so on itself. Round 3 found the
+    // opposite arrangement — a big unlabelled play button under a "could not
+    // load" caption, with the only working link as 12px grey footnote text —
+    // reads as a dead control with the hierarchy inverted.
+    expect(screen.getByTestId('video-action-label').textContent).toBe('Watch on YouTube');
+    expect(screen.getByTestId('video-thumbnail-link').getAttribute('href')).toBe(VIDEO);
+
+    // Exactly ONE action in the blocked state: no competing inline link.
+    expect(notice.querySelector('a')).toBeNull();
   });
 
   it('a working player carries NO blocked notice', async () => {
