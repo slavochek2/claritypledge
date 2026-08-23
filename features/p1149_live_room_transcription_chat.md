@@ -367,6 +367,34 @@ One blind reviewer, run to **two consecutive PASS** rounds.
 | `feedback.md` | two numbers, written when corrections are given: `corrections given` and `turns consumed` |
 
 
+## Defects Found Mid-Loop (audit log)
+
+Recorded in w0 so they survive the loop and are not held in anyone's memory. The loop in w5
+does not see this section; it is the checklist for the post-loop audit.
+
+### D-1 (HIGH, open) — room code minted with `Math.random()`
+
+Automated security review flagged `generateTranscribeRoomCode()` in
+`src/app/data/transcribe-service.ts` (w5, uncommitted): a 6-character code built from
+`Math.random()`.
+
+**This is not a novel finding — it is [P1097](p1097_room_code_minted_with_math_random.md)
+reintroduced.** That bug is open, `severity: high`, `rank: 2`, and describes the identical
+defect on `/live`'s room code: a 6-char bearer capability minted with a non-cryptographic PRNG.
+The room code here authorizes joining a room, and A4 scopes message reads to membership — so
+the code is an access credential, not a display label.
+
+**Fix:** `crypto.getRandomValues` for character selection, and consider a longer code to raise
+the guessing bar. Must land before P1149 merges.
+
+**Why it is logged rather than fixed now:** the loop holds w5 and editing its working tree
+mid-run risks collision. Fix during the post-loop audit, or interrupt the loop deliberately.
+
+**What this validates:** the mechanical rows of the contract are self-graded — the loop writes
+both the tests and the code — so a post-loop read of what it produced is not optional
+housekeeping. The first HIGH finding arrived before the loop even finished.
+
+
 ## Architecture (narrow pass, 2026-08-21)
 
 Four integration decisions. Everything else follows from existing code.
