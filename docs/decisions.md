@@ -4,6 +4,100 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-23 [process]: Local `main` is not a safe substitute for `origin/main` as goal-gate's contract-pin trust anchor
+
+**Context:** P1114's `/ship` hit CHECK 7 (contract-pin mismatch) at the spec-close step. The pin
+had been legitimately re-committed to local `main` — round 4 updated one line of the `##
+Verification Contract` table's wording to match a founder-approved design change; the re-pin was
+traced byte-for-byte against every commit since the original pin and confirmed the underlying
+MECHANICAL test was unchanged and still passing — but nothing had been pushed, so `origin/main`
+still held the stale value. Reordering the pin lookup to prefer local `main` (falling back to
+`origin/main`) looked like the obvious fix: this repo's own `/ship` completes fully on local main
+with zero push for ordinary specs, so treating local main as equally trustworthy read as closing an
+accidental gap, not opening one.
+
+**Decision:** Rejected the reorder; kept `origin/main` as the unconditional first source for the
+pin (`scripts/goal-gate.sh` CHECK 7, unchanged). An adversarial review — independently reproduced in
+an isolated fixture repo before being accepted, not taken on the reviewer's word — found that any
+process with shell access inside a worktree can move the shared `main` ref via a plumbing command
+(no push, no hook fires, undetected by `branch-guard.sh`, which only guards a bare feature branch
+being checked out in the *main checkout*, not writes to `refs/heads/main` itself). Local `main` is
+therefore reachable by exactly the actor CHECK 7 exists to bind — an unattended `/goal` loop with
+ordinary worktree shell access — while `origin/main` requires an actual network push, which this
+repo's rules make human-gated every time. The two refs are not equally trustworthy, and the diff's
+own justification for treating them as such was false.
+
+**Alternatives rejected:** Reordering to try local `main` first (this session's first attempt,
+implemented, test-suite-green, then reverted) — reopens the hole described above.
+`git merge-base --is-ancestor origin/main main` as a stronger gate on the local-main fallback —
+does not close the gap either: a forged commit built to append onto local main's own tip is by
+construction a fast-forward descendant of whatever `origin/main` already was, so the ancestor check
+passes on the forged ref too.
+
+**Consequences:** For a goalified spec, closing it for real (moving it to `features/done/`) requires
+the pin to actually reach `origin/main` — i.e., requires a push — even though ordinary /ship
+completes on local main with zero push. This is a deliberate property of CHECK 7's design, not an
+accidental conflation of "ship" and "push"; it only applies to specs that opted into `/goalify`'s
+extra unattended-loop safety mechanism. P1114 was left with its ship intentionally paused (code
+safely landed on local main, spec still open, worktree still live) rather than take the rejected
+local-main fix or push ahead of the founder's own batched-push cadence. Also confirmed while
+tracing this: `scripts/test-goal-gate.sh`'s hermetic fixture (single-branch temp repo, no `origin`
+remote configured) provides **zero coverage** of a divergent local-vs-origin-main scenario — its
+31/31 green proved nothing about either the original design or this rejected change. Worth a
+follow-up: add a fixture case with a real `origin` remote holding a different value than local
+`main`, so this scenario has any test coverage at all.
+
+**References:** `scripts/goal-gate.sh` (CHECK 7) · `.github/workflows/goal-gate.yml` (the "Fetch
+trusted base" step — CI always runs `origin/main`'s own copy of the script, never the pushed
+branch's) · `scripts/lib/branch-guard.sh` · `scripts/test-goal-gate.sh` ·
+[p1114](../features/p1114_event_room_presence_and_cmp_opt_in.md) · 2026-08-20 [process] (a
+different CHECK-7-adjacent bug in the same script — a pinned row naming its own spec's path breaks
+when `/ship` moves it)
+
+---
+
+## 2026-08-23 [process]: A goalified spec's Done-When/Acceptance-Criteria checklist doesn't self-maintain across `/goal` rounds
+
+**Context:** P1114 ran through four `/goal`-loop rounds over several days. `/verify`, run at the end
+of the fourth round, found all 33 `## Done-When`/`## Acceptance Criteria` checkboxes still unticked
+— despite each round's own work being independently verified (UAT scorecard rows, passing e2e/unit
+suites, live screenshots). Cross-checking against evidence showed 29 of the 33 were genuinely done
+and simply never ticked as the spec moved through rounds; 4 described the original pre-round-1
+design and were now stale, not merely unticked (one item's wording — roster showing opt-ins only —
+had been deliberately reversed by a founder-confirmed decision two rounds earlier and never
+updated). Nobody had lied about completion; the checklist was just never revisited as a whole
+after round 1.
+
+**Decision:** Batch-reconciled the checklist against real evidence rather than leaving it stale or
+blocking `/ship` on a technicality: ticked the 29 items with a citation (a UAT row or a fresh check
+run that session), rewrote the item whose *wording* no longer matched the shipped design (citing
+the commit and decision that changed it), and left genuinely never-independently-verified items
+open with an explicit note rather than guessing them checked.
+
+**Alternatives rejected:** Leaving the checklist as-is and shipping anyway — the mechanical
+`/verify`/`/ship` gate (`.claude/rules/features.md`) treats an unticked box as unmet by design, and
+overriding that silently would defeat the one check that would have caught a genuinely regressed
+item. Ticking every box on the strength of "the round's own tests passed" without per-item
+evidence — rejected per the adjacent 2026-08-20 [process] entry below: a ticked box is a snapshot
+read as permanent evidence forever after, so ticking without a citation just relocates today's
+diligence gap into next year's false confidence.
+
+**Consequences:** A Done-When/AC checklist on a multi-round `/goal`-driven spec accumulates the same
+kind of debt a long-lived TODO list does — true on day one, silently stale by round four, with
+nothing forcing a re-look until something reads it end-to-end. `/verify` reconciling it against the
+UAT scorecard, once, near the end of the spec's life, caught this cheaply; the alternative (never
+looking) would have shipped a stale requirement description (the reversed opt-in-visibility
+wording) as the recorded spec of record. Generalizes to any goalified spec spanning 2+ rounds — the
+same reconciliation pass is worth running before `/ship`, not just when a mismatch happens to be
+noticed.
+
+**References:** [p1114](../features/p1114_event_room_presence_and_cmp_opt_in.md) ·
+`features/uat/p1114.md` · 2026-08-20 [process] "A checked box freezes a number, and the correction
+needs the same scrutiny as the error" (P1104 — the mirror-image failure: a *ticked* box going
+stale, not an unticked one accumulating)
+
+---
+
 ## 2026-08-21 [technical]: "The UI cannot produce this row" is not "the database prevents it" — an app-flow invariant asserted as a DB guarantee, twice, in one session (P1141 → P1150)
 
 **Context:** P1141 removes the verified-understanding count from agent stories. The reasoning offered to the founder — and written into the spec — was that the count is **structurally unreachable**: a verification row exists only when a story's author rates a listener's paraphrase in a live session, and a machine account cannot sit in a session. That is a correct description of the live-session UI. It is not what the database enforces. The `story_verifications` INSERT policy binds the caller to *one* of the two actor columns and leaves the other free, so any authenticated user can write a verification naming an arbitrary counterparty against any story. The claim reached the founder twice, in consecutive turns, before the `/architect` security agent found the policy. Filed as **P1150**.
