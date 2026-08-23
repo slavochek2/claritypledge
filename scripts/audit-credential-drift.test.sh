@@ -332,6 +332,107 @@ assert_not_out "not silently counted as reachable-empty (1/2)" "COVERAGE:1/2"
 assert_not_out "not silently counted as clean (2/2)"           "COVERAGE:2/2"
 
 # ══════════════════════════════════════════════════════════════════════════
+# CASE I — the two finding classes added specifically to close the CRITICAL
+# security findings (relabeled-Value-column, missing-Location-column) had
+# zero test coverage until this case (/finish code review, HIGH finding).
+# Every prior fixture happened to include both a Value and a Location
+# column, so the fix for those CRITICALs ran green without ever being
+# exercised by this suite — exactly the gap epistemic.md gate 7b warns
+# against. All keys/values synthetic.
+# ══════════════════════════════════════════════════════════════════════════
+CASE_I="${WORK}/case-i"
+ENV_DIR_I="${CASE_I}/env"
+REG_DIR_I="${CASE_I}/registry"
+mkdir -p "$ENV_DIR_I" "$REG_DIR_I"
+
+cat > "${ENV_DIR_I}/fixture.env" <<'ENV_EOF'
+FAKE_NOVALCOL_KEY=some-fixture-value
+FAKE_NOLOCCOL_KEY=some-other-fixture-value
+FAKE_BUNDLED_KEY_A=bundled-a
+FAKE_BUNDLED_KEY_B=bundled-b
+ENV_EOF
+
+# Table 1: no Value-like column at all (renamed to "Secret" — the exact
+# CRITICAL repro) AND has a Location column, so only the Value-column gap
+# is under test here.
+cat > "${REG_DIR_I}/registry-i.md" <<'REG_EOF'
+# Fixture Registry I — synthetic, for audit-credential-drift.test.sh only. No real credentials.
+
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Secret |
+|---|---|---|---|---|---|---|---|
+| `FAKE_NOVALCOL_KEY` | `fixture.env` | `svc-a` | manual-only | 180d | 2026-01-01 | active | |
+
+| Env var | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|
+| `FAKE_NOLOCCOL_KEY` | `svc-b` | manual-only | 180d | 2026-01-01 | active | |
+
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_BUNDLED_KEY_A` / `FAKE_BUNDLED_KEY_B` | `fixture.env` | `svc-c` | manual-only | 180d | 2026-01-01 | active | |
+REG_EOF
+
+echo "--- case I: no-Value-column, no-Location-column, and multi-key-bundle findings ---"
+run_audit "audit against a registry with 3 differently-shaped tables" 0 \
+  --audit --env-dir "$ENV_DIR_I" --registry "${REG_DIR_I}/registry-i.md"
+
+assert_out "no-Value-column table produces PLAINTEXT_CHECK_SKIPPED, not silence" \
+                                       "PLAINTEXT_CHECK_SKIPPED:${REG_DIR_I}/registry-i.md"
+assert_out "no-Location-column table produces LOCATION_CHECK_SKIPPED, not silence" \
+                                       "LOCATION_CHECK_SKIPPED:${REG_DIR_I}/registry-i.md"
+# The regression this guards: before the fix, a table with no Location
+# column made loc="" for every row, so REGISTRY_LOCATION_MISMATCH fired
+# for FAKE_NOLOCCOL_KEY even though it is correctly registered and live.
+assert_not_out "no false REGISTRY_LOCATION_MISMATCH for the no-Location-column key" \
+                                       "REGISTRY_LOCATION_MISMATCH:FAKE_NOLOCCOL_KEY"
+assert_out "genuinely bundled row reports MULTI_KEY_ROW_BUNDLED" \
+                                       "MULTI_KEY_ROW_BUNDLED:${REG_DIR_I}/registry-i.md:FAKE_BUNDLED_KEY_A/FAKE_BUNDLED_KEY_B"
+# Both bundled keys must still be individually classified/registered —
+# the bundling finding is additive information, not a replacement for the
+# normal per-key registration the audit otherwise reports.
+assert_not_out "bundled key A still has no CONSUMER_ONLY/REGISTRY_ONLY drift" \
+                                       "REGISTRY_ONLY:FAKE_BUNDLED_KEY_A"
+assert_not_out "bundled key B still has no CONSUMER_ONLY/REGISTRY_ONLY drift" \
+                                       "REGISTRY_ONLY:FAKE_BUNDLED_KEY_B"
+
+# Regression guard for the false-positive multi-key bug caught mid-session:
+# a "/" in the identifier cell is not always a key separator (e.g. a path).
+# None of the split pieces here are valid key-shaped, so this must NOT be
+# reported as a bundled row.
+CASE_I2="${WORK}/case-i2"
+mkdir -p "${CASE_I2}/env" "${CASE_I2}/registry"
+echo "FAKE_PATH_LOOKALIKE_KEY=x" > "${CASE_I2}/env/fixture.env"
+cat > "${CASE_I2}/registry/registry.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_PATH_LOOKALIKE_KEY` | OAuth via `~/.config/lookalike/` | `svc-d` | manual-only | 180d | 2026-01-01 | active | |
+REG_EOF
+run_audit "path-shaped Location cell must not read as a bundled key row" 0 \
+  --audit --env-dir "${CASE_I2}/env" --registry "${CASE_I2}/registry/registry.md"
+assert_not_out "a '/' in a non-key cell is not a false MULTI_KEY_ROW_BUNDLED" \
+                                       "MULTI_KEY_ROW_BUNDLED"
+
+# ══════════════════════════════════════════════════════════════════════════
+# CASE J — _safe_echo's own abort path (epistemic.md gate 7: exercise a
+# gate's failure path before trusting it). Case H below only greps the
+# script's SOURCE for dangerous invocation shapes; this exercises the
+# guard function's actual runtime behavior directly.
+# ══════════════════════════════════════════════════════════════════════════
+echo "--- case J: _safe_echo fails closed on real unsafe input ---"
+UNSAFE_DIR="${WORK}/case-j/env>weird"
+mkdir -p "$UNSAFE_DIR"
+echo "FAKE_UNSAFE_PATH_KEY=x" > "${UNSAFE_DIR}/fixture.env"
+UNSAFE_OUT="$("$SCRIPT" --parse-only --env-dir "$UNSAFE_DIR" 2>&1)"
+UNSAFE_EXIT=$?
+if [[ "$UNSAFE_EXIT" == "3" ]] && printf '%s' "$UNSAFE_OUT" | grep -qF "FATAL: audit-credential-drift.sh attempted unsafe output"; then
+  echo "PASS  _safe_echo aborts with exit 3 + FATAL message on real unsafe output"
+  pass_count=$((pass_count + 1))
+else
+  echo "FAIL  _safe_echo did not fail closed: exit=${UNSAFE_EXIT}"
+  printf '%s\n' "$UNSAFE_OUT" | sed 's/^/        /'
+  fail_count=$((fail_count + 1))
+fi
+
+# ══════════════════════════════════════════════════════════════════════════
 # CASE H — static guards for the Non-Goals (never `source`s an env file,
 # never puts a secret-looking var directly into an executed command's argv).
 # Heuristic, grep-based, in the same spirit as this repo's other static

@@ -34,6 +34,7 @@
 #   NOT_ENUMERATED:<surface>:<reason>                                  excluded from COVERAGE
 #   PLAINTEXT_IN_REGISTRY:<KEY>:<registry-file>:fingerprint=<fp>       hard fail
 #   PLAINTEXT_CHECK_SKIPPED:<registry-file>:<reason>                  no Value-like column resolved
+#   LOCATION_CHECK_SKIPPED:<registry-file>:<reason>                   no Location-like column resolved
 #   MULTI_KEY_ROW_BUNDLED:<registry-file>:<KEY_A>/<KEY_B>             shared tier/value, flagged
 #   COVERAGE:<classified>/<total-reachable>:not-enumerated=<n>
 #
@@ -48,6 +49,15 @@
 # never passes a secret-shaped value as a command argument, and never
 # writes, changes, or invalidates a credential anywhere.
 
+# Deliberately -u only, not -e (unlike check-edge-function-secrets.sh /
+# day-gates.sh): this script's audit-mode logic is built on `$(cmd || true)`
+# for every comm/grep call whose empty-result exit code is expected and
+# handled explicitly (e.g. `comm -23 ... || true`) — `set -e` would abort
+# on those same expected-empty results, which is exactly the failure mode
+# the rest of this script goes out of its way to avoid (see the
+# LOCATION_CHECK_SKIPPED/PLAINTEXT_CHECK_SKIPPED sentinels). A missing
+# `--registry` file is still caught loudly by its own explicit check
+# above, not by relying on `set -e`.
 set -u
 
 _safe_echo() {
@@ -78,7 +88,7 @@ while [ $# -gt 0 ]; do
     --not-enumerated) NOT_ENUM+=("$2"); shift 2 ;;
     --not-enumerated=*) NOT_ENUM+=("${1#--not-enumerated=}"); shift ;;
     -h|--help)
-      sed -n '1,40p' "$0" | grep -E '^#( |!)' | sed 's/^# \{0,1\}//'
+      sed -n '1,50p' "$0" | grep -E '^#( |!)' | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -216,6 +226,16 @@ parse_registry() {
         if (valcol == 0) {
           printf "%s\t__NO_VALUE_COLUMN__\t\t\t\t\t\t\t\n", regfile
         }
+        # Same failure shape for Location: if this table has no
+        # resolvable Location-like column, every row in it gets loc=""
+        # — which would make REGISTRY_LOCATION_MISMATCH fire for every
+        # live+registered key in the table (claimed="$ENV_DIR/" can
+        # never match any real basename), a guaranteed false positive
+        # indistinguishable from a real drift finding (HIGH finding,
+        # /finish code review).
+        if (loccol == 0) {
+          printf "%s\t__NO_LOCATION_COLUMN__\t\t\t\t\t\t\t\n", regfile
+        }
         next
       }
       if (line ~ /^[ \t]*\|/) {
@@ -271,7 +291,7 @@ parse_registry() {
 # For length <= 4, first2+last2 overlap or cover the whole string (e.g.
 # "ab" -> "ab…ab(2)" is the literal value twice) — mask fully instead.
 fingerprint() {
-  local val="$1" n=${#1}
+  local val="$1" n=${#val}
   if [[ "$n" -le 4 ]]; then
     printf '***(%s)' "$n"
   else
@@ -307,13 +327,21 @@ for r in "${REGISTRIES[@]}"; do
   ALL_REG_ROWS_RAW="${ALL_REG_ROWS_RAW}${ALL_REG_ROWS_RAW:+$'\n'}${out}"
 done
 
-# Sentinel rows (__NO_VALUE_COLUMN__, __MULTI_KEY_ROW__) carry signal for
-# the two findings below but must never enter the real key-matching logic
-# (REG_KEYS, CONSUMER_ONLY, REGISTRY_ONLY, REGISTRY_MISMATCH, retirement/
-# stale, PLAINTEXT_IN_REGISTRY) — they are not credentials.
+# Sentinel rows (__NO_VALUE_COLUMN__, __NO_LOCATION_COLUMN__,
+# __MULTI_KEY_ROW__) carry signal for the findings below but must never
+# enter the real key-matching logic (REG_KEYS, CONSUMER_ONLY,
+# REGISTRY_ONLY, REGISTRY_MISMATCH, retirement/stale, PLAINTEXT_IN_REGISTRY)
+# — they are not credentials. Known low-likelihood collision: all three
+# sentinel strings match the real key-shape regex (^[A-Z_][A-Z0-9_]*$), so
+# a registry row whose actual Env var cell was literally one of these
+# strings would be swept in here and vanish from every other check with no
+# error. Not guarded against — the name shape is unusual enough that this
+# is judged not worth the added complexity of a reserved-name check.
 NO_VALUE_COL_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2=="__NO_VALUE_COLUMN__" {print}' || true)
+NO_LOC_COL_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2=="__NO_LOCATION_COLUMN__" {print}' || true)
+NO_LOC_REGFILES=$(printf '%s\n' "$NO_LOC_COL_ROWS" | awk -F'\t' '{print $1}' | grep -v '^$' || true)
 MULTI_KEY_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2=="__MULTI_KEY_ROW__" {print}' || true)
-ALL_REG_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2!="__NO_VALUE_COLUMN__" && $2!="__MULTI_KEY_ROW__" {print}' || true)
+ALL_REG_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2!="__NO_VALUE_COLUMN__" && $2!="__NO_LOCATION_COLUMN__" && $2!="__MULTI_KEY_ROW__" {print}' || true)
 REG_KEYS=$(printf '%s\n' "$ALL_REG_ROWS" | awk -F'\t' '{print $2}' | sort -u | grep -v '^$' || true)
 
 # PLAINTEXT_IN_REGISTRY — hard fail, runs FIRST. This is the tool's one
@@ -346,6 +374,19 @@ while IFS= read -r row; do
   _safe_echo "PLAINTEXT_CHECK_SKIPPED:${regfile}:no Value-like column resolved for one of its tables"
 done <<< "$NO_VALUE_COL_ROWS"
 
+# LOCATION_CHECK_SKIPPED — same shape as the Value-column case above: a
+# table with no Location-like column resolved would otherwise leave loc=""
+# for every one of its rows, which makes REGISTRY_LOCATION_MISMATCH fire
+# for every live+registered key in that table — a guaranteed false
+# positive indistinguishable from a real drift finding (HIGH finding,
+# /finish code review). NO_LOC_REGFILES (built above) is what the
+# REGISTRY_ONLY/REGISTRY_LOCATION_MISMATCH loop below skips against.
+while IFS= read -r row; do
+  [[ -n "$row" ]] || continue
+  regfile=$(printf '%s' "$row" | awk -F'\t' '{print $1}')
+  _safe_echo "LOCATION_CHECK_SKIPPED:${regfile}:no Location-like column resolved for one of its tables"
+done <<< "$NO_LOC_COL_ROWS"
+
 # MULTI_KEY_ROW_BUNDLED — a row bundling multiple keys shares one Tier
 # across keys that may have different sensitivity; surface it so a wrong-
 # but-internally-consistent tier on a bundled row doesn't hide silently.
@@ -372,6 +413,9 @@ while IFS= read -r row; do
   is_live=$(printf '%s\n' "$LIVE_KEYS" | grep -Fxq "$key" && echo yes || echo no)
   if [[ "$is_live" == "no" ]]; then
     _safe_echo "REGISTRY_ONLY:${key}:${regfile}"
+    continue
+  fi
+  if printf '%s\n' "$NO_LOC_REGFILES" | grep -Fxq "$regfile"; then
     continue
   fi
   claimed="${ENV_DIR}/${loc}"
