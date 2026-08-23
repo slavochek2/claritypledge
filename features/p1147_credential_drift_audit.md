@@ -8,6 +8,9 @@ tags: [security, credentials, audit, drift]
 delivery_stage: challenge-prd
 pipeline_ran: [create-spec, challenge-prd]
 driver: anomaly
+uat_file: features/uat/p1147.md
+test_files:
+  - scripts/audit-credential-drift.test.sh
 ---
 
 # P1147: Credential drift audit — classify every secret, detect drift in three directions
@@ -167,6 +170,81 @@ value.
 - [ ] No secret value appears in the audit output, either registry, the terminal, or any commit
 - [ ] The audit runs as a `/weekly` sub-step
 - [ ] The registry contains no inline plaintext secret value
+
+## Test Coverage Strategy
+
+**Shape:** parser/logic-heavy, not E2E-heavy. This is a standalone CLI script with zero
+`src/`/`e2e/`/`supabase/` surface — the standard web-app test pyramid doesn't apply. Coverage is
+one hermetic bash test harness (`scripts/audit-credential-drift.test.sh`, in the
+`day-gates.sh`/`day-gates.test.sh` pattern — externally-fixtured, no internal `--self-test`
+required) plus a CLI-verification UAT file (`features/uat/p1147.md`) for the live-data half the
+automated suite structurally cannot cover.
+
+**What's tested and why:**
+- The naive-parser failure path (Done-When #6, #7) — the single hardest correctness risk the spec
+  names. A fixture with a lowercase-named line and three distinct "yields no key at all" shapes
+  (PEM continuation, PEM footer, `export`-prefixed line), with an *independently computed* expected
+  line count (not trusted from the script's own output — epistemic.md gate 7b) asserting
+  CLASSIFIED + UNPARSEABLE sums to exactly that count. A well-formed-only fixture would prove
+  nothing here per epistemic.md gate 7.
+- All 3 drift directions (Done-When #5) as one combined synthetic fixture: consumer→registry,
+  registry→consumer (both "missing entirely" and "wrong claimed location" sub-cases), and
+  registry→registry (conflicting `tier` across two registry files).
+- The retirement candidate (Done-When #8) and its sibling, stale-consumer-list drift, via a
+  `--consumers-dir` grep-count mechanism against a synthetic fake source tree.
+- The not-enumerated-surface exclusion (Done-When #2) — asserting the coverage denominator neither
+  credits an unreachable surface as reachable-but-empty nor as clean.
+- No-secret-value-in-output (Done-When #9) and no-inline-plaintext-in-registry (Done-When #11),
+  combined: a synthetic registry row carries a fake inline value (standing in for the real
+  violation the spec says exists today and must be fixed before this script is written), and the
+  test asserts both that it's flagged (`PLAINTEXT_IN_REGISTRY`) and that only its fingerprint form
+  ever appears in output — computed by an independent oracle function in the test, not trusted from
+  the script.
+- Static Non-Goal guards (never `source`s an env file, never puts a secret-shaped variable directly
+  into an executed command's argv, no mint/rotate/revoke verbs in executable code) — grep-based,
+  heuristic, same spirit as `check-edge-function-secrets.sh`'s static checks. Explicitly **not** a
+  proof of absence for every possible leak path; a human should still eyeball any new exec call the
+  script gains in review.
+
+**What's deliberately not tested, and why:**
+- **Tier/`never-rotate` classification correctness for the ~46 real credentials** — that's a
+  founder judgment call per credential (which tier, what breaks, data-loss-vs-inconvenience), not
+  a testable property. The script's job is to let that judgment be recorded and then check it stays
+  correct going forward, not to make the judgment itself.
+- **Live network calls** — nothing in the automated suite calls a real provider API or the real CI
+  secrets endpoint. The not-enumerated case is exercised via an operator-supplied
+  `--not-enumerated` flag, not by actually triggering a 403.
+- **Real credential fixtures** — every fixture name/value is synthetic (`FAKE_*`/`ZZZ_UAT_*`). The
+  actual 3 drift instances that exist today, and the real inline-plaintext violation, are verified
+  live via the UAT scenarios (against scratch copies of the real registries, never the originals),
+  not reproduced in the committed test file.
+- **The exact CLI flag names and output tokens** — these are a `/generate-tests` suggestion, not an
+  `/architect`-approved contract (this spec's `pipeline_ran` is `[create-spec, challenge-prd]`
+  only). `/dev` may implement a different shape; if so, the fixtures and assertions in
+  `scripts/audit-credential-drift.test.sh` need updating to match, but the underlying invariants
+  (zero dropped lines, fingerprint-only output, all 3 drift directions, not-enumerated exclusion,
+  retirement candidates, read-only/no-`source`/no-ps-visible-secret) must keep being enforced by
+  *some* form of these cases.
+- **`/weekly` wiring itself** — the test harness doesn't grep `SKILL.md` (that's UAT-5, a one-line
+  manual check); adding a SKILL.md-parsing assertion to a bash test for a markdown prose file would
+  be more machinery than the invariant is worth.
+
+**Open questions for `/dev`:**
+1. Language/runtime is unconfirmed — bash was chosen following `check-edge-function-secrets.sh` +
+   `day-gates.sh` precedent, but no `/architect` ran. A different runtime choice requires
+   re-fixturing the test harness (the invariants survive, the literal file does not).
+2. The registry markdown table shape used in fixtures (`Env var`/`Location`/`Consumers`/`Tier`/
+   `Interval`/`Last rotated`/`Status`/`Value`) is invented for testing purposes — the real
+   registries have different base columns today. Confirm real column layout before finalizing the
+   parser.
+3. "Retirement candidate" (Done-When #8) vs. "stale consumer list" (Problem section drift #3) are
+   modeled as related but distinct, both via a `--consumers-dir` grep-count mechanism. This is the
+   least certain interpretation here — confirm with founder before implementing.
+4. Exit-code semantics (0 for informational drift, 1 only for the plaintext-in-registry violation)
+   are invented, not spec-stated. Confirm whether any drift finding should be blocking, especially
+   since this runs unattended in `/weekly`.
+5. `REGISTRY_LOCATION_MISMATCH` assumes the registry names an exact file; real rows today are prose
+   ("`.env.local`; GCP IAM"). Decide how strict location-matching should be.
 
 ## Resolved Decisions
 

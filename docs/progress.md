@@ -4,17 +4,17 @@
 
 The project's verifiable progress record: what was bet, what was tested, what was killed, what's live now — with instructions to verify every number. Nothing here asks to be believed; every row names its primary source.
 
-**Last verified:** 2026-06-07 · refresh the numbers: `./scripts/progress-refresh.sh`
+**Last verified:** 2026-08-21 · refresh the numbers: `./scripts/progress-refresh.sh`
 
 ## Current readings
 
 <!-- AUTO:BEGIN -->
-- Registered users (prod `profiles`): **60**
+- Registered users (prod `profiles`): **90**
 - /live sessions (prod `clarity_sessions`): **229**
-- Story verifications (prod `story_verifications`): **37**
+- Story verifications (prod `story_verifications`): **39**
 - Clarity letters: RLS-protected from anonymous reads — last published figure: 18 (2026-06-02, decisions.md)
-- Dated decision entries ([decisions.md](decisions.md)): **1141**
-- Hypotheses registered ([hypotheses.md](hypotheses.md)): **38** (**4** active P0)
+- Dated decision entries ([decisions.md](decisions.md)): **1634**
+- Hypotheses registered ([hypotheses.md](hypotheses.md)): **52** (**6** active P0)
 <!-- AUTO:END -->
 
 Counts include founder-facilitated activity — see *What is NOT claimed*.
