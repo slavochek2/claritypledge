@@ -4,6 +4,111 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-23 [process]: A `/goalify` refusal on PHYSICAL checks is carved out and merge-gated, never argued down
+
+**Context:** P1149 (`/transcribe` live room chat) hit `/goalify` Phase 0's refusal: 4 of 12
+done-when lines were HUMAN-ONLY (33%), over the 25% ceiling. The four were Gate 0 on real
+phones, two-device live delivery, a radio-toggle drop/recover, and eight-way GPU concurrency.
+
+**Decision:** Carve the physical rows into a sibling spec ([P1152](../features/p1152_transcribe_physical_device_verification.md))
+and **gate the parent's merge on it** — P1149 does not merge until P1152 closes. P1149 then
+triages at 0% HUMAN-ONLY and goalifies normally. The carve-out spec is `type: task`, ranked
+beside its parent, precisely so it cannot drift to backlog and be forgotten.
+
+**The distinction that makes this safe:** HUMAN-ONLY splits into **taste** and **physical**.
+Taste rows ("the copy feels right") mean the spec is not loopable and should be reconsidered.
+Physical rows mean a person with hardware must run them — browser speech recognition cannot be
+driven by Playwright, a phone radio cannot be toggled by a script. Carving taste out lowers the
+bar. Carving *physical* out relocates work that no contract could ever have decided, and is
+only honest when the parent's merge is gated on it.
+
+**Alternatives rejected:** (a) **Automate them anyway** — the attempt produces a fixture that
+passes while the real surface is broken; epistemic gate 7b names this exact failure. (b) **Drop
+the ceiling for this spec** — the ceiling exists because a run that lands on a judgement nobody
+made burns 30 turns for nothing. (c) **Leave them in and skip goalify** — forfeits the 8
+machine-decidable rows and the 4 blind-review rows, which is most of the value.
+
+**Consequences:** Reusable shape for any feature whose hardest verification is physical
+(hardware, radios, real concurrency, multi-person). Two numbers to state when refusing:
+the HUMAN-ONLY count, and which of them are taste vs physical — they route differently.
+
+**References:** [features/p1149](../features/p1149_live_room_transcription_chat.md) ·
+[features/p1152](../features/p1152_transcribe_physical_device_verification.md) ·
+`.claude/commands/slava/build/goalify/SKILL.md` (Phase 0) ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b
+
+## 2026-08-23 [process]: A spec's location in `features/done/` is not the ship record — `git ls-files` is
+
+**Context:** Asked whether a dependency had shipped, I ran `ls`, saw the spec at
+`features/done/2026-06-10/p1114_...md`, and reported "it has shipped" into a spec's dependency
+note. It had not. A co-tenant session's `/ship` was **stranded half-done**: the file was moved
+on disk, but the destination was untracked and the source deletion unstaged. Nothing had been
+committed.
+
+**Decision:** Before asserting any spec's lifecycle state, run `git ls-files --error-unmatch
+<path>`, not `ls` or `find`. A path existing under `features/done/` proves a file was moved,
+never that a ship completed.
+
+**What caught it:** not me — `scripts/validate-doc-links.cjs`, which classifies a link to an
+**untracked non-ignored file** as dead precisely for the forgot-to-commit case. Two of my own
+claims in the same spec were wrong in sequence: first "in flight, 29 commits in w2" (true when
+written, stale two days later), then "it has shipped" (never true). Both are recorded as
+corrections in the spec rather than silently edited out.
+
+**This is the CLAUDE.md "a probe that returns plenty can still be lying" family, third variant.**
+The known ones are coverage and metric. This one is **authority**: the probe returned a real,
+correct answer to a question adjacent to the one asked. `ls` answered "where is this file",
+and I read it as "has this shipped". The control-probe check never fires, because nothing
+returned empty.
+
+**Consequences:** The volatile-state rule in [.claude/rules/git.md](../.claude/rules/git.md)
+("re-check before telling the user NOT to act") already covers decay over time. This adds the
+orthogonal failure: a *fresh* read of the *wrong artifact*. Ship state lives in git, not the
+filesystem.
+
+**References:** [.claude/rules/git.md](../.claude/rules/git.md) ("Volatile state decays") ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 1 and 5 ·
+`scripts/validate-doc-links.cjs` (`classifyTarget`) ·
+[features/p1149](../features/p1149_live_room_transcription_chat.md)
+
+## 2026-08-23 [technical]: One device per speaker is source selection applied at capture — and the L4 is cheaper per hour of audio than CPU
+
+**Context:** Designing `/transcribe` — a room where up to eight people are transcribed at once.
+Two long-standing questions resurfaced: how attribution works without diarization, and whether
+the GPU transcription service ever paid for itself.
+
+**Decision — the device boundary IS the architecture.** Eight people in a room is not one hard
+transcription problem; it is eight easy ones. Each phone produces a single-speaker stream, which
+delivers three things for free: attribution (one device, one speaker), consent (each person
+consents for their own voice, on their own screen), and no diarization. This extends the
+2026-08-19 ruling *"attribution is solved by source selection, not by building diarization"*
+from **choosing** existing sources to **capturing** new ones. A room is therefore modelled as N
+personal sessions sharing a room id, never as one recording of a room.
+
+**Decision — do not retire the GPU for CPU.** On published Cloud Run rates, an L4-attached
+instance costs roughly **1.8×** the equivalent CPU-only instance per hour (GPU adds ~$0.70/hr;
+8 vCPU + 16 GiB is ~$0.84/hr on its own), while transcribing far faster. Cost **per hour of
+audio** therefore favours the GPU. "CPU is free" is the false premise — Cloud Run meters CPU
+per vCPU-second regardless of what else is attached. The 2026-05-31 incident was a five-minute
+scheduler holding the instance warm, never the GPU itself, and that gross figure was
+credit-masked to ~€12 net.
+
+**Alternatives rejected:** (a) **Server-side chunked transcription for the live half** — the
+browser does it at zero marginal cost and lower latency, and a 30-second server chunk recreates
+the warm-instance cost shape P858 removed. Held in reserve as the answer if the phone gate
+fails. (b) **One shared room microphone with diarization** — reintroduces exactly what the
+device boundary eliminates, and makes per-person consent impossible.
+
+**Consequences:** Any future multi-speaker capture surface starts from "can each speaker own a
+device?" before considering diarization. The GPU service stays; the recurring "did it pay off"
+question now has a number rather than a feeling. **Unverified:** the speed multiple is an
+estimate, not measured on this service — a real cost-per-hour-of-audio benchmark is still owed
+before any future retire/keep decision.
+
+**References:** [features/p1149](../features/p1149_live_room_transcription_chat.md) (A1-A4) ·
+this log 2026-08-19 (attribution by source selection) · this log 2026-05-31 (GPU idle-cost leak) ·
+[docs/technical/infrastructure.md](technical/infrastructure.md)
+
 ## 2026-08-23 [process]: Local `main` is not a safe substitute for `origin/main` as goal-gate's contract-pin trust anchor
 
 **Context:** P1114's `/ship` hit CHECK 7 (contract-pin mismatch) at the spec-close step. The pin
