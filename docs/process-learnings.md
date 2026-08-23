@@ -700,3 +700,33 @@ research finds an existing tool that already reports harness conformance, or if 
 harnesses stay read-only scratchpads where guardrails do not matter.
 
 ---
+
+## Audit the hooks — one safety hook is not wired
+
+**Date:** 2026-08-23
+**Status:** proposed
+**due:** week
+
+`.claude/hooks/block-banned-git.py` exists but nothing references it in `settings.json` or
+`settings.local.json`, so it does not run — a banned-git blocker that has been inert for an
+unknown period. Determine whether that is deliberate or a regression, and while there, audit
+all 13 hook files: which are wired, what each blocks, and classify each as catching a bad
+OUTCOME (movable to a repo-level check that works from any harness) or a bad MOVE mid-session
+(assistant-only by nature). Drop the audit half if the hooks get reviewed by other means;
+the block-banned-git question should be answered either way.
+
+---
+
+## Check architecture docs against the projected-skills tree (P1151)
+
+**Date:** 2026-08-23
+**Status:** proposed
+**due:** week
+
+P1151 added a generated `.agents/skills/` tree and a root `AGENTS.md`. Link and command-ref
+validators both pass, so nothing is mechanically broken — but prose docs that describe where
+skills live and what reads them were not reviewed and may now describe a structure that no
+longer matches. Scope: docs that name `.claude/commands/` as the only skill location, or
+`CLAUDE.md` as the only instruction entry point. Drop if P1151 is reverted or never shipped.
+
+---
