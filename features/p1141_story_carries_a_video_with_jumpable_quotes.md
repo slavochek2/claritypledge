@@ -19,7 +19,15 @@ driver: heuristic
 Run from `<cp-root>/.claude/worktrees/w3` — the claimed worktree for this spec, already on
 `feature/p1141-story-video-quotes`.
 
-    /goal "./scripts/goal-gate.sh p1141 exits 0, output pasted. Stop after 30 turns."
+    /goal ./scripts/goal-gate.sh p1141 exits 0 with its output pasted, or stop after 30 turns
+
+Run it in **auto mode**. A goal does not change the permission mode: in Manual mode Claude
+still asks before every tool call the settings do not already allow, so the loop is not
+unattended and will stall on the first prompt (`code.claude.com/docs/en/goal.md`).
+
+The bound is an `or` clause, not a trailing sentence, because the evaluator scores **the
+condition** — an imperative after the full stop is not part of what it judges, and the run
+would be unbounded.
 
 `/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke
 it for them. The condition names an exit code on purpose: the loop's evaluator reads the
