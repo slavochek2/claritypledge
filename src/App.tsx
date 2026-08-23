@@ -44,6 +44,7 @@ const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
 const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default: m.FeedPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
+const TranscribeRoomPage = lazy(() => import("@/app/pages/transcribe-room-page").then(m => ({ default: m.TranscribeRoomPage })));
 const MySessionsPage = lazy(() => import("@/app/pages/my-sessions-page").then(m => ({ default: m.MySessionsPage })));
 const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m => ({ default: m.CollaboratePage })));
 const CreateStoryPage = lazy(() => import("@/app/pages/create-story-page").then(m => ({ default: m.CreateStoryPage })));
@@ -784,6 +785,28 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <ClarityLivePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P1149: /transcribe — the live room transcription chat */}
+        <Route
+          path="/transcribe"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <TranscribeRoomPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+        <Route
+          path="/transcribe/:code"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <TranscribeRoomPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

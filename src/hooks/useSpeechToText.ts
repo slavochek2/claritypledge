@@ -57,13 +57,29 @@ export interface UseSpeechToTextReturn {
   setTranscript: (text: string) => void;
 }
 
-export function useSpeechToText(lang: string = 'en-US'): UseSpeechToTextReturn {
+export interface UseSpeechToTextOptions {
+  /**
+   * P1149 Gate 0 / Risks: `onend` only sets isListening = false — there is no
+   * auto-restart, so a mobile timeout / silence / network blip kills the live
+   * transcript silently while the person keeps talking. Opt-in only: default
+   * (undefined/false) is byte-for-byte the pre-P1149 behavior, so /chat and
+   * TranscriptionInput are unaffected (spec Non-Goals — do not modify
+   * useSpeechToText's default behavior).
+   */
+  autoRestart?: boolean;
+}
+
+export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTextOptions): UseSpeechToTextReturn {
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const autoRestart = options?.autoRestart ?? false;
+  // Distinguishes "the caller called stopListening()" from "the browser ended
+  // recognition on its own" — only the latter should trigger a restart.
+  const intentionalStopRef = useRef(false);
 
   // Check browser support
   const isSupported = typeof window !== 'undefined' &&
@@ -125,14 +141,24 @@ export function useSpeechToText(lang: string = 'en-US'): UseSpeechToTextReturn {
     recognition.onend = () => {
       setIsListening(false);
       setInterimTranscript('');
+
+      if (autoRestart && !intentionalStopRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          // Already started, or restarted too quickly — the next onend retries.
+          console.warn('Speech recognition auto-restart failed to start');
+        }
+      }
     };
 
     recognitionRef.current = recognition;
 
     return () => {
+      intentionalStopRef.current = true;
       recognition.abort();
     };
-  }, [isSupported, lang]);
+  }, [isSupported, lang, autoRestart]);
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current) {
@@ -140,6 +166,7 @@ export function useSpeechToText(lang: string = 'en-US'): UseSpeechToTextReturn {
       return;
     }
 
+    intentionalStopRef.current = false;
     setError(null);
     setInterimTranscript('');
 
@@ -152,6 +179,7 @@ export function useSpeechToText(lang: string = 'en-US'): UseSpeechToTextReturn {
   }, []);
 
   const stopListening = useCallback(() => {
+    intentionalStopRef.current = true;
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
     }

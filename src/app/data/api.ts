@@ -3267,6 +3267,84 @@ export async function recordChunkUploadComplete(
 }
 
 /**
+ * P1149 (A3): builds the room-scoped GCS path segments for one participant's audio.
+ *
+ * `sessions/{code}/` (see recordChunkUploadComplete above) is a literal string this
+ * codebase concatenates when calling the signed-url plumbing — the actual object-key
+ * assembly happens server-side in an out-of-repo Cloud Function (see
+ * supabase/functions/gcs-signed-url/index.ts), so this repo cannot directly prove where
+ * an upload physically lands. Passing a multi-segment `gcsPathPrefix` (`rooms/{code}/{who}`)
+ * as the signed-url call's first argument, instead of a bare clarity_sessions code, is the
+ * only lever this repo has to keep room audio out of the `sessions/` prefix. Whether the
+ * external function honors that is unverified here by design — P1152's physical
+ * bucket-listing check is the live proof; this function is pure so its OWN construction is
+ * unit-testable independent of that external unknown (src/tests/p1149-gcs-prefix.test.ts).
+ */
+export function buildRoomAudioPathSegments(
+  roomCode: string,
+  participantName: string,
+): { gcsPathPrefix: string; sanitizedParticipant: string } {
+  const sanitizedParticipant = participantName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return {
+    gcsPathPrefix: `rooms/${roomCode}/${sanitizedParticipant}`,
+    sanitizedParticipant,
+  };
+}
+
+/**
+ * P1149 (A3): uploads one participant's audio chunk under the room-scoped `rooms/`
+ * prefix, via the exact same signed-url / GCS plumbing `uploadAudioChunk` uses for
+ * `/live` — only the path segments differ. Never touches the `sessions/` prefix.
+ */
+export async function uploadRoomAudioChunk(
+  roomCode: string,
+  participantName: string,
+  chunkBlob: Blob,
+  chunkNumber: number,
+  isLastChunk: boolean,
+): Promise<void> {
+  const { gcsPathPrefix, sanitizedParticipant } = buildRoomAudioPathSegments(roomCode, participantName);
+  const paddedChunkNum = String(chunkNumber).padStart(3, '0');
+  const devPrefix = devRecordingFilenamePrefix(); // P809
+  const chunkFileName = `${devPrefix}chunk_${paddedChunkNum}.webm`;
+  const contentType = chunkBlob.type || 'audio/webm';
+
+  console.log(`[ML Upload] Room chunk ${chunkNumber} for ${gcsPathPrefix}, size: ${chunkBlob.size}, isLast: ${isLastChunk}`);
+
+  try {
+    const { uploadUrl, filePath } = await getSignedUploadUrl(gcsPathPrefix, chunkFileName, contentType);
+    await uploadToGCS(uploadUrl, chunkBlob, contentType);
+    console.log(`[ML Upload] Room chunk ${chunkNumber} uploaded: ${filePath}`);
+
+    if (isLastChunk) {
+      const totalChunks = chunkNumber + 1;
+      const durationMs = totalChunks * 30000;
+      const { error: dbError } = await supabase.from('ml_training_sessions').insert({
+        session_code: roomCode,
+        user_name: participantName,
+        audio_path: `gs://claritypledge-ml-training/${gcsPathPrefix}/${devPrefix}chunk_*.webm`,
+        duration_ms: durationMs,
+        chunk_count: totalChunks,
+      });
+      if (dbError) {
+        console.warn('[ML Upload] Room DB record failed (non-fatal):', dbError.message);
+      }
+    }
+  } catch (err) {
+    console.error(`[ML Upload] Room chunk ${chunkNumber} upload failed:`, err);
+    Sentry.captureException(err, {
+      tags: { feature: 'transcribe_room', operation: 'room_chunk_upload' },
+      extra: { roomCode, sanitizedParticipant, chunkNumber, isLastChunk, blobSize: chunkBlob.size },
+    });
+    throw err;
+  }
+}
+
+/**
  * Uploads an events snapshot alongside audio chunks.
  * Called every 30 seconds to ensure events are saved even if user closes browser.
  *
