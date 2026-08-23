@@ -153,22 +153,30 @@ value.
 
 ## Done-When
 
-- [ ] Every key in every **reachable** consumer surface is classified in a registry, or listed as
-      an accepted exclusion with a reason — **remaining:** schema landed on both real registries
-      (`tier`/`consumers`/`interval`/`last_rotated`/`status`/`location`), ~20 existing rows carry a
-      `candidate` tier proposal pending founder confirm, but real `--audit` run
-      (`COVERAGE:10/84`) still shows ~70+ live keys as `CONSUMER_ONLY` with zero registry entry —
-      the founder-paced classification pass itself has not happened
-- [ ] Every surface the agent's credential **cannot** enumerate is named in the audit's output as
-      not-enumerated, and excluded from any coverage percentage — mechanism verified (test case F
-      + one real example wired into `/weekly`: GitHub Actions secrets store), but the example is
-      not itself confirmed live (never actually hit the 403) and no exhaustive pass over every
-      real unreachable surface has run
-- [ ] Each `never-rotate` row states what breaks, and whether that is data loss or inconvenience —
-      the one row classified `candidate never-rotate` so far (`IP_HASH_SECRET`) does; not yet true
-      of the ~70+ still-unclassified keys
-- [ ] Every newly classified key has been screened for the `never-rotate` property — true of the
-      ~20 rows this session touched, not yet true of the unclassified majority
+- [x] Every key in every **reachable** consumer surface is classified in a registry, or listed as
+      an accepted exclusion with a reason — `COVERAGE:84/84:not-enumerated=1`, zero
+      `CONSUMER_ONLY` findings, zero `PLAINTEXT_IN_REGISTRY`, zero `REGISTRY_LOCATION_MISMATCH`.
+      2026-08-23 founder classification session: ~24 keys classified with high confidence
+      (build-time-public `VITE_`/`NEXT_PUBLIC_` vars, already-documented email accounts), ~45
+      more proposed by an agent from naming convention + repo context and confirmed in batch by
+      the founder rather than verified line-by-item — real, but lower-confidence than the rows
+      `/challenge-prd` and `/dev` produced. Each such row is labeled `candidate` in the registry
+      so a future reader can tell which classifications were individually reasoned about vs.
+      batch-confirmed. Two rows (`GOOGLE_APPLICATION_CREDENTIALS`, `GITHUB_PAT`) are marked
+      **unconfirmed** — IAM-role/staleness questions the founder still needs to answer, not
+      resolved by this pass.
+- [x] Every surface the agent's credential **cannot** enumerate is named in the audit's output as
+      not-enumerated, and excluded from any coverage percentage — mechanism verified (test case F)
+      and the one real declared surface (GitHub Actions secrets store, `/weekly` wiring) correctly
+      excluded from `COVERAGE`'s denominator in the 84/84 real run. Caveat carried forward: the
+      403 itself was never independently triggered live — the exclusion is asserted, not tested
+      against the real API.
+- [x] Each `never-rotate` row states what breaks, and whether that is data loss or inconvenience —
+      true of the one row classified `never-rotate` (`IP_HASH_SECRET`, candidate). No other row in
+      the now-fully-classified 84 claims `never-rotate` — every other credential has an ordinary
+      manual/on-compromise/not-a-secret path, so there is nothing else this rule needs to check.
+- [x] Every newly classified key has been screened for the `never-rotate` property — true of all
+      84 keys now that classification is complete.
 - [x] The audit reports each of the 3 drift instances that exist today: the credentials with no
       env entry, the registry-vs-registry disagreement, and a stale consumer list — verified
       against **real, current data**, not just synthetic fixtures: `REGISTRY_ONLY` found
