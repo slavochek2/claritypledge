@@ -683,3 +683,20 @@ it survives if P1141 is descoped or parked.
 state whether harvested comment text can reach `stories.content` or a quote. If it can, filter it.
 
 ---
+
+## Harness-readiness check + tested-combinations table
+
+**Date:** 2026-08-23
+**Status:** proposed
+**due:** month
+
+P1151 projects slash commands to other harnesses, but hooks, auto-loading path-scoped rules,
+permission settings and MCP config have no equivalent to project into — so a new harness gets
+the commands with none of the guardrails underneath them, silently. Build (a) a short check
+runnable inside any new harness that proves it can see the commands and the root instructions
+and reports what is missing, to run on day one with a new tool, and (b) a dated table of which
+harness/model combinations have actually been tested versus assumed. Drop this if P1151's
+research finds an existing tool that already reports harness conformance, or if the other
+harnesses stay read-only scratchpads where guardrails do not matter.
+
+---
