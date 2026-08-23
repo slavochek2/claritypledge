@@ -34,7 +34,7 @@ useDefault = true
 
   # Paths that contain intentionally public keys or example values
   paths = [
-    '''scripts/audit-credential-drift\.test\.sh$''',  # P1147 — synthetic FAKE_*/PEM-shaped fixtures by design; see file header
+    '''^scripts/audit-credential-drift\.test\.sh$''',  # P1147 — synthetic FAKE_*/PEM-shaped fixtures by design; see file header
     '''dist/''',                    # Build output (contains minified code with variable names)
     '''\.map$''',                   # Source maps
     '''\.env\.local$''',            # Local env files (gitignored)

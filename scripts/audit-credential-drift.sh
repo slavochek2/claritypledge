@@ -33,6 +33,8 @@
 #   CONSUMER_LIST_STALE:<KEY>:<registry-file>:documented=<n>:live=<n>
 #   NOT_ENUMERATED:<surface>:<reason>                                  excluded from COVERAGE
 #   PLAINTEXT_IN_REGISTRY:<KEY>:<registry-file>:fingerprint=<fp>       hard fail
+#   PLAINTEXT_CHECK_SKIPPED:<registry-file>:<reason>                  no Value-like column resolved
+#   MULTI_KEY_ROW_BUNDLED:<registry-file>:<KEY_A>/<KEY_B>             shared tier/value, flagged
 #   COVERAGE:<classified>/<total-reachable>:not-enumerated=<n>
 #
 # Fingerprint format: first2…last2(length), e.g. Fa…12(27). A raw secret
@@ -98,6 +100,17 @@ if [[ "$MODE" == "audit" && ${#REGISTRIES[@]} -eq 0 ]]; then
   _safe_echo "ERROR: --audit requires at least one --registry FILE" >&2
   exit 2
 fi
+# A missing/unreadable --registry path must abort loudly, not silently
+# degrade to "0 registered keys" (indistinguishable from an empty-but-
+# real registry, and the exact shape a stale/typo'd/unmounted path
+# produces).
+for r in "${REGISTRIES[@]:-}"; do
+  [[ -n "$r" ]] || continue
+  if [[ ! -f "$r" || ! -r "$r" ]]; then
+    _safe_echo "ERROR: --registry file not found or unreadable: $r" >&2
+    exit 2
+  fi
+done
 
 # list_env_files DIR — every file that looks like a local env file, sorted.
 list_env_files() {
@@ -147,6 +160,13 @@ parse_registry() {
   awk -F'|' -v regfile="$regfile" '
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
     function striptick(s) { gsub(/`/, "", s); return s }
+    # desafe — every free-text field goes through this before it ever
+    # leaves parse_registry, so no downstream _safe_echo call can be
+    # killed by ordinary table prose (an arrow "->", a "<name>"
+    # placeholder). Structurally the only char that needs handling here
+    # is < / > — a literal "|" inside a cell already cannot survive the
+    # -F"|" split above (it becomes a field boundary, not cell content).
+    function desafe(s) { gsub(/[<>]/, "-", s); return s }
     function is_sep(line,    t) {
       t = line; gsub(/[ \t]/, "", t)
       return (t ~ /^\|?[-:|]+\|?$/)
@@ -187,6 +207,15 @@ parse_registry() {
         valcol = resolve("value")
         in_table = 1
         pending_header = 0
+        # No Value-like column resolved for this table: the plaintext
+        # hard-fail check has nothing to scan here. That is
+        # indistinguishable from "checked, found nothing" unless this
+        # sentinel row makes it visible (CRITICAL finding: a table
+        # renamed "Value" to "Secret"/"Plaintext" silently switched the
+        # one hard-fail check off with zero signal).
+        if (valcol == 0) {
+          printf "%s\t__NO_VALUE_COLUMN__\t\t\t\t\t\t\t\n", regfile
+        }
         next
       }
       if (line ~ /^[ \t]*\|/) {
@@ -200,13 +229,31 @@ parse_registry() {
         keyraw = striptick(cell(rf, keycol))
         if (keyraw == "") next
         kn = split(keyraw, keys, "/")
-        loc = striptick(cell(rf, loccol))
-        cons = striptick(cell(rf, conscol))
-        tier = cell(rf, tiercol)
-        interval = cell(rf, intcol)
-        lastrot = cell(rf, lastcol)
-        status = cell(rf, statcol)
-        val = striptick(cell(rf, valcol))
+        loc = desafe(striptick(cell(rf, loccol)))
+        cons = desafe(striptick(cell(rf, conscol)))
+        tier = desafe(cell(rf, tiercol))
+        interval = desafe(cell(rf, intcol))
+        lastrot = desafe(cell(rf, lastcol))
+        status = desafe(cell(rf, statcol))
+        val = desafe(striptick(cell(rf, valcol)))
+        # Count only VALID keys before deciding this is a bundled row —
+        # a "/" in the identifier cell is not always a key separator (e.g.
+        # "OAuth via ~/.config/gws/" splits on "/" too; every piece fails
+        # the key-shape regex, so this must not read as bundling).
+        valid_n = 0; valid_list = ""
+        for (i = 1; i <= kn; i++) {
+          key = trim(keys[i])
+          if (key !~ /^[A-Z_][A-Z0-9_]*$/) continue
+          valid_n++
+          valid_list = (valid_list == "" ? key : valid_list "/" key)
+        }
+        # A row bundling multiple keys ("`KEY_A` / `KEY_B`") shares this
+        # one Tier/Value across keys of different sensitivity by
+        # construction — surface it rather than let a wrong-but-
+        # internally-consistent tier hide on an ordinary multi-key row.
+        if (valid_n > 1) {
+          printf "%s\t__MULTI_KEY_ROW__\t%s\t\t\t\t\t\t\n", regfile, valid_list
+        }
         for (i = 1; i <= kn; i++) {
           key = trim(keys[i])
           if (key !~ /^[A-Z_][A-Z0-9_]*$/) continue
@@ -221,9 +268,15 @@ parse_registry() {
 }
 
 # fingerprint VALUE — first2…last2(length). Never the raw value.
+# For length <= 4, first2+last2 overlap or cover the whole string (e.g.
+# "ab" -> "ab…ab(2)" is the literal value twice) — mask fully instead.
 fingerprint() {
   local val="$1" n=${#1}
-  printf '%s\xe2\x80\xa6%s(%s)' "${val:0:2}" "${val: -2}" "$n"
+  if [[ "$n" -le 4 ]]; then
+    printf '***(%s)' "$n"
+  else
+    printf '%s\xe2\x80\xa6%s(%s)' "${val:0:2}" "${val: -2}" "$n"
+  fi
 }
 
 ENV_FILES=$(list_env_files "$ENV_DIR")
@@ -247,13 +300,61 @@ done
 LIVE_CLASSIFIED=$(printf '%s\n' "$ENV_FINDINGS" | grep '^CLASSIFIED:' || true)
 LIVE_KEYS=$(printf '%s\n' "$LIVE_CLASSIFIED" | awk -F: '{print $2}' | sort -u | grep -v '^$' || true)
 
-ALL_REG_ROWS=""
+ALL_REG_ROWS_RAW=""
 for r in "${REGISTRIES[@]}"; do
   out="$(parse_registry "$r")"
   [[ -n "$out" ]] || continue
-  ALL_REG_ROWS="${ALL_REG_ROWS}${ALL_REG_ROWS:+$'\n'}${out}"
+  ALL_REG_ROWS_RAW="${ALL_REG_ROWS_RAW}${ALL_REG_ROWS_RAW:+$'\n'}${out}"
 done
+
+# Sentinel rows (__NO_VALUE_COLUMN__, __MULTI_KEY_ROW__) carry signal for
+# the two findings below but must never enter the real key-matching logic
+# (REG_KEYS, CONSUMER_ONLY, REGISTRY_ONLY, REGISTRY_MISMATCH, retirement/
+# stale, PLAINTEXT_IN_REGISTRY) — they are not credentials.
+NO_VALUE_COL_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2=="__NO_VALUE_COLUMN__" {print}' || true)
+MULTI_KEY_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2=="__MULTI_KEY_ROW__" {print}' || true)
+ALL_REG_ROWS=$(printf '%s\n' "$ALL_REG_ROWS_RAW" | awk -F'\t' '$2!="__NO_VALUE_COLUMN__" && $2!="__MULTI_KEY_ROW__" {print}' || true)
 REG_KEYS=$(printf '%s\n' "$ALL_REG_ROWS" | awk -F'\t' '{print $2}' | sort -u | grep -v '^$' || true)
+
+# PLAINTEXT_IN_REGISTRY — hard fail, runs FIRST. This is the tool's one
+# enforced guarantee: it must complete and report before any other finding
+# class gets a chance to abort the run on unrelated free text (CRITICAL
+# finding from adversarial review — an ordinary "->" in some other row's
+# Tier/Location cell used to be able to kill the whole script, via
+# _safe_echo, before this check ever ran).
+HARD_FAIL=0
+while IFS= read -r row; do
+  [[ -n "$row" ]] || continue
+  regfile=$(printf '%s' "$row" | awk -F'\t' '{print $1}')
+  key=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
+  val=$(printf '%s' "$row" | awk -F'\t' '{print $9}')
+  if [[ -n "$val" ]]; then
+    fp=$(fingerprint "$val")
+    _safe_echo "PLAINTEXT_IN_REGISTRY:${key}:${regfile}:fingerprint=${fp}"
+    HARD_FAIL=1
+  fi
+done <<< "$ALL_REG_ROWS"
+
+# PLAINTEXT_CHECK_SKIPPED — a table with no Value-like column resolved is
+# NOT the same as a table that was checked and found clean; say so instead
+# of letting the two look identical (the other half of the CRITICAL finding
+# above — a "Value" column renamed to "Secret"/"Plaintext" used to switch
+# the hard-fail check off with zero signal).
+while IFS= read -r row; do
+  [[ -n "$row" ]] || continue
+  regfile=$(printf '%s' "$row" | awk -F'\t' '{print $1}')
+  _safe_echo "PLAINTEXT_CHECK_SKIPPED:${regfile}:no Value-like column resolved for one of its tables"
+done <<< "$NO_VALUE_COL_ROWS"
+
+# MULTI_KEY_ROW_BUNDLED — a row bundling multiple keys shares one Tier
+# across keys that may have different sensitivity; surface it so a wrong-
+# but-internally-consistent tier on a bundled row doesn't hide silently.
+while IFS= read -r row; do
+  [[ -n "$row" ]] || continue
+  regfile=$(printf '%s' "$row" | awk -F'\t' '{print $1}')
+  bundled=$(printf '%s' "$row" | awk -F'\t' '{print $3}')
+  _safe_echo "MULTI_KEY_ROW_BUNDLED:${regfile}:${bundled}"
+done <<< "$MULTI_KEY_ROWS"
 
 # CONSUMER_ONLY — live key, in no registry at all.
 CONSUMER_ONLY_KEYS=$(comm -23 <(printf '%s\n' "$LIVE_KEYS") <(printf '%s\n' "$REG_KEYS") 2>/dev/null | grep -v '^$' || true)
@@ -288,17 +389,24 @@ while IFS= read -r row; do
   fi
 done <<< "$ALL_REG_ROWS"
 
-# REGISTRY_MISMATCH — same key, differing tier, across registries.
+# REGISTRY_MISMATCH — same key, differing tier, across ALL registries that
+# carry it (not just the first two — an earlier version only ever compared
+# rows 1 and 2, silently dropping a 3rd+ registry's disagreement).
 DUP_KEYS=$(printf '%s\n' "$ALL_REG_ROWS" | awk -F'\t' '{print $2}' | sort | uniq -d | grep -v '^$' || true)
 for key in $DUP_KEYS; do
   rows=$(printf '%s\n' "$ALL_REG_ROWS" | awk -F'\t' -v k="$key" '$2==k {print $1"\t"$5}')
   reg_a=$(printf '%s\n' "$rows" | sed -n '1p' | awk -F'\t' '{print $1}')
   tier_a=$(printf '%s\n' "$rows" | sed -n '1p' | awk -F'\t' '{print $2}')
-  reg_b=$(printf '%s\n' "$rows" | sed -n '2p' | awk -F'\t' '{print $1}')
-  tier_b=$(printf '%s\n' "$rows" | sed -n '2p' | awk -F'\t' '{print $2}')
-  if [[ -n "$reg_b" && "$tier_a" != "$tier_b" ]]; then
-    _safe_echo "REGISTRY_MISMATCH:${key}:${reg_a}:tier=${tier_a}:${reg_b}:tier=${tier_b}"
-  fi
+  row_count=$(printf '%s\n' "$rows" | grep -vc '^$' || true)
+  n=2
+  while [[ "$n" -le "$row_count" ]]; do
+    reg_n=$(printf '%s\n' "$rows" | sed -n "${n}p" | awk -F'\t' '{print $1}')
+    tier_n=$(printf '%s\n' "$rows" | sed -n "${n}p" | awk -F'\t' '{print $2}')
+    if [[ -n "$reg_n" && "$tier_a" != "$tier_n" ]]; then
+      _safe_echo "REGISTRY_MISMATCH:${key}:${reg_a}:tier=${tier_a}:${reg_n}:tier=${tier_n}"
+    fi
+    n=$((n + 1))
+  done
 done
 
 # RETIREMENT_CANDIDATE / CONSUMER_LIST_STALE — needs --consumers-dir.
@@ -317,20 +425,6 @@ if [[ ${#CONSUMERS_DIRS[@]} -gt 0 ]]; then
     fi
   done
 fi
-
-# PLAINTEXT_IN_REGISTRY — hard fail.
-HARD_FAIL=0
-while IFS= read -r row; do
-  [[ -n "$row" ]] || continue
-  regfile=$(printf '%s' "$row" | awk -F'\t' '{print $1}')
-  key=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
-  val=$(printf '%s' "$row" | awk -F'\t' '{print $9}')
-  if [[ -n "$val" ]]; then
-    fp=$(fingerprint "$val")
-    _safe_echo "PLAINTEXT_IN_REGISTRY:${key}:${regfile}:fingerprint=${fp}"
-    HARD_FAIL=1
-  fi
-done <<< "$ALL_REG_ROWS"
 
 # NOT_ENUMERATED — operator-declared unreachable surfaces.
 for pair in "${NOT_ENUM[@]:-}"; do
