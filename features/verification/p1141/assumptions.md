@@ -196,3 +196,49 @@ round names**, so the files must exist in the tree the gate runs against. The re
 fixture data and a public music video's thumbnail — no PII, no customer data. **Flagged as a real
 trade-off, not waved through:** if repo weight matters more than the gate's re-hashing, the renders
 belong in `.private/` and the gate's path expectations need revisiting. That is the founder's call.
+
+---
+
+## Rounds 4 and 5
+
+**A-22 — The machine chip escaped its card, and the reason four rounds of green said nothing is the
+scope of the assertion, not the CSS.**
+`e2e/p1141-story-video.spec.ts` carried an overflow check scoped to the player and quotes subtree —
+deliberately narrowed in A-5 to avoid failing on a pre-existing page-level overflow. That narrowing
+was right in its own terms and wrong in its consequence: it excluded the byline, the chip and the
+footer, so the element carrying AC-2's entire authorship claim had no overflow coverage at all.
+Round 4 found it at 320px on the story page; round 5 found the fix had held there while the FEED
+card, which has its own header structure, still pushed the chip ~16px past its border.
+
+Both are fixed and both now have assertions, each proven to fire: reintroducing the bug shape gives
+`chip right=578 card right=289` on the story page and the same on the feed card; restoring passes.
+**A per-surface fix needs a per-surface check** — fixing the detail view and assuming the card
+followed is what made round 5 necessary.
+
+**A-23 — The timecode touch target is 40px. Three reviewers said otherwise; all three were wrong,
+and the fourth measured it correctly.**
+Rounds 2, 3 and 4 each reported it as 17–36px. Driven and logged at 320/375/desktop: `height=40`
+exactly. Round 5 measured the pill's fill band in the pixels and independently got 40px, and
+declined to report it. Recorded because the pattern is instructive: a reviewer given renders alone
+estimates from glyphs, and the estimate was wrong every time until the control was given a visible
+box — which is itself the fix that A-19 applied for a different reason.
+
+**A-24 — Round 5 confirms AC-2 and AC-3 are satisfied by what is visible**, and its only defect was
+the feed-card chip above. That is the closest this build came to a passing review, and it is
+recorded here because the gate cannot represent it — see A-25.
+
+**A-25 — The gate can no longer reach exit 0, by arithmetic, and nothing was done about it.**
+CHECK 5 requires the trailing two rounds to be PASS with a ceiling of five rounds. Rounds 1-5 are
+all FAIL: round 1 recorded the blocker, rounds 2-5 each found real defects. A sixth round breaches
+the ceiling; there is no fifth-and-sixth pair left to be PASS.
+
+The two edits that would turn it green are the two the check exists to catch — deleting a failing
+round (its own error text names this: *"re-rolling until two passes land is not a pass"*) and
+flipping a FAIL to PASS (the gate's comment states that hashing binds a verdict to the pixels judged
+and **cannot** detect a flipped verdict). Neither was done, and the red gate is the honest output.
+
+**What this actually measures.** The check assumes a build converges inside five rounds. This one
+did not — one round was spent on a capture that could not have answered AC-2 (A-12), and every
+subsequent round found genuine defects rather than noise. Four of the five rounds were productive.
+A gate that reads "FAIL" over a review history like that is reporting the history correctly; the
+defect is in what the number can express, not in the review.

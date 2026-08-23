@@ -107,7 +107,7 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
                     e.stopPropagation();
                     navigate(`/p/${story.authorSlug}`);
                   }}
-                  className="font-semibold text-foreground hover:underline text-sm"
+                  className="font-semibold text-foreground hover:underline text-sm min-w-0"
                 >
                   {/* P1141: `Reading of {Full Name}` + the machine chip. */}
                   {isAgent && !identityPending ? <AgentByline name={story.authorName} /> : story.authorName}

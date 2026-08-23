@@ -277,7 +277,7 @@ export function StoryCardWithLinks({
                     e.stopPropagation();
                     embedNavigate(`/p/${author.id}`);
                   }}
-                  className="font-semibold text-gray-900 hover:underline text-sm"
+                  className="font-semibold text-gray-900 hover:underline text-sm min-w-0"
                 >
                   {/* P1141: `Reading of {Full Name}` + the machine chip. */}
                   {isAgent && !identityPending ? <AgentByline name={author.name} /> : author.name}

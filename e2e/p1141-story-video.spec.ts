@@ -305,6 +305,30 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
         });
         expect(spill, `the machine chip escapes its card at ${viewport.width}px: ${spill}`).toBeNull();
 
+        // The FEED card has its own header structure, and round 5 found the fix
+        // above held on the story page while the feed card still pushed the chip
+        // ~16px past its border at 320. Same assertion, every chip on the list
+        // surface — a per-surface fix needs a per-surface check.
+        await page.goto('/feed?tab=stories');
+        await page.locator('[data-testid="machine-chip"]').first().waitFor({ timeout: 20_000 });
+        const feedSpill = await page.evaluate(() => {
+          const chips = document.querySelectorAll('[data-testid="machine-chip"]');
+          for (const chip of chips) {
+            const card = chip.closest('[data-agent-row]');
+            if (!card) continue;
+            const c = chip.getBoundingClientRect();
+            const k = card.getBoundingClientRect();
+            if (c.right > k.right + 1) {
+              return `chip right=${Math.round(c.right)} card right=${Math.round(k.right)}`;
+            }
+          }
+          return null;
+        });
+        expect(
+          feedSpill,
+          `a machine chip escapes its feed card at ${viewport.width}px: ${feedSpill}`
+        ).toBeNull();
+
         await supabaseAdmin.from('agent_accounts').delete().eq('profile_id', user.user.id);
       } finally {
         await cleanup();
