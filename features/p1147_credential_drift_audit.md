@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 63
 workstream: infrastructure
 created_date: '2026-08-21'
 tags: [security, credentials, audit, drift]
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, generate-tests, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, generate-tests, dev, ship]
 driver: anomaly
 uat_file: features/uat/p1147.md
 test_files:
