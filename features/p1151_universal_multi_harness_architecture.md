@@ -51,6 +51,20 @@ the machine that generated it — every fresh clone, cloud agent VM, and worktre
 `.claude/worktrees/` would have no skills at all, which is the exact problem this spec
 opens with. Committing also gives the pre-commit gate something real to verify.
 
+**D7 — Projection unit is a DIRECTORY, not a flat file (supersedes the flat-file shape).**
+Verified above: the layout is `<name>/SKILL.md`. A flat `<name>.md` symlink does not satisfy it,
+and 107 of the 119 sources are flat `.md` files with no directory to point at. The projection is
+therefore: create a **real directory** per skill containing a **symlinked `SKILL.md`** —
+`.agents/skills/dev/SKILL.md -> ../../../.claude/commands/slava/build/dev.md`. This satisfies
+directory-per-skill while keeping `.claude/` the single source of truth.
+
+**D8 — The `name` field must equal the projected directory name.** Measured: **118 of 119**
+sources already satisfy this. The single exception is `script/claude-sync-download.md`
+(`name: script-claude-sync-download`). Fix that one source, or let the generator hard-fail on
+the mismatch. Frontmatter fields beyond `name`/`description` (this repo uses `when_to_use`,
+`version`) are unvalidated against the spec — run `skills-ref validate` on one projected skill
+before trusting the whole tree.
+
 **D2 — Scan rule: link a file if, and only if, its frontmatter carries a `description:`
 field.** This single rule does all the filtering the original draft hand-waved as
 "validates and handles collisions gracefully":
@@ -149,10 +163,36 @@ building.
 that anyone has projected `.claude/commands/slava/**` this way. And it was abandoned once
 already — establish why before rebuilding it.
 
-**A1-remainder [UNVERIFIED — still blocking].** That DSH specifically reads `.agents/skills/`,
-and its required frontmatter fields.
-*Falsifier:* create two skills by hand in both shapes, open the DSH slash menu, see which
-appears. Do this before Task 2.
+**A1-remainder [VERIFIED 2026-08-23 — no longer blocking].** Confirmed by direct GitHub API
+reads of `deepseek-ai/deepseek-harness` (real repo, created 2026-08-13, default branch
+`master`):
+
+- DSH's own skills live at **`.agents/skills/<name>/SKILL.md` — a directory per skill.**
+  `gh api repos/deepseek-ai/deepseek-harness/contents/.agents/skills` returns 11 entries,
+  every one `type: dir`; each contains a single `SKILL.md`. Not `.dsh/skills/`.
+- Required frontmatter is exactly **two fields**, verbatim from
+  `.agents/skills/dsh-code-review/SKILL.md`:
+  ```yaml
+  name: dsh-code-review
+  description: Use when reviewing a pull request...
+  ```
+- Anthropic's Agent Skills spec (agentskills.io/specification) mandates the same directory
+  form and requires `name` to **equal the parent directory name**. A reference validator
+  exists: `skills-ref validate ./my-skill`.
+- **Codex is converging on the same standard** — its flat `~/.codex/prompts/*.md` custom
+  prompts are officially deprecated in favour of skills. This raises confidence that the
+  investment ports forward rather than being DSH-specific.
+- DSH's repo root carries a real `AGENTS.md` with **`CLAUDE.md` as a 9-byte symlink to it** —
+  the reverse of Task 1's direction. Functionally equivalent; noted so the choice is deliberate.
+
+**A2 [RESOLVED for the instruction file].** Symlinking between the two instruction files is
+proven in production by DSH itself, at three directory levels. No primary-source report of a
+tool rejecting the symlink was found; the risk is UNKNOWN rather than confirmed absent.
+
+**A3 [NEW — investigate before building].** Third-party converters for exactly this projection
+already exist and are unverified by us: `agent-command-sync` (hatappo), `claude-command-converter`
+(dceoy), and a Codex-export skill. None is official or demonstrably widely adopted. **Trial one
+before writing our own** — the cheapest outcome here is not building the generator at all.
 
 **A2 [UNVERIFIED].** That a committed symlink survives every consumer. Harnesses checking
 out on Windows, or CI without symlink support, materialise a symlink as a text file
@@ -171,9 +211,11 @@ containing its target path.
   - Confirm `scripts/validate-command-refs.py` and the CLAUDE.md line-budget check
     (`scripts/pre-commit-checks.sh:1406-1413`, keyed on `^CLAUDE.md$`) still behave — the
     budget gate must not become bypassable via the new path.
-- [ ] **Task 2: Implement `scripts/sync-agent-skills.sh`** (after A1 is verified)
-  - Scan `.claude/commands/slava/**/*.md`; apply D2, D3, D4, D5.
-  - Emit **relative** symlinks into `.agents/skills/`.
+- [ ] **Task 2: Implement `scripts/sync-agent-skills.sh`** (after A3 is investigated)
+  - **First: trial an existing converter (A3).** Only build if none fits.
+  - Scan `.claude/commands/slava/**/*.md`; apply D2, D3, D4, D5, D7, D8.
+  - Emit a real directory per skill containing a **relative symlinked `SKILL.md`** (D7).
+  - Validate one projected skill with `skills-ref validate` before generating the rest.
   - Remove orphaned links whose source no longer exists.
   - `--check` mode: exit non-zero and print the drift, changing nothing.
 - [ ] **Task 3: Integrate with `scripts/pre-commit-checks.sh` (D6 — verify only)**
@@ -200,11 +242,13 @@ containing its target path.
 ## 6. Acceptance Criteria & Done-When
 
 ### Acceptance Criteria
-- [ ] AC0: A1 verified — evidence pasted showing which layout DSH actually discovers.
+- [x] AC0: A1 verified — DSH reads `.agents/skills/<name>/SKILL.md`, directory-per-skill,
+      frontmatter `name`+`description`, `name` == directory name. Evidence in section 4.
 - [ ] AC1: `AGENTS.md` exists as a valid symlink to `CLAUDE.md`, and is committed.
 - [ ] AC2: `./scripts/sync-agent-skills.sh` generates flat symlinks in `.agents/skills/`
-      for exactly the files matching D2/D5 — currently **119** — with **0** unresolved
-      collisions, and every link's target carries a `description:` field.
+      for exactly the files matching D2/D5 — currently **119** — as directories containing a
+      symlinked `SKILL.md` (D7), with **0** unresolved collisions, every target carrying a
+      `description:`, and `skills-ref validate` passing on a sampled skill.
 - [ ] AC3: `.agents/skills/` is tracked in git; a fresh `git clone` into a temp dir
       contains the links without running any script.
 - [ ] AC4: DSH slash menu discovers and autocompletes the synced skills — verified in a
