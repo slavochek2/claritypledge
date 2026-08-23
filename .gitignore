@@ -73,7 +73,7 @@ global_GEMINI.md
 .aider.tags.cache.v4/
 .bmad/
 bmad/
-.agents/
+# .agents/ is now generated-and-tracked (P1151) — do NOT re-add as a dead artifact
 .cursor/
 .opencode/
 

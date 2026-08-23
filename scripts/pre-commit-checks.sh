@@ -1002,7 +1002,7 @@ if [ -n "$ROOT_IMAGES" ]; then
 fi
 
 # Check for unexpected .md / .json files in project root
-ROOT_TEMP_FILES=$(ls -1 ./*.md ./*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
+ROOT_TEMP_FILES=$(ls -1 ./*.md ./*.json 2>/dev/null | grep -vE '(CLAUDE|AGENTS|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
 
 if [ -n "$ROOT_TEMP_FILES" ]; then
     # Check if any match agent-generated patterns
@@ -1405,6 +1405,25 @@ if [ -n "$STAGED_SKILLS" ]; then
     fi
     echo ""
 fi
+
+# 22. Agent-skills sync gate (P1151) — .agents/skills/ is a generated, committed
+# projection of .claude/commands/slava/**/*.md for non-Claude harnesses (DSH,
+# Codex, ...). VERIFY ONLY — never regenerate before checking here. A
+# regenerate-then-check step would be vacuous by construction: the generator's
+# job is to make the check pass, so the failure branch would be unreachable.
+# Runs unconditionally (not staged-file-scoped) because the defect this catches
+# is a skill source added/edited/removed without regenerating — the source
+# edit may be staged while .agents/skills/ silently falls out of sync, or vice
+# versa. Cheap: scans ~130 files, no network, no build.
+if [ -f "./scripts/sync-agent-skills.sh" ]; then
+    if ! run_quiet "Agent skills sync (P1151)" ./scripts/sync-agent-skills.sh --check; then
+        echo -e "${YELLOW}  → Run ./scripts/sync-agent-skills.sh (no flag) to regenerate, then re-stage .agents/skills/${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ scripts/sync-agent-skills.sh not found — skipping agent-skills sync gate${NC}"
+fi
+echo ""
 
 # CLAUDE.md line budget check
 if echo "$STAGED_FILES" | grep -q "^CLAUDE.md$"; then

@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/client/sync-ghost-members.md

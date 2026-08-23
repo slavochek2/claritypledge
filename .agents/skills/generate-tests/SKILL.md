@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/build/generate-tests/SKILL.md

@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/build/prep-spec/SKILL.md

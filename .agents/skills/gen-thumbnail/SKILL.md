@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/util/gen-thumbnail/SKILL.md

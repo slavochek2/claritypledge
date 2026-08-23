@@ -1,5 +1,5 @@
 ---
-name: script-claude-sync-download
+name: claude-sync-download
 description: "Automate Claude.ai export, email download, and sync — mechanical tail (download + sync) extracted to scripts/generated/claude-sync-download.sh"
 when_to_use: "When syncing Claude.ai conversation exports to local storage."
 version: 1.0.0

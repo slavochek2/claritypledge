@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/content/gen-agent-avatar.md

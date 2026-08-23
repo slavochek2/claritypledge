@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/think/align-decompose.md

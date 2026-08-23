@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/content/prepare-blog.md

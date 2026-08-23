@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/client/create-offer.md

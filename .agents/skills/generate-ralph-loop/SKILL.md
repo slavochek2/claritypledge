@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/build/generate-ralph-loop/SKILL.md

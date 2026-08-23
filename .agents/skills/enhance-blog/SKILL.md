@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/content/enhance-blog.md

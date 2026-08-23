@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/content/insight-post.md

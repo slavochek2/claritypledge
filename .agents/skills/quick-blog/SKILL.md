@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/content/quick-blog.md

@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/maintain/analyze-transcripts.md

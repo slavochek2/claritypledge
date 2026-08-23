@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/events/promote-groups.md

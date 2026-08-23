@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/script/claude-sync-download.md

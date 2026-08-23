@@ -1,0 +1,1 @@
+../../../.claude/commands/slava/util/video-publish/SKILL.md
