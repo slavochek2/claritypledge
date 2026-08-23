@@ -101,7 +101,7 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
 
           <div className={`flex-1 min-w-0${isAgent ? ' agent-drained-chrome' : ''}`}>
             <div className="mb-1">
-              <div className="flex items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

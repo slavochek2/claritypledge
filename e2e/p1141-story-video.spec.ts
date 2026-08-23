@@ -261,6 +261,56 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
   });
 
   for (const viewport of VIEWPORTS) {
+    test(`agent chrome stays inside the card at ${viewport.name}`, async ({ browser }) => {
+      const { context, user, cleanup } = await getTestAuthContext('host', browser);
+      try {
+        // The byline and the machine chip only render for an author the agent
+        // registry knows, so every other case in this file leaves them
+        // unexercised. Round 4 of the blind review found the chip 19px outside
+        // the card at 320px BECAUSE the overflow assertion above was scoped to
+        // the player/quotes subtree and never covered the chrome — and the chip
+        // is the element carrying the authorship claim.
+        await supabaseAdmin
+          .from('profiles')
+          .update({ name: 'Agent · Bartholomew Fitzwilliam Montgomery-Chesterfield' })
+          .eq('id', user.user.id);
+        await supabaseAdmin.from('agent_accounts').upsert({
+          profile_id: user.user.id,
+          subject_key: `p1141-e2e-${Date.now()}`,
+          operator_name: 'ClarityPledge',
+        });
+
+        const storyId = await seedStory(user.user.id, {
+          video_url: VIDEO,
+          video_quotes: { quotes: [{ text: 'a quote', seconds: 42 }], durationSeconds: 600 },
+        });
+
+        const page = await context.newPage();
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await blockThePlayer(page);
+        await page.goto(`/story/${storyId}`);
+
+        const chip = page.locator('[data-testid="machine-chip"]').first();
+        await expect(chip).toBeVisible({ timeout: 15_000 });
+
+        const spill = await page.evaluate(() => {
+          const chipEl = document.querySelector('[data-testid="machine-chip"]');
+          const card = chipEl?.closest('[data-agent-row]');
+          if (!chipEl || !card) return 'chip or card not found';
+          const c = chipEl.getBoundingClientRect();
+          const k = card.getBoundingClientRect();
+          if (c.right > k.right + 1) return `chip right=${Math.round(c.right)} card right=${Math.round(k.right)}`;
+          if (c.right > window.innerWidth + 1) return `chip past viewport: ${Math.round(c.right)}`;
+          return null;
+        });
+        expect(spill, `the machine chip escapes its card at ${viewport.width}px: ${spill}`).toBeNull();
+
+        await supabaseAdmin.from('agent_accounts').delete().eq('profile_id', user.user.id);
+      } finally {
+        await cleanup();
+      }
+    });
+
     test(`renders without horizontal overflow at ${viewport.name}`, async ({ browser }) => {
       const { context, user, cleanup } = await getTestAuthContext('host', browser);
       try {
@@ -295,7 +345,9 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
         // out-of-scope UI. Filed separately instead.
         const overflows = await page.evaluate(() => {
           const roots = document.querySelectorAll(
-            '[data-testid="story-video-quotes"], [data-testid="story-video-player"], [data-testid="story-video-blocked"]'
+            '[data-testid="story-video-quotes"], [data-testid="story-video-player"],' +
+              ' [data-testid="story-video-blocked"], [data-testid="agent-byline"],' +
+              ' [data-testid="machine-chip"], [data-testid="agent-story-footer"]'
           );
           for (const root of roots) {
             for (const el of [root, ...root.querySelectorAll('*')]) {

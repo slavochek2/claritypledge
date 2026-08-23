@@ -141,3 +141,58 @@ fallback state a reader could not distinguish from a working player.
 The distinction is worth keeping: **refusing to author a verdict I am disqualified from giving was
 correct; concluding from that that nobody could give one was not.** A-7 stands as written, for the
 record; this entry is what replaces it.
+
+---
+
+## Round 3 — a second independent reviewer
+
+**A-17 — Round 3's six defects, each verified before acting.** Two were measurable, so they were
+measured by driving the browser rather than argued about.
+
+| # | Claim | Verified? | Disposition |
+|---|---|---|---|
+| 1 | the footer claims quotes exist on a story with none | **TRUE** | Fixed. See A-18 — this one required deviating from a verbatim-specified string |
+| 2 | a dead play control sits under a "could not load" caption | **TRUE** | My own round-2 fix caused it. The card always WAS the control; it now says `Watch on YouTube` on itself |
+| 3 | the only working recovery link is 12px grey footnote text | **TRUE** | Same fix — the competing inline link is gone, asserted by test |
+| 4 | that link wraps mid-phrase at desktop | **TRUE** | Same fix |
+| 5 | timecode touch targets are ~17px, under the 40px minimum | **FALSE on measurement** | Driven and logged: `height=40` at 320, 375 and desktop. Second reviewer to judge the glyph rather than the box. Acted on anyway — see A-19 |
+| 6 | no video story appears in the feed at any width | **FALSE as a build claim, TRUE as a capture claim** | Measured: the feed carries 5 video thumbnails and 10 machine chips at desktop. The cards were in the DOM but not in the picture — framing, not product. Capture now anchors on a video card |
+
+**A-18 — The one deviation from a verbatim-specified string in this build.**
+RD-1 fixes the footer's two sentences, and the second reads *"Nothing here is {Full Name}'s own
+words except the quotes, which come from the linked video."* On a story with **no** quotes that
+clause points at nothing. RD-1 was written assuming quotes are present, and the no-quotes state is
+one the spec itself calls for elsewhere ("Quotes section does not render; argument and player stand
+alone"). Publishing the clause anyway would put a false statement on the one surface whose whole
+job is telling a reader which words the machine wrote.
+
+Decided: drop the exception clause when there are no quotes, keeping the first sentence and the
+link unchanged. **Flagged for the founder rather than treated as settled** — RD-1 is a recorded
+decision, and this is the only place the build does not render a specified string verbatim. If the
+preferred resolution is different wording for the no-quotes case, that is a one-line change.
+
+**A-19 — Acting on a finding that measurement contradicted.**
+Two independent reviewers, in separate rounds, both reported the timecode as an undersized touch
+target. Both were wrong on the number — it measures exactly 40px, asserted by `boundingBox()` in
+the e2e spec at all three widths. But a hit area no one can see is not one a reader will use, and
+two blind readers landing on the same wrong conclusion is itself the signal: the control was drawn
+as a label. It now renders as a pill with a border and a background. **The measurement was never
+the disagreement; the affordance was** — recorded because "the reviewer's number was wrong" would
+have been a legitimate-sounding reason to change nothing.
+
+**A-20 — Render-set integrity, and why there are 21 images rather than 24.**
+Round 3 caught `quotes-375` and `quotes-blocked-375` as byte-identical, and the other
+`quotes-blocked-*` frames as scrolled past the player so nothing corroborated the state their
+filename claimed. Anchoring them on the blocked player instead produced images byte-identical to
+`player-blocked-*` (one viewport holds both). The `quotes-blocked-*` captures were therefore
+**removed**, not re-shot: `player-blocked-*` already shows the blocked player and the quotes
+beneath it in a single frame, which is the thing under judgement. Removing a duplicate is honest;
+manufacturing a difference to preserve a file count is not. Verified: 21 files, 0 duplicate hashes.
+
+**A-21 — 21 PNGs are now committed to a public repository, and `pre-commit-checks.sh` warns about
+it.** The warning is *"binary file(s) staged outside public/ — use .private/ or external storage"*.
+They are committed anyway because CHECK 5 of the gate **re-hashes each image at the path the review
+round names**, so the files must exist in the tree the gate runs against. The renders contain test
+fixture data and a public music video's thumbnail — no PII, no customer data. **Flagged as a real
+trade-off, not waved through:** if repo weight matters more than the gate's re-hashing, the renders
+belong in `.private/` and the gate's path expectations need revisiting. That is the founder's call.

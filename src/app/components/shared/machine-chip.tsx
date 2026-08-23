@@ -9,7 +9,7 @@ export function MachineChip({ className = '' }: { className?: string }) {
   return (
     <span
       data-testid="machine-chip"
-      className={`inline-flex items-center rounded-full border border-gray-300 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600 dark:border-gray-600 dark:text-gray-400 ${className}`}
+      className={`inline-flex shrink-0 whitespace-nowrap items-center rounded-full border border-gray-300 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600 dark:border-gray-600 dark:text-gray-400 ${className}`}
     >
       Machine
     </span>

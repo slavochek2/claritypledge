@@ -19,11 +19,19 @@ interface AgentBylineProps {
 export function AgentByline({ name, className = '' }: AgentBylineProps) {
   const fullName = stripAgentPrefix(name);
   return (
-    <span className={`inline-flex min-w-0 items-center gap-1.5 ${className}`} data-testid="agent-byline">
-      <span className="truncate" title={fullName}>
+    // `flex` + `min-w-0` + `max-w-full`, not `inline-flex`: an inline-flex box
+    // does not shrink below its content, so at 320px the name held its full
+    // width and pushed the chip 19px past the card's right border — measured,
+    // not inferred (chip right=308 vs card right=289). The chip is the element
+    // carrying the authorship claim, so it is the worst one to lose off-screen.
+    <span
+      className={`flex min-w-0 max-w-full items-center gap-1.5 ${className}`}
+      data-testid="agent-byline"
+    >
+      <span className="min-w-0 truncate" title={fullName}>
         Reading of {fullName}
       </span>
-      <MachineChip />
+      <MachineChip className="shrink-0" />
     </span>
   );
 }
