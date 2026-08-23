@@ -8,10 +8,12 @@ At the start of any non-trivial task, before doing the work, volunteer a one-lin
 
 **Honest constraint:** you cannot run `/model` or `/effort` yourself — they are human toggles. Recommend; the user flips. Never claim to have switched the session model or effort.
 
-**Compressed heuristic** (full table: `/pick-flow` → "Model + effort"):
+**Full routing logic lives in the global skill `/recommend-model-effort`** (`~/.claude/commands/recommend-model-effort.md`) — cost lanes (subscription vs free credits vs cash), the live quota read from `~/.claude/.quota-cache.json`, the benchmark roster, and when to delegate bulk work to free Gemini. It is the single source of truth; this rule is the always-on trigger and deliberately carries no table. The cp-specific per-command list is in `/pick-flow` → "Model + effort".
 
-- Reasoning work — planning, spec/PRD creation, `/architect`, `/falsify`, `/adversarial-review`, strategy, ambiguous root-cause, value / "is this worth it" judgment → **reasoning tier (Opus), high–xhigh**.
-- Executing a detailed plan or spec — `/dev`, `/fix`, `/verify`, `/kdd`, `/finish`, code review, mechanical multi-file edits → **execution tier (Sonnet), low–medium**.
-- Subagent execution is already pinned to `sonnet` across the build/maintain skills — no per-task call needed there.
+**Three cp facts that rule doesn't cover:**
+
+- **Never ask the user for their quota** — read `~/.claude/.quota-cache.json`. Missing file → fall back to default lanes and say so; never guess a percentage.
+- **Subagent execution is already pinned to `sonnet` across the build/maintain skills** — no per-task call needed there.
+- **Delegating bulk work to free Gemini goes through `~/.claude/bin/delegate-gemini`, never raw `dsh`** — the wrapper is the gate that refuses secrets/PII/private paths (exit 2 = do it inline, never edit the payload to get past it).
 
 **Skip the call** for: one-liner fixes, typo edits, or when the user already named the model/effort this turn. Offer once per task, not per message.
