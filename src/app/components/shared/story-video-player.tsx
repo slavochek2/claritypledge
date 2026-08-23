@@ -115,6 +115,29 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
             durationSeconds={durationSeconds}
             alt="Video thumbnail — the player could not load, opens the source"
           />
+          {/*
+            Blind review, round 2, defect 7: the fallback was structurally
+            identical to a working embed — same thumbnail, same play button,
+            same duration chip — so a reader pressed play expecting inline
+            playback and was sent off-site with no warning. A fallback the eye
+            cannot distinguish from the real thing is not a fallback; it is a
+            silent redirect. Say what happened and where the control goes.
+          */}
+          <p
+            data-testid="story-video-blocked-notice"
+            className="mt-2 text-xs text-gray-500 dark:text-gray-400"
+          >
+            The player could not load here — it may be blocked by an extension or
+            a network policy.{' '}
+            <a
+              href={videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+            >
+              Watch on YouTube →
+            </a>
+          </p>
         </div>
       );
     }

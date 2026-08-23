@@ -84,3 +84,60 @@ which is what the single-stored-field design exists to prevent.
 The founder ruled a public comment on a public video is public speech and quotable. Recorded here so
 a later reader does not mistake the absence of a filter for an oversight, per the ruling's own
 instruction not to re-raise it inside this spec's build.
+
+---
+
+## Round 2 — the blind reviewer ran, and it found real defects
+
+**A-12 — The first render capture could not have answered AC-2, and I did not notice until the
+reviewer had already judged it.**
+The renders were captured with an ordinary test user as author. That user is not in
+`agent_accounts`, so the registry returned `isAgent = false` and NONE of the agent chrome rendered
+— no byline, no machine chip, no footer. Those three elements ARE the answer to *"can a reader tell
+at a glance which words the machine wrote"*. Round 2 therefore judged AC-2 against a surface from
+which the entire mechanism was absent, and still called it satisfied on the strength of the quotes
+section alone. Re-captured with the author registered as a machine account and a human-authored
+control story alongside it, so the two treatments can be compared directly.
+
+**A-13 — Round 2's eight defects, each verified before being acted on.** Verified against the
+renders myself rather than promoted on the reviewer's word (epistemic gate 9).
+
+| # | Claim | Verified? | Disposition |
+|---|---|---|---|
+| 1 | feed captures show the Points tab, no story cards at all | **TRUE** | Real capture defect: `/feed` defaults to Points. AC-3's surface was never captured. Fixed — `/feed?tab=stories` |
+| 2 | external-link icon sits outside the card border at 320 | TRUE but **out of scope** | The pre-existing points action row, not a P1141 surface. Also largely an artifact of `fullPage` capture; gone under viewport capture |
+| 3 | the fixed bottom nav slices card content | **CAPTURE ARTIFACT** | `fullPage` paints `position: fixed` chrome at its viewport offset over whatever sits there. No reader sees this. Fixed by capturing the viewport instead |
+| 4 | timecode touch targets are 18–20px, under half the 40px minimum | **FALSE on measurement** | The control carries `h-10` (40px) and the e2e spec measures `boundingBox().height >= 40` and passes. The reviewer judged the visible glyphs, not the box. Its underlying point — no *visible* affordance — is fair and is why the row was reworked anyway |
+| 5 | the quote column collapses to a 3-words-per-line ribbon at 320 | **TRUE** | Real. The row now stacks below `sm:` and only becomes two columns when there is width for both |
+| 6 | media edit controls differ across viewports and between video and image | TRUE but **out of scope** | `StoryImage` is under an explicit Non-Goal: *do not touch the two existing image columns*. Reported, not fixed |
+| 7 | the blocked state is indistinguishable from a working player | **TRUE, and the most valuable finding** | Same thumbnail, same play button, same duration chip. A reader pressed play expecting inline playback and was sent off-site with no warning — a silent redirect wearing a fallback's clothes. Added an explicit notice naming what happened and where the link goes, plus two regression tests |
+| 8 | timecodes do not share a baseline with their quote text | **TRUE** | Real. `items-baseline` on the row |
+
+**A-14 — A defect I found myself in the re-captured renders, which no test caught.**
+Two paragraphs of story text rendered with no gap between them: `renderStoryText` emitted `<p>`
+elements with no margin, so a blank line in the source collapsed to nothing and the argument read
+as one run-on block. The unit test asserts the ELEMENTS (two `<p>`s, correct text) and passes
+either way — it cannot see a missing gap. Fixed. Recorded because it is the clearest evidence in
+this run for why the render review exists at all: a green suite said nothing about it.
+
+**A-15 — Rounds are not being re-rolled.** Round 1 (blocker) and round 2 (FAIL, eight defects) are
+both kept in place. Each subsequent round follows a fix to the build, never a re-run against
+unchanged pixels — the gate names re-rolling until two passes land as a forgery, and the bound of
+5 rounds is what enforces it.
+
+**A-16 — A-7 above is SUPERSEDED, and it was wrong in a way worth naming.**
+A-7 concluded that the COMPARABLE rows could not close without the founder, on the grounds that the
+reviewer must not be the agent that built the thing (true) and that the session must not spawn
+agents unasked (also true, as a default). What it missed is that the contract itself *prescribes*
+the mechanism it was treating as unavailable: **"The reviewer subagent writes review-round-N.md
+directly."** `.claude/rules/visual-qa.md` independently mandates the same thing — *"After any UI
+change, spawn a SEPARATE subagent for visual QA; give it ONLY the screenshots + this checklist."*
+
+So the constraint was never "no independent reviewer is reachable"; it was "the reviewer must not
+be me". Dispatching a blind subagent satisfies both, and declining to dispatch one did not protect
+the contract — it just left the check unrun and eight real defects in the build, including a
+fallback state a reader could not distinguish from a working player.
+
+The distinction is worth keeping: **refusing to author a verdict I am disqualified from giving was
+correct; concluding from that that nobody could give one was not.** A-7 stands as written, for the
+record; this entry is what replaces it.

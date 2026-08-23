@@ -243,7 +243,11 @@ export function renderStoryText(text: string): ReactNode[] {
     blocks.push(
       createElement(
         'p',
-        { key: `p-${key}`, className: 'whitespace-pre-wrap' },
+        // Paragraphs need visible separation. Without it a blank line in the
+        // source collapses to nothing and two paragraphs read as one run-on
+        // block — found in a real-route render at 375px, not by a unit test,
+        // because the unit test asserts the ELEMENTS and not the gap.
+        { key: `p-${key}`, className: 'whitespace-pre-wrap mb-3 last:mb-0' },
         ...renderInline(body)
       )
     );

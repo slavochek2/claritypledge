@@ -172,6 +172,41 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
     expect(screen.getByTestId('video-thumbnail-link').getAttribute('href')).toBe(VIDEO);
   });
 
+  it('the blocked state is DISTINGUISHABLE from a working player, not just a fallback', async () => {
+    // Blind review round 2, defect 7: the fallback was structurally identical
+    // to a loaded embed — same thumbnail, same play button, same duration chip.
+    // A reader pressed play expecting inline playback and was sent off-site
+    // with no warning. A fallback the eye cannot tell apart is a silent
+    // redirect, not a fallback.
+    vi.useFakeTimers();
+    (window as unknown as { YT: unknown }).YT = { Player: class { destroy = vi.fn(); } };
+    render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    await act(async () => { vi.advanceTimersByTime(31_000); });
+
+    const notice = screen.getByTestId('story-video-blocked-notice');
+    expect(notice.textContent).toMatch(/could not load/i);
+    // And it must say where the control goes, not just that something failed.
+    const out = notice.querySelector('a');
+    expect(out?.getAttribute('href')).toBe(VIDEO);
+    expect(out?.getAttribute('target')).toBe('_blank');
+  });
+
+  it('a working player carries NO blocked notice', async () => {
+    vi.useFakeTimers();
+    let readyCb: (() => void) | undefined;
+    (window as unknown as { YT: unknown }).YT = {
+      Player: class {
+        destroy = vi.fn();
+        constructor(_el: Element, opts: { events: { onReady: () => void } }) { readyCb = opts.events.onReady; }
+      },
+    };
+    render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    await act(async () => { await Promise.resolve(); });
+    act(() => readyCb?.());
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(screen.queryByTestId('story-video-blocked-notice')).toBeNull();
+  });
+
   it('a player that DOES become ready never flips to blocked', async () => {
     vi.useFakeTimers();
     let readyCb: (() => void) | undefined;

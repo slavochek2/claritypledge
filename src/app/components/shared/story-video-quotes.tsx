@@ -62,7 +62,12 @@ export function StoryVideoQuotes({
           return (
             <li
               key={`${quote.seconds}-${index}`}
-              className="flex gap-3"
+              // Blind review, round 2, defect 5: at 320px a fixed timecode
+              // column squeezed the quote to a ragged three-words-per-line
+              // ribbon. The row stacks below `sm` and only becomes two columns
+              // once there is width for both. Defect 8: `items-baseline` so the
+              // timecode and the quote's first line read as one row.
+              className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3"
               data-testid="story-video-quote"
             >
               {canSeek ? (
@@ -72,7 +77,7 @@ export function StoryVideoQuotes({
                   data-testid="story-video-quote-timecode"
                   data-seconds={quote.seconds}
                   aria-label={`Play from ${timecode}`}
-                  className="flex h-10 shrink-0 items-center gap-1 rounded px-2 text-sm font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
+                  className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded px-2 text-sm font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
                 >
                   <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
                     <path d="M8 5v14l11-7z" />
@@ -87,7 +92,7 @@ export function StoryVideoQuotes({
                   data-testid="story-video-quote-timecode"
                   data-seconds={quote.seconds}
                   aria-label={`Open the source at ${timecode} in a new tab`}
-                  className="flex h-10 shrink-0 items-center gap-1 rounded px-2 text-sm font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
+                  className="-ml-2 flex h-10 w-fit shrink-0 items-center gap-1 rounded px-2 text-sm font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950"
                 >
                   <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
                     <path d="M8 5v14l11-7z" />
