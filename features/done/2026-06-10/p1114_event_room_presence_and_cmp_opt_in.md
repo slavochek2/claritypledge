@@ -9,7 +9,7 @@ pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_skipped: [challenge-prd -- the /grill-me walkthrough ran the same adversarial pass live with founder answers on all 14 decisions, ux -- spec already carries the 8 states and layout; the 10 copy strings are founder decisions no skill can produce, spec-compact -- the 302 lines are decisions not pipeline residue, decompose -- one coherent surface of one page one table one tab not 5 independent concerns]
 pipeline_ran: [create-spec, architect, generate-tests, dev, verify, ship]
 driver: heuristic
-completed_at: 2026-08-21
+completed_at: 2026-08-23
 ---
 
 # P1114: The event room — who is here, and who opted in
