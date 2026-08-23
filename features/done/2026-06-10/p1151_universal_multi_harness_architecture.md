@@ -1,10 +1,11 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1
 tags: [infra, multi-agent, dsh, claude-code, codex]
 drafted_by: gemini
 created_date: 2026-08-23
+completed_at: 2026-08-23
 ---
 
 # P1151: Universal Multi-Harness Architecture with Zero Maintenance
