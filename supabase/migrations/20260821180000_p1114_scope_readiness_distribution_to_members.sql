@@ -17,20 +17,17 @@
 -- by people who were never in that room, which is not what "event-scoped" was supposed to
 -- mean.
 --
--- The same review raised a sharper attack that this guard narrows but does not close: the
--- roster's SELECT policy is USING (true) and display_name is granted, so a room member can
--- subscribe to postgres_changes, see WHICH member row just changed, poll this function, and
--- diff the returned multiset to attribute the new value to that name. ORDER BY random() does
--- nothing against it — the defence is against reading the set, not against differencing it
--- over time.
+-- The same review raised a sharper, currently-unmitigated de-anonymization risk against
+-- the anonymous readiness distribution — mechanism detail intentionally kept out of this
+-- public file; see `.private/docs/security-log.md` 2026-08-21 "P1114 readiness distribution
+-- de-anonymization" for the full writeup.
 --
--- KNOWN AND NOT CLOSED HERE, deliberately: closing it properly means either coarse bucketing
--- (which changes what the founder asked to see — the general /ready shows individual marks)
--- or removing display_name from the realtime payload (which breaks the live roster that is
--- the whole point of the 2026-08-21 reversal). Both are product decisions, not fixes an
--- agent should pick unilaterally. This migration restricts the attack to people already in
--- the room, who can already see every name and every comprehension rating on the wall.
--- Do not read the 20260821170000 header as exhaustive: it predates this finding.
+-- KNOWN AND NOT CLOSED HERE, deliberately: closing it properly means a product decision
+-- (coarser reporting, or narrowing the realtime payload) that changes what the founder
+-- asked to see, not something an agent should pick unilaterally. This migration restricts
+-- the residual risk to people already in the room, who can already see every name and every
+-- comprehension rating on the wall. Do not read the 20260821170000 header as exhaustive: it
+-- predates this finding.
 
 CREATE OR REPLACE FUNCTION public.get_room_readiness_distribution(p_event_id uuid)
 RETURNS SETOF smallint
