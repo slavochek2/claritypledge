@@ -4,6 +4,32 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-23 [process]: Uncommitted leftover files on the shared main checkout are not inert — a concurrent session's unrelated commit can silently absorb them
+
+**Context:** P1147's `/generate-tests` step created a test file directly on the main checkout (before its worktree existed). Once the worktree was created, the work moved there and the abandoned main-checkout copy was unstaged (`git reset HEAD --`) — but never deleted. Hours later, a different session ran a routine `docs/progress.md` refresh directly on the shared main checkout and committed. That commit's diff included the abandoned P1147 files (an early, unfixed version of the test file, plus a partial spec edit) even though the committing session's own intent was only the progress-number sync — confirmed by reading the commit's actual diff and author trailer (a different `Claude-Session` ID). The resulting cherry-pick, when P1147's worktree branch was later shipped, hit an add/add conflict against content the shipping session had never seen before and had no reason to expect.
+
+**Decision:** Unstaging a file (`git reset HEAD --`) is not cleanup. If work has moved to a worktree, delete the abandoned copy from the main checkout's working tree in the same step — an uncommitted-but-present file on a shared checkout is available for the next `git add`/broad commit that happens to touch that directory, regardless of who runs it or what they intended to commit.
+
+**Alternatives rejected:** Trusting that "unstaged" is safe enough — refuted by this exact incident. Relying on `.gitignore` — not applicable, these were real tracked-path files, not build artifacts.
+
+**Consequences:** When moving work from the main checkout into a worktree mid-session, immediately remove the abandoned copy from main's working tree (an Edit-tool-inverse-style single-file cleanup is in-session, ALWAYS-ACT — this is not the `git checkout HEAD --`/`git restore` ALWAYS-ASK case, since the content already exists safely in the worktree). Resolving the resulting conflict, when one does surface, requires reconstructing which side's content is the real intended diff versus an accidental sweep-in — read the colliding commit's own diff and message before assuming either side is "wrong."
+
+**References:** [P1147 credential drift audit](../features/done/2026-06-10/p1147_credential_drift_audit.md)
+
+---
+
+## 2026-08-23 [technical]: macOS's built-in awk does not expand `\x1f`-style hex escapes via `-F`/`-v` — only inside in-program string literals
+
+**Context:** P1147's registry parser needed a delimiter unlikely to appear in real markdown-table cell content. `awk -F'\x1f' ...` and `awk -v FS='\x1f' ...` both silently failed to split on the actual 0x1F byte on this machine's `/usr/bin/awk` ("one true awk" 20200816) — every field landed in `$1`, with no error. The same escape sequence written directly inside the awk program text (`awk 'BEGIN{FS="\x1f"}...'`, or as a `%s` argument literal) resolved correctly. Verified by direct `od -c` comparison of both forms' actual output bytes.
+
+**Decision:** Never pass a hex-escape delimiter via `-F`/`-v` on this platform's awk. Either set `FS` inside the program body, or — the simpler fix that also matches the rest of this repo's bash-3.2-compatible script style (`check-edge-function-secrets.sh`, `day-gates.sh`) — use a plain-ASCII delimiter unlikely to appear in the data (a literal tab worked and needed no escape-context workaround at all).
+
+**Alternatives rejected:** Debugging the `-F` path further — the fix (switch to an in-program literal or a plain tab) is one line and the platform inconsistency isn't worth chasing further given awk implementations vary (BWK awk vs. gawk vs. mawk) and this repo already commits to macOS-first, bash-3.2-compatible scripts.
+
+**Consequences:** Any future script command-line-passing a non-printable delimiter to awk on this machine should assume `-F`/`-v` hex-escape expansion does not work and verify with a direct byte-level check (`od -c`) before trusting it, not just a passing test run.
+
+**References:** [P1147 credential drift audit](../features/done/2026-06-10/p1147_credential_drift_audit.md)
+
 ## 2026-08-23 [process]: A `/goalify` refusal on PHYSICAL checks is carved out and merge-gated, never argued down
 
 **Context:** P1149 (`/transcribe` live room chat) hit `/goalify` Phase 0's refusal: 4 of 12
