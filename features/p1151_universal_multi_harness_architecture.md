@@ -122,12 +122,35 @@ harness's slash menu.
 
 ## 4. Unverified Assumptions — verify BEFORE building
 
-**A1 [UNVERIFIED — blocking].** That DSH reads `.agents/skills/` and requires a flat
-1-level layout of the form `<root>/<name>/SKILL.md` or `<root>/<name>.md`.
-`grep -rn "agents/skills\|\.dsh" .` returns **no occurrence anywhere in this repo** outside
-this spec, and `docs/decisions.md` holds no DeepSeek prior art. The entire design rests on
-this. Note the two forms are **not** interchangeable: `<name>/SKILL.md` is a directory per
-skill, which file symlinks cannot produce.
+**A1 [PARTLY VERIFIED — corrected 2026-08-23].** The previous revision of this spec claimed
+"no occurrence anywhere in this repo" for `.agents/skills`. **That was wrong.** The grep behind
+it could not see two things: symlink *names* (not file content) and files deleted from the
+working tree but present in git history. Both hold the evidence.
+
+What actually exists:
+- `.gemini/skills/` holds **39 dangling symlinks** of the form
+  `<name> -> ../../.agents/skills/<name>` (`ls -la .gemini/skills`). They point at a tree that
+  no longer exists, so they resolve to nothing — `find -L .gemini/skills -type f` → 0.
+- `.agents/skills/` **did exist and was tracked**. Added by `991ac853` ("add AI skills library"),
+  deleted by `e73181ee` with the message *"Delete .agents/ (90 skill files) — tracked but tool no
+  longer used"*. That same commit added the `.gitignore` entry.
+- Its layout was **directory-per-skill**: `.agents/skills/<name>/SKILL.md`, with a
+  `references/` subdirectory alongside. `git show e73181ee --stat -- .agents | grep -c 'SKILL.md'`
+  → **39**, matching the 39 symlinks exactly.
+
+**Consequence — this invalidates the current design's shape.** Tasks 2–3 assume flat *file*
+symlinks (`.agents/skills/<name>.md`). The only layout this repo has evidence for is a
+*directory* per skill containing `SKILL.md`, which file symlinks cannot produce. Resolve before
+building.
+
+**Also note what those 39 skills were:** `ab-test-setup`, `analytics-tracking`, `brainstorming`,
+`copywriting`, `content-strategy` — a third-party marketing/growth skill pack, **not** this repo's
+`slava/` commands. So the prior `.agents/` tree is precedent for the *mechanism*, not evidence
+that anyone has projected `.claude/commands/slava/**` this way. And it was abandoned once
+already — establish why before rebuilding it.
+
+**A1-remainder [UNVERIFIED — still blocking].** That DSH specifically reads `.agents/skills/`,
+and its required frontmatter fields.
 *Falsifier:* create two skills by hand in both shapes, open the DSH slash menu, see which
 appears. Do this before Task 2.
 
