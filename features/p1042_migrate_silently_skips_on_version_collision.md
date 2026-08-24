@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 15
 severity: high
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [tooling, migrations, supabase, concurrency]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-p1042-version-collision.sh
+  root_cause: "migrate.sh:328 treats the 14-digit version prefix as a globally unique key; nothing enforces uniqueness and apply_via_api (migrate.sh:122) records only version, never name — so a second file with a colliding prefix is reported '(already applied, skipping)', exits 0, and can never run"
+  confidence: high
+  scenarios_in_scope: [ledger-name-mismatch, historical-null-name-in-tree-duplicate, both-pending-arming-step, clean-noop, uncollided-new-migration]
+  scenarios_deferred: []
+  reproduced_at: 2026-08-24
 ---
 
 # P1042: `migrate.sh` silently skips a migration when another file already claimed its version
@@ -139,6 +146,76 @@ files need unique prefixes so they stop being shadowed, then the three failing f
 Check test-DB state before renaming — a rename makes a migration pending again wherever it already
 ran, so the SQL must be idempotent first.
 
+## Scenario Audit (2026-08-24, during /reproduce)
+
+Enumerating every way a run can reach the skip branch at `migrate.sh:328`, and which control
+would fire:
+
+| # | Scenario | Correct behavior | Covered by |
+|---|---|---|---|
+| 1 | Version in ledger, recorded by the **same** file (`name` non-NULL) | skip | already correct |
+| 2 | Version in ledger, recorded by a **different** file (`name` non-NULL) | **abort** | Fix step 2 |
+| 3 | Version in ledger with `name` **NULL**, two files in-tree share the prefix | **abort** | **nothing — see below** |
+| 4 | Version in ledger with `name` NULL, only one file in-tree has the prefix | skip | already correct |
+| 5 | Two files share a prefix, **neither** applied yet | **abort** | **nothing — see below** |
+| 6 | Colliding files live in **different worktrees**, only one in this tree | **abort** | Fix step 1+2 |
+
+**The specified fix does not catch the occurrence that motivated it.** Measured against the test DB
+on 2026-08-24:
+
+```
+SELECT count(*) AS total, count(*) FILTER (WHERE name IS NULL) AS name_null
+  FROM supabase_migrations.schema_migrations;   -- total 248, name_null 217
+
+SELECT version, name FROM supabase_migrations.schema_migrations
+ WHERE version IN ('20260819160000','20260819170000','20260409120000',
+                   '20260413100000','20260413110000');
+-- all five rows: name = NULL
+```
+
+- **Fix step 2** (abort when the recorded `name` differs from the current basename) cannot judge a
+  row whose `name` is NULL. All five real collisions are such rows, so step 2 never fires for any
+  of them. It protects only collisions whose first file is applied *after* this fix ships.
+- **Fix step 3**'s fallback — warn when the skipped file is *untracked in git* — also never fires:
+  all ten colliding files are tracked (`git ls-files --error-unmatch`, verified 2026-08-24).
+
+So scenarios 3 and 5 — which include **every collision currently in the repo**, and the 2026-08-24
+prod incident — are covered by neither specified step. The in-tree duplicate-prefix scan, listed in
+Fix Approach as "also worth evaluating," is the **only** control that covers them, and is therefore
+promoted from optional to required. Conversely it cannot see scenario 6 (files in sibling
+worktrees), which only the ledger-`name` mechanism catches. **Both controls are required; neither
+subsumes the other.**
+
+## Reproduction (hermetic canary, 2026-08-24)
+
+`scripts/test-p1042-version-collision.sh` drives the real `migrate.sh` inside a throwaway
+`mktemp` project dir with `npx`, `curl`, and `security` stubbed on PATH — no network call, no
+keychain read, no database touched. Current output:
+
+```
+  FAIL hard-fails-on-collision — expected NON-ZERO exit, got 0
+       migrate.sh reported success while p1034_featureB.sql never ran:
+           - 20260810140000_p1034_featureB.sql (already applied, skipping)
+           - 20260810140000_p1038_featureA.sql (already applied, skipping)
+         Applied 0 new migration(s) via Management API.
+  FAIL names-both-files — an aborting run must name BOTH colliding files so the author can renumber
+  OK   allows-clean-noop — no new migrations still exits 0
+  OK   applies-new-migration — uncollided new file still applies
+  FAIL aborts-when-both-pending — expected NON-ZERO exit; two files sharing a prefix must never both apply
+
+Passed: 2  Failed: 3        (exit 1)
+```
+
+The two `OK` lines are the false-positive guards: the fix must not make an ordinary no-op run or a
+genuinely new migration start failing.
+
+**One canary defect found and fixed during this phase**, worth recording because it is the repo's
+own recurring shape: the `names-both-files` assertion initially passed while the bug was fully
+present, because both filenames already appear in the buggy output as two ordinary
+`(already applied, skipping)` lines. A bare name match verified the wrong thing. It is now gated on
+a non-zero exit — only an aborting run can be emitting a collision message. (Epistemic gate 7b:
+green bounds what the fixture modelled.)
+
 ## Affected Files
 
 - `scripts/migrate.sh:319` — version derived from basename, assumed globally unique
@@ -174,11 +251,41 @@ time rather than at apply time.
 
 ## Acceptance Criteria
 
+**Guard — apply time** (`migrate.sh`)
+
 - [ ] Running `migrate.sh` on a migration whose version was recorded by a different file exits
       non-zero and names both filenames — verified by staging the collision and pasting the exit code
       (epistemic gate 7: the guard must be observed failing, not merely present)
-- [ ] A normal re-run of `migrate.sh` with no new migrations still exits 0 and reports
-      `Applied 0 new migration(s)` — no false positives on the ordinary no-op path
+- [ ] **Two files in-tree sharing a version prefix abort the run, regardless of ledger state** —
+      covers scenarios 3 and 5, i.e. every collision currently in the repo. Neither specified step
+      caught these; see Scenario Audit
 - [ ] A genuinely new migration still applies and is recorded with its filename in
       `schema_migrations.name`
-- [ ] Pre-existing history rows with `name = NULL` do not trigger the hard failure
+
+**No false positives**
+
+- [ ] A normal re-run of `migrate.sh` with no new migrations still exits 0 and reports
+      `Applied 0 new migration(s)`
+- [ ] A pre-existing history row with `name = NULL` whose version is claimed by exactly **one**
+      in-tree file does NOT trigger the hard failure (217 of 248 test-DB rows are `name = NULL`, so
+      a blanket failure on NULL would block every run). Note this supersedes the original blanket
+      wording: a NULL-name row WITH an in-tree duplicate must now abort
+- [ ] `scripts/test-p1042-version-collision.sh` passes 5/5
+
+**Guard — authoring time** (pre-commit)
+
+- [ ] Committing two migrations that share a version prefix is **rejected**, with the rejection
+      observed and a non-zero exit code pasted, not asserted
+- [ ] The guard tolerates the three historical pairs that already applied cleanly
+      (`20260409120000`, `20260413100000`, `20260413110000`) rather than blocking every commit
+
+**Prod repair** (flagged as missing above; ALWAYS-ASK — founder approves each apply)
+
+- [ ] The two skipped P1114 files carry unique version prefixes, and their SQL was confirmed
+      idempotent before the rename (a rename makes them pending again wherever they already ran)
+- [ ] `event_room_members` and the P1114 RPCs exist on prod
+- [ ] The three follow-up migrations (`20260821120000`, `20260821170000`, `20260821180000`) apply
+      cleanly; `migrate.sh --env prod` reports zero pending
+- [ ] `/events/:slug/room` loads against prod without a missing-function error — verified by an
+      actual request, not a code trace
+- [ ] Prod smoke passes after the applies
