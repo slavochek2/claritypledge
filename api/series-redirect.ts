@@ -5,7 +5,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // status alone misses same-day events whose status hasn't been flipped yet. See getPastEvents().
 const SERIES: Record<string, string> = {
   'ai-run': 'AI Running Club%',
-  'hike': 'Clarity Hike%',
+  // '%Hike%', not 'Clarity Hike%': the series was renamed to "Social Hike"
+  // on 2026-08-24 and the old prefix silently stopped matching, so
+  // /events/hike fell through to the generic /events list with no error.
+  // Match the word wherever it appears so a rename cannot orphan the link.
+  'hike': '%Hike%',
 };
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;

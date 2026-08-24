@@ -58,16 +58,27 @@ describe('classifyLocation', () => {
   });
 
   describe('plain text addresses', () => {
-    it('wraps plain text in Google Maps directions URL from current location', () => {
+    it('wraps plain text in a Google Maps PIN, not a route from the viewer', () => {
+      // Changed 2026-08-24. This test previously asserted the
+      // `/maps/dir/Current+Location/` form, encoding a real defect as the
+      // spec: an attendee opening an event saw driving directions from
+      // their own sofa rather than where the event is.
       const result = classifyLocation('Golden Gate Park, Main Entrance');
       expect(result.type).toBe('address');
-      expect(result.href).toBe('https://www.google.com/maps/dir/Current+Location/Golden%20Gate%20Park%2C%20Main%20Entrance');
+      expect(result.href).toBe('https://www.google.com/maps/search/?api=1&query=Golden%20Gate%20Park%2C%20Main%20Entrance');
+      expect(result.href).not.toContain('Current+Location');
+    });
+
+    it('never produces a directions URL for any plain-text location', () => {
+      for (const raw of ['Golden Gate Park', 'San Francisco, CA', 'Hmong Doi Pui Family Coffee']) {
+        expect(classifyLocation(raw).href).not.toContain('/maps/dir/');
+      }
     });
 
     it('handles city names', () => {
       const result = classifyLocation('San Francisco, CA');
       expect(result.type).toBe('address');
-      expect(result.href).toContain('maps/dir/Current+Location');
+      expect(result.href).toContain('maps/search/?api=1&query=');
     });
   });
 

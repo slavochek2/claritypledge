@@ -123,5 +123,12 @@ export function getLocationDisplayLabel(classification: LocationClassification, 
 }
 
 function buildMapsSearchUrl(query: string): string {
-  return `https://www.google.com/maps/dir/Current+Location/${encodeURIComponent(query)}`;
+  // A PIN for the place, not a route from wherever the viewer happens to be.
+  // Until 2026-08-24 this built `/maps/dir/Current+Location/<query>` -- a
+  // directions URL -- despite the name saying "search". Every event page
+  // therefore showed attendees a driving route from their current position
+  // instead of showing them where the event is. Nobody browsing an event has
+  // asked for turn-by-turn yet; they want to see where it is.
+  // `?api=1&query=` is Google's documented, stable place-search form.
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
