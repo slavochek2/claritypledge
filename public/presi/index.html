@@ -1539,12 +1539,13 @@
   <section class="slide soft">
     <div class="kicker">Where the will breaks down</div>
     <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem)">When I <span class="accent">refuse</span>, what am I protecting?</h2>
-    <div class="cards">
+    <div class="cards four">
       <div class="card refuse"><h3>Ego</h3><p>&ldquo;I might look incompetent.&rdquo;</p></div>
       <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
       <div class="card refuse"><h3>Fear</h3><p>&ldquo;Then I can't blame you.&rdquo;</p></div>
+      <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
     </div>
-    <div class="note">Only fear is aimed at my partner &mdash; and &ldquo;not now&rdquo; is none of the three.</div>
+    <div class="note">Deniability is the one we <em>both</em> want &mdash; which is why asking feels like an imposition.</div>
   </section>
 
   <!-- CLOSER · PRIOR ART — the same move under three installation regimes.
@@ -1616,6 +1617,87 @@
         <p>&ldquo;I don't understand.&rdquo; &ldquo;I don't agree.&rdquo; &mdash; in the room, not after.</p>
       </div>
     </div>
+  </section>
+
+  <!-- SCOPE MATRIX · WHICH SITUATIONS NEED THIS - last slide, and the only concession
+       in the deck. Every other slide argues the problem is universal ("the default in
+       conversation", "every other room"); a deck with no boundary reads as a pitch.
+       REUSES the .mx-* matrix from the decisions slide verbatim - same axis grammar
+       (dimension name ON the axis line, categorical ticks beside the plot), so this
+       reads as a callback rather than a new device at the very end. It also inherits
+       .mx-frame[data-flip]: the four situations land neutral, and the FIRST advance
+       lights the one that is ours. Do not remove data-flip - the reveal is the beat.
+       AXES:
+         y  explanatory divergence   same (bottom) -> different (top) IDEA OF HOW IT WORKS.
+            NOT "reasons" (founder correction 2026-08-24): reasons read as motives or
+            intentions, and two people can share a motive while holding incompatible
+            causal chains - which is the case this whole axis exists to name.
+         x  ambiguity                spelled out (left) -> open to interpretation (right)
+            Ambiguity subsumes observability: a contribution you cannot see is one you
+            cannot check against, so it lands right either way.
+       Ours is TOP-RIGHT - founder call 2026-08-24, reversed from the first build.
+       The axis is named AMBIGUITY, not specificity (2nd founder call, same day):
+       under "specificity" the ours-corner sat at the LOW end while the axis arrow
+       pointed the other way, so high on the slide meant low in the head. Naming the
+       deficit makes both increase rightward and the arrow stops lying. If anyone
+       proposes renaming it back, that is the reason not to.
+       EXAMPLES - every cell is WHO + WHAT, same form in all four. Mixed forms (two
+       bare quotes, two scenes) was the defect that made the set unreadable: a bare
+       quote has no people in it, so the reader cannot place it on either axis.
+       Each cell must therefore name a relationship AND the thing standing between
+       them. Check a candidate against BOTH axes before using it - "strangers at a
+       red light" was placed top-left and was simply wrong: both drivers hold the
+       SAME idea of how a traffic light works, so it belonged in the bottom row.
+       Interests are not causal models. Buyer and seller want opposite prices and
+       still share one idea of what buying IS, which is why they sit bottom-left.
+       Rejected for the ours-corner: "be a good husband/wife" (a correct member of
+       this quadrant - nothing specified, causal models wildly apart - but it pulls
+       the room toward the PARKED therapy market at the exact moment the deck is
+       asking about the program) and "we'll figure it out as we go" (a statement
+       ABOUT vagueness rather than a situation; no actors, unplaceable).
+       Category labels ("cross-team collaboration", "complex projects") were rejected
+       outright: every other cell is a scene you can picture, and a category among
+       scenes reads as the odd one out.
+       "Clarity Principle" is the founder's wording from the same call and is NOT a
+       term used elsewhere in the repo - reconcile against Clarity Pledge / Clarity
+       Champions before this deck is presented.
+       Copy is [FOUNDER DECISION] - drafted 2026-08-24, not yet approved.
+       Reasoning: docs/definitions.md "When the Protocol Applies" (c) + lean-canvas
+       arbiter-failure criteria; docs/decisions.md 2026-08-24 [product]. -->
+  <style>
+    /* SCOPED to this slide only - slide 29 shares .mx-* and must not move.
+       This slide's row labels ("different idea of how it works") are far longer than
+       slide 29's ("Good"/"Bad"), so on a phone the auto-sized rail ate the plot and
+       broke the cell copy mid-phrase. Cap the rail and step the label down instead. */
+    @media(max-width:480px){
+      .mx-scope{grid-template-columns:64px 1fr}
+      .mx-scope .mx-rh{font-size:.53rem;letter-spacing:.05em;line-height:1.3;padding:.4rem .15rem}
+      .mx-scope .mx-cell{padding:.6rem .4rem}
+    }
+  </style>
+  <section class="slide soft">
+    <div class="kicker">Which situations need the Clarity Principle?</div>
+    <div class="mx-frame mx-scope" data-flip>
+      <span class="mx-lab mx-lab-y">explanatory divergence</span>
+      <div class="mx-rows">
+        <div class="mx-rh">Different idea of<br>how it works</div>
+        <div class="mx-rh">Same idea of<br>how it works</div>
+      </div>
+      <div class="mx-plot">
+        <div class="mx">
+          <div class="mx-cell">Landlord &amp; tenant:<br>the lease</div>
+          <div class="mx-cell hot">Two co-founders:<br>&ldquo;equal partners&rdquo;</div>
+          <div class="mx-cell">Buyer &amp; seller:<br>the price tag</div>
+          <div class="mx-cell">Friends:<br>&ldquo;let's travel together&rdquo;</div>
+        </div>
+      </div>
+      <div class="mx-ticks">
+        <div class="mx-ch">Spelled out</div>
+        <div class="mx-ch">Open to interpretation</div>
+      </div>
+      <span class="mx-lab mx-lab-x">ambiguity</span>
+    </div>
+    <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
   </section>
 
 </div>
