@@ -1,5 +1,5 @@
 ---
-status: week
+status: blocked
 type: task
 rank: 66
 workstream: events
@@ -12,6 +12,12 @@ drafted_by: opus
 ---
 
 # P1152: `/transcribe` — the physical verification a loop cannot do
+
+**Status note (2026-08-24, founder decision):** P1149 shipped to prod ahead of this spec closing.
+The founder will run the physical checks below on real devices directly against prod and record
+the outcome here. If PV-1 through PV-4 pass, close this spec normally. If any fail, the founder
+decides then whether to fix forward or revert — not a silent retry. Blocked, not rejected: the
+checks below still need to happen, just not as a merge gate.
 
 ## Problem
 

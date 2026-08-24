@@ -251,8 +251,12 @@ pending · corrected transcript ready.
 
 Four physical checks were carved out to [P1152](p1152_transcribe_physical_device_verification.md)
 on 2026-08-23 — Gate 0 on real phones, two-device live delivery, radio-drop recovery, and
-eight-way concurrency. **P1149 does not merge until P1152 closes.** A green gate here covers
-what a command can decide; it is not a ship signal on its own.
+eight-way concurrency. A green gate here covers what a command can decide; it is not a ship
+signal on its own.
+
+**Founder override (2026-08-24):** shipped to prod without waiting for P1152 to close. The
+founder will run P1152's physical checks against prod directly and record the outcome there.
+P1152 is `status: blocked`, not closed — see that spec for what's still outstanding.
 
 - [ ] DW-1 `/transcribe` is reachable only when signed in; signed-out visitors are redirected
 - [ ] DW-2 Consent screen blocks mic access until accepted; declining leaves the room
