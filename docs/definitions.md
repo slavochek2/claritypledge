@@ -289,6 +289,7 @@ The protocol is the verification step. The question is not "is it useful here?" 
 **You can skip verification when:**
 - (a) Your **listening calibration** is high *and* domain-validated — you have track record showing your reconstructions match what speakers meant, in this domain.
 - (b) The **cost of misunderstanding is low** — being wrong is cheap (small talk, low-stakes coordination).
+- (c) A **specifying interface already carries the coordination** — a price, a technical standard, a legal precedent, a default. Coordination at scale is routinely achieved without shared understanding, by converting a contribution nobody could pin down in advance into one that can be checked against something. Where such an interface exists, use it: leaving the deep *why* unresolved genuinely helps there, and the instrument is not needed. This does not soften the boundary it sits inside — an interface *is* a working consequence-arbiter, which is why it removes the case rather than making an exception to it (see [lean-canvas.md](lean-canvas.md) §Customer Segments, the arbiter-failure criteria). *Added 2026-08-24, deductive, no field contact; falsifier and reasoning in [decisions.md](decisions.md) 2026-08-24 [product].*
 
 **Otherwise, skipping = assuming the illusion of recursive understanding isn't present without evidence.** That assumption is itself the failure mode the protocol names.
 

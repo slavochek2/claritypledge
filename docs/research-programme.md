@@ -57,7 +57,7 @@ A paraphrase-and-confirm protocol with speaker-side verification can convert ill
 
 The unverified gap is costly precisely where its natural consequence-arbiter fails — where feedback is delayed enough that error compounds silently instead of self-correcting.
 
-*Evidential status:* the specific **exactly-three-failure-modes** taxonomy (fuzzy intent / delayed feedback / concentrated stakes) is **belt**, where its falsifier already lives. Only the arbiter-failure boundary is core.
+*Evidential status:* the specific **failure-mode taxonomy** is **belt** — enumerated in [lean-canvas.md](lean-canvas.md) §Customer Segments → Active focus, where its falsifier lives. **The count is deliberately not restated here** (it moved from three to four on 2026-08-24; a restated fact rots, a pointer cannot). Only the arbiter-failure boundary is core, and it is untouched by that move — the fourth mode is another way arbitration fails, not an exception to it.
 
 > **Core-hit signature:** domains with fast, reliable consequence-feedback accumulate unverified-understanding costs at the same rate as delayed-feedback domains ⟹ the arbiter-failure boundary is not where cost concentrates, and the targeting premise is wrong.
 
