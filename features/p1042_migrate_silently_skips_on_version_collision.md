@@ -6,8 +6,8 @@ severity: high
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [tooling, migrations, supabase, concurrency]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1042-version-collision.sh
   root_cause: "migrate.sh:328 treats the 14-digit version prefix as a globally unique key; nothing enforces uniqueness and apply_via_api (migrate.sh:122) records only version, never name — so a second file with a colliding prefix is reported '(already applied, skipping)', exits 0, and can never run"
