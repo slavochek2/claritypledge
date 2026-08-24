@@ -309,9 +309,10 @@ time rather than at apply time.
 - [x] A grandfathered pair whose ledger row names only ONE of its two files does not abort —
       canary `allowlist-binds-both-guards`. Added after the live `20260223` abort showed the two
       guards were consulting different sources of truth
-- [x] `scripts/test-p1042-version-collision.sh` passes **9/9** (was specified as 5/5; four
-      assertions were added because the original five all passed through guard 1, leaving guard 2
-      entirely unexercised — epistemic gate 7b)
+- [x] `scripts/test-p1042-version-collision.sh` passes **10/10** (was specified as 5/5; five
+      assertions were added — four because the original five all passed through guard 1, leaving
+      guard 2 entirely unexercised, and a fifth for the CLI-success path found in code review —
+      epistemic gate 7b)
 
 **Guard — authoring time** (pre-commit)
 
@@ -341,6 +342,28 @@ time rather than at apply time.
 - [ ] `/events/:slug/room` loads against prod without a missing-function error — verified by an
       actual request, not a code trace
 - [ ] Prod smoke passes after the applies
+
+## Code-review finding: the primary path bypassed guard 2 (2026-08-24)
+
+Review of the first two commits found a HIGH defect in the fix itself, confirmed by reading
+`scripts/migrate.sh`: on a **successful** `supabase db push` the script prints `Done.` and
+`exit 0`s before the Management-API apply loop is ever entered. Guard 2 lived inside that loop, so
+on the primary path — the one a healthy test run actually takes — the cross-worktree collision was
+completely unguarded. Guard 1 cannot cover it: the colliding sibling is in another tree, so there
+is no duplicate here to find.
+
+That is the *originally reported* scenario (P1034, worktree A applies, worktree B collides), which
+means the fix as first committed did not protect the case the bug was filed for on the path most
+runs take.
+
+Two things made this invisible: the Scenario Audit reasoned about the skip loop as though it were
+the only route, and the canary stubs `npx` to *always fail*, so all nine assertions ran through the
+fallback. Green bounded what the fixture could emit (gate 7b) — again.
+
+**Fix:** `preflight_ledger_name_check()` hoists the ledger comparison ahead of both paths. When no
+PAT resolves, or the history read fails, it says so loudly rather than skipping in silence.
+Scenario 9 (`guards-the-cli-success-path`) covers it, and was confirmed to fail — exit 0, `Done.` —
+with the pre-flight call neutralised.
 
 ## Repair (2026-08-24)
 

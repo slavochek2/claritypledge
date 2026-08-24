@@ -31,9 +31,21 @@ mkdir -p "$STUBS"
 # real login keychain.
 printf '#!/bin/bash\nexit 1\n' > "$STUBS/security"
 
-# npx: emulate the CLI auth failure that makes migrate.sh fall back to the
-# Management API path (the path that contains the defect under test).
-printf '#!/bin/bash\necho "failed to connect: Tenant or user not found"\nexit 1\n' > "$STUBS/npx"
+# npx: by default emulate the CLI auth failure that makes migrate.sh fall back to the
+# Management API path. FAKE_NPX_SUCCEED=1 instead emulates a HEALTHY `supabase db push`,
+# which returns migrate.sh down a completely different route: it prints "Done." and
+# exits 0 without ever entering the apply loop. Guard 2 used to live only inside that
+# loop, so every scenario here ran through the fallback and the primary path was
+# untested — see scenario 9.
+cat > "$STUBS/npx" <<'STUB'
+#!/bin/bash
+if [ "${FAKE_NPX_SUCCEED:-0}" = "1" ]; then
+  echo "Applying migration ..."
+  exit 0
+fi
+echo "failed to connect: Tenant or user not found"
+exit 1
+STUB
 
 # curl: fake Management API.
 #   - SELECT version ... schema_migrations  -> the applied-versions ledger
@@ -70,7 +82,7 @@ chmod +x "$STUBS"/*
 # $1 = scenario dir name, $2 = applied-versions JSON. Migration files are placed
 # by the caller into $TMPROOT/$1/supabase/migrations before invoking.
 run_migrate() {
-  local NAME="$1" LEDGER_JSON="$2"
+  local NAME="$1" LEDGER_JSON="$2" NPX_OK="${3:-0}"
   local PDIR="$TMPROOT/$NAME"
   mkdir -p "$PDIR/scripts"
   cp "$REAL_MIGRATE" "$PDIR/scripts/migrate.sh"
@@ -96,7 +108,8 @@ run_migrate() {
   } > "$PDIR/.env.local"
   printf '%s' "$LEDGER_JSON" > "$PDIR/ledger.json"
   : > "$PDIR/inserts.log"
-  FAKE_LEDGER="$PDIR/ledger.json" INSERT_LOG="$PDIR/inserts.log" PATH="$STUBS:$PATH" \
+  FAKE_LEDGER="$PDIR/ledger.json" INSERT_LOG="$PDIR/inserts.log" \
+  FAKE_NPX_SUCCEED="$NPX_OK" PATH="$STUBS:$PATH" \
     bash "$PDIR/scripts/migrate.sh" > "$PDIR/out.log" 2>&1
   echo $? > "$PDIR/exit.code"
 }
@@ -275,6 +288,30 @@ if [ "$RC" -eq 0 ] && grep -q 'Applied 0 new migration' "$TMPROOT/$S/out.log"; t
 else
   echo "  FAIL allowlist-binds-both-guards — an allowlisted version must not abort on a foreign"
   echo "       ledger name; guard 2 is not reading the allowlist (exit $RC)"
+  FAIL=$((FAIL+1))
+fi
+
+# --- 9. THE PRIMARY PATH. A healthy `supabase db push` exits 0 long before the apply
+# loop, so guard 2 living only inside that loop left the cross-worktree case — the very
+# case this bug was filed for — unguarded on the path most runs actually take. Same
+# fixture as scenario 6, but with the CLI succeeding.
+S=cli_success
+mkdir -p "$TMPROOT/$S/supabase/migrations"
+cat > "$TMPROOT/$S/supabase/migrations/20260815100000_p1042_mine.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS public.mine (id uuid PRIMARY KEY);
+SQL
+run_migrate "$S" '[{"version":"20260815100000","name":"p1200_from_another_worktree"}]' 1
+RC=$(cat "$TMPROOT/$S/exit.code")
+OUT=$(cat "$TMPROOT/$S/out.log")
+if [ "$RC" -ne 0 ] \
+   && printf '%s' "$OUT" | grep -q 'p1200_from_another_worktree' \
+   && printf '%s' "$OUT" | grep -q 'p1042_mine'; then
+  echo "  OK   guards-the-cli-success-path — collision caught before db push (exit $RC)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL guards-the-cli-success-path — a healthy 'supabase db push' must not bypass"
+  echo "       the cross-tree collision check (exit $RC)"
+  printf '%s\n' "$OUT" | grep -E 'Done\.|Applied [0-9]+ new migration' | sed 's/^/         /'
   FAIL=$((FAIL+1))
 fi
 

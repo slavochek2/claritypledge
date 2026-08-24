@@ -66,7 +66,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$MIGRATIONS_DIR" ] || [ ! -d "$MIGRATIONS_DIR" ]; then
-  echo "check-duplicate-migration-versions: no such directory: ${MIGRATIONS_DIR:-<unset>}"
+  echo "check-duplicate-migration-versions: no such directory: ${MIGRATIONS_DIR:-[unset]}"
   exit 1
 fi
 

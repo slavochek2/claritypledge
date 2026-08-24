@@ -197,6 +197,63 @@ if ! "$SCRIPT_DIR/lib/check-duplicate-migration-versions.sh" \
   exit 1
 fi
 
+# --- P1042 guard 2, pre-flight (cross-tree version collision) ---
+# Guard 2 proper lives inside the Management-API apply loop. A SUCCESSFUL `supabase db
+# push` never reaches that loop — the branch below prints "Done." and exits 0 — so on the
+# primary path the cross-worktree case would go completely unchecked, and guard 1 cannot
+# cover it (the colliding sibling lives in another tree, so there is no duplicate here to
+# find). That case is the one this bug was originally filed for. Run the same ledger
+# comparison up front, before either path starts.
+preflight_ledger_name_check() {
+  if [ -z "$SUPABASE_PAT" ]; then
+    echo "WARNING: no Supabase PAT resolved — the cross-tree version-collision check"
+    echo "  (P1042 guard 2) did NOT run. Only the in-tree scan protected this run."
+    return 0
+  fi
+  local RESP HTTP BODY NAMES FILE BASE VER REC
+  RESP=$(curl -s -w $'\n%{http_code}' \
+    -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
+    -H "Authorization: Bearer ${SUPABASE_PAT}" \
+    -H "Content-Type: application/json" \
+    -d '{"query": "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}' \
+    2>&1)
+  HTTP=$(printf '%s\n' "$RESP" | tail -n1)
+  BODY=$(printf '%s\n' "$RESP" | sed '$d')
+  if [ "$HTTP" != "200" ] && [ "$HTTP" != "201" ]; then
+    echo "WARNING: could not read migration history (HTTP $HTTP) — P1042 guard 2 did not run."
+    return 0
+  fi
+  NAMES=$(echo "$BODY" | python3 -c \
+    'import json,sys; rows=json.load(sys.stdin); print("\n".join(r["version"]+"\t"+(r.get("name") or "") for r in rows))' \
+    2>/dev/null || true)
+  for FILE in "$PROJECT_DIR"/supabase/migrations/*.sql; do
+    [ -e "$FILE" ] || continue
+    BASE=$(basename "$FILE")
+    echo "$BASE" | grep -qE '^[0-9]' || continue
+    VER=$(echo "$BASE" | sed -E 's/^([0-9]+)[_.]?.*/\1/')
+    REC=$(printf '%s\n' "$NAMES" | awk -F'\t' -v v="$VER" '$1 == v { print $2; exit }')
+    [ -n "$REC" ] || continue
+    _migration_name_matches "$REC" "$BASE" && continue
+    "$SCRIPT_DIR/lib/check-duplicate-migration-versions.sh" \
+      "$PROJECT_DIR/supabase/migrations" --is-allowlisted "$VER" && continue
+    echo ""
+    echo "ERROR: version $VER was recorded by a DIFFERENT migration file."
+    echo "  in the ledger: $REC"
+    echo "  on disk here:  $BASE"
+    echo ""
+    echo "  $BASE has never been applied and never will be: schema_migrations is keyed on"
+    echo "  the version prefix, so it is skipped on every run while its SQL never executes."
+    echo "  Fix: renumber $BASE to a unique timestamp, then re-run."
+    return 1
+  done
+  return 0
+}
+
+if ! preflight_ledger_name_check; then
+  echo "Aborted before applying anything — no migration was run, no ledger row written."
+  exit 1
+fi
+
 # --- Primary path: supabase db push (test only — CLI is always linked to test project) ---
 if [ "$ENV_NAME" != "prod" ]; then
   echo ">>> Checking migration status..."
