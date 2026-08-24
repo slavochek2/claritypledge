@@ -23,6 +23,21 @@ import { createTestStory, linkStoryToPoint, deleteTestStory } from '../helpers/t
  * accessible name must still hear the disclosure.
  */
 
+/**
+ * P1141 amendment. `agent.name` is the STORED name (`Agent · {subject}`) and is still what
+ * every aria-label interpolates — so every assertion below is unchanged. What changed is the
+ * VISIBLE text: an agent is now named `Machine reading of {subject}` on every surface, so a
+ * locator that finds a row by `hasText: agent.name` finds nothing.
+ *
+ * That divergence is the point of this file, not an inconvenience to paper over: display and
+ * accessible name are now genuinely different strings, and only the accessible one carries the
+ * `Agent · ` marker these tests exist to guard. Locate by what a sighted user sees; assert on
+ * what a screen-reader user hears.
+ */
+function displayName(storedName: string): string {
+  return storedName.replace(/^Agent\s*·\s*/, '');
+}
+
 test.describe('P1104 accessibility — agent marker in accessible names', () => {
   test.describe.configure({ timeout: 90000 });
 
@@ -81,7 +96,7 @@ test.describe('P1104 accessibility — agent marker in accessible names', () => 
     await page.goto(`/point/${positionedPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const row = page.locator('[role="button"]').filter({ hasText: agent.name }).first();
+    const row = page.locator('[role="button"]').filter({ hasText: displayName(agent.name) }).first();
     const toggle = row.locator('[data-testid="story-toggle"]');
     await expect(toggle).toBeVisible({ timeout: 15000 });
 
@@ -98,7 +113,7 @@ test.describe('P1104 accessibility — agent marker in accessible names', () => 
     await page.goto(`/point/${positionedPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const row = page.locator('[role="button"]').filter({ hasText: agent.name }).first();
+    const row = page.locator('[role="button"]').filter({ hasText: displayName(agent.name) }).first();
     await row.locator('[data-testid="story-toggle"]').click();
 
     const region = page.getByRole('region', { name: `${agent.name}'s story` });
@@ -119,7 +134,7 @@ test.describe('P1104 accessibility — agent marker in accessible names', () => 
     await page.goto(`/point/${positionlessPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const row = page.locator('[role="button"]').filter({ hasText: agent.name }).first();
+    const row = page.locator('[role="button"]').filter({ hasText: displayName(agent.name) }).first();
     const toggle = row.locator('[data-testid="story-toggle"]');
     await expect(toggle).toBeVisible({ timeout: 15000 });
 
@@ -134,7 +149,7 @@ test.describe('P1104 accessibility — agent marker in accessible names', () => 
     await page.goto(`/point/${positionlessPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const row = page.locator('[role="button"]').filter({ hasText: agent.name }).first();
+    const row = page.locator('[role="button"]').filter({ hasText: displayName(agent.name) }).first();
     await row.locator('[data-testid="story-toggle"]').click();
 
     const region = page.getByRole('region', { name: `${agent.name}'s story` });
@@ -149,7 +164,7 @@ test.describe('P1104 accessibility — agent marker in accessible names', () => 
     // enumerated tests above cannot.
     await page.goto(`/point/${positionedPoint.id}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(displayName(agent.name)).first()).toBeVisible({ timeout: 15000 });
 
     const subject = 'P1104 A11y Test Subject';
     const offenders = await page.evaluate((subj) => {
@@ -168,8 +183,8 @@ test.describe('P1104 accessibility — agent marker in accessible names', () => 
     await page.goto(`/point/${positionedPoint.id}`);
     await page.waitForLoadState('networkidle');
 
-    const row = page.locator('[role="button"]').filter({ hasText: agent.name }).first();
-    await expect(row.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+    const row = page.locator('[role="button"]').filter({ hasText: displayName(agent.name) }).first();
+    await expect(row.getByText(displayName(agent.name)).first()).toBeVisible({ timeout: 15000 });
 
     const avatar = row.locator('[data-testid="gravatar-avatar"]');
     const radius = await avatar.evaluate(el => parseInt(getComputedStyle(el).borderRadius, 10) || 0);

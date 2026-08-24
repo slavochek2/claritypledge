@@ -135,8 +135,9 @@ label and its destination to match. The dangerous-scheme filtering already in pl
 
 ### Attribution — three levels, all already decided
 
-1. **Byline** — reads *Reading of {Full Name}*, with the machine chip and the machine marker on the
-   avatar. Always visible, every card, every feed.
+1. **Byline** — reads *[MACHINE] reading of {Full Name}*, with the machine marker on the avatar.
+   Always visible, every card, every feed. The chip is a status marker and is NOT part of the
+   profile link; only the name navigates.
 2. **Footer** — two sentences under every agent story, linking out.
 3. **Explainer page** — the link destination. Its content is a separate piece of work.
 
@@ -173,7 +174,7 @@ sufficient — a surface can use every correct value and still not look like the
 live feed 2026-08-21, so none is drift):
 
 1. Bylines read `Agent · {Name}` today with **no machine chip**. The UI Contract requires
-   `Reading of {Full Name}` plus the chip. The build owes both.
+   `[MACHINE] reading of {Full Name}`, with only the name clickable. The build owes all three.
 2. `0 verified` renders on agent stories today — observed on every agent card in the feed.
 3. Quotes currently run **inline through the prose**, which is the layout this spec replaces.
 
@@ -351,11 +352,10 @@ deliberately and state the reason — not whichever file is open first.
 
 | Element | Value | Context |
 |---|---|---|
-| Byline | `Reading of {Full Name}` | Every agent story and card |
+| Byline | `[MACHINE]` chip, then `reading of`, then `{Full Name}` — the name is the ONLY clickable element, and only where it is independently navigable | **Every surface that names an agent account**: story bylines, the profile header (`lg` size), both point stance rows, and the quoted-card rows on point/story/profile |
 | Operator line | `Operated by ClarityPledge` | Agent profile |
 | Machine chip | `Machine` | Beside the byline |
 | Quotes section heading | `Supporting quotes from {Full Name}` | Below the argument |
-| Quotes section meta | `{n} marks · {duration}` | Right of the heading |
 | Timecode | `m:ss` or `mm:ss`, with a play affordance | Each quote row |
 | Story footer | Two sentences: what wrote it, that it is not the person's words except where quoted, then the explainer link | Below every agent story |
 | Off-site card | Thumbnail, centred play affordance, duration | Email, previews, share cards |
@@ -780,3 +780,68 @@ rows fail only with *"no test files found"* — a genuine non-zero exit, but it 
 absence of a file, not that any assertion has teeth. This spec never ran `/generate-tests`, so
 unlike P1114 there is no red-with-real-assertions baseline behind them. The two Playwright
 rows additionally need a seeded story carrying a video and the RD-4 test migration applied.
+
+---
+
+## Amendment — 2026-08-24, after founder review in a real browser
+
+### Amendment 2 — one name, every surface
+
+Founder review of `/p/machine-daniel-bar-tal`: the profile header read `Agent · Daniel Bar-Tal`
+while the feed card for the same account read `Machine reading of Daniel Bar-Tal`. A survey found
+**ten surfaces that name an agent account and only three that used `AgentByline`** — the other
+seven printed the raw stored name: the profile header (`profile-page-v2.tsx`), both point stance
+rows (`point-detail-page.tsx`), and four quoted-card rows (`point-card-with-links.tsx`,
+`story-card-with-links.tsx` ×2, `StoryCardDetail.tsx` ×2, `profile-page-v2.tsx` ×2). The same
+account therefore had two identities, decided by which page the reader was on.
+
+All ten now render `AgentByline`. Three consequences the UI Contract row above now carries:
+
+1. **`reading of` is not trimmable at any size.** Dropped, the marker lands on the person —
+   `[Machine] Daniel Bar-Tal` reads as *Daniel Bar-Tal, who is a machine*. The risk is highest on
+   the profile header, the one surface whose whole job is identity and the one likeliest to be
+   mistaken for the subject's own account, which is why `lg` carries the same three parts as `sm`.
+2. **No handler means no button.** Nine of the ten sites sit inside a card that is itself the
+   link, so the name renders as a `<span>`. A `<button>` with nothing behind it is the dead-control
+   defect the visual-QA checklist blocks by name, plus a phantom tab stop.
+3. **The stored name is unchanged and still carries `Agent · `.** Every `aria-label` is built from
+   it, so WCAG 2.5.3 (Label in Name) needs re-checking rather than assuming: the visible label is
+   now `Machine reading of {Name}` while the accessible name is `{Agent · Name}'s profile`. The
+   visible string is no longer a substring of the accessible one. See the a11y note below.
+
+**WCAG 2.5.3 — re-derived, not assumed.** 2.5.3 binds the accessible name to contain the visible
+*text of the label* for speech-input users. The interactive element here is the name alone
+(`{Full Name}`), not the whole byline: the chip and the connective are static text siblings, not
+part of any control's label. `Daniel Bar-Tal` remains a substring of
+`Agent · Daniel Bar-Tal's profile`, so 2.5.3 holds. It would NOT hold if the chip or connective
+were ever moved inside the interactive element.
+
+
+The build was driven against real seeded data and the founder reviewed it on screen. Four
+things in the UI Contract changed as a result. Recorded here as an amendment rather than
+edited away silently, because `src/tests/p1141-pipeline-rules.test.ts` binds this document to
+the code and a future reader needs to know these strings moved.
+
+This is a **spec edit, not a change-request**: P1141 has never been merged to `main` and has
+never shipped, so there is no delivered behaviour to file against.
+
+1. **The byline is `[MACHINE] reading of {Full Name}`, and only the name is clickable.**
+   Previously `Reading of {Full Name}` with the chip beside it — but every call site wrapped
+   the whole byline in the profile-navigation button, which made the chip a link. A status
+   marker that navigates is wrong: it invites a click that answers a question the reader did
+   not ask. `Agent · {Name}` was considered and rejected for display — "agent" reads in
+   English as *representative of*, the one implication an account bearing a real person's name
+   must never carry. The stored name keeps its `Agent ·` marker, which the database enforces
+   and every off-platform surface still reads.
+
+2. **The quotes-section meta line is deleted.** It read `{n} marks · {duration}`. The count is
+   visible by looking, and the video's total length answers a question nobody asked at that
+   position.
+
+3. **The drain is scoped to the identity cluster, never to content or controls.** See the
+   amendment note in `src/index.css`. On story surfaces this removes the colour channel
+   entirely; the remaining non-colour markers are the square avatar, the chip and the footer.
+
+4. **No trailing `Source:` line in filed story text.** The embedded player and the per-quote
+   timecode links already carry the source, and under this spec's own link narrowing such a
+   sentence renders as dead plain text because its label does not match its destination.

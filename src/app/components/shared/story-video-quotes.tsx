@@ -3,7 +3,6 @@ import { formatTimecode, getTimestampUrl, type VideoQuote } from '@/lib/video';
 interface StoryVideoQuotesProps {
   videoUrl: string;
   quotes: VideoQuote[];
-  durationSeconds?: number | null;
   /** The subject the quotes come from. Full name — the section names who it quotes. */
   subjectName: string;
   /**
@@ -28,7 +27,6 @@ interface StoryVideoQuotesProps {
 export function StoryVideoQuotes({
   videoUrl,
   quotes,
-  durationSeconds,
   subjectName,
   onSeek,
   playerBlocked = false,
@@ -39,20 +37,14 @@ export function StoryVideoQuotes({
 
   return (
     <section className="mt-6" data-testid="story-video-quotes">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          Supporting quotes from {subjectName}
-        </h3>
-        <span
-          className="text-xs text-gray-500 dark:text-gray-400"
-          data-testid="story-video-quotes-meta"
-        >
-          {quotes.length} marks
-          {typeof durationSeconds === 'number' && durationSeconds > 0
-            ? ` · ${formatTimecode(durationSeconds)}`
-            : ''}
-        </span>
-      </div>
+      {/* P1141 amendment 2026-08-24: the `{n} marks · {duration}` meta line was removed.
+          The count is visible by looking, and the video's total length answers a question
+          nobody asked at this position. The `durationSeconds` prop went with it — it had no
+          other reader in this component. The blocked-player fallback gets its own duration
+          from StoryMedia, not from here. */}
+      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+        Supporting quotes from {subjectName}
+      </h3>
 
       {/*
         The timecode measures 40px tall — verified by boundingBox in

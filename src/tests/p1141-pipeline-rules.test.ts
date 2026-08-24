@@ -104,7 +104,10 @@ describe('p1141 — the P1096 non-goal points here rather than contradicting sil
 
 describe('p1141 — every UI Contract and RD-1 string appears verbatim where it renders', () => {
   const CASES: Array<[string, string]> = [
-    ['src/app/components/shared/agent-byline.tsx', 'Reading of {fullName}'],
+    // Amended 2026-08-24 with the spec's UI Contract: the byline is now
+    // `[MACHINE] reading of {Full Name}` with the name as the only link, so the
+    // rendered literal is the lowercase connective and the name is its own element.
+    ['src/app/components/shared/agent-byline.tsx', 'reading of'],
     ['src/app/components/shared/machine-chip.tsx', 'Machine'],
     ['src/app/components/shared/story-video-quotes.tsx', 'Supporting quotes from {subjectName}'],
     ['src/app/components/shared/agent-story-footer.tsx', 'A machine account operated by ClarityPledge wrote this reading of {fullName}.'],

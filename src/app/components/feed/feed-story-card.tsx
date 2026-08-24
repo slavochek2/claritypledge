@@ -99,19 +99,33 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
             />
           </button>
 
-          <div className={`flex-1 min-w-0${isAgent ? ' agent-drained-chrome' : ''}`}>
+          {/* P1141 amendment: the drain is NOT applied here — it used to wrap this whole
+              content column and greyed the video, the quote pills and the viewer's own
+              controls. See src/index.css. */}
+          <div className="flex-1 min-w-0">
             <div className="mb-1">
               <div className="flex min-w-0 items-center gap-1.5">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/p/${story.authorSlug}`);
-                  }}
-                  className="font-semibold text-foreground hover:underline text-sm min-w-0"
-                >
-                  {/* P1141: `Reading of {Full Name}` + the machine chip. */}
-                  {isAgent && !identityPending ? <AgentByline name={story.authorName} /> : story.authorName}
-                </button>
+                {/* P1141: `[MACHINE] reading of {Full Name}`, NAME is the only link.
+                    AgentByline owns its own button — never wrap it in one. */}
+                {isAgent && !identityPending ? (
+                  <AgentByline
+                    name={story.authorName}
+                    onNameClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/p/${story.authorSlug}`);
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/p/${story.authorSlug}`);
+                    }}
+                    className="font-semibold text-foreground hover:underline text-sm min-w-0"
+                  >
+                    {story.authorName}
+                  </button>
+                )}
                 {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
               </div>
               <div className="text-xs text-muted-foreground inline-flex items-center gap-1">

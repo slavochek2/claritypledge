@@ -11,8 +11,8 @@
  * as a human one, complete with the count this spec removes.
  */
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { MachineChip } from '@/app/components/shared/machine-chip';
@@ -23,9 +23,10 @@ function wrap(ui: React.ReactNode) {
 }
 
 describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', () => {
-  it('reads `Reading of {Full Name}`, the UI Contract string verbatim', () => {
+  it('reads `[MACHINE] reading of {Full Name}`, the UI Contract string verbatim', () => {
     wrap(<AgentByline name="Agent · Jane Doe" />);
-    expect(screen.getByTestId('agent-byline').textContent).toContain('Reading of Jane Doe');
+    expect(screen.getByTestId('agent-byline').textContent).toContain('reading of');
+    expect(screen.getByTestId('agent-byline-name').textContent).toBe('Jane Doe');
   });
 
   it('strips the baked-in "Agent · " prefix rather than printing it twice', () => {
@@ -35,7 +36,7 @@ describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', 
 
   it('a name that merely STARTS with "agent" is not mangled', () => {
     wrap(<AgentByline name="Agentic Systems" />);
-    expect(screen.getByTestId('agent-byline').textContent).toContain('Reading of Agentic Systems');
+    expect(screen.getByTestId('agent-byline-name').textContent).toBe('Agentic Systems');
   });
 
   it('carries the machine chip beside it, always', () => {
@@ -43,17 +44,81 @@ describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', 
     expect(screen.getByTestId('machine-chip').textContent).toBe('Machine');
   });
 
+  // Amendment 2026-08-24. The chip now LEADS the byline, so "the first span" is no longer
+  // the name — this targets the name by testid instead of by DOM position, which is what
+  // the assertion always meant.
   it('a very long name truncates but keeps the full name available on hover', () => {
     const long = 'Agent · Bartholomew Fitzwilliam Montgomery-Chesterfield III';
     wrap(<AgentByline name={long} />);
-    const label = screen.getByTestId('agent-byline').querySelector('span');
-    expect(label?.className).toContain('truncate');
-    expect(label?.getAttribute('title')).toBe('Bartholomew Fitzwilliam Montgomery-Chesterfield III');
+    const label = screen.getByTestId('agent-byline-name');
+    expect(label.className).toContain('truncate');
+    expect(label.getAttribute('title')).toBe('Bartholomew Fitzwilliam Montgomery-Chesterfield III');
+  });
+
+  // The defect this amendment exists to fix: every call site wrapped the whole byline in
+  // the profile-navigation button, so the machine chip was a link.
+  it('the machine chip is NOT inside the interactive element — a status marker must not navigate', () => {
+    wrap(<AgentByline name="Agent · Jane Doe" onNameClick={() => {}} />);
+    const nameButton = screen.getByTestId('agent-byline-name');
+    expect(nameButton.tagName).toBe('BUTTON');
+    expect(nameButton.querySelector('[data-testid="machine-chip"]')).toBeNull();
+    expect(screen.getByTestId('machine-chip').closest('button')).toBeNull();
+  });
+
+  it('clicking the name calls the handler, and only the name is clickable', () => {
+    const onNameClick = vi.fn();
+    wrap(<AgentByline name="Agent · Jane Doe" onNameClick={onNameClick} />);
+    fireEvent.click(screen.getByTestId('agent-byline-name'));
+    expect(onNameClick).toHaveBeenCalledTimes(1);
+    // Exactly one interactive element in the whole byline.
+    expect(screen.getByTestId('agent-byline').querySelectorAll('button')).toHaveLength(1);
   });
 
   it('the chip stands alone as its own component, for card surfaces', () => {
     render(<MachineChip />);
     expect(screen.getByTestId('machine-chip')).toBeTruthy();
+  });
+
+  // Amendment 2026-08-24 — consistency pass. Before it, ten surfaces named an agent
+  // account and only three used this component; the other seven (the profile header,
+  // both point stance rows, four quoted-card rows) printed the raw stored
+  // `Agent · {Name}`. Same account, two identities, decided by which page you were on.
+
+  it('renders the name as a SPAN, not a dead button, when there is nothing to click', () => {
+    wrap(<AgentByline name="Agent · Jane Doe" />);
+    const label = screen.getByTestId('agent-byline-name');
+    expect(label.tagName).toBe('SPAN');
+    // A control rendered with no handler invites a click that does nothing and adds a
+    // phantom tab stop — the dead-control defect the visual-QA checklist blocks by name.
+    expect(screen.getByTestId('agent-byline').querySelectorAll('button')).toHaveLength(0);
+  });
+
+  it('says the SAME three things at every size — `reading of` is not trimmable', () => {
+    // Dropped, the marker lands on the PERSON: `[Machine] Daniel Bar-Tal` reads as
+    // *Daniel Bar-Tal, who is a machine*. Worst on the profile header, which is the
+    // one surface `lg` exists for.
+    for (const size of ['sm', 'lg'] as const) {
+      const { unmount } = wrap(<AgentByline name="Agent · Jane Doe" size={size} />);
+      const text = screen.getByTestId('agent-byline').textContent ?? '';
+      expect(text).toContain('Machine');
+      expect(text).toContain('reading of');
+      expect(text).toContain('Jane Doe');
+      expect(text).not.toContain('Agent ·');
+      unmount();
+    }
+  });
+
+  it('scales the chip WITH the byline, so the two sizes read as one marker', () => {
+    const { unmount } = wrap(<AgentByline name="Agent · Jane Doe" size="lg" />);
+    const chip = screen.getByTestId('machine-chip');
+    expect(chip.getAttribute('data-chip-size')).toBe('lg');
+    // Same border and palette at both sizes — a different-looking mark would read as a
+    // different claim.
+    expect(chip.className).toContain('border-gray-300');
+    expect(chip.className).toContain('rounded-full');
+    unmount();
+    wrap(<AgentByline name="Agent · Jane Doe" />);
+    expect(screen.getByTestId('machine-chip').getAttribute('data-chip-size')).toBe('sm');
   });
 });
 

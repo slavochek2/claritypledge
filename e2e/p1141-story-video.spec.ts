@@ -181,6 +181,69 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
     }
   });
 
+  test('DW-2 clicking a timecode brings the player INTO VIEW, not just seeks it', async ({
+    browser,
+  }) => {
+    // The untested half of DW-2. The row was recorded PASS on the strength of a unit test
+    // that asserts seekTo() — nothing anywhere asserted the scroll, and the shipped
+    // implementation used `behavior: 'smooth'`, which is a silent no-op in this browser.
+    // Measured 2026-08-24 with the player 677px above the viewport: scrollY was 919.5
+    // before the click and 919.5 after, with prefers-reduced-motion false.
+    //
+    // This test must be e2e. jsdom does not implement scrollIntoView at all, so a unit
+    // test could only assert that the source passes the literal it passes — true by
+    // construction, which is the failure mode this suite already got burned by once
+    // (see the meanSaturation helper in e2e/p1104-agent-marker.spec.ts).
+    const { context, user, cleanup } = await getTestAuthContext('host', browser);
+    try {
+      const storyId = await seedStory(user.user.id, {
+        content: 'Filler.\n\n'.repeat(60),
+        video_url: VIDEO,
+        video_quotes: {
+          quotes: [{ text: 'the first thing said', seconds: 42 }],
+          durationSeconds: 600,
+        },
+      });
+      const page = await context.newPage();
+      // Deliberately NOT blockThePlayer(): when the embed is blocked the marks render as
+      // plain links out to YouTube and onSeek is never wired, so the scroll this test
+      // exists to prove is unreachable in that state. Blocking it here made the test fail
+      // identically before AND after the fix — a test that cannot distinguish them.
+      await page.goto(`/story/${storyId}`);
+
+      const mark = page.locator('[data-testid="story-video-quote-timecode"]').first();
+      await expect(mark).toBeVisible({ timeout: 15_000 });
+      // The seek path only exists once the player mounted; a link here means the embed was
+      // blocked by the environment and this test cannot speak.
+      const tag = await mark.evaluate((el) => el.tagName);
+      test.skip(tag === 'A', 'the embed was blocked in this environment — the seek path is unreachable');
+
+      // Push the player well out of view, above the viewport.
+      await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
+      const before = await page.evaluate(() => window.scrollY);
+
+      const media = page.locator('[data-testid="story-video-player"], [data-testid="story-video-blocked"]').first();
+      const offBefore = await media.evaluate((el) => el.getBoundingClientRect().top);
+      expect(
+        offBefore,
+        `the player must start OUT of view or this test proves nothing (top=${offBefore})`,
+      ).toBeLessThan(0);
+
+      await mark.click();
+      await page.waitForFunction((y) => window.scrollY !== y, before, { timeout: 5_000 });
+
+      const offAfter = await media.evaluate((el) => el.getBoundingClientRect().top);
+      const viewportH = page.viewportSize()!.height;
+      expect(
+        offAfter,
+        `after clicking a timecode the player must be in view (top=${offAfter}, viewport=${viewportH})`,
+      ).toBeGreaterThan(-1);
+      expect(offAfter).toBeLessThan(viewportH);
+    } finally {
+      await cleanup();
+    }
+  });
+
   test('DW-4 a story with no video renders exactly as it does today', async ({ browser }) => {
     const { context, user, cleanup } = await getTestAuthContext('host', browser);
     try {

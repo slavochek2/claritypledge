@@ -368,7 +368,9 @@ export async function createFullTestLetter(
     // Fetch story content for point_config.storyTitle / storyText
     const { data: storyData, error: storyError } = await supabaseAdmin
       .from('stories')
-      .select('title, content')
+      // P701 dropped stories.title; selecting it returns 42703 and this fetch
+      // only warns, so the failure would surface later as an undefined storyTitle.
+      .select('content')
       .eq('id', s.storyId)
       .single();
     if (storyError) console.warn(`[TEST HELPER] story fetch warning for ${s.storyId}:`, storyError.message);
@@ -396,7 +398,7 @@ export async function createFullTestLetter(
 
 
     const pointConfig = {
-      storyTitle: storyData?.title,
+      storyTitle: undefined,
       storyText: storyData?.content,
       points: configPoints,
     };

@@ -164,7 +164,13 @@ export function StoryCardWithLinks({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
-            <span className="font-medium">{author.name}</span>
+            {/* P1141 amendment: an agent account is named the same way on every surface;
+                the raw stored `Agent · {Name}` used to leak through here. */}
+            {isAgent ? (
+              <AgentByline name={author.name} />
+            ) : (
+              <span className="font-medium">{author.name}</span>
+            )}
             {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
             <PositionBadge position={profileSubjectPosition} />
           </span>
@@ -267,21 +273,34 @@ export function StoryCardWithLinks({
             />
           </button>
 
-          {/* Content column — carries the drain; the avatar column is its SIBLING. */}
-          <div className={`flex-1 min-w-0${isAgent ? ' agent-drained-chrome' : ''}`}>
+          {/* P1141 amendment: the drain is NOT applied here — it used to wrap this whole
+              content column and greyed the video, the quote pills and the viewer's own
+              controls. See src/index.css. */}
+          <div className="flex-1 min-w-0">
             {/* Author info row */}
             <div className="mb-2">
               <div className="flex min-w-0 items-center gap-1.5">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    embedNavigate(`/p/${author.id}`);
-                  }}
-                  className="font-semibold text-gray-900 hover:underline text-sm min-w-0"
-                >
-                  {/* P1141: `Reading of {Full Name}` + the machine chip. */}
-                  {isAgent && !identityPending ? <AgentByline name={author.name} /> : author.name}
-                </button>
+                {/* P1141: `[MACHINE] reading of {Full Name}`, NAME is the only link.
+                    AgentByline owns its own button — never wrap it in one. */}
+                {isAgent && !identityPending ? (
+                  <AgentByline
+                    name={author.name}
+                    onNameClick={(e) => {
+                      e.stopPropagation();
+                      embedNavigate(`/p/${author.id}`);
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      embedNavigate(`/p/${author.id}`);
+                    }}
+                    className="font-semibold text-gray-900 hover:underline text-sm min-w-0"
+                  >
+                    {author.name}
+                  </button>
+                )}
                 {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
               </div>
               <p className="text-xs text-gray-500 inline-flex items-center gap-1">
@@ -609,7 +628,13 @@ function QuotedPoint({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
-            <span className="font-medium">{authorName}</span>
+            {/* P1141 amendment: an agent account is named the same way on every surface;
+                the raw stored `Agent · {Name}` used to leak through here. */}
+            {isAgent ? (
+              <AgentByline name={authorName} />
+            ) : (
+              <span className="font-medium">{authorName}</span>
+            )}
             {!isAgent && !identityPending && <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />}
             <PositionBadge position={profileSubjectPosition} />
           </span>

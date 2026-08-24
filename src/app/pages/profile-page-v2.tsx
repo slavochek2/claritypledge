@@ -36,6 +36,7 @@ import {
   Award,
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
+import { AgentByline } from '@/app/components/shared/agent-byline';
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { useAgentAccountIds } from "@/app/contexts/agent-accounts-context";
 import { ImageLightbox } from "@/app/components/shared/image-lightbox";
@@ -869,7 +870,21 @@ export function ProfilePageV2() {
                   {/* Name + ear count + role beside avatar */}
                   <div className="min-w-0 pt-[48px]">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
+                      {/* P1141 amendment: an agent account is named the SAME way here as on
+                          every card — `[Machine] reading of {Name}`. This h2 rendered the raw
+                          stored `Agent · {Name}` and was the last surface still doing so, so the
+                          same account read as two different identities depending on the page.
+                          It matters most HERE: the profile is the one surface whose whole job is
+                          identity, and the one a reader is likeliest to mistake for the subject's
+                          own account. `h2` is kept for the heading semantics the page outline and
+                          screen-reader rotor depend on; the size lives on the byline. */}
+                      {isAgent ? (
+                        <h2 className="min-w-0">
+                          <AgentByline name={profile.name} size="lg" />
+                        </h2>
+                      ) : (
+                        <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
+                      )}
                       {/* P1104: an agent account holds no reputation count. */}
                       {!isAgent && !identityPending && (
                       <TooltipProvider delayDuration={100}>
@@ -1369,21 +1384,38 @@ function StoryCardFull({
             />
           </button>
 
-          {/* Content column — carries the drain; the avatar above is its SIBLING, never
-              its descendant, because a filter cannot be undone by a descendant rule. */}
-          <div className={`flex-1 min-w-0${storyIsAgent ? ' agent-drained-chrome' : ''}`}>
+          {/* P1141 amendment: the drain is NOT applied here — it used to wrap this whole
+              content column and greyed the video, the quote pills and the viewer's own
+              controls. See src/index.css. */}
+          <div className="flex-1 min-w-0">
             {/* Author info row */}
             <div className="mb-2">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/p/${story.authorSlug || author.id}`);
-                  }}
-                  className="font-semibold text-foreground hover:underline text-sm"
-                >
-                  {author.name}
-                </button>
+              {/* `min-w-0` added with AgentByline: without it this row does not shrink and the
+                  chip spills past the card at 320px, the defect measured on the other three
+                  surfaces (chip right=308 vs card right=289). */}
+              <div className="flex min-w-0 items-center gap-1.5">
+                {/* P1141: this surface rendered the raw `Agent · {Name}` while the feed and
+                    the story page rendered the byline component — the same story read two
+                    different ways depending on where you found it. */}
+                {storyIsAgent && !storyIdentityPending ? (
+                  <AgentByline
+                    name={author.name}
+                    onNameClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/p/${story.authorSlug || author.id}`);
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/p/${story.authorSlug || author.id}`);
+                    }}
+                    className="font-semibold text-foreground hover:underline text-sm"
+                  >
+                    {author.name}
+                  </button>
+                )}
                 {/* P1104: an agent holds no reputation. Hand-rolled pill, not <EarBadge>,
                     so it needs BOTH the gate and the testid the page-wide sweep keys on. */}
                 {!storyIsAgent && !storyIdentityPending && (
@@ -1685,7 +1717,13 @@ function QuotedPointCard({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className={`inline-flex items-center gap-1.5${quotedIsAgent ? ' agent-drained-chrome' : ''}`}>
-          <span className="font-medium">{authorName}</span>
+          {/* P1141 amendment: an agent account is named the same way on every surface;
+              the raw stored `Agent · {Name}` used to leak through here. */}
+          {quotedIsAgent ? (
+            <AgentByline name={authorName} />
+          ) : (
+            <span className="font-medium">{authorName}</span>
+          )}
           {!quotedIsAgent && !quotedIdentityPending && authorEarCount !== undefined && authorEarCount > 0 && (
             <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
               <Ear size={14} />
@@ -1824,7 +1862,13 @@ function PointCardFull({
               className="!w-5 !h-5 !text-[10px]"
             />
             <span className={`inline-flex items-center gap-1.5${ownerIsAgent ? ' agent-drained-chrome' : ''}`}>
-            <span className="font-medium">{profileOwner.name}</span>
+            {/* P1141 amendment: an agent account is named the same way on every surface;
+                the raw stored `Agent · {Name}` used to leak through here. */}
+            {ownerIsAgent ? (
+              <AgentByline name={profileOwner.name} />
+            ) : (
+              <span className="font-medium">{profileOwner.name}</span>
+            )}
             {!ownerIsAgent && !ownerIdentityPending && (
             <MobileTooltip content={earTooltip(credibilityStats.ear, profileOwner.name)}>
               <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-muted-foreground">

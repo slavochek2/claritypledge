@@ -215,7 +215,13 @@ export function StoryCardDetail({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
-            <span className="font-medium">{story.authorName}</span>
+            {/* P1141 amendment: an agent account is named the same way on every surface;
+                the raw stored `Agent · {Name}` used to leak through here. */}
+            {isAgent ? (
+              <AgentByline name={story.authorName} />
+            ) : (
+              <span className="font-medium">{story.authorName}</span>
+            )}
             {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
             <PositionBadge position={authorPosition} />
           </span>
@@ -294,23 +300,35 @@ export function StoryCardDetail({
           </button>
 
           {/* Content column — carries the drain; the avatar column is its SIBLING. */}
-          <div className={`flex-1 min-w-0${isAgent ? ' agent-drained-chrome' : ''}`}>
+          {/* P1141 amendment: the drain is NOT applied here. It used to wrap this whole
+              content column, which is a layout accident rather than a meaning — it greyed the
+              video, the quote pills and the viewer's own controls. See src/index.css. */}
+          <div className="flex-1 min-w-0">
             {/* Author info row */}
             <div className="mb-2">
               <div className="flex min-w-0 items-center gap-1.5">
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    navigate(profileRoute(story.authorSlug));
-                  }}
-                  className="font-semibold text-foreground hover:underline text-sm min-w-0"
-                >
-                  {/* P1141: `Reading of {Full Name}` + the machine chip. Production reads
-                      `Agent · {Name}` with no chip today; both halves are a deliberate change. */}
-                  {isAgent && !identityPending
-                    ? <AgentByline name={story.authorName} />
-                    : story.authorName}
-                </button>
+                {/* P1141: `[MACHINE] reading of {Full Name}`, with the NAME as the only link.
+                    AgentByline owns its own button — do NOT wrap it in one, or the machine chip
+                    becomes clickable and the nested buttons make getByRole match twice. */}
+                {isAgent && !identityPending ? (
+                  <AgentByline
+                    name={story.authorName}
+                    onNameClick={e => {
+                      e.stopPropagation();
+                      navigate(profileRoute(story.authorSlug));
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      navigate(profileRoute(story.authorSlug));
+                    }}
+                    className="font-semibold text-foreground hover:underline text-sm min-w-0"
+                  >
+                    {story.authorName}
+                  </button>
+                )}
                 {/* Credibility stats */}
                 {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
               </div>
@@ -354,16 +372,23 @@ export function StoryCardDetail({
               <StoryVideoQuotes
                 videoUrl={story.videoUrl ?? ''}
                 quotes={videoQuotes.quotes}
-                durationSeconds={videoQuotes.durationSeconds}
                 subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
                 playerBlocked={playerBlocked}
                 onSeek={(seconds) => {
                   playerRef.current?.seekTo(seconds);
-                  // DW-2: bring the player into view as well as seeking it — a seek
-                  // the reader cannot see reads as a dead click.
+                  // DW-2: bring the player into view as well as seeking it — a seek the
+                  // reader cannot see reads as a dead click.
+                  //
+                  // `behavior: 'instant'`, NOT 'smooth'. Measured in Chrome 2026-08-24 with
+                  // the player 677px above the viewport: 'smooth' left scrollY unchanged at
+                  // 919.5 both before and after, while 'instant' scrolled correctly —
+                  // and prefers-reduced-motion was false, so that is not the cause. The
+                  // 'smooth' version shipped and the UAT recorded DW-2 as PASS, because the
+                  // only test covering this row asserts seekTo and nothing asserts the
+                  // scroll at all.
                   document
                     .querySelector('[data-testid="story-video-player"]')
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    ?.scrollIntoView({ behavior: 'instant', block: 'center' });
                 }}
               />
             )}
@@ -645,7 +670,13 @@ function QuotedPoint({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
-          <span className="font-medium">{authorName}</span>
+          {/* P1141 amendment: an agent account is named the same way on every surface;
+              the raw stored `Agent · {Name}` used to leak through here. */}
+          {isAgent ? (
+            <AgentByline name={authorName} />
+          ) : (
+            <span className="font-medium">{authorName}</span>
+          )}
           {!isAgent && !identityPending && <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />}
           {ownerPosition && <PositionBadge position={ownerPosition.position} />}
           </span>

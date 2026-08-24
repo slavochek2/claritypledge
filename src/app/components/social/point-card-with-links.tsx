@@ -4,6 +4,7 @@
  * Refactored from prototype to accept explicit props instead of using mock data
  */
 
+import { AgentByline } from '@/app/components/shared/agent-byline';
 import { useState, useMemo, useEffect } from 'react';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
@@ -299,7 +300,13 @@ export function PointCardWithLinks({
                 className="!w-5 !h-5 !text-[10px]"
               />
               <span className={`inline-flex items-center gap-1.5${isOwnerAgent ? ' agent-drained-chrome' : ''}`}>
-              <span className="font-medium">{profileOwner.name}</span>
+              {/* P1141 amendment: an agent account is named the same way on every surface;
+                  the raw stored `Agent · {Name}` used to leak through here. */}
+              {isOwnerAgent ? (
+                <AgentByline name={profileOwner.name} />
+              ) : (
+                <span className="font-medium">{profileOwner.name}</span>
+              )}
               {!isOwnerAgent && !identityPending && <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />}
               <PositionBadge position={profileOwner.position} />
               </span>

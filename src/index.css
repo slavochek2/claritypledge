@@ -231,11 +231,31 @@ body {
   filter: grayscale(1);
 }
 
-/* KNOWN AND ACCEPTED: controls that live inside the drained content column are drained
- * with it — including the viewer's own recorded position buttons. An earlier draft tried
- * to exempt them with a nested `filter: grayscale(0)`, which is the same mistake this
- * comment exists to record: it cannot work, for the reason above. Exempting them properly
- * means moving them out of the filtered subtree, which is a layout change to shared
- * components and is not in this spec's scope. Recorded in the spec's review section as an
- * accepted residual rather than closed with a rule that does nothing.
+/* CLOSED 2026-08-24 (P1141 amendment). The residual recorded here — "controls inside the
+ * drained content column are drained with it, including the viewer's own position buttons"
+ * — is fixed, and the fix was the layout change this note said was out of scope.
+ *
+ * THE SCOPE WAS THE BUG, not the mechanism. The filter was applied to each card's CONTENT
+ * COLUMN, which is a layout accident rather than a meaning. What it actually decoloured on
+ * a story card was: the video (the source's own footage), the quote timecode pills
+ * (controls — and quotes are the one part that genuinely IS the named person's words), and
+ * the viewer's own controls including the destructive remove control that depends on
+ * staying red. Everything else in that column was already monochrome.
+ *
+ * The rule now: DRAIN WHAT CLAIMS STANDING — the identity/stance cluster. Never drain
+ * content, quotes, or controls.
+ *
+ * Consequence, stated rather than hidden: on STORY surfaces the class is now absent
+ * entirely. Moving it to the byline row was considered and rejected — that row is already
+ * monochrome, so the class would have been inert while still costing a compositing layer,
+ * and `.agent-drained-chrome` would have stopped meaning "these pixels are grey", which is
+ * what the pixel assertions in e2e/p1104-agent-marker.spec.ts rely on. On story surfaces
+ * the standing signal is carried by REMOVAL — no pledge ring, no ear count, no Verify —
+ * plus the machine chip. On POINT surfaces the class stays, where the stance badge is a
+ * real colour target.
+ *
+ * WCAG 1.4.1: e2e/a11y/p1104-agent-marker-accessibility.spec.ts reasons that the drained
+ * card is one of three non-colour-independent channels. On story surfaces the remaining
+ * channels are the square avatar, the MACHINE chip and the footer disclosure — still two
+ * or more, so 1.4.1 holds. The argument changed; it was not quietly weakened.
  */

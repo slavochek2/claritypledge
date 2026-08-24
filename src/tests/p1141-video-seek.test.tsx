@@ -84,18 +84,21 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
     expect(marks[1].textContent).toContain('3:05');
   });
 
-  it('the section names the person it quotes, and counts the marks', () => {
+  it('the section names the person it quotes, and carries no meta line', () => {
     render(
       <StoryVideoQuotes
         videoUrl={VIDEO}
         quotes={QUOTES}
-        durationSeconds={600}
         subjectName="Jane Doe"
         onSeek={vi.fn()}
       />
     );
     expect(screen.getByText('Supporting quotes from Jane Doe')).toBeTruthy();
-    expect(screen.getByTestId('story-video-quotes-meta').textContent).toBe('2 marks · 10:00');
+    // Amended 2026-08-24: the `{n} marks · {duration}` meta line was removed from the UI
+    // Contract. The count is visible by looking and the video's total length answered a
+    // question nobody asked at that position. Asserted ABSENT rather than deleted, so a
+    // future reader cannot reintroduce it without a failing test.
+    expect(screen.queryByTestId('story-video-quotes-meta')).toBeNull();
   });
 
   it('renders nothing when there are no quotes — the argument stands alone', () => {

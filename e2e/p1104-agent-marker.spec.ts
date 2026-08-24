@@ -22,6 +22,11 @@ async function borderRadiusPx(locator: Locator): Promise<number> {
   return parseInt(value, 10) || 0;
 }
 
+/** Display strips the stored `Agent · ` marker; the database and aria-labels keep it. */
+function stripAgentPrefixForTest(name: string): string {
+  return name.replace(/^Agent\s*·\s*/, '');
+}
+
 async function filterOf(locator: Locator): Promise<string> {
   return locator.evaluate(el => getComputedStyle(el).filter);
 }
@@ -59,9 +64,16 @@ async function meanSaturation(page: Page, locator: Locator): Promise<number> {
   }, png.toString('base64'));
 }
 
-/** The row/card element carrying the drained treatment for a given person. */
+/**
+ * The row/card element carrying the drained treatment for a given person.
+ *
+ * P1141 amendment: takes the STORED name and filters on the DISPLAYED one. An agent is now
+ * named `Machine reading of {subject}` everywhere it appears, so filtering on the raw
+ * `Agent · {subject}` matches nothing. Callers keep passing `agent.name` — the stored name is
+ * still the identity these tests are about, and it is still what every aria-label carries.
+ */
 function rowFor(page: Page, name: string): Locator {
-  return page.locator('[role="button"]').filter({ hasText: name }).first();
+  return page.locator('[role="button"]').filter({ hasText: stripAgentPrefixForTest(name) }).first();
 }
 
 test.describe('P1104 — agent accounts must never render as a person', () => {
@@ -143,7 +155,7 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
     await page.goto(`/point/${pointA.id}`);
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
     expect(
       consoleErrors.filter(e => !e.includes('ResizeObserver')),
       `Console errors: ${consoleErrors.join('; ')}`,
@@ -154,11 +166,14 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto(`/point/${pointA.id}`);
       await page.waitForLoadState('networkidle');
-      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
     });
 
-    test('renders the "Agent · {subject}" name', async ({ page }) => {
-      await expect(page.getByText(agent.name).first()).toBeVisible();
+    // P1141 amendment: the VISIBLE name is now `Machine reading of {subject}`; the stored
+    // name and every aria-label still carry `Agent · `. Renamed so the title states the
+    // contract the body actually checks.
+    test('renders the subject name, with the stored `Agent · ` marker stripped', async ({ page }) => {
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible();
     });
 
     test('avatar is marked as an agent and is not circular', async ({ page }) => {
@@ -281,7 +296,7 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await page.goto(`/point/${pointA.id}?embed=true&from=${agent.profileId}`);
       await page.waitForLoadState('networkidle');
 
-      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
 
       const avatar = page.locator('[data-testid="gravatar-avatar"]').first();
       await expect(avatar).toHaveAttribute('data-agent', 'true');
@@ -298,8 +313,8 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await page.waitForLoadState('networkidle');
     });
 
-    test('shows the "Agent · {subject}" name and the operator line', async ({ page }) => {
-      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+    test('shows the subject name and the operator line', async ({ page }) => {
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
       // The public-figure policy approval is CONDITIONAL on this line. An avatar shipped
       // without it violates the approval, not merely the plan.
       await expect(page.getByTestId('agent-operator-line')).toHaveText(`Operated by ${agent.operatorName}`);
@@ -315,7 +330,7 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
     });
 
     test('the profile header shows no ear count', async ({ page }) => {
-      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
       // The profile header renders its own inline ear pill (not the EarBadge component),
       // with the same bg-blue-50 + border-blue-200 pair.
       await expect(page.locator('[data-testid="ear-badge"]')).toHaveCount(0);
@@ -333,13 +348,13 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
     // no test covered it: the marker was applied where the spec pointed and nowhere else.
 
     test('no Clarity Partners line — a partnership is a relationship, not a property', async ({ page }) => {
-      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
       // "0 Clarity Partners" is worse than absent: it implies the count could be non-zero.
       await expect(page.getByText(/Clarity Partner/i)).toHaveCount(0);
     });
 
     test('no listening calibration — it invites a machine to complete sessions', async ({ page }) => {
-      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
       await expect(page.getByText(/Listening calibration/i)).toHaveCount(0);
       await expect(page.getByText(/sessions in a listener role/i)).toHaveCount(0);
     });
@@ -347,7 +362,7 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
     test('a human profile keeps both — the suppression is agent-scoped, not a removal', async ({ page }) => {
       await page.goto(`/p/${human.slug}`);
       await page.waitForLoadState('networkidle');
-      await expect(page.getByText(agent.name).first()).toHaveCount(0);
+      await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toHaveCount(0);
       // Guards the shape of the fix: gating on the wrong condition would blank these for
       // everyone, and every agent-side assertion above would still pass.
       await expect(page.getByText(/Clarity Partner/i).first()).toBeVisible({ timeout: 15000 });
@@ -415,6 +430,18 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
         // The alt text must disclose, since a screen reader gets no shape and no colour.
         const img = avatar.locator('img');
         await expect(img).toHaveAttribute('alt', new RegExp('machine-generated reading'));
+
+        // The image must ACTUALLY have loaded before its colour proves anything.
+        // GravatarAvatar's onError silently falls back to initials-on-avatarColor, and that
+        // fallback is saturated enough (~0.24 on a slate account colour) to satisfy the
+        // assertion below WITHOUT the portrait ever arriving. A network failure reaching
+        // the external host would then read as a pass. Found 2026-08-24 by adversarial
+        // review of a plan that proposed leaning harder on this branch.
+        const loaded = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
+        expect(
+          loaded,
+          'the portrait never loaded — this assertion cannot speak about a fallback',
+        ).toBeGreaterThan(0);
 
         // And the image itself must not be drained by the card treatment.
         const sat = await meanSaturation(page, row.locator('[data-testid="gravatar-avatar-wrapper"]'));
@@ -503,19 +530,41 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await page.goto(`/feed?tab=stories&tag=${feedTag}`);
       await page.waitForLoadState('networkidle');
 
-      await expect(page.getByText(agent.name).first()).toBeVisible({ timeout: 20000 });
-
+      // AMENDED 2026-08-24. This test asserted the literal `Agent · {name}` in feed output
+      // and the presence of `.agent-drained-chrome`; both changed and BOTH assertions had
+      // been failing on the P1141 branch before this amendment — the feed byline became a
+      // component while the colour drain was removed from story surfaces entirely.
+      //
+      // What the feed marker IS now, and why the drain is not part of it: the filter used
+      // to wrap the whole content column, so it greyed the video, the quote pills and the
+      // viewer's own controls. Its only legitimate target is the identity/stance cluster,
+      // and on a story card that cluster is already monochrome — so on story surfaces the
+      // colour channel is deliberately absent. See src/index.css.
       const card = page.locator('[data-agent-row="true"]').first();
-      await expect(card).toBeVisible();
-      // The card root carries the marker attribute; the FILTER lives on the content
-      // column, because a filter on the root would also drain the avatar.
-      const chrome = card.locator('.agent-drained-chrome').first();
-      await expect(chrome).toBeVisible();
-      expect(await filterOf(chrome)).toContain('grayscale');
+      await expect(card).toBeVisible({ timeout: 20000 });
 
+      // Channel 1: the machine chip, which is NOT a link — a status marker must not navigate.
+      const chip = card.locator('[data-testid="machine-chip"]').first();
+      await expect(chip).toBeVisible();
+      expect(
+        await chip.evaluate((el) => el.closest('button') !== null),
+        'the machine chip must not sit inside an interactive element',
+      ).toBe(false);
+
+      // Channel 2: the byline names the subject, with the stored `Agent · ` marker stripped
+      // for display only. The DATABASE still forces the prefix, and aria-labels still carry
+      // it — that is what the a11y spec asserts.
+      const subject = stripAgentPrefixForTest(agent.name);
+      await expect(card.getByText(subject, { exact: false }).first()).toBeVisible();
+
+      // Channel 3: the square silhouette, and no reputation.
       const avatar = card.locator('[data-testid="gravatar-avatar"]').first();
       await expect(avatar).toHaveAttribute('data-agent', 'true');
       await expect(card.locator('[data-testid="ear-badge"]')).toHaveCount(0);
+
+      // The colour channel is gone on this surface, deliberately. Asserted as ABSENT so it
+      // cannot creep back without a failing test.
+      await expect(card.locator('.agent-drained-chrome')).toHaveCount(0);
     });
   });
 });

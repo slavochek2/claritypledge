@@ -7,6 +7,7 @@
  * the view, or show a generic view if no referrer.
  */
 
+import { AgentByline } from '@/app/components/shared/agent-byline';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Pin, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
@@ -787,14 +788,26 @@ function PositionHolderCard({
         className="!w-5 !h-5 !text-[10px]"
       />
 
-      {/* Content — carries the drain; the avatar is its SIBLING, never its descendant. */}
-      <div className={`flex-1 min-w-0 flex items-center gap-1.5 flex-wrap${isAgent ? ' agent-drained-chrome' : ''}`}>
-        <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
-        {/* P1104: an agent account holds no reputation. EarBadge is "never conditionally
-            hide — 0 is meaningful" for people, so the suppression lives here at the call
-            site, not in the component. */}
-        {!isAgent && !identityPending && <EarBadge count={holder.earCount} name={holder.userName} />}
-        <PositionBadge position={holder.position} />
+      {/* P1141 amendment: the drain covers the identity cluster (name, ear, stance) and
+          STOPS before the story toggle — a blue control the reader can act on. It used to
+          wrap the whole row, greying that button. The inner span keeps `flex-wrap` so
+          name+badges still wrap at 320px, and the toggle stays a direct child of the outer
+          flex row so its `ml-auto` still right-aligns against it. */}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+        <span className={`flex min-w-0 flex-wrap items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+          {/* P1141 amendment: an agent account is named the same way on every surface;
+              the raw stored `Agent · {Name}` used to leak through here. */}
+          {isAgent ? (
+            <AgentByline name={holder.userName} />
+          ) : (
+            <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
+          )}
+          {/* P1104: an agent account holds no reputation. EarBadge is "never conditionally
+              hide — 0 is meaningful" for people, so the suppression lives here at the call
+              site, not in the component. */}
+          {!isAgent && !identityPending && <EarBadge count={holder.earCount} name={holder.userName} />}
+          <PositionBadge position={holder.position} />
+        </span>
 
         {/* Chevron + "story" toggle — or "Add your story" CTA */}
         {hasStory && onToggle && (
@@ -952,9 +965,22 @@ function PositionlessStoryRow({
         identityPending={identityPending}
         className="!w-5 !h-5 !text-[10px]"
       />
-      <div className={`flex-1 min-w-0 flex items-center gap-1.5 flex-wrap${isAgent ? ' agent-drained-chrome' : ''}`}>
-        <span className="font-medium text-foreground text-sm truncate">{story.authorName}</span>
-        {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
+      {/* P1141 amendment: the drain covers the identity cluster (name, ear, stance) and
+          STOPS before the story toggle — a blue control the reader can act on. It used to
+          wrap the whole row, greying that button. The inner span keeps `flex-wrap` so
+          name+badges still wrap at 320px, and the toggle stays a direct child of the outer
+          flex row so its `ml-auto` still right-aligns against it. */}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+        <span className={`flex min-w-0 flex-wrap items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+          {/* P1141 amendment: an agent account is named the same way on every surface;
+              the raw stored `Agent · {Name}` used to leak through here. */}
+          {isAgent ? (
+            <AgentByline name={story.authorName} />
+          ) : (
+            <span className="font-medium text-foreground text-sm truncate">{story.authorName}</span>
+          )}
+          {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
+        </span>
 
         <button
           data-testid="story-toggle"

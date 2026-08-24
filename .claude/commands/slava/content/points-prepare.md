@@ -246,6 +246,15 @@ Never merge a strong half and a weak half into one confident number.
 
 One per arguer: a summary plus **only that speaker's verbatim quotes**, with the source link. These are drafts for a later filing step. **This skill files nothing.**
 
+> **No trailing `Source:` line in the story body.** Added 2026-08-24 after a founder review.
+> The filed story renders with the video embedded directly above the text and every quote
+> carrying its own timecode link into that video, so a closing "Source: the full talk"
+> sentence repeats what two surfaces already say. Worse, under P1141's link narrowing it does
+> not even render as a link — a link whose visible label does not match its destination is
+> deliberately downgraded to plain text, so the sentence arrives looking like a link that
+> broke. Put the source in the `video_url` field, where it belongs and where the player and
+> the timecodes both read it from.
+
 ### Record the subject key per arguer — the filer cannot guess it
 
 `/slava:content:points-publish` matches each arguer to an existing agent account by an exact **`subject_key`**, and it must read that key from a written artifact rather than from someone's memory. Emit one line per arguer into the run file:

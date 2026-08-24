@@ -17,6 +17,11 @@ import { supabaseAdmin } from './supabase-admin';
 export interface TestStory {
   id: string;
   authorId: string;
+  /**
+   * The label this helper used in its log line. NOT a database column — P701
+   * (`20260413110000_p701_drop_story_title.sql`) dropped `stories.title`. Kept so
+   * callers that read `.title` for a log or an assertion message still compile.
+   */
   title: string;
   content: string;
 }
@@ -43,7 +48,9 @@ export async function createTestStory(
   const { data, error } = await supabaseAdmin
     .from('stories')
     .insert({
-      title,
+      // `title` is NOT sent: P701 dropped stories.title. Writing it returns
+      // PGRST 42703 "column stories.title does not exist" and every test using
+      // this helper fails in setup, at 0ms, which reads as an unrelated outage.
       content,
       author_id: authorId,
       // NOTE: production DB default is 'private' (P424 migration).
@@ -53,7 +60,7 @@ export async function createTestStory(
       visibility: options.visibility ?? 'public',
       tags: options.tags || ['test'],
     })
-    .select('id, author_id, title, content')
+    .select('id, author_id, content')
     .single();
 
   if (error) {
@@ -66,7 +73,7 @@ export async function createTestStory(
   return {
     id: data.id,
     authorId: data.author_id,
-    title: data.title,
+    title,
     content: data.content,
   };
 }
