@@ -87,6 +87,58 @@ pre-fix definition. Renaming to `20260810160000` and re-running applied it corre
 The only reason this was caught is that the P1034 canary was re-run and the policy independently
 queried rather than trusting the script's exit code.
 
+## Evidence (observed 2026-08-24, PROD — second occurrence)
+
+It happened again, on prod, 14 days after this bug was filed. Recorded here rather than in a new
+spec; P1154 was opened for it and rejected as a duplicate of this file.
+
+**What was skipped.** `20260819160000_p1114_event_room_tables.sql` and
+`20260819170000_p1114_event_room_rpcs.sql` both collide with P1104 files carrying the identical
+prefixes. P1104's landed first, so both P1114 files have reported `(already applied, skipping)` on
+every run since and have never executed on prod.
+
+**Confirmed against prod, not inferred from the ledger:**
+
+```
+SELECT count(*) FROM pg_tables WHERE tablename='event_room_members';   -- 0
+SELECT count(*) FROM pg_proc  WHERE proname='get_letter_results';      -- 1
+```
+
+**Downstream damage:**
+
+1. Three follow-up migrations (`20260821120000`, `20260821170000`, `20260821180000`) fail on every
+   apply with `42P01: relation "public.event_room_members" does not exist`. Reproduced during a real
+   `migrate.sh --env prod --yes` run on 2026-08-24.
+2. `src/app/data/event-room-service.ts:162` calls `supabase.rpc('get_room_readiness_distribution')`.
+   That file is deployed and `/events/:slug/room` is ungated (`src/App.tsx:918`), so live code calls
+   a function prod does not have. (Traced in code; a live request was not issued.)
+
+**Full collision census** — five prefixes, ten files, from `uniq -d` over the version prefixes:
+
+| Version | Files | Outcome |
+|---|---|---|
+| `20260819160000` | `p1104_reserve_agent_name_at_the_table` / `p1114_event_room_tables` | p1114 **never ran** |
+| `20260819170000` | `p1104_agents_cannot_self_promote` / `p1114_event_room_rpcs` | p1114 **never ran** |
+| `20260409120000` | `fix_position_history_trigger` / `patch_live_state_auto_reveal` | both ran |
+| `20260413100000` | `p699_get_letter_results` / `p701_st_swap` | both ran |
+| `20260413110000` | `p699_inbox_items_no_param` / `p701_drop_story_title` | both ran |
+
+Three of five were survived by apply ordering, not by anything structural.
+
+**This occurrence changes one of the original decision's conclusions.** The 2026-08-11 entry rejected
+an in-repo duplicate-prefix scan because *"the colliding files lived in different worktrees, so
+neither tree could see the other."* That was true then. On 2026-08-24 both colliding files were
+committed and present in the same `supabase/migrations/` directory, so a plain `uniq -d` over the
+prefixes finds them at commit time. **Both controls are needed and neither subsumes the other:** the
+cross-worktree case needs the apply-time hard-fail specified above; the same-tree case is catchable
+earlier and more cheaply at authoring time. There is currently no such check — verified by grepping
+`pre-commit-checks.sh` and `scripts/lib/`.
+
+**Also needed, and not currently in the Acceptance Criteria:** prod repair. The two skipped P1114
+files need unique prefixes so they stop being shadowed, then the three failing follow-ups apply.
+Check test-DB state before renaming — a rename makes a migration pending again wherever it already
+ran, so the SQL must be idempotent first.
+
 ## Affected Files
 
 - `scripts/migrate.sh:319` — version derived from basename, assumed globally unique
