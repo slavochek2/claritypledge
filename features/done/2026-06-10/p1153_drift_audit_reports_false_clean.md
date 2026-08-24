@@ -1,14 +1,14 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 67
 workstream: infrastructure
 created_date: '2026-08-24'
 tags: [security, credentials, audit, silent-skip]
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
 driver: anomaly
+completed_at: 2026-08-24
 ---
 
 # P1153: The drift audit reports a false all-clear, and P1148 is sized on it
