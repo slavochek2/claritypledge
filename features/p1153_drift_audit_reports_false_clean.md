@@ -58,10 +58,18 @@ consumers live outside all three. Verified reads, not prose mentions:
 
 **Control check (the check P1125 was rejected for omitting):** every one of the 41
 `RETIREMENT_CANDIDATE` keys was grepped across the repo excluding `.env*` and `.private/`.
-**21 of 41 are referenced in live code.** A probe that returns "retire this" for a key read on
-every production build is not reporting staleness — it is reporting where it looked. The same
-under-scoping inflates the 33 `CONSUMER_LIST_STALE` findings, which compare a documented
-consumer count against the same incomplete live count.
+**11 of 41 are read by live code** (verified after the fix; see the correction below). A probe
+that returns "retire this" for a key read on every production build is not reporting staleness —
+it is reporting where it looked. The same under-scoping distorts the `CONSUMER_LIST_STALE`
+findings, which compare a documented consumer count against the same incomplete live count.
+
+> **Correction, recorded because the first number here was wrong and the error is instructive.**
+> This section originally read *"21 of 41 are referenced in live code."* That 21 came from a
+> bare-name `grep` — **the very matcher this defect is about**. Ten of those 21 were prose
+> mentions in `docs/` and archived specs, which are not consumers, so they are correctly still
+> retirement candidates. The verified figure is 11. Scoring a probe with the signal it replaces
+> reproduces the defect inside the measurement of the defect; the corrected control greps only
+> code-file extensions and is independent of the fix's own regex.
 
 **D-3 — the tier comparison is a raw string compare including free prose.**
 `scripts/audit-credential-drift.sh:449` emits `REGISTRY_MISMATCH` when `[[ "$tier_a" !=
@@ -109,11 +117,19 @@ observed **failing first** (epistemic gate 7 — a gate not seen red is unproven
    `UNCLASSIFIABLE:<n>` field is an implementation choice for `/dev`; the invariant is that a
    reader cannot see a clean summary when lines were skipped.
 
-2. **Widen the consumer scan, and make its scope self-reporting.** Add the repo root,
-   `services/`, and `.claude/commands/` to the scanned surfaces. Because "where it looked"
-   turned out to be the actual finding, the audit must also emit the consumer surfaces it
-   scanned, so a future false retirement is attributable from the output alone rather than
-   requiring someone to re-derive it.
+2. **Match reads rather than names, then widen the scan, and make its scope self-reporting.**
+   The match must be fixed *before* the scope, or widening trades false retirements for false
+   liveness. Two tiers, because what counts as a read genuinely differs by file type: in code
+   files a whole-word occurrence of the key counts (many valid read forms, and enumerating them
+   exhaustively is what failed — see below); in markdown an explicit read form is required,
+   since markdown is where prose lives. Word-boundary matching also closes the prefix collision.
+   Then add the repo root, `services/`, and `.claude/commands/` to the scanned surfaces. Because
+   "where it looked" turned out to be the actual finding, the audit must also emit the consumer
+   surfaces it scanned, so a future false retirement is attributable from the output alone.
+
+   **The scan-scope half lands on `main`, not this branch** — the invocation lives in a skill
+   file (`.claude/rules/skills.md`: skill files must be committed on `main`, or the fix is
+   stranded). It must also land *after* the matcher fix, never before.
 
 3. **Compare normalized tier tokens.** Extract the backticked tier token from each registry cell
    and compare tokens, not cells. A row carrying no recognizable token must report as
@@ -189,6 +205,27 @@ line again.
       remaining candidate is confirmed unreferenced by the same control grep used here
 - [ ] Test fixtures contain no real credential name or value
 - [ ] No secret value in the terminal, the test file, or any commit
+
+## Found while fixing
+
+Two defects in the fix itself, both caught by real-data runs after the suite was already green —
+`epistemic.md` gate 7b in its exact form (green bounds what was *modelled*, not what is true).
+Recorded because each was invisible to a passing test suite:
+
+1. **An explicit-read-pattern matcher missed two real read forms**, producing 5 false retirement
+   recommendations against live credentials: object dereference (`env.KEY`, where `.env.local` is
+   parsed into an object and read as properties) and regex extraction of the key from raw `.env`
+   text. The fixtures structurally could not emit either, so 62 assertions passed while the
+   inverse defect was live. This is why the code tier is whole-word rather than an enumerated
+   pattern list — a hand-written list of "every way code reads an env var" is the thing that
+   failed, and there is no reason to think a second attempt at that list would be complete.
+2. **Every `--include` was placed after `grep`'s `--` terminator**, so BSD grep — what a script
+   gets from `/usr/bin/grep` on macOS — took them as filenames, warned to a discarded stderr, and
+   applied no filter whatsoever. The two-tier separation silently did nothing; markdown prose was
+   being read as code. Verified against `/usr/bin/grep` 2.6.0-FreeBSD: flags after `--` scan
+   `.md`, flags before it do not. Checked repo-wide across `scripts/`, `.claude/`, and
+   `.github/`: **no other occurrence** of `--include` following a `--` terminator, so the defect
+   was confined to this fix. The six other `--include` call sites all place the flag correctly.
 
 ## Related
 
