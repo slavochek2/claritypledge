@@ -77,94 +77,194 @@
     },
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "understandingpledge.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "understandingpledge.com"
+        }
+      ],
       "destination": "https://claritypledge.com/",
       "permanent": true
     },
     {
       "source": "/:path(.*)",
-      "has": [{ "type": "host", "value": "understandingpledge.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "understandingpledge.com"
+        }
+      ],
       "destination": "https://claritypledge.com/:path",
       "permanent": true
     },
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "www.understandingpledge.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.understandingpledge.com"
+        }
+      ],
       "destination": "https://claritypledge.com/",
       "permanent": true
     },
     {
       "source": "/:path(.*)",
-      "has": [{ "type": "host", "value": "www.understandingpledge.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.understandingpledge.com"
+        }
+      ],
       "destination": "https://claritypledge.com/:path",
       "permanent": true
     },
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "www.claritypledge.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.claritypledge.com"
+        }
+      ],
       "destination": "https://claritypledge.com/",
       "permanent": true
     },
     {
       "source": "/:path(.*)",
-      "has": [{ "type": "host", "value": "www.claritypledge.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.claritypledge.com"
+        }
+      ],
       "destination": "https://claritypledge.com/:path",
       "permanent": true
+    },
+    {
+      "source": "/hike",
+      "destination": "/api/series-redirect?series=hike",
+      "permanent": false
+    },
+    {
+      "source": "/ai-run",
+      "destination": "/api/series-redirect?series=ai-run",
+      "permanent": false
     }
   ],
   "rewrites": [
     {
       "source": "/events/:slug",
-      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
       "destination": "/api/og?path=/events/:slug"
     },
     {
       "source": "/story/:id",
-      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
       "destination": "/api/og?path=/story/:id"
     },
     {
       "source": "/point/:id",
-      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
       "destination": "/api/og?path=/point/:id"
     },
     {
       "source": "/p/:slug",
-      "has": [{ "type": "header", "key": "user-agent", "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*" }],
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(?:facebookexternalhit|Facebot|Twitterbot|TelegramBot|WhatsApp|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
       "destination": "/api/og?path=/p/:slug"
     },
-    { "source": "/((?!api|_next|.*\\..*).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api|_next|.*\\..*).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-XSS-Protection", "value": "0" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.mxpnl.com https://js.sentry-cdn.com https://cdn.logrocket.io https://cdn.lr-ingest.io https://cdn.lr-in.com https://cdn.lr-in-prod.com https://cdn.lr-ingest.com https://cdn.ingest-lr.com https://cdn.lr-intake.com https://cdn.intake-lr.com https://cdn.logr-ingest.com https://cdn.lrkt-in.com https://cdn.lgrckt-in.com https://cdn.logr-in.com; worker-src 'self' blob: 'wasm-unsafe-eval' https://cdn.mxpnl.com https://js.sentry-cdn.com https://cdn.logrocket.io https://cdn.lr-ingest.io https://cdn.lr-in.com https://cdn.lr-in-prod.com https://cdn.lr-ingest.com https://cdn.ingest-lr.com https://cdn.lr-intake.com https://cdn.intake-lr.com https://cdn.logr-ingest.com https://cdn.lrkt-in.com https://cdn.lgrckt-in.com https://cdn.logr-in.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://storage.googleapis.com https://cdn.mxpnl.com https://api-eu.mixpanel.com https://*.sentry.io https://api.web3forms.com https://api.unsplash.com https://*.logrocket.io https://*.lr-ingest.io https://*.logrocket.com https://*.lr-in.com https://*.lr-in-prod.com https://*.lr-ingest.com https://*.ingest-lr.com https://*.lr-intake.com https://*.intake-lr.com https://*.logr-ingest.com https://*.lrkt-in.com https://*.lgrckt-in.com https://*.logr-in.com; img-src 'self' data: blob: https://*.supabase.co https://storage.googleapis.com https://images.unsplash.com https://*.googleusercontent.com; media-src 'self' https://storage.googleapis.com; font-src 'self' data:; frame-src 'self' https://calendar.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; report-uri /api/csp-report; report-to csp-endpoint" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
-        { "key": "Permissions-Policy", "value": "camera=(), geolocation=(), payment=(), microphone=(self)" },
-        { "key": "Reporting-Endpoints", "value": "csp-endpoint=\"https://claritypledge.com/api/csp-report\"" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "0"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.mxpnl.com https://js.sentry-cdn.com https://cdn.logrocket.io https://cdn.lr-ingest.io https://cdn.lr-in.com https://cdn.lr-in-prod.com https://cdn.lr-ingest.com https://cdn.ingest-lr.com https://cdn.lr-intake.com https://cdn.intake-lr.com https://cdn.logr-ingest.com https://cdn.lrkt-in.com https://cdn.lgrckt-in.com https://cdn.logr-in.com; worker-src 'self' blob: 'wasm-unsafe-eval' https://cdn.mxpnl.com https://js.sentry-cdn.com https://cdn.logrocket.io https://cdn.lr-ingest.io https://cdn.lr-in.com https://cdn.lr-in-prod.com https://cdn.lr-ingest.com https://cdn.ingest-lr.com https://cdn.lr-intake.com https://cdn.intake-lr.com https://cdn.logr-ingest.com https://cdn.lrkt-in.com https://cdn.lgrckt-in.com https://cdn.logr-in.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://storage.googleapis.com https://cdn.mxpnl.com https://api-eu.mixpanel.com https://*.sentry.io https://api.web3forms.com https://api.unsplash.com https://*.logrocket.io https://*.lr-ingest.io https://*.logrocket.com https://*.lr-in.com https://*.lr-in-prod.com https://*.lr-ingest.com https://*.ingest-lr.com https://*.lr-intake.com https://*.intake-lr.com https://*.logr-ingest.com https://*.lrkt-in.com https://*.lgrckt-in.com https://*.logr-in.com; img-src 'self' data: blob: https://*.supabase.co https://storage.googleapis.com https://images.unsplash.com https://*.googleusercontent.com; media-src 'self' https://storage.googleapis.com; font-src 'self' data:; frame-src 'self' https://calendar.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; report-uri /api/csp-report; report-to csp-endpoint"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), geolocation=(), payment=(), microphone=(self)"
+        },
+        {
+          "key": "Reporting-Endpoints",
+          "value": "csp-endpoint=\"https://claritypledge.com/api/csp-report\""
+        }
       ]
     },
     {
       "source": "/point/(.*)",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "frame-ancestors *" }
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors *"
+        }
       ]
     },
     {
       "source": "/story/(.*)",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "frame-ancestors *" }
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors *"
+        }
       ]
     }
   ]
