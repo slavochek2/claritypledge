@@ -1,14 +1,14 @@
 ---
-status: blocked
+status: all-done
 type: task
 rank: 66
 workstream: events
 created_date: '2026-08-23'
 tags: [transcribe, verification, devices, gate]
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: heuristic
 drafted_by: opus
+completed_at: 2026-08-24
 ---
 
 # P1152: `/transcribe` — the physical verification a loop cannot do
@@ -127,5 +127,5 @@ rather than pre-merge.
 ## References
 
 - [P1149](p1149_live_room_transcription_chat.md) — the feature these checks verify
-- [visual-qa.md](../.claude/rules/visual-qa.md) — the multi-viewport rule these extend to
+- [visual-qa.md](../../../.claude/rules/visual-qa.md) — the multi-viewport rule these extend to
   physical hardware
