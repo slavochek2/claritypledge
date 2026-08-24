@@ -14,7 +14,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
-import { MicOff, Sparkles, ShieldOff, Loader2, Users } from 'lucide-react';
+import { MicOff, Sparkles, ShieldOff, Loader2, Users, LogOut } from 'lucide-react';
+import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import {
   createRoom,
@@ -210,7 +211,11 @@ export function TranscribeRoomPage() {
 
   if (!sessionChecked || authLoading || view === 'loading') {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground" data-testid="transcribe-loading">
+      // Same nav-clearance fix as the consent/ended screens below — see comment there.
+      <div
+        className="flex items-center justify-center h-full pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))] text-muted-foreground"
+        data-testid="transcribe-loading"
+      >
         <Loader2 className="w-5 h-5 animate-spin mr-2" />
         Loading...
       </div>
@@ -221,7 +226,16 @@ export function TranscribeRoomPage() {
 
   if (view === 'consent' || view === 'joining') {
     return (
-      <div className="max-w-md mx-auto px-4 py-8" data-testid="transcribe-consent-screen">
+      // isLivePage (clarity-landing-layout.tsx) now covers all of /transcribe, not just
+      // the room sub-state — it stops giving <main> automatic top padding so the room's
+      // own sticky bar can overlap the fixed site nav. This screen doesn't have that bar,
+      // so it needs to clear the nav itself (same convention /live's own pre-join screens
+      // use — e.g. live-mode-view.tsx CONTENT_LAYOUT's own pt-8/pt-16). overflow-y-auto
+      // and h-full compensate for <main> now being overflow-hidden too.
+      <div
+        className="max-w-md mx-auto px-4 py-8 h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
+        data-testid="transcribe-consent-screen"
+      >
         <FocusHeader onBack={handleDecline} label="Leave" aria-label="Leave" />
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Join the transcription room</h1>
         <p className="text-sm text-muted-foreground mb-6">
@@ -275,7 +289,11 @@ export function TranscribeRoomPage() {
 
   if (view === 'ended') {
     return (
-      <div className="max-w-md mx-auto px-4 py-8 text-center" data-testid="transcribe-ended-screen">
+      // Same nav-clearance fix as the consent screen above — see comment there.
+      <div
+        className="max-w-md mx-auto px-4 py-8 text-center h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
+        data-testid="transcribe-ended-screen"
+      >
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Session ended</h1>
         <p className="text-sm text-muted-foreground mb-6">
           A corrected transcript is being produced and will appear in your session history when ready.
@@ -298,86 +316,104 @@ export function TranscribeRoomPage() {
 
   // view === 'room'
   return (
-    <div className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-[calc(100vh-4rem)]" data-testid="transcribe-room-screen">
-      <FocusHeader onBack={() => void handleEndSession()} label="Leave" aria-label="Leave room" />
-
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3" data-testid="transcribe-roster">
-        <Users className="w-3.5 h-3.5" />
-        <span>{members.length} in the room: {members.map((m) => m.displayName).join(', ') || '—'}</span>
+    <div className="flex flex-col h-full min-h-0" data-testid="transcribe-room-screen">
+      {/* P1149 (2026-08-24 founder review): matches /live's live-session-banner.tsx —
+          same sticky-bar-over-the-fixed-nav technique (see clarity-landing-layout.tsx
+          isLivePage), same End Session control (LogOut icon, muted text, red only on
+          hover). Replaces the site nav's "Start a Clarity Session" CTA while in a room,
+          and is now the SOLE exit action — the full-width red button that used to sit
+          at the bottom is gone. Two controls for the same action was exactly the
+          "Leave" vs "End session" duplication removed earlier in this same review; a
+          second one re-introduced here just at a different position would repeat it. */}
+      <div className="sticky top-0 z-50 h-[calc(4rem+env(safe-area-inset-top))] lg:h-[calc(5rem+env(safe-area-inset-top))] bg-background border-b border-border pt-[env(safe-area-inset-top)] shrink-0">
+        <div className="container mx-auto px-4 lg:px-8 h-full">
+          <div className="flex items-center justify-between h-full">
+            <ClarityLogo size="sm" />
+            <button
+              type="button"
+              onClick={() => void handleEndSession()}
+              aria-label="End Session"
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
+              data-testid="transcribe-end-session-button"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>End Session</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-3 mb-4" data-testid="transcribe-chat">
-        {messages.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8" data-testid="transcribe-empty-room">
-            You're first here. Words will appear as people speak.
+      <div className="max-w-2xl mx-auto px-4 py-4 flex flex-col flex-1 min-h-0 w-full">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1" data-testid="transcribe-roster">
+          <Users className="w-3.5 h-3.5" />
+          <span>{members.length} in the room: {members.map((m) => m.displayName).join(', ') || '—'}</span>
+        </div>
+
+        {!speechSupported ? (
+          <p className="text-xs text-muted-foreground text-center py-3" data-testid="transcribe-unsupported">
+            Live text isn't available on this browser. Your audio is still being recorded — the
+            corrected transcript will arrive the same as everyone else's.
           </p>
         ) : (
-          messages.map((msg) => {
-            const speaker = members.find((m) => m.id === msg.memberId);
-            return (
-              <div key={msg.id} className="text-sm" data-testid="transcribe-message">
-                <span className="font-medium">{speaker?.displayName ?? 'Someone'}</span>{' '}
-                <span className="text-xs text-muted-foreground">{formatTime(msg.spokenAt)}</span>
-                <p>{msg.text}</p>
-              </div>
-            );
-          })
+          <div
+            className={`flex items-center gap-1.5 mb-3 text-xs ${
+              isListening
+                ? 'text-muted-foreground'
+                : 'py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500'
+            }`}
+            data-testid="transcribe-listening-indicator"
+            role="status"
+          >
+            {isListening ? (
+              <>
+                {/* design-system.md reserves red for destructive actions — a passive
+                    "listening" status isn't one, and it collided with the End Session
+                    control below. Blue matches /live's own recording indicator
+                    (live-mode-view.tsx RecordingIndicator: "Session recorded for AI
+                    Insights", bg-blue-50/text-blue-700/text-blue-500 dot) — same
+                    passive-recording concept, same color, now genuinely consistent
+                    with the one precedent that already exists for it. */}
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shrink-0" aria-hidden="true" />
+                Listening — your words are going in
+              </>
+            ) : (
+              <>
+                {/* Bordered/light fill, not solid — a STATUS message, deliberately never
+                    solid-filled red like a destructive button, so the two can't be
+                    confused for each other. Kept at full prominence (unlike the calm
+                    "Listening" state above) because a dropped connection is the one
+                    state that must stay unmissable. */}
+                <MicOff className="w-4 h-4" />
+                Reconnecting microphone...
+              </>
+            )}
+          </div>
         )}
-        {interimTranscript && (
-          <p className="text-sm italic text-muted-foreground" data-testid="transcribe-interim">
-            {interimTranscript}
-          </p>
-        )}
-      </div>
 
-      {!speechSupported ? (
-        <p className="text-xs text-muted-foreground text-center py-3" data-testid="transcribe-unsupported">
-          Live text isn't available on this browser. Your audio is still being recorded — the
-          corrected transcript will arrive the same as everyone else's.
-        </p>
-      ) : (
-        <div
-          className={`flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-semibold ${
-            isListening
-              ? 'bg-muted text-foreground border border-border'
-              : 'bg-red-50 text-red-800 border-2 border-red-500'
-          }`}
-          data-testid="transcribe-listening-indicator"
-          role="status"
-        >
-          {isListening ? (
-            <>
-              {/* design-system.md "Destructive Actions (Red)": red-500 pulsing dot is the
-                  documented recording-indicator pattern — reused as the recording cue on
-                  a calm/neutral banner, so it reads distinctly from both the alert-bordered
-                  "dropped" status below AND the solid-red "End session" action button. */}
-              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" aria-hidden="true" />
-              Listening — your words are going in
-            </>
+        <div className="flex-1 overflow-y-auto space-y-3 mb-4" data-testid="transcribe-chat">
+          {messages.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8" data-testid="transcribe-empty-room">
+              You're first here. Words will appear as people speak.
+            </p>
           ) : (
-            <>
-              {/* Bordered/light fill, not solid — a STATUS message, deliberately never
-                  solid-filled red like the "End session" button below it, so the two
-                  can't be confused for each other when both are red and stacked. */}
-              <MicOff className="w-4 h-4" />
-              Reconnecting microphone...
-            </>
+            messages.map((msg) => {
+              const speaker = members.find((m) => m.id === msg.memberId);
+              return (
+                <div key={msg.id} className="text-sm" data-testid="transcribe-message">
+                  <span className="font-medium">{speaker?.displayName ?? 'Someone'}</span>{' '}
+                  <span className="text-xs text-muted-foreground">{formatTime(msg.spokenAt)}</span>
+                  <p>{msg.text}</p>
+                </div>
+              );
+            })
+          )}
+          {interimTranscript && (
+            <p className="text-sm italic text-muted-foreground" data-testid="transcribe-interim">
+              {interimTranscript}
+            </p>
           )}
         </div>
-      )}
-
-      {/* Prominent, dedicated stop control — the small FocusHeader "End" link above stays
-          for discoverability, but ending a live recording session is a high-consequence
-          action (you are being recorded) and deserves the same full-width, unmissable
-          weight as every other primary action on this page, matching the reference. */}
-      <Button
-        onClick={() => void handleEndSession()}
-        variant="destructive"
-        className="w-full min-h-[44px] mt-3"
-        data-testid="transcribe-end-session-button"
-      >
-        End session
-      </Button>
+      </div>
     </div>
   );
 }

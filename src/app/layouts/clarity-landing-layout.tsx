@@ -74,7 +74,15 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // absent and keeps the padding.
   const heroOwnsTopOffset = isLandingPage || location.pathname === "/founder";
   const isAlternativeLandingPage = location.pathname === "/alternative";
-  const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/");
+  // P1149: /transcribe's room view uses the same technique as /live — its own sticky
+  // top bar (rendered only in the room sub-state) overlaps this component's fixed
+  // SimpleNavigation once main's top padding is removed, swapping in an End Session
+  // control the same way /live's LiveSessionBanner replaces the "Start a Clarity
+  // Session" CTA. Folded into isLivePage rather than a parallel flag so it picks up
+  // every gate below (padding, footer, ActiveSessionBanner, h-screen) for free —
+  // same pattern isReadyPage/isMeetingTermsPage already use for multi-route matches.
+  const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/") ||
+    location.pathname === "/transcribe" || location.pathname.startsWith("/transcribe/");
   // P852/P888: only the IMMERSIVE letter routes suppress chrome — reading
   // (/letter/:id, UUID or shortcode per P772) and compose (/letter/:docId/compose).
   // Results + overview keep the top nav by design (P699/P700); preview + confirm
