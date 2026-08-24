@@ -2,7 +2,7 @@
 name: publish-run
 description: "Publish a Clarity trail event (run, hike, trail walk) to claritypledge.com from an AllTrails link"
 when_to_use: "When creating a new trail event — run, hike, walk — from an AllTrails link."
-version: 2.0.0
+version: 3.0.0
 ---
 
 # Publish Trail Event (Run / Hike / Walk)
@@ -41,16 +41,41 @@ Use `mcp__claude-in-chrome__tabs_context_mcp` (createIfEmpty: true) to get a tab
 
 Auto-detect from AllTrails activity tags:
 - Tags include "Trail Running" → **Run** → title prefix "Clarity Run:", pace note in description
-- Tags include "Hiking" / no running tag → **Hike** → title prefix "Clarity Hike:", no pace note
+- Tags include "Hiking" / no running tag → **Hike** → title prefix "Social Hike:", no pace note
 - Tags include both → default to **Hike** unless user specified "run" in their request
 
 If ambiguous, ask once: "Is this a run or a hike?"
+
+**The title prefix is load-bearing — do not vary it.** Three things match events
+by title prefix, and all three fail SILENTLY when it drifts:
+1. `/hike` and `/events/hike` resolve the next upcoming hike by title match.
+2. `.private/event-channels.json` maps a title prefix to the WhatsApp/Telegram
+   groups `/promote-groups` posts to — a prefix miss posts to **nothing**, with
+   no error, and looks like a successful run.
+3. `api/series-redirect.ts` holds the same mapping for the short links.
+
+Renaming the series from "Clarity Hike" to "Social Hike" on 2026-08-24 broke all
+three at once and none of them reported it. If you change a prefix, update those
+three in the same change.
 
 ### 4. Get the meeting point name from Google Maps
 
 Navigate to `https://www.google.com/maps?q=LAT,LNG` (using extracted coordinates) via Claude-in-Chrome. Read the page text to extract the place name and address shown at those coordinates.
 
-**If a named place is found:** use it as the meeting point; construct the Maps search link as `https://www.google.com/maps/search/PLACE+NAME+ADDRESS` (URL-encoded).
+**If a named place is found:** use it as the meeting point.
+
+**Verify the name Google actually uses, and copy it exactly.** Search the name
+on Google Maps and read the `h1` / page title back. On 2026-08-24 the source
+data said "Hmong doi family coffee" while Google's own name was "Hmong Doi Pui
+Family Coffee" — three words different. Google was forgiving enough to resolve
+it anyway, but a name it cannot resolve sends people to the wrong side of a
+mountain, and this is the one field where being wrong costs someone their
+morning. Use Google's spelling in both the title line and the link.
+
+Build the link as an explicit **pin**: `https://www.google.com/maps/search/?api=1&query=PLACE+NAME` (URL-encoded).
+Never `/maps/dir/Current+Location/...` — that is a route from wherever the
+reader is sitting, not a place. (The site-side version of this bug was fixed in
+`location-utils.ts` on 2026-08-24; do not reintroduce it here.)
 
 **If no named place (raw coordinates only):** fall back to the "Getting there" text from AllTrails (e.g. "Doi Pui Visitor Center"). Use the directions link from step 2: `https://www.google.com/maps/dir/Current+Location/LAT,LNG`.
 
@@ -79,57 +104,50 @@ For short runs under 2 hr: use 150 min (run + breakfast).
 
 ### 7. Generate description
 
-**Framing principle — time-bounded, not distance-bounded.** A Clarity hike is bounded by *time on the trail*, not by distance or finishing a route. Length, completion, and exact path are all flexible; the time window is the one (soft) commitment. So lead the description with the time framing **before** the route stats — otherwise a reader sees "the route" + a distance and assumes we complete it. This matters most for **point-to-point** (where completing is impossible without a shuttle) but holds for **loops** too: even on a loop we may turn back early. Call the stats a *direction/guide*, not a plan. (Runs are tighter on completion than hikes, but the same "the run is the run, not the distance" spirit applies.)
+**KISS. Hard ceiling: 150 words.** The founder cut the previous template from
+350 words to 113 on 2026-08-24 with the note "cut the bullshit". What he removed,
+and what must not come back:
 
-Use this template, adapting activity-specific language:
+- The "**How this works**" philosophy paragraph ("this is about time on the
+  trail, not distance or finishing a route"). One clause does the same job:
+  *"Relaxed pace, we turn back whenever people have had enough."*
+- Section headers for their own sake — "**The direction**", "the full route, we
+  won't necessarily do all of it", "Come if you're up for it".
+- **Entrance fees.** Do NOT mention a fee, an amount, or a range, even when
+  AllTrails states one. The founder is not confident the fee is real or
+  collected and does not want it asserted. "some cash" in the bring-list is
+  fine; a number is not.
+- Hedged safety trivia that a reader cannot act on (a mistaken no-entry sign,
+  "expect mosquitos"). Keep a hazard only if it changes what someone packs or
+  whether they come. Rain probability: keep. Real closure: keep.
+
+Facts stay; framing goes. Template:
 
 ```
-Please join me for a morning [hike/run] this [DAY] — all welcome, no strings attached.
+Morning [hike/run] this [DAY]. Everyone welcome.
 
-**How this works**
-This is about time on the trail, not distance or finishing a route. We'll head out together, walk at a relaxed pace, turn around whenever we've had enough, and come back the same way. The route below is just our direction — we stay flexible on how far we go. Plan for roughly [WALKING WINDOW, e.g. 5–6] hours of walking plus breaks.
+**[TRAIL NAME]**, [PARK NAME]
+[DISTANCE] [TYPE], [ELEVATION]m climb, about [TIME] of walking. [2-3 HIGHLIGHTS]. [ONE LINE ON CHARACTER, e.g. "One of the gentler trails up there."]
+[View on AllTrails]([ALLTRAILS_URL])
 
-**The direction**
-[TRAIL NAME], [PARK NAME]
-• [DISTANCE] [TYPE] — the full route; we won't necessarily do all of it
-• [ELEVATION]m elevation gain
-• [TRAIL HIGHLIGHTS — peaks, views, forest, villages, waterfalls, etc.]
-• Hard difficulty — steep sections, can be slippery  ← only if Hard
-• [View on AllTrails]([ALLTRAILS_URL])
+**Meet [TIME] at [VERIFIED PLACE NAME]**, [AREA].
+[Directions]([PIN_URL])
 
-**Meeting point — [TIME]**
-[PLACE NAME], [LOCATION/CITY]
-[Get directions on Google Maps]([DIRECTIONS_LINK])
+[ONE LINE: what happens at the meeting point, parking, pace.]
 
-[ENTRANCE FEE — national parks here are often free in practice; don't assert a hard number. Use uncertainty, e.g. "National park entrance fee: 50–200 THB if collected — often free in my experience so far. Bring some cash just in case."]
-[WEATHER WARNING if found — e.g. "Note: avoid March–May (smoky season)."]
+**Bring:** trail shoes, [2L water / 1L], snacks, rain jacket, cap, mosquito spray, some cash.
 
-Come if you're up for it.
+[WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
-**What to bring**
-Trail shoes (slippery in places), [2L+ water for hikes / 1L+ for short runs], snacks[, ENTRANCE FEE if applicable], rain jacket (weather can change fast), sun protection + cap, mosquito spray, long pants recommended.
+[WhatsApp group]([WHATSAPP_LINK]) for questions and cancellations.
 
-[IF WhatsApp link provided:]
-**WhatsApp group**
-For coordination — announcements, cancellations, questions: [Join here]([WHATSAPP_LINK])
-
----
-
-**After the [hike/run] — entirely optional**
-If anyone feels like grabbing [coffee/breakfast/lunch] nearby[./ , I'll be going.]
-
-[IF post-activity idea provided:]
-If a conversation happens to start, I'd love to explore this question: [POST-ACTIVITY IDEA]. How miscalibration quietly creates friction in relationships, teams, and organisations — and what we can do about it.
-
-[IF no post-activity idea: keep "After" section short — one sentence only]
-
-[IF Run:]
-I encourage you to read the [Clarity Pledge manifesto](https://claritypledge.com/manifesto) beforehand — it's short and sets the context well.
+[Coffee or lunch after for anyone who feels like it.]
 ```
 
-**Activity-specific language:**
-- Hike: "morning hike", "full-day hike", "hike is the hike" → omit pace note
-- Run: "morning trail run", "7–10 km/h", "the run is the run", include manifesto link
+If the founder supplied a post-activity topic, add one line for it. If not, omit
+the section entirely — do not invent one.
+
+**Prose style:** no em dashes. Commas and full stops. Short sentences.
 
 ### 7.5. Review gate — show the draft before publishing
 
@@ -144,19 +162,27 @@ Read credentials from `.env.prod`:
 
 Host ID is always: `a99042ef-e740-446a-8734-389c8589cc17` (Slava)
 
-Generate slug: `clarity-[hike/run]-[trail-name-kebab]-[YYYY-MM-DD]-[6-char-random]`
+Generate slug: `[social-hike|clarity-run]-[trail-name-kebab]-[YYYY-MM-DD]-[6-char-random]` — derived from the title prefix above, kebab-cased
 Random suffix: `openssl rand -hex 3`
 
 Parse datetime in `Asia/Bangkok` timezone (UTC+7). Store as ISO 8601 UTC.
 
-Location field: `[PLACE NAME], [CITY], Thailand` — never hardcode "Ko Phangan"; derive from trail location.
+Location field: **the pin URL itself**, e.g.
+`https://www.google.com/maps/search/?api=1&query=Hmong+Doi+Pui+Family+Coffee`.
+
+The event page does NOT treat this field as a label — `classifyLocation`
+(`src/app/prototypes/events/location-utils.ts`) hands plain text to Google as a
+search query and renders the raw string as the visible link text, which reads as
+a database row. A Google Maps URL is matched first and passed through untouched,
+labelled "View on Maps". The place name belongs in the description's meeting-point
+line, where a human reads it. Never hardcode a city; derive from the trail.
 
 POST to `/rest/v1/events` using Python (not shell heredoc — interpolation fails):
 ```python
 import json, subprocess
 payload = {
     "slug": "...",
-    "title": "Clarity [Hike/Run]: [TRAIL NAME]",
+    "title": "[Social Hike|Clarity Run]: [TRAIL NAME]",   # prefix per step 3
     "description": "...",
     "datetime": "[ISO 8601 UTC]",
     "duration_minutes": COMPUTED_DURATION,
@@ -185,8 +211,8 @@ Take a screenshot and report the URL to the user.
 - **Duration** is derived from AllTrails estimated time, not hardcoded.
 - **Timezone** is `Asia/Bangkok` for all Thailand events.
 - **Location field** is derived from the trail — never hardcoded to a city.
-- **Activity type** drives title prefix, description language, and what-to-bring list.
-- **Entrance fee** — extract from AllTrails; if not found, omit rather than guess.
+- **Activity type** drives title prefix, description language, and what-to-bring list. The prefix is also what the short links and group-promotion config match on — see step 3.
+- **Entrance fee** — do NOT publish one. See step 7: the founder does not want a fee amount asserted, even when AllTrails states one.
 - **Payload encoding** — always use `json.dumps()` in Python; shell heredocs silently fail with multi-line descriptions.
 - **Duplicate check** after publish: query prod for events with the same title created in the last 5 min.
 - Reference `docs/events/process.md` for event type context.
