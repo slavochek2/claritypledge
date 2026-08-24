@@ -46,6 +46,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -76,6 +77,19 @@ function buildSandbox(): string {
   // Real script under test — fresh copy so the canary follows the live script
   copyFileSync(resolve(process.cwd(), 'scripts/migrate.sh'), join(dir, 'scripts', 'migrate.sh'));
 
+  // migrate.sh sources its guards from scripts/lib/ and FAILS CLOSED when one is
+  // missing (P1042) — a sandbox without them aborts before reaching the prod gates
+  // this file tests. Copy the real guards in rather than stubbing them, so the
+  // sandbox mirrors the shipped layout.
+  mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true });
+  for (const lib of readdirSync(resolve(process.cwd(), 'scripts/lib'))) {
+    copyFileSync(
+      resolve(process.cwd(), 'scripts/lib', lib),
+      join(dir, 'scripts', 'lib', lib),
+    );
+    chmodSync(join(dir, 'scripts', 'lib', lib), 0o755);
+  }
+
   // Fake env files — no real credentials anywhere in this harness
   const envBody = [
     'VITE_SUPABASE_URL=https://fakeproject.supabase.co',
@@ -94,6 +108,11 @@ function buildSandbox(): string {
   );
 
   // curl stub: schema_migrations SELECT → applied set controlled by
+  // (Matched on 'SELECT version' + 'supabase_migrations' rather than the full SQL
+  // literal: P1042 added the `name` column to that query, and an exact-string match
+  // silently stopped matching — the stub then fell through to the apply branch and
+  // every migration read as pending. A stub pinned to a literal is a fixture that
+  // breaks on unrelated edits and blames the code.)
   // P887_ALL_APPLIED (zero-pending scenario) vs default (one pending);
   // history INSERT → silent success; anything else (the apply) → HTTP 201 + []
   writeFileSync(
@@ -101,7 +120,7 @@ function buildSandbox(): string {
     `#!/bin/bash
 ARGS="$*"
 echo "CURL_CALL: $ARGS" >> "${join(dir, 'curl-calls.log')}"
-if [[ "$ARGS" == *"SELECT version FROM supabase_migrations"* ]]; then
+if [[ "$ARGS" == *"SELECT version"*"supabase_migrations"* ]]; then
   if [ "$P887_ALL_APPLIED" = "1" ]; then
     printf '[{"version":"20260101000000"},{"version":"20260602160000"}]\\n200\\n'
   else

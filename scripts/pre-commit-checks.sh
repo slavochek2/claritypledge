@@ -1080,6 +1080,29 @@ echo ""
 # When a migration SQL file is staged, verifies it was applied to test DB via
 # deploy-manifest.json (updated by ./scripts/migrate.sh after successful push).
 # (1) applied to test DB — verified via deploy-manifest, (2) integration test added.
+# 14.95. Duplicate migration version prefix gate (P1042 — authoring-time half).
+# schema_migrations is keyed on the version prefix alone, so two files sharing one can
+# never both be recorded: whichever applies first wins and the other is reported
+# "(already applied, skipping)" forever while its SQL never runs — silently, on prod too.
+# Scoped to STAGED migrations: this blocks the commit that INTRODUCES a collision without
+# holding unrelated commits hostage to a pre-existing one that is still being repaired.
+# The whole-tree check at apply time lives in scripts/migrate.sh.
+echo ">>> Checking staged migrations for duplicate version prefixes (P1042)..."
+STAGED_MIGRATION_FILES=$(git diff --cached --name-only --diff-filter=AM 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+if [ -n "$STAGED_MIGRATION_FILES" ]; then
+    # shellcheck disable=SC2086 — word-splitting on filenames is intended (no spaces in migration names)
+    if ./scripts/lib/check-duplicate-migration-versions.sh supabase/migrations \
+         --label "staged for commit" --touching $STAGED_MIGRATION_FILES; then
+        echo -e "${GREEN}✓ No duplicate version prefixes among staged migrations${NC}"
+    else
+        echo -e "${RED}✗ Staged migration(s) share a version prefix with an existing file (P1042)${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${GREEN}✓ No migrations staged${NC}"
+fi
+
+echo ""
 echo ">>> Checking for new migrations being committed..."
 STAGED_MIGRATIONS=$(git diff --cached --name-only 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
 DEPLOY_MANIFEST="supabase/deploy-manifest.json"

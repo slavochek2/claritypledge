@@ -1,0 +1,51 @@
+# Grandfathered duplicate migration version prefixes (P1042).
+#
+# Read by scripts/lib/check-duplicate-migration-versions.sh, called from
+# scripts/migrate.sh (apply time, whole tree) and scripts/pre-commit-checks.sh
+# (authoring time, staged files only).
+#
+# Two migration files sharing a version prefix normally ABORT the run, because
+# schema_migrations is keyed on the prefix alone: only one of them can ever be
+# recorded, and the other is skipped forever while its SQL never runs.
+#
+# An entry here asserts something specific and checkable: BOTH files of that pair
+# already applied in EVERY environment, so renumbering one would make an
+# already-applied migration pending again and re-run it — the more dangerous option.
+#
+# Do NOT add an entry to silence a collision that has not fully applied everywhere.
+# That is the P1042 defect itself, not a grandfathered case. Each entry must name how
+# "both halves applied" was verified — a query for an object each half creates, run
+# against each environment. The ledger cannot answer this: it cannot distinguish the
+# two files, which is the entire bug.
+
+# 20260223 — 20260223_p396_host_rls_and_session_constraints
+#          + 20260223_p414_profile_bio
+# Verified 2026-08-24, test AND prod:
+#   pg_policies 'clarity_sessions_verified_host_insert' = 1 (p396)
+#   information_schema.columns profiles.bio             = 1 (p414)
+20260223
+
+# 20260409120000 — 20260409120000_fix_position_history_trigger
+#                + 20260409120000_patch_live_state_auto_reveal
+# Verified 2026-08-24, test AND prod:
+#   pg_policies 'Allow trigger to insert position history'      = 1
+#   pg_proc patch_live_state with the ratingPhase/revealed body = 1
+20260409120000
+
+# 20260413100000 — 20260413100000_p699_get_letter_results
+#                + 20260413100000_p701_st_swap
+# PARTIALLY verified 2026-08-24. pg_proc get_letter_results = 1 on test AND prod (p699).
+# The p701 half is a DATA migration — a 3-way permutation of system_tags values — with
+# no post-hoc discriminator: after the fact its result is indistinguishable from never
+# having run. It is also NOT idempotent; re-running applies the permutation a second
+# time and corrupts the tags. Allowlisted deliberately: renumbering would make it
+# pending and re-run it, which is strictly worse than leaving a pair that has been
+# stable since 2026-04-13. Honest status: the p701 half is unverified, not verified.
+20260413100000
+
+# DELIBERATELY NOT ALLOWLISTED — these are live P1042 defects awaiting repair:
+#   20260413110000  p701_drop_story_title never ran on TEST (stories.title still
+#                   present on test, absent on prod — measured 2026-08-24)
+#   20260819160000  p1114_event_room_tables never ran on PROD
+#   20260819170000  p1114_event_room_rpcs   never ran on PROD
+# Repair is a renumber + apply, not an allowlist entry.

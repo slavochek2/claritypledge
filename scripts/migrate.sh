@@ -101,6 +101,29 @@ except Exception:
 " <<< "$BODY"
 }
 
+# --- Helper: ledger `name` for a migration basename (P1042) ---
+# Strips the version prefix and the .sql extension, matching what `supabase db push`
+# writes into supabase_migrations.schema_migrations.name.
+_migration_name_of() {
+  local NOEXT="${1%.sql}"
+  echo "$NOEXT" | sed -E 's/^[0-9]+_//'
+}
+
+# --- Helper: does a recorded ledger name refer to this file? (P1042) ---
+# Tolerant on purpose. The rows in the ledger were written by more than one tool over
+# time, and a FALSE mismatch here would abort a legitimate run — so accept every form
+# that plausibly denotes the same file, and abort only when the recorded name denotes a
+# DIFFERENT migration. Rows written before this change carry name = NULL and are handled
+# by the caller (they cannot be judged, and are covered instead by the in-tree scan).
+_migration_name_matches() {
+  local RECORDED="$1" BASE="$2"
+  local NOEXT="${BASE%.sql}"
+  local SLUG
+  SLUG=$(_migration_name_of "$BASE")
+  [ "$RECORDED" = "$BASE" ] || [ "$RECORDED" = "$NOEXT" ] ||
+    [ "$RECORDED" = "$SLUG" ] || [ "$RECORDED" = "$SLUG.sql" ]
+}
+
 # --- Helper: apply a single SQL file via Management API ---
 apply_via_api() {
   local FILE="$1"
@@ -119,7 +142,16 @@ apply_via_api() {
   BODY=$(echo "$RESPONSE" | sed '$d')
   local VERSION
   VERSION=$(echo "$BASENAME" | sed -E 's/^([0-9]+)[_.]?.*/\1/')
-  local INSERT_SQL="INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('${VERSION}') ON CONFLICT DO NOTHING"
+  # P1042: record WHICH file claimed this version, not just the version. Without it the
+  # ledger cannot distinguish two files sharing a prefix, so a collision leaves no forensic
+  # trail and the apply-time check below has nothing to compare against.
+  # Convention matches what `supabase db push` itself writes — measured 2026-08-24 against
+  # the test ledger: version 20260606120000 -> name 'p898_seal_rpc_lead_count', i.e. the
+  # slug with the timestamp prefix and the .sql extension stripped. Writing the same shape
+  # keeps CLI-applied and API-applied rows comparable.
+  local MIGRATION_NAME
+  MIGRATION_NAME=$(_migration_name_of "$BASENAME")
+  local INSERT_SQL="INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('${VERSION}', '${MIGRATION_NAME//\'/\'\'}') ON CONFLICT DO NOTHING"
 
   # Management API returns 200 for queries, 201 for DDL statements.
   # Guard: even on HTTP 200, check the body — the API can return an error object
@@ -151,6 +183,19 @@ apply_via_api() {
     return 1
   fi
 }
+
+# --- P1042 guard 1 (in-tree version collision) ---
+# Runs before BOTH the CLI push path and the Management API path: schema_migrations is
+# keyed on the version prefix alone, so two files sharing one prefix means only the first
+# can ever be recorded and the second is skipped forever while its SQL never runs. Neither
+# path can tell them apart, so neither may start. Fails closed — a missing guard script
+# aborts the run rather than proceeding unguarded.
+if ! "$SCRIPT_DIR/lib/check-duplicate-migration-versions.sh" \
+      "$PROJECT_DIR/supabase/migrations" --label "env: $ENV_NAME"; then
+  echo ""
+  echo "Aborted before applying anything — no migration was run, no ledger row written."
+  exit 1
+fi
 
 # --- Primary path: supabase db push (test only — CLI is always linked to test project) ---
 if [ "$ENV_NAME" != "prod" ]; then
@@ -211,7 +256,7 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
     -H "Authorization: Bearer ${SUPABASE_PAT}" \
     -H "Content-Type: application/json" \
-    -d '{"query": "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version"}' \
+    -d '{"query": "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}' \
     2>&1)
   APPLIED_HTTP=$(printf '%s\n' "$APPLIED_RESPONSE" | tail -n1)
   APPLIED_JSON=$(printf '%s\n' "$APPLIED_RESPONSE" | sed '$d')
@@ -230,6 +275,12 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   # Extract version values from JSON array (e.g. [{"version":"20250101"},...]
   REMOTE_VERSIONS=$(echo "$APPLIED_JSON" | python3 -c \
     'import json,sys; rows=json.load(sys.stdin); print("\n".join(r["version"] for r in rows))' \
+    2>/dev/null || true)
+  # P1042: version -> recorded filename, tab-separated. `name` is absent or NULL on every
+  # row written before this change (217 of 248 on the test ledger, measured 2026-08-24), so
+  # r.get() must tolerate both a missing key and a null value.
+  REMOTE_NAMES=$(echo "$APPLIED_JSON" | python3 -c \
+    'import json,sys; rows=json.load(sys.stdin); print("\n".join(r["version"]+"\t"+(r.get("name") or "") for r in rows))' \
     2>/dev/null || true)
 
   echo "Remote applied versions: $(echo "$REMOTE_VERSIONS" | wc -l | tr -d ' ') migrations"
@@ -326,6 +377,28 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
 
     # Skip if this version is already in remote history
     if echo "$REMOTE_VERSIONS" | grep -qx "$VERSION"; then
+      # --- P1042 guard 2 (cross-tree version collision) ---
+      # The in-tree scan above cannot see a colliding file that lives in a SIBLING
+      # WORKTREE — only one of the pair is present here, so there is no duplicate to
+      # find. The ledger is the only witness: if this version was recorded by a
+      # DIFFERENT file, this file has never run and never will. Abort instead of
+      # reporting the skip as success.
+      RECORDED_NAME=$(printf '%s\n' "$REMOTE_NAMES" |
+        awk -F'\t' -v v="$VERSION" '$1 == v { print $2; exit }')
+      if [ -n "$RECORDED_NAME" ] && ! _migration_name_matches "$RECORDED_NAME" "$BASENAME"; then
+        echo ""
+        echo "ERROR: version $VERSION was recorded by a DIFFERENT migration file."
+        echo "  in the ledger: $RECORDED_NAME"
+        echo "  on disk here:  $BASENAME"
+        echo ""
+        echo "  $BASENAME has never been applied and never will be: schema_migrations is"
+        echo "  keyed on the version prefix, so it is reported '(already applied, skipping)'"
+        echo "  on every run while its SQL never executes (P1042)."
+        echo ""
+        echo "  Fix: renumber $BASENAME to a unique timestamp, then re-run."
+        echo "Aborted — no further migrations applied."
+        exit 1
+      fi
       echo "  - $BASENAME (already applied, skipping)"
       continue
     fi

@@ -6,8 +6,8 @@ severity: high
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [tooling, migrations, supabase, concurrency]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p1042-version-collision.sh
   root_cause: "migrate.sh:328 treats the 14-digit version prefix as a globally unique key; nothing enforces uniqueness and apply_via_api (migrate.sh:122) records only version, never name — so a second file with a colliding prefix is reported '(already applied, skipping)', exits 0, and can never run"
@@ -215,6 +215,35 @@ present, because both filenames already appear in the buggy output as two ordina
 `(already applied, skipping)` lines. A bare name match verified the wrong thing. It is now gated on
 a non-zero exit — only an aborting run can be emitting a collision message. (Epistemic gate 7b:
 green bounds what the fixture modelled.)
+
+## Census Correction (2026-08-24, during /fix)
+
+Re-running the collision census with migrate.sh's *own* version rule — all leading digits, not a
+fixed 14 — and then verifying each half against **both** environments by querying for an object it
+creates, changed three rows of the original table. The original census inferred "both ran" from the
+ledger; the ledger structurally cannot answer that question, which is the bug itself.
+
+| Version | Files | Original claim | Measured 2026-08-24 |
+|---|---|---|---|
+| `20260223` | `p396_host_rls_and_session_constraints` / `p414_profile_bio` | **absent from census** | both ran (test + prod) — a 4th collision the 14-digit `uniq -d` never saw |
+| `20260409120000` | `fix_position_history_trigger` / `patch_live_state_auto_reveal` | both ran | confirmed, both envs |
+| `20260413100000` | `p699_get_letter_results` / `p701_st_swap` | both ran | p699 confirmed both envs; **p701 unverifiable** — a data permutation with no post-hoc discriminator |
+| `20260413110000` | `p699_inbox_items_no_param` / `p701_drop_story_title` | both ran | **FALSE on test.** `stories.title` is still present on test, absent on prod → `p701_drop_story_title` never ran on test |
+| `20260819160000` / `20260819170000` | P1104 / P1114 | p1114 never ran (prod) | confirmed; on **test** the collision resolved the other way — all four objects exist there |
+
+Two findings worth keeping:
+
+1. **`20260223` was missed because the census assumed a 14-digit timestamp.** `migrate.sh` derives
+   the version as `^[0-9]+`, so the 8-digit `20260223` is a version like any other and two files
+   carry it. A census that does not use the same extraction rule as the code under test measures a
+   different population than the one that can fail.
+2. **`20260413110000` is a third live instance, in the opposite direction from the reported one.**
+   The reported case skipped on prod; this one skipped on test. It went unnoticed for four months
+   because nothing reads `stories.title` any more — verified by grep across `src/`, so the drop is
+   safe to complete, but the migration is still a migration that never ran.
+
+Verification queries and their per-environment results are recorded in
+`supabase/migrations/.duplicate-version-allowlist`, next to the entries they justify.
 
 ## Affected Files
 

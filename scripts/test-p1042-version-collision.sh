@@ -50,7 +50,13 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-if [ "$QUIET" = true ]; then exit 0; fi
+if [ "$QUIET" = true ]; then
+  # The history-INSERT call. migrate.sh discards its body, so record the payload here —
+  # it is the only way to assert that the ledger row carries the FILENAME (P1042 fix
+  # step 1) and not just the version.
+  printf '%s\n' "$PAYLOAD" >> "$INSERT_LOG"
+  exit 0
+fi
 if printf '%s' "$PAYLOAD" | grep -q 'SELECT version'; then
   BODY=$(cat "$FAKE_LEDGER")
 else
@@ -68,6 +74,11 @@ run_migrate() {
   local PDIR="$TMPROOT/$NAME"
   mkdir -p "$PDIR/scripts"
   cp "$REAL_MIGRATE" "$PDIR/scripts/migrate.sh"
+  # migrate.sh sources its guards from scripts/lib/ — copy the real ones in so the
+  # scenario exercises the shipped guard, not a stub. Deliberately NOT made optional:
+  # a migrate.sh that silently proceeds when its guard is missing is the defect class
+  # this canary exists to catch.
+  cp -R "$REPO_ROOT/scripts/lib" "$PDIR/scripts/lib"
   # stamp-deploy-manifest.sh runs after a successful apply; stub it so the
   # scenario does not depend on manifest tooling.
   printf '#!/bin/bash\nexit 0\n' > "$PDIR/scripts/stamp-deploy-manifest.sh"
@@ -84,7 +95,8 @@ run_migrate() {
     printf 'SUPABASE_ACCESS_TOKEN=%s\n' "sbp-canary-not-a-token"
   } > "$PDIR/.env.local"
   printf '%s' "$LEDGER_JSON" > "$PDIR/ledger.json"
-  FAKE_LEDGER="$PDIR/ledger.json" PATH="$STUBS:$PATH" \
+  : > "$PDIR/inserts.log"
+  FAKE_LEDGER="$PDIR/ledger.json" INSERT_LOG="$PDIR/inserts.log" PATH="$STUBS:$PATH" \
     bash "$PDIR/scripts/migrate.sh" > "$PDIR/out.log" 2>&1
   echo $? > "$PDIR/exit.code"
 }
@@ -184,6 +196,63 @@ if [ "$RC" -ne 0 ]; then
   PASS=$((PASS+1))
 else
   echo "  FAIL aborts-when-both-pending — expected NON-ZERO exit; two files sharing a prefix must never both apply"
+  FAIL=$((FAIL+1))
+fi
+
+# --- 5. THE LEDGER RECORDS THE FILENAME, not just the version.
+# Without this, two files sharing a prefix are indistinguishable after the fact and
+# scenario 6 below has nothing to compare against. Asserted on the INSERT payload the
+# stub captured during scenario 3, where exactly one migration applied.
+INSERTS=$(cat "$TMPROOT/applies/inserts.log")
+if printf '%s' "$INSERTS" | grep -q 'version, name' \
+   && printf '%s' "$INSERTS" | grep -q 'p1042_fresh'; then
+  echo "  OK   records-filename — history INSERT carries (version, name) with the file's slug"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL records-filename — history INSERT must record WHICH file claimed the version"
+  echo "       captured INSERT payload(s): ${INSERTS:-<none>}"
+  FAIL=$((FAIL+1))
+fi
+
+# --- 6. THE CROSS-WORKTREE CASE: only ONE file here, ledger says a DIFFERENT file
+# claimed the version. The in-tree duplicate scan is structurally blind to this — the
+# colliding sibling lives in another worktree, so there is no duplicate in this tree to
+# find. Only the ledger `name` witnesses it. This is the ONLY scenario that exercises
+# guard 2; without it the whole ledger-name mechanism ships unexercised.
+S=cross_tree
+mkdir -p "$TMPROOT/$S/supabase/migrations"
+cat > "$TMPROOT/$S/supabase/migrations/20260815100000_p1042_mine.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS public.mine (id uuid PRIMARY KEY);
+SQL
+run_migrate "$S" '[{"version":"20260815100000","name":"p1200_from_another_worktree"}]'
+RC=$(cat "$TMPROOT/$S/exit.code")
+OUT=$(cat "$TMPROOT/$S/out.log")
+if [ "$RC" -ne 0 ] \
+   && printf '%s' "$OUT" | grep -q 'p1200_from_another_worktree' \
+   && printf '%s' "$OUT" | grep -q 'p1042_mine'; then
+  echo "  OK   aborts-on-foreign-ledger-name — cross-worktree collision caught (exit $RC)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL aborts-on-foreign-ledger-name — expected NON-ZERO exit naming both files, got exit $RC"
+  printf '%s\n' "$OUT" | grep -E 'already applied, skipping|Applied [0-9]+ new migration' | sed 's/^/         /'
+  FAIL=$((FAIL+1))
+fi
+
+# --- 7. NO FALSE POSITIVE on the ledger-name check: the SAME file re-run must still
+# skip quietly. A guard that cannot tell "same file" from "different file" would abort
+# every ordinary re-run once names start being recorded.
+S=name_matches
+mkdir -p "$TMPROOT/$S/supabase/migrations"
+cat > "$TMPROOT/$S/supabase/migrations/20260815100000_p1042_mine.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS public.mine (id uuid PRIMARY KEY);
+SQL
+run_migrate "$S" '[{"version":"20260815100000","name":"p1042_mine"}]'
+RC=$(cat "$TMPROOT/$S/exit.code")
+if [ "$RC" -eq 0 ] && grep -q 'Applied 0 new migration' "$TMPROOT/$S/out.log"; then
+  echo "  OK   allows-matching-ledger-name — same file re-run still skips quietly"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL allows-matching-ledger-name — expected exit 0 + 'Applied 0 new migration(s)', got exit $RC"
   FAIL=$((FAIL+1))
 fi
 
