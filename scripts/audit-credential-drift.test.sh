@@ -747,6 +747,154 @@ assert_not_out "M4 two token-less rows do not silently read as agreeing" \
                                        "REGISTRY_MISMATCH:FAKE_NO_TOKEN_KEY"
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# CASE N — P1153 code review HIGH: a bad --consumers-dir must abort, not
+# silently report everything as dead.
+#
+# --registry already aborts loudly on a missing path, for exactly the reason
+# in its comment. --consumers-dir had no such check, and its grep discards
+# stderr, so a typo'd or unmounted path returned empty for EVERY key and
+# every live credential became a RETIREMENT_CANDIDATE at exit 0. That is the
+# silent-skip-renders-as-signal failure this spec exists to close, inverted:
+# not a false all-clear but a false alarm, equally indistinguishable from a
+# real result. Reproduced before the fix: 2 live, correctly-read credentials
+# both reported for retirement, exit 0, no error.
+# ══════════════════════════════════════════════════════════════════════════
+CASE_N="${WORK}/case-n"
+mkdir -p "${CASE_N}/env" "${CASE_N}/real"
+cat > "${CASE_N}/env/fixture.env" <<'ENV_EOF'
+FAKE_LIVE_A=fixture-value-n1
+FAKE_LIVE_B=fixture-value-n2
+ENV_EOF
+cat > "${CASE_N}/registry.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_LIVE_A` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_LIVE_B` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+REG_EOF
+cat > "${CASE_N}/real/svc.ts" <<'TS_EOF'
+const a = Deno.env.get('FAKE_LIVE_A');
+const b = Deno.env.get('FAKE_LIVE_B');
+TS_EOF
+
+echo "--- case N: a bad --consumers-dir aborts loudly (P1153 review HIGH) ---"
+# Control first: the same run with a CORRECT dir must be clean, so the
+# assertions below cannot pass for the trivial reason that nothing works.
+run_audit "control: correct consumers-dir yields no retirement candidates" 0 \
+  --audit --env-dir "${CASE_N}/env" --registry "${CASE_N}/registry.md" \
+  --consumers-dir "${CASE_N}/real"
+assert_not_out "N0 control: live key A not reported for retirement" \
+                                       "RETIREMENT_CANDIDATE:FAKE_LIVE_A"
+
+run_audit "typo'd consumers-dir aborts with exit 2" 2 \
+  --audit --env-dir "${CASE_N}/env" --registry "${CASE_N}/registry.md" \
+  --consumers-dir "${CASE_N}/reallll"
+assert_out     "N1 the error names the offending path" \
+                                       "ERROR: --consumers-dir not found or unreadable"
+assert_not_out "N2 no retirement-candidate flood is emitted instead" \
+                                       "RETIREMENT_CANDIDATE:FAKE_LIVE_A"
+
+# ══════════════════════════════════════════════════════════════════════════
+# CASE O — P1153 code review MEDIUM: the tier token must be a REAL tier.
+#
+# _tier_token took the first backticked span in the cell. Real registry
+# cells embed other backticked identifiers in their prose — e.g. a status
+# cell reading: Never (changing it invalidates all existing `request_hash`
+# rows used for duplicate detection). Taking the first span extracts
+# `request_hash` as the tier, reporting a bogus classification AND
+# reintroducing the false-drift defect D-3 exists to remove.
+#
+# Fix: match against the known tier vocabulary; anything else is
+# TIER_UNCLASSIFIABLE. An unrecognised tier therefore surfaces loudly
+# instead of being silently trusted — the correct failure direction, and it
+# is what makes a NEW tier visible rather than quietly mis-compared.
+# ══════════════════════════════════════════════════════════════════════════
+CASE_O="${WORK}/case-o"
+mkdir -p "${CASE_O}/env" "${CASE_O}/reg"
+cat > "${CASE_O}/env/fixture.env" <<'ENV_EOF'
+FAKE_PROSE_TICK_KEY=fixture-value-o1
+FAKE_UNKNOWN_TIER_KEY=fixture-value-o2
+ENV_EOF
+# Both registries classify FAKE_PROSE_TICK_KEY as manual-only. One buries an
+# unrelated backticked identifier ahead of the real token.
+cat > "${CASE_O}/reg/a.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_PROSE_TICK_KEY` | `fixture.env` | `svc` | see `FAKE_OTHER_KEY` for context, `manual-only` | 180d | 2026-01-01 | active | |
+| `FAKE_UNKNOWN_TIER_KEY` | `fixture.env` | `svc` | `rotate-somehow` | 180d | 2026-01-01 | active | |
+REG_EOF
+cat > "${CASE_O}/reg/b.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_PROSE_TICK_KEY` | `fixture.env` | `svc` | `manual-only` | 180d | 2026-01-01 | active | |
+| `FAKE_UNKNOWN_TIER_KEY` | `fixture.env` | `svc` | `rotate-somehow` | 180d | 2026-01-01 | active | |
+REG_EOF
+
+echo "--- case O: tier token must be real vocabulary, not the first backtick ---"
+run_audit "audit over a registry whose tier cell embeds another backticked id" 0 \
+  --audit --env-dir "${CASE_O}/env" \
+  --registry "${CASE_O}/reg/a.md" --registry "${CASE_O}/reg/b.md"
+
+assert_not_out "O1 a backticked non-tier identifier is not taken as the tier" \
+                                       "tier=FAKE_OTHER_KEY"
+assert_not_out "O2 two cells agreeing on manual-only produce no drift" \
+                                       "REGISTRY_MISMATCH:FAKE_PROSE_TICK_KEY"
+# An unrecognised token is reported, never silently trusted as a tier. Both
+# registries state the SAME unknown token, so a vocabulary-blind comparison
+# would call this agreement and say nothing at all.
+assert_out     "O3 an unrecognised tier token reports, rather than passing" \
+                                       "TIER_UNCLASSIFIABLE:FAKE_UNKNOWN_TIER_KEY"
+
+# ══════════════════════════════════════════════════════════════════════════
+# CASE P — P1153 code review LOW: exercise _consumer_read_re's own branches.
+#
+# CASE L's object-dereference and regex-extraction fixtures are .mjs files,
+# so they are matched by the CODE tier's whole-word rule — they pass without
+# ever exercising _consumer_read_re. Its markdown branches were therefore
+# untested (gate 7b: the fixture could not emit the input). These fixtures
+# are .md, so only _consumer_read_re can match them.
+# ══════════════════════════════════════════════════════════════════════════
+CASE_P="${WORK}/case-p"
+mkdir -p "${CASE_P}/env" "${CASE_P}/md"
+cat > "${CASE_P}/env/fixture.env" <<'ENV_EOF'
+FAKE_MD_OBJDEREF=fixture-value-p1
+FAKE_MD_SHELLVAR=fixture-value-p2
+FAKE_MD_NAMEDONLY=fixture-value-p3
+ENV_EOF
+cat > "${CASE_P}/registry.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_MD_OBJDEREF` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_MD_SHELLVAR` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_MD_NAMEDONLY` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+REG_EOF
+# A skill file: a bare parsed-object dereference and a shell expansion are
+# reads; the third key is only ever named in prose.
+cat > "${CASE_P}/md/skill.md" <<'MD_EOF'
+Read the mailbox with the parsed env object:
+
+    const user = env.FAKE_MD_OBJDEREF;
+
+Then call the uploader:
+
+    curl -H "Authorization: Bearer ${FAKE_MD_SHELLVAR}" https://example.invalid
+
+Note: FAKE_MD_NAMEDONLY is documented here but nothing reads it.
+MD_EOF
+
+echo "--- case P: _consumer_read_re's markdown branches (P1153 review LOW) ---"
+run_audit "audit with a markdown-only consumer surface" 0 \
+  --audit --env-dir "${CASE_P}/env" --registry "${CASE_P}/registry.md" \
+  --consumers-dir "${CASE_P}/md"
+
+assert_not_out "P1 object dereference in markdown counts as a read" \
+                                       "RETIREMENT_CANDIDATE:FAKE_MD_OBJDEREF"
+assert_not_out "P2 shell expansion in markdown counts as a read" \
+                                       "RETIREMENT_CANDIDATE:FAKE_MD_SHELLVAR"
+assert_out     "P3 a name that is only mentioned in markdown is NOT a read" \
+                                       "RETIREMENT_CANDIDATE:FAKE_MD_NAMEDONLY"
+
+
 echo ""
 echo "=== ${pass_count} passed, ${fail_count} failed ==="
 [[ "$fail_count" -eq 0 ]] || exit 1

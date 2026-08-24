@@ -78,19 +78,36 @@ _safe_echo() {
 #     `not-a-secret` (domain name, not a credential)
 # Comparing whole cells reported those as drift. Comparing tokens does not.
 #
-# Two accepted forms, checked in order of explicitness:
-#   1. a backticked token anywhere in the cell — the newer registry style
-#   2. the whole cell, once a trailing parenthetical is stripped, IF what
-#      remains is exactly one bare word — the older bare style (`manual-only`)
-# Anything else (free prose such as "to be decided by the founder") yields
-# no token and is reported as TIER_UNCLASSIFIABLE by the caller rather than
-# being silently compared.
+# The token must be a member of the known tier vocabulary. Matching "the
+# first backticked span" instead was wrong: real registry cells embed other
+# backticked identifiers in their prose — one live cell reads
+#   Never (changing it invalidates all existing `request_hash` rows ...)
+# — and taking the first span reports `request_hash` as the classification,
+# which both states a bogus tier and reintroduces the very false-drift this
+# function exists to remove. Found in code review, reproduced against a
+# synthetic copy of that shape.
+#
+# TIER_VOCAB is the whole classification vocabulary. Keeping it closed is
+# deliberate: an unrecognised token yields NO token, so the caller reports
+# TIER_UNCLASSIFIABLE and a human sees it. That is the correct failure
+# direction — a newly-introduced tier surfaces loudly on its first run
+# instead of being silently trusted and mis-compared. Extend this list when
+# a tier is genuinely added.
+TIER_VOCAB="auto-api manual-only never-rotate not-a-secret"
+
+# _tier_token CELL — the cell's tier token, or return 1 if it states none.
+# Searches the cell for any vocabulary member, backticked or bare, so both
+# the newer `manual-only` style and the older bare manual-only style work,
+# and leading prose ("candidate `manual-only` — founder to confirm") does
+# not defeat it.
 _tier_token() {
-  local cell="$1" bt rest
-  bt=$(printf '%s' "$cell" | grep -oE '`[A-Za-z][A-Za-z0-9_-]*`' | head -1 | tr -d '`')
-  if [[ -n "$bt" ]]; then printf '%s' "$bt"; return 0; fi
-  rest=$(printf '%s' "$cell" | sed -E 's/\(.*$//' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
-  if [[ "$rest" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]]; then printf '%s' "$rest"; return 0; fi
+  local cell="$1" t
+  for t in $TIER_VOCAB; do
+    if printf '%s' "$cell" | grep -qE "(^|[^A-Za-z0-9_-])${t}([^A-Za-z0-9_-]|$)"; then
+      printf '%s' "$t"
+      return 0
+    fi
+  done
   return 1
 }
 
@@ -218,6 +235,22 @@ for r in "${REGISTRIES[@]:-}"; do
   [[ -n "$r" ]] || continue
   if [[ ! -f "$r" || ! -r "$r" ]]; then
     _safe_echo "ERROR: --registry file not found or unreadable: $r" >&2
+    exit 2
+  fi
+done
+
+# Same reasoning for --consumers-dir, and the consequence is worse. The
+# consumer grep discards stderr, so a typo'd, stale or unmounted path
+# returns empty for EVERY key and every live credential is reported as a
+# RETIREMENT_CANDIDATE at exit 0 — a false alarm as indistinguishable from a
+# real result as the false all-clear this script was fixed for. Measured
+# before this check existed: two live, correctly-read credentials both
+# reported for retirement, no error, exit 0. A path may be a directory or a
+# single file (e.g. a build config at the repo root), so test -e, not -d.
+for c in "${CONSUMERS_DIRS[@]:-}"; do
+  [[ -n "$c" ]] || continue
+  if [[ ! -e "$c" || ! -r "$c" ]]; then
+    _safe_echo "ERROR: --consumers-dir not found or unreadable: $c" >&2
     exit 2
   fi
 done
