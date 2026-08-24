@@ -3283,14 +3283,18 @@ export async function recordChunkUploadComplete(
 export function buildRoomAudioPathSegments(
   roomCode: string,
   participantName: string,
+  memberId: string,
 ): { gcsPathPrefix: string; sanitizedParticipant: string } {
   const sanitizedParticipant = participantName
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+  // memberId disambiguates same/similar display names in one room — the sanitized name
+  // alone collided (two "Alex"es, or differently-cased names sanitizing identically),
+  // silently overwriting each other's uploaded chunks.
   return {
-    gcsPathPrefix: `rooms/${roomCode}/${sanitizedParticipant}`,
+    gcsPathPrefix: `rooms/${roomCode}/${sanitizedParticipant}-${memberId}`,
     sanitizedParticipant,
   };
 }
@@ -3303,11 +3307,12 @@ export function buildRoomAudioPathSegments(
 export async function uploadRoomAudioChunk(
   roomCode: string,
   participantName: string,
+  memberId: string,
   chunkBlob: Blob,
   chunkNumber: number,
   isLastChunk: boolean,
 ): Promise<void> {
-  const { gcsPathPrefix, sanitizedParticipant } = buildRoomAudioPathSegments(roomCode, participantName);
+  const { gcsPathPrefix, sanitizedParticipant } = buildRoomAudioPathSegments(roomCode, participantName, memberId);
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
   const devPrefix = devRecordingFilenamePrefix(); // P809
   const chunkFileName = `${devPrefix}chunk_${paddedChunkNum}.webm`;

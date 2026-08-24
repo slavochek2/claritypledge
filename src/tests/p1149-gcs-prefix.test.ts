@@ -18,21 +18,27 @@ import { buildRoomAudioPathSegments } from '@/app/data/api';
 const API_SOURCE = readFileSync(join(process.cwd(), 'src/app/data/api.ts'), 'utf-8');
 
 describe('P1149 DW-6: buildRoomAudioPathSegments', () => {
-  it('builds a rooms/{code}/{participant} prefix, never sessions/', () => {
-    const { gcsPathPrefix } = buildRoomAudioPathSegments('AB3XY9', 'Jordan Rivera');
-    expect(gcsPathPrefix).toBe('rooms/AB3XY9/jordan-rivera');
+  it('builds a rooms/{code}/{participant}-{memberId} prefix, never sessions/', () => {
+    const { gcsPathPrefix } = buildRoomAudioPathSegments('AB3XY9', 'Jordan Rivera', 'member-1');
+    expect(gcsPathPrefix).toBe('rooms/AB3XY9/jordan-rivera-member-1');
     expect(gcsPathPrefix.startsWith('sessions/')).toBe(false);
   });
 
   it('sanitizes the participant name the same way uploadAudioChunk sanitizes userName', () => {
-    const { sanitizedParticipant } = buildRoomAudioPathSegments('AB3XY9', "O'Brien  Smith!!");
+    const { sanitizedParticipant } = buildRoomAudioPathSegments('AB3XY9', "O'Brien  Smith!!", 'member-1');
     expect(sanitizedParticipant).toBe('o-brien-smith');
   });
 
   it('is deterministic for the same inputs (idempotent chunk retries land at the same prefix)', () => {
-    const a = buildRoomAudioPathSegments('AB3XY9', 'Jordan Rivera');
-    const b = buildRoomAudioPathSegments('AB3XY9', 'Jordan Rivera');
+    const a = buildRoomAudioPathSegments('AB3XY9', 'Jordan Rivera', 'member-1');
+    const b = buildRoomAudioPathSegments('AB3XY9', 'Jordan Rivera', 'member-1');
     expect(a).toEqual(b);
+  });
+
+  it('two participants with the same display name get different prefixes (P1149 finish-review HIGH)', () => {
+    const a = buildRoomAudioPathSegments('AB3XY9', 'Alex', 'member-1');
+    const b = buildRoomAudioPathSegments('AB3XY9', 'Alex', 'member-2');
+    expect(a.gcsPathPrefix).not.toBe(b.gcsPathPrefix);
   });
 });
 

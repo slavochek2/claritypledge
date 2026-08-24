@@ -166,7 +166,11 @@ export async function joinRoom(roomId: string, profileId: string, displayName: s
     .from('transcribe_room_members')
     .insert({ room_id: roomId, profile_id: profileId, display_name: displayName, session_id: session.id });
 
-  if (insertError) throw new Error(insertError.message);
+  // 23505 = unique_violation on (room_id, profile_id) — a page refresh or double "Join
+  // room" click while already a member. Idempotent: fall through to the read below, which
+  // finds the existing row. Any other error is real and still throws (P1149 finish-review
+  // MEDIUM — this previously surfaced the raw Postgres constraint message to the user).
+  if (insertError && insertError.code !== '23505') throw new Error(insertError.message);
 
   const { data, error } = await supabase
     .from('transcribe_room_members')

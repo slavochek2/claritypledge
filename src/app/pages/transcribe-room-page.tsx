@@ -51,6 +51,11 @@ export function TranscribeRoomPage() {
   const [members, setMembers] = useState<TranscribeRoomMember[]>([]);
   const [messages, setMessages] = useState<TranscribeMessage[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
+  // Separate from joinError: startCapture's catch fires AFTER view is already 'room'
+  // (handleJoin sets view before calling startCapture), so joinError — only rendered on
+  // the consent screen — would silently swallow this. Rendered in the room view's own
+  // listening indicator instead (P1149 finish-review MEDIUM).
+  const [micError, setMicError] = useState<string | null>(null);
 
   // Gate 0 / Risks: opt-in auto-restart, so a dropped recognizer recovers instead of
   // dying silently. The dedicated "dropped and restarting" UI state below is what makes
@@ -124,7 +129,7 @@ export function TranscribeRoomPage() {
         audioChunksRef.current = [];
         const num = chunkNumberRef.current++;
         try {
-          await uploadRoomAudioChunk(roomForCapture.code, memberForCapture.displayName, blob, num, isLast);
+          await uploadRoomAudioChunk(roomForCapture.code, memberForCapture.displayName, memberForCapture.id, blob, num, isLast);
         } catch (err) {
           console.error('[transcribe] chunk upload failed:', err);
         }
@@ -146,7 +151,7 @@ export function TranscribeRoomPage() {
       }
     } catch (err) {
       console.error('[transcribe] failed to start capture:', err);
-      setJoinError('Could not access your microphone. You can still join and read the chat.');
+      setMicError('Could not access your microphone. You can still read the chat.');
     }
   }, [speechSupported, startListening]);
 
@@ -206,7 +211,13 @@ export function TranscribeRoomPage() {
   }, [room, stopListening]);
 
   useEffect(() => () => {
+    // Navigating away without clicking "End Session" (SPA route change, browser back) must
+    // stop the mic the same way handleEndSession does — otherwise recording continues past
+    // what the consent screen promised. recorder.onstop already stops the raw stream tracks.
     if (chunkIntervalRef.current) clearInterval(chunkIntervalRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
   }, []);
 
   if (!sessionChecked || authLoading || view === 'loading') {
@@ -349,7 +360,15 @@ export function TranscribeRoomPage() {
           <span>{members.length} in the room: {members.map((m) => m.displayName).join(', ') || '—'}</span>
         </div>
 
-        {!speechSupported ? (
+        {micError ? (
+          <p
+            className="text-xs py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500 mb-3"
+            data-testid="transcribe-mic-error"
+            role="status"
+          >
+            {micError}
+          </p>
+        ) : !speechSupported ? (
           <p className="text-xs text-muted-foreground text-center py-3" data-testid="transcribe-unsupported">
             Live text isn't available on this browser. Your audio is still being recorded — the
             corrected transcript will arrive the same as everyone else's.

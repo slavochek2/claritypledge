@@ -75,8 +75,8 @@ data — audio and transcripts of real people's speech at a real event cannot be
 The consent gate is the load-bearing control, not the code.
 
 **Decision density:** Low-medium. The founder has decided: room-visible transcripts, chat
-rendering, dual capture, signed-in only. Open items are marked `[FOUNDER DECISION]` below and
-are copy and join-model questions, not architecture.
+rendering, dual capture, signed-in only. The remaining copy and join-model questions were
+resolved during build — see `## Founder Decisions — resolved 2026-08-21` below.
 
 ## Gate 0 — the device check runs FIRST
 
@@ -239,13 +239,13 @@ pending · corrected transcript ready.
 
 ## Acceptance Criteria
 
-- [ ] A signed-in person cannot reach the recorder without passing the consent screen
-- [ ] A person's spoken words appear in the room chat, attributed to them, with a timestamp
-- [ ] Every participant sees every other participant's messages, live (physical check: P1152)
-- [ ] Audio from each participant lands in the ML bucket under the room prefix
-- [ ] A corrected transcript is produced for each participant after the session ends
-- [ ] Live recognition recovers rather than dying silently when it drops (physical check: P1152)
-- [ ] A participant on an unsupported browser can still join and have audio recorded
+- [x] A signed-in person cannot reach the recorder without passing the consent screen
+- [x] A person's spoken words appear in the room chat, attributed to them, with a timestamp
+- [ ] Every participant sees every other participant's messages, live (physical check: P1152 — still open, see founder override note above)
+- [x] Audio from each participant lands in the ML bucket under the room prefix
+- [x] A corrected transcript is produced for each participant after the session ends
+- [ ] Live recognition recovers rather than dying silently when it drops (physical check: P1152 — still open, see founder override note above)
+- [x] A participant on an unsupported browser can still join and have audio recorded
 
 ## Done-When
 
@@ -254,23 +254,26 @@ on 2026-08-23 — Gate 0 on real phones, two-device live delivery, radio-drop re
 eight-way concurrency. A green gate here covers what a command can decide; it is not a ship
 signal on its own.
 
-**Founder override (2026-08-24):** shipped to prod without waiting for P1152 to close. The
+**Founder override (2026-08-24):** shipping to prod without waiting for P1152 to close. The
 founder will run P1152's physical checks against prod directly and record the outcome there.
 P1152 is `status: blocked`, not closed — see that spec for what's still outstanding.
 
-- [ ] DW-1 `/transcribe` is reachable only when signed in; signed-out visitors are redirected
-- [ ] DW-2 Consent screen blocks mic access until accepted; declining leaves the room
-- [ ] DW-3 Each message shows the speaker's name and a timestamp
-- [ ] DW-4 Interim words are never written to the server and never reach another participant
-- [ ] DW-5 A non-member cannot read a room's messages (RLS enforced, tested from a non-member)
-- [ ] DW-6 Room audio lands under the `rooms/` prefix and `sessions/` is unchanged
-- [ ] DW-7 Transcription jobs for the room are created with diarization off
-- [ ] DW-8 Existing `/live` and `/chat` speech behavior verified unchanged
-- [ ] DW-9 Join, room, and ended states render correctly at 320px, 375px, and desktop
-- [ ] DW-10 The empty room (you are first) and the dropped-recognition state both render
+All 12 rows below are `pass` per [features/uat/p1149.md](uat/p1149.md)'s Test Execution Log —
+checked off against that recorded evidence, not re-asserted here.
+
+- [x] DW-1 `/transcribe` is reachable only when signed in; signed-out visitors are redirected
+- [x] DW-2 Consent screen blocks mic access until accepted; declining leaves the room
+- [x] DW-3 Each message shows the speaker's name and a timestamp
+- [x] DW-4 Interim words are never written to the server and never reach another participant
+- [x] DW-5 A non-member cannot read a room's messages (RLS enforced, tested from a non-member)
+- [x] DW-6 Room audio lands under the `rooms/` prefix and `sessions/` is unchanged
+- [x] DW-7 Transcription jobs for the room are created with diarization off
+- [x] DW-8 Existing `/live` and `/chat` speech behavior verified unchanged
+- [x] DW-9 Join, room, and ended states render correctly at 320px, 375px, and desktop
+- [x] DW-10 The empty room (you are first) and the dropped-recognition state both render
       correctly at all three widths
-- [ ] DW-11 Visual hierarchy, density, and sibling weight hold against the approved reference
-- [ ] DW-12 The listening indicator is the most prominent element in the room footer in every
+- [x] DW-11 Visual hierarchy, density, and sibling weight hold against the approved reference
+- [x] DW-12 The listening indicator is the most prominent element in the room footer in every
       state that has one
 
 ## Resolved Decisions (goalify Phase 1, 2026-08-23)

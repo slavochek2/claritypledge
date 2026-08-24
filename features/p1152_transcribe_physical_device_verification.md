@@ -97,7 +97,9 @@ Best run at a real event rather than staged, since that is the condition it exis
 - Do NOT build anything. This spec runs checks against P1149's branch.
 - Do NOT convert these into automated tests — the attempt is what produces a fixture that
   passes while the real surface is broken.
-- Do NOT merge P1149 to main before PV-1 has an outcome recorded.
+- ~~Do NOT merge P1149 to main before PV-1 has an outcome recorded.~~ Superseded 2026-08-24 —
+  see the Status note at the top of this spec: the founder shipped P1149 ahead of this gate
+  and will run PV-1 through PV-4 against prod directly instead.
 
 ## Done-When
 
@@ -110,12 +112,17 @@ Best run at a real event rather than staged, since that is the condition it exis
 
 ## Sequencing
 
+**Superseded 2026-08-24 (see Status note above).** The original plan:
+
 1. P1149's loop runs and closes its 8 machine-decidable rows on a branch.
 2. **This spec runs against that branch.**
 3. Only then does P1149 merge.
 
-P1149 is not shippable on a green gate alone. The gate covers what a command can decide; this
-spec covers what only a person with hardware can.
+The founder chose to ship P1149 first instead, running PV-1 through PV-4 against prod
+directly rather than as a pre-merge gate. The underlying point still holds — P1149 was not
+shippable on a green gate alone, the gate covers what a command can decide and this spec
+covers what only a person with hardware can — the founder is now that check, post-ship
+rather than pre-merge.
 
 ## References
 
