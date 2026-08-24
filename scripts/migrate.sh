@@ -385,7 +385,9 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
       # reporting the skip as success.
       RECORDED_NAME=$(printf '%s\n' "$REMOTE_NAMES" |
         awk -F'\t' -v v="$VERSION" '$1 == v { print $2; exit }')
-      if [ -n "$RECORDED_NAME" ] && ! _migration_name_matches "$RECORDED_NAME" "$BASENAME"; then
+      if [ -n "$RECORDED_NAME" ] && ! _migration_name_matches "$RECORDED_NAME" "$BASENAME" &&
+         ! "$SCRIPT_DIR/lib/check-duplicate-migration-versions.sh" \
+             "$PROJECT_DIR/supabase/migrations" --is-allowlisted "$VERSION"; then
         echo ""
         echo "ERROR: version $VERSION was recorded by a DIFFERENT migration file."
         echo "  in the ledger: $RECORDED_NAME"

@@ -1,6 +1,6 @@
 -- P1114 follow-up: public roster reversal + comprehension-rating reinstatement.
 --
--- diffed against: 20260819170000_p1114_event_room_rpcs.sql (set_room_opt_in redefinition
+-- diffed against: 20260819171000_p1114_event_room_rpcs.sql (set_room_opt_in redefinition
 -- below — dropped and recreated with an added p_comprehension parameter; reset_room_answer
 -- is a new function, not a redefinition)
 --

@@ -1292,7 +1292,7 @@ proto-route cleanup all still work.
 
 **Consequences:** Row-level RLS is now a **verified** control on both REST and Realtime for this project, so a restrictive read policy can be relied on as a privacy boundary without also editing publication membership. It remains a **measurement, not a vendor guarantee** — the same standing rule P1057 set for its grant now applies here: **any future change to this table's `SELECT` policy silently changes what Realtime delivers**, with no error anywhere, so the canary must be kept in step with the policy. It does not retire P1048's rule that every delivery surface must be enumerated; one more surface simply has an answer instead of a promise. Note the asymmetry that makes this cheap to lose: the failure mode is silent, visible only to whoever is subscribed, and no test outside this canary would go red.
 
-**References:** [features/p1114_event_room_presence_and_cmp_opt_in.md](../features/p1114_event_room_presence_and_cmp_opt_in.md) Decision 2 · `e2e/integration/p1114-realtime-payload.spec.ts` · `supabase/migrations/20260819160000_p1114_event_room_tables.sql` · decisions.md 2026-08-17 [technical] (P1057, the column-level half) · decisions.md 2026-08-13 [technical] (P1048, publication membership) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b
+**References:** [features/p1114_event_room_presence_and_cmp_opt_in.md](../features/p1114_event_room_presence_and_cmp_opt_in.md) Decision 2 · `e2e/integration/p1114-realtime-payload.spec.ts` · `supabase/migrations/20260819161000_p1114_event_room_tables.sql` · decisions.md 2026-08-17 [technical] (P1057, the column-level half) · decisions.md 2026-08-13 [technical] (P1048, publication membership) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b
 
 ---
 
@@ -1306,7 +1306,7 @@ proto-route cleanup all still work.
 
 **Consequences:** Generalisable beyond this feature: **whenever an RLS policy expresses "current state is X" over a table that also retains superseded rows, the policy is wrong by construction** — the filter matches history as readily as the present. Either split current state from history, or make the policy exclude superseded rows explicitly; do not rely on the value alone. This is the row-level sibling of the 2026-08-17 P1083 finding that row policies say nothing about which columns a client may set.
 
-**References:** [features/p1114_event_room_presence_and_cmp_opt_in.md](../features/p1114_event_room_presence_and_cmp_opt_in.md) Decision 6 · `supabase/migrations/20260819160000_p1114_event_room_tables.sql` · decisions.md 2026-08-17 [technical] (P1083, column-grant sibling)
+**References:** [features/p1114_event_room_presence_and_cmp_opt_in.md](../features/p1114_event_room_presence_and_cmp_opt_in.md) Decision 6 · `supabase/migrations/20260819161000_p1114_event_room_tables.sql` · decisions.md 2026-08-17 [technical] (P1083, column-grant sibling)
 
 ---
 
@@ -8156,7 +8156,7 @@ The twin is a hybrid wrapper: the `/command` stays identical, the model does onl
 
 ## 2026-06-28 [technical]: P967 — `stories.title` was silently dropped in P701; new RPCs must not reference it
 
-**Context:** P967's `get_my_listener_calibration_diffs()` RPC selected `s.title::TEXT AS story_title` from the `stories` join. The migration failed on prod with `column s.title does not exist` — P701 (`20260413110000_p701_drop_story_title.sql`) dropped `stories.title` and `story_versions.title` because all 9 system stories had empty titles. The `docs/technical/database.md` and early migration files still show `title TEXT NOT NULL` (from the table creation, pre-drop). Reading early migrations without scanning later DROP COLUMN migrations produces a false picture of current schema.
+**Context:** P967's `get_my_listener_calibration_diffs()` RPC selected `s.title::TEXT AS story_title` from the `stories` join. The migration failed on prod with `column s.title does not exist` — P701 (`20260413110001_p701_drop_story_title.sql`) dropped `stories.title` and `story_versions.title` because all 9 system stories had empty titles. The `docs/technical/database.md` and early migration files still show `title TEXT NOT NULL` (from the table creation, pre-drop). Reading early migrations without scanning later DROP COLUMN migrations produces a false picture of current schema.
 
 **Decision:** Any new SQL or RPC that joins `stories` must not reference `stories.title` or `story_versions.title`. Use `NULL::TEXT AS story_title` as a placeholder when a title-shaped field is required by the return type. Verify columns against the most recent migration touching a table, not the CREATE TABLE migration.
 
@@ -15496,7 +15496,7 @@ Use a type-tag gate only when the **behaviour differs by type** (e.g., different
 
 **Consequences:** Any future need for a story title must derive from `content`. The deploy-then-drop sequencing rule applies to any column removal where the running code still references the column in a SELECT.
 
-**References:** [p701 spec](features/done/22_mar_26/p701_points_restructure_badge_fix.md), [migration](supabase/migrations/20260413110000_p701_drop_story_title.sql)
+**References:** [p701 spec](features/done/22_mar_26/p701_points_restructure_badge_fix.md), [migration](supabase/migrations/20260413110001_p701_drop_story_title.sql)
 
 ## 2026-04-13 [product]: Desktop nav shows Letters (not Docs) — match mobile bottom-nav
 

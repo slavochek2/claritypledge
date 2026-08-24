@@ -428,7 +428,7 @@ as walk-in vs registered",* and *"the Present toggle hides controls and enlarges
 - [x] A registered, signed-in person opening `/events/:slug/room` lands on `…/ready` without
       typing a name or seeing a join form (UAT-6)
 - [x] `anon` holds **no** `EXECUTE` on any of this spec's RPCs (verified 2026-08-21 by reading
-      `supabase/migrations/20260819170000_p1114_event_room_rpcs.sql` and
+      `supabase/migrations/20260819171000_p1114_event_room_rpcs.sql` and
       `20260821120000_p1114_public_roster_reversal.sql` — every `join_event_room`,
       `set_room_opt_in`, `set_room_readiness`, `get_my_room_status`, `reset_room_answer` carries
       `REVOKE ALL ... FROM PUBLIC, anon` + `GRANT EXECUTE ... TO authenticated`)
@@ -471,7 +471,7 @@ as walk-in vs registered",* and *"the Present toggle hides controls and enlarges
 - [x] Changing an answer is possible, and the prior answer is still queryable afterwards (UAT-15)
 - [ ] Each opt-in row stores how many people had already opted in at that moment — **checked
       2026-08-21, not found**: no `opted_in_count`/`position_at`-style column in
-      `event_room_members` (`20260819160000_p1114_event_room_tables.sql`). Appears unbuilt, not
+      `event_room_members` (`20260819161000_p1114_event_room_tables.sql`). Appears unbuilt, not
       just untested.
 - [x] Room readiness values survive longer than 10 minutes (verified 2026-08-21: no cleanup/TTL
       job exists against `event_room_members` in any p1114 migration — an ordinary table row,
@@ -997,7 +997,7 @@ colliding with an unrelated feature's key.
   row-count check and rejects past a large N. No new infrastructure, no captcha, and a room of
   twelve never approaches it. Chosen over ACCEPT because, unlike `/ready`'s invisible bad number,
   this failure mode is visible to everyone in the room at once. **N = 1000**, set in
-  `join_event_room` (`supabase/migrations/20260819170000_p1114_event_room_rpcs.sql`). Reasoning:
+  `join_event_room` (`supabase/migrations/20260819171000_p1114_event_room_rpcs.sql`). Reasoning:
   the largest event this product runs today is on the order of dozens of people, and the spec's
   own reference point for "never approaches it" is a room of twelve — 1000 is roughly two orders
   of magnitude of headroom above any plausible legitimate room size, so no real event is ever

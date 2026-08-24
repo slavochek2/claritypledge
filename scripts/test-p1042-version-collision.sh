@@ -256,6 +256,28 @@ else
   FAIL=$((FAIL+1))
 fi
 
+# --- 8. THE ALLOWLIST BINDS BOTH GUARDS. A grandfathered historical pair (both halves
+# already applied everywhere) records only ONE name in the ledger — which is exactly
+# what a foreign name looks like to guard 2. If guard 2 does not consult the same
+# allowlist as guard 1, every such pair passes the duplicate scan and then aborts on
+# the name check. Found live on 2026-08-24: the real 20260223 pair did precisely this.
+S=allowlisted
+mkdir -p "$TMPROOT/$S/supabase/migrations"
+cat > "$TMPROOT/$S/supabase/migrations/20260223_p414_profile_bio.sql" <<'SQL'
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio text;
+SQL
+printf '# grandfathered\n20260223\n' > "$TMPROOT/$S/supabase/migrations/.duplicate-version-allowlist"
+run_migrate "$S" '[{"version":"20260223","name":"p396_host_rls_and_session_constraints"}]'
+RC=$(cat "$TMPROOT/$S/exit.code")
+if [ "$RC" -eq 0 ] && grep -q 'Applied 0 new migration' "$TMPROOT/$S/out.log"; then
+  echo "  OK   allowlist-binds-both-guards — grandfathered duplicate does not abort the name check"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL allowlist-binds-both-guards — an allowlisted version must not abort on a foreign"
+  echo "       ledger name; guard 2 is not reading the allowlist (exit $RC)"
+  FAIL=$((FAIL+1))
+fi
+
 echo ""
 echo "Passed: $PASS  Failed: $FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

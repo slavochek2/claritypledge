@@ -104,6 +104,9 @@ spec; P1154 was opened for it and rejected as a duplicate of this file.
 prefixes. P1104's landed first, so both P1114 files have reported `(already applied, skipping)` on
 every run since and have never executed on prod.
 
+*(Filenames as they stood at the time of the incident. Both were renumbered during the /fix repair
+to `20260819161000_` and `20260819171000_` respectively — see § Repair below.)*
+
 **Confirmed against prod, not inferred from the ledger:**
 
 ```
@@ -282,39 +285,86 @@ time rather than at apply time.
 
 **Guard — apply time** (`migrate.sh`)
 
-- [ ] Running `migrate.sh` on a migration whose version was recorded by a different file exits
-      non-zero and names both filenames — verified by staging the collision and pasting the exit code
-      (epistemic gate 7: the guard must be observed failing, not merely present)
-- [ ] **Two files in-tree sharing a version prefix abort the run, regardless of ledger state** —
-      covers scenarios 3 and 5, i.e. every collision currently in the repo. Neither specified step
-      caught these; see Scenario Audit
-- [ ] A genuinely new migration still applies and is recorded with its filename in
-      `schema_migrations.name`
+- [x] Running `migrate.sh` on a migration whose version was recorded by a different file exits
+      non-zero and names both filenames — canary `aborts-on-foreign-ledger-name` (exit 1), and the
+      guard was proven to detect its own absence by neutralising `_migration_name_matches` and
+      observing exactly that one assertion fail. Also fired **live** on 2026-08-24 against the real
+      test ledger (`20260223`: ledger `p396_host_rls_and_session_constraints` vs on-disk
+      `20260223_p414_profile_bio.sql`)
+- [x] **Two files in-tree sharing a version prefix abort the run, regardless of ledger state** —
+      canary `hard-fails-on-collision` (version present in ledger) and `aborts-when-both-pending`
+      (ledger empty), both exit 1
+- [x] A genuinely new migration still applies and is recorded with its filename in
+      `schema_migrations.name` — live evidence from the 2026-08-24 test apply:
+      `20260413110001 -> p701_drop_story_title`, `20260819161000 -> p1114_event_room_tables`,
+      `20260819171000 -> p1114_event_room_rpcs`
 
 **No false positives**
 
-- [ ] A normal re-run of `migrate.sh` with no new migrations still exits 0 and reports
-      `Applied 0 new migration(s)`
-- [ ] A pre-existing history row with `name = NULL` whose version is claimed by exactly **one**
-      in-tree file does NOT trigger the hard failure (217 of 248 test-DB rows are `name = NULL`, so
-      a blanket failure on NULL would block every run). Note this supersedes the original blanket
-      wording: a NULL-name row WITH an in-tree duplicate must now abort
-- [ ] `scripts/test-p1042-version-collision.sh` passes 5/5
+- [x] A normal re-run of `migrate.sh` with no new migrations still exits 0 and reports
+      `Applied 0 new migration(s)` — canary `allows-clean-noop`
+- [x] A pre-existing history row with `name = NULL` whose version is claimed by exactly **one**
+      in-tree file does NOT trigger the hard failure — canary `allows-clean-noop` uses exactly that
+      shape (ledger row with no `name` key, one in-tree file)
+- [x] A grandfathered pair whose ledger row names only ONE of its two files does not abort —
+      canary `allowlist-binds-both-guards`. Added after the live `20260223` abort showed the two
+      guards were consulting different sources of truth
+- [x] `scripts/test-p1042-version-collision.sh` passes **9/9** (was specified as 5/5; four
+      assertions were added because the original five all passed through guard 1, leaving guard 2
+      entirely unexercised — epistemic gate 7b)
 
 **Guard — authoring time** (pre-commit)
 
-- [ ] Committing two migrations that share a version prefix is **rejected**, with the rejection
-      observed and a non-zero exit code pasted, not asserted
-- [ ] The guard tolerates the three historical pairs that already applied cleanly
-      (`20260409120000`, `20260413100000`, `20260413110000`) rather than blocking every commit
+- [x] Committing two migrations that share a version prefix is **rejected**, with the rejection
+      observed and a non-zero exit code pasted — staged a deliberate colliding file, gate exited 1
+      naming all three claimants; a uniquely-prefixed file staged the same way exited 0
+- [x] The guard tolerates the historical pairs that already applied cleanly rather than blocking
+      every commit. **Corrected during /fix:** the three are `20260223`, `20260409120000` and
+      `20260413100000` — NOT `20260413110000`, which measurement showed was never applied on test
+      and is therefore repaired, not grandfathered. `20260223` was absent from the original census
 
-**Prod repair** (flagged as missing above; ALWAYS-ASK — founder approves each apply)
+**Repair — test** (founder-approved 2026-08-24, test only)
 
-- [ ] The two skipped P1114 files carry unique version prefixes, and their SQL was confirmed
-      idempotent before the rename (a rename makes them pending again wherever they already ran)
+- [x] The two skipped P1114 files carry unique version prefixes, and their SQL was confirmed
+      idempotent before the rename (`CREATE TABLE/INDEX IF NOT EXISTS`, `CREATE OR REPLACE
+      FUNCTION`, `DROP POLICY IF EXISTS`, and the `ALTER PUBLICATION` wrapped in
+      `EXCEPTION WHEN duplicate_object`)
+- [x] `20260413110000_p701_drop_story_title` renumbered to `20260413110001` and applied to test;
+      `stories.title` is now absent on test, matching prod. No code reads it (grep over `src/`)
+- [x] All three applied to test; the duplicate scan now exits 0 on the whole tree
+
+**Repair — prod** (NOT DONE — founder scoped this step to test only; prod apply is a separate ASK)
+
 - [ ] `event_room_members` and the P1114 RPCs exist on prod
 - [ ] The three follow-up migrations (`20260821120000`, `20260821170000`, `20260821180000`) apply
       cleanly; `migrate.sh --env prod` reports zero pending
 - [ ] `/events/:slug/room` loads against prod without a missing-function error — verified by an
       actual request, not a code trace
 - [ ] Prod smoke passes after the applies
+
+## Repair (2026-08-24)
+
+Three files renumbered so that no two share a version prefix:
+
+| Was | Now | Why |
+|---|---|---|
+| `20260819160000_p1114_event_room_tables.sql` | `20260819161000_` | shadowed by P1104 on prod; never ran there |
+| `20260819170000_p1114_event_room_rpcs.sql` | `20260819171000_` | same |
+| `20260413110000_p701_drop_story_title.sql` | `20260413110001_` | shadowed by P699 on test; never ran there |
+
+Ordering is preserved: `…161000` (tables) precedes `…171000` (rpcs, which depends on the tables),
+and both precede the `20260821*` follow-ups.
+
+Applied to **test** only. Prod still lacks the P1114 schema — the live defect in the Evidence
+section above is **not yet repaired**, and that is why this spec is not at `qa`.
+
+In-repo references to the three old filenames were updated (specs, `docs/decisions.md`, the P1114
+provenance comment, `src/`, `e2e/`), with two deliberate exceptions:
+
+- The historical Evidence section above keeps the original names, with a pointer to this section.
+- `20260410090000_fix_seal_denormalize_regression.sql` and `20260417180000_p701_scrub_title_references.sql`
+  keep `20260413110000_p701_drop_story_title.sql` in their prose. Editing them re-triggers the
+  function-redefinition gate (`--diff-filter=AM` fires on any modification), which would require
+  adding a `-- diffed against:` provenance line to two 2026-04 migrations — a claim about a diff
+  nobody performed. A stale name in a historical comment is the smaller error than a fabricated
+  provenance annotation.

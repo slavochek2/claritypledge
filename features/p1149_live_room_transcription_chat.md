@@ -447,7 +447,7 @@ Four integration decisions. Everything else follows from existing code.
 **This reverses the non-goal written in the first draft of this spec.** The reason is a hard
 constraint found in the migration: `event_room_members.event_id` is
 `UUID NOT NULL REFERENCES public.events(id)`
-(`20260819160000_p1114_event_room_tables.sql`:31). An ad-hoc room has no event, so that table
+(`20260819161000_p1114_event_room_tables.sql`:31). An ad-hoc room has no event, so that table
 structurally cannot hold one without a schema change — and the change would land on a table
 whose migrations are already committed to `main` — a settled table, not a scratch one.
 

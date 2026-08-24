@@ -974,8 +974,8 @@ export interface EventPracticeRoom {
 
 // P1114: Event room presence + CMP opt-in. Mirrors the RPC return shape of
 // join_event_room / set_room_opt_in / set_room_readiness / get_my_room_status
-// (supabase/migrations/20260819170000_p1114_event_room_rpcs.sql) and the public
-// roster's column-level SELECT grant (20260819160000_p1114_event_room_tables.sql).
+// (supabase/migrations/20260819171000_p1114_event_room_rpcs.sql) and the public
+// roster's column-level SELECT grant (20260819161000_p1114_event_room_tables.sql).
 //
 // REVISED 2026-08-20 (spec Solution, "REVISED (2)" block): identity is auth.uid()
 // now, not a bearer secret — the table still carries a `client_secret` column

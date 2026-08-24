@@ -46,9 +46,11 @@ shift || true
 LABEL="migrations"
 TOUCHING=""          # empty = report every collision group
 RESTRICTED=false
+QUERY_VERSION=""     # --is-allowlisted mode
 while [ $# -gt 0 ]; do
   case "$1" in
     --label) shift; LABEL="${1:-}" ;;
+    --is-allowlisted) shift; QUERY_VERSION="${1:-}" ;;
     --touching)
       RESTRICTED=true
       shift
@@ -75,6 +77,22 @@ _version_of() {
   echo "$1" | sed -E 's/^([0-9]+)[_.]?.*/\1/'
 }
 
+# Normalised allowlist contents (comments and whitespace stripped).
+_allowed_versions() {
+  [ -f "$ALLOWLIST" ] || return 0
+  sed -E 's/#.*//; s/[[:space:]]//g' "$ALLOWLIST" | grep -v '^$' || true
+}
+
+# --is-allowlisted <version>: exit 0 if grandfathered, 1 otherwise. No output.
+# Exists so migrate.sh's ledger-name check consults the SAME allowlist and the SAME
+# parser as the duplicate scan. Without it the two guards disagree: a grandfathered
+# pair passes the scan, then aborts on the name check because the ledger recorded only
+# one of the two names — which is precisely what a grandfathered pair looks like.
+if [ -n "$QUERY_VERSION" ]; then
+  _allowed_versions | grep -qx "$QUERY_VERSION"
+  exit $?
+fi
+
 # Collect version prefixes of every versioned .sql file in the directory.
 ALL_VERSIONS=""
 for MIGRATION_FILE in "$MIGRATIONS_DIR"/*.sql; do
@@ -92,10 +110,7 @@ DUPES=$(printf '%s' "$ALL_VERSIONS" | grep -v '^$' | sort | uniq -d)
 # all whitespace) so matching is an exact whole-line compare, not a regex with optional
 # padding — a guard whose allowlist match is fuzzy is a guard that can be disabled by a
 # typo nobody sees.
-ALLOWED=""
-if [ -f "$ALLOWLIST" ]; then
-  ALLOWED=$(sed -E 's/#.*//; s/[[:space:]]//g' "$ALLOWLIST" | grep -v '^$' || true)
-fi
+ALLOWED=$(_allowed_versions)
 
 OFFENDERS=""
 while IFS= read -r VERSION; do

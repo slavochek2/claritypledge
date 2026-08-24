@@ -49,7 +49,7 @@ Remove `CANONICAL_BADGE_STATIONS` (lines 37-92 of `badge-certificate.tsx`). Repl
 
 ### Task 4: Delete `stories.title` Column
 
-Column always empty. ~15 files to update. Migration file: `supabase/migrations/20260413110000_p701_drop_story_title.sql`
+Column always empty. ~15 files to update. Migration file: `supabase/migrations/20260413110001_p701_drop_story_title.sql`
 
 ## Acceptance Criteria
 

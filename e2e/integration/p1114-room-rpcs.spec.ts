@@ -2,7 +2,7 @@
  * @file p1114-room-rpcs.spec.ts
  * @description Authorization and integrity canaries for the four P1114 RPCs
  * (`join_event_room`, `set_room_opt_in`, `set_room_readiness`, `get_my_room_status`
- * — supabase/migrations/20260819170000_p1114_event_room_rpcs.sql). p1114-db-schema.spec.ts
+ * — supabase/migrations/20260819171000_p1114_event_room_rpcs.sql). p1114-db-schema.spec.ts
  * covers the direct-table-access surface these RPCs exist to replace; this file covers
  * what the RPCs themselves must and must not allow.
  *

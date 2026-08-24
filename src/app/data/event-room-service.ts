@@ -2,7 +2,7 @@
  * @file event-room-service.ts
  * @description P1114: typed wrappers for the event room's SECURITY DEFINER RPCs
  * (join_event_room, set_room_opt_in, set_room_readiness, get_my_room_status —
- * supabase/migrations/20260819170000_p1114_event_room_rpcs.sql; reset_room_answer and
+ * supabase/migrations/20260819171000_p1114_event_room_rpcs.sql; reset_room_answer and
  * get_room_readiness_distribution were added by the two 2026-08-21 follow-ups) plus the
  * public roster read and its realtime + reconciliation-poll subscription (Decision 3).
  *
