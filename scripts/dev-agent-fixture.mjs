@@ -68,9 +68,9 @@ const CLEAN = process.argv.includes('--clean');
 
 const AGENT = {
   subject: 'Jordan Rivera',            // an invented person — no real figure is depicted
-  operator: 'Slava (ClarityPledge)',
+  operator: 'ClarityPledge',
   subjectKey: `internal:${TAG}:jordan-rivera`,
-  slug: `${TAG}-agent-jordan-rivera`,
+  slug: `machine-${TAG}-jordan-rivera`,
   email: addr('agent'),
 };
 const HUMANS = [

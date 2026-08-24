@@ -115,6 +115,23 @@ Two writes, in this order. The reference implementation is `e2e/helpers/test-age
 
 The display name **must** be `Agent · <Subject Name>`. It is no longer a convention: `IF NOT is_reserved_agent_name(p_name) THEN RAISE` (`20260819160000:264`), hardened across three later migrations against zero-width, variation-selector and combining-diacritic lookalikes. The name is the only marker channel that reaches off-platform surfaces and the only one that survives a pending or failed registry read.
 
+The slug **must** be `machine-<subject-slug>`, and this is enforced the same way for the same reason: `IF NOT is_reserved_machine_slug(p_slug) THEN RAISE` (`20260824120000`). The URL is the one surface where **none** of the other markers travel — no chip, no drained card, no footer, no `Operated by` line renders until someone clicks, so until then the address itself is the entire claim. `/p/sam-harris` reads as Sam Harris's own page. `/p/machine-sam-harris` cannot. The word is `machine`, not `agent`, because that is what every reader already sees (the chip, the `/machines` explainer, the footer line) — and because "agent" reads in English as *representative of*, the one implication these accounts must never carry.
+
+The `avatar_color` **must be a desaturated slate**, matching the portrait palette
+(`gen-agent-avatar.md:211` — "cool slate greys… amber sensor eyes as the only saturated
+colour"). Use `#39424B` unless there is a reason not to. This was previously unspecified, and
+the omission is visible: an account provisioned without it falls back to
+`gravatar-avatar.tsx`'s default `#0044CC`, and because the initials placeholder renders on
+that colour, a machine account with no portrait yet is **a blue circle-adjacent square that
+looks exactly like an ordinary member who has not uploaded a photo**. Found 2026-08-24 on a
+hand-seeded demo account.
+
+> **Do NOT "fix" this in `GravatarAvatar` by forcing grey for agents.** That reverses a
+> P1104 decision and breaks a deliberate guard: `e2e/p1104-agent-marker.spec.ts:357-389`
+> asserts an agent avatar resolves *the account's own colour*, using a `#39424B` fixture
+> chosen precisely because the default `#0044CC` "can never fail". The colour belongs to the
+> account, and the account is created here.
+
 The RPC sets `is_verified = false`, `has_pledged = false`, `ears_count = 0` explicitly — no pledge, no oath, no reputation, at the data layer rather than only in the UI.
 
 > **On a lost response, CHECK BEFORE CLEANING UP.** If the call commits and the response is lost — an ordinary timeout — you see an error for a call that succeeded. A caller that "deletes the minted auth user on error" then destroys a real account, and the cascade takes the profile and the registry row with it. **Always** run `SELECT profile_id FROM agent_accounts WHERE profile_id = '<the id you proposed>'` first and treat a hit as success. This is stated in the RPC's own comment (`:342-354`) because it is the error handler that does the damage.
@@ -172,6 +189,8 @@ SELECT count(*) FROM agent_accounts;
 - [ ] **The asset was uploaded to `agent-avatars` storage before creation**, asserted `200` + `content-type: image/*` (never "not 404" — see decision (d)).
 - [ ] **The gate received an explicit affirmative** on the operator's own turn; silence treated as refusal.
 - [ ] **The display name is `Agent · <Subject>`** and `is_reserved_agent_name` returns true on the target.
+- [ ] **The slug is `machine-<subject-slug>`** and `is_reserved_machine_slug` returns true on the target.
+- [ ] **The `avatar_color` is a desaturated slate** (`#39424B` unless justified) — never the `#0044CC` default.
 - [ ] **A lost response was handled by CHECKING, never by blind cleanup.**
 - [ ] **Reuse returning a different id was compared**, and only the freshly-minted auth user was removed.
 - [ ] **The subject_key was written to `.private/logs/agent-registry.log` and re-read back**, not held only in memory.

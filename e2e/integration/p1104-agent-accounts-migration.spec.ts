@@ -166,7 +166,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-authed-rpc-should-fail-${Date.now()}`,
       p_email: authedUser.email,
       p_name: 'Agent · Should Not Be Created',
-      p_slug: `agent-should-not-be-created-${Date.now()}`,
+      p_slug: `machine-should-not-be-created-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Should Not Work',
@@ -183,7 +183,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-service-role-rpc-${Date.now()}`,
       p_email: `p1104-sr-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Service Role Test Subject',
-      p_slug: `agent-service-role-test-${Date.now()}`,
+      p_slug: `machine-service-role-test-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Migration Test Operator',
@@ -223,7 +223,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-empty-operator-${Date.now()}`,
       p_email: `p1104-eo-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · No Operator',
-      p_slug: `agent-no-operator-${Date.now()}`,
+      p_slug: `machine-no-operator-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: '   ',
@@ -249,7 +249,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: subjectKey,
       p_email: `p1104-reuse-a-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Reuse Test Subject',
-      p_slug: `agent-reuse-test-${Date.now()}`,
+      p_slug: `machine-reuse-test-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Migration Test Operator',
@@ -267,7 +267,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       // than reusing, these values would have to land somewhere.
       p_email: `p1104-reuse-b-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Reuse Test Subject (second call)',
-      p_slug: `agent-reuse-test-second-${Date.now()}`,
+      p_slug: `machine-reuse-test-second-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       // The SAME operator. Reuse under a different operator is now refused outright —
@@ -444,6 +444,101 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     });
   }
 
+
+  // ── the reserved "machine-" slug namespace (P1104 continuation) ───────────
+  //
+  // The name guard above closed the display-name channel in both directions. The URL was
+  // left free-text, and a pasted link is the ONE surface where none of the other markers
+  // travel — no chip, no drained card, no footer, no "Operated by" line renders until
+  // someone clicks. Measured 2026-08-24: three agent accounts for real living public
+  // figures already held /p/sam-harris, /p/william-macaskill and /p/johntheduncan.
+  //
+  // Both directions are asserted, because a rule that only forbids humans the prefix
+  // without requiring machines to carry it defends nothing — that asymmetry is exactly
+  // what 20260819160000 had to come back and fix for the name.
+  const reservedSlugs: Array<[string, string]> = [
+    ['the plain reserved form', 'machine-real-public-figure'],
+    ['underscore separator', 'machine_real_public_figure'],
+    ['full-stop separator', 'machine.real.public.figure'],
+    ['uppercase', 'MACHINE-REAL-PUBLIC-FIGURE'],
+    // Cyrillic а (U+0430) and с (U+0441) — distinct codepoints NFKC does not fold, so a
+    // naive `slug LIKE 'machine-%'` check passes this straight through.
+    ['Cyrillic homoglyphs', 'mасhine-real-public-figure'],
+    ['the bare word', 'machine'],
+  ];
+
+  for (const [label, slug] of reservedSlugs) {
+    test(`upsert_my_profile rejects a slug in the reserved namespace — ${label}`, async () => {
+      const { error } = await authed.rpc('upsert_my_profile', {
+        p_data: {
+          email: authedUser.email,
+          name: 'P1104 Migration Authed User',
+          slug,
+          role: 'Test Engineer',
+          avatar_color: '#4A90E2',
+        },
+      });
+
+      expect(error, `"${slug}" must be refused — it claims a machine account's URL`).not.toBeNull();
+      expect(error!.message).toMatch(/reserved/i);
+    });
+
+    test(`a DIRECT profiles.update is refused for a reserved slug — ${label}`, async () => {
+      // upsert_my_profile is SECURITY DEFINER, so the trigger's client-role branch never
+      // fires inside it. This is the path the running product actually takes
+      // (settings-page -> updateProfile -> `.from('profiles').update(...)`), and it is the
+      // path the FIRST two rounds of name hardening failed to cover.
+      const { error } = await authed.from('profiles').update({ slug }).eq('id', authedUser.user.id);
+
+      expect(error, `a direct table UPDATE to "${slug}" must be refused`).not.toBeNull();
+    });
+  }
+
+  // The control. Without it the reservation could widen into a land-grab and nothing
+  // would notice — "machinery" and "my-machine" are ordinary words.
+  for (const slug of ['machinery-corp', 'my-machine', 'sam-harris']) {
+    test(`an ordinary slug is still available — ${slug}`, async () => {
+      const unique = `${slug}-${Date.now()}`;
+      const { error } = await authed.rpc('upsert_my_profile', {
+        p_data: {
+          email: authedUser.email,
+          name: 'P1104 Migration Authed User',
+          slug: unique,
+          role: 'Test Engineer',
+          avatar_color: '#4A90E2',
+        },
+      });
+
+      expect(
+        error,
+        `"${unique}" is an ordinary slug and must stay settable — the reservation must ` +
+        `not widen into a land-grab on real words`,
+      ).toBeNull();
+    });
+  }
+
+  test('an agent account may NOT be created outside the reserved slug namespace', async () => {
+    // The positive assertion. Mirrors the bare-name test above: forbidding humans the
+    // prefix while leaving it optional for agents is the weakest of the four possible
+    // arrangements, and it is the one that shipped.
+    const proposedId = await mintAuthUser();
+    strayAuthUserIds.push(proposedId);
+
+    const { error } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
+      p_profile_id: proposedId,
+      p_subject_key: `p1104-bare-slug-${Date.now()}`,
+      p_email: `p1104-bare-slug-${Date.now()}@claritypledge-test.com`,
+      p_name: 'Agent · Real Public Figure',
+      p_slug: `real-public-figure-${Date.now()}`,
+      p_avatar_url: null,
+      p_avatar_color: '#0044CC',
+      p_operator_name: 'Test Operator',
+    });
+
+    expect(error, 'an agent holding a bare person URL must be refused').not.toBeNull();
+    expect(error!.message).toMatch(/machine-/);
+  });
+
   test('the trust-column pinning still works — the name guard did not disable it', async () => {
     // The first attempt at the table-level guard added SECURITY DEFINER to
     // guard_profile_trust_columns, which makes current_user the owner and silently
@@ -473,7 +568,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-bare-name-${Date.now()}`,
       p_email: `p1104-bare-${Date.now()}@claritypledge-test.com`,
       p_name: 'A Real Public Figure',
-      p_slug: `agent-bare-${Date.now()}`,
+      p_slug: `machine-bare-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Test Operator',
@@ -504,7 +599,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     const { data: first, error: e1 } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
       p_profile_id: firstId, p_subject_key: `  ${key}  `,
       p_email: `p1104-trim-a-${Date.now()}@claritypledge-test.com`,
-      p_name: 'Agent · Trim Subject', p_slug: `agent-trim-a-${Date.now()}`,
+      p_name: 'Agent · Trim Subject', p_slug: `machine-trim-a-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
     });
     expect(e1).toBeNull();
@@ -515,7 +610,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     const { data: second, error: e2 } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
       p_profile_id: secondId, p_subject_key: key,
       p_email: `p1104-trim-b-${Date.now()}@claritypledge-test.com`,
-      p_name: 'Agent · Trim Subject', p_slug: `agent-trim-b-${Date.now()}`,
+      p_name: 'Agent · Trim Subject', p_slug: `machine-trim-b-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
     });
     expect(e2).toBeNull();
@@ -531,7 +626,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: fixtureAccount.subjectKey,
       p_email: `p1104-op-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Migration Fixture Subject',
-      p_slug: `agent-op-${Date.now()}`,
+      p_slug: `machine-op-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC',
       p_operator_name: 'A Completely Different Operator',
     });
@@ -559,7 +654,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-session-${Date.now()}`,
       p_email: email,
       p_name: 'Agent · Session Subject',
-      p_slug: `agent-session-${Date.now()}`,
+      p_slug: `machine-session-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
     });
     expect(rpcError).toBeNull();
