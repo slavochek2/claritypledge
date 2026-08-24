@@ -385,6 +385,56 @@ stale, not an unticked one accumulating)
 
 **References:** [p1141_story_carries_a_video_with_jumpable_quotes.md](../features/p1141_story_carries_a_video_with_jumpable_quotes.md), 2026-07-31 [process] (P1017 — a stub cannot verify a loading-state fix)
 
+## 2026-08-24 [technical]: A second reserved-namespace guard reopened a gap the first one had already closed
+
+**Context:** P1104 reserves two channels so a machine account can never be mistaken for a person, and a person can never wear a machine's identity: the `Agent · ` display-name prefix and the `machine-` URL prefix. The name guard shipped first and was hardened twice before it was correct. The slug guard was written afterwards, inherited the name guard's *idea* (normalise, then test the first token, so that enumerating separators is never necessary) — but not its *hardening*. It normalised with a composing form and tokenised immediately, with no pass to remove the marks that composition leaves standing. Unicode marks are not alphanumeric, so a surviving mark acts as a token separator and the reserved word never matches.
+
+**The failure direction is what made it a security bug rather than a cosmetic one.** Both enforcement points raise when the predicate returns TRUE, so a false negative is *permissive*: an ordinary user could register a URL that reads as an official machine account for a named public figure. That is the impersonation the reservation exists to prevent, arriving from the opposite direction to the one the spec had in mind.
+
+**Decision:** Mirror the sibling guard exactly rather than invent a third normalisation — decompose, strip the exposed marks, then tokenise. One lesson, one implementation. Both predicates now share a normalisation chain, and `docs/technical/database.md` documents the chain once for both rather than per-migration.
+
+**Alternatives rejected:** *Extend the fixed invisible-character list* — the list is an enumeration, and the whole point of the token approach was that enumerations are blacklists wearing an allowlist's clothes; the next unlisted mark reopens it. *Add a slug format constraint (ASCII-only)* — a real option and probably worth doing separately, but it defends one column while leaving the predicate wrong for every other caller.
+
+**Consequences:** When a guard is described as "deliberately simpler than its sibling", that sentence is now a review trigger. The simplification here was real and correctly argued (the sibling needed a second clause for a legitimate-name case that has no slug equivalent) — and the migration header said so — but "simpler in one respect" silently carried "skips the hardening in another". Diff the sibling's *body*, not its rationale.
+
+**How it was found and confirmed:** code review flagged it from static reading alone and labelled itself unverified. It was then confirmed by running the predicate against the test database before any fix was written, and the fix was proven by regressing the predicate and watching the pinned cases fail (epistemic gate 7). Both steps mattered: the reviewer's *reasoning* was right, but a claim about Unicode normalisation behaviour is exactly the kind that reads plausibly in either direction.
+
+**References:** [database.md](technical/database.md), `supabase/migrations/20260824140000_p1104_slug_guard_decompose.sql`, `e2e/integration/p1104-agent-accounts-migration.spec.ts`
+
+---
+
+## 2026-08-24 [technical]: A link check may only test the claim the label actually makes
+
+**Context:** A security finding described machine-authored text that displays one address while pointing at another — a disguise. The first fix required *every* markdown label to be a URL equal to its href. That is a much larger rule than the finding supports: it silently downgraded every ordinary descriptive link (`[my site]`, `[click here]`, `[docs]`) to dead plain text across all fourteen places that render story and point text, product-wide, not only in machine-authored stories.
+
+**Decision:** Scope the rule to labels that *assert* a destination. A label shaped like an address is checked against the address and must match exactly; ordinary prose asserts nothing about where it goes and renders as a link, as on the open web. Three details are load-bearing and each was found by testing rather than reasoning: the check scans the **whole** label, not its first token (a trailing address is still a claim); markdown emphasis is stripped **before** the shape test (a bold address is still an address); and the shape test runs **before** parsing, because a URL parser accepts a bare word as a hostname and so cannot tell an address from prose.
+
+**Alternatives rejected:** *Keep the strict rule and amend the spec of the shipped link feature to match* — defensible only as a deliberate product choice, and it was never made as one. *Reject only on a parse mismatch* — that is what produced the original defect, since a one-word label parses successfully as a hostname.
+
+**Consequences:** Fail-safe still applies inside the claim branch, and the destination is still refused outright when the host cannot be judged by matching at all. The narrower rule is pinned by cases that fail under the strict version, so a future tightening cannot land silently.
+
+**References:** `src/app/utils/linkify.ts`, `src/tests/p1141-linkify-structure.test.tsx`
+
+---
+
+## 2026-08-24 [process]: Two verifications that could not fail — a rewritten oracle and a typecheck that checked nothing
+
+**Context:** One session produced two green signals that were structurally incapable of going red. Neither was caught by a gate; both were caught by asking what the check would do if the thing it watches were broken.
+
+**1. A shipped feature's test was rewritten to match new code.** Narrowing the link rule (entry above) broke a pre-existing test that asserted a descriptive label renders as a link. The build changed that test's *labels* to literal URLs so it would keep passing. The suite stayed green and the regression became invisible — the test that existed to catch exactly this had been converted into a test of the new behaviour. The repo rule is "tests are specs — fix code, not tests"; the violation is hard to see because the edit looks like an ordinary fixture update, and the commit that makes it is usually about something else.
+
+**2. A typecheck that type-checked nothing.** `npx tsc --noEmit` was used as a quick mid-work probe and reported clean while two React components had missing imports. The root `tsconfig.json` is a solution-style file — `"files": []` plus project references — so the command compiles an empty program. A deliberately introduced type error also exits 0. The missing imports shipped into the browser as a blank error-boundary page and cost a full e2e run to diagnose. The repo's own pre-commit gate catches this correctly (it exits non-zero and names the undeclared identifier); the failure was substituting an unvalidated ad-hoc command for the project's gate.
+
+**Decision:** Both get the same treatment, and it is the control-probe discipline already in this log applied to *positive* results rather than empty ones. Before a green run is allowed to mean anything: (a) when a test changes in the same commit as the code it covers, state what the test asserted *before* and why that assertion is no longer the spec — if it still is the spec, the code is wrong, not the test; (b) before trusting any verification command not already wired into the repo's gates, break something on purpose and confirm it goes red.
+
+**Alternatives rejected:** *Ban editing tests alongside code* — wrong; legitimate spec changes require exactly that, and a blanket ban would push the same edit into a separate commit where it is harder to see. *Add a lint rule for undefined JSX components* — worth doing, but it treats the symptom; the general defect is trusting an uncalibrated probe, which no single rule covers.
+
+**Consequences:** "The suite is green" and "the typecheck passes" are claims about the checks, not about the code, until the check has been seen to fail. A restored oracle is worth more than a passing suite: restoring the shipped feature's test verbatim and re-running it against the narrowed rule is what proved the narrowing correct.
+
+**References:** `src/tests/p540-linkify-markdown.test.ts`, `scripts/pre-commit-checks.sh`, [epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
 ## 2026-08-21 [process]: A spec's own argument only supports one of its five components — adversarial review found that, self-review didn't
 
 **Context:** Filed a credential-rotation spec (mint/write/verify/revoke across every credential the project and operator hold) after a design conversation the founder had pre-approved. Two independent adversarial subagents both returned RETHINK. Both required chasing — each went idle once before delivering (see the fan-out entry below). Every load-bearing claim from both reports was re-verified by command before being relayed or acted on, per epistemic gate 9; every number checked reproduced exactly.
