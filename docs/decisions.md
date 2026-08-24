@@ -267,6 +267,40 @@ before any future retire/keep decision.
 this log 2026-08-19 (attribution by source selection) · this log 2026-05-31 (GPU idle-cost leak) ·
 [docs/technical/infrastructure.md](technical/infrastructure.md)
 
+---
+
+## 2026-08-24 [technical]: A shared page-level layout flag applies route-wide, not sub-state-wide — reusing one for a second route needs every sub-state audited
+
+**Context:** P1149's `/transcribe` room view needed a top-right "End Session" control matching
+`/live`'s own header exactly (founder ask, replacing a duplicate bottom button per the P955
+one-primary-action rule). `/live` gets this by having its own sticky top bar overlap
+`ClarityLandingLayout`'s fixed `SimpleNavigation` — enabled by the `isLivePage` flag in
+[clarity-landing-layout.tsx](../src/app/layouts/clarity-landing-layout.tsx), which removes
+`<main>`'s top padding (among other things: `overflow-hidden`, footer, `ActiveSessionBanner`).
+
+**Decision:** Widened `isLivePage` to also match `/transcribe` and `/transcribe/*`, rather than
+adding a parallel flag — this reuses every gate the flag already controls, matching the existing
+`isReadyPage`/`isMeetingTermsPage` convention for multi-route flags.
+
+**Alternatives rejected:** A flag scoped only to the room sub-state (would have needed to
+duplicate `isLivePage`'s padding/footer/overflow gates by hand); keeping both the new top-right
+control and the old bottom button (duplicate exit controls, same redundancy just fixed elsewhere
+in this feature).
+
+**Consequences:** `ClarityLandingLayoutInner` only sees the pathname, not the page's internal
+view state — so widening `isLivePage` removed `<main>`'s top padding for **every** `/transcribe`
+sub-state (loading, consent, room, ended), not just the room view that supplies its own
+compensating sticky header. This broke the consent screen's "Leave" button (`SimpleNavigation`'s
+fixed nav intercepted its clicks), caught by `e2e/p1149-consent-gate.spec.ts` going red. Fixed by
+giving the loading/consent/ended screens the same nav-clearance padding `/live`'s own pre-join
+screens already use. **Reusing an `isLivePage`-style flag for a new route requires auditing every
+sub-state of that route, not just the one state that motivated the change** — the flag has no
+visibility into which sub-state is currently rendering.
+
+**References:** [clarity-landing-layout.tsx](../src/app/layouts/clarity-landing-layout.tsx),
+[transcribe-room-page.tsx](../src/app/pages/transcribe-room-page.tsx),
+[e2e/p1149-consent-gate.spec.ts](../e2e/p1149-consent-gate.spec.ts)
+
 ## 2026-08-23 [process]: Local `main` is not a safe substitute for `origin/main` as goal-gate's contract-pin trust anchor
 
 **Context:** P1114's `/ship` hit CHECK 7 (contract-pin mismatch) at the spec-close step. The pin
