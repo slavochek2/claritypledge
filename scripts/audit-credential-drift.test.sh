@@ -467,6 +467,286 @@ else
   pass_count=$((pass_count + 1))
 fi
 
+# ══════════════════════════════════════════════════════════════════════════
+# CASE K — P1153 D-1: an unparseable line must not vanish from the summary.
+#
+# Regression: COVERAGE was built from LIVE_KEYS, which is derived only from
+# CLASSIFIED: lines, so UNPARSEABLE: lines entered neither half of the ratio.
+# A real run reported COVERAGE:84/84 — a perfect score — while 10 lines
+# carrying live credentials with non-shell-legal key names were skipped.
+# The per-line reporting was always honest; only the SUMMARY could read
+# clean while lines went unexamined. This is the silent-skip-equals-clean
+# pattern, so the invariant is: no summary may read fully clean when any
+# line was skipped. All fixtures synthetic.
+# ══════════════════════════════════════════════════════════════════════════
+CASE_K="${WORK}/case-k"
+ENV_DIR_K="${CASE_K}/env"
+SRC_DIR_K="${CASE_K}/src-fixture"
+mkdir -p "$ENV_DIR_K" "$SRC_DIR_K"
+
+# One well-formed registered key, plus three lines whose key names are not
+# shell-legal (dots / lowercase) — the real-world shape that produced the
+# false 84/84. These are values with no usable key name at all.
+cat > "${ENV_DIR_K}/fixture.env" <<'ENV_EOF'
+FAKE_WELLFORMED_KEY=fixture-value-k1
+fake.dotted.name=fixture-value-k2
+lowercase_name=fixture-value-k3
+another.one=fixture-value-k4
+ENV_EOF
+
+cat > "${CASE_K}/registry.md" <<'REG_EOF'
+# Fixture Registry K — synthetic, for audit-credential-drift.test.sh only. No real credentials.
+
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_WELLFORMED_KEY` | `fixture.env` | `svc-k` | manual-only | 180d | 2026-01-01 | active | |
+REG_EOF
+
+cat > "${SRC_DIR_K}/svcK.ts" <<'TS_EOF'
+const token = Deno.env.get('FAKE_WELLFORMED_KEY');
+TS_EOF
+
+echo "--- case K: unparseable lines must reach the summary (P1153 D-1) ---"
+run_audit "audit over an env file with 3 unparseable lines" 0 \
+  --audit --env-dir "$ENV_DIR_K" --registry "${CASE_K}/registry.md" \
+  --consumers-dir "$SRC_DIR_K"
+
+# Pre-existing behaviour, re-asserted as the baseline this fix builds on:
+# the per-line reporting already drops nothing.
+assert_out "K1 per-line: each unparseable line is still reported individually" \
+                                       "UNPARSEABLE:${ENV_DIR_K}/fixture.env"
+
+# THE FIX: the summary must carry the skipped count. Without this the
+# operator reads 1/1 and stops.
+assert_out "K2 summary carries the unclassifiable count (the D-1 fix)" \
+                                       "unclassifiable=3"
+
+# The wrong-but-tempting output this guards against is the OLD line —
+# `COVERAGE:1/1:not-enumerated=0` — which reads as a clean 100% while 3
+# lines went unexamined. It cannot be written as an assert_not_out: that
+# helper is a substring check, and the old line is a literal prefix of the
+# new one, so it would fail against correct output. Asserting the complete
+# new line is the stronger statement anyway — it pins the field order and
+# proves the summary cannot terminate before the skipped count.
+assert_out "K3 the summary line cannot end before stating what was skipped" \
+                                       "COVERAGE:1/1:not-enumerated=0:unclassifiable=3"
+
+# Control: a run with NO unparseable lines must still state the count, so
+# that "clean" is an assertion the script makes rather than the absence of
+# a field. A field that only appears on failure is a field nobody learns to
+# look for.
+CASE_K2="${WORK}/case-k2"
+mkdir -p "${CASE_K2}/env" "${CASE_K2}/src"
+cat > "${CASE_K2}/env/fixture.env" <<'ENV_EOF'
+FAKE_CLEAN_KEY=fixture-value-clean
+ENV_EOF
+cat > "${CASE_K2}/registry.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_CLEAN_KEY` | `fixture.env` | `svc-c` | manual-only | 180d | 2026-01-01 | active | |
+REG_EOF
+cat > "${CASE_K2}/src/svc.ts" <<'TS_EOF'
+const t = Deno.env.get('FAKE_CLEAN_KEY');
+TS_EOF
+run_audit "control: genuinely clean run still states the count" 0 \
+  --audit --env-dir "${CASE_K2}/env" --registry "${CASE_K2}/registry.md" \
+  --consumers-dir "${CASE_K2}/src"
+assert_out "K4 clean run asserts unclassifiable=0 rather than omitting it" \
+                                       "unclassifiable=0"
+
+# ══════════════════════════════════════════════════════════════════════════
+# CASE L — P1153 D-2: a consumer is a READ, not a name that appears.
+#
+# Two regressions in one line (`grep -rl -- "$key"`):
+#   (a) bare substring match — MIRA_EMAIL matched files that only mention
+#       MIRA_EMAIL_PASSWORD, inflating live_n for 5 real keys;
+#   (b) any occurrence counted, so widening the scan to prose-bearing trees
+#       (docs/, features/) would make every retired credential named in an
+#       archived spec read as live — the inverse defect.
+# The real run reported 21 of 41 retirement candidates for credentials that
+# are actively read, because the scan omitted the repo root, service trees,
+# and skill files. Widening the scan is only safe once the match is a read.
+# ══════════════════════════════════════════════════════════════════════════
+CASE_L="${WORK}/case-l"
+ENV_DIR_L="${CASE_L}/env"
+ROOT_DIR_L="${CASE_L}/root-fixture"
+SVC_DIR_L="${CASE_L}/services-fixture"
+SKILL_DIR_L="${CASE_L}/skills-fixture"
+DOCS_DIR_L="${CASE_L}/docs-fixture"
+mkdir -p "$ENV_DIR_L" "$ROOT_DIR_L" "$SVC_DIR_L" "$SKILL_DIR_L" "$DOCS_DIR_L"
+
+cat > "${ENV_DIR_L}/fixture.env" <<'ENV_EOF'
+FAKE_BUILDTIME_KEY=fixture-value-l1
+FAKE_SERVICE_KEY=fixture-value-l2
+FAKE_SKILL_KEY=fixture-value-l3
+FAKE_PROSE_ONLY_KEY=fixture-value-l4
+FAKE_PREFIX_KEY=fixture-value-l5
+FAKE_PREFIX_KEY_EXTRA=fixture-value-l6
+FAKE_OBJDEREF_KEY=fixture-value-l7
+FAKE_REGEXREAD_KEY=fixture-value-l8
+ENV_EOF
+
+cat > "${CASE_L}/registry.md" <<'REG_EOF'
+# Fixture Registry L — synthetic, for audit-credential-drift.test.sh only. No real credentials.
+
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_BUILDTIME_KEY` | `fixture.env` | `build` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_SERVICE_KEY` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_SKILL_KEY` | `fixture.env` | `skill` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_PROSE_ONLY_KEY` | `fixture.env` | `nobody` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_PREFIX_KEY` | `fixture.env` | `nobody` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_PREFIX_KEY_EXTRA` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_OBJDEREF_KEY` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+| `FAKE_REGEXREAD_KEY` | `fixture.env` | `svc` | manual-only | 180d | 2026-01-01 | active | |
+REG_EOF
+
+# A build-config consumer sitting at a directory root (stands in for
+# vite.config.ts, which reads a token at build time and was reported as a
+# retirement candidate on the real run).
+cat > "${ROOT_DIR_L}/build.config.ts" <<'TS_EOF'
+export default { authToken: process.env.FAKE_BUILDTIME_KEY };
+TS_EOF
+
+# A service tree consumer (stands in for services/transcribe/config.py).
+cat > "${SVC_DIR_L}/config.py" <<'PY_EOF'
+FAKE = os.getenv("FAKE_SERVICE_KEY", "")
+PY_EOF
+
+# A skill file that BOTH names a key in prose AND genuinely reads another.
+# Only the read may count. This is the exact shape of the real skill files:
+# a "# Requires: X" comment line plus a real process.env read further down.
+cat > "${SKILL_DIR_L}/skill.md" <<'MD_EOF'
+# Requires: FAKE_PROSE_ONLY_KEY in the environment
+Some prose that mentions FAKE_PROSE_ONLY_KEY again for good measure.
+
+    const [id, secret] = process.env.FAKE_SKILL_KEY.split(':');
+MD_EOF
+
+# A docs tree that only ever NAMES keys. Nothing here may count as a
+# consumer — this is the guard against over-widening the scan.
+cat > "${DOCS_DIR_L}/decisions.md" <<'MD_EOF'
+2026-01-01: we retired FAKE_PROSE_ONLY_KEY and FAKE_PREFIX_KEY. See also
+FAKE_BUILDTIME_KEY and FAKE_SERVICE_KEY, discussed at length.
+MD_EOF
+
+# The prefix-collision fixture: only the _EXTRA key is ever read.
+cat > "${SVC_DIR_L}/uses_extra.py" <<'PY_EOF'
+X = os.getenv("FAKE_PREFIX_KEY_EXTRA", "")
+PY_EOF
+
+# The two read forms the FIRST attempt at this fix missed, each of which
+# produced a false retirement against real data (epistemic.md gate 7b — the
+# suite was green because these fixtures could not emit them):
+#   1. object dereference: .env.local parsed into an object, read as a
+#      property rather than through process.env
+#   2. regex extraction: the key pulled out of raw .env text by pattern
+cat > "${SVC_DIR_L}/reads_via_object.mjs" <<'JS_EOF'
+const env = parseEnvFile('.env.local');
+const USER = env.FAKE_OBJDEREF_KEY;
+JS_EOF
+cat > "${SVC_DIR_L}/reads_via_regex.mjs" <<'JS_EOF'
+const m = raw.match(/^\s*FAKE_REGEXREAD_KEY\s*=\s*(.+)\s*$/m);
+if (!m) throw new Error('FAKE_REGEXREAD_KEY not found in .env.local');
+JS_EOF
+
+echo "--- case L: a consumer is a read, not a mention (P1153 D-2) ---"
+run_audit "audit with build-root, service, skill and docs trees scanned" 0 \
+  --audit --env-dir "$ENV_DIR_L" --registry "${CASE_L}/registry.md" \
+  --consumers-dir "$ROOT_DIR_L" --consumers-dir "$SVC_DIR_L" \
+  --consumers-dir "$SKILL_DIR_L" --consumers-dir "$DOCS_DIR_L"
+
+assert_not_out "L1 build-time read is a consumer, not a retirement candidate" \
+                                       "RETIREMENT_CANDIDATE:FAKE_BUILDTIME_KEY"
+assert_not_out "L2 service-tree read is a consumer, not a retirement candidate" \
+                                       "RETIREMENT_CANDIDATE:FAKE_SERVICE_KEY"
+assert_not_out "L3 skill-file read is a consumer, not a retirement candidate" \
+                                       "RETIREMENT_CANDIDATE:FAKE_SKILL_KEY"
+
+# The inverse case — the one that protects against over-widening. This key
+# is named four times across a skill file and a docs tree and read zero
+# times. It must still be reported.
+assert_out     "L4 prose-only mentions are NOT consumers (over-widening guard)" \
+                                       "RETIREMENT_CANDIDATE:FAKE_PROSE_ONLY_KEY"
+
+# The prefix-collision case: FAKE_PREFIX_KEY is read nowhere; only
+# FAKE_PREFIX_KEY_EXTRA is. A substring matcher credits the former with the
+# latter's consumer and hides a genuine retirement candidate.
+assert_out     "L5 a key that is a prefix of another is not credited with its reads" \
+                                       "RETIREMENT_CANDIDATE:FAKE_PREFIX_KEY"
+assert_not_out "L6 the longer key is still correctly seen as live" \
+                                       "RETIREMENT_CANDIDATE:FAKE_PREFIX_KEY_EXTRA"
+
+# Because "where it looked" turned out to BE the finding, the scan surfaces
+# must be attributable from the output alone.
+assert_not_out "L8 an object-dereference read is a consumer (env.KEY)" \
+                                       "RETIREMENT_CANDIDATE:FAKE_OBJDEREF_KEY"
+assert_not_out "L9 a regex-extraction read is a consumer" \
+                                       "RETIREMENT_CANDIDATE:FAKE_REGEXREAD_KEY"
+
+assert_out     "L7 output names the consumer surfaces it scanned" \
+                                       "CONSUMER_SCAN:${ROOT_DIR_L}"
+
+# ══════════════════════════════════════════════════════════════════════════
+# CASE M — P1153 D-3: compare tier TOKENS, not whole cells.
+#
+# Regression: the comparison was `[[ "$tier_a" != "$tier_n" ]]` over the
+# entire tier cell, prose included, so two registries classifying a key
+# IDENTICALLY flagged as drift whenever the parenthetical wording differed.
+# All 3 REGISTRY_MISMATCH findings on the real run were of this shape.
+# This also blocks P1148, which needs to read a tier mechanically from a
+# registry row in order to route a credential to a rotator tier.
+# ══════════════════════════════════════════════════════════════════════════
+CASE_M="${WORK}/case-m"
+ENV_DIR_M="${CASE_M}/env"
+REG_DIR_M="${CASE_M}/registry"
+mkdir -p "$ENV_DIR_M" "$REG_DIR_M"
+
+cat > "${ENV_DIR_M}/fixture.env" <<'ENV_EOF'
+FAKE_SAME_TIER_KEY=fixture-value-m1
+FAKE_REAL_DRIFT_KEY=fixture-value-m2
+FAKE_NO_TOKEN_KEY=fixture-value-m3
+ENV_EOF
+
+# Registry A and B agree on FAKE_SAME_TIER_KEY's tier token and differ only
+# in the explanatory parenthetical — the exact real-world shape. They
+# genuinely disagree on FAKE_REAL_DRIFT_KEY. Neither states a recognizable
+# token for FAKE_NO_TOKEN_KEY.
+cat > "${REG_DIR_M}/registry-a.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_SAME_TIER_KEY` | `fixture.env` | `svc-m` | `not-a-secret` (domain name + region code) | n/a | n/a | active | |
+| `FAKE_REAL_DRIFT_KEY` | `fixture.env` | `svc-m` | `auto-api` (rotatable by API) | 90d | 2026-01-01 | active | |
+| `FAKE_NO_TOKEN_KEY` | `fixture.env` | `svc-m` | to be decided by the founder | n/a | n/a | active | |
+REG_EOF
+
+cat > "${REG_DIR_M}/registry-b.md" <<'REG_EOF'
+| Env var | Location | Consumers | Tier | Interval | Last rotated | Status | Value |
+|---|---|---|---|---|---|---|---|
+| `FAKE_SAME_TIER_KEY` | `fixture.env` | `svc-m` | `not-a-secret` (domain name, not a credential) | n/a | n/a | active | |
+| `FAKE_REAL_DRIFT_KEY` | `fixture.env` | `svc-m` | `manual-only` (provider has no rotation API) | 180d | 2026-01-01 | active | |
+| `FAKE_NO_TOKEN_KEY` | `fixture.env` | `svc-m` | still an open question | n/a | n/a | active | |
+REG_EOF
+
+echo "--- case M: tier comparison is token-based, not string-based (P1153 D-3) ---"
+run_audit "audit over two registries with prose-divergent tier cells" 0 \
+  --audit --env-dir "$ENV_DIR_M" \
+  --registry "${REG_DIR_M}/registry-a.md" --registry "${REG_DIR_M}/registry-b.md"
+
+assert_not_out "M1 same tier token, different prose, is NOT drift" \
+                                       "REGISTRY_MISMATCH:FAKE_SAME_TIER_KEY"
+assert_out     "M2 genuinely different tier tokens ARE still drift" \
+                                       "REGISTRY_MISMATCH:FAKE_REAL_DRIFT_KEY"
+
+# The silent-skip trap in its D-3 form: two rows that both fail to state a
+# token must not compare equal and pass in silence. Unreadable is a finding,
+# not an agreement.
+assert_out     "M3 a row with no recognizable tier token reports, not passes" \
+                                       "TIER_UNCLASSIFIABLE:FAKE_NO_TOKEN_KEY"
+assert_not_out "M4 two token-less rows do not silently read as agreeing" \
+                                       "REGISTRY_MISMATCH:FAKE_NO_TOKEN_KEY"
+
+
 echo ""
 echo "=== ${pass_count} passed, ${fail_count} failed ==="
 [[ "$fail_count" -eq 0 ]] || exit 1

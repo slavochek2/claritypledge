@@ -69,6 +69,106 @@ _safe_echo() {
   echo "$line"
 }
 
+# _tier_token CELL — reduce a registry Tier cell to its bare classification
+# token, or return 1 if the cell states none (P1153 D-3).
+#
+# Registry cells carry a token plus an explanatory parenthetical, and the
+# two registries word those parentheticals differently for the same tier:
+#     `not-a-secret` (domain name + region code)
+#     `not-a-secret` (domain name, not a credential)
+# Comparing whole cells reported those as drift. Comparing tokens does not.
+#
+# Two accepted forms, checked in order of explicitness:
+#   1. a backticked token anywhere in the cell — the newer registry style
+#   2. the whole cell, once a trailing parenthetical is stripped, IF what
+#      remains is exactly one bare word — the older bare style (`manual-only`)
+# Anything else (free prose such as "to be decided by the founder") yields
+# no token and is reported as TIER_UNCLASSIFIABLE by the caller rather than
+# being silently compared.
+_tier_token() {
+  local cell="$1" bt rest
+  bt=$(printf '%s' "$cell" | grep -oE '`[A-Za-z][A-Za-z0-9_-]*`' | head -1 | tr -d '`')
+  if [[ -n "$bt" ]]; then printf '%s' "$bt"; return 0; fi
+  rest=$(printf '%s' "$cell" | sed -E 's/\(.*$//' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+  if [[ "$rest" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]]; then printf '%s' "$rest"; return 0; fi
+  return 1
+}
+
+# _consumer_read_re KEY — an ERE matching an explicit READ of KEY (P1153 D-2).
+#
+# Used for MARKDOWN only; code files use the whole-word matcher below. See
+# _count_live_consumers for why the two tiers exist.
+#
+# The original matcher was `grep -rl -- "$key"`, a bare substring search,
+# which failed in two directions at once:
+#   (a) prefix collision — a file reading FOO_KEY_EXTRA counted as a consumer
+#       of FOO_KEY, hiding genuine retirement candidates. Every alternative
+#       below therefore ends in an explicit non-identifier boundary; the
+#       quoted forms get that boundary from their closing quote.
+#   (b) prose counted as use — a doc naming a retired credential must not
+#       make it read as live.
+#
+# `[A-Za-z_][A-Za-z0-9_]*\.KEY` covers the object-dereference form this repo
+# actually uses (`env.OPS_EMAIL`, `envLocal.PROD_ALIGN_AGENT_PASSWORD`),
+# where .env.local is parsed into an object and read as properties rather
+# than through process.env. Omitting it produced 5 false retirements against
+# real data on the first attempt at this fix.
+_consumer_read_re() {
+  local k="$1"
+  local b="([^A-Za-z0-9_]|$)"
+  local q="['\"]"
+  printf '%s' "([A-Za-z_][A-Za-z0-9_]*\.${k}${b}\
+|process\.env\[${q}${k}${q}\
+|Deno\.env\.get\(${q}${k}${q}\
+|os\.getenv\(${q}${k}${q}\
+|os\.environ\[${q}${k}${q}\
+|os\.environ\.get\(${q}${k}${q}\
+|getenv\(${q}${k}${q}\
+|\\\$\{${k}\}\
+|\\\$${k}${b})"
+}
+
+# _count_live_consumers KEY — how many files under the scanned surfaces
+# actually consume KEY. Two tiers, because "what counts as a read" genuinely
+# differs by file type (P1153 D-2):
+#
+#   CODE  — a whole-word occurrence of the key counts. Code has many valid
+#           read forms and inventing a complete list of them is what failed:
+#           an explicit-pattern-only matcher missed `env.KEY` dereferences and
+#           a regex that extracts the key from raw .env text, reporting 5 live
+#           credentials as retirement candidates. A name appearing whole-word
+#           in a source file is a sound proxy for use, and word-boundary
+#           matching still defeats the prefix collision (`_` is a word
+#           character, so KEY does not match inside KEY_EXTRA).
+#
+#   MARKDOWN — requires an explicit read form. Markdown is where prose lives,
+#           and prose naming a credential is not a consumer. This is what lets
+#           the scan safely include .claude/commands (skill files that really
+#           do read credentials) without every doc mention reading as live.
+#
+# Counting distinct FILES, matching the previous behaviour, so `documented`
+# vs `live` stays comparable across this change.
+# Every --include MUST precede the `--` terminator. `--` ends option parsing,
+# so an --include placed after it is taken as a FILENAME: BSD grep (what a
+# script gets from /usr/bin/grep on macOS) then warns "No such file or
+# directory" to stderr — which this function discards — and scans EVERY file
+# type anyway. The filters silently do nothing, markdown prose is read as
+# code, and the over-widening guard this tier exists to provide is gone.
+# Verified against /usr/bin/grep 2.6.0-FreeBSD: flags after `--` scan .md,
+# flags before it do not.
+_count_live_consumers() {
+  local k="$1" code_hits md_hits
+  code_hits=$(grep -rlE \
+    --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+    --include='*.mjs' --include='*.cjs' --include='*.py' --include='*.sh' \
+    --include='*.yml' --include='*.yaml' --include='*.toml' --include='*.json' \
+    -- "(^|[^A-Za-z0-9_])${k}([^A-Za-z0-9_]|$)" \
+    "${CONSUMERS_DIRS[@]}" 2>/dev/null || true)
+  md_hits=$(grep -rlE --include='*.md' \
+    -- "$(_consumer_read_re "$k")" "${CONSUMERS_DIRS[@]}" 2>/dev/null || true)
+  printf '%s\n%s\n' "$code_hits" "$md_hits" | grep -v '^$' | sort -u | grep -c '' || true
+}
+
 MODE=""
 ENV_DIR=""
 CONSUMERS_DIRS=()
@@ -441,27 +541,57 @@ for key in $DUP_KEYS; do
   rows=$(printf '%s\n' "$ALL_REG_ROWS" | awk -F'\t' -v k="$key" '$2==k {print $1"\t"$5}')
   reg_a=$(printf '%s\n' "$rows" | sed -n '1p' | awk -F'\t' '{print $1}')
   tier_a=$(printf '%s\n' "$rows" | sed -n '1p' | awk -F'\t' '{print $2}')
+  tok_a=$(_tier_token "$tier_a" || true)
   row_count=$(printf '%s\n' "$rows" | grep -vc '^$' || true)
+
+  # A row whose tier cell yields no token is UNCLASSIFIABLE, never a match
+  # (P1153 D-3). Comparing two token-less cells would let free prose in two
+  # registries "agree" in silence — the same silent-skip-equals-clean trap
+  # this spec exists to close, in its tier-comparison form.
+  if [[ -z "$tok_a" ]]; then
+    _safe_echo "TIER_UNCLASSIFIABLE:${key}:${reg_a}"
+  fi
+
   n=2
   while [[ "$n" -le "$row_count" ]]; do
     reg_n=$(printf '%s\n' "$rows" | sed -n "${n}p" | awk -F'\t' '{print $1}')
     tier_n=$(printf '%s\n' "$rows" | sed -n "${n}p" | awk -F'\t' '{print $2}')
-    if [[ -n "$reg_n" && "$tier_a" != "$tier_n" ]]; then
-      _safe_echo "REGISTRY_MISMATCH:${key}:${reg_a}:tier=${tier_a}:${reg_n}:tier=${tier_n}"
+    tok_n=$(_tier_token "$tier_n" || true)
+    if [[ -n "$reg_n" && -z "$tok_n" ]]; then
+      _safe_echo "TIER_UNCLASSIFIABLE:${key}:${reg_n}"
+    fi
+    # Compare TOKENS, not whole cells. The cell carries an explanatory
+    # parenthetical that legitimately differs between registries; comparing
+    # cells made identical classifications read as drift (3 of 3 findings on
+    # the first real run were of that shape). Only compare when BOTH sides
+    # yielded a token — an unclassifiable row is reported above, not
+    # silently treated as equal or unequal.
+    if [[ -n "$reg_n" && -n "$tok_a" && -n "$tok_n" && "$tok_a" != "$tok_n" ]]; then
+      _safe_echo "REGISTRY_MISMATCH:${key}:${reg_a}:tier=${tok_a}:${reg_n}:tier=${tok_n}"
     fi
     n=$((n + 1))
   done
 done
 
 # RETIREMENT_CANDIDATE / CONSUMER_LIST_STALE — needs --consumers-dir.
+#
+# Every finding below is bounded by WHERE this scan looked, and on the first
+# real run that boundary WAS the finding: 21 of 41 retirement candidates
+# were credentials read at build time, from a service tree, or by a skill
+# file — none of which were being scanned. So the surfaces are emitted as
+# output, making any future false retirement attributable from the report
+# alone instead of requiring someone to re-derive the invocation.
 if [[ ${#CONSUMERS_DIRS[@]} -gt 0 ]]; then
+  for cdir in "${CONSUMERS_DIRS[@]}"; do
+    _safe_echo "CONSUMER_SCAN:${cdir}"
+  done
   LIVE_AND_REGISTERED=$(comm -12 <(printf '%s\n' "$LIVE_KEYS") <(printf '%s\n' "$REG_KEYS") 2>/dev/null | grep -v '^$' || true)
   for key in $LIVE_AND_REGISTERED; do
     row=$(printf '%s\n' "$ALL_REG_ROWS" | awk -F'\t' -v k="$key" '$2==k {print; exit}')
     regfile=$(printf '%s' "$row" | awk -F'\t' '{print $1}')
     cons=$(printf '%s' "$row" | awk -F'\t' '{print $4}')
     documented=$(printf '%s\n' "$cons" | awk -F',' '{n=0; for(i=1;i<=NF;i++){t=$i; gsub(/^[ \t]+|[ \t]+$/,"",t); if(t!="") n++} print n}')
-    live_n=$(grep -rl -- "$key" "${CONSUMERS_DIRS[@]}" 2>/dev/null | wc -l | tr -d ' ')
+    live_n=$(_count_live_consumers "$key")
     if [[ "$live_n" -eq 0 ]]; then
       _safe_echo "RETIREMENT_CANDIDATE:${key}:${regfile}"
     elif [[ "$live_n" != "$documented" ]]; then
@@ -482,9 +612,25 @@ NOT_ENUM_COUNT=${#NOT_ENUM[@]}
 # COVERAGE — total-reachable is every live key seen; classified is the
 # subset also found in a registry. Not-enumerated surfaces are declared
 # separately and never credited into either half of the ratio.
+#
+# `unclassifiable` counts lines this script could not parse into a key at
+# all (P1153 D-1). They are deliberately NOT folded into the ratio: a line
+# with no usable key name cannot be "classified" against a registry, so
+# adding it to the denominator would make the ratio permanently unclosable
+# and would conflate "key nobody registered" with "line nobody could read".
+# It is a separate, ALWAYS-PRESENT field instead — always present because a
+# field that appears only on failure is a field nobody learns to look for.
+#
+# Why this exists: the first real run reported COVERAGE:84/84, a perfect
+# score, while 10 lines carrying live credentials with non-shell-legal key
+# names were dropped from both halves. Per-line reporting was honest the
+# whole time (every one produced an UNPARSEABLE: line); only this summary
+# could read clean while lines went unexamined. No summary may read fully
+# clean when anything was skipped.
 TOTAL_REACHABLE=$(printf '%s\n' "$LIVE_KEYS" | grep -v '^$' | wc -l | tr -d ' ')
 CLASSIFIED_COUNT=$(comm -12 <(printf '%s\n' "$LIVE_KEYS") <(printf '%s\n' "$REG_KEYS") 2>/dev/null | grep -vc '^$' || true)
-_safe_echo "COVERAGE:${CLASSIFIED_COUNT}/${TOTAL_REACHABLE}:not-enumerated=${NOT_ENUM_COUNT}"
+UNCLASSIFIABLE_COUNT=$(printf '%s\n' "$ENV_FINDINGS" | grep -c '^UNPARSEABLE:' || true)
+_safe_echo "COVERAGE:${CLASSIFIED_COUNT}/${TOTAL_REACHABLE}:not-enumerated=${NOT_ENUM_COUNT}:unclassifiable=${UNCLASSIFIABLE_COUNT}"
 
 if [[ "$HARD_FAIL" -eq 1 ]]; then
   exit 1
