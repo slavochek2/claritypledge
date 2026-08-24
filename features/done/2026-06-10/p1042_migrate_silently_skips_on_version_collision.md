@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 15
 severity: high
 date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [tooling, migrations, supabase, concurrency]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1042-version-collision.sh
@@ -15,6 +14,7 @@ reproduce_artifact:
   scenarios_in_scope: [ledger-name-mismatch, historical-null-name-in-tree-duplicate, both-pending-arming-step, clean-noop, uncollided-new-migration]
   scenarios_deferred: []
   reproduced_at: 2026-08-24
+completed_at: 2026-08-24
 ---
 
 # P1042: `migrate.sh` silently skips a migration when another file already claimed its version
