@@ -334,15 +334,22 @@ time rather than at apply time.
       `stories.title` is now absent on test, matching prod. No code reads it (grep over `src/`)
 - [x] All three applied to test; the duplicate scan now exits 0 on the whole tree
 
-**Repair — prod** — each is a prod-only verification, unverifiable before the apply, so marked
-`[post-deploy]` per the /fix AC rule and ticked from live prod queries afterwards.
+**Repair — prod** — applied 2026-08-24 after the merge; all four verified against live prod.
 
-- [ ] `[post-deploy]` `event_room_members` and the P1114 RPCs exist on prod
-- [ ] `[post-deploy]` The three follow-up migrations (`20260821120000`, `20260821170000`,
-      `20260821180000`) apply cleanly; `migrate.sh --env prod` reports zero pending
-- [ ] `[post-deploy]` `/events/:slug/room` loads against prod without a missing-function error —
-      verified by an actual request, not a code trace
-- [ ] `[post-deploy]` Prod smoke passes after the applies
+- [x] `event_room_members` and the P1114 RPCs exist on prod — queried live 2026-08-24:
+      `event_room_members` 1, `event_room_answers` 1, `join_event_room` 1,
+      `get_room_readiness_distribution` 1
+- [x] The three follow-up migrations (`20260821120000`, `20260821170000`, `20260821180000`) applied
+      cleanly; `migrate.sh --env prod` now reports `No pending migrations — prod schema matches
+      local migration files` (245 applied, was 239)
+- [x] The missing-function error is gone — verified by an **actual request** to prod:
+      `POST /rest/v1/rpc/get_room_readiness_distribution` returns `42501 permission denied for
+      function` (anon lacks EXECUTE, which is correct — it is granted to `authenticated`).
+      Before the repair the same request returned `PGRST202`, function not found.
+      **Scope of this check:** it proves the function exists and is reachable. An authenticated
+      page load of `/events/:slug/room` was NOT performed — that remains unverified
+- [x] Prod smoke passed after the applies — `scripts/prod-smoke-test.mjs`, 8 passed / 0 failed
+      (auth, profile, story INSERT/SELECT/DELETE roundtrip, anon public read, PII column gate)
 
 ## Code-review finding: the primary path bypassed guard 2 (2026-08-24)
 
@@ -379,8 +386,10 @@ Three files renumbered so that no two share a version prefix:
 Ordering is preserved: `…161000` (tables) precedes `…171000` (rpcs, which depends on the tables),
 and both precede the `20260821*` follow-ups.
 
-Applied to **test** only. Prod still lacks the P1114 schema — the live defect in the Evidence
-section above is **not yet repaired**, and that is why this spec is not at `qa`.
+Applied to test first, then to **prod** on 2026-08-24 after the merge to main: six pending
+migrations (the three renumbered files plus the three follow-ups that had been failing `42P01` on
+every run). The live defect in the Evidence section above is **repaired** — prod went from 239 to
+245 applied migrations and now reports zero pending.
 
 In-repo references to the three old filenames were updated (specs, `docs/decisions.md`, the P1114
 provenance comment, `src/`, `e2e/`), with two deliberate exceptions:
