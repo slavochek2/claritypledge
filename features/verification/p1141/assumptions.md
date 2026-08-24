@@ -242,3 +242,21 @@ did not — one round was spent on a capture that could not have answered AC-2 (
 subsequent round found genuine defects rather than noise. Four of the five rounds were productive.
 A gate that reads "FAIL" over a review history like that is reporting the history correctly; the
 defect is in what the number can express, not in the review.
+
+---
+
+**A-26 — FOUNDER DECISION, 2026-08-23: accept the red gate.**
+Presented with three resolutions for CHECK 5 — accept the red gate, archive the five rounds and
+re-verify against the stabilised build, or raise the gate's round ceiling — the founder chose to
+**accept the red gate**. Rounds 1-5 stay exactly as written. Nothing was archived, deleted,
+re-run, or edited, and `scripts/goal-gate.sh` was not touched.
+
+This is the outcome to read off the file, and it is not a failure of the build: 19 of the 20 check
+groups pass, including all 14 MECHANICAL rows, the full unit suite, both Playwright specs, the UAT
+scorecard and the pinned-contract check. What CHECK 5 records is that independent review took five
+rounds to converge rather than two — because four of those rounds found real defects, and one was
+spent on a capture that could not have answered the criterion it was meant to judge (A-12).
+
+**The decision was escalated rather than taken by the loop**, because every path to a green gate ran
+through the audit trail, and altering an audit trail to make one's own work pass is not a call the
+agent doing the work should make — regardless of how defensible the reasoning looks from inside it.
