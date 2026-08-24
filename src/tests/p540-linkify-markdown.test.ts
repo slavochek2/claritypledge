@@ -1,22 +1,4 @@
 /**
- * P1141 SUPERSEDES part of this file's contract — read this before "fixing" a
- * failure here.
- *
- * P540 let a markdown link carry ANY label. The 2026-08-20 security finding
- * (docs/decisions.md) is exactly that permission: a link can display one label
- * while pointing somewhere else, published under a real person's agent account,
- * with the pipeline harvesting comment sections. P1141 narrows the rule to what
- * that finding supports — a link renders as a link only when its visible label
- * and its destination are the same place; on a mismatch the label renders as
- * plain, non-clickable text (fail-safe, content preserved).
- *
- * The labels below were therefore changed to MATCH their destinations. Nothing
- * else about these cases changed, and every XSS assertion in this file is
- * untouched — the scheme allowlist and the dangerous-scheme filtering are
- * unaffected by the narrowing. The mismatch cases themselves are asserted in
- * src/tests/p1141-linkify-structure.test.tsx.
- */
-/**
  * @file p540-linkify-markdown.test.ts
  * @description Unit tests for P540: linkifyText() markdown [text](url) support
  *
@@ -37,30 +19,30 @@ describe('linkifyText() — markdown [text](url) support (P540)', () => {
   // ── Basic markdown link parsing ────────────────────────────────────────────
   describe('markdown link parsing', () => {
     it('parses [text](url) into a named link', () => {
-      const result = linkifyText('Check [example.com](https://example.com) for details');
+      const result = linkifyText('Check [my site](https://example.com) for details');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links).toHaveLength(1);
       expect(links[0].props.href).toBe('https://example.com');
-      expect(links[0].props.children).toBe('example.com');
+      expect(links[0].props.children).toBe('my site');
     });
 
     it('parses [text](url) with http:// scheme', () => {
-      const result = linkifyText('[legacy.example.com](http://legacy.example.com)');
+      const result = linkifyText('[old site](http://legacy.example.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links).toHaveLength(1);
       expect(links[0].props.href).toBe('http://legacy.example.com');
-      expect(links[0].props.children).toBe('legacy.example.com');
+      expect(links[0].props.children).toBe('old site');
     });
 
     it('parses [text](url) with path and query string', () => {
-      const result = linkifyText('[example.com/api?v=2&format=json](https://example.com/api?v=2&format=json)');
+      const result = linkifyText('[docs](https://example.com/api?v=2&format=json)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links).toHaveLength(1);
       expect(links[0].props.href).toBe('https://example.com/api?v=2&format=json');
     });
 
     it('preserves surrounding plain text', () => {
-      const result = linkifyText('See [a.com](https://a.com) for more');
+      const result = linkifyText('See [this](https://a.com) for more');
       const texts = result.filter(n => typeof n === 'string') as string[];
       expect(texts[0]).toBe('See ');
       expect(texts[1]).toBe(' for more');
@@ -70,11 +52,11 @@ describe('linkifyText() — markdown [text](url) support (P540)', () => {
   // ── Mixed content: markdown + raw URLs ─────────────────────────────────────
   describe('mixed content', () => {
     it('handles markdown link + raw URL in same string', () => {
-      const result = linkifyText('Check [a.com](https://a.com) and https://b.com');
+      const result = linkifyText('Check [this](https://a.com) and https://b.com');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links).toHaveLength(2);
       // First link: named markdown link
-      expect(links[0].props.children).toBe('a.com');
+      expect(links[0].props.children).toBe('this');
       expect(links[0].props.href).toBe('https://a.com');
       // Second link: auto-detected raw URL
       expect(links[1].props.children).toBe('https://b.com');
@@ -82,20 +64,20 @@ describe('linkifyText() — markdown [text](url) support (P540)', () => {
     });
 
     it('handles raw URL + markdown link (reversed order)', () => {
-      const result = linkifyText('Visit https://a.com or [b.com](https://b.com)');
+      const result = linkifyText('Visit https://a.com or [click here](https://b.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links).toHaveLength(2);
       expect(links[0].props.href).toBe('https://a.com');
-      expect(links[1].props.children).toBe('b.com');
+      expect(links[1].props.children).toBe('click here');
       expect(links[1].props.href).toBe('https://b.com');
     });
 
     it('handles multiple markdown links in one string', () => {
-      const result = linkifyText('[a.com](https://a.com) and [b.com](https://b.com)');
+      const result = linkifyText('[A](https://a.com) and [B](https://b.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links).toHaveLength(2);
-      expect(links[0].props.children).toBe('a.com');
-      expect(links[1].props.children).toBe('b.com');
+      expect(links[0].props.children).toBe('A');
+      expect(links[1].props.children).toBe('B');
     });
 
     it('handles bare domain + markdown link', () => {
@@ -108,15 +90,15 @@ describe('linkifyText() — markdown [text](url) support (P540)', () => {
   // ── Processing order: no double-processing ─────────────────────────────────
   describe('processing order (no double-processing)', () => {
     it('URL inside [text](url) is NOT also auto-detected', () => {
-      const result = linkifyText('[example.com](https://example.com)');
+      const result = linkifyText('[click here](https://example.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       // Should produce exactly 1 link (the markdown link), not 2
       expect(links).toHaveLength(1);
-      expect(links[0].props.children).toBe('example.com');
+      expect(links[0].props.children).toBe('click here');
     });
 
     it('bare domain inside markdown href is not double-processed', () => {
-      const result = linkifyText('[example.com/path](https://example.com/path)');
+      const result = linkifyText('[site](https://example.com/path)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links).toHaveLength(1);
       expect(links[0].props.href).toBe('https://example.com/path');
@@ -184,25 +166,25 @@ describe('linkifyText() — markdown [text](url) support (P540)', () => {
   // ── Link attributes consistency ────────────────────────────────────────────
   describe('markdown link attributes', () => {
     it('sets target="_blank" on markdown links', () => {
-      const result = linkifyText('[example.com](https://example.com)');
+      const result = linkifyText('[test](https://example.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links[0].props.target).toBe('_blank');
     });
 
     it('sets rel="noopener noreferrer" on markdown links', () => {
-      const result = linkifyText('[example.com](https://example.com)');
+      const result = linkifyText('[test](https://example.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links[0].props.rel).toBe('noopener noreferrer');
     });
 
     it('sets className containing text-blue-500 on markdown links', () => {
-      const result = linkifyText('[example.com](https://example.com)');
+      const result = linkifyText('[test](https://example.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links[0].props.className).toContain('text-blue-500');
     });
 
     it('does NOT use text-blue-600 (LinkedText legacy color)', () => {
-      const result = linkifyText('[example.com](https://example.com)');
+      const result = linkifyText('[test](https://example.com)');
       const links = result.filter(n => typeof n === 'object') as React.ReactElement[];
       expect(links[0].props.className).not.toContain('text-blue-600');
     });

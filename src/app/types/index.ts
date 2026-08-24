@@ -1119,6 +1119,8 @@ export interface DbStory {
   system_tags: string[]; // P630: System tags (st-group, version, category)
   banner_url?: string | null; // P504: AI-generated banner image
   image_url?: string | null; // P591: Story supporting image
+  video_url?: string | null; // P1141: canonical watch URL, the ONE stored video field
+  video_quotes?: unknown; // P1141: raw jsonb — normalize with normalizeVideoQuotes()
 }
 
 // ----------------------------------------------------------------------------

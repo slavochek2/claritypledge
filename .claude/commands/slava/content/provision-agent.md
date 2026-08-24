@@ -127,7 +127,7 @@ looks exactly like an ordinary member who has not uploaded a photo**. Found 2026
 hand-seeded demo account.
 
 > **Do NOT "fix" this in `GravatarAvatar` by forcing grey for agents.** That reverses a
-> P1104 decision and breaks a deliberate guard: `e2e/p1104-agent-marker.spec.ts:357-389`
+> P1104 decision and breaks a deliberate guard: `e2e/p1104-agent-marker.spec.ts:372-405`
 > asserts an agent avatar resolves *the account's own colour*, using a `#39424B` fixture
 > chosen precisely because the default `#0044CC` "can never fail". The colour belongs to the
 > account, and the account is created here.

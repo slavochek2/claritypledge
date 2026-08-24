@@ -465,6 +465,18 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     // naive `slug LIKE 'machine-%'` check passes this straight through.
     ['Cyrillic homoglyphs', 'mасhine-real-public-figure'],
     ['the bare word', 'machine'],
+    // Added 2026-08-24 after code review found, and a live query against this database
+    // CONFIRMED, that all three of these were ACCEPTED by 20260824120000.
+    //
+    // A combining mark has no precomposed form for most bases, so NFKC left it standing;
+    // it is category Mn, therefore not [[:alnum:]], therefore a TOKEN SEPARATOR. The slug
+    // split to {'m','achine...'} and the reservation never fired — letting an ordinary
+    // user take a URL that reads as an official machine account for a named public figure.
+    // Fixed in 20260824140000 by mirroring is_reserved_agent_name (NFKD + strip marks
+    // before tokenising), the same hardening 20260820092000 applied to the NAME channel.
+    ['combining low line splitting the token', `m${String.fromCharCode(818)}achine-real-public-figure`],
+    ['combining acute splitting the token', `m${String.fromCharCode(769)}achine-real-public-figure`],
+    ['combining mark mid-word', `mach${String.fromCharCode(775)}ine-real-public-figure`],
   ];
 
   for (const [label, slug] of reservedSlugs) {

@@ -100,6 +100,32 @@ describe('p1141 DW-8 — a mismatched label never renders as a link', () => {
     }
   });
 
+  // NARROWING REGRESSION, added 2026-08-24 after code review.
+  //
+  // The first implementation required EVERY label to be a URL equal to the href. That is a far
+  // larger rule than the 2026-08-20 finding asked for, and it silently downgraded every ordinary
+  // descriptive link across the ten surfaces that render story and point text. It went unnoticed
+  // because the pre-existing P540 test asserting `[my site](https://example.com)` renders a link
+  // had its labels rewritten to literal URLs so it would keep passing — the oracle was edited to
+  // match the code. These cases exist so that cannot recur silently: they FAIL under the strict
+  // rule, and p540-linkify-markdown.test.ts (restored verbatim) fails with it too.
+  it('an ordinary descriptive label still renders as a link — it claims no destination', () => {
+    for (const label of ['my site', 'click here', 'docs', 'ClarityPledge', 'read the paper']) {
+      expect(labelMatchesDestination(label, 'https://example.com/x')).toBe(true);
+    }
+  });
+
+  it('an address ANYWHERE in the label is a claim, not just the first token', () => {
+    // The head-only version of the narrowing let this through: the reader sees "example.com"
+    // and lands on evil.com.
+    expect(labelMatchesDestination('Read more at example.com', 'https://evil.com')).toBe(false);
+    expect(labelMatchesDestination('Read more at example.com', 'https://example.com')).toBe(true);
+  });
+
+  it('a label naming TWO different places cannot be honest about one link', () => {
+    expect(labelMatchesDestination('example.com or evil.com', 'https://example.com')).toBe(false);
+  });
+
   it('a www. prefix and a trailing slash are the same place, not a mismatch', () => {
     expect(labelMatchesDestination('https://example.com/', 'https://www.example.com')).toBe(true);
   });

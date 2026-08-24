@@ -10,15 +10,29 @@ import type { ReactNode } from 'react';
  * Bare domain hrefs are prefixed with https:// to avoid relative URL resolution.
  */
 /**
- * P1141 — a link may render as a link only when its visible label and its
- * destination are the same place. The 2026-08-20 finding is exactly this:
- * harvested comment text can display one label while pointing somewhere else,
+ * P1141 — a link whose visible label CLAIMS a destination may render as a link
+ * only when that claim is true. The 2026-08-20 finding is exactly this:
+ * harvested comment text can display one address while pointing somewhere else,
  * published under a real person's agent account.
+ *
+ * NARROWED 2026-08-24, after review. The first implementation required EVERY
+ * label to be a URL equal to the href, which is a much larger rule than the
+ * finding asked for: it silently downgraded every ordinary descriptive link
+ * (`[my site]`, `[click here]`, `[docs]`) to dead plain text across all ten
+ * surfaces that render story and point text — measured, not inferred. That
+ * regression was invisible because the pre-existing P540 test asserting
+ * `[my site](https://example.com)` renders a link had its labels rewritten to
+ * literal URLs so it would keep passing. Tests are specs; the spec was right.
+ *
+ * The rule is therefore scoped to labels that MAKE a claim. A label that looks
+ * like an address is checked against the address; a label that is ordinary
+ * prose asserts nothing about where it goes and is left alone, exactly as on
+ * the open web.
  *
  * The comparison is made on PARSED urls, never raw strings — percent- and
  * punycode-encoding otherwise split what this check saw from what the browser
  * renders. The raw label token is compared, not a rendered one, so nested
- * markup (`[**Real Site**](https://evil.com)`) cannot diverge the comparison
+ * markup (`[**evil.com**](https://evil.com)`) cannot diverge the comparison
  * from what the reader actually sees.
  */
 
@@ -58,17 +72,69 @@ function urlIdentity(raw: string): string | null {
 }
 
 /**
+ * The label as the READER sees it, with markdown emphasis stripped.
+ *
+ * Load-bearing for the claim test, not cosmetic. `[**https://example.com**](https://evil.com)`
+ * renders a bold address and is exactly the disguise this check exists to stop, but the RAW
+ * token starts with `**` and so matches no address shape — it would sail through as prose.
+ *
+ * Only LEADING and TRAILING runs of markdown emphasis/code markers are removed. Interior
+ * characters are untouched, because `_` and `~` are legal inside a real URL path
+ * (`example.com/a_b`) and stripping them there would corrupt the very string being compared.
+ */
+function visibleLabel(rawLabel: string): string {
+  return rawLabel.trim().replace(/^[*_~`]+/, '').replace(/[*_~`]+$/, '').trim();
+}
+
+/**
+ * Every address-shaped token in the label — the claims the reader can see.
+ *
+ * Scans the WHOLE label, not just its first token. `[Read more at example.com](https://evil.com)`
+ * makes a claim in its last word, and checking only the head let that through: measured, then
+ * fixed. An empty result means the label is ordinary prose, promising nothing about where it
+ * goes, which is the open web's normal behaviour and stays allowed.
+ *
+ * A shape test, run before any parsing: `new URL()` accepts a bare word as a hostname
+ * (`new URL('https://docs')` is valid, host `docs`), so parse-success alone cannot separate an
+ * address from prose — that is exactly how `[docs](https://example.com/docs)` came to be
+ * rejected by the first implementation.
+ */
+function addressTokensIn(rawLabel: string): string[] {
+  return visibleLabel(rawLabel)
+    .split(/[\s,;]+/)
+    .filter(Boolean)
+    .filter(
+      (token) =>
+        /^https?:\/\//i.test(token) ||
+        /^www\./i.test(token) ||
+        /^[^\s/?#]+\.[a-z]{2,}([/?#]|$)/i.test(token)
+    );
+}
+
+/**
  * True when the label may be rendered as a clickable link to `href`.
- * Fail-safe: anything unparseable, confusable, or mismatched returns false and
- * the caller renders the label as plain, non-clickable text.
+ *
+ * Two separate questions, in order:
+ *  1. Is the DESTINATION judgeable at all? A confusable host defeats matching
+ *     structurally, so it is refused regardless of the label.
+ *  2. Does the LABEL make a claim? If not, there is nothing to contradict and
+ *     the link renders normally. If it does, the claim must hold exactly.
+ *
+ * Fail-safe within the claim branch: anything unparseable or mismatched returns
+ * false and the caller renders the label as plain, non-clickable text.
  */
 export function labelMatchesDestination(rawLabel: string, href: string): boolean {
   if (hasConfusableHost(href)) return false;
-  const labelIdentity = urlIdentity(rawLabel.trim());
-  if (!labelIdentity) return false;
+  const claims = addressTokensIn(rawLabel);
+  if (claims.length === 0) return true;
   const hrefIdentity = urlIdentity(href.trim());
   if (!hrefIdentity) return false;
-  return labelIdentity === hrefIdentity;
+  // EVERY visible address must be the destination. A label naming two different
+  // places cannot be honest about one link, so one matching token is not enough.
+  return claims.every((token) => {
+    const labelIdentity = urlIdentity(token);
+    return labelIdentity !== null && labelIdentity === hrefIdentity;
+  });
 }
 
 export function linkifyText(text: string): ReactNode[] {
