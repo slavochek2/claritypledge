@@ -1,14 +1,14 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 64
 workstream: events
 created_date: '2026-08-21'
 tags: [transcribe, room, live-transcription, chat, ml-training]
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, dev, ship]
 driver: heuristic
 drafted_by: opus
+completed_at: 2026-08-24
 ---
 
 # P1149: `/transcribe` — the live room transcription chat
@@ -26,23 +26,23 @@ The condition names an exit code on purpose: the evaluator reads the transcript 
 nothing, so the only trustworthy condition is one naming an artifact the agent cannot author.
 
 **The gate is not a ship signal.** It closes the 12 machine- and reviewer-decidable rows. The
-four physical checks in [P1152](p1152_transcribe_physical_device_verification.md) run against
+four physical checks in [P1152](../../p1152_transcribe_physical_device_verification.md) run against
 the finished branch before it merges.
 
 ## Problem
 
 **Situation:** Transcription in this product is post-hoc and one-pair-at-a-time. `/live`
 records a session, uploads chunked audio to `gs://claritypledge-ml-training/sessions/{code}/`
-([api.ts](../src/app/data/api.ts):3139 `uploadAudioChunk`), and the GPU service transcribes it
+([api.ts](../../../src/app/data/api.ts):3139 `uploadAudioChunk`), and the GPU service transcribes it
 after the fact. Separately, `/chat` renders live words from the browser speech API while
-recording ([clarity-chat-page.tsx](../src/app/pages/clarity-chat-page.tsx):544-580). Neither
+recording ([clarity-chat-page.tsx](../../../src/app/pages/clarity-chat-page.tsx):544-580). Neither
 serves a **room**: `/live` is structurally 1-on-1, and `/chat` is one person alone.
 
 **Complication:** An event puts eight people and eight microphones in one space. They cannot
 all be in a 1-on-1 `/live`, so today the room's speech is captured by nothing — no live text,
 no attributed record, no corpus. The pieces to fix that already exist and are not assembled:
 chunked audio upload, browser live transcription, Supabase Realtime sync
-([clarity-live-page.tsx](../src/app/pages/clarity-live-page.tsx)), and the GPU transcription
+([clarity-live-page.tsx](../../../src/app/pages/clarity-live-page.tsx)), and the GPU transcription
 job chain.
 
 **Question:** Can a room of people each transcribe from their own device into one shared,
@@ -88,11 +88,11 @@ weakest exactly where the room lives: phones.
 
 - Android Chrome has a known continuous-recognition gap
   ([crbug 40324711](https://issues.chromium.org/issues/40324711)); `useSpeechToText` sets
-  `continuous = true` ([useSpeechToText.ts](../src/hooks/useSpeechToText.ts):79).
+  `continuous = true` ([useSpeechToText.ts](../../../src/hooks/useSpeechToText.ts):79).
 - iOS forces every browser onto WebKit, whose `SpeechRecognition` support is inconsistent
   across versions — Chrome-on-iPhone is Safari wearing a different icon.
 - **Verified defect, independent of platform:** `recognition.onend` only sets
-  `isListening = false` ([useSpeechToText.ts](../src/hooks/useSpeechToText.ts):125). There is
+  `isListening = false` ([useSpeechToText.ts](../../../src/hooks/useSpeechToText.ts):125). There is
   **no auto-restart.** When recognition ends for any reason — mobile timeout, silence, network
   blip — the live transcript dies silently while the person keeps talking. The hook was built
   for short prompts, not for twenty minutes of sustained room speech.
@@ -115,7 +115,7 @@ natural pauses? Paste the observed output, not an inference.
 A new authenticated route `/transcribe`.
 
 **1. Consent gate.** Before the mic is touched. Reuses the framing already shipped on
-[start-clarity-session-button.tsx](../src/app/components/letters/start-clarity-session-button.tsx):184-190
+[start-clarity-session-button.tsx](../../../src/app/components/letters/start-clarity-session-button.tsx):184-190
 ("Session recorded for AI Insights" / "Private session"), adapted: recorded **and visible to
 everyone in this room**, plus agreement to terms and privacy policy. Entering the room is the
 consent act; there is no way past this screen without it.
@@ -188,7 +188,7 @@ whether or not layer 4 ever works.
   unchanged.
 - **Eight simultaneous participants each create a transcription job.** GPU quota is 5
   concurrent; Cloud Tasks holds the rest rather than dropping them
-  ([infrastructure.md](../docs/technical/infrastructure.md)). Verify the 6th-through-8th jobs
+  ([infrastructure.md](../../../docs/technical/infrastructure.md)). Verify the 6th-through-8th jobs
   complete rather than assuming the queue behaves.
 
 ### Non-Goals
@@ -213,7 +213,7 @@ whether or not layer 4 ever works.
 - **Server-side chunked transcription (CPU or GPU) for the live half.** Rejected for now: the
   browser does it at zero marginal cost and lower latency, and a 30-second server chunk
   reintroduces the warm-instance cost shape removed in P858
-  ([decisions.md](../docs/decisions.md) 2026-05-31). Held in reserve as the answer if Gate 0
+  ([decisions.md](../../../docs/decisions.md) 2026-05-31). Held in reserve as the answer if Gate 0
   fails on phones — it is the privacy-clean option and the only one that works on any device.
 - **Retiring the GPU service and moving batch transcription to CPU.** Rejected on measured
   pricing: an L4-attached Cloud Run instance costs roughly 1.8× the equivalent CPU-only
@@ -249,7 +249,7 @@ pending · corrected transcript ready.
 
 ## Done-When
 
-Four physical checks were carved out to [P1152](p1152_transcribe_physical_device_verification.md)
+Four physical checks were carved out to [P1152](../../p1152_transcribe_physical_device_verification.md)
 on 2026-08-23 — Gate 0 on real phones, two-device live delivery, radio-drop recovery, and
 eight-way concurrency. A green gate here covers what a command can decide; it is not a ship
 signal on its own.
@@ -258,7 +258,7 @@ signal on its own.
 founder will run P1152's physical checks against prod directly and record the outcome there.
 P1152 is `status: blocked`, not closed — see that spec for what's still outstanding.
 
-All 12 rows below are `pass` per [features/uat/p1149.md](uat/p1149.md)'s Test Execution Log —
+All 12 rows below are `pass` per [features/uat/p1149.md](../../uat/p1149.md)'s Test Execution Log —
 checked off against that recorded evidence, not re-asserted here.
 
 - [x] DW-1 `/transcribe` is reachable only when signed in; signed-out visitors are redirected
@@ -300,7 +300,7 @@ what replaces the founder finding obvious problems by hand.
 
 The first triage refused: 4 of 12 lines were HUMAN-ONLY (33%), over the 25% ceiling. Those four
 are physical — speech on real phones, a radio toggle, real GPU contention — and no test-writing
-converts them. They moved to [P1152](p1152_transcribe_physical_device_verification.md).
+converts them. They moved to [P1152](../../p1152_transcribe_physical_device_verification.md).
 
 **After the carve-out: 0 of 12 HUMAN-ONLY (0%).** Every remaining row is decided by a command
 or by a blind reviewer against a named reference.
@@ -385,7 +385,7 @@ Automated security review flagged `generateTranscribeRoomCode()` in
 `src/app/data/transcribe-service.ts` (w5, uncommitted): a 6-character code built from
 `Math.random()`.
 
-**This is not a novel finding — it is [P1097](p1097_room_code_minted_with_math_random.md)
+**This is not a novel finding — it is [P1097](../../p1097_room_code_minted_with_math_random.md)
 reintroduced.** That bug is open, `severity: high`, `rank: 2`, and describes the identical
 defect on `/live`'s room code: a 6-char bearer capability minted with a non-cryptographic PRNG.
 The room code here authorizes joining a room, and A4 scopes message reads to membership — so
@@ -562,9 +562,9 @@ being committed is what makes A1 safe, not where the markdown sits.
   presence and opt-in. Deliberately not a markdown link: as of 2026-08-23 that file is moved on
   disk but **untracked**, so a link to it would be dead. Its `event_room_members` table is the
   dependency A1 leaves alone.
-- [P1140](done/2026-06-10/p1140_transcript_retention_for_quote_reverification.md) — transcript retention for
+- [P1140](p1140_transcript_retention_for_quote_reverification.md) — transcript retention for
   quote re-verification
-- [infrastructure.md](../docs/technical/infrastructure.md) — `transcribe-session` Cloud Run,
+- [infrastructure.md](../../../docs/technical/infrastructure.md) — `transcribe-session` Cloud Run,
   job chain, GPU quota
-- [decisions.md](../docs/decisions.md) 2026-05-31 — the GPU idle-cost leak; why no timer may
+- [decisions.md](../../../docs/decisions.md) 2026-05-31 — the GPU idle-cost leak; why no timer may
   poke the service
