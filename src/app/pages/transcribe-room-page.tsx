@@ -223,7 +223,7 @@ export function TranscribeRoomPage() {
     return (
       <div className="max-w-md mx-auto px-4 py-8" data-testid="transcribe-consent-screen">
         <FocusHeader onBack={handleDecline} label="Leave" aria-label="Leave" />
-        <h1 className="text-xl font-semibold mb-2">Join the transcription room</h1>
+        <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Join the transcription room</h1>
         <p className="text-sm text-muted-foreground mb-6">
           Your spoken words will be transcribed live and shown to everyone in this room,
           attributed to you with a timestamp. A corrected transcript is produced afterward and
@@ -276,7 +276,7 @@ export function TranscribeRoomPage() {
   if (view === 'ended') {
     return (
       <div className="max-w-md mx-auto px-4 py-8 text-center" data-testid="transcribe-ended-screen">
-        <h1 className="text-xl font-semibold mb-2">Session ended</h1>
+        <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Session ended</h1>
         <p className="text-sm text-muted-foreground mb-6">
           A corrected transcript is being produced and will appear in your session history when ready.
         </p>
