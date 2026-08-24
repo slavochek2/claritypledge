@@ -440,16 +440,21 @@ scripts/audit-credential-drift.sh --audit \
   --registry .private/docs/accounts.md \
   --registry .private/docs/edge-function-secrets.md \
   --consumers-dir src --consumers-dir supabase/functions --consumers-dir scripts \
+  --consumers-dir services --consumers-dir .claude/commands --consumers-dir vite.config.ts \
   --not-enumerated "ci-secrets:GitHub Actions secrets store — agent's credential has no API access, HTTP 403 by design" \
   > "$AUDIT_OUT" 2>&1
 AUDIT_EXIT=$?
 chmod 600 "$AUDIT_OUT"
-grep -c '^CONSUMER_ONLY:\|^REGISTRY_ONLY:\|^REGISTRY_LOCATION_MISMATCH:\|^REGISTRY_MISMATCH:\|^PLAINTEXT_IN_REGISTRY:\|^PLAINTEXT_CHECK_SKIPPED:' "$AUDIT_OUT"
+grep -c '^CONSUMER_ONLY:\|^REGISTRY_ONLY:\|^REGISTRY_LOCATION_MISMATCH:\|^REGISTRY_MISMATCH:\|^PLAINTEXT_IN_REGISTRY:\|^PLAINTEXT_CHECK_SKIPPED:\|^TIER_UNCLASSIFIABLE:' "$AUDIT_OUT"
 grep '^COVERAGE:' "$AUDIT_OUT"
 echo "exit=$AUDIT_EXIT"
 ```
 
+**The six `--consumers-dir` surfaces are load-bearing, not a list to trim** (P1153). Credentials are read at build time from the repo root (`vite.config.ts`), from service trees (`services/`), and by skill files (`.claude/commands/`) — none of which the original three covered. Dropping one silently converts every credential read only there into a retirement candidate; that under-scoping produced 11 false retirements on the first real run. A path that does not exist now aborts the audit with exit 2 rather than reporting everything as dead, so a renamed directory fails loudly here instead of quietly.
+
 Read `$AUDIT_EXIT` directly (do not infer the audit's own exit status from `grep`'s — a `grep -c` with zero matches exits 1, which is unrelated to whether the audit itself ran cleanly).
+
+**Read the `COVERAGE:` line in full — the ratio alone is not the coverage.** It ends with `:unclassifiable=N`, counting lines carrying a credential whose key name could not be parsed at all. Those are excluded from BOTH halves of the ratio, so `84/84` with `unclassifiable=10` is *not* a clean run — ten credentials went unexamined. A non-zero `unclassifiable` belongs in ACTIONS.
 
 Merge into Evidence Picture as:
 ```
