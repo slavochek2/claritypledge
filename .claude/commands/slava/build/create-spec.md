@@ -184,7 +184,9 @@ structure them.
        ↓
 2. DETECT TYPE → Classify work type from description, state it
        ↓
-3. SEARCH → Check for related specs and existing code
+3. DUPLICATE GATE → grep features/ + docs/decisions.md + src/; state
+   DUPLICATE/RELATED/NONE with the terms searched. BLOCKING — no file
+   is written before this runs (see Step 3)
        ↓
 4. GET P-NUMBER → Run ./scripts/next-p-number.sh
        ↓
@@ -212,16 +214,50 @@ Before any other work in this skill (after worktree guard):
 
 ---
 
-### Step 3: Search for related work
+### Step 3: Duplicate gate — BLOCKING, runs before the file is written
 
-Before generating, search for existing specs and code:
+> **This is a gate, not a courtesy search.** No spec file is created until this has run and its
+> output has been shown. Running it after the file exists converts a free check into a retraction.
+
+Search **three** surfaces. `decisions.md` is the one that is skipped and the one that most often
+holds the answer — a defect is frequently recorded there, with a spec already filed and referenced,
+long before it is rediscovered:
+
 ```bash
-grep -ril "{key concept}" features/ 2>/dev/null | head -10
-grep -ril "{key concept}" src/ 2>/dev/null | head -10
+# Use the DEFECT'S OWN VOCABULARY, not your framing of it. Two or three distinct phrasings.
+grep -ril "{key concept}" features/ 2>/dev/null | head -10          # open + done specs
+grep -rn  "{key concept}" docs/decisions.md 2>/dev/null | head -10  # prior decisions AND the specs they filed
+grep -ril "{key concept}" src/ scripts/ 2>/dev/null | head -10      # already handled in code
 ```
 
-If a related spec exists — read it. Either (a) supersede it (note in new spec), or (b) build on it.
-If existing code already handles the concept — flag it: "This may be an inline extension of existing code at [path]. Proceed with spec or handle inline?" Let the user decide.
+**Search terms are where this fails.** Grep the mechanism and the symptom, not the name you just
+invented for it. A search for the label you would give the new spec finds the new spec's absence and
+nothing else. If the defect is "the tool skipped a file", search `skipping`, the exact output
+string, the function name — not "drift" or "audit".
+
+**Then state a verdict out loud before writing anything.** One of:
+
+- `DUPLICATE: pN` — stop. Do not create a file. Add the new evidence to the existing spec and say
+  so. A second spec for one defect splits its evidence and hides its real age.
+- `RELATED: pN` — proceed, and reference it in the new spec's Related section.
+- `NONE — searched: "<term1>", "<term2>", "<term3>"` — proceed. Name the terms; an unstated search
+  cannot be judged, and "I looked" is not a result.
+
+**A hit in `decisions.md` outranks an empty `features/` result.** Entries routinely name a filed
+P-number in their Decision or References field, and that spec may sit unimplemented for weeks. The
+spec's absence from your grep of `features/` usually means your search terms were wrong, not that
+the spec does not exist.
+
+If existing code already handles the concept — flag it: "This may be an inline extension of existing
+code at [path]. Proceed with spec or handle inline?" Let the user decide.
+
+**Why this is blocking (2026-08-24):** a migration version-collision defect was diagnosed from
+scratch, written up, and committed as P1154 — while **P1042** had been open since 2026-08-10 at
+`severity: high`, specifying the same fix in more detail, including the authoring-time check P1154
+offered as its novel contribution. The dedupe grep ran during `/kdd`, after the commit. The 2026-08-11
+decision entry naming P1042 would have surfaced it instantly. Cost: a retraction, and two weeks in
+which the real fix looked like it was being worked on. See [decisions.md](../../../../docs/decisions.md)
+2026-08-24 "File-first, grep-second".
 
 ---
 
