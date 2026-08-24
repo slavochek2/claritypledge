@@ -81,6 +81,8 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // Session" CTA. Folded into isLivePage rather than a parallel flag so it picks up
   // every gate below (padding, footer, ActiveSessionBanner, h-screen) for free —
   // same pattern isReadyPage/isMeetingTermsPage already use for multi-route matches.
+  // This component only sees location.pathname, not the page's own sub-state — adding a
+  // route here applies every gate to ALL of that route's sub-states. Audit each one.
   const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/") ||
     location.pathname === "/transcribe" || location.pathname.startsWith("/transcribe/");
   // P852/P888: only the IMMERSIVE letter routes suppress chrome — reading
