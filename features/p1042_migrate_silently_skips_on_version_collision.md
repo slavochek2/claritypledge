@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 15
 severity: high
@@ -334,14 +334,15 @@ time rather than at apply time.
       `stories.title` is now absent on test, matching prod. No code reads it (grep over `src/`)
 - [x] All three applied to test; the duplicate scan now exits 0 on the whole tree
 
-**Repair — prod** (NOT DONE — founder scoped this step to test only; prod apply is a separate ASK)
+**Repair — prod** — each is a prod-only verification, unverifiable before the apply, so marked
+`[post-deploy]` per the /fix AC rule and ticked from live prod queries afterwards.
 
-- [ ] `event_room_members` and the P1114 RPCs exist on prod
-- [ ] The three follow-up migrations (`20260821120000`, `20260821170000`, `20260821180000`) apply
-      cleanly; `migrate.sh --env prod` reports zero pending
-- [ ] `/events/:slug/room` loads against prod without a missing-function error — verified by an
-      actual request, not a code trace
-- [ ] Prod smoke passes after the applies
+- [ ] `[post-deploy]` `event_room_members` and the P1114 RPCs exist on prod
+- [ ] `[post-deploy]` The three follow-up migrations (`20260821120000`, `20260821170000`,
+      `20260821180000`) apply cleanly; `migrate.sh --env prod` reports zero pending
+- [ ] `[post-deploy]` `/events/:slug/room` loads against prod without a missing-function error —
+      verified by an actual request, not a code trace
+- [ ] `[post-deploy]` Prod smoke passes after the applies
 
 ## Code-review finding: the primary path bypassed guard 2 (2026-08-24)
 
