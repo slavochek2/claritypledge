@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: story
 rank: 64
 workstream: events
 created_date: '2026-08-21'
 tags: [transcribe, room, live-transcription, chat, ml-training]
 delivery_stage: ship
-pipeline_ran: [create-spec, architect, ship]
+pipeline_ran: [create-spec, architect, dev, ship]
 driver: heuristic
 drafted_by: opus
 ---
