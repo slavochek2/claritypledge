@@ -385,6 +385,37 @@ stale, not an unticked one accumulating)
 
 **References:** [p1141_story_carries_a_video_with_jumpable_quotes.md](../features/p1141_story_carries_a_video_with_jumpable_quotes.md), 2026-07-31 [process] (P1017 — a stub cannot verify a loading-state fix)
 
+## 2026-08-24 [process]: goal-gate cannot go green for any feature that needs more than a few review rounds — two mechanical defects, not a quality signal
+
+**Context:** P1141's code shipped to main and its migrations reached prod, verified. Its spec could not be closed: `goal-gate` fails, and closing a goalified spec on a red gate is a hard block in pre-commit. The founder had already looked at the red gate and accepted it, but acceptance does not move the mechanical check, so the ship stopped at Phase 2 and the card is parked at `qa`. Two independent defects put it out of reach, and **neither is about the feature's quality**:
+
+1. **The artifact-hash check compares a round's recorded hashes against files a LATER round legitimately replaced.** Round 4 recorded fingerprints for its render set; round 5 found a real defect, the fix changed the UI, and the renders were regenerated. Round 4 is now reported as corrupt for having been superseded. Doing the right thing breaks the check.
+2. **The round arithmetic is unsatisfiable past a point.** CHECK 5 requires the last two rounds to be PASS with a hard ceiling of five rounds. Once four rounds have found real defects — which is what a hard feature looks like — a fifth PASS yields a trailing `FAIL, PASS`, and a sixth breaches the ceiling. Both branches fail. Verified by reading, not inferred: the run reports `need 2 CONSECUTIVE trailing PASS rounds; got: FAIL FAIL FAIL FAIL FAIL`.
+
+**Decision:** Record the gate as mis-calibrated and leave P1141 at `qa` rather than route around it. The two available workarounds are the two the gate exists to prevent — deleting a failing round (its own error text calls that "re-rolling until two passes land") and editing a FAIL to PASS (hashing binds a verdict to the pixels judged and cannot detect a flipped verdict). Neither was done. A fix to the gate is filed in `process-learnings.md`; until it lands, any long-review feature will park a card the same way.
+
+**Alternatives rejected:** *Strip the spec's goalified markers so the gate no longer applies* — the same class of move as deleting a round, and it disables the check for every future reader of that spec, not just this ship. *Add a founder override* — a real option and the shape already used for the UI gate (`.ui-gate-override`, founder-created, agent never writes it), but an override normalises passing a gate that is wrong rather than fixing it; do the calibration first and add the escape hatch only if a genuine unfixable case appears. *Treat it as a quality signal and run more rounds* — it is not one; the ceiling makes more rounds strictly worse.
+
+**Consequences:** A red gate here means "this feature took more than a few rounds", not "this feature is unverified" — P1141 additionally passed four-lens code review, live-database guard verification, a prod migration with an 8/8 smoke, and a prod-side re-check of the security fix. When a gate's failure mode is reachable by doing the right thing, its red is not evidence. Same family as the 2026-08-20 P1108 entry below, where a different goal-gate check was exploitable through the data it read rather than through the script.
+
+**References:** `scripts/goal-gate.sh` (CHECK 5), `scripts/pre-commit-checks.sh`, `features/verification/p1141/feedback.md`, [process-learnings.md](process-learnings.md)
+
+---
+
+## 2026-08-24 [process]: A drift report read from a local file is not a statement about production
+
+**Context:** Asked whether P1141 could ship, the session reported **nine** migrations pending on production, five of them belonging to other people's features — a number that made the ship look entangled with unrelated work and prompted the founder to ask what they were even being asked to decide. Asking production directly returned **four**, all of them this session's own. The nine came from a local manifest file that had drifted; the five "other features" had in fact been applied to prod already and only their manifest stamp was missing.
+
+**Decision:** Any claim about the state of a live environment must come from a query to that environment, not from a checked-in record of it. The repo already has the right tool for this and its output is quotable — `migrate.sh --env prod` with no `--yes` enumerates the genuinely pending list and exits non-zero without applying anything, and `/ship` already mandates quoting that output rather than paraphrasing. The failure was substituting the drift-check file for it because the file was cheaper to read.
+
+**Alternatives rejected:** *Treat the manifest as authoritative and fix the drift first* — inverted; the manifest is a cache of the environment, so when the two disagree the environment wins by definition. *Report both numbers* — worse than either, since it pushes an unresolved contradiction onto the reader.
+
+**Consequences:** This is the sibling of the existing prod-verification rule in the other direction. It is not enough to verify a fix on test and assume prod; it is equally not enough to read prod's state from a local artifact. Both were live in this one session — the same session also proved a security guard on test, then re-ran it against prod itself before claiming it, which is the behaviour this entry generalises. A wrong number here is expensive out of proportion to its size: it cost a founder turn and made a clean four-migration ship look like a nine-migration entanglement.
+
+**References:** `scripts/migrate.sh`, `scripts/check-deploy-manifest.sh`, `.claude/commands/slava/build/ship.md`
+
+---
+
 ## 2026-08-24 [technical]: A second reserved-namespace guard reopened a gap the first one had already closed
 
 **Context:** P1104 reserves two channels so a machine account can never be mistaken for a person, and a person can never wear a machine's identity: the `Agent · ` display-name prefix and the `machine-` URL prefix. The name guard shipped first and was hardened twice before it was correct. The slug guard was written afterwards, inherited the name guard's *idea* (normalise, then test the first token, so that enumerating separators is never necessary) — but not its *hardening*. It normalised with a composing form and tokenised immediately, with no pass to remove the marks that composition leaves standing. Unicode marks are not alphanumeric, so a surviving mark acts as a token separator and the reserved word never matches.

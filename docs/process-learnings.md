@@ -30,6 +30,41 @@ an empty file is the healthy state.
 
 ---
 
+## goal-gate CHECK 5 is unreachable for any feature that needs more than a few review rounds
+
+**Date:** 2026-08-24
+**Status:** proposed
+**due:** week
+
+P1141 shipped its code to main and its migrations to prod, verified end to end, and still could not
+close its spec: `goal-gate` is red and pre-commit hard-blocks closing a goalified spec on a red gate.
+Neither cause is about the feature's quality.
+
+**1. The artifact-hash check punishes a correct workflow.** A round records fingerprints for the
+render set it judged. A later round finds a real defect, the fix changes the UI, the renders are
+regenerated — and the earlier round is now reported as a hash mismatch. On P1141, rounds 1–4 all
+report mismatches because round 5 legitimately replaced the images. Doing the right thing breaks the
+check.
+
+**2. The round arithmetic is unsatisfiable.** CHECK 5 wants the last two rounds to be PASS, with a
+hard ceiling of five. After four rounds that each found real defects, a fifth PASS gives a trailing
+`FAIL, PASS` — not two consecutive — and a sixth breaches the ceiling. Both branches fail. Observed
+output: `need 2 CONSECUTIVE trailing PASS rounds; got: FAIL FAIL FAIL FAIL FAIL`.
+
+The two ways to make it green are the two the gate exists to prevent (delete a failing round, or edit
+a FAIL to PASS), so the honest outcome is a card parked at `qa` — and that will now recur for every
+long-review feature, silently, since nothing surfaces "shipped but never closed" except someone
+noticing the slot later.
+
+**Fix to consider:** (a) hash each round against the renders *as of that round's commit* rather than
+the current working tree, so supersession is not corruption; (b) replace the fixed ceiling with a
+"last two rounds PASS, no cap" rule, or raise the cap and require the trailing pair only among rounds
+that actually ran. Both are changes to `scripts/goal-gate.sh` CHECK 5 and want a failure-path test
+(`scripts/test-goal-gate.sh`) proving the new rule goes red for the cases it should.
+
+**Falsifier:** construct a fixture with rounds FAIL FAIL PASS PASS and confirm the gate exits 0; then
+regenerate one render after the last round and confirm it does NOT go red for supersession alone.
+
 ## The deploy record can say a fix shipped when it did not — the manifest itself needs a trust check
 
 **Date:** 2026-08-21
