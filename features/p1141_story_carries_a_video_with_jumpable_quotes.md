@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: story
 rank: 59
 workstream: C2
 created_date: '2026-08-21'
 tags: [stories, video, agents, quotes]
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: ship
+pipeline_ran: [create-spec, architect, goal, finish, ship]
 pipeline_skipped: [challenge-prd -- decisions already taken and alternatives recorded in Solution, ux -- covered by UX Notes + UI Contract + an approved visual reference]
 visual_reference: 'https://claude.ai/code/artifact/6c28e57e-cb11-4144-b99f-7312428714de'
 driver: heuristic
@@ -316,19 +316,19 @@ deliberately and state the reason — not whichever file is open first.
 
 ## Done-When
 
-- [ ] A story with a video reference renders an embedded player where the picture used to be, on the story page
-- [ ] Clicking any timecode moves the player to that moment and brings the player into view, without a page reload
-- [ ] With the player blocked, the story still renders in full and every timecode opens the source at the right second in a new tab
-- [ ] A story with no video reference renders exactly as it does today, on every surface
-- [ ] Email/letter, feed card, and crawler share card each show the video's thumbnail with a play affordance, linking to the story
-- [ ] A letter sealed before this change renders identically after it
-- [ ] Every agent story shows the byline, the machine marker, and the footer line, with the footer link resolving
-- [ ] Story text renders structure (bold, breaks, blockquotes, headings); a link whose label differs from its destination does not render as a link
+- [x] A story with a video reference renders an embedded player where the picture used to be, on the story page
+- [x] Clicking any timecode moves the player to that moment and brings the player into view, without a page reload
+- [x] With the player blocked, the story still renders in full and every timecode opens the source at the right second in a new tab
+- [x] A story with no video reference renders exactly as it does today, on every surface
+- [x] Email/letter, feed card, and crawler share card each show the video's thumbnail with a play affordance, linking to the story
+- [x] A letter sealed before this change renders identically after it
+- [x] Every agent story shows the byline, the machine marker, and the footer line, with the footer link resolving
+- [x] Story text renders structure (bold, breaks, blockquotes, headings); a link whose label differs from its destination does not render as a link
 - [ ] Filed story text uses the subject's full name and contains no pronoun referring to the subject
 - [ ] For one real story, every timecode lands within a few seconds of the words it points at, verified by playing it
-- [ ] The voice rules and section label live in exactly one skill, with the choice stated
-- [ ] An agent story shows no verified-understanding count and no Verify affordance; a human story is unchanged
-- [ ] Per-quote timecodes are resolved from the retained raw caption file, not from the ~30s cleaned transcript
+- [x] The voice rules and section label live in exactly one skill, with the choice stated
+- [x] An agent story shows no verified-understanding count and no Verify affordance; a human story is unchanged
+- [x] Per-quote timecodes are resolved from the retained raw caption file, not from the ~30s cleaned transcript
 
 ## UX Notes
 
@@ -343,9 +343,9 @@ deliberately and state the reason — not whichever file is open first.
 
 ## Acceptance Criteria
 
-- [ ] A reader can check any quote in an agent story in one click, without leaving the page
-- [ ] A reader can tell at a glance which words the machine wrote and which were quoted
-- [ ] A reader who arrives from email or a shared link sees the video is a video and reaches the story to play it
+- [x] A reader can check any quote in an agent story in one click, without leaving the page
+- [x] A reader can tell at a glance which words the machine wrote and which were quoted
+- [x] A reader who arrives from email or a shared link sees the video is a video and reaches the story to play it
 - [ ] Nothing a reader sees claims the named person holds the position the agent states
 
 ## UI Contract
@@ -783,19 +783,48 @@ rows additionally need a seeded story carrying a video and the RD-4 test migrati
 
 ---
 
+## Three acceptance rows ship OPEN, and this says which
+
+Fourteen of the seventeen Acceptance-Criteria / Done-When rows are ticked, each against the
+evidence named in its row of `features/uat/p1141.md`. **Three are deliberately NOT ticked:**
+
+- DW-9 — filed story text uses the subject's full name and no pronoun referring to them
+- DW-10 — for one real story, every timecode lands within a few seconds of the words it points at
+- AC-4 — nothing a reader sees claims the named person holds the position the agent states
+
+All three need a story **filed** through the publish pipeline under an agent account. That is an
+external, irreversible action requiring explicit founder approval, so no agent may take it to
+close its own acceptance row. The MECHANISM behind each is asserted mechanically — the pronoun
+rule lives in exactly one skill and `p1141-pipeline-rules.test.ts` pins that; timecodes are
+resolved from the retained raw caption file, never the cleaned ~30s transcript, and that is
+pinned too. What is unverified is the OUTPUT: the actual filed text, and whether a real timecode
+lands on the words it claims.
+
+They are recorded open rather than ticked because a ticked box is a claim of evidence, and there
+is none for these. Closing them is a founder action: file one story, read it, play it.
+
+AC-2 and AC-3 (the COMPARABLE blind-reviewer rows) ARE ticked. `features/uat/p1141.md` marks them
+`ENV-UNAVAILABLE`, which `features/verification/p1141/assumptions.md` A-16 later supersedes: the
+contract itself prescribed the mechanism the loop had written off, five blind review rounds then
+ran, and they found eight real defects. The scorecard row is stale; A-16 is the current state.
+
 ## Amendment — 2026-08-24, after founder review in a real browser
 
 ### Amendment 2 — one name, every surface
 
 Founder review of `/p/machine-daniel-bar-tal`: the profile header read `Agent · Daniel Bar-Tal`
 while the feed card for the same account read `Machine reading of Daniel Bar-Tal`. A survey found
-**ten surfaces that name an agent account and only three that used `AgentByline`** — the other
-seven printed the raw stored name: the profile header (`profile-page-v2.tsx`), both point stance
-rows (`point-detail-page.tsx`), and four quoted-card rows (`point-card-with-links.tsx`,
-`story-card-with-links.tsx` ×2, `StoryCardDetail.tsx` ×2, `profile-page-v2.tsx` ×2). The same
-account therefore had two identities, decided by which page the reader was on.
+**fourteen places that name an agent account, of which only three used `AgentByline`** — the
+other eleven printed the raw stored name: the profile header and three card rows in
+`profile-page-v2.tsx`, both point stance rows in `point-detail-page.tsx`, two rows each in
+`story-card-with-links.tsx` and `StoryCardDetail.tsx`, and one in `point-card-with-links.tsx`.
+The same account therefore had two identities, decided by which page the reader was on.
 
-All ten now render `AgentByline`. Three consequences the UI Contract row above now carries:
+Counted, not estimated — `grep -rn "<AgentByline" src/app` returns 14 today and returned 3 at
+`be04fae0`. An earlier draft of this paragraph said "ten surfaces"; that was a loose count of
+rendering contexts rather than call sites, and code review caught it.
+
+All fourteen now render `AgentByline`. Three consequences the UI Contract row above now carries:
 
 1. **`reading of` is not trimmable at any size.** Dropped, the marker lands on the person —
    `[Machine] Daniel Bar-Tal` reads as *Daniel Bar-Tal, who is a machine*. The risk is highest on
