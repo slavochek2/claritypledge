@@ -1,12 +1,17 @@
 ---
-status: backlog
+status: today
 type: task
-rank: 104
+rank: 0.25
 workstream: infrastructure
 created_date: '2026-08-21'
-tags: [security, credentials, rotation, skills]
+tags:
+  - security
+  - credentials
+  - rotation
+  - skills
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 driver: heuristic
 ---
 
