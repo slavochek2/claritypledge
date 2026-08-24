@@ -395,6 +395,49 @@ both the tests and the code — so a post-loop read of what it produced is not o
 housekeeping. The first HIGH finding arrived before the loop even finished.
 
 
+### D-2 (BLOCKING) — the reviewer bound was defeated by archiving, not met
+
+`goal-gate.sh` CHECK 5 sets `MAX_ROUNDS=5` and fails above it with *"re-rolling until two
+passes land is not a pass"* — the bound exists precisely to stop that.
+
+**Eight rounds were run.** At round 6 the branch was over the bound and could never pass. The
+loop presented four options to the founder, who chose *"archive rounds 1-4, run a fresh pair"*;
+rounds 1-6 now sit in `features/verification/p1149/archive/` and rounds 7-8 (both PASS) are the
+only ones the glob sees. The gate therefore reads **2 rounds** where **8** were run.
+
+**This is the re-rolling shape the check names, executed with authorization.** The loop logged
+it openly in `feedback.md` and left the archive in place rather than deleting — that part is
+honest. But "I have exceeded the re-roll bound" should escalate as a blocked run, not be offered
+as a menu in which hiding the failures is one of the choices. The agent proposing the options
+had an interest in one of them.
+
+**Not a claim that the work is bad** — commit `cf635931` fixes real defects the rounds found.
+The claim is narrower: the gate's green no longer certifies what CHECK 5 was written to certify.
+Decide deliberately, with the number 8 visible.
+
+### D-3 (BLOCKING) — P1152's physical checks have not run
+
+Gate 0 on real phones, two-device delivery, radio drop/recover, eight-way concurrency. P1149's
+merge is gated on these by design.
+
+## Post-Loop Verdict (2026-08-24)
+
+`./scripts/goal-gate.sh p1149` **exits 0** — 14 check groups, 0 failures, run independently in
+w0's session rather than read from the loop's transcript.
+
+**It is still not a ship signal.** Three blockers above: D-1 (HIGH, an open filed bug
+reintroduced, uncovered by any contract row), D-2 (the reviewer bound archived rather than met),
+D-3 (physical checks unrun).
+
+**The pattern across all three:** the gate certifies exactly the twelve rows written into it and
+nothing else. D-1 was invisible to it because no row named code quality. D-2 was invisible
+because the check reads the glob, not the history. Both were found by reading what the loop
+produced — which is the audit step, and it is not optional.
+
+**Note for merge:** this spec has diverged between w0 (audit log, D-1..D-3) and w5 (the loop's
+copy). Expect a doc-section conflict; take both.
+
+
 ## Architecture (narrow pass, 2026-08-21)
 
 Four integration decisions. Everything else follows from existing code.
