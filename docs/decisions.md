@@ -18,7 +18,7 @@ Two supporting measurements, both from control pairs rather than inference. **Au
 
 **Consequences:** The trap this closes is concrete and was reproduced: two videos that look cleanly opposed by title and view count — a nomad talk and a 33,912-view quit video — are **the same side**, both by ex-nomads who landed on "stop moving." A metadata-only selector ships that pair; the extractor then finds two people agreeing and the run produces nothing. That pair (`lJR-7_Dcess` + `5VSxrEH1-Rk`) is retained as the **negative control** for verifying the selector's judge step actually fires — a gate never seen to fail is unproven ([epistemic.md](../.claude/rules/epistemic.md) gate 7). Ranking rule, founder 2026-08-25: **insight decides; popularity is a floor to clear, never a ranking axis.**
 
-**References:** [p1088](../features/p1088_video_selector_for_point_extraction.md) · [p1096](../features/p1096_public_multisource_point_pipeline.md) · decisions.md 2026-08-21 (turn markers mid-turn) · 2026-08-19 (attribution solved by source selection)
+**References:** [p1156](../features/p1156_points_pipeline_selector_and_chain_contract.md) · [p1088 — rejected, superseded by p1156](../features/archive/p1088_video_selector_for_point_extraction.md) · [p1096](../features/p1096_public_multisource_point_pipeline.md) · decisions.md 2026-08-21 (turn markers mid-turn) · 2026-08-19 (attribution solved by source selection)
 
 ---
 
@@ -34,7 +34,7 @@ Two supporting measurements, both from control pairs rather than inference. **Au
 
 **Consequences:** Two measured defects in the keyless path are now mandatory handling in the selector, because each would corrupt the ranking silently rather than failing loudly. **Statistics must come from a separate metadata-only call:** a comments fetch capped at 60 rewrote `comment_count` to **60** while the true value was **89** — left unhandled, comments-per-view under-reports by exactly the cap that was set and looks entirely plausible doing it. **A partial comment fetch exits 0:** the same run emitted `Incomplete data received … Giving up after 3 retries` and still succeeded, so exit code 0 is not evidence the comment set is whole; affected scores must be marked partial.
 
-**References:** [p1088](../features/p1088_video_selector_for_point_extraction.md) · `pp/docs/infra/youtube.md` (private) · `~/.local/bin/yt`
+**References:** [p1156](../features/p1156_points_pipeline_selector_and_chain_contract.md) · [p1088 — rejected, superseded by p1156](../features/archive/p1088_video_selector_for_point_extraction.md) · `pp/docs/infra/youtube.md` (private) · `~/.local/bin/yt`
 
 ---
 
@@ -50,7 +50,7 @@ Two supporting measurements, both from control pairs rather than inference. **Au
 
 **Consequences:** The chain gets its first written contract, `docs/points-process.md`, following the `video-process.md` / `content-process.md` precedent — the concept is well documented in `story-point-model.md` but the *chain* is documented nowhere, and the only place it is written down (P1096's stage table) is already false, listing the filing step as unbuilt weeks after it shipped. The run-file schema lives in that doc, not inside any one skill, since it spans four. **Open and flagged, not fixed here:** `/points-prepare` v0.6.1 still instructs attribution "by content and by the `>>` turn markers"; auto-captions contain none. Harmless once single-speaker sources are the rule, still a wrong instruction in a live skill.
 
-**References:** [p1088](../features/p1088_video_selector_for_point_extraction.md) · [p1096](../features/p1096_public_multisource_point_pipeline.md) · `/slava:content:points-prepare` · `/slava:content:points-publish` · decisions.md 2026-08-21 (rights clearance belongs in selection)
+**References:** [p1156](../features/p1156_points_pipeline_selector_and_chain_contract.md) · [p1088 — rejected, superseded by p1156](../features/archive/p1088_video_selector_for_point_extraction.md) · [p1096](../features/p1096_public_multisource_point_pipeline.md) · `/slava:content:points-prepare` · `/slava:content:points-publish` · decisions.md 2026-08-21 (rights clearance belongs in selection)
 
 ---
 
@@ -66,7 +66,7 @@ Two supporting measurements, both from control pairs rather than inference. **Au
 
 **Consequences:** Applies to any spec that absorbs several reversals in one sitting. The threshold worth watching is not edit count but whether the document still states one design or narrates several. Also recorded: the ceremony worth skipping on tooling work is the **pipeline** (`/pick-flow`, `/challenge-prd`, `/architect`, `/generate-tests`), not the **artifact** — `pipeline_skipped` exists for exactly that, so "move faster" never has to mean "leave the reasoning outside the repo."
 
-**References:** [p1088](../features/p1088_video_selector_for_point_extraction.md) · [.claude/rules/features.md](../.claude/rules/features.md)
+**References:** [p1156](../features/p1156_points_pipeline_selector_and_chain_contract.md) · [p1088 — rejected, superseded by p1156](../features/archive/p1088_video_selector_for_point_extraction.md) · [.claude/rules/features.md](../.claude/rules/features.md)
 
 ## 2026-08-25 [process]: A shared JSON manifest's bare-timestamp tracking makes a real collision look like a duplication bug — and a leftover uncommitted edit on main recurred the 2026-08-23 sweep-in incident
 
