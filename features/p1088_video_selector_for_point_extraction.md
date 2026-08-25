@@ -153,6 +153,27 @@ ranking on metadata alone ships this pair; `/points-prepare` then finds two peop
 run produces nothing. That is the concrete failure this whole spec exists to prevent, and only a
 **full read** catches it.
 
+**Fetch strategy — EARLY-STOP, decided 2026-08-24 (founder).** Do **not** fetch every finalist up
+front. Read one candidate per side, test the match, and stop as soon as a pair clears; widen only on
+failure. The expensive step is reading, not downloading, and a pair that clearly passes is not
+improved by finding a second pair that also passes. Report how many rounds it took — a run that
+needed four widenings is telling you the topic is thin, and that is information the founder wants
+before the event, not after.
+
+**The judge is a STEP, not a second agent — decided 2026-08-24 (founder).** After a candidate pair
+is assembled, run an explicit pass whose only job is to **argue the pair does not work**, and show
+the founder both sides at the gate. Not a spawned subagent: a silent subagent is indistinguishable
+from one that found nothing (`.claude/rules/epistemic.md` gate 9b — one recent session spawned four
+reviewers and received one report after chasing twice), and here silence would read as approval on
+the single decision this skill exists to make. **Precedent inside the family:** `/points-prepare`
+Stage 7 already runs its prediction as a separate pass that "may not see the extraction reasoning,"
+for exactly this reason — the agent that just made something sound polarizing is the worst judge of
+whether it is.
+
+**One topic per run — decided 2026-08-24 (founder).** Not a batch. The founder approves people and a
+pair per topic regardless, so batching would stack ten approval gates into one sitting, and one dead
+topic would stall the other nine. The Chiang Mai set of 5–10 topics is this skill run 5–10 times.
+
 **So: full transcript read for finalists, opening read for the shortlist screen.**
 
 | Stage | Read depth | Answers |
