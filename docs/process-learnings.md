@@ -787,3 +787,26 @@ someone else's defect or quietly fixing out-of-scope UI.
 
 Falsifier: set a 320px viewport on any `/story/:id` route on `main` and check
 `document.documentElement.scrollWidth > clientWidth`.
+
+---
+
+## False `>>` marker claim in points-prepare Stage 2 attribution instruction
+<!-- filed 2026-08-25, during P1156; deliberately NOT fixed there -->
+
+`due: week` — **Measured 2026-08-24 (P1156 D2): auto-captions carry zero speaker labels of any
+kind.** A control pair — a one-speaker TEDx talk (`lJR-7_Dcess`) and a two-speaker interview clip
+(`sRv-ETHskXI`) — was probed identically: `>>` turn markers **0 and 0**, dash-dialogue markers
+**0 and 0**, bracketed speaker labels **0 and 0**. The two-speaker control is textually
+indistinguishable from the one-speaker control at the markup level.
+
+Shipped `/slava:content:points-prepare` v0.6.1 (now v0.7.0) Stage 2 still instructs attribution
+"by content and by the `>>` turn markers" — **a method claim that measurement falsified.** Harmless
+for new runs under the P1156 selector's Gate 0 (every source single-speaker by construction), but
+any run on a pre-Gate-0 multi-speaker source inherits a wrong instruction.
+
+**Why it was not fixed during P1156:** the spec's rule was "stages 1–5 move/remain byte-identical —
+a 'move' that quietly rewrites a rule loses the run that bought it." Folding a one-line fix into
+Stage 2 would have widened P1156's blast radius past what its spec sanctioned. Raise it as its own
+one-line fix with its own evidence.
+
+Falsifier: fetch captions for any two-speaker YouTube video and count `>>` lines in the raw `.vtt`.
