@@ -52,6 +52,27 @@ When the kanban UI sets a status manually, it writes `locked_at: <ISO timestamp>
 
 **`in-progress` is exclusively agent-set.** Only `/dev` or `/fix` may set `status: in-progress` — at the moment the run actually starts. Users should not manually drag a feature to `in-progress` on the kanban: doing so writes `locked_at`, which suppresses all automated status transitions for that feature. The correct user signal for "I want this next" is `status: today`. The agent sets `in-progress` when it picks up the work.
 
+## Before Drafting — Grep decisions.md for the SUBJECT, not the P-number
+
+Before writing a new spec, `grep docs/decisions.md` for the **subject matter** the spec covers —
+the nouns of the problem, not its P-number.
+
+**Why the subject and not the number:** decisions are routinely routed *forward* to a step that
+does not exist yet, naming it in prose — *"belongs in the selection step above"*, *"routed to
+`/architect` on P1104"*, *"the selection step owns this"*. The spec that inherits such a ruling has
+no P-number at the time the decision is written, so a grep on the number returns nothing while the
+ruling sits there waiting. Grep what the spec is *about*.
+
+**Incident 2026-08-25.** The 2026-08-21 entry ends *"Rights clearance is a **selection criterion**,
+not a provisioning detail, and belongs in the selection step above."* P1088 **is** that selection
+step, and the ruling was not found while writing it — it surfaced four days later only because the
+founder's own instinct prompted a check. Its absence had already cost a run: five of six points
+shipped with nobody arguing the other half.
+
+**Distinct from [CLAUDE.md](../../CLAUDE.md) §Before Starting Work item 5**, which scopes the
+decisions.md grep to *answering questions about existing behavior*. Spec **authoring** falls outside
+that scope, and that gap is what this rule closes.
+
 ## P-Number Assignment
 
 ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`, or manual inspection miss `features/done/` and cause duplicate P-numbers). Script excludes `uat/` companions (share their spec's number); it scans `archive/` because rejected specs permanently own their P-number (P996). If script unavailable, warn user and halt.
