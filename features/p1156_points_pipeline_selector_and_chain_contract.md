@@ -11,7 +11,7 @@ tags:
   - selection
   - pipeline
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, adversarial-review]
 pipeline_skipped:
   - pick-flow -- flow decided by the founder in the design session; build straight from this spec
   - challenge-prd -- every load-bearing claim here was measured this session and the measurement is recorded inline; /slava:think:adversarial-review runs instead
@@ -66,9 +66,20 @@ sources — and what does each step in that chain owe the next one?
 
 ## Appetite
 
+> **Reviewed 2026-08-25 by `/slava:think:adversarial-review` (1 reviewer, Opus; 1 report received of 1
+> spawned, after one chase). Every load-bearing claim in the report was re-run by command before being
+> written in here. The review refuted six of the ten reassurances this spec made about itself; the
+> corrections are inline and marked. Two questions it opened are FOUNDER DECISIONS and are marked as
+> such — the portrait STOP (Part 1, Identity resolution) and cross-language pairing (Part 1, Data
+> access). One reviewer claim was itself refuted and is recorded in Decisions & Falsifications as D11.**
+
 **Low blast radius, and deliberately no schema.** One new read-only skill; two new skills carved out
 of an existing one by **moving stages intact**; one process doc. No migration, no product surface, no
 prod write that `/points-publish` does not already perform today.
+
+**One correction to "low blast radius":** the selector needs a **service-role credential** for its
+"does this agent already exist" check (`provision-agent.md:45`), so it is read-only but **not
+credential-free**. See Part 1 → Identity resolution.
 
 **Reversible per artifact.** The selector is `git revert` on one new file. The split is reversible by
 moving stages back — they are moved, not rewritten, so the diff is legible. The doc is a doc.
@@ -136,12 +147,52 @@ measurement it rests on.
    *"**you've** recently talked about effective altruism on **your** podcast… I'm going to horribly
    misquote **you**"* — second person, interviewer framing, inside the first sentence. The separation
    is not subtle and needs no classifier.
-3. **Founder confirms** before the source goes to the extractor. One glance at the video. This is the
-   actual guarantee; steps 1–2 exist to make the list short enough to be worth glancing at.
+3. **Founder confirms** before the source goes to the extractor. One glance at the video. **This is a
+   check on STAGING, not on CONTENT** — a glance can see two people on a stage; it structurally cannot
+   see a quoted letter at minute 12, an inserted clip at minute 34, a sponsor read, or a dub.
+4. **Reported-speech scan on every finalist** (added 2026-08-25 after review). The finalist transcript
+   is **already being read in full** for stance, so this costs no extra fetch. Scan it for extended
+   reported speech — a letter read aloud, an opponent quoted at length, an inserted clip, a sponsor
+   segment. **Any such span is excluded from the quotable set, or the finalist is rejected.**
 
-Step 2 costs one caption fetch per shortlisted candidate out of a free residential allowance of
-~280/month, so step 1 must run first and must be aggressive. **Report how many candidates each step
-dropped.**
+> **What Gate 0 actually buys, stated precisely — because an earlier draft overclaimed it.** The
+> earlier wording was *"one speaker per source removes the guess entirely."* It does not. It removes
+> the **detection**, and that is a different thing. `/points-publish:45` makes `turn-inferred` on a
+> multi-speaker source a STOP; under Gate 0 every source is single-speaker **by construction**, so that
+> STOP becomes a constant that can never fire. Meanwhile a solo video reading a letter, playing a clip,
+> or carrying a sponsor read **still contains another person's words** — and D2's own measurement (zero
+> markers of every kind) proves the captions carry no signal that it happened. Step 4 exists because
+> steps 1–3 cannot see this class at all.
+
+**Enumerated misses in step 1, so nobody mistakes the keyword screen for a gate.** It matches
+uploader-controlled metadata, and it *rewards* specific words — an uploader wanting selection titles a
+two-host podcast *"Why I Left — a video essay."* It also misses: **non-English titles** (`Entrevista`,
+`Gespräch mit`, `対談`) against explicitly cross-language-capable sourcing; two-co-host channels that
+never write `ft.`; a **TEDx keynote with audience Q&A** — favoured by step 1, monologue for the first
+500 words, one person on stage at the founder's glance; and a **dub or re-upload where the channel
+owner is not the speaker** — `provision-agent.md:30` already warns that *"a channel identifies whoever
+PUBLISHES, not who speaks."* Step 2's evidence base is **n=1 per class** (D2, D4).
+
+> **Video title, uploader and description are UNTRUSTED input, and this gate is the first thing in the
+> chain to act on them.** `features/done/2026-06-10/p1104_…:988` classifies exactly this channel as
+> `UNTRUSTED INDIRECT` and records that it is **"not explicitly named"** in the existing untrusted-input
+> list, with an open recommendation to name it. This spec promotes that channel into a **gate with a
+> reward list**, so naming it is now mandatory, not optional — see the untrusted-input acceptance
+> criterion in Done-When.
+
+Step 2 costs one caption fetch per shortlisted candidate out of the wrapper's **free 1 GB/month
+residential proxy allowance** (`points-prepare.md:60`; a ~$3.50 top-up buys roughly 280 more
+transcripts — an earlier draft misread that top-up figure as the monthly allowance). Step 1 must run
+first and must be aggressive. **Report how many candidates each step dropped.**
+
+> **The selector is the heaviest fetcher in the chain and does not own the exhaustion rule.** Shortlist
+> openings **plus** full finalist transcripts **plus** comment colour, across 5–10 topics × 2 sides ×
+> 2–3 finalists. The exit-7 rule lives only in `points-prepare.md:60–63` — *"**Exit code 7** means every
+> path was walled… **Do NOT retry, and never purchase anything yourself.** Surface it to the founder…
+> Only act on an explicit yes."* **The selector must carry that rule verbatim.** Without it, mid-run
+> exhaustion produces a thinner candidate list and the natural behaviour is to retry, or to rank on
+> what it happened to read and print a funnel that looks complete. **A truncated fetch marks the funnel
+> INCOMPLETE and halts** — it never silently narrows the field.
 
 ### People first, then videos
 
@@ -197,6 +248,15 @@ silence would read as approval on the single decision this skill exists to make.
 family: `/points-prepare` Stage 7 already runs its prediction as a separate pass that may not see the
 extraction reasoning, for exactly this reason.
 
+> **Being a step closes the SILENCE mode and nothing else** (added 2026-08-25 after review). The judge
+> is still written by the same agent that just assembled the pair — the identical defect Stage 7 names,
+> and Stage 7 solves it with two mechanisms this judge does not inherit: a **clean-slate input
+> restriction** (*"receives exactly three things"*, `points-prepare.md:214`) and a **same-session
+> disclosure** (*"say in the output that it was same-session rather than independent"*). The judge step
+> must carry both: it receives only the two transcripts and the topic — **not** the ranking working,
+> not the runner-up reasoning, not why this pair was picked — and it states in its output that it ran
+> same-session. Weaker evidence, labelled, never hidden.
+
 ### What this skill evaluates, and what it must not
 
 **A skill evaluates exactly what its own output depends on, and nothing further.** The selector's
@@ -225,17 +285,47 @@ At Gate 1, per approved person, the selector resolves and records:
 - whether an agent **already exists** for that key
 - **portrait feasibility** — a rights-cleared photograph, or initials-only
 
-**No portrait means initials, not rejection** — this does not block. But **when both proposed sides
-are institutional, the selector must say so out loud** at the gate. The same decision entry records
+**[FOUNDER DECISION: does a person with no rights-cleared portrait get rejected at Gate 1, or does
+`/provision-agent` grow an initials-only path?]** — raised 2026-08-25 by adversarial review, and it is
+the sharpest hole in this spec. An earlier draft said *"no portrait means initials, not rejection —
+this does not block."* **Verified false against the creator:** `provision-agent.md:31` lists *"A
+rights-cleared source photograph"* under **"Hard preconditions — every one is a STOP"**, with
+*"`UNKNOWN LICENCE` is a stop"*, and its Steps 2–3 (generate avatar, upload object) are
+unconditional — **there is no initials-only branch**. Downstream, `/points-publish` gates on the
+avatar rendering (assert 200 AND `content-type: image/*`), a second STOP.
+
+**So the non-blocking stamp reproduces this spec's own Problem #2 exactly:** the selector marks a
+pseudonymous critic APPROVED at Gate 1, the founder proceeds on that stamp, and the run dies at
+`provision-agent` Step 2 or at publish's avatar probe — with the entire opposing side gone, at the
+last step, which is the 2026-08-21 failure verbatim. **The one gate built to prevent that failure
+would authorise it.** Do not build Gate 1 until this is answered. The two answers are: (a) extend
+`/provision-agent` with a rights-free initials-only branch and relax publish's avatar STOP for it —
+this **grows the spec's scope into a second skill**; or (b) state plainly that no portrait means the
+person cannot be an arguer — which **accepts the institutional bias below as a hard constraint**.
+
+**Independently of that answer: when both proposed sides are institutional, the selector must say so
+out loud** at the gate. The same decision entry records
 that a portrait requirement *"biases every debate it ships toward the institutional side, by
 construction and invisibly"*: pseudonymous critics hold much of the good opposing argument and have no
 licensed photo. People-first selection steers toward exactly that failure, and the founder is the
 only one positioned to notice it.
 
-**Creation stays in `/slava:content:provision-agent`, invoked by `/points-publish`** — the selector
-stays read-only with zero blast radius; creating at approval time would mint public accounts for runs
-that never publish; and provisioning is already the single sanctioned creator, so a second creation
-path is a copy that will drift.
+**Creation stays in `/slava:content:provision-agent`, invoked by `/points-publish`** — creating at
+approval time would mint public accounts for runs that never publish, and provisioning is already the
+single sanctioned creator, so a second creation path is a copy that will drift.
+
+> **Correction 2026-08-25 (adversarial review): the selector is read-only, but it is NOT
+> credential-free, and "zero blast radius" was wrong.** The "does an agent already exist for this
+> key?" check queries `agent_accounts` by exact `subject_key` — and `provision-agent.md:45` records
+> that this runs **"(service role — the column is not granted to anon)"**. So Gate 1 needs a
+> service-role credential. Two consequences the build must handle:
+> **(a) name the environment out loud.** `subject_key` is **UNIQUE per database**
+> (`provision-agent.md:35`: *"a test agent is not a prod agent"*), so "an agent already exists" is
+> meaningless without saying *in which database*. The selector must print the environment and the
+> project ref it resolved to, exactly as `/provision-agent` Step 1 does.
+> **(b) prefer the least credential that answers the question.** If the existence check can be
+> satisfied without service role, do that; if it cannot, the selector holds a prod credential and its
+> appetite line must say so rather than claiming zero blast radius.
 
 ### Data access
 
@@ -253,10 +343,31 @@ corrupted the ranking rather than failing loudly:
   mark the affected candidate's scores **based on a partial read**. Exit code 0 is not evidence the
   comment set is whole.
 
-**Cross-language pairing is in scope and cheap.** Subtitles exist in many languages and the extracting
-agent reads all of them, so the two sides need not share a language — the same event can sit between
-two sources whose audiences never read each other. **The verbatim quote stays in its original
-language**, with any translation marked as a translation, never presented as the speaker's words.
+**Cross-language pairing — [FOUNDER DECISION: in scope for v1 with a named change to Stage 1, or moved
+to Non-Goals?]**
+
+An earlier draft called this *"in scope and cheap."* **Verified false, and the failure mode is threat
+model #1 with every gate green.** `points-prepare.md:51` hardcodes `--sub-langs "en.*" --sub-format
+vtt`, and Stage 1 is in the must-not-move set. Point the selector at a German source and prepare
+fetches `en.*` — **which YouTube serves as the AUTO-TRANSLATED English track**. Every downstream check
+then passes on the wrong artifact: `grep -F` matches the translation, `positions-create` resolves
+`seconds:` from the translated `.vtt`, and `/points-publish` files a **machine translation as a named
+real person's verbatim quote, under an account bearing their name.** Nothing in the chain fails.
+
+**The same measurement kills the "re-reading downstream costs no quota" claim.** `points-prepare.md:46`
+gives the cache key as *"the same (video, **sub-langs**, sub-format) request"*. A selector reading a
+`de.*` track writes a different key, so prepare re-fetches — the caching reassurance holds **only for
+English**.
+
+The two answers: **(a)** name it as a change — *"Stage 1 takes the source language from the run file; a
+quote whose track is auto-translated is a STOP"* — which is a rule change inside the skill this spec
+promised only to move from; or **(b)** move cross-language pairing to Non-Goals for v1. **Recommend (b)
+for v1**: it is the only one of the two that does not put a rule change into the skill whose rules were
+each bought with a failed run, and it costs a capability nobody has used yet. If (a) is chosen, the
+change must be called out as a change, not folded into the move.
+
+**Either way, the standing rule holds:** the verbatim quote stays in its original language, with any
+translation marked as a translation, never presented as the speaker's words.
 
 ---
 
@@ -280,6 +391,33 @@ inside the thing that must not move.**
 **The sealed prediction stays with `points-prepare` and is unaffected by later calibration** — it
 receives only the statement, the opposing material and the room. It never sees the agent positions,
 and moving positions into a later skill must not change that.
+
+> **THE SPLIT BOUNDARY COLLIDES WITH THE SEAL. This is the deepest finding of the 2026-08-25 review and
+> it must be resolved before any stage is moved.** Three facts, each verified in the file:
+>
+> 1. **The seal's CONTENT depends on Stage 6, which is leaving.** `points-prepare.md:231` defines what
+>    gets sealed: *"sources, room, points, **inference chains**, predictions, bases."* The output format
+>    at `:346–348` shows an inference chain as
+>    `"<quote>" → commits to <X> → position <±n> [close|derived|stretch]` — **that is Stage 6 material**
+>    (position value + inference-strength label), and Stage 6 moves to `positions-create`. So Stage 7
+>    cannot both "stay unchanged" and keep sealing what it seals today. **This falsifies "stages move
+>    intact" at the one boundary where it matters.**
+> 2. **The seal is a hash over a file that new writers land in afterwards.** `points-prepare.md:233–236`:
+>    *"A file in a gitignored directory is not a seal… commit a SHA-256 of the prediction block to the
+>    tracked repo **before** showing the points"*, over `.private/points-runs/{slug}.md`. This spec then
+>    declares a single run file progressively written by four skills — **`positions-create` and
+>    `story-create` are new writers landing after the seal is taken.** Any write changes the hash. The
+>    seal does not fail loudly; it stops matching, or gets re-taken and means nothing.
+> 3. **Isolation on a RE-RUN is ordering with no rule enforcing it.** D10 makes re-running selection the
+>    intended recovery move. Nothing forbids a second `points-prepare` pass reading a run file into
+>    which `positions-create` has already written positions — at which point the prediction sees the
+>    positions and `points-prepare.md:214`'s guarantee is gone.
+>
+> **Required at build time — do not start the split without deciding this:** seal a **named block**, not
+> the whole file; the sealed block must contain only what Stage 7 is allowed to see; and every skill that
+> writes after the seal writes to a **different named section**, with the seal re-verified and a
+> **mismatch treated as a STOP**. On a re-run, `points-prepare` must read the ORIGINAL sources, never a
+> run file already carrying positions.
 
 **Stage 5 note:** with an opposed pair arriving from the selector, its priority-1 source ("a second,
 opposed source") is satisfied by construction. **Keep the kill rule** — if no real camp holds the
@@ -308,8 +446,20 @@ justify it are gathered at Stage 8.
   different experience becomes a second story. Verified: `story_points` is a join table carrying
   `author_id` with a `UNIQUE(author_id, point_id)` constraint
   (`supabase/migrations/20260301120000_story_points_author_unique.sql`) — one story to many points is
-  allowed; two stories from one person on one point is not. **The database already enforces exactly
-  the rule the founder stated; this skill must not fight it.**
+  allowed; two stories from one person on one point is not.
+- **The constraint and the rule are NOT the same rule, and they collide** (corrected 2026-08-25 after
+  review — an earlier draft claimed the database enforced "exactly" the founder's rule). The constraint
+  is *one story per author **per point***; the rule is *one story per distinct **experience***. They
+  diverge precisely where it matters: **one arguer, two distinct experiences, both bearing on the same
+  point** is mandated by the rule and forbidden by the constraint. Left unhandled, `story-create` emits
+  two stories both linked to point P, `/points-publish` builds colliding `story_points` rows, and the
+  single-transaction Management API write **aborts the entire run at the last step** — the failure shape
+  this spec exists to eliminate. Publish's existing *"arguers resolve to DISTINCT agents"* precondition
+  (`points-publish.md:36`) catches two arguers on one agent; it does **not** catch two stories from one
+  author on one point.
+  **Required behaviour:** when one author has two distinct experiences bearing on the same point, only
+  one story may link to that point — pick one and say which, or merge them. **Assert
+  `(author_id, point_id)` uniqueness across the emitted set at build time, not by Postgres error.**
 - Carries the **P1141 voice rules**, the `video_url` / `video_quotes` fields, and the **no trailing
   `Source:` line** rule.
 - **Reads the story model from `docs/story-point-model.md` — never restates it**
@@ -332,6 +482,27 @@ moving parts. Revisit once one topic has gone end-to-end.
 **Shape it after `docs/video-process.md` / `docs/content-process.md`:** The Pipeline · Each Step in
 Plain English · Run-file schema · Gates · Skills Reference · Anti-scope-creep.
 
+**The run file needs a path, an owner per section, and a seal — none of which an earlier draft
+supplied** (added 2026-08-25 after review). The spec called the run file *"the durability mechanism"*
+(*"what I approved Monday is what runs Thursday"*) while naming no path, no writer discipline, and no
+integrity check. As written, the founder's Gate 1 and Gate 2 approvals are **plain text in a mutable,
+gitignored file**, so a hand-edit or a partial write on Wednesday is indistinguishable from an approved
+value. **This repo already states the counter-argument in this very skill family**
+(`points-prepare.md:233`): *"A file in a gitignored directory is not a seal. The same actor can rewrite
+it before scoring it, and its modification time proves nothing about when the reasoning happened."*
+
+The contract doc must therefore fix, and Done-When must check:
+
+- **One named path**, stated once. Note that prepare today emits two artifacts with different trust
+  properties — `.private/points-runs/{slug}.md` (gitignored) and `.points-run-seals/<slug>.sha256`
+  (**tracked**) — and the schema must say which is which.
+- **A single writer per section.** Selector → identity keys + approvals; prepare → points + prediction;
+  `positions-create` → quotes, `seconds:`, positions; `story-create` → `video_url:`, story text. No
+  skill writes another's section.
+- **The approvals block is sealed.** At Gate 2 the selector commits a `shasum -a 256` of the approvals
+  block to `.points-run-seals/`, and **every downstream skill re-verifies it and STOPs on mismatch.**
+  Without that, "approved Monday" is an unverifiable assertion by whoever last opened the file.
+
 **The run-file schema lives here, in one place. This supersedes P1088's line placing the schema in
 the selector** — the contract spans four skills, so a home inside any one of them makes the other
 three read a sibling's file to learn the format. Each skill points here.
@@ -341,13 +512,31 @@ prepare→publish run file is already in use — `/points-publish` reads `video_
 `duration_seconds:` and per-quote `seconds:` from it (`points-publish.md:172`, and the emitting shape
 at `points-prepare.md:309–316`).
 
-### 2e. `/points-publish` — nothing to do
+### 2e. `/points-publish` — no BEHAVIOUR change, but four references must be repointed
 
-Verified against the file, not against the spec's status field: publish already writes `video_url` +
+**Corrected 2026-08-25 after adversarial review. An earlier draft of this section said "nothing to
+do." That was false and the grep proves it.**
+
+Publish's *mechanics* need no change. Verified against the file: it already writes `video_url` +
 `video_quotes` from the run file (`points-publish.md:172`), gates that every `video_url` is a
 canonical watch URL on the host allowlist (`:405`), gates that every quote's `seconds` came from the
 raw `.vtt` (`:406`), greps quotes against the transcript, and runs dry-run-first with test-then-prod
 as two deliberate invocations.
+
+**But publish hard-codes four statements about where its inputs come from, and the split falsifies
+every one of them:**
+
+| Line | What it says today | Why the split breaks it |
+|---|---|---|
+| `points-publish.md:44` | `subject_key` comes from *"prepare v0.5.0 **Stage 8**"* | Stage 8 leaves prepare; the selector emits `subject_key` now. **`subject_key: UNKNOWN` is a STOP** — this reference is load-bearing |
+| `points-publish.md:45` | attribution-basis labels come from *"prepare's **Stage 8**"* | Same. **`turn-inferred` is a STOP** |
+| `points-publish.md:238` | *"`stretch` positions are publishable only with the weakness stated (`/points-prepare` **Stage 6**)"* | Stage 6 → `positions-create` |
+| `points-publish.md:403–404` | *"The voice rules and the label live in `/slava:content:points-prepare` and nowhere else"* | They move to `story-create` |
+
+**Additional hazard: publish has its own Stage 6 and Stage 7** (`:323`, `:343`). "Stage 6" is already
+ambiguous across the two files; after the split a reader resolving it to the wrong file gets a gate
+that reads as satisfied. **Repoint by skill name, not by stage number** — stage numbers are the thing
+that just proved unstable.
 
 **The review happens on the test feed** (founder, 2026-08-25) — rendered stories with working video
 and timecodes, not terminal text. **Prod is a second deliberate invocation** and returns the tag feed
@@ -440,6 +629,15 @@ the ranking. Insight cannot be scored from metadata; that is why the selector re
 solo videos by two different people**, never one video containing both sides. P1088's fourth mode
 (`single` — "a panel or debate where the opposition is already inside one video") is **deleted**, not
 deprioritised: it selects for the one source shape the pipeline can no longer safely use.
+
+**D11 — One adversarial-review claim REFUTED by measurement, recorded so it is not re-raised.** The
+review reported that this spec's two proxy-allowance figures *"disagree"* — `~280/month` versus the
+skill's `1 GB/month` — and flagged it unverified. **Checked: they do not disagree.**
+`points-prepare.md:60–63` states the free allowance as **1 GB/month**, and separately that a ~$3.50
+top-up buys **≈280 more transcripts**. `280` is a top-up transcript count, not a competing monthly
+figure. The earlier draft's `~280/month` was **loose wording, not a contradiction**, and is corrected in
+Part 1 → Data access. The rest of that finding — that the selector lacks the exit-code-7 rule — is real
+and is fixed.
 
 **D10 — Runners-up travel in the run file, deliberately.** If the extractor finds the pair does not
 work, the next move is a **re-run of selection with that knowledge** — not a silent substitution by a
@@ -582,15 +780,54 @@ unwind.
 - [ ] `story-create` carries the P1141 voice rules, the `video_url`/`video_quotes` fields, the no-trailing
       -`Source:`-line rule, and **enforces the 10,000-character limit at build time**
 - [ ] `story-create` **reads the story model from `docs/story-point-model.md` and does not restate it**
-- [ ] Every reference to `points-prepare` across `.claude/` and `docs/` that assumed the old stage set is
-      updated
+- [ ] Every reference to `points-prepare` that assumed the old stage set is updated, across
+      **`.claude/`, `docs/`, `src/` AND `features/`** — the narrower `.claude/ + docs/` scope an earlier
+      draft used misses the two that actually break (below)
+- [ ] **`src/tests/p1141-pipeline-rules.test.ts` is updated and `npm test` is run and its output pasted
+      IN the split commit.** That suite reads the skill files as fixtures and asserts the voice rules
+      live in `points-prepare` (`:26`, `:33`, `:49` `toHaveLength(2)`, `:52` `toHaveLength(1)`, `:57`) —
+      moving them to `story-create` fails at least five assertions. **It will not fail the commit:**
+      `scripts/pre-commit-checks.sh:88–90` builds `BUILD_AFFECTING` from a `.ts|.tsx|.js|.jsx|…` regex
+      and `:145` runs `npm test` **only if that is non-empty**, so a markdown-only commit reports
+      "Tests… skipped" and lands green. The red then surfaces on an unrelated later `src/` commit by
+      someone else. Run the suite by hand or the gate does not exist for this change
+- [ ] `features/p1096_public_multisource_point_pipeline.md:44` (now a **broken link** to the moved P1088
+      and a stale "spec'd, not built" row) and `:46` (falsely says filing is not built) are corrected
+- [ ] `docs/story-point-model-consumers.md:62–66` is updated — it names `points-prepare` §6 and §8 as
+      *"the de-facto home of three model rulings… the exact rot this register exists to catch."* Two of
+      those three are being moved; the register must not silently point at a file that no longer holds
+      them
 - [ ] `docs/points-process.md` exists, carries **the run-file schema in one place**, and every one of the
       four skills points at it rather than restating it
-- [ ] `/points-publish` is **unchanged**
+- [ ] `/points-publish`'s four stage references (`:44`, `:45`, `:238`, `:403–404`) are repointed **by
+      skill name, not stage number**, and its two STOP conditions (`subject_key: UNKNOWN`,
+      `turn-inferred`) still resolve to a skill that actually emits the field
+- [ ] `/points-publish`'s **behaviour** is unchanged — no new write, no changed gate, no changed order
 
 **Privacy**
 
 - [ ] No comment author's name or handle appears in any tracked file
+- [ ] **Each of the selector, `positions-create` and `story-create` states the untrusted-input rule IN
+      FULL, verbatim — including the sibling-inheritance sentence — and a test asserts the string appears
+      in all five points-chain skill files.** Both existing skills state it in full *and* say why it may
+      not be inherited (`points-prepare.md:35`, `points-publish.md:22`): *"Stated here in full rather
+      than inherited from a sibling skill: a safety property held by reference is lost the moment the
+      sibling is edited."* An earlier draft covered this only as a Risks MITIGATE bullet — **Risks
+      bullets are not acceptance criteria**, and all nineteen other Done-When items were silent on it.
+      The selector is the **highest-exposure skill in the chain** (search results, uploader-controlled
+      titles and channel names, transcript openings, full transcripts, comment threads) and it writes
+      the artifact three downstream skills consume as authoritative
+- [ ] **The untrusted-input list explicitly NAMES video title, uploader and description**, not just
+      transcript and comment text — `features/done/2026-06-10/p1104_…:988` records that this channel is
+      `UNTRUSTED INDIRECT` and *"not explicitly named"* in the current list, and Gate 0 step 1 now gates
+      **and rewards** on exactly it
+- [ ] **The selector carries the exit-code-7 rule verbatim** — halt, report the funnel as INCOMPLETE,
+      never retry, never purchase; a truncated fetch never silently narrows the candidate field
+
+> **Note for whoever writes these three files:** `.claude/rules/pii.md` declares
+> `paths: features/**, docs/**, content/**` — **it does not cover `.claude/commands/**`.** The rule that
+> would prompt an author to think about third-party identifiability **does not auto-load while these
+> skill files are being written.** Load it by hand.
 
 ---
 
@@ -614,8 +851,18 @@ seen to fail is unproven).
 
 - One topic from a bare string to a **rendered test feed**, with **no manual step between the two selector
   approvals**.
-- **Position calibration is observable:** show one point where the evidenced Likert value differs from the
-  initial guess, and confirm `point_position_history` recorded the change.
+- **Position calibration is observable in `positions-create`'s OWN output** — show one point where the
+  evidenced Likert value differs from the pre-quote guess, side by side, with the quote that caused the
+  flip.
+  > **The `point_position_history` clause an earlier draft used here is DELETED, because it cannot be
+  > observed and chasing it is dangerous.** `/points-publish` inserts `point_positions` **once**, with
+  > the final value (`points-publish.md:309` insert order; `:331` *"exactly one `point_positions` row
+  > per arguer"*), and it is *"not re-runnable the way prepare is."* The trigger writes one history row
+  > per insert, so the table holds **one row: the filed value**. The pre-quote guess lives in a skill
+  > whose contract is "writes nothing to the product" and never reaches the database at all. An
+  > implementer chasing this AC either declares it satisfied by a row that proves nothing about a flip,
+  > or — the dangerous version — **adds an UPDATE-after-publish path to make history show two rows**,
+  > which is an unscoped prod write that `/points-publish` has no gate for.
 - **A story linked to more than one point renders correctly on the feed.**
 - **Prod is a second deliberate invocation** and returns the tag feed URL.
 
@@ -623,7 +870,14 @@ seen to fail is unproven).
 
 ## Open, deliberately
 
-- **The audience floor.** Proposed: **≥50 comments and ≥2,000 views** — gate on comments, not views,
+- **The audience floor — a BINDING DEFAULT that may be overridden, not an undecided number.** Fixed
+  2026-08-25 after review: leaving it undecided while Done-When requires a "dropped by audience floor"
+  funnel line means the agent picks a threshold per run, and the funnel — self-reported by the same
+  agent that did the dropping, cross-checked by nothing — makes an arbitrary number look measured.
+  Nothing would prevent a second 86-view run, which is this spec's Problem #1. **The value below is the
+  default, written into the run-file schema; a per-run founder override is recorded in the run file.**
+  That override log is the tuning path.
+  Value: **≥50 comments and ≥2,000 views** — gate on comments, not views,
   because the comment section is what gets read. Both anchors are real measurements, not round numbers:
   the failed source that motivated this work had 86 views / 1 comment; the video probed 2026-08-24 had
   2,604 views / 89 comments and a genuine argument underneath. **A starting hypothesis.** The skill prints
