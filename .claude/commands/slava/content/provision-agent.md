@@ -216,7 +216,8 @@ Append one line on **every** exit to `.private/logs/points-runs.log`:
 
 - `/slava:content:gen-agent-avatar` — the mandatory avatar step.
 - `/slava:content:points-publish` — the filer that requires what this creates.
-- `/slava:content:points-prepare` — upstream of both; produces the material.
+- `/slava:content:points-select` — resolves the `subject_key` for each person at Gate 1, before any agent is needed; the selector proves creation will succeed, it never creates.
+- `/slava:content:points-prepare` → `positions-create` → `story-create` — the extraction chain that produces the material (contract: `docs/points-process.md`).
 - `supabase/migrations/*p1104*.sql` — **seven** files, read as a set; the RPC lives in `20260819160000`, not the first one.
 - `e2e/helpers/test-agent-account.ts` — the reference implementation for mint-then-register.
 - `supabase/migrations/*p1135*.sql` — the `agent-avatars` bucket this skill uploads to.

@@ -1,8 +1,8 @@
 ---
 name: points-prepare
-description: "Read one or more sources — YouTube videos, a recorded conversation, an event panel — and prepare everything needed to file a disagreement: Points aimed at a named ROOM, one story draft per arguer holding only that speaker's verbatim quotes, each agent's position on each Point, and a sealed prediction. Terminal output only; writes nothing to the product. With an opposed PAIR of sources it builds synthesized Points — claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends."
-when_to_use: "When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only. Pairs with /points-publish, which is the only skill in this chain that writes to the product."
-version: 0.6.1
+description: "Read one or more sources — an opposed PAIR selected by /slava:content:points-select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:content:positions-create and /slava:content:story-create."
+when_to_use: "Stage 2 of the points pipeline, after /slava:content:points-select has approved a source pair. When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
+version: 0.7.0
 ---
 
 # /points-prepare
@@ -21,10 +21,12 @@ Take one or more conversations. Produce claims that would split a **specific roo
 
 | Input | Notes |
 |---|---|
-| **Source(s)** | One or more YouTube URLs, transcript paths, or pasted text. An **opposed pair** is the strongest input. |
-| **The room** | Who these points will be shown to, in plain terms — "seed-stage founders at a Berlin event", "two cofounders of a 4-person SaaS". |
+| **Run file** | `.private/points-runs/<slug>.md` from `/slava:content:points-select` — carries the approved opposed pair, the room, the identity keys and the sealed approvals. **Re-verify the approvals seal before extracting**: re-extract the `### Approvals Block` (through `<!-- end-approvals-block -->`), re-hash it, compare against `.points-run-seals/<slug>.approvals.sha256` — **a mismatch is a STOP** (see `docs/points-process.md`). Sources may also be supplied directly (URLs, transcript paths, pasted text) for a manual run without the selector — in that case this skill writes the run file header itself. |
+| **The room** | Who these points will be shown to, in plain terms — "seed-stage founders at a Berlin event", "two cofounders of a 4-person SaaS". With a selector run file the room is read from it, still printed back. |
 
 > **Refuse to proceed without the room, and never invent one.** Which claims survive the load-bearing filter, and every predicted percentage, are relative to a named audience. **Print the room back before extracting** and treat silence as refusal — a 2026-08-17 run asserted its own room and every number downstream inherited an unchecked assumption.
+
+> **On a re-run, read the ORIGINAL sources, never a run file already carrying positions.** If `/slava:content:positions-create` has already written its section, its positions would leak into the sealed prediction pass and destroy the isolation Stage 7 exists to guarantee. Re-derive from the video URLs; the transcript cache makes the re-read free.
 
 ---
 
@@ -185,29 +187,9 @@ When a private-source run must also travel, emit **two forms** — one sharp for
 
 **Never impute a position to a named person.** You may quote what someone wrote or said and reason about what it commits them to, with the chain shown. You may not state what they believe, would answer, or would vote. **Never file the opposing view as a Story.**
 
-## Stage 6 — Agent positions
+## Stage 6 — moved to `/slava:content:positions-create` (P1156, 2026-08-25)
 
-> **An agent-derived split is a HYPOTHESIS, never a finding — and this is the most important sentence in this file.**
-> A synthesized point is built *so that* two speakers land at opposite ends. Given any two people who differ on anything, such a statement can be constructed; producing one is evidence about the generator's search, not about whether the disagreement exists or matters. Nothing in this procedure can distinguish a disagreement **found** from one **engineered** — the inference chain is written by the same agent that chose the statement, and the strength labels are self-assigned against no third-party rubric.
-> **Only a room's answers are evidence.** Never report an agent split as though it established anything about the world.
-
-One agent per **arguer**, each reading only that speaker's material. Each holds a position on each point, captioned as **the agent's reading of that speaker's argument** — never as the speaker's position.
-
-**Label each position's inference strength:**
-
-| Label | Meaning |
-|---|---|
-| `close` | the speaker argued this directly; the generalization barely moves |
-| `derived` | follows from what they argued, chain shown |
-| `stretch` | inferred from tone, adjacent remarks, or what they mocked |
-
-A `stretch` is publishable only with its weakness stated. The 2026-08-17 run had one unmarked stretch and it was the weakest position in the set.
-
-**A cross-camp split is the signal worth hunting.** When two speakers on the *same* side land on opposite ends, the point cuts across camps rather than between them, so a room cannot pre-sort itself by tribe.
-
-> **Correction, 2026-08-17:** this rule previously claimed such a point "cannot be constructed from a single source." False — the only example ever produced came from two speakers **inside one video**. What it requires is two or more arguers, who may share a source. The claim was written from a run that refuted it.
-
-Flag every one. And note what it is not: "highest-quality" was asserted here with no metric and no outcome it predicts. It is the most *interesting* pattern found so far, on n=1.
+Agent positions, the inference-strength labels (`close` / `derived` / `stretch`), the agent-split-is-a-hypothesis warning and the cross-camp split rule moved **intact** to `/slava:content:positions-create`, which selects quotes FIRST and sets each position to what the quotes actually support — fixing the ordering flaw where the position was set here before the quotes justifying it were chosen. Provisional positions (`±n`) still appear in this skill's Stage 4 inference chains; `/slava:content:positions-create` verifies or flips them against the evidence.
 
 ## Stage 7 — The predicted split, sealed
 
@@ -228,108 +210,26 @@ Never merge a strong half and a weak half into one confident number.
 
 **For a room of two, the band is meaningless** — predict a **position pair**, one per person, not a share.
 
-**Seal before anyone answers.** Write the run — sources, room, points, inference chains, predictions, bases — to `.private/points-runs/{slug}.md` **before** anything is shown.
+**Seal before anyone answers.** Append the points and the named `### Prediction Block` — room, point statements, predictions, bases; closed by the literal line `<!-- end-prediction-block -->` — to the run file's `## Points & Predictions` section **before** anything is shown.
 
 > **A file in a gitignored directory is not a seal.** The same actor can rewrite it before scoring it, and its modification time proves nothing about when the reasoning happened. To make the seal mean anything, **commit a SHA-256 of the prediction block to the tracked repo before showing the points** — a hash carries no quotes, no names and no content, so it is publishable, and the commit supplies the external timestamp the file cannot:
 >
 > ```bash
-> shasum -a 256 .private/points-runs/<slug>.md | cut -d' ' -f1 > .points-run-seals/<slug>.sha256
+> awk '/^### Prediction Block/{f=1} f{print} f && /end-prediction-block/{exit}' \
+>   .private/points-runs/<slug>.md | shasum -a 256 | cut -d' ' -f1 > .points-run-seals/<slug>.sha256
 > ```
 >
 > Without that commit, say in the output that the prediction is **unsealed** — self-reported ordering, not evidence. Every prediction made before 2026-08-17 is unsealed by this standard, including both runs on record.
+
+> **The seal is over a NAMED BLOCK, never over the whole run file.** *(Changed 2026-08-25, P1156 — the one deliberate rule change in this stage; everything else moved intact.)* The run file is progressively written by four skills: `/slava:content:positions-create` and `/slava:content:story-create` append AFTER this seal is taken, and any later write would change a whole-file hash — the seal would not fail loudly, it would silently stop matching. The named block contains only what the predicting pass is allowed to see: statements, room, predictions, bases. **Never the inference chains with position values, never the agent positions** — Stage 7's isolation guarantee would be sealed alongside its own violation. Every downstream skill re-extracts this block, re-verifies the seal, and STOPs on mismatch.
 
 > **Per-run file only.** No index, no cross-run query, nothing reading across `.private/points-runs/` — that is the persistent decision store frozen by `docs/decisions.md` 2026-07-14 [product].
 >
 > **Consequence, stated because it contradicts what this stage used to claim:** calibration is a property of a *sequence*, and reading across runs is forbidden. So a sealed prediction can only ever be scored **within its own run**, against that run's room. **Cross-run calibration of the agent is unavailable by design** — an accepted gap, not a purpose this file can deliver. Earlier wording said scoring was "the whole reason the prediction exists"; that was incompatible with the rule two lines above it.
 
-## Stage 8 — Story drafts, and the handoff the filer needs
+## Stage 8 — moved (P1156, 2026-08-25)
 
-One per arguer: a summary plus **only that speaker's verbatim quotes**, with the source link. These are drafts for a later filing step. **This skill files nothing.**
-
-> **No trailing `Source:` line in the story body.** Added 2026-08-24 after a founder review.
-> The filed story renders with the video embedded directly above the text and every quote
-> carrying its own timecode link into that video, so a closing "Source: the full talk"
-> sentence repeats what two surfaces already say. Worse, under P1141's link narrowing it does
-> not even render as a link — a link whose visible label does not match its destination is
-> deliberately downgraded to plain text, so the sentence arrives looking like a link that
-> broke. Put the source in the `video_url` field, where it belongs and where the player and
-> the timecodes both read it from.
-
-### Record the subject key per arguer — the filer cannot guess it
-
-`/slava:content:points-publish` matches each arguer to an existing agent account by an exact **`subject_key`**, and it must read that key from a written artifact rather than from someone's memory. Emit one line per arguer into the run file:
-
-```
-arguer: <Display Name> | subject_key: <canonical person reference> | source: <URL>
-```
-
-The key is a canonical reference to the **person** — Wikidata entity, Wikipedia page, their own site, or an internal slug when they have no public page. **Never a YouTube channel URL:** a channel identifies whoever *publishes*, not who speaks, and the same person appears across many channels. If you do not know the key, write `subject_key: UNKNOWN` and say so — an honest gap stops the filer, a guessed one publishes a person's words under someone else's account.
-
-### Voice — a machine writing about a person (P1141)
-
-**This skill is the ONE place these rules live.** They are drafted narrative content, and this is
-where narrative content is drafted — `/slava:content:points-publish` explicitly disclaims
-authorship and only enforces mechanical string checks at filing time. It carries a Quality Gate
-line asserting the section label is present verbatim; it does not author the rule. Do not add a
-second copy of anything below to any other skill.
-
-Story text is a machine account writing **about** a named person, never a familiar narrator.
-
-- **Full name or surname — never a bare pronoun referring to the subject.** Beyond tone this
-  closes a real defect: this pipeline reads auto-captions and has **no reliable information about
-  any subject's pronouns.** A guess misgenders a real person under an account bearing their own
-  name. Full name sidesteps it entirely.
-- **Never impute a position to the subject.** Unchanged, and it applies to the framed argument as
-  much as to the points.
-- The quotes section **names the person it quotes**, using this exact label:
-
-      Supporting quotes from {Full Name}
-
-  `{Full Name}` is the same value the byline renders. The string is verbatim — the filer greps for
-  it, and a paraphrase fails the gate.
-
-### Per-quote timecodes — read the RAW `.vtt`, never the cleaned transcript (P1141 / P1140)
-
-Every quote carries the **exact second it starts at**, captured in this pass while the cue is
-already in hand.
-
-> **The trap, stated so nobody walks into it.** `vtt-clean` emits a coarse `[MM:SS]` marker only
-> every ~30 seconds, and the cleaned transcript is what this skill's own Stage 1 produces — so it
-> is what an implementer will naturally read. A jump built from it lands up to half a minute off
-> and reads as a broken feature rather than as the wrong input file.
-
-Resolve each quote against the retained raw track at
-`~/.local/share/yt-store/<video-id>/<lang>.vtt` (P1140 — permanent, content-hash-gated, never
-overwritten). A WebVTT cue carries an exact start and end time, so precise per-quote times survive
-the session and a later run can re-derive them without a re-fetch.
-
-Emit, per quote, alongside its attribution label:
-
-```
-quote: <verbatim text> | seconds: <integer start second> | basis: <attribution label>
-```
-
-And once per arguer, the video identity and its duration — the two fields the filer writes:
-
-```
-video_url: <canonical watch URL>   # https://www.youtube.com/watch?v=... or https://youtu.be/...
-duration_seconds: <integer>
-```
-
-**Not the channel URL, not an embed URL, not a bare id.** The filer stores this one string and
-every surface re-derives the player, the thumbnail and the open-at-timestamp link from it.
-
-### Label the attribution basis per quote
-
-The filer treats attribution as a **third** check, separate from the two below — `grep -F` proves a quote is in the transcript, the audio check proves the caption robot heard it right, and **neither proves the right person said it.** Tag every quote:
-
-| Label | Meaning |
-|---|---|
-| `speaker-labelled` | the source carries real speaker labels |
-| `single-speaker` | only one person speaks in this source |
-| `turn-inferred` | attributed from `>>` markers or content alone |
-
-**`turn-inferred` on a multi-speaker source is a stop at filing time**, so surface it here rather than letting it be discovered later.
+Story drafting, the P1141 voice rules, the per-quote timecode resolution and the attribution-basis labelling moved **intact** to `/slava:content:story-create` (story drafts, voice rules, build-time limits) and `/slava:content:positions-create` (quote selection, `seconds:` from the raw `.vtt`, attribution-basis labels). The **subject key per arguer** moved UPSTREAM to `/slava:content:points-select`, which resolves identity at Gate 1 where each person is first named and approved — implementing the 2026-08-21 ruling that rights clearance is a selection criterion, not a provisioning detail. `video_url:` and `duration_seconds:` per arguer are now emitted by `/slava:content:positions-create`.
 
 ---
 
@@ -344,14 +244,15 @@ Pn — Predicted agreement: NN%
 <the bald statement>            [SYNTHESIZED — neither speaker said this]
 
   Inference chain:
-    <side A>: "<quote>" → commits to <X> → position <±n> [close|derived|stretch]
-    <side B>: "<quote>" → commits to <Y> → position <±n> [close|derived|stretch]
+    <side A>: "<quote>" → commits to <X> → position <±n>
+    <side B>: "<quote>" → commits to <Y> → position <±n>
   Agree commits you to:     <consequence>
   Disagree commits you to:  <consequence>
-  [CROSS-CAMP SPLIT — two speakers on the same side disagree]
 ```
 
-Close with: how much was read, audience sizes, the origin tally, how many candidates were dropped and why, every quote that could not be attributed, and every `stretch`.
+The `±n` in each chain is the **provisional** position the synthesis rests on; `/slava:content:positions-create` verifies or flips it against the quotes, and assigns the inference-strength label (`close` / `derived` / `stretch`) — that axis and its rules live there now.
+
+Close with: how much was read, audience sizes, the origin tally, how many candidates were dropped and why, and every quote that could not be attributed.
 
 ---
 
@@ -366,10 +267,17 @@ Close with: how much was read, audience sizes, the origin tally, how many candid
 - **Do NOT assert the room.** Ask, print it back, wait.
 - **Do NOT decide visibility, audience scoping, or where points live.** Separate work — `features/p1096_*.md`.
 
-## Not yet built (name the boundary if asked)
+## The chain this skill sits in (P1156)
 
-- **Source selection** — `features/p1088_video_selector_for_point_extraction.md`. Argument density falls as reach rises: measured 2026-08-17 across six videos, from 1.7 comments per thousand views at 751k views to 13.4 at 49k. Trending is the wrong filter.
-- **Filing** — `/slava:content:points-publish` writes these to the product; `/slava:content:provision-agent` creates the agent accounts it files under. Both exist. This skill still writes nothing.
+```
+/slava:content:points-select  → selects the opposed pair, resolves identity, seals approvals
+THIS SKILL                    → extracts points, seals the prediction
+/slava:content:positions-create → verifies quotes, resolves timecodes, sets positions
+/slava:content:story-create   → drafts the machine-reading stories
+/slava:content:points-publish → files to the product (the only writer)
+```
+
+The stage contracts, the run-file schema and the seal rules live in one place: [`docs/points-process.md`](../../../../docs/points-process.md). This skill still writes nothing to the product. (The old "argument density falls as reach rises" conjecture that lived in this section was retired unused — P1156, D7.)
 
 ## Open questions for v3
 

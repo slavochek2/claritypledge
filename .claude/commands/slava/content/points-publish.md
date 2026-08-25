@@ -1,7 +1,7 @@
 ---
 name: points-publish
 description: "File a prepared disagreement to the product: one story per arguer holding only that speaker's verbatim quotes with the source link, the points public under one event tag, and each agent's position on each point. Never creates an account itself; on a missing agent it may invoke /slava:content:provision-agent (P1135 decision (c)) rather than only halting. Dry-run by default — it prints the exact payload it would write, and writes only that payload after an explicit affirmative. Returns the tag feed URL."
-when_to_use: "After /slava:content:points-prepare has produced points, story drafts and agent positions for a named room, and the quotes have been checked against the source. Existing agent accounts are reused; missing ones may be provisioned inline, one gated confirmation each. Run it against TEST first; the prod run is a second, deliberate invocation. This is the only skill in the points chain that writes to the product."
+when_to_use: "After the points chain — /slava:content:points-select (approves the pair) → /slava:content:points-prepare (extracts points, seals the prediction) → /slava:content:positions-create (verifies quotes, sets positions) → /slava:content:story-create (drafts the stories) — has produced points, story drafts and agent positions for a named room, and the quotes have been checked against the source. Existing agent accounts are reused; missing ones may be provisioned inline, one gated confirmation each. Run it against TEST first; the prod run is a second, deliberate invocation. This is the only skill in the points chain that writes to the product."
 version: 0.7.0
 ---
 
@@ -9,7 +9,7 @@ version: 0.7.0
 
 **Announce at start:** "Running /points-publish. Dry-run first — nothing is written until you confirm."
 
-File what `/slava:content:points-prepare` produced. **This skill files; it does not author.** If the text is wrong, re-run prepare — never edit it here.
+File what the points chain produced — `/slava:content:points-select` → `/slava:content:points-prepare` → `/slava:content:positions-create` → `/slava:content:story-create` (contracts: `docs/points-process.md`). **This skill files; it does not author.** If the text is wrong, re-run the skill that authored it — never edit it here.
 
 **What makes this irreversible in the way that matters:** it publishes verbatim quotes from named real people under machine accounts that hold positions those people never took. Rows delete. Publication does not.
 
@@ -41,8 +41,8 @@ Check all of them before building anything. A run where every gate passes and th
 | **The prediction seal FILE exists** | `.points-run-seals/<slug>.sha256` is committed | Absent ⟹ **STOP**. Present ⟹ proceed, and see the honesty note below: presence is all this skill can check. |
 | **The (ref, key) pair for the CHOSEN target** | the table below | Credentials by **variable name only**. **`OPS_EMAIL` is deliberately NOT listed** — this run never signs in, so it needs no account credential, and naming one is what points an agent at the `Clarity Agent` machine profile. |
 | **`SUPABASE_ACCESS_TOKEN`** in `.env.prod` | present by name | The Management API token. Without it the atomic path is unavailable — and since there is no fallback, its absence is a STOP rather than a silent downgrade. |
-| **`subject_key` came from a WRITTEN artifact** | the `arguer: … \| subject_key: … \| source: …` lines in `/points-prepare`'s run file, cross-checked against `.private/logs/agent-registry.log` — the file `/provision-agent` appends to and this skill re-reads from | It must not be typed from memory, including when this skill provisioned the account itself inline (P1135 decision (c) constraint 5). Both upstream skills now emit it (prepare v0.5.0 Stage 8, provision-agent Step 6). A `subject_key: UNKNOWN` is a STOP. |
-| **Attribution basis labelled per quote** | `speaker-labelled` / `single-speaker` / `turn-inferred`, from prepare's Stage 8 | `turn-inferred` on a multi-speaker source is a STOP — drop the quote or supply a single-speaker source. |
+| **`subject_key` came from a WRITTEN artifact** | the `arguer: … \| subject_key: … \| source: …` lines in the run file, cross-checked against `.private/logs/agent-registry.log` — the file `/provision-agent` appends to and this skill re-reads from | It must not be typed from memory, including when this skill provisioned the account itself inline (P1135 decision (c) constraint 5). The upstream skills that emit it are `/slava:content:points-select` (resolves identity at Gate 1) and `/slava:content:positions-create` (carries the lines into the run file), plus provision-agent Step 6. A `subject_key: UNKNOWN` is a STOP. |
+| **Attribution basis labelled per quote** | `speaker-labelled` / `single-speaker` / `turn-inferred`, from `/slava:content:positions-create` | `turn-inferred` on a multi-speaker source is a STOP — drop the quote or supply a single-speaker source. |
 
 ### The environment table — BOTH targets are named, because only naming prod is what sends a "test" run to prod
 
@@ -235,7 +235,7 @@ point_positions one per (point × arguer)
 
 > **Do NOT put the inference chain in `point_positions.reasoning`.** It is carried through the data layer (`points-service-real.ts:139,154,175,640`) and **rendered by nothing** — `grep -rn "reasoning" src/ --include="*.tsx"` returns only placeholder copy and prose, no position render site (verified 2026-08-20). Writing it there is P1095's dead `context` column repeated. **The inference chain belongs in the agent's story**, which renders on both the feed card and the point detail page, clearly separated from the quotes as the agent's own text.
 
-> **`stretch` positions are publishable only with the weakness stated** (`/points-prepare` Stage 6). The label travels into the story text or it does not travel at all.
+> **`stretch` positions are publishable only with the weakness stated** — the rule lives in `/slava:content:positions-create`. The label travels into the story text or it does not travel at all.
 
 ## Stage 3 — Build the REQUEST BODY, print it, hash it
 
@@ -400,8 +400,8 @@ The instrument is the before/after counts from stage 1.
 - [ ] **Every interpolated text field was dollar-quoted with a collision-checked tag**, and the check was actually run against the content rather than assumed.
 - [ ] **The JSON body was built with an encoder** and sent with `--data-binary @file`.
 - [ ] **Every story carries `#<event-tag>` in its text**, verified from the read-back `tags` array, not from the text you wrote.
-- [ ] **Every story with a video carries `Supporting quotes from {Full Name}` verbatim in its text**, verified from the read-back, not from the text you wrote. A mechanical backstop mirroring the hashtag check above — this skill does NOT author the rule. The voice rules and the label live in `/slava:content:points-prepare` and nowhere else; wrong text ⟹ re-run prepare.
-- [ ] **No story ends with a trailing `Source:` line**, verified from the read-back. Same shape as the check above and for the same reason — this skill does not author the rule, it only catches a violation before filing. Grep the read-back text for a line matching `^Source:`; a hit means re-run prepare. The rule lives in `/slava:content:points-prepare` (voice rules) and nowhere else: the embedded player and the per-quote timecode links already carry the source, and under P1141's link narrowing a label like "the full talk" asserts no destination, so the sentence renders as ordinary prose that looks like a link and is not one.
+- [ ] **Every story with a video carries `Supporting quotes from {Full Name}` verbatim in its text**, verified from the read-back, not from the text you wrote. A mechanical backstop mirroring the hashtag check above — this skill does NOT author the rule. The voice rules and the label live in `/slava:content:story-create` and nowhere else; wrong text ⟹ re-run story-create.
+- [ ] **No story ends with a trailing `Source:` line**, verified from the read-back. Same shape as the check above and for the same reason — this skill does not author the rule, it only catches a violation before filing. Grep the read-back text for a line matching `^Source:`; a hit means re-run story-create. The rule lives in `/slava:content:story-create` (voice rules) and nowhere else: the embedded player and the per-quote timecode links already carry the source, and under P1141's link narrowing a label like "the full talk" asserts no destination, so the sentence renders as ordinary prose that looks like a link and is not one.
 - [ ] **Every `video_url` written is a canonical watch URL on the host allowlist**, not a channel URL, an embed URL, or a bare id. The `stories.video_url` CHECK constraint rejects the rest — a rejected insert here is the constraint working, not a bug to route around.
 - [ ] **Every quote in `video_quotes` carries an integer `seconds` resolved from the RAW `.vtt`**, never from the ~30s cleaned transcript. A timecode off by half a minute reads as a broken feature.
 - [ ] **No story contains first-person text for any person**, and no position is captioned as a person's own.
@@ -422,7 +422,7 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | points-publish | <mod
 
 ## What this is NOT
 
-- **Not an author.** `/slava:content:points-prepare` produces the text. Wrong text ⟹ re-run prepare.
+- **Not an author.** `/slava:content:story-create` produces the story text; `/slava:content:positions-create` produces the quotes and positions; `/slava:content:points-prepare` the points and prediction. Wrong text ⟹ re-run the skill that authored it.
 - **Not a provisioner.** It mints no auth users itself and generates no avatars itself — that logic lives entirely in `/slava:content:provision-agent` and `/slava:content:gen-agent-avatar`. It may **invoke** provisioning (P1135 decision (c)); it may not reimplement any part of it.
 - **Not a promoter.** There is no copy-from-test operation. The prod run is a second full invocation with its own dry-run and its own gate.
 - **Not re-runnable the way prepare is.** Every confirmed run writes. A second run files a second set.
@@ -430,7 +430,11 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | points-publish | <mod
 
 ## Related
 
-- `/slava:content:points-prepare` — upstream; produces everything this files.
+- `docs/points-process.md` — the pipeline contract: stage boundaries, run-file schema, seal rules.
+- `/slava:content:points-select` — selects the opposed pair; resolves `subject_key` and approvals at its gates.
+- `/slava:content:points-prepare` — extracts the points and seals the prediction.
+- `/slava:content:positions-create` — verifies quotes, resolves timecodes from the raw `.vtt`, sets positions.
+- `/slava:content:story-create` — drafts the stories; owns the P1141 voice rules.
 - `/slava:content:provision-agent` — creates the accounts this requires, and appends the `subject_key` registry line this skill reads. May now be invoked inline from this skill's halt point (P1135). **Built (v0.2.0).**
 - `/slava:content:gen-agent-avatar` — mandatory for every new account; invoked by provision-agent, never by this skill.
 - `/slava:think:align-create-letter` — the prod-write precedent: credential discipline, the confirm gate, the constraints.

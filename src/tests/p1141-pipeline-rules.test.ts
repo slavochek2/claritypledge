@@ -9,6 +9,11 @@
  * "Exactly one skill" is the assertion with teeth: two copies of a voice rule
  * diverge silently, and the story text is the surface where a divergence
  * misgenders a real person under an account bearing their own name.
+ *
+ * P1156 (2026-08-25) moved the voice rules from points-prepare to story-create
+ * and the timecode emission from prepare Stage 8 to positions-create. The
+ * assertions follow the rules to their new homes; publish's assertions are
+ * unchanged because its gates are unchanged.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,60 +25,66 @@ const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
 const PREPARE = read('.claude/commands/slava/content/points-prepare.md');
 const PUBLISH = read('.claude/commands/slava/content/points-publish.md');
+const POSITIONS = read('.claude/commands/slava/content/positions-create.md');
+const STORY = read('.claude/commands/slava/content/story-create.md');
 const LABEL = 'Supporting quotes from {Full Name}';
 
 describe('p1141 DW-11 — the voice rules live in exactly one skill', () => {
-  it('points-prepare owns them, and says so', () => {
-    expect(PREPARE).toContain('**This skill is the ONE place these rules live.**');
-    expect(PREPARE).toContain('no reliable information about');
-    expect(PREPARE).toContain('pronoun');
+  it('story-create owns them, and says so', () => {
+    expect(STORY).toContain('**This skill is the ONE place these rules live.**');
+    expect(STORY).toContain('no reliable information about');
+    expect(STORY).toContain('pronoun');
   });
 
   it('the reason for the choice is stated, not left to be guessed', () => {
-    // Decision 10: prepare produces the story-draft text; publish disclaims authorship.
-    expect(PREPARE).toMatch(/drafted narrative content|narrative content is drafted/);
+    // Decision 10: story-create produces the story-draft text; publish disclaims authorship.
+    expect(STORY).toMatch(/drafted narrative content|narrative content is drafted/);
     expect(PUBLISH).toMatch(/does NOT author the rule/);
   });
 
   it('points-publish carries a MECHANICAL backstop, not a second copy of the rule', () => {
     expect(PUBLISH).toContain(LABEL);
     // It greps for the string; it does not restate why the rule exists.
-    expect(PUBLISH).toContain('re-run prepare');
+    expect(PUBLISH).toContain('re-run story-create');
     expect(PUBLISH).not.toContain('**This skill is the ONE place these rules live.**');
   });
 
   it('the section label appears in exactly one skill file — no second, drifting copy', () => {
-    const skills = [PREPARE, PUBLISH];
+    const skills = [PREPARE, POSITIONS, STORY, PUBLISH];
     const authoring = skills.filter((s) => s.includes(LABEL));
-    // Present in both is correct: prepare AUTHORS it, publish ASSERTS it.
+    // Present in story-create AND publish is correct: story-create AUTHORS it,
+    // publish ASSERTS it. The other two chain skills must not carry it at all.
     expect(authoring).toHaveLength(2);
+    expect(authoring).toContain(STORY);
+    expect(authoring).toContain(PUBLISH);
     // But only one of them explains the pronoun rule behind it.
     const explains = skills.filter((s) => /misgender/i.test(s));
     expect(explains).toHaveLength(1);
+    expect(explains).toContain(STORY);
   });
 
   it('the label the skill specifies is the label the component renders', () => {
     const component = read('src/app/components/shared/story-video-quotes.tsx');
     expect(component).toContain('Supporting quotes from {subjectName}');
-    expect(PREPARE).toContain(LABEL);
+    expect(STORY).toContain(LABEL);
   });
 });
 
 describe('p1141 DW-13 — timecodes come from the raw .vtt, never the cleaned transcript', () => {
-  it('points-prepare names the retained raw store as the source', () => {
-    expect(PREPARE).toContain('~/.local/share/yt-store/');
-    expect(PREPARE).toContain('.vtt');
+  it('positions-create names the retained raw store as the source', () => {
+    expect(POSITIONS).toContain('~/.local/share/yt-store/');
+    expect(POSITIONS).toContain('.vtt');
   });
 
   it('it names the ~30s cleaned transcript as the trap, explicitly', () => {
-    expect(PREPARE).toMatch(/vtt-clean/);
-    expect(PREPARE).toMatch(/~30 seconds|30s|half a minute/);
+    expect(POSITIONS).toMatch(/vtt-clean/);
+    expect(POSITIONS).toMatch(/~30 seconds|30s|half a minute/);
   });
 
   it('it specifies the per-quote seconds field the filer writes', () => {
-    expect(PREPARE).toMatch(/seconds: <integer/);
-    expect(PREPARE).toMatch(/video_url: <canonical watch URL>/);
-    expect(PREPARE).toMatch(/duration_seconds:/);
+    expect(POSITIONS).toMatch(/seconds: <integer/);
+    expect(POSITIONS).toMatch(/video_url: <canonical watch URL>/);
+    expect(POSITIONS).toMatch(/duration_seconds:/);
   });
 
   it('points-publish enforces the raw-vtt origin at filing time', () => {

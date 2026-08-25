@@ -71,7 +71,7 @@ The anchoring question is already decided upstream and does not reopen here: P10
 
 **Residue, stated rather than closed.** Each agent position row is *individually* disclosed — `Agent · {subject}`, drained card, square avatar, no pledge ring (P1104). The **aggregate bar is not**: it shows one number with no indication that k of n votes are machine readings, and those k sit at the extremes by construction, because a synthesized point is built so the two agents land at opposite ends. In a room of eight, two agents are 20% of the bar.
 
-**Consequence that binds analysis, not the UI:** any reading of a room's answers as evidence must exclude agent `user_id`s at query time. That is a `WHERE user_id NOT IN (SELECT profile_id FROM agent_accounts)`, and it is the analyst's job, not the renderer's. This is consistent with `/points-prepare` Stage 6 — an agent-derived split is a hypothesis, never a finding.
+**Consequence that binds analysis, not the UI:** any reading of a room's answers as evidence must exclude agent `user_id`s at query time. That is a `WHERE user_id NOT IN (SELECT profile_id FROM agent_accounts)`, and it is the analyst's job, not the renderer's. This is consistent with the agent-split-is-a-hypothesis rule — an agent-derived split is a hypothesis, never a finding (moved intact to `/slava:content:positions-create` by P1156; formerly `/points-prepare` Stage 6).
 
 **Falsifier for this decision:** at the first event, if anyone in the room reads the aggregate bar as though it were the room's own split, exclusion becomes a real spec and P543's filter gets revisited with it.
 

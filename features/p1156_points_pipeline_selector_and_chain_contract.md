@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 0.5
 workstream: events
@@ -10,8 +10,8 @@ tags:
   - youtube
   - selection
   - pipeline
-delivery_stage: create-spec
-pipeline_ran: [create-spec, adversarial-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, adversarial-review, dev]
 pipeline_skipped:
   - pick-flow -- flow decided by the founder in the design session; build straight from this spec
   - challenge-prd -- every load-bearing claim here was measured this session and the measurement is recorded inline; /slava:think:adversarial-review runs instead
@@ -285,23 +285,21 @@ At Gate 1, per approved person, the selector resolves and records:
 - whether an agent **already exists** for that key
 - **portrait feasibility** — a rights-cleared photograph, or initials-only
 
-**[FOUNDER DECISION: does a person with no rights-cleared portrait get rejected at Gate 1, or does
-`/provision-agent` grow an initials-only path?]** — raised 2026-08-25 by adversarial review, and it is
-the sharpest hole in this spec. An earlier draft said *"no portrait means initials, not rejection —
-this does not block."* **Verified false against the creator:** `provision-agent.md:31` lists *"A
+**[FOUNDER DECISION — ANSWERED 2026-08-25: (b) reject at Gate 1.]** A person with no
+rights-cleared portrait cannot be an arguer for v1. `provision-agent.md:31` lists *"A
 rights-cleared source photograph"* under **"Hard preconditions — every one is a STOP"**, with
 *"`UNKNOWN LICENCE` is a stop"*, and its Steps 2–3 (generate avatar, upload object) are
 unconditional — **there is no initials-only branch**. Downstream, `/points-publish` gates on the
 avatar rendering (assert 200 AND `content-type: image/*`), a second STOP.
 
-**So the non-blocking stamp reproduces this spec's own Problem #2 exactly:** the selector marks a
+**Why the non-blocking stamp would have reproduced this spec's own Problem #2 exactly:** the selector marks a
 pseudonymous critic APPROVED at Gate 1, the founder proceeds on that stamp, and the run dies at
 `provision-agent` Step 2 or at publish's avatar probe — with the entire opposing side gone, at the
 last step, which is the 2026-08-21 failure verbatim. **The one gate built to prevent that failure
-would authorise it.** Do not build Gate 1 until this is answered. The two answers are: (a) extend
-`/provision-agent` with a rights-free initials-only branch and relax publish's avatar STOP for it —
-this **grows the spec's scope into a second skill**; or (b) state plainly that no portrait means the
-person cannot be an arguer — which **accepts the institutional bias below as a hard constraint**.
+would authorise it.** Answer (a) — extending `/provision-agent` with a rights-free initials-only
+branch and relaxing publish's avatar STOP — **was rejected for v1: it grows the spec's scope into a
+second skill.** The institutional bias below is **accepted as a hard constraint for v1**, with the
+selector obligated to say it out loud when both sides are institutional.
 
 **Independently of that answer: when both proposed sides are institutional, the selector must say so
 out loud** at the gate. The same decision entry records
@@ -343,8 +341,10 @@ corrupted the ranking rather than failing loudly:
   mark the affected candidate's scores **based on a partial read**. Exit code 0 is not evidence the
   comment set is whole.
 
-**Cross-language pairing — [FOUNDER DECISION: in scope for v1 with a named change to Stage 1, or moved
-to Non-Goals?]**
+**Cross-language pairing — [FOUNDER DECISION — ANSWERED 2026-08-25: (b) moved to Non-Goals for v1.]**
+English-only sourcing for v1; the selector's Non-Goals carry the full reasoning and the standing
+verbatim-quote rule. Revisit requires naming the Stage 1 change as a change, never folding it into a
+move.
 
 An earlier draft called this *"in scope and cheap."* **Verified false, and the failure mode is threat
 model #1 with every gate green.** `points-prepare.md:51` hardcodes `--sub-langs "en.*" --sub-format
@@ -744,46 +744,46 @@ unwind.
 
 **The selector**
 
-- [ ] Given a topic, the skill proposes **people first**, with why-credible and why-influential per
+- [x] Given a topic, the skill proposes **people first**, with why-credible and why-influential per
       person, and **halts for approval before searching for any video**
-- [ ] The people gate shows, per person: resolved identity key · agent already exists yes/no · portrait
+- [x] The people gate shows, per person: resolved identity key · agent already exists yes/no · portrait
       feasibility — and **says so out loud when both proposed sides are institutional**
-- [ ] **Every returned candidate is a single-speaker source**, and the skill states per candidate which
+- [x] **Every returned candidate is a single-speaker source**, and the skill states per candidate which
       detection step cleared it (title screen / transcript read / founder confirmation)
-- [ ] The run prints the **funnel**: candidates found → dropped by title screen → dropped by transcript
+- [x] The run prints the **funnel**: candidates found → dropped by title screen → dropped by transcript
       read → dropped by audience floor → surviving
-- [ ] Statistics are read from a **metadata-only call**, and a partial comment fetch is reported as
+- [x] Statistics are read from a **metadata-only call**, and a partial comment fetch is reported as
       partial rather than scored as complete
-- [ ] Per person, ranked candidate videos are returned **with the runners-up retained**, insight and
+- [x] Per person, ranked candidate videos are returned **with the runners-up retained**, insight and
       popularity **shown separately, never collapsed into one number**
-- [ ] The proposed pair states **the claim each side commits to**, the quote proving it, and **why this
+- [x] The proposed pair states **the claim each side commits to**, the quote proving it, and **why this
       pair beat the runner-up**
-- [ ] The **judge step** runs as a step (not a subagent), argues the pair does not work, and its dissent
+- [x] The **judge step** runs as a step (not a subagent), argues the pair does not work, and its dissent
       is shown at Gate 2
-- [ ] The skill **reports fetch failures explicitly** rather than returning a thinner list with no
+- [x] The skill **reports fetch failures explicitly** rather than returning a thinner list with no
       explanation
-- [ ] A **run file** is written carrying topic · room · ranked people · ranked videos · chosen pair ·
+- [x] A **run file** is written carrying topic · room · ranked people · ranked videos · chosen pair ·
       identity keys · both approvals — conforming to the schema in `docs/points-process.md`
 
 **The restructure**
 
-- [ ] `points-prepare` retains stages 1–5 and 7 **byte-identical in rule content**; the diff reads as
+- [x] `points-prepare` retains stages 1–5 and 7 **byte-identical in rule content**; the diff reads as
       relocation, not revision
-- [ ] The **sealed prediction still receives only** the statement, the opposing material and the room —
+- [x] The **sealed prediction still receives only** the statement, the opposing material and the room —
       never the agent positions
-- [ ] `positions-create` selects quotes **before** setting the position, `grep -F`-verifies every quote
+- [x] `positions-create` selects quotes **before** setting the position, `grep -F`-verifies every quote
       against the cleaned transcript with **exit codes pasted**, and resolves timecodes from the **raw
       `.vtt`**
-- [ ] `positions-create` sets the 7-point Likert position **to what the quotes support, including
+- [x] `positions-create` sets the 7-point Likert position **to what the quotes support, including
       flipping the initial guess**, and keeps the `close`/`derived`/`stretch` inference-strength labels as
       a separate axis
-- [ ] `story-create` carries the P1141 voice rules, the `video_url`/`video_quotes` fields, the no-trailing
+- [x] `story-create` carries the P1141 voice rules, the `video_url`/`video_quotes` fields, the no-trailing
       -`Source:`-line rule, and **enforces the 10,000-character limit at build time**
-- [ ] `story-create` **reads the story model from `docs/story-point-model.md` and does not restate it**
-- [ ] Every reference to `points-prepare` that assumed the old stage set is updated, across
+- [x] `story-create` **reads the story model from `docs/story-point-model.md` and does not restate it**
+- [x] Every reference to `points-prepare` that assumed the old stage set is updated, across
       **`.claude/`, `docs/`, `src/` AND `features/`** — the narrower `.claude/ + docs/` scope an earlier
       draft used misses the two that actually break (below)
-- [ ] **`src/tests/p1141-pipeline-rules.test.ts` is updated and `npm test` is run and its output pasted
+- [x] **`src/tests/p1141-pipeline-rules.test.ts` is updated and `npm test` is run and its output pasted
       IN the split commit.** That suite reads the skill files as fixtures and asserts the voice rules
       live in `points-prepare` (`:26`, `:33`, `:49` `toHaveLength(2)`, `:52` `toHaveLength(1)`, `:57`) —
       moving them to `story-create` fails at least five assertions. **It will not fail the commit:**
@@ -791,23 +791,23 @@ unwind.
       and `:145` runs `npm test` **only if that is non-empty**, so a markdown-only commit reports
       "Tests… skipped" and lands green. The red then surfaces on an unrelated later `src/` commit by
       someone else. Run the suite by hand or the gate does not exist for this change
-- [ ] `features/p1096_public_multisource_point_pipeline.md:44` (now a **broken link** to the moved P1088
+- [x] `features/p1096_public_multisource_point_pipeline.md:44` (now a **broken link** to the moved P1088
       and a stale "spec'd, not built" row) and `:46` (falsely says filing is not built) are corrected
-- [ ] `docs/story-point-model-consumers.md:62–66` is updated — it names `points-prepare` §6 and §8 as
+- [x] `docs/story-point-model-consumers.md:62–66` is updated — it names `points-prepare` §6 and §8 as
       *"the de-facto home of three model rulings… the exact rot this register exists to catch."* Two of
       those three are being moved; the register must not silently point at a file that no longer holds
       them
-- [ ] `docs/points-process.md` exists, carries **the run-file schema in one place**, and every one of the
+- [x] `docs/points-process.md` exists, carries **the run-file schema in one place**, and every one of the
       four skills points at it rather than restating it
-- [ ] `/points-publish`'s four stage references (`:44`, `:45`, `:238`, `:403–404`) are repointed **by
+- [x] `/points-publish`'s four stage references (`:44`, `:45`, `:238`, `:403–404`) are repointed **by
       skill name, not stage number**, and its two STOP conditions (`subject_key: UNKNOWN`,
       `turn-inferred`) still resolve to a skill that actually emits the field
-- [ ] `/points-publish`'s **behaviour** is unchanged — no new write, no changed gate, no changed order
+- [x] `/points-publish`'s **behaviour** is unchanged — no new write, no changed gate, no changed order
 
 **Privacy**
 
-- [ ] No comment author's name or handle appears in any tracked file
-- [ ] **Each of the selector, `positions-create` and `story-create` states the untrusted-input rule IN
+- [x] No comment author's name or handle appears in any tracked file
+- [x] **Each of the selector, `positions-create` and `story-create` states the untrusted-input rule IN
       FULL, verbatim — including the sibling-inheritance sentence — and a test asserts the string appears
       in all five points-chain skill files.** Both existing skills state it in full *and* say why it may
       not be inherited (`points-prepare.md:35`, `points-publish.md:22`): *"Stated here in full rather
@@ -817,11 +817,11 @@ unwind.
       The selector is the **highest-exposure skill in the chain** (search results, uploader-controlled
       titles and channel names, transcript openings, full transcripts, comment threads) and it writes
       the artifact three downstream skills consume as authoritative
-- [ ] **The untrusted-input list explicitly NAMES video title, uploader and description**, not just
+- [x] **The untrusted-input list explicitly NAMES video title, uploader and description**, not just
       transcript and comment text — `features/done/2026-06-10/p1104_…:988` records that this channel is
       `UNTRUSTED INDIRECT` and *"not explicitly named"* in the current list, and Gate 0 step 1 now gates
       **and rewards** on exactly it
-- [ ] **The selector carries the exit-code-7 rule verbatim** — halt, report the funnel as INCOMPLETE,
+- [x] **The selector carries the exit-code-7 rule verbatim** — halt, report the funnel as INCOMPLETE,
       never retry, never purchase; a truncated fetch never silently narrows the candidate field
 
 > **Note for whoever writes these three files:** `.claude/rules/pii.md` declares

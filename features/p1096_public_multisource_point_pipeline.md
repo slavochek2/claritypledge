@@ -41,9 +41,9 @@ driver: heuristic
 
 | Stage | Skill | State |
 |---|---|---|
-| **1. Select** | video selector | spec'd, not built — `features/p1088_video_selector_for_point_extraction.md` |
+| **1. Select** | `/slava:content:points-select` | **built** (P1156; superseded spec: `features/archive/p1088_video_selector_for_point_extraction.md`) |
 | **2. Extract** | `/slava:content:points-prepare` | **exists**; needs multi-source input (see below) |
-| **3. File** | points filer | not built, not yet spec'd |
+| **3. File** | `/slava:content:points-publish` | **built** (v0.7.0, P1130) |
 
 **Stage 2 is the same skill, not a new one.** Its rules are unchanged — bald restatement, both commitments, the opposing camp read rather than imagined, the room required. The only change is **input arity**: it accepts N transcripts instead of one, and tracks which speaker said what. With an opposed pair, the second video *supplies* the opposing camp that the skill would otherwise hunt for in comments — a strictly better source, because those people argued at length and on the record.
 
@@ -187,9 +187,11 @@ Sources: a 33-minute defence (28,847 views) and a 56-minute critique (49,516 vie
 
 ## References
 
-- `features/p1088_video_selector_for_point_extraction.md` — stage 1
+- `features/archive/p1088_video_selector_for_point_extraction.md` — the original stage-1 spec (rejected 2026-08-25, superseded by P1156)
+- `features/p1156_points_pipeline_selector_and_chain_contract.md` — the selector as built, and the chain contract
 - `features/p1089_audience_scoped_point_list.md` — parked; the private-source case
 - `features/p1095_retire_dead_point_context_field.md` — why grounding lives in a story
 - `features/p1104_agents_must_be_visually_distinguishable.md` — blocks this spec; owns the agent marker and the subject-key question
 - `features/p1084_crux_letter.md` — the private-dyad predecessor line
 - `.claude/commands/slava/content/points-prepare.md` — stage 2
+- `docs/points-process.md` — the chain contract: stages, run-file schema, seals
