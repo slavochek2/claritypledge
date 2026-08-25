@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 0.5
 workstream: events
@@ -10,8 +10,8 @@ tags:
   - youtube
   - selection
   - pipeline
-delivery_stage: dev
-pipeline_ran: [create-spec, adversarial-review, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, adversarial-review, dev, ship]
 pipeline_skipped:
   - pick-flow -- flow decided by the founder in the design session; build straight from this spec
   - challenge-prd -- every load-bearing claim here was measured this session and the measurement is recorded inline; /slava:think:adversarial-review runs instead
