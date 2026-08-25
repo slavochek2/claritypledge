@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 0.5
 workstream: events
@@ -10,7 +10,6 @@ tags:
   - youtube
   - selection
   - pipeline
-delivery_stage: ship
 pipeline_ran: [create-spec, adversarial-review, dev, ship]
 pipeline_skipped:
   - pick-flow -- flow decided by the founder in the design session; build straight from this spec
@@ -19,11 +18,12 @@ pipeline_skipped:
   - generate-tests -- verification is a live end-to-end run plus two named negative controls, not a unit suite
 drafted_by: opus
 predecessor: P1088
+completed_at: 2026-08-25
 ---
 
 # P1156: The points pipeline — a working selector, and a chain whose stages have a contract
 
-**Predecessor:** [P1088](archive/p1088_video_selector_for_point_extraction.md) (rejected 2026-08-25,
+**Predecessor:** [P1088](../../archive/p1088_video_selector_for_point_extraction.md) (rejected 2026-08-25,
 not abandoned). P1088 was rewritten five times on 2026-08-24 and its content is current; it was
 rejected because five rounds of in-place editing left it reading as archaeology rather than as a
 build instruction. Everything it established that still binds is carried below, in
@@ -688,7 +688,7 @@ so an explicit founder-initiated override stays possible.
   to follow.
 - **Third-party identifiability.** Comment authors are private individuals. **MITIGATE:** quotes may be
   used as evidence that a position exists; **no comment author's name, handle or profile URL may be
-  written into any tracked file** ([.claude/rules/pii.md](../.claude/rules/pii.md)).
+  written into any tracked file** ([.claude/rules/pii.md](../../../.claude/rules/pii.md)).
 
 ### Non-Goals
 
