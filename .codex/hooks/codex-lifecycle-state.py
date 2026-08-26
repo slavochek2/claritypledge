@@ -31,6 +31,18 @@ NOT_SEEING_RE = re.compile(
 UI_PATH_RE = re.compile(r"\.(tsx|jsx|css)$", re.IGNORECASE)
 PATCH_PATH_RE = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.MULTILINE)
 HTTP_FAILURE_RE = re.compile(r"\bHTTP(?:/\S+)?[ /:]([45]\d\d)\b", re.IGNORECASE)
+# A browser tool that FAILED must not certify a turn as verified. Codex sends
+# tool_response as a plain STRING even on failure (observed: a command exiting 7
+# arrives as just its stdout), so `bool(response)` was true for
+# "Error: No page selected" -- a failed screenshot satisfied the gate. Fail
+# closed on anything that reads like an error, and apply the HTTP-failure check
+# to this branch too, not only to Bash.
+BROWSER_FAILURE_RE = re.compile(
+    r"\b(error|errno|failed|failure|exception|traceback|cannot|could ?n[o']?t|"
+    r"unable to|denied|refused|timed? ?out|timeout|not found|no such|"
+    r"unreachable|disconnected|no page|not connected|invalid)\b",
+    re.IGNORECASE,
+)
 BROWSER_PREFIXES = (
     "mcp__chrome",
     "mcp__playwright",
@@ -142,6 +154,28 @@ def response_succeeded(response: Any) -> bool:
     return bool(response)
 
 
+def browser_verification_succeeded(response: Any) -> bool:
+    """A browser check certifies a turn only on an explicit, non-error result."""
+    if isinstance(response, dict):
+        if response.get("isError") is True or response.get("error"):
+            return False
+        for key in ("exit_code", "exitCode"):
+            if key in response:
+                return response.get(key) == 0
+        if response.get("isError") is False:
+            return not _browser_text_failed(response_text(response))
+        return bool(response) and not _browser_text_failed(response_text(response))
+    if isinstance(response, str):
+        # The real, observed shape. A bare string is not proof of success, so
+        # anything that reads like a failure is rejected outright.
+        return bool(response.strip()) and not _browser_text_failed(response)
+    return False
+
+
+def _browser_text_failed(text: str) -> bool:
+    return bool(BROWSER_FAILURE_RE.search(text) or HTTP_FAILURE_RE.search(text))
+
+
 def apply_patch_succeeded(response: Any) -> bool:
     if isinstance(response, str):
         return bool(
@@ -179,9 +213,13 @@ def verification_succeeded(data: dict[str, Any]) -> bool:
 
     lowered_name = tool_name.lower()
     if any(lowered_name.startswith(prefix) for prefix in BROWSER_PREFIXES):
-        return True
-    if tool_name == "Agent":
-        return True
+        return browser_verification_succeeded(response)
+    # NOTE: an unconditional `if tool_name == "Agent": return True` used to sit
+    # here -- an unverified bypass inside a verification gate. Codex ships no
+    # tool by that name (it emits shell/apply_patch/update_plan/view_image, and
+    # normalises shell -> Bash in hook payloads), so it certified nothing real,
+    # but a delegated "I could not verify anything" would have satisfied the
+    # gate had one ever appeared. Removed rather than left as dead code.
     if tool_name != "Bash":
         return False
 

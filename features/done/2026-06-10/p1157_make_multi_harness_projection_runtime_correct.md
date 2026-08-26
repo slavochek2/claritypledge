@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: change-request
 rank: 1000055.0
 changes: p1151
@@ -10,7 +10,7 @@ tags:
   - multi-harness
   - codex
 created_date: '2026-08-25'
-delivery_stage: dev
+completed_at: 2026-08-26
 flow: dev
 pipeline_plan: [change-request, dev]
 pipeline_ran: [change-request, adversarial-review, dev]
@@ -21,7 +21,7 @@ pipeline_skipped:
 
 # P1157: Make the multi-harness projection correct at runtime, not only structurally
 
-> **Redesign of:** [P1151: Universal Multi-Harness Architecture with Zero Maintenance](done/2026-06-10/p1151_universal_multi_harness_architecture.md)
+> **Redesign of:** [P1151: Universal Multi-Harness Architecture with Zero Maintenance](p1151_universal_multi_harness_architecture.md)
 > **What was wrong:** P1151 proved the Agent Skills directory shape but inferred live discovery
 > from structural conformance. In the first Codex session, Codex exposed 95 regular migrated
 > `source-command-*` skills while the tracked symlinked skills, including `points-select`, were
@@ -300,6 +300,123 @@ explicit project-skill invocation was independently proven in all three contexts
 legitimate global scientific or Cowork plugin skills solely to silence this product limit is out of
 scope and requires a separate usage/ownership decision; the 28 migration-generated duplicates were
 the only artifacts removed.
+
+## Adversarial Review Round 2 — 2026-08-26 (the lens that was uncovered)
+
+The spec above recorded the external fresh-context review as **0 of 1 received** (the reviewer's
+Codex usage limit was exhausted). That lens was covered in a fresh Claude context: **1 of 1
+received**. Every finding below was re-run by command before being recorded here — the reviewer's
+claim alone was not treated as evidence (epistemic gate 9).
+
+**The central finding: P1157 had repeated P1151's own mistake.** P1151 used directory conformance
+as a stand-in for discovery. P1157 captured three real Codex events — all `PostToolUse`, from one
+turn — then hand-authored fixtures for every other event and every failure payload. Two acceptance
+criteria above were marked `[x]` on fixtures that structurally could not emit the input that breaks
+them (epistemic gate 7b).
+
+### BLOCK 1 — the closed-world manifest was not closed (falsified AC4). FIXED.
+
+`scripts/sync-agent-skills.sh` looked a projection entry up with `grep -qF "<name><TAB>"` against a
+`name<TAB>path` manifest. `grep` matches anywhere on the line, so any orphan whose name is a
+**suffix** of a real skill name matched a different skill's row and was treated as known: invisible
+to `--check`, never pruned, yet a fully discoverable injected skill in every harness. Affected
+`skill`, `flow`, `spec`, `blog`, `email`, `select`, `create`, `publish`, `gate` and more.
+
+Reproduced against a control: a `source-command-evil` directory was detected and pruned while
+planted `skill/` and `flow` survived `--check`, survived regeneration, and left the tree reporting
+`OK — 0 collisions, 0 drift`. The E1–E5 canaries could not catch this class — none of their names is
+a suffix of a real skill.
+
+Fixed with an exact first-field match (`manifest_has`, `awk -F'\t' '$1 == n'`). New canaries **E6**
+(detected) and **E7** (actually pruned) pin the class. Gate 7 exercised: both cases pass against the
+old script (`0 drift`) and fail against it under the fix.
+
+### BLOCK 2 — privacy-gate bypass compounded from BLOCK 1. CLOSED BY BLOCK 1's FIX.
+
+`.privacy-allowlist:16` allowlists the whole `.agents/skills` subtree, justified as "generated
+byte-identical mirrors of already-scanned canonical sources". That justification held only for
+entries the sync check validates — and BLOCK 1 was a class it did not. A file at
+`.agents/skills/skill/SKILL.md` was therefore skipped by `audit-privacy.sh` (prefix match at
+`:116`), reported as `0 drift`, and pruned by nothing, on a public AGPL repo. No separate fix: the
+allowlist's premise is true again once the manifest is genuinely closed.
+
+### BLOCK 3 — a FAILED browser check certified a turn as verified (falsified AC7). FIXED.
+
+`response_succeeded` ended in `return bool(response)`. Real Codex sends `tool_response` as a plain
+**string** even on failure — the captures show a command exiting 7 arriving as just `"CODEX_FAILURE"`.
+Every browser fixture in the suite used a **dict** (`{isError: true}`), a shape no real capture
+exhibits. So: edit → screenshot returning `"Error: No page selected"` → "verified in the browser"
+returned `{}` (allow), while the no-verification control correctly blocked. `HTTP_FAILURE_RE` was
+also applied only on the Bash branch, so a browser call rendering a 500 certified too.
+
+Fixed with `browser_verification_succeeded`: a browser response certifies only on an explicit
+non-error result — `isError is False` / `exit_code == 0` for dicts, and for the real string shape,
+rejection of anything matching `BROWSER_FAILURE_RE` or `HTTP_FAILURE_RE`. The same fail-closed
+discipline `run-verified.sh` already applied to Bash. Legitimate browser evidence still allows, in
+both string and dict shape — a gate that blocks everything is not a working gate.
+
+**Also removed:** an unconditional `if tool_name == "Agent": return True` inside the verification
+gate. Codex ships no tool by that name, so it certified nothing real, but a delegated "I could not
+verify anything" would have satisfied the gate had one appeared.
+
+**Also registered:** `SubagentStop` in `.codex/hooks.json`. It is a real Codex event sharing Stop's
+schema and was unregistered, so subagent-delegated work stopped ungated.
+
+### Gate 7 evidence (a gate not watched failing is unproven)
+
+All three attacks were run against the HEAD hook and the fixed hook:
+
+| Attack | old | new |
+|---|---|---|
+| failed screenshot, string shape | allow | **block** |
+| browser HTTP 500, string shape | allow | **block** |
+| `tool_name: "Agent"` non-verification | allow | **block** |
+| suffix-named projection orphan | `0 drift` | `DRIFT_ORPHAN:skill` |
+
+### Suites after the fix
+
+`test-codex-native-hooks.sh` **82/82** (was 61 — 8 new cases covering the string failure shape, the
+browser HTTP branch, the removed Agent bypass, a `null` `last_assistant_message`, `SubagentStop`,
+and the legitimate-allow counterpart of each). `sync-agent-skills.test.sh` **45/45** (was 41).
+`test-multi-harness-routing.sh` **31/31**. Claude-side fixtures unchanged: browser evidence 11/11,
+route-brief all pass. Projection: `123 skills in sync, 0 collisions, 0 drift`.
+`./scripts/pre-commit-checks.sh` exits 0.
+
+### Carried gaps — recorded, not fixed
+
+1. **`test-codex-native-hooks.sh` and `test-multi-harness-routing.sh` are gated by nothing.**
+   Neither runs in `pre-commit-checks.sh` or CI; only `sync-agent-skills.sh --check` is gated.
+   The routing suite additionally targets `$HOME` adapter files that are not in the repo, so a
+   fresh clone, a CI runner or a second machine cannot run it — its 31/31 is a single-machine
+   reading with no mechanism to stay true. Same drift shape that hid P1151's problem.
+2. **The DSH credential-removal oracle has never been run against a control.** Removing
+   `GEMINI_API_KEY` produced a google-route error, but `env -u DEEPSEEK_API_KEY dsh --profile
+   headless 'provider canary'` was never run. If it errors naming deepseek, the oracle is blind and
+   "the runtime selects Google despite the profile naming DeepSeek" is unsupported. One command
+   settles it; it was not run here because a live `dsh` prompt is a spend with side effects.
+3. **Stop's `turn_id` correspondence is assumed, not observed.** The whole Stop gate rests on Stop's
+   `turn_id` equalling the enclosing turn's `PostToolUse` `turn_id`. The capture rig registered only
+   `PostToolUse`, so this was never seen directly. One line in that rig's `hooks.json` settles it.
+4. **The instruction gate's deny message hands over its own bypass** — it names a fixed
+   world-writable marker path and nothing verifies the gate ran. Inherited from the Claude hook, so
+   pre-existing, but worse in Codex where skill descriptions are stripped.
+5. **Discoverability is not rescued by explicit invocation.** Codex 0.149.1 strips descriptions from
+   all 123 skills and omits 63–64. That breaks proactive routing and `/find-skill` outright, and
+   cross-skill invocation by name is pervasive (19× `/slava:maintain:claude-md`, 19×
+   `/slava:content:positions-create`, 14× `/slava:think:align-detect`). The spec proves explicit
+   invocation for `points-select` but never establishes that `points-select` was among the omitted
+   skills — so it is proven for *a* skill, not an *omitted* one.
+6. **`test-hook-sha-gate.sh` fails 4 of 10** — confirmed pre-existing, identical against HEAD's hook
+   files and the fixed ones. Not caused by P1157 and not in its scope.
+
+### Surfaces attacked that held
+
+`run-verified.sh`'s sentinel design (rejects shell composition, absolute-path invocation, and
+`bash`-prefix invocation; correctly closes Codex omitting Bash exit status entirely) · PascalCase
+`hook_event_name` matching · `apply_patch_succeeded` against the real success string ·
+`permissionDecision: "deny"` output contract · symlink escape from the projection dir (the **type**
+enumeration is sound; only **name** matching was defective) · the `--out-dir` guard · the D9
+unsafe-name hard fail · universal-policy vendor neutrality.
 
 ## Next Steps
 

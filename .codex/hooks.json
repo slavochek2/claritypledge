@@ -91,6 +91,17 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/codex-lifecycle-state.py\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

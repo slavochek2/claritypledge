@@ -147,6 +147,18 @@ fi
 # ─── step 2: resolve D4 collisions ─────────────────────────────────────────
 
 RESOLVED="$WORK/resolved.tsv"       # name<TAB>path — final canonical mapping
+
+# Exact first-field match against the manifest. NOT `grep -F "$name<TAB>"`:
+# grep matches anywhere on the line, so an orphan named `skill` matched the
+# substring `skill<TAB>` inside `create-skill<TAB>...` and was reported as a
+# known skill -- invisible to --check and never pruned, while remaining a fully
+# discoverable injected skill in every harness. Every name that is a SUFFIX of a
+# real skill name was affected (skill, flow, spec, blog, email, select, ...).
+# The `source-command-*` canaries could not catch this: no such name is a suffix
+# of a real skill, so the fixtures structurally could not emit the failing input.
+manifest_has() {
+  awk -F'\t' -v n="$1" '$1 == n { found = 1; exit } END { exit !found }' "$RESOLVED"
+}
 COLLISIONS="$WORK/collisions.txt"
 : > "$RESOLVED"
 : > "$COLLISIONS"
@@ -233,7 +245,7 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
     while IFS= read -r existing_path; do
       [[ -z "$existing_path" ]] && continue
       existing_name="$(basename "$existing_path")"
-      if ! grep -qF "$(printf '%s\t' "$existing_name")" "$RESOLVED"; then
+      if ! manifest_has "$existing_name"; then
         existing_type="$(path_type "$existing_path")"
         if [[ "$existing_type" == "directory" ]]; then
           echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT"
@@ -277,7 +289,7 @@ if [[ -d "$OUT_DIR" ]]; then
   while IFS= read -r existing_path; do
     [[ -z "$existing_path" ]] && continue
     existing_name="$(basename "$existing_path")"
-    if ! grep -qF "$(printf '%s\t' "$existing_name")" "$RESOLVED"; then
+    if ! manifest_has "$existing_name"; then
       echo "sync-agent-skills: removing unexpected projection entry: ${existing_name}"
       rm -rf "$existing_path"
       PRUNED=$((PRUNED + 1))

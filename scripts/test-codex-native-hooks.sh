@@ -184,5 +184,41 @@ else
   fail=$((fail + 1))
 fi
 
+
+# --- P1157 review findings: the STRING response shape --------------------
+# Every browser fixture above uses a dict ({isError:true}). Real Codex sends
+# tool_response as a plain STRING even for failures -- a shape none of those
+# fixtures could emit, so a failed browser check certified the turn as verified.
+# These cases pin the shape the fixtures were structurally unable to produce.
+
+run_json "record edit before failed screenshot (string shape)" "$LIFECYCLE" "$(success_edit turn-browser-string)"
+run_json "record failed screenshot as a string" "$LIFECYCLE" "$(event PostToolUse turn-browser-string '{tool_name:"mcp__chrome-devtools__take_screenshot",tool_input:{},tool_response:"Error: No page selected. Navigation failed."}')"
+run_json "completion claim after failed screenshot" "$LIFECYCLE" "$(event Stop turn-browser-string '{stop_hook_active:false,last_assistant_message:"Fixed and working, verified in the browser."}')"
+assert_jq "failed screenshot as a bare string still blocks" '.decision == "block"'
+
+run_json "record edit before browser HTTP failure" "$LIFECYCLE" "$(success_edit turn-browser-http)"
+run_json "record browser HTTP 500 as a string" "$LIFECYCLE" "$(event PostToolUse turn-browser-http '{tool_name:"mcp__playwright__browser_navigate",tool_input:{},tool_response:"Navigated. Server returned HTTP 500"}')"
+run_json "completion claim after browser HTTP failure" "$LIFECYCLE" "$(event Stop turn-browser-http '{stop_hook_active:false,last_assistant_message:"Fixed and verified."}')"
+assert_jq "HTTP failure on the browser branch blocks, not only on Bash" '.decision == "block"'
+
+run_json "record edit before delegated non-verification" "$LIFECYCLE" "$(success_edit turn-agent-bypass)"
+run_json "record an Agent tool response" "$LIFECYCLE" "$(event PostToolUse turn-agent-bypass '{tool_name:"Agent",tool_input:{},tool_response:"I could not verify anything."}')"
+run_json "completion claim after delegated non-verification" "$LIFECYCLE" "$(event Stop turn-agent-bypass '{stop_hook_active:false,last_assistant_message:"Implemented and verified, all tests pass."}')"
+assert_jq "a tool named Agent cannot certify a turn" '.decision == "block"'
+
+# The other half of the gate: legitimate browser evidence must still ALLOW.
+# A gate that blocks everything is not a working gate.
+run_json "record edit before successful string screenshot" "$LIFECYCLE" "$(success_edit turn-browser-ok)"
+run_json "record successful screenshot as a string" "$LIFECYCLE" "$(event PostToolUse turn-browser-ok '{tool_name:"mcp__chrome-devtools__take_screenshot",tool_input:{},tool_response:"Screenshot captured: 1440x900, saved to /tmp/shot.png"}')"
+run_json "completion claim after successful string screenshot" "$LIFECYCLE" "$(event Stop turn-browser-ok '{stop_hook_active:false,last_assistant_message:"Fixed and working, verified in the browser."}')"
+assert_jq "a successful screenshot as a bare string still allows" '.decision == null'
+
+run_json "record edit before null assistant message" "$LIFECYCLE" "$(success_edit turn-null-msg)"
+run_json "Stop with a null last_assistant_message" "$LIFECYCLE" "$(event Stop turn-null-msg '{stop_hook_active:false,last_assistant_message:null}')"
+assert_jq "a null assistant message is handled, not crashed on" '.decision == null'
+
+run_json "SubagentStop is handled as a real Codex event" "$LIFECYCLE" "$(event SubagentStop turn-subagent '{stop_hook_active:false,last_assistant_message:"Done."}')"
+assert_jq "SubagentStop returns valid JSON" '. != null'
+
 echo "=== $pass passed, $fail failed ==="
 [[ "$fail" -eq 0 ]]

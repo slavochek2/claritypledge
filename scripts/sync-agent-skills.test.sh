@@ -277,6 +277,32 @@ run_sync "check with an unexpected nested file" 1 --check --src-dir "$SRC" --out
 assert_out "case E4: names unexpected nested file" "DRIFT_UNEXPECTED_ENTRY:flat-skill/extra.txt:type=file"
 rm -f "${WORK}/${OUT}/flat-skill/extra.txt"
 
+echo "--- case E6: orphan whose name is a SUFFIX of a real skill ---"
+# The manifest lookup was `grep -F "<name><TAB>"` against a name<TAB>path file.
+# grep matches anywhere on the line, so `skill` matched inside `flat-skill<TAB>`
+# and the orphan was treated as a known skill: invisible to --check, never
+# pruned, yet fully discoverable as an injected skill in every harness. The
+# E1-E5 canaries could not catch it -- none of their names is a suffix of a
+# real skill, so the fixtures structurally could not emit the failing input.
+mkdir -p "${WORK}/${OUT}/skill"
+printf 'fixture\n' > "${WORK}/${OUT}/skill/SKILL.md"
+run_sync "check with a suffix-named orphan directory" 1 --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case E6: names the suffix-named orphan" "DRIFT_ORPHAN:skill"
+rm -rf "${WORK}/${OUT}/skill"
+
+echo "--- case E7: suffix-named orphan is actually pruned on regeneration ---"
+mkdir -p "${WORK}/${OUT}/skill"
+printf 'fixture\n' > "${WORK}/${OUT}/skill/SKILL.md"
+run_sync "regenerate over a suffix-named orphan" 0 --src-dir "$SRC" --out-dir "$OUT"
+if [[ -e "${WORK}/${OUT}/skill" ]]; then
+  echo "FAIL  case E7: suffix-named orphan survived regeneration"
+  fail_count=$((fail_count + 1))
+else
+  echo "PASS  case E7: suffix-named orphan pruned"
+  pass_count=$((pass_count + 1))
+fi
+rm -rf "${WORK}/${OUT}/skill"
+
 echo "--- case E5: unexpected nested symlink ---"
 ln -s SKILL.md "${WORK}/${OUT}/flat-skill/extra-link"
 run_sync "check with an unexpected nested symlink" 1 --check --src-dir "$SRC" --out-dir "$OUT"

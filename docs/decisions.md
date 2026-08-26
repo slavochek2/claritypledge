@@ -6,6 +6,54 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-26 [technical]: A gate's fixtures bound what was modelled — enumerate the shapes they cannot emit
+
+**Context:** P1157 shipped three green suites (61/61 hooks, 41/41 projection, 31/31 routing) and
+marked all nine acceptance criteria complete. A round-2 adversarial review in fresh context — the
+lens P1157's own evidence recorded as uncovered, 0 of 1, when the first reviewer's usage limit ran
+out — falsified two of those `[x]` criteria. Both defects sat behind inputs the fixtures were
+structurally incapable of producing, so no amount of passing could have surfaced them. P1157 had
+reproduced P1151's own mistake one level up: P1151 used file shape as a stand-in for discovery;
+P1157 captured three real Codex events, all one event type from one turn, then hand-authored
+fixtures for every other event and every failure payload.
+
+**Decision:** Two fixes, one rule. (1) Projection-manifest lookups match the name field exactly
+rather than searching the manifest line, because a search matches names that merely *contain* the
+one being checked — a class the existing canaries could not express, since none of their names had
+that relationship to a real skill. (2) A browser verification certifies a turn only on an explicit
+non-error result; the previous predicate treated any non-empty response as success, and the harness
+reports failures as ordinary text, so a *failed* check satisfied the gate. An unconditional
+delegation bypass inside the same gate was removed, and `SubagentStop` — a real event that was
+unregistered — now runs the same gate as `Stop`.
+
+The rule: **before treating a green suite as evidence on a trust boundary, enumerate the inputs the
+fixtures cannot emit and check that list against the harness's own documented schema.** Where the
+schema describes more shapes than the fixtures construct, that difference is the untested surface.
+Recorded as epistemic gate 7b; this is its second confirmed instance.
+
+**Alternatives rejected:** Accept the green suites and ship — the evidence was comprehensive and
+internally consistent, which is exactly what made it persuasive and exactly why it needed an
+independent lens. Add more fixtures of the shapes already covered — mutation-style depth proves
+assertions bind the code, never that the input space is complete. Make the browser gate reject bare
+text outright — fail-closed to the point of blocking every legitimate check is not a working gate;
+the counterpart allow-cases are pinned by tests alongside the block-cases.
+
+**Consequences:** Every new gate artifact needs its failure path exercised before it is trusted, and
+the exercise must use the shape the *harness* emits, not the shape the fixture author finds natural
+to write. Both fixes carry regression cases proven against the pre-fix code — each new case passes
+on the old implementation and fails on it under the fix, so the tests are known to bind. Two of
+P1157's suites remain gated by nothing (not in pre-commit, not in CI) and one can only run on the
+machine that wrote it, since it reads adapter files that live outside the repo; both are recorded as
+carried gaps on the spec rather than silently closed. A verification gate reached by a subagent is
+also now gated, which was not previously true.
+
+**References:** [P1157](../features/p1157_make_multi_harness_projection_runtime_correct.md) ·
+[`.claude/rules/epistemic.md`](../.claude/rules/epistemic.md) gate 7b ·
+[`sync-agent-skills.sh`](../scripts/sync-agent-skills.sh) ·
+[`codex-lifecycle-state.py`](../.codex/hooks/codex-lifecycle-state.py)
+
+---
+
 ## 2026-08-26 [process]: Events gets a /video-publish-style orchestrator; software-delivery does not — and a stage's absence is not evidence it was skipped
 
 **Context:** Two hike promotions (Jul 5, Aug 30) failed the same way: `/promote-all` (five platforms) and `/promote-groups` (9+ community chats) are independent runs with no handoff. On Jul 5 groups went out, platforms were abandoned, and nobody noticed for seven weeks. Spec P1160 proposed an orchestrator modeled on `/video-publish` plus a rewrite of the Feb-2026 `docs/events/process.md` (7 Ko Phangan refs, names 3 skills that do not exist, documents 5 of 14).
