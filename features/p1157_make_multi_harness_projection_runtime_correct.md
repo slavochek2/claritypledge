@@ -276,10 +276,13 @@ to make their implementation resemble Codex.
 - **Harness canaries:** a fresh Claude process reported `claude-opus-5` through first-party runtime
   metadata; a configured DSH headless call returned `P1157_DSH_OK`; fresh Codex processes invoked
   the canonical skill without cross-vendor warnings or Stop-hook failure.
-- **Hooks:** `scripts/test-codex-native-hooks.sh` passed 54/54 against Codex event payloads. Existing
+- **Hooks:** `scripts/test-codex-native-hooks.sh` passed 61/61 against Codex event payloads. Existing
   Claude browser fixtures passed 11/11 and route-brief fixtures passed 55/55; the Claude Playwright
   pipe blocker still denied its real bad-command shape. The unsupported imported security plugin is
-  installed but disabled in Codex.
+  installed but disabled in Codex. Three compatibility symlinks keep sessions started before the
+  migration operational: the historical Stop and screenshot paths execute the native Codex
+  lifecycle parser, and the historical instruction-gate path executes the native Codex gate.
+  Fresh sessions load only the replacement paths from `.codex/hooks.json`.
 - **Review:** the requested fresh-context reviewer returned no report because its Codex usage limit
   was exhausted: 0 of 1 reports received, so the external-review lens remained uncovered. Inline
   verification found and fixed four load-bearing defects: missing Bash exit status in real Codex

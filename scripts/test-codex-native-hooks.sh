@@ -6,6 +6,9 @@ set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LIFECYCLE="$ROOT/.codex/hooks/codex-lifecycle-state.py"
 INSTRUCTION_GATE="$ROOT/.codex/hooks/instruction-gate-pre.py"
+STALE_STOP_COMPAT="$ROOT/.codex/hooks/verify-before-stop.py"
+STALE_SCREENSHOT_COMPAT="$ROOT/.codex/hooks/verify-screenshot-before-reedit.py"
+STALE_INSTRUCTION_COMPAT="$ROOT/.codex/hooks/claude-md-gate-pre.sh"
 DEPLOY_GATE="$HOME/.codex/hooks/block-prod-deploy.sh"
 DESIGN_CHECK="$ROOT/.codex/hooks/design-system-check.sh"
 LINT_CHECK="$ROOT/.codex/hooks/lint-after-edit.sh"
@@ -54,6 +57,13 @@ success_edit() {
 }
 
 echo "=== Codex native lifecycle fixtures ==="
+
+run_json "stale-session Stop path uses native parser" "$STALE_STOP_COMPAT" "$(event Stop turn-stale-stop '{stop_hook_active:false,last_assistant_message:"Here is the Gate 1 selection."}')"
+assert_jq "stale-session Stop path exits cleanly" '.decision == null'
+
+run_json "record founder cannot see UI for stale path" "$LIFECYCLE" "$(event UserPromptSubmit turn-stale-ui '{prompt:"I still do not see the UI change."}')"
+run_json "stale-session screenshot path uses native parser" "$STALE_SCREENSHOT_COMPAT" "$(event PreToolUse turn-stale-ui '{tool_name:"apply_patch",tool_input:{command:"*** Begin Patch\n*** Update File: src/StaleFixture.tsx\n*** End Patch"}}')"
+assert_jq "stale-session screenshot path preserves denial" '.hookSpecificOutput.permissionDecision == "deny"'
 
 run_json "record successful edit" "$LIFECYCLE" "$(success_edit turn-unverified)"
 run_json "unverified completion claim returns JSON" "$LIFECYCLE" "$(event Stop turn-unverified '{stop_hook_active:false,last_assistant_message:"Implemented and ready."}')"
@@ -113,6 +123,8 @@ run_json "UI edit after evidence returns JSON" "$LIFECYCLE" "$(event PreToolUse 
 assert_jq "successful browser evidence allows UI edit" '.hookSpecificOutput.permissionDecision == null'
 
 echo "=== Codex instruction and deploy blocker fixtures ==="
+run_json "stale-session instruction path uses native gate" "$STALE_INSTRUCTION_COMPAT" "$(event PreToolUse turn-stale-gate '{tool_name:"apply_patch",tool_input:{command:"*** Begin Patch\n*** Update File: AGENTS.md\n*** End Patch"}}')"
+assert_jq "stale-session instruction path preserves denial" '.hookSpecificOutput.permissionDecision == "deny"'
 run_json "instruction edit without gate returns JSON" "$INSTRUCTION_GATE" "$(event PreToolUse turn-gate '{tool_name:"apply_patch",tool_input:{command:"*** Begin Patch\n*** Update File: AGENTS.md\n*** End Patch"}}')"
 assert_jq "instruction edit is denied before gate" '.hookSpecificOutput.permissionDecision == "deny"'
 touch /tmp/.codex-instruction-gate-ok
