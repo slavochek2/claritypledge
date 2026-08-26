@@ -307,6 +307,24 @@ else
 fi
 assert_not_out "a blind probe is never a pass" "CALENDAR: VERIFIED"
 
+# A failed Step 0 must invalidate an older snapshot. Otherwise verify can repair the
+# cadence import, read yesterday's empty due set, and bless a new aggregate receipt.
+fx="$(_new_fixture failed-start-snapshot)"
+_write_receipt "$fx" 2 3 12 0
+got=0
+LAST_OUT="$(DAY_GATES_TEST=1 DAY_GATES_BEEPER_DIR="$fx" \
+  DAY_GATES_CADENCE_DIR="${WORK}/no-such-cadence-dir" \
+  DAY_GATES_TOKEN_CMD="${fx}/token-stub.sh" "$GATES" --mode=start 2>&1)" || got=$?
+if [[ "$got" == "1" ]]; then
+  echo "PASS  failed start snapshot: exit 1"; pass_count=$((pass_count + 1))
+else
+  echo "FAIL  failed start snapshot: expected exit 1, got ${got}"; fail_count=$((fail_count + 1))
+fi
+_write_receipt "$fx" 0 4 130 0 full
+run_case "verify rejects an invalidated start snapshot" "$fx" 1
+assert_out "old due set cannot survive failed start" "[D3] FAIL: could not read source health"
+assert_not_out "failed start can never verify later" "CALENDAR: VERIFIED"
+
 
 # ── 5f. one flaky Google write must not turn the whole day red ─────────────
 # There is no retry anywhere in the push loop, so a single 500 out of a 135-event

@@ -224,9 +224,14 @@ fi
 # Start mode records the stamp it saw; verify mode fails if the stamp has not moved.
 if [[ "$MODE" == "start" ]]; then
   mkdir -p "$TMP_DIR" 2>/dev/null || true
+  # Invalidate yesterday's snapshot BEFORE probing cadence. If the import/probe aborts,
+  # verify must see an invalid marker, never silently grade today's run against an old
+  # empty due set. The Python writer below replaces this atomically on success.
+  printf '{"invalid":"start snapshot did not complete"}\n' 1>"$SEEN_FILE" 2>/dev/null || true
   rc=0
-  PYTHONDONTWRITEBYTECODE=1 python3 - "$CADENCE_DIR" "$TMP_DIR" "$r_ts" "$SEEN_FILE" <<'PY' || rc=$?
-import hashlib, json, os, sys
+  BEEPER_TMP_DIR="$TMP_DIR" PYTHONDONTWRITEBYTECODE=1 \
+    python3 - "$CADENCE_DIR" "$TMP_DIR" "$r_ts" "$SEEN_FILE" <<'PY' || rc=$?
+import json, os, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 from events import cadence
 
@@ -236,17 +241,13 @@ for name in cadence.SOURCES:
     should, reason = cadence.needs_scrape(name)
     if not should:
         continue
-    path = cadence.cache_path(name)
-    digest = None
-    try:
-        with open(path, "rb") as fh:
-            digest = hashlib.sha256(fh.read()).hexdigest()
-    except OSError:
-        pass
+    digest = cadence.cache_sha256(name)
     due[name] = {"reason": reason, "cache_sha256": digest}
-with open(output, "w", encoding="utf-8") as fh:
+fd, tmp = tempfile.mkstemp(prefix=".day-gates-seen.", dir=os.path.dirname(output), text=True)
+with os.fdopen(fd, "w", encoding="utf-8") as fh:
     json.dump({"receipt_ts": receipt_ts, "due_sources": due}, fh, sort_keys=True)
     fh.write("\n")
+os.replace(tmp, output)
 PY
   if [[ "$rc" -ne 0 ]]; then
     _safe_echo "[D0] FAIL: could not record which browser sources are due at /day start"
@@ -328,7 +329,7 @@ fi
 if [[ "$MODE" == "verify" ]]; then
   rc=0
   src_report="$(BEEPER_TMP_DIR="$TMP_DIR" PYTHONDONTWRITEBYTECODE=1 python3 - "$CADENCE_DIR" "$SEEN_FILE" "$RECEIPT" <<'PY'
-import hashlib, json, os, sys
+import json, sys
 sys.path.insert(0, sys.argv[1])
 from events import cadence  # noqa: E402
 
@@ -351,12 +352,7 @@ for name, start in sorted(due.items()):
     action = status_row.get("action") or cfg.get("human_action", f"Refresh {label}, then rerun /day.")
     status = status_row.get("status", "missing")
     healthy, _reason = cadence.health(name)
-    digest = None
-    try:
-        with open(cadence.cache_path(name), "rb") as fh:
-            digest = hashlib.sha256(fh.read()).hexdigest()
-    except OSError:
-        pass
+    digest = cadence.cache_sha256(name)
     changed = digest is not None and digest != start.get("cache_sha256")
     if status == "success" and healthy and changed:
         print(f"OK\x1f{name}\x1f{label}")
