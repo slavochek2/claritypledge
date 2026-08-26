@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-26 [process]: Events gets a /video-publish-style orchestrator; software-delivery does not — and a stage's absence is not evidence it was skipped
+
+**Context:** Two hike promotions (Jul 5, Aug 30) failed the same way: `/promote-all` (five platforms) and `/promote-groups` (9+ community chats) are independent runs with no handoff. On Jul 5 groups went out, platforms were abandoned, and nobody noticed for seven weeks. Spec P1160 proposed an orchestrator modeled on `/video-publish` plus a rewrite of the Feb-2026 `docs/events/process.md` (7 Ko Phangan refs, names 3 skills that do not exist, documents 5 of 14).
+
+**Decision:** (1) **Build the orchestrator for events, not as a general pattern.** The doc-plus-runner shape is implemented exactly once in this repo (`/video-publish` + `docs/video-process.md`); software-delivery deliberately does NOT work that way — no skill reads `software-delivery-process.md`, routing lives inside `/pick-flow`. Generalizing from one instance is premature; events earns it because its stages are stable and its failure is silent. (2) **The orchestrator writes a kickoff run record declaring in-scope stages, before any stage runs.** It does not infer intent from which cache files exist. (3) The three creation skills stay separate — documentation (a decision table), not consolidation, per the 2026-05-12 "sibling skills, not flags" ruling.
+
+**Alternatives rejected:** *Infer resume state by reading the two existing caches* — the design that looked obvious and is wrong. `promote-all.md:53` initializes a fixed five-key `pending` map at step 2, so its stages are derivable; `promote-groups.md:165` creates `{slug}.groups.json` inside step 6, after the blast-radius confirmation, so an abandoned groups leg leaves **no file at all** — byte-identical to an event that legitimately had no groups leg. The exact Jul 5 failure would have stayed invisible to the tool built to catch it. *Patch only the platform-to-group handoff* — fixes the symptom, leaves create and assets unsequenced. *A generic process-doc runner* — see (1).
+
+**Consequences:** Generalizes beyond events: **a resume/status tool must record intent at kickoff, because absence of a result is ambiguous between "abandoned" and "never in scope."** Any state design that reads only per-stage caches inherits this hole. Two further findings from the same pass: the "one combined copy review" gate is **not** free — `promote-all.md:103-131` already resolves the blurb and `:160-166` already stops to review it, so the orchestrator must suppress step 3b or it adds a duplicate approval turn; and a proposed staleness check phrased as "verify the blurb names the current event" is an LLM judgment dressed as a gate, respecified as a substring assertion on the event's date token so its Done-When is honestly satisfiable. **Follow-up needed:** the 2026-05-12 operator-config design (config absent → founder defaults, "behavior byte-identical", line ~10192) is sound as a mechanism but its **defaults went stale on the city move** — `promote-facebook.md:66-68` still defaults to two Koh Phangan groups and `.private/event-operator.json` does not exist, so a Chiang Mai event targets the wrong audience. A config-absent fallback is only byte-identical to the founder's intent for as long as the founder's situation holds; it needs an expiry or a fail-closed stop. Tracked in P1160.
+
+**References:** [features/p1160_events_pipeline_orchestrator_and_process_doc.md](../features/p1160_events_pipeline_orchestrator_and_process_doc.md) · `.claude/commands/slava/events/promote-all.md` · `.claude/commands/slava/events/promote-groups.md` · `docs/video-process.md`
+
+---
+
 ## 2026-08-26 [process]: A claim about the spec corpus must be counted, not reasoned — a false one written into a filing skill is inherited by every future spec
 
 **Context:** P1159 widened `/create-spec`, `/create-bug` and `/change-request` in one pass. The
