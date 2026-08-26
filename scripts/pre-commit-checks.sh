@@ -1448,6 +1448,21 @@ else
 fi
 echo ""
 
+# Codex lifecycle-hook gate (P1157). These hooks decide whether a completion
+# claim is allowed to stand, so a silent regression here disables a safety gate
+# without anything going red. Self-contained: fixtures only, no $HOME, no
+# network. Ungated until 2026-08-26, which is how a fail-open browser branch
+# survived three green runs.
+if [ -f "./scripts/test-codex-native-hooks.sh" ]; then
+    if ! run_quiet "Codex lifecycle hooks (P1157)" ./scripts/test-codex-native-hooks.sh; then
+        echo -e "${YELLOW}  → Run ./scripts/test-codex-native-hooks.sh to see which case regressed${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ scripts/test-codex-native-hooks.sh not found — skipping Codex hook gate${NC}"
+fi
+echo ""
+
 # CLAUDE.md line budget check
 if echo "$STAGED_FILES" | grep -q "^CLAUDE.md$"; then
     CLAUDE_LINES=$(git show :CLAUDE.md 2>/dev/null | wc -l)

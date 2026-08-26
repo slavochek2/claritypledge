@@ -10,6 +10,26 @@ WRAPPER="$HOME/.agents/bin/delegate-gemini"
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/p1157-routing.XXXXXX")"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
+# This suite asserts against per-machine adapter files that live in $HOME, NOT in
+# the repo. On a fresh clone, a CI runner, or a second machine every `contains`
+# greps a missing file and reports `bad` -- 31 failures that say "your routing is
+# broken" when they mean "this machine is not set up". Detect that up front and
+# SKIP with exit 0, so the suite is honest about what it did rather than loud
+# about a machine it cannot inspect. Exit 0 is deliberate: a skip is not a pass,
+# but it must not block a commit on a machine the suite was never able to cover.
+MISSING_ADAPTERS=()
+for _f in "$UNIVERSAL" "$CODEX_ADAPTER" "$DSH_ADAPTER" "$WRAPPER"; do
+  [[ -e "$_f" ]] || MISSING_ADAPTERS+=("$_f")
+done
+if (( ${#MISSING_ADAPTERS[@]} > 0 )); then
+  echo "SKIP  multi-harness routing suite: this machine has no adapter set installed."
+  printf '        missing: %s\n' "${MISSING_ADAPTERS[@]}"
+  echo "        These files are per-machine and intentionally outside the repo."
+  echo "        Nothing was verified. This is a SKIP, not a pass."
+  echo "=== 0 passed, 0 failed (skipped: adapters not installed) ==="
+  exit 0
+fi
+
 pass=0
 fail=0
 
