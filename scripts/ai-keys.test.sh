@@ -214,6 +214,135 @@ run_case "H report on a healthy estate for output inspection" 0 \
 assert_not_out "H no private key block"  "BEGIN PRIVATE KEY"
 assert_not_out "H no home directory path" "/Users/"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# The cases below cover the verbs beyond --report. They are still hermetic:
+# --dry-run paths must not touch gcloud, and the registry verbs are pure jq.
+# An earlier revision of this suite tested --report ONLY, and that gap is
+# exactly where the two worst bugs lived (a real key minted with no registry
+# row, and a revoke that reported success after its registry write failed).
+# ═══════════════════════════════════════════════════════════════════════════
+
+seed_registry() {
+  cat > "$1" <<'JSON'
+{"version":1,"keys":[{"name":"Fake-Seed","holder":"uat","project_id":"fake-proj-seed","service_account":"s@fake.iam.gserviceaccount.com","budget_eur":25,"cap_set_at":"2026-01-01T00:00:00Z","created":"2026-01-01T00:00:00Z","status":"active"}]}
+JSON
+}
+
+# ── CASE I — a non-numeric budget must be refused BEFORE anything is created.
+# "50 EUR" is the realistic typo. Unguarded, it reaches jq's tonumber, which
+# fails, empties the row, and lets provisioning mint a real key the monitor
+# can never see.
+I="${WORK}/i"; mkdir -p "$I"
+: > "${I}/registry.json"; echo '{"version":1,"keys":[]}' > "${I}/registry.json"
+run_case "I non-numeric budget refused" 2 \
+  --issue --name "Fake-Typo" --holder uat --budget "50 EUR" --dry-run --registry "${I}/registry.json"
+assert_out "I says why" "must be a plain number"
+run_case "I negative-shaped budget refused" 2 \
+  --issue --name "Fake-Typo" --holder uat --budget "-5" --dry-run --registry "${I}/registry.json"
+
+# ── CASE J — --issue --dry-run must be genuinely gcloud-free, matching
+# --revoke --dry-run. Run with a PATH that contains no gcloud at all.
+run_case "J dry-run issue needs no gcloud" 0 \
+  --issue --name "Fake-Dry" --holder uat --budget 25 --dry-run --registry "${I}/registry.json"
+assert_out "J states the ordering guarantee" "registry row is written BEFORE the key is minted"
+assert_out "J names the single permission"   "aiplatform.endpoints.predict"
+
+J_OUT="$(PATH=/usr/bin:/bin "$SCRIPT" --issue --name "Fake-NoGcloud" --holder uat \
+        --budget 25 --dry-run --registry "${I}/registry.json" 2>&1)"; J_EXIT=$?
+if [[ "$J_EXIT" == "0" ]]; then
+  echo "PASS  J dry-run succeeds with gcloud absent from PATH"; pass_count=$((pass_count + 1))
+else
+  echo "FAIL  J dry-run failed with gcloud absent from PATH: exit ${J_EXIT}"
+  printf '%s\n' "$J_OUT" | sed 's/^/        /'; fail_count=$((fail_count + 1))
+fi
+
+if [[ -z "$(jq -r '.keys[]?.name' "${I}/registry.json")" ]]; then
+  echo "PASS  J dry-run wrote nothing to the registry"; pass_count=$((pass_count + 1))
+else
+  echo "FAIL  J dry-run mutated the registry"; fail_count=$((fail_count + 1))
+fi
+
+# ── CASE K — duplicate names must be refused. Two rows with one name would
+# make every registry lookup ambiguous.
+K="${WORK}/k"; mkdir -p "$K"; seed_registry "${K}/registry.json"
+run_case "K duplicate name refused" 2 \
+  --issue --name "Fake-Seed" --holder uat --budget 30 --dry-run --registry "${K}/registry.json"
+assert_out "K says why" "already in registry"
+
+# ── CASE L — changing a budget must invalidate the cap claim. The old cap
+# still sits at the old number; leaving cap_set_at intact would assert a cap
+# that matches a budget nobody has set.
+L="${WORK}/l"; mkdir -p "$L"; seed_registry "${L}/registry.json"
+run_case "L set-budget succeeds" 0 --set-budget --name Fake-Seed --budget 60 --registry "${L}/registry.json"
+if [[ "$(jq -r '.keys[0].budget_eur' "${L}/registry.json")" == "60" ]]; then
+  echo "PASS  L budget updated"; pass_count=$((pass_count + 1))
+else
+  echo "FAIL  L budget not updated"; fail_count=$((fail_count + 1))
+fi
+if [[ -z "$(jq -r '.keys[0].cap_set_at' "${L}/registry.json")" ]]; then
+  echo "PASS  L cap claim invalidated by the budget change"; pass_count=$((pass_count + 1))
+else
+  echo "FAIL  L cap_set_at survived a budget change"; fail_count=$((fail_count + 1))
+fi
+run_case "L set-budget rejects non-numeric" 2 \
+  --set-budget --name Fake-Seed --budget "sixty" --registry "${L}/registry.json"
+run_case "L set-budget on unknown key is exit 2" 2 \
+  --set-budget --name Fake-Absent --budget 10 --registry "${L}/registry.json"
+
+# ── CASE M — mark-cap-set records the claim; --report must then stop flagging
+# it as unrecorded. Ties the two verbs together.
+run_case "M mark-cap-set succeeds" 0 --mark-cap-set --name Fake-Seed --registry "${L}/registry.json"
+assert_out "M labels it a claim, not a verified fact" "claim to be falsified"
+printf 'fake-proj-seed\t1.0000\n' > "${L}/spend.tsv"
+printf 'fake-proj-seed\n' > "${L}/projects.txt"
+run_case "M report is clean once the cap is recorded" 0 \
+  --report --registry "${L}/registry.json" --spend-tsv "${L}/spend.tsv" --projects-file "${L}/projects.txt"
+assert_not_out "M no longer unrecorded" "WARN_CAP_UNRECORDED"
+
+# ── CASE N — revoke. Dry run must not mutate; unknown key must be exit 2.
+N="${WORK}/n"; mkdir -p "$N"; seed_registry "${N}/registry.json"
+run_case "N revoke dry-run succeeds" 0 --revoke --name Fake-Seed --dry-run --registry "${N}/registry.json"
+if [[ "$(jq -r '.keys[0].status' "${N}/registry.json")" == "active" ]]; then
+  echo "PASS  N revoke dry-run left status untouched"; pass_count=$((pass_count + 1))
+else
+  echo "FAIL  N revoke dry-run mutated status"; fail_count=$((fail_count + 1))
+fi
+run_case "N revoke on unknown key is exit 2" 2 --revoke --name Fake-Absent --registry "${N}/registry.json"
+run_case "N cap-url on unknown key is exit 2" 2 --cap-url --name Fake-Absent --registry "${N}/registry.json"
+run_case "N unpause prints the restore path" 0 --unpause --name Fake-Seed --registry "${N}/registry.json"
+assert_out "N unpause points at the cap" "MANUAL STEP"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CASE O — the orphan that no spend row can reveal.
+# A project created by --issue that fails before billing is linked never
+# appears in the billing export, so the spend-driven drift loop is
+# structurally blind to it. Only the live project list can see it. Without
+# this case, "reports both drift directions" is true of the fixtures and
+# false of reality.
+# ═══════════════════════════════════════════════════════════════════════════
+O="${WORK}/o"; mkdir -p "$O"
+cat > "${O}/registry.json" <<'JSON'
+{"version":1,"keys":[
+ {"name":"Fake-Live","holder":"uat","project_id":"cp-aikey-live-11111","service_account":"l@fake.iam.gserviceaccount.com","budget_eur":40,"cap_set_at":"2026-01-01T00:00:00Z","created":"2026-01-01T00:00:00Z","status":"active"}
+]}
+JSON
+printf 'cp-aikey-live-11111\t3.0000\n' > "${O}/spend.tsv"
+# The orphan has no spend row at all — that is the whole point of the case.
+printf 'cp-aikey-live-11111\ncp-aikey-orphan-99999\nunrelated-project-xyz\n' > "${O}/projects.txt"
+
+run_case "O orphan project detected" 1 \
+  --report --registry "${O}/registry.json" --spend-tsv "${O}/spend.tsv" --projects-file "${O}/projects.txt"
+assert_out "O names the orphan"                "DRIFT_PROJECT_ONLY:cp-aikey-orphan-99999"
+assert_out "O marks it as a partial provision" "orphan=likely-partial-provision"
+assert_not_out "O ignores unrelated projects"  "unrelated-project-xyz"
+assert_not_out "O does not flag the live key"  "DRIFT_PROJECT_ONLY:cp-aikey-live-11111"
+
+# ── CASE P — error paths must not print the operator's home directory.
+# Case H only checked the SUCCESS path with an explicit --registry, so the
+# default-registry error path where the leak actually occurs went unexercised.
+run_case "P default-registry error is exit 2" 2 --report --spend-tsv "${O}/spend.tsv"
+assert_not_out "P error path leaks no home path" "/Users/"
+
 echo ""
-echo "=== ${pass_count} passed, ${fail_count} failed ==="
+echo "=== ${pass_count} passed, ${fail_count} failed (full suite) ==="
 [[ "$fail_count" -eq 0 ]] || exit 1

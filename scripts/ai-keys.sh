@@ -28,6 +28,10 @@ REGISTRY_DEFAULT="${REPO_ROOT}/.private/ai-keys/registry.json"
 PREDICT_PERMISSION="aiplatform.endpoints.predict"
 CUSTOM_ROLE_ID="aiKeyPredictOnly"
 
+# Paths are shown repo-relative: --report output and its errors get piped into
+# /day logs, and an absolute path there carries the operator's home directory.
+rel_path() { echo "${1#"${REPO_ROOT}/"}"; }
+
 die() { echo "ERROR: $*" >&2; exit 2; }
 
 usage() {
@@ -83,9 +87,9 @@ file_has_line() { grep -Fxq -- "$1" "$2" 2>/dev/null; }
 do_report() {
   local registry="$1" spend_tsv="$2" projects_file="$3"
 
-  [[ -f "$registry" ]] || die "registry not found: ${registry}"
-  [[ -f "$spend_tsv" ]] || die "spend TSV not found: ${spend_tsv}"
-  jq -e . "$registry" >/dev/null 2>&1 || die "registry is not valid JSON: ${registry}"
+  [[ -f "$registry" ]] || die "registry not found: $(rel_path "$registry")"
+  [[ -f "$spend_tsv" ]] || die "spend TSV not found: $(rel_path "$spend_tsv")"
+  jq -e . "$registry" >/dev/null 2>&1 || die "registry is not valid JSON: $(rel_path "$registry")"
 
   local findings=0 total=0 over=0 nodata=0
   local have_projects=0
@@ -153,6 +157,25 @@ do_report() {
     fi
   done < "$spend_tsv"
 
+  # An orphan from partial provisioning has no billing linked, so it can never
+  # appear in the spend export — the spend-driven loop above is structurally
+  # blind to it. The live project list is the only surface that sees it.
+  if (( have_projects )); then
+    local lproj
+    while read -r lproj _rest; do
+      [[ -z "${lproj:-}" ]] && continue
+      [[ "$lproj" == \#* ]] && continue
+      case "$lproj" in
+        "${AI_KEYS_PROJECT_PREFIX:-cp-aikey-}"*) ;;
+        *) continue ;;
+      esac
+      if ! file_has_line "$lproj" "$known" && ! spend_of "$lproj" "$spend_tsv" >/dev/null; then
+        echo "DRIFT_PROJECT_ONLY:${lproj}:spent=none:orphan=likely-partial-provision"
+        findings=1
+      fi
+    done < "$projects_file"
+  fi
+
   rm -f "$known"
   echo "TOTAL:keys=${total}:over=${over}:nodata=${nodata}"
   return "$findings"
@@ -183,17 +206,27 @@ registry_upsert() {
   local registry="$1"; shift
   local json="$1"
   local tmp; tmp="$(mktemp)"
-  jq --argjson row "$json" '
+  if jq --argjson row "$json" '
     .keys = ((.keys // []) | map(select(.name != $row.name)) + [$row])
-  ' "$registry" > "$tmp" && mv "$tmp" "$registry"
+  ' "$registry" > "$tmp"; then
+    mv "$tmp" "$registry"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 registry_patch() {
   local registry="$1" name="$2" field="$3" value="$4"
   local tmp; tmp="$(mktemp)"
-  jq --arg n "$name" --arg f "$field" --arg v "$value" '
+  if jq --arg n "$name" --arg f "$field" --arg v "$value" '
     .keys = (.keys | map(if .name == $n then .[$f] = $v else . end))
-  ' "$registry" > "$tmp" && mv "$tmp" "$registry"
+  ' "$registry" > "$tmp"; then
+    mv "$tmp" "$registry"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -225,68 +258,126 @@ require_gcloud() {
 
 slugify() { echo "$1" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//'; }
 
+# is_money VALUE — pure numeric guard. Without this, a typo like "50 EUR" reaches
+# jq's tonumber, which fails, collapses the row to an empty string, and lets
+# provisioning continue to mint a REAL key with no registry row at all.
+is_money() { [[ "$1" =~ ^[0-9]+([.][0-9]+)?$ ]]; }
+
+# Every failure after the project exists must tell the operator what to tear down.
+# A bare die leaves a real project behind that nothing can later discover.
+die_with_teardown() {
+  local project="$1"; shift
+  echo "ERROR: $*" >&2
+  echo "" >&2
+  echo "PARTIAL PROVISION — project ${project} exists and is NOT in the registry." >&2
+  echo "Tear it down now, or it becomes an orphan:" >&2
+  echo "  gcloud projects delete ${project}" >&2
+  exit 2
+}
+
+# Defense in depth on top of the IAM role, which is the primary control. The
+# constraint name is NOT hardcoded: it could not be verified against a live
+# Organization Policy API in this environment, and inventing one would apply
+# nothing while reporting success. Absence is therefore reported loudly.
+apply_model_allowlist() {
+  local project="$1"
+  if [[ -z "${AI_KEYS_MODEL_CONSTRAINT:-}" ]]; then
+    echo "MODEL_ALLOWLIST_NOT_APPLIED:${project}:reason=AI_KEYS_MODEL_CONSTRAINT-unset"
+    echo "  Partner models are expected to be unreachable via the predict-only IAM"
+    echo "  role alone. That is the control; the org-policy allowlist is a second"
+    echo "  layer that is NOT active. Verify with the negative test before trusting it."
+    return 0
+  fi
+  gcloud org-policies set-policy /dev/stdin --project="$project" --quiet <<POLICY || \
+    echo "MODEL_ALLOWLIST_FAILED:${project}"
+name: projects/${project}/policies/${AI_KEYS_MODEL_CONSTRAINT}
+spec:
+  rules:
+    - values:
+        allowedValues:
+          - publishers/google
+POLICY
+}
+
 do_issue() {
   local name="$1" holder="$2" budget="$3" dry="$4" registry="$5"
-  require_gcloud
+
+  is_money "$budget" || die "--budget must be a plain number, got: ${budget}"
   registry_init "$registry"
   registry_has "$registry" "$name" && die "key already in registry: ${name}. Use --set-budget or --revoke."
 
-  local billing_account project sa slug
+  local project sa slug
   slug="$(slugify "$name")"
+  # GCP project ids cap at 30 characters. Bound the slug rather than letting
+  # gcloud reject the whole thing after billing has already been queried.
+  slug="$(echo "$slug" | cut -c1-12)"
   project="cp-aikey-${slug}-$(date +%s | tail -c 6)"
   sa="aikey-${slug}"
 
-  billing_account="$(gcloud billing accounts list --format='value(ACCOUNT_ID)' 2>/dev/null | head -1)"
-  [[ -n "$billing_account" ]] || die "no open billing account found"
-
-  local run=(eval)
   if [[ "$dry" == "1" ]]; then
+    # Genuinely gcloud-free, matching --revoke --dry-run. A dry run must work on
+    # a machine with no gcloud and no auth.
     echo "DRY_RUN: would provision key ${name} for ${holder} at ${budget} EUR/month"
     echo "DRY_RUN: project=${project} service_account=${sa}"
     echo "DRY_RUN: role=${CUSTOM_ROLE_ID} permission=${PREDICT_PERMISSION}"
+    echo "DRY_RUN: registry row is written BEFORE the key is minted"
     print_cap_instructions "$project" "$budget"
     return 0
   fi
 
-  echo "STEP 1/7 create project ${project}"
+  require_gcloud
+  local billing_account
+  billing_account="$(gcloud billing accounts list --format='value(ACCOUNT_ID)' 2>/dev/null | head -1)"
+  [[ -n "$billing_account" ]] || die "no open billing account found"
+
+  echo "STEP 1/8 create project ${project}"
   gcloud projects create "$project" --name="ai-key ${name}" --quiet || die "project create failed"
 
-  echo "STEP 2/7 link billing"
+  echo "STEP 2/8 link billing"
   gcloud billing projects link "$project" --billing-account="$billing_account" --quiet \
-    || die "billing link failed"
+    || die_with_teardown "$project" "billing link failed"
 
-  echo "STEP 3/7 enable aiplatform and orgpolicy"
+  echo "STEP 3/8 enable aiplatform and orgpolicy"
   # Google auto-enables roughly 22 dependent services here, Cloud Storage and
   # BigQuery among them. Isolation rests on IAM, not on this list.
   gcloud services enable aiplatform.googleapis.com orgpolicy.googleapis.com \
-    --project="$project" --quiet || die "service enable failed"
+    --project="$project" --quiet || die_with_teardown "$project" "service enable failed"
 
-  echo "STEP 4/7 create custom role carrying only ${PREDICT_PERMISSION}"
+  echo "STEP 4/8 create custom role carrying only ${PREDICT_PERMISSION}"
   gcloud iam roles create "$CUSTOM_ROLE_ID" --project="$project" \
     --title="AI key predict only" \
     --permissions="$PREDICT_PERMISSION" \
-    --stage=GA --quiet || die "custom role create failed"
+    --stage=GA --quiet || die_with_teardown "$project" "custom role create failed"
 
-  echo "STEP 5/7 create service account and bind the custom role"
+  echo "STEP 5/8 create service account and bind the custom role"
   gcloud iam service-accounts create "$sa" --project="$project" \
-    --display-name="ai-key ${name}" --quiet || die "service account create failed"
+    --display-name="ai-key ${name}" --quiet \
+    || die_with_teardown "$project" "service account create failed"
   local sa_email="${sa}@${project}.iam.gserviceaccount.com"
   gcloud projects add-iam-policy-binding "$project" \
     --member="serviceAccount:${sa_email}" \
     --role="projects/${project}/roles/${CUSTOM_ROLE_ID}" --quiet >/dev/null \
-    || die "role binding failed"
+    || die_with_teardown "$project" "role binding failed"
 
-  echo "STEP 6/7 write registry row"
+  echo "STEP 6/8 apply model allowlist (second layer)"
+  apply_model_allowlist "$project"
+
+  echo "STEP 7/8 write registry row"
+  # BEFORE the key is minted, and checked. A key that exists without a registry
+  # row is invisible to the monitor; a registry row without a key is merely
+  # untidy and is caught by the drift check.
   registry_upsert "$registry" "$(jq -n \
     --arg name "$name" --arg holder "$holder" --arg project "$project" \
-    --arg sa "$sa_email" --arg budget "$budget" \
+    --arg sa "$sa_email" --argjson budget "$budget" \
     --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
     {name: $name, holder: $holder, project_id: $project, service_account: $sa,
-     budget_eur: ($budget | tonumber), cap_set_at: "", created: $created, status: "active"}')"
+     budget_eur: $budget, cap_set_at: "", created: $created, status: "active"}')" \
+    || die_with_teardown "$project" "registry write failed — refusing to mint a key the monitor cannot see"
 
-  echo "STEP 7/7 mint key — printed once, to stdout only, never to a repo path"
+  echo "STEP 8/8 mint key — printed once, to stdout only, never to a repo path"
   gcloud iam service-accounts keys create /dev/stdout \
-    --iam-account="$sa_email" --project="$project" || die "key mint failed"
+    --iam-account="$sa_email" --project="$project" \
+    || die "key mint failed. Registry row for ${name} exists; re-mint or run --revoke."
 
   print_cap_instructions "$project" "$budget"
 }
@@ -294,9 +385,12 @@ do_issue() {
 do_set_budget() {
   local name="$1" budget="$2" registry="$3"
   registry_has "$registry" "$name" || die "no such key in registry: ${name}"
-  registry_patch "$registry" "$name" "budget_eur" "$budget"
+  is_money "$budget" || die "--budget must be a plain number, got: ${budget}"
+  registry_patch "$registry" "$name" "budget_eur" "$budget" \
+    || die "registry write failed — budget NOT changed"
   # The recorded budget just moved; the claim that a cap matches it is now stale.
-  registry_patch "$registry" "$name" "cap_set_at" ""
+  registry_patch "$registry" "$name" "cap_set_at" "" \
+    || die "registry write failed — budget changed but cap_set_at NOT cleared. Re-run."
   local project; project="$(registry_get "$registry" "$name" project_id)"
   echo "Registry updated: ${name} budget is now ${budget} EUR."
   print_cap_instructions "$project" "$budget"
@@ -305,7 +399,8 @@ do_set_budget() {
 do_mark_cap_set() {
   local name="$1" registry="$2"
   registry_has "$registry" "$name" || die "no such key in registry: ${name}"
-  registry_patch "$registry" "$name" "cap_set_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  registry_patch "$registry" "$name" "cap_set_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    || die "registry write failed — cap_set_at NOT recorded"
   echo "Recorded cap_set_at for ${name}. This is a claim to be falsified by --report, not a verified fact."
 }
 
@@ -324,7 +419,10 @@ do_revoke() {
   require_gcloud
   gcloud iam service-accounts delete "$sa" --project="$project" --quiet \
     || die "service account delete failed — registry left unchanged so it still reflects reality"
-  registry_patch "$registry" "$name" "status" "revoked"
+  # The credential is already gone at this point. If this write fails the
+  # registry would claim the key is live, which is the dangerous direction.
+  registry_patch "$registry" "$name" "status" "revoked" \
+    || die "CREDENTIAL DELETED but registry write FAILED. ${name} still reads as active. Fix the registry before trusting --report."
   echo "Revoked ${name}. Project ${project} still exists and is separately deletable:"
   echo "  gcloud projects delete ${project}"
 }

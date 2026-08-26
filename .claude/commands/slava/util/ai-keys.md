@@ -68,8 +68,12 @@ run — which is not the same as a clean estate, and must never be reported as o
 - `WARN_CAP_UNRECORDED` — nobody has claimed a cap was ever set here. Set it, then
   `--mark-cap-set`.
 - `DRIFT_REGISTRY_ONLY` — a registry row whose project no longer exists.
-- `DRIFT_PROJECT_ONLY` — a project billing Vertex that the registry does not know
-  about. This is the direction that catches a key issued outside this skill.
+- `DRIFT_PROJECT_ONLY` — a project the registry does not know about. Two shapes:
+  one billing Vertex (a key issued outside this skill), and one carrying
+  `orphan=likely-partial-provision` — a project left behind when issuing failed
+  part-way. The orphan has no billing linked, so it appears in **no** spend export;
+  it is visible only via `--projects-file`. Always pass that flag, or orphans are
+  undetectable.
 
 ## Setup, once
 
@@ -91,6 +95,20 @@ that is fine, because the identity cannot touch them. Measured on a live project
 creation refused, bucket listing refused despite Storage being enabled, enabling a new
 API refused, partner models (Claude, Grok) unreachable while Gemini returned 200 in
 the same run.
+
+The registry row is written **before** the key is minted, and the write is checked.
+A key that exists without a registry row would be invisible to the monitor; a row
+without a key is merely untidy and the drift check catches it. If issuing fails after
+the project exists, the script prints the project id and the exact teardown command —
+run it, or you have created an orphan.
+
+**One control is not active as shipped:** the Model Garden org-policy allowlist. Its
+constraint name could not be verified against a live Organization Policy API, and
+inventing one would apply nothing while reporting success. Issuing therefore prints
+`MODEL_ALLOWLIST_NOT_APPLIED`. Partner models are expected to be unreachable through
+the predict-only IAM role alone — that is the measured primary control — but treat
+the second layer as absent until the negative test confirms otherwise. Set
+`AI_KEYS_MODEL_CONSTRAINT` once the name is verified to activate it.
 
 The key JSON prints to stdout once. Hand it over out of band. It is never written to a
 repo path, `.private/` included.
