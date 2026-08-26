@@ -111,9 +111,11 @@ Resolve **all** copy that either downstream stage will need, in one pass, before
 3. Show both in one message: the platform blurb, and each language's group blurb (same copy-paste-ready format `promote-groups` step 5 uses).
 4. Wait for approval or edits. On edits, re-resolve and re-show before proceeding — never carry an unapproved edit forward.
 
-**This is the one gate that is not free.** `promote-all` step 3b already stops for its own blurb review, and `promote-groups` step 3b/probe already gate the group copy. Passing the approved blurb into each stage and having each stage **skip its own duplicate stop** is a defect if missed, not a shortcut — see the "invoked by the events orchestrator" branch added to `promote-all.md` step 3b. `promote-groups` is not itself modified to accept a pre-approved blurb in this pass (its own staleness/probe/approval gates stay as its independent safety net when run standalone) — when this orchestrator calls it, pass the approved group blurbs as context and expect `promote-groups` to run its own gates against the *same, already-agreed* text; do not treat a second confirmation there as a defect the way a second `promote-all` stop would be.
+**This is the one gate that is not free.** `promote-all` step 3b already stops for its own blurb review, and `promote-groups` step 5 already stops for its own copy approval. Passing the approved text into each stage and having each stage **skip its own duplicate wording-approval stop** is a defect if missed, not a shortcut — see the "invoked by the events orchestrator" branch added to `promote-all.md` step 3b and to `promote-groups.md` step 5.
 
-Count approval turns across a full run to confirm: exactly one combined review here, and `promote-all`'s own step 3b stop does not also fire.
+**What each stage still keeps, even when orchestrated:** `promote-all`'s per-platform browser stops (Gate 3) and `promote-groups`'s staleness check, transport probe, link-liveness check, and blast-radius group-count confirmation (Gate 4) all run unmodified. Only the *wording*-approval turns collapse into this one combined review — the safety checks that don't depend on wording (probe proving Beeper is live, staleness proving the text isn't stale, blast-radius proving the operator meant to send to N groups) are not wording approvals and are never suppressed.
+
+Count approval turns across a full run to confirm: exactly one combined *wording* review here, and neither `promote-all`'s step 3b stop nor `promote-groups`'s step 5 copy-display also fires.
 
 ### 6. Stage: Promote platforms (if in scope)
 

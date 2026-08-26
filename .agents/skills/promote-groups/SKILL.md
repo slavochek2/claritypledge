@@ -2,7 +2,7 @@
 name: promote-groups
 description: "Post an event blurb into the mapped WhatsApp/Telegram group chats via Beeper"
 when_to_use: "After the event is published, to share into recurring group chats. Reads group mapping from .private/event-channels.json"
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Promote Event into Group Chats
@@ -156,7 +156,9 @@ Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is require
 
 ### 5. Approval gate
 
-Show, in this order:
+**If invoked by the events orchestrator (`slava:events:run`) with already-approved group blurbs passed in:** the wording was already shown and approved at the orchestrator's combined copy review (its Gate 2) — **skip item 1 below** (do not re-show the copy for a second wording approval; that would be the same duplicate-approval-turn defect the orchestrator's design closes for `promote-all` step 3b). The blast-radius group-count confirmation (item 2 + the ask) is unchanged and always runs — it is a distinct gate (Gate 4 in the orchestrator's numbering) about send scope, not wording, and stays inherited unmodified regardless of who invokes this skill.
+
+**Otherwise (standalone invocation), show, in this order:**
 
 1. **Full copy for EVERY language, copy-paste ready.** For each distinct language present, print a clearly demarcated block the operator can copy verbatim into a chat — even if only one language is being posted, show all resolved languages. Format per language:
    - A header line: `### <LANGUAGE NAME> — posts to N group(s)`
@@ -164,7 +166,7 @@ Show, in this order:
    - This is mandatory and never abbreviated — the operator approves the wording from THIS display, not from the self-chat probe. If any language's copy is missing here, that is a skill defect: STOP and fix before asking for approval.
 2. The full target group list, each row: **name**, **platform**, **lang**, **verified_name** — so the operator sees which language each group receives.
 
-**Blast-radius cap:** If the eligible group list contains **6 or more groups**, require the operator to type the exact count as confirmation (e.g., "7") rather than a one-click approval. No bulk gate for large fan-outs.
+**Blast-radius cap (always runs, orchestrated or standalone):** If the eligible group list contains **6 or more groups**, require the operator to type the exact count as confirmation (e.g., "7") rather than a one-click approval. No bulk gate for large fan-outs.
 
 Ask: "Post to the above groups? Reply with the group count to confirm, or `abort`." (For ≤5 groups: "Reply `post` to confirm, or `abort`.")
 
