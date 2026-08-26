@@ -103,6 +103,15 @@ This analysis feeds directly into the "Current State", "What's Wrong", and "Pred
 
 Before asking the user, **scan the current conversation** for already-discussed context: ASCII mockups, "what was wrong" analysis, agreed UX layout, surfaces in scope, constraints, root cause analysis. If found, use it — don't ask for what's already been decided.
 
+**Quote the founder's own framing verbatim**, attributed, in "What was wrong" or Problem Statement:
+
+> "the CTA reads as Alice's position, not mine"
+
+Their sentence is the only authoritative one in the spec; your paraphrase is a lossy re-encoding of
+it, and in a redesign the precise wording of what felt wrong *is* the requirement. Constraints they
+named while discussing it go to `## Invariants`; things they were unsure about stay as open
+questions in their words rather than being resolved on their behalf.
+
 For anything still missing, ask (plain text, not AskUserQuestion):
 
 1. **What was wrong with the original design?** (Specific — not "it felt off" but "the CTA appeared after Alice's stories, making '✓ Agrees' read as Alice's position not the viewer's")
@@ -141,6 +150,8 @@ Slug from the redesign description, not the predecessor title.
 status: week
 type: change-request
 drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, never updated
+exec_model: opus | sonnet | haiku | gemini      # recommended model to BUILD the redesign
+exec_effort: low | medium | high | xhigh
 rank: {calculated}
 changes: p{predecessor_N}
 chain_root: p{root_N}    # ONLY if predecessor is itself a change-request. Omit otherwise.
@@ -224,6 +235,21 @@ If nothing is superseded (extension only), state: "No predecessor sections super
 {What the redesign must do. Functional requirements derived from the corrected JTBD.
 Cross-reference predecessor requirements that are still valid vs replaced.}
 
+## Invariants
+
+{OPTIONAL — omit when there are none; nothing gates on its absence.
+
+Properties that must remain true whatever the redesign does. **Not the same as "What Stays the
+Same" below**, which fences scope: that section says *these surfaces are not being touched*, an
+invariant says *this property must hold across the surfaces you ARE touching* — "the viewer's own
+position must never be renderable as another participant's", "consent state must survive a reload".
+
+A redesign is where invariants are most often discovered and most often lost: the predecessor
+satisfied a constraint nobody wrote down, and the rewrite silently drops it. If the predecessor
+spec carries an `## Invariants` section, **carry every line of it forward** — additive-only, the
+same treatment as `/create-bug`. Dropping one requires explicit user approval; raise it as a
+finding, never make it a silent edit.}
+
 ## What Stays the Same
 
 {Explicitly list what is NOT changing — data model, other surfaces, API behavior, other features.
@@ -295,6 +321,13 @@ Show this warning and ask the user whether to proceed with the CR or consolidate
 - [ ] "Predecessor Sections Superseded" table populated
 - [ ] Surfaces in scope explicitly listed
 - [ ] "What stays the same" section present
+- [ ] Predecessor's `## Invariants` (if any) carried forward in full — additive-only, nothing dropped
+- [ ] **`[FOUNDER DECISION: ...]` on every founder call.** A redesign is the highest-risk skill for
+      this: CTA text, tone, naming and visual emphasis are exactly what gets rewritten, and CLAUDE.md
+      mandates the marker rather than inventing them. Zero markers on a redesign is a claim, not a
+      default — confirm it is true
+- [ ] **No claim about the predecessor's shipped behaviour that a command was not run against** —
+      the subagent analysis is a claim until a grep or a file read confirms it
 - [ ] Regression check in acceptance criteria
 - [ ] **If `type: change-request` is new to this codebase:** confirm it is registered in `tools/kanban/lib/scanner-rules.ts` VALID_TYPE array (server strips unknown types silently), `features.md` type list, `/pick-flow` skill type table, and `CLAUDE.md` type classification table
 
@@ -310,6 +343,7 @@ Redesign of: P{predecessor_N}
 Root cause: {1-sentence mechanism}
 Predecessor sections superseded: {count or "none"}
 Surfaces in scope: {list}
+Execution: {exec_model}, {exec_effort} — {one clause of why}
 
 Next: {/ux | /architect | /dev} — {one sentence why}
 

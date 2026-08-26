@@ -194,7 +194,22 @@ When invoked with an **existing bug spec** (same P-number, `type: bug`), enter r
 
 ### Information Gathering
 
-If the user provides a one-liner description without context, extract what you can from the description and mark unknowns with `[To be investigated]`. Do NOT block on missing info — create the spec with what's available.
+**Read the preceding conversation before the argument string.** A bug is almost never reported
+cold — the thread above usually holds the screenshot, the stack trace, the exact steps that
+triggered it, the "it only happens when…" qualifier, and the founder's own words for the symptom.
+A report written from the one-line description alone throws that away and `/reproduce` re-derives
+it. Harvest specifically:
+
+- **The founder's description of the symptom, verbatim**, quoted in Summary or Actual Behavior —
+  their wording carries detail your paraphrase drops (`> "it says saved but the row isn't there"`).
+- **Observed evidence** — errors, screenshots, timestamps, session codes, what was tried already.
+- **Failed hypotheses.** What was already ruled out belongs in the spec, or `/reproduce` tests it
+  again.
+- **Any constraint named while discussing it** → `## Invariants`.
+
+If the conversation is empty and the description is a one-liner, extract what you can and mark
+unknowns `[To be investigated]`. Do NOT block on missing info — create the spec with what's
+available, and say the context was thin.
 
 If the user provides rich context (stack traces, error messages, code snippets, prior investigation), incorporate all of it into Root Cause and Affected Files.
 
@@ -261,11 +276,31 @@ workstream: {infer from context, or omit if unclear}
 date_reported: {today YYYY-MM-DD}
 created_date: {today YYYY-MM-DD}
 drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, never updated
+exec_model: opus | sonnet | haiku | gemini      # recommended model to FIX this — see below
+exec_effort: low | medium | high | xhigh
 tags: [{relevant tags, 2-4}]
 delivery_stage: create-bug
 pipeline_ran: [create-bug]
 ---
 ```
+
+### `exec_model` / `exec_effort` — the execution recommendation
+
+**Who should FIX this** — distinct from `drafted_by`, which records who wrote the report. Stamped
+at filing time so the "which model and effort?" question is answered in the artifact instead of
+asked by hand on the next turn. Repeat it in the handoff output with one clause of why.
+
+**`~/.claude/commands/recommend-model-effort.md` owns the routing logic — do not restate its lanes
+here or in the bug spec.** Copies drift, and a stale routing table is invisible until it has been
+wrong for weeks.
+
+**Bug-specific routing signal — route on the diagnosis, not the patch.** A one-line fix found by a
+day of reasoning is judgment work; a twenty-file rename is mechanical. Unknown root cause, a race,
+an RLS or auth boundary, or anything where the wrong fix ships silently → Opus, high. Known root
+cause with an obvious localised patch → Sonnet, medium.
+
+**A snapshot, not a contract.** Nothing gates on it. Re-run the call if the bug has sat unfixed for
+weeks, and omit both fields rather than guess.
 
 **Bug-specific fields to add after resolution (not at creation):**
 - `date_resolved: YYYY-MM-DD`
@@ -303,7 +338,16 @@ pipeline_ran: [create-bug]
 
 ## Invariants
 
-{Architectural constraints discovered during investigation. Omit section for new bugs — add during rewrite mode when patterns emerge. This section persists across all future rewrites.}
+{Properties that must remain true whatever the fix does — architectural constraints discovered
+during investigation. Write one now if the investigation already surfaced one; otherwise omit the
+section and add it during rewrite mode when patterns emerge. This section persists across all
+future rewrites: later rewrites may add to it; removing an entry requires explicit user approval,
+never agent judgment.
+
+NOT the same as scope-fencing. "Do NOT touch the auth flow" limits where you work; an invariant
+constrains the areas you DO touch — "any path that treats a request as authenticated must consult
+server-side state." If the fix cannot satisfy an invariant, that is a finding, not a licence to
+drop it.}
 
 ## Reproduction Steps
 
@@ -358,6 +402,12 @@ Before creating the file, verify:
 - [ ] Severity is set with justification
 - [ ] At least one affected file listed (or "suspected area" with rationale)
 - [ ] Acceptance criteria are observable by a human tester — no "code is correct" criteria
+- [ ] **No claim about existing code, schema or shipped specs that a command was not run against.**
+      Absence claims ("nothing handles this", "the column doesn't exist") are the highest-risk and
+      cheapest class to check — grep them. Unverifiable claims are written UNVERIFIED, never as fact
+- [ ] **`[FOUNDER DECISION: ...]` on any Expected Behavior that is a product call, not a defect.**
+      "What *should* it do" is often a design question wearing a bug's clothes — copy, tone, whether
+      the state should exist at all. Mark it rather than deciding it
 - [ ] Frontmatter has all required fields: status, type, rank, severity, date_reported, created_date, tags
 - [ ] File path follows `features/p{N}_{slug}.md` format
 - [ ] No real participant names in the body — real-session people are written as roles (creator/joiner/host/partner/founder); only session code + profile UUIDs remain (public repo; the pre-commit gate won't catch names)
@@ -446,6 +496,7 @@ Tell the user:
 Created: features/p{N}_{slug}.md
 
 Severity: {severity}
+Execution: {exec_model}, {exec_effort} — {one clause of why}
 Next step: Run `/reproduce p{N}` to confirm the bug and write a failing test.
 Then: `/fix p{N}` to implement the fix.
 ```
@@ -473,7 +524,7 @@ Only add the skip hint when the fix is a literal one-line change AND the user ha
 
 - `/reproduce` — Confirm the bug with evidence: root cause hypothesis, failing test, surface audit. **Default next step.**
 - `/fix` — Implement the fix from this spec (reads reproduce artifact → fix → verify)
-- `/create-spec` — Structured spec with 5-field skeleton (use for features, not bugs)
+- `/create-spec` — Structured spec with 6-field skeleton (use for features, not bugs)
 - `/kdd` — Capture learnings after fix is complete
 
 **Flow:**

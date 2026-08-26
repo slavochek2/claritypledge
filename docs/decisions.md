@@ -6,6 +6,77 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-26 [process]: A claim about the spec corpus must be counted, not reasoned — a false one written into a filing skill is inherited by every future spec
+
+**Context:** P1159 widened `/create-spec`, `/create-bug` and `/change-request` in one pass. The
+founder's one open call was whether `Done-When` and `Acceptance Criteria` should be merged. The
+answer chosen — keep both, state the distinction — required *writing the distinction down*, and the
+first draft wrote: "Done-When is the universal skeleton field; Acceptance Criteria is a
+feature-only expansion module." That reads correctly, matches the skill files' own framing, and is
+false. A hostile reviewer counted the corpus; an independent re-count confirmed it: all 38
+change-request specs and 217 of 238 bug specs carry AC with **no** Done-When, because
+`/create-bug` and `/change-request` emit AC *in place of* Done-When. 102 non-feature `task` specs
+carry Done-When and no AC. Neither field is universal; AC is not feature-only.
+
+**Decision:** Any claim about what the spec corpus contains, when it is being written into a skill
+that files specs, gets a count before it is written — `for f in features/**/p*.md` grouped by
+`type`, not an inference from reading the templates. The corrected text names the real rule (the
+filing skill decides which field you get) and carries the measured table.
+
+**Alternatives rejected:** *Reason it out from the three templates* — this is exactly what produced
+the false claim; the templates say what they emit, not what 900 filed specs actually carry. *Merge
+the two fields* — rejected on the founder call: it would require changing the `qa` hard gate in
+`features.md:24` plus `/dev`, `/fix` and `/verify`, and leaves 78 specs carrying both.
+
+**Consequences:** This class of error has a distinctive blast radius: a false claim inside a filing
+skill is not wrong once, it is wrong on every spec filed afterwards, and each of those specs then
+looks like corroboration. It is also invisible to the usual checks — no test covers a skill's prose,
+and the pre-commit gate passed green on the false version. `epistemic.md` gate 9 already binds the
+consumer of an agent claim; this extends the same duty to a claim the agent generates about its own
+repo. The reviewer that caught it was the single adversarial pass run over the combined three-file
+diff (1 of 1 spawned, reported).
+
+**References:** [features/p1159_create_spec_intent_invariants_and_trim.md](../features/p1159_create_spec_intent_invariants_and_trim.md) · [.claude/commands/slava/build/create-spec.md](../.claude/commands/slava/build/create-spec.md) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9
+
+---
+
+## 2026-08-26 [process]: Invariants belong at spec-creation, and the model+effort call belongs in the spec's frontmatter
+
+**Context:** Two structural gaps in the filing skills, both surfaced by asking what a spec *cannot*
+record. First: `grep -i invariant` on `create-spec.md` returned zero hits, while `/create-bug`
+carried `## Invariants` and called it "a sacred section." So a **bug** spec preserved architectural
+constraints and a **feature** spec — where those constraints are actually discovered — had nowhere
+to write one. Invariants only entered the system after something had broken. Second: the founder
+was re-typing "which model and effort?" by hand after nearly every spec was filed, although the
+work-type classification that answers it is computed during filing and then discarded.
+
+**Decision:** `## Invariants` is now an optional, additive-only section in all three filing skills,
+with the distinction stated explicitly — *a non-goal says don't touch that area; an invariant says
+this property must hold whatever you touch*. Removing an entry requires explicit user approval, and
+`/spec-compact` now lists it as never-touch. Separately, `exec_model` / `exec_effort` are stamped
+at filing time as **value plus pointer**: the recommendation lives in the spec, the routing logic
+stays solely in `~/.claude/commands/recommend-model-effort.md`. Registered in `features.md` through
+the `/slava:maintain:claude-md` gate.
+
+**Alternatives rejected:** *Copy the routing lanes into the skills* — a stale routing table is
+invisible until it has been wrong for weeks. *Gate on the new fields* — P1159's own invariant was
+that every addition stays omittable without a gate firing; the first draft violated it by adding an
+"exec_model stamped (or deliberately omitted, and said so)" checkbox to all three skills, which
+fires on absence and directly contradicted the "never enforced, no prompt when absent" wording
+written into `features.md` in the same commit. The reviewer caught the contradiction; the
+checkboxes were removed.
+
+**Consequences:** A spec can now carry the constraint that outlives its implementation, at the
+moment that constraint is learned rather than after the next incident. The trim that accompanied
+this (persona, workflow ASCII, 8 of 12 quality gates, both worked examples) removed ~180 lines as
+specced, but the approved additions put ~250 back: `create-spec.md` is 560 lines against a stated
+target of ≤330. That Done-When item is recorded as **MISSED, not waived** — content was chosen over
+the number deliberately and the founder was told, and it stays open as a trim item.
+
+**References:** [features/p1159_create_spec_intent_invariants_and_trim.md](../features/p1159_create_spec_intent_invariants_and_trim.md) · [.claude/rules/features.md](../.claude/rules/features.md) · [.claude/commands/slava/build/spec-compact.md](../.claude/commands/slava/build/spec-compact.md)
+
+---
+
 ## 2026-08-25 [process]: Multi-harness compatibility is three runtime contracts, not one shared prompt
 
 **Context:** P1151 projected the same skills into the Agent Skills directory and proved their

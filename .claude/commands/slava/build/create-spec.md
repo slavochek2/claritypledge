@@ -1,13 +1,13 @@
 ---
 name: create-spec
-description: File a spec with the 5-field skeleton (Problem, Appetite, Solution, Risks/Non-Goals, Done-When) plus type-appropriate expansion modules
-when_to_use: "Starting any new work that needs tracking — features, infrastructure, refactors, research, migrations. Replaces /create-prd and /quick-feature."
-version: 1.0.0
+description: File a spec with the 6-field skeleton (Problem, Appetite, Solution, Risks/Non-Goals, Done-When, optional Invariants) plus type-appropriate expansion modules, mining the preceding conversation for founder intent
+when_to_use: "Starting any new work that needs tracking — features, infrastructure, refactors, research, migrations. Absorbs /create-prd and /quick-feature."
+version: 2.0.0
 ---
 
 # /create-spec
 
-**File a structured spec from a problem description.** Produces the 5-field skeleton with expansion modules appropriate to the work type.
+**File a structured spec from a problem description.** Produces the 6-field skeleton — the sixth, Invariants, is optional — with expansion modules appropriate to the work type.
 
 > **Principle:** Every piece of non-trivial work gets a spec. The spec is a thinking tool, not a contract. Depth scales with blast radius, not work type.
 
@@ -52,9 +52,10 @@ Do not create any file until you are in the main repo.
 
 ---
 
-## The 5-Field Skeleton
+## The Skeleton
 
-Every spec, regardless of work type, has these five fields. The skeleton is the minimum viable spec.
+Every spec has fields 1-5 regardless of work type — that is the minimum viable spec. Field 6,
+Invariants, is optional and absent by default.
 
 ### 1. Problem
 
@@ -101,7 +102,20 @@ What we intend to build or investigate, at appropriate abstraction.
 
 **The highest-leverage section for AI agent implementation.**
 
-**Risks:** What could go wrong. Include mitigation for each.
+**Risks:** What could go wrong. **Label every entry `MITIGATE | ACCEPT | DEFER`** — required by
+`.claude/rules/features.md`. Without the label the next agent treats every listed risk as a
+requirement and builds mitigations for risks you had already decided to accept.
+
+- `MITIGATE` — we are doing something about it; name what.
+- `ACCEPT` — known, tolerated, no action. Say why it is tolerable.
+- `DEFER` — blocked on a decision or a later spec. Name what unblocks it.
+
+A table is the compact form:
+
+| Risk | Label | Note |
+|---|---|---|
+| Large exports slow the browser | MITIGATE | Cap at 1000 rows, stream beyond |
+| Shared corporate IPs hit the limit | ACCEPT | 100/min is generous; monitor first |
 
 **Non-Goals:** What we are explicitly NOT doing. Frame as agent constraints:
 - "Do NOT change the auth flow"
@@ -118,6 +132,45 @@ Measurable completion signals. Each item should be verifiable without reading th
 - Observable outcomes, not implementation steps
 - Include regression test requirements where applicable
 
+**Done-When vs Acceptance Criteria — different questions, and which one a spec carries depends on
+the skill that filed it. Do not merge them.**
+
+- **`## Done-When`** — *this piece of work is finished when.* The completion field of **this**
+  skill's skeleton. Covers infrastructure, research and migrations, where there is no user to
+  observe anything.
+- **`## Acceptance Criteria`** — *a person using the product can observe this.* The corresponding
+  field in `/create-bug` and `/change-request`, whose templates emit it **instead of** Done-When,
+  and a Feature expansion module here.
+
+Measured across `features/` (2026-08-26): all 38 change-request specs and 217 of 238 bug specs
+carry AC and no Done-When; 102 `task` specs carry Done-When and no AC; 52 `story` specs carry both.
+So neither field is universal and AC is not feature-only — the filing skill decides.
+
+**Both are named by the `qa` hard gate** in `.claude/rules/features.md`: every box in whichever of
+these sections exists must be `[x]` before `status: qa`. A feature spec may carry both — put the
+user-observable outcomes in AC and the rest in Done-When rather than restating one in the other.
+Never add a section you do not intend to fill; a populated section nobody will verify is the real
+hazard, not an empty one.
+
+### 6. Invariants — optional, additive-only
+
+Properties that must remain true **whatever the implementation does**. Omit the section entirely
+when there are none; nothing gates on its absence.
+
+**This is not Non-Goals.** A non-goal says *don't touch that area*. An invariant says *this
+property must hold no matter what you touch* — it constrains the areas you DO touch. "Do NOT change
+the auth flow" is a non-goal. "Any code path reaching the recorder must fail closed if consent is
+absent" is an invariant.
+
+Write one when the work sits on a constraint that was expensive to learn: a blocking gate with an
+incident behind it, an ordering requirement, a fail-closed property, a contract with another file.
+Mirrors `## Invariants` in `/create-bug`, which calls it *a sacred section — it persists across all
+future rewrites*. Same treatment here, at the same strength: later specs and rewrites may add to
+it; **removing an entry requires explicit user approval, never agent judgment.**
+
+Most specs have none. A copy tweak with an Invariants section is the ceremony this field exists to
+avoid.
+
 ---
 
 ## Expansion Modules
@@ -133,10 +186,37 @@ After the skeleton, add modules appropriate to the work type. **Modules are opti
 - `## Alternatives Considered` — what else was evaluated and why rejected
 - `## Rollback Strategy` — how to undo if it goes wrong
 
-### Research / Investigation expansions
+### Research / Investigation / Measurement expansions
 - `## Research Questions` — numbered, specific questions to answer
+- `## Decision Criteria` — **pre-registered.** What evidence would settle each question, named
+  *before* going to look. See below — this is the one that changes the answer.
 - `## Time Box` — maximum investment before reporting findings
 - `## Deliverable` — what the output looks like (decision doc, prototype, recommendation)
+
+### Any spec introducing a new external API key, edge function, or third-party service secret
+- `## Pre-deploy Checklist` — **MUST**, per `.claude/rules/features.md`, and enforced by
+  `scripts/ship-gates.sh`. A new key, token, **edge function** or service credential does not reach
+  prod by being mentioned in the Solution. List where the value is set, in which environment, and
+  who sets it.
+
+### Pre-registered decision criteria
+
+For research, evaluation, comparison and measurement specs, write what would settle the question
+before the investigation runs:
+
+```markdown
+## Decision Criteria
+
+1. **Which auth provider?** → Pick the one that supports SAML *and* has a self-serve tier under
+   500 users. If both qualify, pick on migration cost off Supabase Auth. If neither, we stay put.
+2. **Is the retention drop real?** → Real if week-2 return rate differs by >5pp across two
+   consecutive cohorts of n≥40. Below that we do not act on it.
+```
+
+`Time Box` is a **budget**, not a criterion — it says when to stop looking, not what counts as an
+answer. Without pre-registered criteria a recommendation matches whatever the researcher happened
+to find first, and every finding looks like it settles the question because the bar was set after
+seeing it.
 
 ### Migration expansions
 - `## Migration Plan` — step-by-step execution order
@@ -163,43 +243,45 @@ If genuinely ambiguous, ask one question: "Is this a [type A] or [type B]? The e
 
 ---
 
-## Agent Persona
+## Intent capture — read the conversation, not just the argument string
 
-```
-You are a Product Manager working directly with the founder. The founder provides 
-vision, context, and decisions. Your job: structure their intent into a spec, ask 
-clarifying questions when the problem or scope is unclear, and flag [FOUNDER DECISION] 
-for anything requiring business judgment. You do not make product decisions. You 
-structure them.
-```
+**The argument string is a filename, not the spec.** By the time `/create-spec` runs, the real
+content usually already exists in the conversation above — what was wrong, the constraint named,
+the option rejected and why, the sentence describing success. A spec written from the one-line
+description alone discards all of it, and the founder re-types it.
+
+Before structuring, scan the preceding conversation for:
+
+- **The founder's own framing of the goal.** Quote it **verbatim** in Problem, attributed —
+  `> "I want the thing to stop asking me which model every single time."` Your paraphrase is a
+  lossy re-encoding of the only sentence in the spec that is authoritative.
+- **Rejected options and the reason** → `## Alternatives Considered`.
+- **Named constraints** ("don't touch the gate", "must still work offline") → `## Invariants` or
+  Non-Goals, whichever they actually are.
+- **Decisions already made** — do not re-ask them. Record them.
+- **Anything the founder was uncertain about** → `## Open Questions`, in their words.
+
+If the conversation is empty (a cold `/create-spec "…"` with no prior thread), say so in one
+clause and work from the description. Do not invent context.
+
+`/change-request` Step 3 does this already and is the working precedent.
 
 ---
 
 ## Workflow
 
-```
-1. WORKTREE GUARD → Check you're on main (w0)
-       ↓
-1b. PIPELINE STAMP → Set delivery_stage and pipeline_ran (see below)
-       ↓
-2. DETECT TYPE → Classify work type from description, state it
-       ↓
-3. DUPLICATE GATE → grep features/ + docs/decisions.md + src/; state
-   DUPLICATE/RELATED/NONE with the terms searched. BLOCKING — no file
-   is written before this runs (see Step 3)
-       ↓
-4. GET P-NUMBER → Run ./scripts/next-p-number.sh
-       ↓
-5. CALCULATE RANK → ./scripts/next-rank.sh {status} (per-column, never global)
-       ↓
-6. STRUCTURE → Write 5-field skeleton + appropriate expansion modules
-       ↓
-7. SELF-REVIEW → Check quality gates
-       ↓
-8. CREATE FILE → features/p{N}_{slug}.md with correct frontmatter
-       ↓
-9. REPORT → File path, work type, next step
-```
+1. **Worktree guard** — confirm you're on main (w0).
+2. **Pipeline stamp** — set `delivery_stage` and `pipeline_ran` (below).
+3. **Intent capture** — mine the preceding conversation (above).
+4. **Detect type** — classify and state it.
+5. **Duplicate gate** — BLOCKING, before any file is written. Both greps, both verdicts (Step 3).
+6. **P-number** — `./scripts/next-p-number.sh`.
+7. **Rank** — `./scripts/next-rank.sh {status}` (per-column, never global).
+8. **Structure** — skeleton + expansion modules for the type.
+9. **Execution recommendation** — stamp `exec_model` / `exec_effort` (below).
+10. **Self-review** — quality gates.
+11. **Create file** — `features/p{N}_{slug}.md`.
+12. **Report** — path, type, next step, execution call.
 
 ### Pipeline stamp (P659)
 
@@ -243,6 +325,30 @@ string, the function name — not "drift" or "audit".
 - `NONE — searched: "<term1>", "<term2>", "<term3>"` — proceed. Name the terms; an unstated search
   cannot be judged, and "I looked" is not a result.
 
+#### The `decisions.md` grep does TWO jobs. Run it twice.
+
+The verdict above answers *does a spec for this already exist*. It does **not** answer *has a
+ruling already been made that constrains this work* — and `features.md:55-74` requires harvesting
+those constraining rulings into the new spec. Same axis (`features.md` is explicit: grep the
+**subject**, not the P-number), different question, different report.
+
+Job 2 widens the term list to the **concrete nouns the work will touch** — the file, table, column,
+script, function or service names in your own draft Solution. Those are derivable: read the draft,
+list its proper nouns, grep each. Do **not** grep decision vocabulary (`MUST`, `never`, `rejected`)
+— against a file this size those match thousands of lines and return noise, not rulings.
+
+```bash
+grep -rn "{subject terms}" docs/decisions.md | head -10   # job 1 — duplicate verdict
+grep -rn "{file|table|script|function names from your Solution}" docs/decisions.md | head -20   # job 2 — rulings
+```
+
+Report job 2 separately: **`RULINGS: <n> found — <one line each>`** or **`RULINGS: none — searched
+"<terms>"`**. Anything found goes into the new spec's `## Invariants` or `## Risks`, cited by date.
+
+**Observed 2026-08-26, this session — not a logged incident:** the run of this gate that filed
+P1158 searched subject terms, returned `NONE`, and harvested no rulings; that spec carries none.
+One grep reporting one verdict is how that happens.
+
 **A hit in `decisions.md` outranks an empty `features/` result.** Entries routinely name a filed
 P-number in their Decision or References field, and that spec may sit unimplemented for weeks. The
 spec's absence from your grep of `features/` usually means your search terms were wrong, not that
@@ -274,9 +380,32 @@ tags: [{2-4 relevant tags}]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, never updated
+exec_model: opus | sonnet | haiku | gemini      # recommended model to IMPLEMENT this — see below
+exec_effort: low | medium | high | xhigh
 driver: heuristic | anomaly    # OPTIONAL — see below; omit if genuinely unclear
 ---
 ```
+
+### `exec_model` / `exec_effort` — the execution recommendation
+
+**Who should DO the work** — distinct from `drafted_by`, which records who wrote the spec. This
+answers the "which model and effort?" question in the artifact, at the moment the work-type
+classification that determines it has just been computed. Put the reason in the handoff line, not
+the frontmatter:
+
+> `Execution: sonnet, medium — mechanical multi-file edit, spec is prescriptive.`
+
+**`~/.claude/commands/recommend-model-effort.md` owns the routing logic — do not restate its lanes
+here or in the spec.** Copies drift, and a stale routing table is invisible until it has been wrong
+for weeks. Read it, apply it, stamp the result.
+
+**A snapshot, not a contract.** Nothing gates on it; no downstream skill must obey it. If the spec
+has sat in `backlog` for weeks, re-run the call rather than trust the stamp. Omit both fields
+rather than guess when the work type is unclear.
+
+**The trap:** a detailed spec does not mean mechanical work. Route on whether the work is
+*mechanical* (wiring, renames, convergent edits) or *judgment-bearing* (ambiguity, novel
+trade-offs, anything where being wrong costs a day) — never on how thick the spec is.
 
 **Type mapping:**
 - Feature → `type: story`
@@ -295,145 +424,111 @@ driver: heuristic | anomaly    # OPTIONAL — see below; omit if genuinely uncle
 
 ## Quality Gates (Self-Review)
 
-Before creating the file, verify:
+Before creating the file, verify. **Every gate here checks something the section descriptions above
+do not already say** — a checklist that restates its own headings measures nothing.
 
-- [ ] Problem is clear — a reader understands what needs doing and why without reading anything else
-- [ ] Problem uses SCQ for complex problems, or a clear flat statement for simple ones
-- [ ] Appetite states blast radius, reversibility, and decision density — NOT time
-- [ ] Solution/Approach is at the right abstraction — not prescribing implementation details
-- [ ] Risks list at least one concrete risk with mitigation
-- [ ] Non-Goals include at least one "Do NOT" constraint relevant to AI agent implementation
-- [ ] Done-When items are observable without reading code
-- [ ] Expansion modules match the work type — no cargo-cult sections
-- [ ] No section would be filled with "N/A" — if it would be, remove it
-- [ ] Frontmatter has all required fields
-- [ ] P-number from script, not manual computation
-- [ ] File path follows `features/p{N}_{slug}.md`
+- [ ] **`[FOUNDER DECISION: ...]` marker present on every founder call.** CTA text, pricing, tone,
+      naming, value propositions — CLAUDE.md mandates the marker and a spec that invents product
+      copy otherwise passes clean. If the spec names *zero* founder decisions, confirm that is
+      genuinely true rather than an omission.
+- [ ] **No claim about existing code, schema or shipped specs that you did not run a command
+      against.** Absence claims ("there is no X", "nothing handles this") are the highest-risk and
+      cheapest to check — grep them. An unverifiable claim is written as UNVERIFIED, never as fact.
+- [ ] **Nothing in the spec was invented to fill a section.** If a risk, a non-goal or a criterion
+      exists because the template asked for one, delete it. A throwaway constraint on every spec
+      trains the next agent to skim the real ones.
+- [ ] **Done-When items are observable without reading the code** — and, for feature specs,
+      Acceptance Criteria are observable by a *person using the product*.
+- [ ] **Risks carry `MITIGATE | ACCEPT | DEFER`** labels.
+- [ ] **Both `decisions.md` verdicts appear in the output** — `DUPLICATE|RELATED|NONE` *and*
+      `RULINGS:`, each naming the terms it searched. An unstated search cannot be judged.
+- [ ] **Frontmatter carries every field required by `.claude/rules/features.md`** — that file owns
+      the contract; check against it, not from memory.
+- [ ] **P-number from the script**, not manual computation, and path is `features/p{N}_{slug}.md`.
 
 **If any gate fails:** Fix before writing the file.
 
----
-
-## Example: Feature Spec
-
-```markdown
----
-status: week
-type: story
-rank: 42.0
-workstream: C2
-created_date: '2026-04-04'
-tags: [export, csv, sifter]
----
-
-# P648: Export Sifter Responses as CSV
-
-## Problem
-
-**Situation:** Users complete sifter exercises and view responses in-app only.
-**Complication:** Coaches need to review calibration data offline. Users tracking
-progress over time have no way to export to spreadsheets.
-**Question:** How do we give users a standard export of their sifter responses?
-
-## Appetite
-
-Low blast radius (new button on results page, no existing flows change). Fully
-reversible (feature flag or remove button). Zero decision density — UX is a single
-button, format is CSV.
-
-## Solution
-
-Add "Export CSV" button to results page. Export includes: question, response,
-timestamp, calibration score. File name: `sifter_responses_YYYY-MM-DD.csv`.
-Client-side generation (no server endpoint needed — data already loaded).
-
-## Risks / Non-Goals
-
-### Risks
-- Large response sets may slow browser CSV generation. Mitigation: limit to 1000 rows
-  with "Export All" option that streams.
-
-### Non-Goals
-- Do NOT add server-side export endpoint (data is already client-side)
-- Do NOT support formats other than CSV (Excel, PDF — future consideration)
-- Do NOT add export to other pages (profile, dashboard — scope to results only)
-
-## Done-When
-
-- [ ] "Export CSV" button visible on results page (desktop and mobile)
-- [ ] Exported CSV opens in Excel/Google Sheets without errors
-- [ ] CSV contains: question, response, timestamp, calibration score
-- [ ] Only user's own responses exported (RLS enforced)
-- [ ] Button disabled when no responses exist
-
-## Acceptance Criteria
-
-- [ ] User can export sifter responses from results page
-- [ ] Feature works on mobile and desktop browsers
-- [ ] Error handling for failed exports (user sees friendly message)
-
-## UI Contract
-
-| Element | Value | Context |
-|---------|-------|---------|
-| Button label | "Export CSV" | Results page |
-| Button state | disabled | When no responses |
-| File name | `sifter_responses_YYYY-MM-DD.csv` | Downloaded file |
-| Error toast | "Export failed. Please try again." | On error |
-```
+**No gate fires on a missing optional section.** Invariants, Decision Criteria, Alternatives
+Considered and the rest are absent-by-default. Do not add a check that turns an optional field into
+ceremony on a two-line spec.
 
 ---
 
-## Example: Infrastructure Spec
+## Example: a spec with real ambiguity
+
+One example, deliberately hard: contested scope, a live invariant, and a decision the agent must
+refuse to make. The two short low-stakes examples that used to sit here modelled the shape of spec
+that needs the least help. Frontmatter carries **every** required field — models copy examples over
+prose.
 
 ```markdown
 ---
 status: week
 type: task
-rank: 43.0
-created_date: '2026-04-04'
-tags: [infrastructure, skills, process]
+rank: 71.0
+workstream: infrastructure
+created_date: '2026-08-26'
+tags: [auth, sessions, security]
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+drafted_by: opus
+exec_model: opus
+exec_effort: high
+driver: anomaly
 ---
 
-# P649: Add rate limiting to edge functions
+# P812: Session expiry is enforced client-side only
 
 ## Problem
 
-Edge functions have no rate limiting. A single client can hammer endpoints
-and exhaust Supabase compute budget.
+**Situation:** `useSession` clears local state after 24h of inactivity and redirects to /login.
+**Complication:** The Supabase JWT itself is valid for 7 days. A user who never opens the app —
+or anyone holding a copied token — retains API access for six days after the UI says logged out.
+Surfaced when a founder's own token from the previous week still returned rows via curl.
+**Question:** Do we shorten the token lifetime, add server-side revocation, or both?
+
+> Founder framing, verbatim: "I don't want to discover that logging out doesn't actually log you out."
 
 ## Appetite
 
-Medium blast radius (affects all edge functions). Reversible (remove middleware).
-Low decision density — standard pattern, no novel trade-offs.
+Blast radius: high — every authenticated request. Reversibility: medium. Decision density: one
+real founder call (re-auth frequency users will tolerate).
+
+## Invariants
+
+- Any path that treats a request as authenticated MUST consult server-side state, not only the
+  token's own claims. Client-side expiry is a UX affordance; it is not a security boundary.
+- Revocation must fail **closed** — an unreachable revocation store denies, never allows.
 
 ## Solution
 
-Add rate-limiting middleware to all edge functions using sliding window
-algorithm. 100 requests/minute per IP. Return 429 with Retry-After header.
+Shorten the access-token lifetime and add refresh-token revocation on logout.
+
+[FOUNDER DECISION: how often may a normally-active user be forced to re-authenticate? This sets
+the token lifetime and is a product-feel call, not a technical one. Options discussed: 1h with
+silent refresh, 24h, 7d unchanged.]
 
 ## Risks / Non-Goals
 
-### Risks
-- Shared IPs (corporate NATs) may hit limits for legitimate users.
-  Mitigation: 100/min is generous; monitor before tightening.
+| Risk | Label | Note |
+|---|---|---|
+| Shorter lifetime increases refresh traffic | ACCEPT | Refresh is cheap; measure before tuning |
+| Revocation store becomes an availability dependency | MITIGATE | Fail closed, with a health check |
+| Existing sessions invalidated on deploy | DEFER | Needs the founder decision above first |
 
-### Non-Goals
-- Do NOT add per-user rate limiting (requires auth resolution in middleware)
-- Do NOT add rate limiting to REST API (Supabase handles this)
-
-### Alternatives Considered
-- Cloudflare rate limiting: adds external dependency, harder to customize
-- Supabase built-in limits: too coarse (project-level, not per-function)
-
-### Rollback Strategy
-Remove middleware import from each function. Single-line change per file.
+**Non-Goals**
+- Do NOT add device management or a session list — separate product surface.
+- Do NOT change RLS policies; this is token lifetime and revocation only.
 
 ## Done-When
 
-- [ ] All edge functions return 429 after 100 requests/minute from same IP
-- [ ] Retry-After header present in 429 responses
-- [ ] Legitimate traffic unaffected (verified with prod traffic patterns)
+- [ ] A token from a logged-out session is rejected by the REST API, verified by curl
+- [ ] Revocation store unreachable → requests are denied, verified by simulating the outage
+- [ ] Founder decision on re-auth frequency recorded in the spec
+
+## Open Questions
+
+1. Does anything outside the app hold long-lived tokens (scripts, cron, the kanban)? Not assessed.
 ```
 
 ---
@@ -445,17 +540,14 @@ Tell the user:
 ```
 Created: features/p{N}_{slug}.md
 Type: {work type}
+Execution: {exec_model}, {exec_effort} — {one clause of why}
 Next step: /challenge-prd (if feature) or proceed to /architect or /dev
 ```
 
+The execution line belongs in the report, not only in the frontmatter — it is the answer to the
+question that otherwise gets asked by hand on the next turn.
+
 Tell the user: "Hit the Refresh button in the kanban to see the new card (http://localhost:9050 → Refresh)."
-
----
-
-## Replaces
-
-- **`/create-prd`** — absorbed. The 5-field skeleton replaces the business-layer-only PRD. Product-owner sections (JTBD, User Stories, Success Metrics) move to `/product-owner` enrichment step (future, not yet built).
-- **`/quick-feature`** — absorbed. Lightweight specs are just specs with shorter sections, not a different template.
 
 ---
 

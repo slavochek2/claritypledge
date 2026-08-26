@@ -54,6 +54,11 @@ restatements, and authoring-time notes — without changing any requirement or d
 
 ## What Gets Preserved (never touch)
 
+- **`## Invariants` — sacred. Additive-only, verbatim.** Properties that must hold whatever the
+  implementation does, in specs from `/create-spec`, `/create-bug` and `/change-request` alike.
+  Each line is there because a constraint was expensive to learn. Never condense, merge into
+  Non-Goals, or drop as a "cross-layer restatement" — an invariant that also appears elsewhere is
+  redundant on purpose. Removing an entry needs explicit user approval, never agent judgment.
 - Acceptance criteria
 - Architecture decisions (the decision itself + rationale, not the analysis process)
 - UX flows and wireframes

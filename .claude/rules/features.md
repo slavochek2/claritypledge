@@ -121,6 +121,8 @@ pipeline_plan: [create-spec, challenge-prd, ux, architect, generate-tests, dev, 
 pipeline_ran: [create-spec, challenge-prd, ux, architect]
 pipeline_skipped: [research-arch -- no novel tech, decompose -- under 5 files]
 drafted_by: opus                # model that wrote the FIRST draft; never updated
+exec_model: sonnet              # recommended model to EXECUTE the work; snapshot, never enforced
+exec_effort: medium             # recommended reasoning effort
 ```
 
 - **`delivery_stage:`** — name of last skill that started running. Valid values: `create-spec`, `create-bug`, `change-request`, `challenge-prd`, `ux`, `research-arch`, `architect`, `ui`, `view`, `generate-tests`, `spec-review`, `decompose`, `dev`, `fix`, `verify`, `park`, `ship`. Legacy numbered values (`1-prd`, `2-ux-review`, `3-arch-review`, `3.5-ui-review`, `4-tests-ready`, `5-decomposed`, `uat`) accepted but deprecated. `research-arch` is a **deliberately reserved placeholder** — no skill exists yet. `features/archive/p659_pipeline_delivery_tracking.md:83` recorded it as an optional pre-`architect` step at design time; the current `pick-flow/SKILL.md` carries no reference to it as of this writing. The stamp pattern gets added if a `research-arch` skill is ever built.
@@ -128,6 +130,12 @@ drafted_by: opus                # model that wrote the FIRST draft; never update
 - **`pipeline_ran:`** — skills that started, in order. Each tracked skill appends on entry. Re-runs get `.2` suffix (`.3` for third, etc.). Matching is exact string only. Means "started" not "completed" — downstream skills verify upstream output sections exist.
 - **`pipeline_skipped:`** — skills intentionally skipped, each with `--` separator and reason. Set by `/pick-flow`. Never deleted.
 - **`drafted_by:`** — which model wrote this spec's **first draft**: `opus`, `sonnet`, `gemini`, `human`. Written once at creation by `/create-spec`, `/create-bug`, `/change-request`; **never updated** when another model edits or rewrites the spec — the field answers "was this draft any good", not "who touched this last". Per-edit authorship already lives in git commit trailers (`Co-Authored-By:`), so this deliberately does not log edits or reviews. Optional; absent means unrecorded, never `human`. **It is instrumentation, not a control** — it prevents nothing on its own. The control is `/challenge-prd`'s Phase 2.5 claim verification; this field only lets its false-claim count be grouped by drafter. Drop the field if that grouping stops being counted.
+
+- **`exec_model:` / `exec_effort:`** — the recommended model and reasoning effort to **execute** this work. Distinct from `drafted_by`, which records who *wrote* the draft; these say who should *do it*. Values: `opus | sonnet | haiku | gemini` and `low | medium | high | xhigh`. Written at creation by `/create-spec`, `/create-bug` and `/change-request`, which stamp the call at the moment they classify the work type. Optional — omit rather than guess when the work shape is unclear.
+
+  **Never enforced.** No gate, no check, no prompt when absent, and no downstream skill is obliged to obey the stamp. It is a **snapshot, not a contract**: quota, roster and the work's own shape all move, so re-run the call rather than trust a stamp on a spec that has sat in `backlog` for weeks.
+
+  **The routing logic is NOT here.** `~/.claude/commands/recommend-model-effort.md` is the single source of truth for lanes, thresholds and delegation; `.claude/rules/model-effort.md` is the cp trigger. Do not restate their tables in this file or in any spec — a stale routing table is invisible until it has been wrong for weeks.
 
 **Status transitions (skill-managed):**
 
