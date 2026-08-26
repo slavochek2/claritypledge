@@ -45,9 +45,11 @@ export const IGNORED_ERROR_PATTERNS: RegExp[] = [
   // mechanism auto.browser.browserapierrors.setTimeout.
   //
   // Telegram Mini Apps SDK: injected by Telegram's in-app browser when an
-  // /events/* link is opened from a chat (JAVASCRIPT-REACT-2C, -2M, -2K, -2B).
+  // /events/* link is opened from a chat (JAVASCRIPT-REACT-2C, -2M, -2K, -2B,
+  // -2V, -2T — the last two carry the SDK's shortened "invoking post:" wording
+  // rather than "invoking postEvent", same injected source, zero app frames).
   // We ship no Telegram package and call no postEvent.
-  /Error invoking postEvent/i,
+  /Error invoking post(Event)?:/i,
   // A browser extension calling the WebExtension messaging API, which page
   // scripts cannot reach (JAVASCRIPT-REACT-2N).
   /Invalid call to runtime\.sendMessage/i,

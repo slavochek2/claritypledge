@@ -25,6 +25,12 @@ describe("p988 gap 1: injected third-party errors are dropped before Sentry", ()
     );
   });
 
+  it("drops the shortened 'invoking post:' wording seen in JAVASCRIPT-REACT-2V/-2T", () => {
+    expect(isIgnoredMessage("Error invoking post: Method not found")).toBe(
+      true
+    );
+  });
+
   it("drops the bare 'Method not found' throw from the injected SDK", () => {
     expect(isIgnoredMessage("Method not found")).toBe(true);
   });

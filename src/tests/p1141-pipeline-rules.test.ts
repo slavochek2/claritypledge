@@ -108,7 +108,7 @@ describe('p1141 DW-13 — timecodes come from the raw .vtt, never the cleaned tr
 
 describe('p1141 — the P1096 non-goal points here rather than contradicting silently', () => {
   it('P1096 records that its video/timestamp non-goal is superseded by P1141', () => {
-    const p1096 = read('features/p1096_public_multisource_point_pipeline.md');
+    const p1096 = read('features/done/2026-06-10/p1096_public_multisource_point_pipeline.md');
     expect(p1096).toMatch(/P1141/);
   });
 });

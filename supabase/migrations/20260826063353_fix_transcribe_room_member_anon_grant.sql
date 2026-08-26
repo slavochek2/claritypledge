@@ -1,0 +1,26 @@
+-- client-safe: removes an anon EXECUTE grant that was never intentional and had
+-- no legitimate anon call site (confirmed by grep — its only caller is the RLS
+-- USING clause added by 20260823200000, TO authenticated); no deployed client
+-- ever relied on unauthenticated access to this function.
+--
+-- 20260823200000_p1149_fix_room_members_rls_recursion.sql revoked EXECUTE from PUBLIC
+-- and granted it to authenticated only, but the /day 2026-08-26 function-grant-drift
+-- check found the anon role could still call is_transcribe_room_member on prod
+-- (verified live: unauthenticated anon-key RPC returned HTTP 200 / false, not a
+-- permission error). REVOKE ... FROM PUBLIC does not remove an EXPLICIT grant to a
+-- named role. This repo has already diagnosed this exact failure class twice —
+-- 20260813080000_p1063_revoke_anon_execute_on_signed_in_rpcs.sql and
+-- 20260825071500_p1104_revoke_anon_direct_grant_on_name_guards.sql both found the
+-- mechanism is a DIRECT grant to anon (separate from the PUBLIC grant), not a
+-- schema-level ALTER DEFAULT PRIVILEGES rule — so the fix is this per-function
+-- REVOKE, not a schema-wide default-privileges change. Adversarially reviewed
+-- 2026-08-26 (3 reviewers): no anon-facing call site depends on this function
+-- (its only caller is the RLS USING clause added by 20260823200000), no other
+-- overload exists, REVOKE on an already-absent grant is a documented no-op so
+-- this is safe to apply regardless. Verify post-apply via
+-- scripts/function-grant-drift-check.py or a direct
+-- has_function_privilege('anon', 'public.is_transcribe_room_member(uuid,uuid)',
+-- 'execute') query — do not treat "migration applied" alone as evidence the
+-- grant is actually gone.
+
+REVOKE ALL ON FUNCTION public.is_transcribe_room_member(uuid, uuid) FROM anon;
