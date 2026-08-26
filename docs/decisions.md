@@ -6,6 +6,45 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-26 [process]: A skill with zero inbound references is not "available" — `/problemify` was orphaned, and spec filing is where that cost lands
+
+**Context:** Follow-up to P1159. The founder asked whether `/create-spec` should call
+`/problemify`. Checking first: `grep -rln "problemify" .claude/ CLAUDE.md` returns **zero** — no
+skill, no rules file, and not CLAUDE.md's routing table point at it. It is a global skill that
+exists, works, and is reachable only if the founder remembers to type it.
+
+The cost is visible in P1159's own spec, filed the same day. Its Problem section opens *"`/create-spec`
+is 468 lines and half of it is redundant"* — a **solution wearing a problem's clothes**: it names
+the fix (make it shorter) as the complaint. The real problem was that a spec had nowhere to record
+what must stay true, so constraints entered the system only after a break. The line count was
+near-incidental, and the file legitimately ended up *longer* while the work still succeeded. The
+mis-framing survived filing and was corrected mid-implementation, by accident, because that spec
+happened to be about spec quality.
+
+**Decision:** `/create-spec` and `/change-request` will **suggest** `/problemify`, never call it.
+`/problemify` stops and waits for the user mid-run; invoking it automatically would convert every
+filing into a two-round conversation — precisely the ceremony P1159 removed. Trigger narrowly, on
+two conditions together: the Problem section names a *fix* rather than a *barrier*, **and** blast
+radius is high or decision density is not low. Deliberately **not** wired into `/create-bug` — a bug
+spec starts from an observed symptom, so its problem is given rather than constructed. Status:
+**decided, not yet built.**
+
+**Alternatives rejected:** *Call it automatically on complex specs* — blocking mid-filing on a
+skill that waits for a human is ceremony by construction. *Leave it* — an orphan skill's failure
+mode is silent: nothing errors, the badly-framed spec files cleanly, and ten downstream agents obey
+the wrong problem statement.
+
+**Consequences:** The general shape is worth watching beyond this one skill: a skill's
+`when_to_use` describes when a *human* should reach for it, and nothing checks that any *artifact*
+routes to it. Zero inbound references is a measurable property — worth a sweep across the skill
+namespace to see how many others are in the same state. **Falsifier:** if the two-condition trigger
+fires on specs whose framing was fine, it is too broad and should be narrowed to blast-radius-high
+only.
+
+**References:** [features/p1159_create_spec_intent_invariants_and_trim.md](../features/p1159_create_spec_intent_invariants_and_trim.md) · `~/.claude/commands/slava/think/problemify.md` (global, outside this repo)
+
+---
+
 ## 2026-08-26 [product]: Event #1 picks its own topic — the open forum is v2, and topic voting starts at the END of event N
 
 **Context:** The offline configuration is documented as a forum: *"the room brings the topic, which is what makes it a forum."* But a forum needs a community to propose and vote, and the Chiang Mai organization has one member — the founder. Meanwhile no topic has ever run end-to-end through the Disagreement Pipeline, so its filing stage has never executed once.
