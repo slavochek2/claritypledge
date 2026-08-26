@@ -6,6 +6,54 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-26 [product]: Event #1 picks its own topic — the open forum is v2, and topic voting starts at the END of event N
+
+**Context:** The offline configuration is documented as a forum: *"the room brings the topic, which is what makes it a forum."* But a forum needs a community to propose and vote, and the Chiang Mai organization has one member — the founder. Meanwhile no topic has ever run end-to-end through the Disagreement Pipeline, so its filing stage has never executed once.
+
+**Decision:** Event #1 runs on a **founder-picked, pre-prepared topic**. Topic voting is deferred to v2 and enters incrementally: at the **end of event N**, attendees vote from a curated paper shortlist for event N+1, feeding a candidate backlog. No submission or upvoting surface is built. Founder framing: *"forum is probably version two. Version one, we cannot run a forum if we didn't optimize for infrastructure so people can vote... But we didn't. We need to run it."*
+
+**Second decision — what may be pre-published and what may not.** The **topic material** (the published points feed) is linked in the event listing as promotion with **zero obligation**; the **instrument** (`cmp7` / `cmp3`) stays entirely in the room. Founder: *"the cmp and cmp7 and cmp3 etc.. this is genuinly part of the event."* Asking ~20 minutes of RSVP prep for a free event fails, and partial completion is worse than none — the room must still be runnable for whoever did not prepare. In-room story reading is replaced by a ~3-minute host framing of the two positions.
+
+**Third decision — the closing ask at event #1 is the free community join, not €295/month.** There is nothing to join into yet, and the free roster is what makes the paid level visible on the org page — the upgrade mechanism the ladder itself relies on. €295 stays the ask for **online** events. The sayable link is `/org/cm/join`; joining IS acceptance of the Clarity Organization Terms (`org-join-page.tsx`, `App.tsx:965`).
+
+**Alternatives rejected:** (a) Run the open forum for event #1 — no community to vote, no surface, out of scope in p1156. (b) Collect all ten instrument statements after the event by link — no *before* means no movement metric, and the reveal would land in an empty room after the ask was already made. (c) Ask attendees to read stories and stake topic positions at RSVP — rejected by the founder on motivation grounds.
+
+**Consequences:** Five deviations from the written event docs now need amendment through `/slava:maintain:docs-strategy-update` (never a direct edit): the host-framing block, the CTA, the topic source, the absent bracelet, the absent bell. **A pre-existing internal contradiction was surfaced and must be resolved by that amendment:** `clarity-practice-event.md:18` gives the offline CTA as *"A bracelet. Nothing paid."* while `:127` states €295 unqualified by configuration. Tracked end-to-end in [p1161](../features/p1161_first_physical_event_chiang_mai.md), which carries seven dependencies — **D7, walking the in-room stake flow with a non-founder account, is the highest-consequence one** and was already named by [p1055](../features/p1055_norm_measurement_instrument.md):169 as *"the failure that costs the room, not the schema."*
+
+**References:** [p1161](../features/p1161_first_physical_event_chiang_mai.md) · [p1055](../features/p1055_norm_measurement_instrument.md) · [p1156](../features/done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) · `docs/events/clarity-practice-event.md` · decisions.md 2026-08-21
+
+---
+
+## 2026-08-26 [product]: No subject is ever rejected from the pipeline for lacking a rights-cleared photo — and the generator is not a copyright shield
+
+**Context:** `/points-select` Gate 1 rejects any proposed person with no rights-cleared portrait (founder decision 2026-08-25, taken *"for v1"* because provisioning has no initials branch). The founder challenged it directly: *"i never want ot rjeect a perosn based on profile photo - this make s no snese at all"* — and proposed generating the avatar from any photo instead, on the reasoning that the photo itself is never published.
+
+**Decision:** **The rejection goes.** A subject with no cleared photo gets no avatar and the existing initials fallback carries the identity — which is what [decisions.md](decisions.md) 2026-08-21 already ruled, verified in `gravatar-avatar.tsx`. The 2026-08-25 gate is a stopgap for an unbuilt branch, and reversing it is an explicit reversal of a founder call, not a gap-fill. Preferred path stays a rights-cleared photo → generated portrait; initials are the guaranteed fallback.
+
+**Alternatives rejected:** **Generating avatars from any photograph, licensed or not, treating the generator as a copyright shield.** Feeding an unlicensed photo to a generator is still a use of that photo, and the exposure that actually matters is not the photograph — it is a synthetic likeness of a real named person attached to positions they never took. Generating rather than licensing does not reduce that; it arguably increases it. The initials path removes both risks at once, which is why it wins over the generator route on its own merits.
+
+**Consequences:** Two skill files change, not one — the branch in `/provision-agent`, the rejection in `points-select.md:67-68`. **And selection is not publication:** `/points-publish` holds a hard STOP asserting every agent avatar returns `200 image/*`, so an initials-only agent halts at filing. That conflict was already recorded as open on 2026-08-21 (*"a deliberate absence must be distinguishable from an accidental one, and currently is not"*) and is now tracked as its own dependency. Separately, the same 2026-08-21 entry names an unresolved **blocker before any public run**: cleared photos are share-alike with attribution required and the product has no surface crediting a photographer.
+
+**References:** [p1161](../features/p1161_first_physical_event_chiang_mai.md) D2/D5/D6 · decisions.md 2026-08-21, 2026-08-19 (frozen generator palette; greying rejected)
+
+---
+
+## 2026-08-26 [process]: A spec can cite the right file and still be wrong — five of six review BLOCKs were that single defect
+
+**Context:** [p1161](../features/p1161_first_physical_event_chiang_mai.md) was drafted by opus and put through `/challenge-prd` (31 checks). Verdict: 6 BLOCK, 7 WARN. **Five of the six BLOCKs were the same failure** — the spec cited a real file, quoted it accurately, and drew a conclusion the file does not support. All six were re-verified by command in the main session before being applied; 8 of 8 spot-checks confirmed the reviewer.
+
+**The five instances, because the shape is the lesson:** a ruling attributed to 2026-08-25 that lives at 2026-08-19 — *and whose real entry rejects the rationale the spec built on it*; a two-column table read from the wrong column, so a deviation was argued against a CTA the offline configuration never had; a dependency scoped to one skill file when the rule it removes lives in a different skill; a fallback artifact described as having "verified quotes" when its own file says `AUDIO CHECK NOT RUN`; and a gate cleared for selection while an identical gate at publication went unnamed.
+
+**Decision:** Recorded as an instance of [epistemic.md](../.claude/rules/epistemic.md) gate 9 firing inside a **spec** — the highest-cost promotion target, since a spec's Root Cause and Invariants become the next agent's premises. **No new rule proposed.** Gate 9 already covers it and already names specs explicitly; the failure was not applying it to the agent's own draft.
+
+**Alternatives rejected:** Adding a "verify every citation" gate to `/create-spec`. Rejected — its quality-gate list already carries *"No claim about existing code, schema or shipped specs that you did not run a command against."* A second copy of an unapplied rule does not make it applied.
+
+**Consequences:** The observable signal is cheap and worth naming: **an accurate quotation under an inaccurate claim reads exactly like a sourced claim.** An anchor check (does the quote exist?) passes on all five. Only re-deriving the conclusion catches them — which is what gate 9 says and what `/challenge-prd` actually did.
+
+**References:** [p1161](../features/p1161_first_physical_event_chiang_mai.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 9 · `.claude/commands/slava/build/create-spec.md`
+
+---
+
 ## 2026-08-26 [technical]: A gate's fixtures bound what was modelled — enumerate the shapes they cannot emit
 
 **Context:** P1157 shipped three green suites (61/61 hooks, 41/41 projection, 31/31 routing) and
