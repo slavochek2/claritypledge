@@ -6,6 +6,93 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [process]: A long skill file's bulk is usually rules it copied — the trim that worked was Reference Over Duplication, and ~330 was still unreachable
+
+**Context:** P1159 left one Done-When open as **MISSED, not waived**: `create-spec.md` was 560 lines
+against a stated target of ≤330. The founder reopened it with a binding constraint — *"Every section
+in it is deliberate and founder-approved, so cut prose, not sections"* — and a warning that the file
+had been rewritten hours earlier and one of its factual claims already found false once.
+
+**Decision:** 560 → **407 lines (-27%)**, every original section preserved (heading-list diff clean)
+plus one new subsection. **The target was not met and is reported rather than quietly dropped.** The
+cut that actually produced volume was not tightening sentences — it was noticing that most of the
+file's bulk was **content it had copied from `features.md` and `decisions.md`**: incident narratives
+retold in full, the `exec_model` and `driver` contracts restated, the AC-vs-Done-When distribution
+reproduced as a table. Replacing each with a cited pointer (`features.md:134-138`, `:102-112`,
+`decisions.md` 2026-08-24) removed ~90 lines on its own. The repo's own **Reference Over Duplication**
+principle turns out to be a *sizing* tool for skill files, not only a correctness one.
+
+**Why ~330 is unreachable under the constraint:** what remains is ~55 lines of irreducible structure
+(YAML block, workflow list, work-type table), and the one deliberately-hard example at **76 lines —
+19% of the file**. Reaching 330 requires deleting a section or gutting that example, both excluded by
+the founder's own instruction. The two constraints (≤330 lines, keep every section) are not jointly
+satisfiable, and the founder ranked sections above the number. **Falsifier:** if a later reader can
+cut 70 more lines without losing a section or a load-bearing instruction, this conclusion was wrong.
+
+**Also built, from the 2026-08-26 ruling:** `/problemify` now has inbound references in
+`/create-spec` and `/change-request` — an **offer, never a call**, on two conditions together (the
+Problem names a fix rather than a barrier, AND blast radius is high or decision density is not low).
+Not wired into `/create-bug`, whose problem is given by an observed symptom. `/change-request` has no
+Appetite section, so its second condition reads blast radius from `## Surfaces in Scope` and decision
+density from unresolved `[FOUNDER DECISION]` calls.
+
+**Alternatives rejected:** *Merge sections to hit the number* — three headings (`When to Use`, the
+`exec_model` subsection, the four expansion sub-headings) were merged in a first pass with all
+content preserved, then **restored**: "cut prose, not sections" makes a heading part of the contract,
+and content-preserving merges are still section removal from a reader's point of view. Cost: +8 lines,
+paid deliberately.
+
+**Consequences:** P1159's two remaining Done-When items were closed **by filing specs, not by
+reasoning** — [P1163](../features/p1163_orphaned_skill_sweep.md) (research-shaped; carries four
+pre-registered decision criteria, one of which pre-commits to *build nothing* below a named
+threshold) and [P1164](../features/p1164_points_prepare_false_turn_marker_instruction.md) (trivial;
+66 lines, no Invariants, no expansion modules, `fix-frontmatter.py` and `pre-commit-checks.sh` both
+clean — no gate fired on any absence). P1163's filing was also the **first run where the job-2
+rulings grep returned constraints instead of `NONE`** — it surfaced a prior rejection of enforcing
+`when_to_use`, which went straight into that spec's Non-Goals as a rejected alternative it must not
+re-propose. That is the gap P1159 added the second grep to close, working on its second invocation.
+
+**References:** [P1159](../features/p1159_create_spec_intent_invariants_and_trim.md) ·
+[P1163](../features/p1163_orphaned_skill_sweep.md) ·
+[P1164](../features/p1164_points_prepare_false_turn_marker_instruction.md) ·
+`.claude/commands/slava/build/create-spec.md` · `.claude/commands/slava/build/change-request.md` ·
+decisions.md 2026-08-26 (the orphaned-skill ruling)
+
+---
+
+## 2026-08-27 [technical]: The Pre-deploy Checklist `MUST` has no presence enforcement — gate 3.5 passes when the section is absent
+
+**Context:** Found while trimming `create-spec.md`, whose Expansion Modules section asserted the
+checklist is *"**MUST**, per `.claude/rules/features.md`, and enforced by `scripts/ship-gates.sh`."*
+Read the gate rather than the sentence: `ship-gates.sh` gate 3.5 extracts the section, and when the
+extraction is empty it prints **`[GATE 3.5] PASS: no pre-deploy checklist`** and moves on.
+
+**Decision:** The claim was corrected in place. The gate enforces **completion of a checklist that
+exists**; nothing anywhere enforces that a spec introducing a new key, token, edge function or
+third-party credential *has* one. A spec that omits the section entirely ships clean, and the
+`features.md:231-255` **MUST** is an authoring-layer control with no mechanical backing —
+`create-spec.md` now says exactly that, including the gate's literal PASS string.
+
+**Alternatives rejected:** *Add presence enforcement to gate 3.5* — out of scope for a trim, and it
+needs its own design: the trigger conditions (`features.md:235-238`) are about what a spec
+*introduces*, which is not mechanically derivable from the spec text without a heuristic that would
+fire on prose merely mentioning a secret. *Leave the sentence* — it is the exact defect class the
+2026-08-26 spec-citation entry names: a real file, cited accurately, supporting a conclusion it does
+not make. An agent reading it would reasonably skip writing the section, trusting a gate to catch it.
+
+**Consequences:** This is the **complement** to the already-recorded gate 3.5 problem, not a
+duplicate of it — decisions.md 2026-08-17 records the gate *over*-enforcing (an unticked box on
+merge-blocked deploy work pressures toward false attestation); this records it *not* enforcing at all
+in the other direction. Both live in the same ~20 lines. **Falsifier for the fix being sufficient:**
+if a spec ships a new external secret with no Pre-deploy Checklist and no one notices until prod,
+authoring-layer wording was not enough and the gate needs the presence check.
+
+**References:** `scripts/ship-gates.sh` gate 3.5 ~L145 · [.claude/rules/features.md](../.claude/rules/features.md):231-255 ·
+`.claude/commands/slava/build/create-spec.md` · decisions.md 2026-08-17 (gate 3.5 unsatisfiable for
+merge-blocked deploy work) · 2026-08-26 (a spec can cite the right file and still be wrong)
+
+---
+
 ## 2026-08-26 [process]: A skill with zero inbound references is not "available" — `/problemify` was orphaned, and spec filing is where that cost lands
 
 **Context:** Follow-up to P1159. The founder asked whether `/create-spec` should call
@@ -27,7 +114,7 @@ filing into a two-round conversation — precisely the ceremony P1159 removed. T
 two conditions together: the Problem section names a *fix* rather than a *barrier*, **and** blast
 radius is high or decision density is not low. Deliberately **not** wired into `/create-bug` — a bug
 spec starts from an observed symptom, so its problem is given rather than constructed. Status:
-**decided, not yet built.**
+**built 2026-08-27** — see the entry above for the wiring and the `/change-request` condition mapping.
 
 **Alternatives rejected:** *Call it automatically on complex specs* — blocking mid-filing on a
 skill that waits for a human is ceremony by construction. *Leave it* — an orphan skill's failure
