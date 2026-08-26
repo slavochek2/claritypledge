@@ -2,7 +2,7 @@
 name: change-request
 description: File a redesign spec for a shipped feature whose design was wrong. Analyzes the predecessor spec for conflicting sections, captures root cause and current state, and creates a new P-number spec with full predecessor linkage.
 when_to_use: "Use when a shipped feature needs a design correction — code works as specified, but the design itself was wrong (wrong visual ordering, actor confusion, duplication, hierarchy issues). NOT for bugs (broken code → /fix) and NOT for new capability (new user value → /create-spec)."
-version: 2.1.0
+version: 2.2.0
 ---
 
 # /change-request
@@ -118,6 +118,27 @@ For anything still missing, ask (plain text, not AskUserQuestion):
 2. **What should the redesign achieve?** (The corrected state — concrete)
 3. **Which surfaces are in scope?** (Explicit list — what's in, what's out)
 4. **Constraints from prior implementation to preserve?** (What must not break)
+
+#### If "what was wrong" names a fix, offer `/problemify` — never call it
+
+A redesign is filed from a complaint, and a complaint that arrives already shaped as its remedy
+("move the CTA above the stories") states the fix and never the barrier. The Root Cause section then
+documents the mechanism behind the *proposed change* rather than behind the *original failure*.
+
+**Offer only when BOTH hold:**
+1. What was wrong names a **fix** rather than a **barrier**, and
+2. Blast radius is high — `## Surfaces in Scope` lists more than one surface, or a shared component
+   — **or** decision density is not low: the redesign still carries unresolved `[FOUNDER DECISION]`
+   calls on copy, tone, naming or hierarchy.
+
+Then say one line and keep going:
+
+> "What was wrong here names a fix rather than a barrier, and this touches three surfaces — `/slava:think:problemify` would reframe it before the Root Cause section inherits the premise. Say the word; otherwise I file as drafted."
+
+**Never invoke it.** `/problemify` stops and waits for the user mid-run, so auto-calling it turns
+every filing into a two-round conversation. Offer, then proceed. It is likewise **not** a self-check
+item in Step 7 — nothing about this blocks filing.
+([decisions.md](docs/decisions.md) 2026-08-26.)
 
 ---
 
@@ -354,6 +375,7 @@ Hit Refresh in kanban to see the new card (http://localhost:9050).
 
 ## Related Skills
 
+- `/slava:think:problemify` — reframe a complaint that named a fix. **Offered, never called** (Step 3).
 - `/slava:build:fix` — for broken code (not design corrections)
 - `/slava:build:create-spec` — for new capabilities
 - `/slava:build:ux` — design the corrected layout after filing
