@@ -75,7 +75,7 @@ A single skill, `/ai-keys`, over one script, plus a private registry file.
 
 **Registry** — `.private/ai-keys/registry.json`, one row per key:
 `{name, holder, project_id, service_account, budget_eur, cap_set_at, created, status}`.
-The skill is the only writer. `name` is the human handle (`Su-card`, `Hermes-card`).
+The skill is the only writer. `name` is a short human handle chosen by the operator.
 
 **Monitoring** — an alias/script that reads per-project spend from the BigQuery billing export
 (see Resolved Questions 1) and prints spend against recorded budget per key, and is callable
@@ -143,7 +143,7 @@ Established on a live throwaway project before this spec was written:
 - [x] Monitor distinguishes "no billing data yet" from "zero spend" — proven with a key that has no export rows
 - [x] Monitor reports both drift directions (registry-without-project, project-without-registry)
 - [ ] `revoke` removes access — proven by a call failing after it
-- [ ] Two keys (`Su-card`, `Hermes-card`) provisioned with independent caps, and one hitting its cap does not affect the other
+- [ ] Two keys provisioned with independent caps, and one hitting its cap does not affect the other
 - [ ] Raising a tripped cap restores access — the monthly unpause path, proven end-to-end
 - [ ] Adversarial review completed and findings resolved or consciously accepted
 - [x] No secret, billing-account ID, or absolute user path committed to the public repo
