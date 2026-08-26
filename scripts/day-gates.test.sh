@@ -60,6 +60,7 @@ _new_fixture() {
   _write_cache "$fx" sola-events-cache.json "$(_date_ago 0)" 4
   _write_cache "$fx" facebook-events-cache.json "$(_date_ago 0)" 3
   _write_token_stub "$fx" 0 "BEEPER TOKEN: valid (27.0d left)."
+  printf '{"receipt_ts":"","due_sources":{}}\n' 1>"${fx}/tmp/.day-gates-seen"
   echo "$fx"
 }
 
@@ -82,9 +83,51 @@ import json, sys
 path, ts, created, skipped, failed, mode, considered = sys.argv[1:8]
 c = int(considered) if considered else int(created) + int(skipped) + int(failed)
 with open(path, 'w') as fh:
+    sources = {name: {'status': 'success', 'detail': ''}
+               for name in ('todo_today', 'sola', 'facebook')}
     json.dump({'ts': ts, 'considered': c, 'created': int(created), 'skipped': int(skipped),
-               'failed': int(failed), 'degraded': [], 'mode': mode, 'reason': ''}, fh)
+               'failed': int(failed), 'degraded': [], 'mode': mode, 'sources': sources,
+               'reason': ''}, fh)
 " "${fx}/tmp/last-push.json" "$(_ts_ago "$2")" "$3" "$4" "$5" "${6:-full}" "${7:-}"
+}
+
+_mark_due() {  # fixture_dir, source key
+  python3 - "${1}/tmp/.day-gates-seen" "${1}/tmp" "$2" <<'PY'
+import hashlib, json, os, sys
+seen_path, tmp_dir, name = sys.argv[1:]
+cache = {'todo_today': 'todo-today-events-cache.json',
+         'sola': 'sola-events-cache.json',
+         'facebook': 'facebook-events-cache.json'}[name]
+path = os.path.join(tmp_dir, cache)
+digest = None
+try:
+    digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+except OSError:
+    pass
+seen = json.load(open(seen_path))
+seen['due_sources'][name] = {'reason': 'due at fixture start', 'cache_sha256': digest}
+with open(seen_path, 'w') as fh:
+    json.dump(seen, fh)
+PY
+}
+
+_set_source_status() {  # fixture_dir, source key, status, detail, [mode]
+  python3 - "${1}/tmp/last-push.json" "$2" "$3" "$4" "${5:-}" <<'PY'
+import json, sys
+path, name, status, detail, mode = sys.argv[1:]
+data = json.load(open(path))
+actions = {
+    'todo_today': 'Open Chrome, enable/connect the Claude extension, confirm Todo.Today loads past Cloudflare, then rerun /day.',
+    'sola': 'Open Chrome, enable/connect the Claude extension, log in to Sola, then rerun /day.',
+    'facebook': 'Open Facebook in Chrome, confirm you are logged in and the event pages load, then rerun /day. If they load but no usable events are written, repair the Facebook extractor/writer first.',
+}
+data.setdefault('sources', {})[name] = {'status': status, 'detail': detail,
+                                         'action': actions[name]}
+if mode:
+    data['mode'] = mode
+with open(path, 'w') as fh:
+    json.dump(data, fh)
+PY
 }
 
 _write_token_stub() {  # fixture_dir, exit_code, message
@@ -183,31 +226,42 @@ _write_receipt "$fx" 0 0 0 0
 run_case "nothing reached the calendar" "$fx" 1
 assert_out "empty push is named" "[D2] FAIL: nothing reached the calendar"
 
-# ── 5. one dead scraper — WARN, does not fail the run ──────────────────────
+# ── 5. due Sola skipped because Chrome is unavailable ─────────────────────
 fx="$(_new_fixture dead-sola)"
-_write_receipt "$fx" 0 3 12 0
 _write_cache "$fx" sola-events-cache.json "$(_date_ago 21)" 4
-run_case "one dead scraper warns" "$fx" 0
-assert_out "the dead source is named" "[D3] WARN: source 'sola' STALE"
+_mark_due "$fx" sola
+_write_receipt "$fx" 0 3 12 0 partial
+_set_source_status "$fx" sola skipped "Chrome or Claude extension unavailable" partial
+run_case "due Sola skipped because Chrome is unavailable" "$fx" 1
+assert_out "Sola failure is named" "Sola (4Seas Community) (sola) was due at /day start"
+assert_out "Sola failure gives the human action" "Open Chrome, enable/connect the Claude extension, log in to Sola, then rerun /day."
+assert_not_out "partial Sola run is never verified" "CALENDAR: VERIFIED"
 
-# ── 5b. a scraper that ran but returned nothing usable ─────────────────────
-fx="$(_new_fixture empty-todo)"
-_write_receipt "$fx" 0 3 12 0
-_write_cache "$fx" todo-today-events-cache.json "$(_date_ago 0)" 0
-run_case "empty cache warns" "$fx" 0
-assert_out "the empty source is named" "[D3] WARN: source 'todo_today' EMPTY"
+# ── 5b. due Facebook writer returns no usable events ───────────────────────
+fx="$(_new_fixture empty-facebook)"
+_write_cache "$fx" facebook-events-cache.json "$(_date_ago 8)" 3
+_mark_due "$fx" facebook
+_write_receipt "$fx" 0 3 12 0 partial
+_set_source_status "$fx" facebook failed "writer returned no usable events" partial
+run_case "due Facebook writer failure" "$fx" 1
+assert_out "Facebook failure is named" "Facebook (Chiang Mai events, this week) (facebook) was due at /day start"
+assert_out "Facebook writer failure is concrete" "writer returned no usable events"
+assert_out "Facebook failure gives the human action" "Open Facebook in Chrome, confirm you are logged in and the event pages load"
 
-# ── 5c. exactly at cadence — the boundary the pipeline SKIPs ───────────────
-# cadence.health() skips a source at `age >= cadence`; this gate used `age > cadence`
-# and blessed it. todo_today sits at exactly 1d every day it is not re-scraped, so
-# this is the highest-frequency unhealthy state there is, and the original fixtures
-# (0d and 21d) structurally could not emit it — epistemic gate 7b.
-fx="$(_new_fixture at-cadence)"
-_write_receipt "$fx" 0 3 12 0
+# ── 5c. every due source completes successfully ────────────────────────────
+fx="$(_new_fixture all-due-success)"
 _write_cache "$fx" todo-today-events-cache.json "$(_date_ago 1)" 5
-run_case "source at exactly its cadence is not ok" "$fx" 0
-assert_out "the at-cadence source is named" "[D3] WARN: source 'todo_today' STALE"
-assert_out "and it says the pipeline drops it" "the pipeline is skipping it"
+_write_cache "$fx" sola-events-cache.json "$(_date_ago 3)" 4
+_write_cache "$fx" facebook-events-cache.json "$(_date_ago 7)" 3
+_mark_due "$fx" todo_today
+_mark_due "$fx" sola
+_mark_due "$fx" facebook
+_write_cache "$fx" todo-today-events-cache.json "$(_date_ago 0)" 6
+_write_cache "$fx" sola-events-cache.json "$(_date_ago 0)" 5
+_write_cache "$fx" facebook-events-cache.json "$(_date_ago 0)" 4
+_write_receipt "$fx" 0 3 12 0 full
+run_case "all due browser sources completed" "$fx" 0
+assert_out "all-due success is verified" "CALENDAR: VERIFIED (mode=verify)"
 
 # ── 5d. --push-only forges the same counts without re-reading any source ───
 # A real run's steady state is 0 created / N skipped, which `pipeline.py --push-only`
@@ -293,26 +347,15 @@ assert_out "the unchanged receipt is named" "unchanged since the start of this r
 _write_receipt "$fx" 0 4 130 0
 run_case "verify passes once a new push lands" "$fx" 0
 
-# ── 5j. all three sources past cadence but not far past — one ordinary trip ─
-# cm-events skips ALL browser sources whenever Chrome is unavailable, so a single
-# week away puts all three past cadence at once while Beeper keeps publishing.
-# Only 2x cadence counts toward the collapse rule.
-fx="$(_new_fixture all-mildly-stale)"
-_write_receipt "$fx" 0 3 12 0
+# ── 6. unattended Beeper-only run is explicitly partial ───────────────────
+fx="$(_new_fixture background-partial)"
 _write_cache "$fx" todo-today-events-cache.json "$(_date_ago 2)" 5
-_write_cache "$fx" sola-events-cache.json "$(_date_ago 4)" 4
-_write_cache "$fx" facebook-events-cache.json "$(_date_ago 8)" 3
-run_case "one trip does not read as a collapse" "$fx" 0
-assert_not_out "no false collapse" "[D3] FAIL: all 3"
-
-# ── 6. every source dead ───────────────────────────────────────────────────
-fx="$(_new_fixture all-sources-dead)"
-_write_receipt "$fx" 0 3 12 0
-_write_cache "$fx" todo-today-events-cache.json "$(_date_ago 21)" 5
-_write_cache "$fx" sola-events-cache.json "$(_date_ago 21)" 4
-_write_cache "$fx" facebook-events-cache.json "$(_date_ago 21)" 3
-run_case "all sources dead" "$fx" 1
-assert_out "the collapse is named" "[D3] FAIL: all 3 browser-scraped source(s)"
+_mark_due "$fx" todo_today
+_write_receipt "$fx" 0 3 12 0 partial
+_set_source_status "$fx" todo_today skipped "background run did not open Chrome" partial
+run_case "background Beeper-only run is partial" "$fx" 1
+assert_out "background mode is named partial" "last push ran in mode 'partial'"
+assert_not_out "background partial is never day-verified" "CALENDAR: VERIFIED"
 
 # ── 7. token EXPIRED / UNKNOWN — never reads as refreshed ──────────────────
 fx="$(_new_fixture token-expired)"

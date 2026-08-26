@@ -151,7 +151,7 @@ fi
 
 receipt_ok=0
 r_considered=0; r_created=0; r_skipped=0; r_failed=0
-r_ts=""; r_degraded=""; r_reason=""; r_age_h=""; r_mode=""
+r_ts=""; r_degraded=""; r_reason=""; r_age_h=""; r_mode=""; r_sources="{}"
 
 if [[ ! -f "$RECEIPT" ]]; then
   _safe_echo "[D1] FAIL: no push receipt at $(_tilde "$RECEIPT") — the events pipeline has never completed a push here"
@@ -186,7 +186,8 @@ print("\x1f".join([
     "OK", ts, f"{age_h:.1f}",
     str(int(d.get("considered", 0))),
     str(int(d.get("created", 0))), str(int(d.get("skipped", 0))), str(int(d.get("failed", 0))),
-    ",".join(d.get("degraded") or []), str(d.get("mode", "")), str(d.get("reason", "")),
+    ",".join(d.get("degraded") or []), str(d.get("mode", "")),
+    json.dumps(d.get("sources") or {}, separators=(",", ":")), str(d.get("reason", "")),
 ]))
 PY
 )" || rc=$?
@@ -195,7 +196,7 @@ PY
     fail=1
   else
     IFS=$'\x1f' read -r _tag r_ts r_age_h r_considered r_created r_skipped r_failed \
-      r_degraded r_mode r_reason <<< "$parsed"
+      r_degraded r_mode r_sources r_reason <<< "$parsed"
     LAST_PUSH_DESC="${r_age_h}h ago"
     # Test the SIGN on the string, before truncating. `${r_age_h%%.*}` turns -0.4 into
     # "-0", which bash arithmetic then reads as 0 and accepts — so a receipt up to an
@@ -223,10 +224,44 @@ fi
 # Start mode records the stamp it saw; verify mode fails if the stamp has not moved.
 if [[ "$MODE" == "start" ]]; then
   mkdir -p "$TMP_DIR" 2>/dev/null || true
-  printf '%s\n' "$r_ts" 1>"$SEEN_FILE" 2>/dev/null || true
+  rc=0
+  PYTHONDONTWRITEBYTECODE=1 python3 - "$CADENCE_DIR" "$TMP_DIR" "$r_ts" "$SEEN_FILE" <<'PY' || rc=$?
+import hashlib, json, os, sys
+sys.path.insert(0, sys.argv[1])
+from events import cadence
+
+tmp_dir, receipt_ts, output = sys.argv[2:]
+due = {}
+for name in cadence.SOURCES:
+    should, reason = cadence.needs_scrape(name)
+    if not should:
+        continue
+    path = cadence.cache_path(name)
+    digest = None
+    try:
+        with open(path, "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        pass
+    due[name] = {"reason": reason, "cache_sha256": digest}
+with open(output, "w", encoding="utf-8") as fh:
+    json.dump({"receipt_ts": receipt_ts, "due_sources": due}, fh, sort_keys=True)
+    fh.write("\n")
+PY
+  if [[ "$rc" -ne 0 ]]; then
+    _safe_echo "[D0] FAIL: could not record which browser sources are due at /day start"
+    fail=1
+  fi
 elif [[ "$receipt_ok" == "1" ]]; then
   if [[ -f "$SEEN_FILE" ]]; then
-    seen_ts="$(cat "$SEEN_FILE" 2>/dev/null || true)"
+    seen_ts="$(PYTHONDONTWRITEBYTECODE=1 python3 - "$SEEN_FILE" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    print(json.load(open(sys.argv[1], encoding="utf-8")).get("receipt_ts", ""))
+except Exception:
+    pass
+PY
+)"
     if [[ -n "$seen_ts" && "$seen_ts" == "$r_ts" ]]; then
       _safe_echo "[D1] FAIL: the receipt is unchanged since the start of this run (${r_ts}) — no push happened, whatever the transcript says"
       fail=1
@@ -284,54 +319,54 @@ if [[ "$receipt_ok" == "1" ]]; then
   fi
 fi
 
-# ── D3: per-source scrape health, read from the caches ──────────────────────
-# Skipped in start mode on purpose. A source one day past a one-day cadence is the
-# normal state of any morning after a day off, and Step 8's scrape clears it minutes
-# later — a warning cleared by the same ritual that raised it is trained dismissal.
-# Read from the caches via events.cadence, NOT by grepping the pipeline's stderr: a
-# source that prints "skipped" never enters the pipeline's degraded_sources list, so a
-# scraper dead for three weeks produces no warning row anywhere in the run output.
-# Beeper is absent from cadence.SOURCES and is covered by D4 instead.
+# ── D3: every source due at /day start completed successfully ───────────────
+# Step 0 snapshots the due set and each cache hash. Verify requires three independent
+# facts for every member: the receipt says success, cadence.health() is healthy, and the
+# cache artifact changed. A skipped browser step can no longer become VERIFIED merely
+# because another source pushed or because the stale cache is under 2x cadence.
 
 if [[ "$MODE" == "verify" ]]; then
   rc=0
-  src_report="$(BEEPER_TMP_DIR="$TMP_DIR" PYTHONDONTWRITEBYTECODE=1 python3 - "$CADENCE_DIR" <<'PY'
-import sys
+  src_report="$(BEEPER_TMP_DIR="$TMP_DIR" PYTHONDONTWRITEBYTECODE=1 python3 - "$CADENCE_DIR" "$SEEN_FILE" "$RECEIPT" <<'PY'
+import hashlib, json, os, sys
 sys.path.insert(0, sys.argv[1])
 from events import cadence  # noqa: E402
 
-rows, unhealthy, collapsed = [], 0, 0
-for name in cadence.SOURCES:
-    cad = cadence.SOURCES[name]["cadence_days"]
-    age = cadence.cache_age_days(name)
-    count = cadence.cache_event_count(name)
-    suspect, cnt, floor = cadence.below_floor(name)
-    # The verdict comes from cadence.health() — the SAME function the pipeline's own
-    # adapters call — so this gate cannot drift from what the pipeline actually does.
-    # It did drift: this used `age > cad` while health() skips at `age >= cad`, so a
-    # source sitting at exactly its cadence (todo_today every day it is not re-scraped)
-    # was dropped by the pipeline and blessed "ok" here.
-    # health()'s own reason strings carry ">=" and would trip _safe_echo, so the
-    # wording below is composed here; only the verdict is taken from health().
+try:
+    seen = json.load(open(sys.argv[2], encoding="utf-8"))
+    receipt = json.load(open(sys.argv[3], encoding="utf-8"))
+except Exception as exc:
+    print(f"ERROR\x1fartifact read failed: {exc}")
+    raise SystemExit(1)
+due = seen.get("due_sources")
+sources = receipt.get("sources")
+if not isinstance(due, dict) or not isinstance(sources, dict):
+    print("ERROR\x1fstart snapshot or receipt has no source-level statuses")
+    raise SystemExit(1)
+print(f"TOTAL\x1f{len(due)}")
+for name, start in sorted(due.items()):
+    cfg = cadence.SOURCES.get(name, {})
+    label = cfg.get("label", name)
+    status_row = sources.get(name) if isinstance(sources.get(name), dict) else {}
+    action = status_row.get("action") or cfg.get("human_action", f"Refresh {label}, then rerun /day.")
+    status = status_row.get("status", "missing")
     healthy, _reason = cadence.health(name)
-    if healthy:
-        rows.append(f"OK\x1f{name}\x1f{count} event(s), cache {age}d old (cadence {cad}d)")
-        continue
-    unhealthy += 1
-    # "Every source is dead" must mean a real collapse, not one ordinary trip: the
-    # browser step is skipped whenever Chrome is unavailable, so eight days without a
-    # Chrome-capable run puts all three past cadence at once while Beeper keeps
-    # publishing fine. Only 2x cadence counts toward the collapse rule.
-    if age is None or age > 2 * cad or suspect:
-        collapsed += 1
-    if age is None:
-        rows.append(f"MISSING\x1f{name}\x1fno cache on disk (cadence {cad}d)")
-    elif suspect:
-        rows.append(f"EMPTY\x1f{name}\x1fcache holds {cnt} event(s), floor is {floor} — the scrape broke")
+    digest = None
+    try:
+        with open(cadence.cache_path(name), "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        pass
+    changed = digest is not None and digest != start.get("cache_sha256")
+    if status == "success" and healthy and changed:
+        print(f"OK\x1f{name}\x1f{label}")
     else:
-        rows.append(f"STALE\x1f{name}\x1fcache is {age}d old, at or past its {cad}d cadence — the pipeline is skipping it")
-print(f"TOTAL\x1f{len(cadence.SOURCES)}\x1f{unhealthy}\x1f{collapsed}")
-print("\n".join(rows))
+        why = status_row.get("detail") or start.get("reason") or "source did not complete"
+        if status == "success" and not changed:
+            why = "receipt says success but the cache artifact did not change"
+        elif status == "success" and not healthy:
+            why = "receipt says success but the refreshed cache is unusable"
+        print(f"FAIL\x1f{name}\x1f{label}\x1f{why}\x1f{action}")
 PY
 )" || rc=$?
 
@@ -339,25 +374,21 @@ PY
     _safe_echo "[D3] FAIL: could not read source health from $(_tilde "$CADENCE_DIR") (events.cadence import or read failed)"
     fail=1
   else
-    total_src=0; unhealthy=0; collapsed=0
-    while IFS=$'\x1f' read -r kind a b c; do
+    total_src=0; failed_src=0
+    while IFS=$'\x1f' read -r kind a b c d; do
       [[ -z "$kind" ]] && continue
       case "$kind" in
-        TOTAL) total_src="$a"; unhealthy="$b"; collapsed="$c" ;;
-        OK)    : ;;
-        *)     _safe_echo "[D3] WARN: source '${a}' ${kind} — ${b}" ;;
+        TOTAL) total_src="$a" ;;
+        OK)    _ok "D3 ${b} refreshed" ;;
+        FAIL)  _safe_echo "[D3] FAIL: ${b} (${a}) was due at /day start but was not refreshed — ${c}. ACTION: ${d}"; failed_src=$((failed_src + 1)) ;;
       esac
     done <<< "$src_report"
-    if [[ "$total_src" -eq 0 ]]; then
-      _safe_echo "[D3] FAIL: read zero sources from the cadence registry — that is a broken probe, not a healthy calendar"
+    if [[ "$failed_src" -gt 0 ]]; then
       fail=1
-    elif [[ "$collapsed" -ge "$total_src" ]]; then
-      _safe_echo "[D3] FAIL: all ${total_src} browser-scraped source(s) are far past cadence, empty, or missing — the calendar is running on Beeper alone"
-      fail=1
-    elif [[ "$unhealthy" -gt 0 ]]; then
-      _safe_echo "[D3] note: ${unhealthy} of ${total_src} source(s) need a re-scrape"
+    elif [[ "$total_src" -eq 0 ]]; then
+      _ok "D3 no browser sources were due at /day start"
     else
-      _ok "D3 ${total_src}/${total_src} sources fresh"
+      _ok "D3 ${total_src}/${total_src} due source(s) refreshed"
     fi
   fi
 fi

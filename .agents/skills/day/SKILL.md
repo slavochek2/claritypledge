@@ -795,6 +795,13 @@ meaning.
 
 **Always invoke `/slava:util:cm-events-update` in THIS conversation via the Skill tool.** This is unconditional — do not decide whether to run it, do not gate it on anything, always invoke. The skill's own `state.json` `last_run` gate no-ops the expensive Beeper refresh if it already ran today, so invoking is always cheap and safe.
 
+This invocation is a **strict `/day` run**. Every browser source recorded as due by
+Step 0d must finish its scrape and writer successfully. Chrome/MCP unavailable, extension
+disconnected, login wall, Cloudflare, empty/rotted extraction, or writer failure is a
+calendar-refresh failure. Do not turn any of those into a skip or continue as though the
+refresh succeeded. A separate unattended run may push in `partial` mode, but `/day` must
+never call that result verified.
+
 **Never spawn it as a subagent.** cm-events is browser-mediated — it needs the claude-in-chrome MCP, Beeper Desktop (`localhost:23373`), and the gcloud `beeper-digest` config. Subagents have **no MCP access** (`.claude/rules/skills.md`), so a spawned subagent fails silently and the calendar never updates. *(The disk-access half of the old wording was false and was removed 2026-07-30 — subagents can read files. MCP is the binding constraint here, and it alone is sufficient.)* It must run inline in the main conversation where those tools live.
 
 Announce before invoking: *"cm-events: refreshing the CM Events calendar now."* If Beeper Desktop is closed the skill pauses and warns — surface that to the founder, never silently skip.
@@ -854,9 +861,11 @@ missing, which means this step did not run. Say that plainly rather than omittin
 section, and run the script.
 
 It reads four artifacts and decides: the push receipt `tmp/last-push.json` is fresh
-**and its stamp moved since Step 0d** (D1), the push reached the calendar and ran a
-full refresh (D2), each browser-scraped source's cache is within cadence and above its
-floor (D3), and the Beeper token (D4). All four were previously things this skill
+**and its stamp moved since Step 0d** (D1), the push reached the calendar and ran in
+`full` mode (D2), every source due at Step 0d has receipt status `success` and a changed,
+usable cache artifact (D3), and the Beeper token is valid (D4). `mode: full` means all
+sources due at `/day` start completed successfully; a Beeper-only or otherwise incomplete
+run is `partial`. All four were previously things this skill
 *asserted*. `Push complete:` prints unconditionally after the push loop, so
 `0 created, 0 skipped, 60 failed` reads exactly like a healthy run to anyone grepping
 the log — D2 is the check that tells them apart.
@@ -864,6 +873,12 @@ the log — D2 is the check that tells them apart.
 On a clean run this collapses to a single `checks passed:` line. That is deliberate:
 eleven near-identical lines twice a day is how a reader learns to skip the block. Any
 WARN or FAIL prints in full.
+
+The final calendar message is exactly the gate's verdict, never agent-authored prose:
+
+- Success: `CALENDAR: VERIFIED (mode=verify)`
+- Any due-source failure: `[D3] FAIL: <label> (<source>) was due at /day start but was not refreshed — <concrete failure>. ACTION: <concrete human action>` followed by `CALENDAR: NOT VERIFIED — do not report the calendar as refreshed.`
+- Partial/background push: `[D2] FAIL: the last push ran in mode 'partial', not a full refresh — the sources were never re-read` followed by the same `CALENDAR: NOT VERIFIED` verdict.
 
 Run it on the 8a skip paths too. A run that never reached the calendar still owes the
 founder a verdict, and D1 will say how stale the calendar now is.
