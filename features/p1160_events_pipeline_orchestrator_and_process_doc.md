@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 71
 workstream: infrastructure
 created_date: '2026-08-26'
 tags: [events, skills, orchestrator, process-docs]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -203,30 +203,51 @@ the change stays readable by both versions.
 
 ## Done-When
 
-- [ ] The orchestrator skill file exists and its body names each stage skill it sequences, plus
+- [x] The orchestrator skill file exists and its body names each stage skill it sequences, plus
       the "sequences, never reimplements" rule verbatim
 - [ ] Invoked against a **past completed** event, the orchestrator reports all four stages done
       and attempts no re-promotion (read-only stages only — do not actually re-promote)
+      **UNVERIFIED — requires a live run against a real prod event; not exercised this session
+      (no browser/prod-event context available).**
 - [ ] Invoked against an event whose `<slug>.json` shows platforms done and whose
       `<slug>.groups.json` is absent, the orchestrator reports the groups stage as **pending** —
       this is the July 5 failure, made visible
+      **UNVERIFIED for the same reason as above — the run-record design is implemented and
+      readable in `run.md`, but "reports pending" is a runtime behavior, not something a static
+      read confirms.**
 - [ ] The new staleness check **fires** on a deliberately stale fixture (a blurb naming a past
       event's date with zero unresolved `{placeholder}` tokens) — exit non-zero / block confirmed,
       not merely "it should" (epistemic gate 7)
+      **UNVERIFIED — this is a prose instruction inside an LLM-driven skill, not executable code
+      with an exit code; "firing" it requires actually invoking `promote-groups` against a crafted
+      stale fixture and observing the stop, which this session did not do. Flagging per epistemic
+      gate 7 rather than checking on "it should work."**
 - [ ] Auth/session preflight in `promote-all` reports all five platforms' login state before any
       copy review, in one pass
-- [ ] `grep -c "hangan" docs/events/process.md` returns 0
-- [ ] Every one of the 14 files under `.claude/commands/slava/events/` is named in the rewritten
+      **UNVERIFIED as a runtime claim — structurally confirmed the new step 2b sits before step
+      3b in the file (see `grep -n "^### " promote-all.md`), but no live browser session was run
+      to confirm the reported table itself.**
+- [x] `grep -c "hangan" docs/events/process.md` returns 0
+- [x] Every one of the 14 files under `.claude/commands/slava/events/` is named in the rewritten
       `docs/events/process.md`, verified by a loop over `ls` rather than by reading
-- [ ] `/publish-discussion`, `/publish-live`, `/publish-workshop` no longer appear as if they exist
+- [x] `/publish-discussion`, `/publish-live`, `/publish-workshop` no longer appear as if they exist
+      (they appear only as `(future)` / `TBD (does not exist yet)` markers)
 - [ ] Invoked with `promote-all`'s cache showing platforms done, the orchestrator's **kickoff run
       record** (not the absence of a file) is what reports the groups stage pending
+      **UNVERIFIED — same live-run gap as the two items above.**
 - [ ] The combined copy review runs once — `promote-all` step 3b does NOT also stop for its own
       blurb review, verified by counting approval turns in one full run
-- [ ] `promote-facebook.md` no longer defaults to Koh Phangan groups: either
+      **UNVERIFIED as a counted runtime result. The suppression branches exist in both
+      `promote-all.md` step 3b and `promote-groups.md` step 5 (added after an initial gap was
+      caught during self-review — see the follow-up commit), but "verified by counting approval
+      turns in one full run" requires that run.**
+- [x] `promote-facebook.md` no longer defaults to Koh Phangan groups: either
       `.private/event-operator.json` carries a `facebook_groups` array, or the skill stops and asks
-- [ ] A `docs/decisions.md` entry records the call to build an orchestrator for events and not for
-      software-delivery-style work
+      (config remains absent on this machine; the skill now fails closed and asks instead of
+      defaulting)
+- [x] A `docs/decisions.md` entry records the call to build an orchestrator for events and not for
+      software-delivery-style work (pre-existing entry, 2026-08-26 "Events gets a
+      /video-publish-style orchestrator...")
 
 ## Open Questions
 
