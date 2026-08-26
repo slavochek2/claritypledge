@@ -2,7 +2,7 @@
 name: promote-all
 description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, Eventbrite, and Social Layer in one pass"
 when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Promote Event to All Platforms
@@ -83,6 +83,24 @@ If no match, leave `series_doc` null — fall back to generated blurb in step 5.
 
 If the file exists, read it and resume from the first `pending` platform. Otherwise initialize all three to `pending`.
 
+### 2b. Auth/session preflight — all platforms, one pass
+
+Before any copy review or form-filling, check every platform in this run's scope (per the operator config's `platforms` list from step 0) is logged in as the operator — **together, in one pass**, not discovered one at a time mid-run.
+
+For each in-scope platform, open its base page (todo.today `/my-events/`, `facebook.com` (own profile), `luma.com`, `eventbrite.com`, `sola.day` — only if the series has a `sola_group`) via claude-in-chrome and read the logged-in identity from the page (avatar/name in nav, account menu, etc.). Do not fill any form yet — this is a read-only identity check.
+
+Report one table before proceeding:
+
+```
+todo.today:        <logged in as <name> | NOT logged in>
+Facebook personal: <logged in as <name> | NOT logged in>
+Luma:              <logged in as <name> | NOT logged in>
+Eventbrite:        <logged in as <name> | NOT logged in>
+Social Layer:      <logged in as <name> | NOT logged in | n/a — no sola_group>
+```
+
+**If any in-scope platform is NOT logged in:** stop here and list exactly which platforms need attention before continuing — this is the fix for Aug 30, where three of five platforms hit auth/consent walls mid-run instead of being caught together at the start. Do not proceed to step 3 until the operator confirms all in-scope platforms are ready (re-run this preflight, or explicitly say which platforms to skip via the operator config's `platforms` list).
+
 ### 3. Prepare cover photo once
 
 The banner normally already exists — claritypledge.com auto-generates it when the event is created. Download it (portable, no credentials needed):
@@ -103,6 +121,10 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 ### 3b. Resolve the promo blurb (single source of truth)
 
 This is what makes every platform's description consistent — no per-platform drift.
+
+**If invoked by the events orchestrator (`slava:events:run`) with an already-approved blurb passed in:** use that text verbatim as the canonical promo blurb and **skip the rest of this step entirely, including its own approval stop below**. The orchestrator's combined copy review (its Gate 2) already resolved and approved this text — stopping again here would be a second approval turn for the same decision. This is the one required change for the orchestrator to wrap this skill without adding a duplicate stop.
+
+**Otherwise (standalone invocation — no orchestrator, no pre-approved blurb), resolve it here as before:**
 
 **If `series_doc` is set and contains a `## Promo blurb` section:**
 

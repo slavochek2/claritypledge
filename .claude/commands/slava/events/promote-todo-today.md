@@ -2,7 +2,7 @@
 name: promote-todo-today
 description: "Promote a ClarityPledge event on todo.today"
 when_to_use: "After event is published on claritypledge.com."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Promote Event on todo.today
@@ -61,14 +61,16 @@ Click the Upload area (triggers hidden file input). Use the Claude-in-Chrome `fi
 
 When the media library opens, select the just-uploaded image and click **Add**.
 
+**Write→wait→re-read.** After clicking **Add**, wait briefly, then re-read the form (screenshot or `read_page`) and confirm the photo thumbnail is actually attached to the event before moving to step 5 — do not trust the immediate post-click state as final (the same class of silent-revert failure seen on Luma's date field and Facebook's start time).
+
 ### 5. Fill the form
 
 | Field | Value |
 |-------|-------|
 | Event Title | verbatim from DB (max 80 chars) |
-| Event Date | MM/DD/YYYY |
-| Start Time | local time (Asia/Bangkok) |
-| End Time | start + duration_minutes |
+| Event Date | MM/DD/YYYY — **write→wait→re-read** after entry |
+| Start Time | local time (Asia/Bangkok) — **write→wait→re-read** |
+| End Time | start + duration_minutes — **write→wait→re-read** |
 | Host | the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski) |
 | More Details | see description template below |
 | Tags | by event type — see tag table + resolution pattern below |
@@ -115,6 +117,8 @@ moderated-discussion line. Paste it verbatim into More Details.
 
 **Fallback only if no promo blurb was passed** (no series doc): build a short plain-text description from `description` — registration link (`claritypledge.com/events/<slug>`) right after the hook line AND as the closing "Register:" CTA with "Registration is required." Truncate body to fit 1000 chars while preserving BOTH link lines.
 
+After filling date/time fields, wait briefly, then re-read the displayed values from the form before continuing — treat any date/time write the same as the photo upload above: confirm it holds, don't trust the immediate post-entry state.
+
 ### 7. Stop — let user review
 
 Do **NOT** click Create Event. Take a screenshot, scroll to show full form, report what was filled. User publishes manually.
@@ -128,3 +132,4 @@ Do **NOT** click Create Event. Take a screenshot, scroll to show full form, repo
 - **One link only**: the claritypledge.com event page — it's the registration page and the source of truth
 - **Exchange**: always Free (the 100 THB park entry is not our fee)
 - **Venue**: search by meeting point name — Zoo Cafe is already in the Koh Phangan venue list
+- **Write→wait→re-read**: any photo upload or date/time write is confirmed by re-reading the form after a brief wait, never trusted on the immediate post-write state

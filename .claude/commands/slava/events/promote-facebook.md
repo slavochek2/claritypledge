@@ -2,7 +2,7 @@
 name: promote-facebook
 description: "Create Facebook Events in local groups for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Promote Event on Facebook Groups
@@ -63,9 +63,9 @@ For each result, note:
 
 **Prioritise:** Public groups with an Events tab. Skip private groups not yet a member of — list them separately for manual follow-up.
 
-**Known groups:** read the optional `facebook_groups` array from `.private/event-operator.json` — each operator maintains their own list and grows it run over run. Founder defaults (config absent):
-- Koh Phangan expats community — 8.4K members, public ✓
-- Digital Nomads Koh Phangan — verify current status on each run
+**Known groups:** read the optional `facebook_groups` array from `.private/event-operator.json` — each operator maintains their own list and grows it run over run.
+
+**Config absent or `facebook_groups` empty — fail closed, no hardcoded defaults.** A prior version of this skill defaulted to two Koh Phangan groups whenever the config was missing, which meant every Chiang Mai (or any non-Ko-Phangan) event silently posted into the wrong-city audience — `.private/event-operator.json` has never existed on this operator's machine, so this default fired on every run. If `facebook_groups` is absent or empty, **stop here** and ask: "No known Facebook groups configured for this operator. Add a `facebook_groups` array to `.private/event-operator.json` (see schema in step 0 of `promote-all.md`), or reply with group names/URLs to search for this run only (not saved)." Do not proceed to group discovery on an assumed city.
 
 ### 4. For each eligible group — fill the Create Event form
 
@@ -138,3 +138,4 @@ Also list any **private groups not yet joined** so the user can request to join 
 - **Location**: use the meeting point name; choose "Just use [text]" if Facebook doesn't find the exact venue
 - **Time zone**: always GMT+7 (Asia/Bangkok)
 - **Private groups**: flag but do not attempt to join automatically — list for manual follow-up
+- **No hardcoded city defaults**: `facebook_groups` must come from `.private/event-operator.json`, or the operator supplies groups for this run explicitly. Never assume Koh Phangan (or any city) when the config is absent.

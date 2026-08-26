@@ -2,7 +2,7 @@
 name: promote-groups
 description: "Post an event blurb into the mapped WhatsApp/Telegram group chats via Beeper"
 when_to_use: "After the event is published, to share into recurring group chats. Reads group mapping from .private/event-channels.json"
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Promote Event into Group Chats
@@ -122,6 +122,14 @@ Because route, meeting point, duration, and difficulty change every event, the h
 
 (Group posting has no human paste-filter unlike `promote-all`. This guard is mandatory.)
 
+**Staleness check (hard stop) — a deterministic token test, not a judgment call:**
+
+After placeholders are resolved, assert **each** resolved blurb text contains the current event's date string, formatted the way step 3's `{date}` resolution produced it for that language (e.g. `en` → "Jul 5"; `es`/`ru`/`de` → "5.7" or the explicit localized form). If the matched type entry in `.private/event-channels.json` also defines a `venue_token` (optional field — see schema note below), assert that token is present too. This is a plain substring test, run for every language, not an LLM read of "does this sound current."
+
+If any language's blurb is **missing** the required date/venue token(s): **STOP.** Do NOT proceed to the link-liveness check, probe, or approval. Report: "Staleness check failed for {lang}: expected date token `{token}` not found in the resolved blurb. This blurb may be reused from a past event — rewrite `blurbs.{lang}` in `.private/event-channels.json` before re-running." A stale hand-written blurb (correct format, wrong event — the July 5 failure) has zero unresolved `{placeholder}` tokens and would otherwise pass every other guard in this step.
+
+**Schema note (no data change):** `.private/event-channels.json` type entries may optionally carry a `venue_token` string (e.g. a trail or venue name that must appear in every blurb for that type). This spec does not populate it — it only defines the field the check above reads if present.
+
 ### 3b. Link-liveness check (hard stop)
 
 Before the probe, extract every URL from every resolved blurb (pattern `https?://\S+` and bare `claritypledge.com/\S+`). Check each distinct URL. **Important: claritypledge.com is a SPA — it returns HTTP `200` for every path, including nonexistent routes. A bare `200` proves nothing.** Check by URL shape:
@@ -143,6 +151,8 @@ Load Beeper MCP via ToolSearch. Send **each distinct-language blurb** to self-ch
 Show: "Probe sent to your self-chat (1011) — {N} language variant(s). Reply `ok` to continue, or abort."
 
 Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is required, not optional.)
+
+**The probe is required on every style/tone revision, not only once at the top.** If, at any point later in this run (approval-gate edits, a re-run after `abort`, an operator-requested rewrite), any language's blurb text changes from what was probed here, re-run this probe for the revised language variant(s) and get a fresh `ok` before that text is sent to any group. Three copy-style iterations going straight into three different live community groups in one session is the failure this closes — the probe binds to the *text actually about to be sent*, not to "a probe happened earlier this run."
 
 ### 5. Approval gate
 
@@ -210,9 +220,15 @@ If **any** check fails or the result is ambiguous:
 
 Select the blurb for **this group's `lang`** (resolved in Step 3). Send it via Beeper `send_message` to the chat object returned by the verify call — not to a re-resolved config string (avoids TOCTOU drift). A group never receives a language other than its own `lang`.
 
-**c. Write status immediately:**
+**c. Verify-by-content, not by timestamp:**
 
-After each send (success or failure), write the group's row to the state file before moving to the next group. Never batch.
+After the send call returns, confirm the message actually landed by searching the chat's recent content for a distinctive substring of the sent text (not by checking that the chat's last-activity timestamp moved — one busy chat's timestamp moved from unrelated traffic while the send itself hadn't landed). If content search is unavailable or returns ambiguous results, fall back to `get_chat`'s last-activity field, but treat that fallback as weaker evidence and note it in the status write.
+
+**Never resend blind after a connection error.** If the send call itself errors (timeout, dropped connection), re-verify by content **before** retrying — the message may have landed despite the error. Only retry if content verification confirms it did NOT land. Retrying without this check risks a duplicate post to a live group.
+
+**d. Write status immediately:**
+
+After each send (success or failure) and its content verification, write the group's row to the state file before moving to the next group. Never batch.
 
 ### 7. Summary
 
@@ -241,3 +257,6 @@ For each `verify_unavailable` or `verify_needed` group, note: "Re-trigger requir
 - **State is isolated from `promote-all`** — `{slug}.groups.json` is separate from `{slug}.json`.
 - **Language is per-group, never inferred** — each group receives its `lang` blurb only. A missing `blurbs[lang]` is a hard stop, never a fall-back to English.
 - **Links are verified live before posting** — every URL in every blurb must resolve to a final `200` (Step 3b). Group posting has no human paste-filter, so a dead RSVP link would reach hundreds silently.
+- **Staleness is a token test, never a judgment call** — every resolved blurb must contain the current event's date (and venue token, if the type defines one). A reused blurb with zero unresolved placeholders is exactly the shape that must fail this check.
+- **Probe binds to the text being sent, not to "a probe happened this run"** — any mid-run copy revision needs its own fresh self-chat probe before it reaches a group.
+- **Verify-by-content, never by timestamp, and never resend blind** — a send is confirmed by finding the actual text in the chat, not by a moved last-activity timestamp; a connection error triggers re-verification before any retry.

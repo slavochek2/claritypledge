@@ -2,7 +2,7 @@
 name: promote-luma
 description: "Create a Luma event page for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com. UI-driven via claude-in-chrome; user clicks Publish."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Promote Event on Luma
@@ -68,13 +68,15 @@ Read the page interactively (`mcp__claude-in-chrome__read_page` with `filter: "i
 | Field | Element type | How to set |
 |---|---|---|
 | Event name | textarea | `form_input` with `title` verbatim |
-| Cover photo | file input | `file_upload` with `LOCAL` path |
+| Cover photo | file input | `file_upload` with `LOCAL` path — then **wait, then re-read** (see below) |
 | Location | text input + suggestion dropdown | `find` "Add Event Location" → click → `type` location → `find` matching suggestion row → click |
 | Description | **contenteditable DIV** | `find` "Add Description" button → click → on the modal's input ref, use `computer left_click` + `type` (form_input fails with "Element type DIV is not a supported form input") → click Done |
 | Visibility | dropdown | leave default (Public) |
 | Require Approval | toggle | leave default (off) unless user requested approval-gated RSVPs |
 
 **Description text source:** use the canonical promo blurb passed from `promote-all` (step 3b) verbatim — it already carries the register CTA + series short link + moderated-discussion line, and is plain text (Luma's markdown rendering is unverified, so plain text is the safe default). Fallback only if no blurb was passed: short plain-text description from `description` — the registration link (`claritypledge.com/events/<slug>`) right after the first hook line AND again as the closing `Register:` CTA.
+
+**Write→wait→re-read after the cover-photo upload.** Luma's UI can show a write as applied for one frame and then silently revert it (this is the exact failure mode that hit the date field — see step 5). After `file_upload`, wait briefly for the thumbnail to render, then re-read the page (`read_page` or a screenshot) and confirm the cover-photo thumbnail is still present before moving to the next field. Do not trust the immediate post-call state as final.
 
 **Date/time fields are NOT programmable.** Luma uses a custom React date/time picker that ignores both `form_input` and `triple_click + type`. **Do not waste tool calls trying.** After filling everything else, tell the user:
 
@@ -84,7 +86,7 @@ Read the page interactively (`mcp__claude-in-chrome__read_page` with `filter: "i
 
 ### 5. Stop — user verifies dates explicitly, then publishes
 
-Take a screenshot of the completed form. **Read the displayed date/time values from the screenshot** (the Start/End rows of the form) and quote them back to the user verbatim alongside the expected values from prod DB:
+Wait briefly after the last manual date/time entry before capturing anything — Luma's picker has reverted a value that looked correct in an immediate screenshot (see Known Limitations). Take a screenshot of the completed form only after that wait. **Read the displayed date/time values from the screenshot** (the Start/End rows of the form) and quote them back to the user verbatim alongside the expected values from prod DB:
 
 > Form ready on Luma. **Date check — confirm BOTH match before publish:**
 >
@@ -116,6 +118,7 @@ Take a screenshot of the completed form. **Read the displayed date/time values f
 ## Known limitations (as of 2026-05-17)
 
 - Date/time picker requires manual entry (see step 4)
+- **A field that looks correct in an immediate screenshot can silently revert** — the date field has done this. Always wait, then re-read, before trusting any write (cover photo, date/time) as final.
 - Description field is contenteditable DIV (see step 4)
 - `lu.ma` redirects to `luma.com` — use the redirected host
 - Markdown rendering in description is unverified; if literal asterisks appear after publish, switch convention to plain text

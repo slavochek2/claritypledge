@@ -2,7 +2,7 @@
 name: promote-facebook-personal
 description: "Create a Facebook Event from a personal profile (not group) for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com. Sibling to promote-facebook (groups) — this targets the personal-profile event flow."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Promote Event on Facebook (Personal Profile)
@@ -59,16 +59,23 @@ Open a new tab and navigate to `https://www.facebook.com/events/create/`.
 
 ### 4. Fill the form
 
+**Fill order matters — date/time last.** Facebook's start time resets on every unrelated field edit (undocumented until now). Fill every field below EXCEPT start/end date-time first, then fill date/time last per the note under the table.
+
 | Field | Value |
 |---|---|
 | Event name | `title` verbatim (max 100 chars) |
-| Start date / time | local (`Asia/Bangkok`) |
-| End date / time | start + `duration_minutes` |
 | Time zone | GMT+7 |
 | In person / virtual | In person |
 | Location | meeting-point name + city (e.g. "Zoo Cafe, Ko Phangan") — use "Just use [text]" if FB doesn't find an exact venue |
 | Who can see it? | **Public** |
 | Description | see template below |
+| Cover photo | see below |
+| Start date / time | local (`Asia/Bangkok`) — fill LAST, then **write→wait→re-read** |
+| End date / time | start + `duration_minutes` — fill LAST, then **write→wait→re-read** |
+
+#### Date/time — write→wait→re-read (undocumented until now)
+
+**Facebook's start time resets on every unrelated field edit.** Fill start date/time and end date/time **last**, after every other field (location, description, cover photo) is set — any subsequent field edit can silently revert the time fields. After entering the date/time fields, wait briefly, then re-read the form (screenshot or `read_page`) and confirm the displayed values still match before moving to Step 6. If a later edit reverts them, re-enter and re-verify again — do not assume a single write holds.
 
 #### Cover photo
 
@@ -79,6 +86,8 @@ Call `file_upload` MCP tool with the `LOCAL` path from step 2.
 > Drag `~/Downloads/clarity-event-photo.jpg` onto Facebook's cover-photo area, then reply `done`.
 
 Do NOT attempt remote fetch from inside the FB page — Facebook's CSP blocks it.
+
+After the upload (or the manual-drag fallback confirms `done`), wait briefly, then re-read the page and confirm the cover-photo thumbnail is present before continuing — the same write→wait→re-read discipline as the date/time fields above.
 
 ### 5. Description
 
@@ -108,3 +117,4 @@ Take a screenshot showing the full form. Tell the user:
 - **Visibility**: always Public
 - **Cover photo path**: local file via `file_upload`, drag-drop fallback
 - **Time zone**: GMT+7
+- **Fill date/time last, then write→wait→re-read**: start time resets on unrelated field edits — an undocumented Facebook behavior. Verify date/time only after every other field is set.
