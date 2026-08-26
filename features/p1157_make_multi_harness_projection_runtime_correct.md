@@ -235,28 +235,68 @@ to make their implementation resemble Codex.
 
 ## Acceptance Criteria
 
-- [ ] A fresh Claude session, Codex session and DSH session each identify the correct active
+- [x] A fresh Claude session, Codex session and DSH session each identify the correct active
       harness/model and produce no warning about another vendor's preferred model.
-- [ ] Routing tests cover task class × positive data eligibility × tool/context availability ×
+- [x] Routing tests cover task class × positive data eligibility × tool/context availability ×
       quota × independent oracle, including unclassified prose, content-based PII, unknown/preview
       model IDs, path/casing errors, wrapper exit 2/3 and executor failure.
-- [ ] A public bounded corpus may delegate; a private-path corpus refuses and completes inline; a
+- [x] A public bounded corpus may delegate; a private-path corpus refuses and completes inline; a
       judgment task and a long agentic loop remain on the strongest suitable native lane.
-- [ ] `sync-agent-skills --check` enforces a closed-world manifest, including canaries for an
+- [x] `sync-agent-skills --check` enforces a closed-world manifest, including canaries for an
       unexpected nested file and every unexpected top-level filesystem type. It passes in the main
       repo, a fresh clone and a new worktree before and after Codex startup; no `source-command-*`
       artifact is created in the projection.
-- [ ] A fresh Codex session discovers `points-select`, reads its canonical instructions and does not
+- [x] A fresh Codex session discovers `points-select`, reads its canonical instructions and does not
       expose a migrated duplicate.
-- [ ] Every current global/project Codex hook is classified by the disposition table. Must-keep
+- [x] Every current global/project Codex hook is classified by the disposition table. Must-keep
       blockers fire on real Codex events, accurate injections exit cleanly, and unsupported plugin
       hooks are demonstrably disabled.
-- [ ] Real Codex hook-event fixtures prove: edit then unverified completion claim blocks; edit then a
+- [x] Real Codex hook-event fixtures prove: edit then unverified completion claim blocks; edit then a
       successful browser/curl verification allows; nonzero curl, HTTP failure and browser-tool error
       still block; non-claim allows; malformed/missing hook fields follow the documented fail-open
       policy; no Stop loop occurs.
-- [ ] Existing Claude hook fixtures and all 25 P1151 projection tests still pass unchanged.
-- [ ] Project pre-commit checks pass.
+- [x] Existing Claude hook fixtures and all 25 P1151 projection tests still pass unchanged.
+- [x] Project pre-commit checks pass.
+
+## Implementation Evidence — 2026-08-26
+
+- **Projection:** `scripts/sync-agent-skills.test.sh` passed 41/41, including the original P1151
+  cases plus regular-file, closed-world, nested-entry and unsafe-name canaries. Main, a no-local
+  clone and a detached worktree each reported `121 skills in sync, 0 collisions, 0 drift` before
+  and after fresh Codex startup. Both fresh contexts retained zero `source-command-*` entries.
+- **Live Codex discovery:** literal `$points-select` invocation in main, the fresh clone and the new
+  worktree loaded the canonical `# /points-select` body and returned the expected canary. Codex's
+  migration importer is disabled; 28 pre-existing global migrated duplicates were moved intact to
+  `~/.agents/backups/p1157-source-command.Qn51is` (aggregate content checksum
+  `c478c8f7b6c5308cc06ccb7742289f4b59b809a0ad68d85c9ebceb38082a3a78`).
+- **Routing:** `scripts/test-multi-harness-routing.sh` passed 31/31. A real public wrapper call
+  returned `P1157_WRAPPER_OK`; refusal, casing, missing-overlay and executor-failure paths returned
+  their specified exits. DSH's dump/settings conflict was resolved by the credential-removal
+  oracle, proving the current runtime selects Google despite the composed profile naming DeepSeek.
+- **Harness canaries:** a fresh Claude process reported `claude-opus-5` through first-party runtime
+  metadata; a configured DSH headless call returned `P1157_DSH_OK`; fresh Codex processes invoked
+  the canonical skill without cross-vendor warnings or Stop-hook failure.
+- **Hooks:** `scripts/test-codex-native-hooks.sh` passed 54/54 against Codex event payloads. Existing
+  Claude browser fixtures passed 11/11 and route-brief fixtures passed 55/55; the Claude Playwright
+  pipe blocker still denied its real bad-command shape. The unsupported imported security plugin is
+  installed but disabled in Codex.
+- **Review:** the requested fresh-context reviewer returned no report because its Codex usage limit
+  was exhausted: 0 of 1 reports received, so the external-review lens remained uncovered. Inline
+  verification found and fixed four load-bearing defects: missing Bash exit status in real Codex
+  events, DSH dump/runtime disagreement, traversal-like projected names, and BSD path extraction in
+  hook ports. The `/finish code` stamp records 4 found / 4 fixed.
+- **Repository gate:** `./scripts/pre-commit-checks.sh` exited 0. Its two non-blocking notices are
+  inherited TODO examples in byte-identical skill mirrors and historical P1151's absent UAT file.
+  Privacy allowlisting applies only to generated mirrors; canonical skill sources remain scanned.
+
+### Known runtime limitation
+
+Codex 0.149.1 still reports that the combined global, plugin and project skill catalog exceeds its
+context budget. It strips descriptions and omits 63–64 lower-priority skills in fresh contexts, but
+explicit project-skill invocation was independently proven in all three contexts above. Removing
+legitimate global scientific or Cowork plugin skills solely to silence this product limit is out of
+scope and requires a separate usage/ownership decision; the 28 migration-generated duplicates were
+the only artifacts removed.
 
 ## Next Steps
 
