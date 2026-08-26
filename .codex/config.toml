@@ -1,0 +1,10 @@
+[mcp_servers.sentry]
+command = "npx"
+args = [
+    "-y",
+    "mcp-remote@0.1.37",
+    "https://mcp.sentry.dev/mcp",
+]
+
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=gfjctyxqlwexxwsmkakq"

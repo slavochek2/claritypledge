@@ -6,6 +6,7 @@ tags: [infra, multi-agent, dsh, claude-code, codex]
 drafted_by: gemini
 created_date: 2026-08-23
 completed_at: 2026-08-23
+superseded_by: p1157
 ---
 
 # P1151: Universal Multi-Harness Architecture with Zero Maintenance

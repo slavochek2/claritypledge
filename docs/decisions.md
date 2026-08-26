@@ -6,6 +6,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-25 [process]: Multi-harness compatibility is three runtime contracts, not one shared prompt
+
+**Context:** P1151 projected the same skills into the Agent Skills directory and proved their
+shape, but the first Codex session did not expose the symlinked skills, imported a second namespace,
+applied Claude-only model advice, and ran a Claude transcript parser as a Codex Stop hook. P1157's
+verification found two more examples of structural evidence lying about runtime: Codex
+`PostToolUse` omits a Bash command's exit status from `tool_response`, and DSH's composed profile
+can report one provider while persisted runtime settings select another.
+
+**Decision:** Treat multi-harness support as three separately verified contracts: (1) one canonical
+skill source and one closed-world projection writer, with regular byte-identical `SKILL.md` files
+when a harness does not discover symlinks; (2) a vendor-neutral capability policy mapped by
+harness-specific model, quota, and executor adapters; and (3) native lifecycle hooks built only on
+each harness's documented event schema. A config dump, model self-description, file shape, or
+nonempty tool output is never a substitute for a live canary. Codex Bash verification now runs
+through a sentinel-producing wrapper because its hook payload does not carry the exit code. DSH
+route conflicts require a provider-specific credential-removal canary.
+
+**Alternatives rejected:** Keep one universal model table, which makes another harness's roster and
+quota look authoritative. Keep symlinks because they satisfy the standard structurally, which
+repeats P1151's dependent-oracle mistake. Parse both transcript formats in one Stop hook, which
+couples correctness to an explicitly unstable Codex transcript representation. Trust
+`--dump-config` alone, refuted by the observed DSH runtime/settings override.
+
+**Consequences:** Every supported harness needs a fresh discovery/execution canary, and routing
+tests must exercise data eligibility, tools/context, an independent result oracle, unknown model
+IDs, provider failure, and adapter-local quota signals. Claude keeps its native hooks and
+Opus-specific preference; Codex no longer warns about Opus or reads Claude quota; external Gemini
+work remains optional bounded bulk work behind the shared privacy/integrity wrapper. P1151 remains
+historical and is explicitly superseded where it inferred runtime behavior from structure.
+
+**References:** [P1157](../features/p1157_make_multi_harness_projection_runtime_correct.md) ·
+[P1151](../features/done/2026-06-10/p1151_universal_multi_harness_architecture.md) ·
+[`sync-agent-skills.sh`](../scripts/sync-agent-skills.sh) ·
+[`test-codex-native-hooks.sh`](../scripts/test-codex-native-hooks.sh)
+
+---
+
 ## 2026-08-25 [product]: YouTube search matches words, not stances — so the points pipeline finds the PEOPLE first, then their videos
 
 **Context:** Specifying the selection step that feeds `/slava:content:points-prepare` (P1088). The first design searched for *videos* on a topic and ranked them. Measured 2026-08-24, keyless: the query *"why digital nomad life is the best decision"* returned, in fourth place, a video titled *"NOT being a digital nomad was the best decision I ever made"* — the opposite stance, surfaced by the pro-side query. Search engines index tokens; a stance is not a token, and no API changes that.

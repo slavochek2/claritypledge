@@ -1,1 +1,143 @@
-../../../.claude/commands/slava/util/video-edit-interview/SKILL.md
+---
+name: video-edit-interview
+description: Orchestrate a two-person interview edit end-to-end — trim, an Opus selection pass (aggressive meta-talk cuts + Pareto keep-set + reorder-for-interest, all founder-approved before any cut), apply cuts + reorder with cross-fades, question lower-thirds, and branding. Owns the interview-only judgment; calls /video-edit-talk, /video-question-beats, /video-brand-pass as sub-steps. Everything references a stable segment-identity manifest, never raw source timestamps.
+when_to_use: A recorded two-person interview/conversation that needs to become a clean, reordered, branded video with question lower-thirds. NOT for a single-take linear talk (that's /video-edit-talk alone), NOT for multi-camera angle-switching (out of scope — deferred).
+version: 1.0.0
+---
+
+# /video-edit-interview
+
+Turn a raw interview recording into a clean, reordered, branded cut. This is an **orchestrator**: it sequences the existing stage skills and adds the interview-only stages (meta-talk selection, Pareto highlight, reorder, question beats) that a linear talk doesn't need. It never reimplements the sub-skills.
+
+**Why interviews get their own lane:** session `29932534` forced the linear-talk skill onto a 71-min interview and it landed poorly — meta-talk leaked in (guest coaching the interviewer, "how much time do you have"), the audio hard-cut at question cards, cuts landed mid-sentence, branding was never wired in, and the transcript was lost + re-transcribed twice. This skill fixes the *pipeline mechanics* of that failure.
+
+**Honest ceiling — say this to the founder up front:** meaning and negative-light judgment stay human. The skill **flags and proposes**; the founder approves the whole selection sheet before anything is cut. And single-angle footage will not reach true podcast production feel — **two-camera angle-switching is the dominant lever there and is out of scope** (see below). Frame the win as: no lost transcript, no meta-talk leak, no audio hard-cut, reordered for interest, sentence-clean, branded.
+
+---
+
+## The segment-identity manifest (the backbone every stage references)
+
+`interview.manifest.json` in the project dir is the single source of truth. Every stage reads/writes it; **no stage after Stage 1 ever touches raw source timestamps.**
+
+```json
+{
+  "source": "/abs/path/raw.mp4",
+  "xfade": 0.5,
+  "crop": {"x": 413, "y": 94, "w": 867, "h": 626},
+  "segments": [
+    {
+      "id": "s1",
+      "src_start": 123.4, "src_end": 150.2,
+      "anchor_quote": "so the first thing i",
+      "state": "keep",
+      "question_text": "What made you rethink the approach?",
+      "order": 1,
+      "out_start": null, "out_end": null
+    }
+  ]
+}
+```
+
+- `id` — stable, assigned once at selection time. **Must be unique** (assemble.sh aborts on a duplicate — the write-back and beats query both key on it).
+- `src_start/src_end` — source range, **authoritative**. Stage 2 MUST copy these **verbatim from SRT segment boundaries** (the subagent has the real timestamped SRT) — never estimate or round them. assemble.sh slices on these numbers directly; a guessed timestamp starts the clip mid-sentence, the exact leak this skill fixes. This is why the SRT (not the condensed 20s blocks) is the source of truth for cut points.
+- `anchor_quote` — verbatim first ~8 words. A **human-readable verification label**, NOT a re-location key: it lets the founder eyeball that `src_start` points where the row claims. (We deliberately do not fuzzy-match the quote to relocate cuts — the SRT boundary IS the cut; a quote that recurs would only add ambiguity. If a row's quote and `src_start` disagree, that's a Stage-2 bug to fix, not something Stage 3 papers over.)
+- `state` — `keep` | `cut` | `meta-cut`.
+- `question_text` — the beat label. **Nullable.** A spontaneous kept moment (a story, an unprompted claim) can carry `"question_text": null` + `"beat": "none"` — do NOT synthesize a question the guest never answered just to fill a card.
+- `order` — position in the approved output sequence.
+- `out_start/out_end` — **filled by Stage 3** after slicing + cross-fade accounting. This is what the beats place against. `xfade` is the named cross-fade constant, single source of truth for both the assembly overlap and the beat offset.
+- `crop` — **optional**, top-level, set once at Stage 0 (framing) before any slicing happens. `{x, y, w, h}` in source pixel coordinates, applied by `assemble.sh` via ffmpeg's `crop` filter on every slice before scale/pad. Deciding this after Stage 3 instead means beats and brand overlays are already positioned against the old (uncropped) canvas geometry — a second source of truth that will silently drift. Omit the field entirely (not `null`) when no crop is wanted.
+
+---
+
+## Stage 0 — Framing (crop decision, before anything else)
+
+Not every interview needs this — only run it when the raw footage has dead space (empty chairs, unused tables, excess headroom) worth tightening. Skip silently if the frame is already well-composed.
+
+1. Pull one representative frame from the raw source (a moment with both subjects visible, mid-conversation): `ffmpeg -ss <t> -i <raw.mp4> -frames:v 1 preview.png`.
+2. Propose a crop box by eye — exclude dead space, keep both subjects fully in frame with natural headroom, don't cut close to a face or a gesture. State it in source pixel coordinates.
+3. Render the proposed crop back into a same-timestamp preview (`ffmpeg -vf "crop=w:h:x:y" -frames:v 1 cropped.png`) and show **both** frames side by side — never just numbers, founders judge crops visually, not by coordinates.
+4. On approval, write `crop` into `interview.manifest.json` (see schema above) **before** Stage 1 starts. If the founder nudges the box, re-render the preview and re-confirm — don't guess the adjustment.
+
+---
+
+## Model routing (the honest mechanism — a skill cannot switch the session model)
+
+Stage 2 is reflective judgment → **Opus**. Since the skill can't flip `/model`, run Stage 2 as an **Opus subagent** spawned by the orchestrator, with the transcript **inlined into the prompt** (subagents can't read the project dir off disk — a 71-min SRT is ~10k words, well within the window). The subagent **returns the manifest as a single fenced JSON block** (it can't write disk); the orchestrator parses it and writes `interview.manifest.json`. **Founder approval happens in the main session** after the subagent returns. If the founder edits the keep-set so `order` must be re-derived, that is a **second Opus subagent spawn** — never silently re-derived on Sonnet. Stages 1/3/4/5 are mechanical → run in-session (Sonnet is fine). Matches `.claude/rules/model-effort.md`.
+
+---
+
+## Stages
+
+### Stage 1 — Trim  (calls `/video-edit-talk`)
+**The dir handshake is load-bearing — do it in this order:** the orchestrator OWNS the project dir, not the talk skill.
+1. `PROJ=$(mktemp -d "${TMPDIR:-/tmp}/cp-interview-XXXXXX")`.
+2. Write the empty manifest `$PROJ/interview.manifest.json` (`source` = abs path to raw recording, `xfade` = 0.5, `segments: []`) — BEFORE invoking the trim skill.
+3. Invoke `/video-edit-talk` **and explicitly tell it to use `$PROJ` as its project dir** (do not let it mint its own — see that skill's step 0). Because `interview.manifest.json` is already present, it runs in orchestrated mode: it **retains the transcript** and **suppresses its own content-cuts gate** (content selection is owned solely by Stage 2 — no double-gate). Trim does only start/end/silence here.
+
+Output: `final.mp4` + the retained verified `.srt`, both in `$PROJ`. If the talk skill minted a fresh dir instead of using `$PROJ`, the handshake failed — stop and fix, because that path deletes the transcript.
+
+### Stage 2 — Selection pass (Opus subagent) — the 3-part approval sheet
+Spawn an Opus subagent with the full **timestamped SRT** inlined (not the condensed blocks — it must emit exact boundaries). It produces ONE markdown sheet (shown inline + saved), approved before any cut. Every row carries the **exact `src_start/src_end` from SRT boundaries** plus a verbatim `anchor_quote` for human verification; confidence is coarse **high/med/low** (a decimal from an LLM is uncalibrated noise).
+
+**(a) Meta-talk to CUT — aggressive flags.** Per candidate: `anchor_quote · src range (from SRT) · category · confidence · why-cut · recommend`. Categories:
+- `self-deprecation` — puts either person in a negative light
+- `about-the-video` — discussing the recording/interview itself
+- `coaching-the-interviewer` — guest advising the host how to conduct himself
+- `logistics-timing` — "how much time do you have", scheduling, small talk
+- `reflexive-aside` — "I'm just spitballing", meta-reflection on the conversation
+- `personal-offtopic` — personal asides off the throughline
+- `fumble-restart` — false starts (mostly already handled by Stage 1)
+
+**(b) Most-valuable moments to KEEP — Pareto, ranked with reasoning.** The ~20% carrying the throughline; each with why-it-lands (spikes interest / advances the argument / quotable).
+
+**(c) Reorder proposal to spike interest — per-move reasoning + causal-dependency check.** Hook-first, tension→payoff. **Before proposing any move, scan each segment for backward references** ("as I said earlier", "the second reason", "going back to") — a segment with a live back-reference cannot move ahead of its referent; flag any reorder that would strand a reference. Part (c) is downstream of (a)+(b): if the founder edits the keep-set, re-derive order (second Opus spawn), don't ship a stale sequence.
+
+Each kept segment MAY get a `question_text` (the actual question, or a concise synthesized label) — or `beat: none` if spontaneous. The orchestrator writes the approved sheet into `interview.manifest.json` (assigns `id`s, `state`, `order`, `question_text`).
+
+### Stage 3 — Apply cuts + reorder  (`assets/assemble.sh`)
+```bash
+bash assets/assemble.sh --manifest <project>/interview.manifest.json \
+  --out <project>/reordered.mp4 --beats-out <project>/beats.tsv
+```
+Slices every `state==keep` segment, reassembles in `order`, cross-fades joins with the manifest's `xfade`, **writes `out_start/out_end` back into the manifest**, and emits `beats.tsv` (one row per kept segment with non-null `question_text`, fired at `out_start + xfade` so the card doesn't slide in over a dissolve). Re-encodes each slice to uniform params so xfade can chain. Aborts if any kept segment is shorter than `xfade`.
+
+**Baked base vs. correction layer (2026-07 windowed-reencode decision):** after assembling, this stage also probes the real keyframe list (`*_keyframes.txt`) and extracts a single continuous audio track (`*_audio.m4a`) as sibling artifacts. Stages 4 and 5 use these to re-encode only the small window around a correction (a wrong question card, a wrong intro offset) and stream-copy everything else, instead of re-encoding the whole multi-hour timeline for a cosmetic fix. **Invariant: Stage 3 re-runs only when segment boundaries change (`src_start`/`src_end`/`order`) — never for wording-only or brand-only corrections.** Audio is never stream-copy-cut at a video seam (AAC frames don't align to video keyframes — cutting audio there causes an audible click at every cut); it is extracted once and muxed once, at the very end of Stage 5. Missing sibling artifacts (older assemble.sh runs) are a valid state — Stages 4/5 fall back to a full-timeline re-encode, never a hard failure. This design went through two rounds of adversarial review before implementation (see `docs/decisions.md`) — every one of the first draft's safety claims was refuted with a concrete bug (audio clicks at every cut, a zero-margin snap that could crash ffmpeg, a rebase-before-snap ordering bug) before the fixes above were adopted; two more real bugs (an empty keyframe field, a stream-copy frame-count overshoot) were only caught by actually running the code, not by review — see `beat_planner.py`'s docstring.
+
+### Stage 4 — Question beats  (calls `/video-question-beats`)
+```bash
+bash <question-beats>/assets/beats.sh --in <project>/reordered.mp4 \
+  --out <project>/beated.mp4 --beats <project>/beats.tsv
+```
+Reads `beats.tsv` (derived from `out_start`/`question_text`) — never source timestamps. Sliding lower-thirds, audio level unchanged (never hard-cut; the 2026-07-14 duck removal is separate from the 2026-07 windowed-reencode work — audio was already passthrough before windowing, it just wasn't previously exempt from stream-copy cuts). Re-encodes only the windows around each beat when `assemble.sh`'s sibling keyframe/audio-master artifacts are present; falls back to a full-timeline re-encode otherwise.
+
+### Stage 5 — Branding  (calls `/video-brand-pass`)
+Intro card, corner logo, outro CTA. **Outro copy (verified against `outro.html`, corrected 2026-07-18 — the prior "2026-07-13 mission-layer" claim below was false, the file was never actually updated):** the outro shows the kicker "ClarityPledge", hook **"Keep the key hire you can't afford to lose."**, the stat "Replacing key hires costs 2x their annual salary" (Gallup 2019), and `claritypledge.com` — founder-confirmed as the copy to keep (2026-07-17), not the mission-layer/alignment-audit version. The outro append is a stream-copy container splice (concat demuxer, `-c copy`) since `seg_body.mp4` and `seg_outro.mp4` already share encode params — not a re-encode. Still confirm the current outro copy is what the founder wants before publishing, since brand voice is a founder decision.
+
+### Stage 6 — Ingest  (EDIT → PUBLISH boundary — mirrors /video-publish Stage 3)
+`$PROJ` is ephemeral (`mktemp -d`) — nothing in it survives past the session unless copied out. Before reporting done, copy the deliverable AND the transcript into the named library folder so `/youtube-upload` has what it needs:
+```bash
+SLUG="{descriptive-title}-{month-year}"
+mkdir -p ~/video-library/$SLUG
+cp $PROJ/final_branded*.mp4 ~/video-library/$SLUG/final.mp4
+cp $PROJ/*.srt              ~/video-library/$SLUG/transcript.srt
+```
+Then generate `transcript-readable.md` from the SRT (~20s-block grouping — see `/youtube-upload` Step 0c for the exact format) and write it alongside. Skipping this step is the exact "transcript lost" failure this skill exists to fix (see line 12) — it just moves from Stage 1 to the publish boundary.
+
+### Stage 7 — Verify + report
+Per-stage evidence; open the final; run the visual-QA pass (`.claude/rules/visual-qa.md`). Report what was verified vs. assumed, and confirm the ingest copy (Stage 6) landed.
+
+---
+
+## Verification (proven; re-run on real footage)
+
+- **Reorder + timeline (the B1 regression test):** on a manifest that reorders 3 segments, cuts 1, and marks 1 spontaneous — `assemble.sh` sliced in `order`, dropped the `meta-cut`, wrote `out_start/out_end` matching the hand-computed cross-fade timeline, and emitted a `beats.tsv` whose beat times = `out_start + xfade` with the null-question segment omitted. End-to-end, the reordered segment's beat displayed at its **new** timeline position (read `out_start`, not source time).
+- **Scratch isolation / transcript retention:** inherited from `/video-edit-talk` (its `mktemp -d` + orchestrated-mode SRT retention).
+- **Selection sheet:** run Stage 2 on the real transcript; confirm it flags the coaching + "how much time" logistics with high confidence, surfaces the Pareto keep-set, and proposes a reorder with reasoning — as an approval sheet, no auto-cut.
+
+---
+
+## Explicitly OUT of scope (flag, don't build)
+
+- **Two-camera angle sync + switching.** Real multicam work, deferred as its own skill. It is the *dominant* podcast-feel lever — so this skill is NOT "the fix for 'not a good podcast'." It fixes pipeline mechanics; genuine podcast quality still needs multicam.
+- **Deeper offer / PMF strategy.** The outro copy is a founder-confirmed brand decision (see Stage 5), not derived from this pipeline; the broader offer/positioning strategy is still a content/strategy call, not a pipeline fix.
+- **Full brand.sh windowing.** Stage 5's outro append is stream-copied, but the corner-logo bug and intro/tail cards still re-encode the whole file on first application (only Stage 4's question cards are fully window-localized so far). Deepening Stage 5 to stream-copy the untouched majority around the logo overlay is a follow-on, not yet built.

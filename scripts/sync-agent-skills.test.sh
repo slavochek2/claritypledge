@@ -109,12 +109,21 @@ assert_out "generate reports 2 skills" "generated 2 skills"
 run_sync "check immediately after generate is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
 assert_out "check reports 0 drift" "0 drift"
 
-RESOLVED_N=$(find -L "${WORK}/${OUT}" -name SKILL.md | wc -l | tr -d ' ')
+RESOLVED_N=$(find "${WORK}/${OUT}" -name SKILL.md -type f | wc -l | tr -d ' ')
 if [[ "$RESOLVED_N" == "2" ]]; then
-  echo "PASS  independent oracle: find -L resolves exactly 2 SKILL.md links (D2/D5 applied correctly)"
+  echo "PASS  independent oracle: exactly 2 regular SKILL.md files exist (D2/D5 applied correctly)"
   pass_count=$((pass_count + 1))
 else
-  echo "FAIL  independent oracle: find -L resolved ${RESOLVED_N} links, expected 2"
+  echo "FAIL  independent oracle: found ${RESOLVED_N} regular SKILL.md files, expected 2"
+  fail_count=$((fail_count + 1))
+fi
+
+if [[ ! -L "${WORK}/${OUT}/flat-skill/SKILL.md" ]] &&
+   cmp -s "${WORK}/${SRC}/flat-skill.md" "${WORK}/${OUT}/flat-skill/SKILL.md"; then
+  echo "PASS  projection artifact is a byte-identical regular file"
+  pass_count=$((pass_count + 1))
+else
+  echo "FAIL  projection artifact must be a byte-identical regular file, not a symlink"
   fail_count=$((fail_count + 1))
 fi
 
@@ -217,17 +226,65 @@ assert_out "case D2: alias resolved cleanly, no collision reported" "0 collision
 run_sync "check after alias-resolved generate is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
 assert_out "case D2: check confirms 0 drift post-resolution" "0 drift"
 
-LINK_TARGET=$(readlink "${WORK}/${OUT}/canonical-note/SKILL.md" 2>/dev/null || echo "MISSING")
-if [[ "$LINK_TARGET" == *"/${SRC}/canonical-note.md" ]]; then
-  echo "PASS  case D2: canonical (non-alias) source was linked, not the alias"
+if cmp -s "${WORK}/${SRC}/canonical-note.md" "${WORK}/${OUT}/canonical-note/SKILL.md"; then
+  echo "PASS  case D2: canonical (non-alias) source was projected, not the alias"
   pass_count=$((pass_count + 1))
 else
-  echo "FAIL  case D2: expected link to canonical-note.md, got: ${LINK_TARGET}"
+  echo "FAIL  case D2: generated file did not match canonical-note.md"
   fail_count=$((fail_count + 1))
 fi
 rm -f "${WORK}/${SRC}/canonical-note.md" "${WORK}/${SRC}/nested/canonical-note.md"
 rm -rf "${WORK}/${SRC}/canonicalbox"
 run_sync "regenerate to restore after case D2" 0 --src-dir "$SRC" --out-dir "$OUT"
+
+echo "--- case D3: unsafe traversal-like derived name hard-fails before projection ---"
+cat > "${WORK}/${SRC}/...md" <<'EOF'
+---
+name: ..
+description: unsafe fixture
+---
+EOF
+run_sync "generate with traversal-like name" 1 --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case D3: rejects unsafe name" "UNSAFE_NAME:.."
+rm -f "${WORK}/${SRC}/...md"
+run_sync "regenerate to restore after case D3" 0 --src-dir "$SRC" --out-dir "$OUT"
+
+# ══════════════════════════════════════════════════════════════════════════
+# CASE E — closed-world manifest rejects every unexpected top-level type and
+# every unexpected entry inside an expected skill directory.
+# ══════════════════════════════════════════════════════════════════════════
+echo "--- case E1: unexpected top-level regular file ---"
+printf 'fixture\n' > "${WORK}/${OUT}/unexpected-file"
+run_sync "check with an unexpected top-level file" 1 --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case E1: names unexpected top-level file" "DRIFT_UNEXPECTED_TOPLEVEL:unexpected-file:type=file"
+rm -f "${WORK}/${OUT}/unexpected-file"
+
+echo "--- case E2: unexpected top-level symlink ---"
+ln -s flat-skill "${WORK}/${OUT}/unexpected-link"
+run_sync "check with an unexpected top-level symlink" 1 --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case E2: names unexpected top-level symlink" "DRIFT_UNEXPECTED_TOPLEVEL:unexpected-link:type=symlink"
+rm -f "${WORK}/${OUT}/unexpected-link"
+
+echo "--- case E3: unexpected top-level directory ---"
+mkdir -p "${WORK}/${OUT}/unexpected-dir"
+run_sync "check with an unexpected top-level directory" 1 --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case E3: names unexpected top-level directory" "DRIFT_ORPHAN:unexpected-dir"
+rm -rf "${WORK}/${OUT}/unexpected-dir"
+
+echo "--- case E4: unexpected nested file ---"
+printf 'fixture\n' > "${WORK}/${OUT}/flat-skill/extra.txt"
+run_sync "check with an unexpected nested file" 1 --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case E4: names unexpected nested file" "DRIFT_UNEXPECTED_ENTRY:flat-skill/extra.txt:type=file"
+rm -f "${WORK}/${OUT}/flat-skill/extra.txt"
+
+echo "--- case E5: unexpected nested symlink ---"
+ln -s SKILL.md "${WORK}/${OUT}/flat-skill/extra-link"
+run_sync "check with an unexpected nested symlink" 1 --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case E5: names unexpected nested symlink" "DRIFT_UNEXPECTED_ENTRY:flat-skill/extra-link:type=symlink"
+rm -f "${WORK}/${OUT}/flat-skill/extra-link"
+
+run_sync "check after closed-world canaries is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case E: final check confirms 0 drift" "0 drift"
 
 echo ""
 echo "=== ${pass_count} passed, ${fail_count} failed ==="

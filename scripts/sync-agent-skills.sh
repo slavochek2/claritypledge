@@ -22,12 +22,16 @@
 #        the canonical source is linked.
 #   D5 — anything under an `archive/` path segment is excluded.
 #   D7 — projection unit is a DIRECTORY: .agents/skills/<name>/SKILL.md is a
-#        RELATIVE symlink back to the source file. A flat file symlink does
-#        not satisfy the Agent Skills convention this projects into.
+#        generated regular file, byte-identical to its canonical source.
+#        Codex's live catalog did not expose the earlier SKILL.md symlinks;
+#        regular files also survive consumers that do not preserve symlinks.
 #   D8 — a qualifying source's frontmatter `name:` field must equal the
 #        projected directory name. Mismatch is a HARD FAIL (source-of-truth
 #        defect, not drift) — fix the source's `name:` field, don't patch
 #        around it here.
+#   D9 — a derived name must be a safe single path component. `.` / `..` and
+#        names outside the lowercase Agent Skills subset hard-fail before any
+#        projection deletion can run.
 #
 # Usage:
 #   scripts/sync-agent-skills.sh                     regenerate .agents/skills/ in place
@@ -59,6 +63,13 @@ if [[ ! -d "$SRC_DIR" ]]; then
   echo "sync-agent-skills: source dir not found: $SRC_DIR" >&2
   exit 2
 fi
+
+case "${OUT_DIR%/}" in
+  ""|/|.|..|"$HOME"|"$PWD")
+    echo "sync-agent-skills: refusing unsafe output root: $OUT_DIR" >&2
+    exit 2
+    ;;
+esac
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/sync-agent-skills.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
@@ -98,33 +109,16 @@ derive_name() {
   fi
 }
 
-# relpath FROM_DIR TO_PATH — relative path from FROM_DIR to TO_PATH. Both
-# arguments are plain repo-relative (or cwd-relative) paths using '/' — no
-# symlink resolution, this operates on logical paths only. Pure bash, no
-# associative arrays (this repo's default /bin/bash is 3.2 — bash 4+ only).
-relpath() {
-  local from="${1%/}" to="$2"
-  local -a from_parts to_parts
-  IFS='/' read -ra from_parts <<< "$from"
-  IFS='/' read -ra to_parts <<< "$to"
-  local i=0 minlen=${#from_parts[@]}
-  [[ ${#to_parts[@]} -lt $minlen ]] && minlen=${#to_parts[@]}
-  while [[ $i -lt $minlen && "${from_parts[$i]}" == "${to_parts[$i]}" ]]; do
-    i=$((i + 1))
-  done
-  local up_count=$(( ${#from_parts[@]} - i ))
-  local result="" j=0
-  while [[ $j -lt $up_count ]]; do
-    result="${result}../"
-    j=$((j + 1))
-  done
-  local k=$i
-  while [[ $k -lt ${#to_parts[@]} ]]; do
-    result="${result}${to_parts[$k]}"
-    k=$((k + 1))
-    [[ $k -lt ${#to_parts[@]} ]] && result="${result}/"
-  done
-  echo "$result"
+path_type() {
+  if [[ -L "$1" ]]; then
+    echo "symlink"
+  elif [[ -f "$1" ]]; then
+    echo "file"
+  elif [[ -d "$1" ]]; then
+    echo "directory"
+  else
+    echo "other"
+  fi
 }
 
 # ─── step 1: scan sources, apply D2 (description) + D5 (exclude archive/) ──
@@ -137,6 +131,18 @@ while IFS= read -r f; do
   has_description "$f" || continue
   printf '%s\t%s\n' "$(derive_name "$f")" "$f" >> "$CANDIDATES"
 done < <(find "$SRC_DIR" -name '*.md' -not -path '*/archive/*' 2>/dev/null | sort -u)
+
+UNSAFE_NAMES="$WORK/unsafe-names.txt"
+: > "$UNSAFE_NAMES"
+while IFS=$'\t' read -r name path; do
+  [[ "$name" =~ ^[a-z0-9][a-z0-9._-]*$ ]] && [[ "$name" != "." ]] && [[ "$name" != ".." ]] && continue
+  echo "UNSAFE_NAME:${name}:file=${path}" >> "$UNSAFE_NAMES"
+done < "$CANDIDATES"
+if [[ -s "$UNSAFE_NAMES" ]]; then
+  echo "sync-agent-skills: unsafe projected name (D9) — hard fail:" >&2
+  cat "$UNSAFE_NAMES" >&2
+  exit 1
+fi
 
 # ─── step 2: resolve D4 collisions ─────────────────────────────────────────
 
@@ -207,27 +213,35 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
 
   while IFS=$'\t' read -r name path; do
     [[ -z "$name" ]] && continue
-    expected="$(relpath "${OUT_DIR}/${name}" "$path")"
-    skill_link="${OUT_DIR}/${name}/SKILL.md"
-    if [[ ! -d "${OUT_DIR}/${name}" ]]; then
+    skill_file="${OUT_DIR}/${name}/SKILL.md"
+    if [[ ! -d "${OUT_DIR}/${name}" || -L "${OUT_DIR}/${name}" ]]; then
       echo "DRIFT_MISSING_DIR:${name}" >> "$DRIFT"
-    elif [[ ! -L "$skill_link" ]]; then
-      echo "DRIFT_MISSING_LINK:${name}" >> "$DRIFT"
+    elif [[ ! -f "$skill_file" || -L "$skill_file" ]]; then
+      echo "DRIFT_MISSING_FILE:${name}" >> "$DRIFT"
+    elif ! cmp -s "$path" "$skill_file"; then
+      echo "DRIFT_CONTENT_MISMATCH:${name}" >> "$DRIFT"
     else
-      actual="$(readlink "$skill_link")"
-      if [[ "$actual" != "$expected" ]]; then
-        echo "DRIFT_TARGET_MISMATCH:${name}:expected=${expected}:actual=${actual}" >> "$DRIFT"
-      fi
+      while IFS= read -r nested; do
+        [[ "$nested" == "$skill_file" ]] && continue
+        relative="${nested#${OUT_DIR}/}"
+        echo "DRIFT_UNEXPECTED_ENTRY:${relative}:type=$(path_type "$nested")" >> "$DRIFT"
+      done < <(find "${OUT_DIR}/${name}" -mindepth 1 -print 2>/dev/null | sort)
     fi
   done < "$RESOLVED"
 
   if [[ -d "$OUT_DIR" ]]; then
-    while IFS= read -r existing_name; do
-      [[ -z "$existing_name" ]] && continue
+    while IFS= read -r existing_path; do
+      [[ -z "$existing_path" ]] && continue
+      existing_name="$(basename "$existing_path")"
       if ! grep -qF "$(printf '%s\t' "$existing_name")" "$RESOLVED"; then
-        echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT"
+        existing_type="$(path_type "$existing_path")"
+        if [[ "$existing_type" == "directory" ]]; then
+          echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT"
+        else
+          echo "DRIFT_UNEXPECTED_TOPLEVEL:${existing_name}:type=${existing_type}" >> "$DRIFT"
+        fi
       fi
-    done < <(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort)
+    done < <(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | sort)
   fi
 
   DRIFT_N=$(wc -l < "$DRIFT" | tr -d ' ')
@@ -249,22 +263,26 @@ mkdir -p "$OUT_DIR"
 while IFS=$'\t' read -r name path; do
   [[ -z "$name" ]] && continue
   target_dir="${OUT_DIR}/${name}"
+  if [[ -e "$target_dir" || -L "$target_dir" ]]; then
+    [[ -d "$target_dir" && ! -L "$target_dir" ]] || rm -rf "$target_dir"
+  fi
   mkdir -p "$target_dir"
-  expected="$(relpath "$target_dir" "$path")"
+  find "$target_dir" -mindepth 1 -maxdepth 1 ! -name SKILL.md -exec rm -rf {} +
   rm -f "${target_dir}/SKILL.md"
-  ln -s "$expected" "${target_dir}/SKILL.md"
+  cp "$path" "${target_dir}/SKILL.md"
 done < "$RESOLVED"
 
 PRUNED=0
 if [[ -d "$OUT_DIR" ]]; then
-  while IFS= read -r existing_name; do
-    [[ -z "$existing_name" ]] && continue
+  while IFS= read -r existing_path; do
+    [[ -z "$existing_path" ]] && continue
+    existing_name="$(basename "$existing_path")"
     if ! grep -qF "$(printf '%s\t' "$existing_name")" "$RESOLVED"; then
-      echo "sync-agent-skills: removing orphaned skill directory: ${existing_name}"
-      rm -rf "${OUT_DIR:?}/${existing_name}"
+      echo "sync-agent-skills: removing unexpected projection entry: ${existing_name}"
+      rm -rf "$existing_path"
       PRUNED=$((PRUNED + 1))
     fi
-  done < <(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort)
+  done < <(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print 2>/dev/null | sort)
 fi
 
 echo "sync-agent-skills: generated ${TOTAL} skills in ${OUT_DIR}/, 0 collisions, ${PRUNED} orphan(s) pruned"
