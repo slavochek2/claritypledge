@@ -2,7 +2,7 @@
 name: promote-groups
 description: "Post an event blurb into the mapped WhatsApp/Telegram group chats via Beeper"
 when_to_use: "After the event is published, to share into recurring group chats. Reads group mapping from .private/event-channels.json"
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Promote Event into Group Chats
@@ -224,7 +224,9 @@ Select the blurb for **this group's `lang`** (resolved in Step 3). Send it via B
 
 **c. Verify-by-content, not by timestamp:**
 
-After the send call returns, confirm the message actually landed by searching the chat's recent content for a distinctive substring of the sent text (not by checking that the chat's last-activity timestamp moved — one busy chat's timestamp moved from unrelated traffic while the send itself hadn't landed). If content search is unavailable or returns ambiguous results, fall back to `get_chat`'s last-activity field, but treat that fallback as weaker evidence and note it in the status write.
+After the send call returns, confirm the message actually landed by searching the chat's recent content for a distinctive substring of the sent text — not by checking that the chat's last-activity timestamp moved (one busy chat's timestamp moved from unrelated traffic while the send itself hadn't landed).
+
+**Which tool call to use:** this file does not hardcode a Beeper MCP tool name for content search — `ToolSearch` for the Beeper MCP's message/content-search tool at runtime (its exact name is not verified as of this writing; do not guess or invent one). If no content-search tool exists in the loaded Beeper MCP, content verification is unavailable — fall back to `get_chat`'s last-activity field, but treat that fallback as weaker evidence and note it explicitly in the status write (e.g. `"verify_method": "timestamp_fallback"`).
 
 **Never resend blind after a connection error.** If the send call itself errors (timeout, dropped connection), re-verify by content **before** retrying — the message may have landed despite the error. Only retry if content verification confirms it did NOT land. Retrying without this check risks a duplicate post to a live group.
 

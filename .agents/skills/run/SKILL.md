@@ -2,7 +2,7 @@
 name: run
 description: "One-command orchestrator over the existing event-lifecycle skills — create, assets, promote (platforms), promote (groups) — with one combined resume view. Modeled on /video-publish."
 when_to_use: "Running the full event pipeline end to end in one pass, or checking combined status/resume state across a past run. Individual stages stay independently invocable — use this only when you want the sequenced view."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # /slava:events:run
@@ -77,7 +77,13 @@ Two existing caches have an asymmetry that matters:
 
 ### 1. Resolve or start a run record
 
-If invoked with a slug and `~/.private/event-state/<slug>.run.json` exists, read it — this is a status/resume check, not a fresh kickoff. Otherwise this is a new run: proceed to Gate 1.
+If invoked with no slug (or a slug that has no run record), this is a new run: skip to step 2 (Gate 1).
+
+If invoked with a slug and `~/.private/event-state/<slug>.run.json` exists, read it and cross-reference its `stages_in_scope` against each in-scope stage's own state:
+
+- **Every in-scope stage has a completed result** (per its own cache — `promote-all.json` all `done`/`skipped`, `promote-groups.json` present with all groups `sent`/`skipped_declined` where `promote_groups` was in scope): this is a **completed run**. Go straight to step 9 (Combined status report) and stop — do not re-invoke any stage skill. This is what satisfies "invoked against a past completed event, reports all four stages done, attempts no re-promotion."
+- **At least one in-scope stage has no result yet, or an incomplete one**: this is a **resume**. Report which stage(s) are pending, then continue the stage sequence (steps 3–8) starting from the first pending stage — do not re-run a stage whose own cache already shows it complete, and never re-run Gate 1's creation choice (the event already exists). If the operator only wants the read-only view without resuming, say so up front and this behaves like the completed-run case above (report only, no invocation).
+- **What "asking for a status check" alone means:** if the operator's request is explicitly a status/resume check ("what's the state of `<slug>`?") rather than "finish promoting `<slug>`," always go to step 9 and report — never infer an intent to resume from a bare status question.
 
 ### 2. Gate 1 — Kickoff
 
@@ -115,11 +121,13 @@ Resolve **all** copy that either downstream stage will need, in one pass, before
 
 **What each stage still keeps, even when orchestrated:** `promote-all`'s per-platform browser stops (Gate 3) and `promote-groups`'s staleness check, transport probe, link-liveness check, and blast-radius group-count confirmation (Gate 4) all run unmodified. Only the *wording*-approval turns collapse into this one combined review — the safety checks that don't depend on wording (probe proving Beeper is live, staleness proving the text isn't stale, blast-radius proving the operator meant to send to N groups) are not wording approvals and are never suppressed.
 
-Count approval turns across a full run to confirm: exactly one combined *wording* review here, and neither `promote-all`'s step 3b stop nor `promote-groups`'s step 5 copy-display also fires.
+Count approval turns across a full run to confirm: exactly one combined *wording* review here, and none of `promote-all`'s step 3b stop, `promote-all`'s step 5 WhatsApp-blurb stop, or `promote-groups`'s step 5 copy-display also fires.
 
 ### 6. Stage: Promote platforms (if in scope)
 
 Invoke `slava:events:promote-all` with the slug and the approved platform blurb from Gate 2. `promote-all`'s own per-platform stops (Gate 3, inherited) run as that skill already implements them — this orchestrator adds no wrapper around them.
+
+**`promote-all`'s own step 5 (WhatsApp blurb suggestion) is skipped when `promote_groups` is also in scope for this run** — see the "invoked by the events orchestrator" branch added to `promote-all.md` step 5. That step exists in `promote-all` as a standalone fallback for operators who never run `promote-groups`; when this orchestrator's Stage 7 is about to run `promote-groups` anyway, `promote-all` step 5 asking for its own WhatsApp-blurb approval would be an extra, un-inherited approval turn re-covering ground Gate 2 already covered. If `promote_groups` was explicitly excluded from this run's scope, `promote-all` step 5 runs normally as the operator's only group-copy path for that run.
 
 On completion (all platforms `done` or `skipped`), update the run record.
 

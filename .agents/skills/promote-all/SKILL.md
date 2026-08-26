@@ -2,7 +2,7 @@
 name: promote-all
 description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, Eventbrite, and Social Layer in one pass"
 when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Promote Event to All Platforms
@@ -171,7 +171,9 @@ For each platform:
 
 ### 5. WhatsApp blurb (always last — after the full platform fan-out)
 
-Once all platforms are `done` or `skipped`:
+**If invoked by the events orchestrator (`slava:events:run`) with `promote_groups` in scope for this run:** skip this step entirely. The orchestrator's combined copy review (its Gate 2) already resolved and approved the group copy, and its own Stage 7 will invoke `slava:events:promote-groups` to actually post it — stopping here to approve a WhatsApp blurb the orchestrator already gathered would be an extra, un-inherited approval turn duplicating that same review. (If `promote_groups` was explicitly excluded from this run's scope at Gate 1, run this step as normal — the orchestrator made no promise to handle groups for that run.)
+
+**Otherwise (standalone invocation, or orchestrated with groups out of scope), once all platforms are `done` or `skipped`:**
 
 **If `series_doc` is set:**
 1. Read the `## WhatsApp blurb` section from the series doc (the fenced code block inside it).
