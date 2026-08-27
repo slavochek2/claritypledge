@@ -1,13 +1,13 @@
 ---
-name: points-select
-description: "Given a topic, select a pair of opposed single-speaker sources: propose credible people first, gate for founder approval, rank each person's solo videos by argument quality, run an isolated judge step to argue why the pair does not work, gate for pair approval, and write the sealed run file for /slava:content:points-prepare. Terminal output only; writes nothing to the product."
-when_to_use: "Start of the points pipeline. Run once per topic before /slava:content:points-prepare. Takes a topic string and a named room, selects and proves two opposing sources exist and meet Gate 0 single-speaker standards. The selector proves creation and extraction will succeed; it never creates accounts or writes to the database."
+name: select
+description: "Given a topic, select a pair of opposed single-speaker sources: propose credible people first, gate for founder approval, rank each person's solo videos by argument quality, run an isolated judge step to argue why the pair does not work, gate for pair approval, and write the sealed run file for /slava:disagreement:prepare. Terminal output only; writes nothing to the product."
+when_to_use: "Start of the points pipeline. Run once per topic before /slava:disagreement:prepare. Takes a topic string and a named room, selects and proves two opposing sources exist and meet Gate 0 single-speaker standards. The selector proves creation and extraction will succeed; it never creates accounts or writes to the database."
 version: 1.0.0
 ---
 
-# /points-select
+# /slava:disagreement:select
 
-**Announce at start:** "Running /points-select. Terminal output only — nothing is filed."
+**Announce at start:** "Running /slava:disagreement:select. Terminal output only — nothing is filed."
 
 Take a single topic string and a named room. Propose two credible people who argue opposite sides of the disagreement, find each person's solo videos, and produce an approved, evidenced, single-speaker source pair.
 
@@ -63,7 +63,7 @@ For each candidate:
 - Resolved **`subject_key`** (Wikidata entity URI, Wikipedia URL, or official personal site URL — preference order per `/slava:content:provision-agent`: Wikidata → Wikipedia → own site → minted slug. **Never a YouTube channel URL** — a channel identifies whoever *publishes*, not who speaks.)
 - Agent existence check: Query `agent_accounts` by exact `subject_key`.
   - **Name the environment out loud.** `subject_key` is UNIQUE **per database** — a test agent is not a prod agent — so "an agent already exists" is meaningless without saying in which database. Print the environment and the project ref it resolved to, exactly as `/slava:content:provision-agent` Step 1 does. Default the check to the environment the run will publish to; state which one was checked.
-  - **This check needs the service-role credential** — `agent_accounts` grants anon only `(profile_id, operator_name)`, not `subject_key`. There is no lesser credential that answers the question, so this skill holds a prod credential for a read-only lookup. **It reads; it never writes** — account creation stays in `/slava:content:provision-agent`, invoked by `/slava:content:points-publish`.
+  - **This check needs the service-role credential** — `agent_accounts` grants anon only `(profile_id, operator_name)`, not `subject_key`. There is no lesser credential that answers the question, so this skill holds a prod credential for a read-only lookup. **It reads; it never writes** — account creation stays in `/slava:content:provision-agent`, invoked by `/slava:disagreement:publish`.
 - **Portrait feasibility:** Verify a rights-cleared licensed portrait exists (Wikimedia Commons / press kit / subject-supplied). Licence line read, not assumed — `UNKNOWN LICENCE` is a stop at provisioning time.
   *(Founder Decision, 2026-08-25: candidates with no rights-cleared photo are rejected at Gate 1 for v1 — `/slava:content:provision-agent` has no initials-only branch, and an approval this gate stamps would die at the last step, reproducing the 2026-08-21 failure.)*
 
@@ -150,16 +150,16 @@ Upon Gate 2 approval:
      .private/points-runs/<slug>.md | shasum -a 256 | cut -d' ' -f1 \
      > .points-run-seals/<slug>.approvals.sha256
    ```
-3. Announce completion and hand off to `/slava:content:points-prepare`, which re-verifies this seal before extracting and STOPs on mismatch.
+3. Announce completion and hand off to `/slava:disagreement:prepare`, which re-verifies this seal before extracting and STOPs on mismatch.
 
 ---
 
 ## Non-Goals
 
 - **Do NOT batch topics.** One topic per run — the founder approves people and a pair per topic, and one dead topic must not stall the other nine. The Chiang Mai set of 5–10 topics is this skill run 5–10 times.
-- **Do NOT pair across languages for v1** (founder decision, 2026-08-25). English sources only. `/slava:content:points-prepare` Stage 1 hardcodes `--sub-langs "en.*"`, and pointing it at a non-English source makes YouTube serve the **auto-translated English track** — every downstream check then passes on the wrong artifact, and `/slava:content:points-publish` would file a machine translation as a named real person's verbatim quote. **Standing rule either way: a verbatim quote stays in its original language; any translation is marked as a translation, never presented as the speaker's words.**
+- **Do NOT pair across languages for v1** (founder decision, 2026-08-25). English sources only. `/slava:disagreement:prepare` Stage 1 hardcodes `--sub-langs "en.*"`, and pointing it at a non-English source makes YouTube serve the **auto-translated English track** — every downstream check then passes on the wrong artifact, and `/slava:disagreement:publish` would file a machine translation as a named real person's verbatim quote. **Standing rule either way: a verbatim quote stays in its original language; any translation is marked as a translation, never presented as the speaker's words.**
 - **Do NOT extract points.** It selects; the extractor extracts.
-- **Do NOT create agent accounts.** It proves creation will succeed; creation stays in `/slava:content:provision-agent`, invoked by `/slava:content:points-publish`.
+- **Do NOT create agent accounts.** It proves creation will succeed; creation stays in `/slava:content:provision-agent`, invoked by `/slava:disagreement:publish`.
 - **Do NOT rank primarily on views, trending status, or SEO metrics.** Reach is the axis being discounted.
 - **Do NOT write any comment author's name, handle or profile URL into any tracked file** — comments are quoted as evidence a position exists; their authors are private individuals.
 - **Do NOT purchase creator-SEO tooling** (vidIQ, TubeBuddy or equivalents) — keyword competition and tag optimisation do not find contested conversations.

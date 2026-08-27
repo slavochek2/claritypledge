@@ -1,15 +1,15 @@
 ---
-name: story-create
+name: story-draft
 description: "Draft one story per arguer per distinct experience: a machine account's reading of that person's argument, holding only that speaker's verbatim quotes with the source link in the video_url field. Enforces the P1141 voice rules, the 10,000-character limit, and (author_id, point_id) uniqueness at build time. Terminal output only; writes nothing to the product."
-when_to_use: "Stage 4 of the points pipeline. Run after /slava:content:positions-create has verified quotes and set positions. Carries the P1141 voice rules and attribution-basis labelling, and appends the Story Drafts section to the run file."
+when_to_use: "Stage 4 of the points pipeline. Run after /slava:disagreement:positions has verified quotes and set positions. Carries the P1141 voice rules and attribution-basis labelling, and appends the Story Drafts section to the run file."
 version: 1.0.0
 ---
 
-# /story-create
+# /slava:disagreement:story-draft
 
-**Announce at start:** "Running /story-create. Terminal output only — nothing is filed."
+**Announce at start:** "Running /slava:disagreement:story-draft. Terminal output only — nothing is filed."
 
-Draft the machine-reading story for each arguer — the craft surface of the pipeline, iterated often, deliberately separated from the point-extraction rule engine in `/slava:content:points-prepare`.
+Draft the machine-reading story for each arguer — the craft surface of the pipeline, iterated often, deliberately separated from the point-extraction rule engine in `/slava:disagreement:prepare`.
 
 > **Pipeline Contract & Schema:** The complete pipeline architecture, run-file schema, and stage contracts live in [`docs/points-process.md`](../../../../docs/points-process.md). Read it there; **do not restate the schema here.**
 
@@ -41,7 +41,7 @@ Stated here in full rather than inherited from a sibling skill: a safety propert
 
 ## Voice — a machine writing about a person (P1141)
 
-**This skill is the ONE place these rules live.** They are drafted narrative content, and this is where narrative content is drafted — `/slava:content:points-publish` explicitly disclaims authorship and only enforces mechanical string checks at filing time. Do not add a second copy of anything below to any other skill.
+**This skill is the ONE place these rules live.** They are drafted narrative content, and this is where narrative content is drafted — `/slava:disagreement:publish` explicitly disclaims authorship and only enforces mechanical string checks at filing time. Do not add a second copy of anything below to any other skill.
 
 Story text is a machine account writing **about** a named person, never a familiar narrator.
 
@@ -64,7 +64,7 @@ duration_seconds: <integer>
 
 **Not the channel URL, not an embed URL, not a bare id.** The filer stores this one string and every surface re-derives the player, the thumbnail and the open-at-timestamp link from it.
 
-- Quotes carry their `seconds:` (resolved by `/slava:content:positions-create` from the raw `.vtt`) and their attribution-basis label (`single-speaker` / `speaker-labelled` / `turn-inferred`). The filer assembles these into the `video_quotes` field — this skill ensures every quote in the story text is one of the run file's verified quotes, so the two never diverge.
+- Quotes carry their `seconds:` (resolved by `/slava:disagreement:positions` from the raw `.vtt`) and their attribution-basis label (`single-speaker` / `speaker-labelled` / `turn-inferred`). The filer assembles these into the `video_quotes` field — this skill ensures every quote in the story text is one of the run file's verified quotes, so the two never diverge.
 
 ## Build-time limits
 
@@ -77,7 +77,7 @@ duration_seconds: <integer>
 
 Append `## Story Drafts` to `.private/points-runs/<slug>.md` conforming to `docs/points-process.md`.
 
-Hand off to `/slava:content:points-publish` (dry-run first, TEST before PROD).
+Hand off to `/slava:disagreement:publish` (dry-run first, TEST before PROD).
 
 ---
 

@@ -49,21 +49,21 @@ These restate part of the model rather than pointing at it. They are the rot sur
 
 ## Consumers that point at the model doc
 
-`docs/CHARTER.md` · `docs/definitions.md` · `.claude/commands/slava/content/points-select.md` · `.claude/commands/slava/content/points-prepare.md` · `.claude/commands/slava/content/positions-create.md` · `.claude/commands/slava/content/story-create.md` · `.claude/commands/slava/content/sifter-definitions.md` · `.claude/commands/slava/content/sifter-point.md` · `.claude/commands/slava/content/sifter-story.md` · `.claude/commands/slava/think/align.md` · `.claude/commands/slava/think/align-detect.md` · `.claude/commands/slava/think/align-decompose.md` · `.claude/commands/slava/think/align-create-letter.md` · `features/p1012_reverse_story_sender_paraphrase.md` · `features/p1030_reverse_story_and_align_pipeline.md` · `features/uat/p1030.md`
+`docs/CHARTER.md` · `docs/definitions.md` · `.claude/commands/slava/disagreement/select.md` · `.claude/commands/slava/disagreement/prepare.md` · `.claude/commands/slava/disagreement/positions.md` · `.claude/commands/slava/disagreement/story-draft.md` · `.claude/commands/slava/content/sifter-definitions.md` · `.claude/commands/slava/content/sifter-point.md` · `.claude/commands/slava/content/sifter-story.md` · `.claude/commands/slava/think/align.md` · `.claude/commands/slava/think/align-detect.md` · `.claude/commands/slava/think/align-decompose.md` · `.claude/commands/slava/think/align-create-letter.md` · `features/p1012_reverse_story_sender_paraphrase.md` · `features/p1030_reverse_story_and_align_pipeline.md` · `features/uat/p1030.md`
 
 > **Two self-hits the check returns and cannot register:** `story-point-model.md` and this file. Pre-existing; treat them as expected output, not as gaps.
 
 ### Unregistered claims awaiting a home in the model doc (added 2026-08-18)
 
-`points-prepare` points at the model doc and copies nothing from it — but it **introduces model-level concepts the model doc does not contain**, which is a third category this register had no row for. Not drift; a gap in the model:
+`disagreement:prepare` points at the model doc and copies nothing from it — but it **introduces model-level concepts the model doc does not contain**, which is a third category this register had no row for. Not drift; a gap in the model:
 
 | Concept | Where it lives now | Belongs in the model because |
 |---|---|---|
-| **The synthesized point** — a claim neither speaker made, built so each speaker's own quotes commit them to opposite ends | `points-prepare` §4a | It is a *kind of point*, not extraction craft |
-| **A position held by an agent** — what it means for a non-human to hold one, and what a reader must understand by it | `positions-create`, `features/p1104_*.md` | The model defines who may hold a position; agents are not in it |
-| **A story as evidence for a position** rather than as its author's lived experience | `story-create` | The model's Story is first-person experience; a quote bundle is a different object wearing the same name |
+| **The synthesized point** — a claim neither speaker made, built so each speaker's own quotes commit them to opposite ends | `disagreement:prepare` §4a | It is a *kind of point*, not extraction craft |
+| **A position held by an agent** — what it means for a non-human to hold one, and what a reader must understand by it | `disagreement:positions`, `features/p1104_*.md` | The model defines who may hold a position; agents are not in it |
+| **A story as evidence for a position** rather than as its author's lived experience | `disagreement:story-draft` | The model's Story is first-person experience; a quote bundle is a different object wearing the same name |
 
-**Three model rulings still live in skill files rather than in the model** — split across `points-prepare` §4a, `positions-create` and `story-create` since the P1156 restructure moved two of them out of `points-prepare` (§6 → `positions-create`, §8 → `story-create`). The register tracks them wherever they live — the exact rot it exists to catch is the ruling drifting away from the model, not which skill file holds it today.
+**Three model rulings still live in skill files rather than in the model** — split across `disagreement:prepare` §4a, `disagreement:positions` and `disagreement:story-draft` since the P1156 restructure moved two of them out of `disagreement:prepare` (§6 → `disagreement:positions`, §8 → `disagreement:story-draft`). The register tracks them wherever they live — the exact rot it exists to catch is the ruling drifting away from the model, not which skill file holds it today.
 
 ### Register drift — the integrity check below currently fails
 

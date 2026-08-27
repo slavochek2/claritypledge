@@ -69,7 +69,7 @@ const SCAN_DIRS = ['docs', 'features', '.claude', 'content'];
 const SCAN_ROOT_FILES = ['CLAUDE.md', 'README.md'];
 
 // Directories never scanned (vendored or generated markdown).
-const SKIP_DIR_RE = /(^|\/)(node_modules|\.git|dist|build|coverage)(\/|$)/;
+const SKIP_DIR_RE = /(^|\/)(node_modules|\.git|dist|build|coverage|\.agents)(\/|$)/;
 
 if (SHOW_HELP) {
   console.log(`

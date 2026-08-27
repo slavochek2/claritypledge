@@ -1,7 +1,7 @@
 ---
 name: provision-agent
 description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, uploads it to the agent-avatars storage bucket, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Records the subject_key for the pipeline that will file under it."
-when_to_use: "Before /slava:content:points-publish can file anything for a speaker who has never been covered, and whenever an existing agent's avatar must be regenerated. Run it once per environment — test and prod are separate databases and an agent in one is not an agent in the other. This is the ONLY skill that creates an agent account. May be invoked inline by /slava:content:points-publish at its halt point (P1135 decision (c)) — the gate below runs unmodified either way."
+when_to_use: "Before /slava:disagreement:publish can file anything for a speaker who has never been covered, and whenever an existing agent's avatar must be regenerated. Run it once per environment — test and prod are separate databases and an agent in one is not an agent in the other. This is the ONLY skill that creates an agent account. May be invoked inline by /slava:disagreement:publish at its halt point (P1135 decision (c)) — the gate below runs unmodified either way."
 version: 0.2.1
 ---
 
@@ -59,7 +59,7 @@ It gates the result at 20/40/96px and runs a similarity check against the source
 
 `/slava:content:gen-agent-avatar` Step 4 emits a 512px square PNG at a scratch path and hands it to this skill. Upload it to the **`agent-avatars`** storage bucket (P1135), object key `<subject-slug>/<uuid>.png`, `upsert: false`.
 
-**Credential and ref pair, by environment** (same variable-name discipline as `/slava:content:points-publish`'s environment table — never merge the two files):
+**Credential and ref pair, by environment** (same variable-name discipline as `/slava:disagreement:publish`'s environment table — never merge the two files):
 
 | Target | URL from | Service key from |
 |---|---|---|
@@ -207,7 +207,7 @@ Append one line on **every** exit to `.private/logs/points-runs.log`:
 
 ## What this is NOT
 
-- **Not a filer.** It writes no stories, points or positions. That is `/slava:content:points-publish`.
+- **Not a filer.** It writes no stories, points or positions. That is `/slava:disagreement:publish`.
 - **Not an avatar generator.** It invokes `/slava:content:gen-agent-avatar`; the frozen prompt lives there.
 - **Not batch.** One subject per run. The operator confirming each one is the only bound on how many public accounts this pipeline can create.
 - **Not cross-environment.** Provisioning on test does nothing for prod.
@@ -215,9 +215,9 @@ Append one line on **every** exit to `.private/logs/points-runs.log`:
 ## Related
 
 - `/slava:content:gen-agent-avatar` — the mandatory avatar step.
-- `/slava:content:points-publish` — the filer that requires what this creates.
-- `/slava:content:points-select` — resolves the `subject_key` for each person at Gate 1, before any agent is needed; the selector proves creation will succeed, it never creates.
-- `/slava:content:points-prepare` → `positions-create` → `story-create` — the extraction chain that produces the material (contract: `docs/points-process.md`).
+- `/slava:disagreement:publish` — the filer that requires what this creates.
+- `/slava:disagreement:select` — resolves the `subject_key` for each person at Gate 1, before any agent is needed; the selector proves creation will succeed, it never creates.
+- `/slava:disagreement:prepare` → `disagreement:positions` → `disagreement:story-draft` — the extraction chain that produces the material (contract: `docs/points-process.md`).
 - `supabase/migrations/*p1104*.sql` — **seven** files, read as a set; the RPC lives in `20260819160000`, not the first one.
 - `e2e/helpers/test-agent-account.ts` — the reference implementation for mint-then-register.
 - `supabase/migrations/*p1135*.sql` — the `agent-avatars` bucket this skill uploads to.

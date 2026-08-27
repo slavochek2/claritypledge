@@ -15,7 +15,7 @@ The points pipeline turns public video into a published disagreement a room can 
       │
       ▼
 ┌────────────────────────────────────────────────────────┐
-│ 1. /slava:content:points-select                         │
+│ 1. /slava:disagreement:select                         │
 │    • Propose opposing PEOPLE (credibility & influence) │
 │    • [GATE 1: Founder approves people]                 │
 │    • Find SOLO videos (Gate 0 filter), rank candidates │
@@ -26,7 +26,7 @@ The points pipeline turns public video into a published disagreement a room can 
       │
       ▼ (reads Run File & raw .vtt)
 ┌────────────────────────────────────────────────────────┐
-│ 2. /slava:content:points-prepare                       │
+│ 2. /slava:disagreement:prepare                       │
 │    • Stage 1 Acquire & provenance                      │
 │    • Stage 2 Read & attribute                          │
 │    • Stage 3 Load-bearing filter                       │
@@ -38,7 +38,7 @@ The points pipeline turns public video into a published disagreement a room can 
       │
       ▼ (reads Run File & transcripts)
 ┌────────────────────────────────────────────────────────┐
-│ 3. /slava:content:positions-create                     │
+│ 3. /slava:disagreement:positions                     │
 │    • Select verbatim quotes per point per arguer       │
 │    • Verify quotes (grep -F against clean transcript)  │
 │    • Resolve exact seconds: from RAW .vtt              │
@@ -48,7 +48,7 @@ The points pipeline turns public video into a published disagreement a room can 
       │
       ▼ (reads Run File)
 ┌────────────────────────────────────────────────────────┐
-│ 4. /slava:content:story-create                         │
+│ 4. /slava:disagreement:story-draft                         │
 │    • Draft 1 story per distinct experience per author  │
 │    • Apply P1141 machine-reading voice rules           │
 │    • Enforce 10,000 char limit                         │
@@ -58,7 +58,7 @@ The points pipeline turns public video into a published disagreement a room can 
       │
       ▼ (reads Run File)
 ┌────────────────────────────────────────────────────────┐
-│ 5. /slava:content:points-publish                       │
+│ 5. /slava:disagreement:publish                       │
 │    • Review dry-run payload                            │
 │    • TEST publish → Review rendered test feed          │
 │    • PROD publish → Returns public tag feed URL        │
@@ -69,7 +69,7 @@ The points pipeline turns public video into a published disagreement a room can 
 
 ## 2. Each Step in Plain English
 
-### Step 1: `/slava:content:points-select`
+### Step 1: `/slava:disagreement:select`
 - **Goal:** Find two credible, influential people with opposing stances on a topic, and identify single-speaker solo videos where each makes their case.
 - **Gates:**
   - **Gate 1:** Founder approves the two people. Identity key resolved, agent existence checked, portrait feasibility verified (licensed photo required for v1).
@@ -77,21 +77,21 @@ The points pipeline turns public video into a published disagreement a room can 
   - **Gate 2:** Founder approves the selected video pair. Evaluates candidate statistics, argument quality, claim match, and judge-step dissent.
 - **Writes:** The run file header, topic, room, approved people/sources, and Gate 1/Gate 2 approvals block. Seals the approvals block to `.points-run-seals/<slug>.approvals.sha256`.
 
-### Step 2: `/slava:content:points-prepare`
+### Step 2: `/slava:disagreement:prepare`
 - **Goal:** Extract synthesized points and record a sealed prediction of how the room will split.
 - **Logic Engine:** Stages 1–5 (Acquire, Read, Load-bearing filter, Point synthesis, Opposing camp) and Stage 7 (Sealed prediction).
 - **Integrity:** The prediction pass receives ONLY the statement, opposing material, and the room. It never sees agent positions or candidate discards.
-- **Seal:** Stage 7 seals the named `### Prediction Block` — statements, room, predictions, bases; only what the predicting pass is allowed to see — to `.points-run-seals/<slug>.sha256`. **Never the whole file:** `positions-create` and `story-create` append after this seal, and any later write would break a whole-file hash. On a re-run, prepare reads the ORIGINAL sources, never a run file already carrying positions.
+- **Seal:** Stage 7 seals the named `### Prediction Block` — statements, room, predictions, bases; only what the predicting pass is allowed to see — to `.points-run-seals/<slug>.sha256`. **Never the whole file:** `disagreement:positions` and `disagreement:story-draft` append after this seal, and any later write would break a whole-file hash. On a re-run, prepare reads the ORIGINAL sources, never a run file already carrying positions.
 - **Writes:** Appends `## Points & Predictions` section to the run file.
 
-### Step 3: `/slava:content:positions-create`
+### Step 3: `/slava:disagreement:positions`
 - **Goal:** Ground each arguer's position in verified quotes and resolve accurate timecodes.
 - **Ordering:** Quotes first, then position.
 - **Verification:** `grep -F` against the cleaned transcript (exit codes pasted). Timecode `seconds:` resolved strictly from the RAW `.vtt` file in `~/.local/share/yt-store/`.
 - **Inference Strength:** Sets `close`, `derived`, or `stretch` label per position.
 - **Writes:** Appends `## Quotes & Positions` section to the run file.
 
-### Step 4: `/slava:content:story-create`
+### Step 4: `/slava:disagreement:story-draft`
 - **Goal:** Author the narrative machine-reading story for each arguer.
 - **Constraints:**
   - One story per distinct experience.
@@ -100,7 +100,7 @@ The points pipeline turns public video into a published disagreement a room can 
   - P1141 voice rules: Full name/surname only (no bare pronouns), no position imputation, exact section header `Supporting quotes from {Full Name}`, no trailing `Source:` line.
 - **Writes:** Appends `## Story Drafts` section to the run file.
 
-### Step 5: `/slava:content:points-publish`
+### Step 5: `/slava:disagreement:publish`
 - **Goal:** File the complete disagreement to Postgres atomically via the Management API.
 - **Behavior:** Verified unchanged. Validates agent accounts, builds request envelope, runs dry-run, awaits founder confirmation, verifies read-back. Its hard precondition on the prediction seal checks exactly `.points-run-seals/<slug>.sha256`.
 
@@ -112,9 +112,9 @@ The points pipeline turns public video into a published disagreement a room can 
 1. **Run File (Mutable progressive artifact, gitignored):**
    `.private/points-runs/<slug>.md`
 2. **Tracked Seals Directory (Public repo, commit timestamped):**
-   - `.points-run-seals/<slug>.approvals.sha256` — Hash of the approvals block, sealed by `points-select` at Gate 2.
-   - `.points-run-seals/<slug>.transcripts.sha256` — Hash of raw/clean transcripts and `vtt-clean` version, sealed by `points-prepare` Stage 1.
-   - `.points-run-seals/<slug>.sha256` — Hash of the named prediction block, sealed by `points-prepare` Stage 7. **This filename is fixed** — `/slava:content:points-publish`'s precondition checks exactly this path.
+   - `.points-run-seals/<slug>.approvals.sha256` — Hash of the approvals block, sealed by `disagreement:select` at Gate 2.
+   - `.points-run-seals/<slug>.transcripts.sha256` — Hash of raw/clean transcripts and `vtt-clean` version, sealed by `disagreement:prepare` Stage 1.
+   - `.points-run-seals/<slug>.sha256` — Hash of the named prediction block, sealed by `disagreement:prepare` Stage 7. **This filename is fixed** — `/slava:disagreement:publish`'s precondition checks exactly this path.
 
 ### Sealed blocks carry literal end-markers
 
@@ -132,10 +132,10 @@ awk '/^### Approvals Block/{f=1} f{print} f && /end-approvals-block/{exit}' \
 
 ### Single Writer Rule per Section
 Each section has exactly one owner skill. Downstream skills verify upstream seals and append to their own named section without mutating previous sections:
-- `## Header & Approvals` ➔ Owned by `points-select`
-- `## Points & Predictions` ➔ Owned by `points-prepare`
-- `## Quotes & Positions` ➔ Owned by `positions-create`
-- `## Story Drafts` ➔ Owned by `story-create`
+- `## Header & Approvals` ➔ Owned by `disagreement:select`
+- `## Points & Predictions` ➔ Owned by `disagreement:prepare`
+- `## Quotes & Positions` ➔ Owned by `disagreement:positions`
+- `## Story Drafts` ➔ Owned by `disagreement:story-draft`
 
 ### Schema Format (`.private/points-runs/<slug>.md`)
 
@@ -203,7 +203,7 @@ P2: "<statement>" | predicted agreement: <int>% | basis — …
 <!-- end-prediction-block -->
 
 ## Quotes & Positions
-Line-oriented emitting shape — `/slava:content:points-publish` was built to read exactly these lines:
+Line-oriented emitting shape — `/slava:disagreement:publish` was built to read exactly these lines:
 
 ### Side A: <Full Name A>
 arguer: <Display Name A> | subject_key: <canonical person reference> | source: <URL>
@@ -262,4 +262,4 @@ content: |
 7. **Character & Constraint Safety:**
    `stories.content <= 10000` chars; `(author_id, point_id)` unique across emitted story points.
 8. **Seal Re-verification:**
-   Every downstream skill (`points-prepare`, `positions-create`, `story-create`, `points-publish`) re-extracts the approvals block, re-hashes it, and compares against `.points-run-seals/<slug>.approvals.sha256` before acting on the run file. A mismatch is a STOP, never a re-seal.
+   Every downstream skill (`disagreement:prepare`, `disagreement:positions`, `disagreement:story-draft`, `disagreement:publish`) re-extracts the approvals block, re-hashes it, and compares against `.points-run-seals/<slug>.approvals.sha256` before acting on the run file. A mismatch is a STOP, never a re-seal.

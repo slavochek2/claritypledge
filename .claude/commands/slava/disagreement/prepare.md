@@ -1,13 +1,13 @@
 ---
-name: points-prepare
-description: "Read one or more sources — an opposed PAIR selected by /slava:content:points-select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:content:positions-create and /slava:content:story-create."
-when_to_use: "Stage 2 of the points pipeline, after /slava:content:points-select has approved a source pair. When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
+name: prepare
+description: "Read one or more sources — an opposed PAIR selected by /slava:disagreement:select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:disagreement:positions and /slava:disagreement:story-draft."
+when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select has approved a source pair. When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
 version: 0.7.0
 ---
 
-# /points-prepare
+# /slava:disagreement:prepare
 
-**Announce at start:** "Running /points-prepare. Terminal output only — nothing is filed."
+**Announce at start:** "Running /slava:disagreement:prepare. Terminal output only — nothing is filed."
 
 Take one or more conversations. Produce claims that would split a **specific room**, each evidenced by what real people actually said.
 
@@ -21,12 +21,12 @@ Take one or more conversations. Produce claims that would split a **specific roo
 
 | Input | Notes |
 |---|---|
-| **Run file** | `.private/points-runs/<slug>.md` from `/slava:content:points-select` — carries the approved opposed pair, the room, the identity keys and the sealed approvals. **Re-verify the approvals seal before extracting**: re-extract the `### Approvals Block` (through `<!-- end-approvals-block -->`), re-hash it, compare against `.points-run-seals/<slug>.approvals.sha256` — **a mismatch is a STOP** (see `docs/points-process.md`). Sources may also be supplied directly (URLs, transcript paths, pasted text) for a manual run without the selector — in that case this skill writes the run file header itself. |
+| **Run file** | `.private/points-runs/<slug>.md` from `/slava:disagreement:select` — carries the approved opposed pair, the room, the identity keys and the sealed approvals. **Re-verify the approvals seal before extracting**: re-extract the `### Approvals Block` (through `<!-- end-approvals-block -->`), re-hash it, compare against `.points-run-seals/<slug>.approvals.sha256` — **a mismatch is a STOP** (see `docs/points-process.md`). Sources may also be supplied directly (URLs, transcript paths, pasted text) for a manual run without the selector — in that case this skill writes the run file header itself. |
 | **The room** | Who these points will be shown to, in plain terms — "seed-stage founders at a Berlin event", "two cofounders of a 4-person SaaS". With a selector run file the room is read from it, still printed back. |
 
 > **Refuse to proceed without the room, and never invent one.** Which claims survive the load-bearing filter, and every predicted percentage, are relative to a named audience. **Print the room back before extracting** and treat silence as refusal — a 2026-08-17 run asserted its own room and every number downstream inherited an unchecked assumption.
 
-> **On a re-run, read the ORIGINAL sources, never a run file already carrying positions.** If `/slava:content:positions-create` has already written its section, its positions would leak into the sealed prediction pass and destroy the isolation Stage 7 exists to guarantee. Re-derive from the video URLs; the transcript cache makes the re-read free.
+> **On a re-run, read the ORIGINAL sources, never a run file already carrying positions.** If `/slava:disagreement:positions` has already written its section, its positions would leak into the sealed prediction pass and destroy the isolation Stage 7 exists to guarantee. Re-derive from the video URLs; the transcript cache makes the re-read free.
 
 ---
 
@@ -187,9 +187,9 @@ When a private-source run must also travel, emit **two forms** — one sharp for
 
 **Never impute a position to a named person.** You may quote what someone wrote or said and reason about what it commits them to, with the chain shown. You may not state what they believe, would answer, or would vote. **Never file the opposing view as a Story.**
 
-## Stage 6 — moved to `/slava:content:positions-create` (P1156, 2026-08-25)
+## Stage 6 — moved to `/slava:disagreement:positions` (P1156, 2026-08-25)
 
-Agent positions, the inference-strength labels (`close` / `derived` / `stretch`), the agent-split-is-a-hypothesis warning and the cross-camp split rule moved **intact** to `/slava:content:positions-create`, which selects quotes FIRST and sets each position to what the quotes actually support — fixing the ordering flaw where the position was set here before the quotes justifying it were chosen. Provisional positions (`±n`) still appear in this skill's Stage 4 inference chains; `/slava:content:positions-create` verifies or flips them against the evidence.
+Agent positions, the inference-strength labels (`close` / `derived` / `stretch`), the agent-split-is-a-hypothesis warning and the cross-camp split rule moved **intact** to `/slava:disagreement:positions`, which selects quotes FIRST and sets each position to what the quotes actually support — fixing the ordering flaw where the position was set here before the quotes justifying it were chosen. Provisional positions (`±n`) still appear in this skill's Stage 4 inference chains; `/slava:disagreement:positions` verifies or flips them against the evidence.
 
 ## Stage 7 — The predicted split, sealed
 
@@ -221,7 +221,7 @@ Never merge a strong half and a weak half into one confident number.
 >
 > Without that commit, say in the output that the prediction is **unsealed** — self-reported ordering, not evidence. Every prediction made before 2026-08-17 is unsealed by this standard, including both runs on record.
 
-> **The seal is over a NAMED BLOCK, never over the whole run file.** *(Changed 2026-08-25, P1156 — the one deliberate rule change in this stage; everything else moved intact.)* The run file is progressively written by four skills: `/slava:content:positions-create` and `/slava:content:story-create` append AFTER this seal is taken, and any later write would change a whole-file hash — the seal would not fail loudly, it would silently stop matching. The named block contains only what the predicting pass is allowed to see: statements, room, predictions, bases. **Never the inference chains with position values, never the agent positions** — Stage 7's isolation guarantee would be sealed alongside its own violation. Every downstream skill re-extracts this block, re-verifies the seal, and STOPs on mismatch.
+> **The seal is over a NAMED BLOCK, never over the whole run file.** *(Changed 2026-08-25, P1156 — the one deliberate rule change in this stage; everything else moved intact.)* The run file is progressively written by four skills: `/slava:disagreement:positions` and `/slava:disagreement:story-draft` append AFTER this seal is taken, and any later write would change a whole-file hash — the seal would not fail loudly, it would silently stop matching. The named block contains only what the predicting pass is allowed to see: statements, room, predictions, bases. **Never the inference chains with position values, never the agent positions** — Stage 7's isolation guarantee would be sealed alongside its own violation. Every downstream skill re-extracts this block, re-verifies the seal, and STOPs on mismatch.
 
 > **Per-run file only.** No index, no cross-run query, nothing reading across `.private/points-runs/` — that is the persistent decision store frozen by `docs/decisions.md` 2026-07-14 [product].
 >
@@ -229,7 +229,7 @@ Never merge a strong half and a weak half into one confident number.
 
 ## Stage 8 — moved (P1156, 2026-08-25)
 
-Story drafting, the P1141 voice rules, the per-quote timecode resolution and the attribution-basis labelling moved **intact** to `/slava:content:story-create` (story drafts, voice rules, build-time limits) and `/slava:content:positions-create` (quote selection, `seconds:` from the raw `.vtt`, attribution-basis labels). The **subject key per arguer** moved UPSTREAM to `/slava:content:points-select`, which resolves identity at Gate 1 where each person is first named and approved — implementing the 2026-08-21 ruling that rights clearance is a selection criterion, not a provisioning detail. `video_url:` and `duration_seconds:` per arguer are now emitted by `/slava:content:positions-create`.
+Story drafting, the P1141 voice rules, the per-quote timecode resolution and the attribution-basis labelling moved **intact** to `/slava:disagreement:story-draft` (story drafts, voice rules, build-time limits) and `/slava:disagreement:positions` (quote selection, `seconds:` from the raw `.vtt`, attribution-basis labels). The **subject key per arguer** moved UPSTREAM to `/slava:disagreement:select`, which resolves identity at Gate 1 where each person is first named and approved — implementing the 2026-08-21 ruling that rights clearance is a selection criterion, not a provisioning detail. `video_url:` and `duration_seconds:` per arguer are now emitted by `/slava:disagreement:positions`.
 
 ---
 
@@ -250,7 +250,7 @@ Pn — Predicted agreement: NN%
   Disagree commits you to:  <consequence>
 ```
 
-The `±n` in each chain is the **provisional** position the synthesis rests on; `/slava:content:positions-create` verifies or flips it against the quotes, and assigns the inference-strength label (`close` / `derived` / `stretch`) — that axis and its rules live there now.
+The `±n` in each chain is the **provisional** position the synthesis rests on; `/slava:disagreement:positions` verifies or flips it against the quotes, and assigns the inference-strength label (`close` / `derived` / `stretch`) — that axis and its rules live there now.
 
 Close with: how much was read, audience sizes, the origin tally, how many candidates were dropped and why, and every quote that could not be attributed.
 
@@ -270,11 +270,11 @@ Close with: how much was read, audience sizes, the origin tally, how many candid
 ## The chain this skill sits in (P1156)
 
 ```
-/slava:content:points-select  → selects the opposed pair, resolves identity, seals approvals
+/slava:disagreement:select  → selects the opposed pair, resolves identity, seals approvals
 THIS SKILL                    → extracts points, seals the prediction
-/slava:content:positions-create → verifies quotes, resolves timecodes, sets positions
-/slava:content:story-create   → drafts the machine-reading stories
-/slava:content:points-publish → files to the product (the only writer)
+/slava:disagreement:positions → verifies quotes, resolves timecodes, sets positions
+/slava:disagreement:story-draft   → drafts the machine-reading stories
+/slava:disagreement:publish → files to the product (the only writer)
 ```
 
 The stage contracts, the run-file schema and the seal rules live in one place: [`docs/points-process.md`](../../../../docs/points-process.md). This skill still writes nothing to the product. (The old "argument density falls as reach rises" conjecture that lived in this section was retired unused — P1156, D7.)

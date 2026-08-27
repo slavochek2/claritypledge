@@ -694,7 +694,7 @@ are accurate today. Droppable if the links move to a CMS or env config with its 
 
 *due: month · surfaced by the P1141 security review, 2026-08-21*
 
-`/slava:content:points-prepare` harvests comment sections as opposition material. The subjects being
+`/slava:disagreement:prepare` harvests comment sections as opposition material. The subjects being
 quoted are public figures cited from public recordings, which `.claude/rules/pii.md` explicitly does
 not treat as a violation. **Commenters are not.** They are arbitrary private individuals, and if a
 comment carrying a third party's name or handle is selected as quote material, an agent account
@@ -714,7 +714,7 @@ Recorded as a build-sequence item in `features/p1141_story_carries_a_video_with_
 under the skill-updates step — answer or scope out, do not let it pass silently. Noted here too so
 it survives if P1141 is descoped or parked.
 
-**Resolves at:** read `/slava:content:points-prepare`'s opposition-selection section end to end and
+**Resolves at:** read `/slava:disagreement:prepare`'s opposition-selection section end to end and
 state whether harvested comment text can reach `stories.content` or a quote. If it can, filter it.
 
 ---
@@ -790,7 +790,7 @@ Falsifier: set a 320px viewport on any `/story/:id` route on `main` and check
 
 ---
 
-## False `>>` marker claim in points-prepare Stage 2 attribution instruction
+## False `>>` marker claim in disagreement:prepare Stage 2 attribution instruction
 <!-- filed 2026-08-25, during P1156; deliberately NOT fixed there -->
 
 `due: week` — **Measured 2026-08-24 (P1156 D2): auto-captions carry zero speaker labels of any
@@ -799,7 +799,7 @@ kind.** A control pair — a one-speaker TEDx talk (`lJR-7_Dcess`) and a two-spe
 **0 and 0**, bracketed speaker labels **0 and 0**. The two-speaker control is textually
 indistinguishable from the one-speaker control at the markup level.
 
-Shipped `/slava:content:points-prepare` v0.6.1 (now v0.7.0) Stage 2 still instructs attribution
+Shipped `/slava:disagreement:prepare` v0.6.1 (now v0.7.0) Stage 2 still instructs attribution
 "by content and by the `>>` turn markers" — **a method claim that measurement falsified.** Harmless
 for new runs under the P1156 selector's Gate 0 (every source single-speaker by construction), but
 any run on a pre-Gate-0 multi-speaker source inherits a wrong instruction.

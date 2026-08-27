@@ -10,8 +10,8 @@
  * diverge silently, and the story text is the surface where a divergence
  * misgenders a real person under an account bearing their own name.
  *
- * P1156 (2026-08-25) moved the voice rules from points-prepare to story-create
- * and the timecode emission from prepare Stage 8 to positions-create. The
+ * P1156 (2026-08-25) moved the voice rules from disagreement:prepare to disagreement:story-draft
+ * and the timecode emission from prepare Stage 8 to disagreement:positions. The
  * assertions follow the rules to their new homes; publish's assertions are
  * unchanged because its gates are unchanged.
  */
@@ -23,36 +23,36 @@ import { join } from 'node:path';
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
-const PREPARE = read('.claude/commands/slava/content/points-prepare.md');
-const PUBLISH = read('.claude/commands/slava/content/points-publish.md');
-const POSITIONS = read('.claude/commands/slava/content/positions-create.md');
-const STORY = read('.claude/commands/slava/content/story-create.md');
+const PREPARE = read('.claude/commands/slava/disagreement/prepare.md');
+const PUBLISH = read('.claude/commands/slava/disagreement/publish.md');
+const POSITIONS = read('.claude/commands/slava/disagreement/positions.md');
+const STORY = read('.claude/commands/slava/disagreement/story-draft.md');
 const LABEL = 'Supporting quotes from {Full Name}';
 
 describe('p1141 DW-11 — the voice rules live in exactly one skill', () => {
-  it('story-create owns them, and says so', () => {
+  it('disagreement:story-draft owns them, and says so', () => {
     expect(STORY).toContain('**This skill is the ONE place these rules live.**');
     expect(STORY).toContain('no reliable information about');
     expect(STORY).toContain('pronoun');
   });
 
   it('the reason for the choice is stated, not left to be guessed', () => {
-    // Decision 10: story-create produces the story-draft text; publish disclaims authorship.
+    // Decision 10: disagreement:story-draft produces the story-draft text; publish disclaims authorship.
     expect(STORY).toMatch(/drafted narrative content|narrative content is drafted/);
     expect(PUBLISH).toMatch(/does NOT author the rule/);
   });
 
-  it('points-publish carries a MECHANICAL backstop, not a second copy of the rule', () => {
+  it('disagreement:publish carries a MECHANICAL backstop, not a second copy of the rule', () => {
     expect(PUBLISH).toContain(LABEL);
     // It greps for the string; it does not restate why the rule exists.
-    expect(PUBLISH).toContain('re-run story-create');
+    expect(PUBLISH).toContain('re-run disagreement:story-draft');
     expect(PUBLISH).not.toContain('**This skill is the ONE place these rules live.**');
   });
 
   it('the section label appears in exactly one skill file — no second, drifting copy', () => {
     const skills = [PREPARE, POSITIONS, STORY, PUBLISH];
     const authoring = skills.filter((s) => s.includes(LABEL));
-    // Present in story-create AND publish is correct: story-create AUTHORS it,
+    // Present in disagreement:story-draft AND publish is correct: disagreement:story-draft AUTHORS it,
     // publish ASSERTS it. The other two chain skills must not carry it at all.
     expect(authoring).toHaveLength(2);
     expect(authoring).toContain(STORY);
@@ -71,7 +71,7 @@ describe('p1141 DW-11 — the voice rules live in exactly one skill', () => {
 });
 
 describe('p1141 DW-13 — timecodes come from the raw .vtt, never the cleaned transcript', () => {
-  it('positions-create names the retained raw store as the source', () => {
+  it('disagreement:positions names the retained raw store as the source', () => {
     expect(POSITIONS).toContain('~/.local/share/yt-store/');
     expect(POSITIONS).toContain('.vtt');
   });
@@ -87,12 +87,12 @@ describe('p1141 DW-13 — timecodes come from the raw .vtt, never the cleaned tr
     expect(POSITIONS).toMatch(/duration_seconds:/);
   });
 
-  it('points-publish enforces the raw-vtt origin at filing time', () => {
+  it('disagreement:publish enforces the raw-vtt origin at filing time', () => {
     expect(PUBLISH).toMatch(/RAW `\.vtt`/);
     expect(PUBLISH).toMatch(/never from the ~30s cleaned transcript/);
   });
 
-  it('points-publish documents the row shape for both new columns', () => {
+  it('disagreement:publish documents the row shape for both new columns', () => {
     expect(PUBLISH).toContain('video_url');
     expect(PUBLISH).toContain('video_quotes');
     expect(PUBLISH).toContain('durationSeconds');
