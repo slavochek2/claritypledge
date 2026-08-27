@@ -208,7 +208,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.
 9.8. **Prod verification (optional)** — After deploy, if the feature touches DB/auth/edge functions, run a Playwright prod verification test using `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template. Command: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`
 9.9. **Untracked test file check** — Run `git status --short | grep "^?? e2e/p${N}"` (substituting the actual P-number). If any `e2e/pN-*.spec.ts` files appear as untracked (`??`), inspect them: if they test a rejected design or have broken setup, fix or delete before declaring done. An untracked test file is invisible to CI and strands work that looks complete but isn't.
-10. **UAT gate** — Keep `status: in-progress` and existing `delivery_stage: dev` (already set by pipeline stamp on entry — do NOT set delivery_stage again). Do NOT move to `features/done/`. Tell user: "Feature ready for UAT on branch feature/pN-xxx. Suggest: run `/verify pN` for live UAT, then `/ship pN` when satisfied."
+10. **UAT gate** — Set `status: qa` when every completion checkbox is ticked (guards in the Feature UAT Gate below); keep existing `delivery_stage: dev` (already set by pipeline stamp on entry — do NOT set delivery_stage again). Do NOT move to `features/done/`. Tell the user where the work is — **a branch if one was claimed, `main` if step 0 routed this to main** — and that `/ship pN` closes it either way.
 
 ---
 
@@ -769,14 +769,31 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
    - If subagent returns **FAIL with defect issues**: fix them, re-screenshot, re-run QA subagent (1 retry max). If still failing after retry, report to user: "Visual QA issues persist after 1 fix cycle — run `/verify` for full UAT."
    - If subagent returns **FAIL with design-quality issues only**: these are *perceptual* (hierarchy / density / visual-weight). Surface them to the user and recommend `/verify` for design review. The perceptual layer is surfaced, never blocking — the blocking checks are the deterministic **p955-gate** at pre-commit (separate, already ran).
    - **Fallback** (Chrome MCP unavailable): the deterministic **p955-gate** already ran at pre-commit (Chrome-independent vitest+jsdom) and BLOCKS independently of this step. Only the *perceptual* pass is deferred — log `chrome-unavailable: deferred` and tell the user to run `/verify` for perceptual visual QA. Continue to the next step.
-4. Keep existing `delivery_stage: dev` and `status: in-progress` (already set by pipeline stamp on entry)
+4. **Set `status: qa`** — keep existing `delivery_stage: dev` (already set by pipeline stamp on entry; do NOT rewrite it).
+
+   `qa` means *built, waiting for you* — it is the board's only signal separating this from work still
+   in flight, and it restores the original design in [decisions.md](../../../../docs/decisions.md)
+   2026-02-26 *"P440 — QA status as dev-completion signal"*: **`/dev` and `/fix` land features here.**
+   `/fix` has always done this; `/dev` drifted, and the drift left every `/dev`-flow spec unable to
+   reach a shippable state without `/verify` — a browser skill with nothing to point at for infra or
+   skill work.
+
+   **It is a display signal, not a gate.** Since P1169, `ship-gates.sh` gate 2.5 reads the completion
+   checkboxes and `pipeline_ran` directly and never consults `status:`. Nothing downstream breaks if
+   this write is skipped; the board just lies. Never re-gate anything on this field.
+
+   **Guards — stop on the first hit, mirroring `/verify` step 6a:**
+   - `locked_at:` present → do not change status (`.claude/rules/features.md` Manual Status Lock)
+   - Any `## Acceptance Criteria` or `## Done-When` checkbox still `[ ]` → do not change status;
+     report the unticked items (this is step 1 above, restated as the write-time guard)
+   - `status:` not `in-progress` → do not change status
 5. Commit: `chore: pN ready for UAT — {title}`
 6. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
-7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/verify pN` for live UAT, then `/ship pN` when satisfied to merge to prod and close the spec."
+7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/verify pN` for live UAT **if this feature changed something a user sees** — it drives a real browser, so it has nothing to check on infra, docs or skill work. Then `/ship pN` to merge and close the spec."
 
 **Do NOT:**
 - Move spec to `features/done/` — that happens in `/ship`
-- Set `status: done` — that happens in `/ship`
+- Set `status: done` or `all-done` — those happen in `/ship`
 - Deploy to prod — that happens in `/ship`
 
 If no spec file exists (inline description mode), skip the UAT gate silently.

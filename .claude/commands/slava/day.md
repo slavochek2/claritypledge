@@ -102,7 +102,32 @@ git branch --format='%(refname:short) %(upstream:track)' | grep -v "^main"
 git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' '
 
 echo "=== STRANDED SPECS ==="
-grep -rl "delivery_stage: uat\|status: in-progress" features/p*.md 2>/dev/null || echo "none"
+# P1169: work strands in four distinguishable ways. The old scan saw only the
+# first, and searched a `delivery_stage` value features.md marks deprecated —
+# so four specs sitting at `qa` (oldest: 58 days) were invisible to it.
+echo "-- still building --"
+grep -rl "^status: in-progress" features/p*.md 2>/dev/null || echo "none"
+echo "-- built, waiting for you (qa) --"
+for f in $(grep -rl "^status: qa" features/p*.md 2>/dev/null); do
+  d=$(grep -m1 "^created_date:" "$f" | tr -d "'\"" | awk '{print $2}')
+  echo "$(basename "$f")  (filed $d)"
+done
+[ -z "$(grep -rl '^status: qa' features/p*.md 2>/dev/null)" ] && echo "none"
+echo "-- closed but never moved out of features/ --"
+grep -rlE "^status: (done|all-done)" features/p*.md 2>/dev/null || echo "none"
+echo "-- ship started and never finished --"
+for j in .claude/worktrees/.ship-journal/*.json; do
+  [ -e "$j" ] || { echo "none"; break; }
+  python3 -c "
+import json,sys
+d=json.load(open('$j'))
+if not d.get('spec_closed') or not d.get('branch_deleted'):
+    pend=[c['source_sha'][:8] for c in d.get('commits',[]) if not c.get('landed_sha')]
+    print(f\"{d['p_number']}: started {d.get('started_at','?')}, spec_closed={d.get('spec_closed')}, \"
+          f\"branch_deleted={d.get('branch_deleted')}, {len(pend)} commit(s) unlanded \"
+          f\"-- resume with: ./scripts/git-ops.sh ship {d['p_number']} --resume\")
+" 2>/dev/null
+done
 
 echo "=== STASH ==="
 git stash list 2>/dev/null || echo "none"
@@ -810,7 +835,13 @@ BRANCHES
   feature/pN-name  ← [ready to /ship? / in-progress / no spec — stale?]
 ```
 
-Rules: delivery_stage uat + branch → "ready to /ship?". uat + branch gone → "/ship pN spec-only". in-progress → "in-progress". No spec → "stale?"
+Rules: `status: qa` → "ready to /ship?" (branch or not — since P1169 `/ship` closes direct-to-main
+specs too). `in-progress` → "in-progress". `done`/`all-done` still in `features/` → "run
+/slava:maintain:fix-kanban". Unfinished ship journal → print its `--resume` line verbatim. No spec →
+"stale?"
+
+**Report the `qa` age.** A spec that has been *built, waiting for you* for a week is the signal;
+that it exists is not. Sort oldest first.
 
 **4c. Stash check:**
 ```bash

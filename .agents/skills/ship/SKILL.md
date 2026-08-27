@@ -50,7 +50,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
    ```bash
    ./scripts/ship-gates.sh pN
    ```
-   The script is the **sole source of gate truth** — it runs gates 2.5 (spec status), 2.7 / 2.7b (code-review artifact), **3.5 (pre-deploy checklist)**, and **3.65 (deferrals)**, reading the spec branch-authoritatively. **Relay its stdout verbatim as the gate report — never re-type your own `✓` lines** (a hand-composed report can claim a gate passed that never ran; that was the whole point of folding these in).
+   The script is the **sole source of gate truth** — it runs gates 2.5 (**completion criteria**: every `## Acceptance Criteria` / `## Done-When` checkbox ticked, plus `dev` or `fix` in `pipeline_ran`), 2.7 / 2.7b (code-review artifact), **3.5 (pre-deploy checklist)**, and **3.65 (deferrals)**, reading the spec branch-authoritatively. **Gate 2.5 does not read `status:`** — since P1169 it reads the artifact rather than a label a skill wrote about the artifact. A spec at `in-progress` with everything ticked ships; a spec at `qa` with an unticked box does not. **Relay its stdout verbatim as the gate report — never re-type your own `✓` lines** (a hand-composed report can claim a gate passed that never ran; that was the whole point of folding these in).
    - Exit 0: paste the script output, proceed silently.
    - Exit non-zero: **hard stop** — paste the failing `[GATE …] FAIL:` lines, "Fix listed issues. Do NOT proceed." Do NOT ask y/n. Do NOT proceed. For gate 3.5, "fix" = apply the infra step and tick the box in the spec (the ticked box is the acknowledgement) or mark the item N/A.
 
@@ -73,7 +73,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 ```
 /ship pN — all gates passed.
   ✓ Clean worktree
-  [GATE 2.5] PASS: spec status is 'qa' (from branch feature/pN-...)
+  [GATE 2.5] PASS: all completion items ticked (Acceptance Criteria + Done-When), implementation run recorded (from branch feature/pN-...)
   [GATE 2.7] PASS: code review artifact present (N code entries)
   [GATE 3.5] PASS: no pre-deploy checklist
   [GATE 3.65] PASS: no deferral phrases
@@ -159,14 +159,24 @@ Cherry-picking...
 
 ## If you're on main (no feature branch)
 
-For small work committed directly to main, just say "push" — no need for /ship.
-/ship is specifically for merging a feature branch.
+**Run `/ship pN` anyway.** `git-ops.sh ship` has carried a direct-to-main closure path since P920
+(2026-06-10): when no `feature/pN-*` or `fix/pN-*` branch exists, it resolves the spec on main and
+closes it there — `git mv` to the sprint folder, frontmatter rewrite, doc-link re-base, one commit —
+skipping the cherry-pick entirely. It refuses unless a `pN ready for QA`-class stamp commit proves
+the implementation actually landed, so it cannot close a spec whose work was never done.
+
+This matters because `/dev` step 0 *deliberately* routes skill-file specs to main with no branch
+(a skill edited on a branch is not the skill that runs). Before P1169 this section told you to skip
+`/ship` for exactly that work — so nothing set a terminal status and nothing moved the file. Four
+specs stranded that way, one of them for eight days.
+
+`/ship` is not "the branch merger". It is the thing that closes a spec. Branch or no branch.
 
 ---
 
 ## After shipping
 
-- The spec is closed by /ship step 5 — /dev leaves it at `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
+- The spec is closed by /ship step 5 — /dev leaves it at `status: qa` / `delivery_stage: dev`, NOT done. If the spec is still in `features/` after /ship completes, step 5 failed — investigate before continuing.
 - Step 6 runs the post-push prod-health watch (P866 + P889): waits for the new deploy to be READY, smokes the public routes against prod, then runs the authenticated DB smoke (`scripts/prod-smoke-test.mjs`), and on failure of either offers rollback / fix-forward / triage — never auto-acting. It then offers `/verify` (production mode) for visual UAT, recommended for UI changes.
 - **Push requires explicit user action.** `/ship` prints "Ready to push" and stops. The user runs `git push origin main` when ready. Vercel auto-deploys on push.
 - **Prod migrate is NOT pre-approved** — `./scripts/migrate.sh --env prod` has its own blast radius (schema changes, RLS). Always gate it separately. The script enforces the three P887 gates structurally: it prints the full pending-migration list and refuses to apply without ack (interactive `y` or `--yes`); a pending migration carrying `-- requires-frontend: <sha>` hard-blocks the apply — `--yes` does not bypass — until that commit is an ancestor of `origin/main`; and after any successful prod apply it auto-runs the prod smoke test, exiting non-zero on failure (possible schema-ahead-of-client breakage, P886 class). Authoring side: pre-commit requires a `requires-frontend` or `client-safe` annotation on new migrations containing client-breaking shapes.

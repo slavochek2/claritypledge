@@ -5,7 +5,7 @@
 # Exit 1: at least one hard gate failed (message explains which).
 #
 # Gates (all mechanical — /ship relays this output, never re-attests them):
-#   2.5   spec status is qa/done/all-done
+#   2.5   completion criteria all ticked + dev/fix in pipeline_ran (P1169)
 #   2.7   code-review artifact present (git-common-dir/.finish-reviewed)
 #   2.7b  artifact freshness (warn only)
 #   3.5   pre-deploy checklist has no unchecked "- [ ]" items
@@ -67,18 +67,80 @@ if [[ -z "$spec_content" ]]; then
   fi
 fi
 
-# ── Gate 2.5: spec status ───────────────────────────────────────────────────
+# ── Gate 2.5: completion criteria ───────────────────────────────────────────
+# P1169. This gate used to test that spec `status:` read qa/done/all-done — a
+# self-reported label written by a skill, standing in for a completeness check
+# that no script has ever run (`grep -rn "Acceptance Criteria" scripts/` returned
+# zero hits from the gate's creation until 2026-08-27). P1141 shipped through it
+# with three acceptance criteria unticked, and /dev-flow specs could not pass it
+# at all because /dev never writes `qa`.
+#
+# It now reads the artifact instead of the label: every checkbox under
+# "## Acceptance Criteria" and "## Done-When" must be ticked, and the spec must
+# have actually been implemented (dev or fix in pipeline_ran). `status:` is no
+# longer consulted here — it drives the kanban's display and nothing else.
+#
+# Fails closed: no spec, or a spec carrying neither section, is a FAIL. A spec
+# with no completion criteria has nothing that could prove it done.
+#
+# Known limitation, shared with gate 3.5: a "- [ ]" inside a fenced code block
+# within one of these sections counts. Ticking or rewording it is the workaround;
+# a fence-aware scanner is not worth the parser.
+
+# Extract a markdown section by heading text. Ends on a heading at the SAME or
+# SHALLOWER level, so sub-headings stay inside (mirrors gate 3.5's extractor).
+extract_section() {
+  # $1 = lowercase regex to match inside the heading line
+  printf '%s\n' "$spec_content" | awk -v pat="$1" '
+    /^#+[ \t]/ {
+      lvl = 0
+      while (substr($0, lvl + 1, 1) == "#") lvl++
+      if (tolower($0) ~ pat) { f = 1; hl = lvl; next }
+      else if (f && lvl <= hl) { f = 0 }
+    }
+    f { print }
+  '
+}
 
 if [[ -z "$spec_content" ]]; then
   echo "[GATE 2.5] FAIL: spec not found for ${pn} on branch or disk"
   fail=1
 else
-  spec_status="$(printf '%s\n' "$spec_content" | $GREP -m1 '^status:' | sed 's/^status:[[:space:]]*//' | tr -d '[:space:]')"
-  if [[ "$spec_status" == "qa" || "$spec_status" == "done" || "$spec_status" == "all-done" ]]; then
-    echo "[GATE 2.5] PASS: spec status is '${spec_status}' (from ${spec_source})"
-  else
-    echo "[GATE 2.5] FAIL: spec status is '${spec_status:-<none>}' (from ${spec_source}) — must be qa, done, or all-done"
+  ac_section="$(extract_section '^#+[ \t]+acceptance criteria[ \t]*$')"
+  dw_section="$(extract_section '^#+[ \t]+done-when[ \t]*$')"
+
+  if [[ -z "$ac_section" && -z "$dw_section" ]]; then
+    echo "[GATE 2.5] FAIL: spec has no '## Acceptance Criteria' and no '## Done-When' section (from ${spec_source}) — nothing to gate on; add completion criteria before shipping"
     fail=1
+  else
+    # Match GitHub task-list syntax: -, *, or + bullet, then "[ ]" (unchecked).
+    _unticked_pat='^[[:space:]]*[-*+][[:space:]]+\[[[:space:]]\]'
+    ac_open="$(printf '%s\n' "$ac_section" | $GREP -cE "$_unticked_pat" || true)"
+    dw_open="$(printf '%s\n' "$dw_section" | $GREP -cE "$_unticked_pat" || true)"
+    open_total=$(( ${ac_open:-0} + ${dw_open:-0} ))
+
+    # pipeline_ran must record an implementation run. Entries are exact strings
+    # with an optional re-run suffix (dev.2, fix.3) — anchored so 'research-arch'
+    # and friends cannot match.
+    pipeline_line="$(printf '%s\n' "$spec_content" | $GREP -m1 '^pipeline_ran:' || true)"
+    impl_ran=0
+    if printf '%s\n' "$pipeline_line" | $GREP -qE '(\[|,)[[:space:]]*(dev|fix)(\.[0-9]+)?[[:space:]]*(,|\])'; then
+      impl_ran=1
+    fi
+
+    if [[ "$open_total" -gt 0 ]]; then
+      echo "[GATE 2.5] FAIL: ${open_total} unticked completion item(s) — ${ac_open:-0} under Acceptance Criteria, ${dw_open:-0} under Done-When (from ${spec_source})"
+      printf '%s\n%s\n' "$ac_section" "$dw_section" | $GREP -E "$_unticked_pat" | sed 's/^/           /'
+      fail=1
+    elif [[ "$impl_ran" -eq 0 ]]; then
+      echo "[GATE 2.5] FAIL: pipeline_ran records no 'dev' or 'fix' run (from ${spec_source}) — the criteria are ticked but no implementation run is recorded"
+      fail=1
+    else
+      _secs=""
+      [[ -n "$ac_section" ]] && _secs="Acceptance Criteria"
+      [[ -n "$dw_section" ]] && _secs="${_secs:+${_secs} + }Done-When"
+      echo "[GATE 2.5] PASS: all completion items ticked (${_secs}), implementation run recorded (from ${spec_source})"
+    fi
   fi
 fi
 
