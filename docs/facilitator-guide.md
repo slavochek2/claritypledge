@@ -394,35 +394,57 @@ Measure movement **toward center** (extremity drop), not just sign change. Also 
 
 ---
 
-## Getting the room signed in before they stake (2026-08-27)
+## Signing in and staking — the room can tap first (2026-08-27, corrected same day)
 
-**This is the block that stalls a live room, and it stalls silently.** Staking a position requires a
-**verified** account. Verification comes from one thing only: the person reaching the auth callback
-after confirming their identity. Until then their taps write nothing.
+**Let them tap. Sign-in can come after.** The app holds every position a signed-out person taps and
+writes **all of them** the moment they finish signing in — not just the last one. Seven taps, one
+sign-in, seven saved. Verified in the auth callback: verification runs first, then every held position
+is restored.
 
-**Route the room to "Continue with Google". Do not let them choose.**
+**So there is no sign-in bottleneck before block 5.** Both orders work:
 
-| Route | What happens in the room |
+| Order | What happens |
 |---|---|
-| **Google** *(say this one out loud)* | No email round-trip. Already the primary button on the login screen. |
-| **Magic link** | **An email round-trip in the middle of the block** — venue wifi, phone inboxes, spam folders, ten people at once. |
+| **Tap → sign in** | Positions are held on their device and written on sign-in. **Prefer this — it keeps block 5 moving.** |
+| **Sign in → tap** | Each tap saves as it happens. |
 
-**Say it as one instruction, before block 5:** *"Tap Continue with Google. Not the email link."* One
-sentence costs nothing and removes the only failure mode here that can eat ten minutes.
+> **Corrected from the first version of this section**, which told the facilitator to get the whole
+> room signed in *before* block 5. That was stricter than the app requires and would have created the
+> stall it was meant to prevent. Caught by the founder asking *"they tap and then they sign in and then
+> it's saved. No?"* — which is what the code does.
 
-**What to watch for.** A tapped position button **looks selected whether or not it saved.** If someone
-is not signed in, a small line under that card reads *"Sign up or log in to save your position"* —
-that line, not the button, is the truth. **Scan for it while the room stakes.** Someone can tap all
-seven dimensions, see seven selected buttons, and have staked nothing.
+### Still say "Continue with Google"
 
-**If a stake genuinely fails for a signed-in person**, the app says so — the button reverts and an
-error appears. Silent non-saving means *not signed in*, not a broken app.
+Sign-in route still matters, just not sign-in *timing*. Google has no email round-trip; the magic link
+puts venue wifi, phone inboxes and spam folders in the middle of your event. Google is already the
+primary button on the login screen.
+
+**One sentence, when you send them to sign in:** *"Continue with Google. Not the email link."*
+
+### The three ways held positions get lost
+
+1. **Different device or browser.** The held taps live in the browser they were tapped in. Tap on a
+   phone, sign in on a laptop → gone. **Say: "sign in on the same phone you tapped on."**
+2. **Private / incognito browsing.** Some browsers discard that storage. Rare in a room, not
+   impossible.
+3. **A partial restore is silent.** If one of the seven fails to write during sign-in, the others still
+   land and the failure is logged but not shown on screen. Uncommon — but it is why the numbers get
+   checked by query afterwards, not by asking the room whether it worked.
+
+### What to watch during block 5
+
+A tapped button **looks the same whether or not it saved.** For someone not signed in, a small line
+under that card reads *"Sign up or log in to save your position"* — **that line is the truth, not the
+button.** It is expected and harmless while they are still signed out; it should be gone after they
+sign in.
+
+If a stake genuinely fails for someone already signed in, the app says so — the button snaps back and
+an error appears. Silence means *held, not yet written*, not *broken*.
 
 > **Known gap, accepted deliberately 2026-08-27.** The full path — a person who is *not* the founder
 > signing up fresh, confirming, and staking — has never been walked end to end. The founder's own
 > account is already confirmed, so testing from it never exercises the sign-up-and-confirm hop.
-> Routing the room to Google is the mitigation. **If block 5 stalls live, this is the first place to
-> look.**
+> **If block 5 stalls live, this is the first place to look.**
 
 ## Related
 
