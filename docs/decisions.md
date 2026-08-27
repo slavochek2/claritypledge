@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [process]: A criterion that describes a future RUN cannot be checked at ship time — under a criteria-reading gate it blocks forever (P1172)
+
+**Context:** Once P1169's gate 2.5 read checkboxes instead of a status label, three specs turned out to be blocked by criteria that describe a **future operational run**, not the artifact being shipped: P1141's *"for one real story, every timecode lands within a few seconds… verified by playing it"* (no agent story has been filed yet); six P1160 items each already carrying an implementer's honest *"UNVERIFIED — requires a live run"*; and P1169's own *"running `/dev` … leaves `status: qa`"*. Founder, correctly: *"who will check it if not you? … it will stick there forever or what?"* Under the old label gate these were invisible — the specs were hand-closed or waved through, which is precisely how P1141 reached `qa` with three open.
+
+**Decision:** A completion criterion must be checkable **against the artifact at ship time**. A check that needs a future run goes to a follow-up spec whose trigger is that run — P1172 now holds P1141's three and P1160's six, verbatim, each with its trigger named, and moving them does **not** discharge them. P1169's own item was reworded to the artifact-checkable form (diff `/dev`'s guard list against `/verify` step 6a) rather than deleted; the property is unchanged, only what it is checked against. The general rule is routed to `.claude/rules/features.md` via `/slava:maintain:claude-md` and is **not yet applied**.
+
+**Second gap, found by the gate refusing its own spec:** `pipeline_ran` had to contain `dev` or `fix`, but CLAUDE.md explicitly permits inline work and `features.md` defines `flow: inline` for it — so **every inline-built spec was unshippable forever**, starting with P1169. The gate now accepts an `inline` entry or `flow: inline`, with a comment stating plainly that all three markers are self-declared exactly like the `status:` label they replaced, and are **not** what makes the gate real — the checkbox count and gate 2.7 are. A spec with no implementation marker at all still FAILs.
+
+**Alternatives rejected:** *Tick the future-run items and close* — that is the hollow-gate behavior P1169 removed. *Weaken gate 2.5 to skip them* — the criteria are real; the defect is where they live. *Stamp `dev` on an inline-built spec* — false, and it would make the marker meaningless.
+
+**Consequences:** P1160 and P1169 closed; P1172 filed and open. **P1141 did not close, and not because of this gate:** `pre-commit`'s independent `goal-gate` refuses it — *53 failures across 17 check groups*, including screenshot hash mismatches, `need 2 CONSECUTIVE trailing PASS rounds; got FAIL FAIL FAIL FAIL FAIL`, and a contract-pin mismatch against `main`. The founder had previously *"accepted the red gate"* (commit `77ba9d69`) and the spec was set to `qa` anyway — a second instance of the same pattern P1169 exists to stop, in a gate P1169 does not own. The failed close left a staged rename and a rewritten frontmatter, both reverted by hand rather than with `git checkout HEAD --`. **Open:** P1141 needs the goal gate fixed or an explicit, recorded override; it must not be forced with `--no-verify`.
+
+**References:** `scripts/ship-gates.sh` gate 2.5 · `scripts/lib/goal-gate` (via pre-commit) · `features/p1172_first_run_verification_deferred_from_p1141_p1160.md` · decisions.md 2026-08-27 (P1169 entries)
+
+---
+
 ## 2026-08-27 [process]: A merge gate that reads a self-reported label instead of the artifact is hollow in both directions at once (P1169)
 
 **Context:** Founder asked why specs keep sticking in `qa`. `ship-gates.sh` gate 2.5 passed when spec frontmatter `status:` read `qa|done|all-done`. Only `/fix` and `/verify` ever wrote that word; `/dev` explicitly kept `status: in-progress`. So the same gate simultaneously **let unfinished work through** (P1141 shipped with three criteria unticked — the label was there, the work was not) and **blocked finished work** (no `/dev`-flow spec could reach a shippable state without `/verify`, a browser skill with nothing to check on infra or skill work). Of **106** closed specs carrying `dev` in `pipeline_ran`, **14** carry `verify`; the other 92 crossed on an agent hand-editing the status, a step written in no skill, rule or script. Seven specs were stranded, the oldest 58 days.
