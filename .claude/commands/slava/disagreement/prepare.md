@@ -103,7 +103,9 @@ printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: 
 
 No sampling, no skimming. State characters, lines, and whether anything was truncated.
 
-**Probe the transcript for turn markers before attributing** — search for both the literal `>>` and the HTML-escaped `&gt;&gt;` (a VTT stores them escaped; a literal-only probe returns 0 on a file that has them). Some auto-caption runs carry them, some don't — check, don't assume either way, and say what the probe found. **Markers found:** each one marks that the speaker *changed*, never *who* it changed to — attribution still requires confirming identity per quote, alternation parity alone is not attribution. **Markers absent:** attribute by content. Where attribution is genuinely ambiguous, mark the quote unattributed rather than guessing — a quote assigned to the wrong speaker is worse than no quote.
+**Probe the transcript for turn markers before attributing** — search for both the literal `>>` and the HTML-escaped `&gt;&gt;` (at least some caption tracks store them escaped; a literal-only probe returns 0 on a file that has them). Some auto-caption runs carry them, some don't — check, don't assume either way, and say what the probe found. **Markers found:** each one marks that the speaker *changed*, never *who* it changed to — attribution still requires confirming identity per quote, alternation parity alone is not attribution. **Markers absent:** attribute by content.
+
+This applies whichever branch fired above — confirming identity from a marked change is the same content-based judgment call as attributing from content alone, and can be just as ambiguous. Where attribution is genuinely ambiguous, mark the quote unattributed rather than guessing — a quote assigned to the wrong speaker is worse than no quote.
 
 **Identify who ARGUES, not who speaks.** A host who asks questions for fifty minutes and takes no position gets no agent and no story. Five speakers routinely means two or three arguers.
 
