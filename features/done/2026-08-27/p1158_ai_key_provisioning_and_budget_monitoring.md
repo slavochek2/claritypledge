@@ -1,11 +1,12 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 69
 workstream: infrastructure
 created_date: '2026-08-26'
 tags: [infrastructure, gcp, cost-control, skills]
 delivery_stage: dev
+completed_at: '2026-08-27'
 pipeline_ran: [create-spec]
 drafted_by: opus
 exec_model: opus
@@ -13,7 +14,14 @@ exec_effort: medium
 driver: heuristic
 ---
 
-# P1158 — `/ai-keys`: provision budget-capped Gemini keys and monitor their spend
+# P1158 (partially superseded) — `/ai-keys`: provision budget-capped Gemini keys and monitor their spend
+
+> **Closed 2026-08-27, partially superseded.** The script, registry, monitor and 60-case test suite
+> shipped and work. The key type in this spec is **wrong**: it mints Vertex service-account JSON,
+> and every real consumer takes a plain API key string. The corrected work — auth keys restricted
+> to the Gemini API, plus sharing and `/day` monitoring — is tracked privately, and ClarityPledge's
+> own capped key is cp **P1162**. Everything this spec established about caps, IAM isolation and the
+> monitor's cap-absent inference carries forward unchanged.
 
 ## Problem
 
