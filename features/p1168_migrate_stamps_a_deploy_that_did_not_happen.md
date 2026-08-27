@@ -77,7 +77,7 @@ was wrong — a plain `grep -n "git add" scripts/migrate.sh` finds it immediatel
 have missed it or used too narrow a pattern.
 
 **Fix:** gate the stamp + `git add` block behind `if [ $APPLIED_COUNT -gt 0 ]` in the Management API
-fallback path (`scripts/migrate.sh:477-489`). This single change satisfies both original fix items —
+fallback path (`scripts/migrate.sh:479-497`). This single change satisfies both original fix items —
 no stamp and no staged edit when nothing was applied — because they shared one root cause (the block
 wasn't gated on whether anything was actually applied). This path is taken by every `--env prod` run
 and by any non-prod run where the CLI push fails (the common case in this repo's current environment
@@ -122,19 +122,41 @@ verified fix could be written for it (Falsify Before You Rely). Filed as
       migrations applied, smoke 8/8 pass. Reverted the reproduction artifact
       (`git checkout HEAD -- supabase/deploy-manifest.json`) before implementing the fix. Post-fix,
       hermetic canary `scripts/test-p1168-noop-stamp.sh` (scenario `prod_noop`) asserts the same
-      shape and passes: 8/8 checks green, including the identical assertion for the non-prod
-      fallback path (scenario `test_noop`) and no-regression checks that a genuinely pending
-      migration still stamps + stages (scenarios `prod_applies`).
+      shape and passes: 9/9 checks green, including the identical assertion for the non-prod
+      fallback path (scenario `test_noop`), no-regression checks that a genuinely pending
+      migration still stamps + stages (scenario `prod_applies`), and a scenario documenting
+      pre-existing mixed-outcome behavior (scenario `prod_mixed` — a run with one successful and
+      one failing migration exits non-zero before reaching the stamp gate at all, so the migration
+      that did apply is never stamped either; unchanged by this fix, flagged during code review and
+      asserted here rather than left implicit).
+
+      Independent code-review verification (subagent, 2026-08-27): ran the canary against the
+      pre-fix code (git-diffed `main`'s copy of `migrate.sh` in) and confirmed it genuinely fails
+      (4/8 at the time); ran it against the fix and confirmed 8/8 (now 9/9 after the added
+      `prod_mixed` scenario); independently re-ran `test-p1042-version-collision.sh` (10/10, no
+      regression) and `check-deploy-manifest.sh --env prod` (matches the pasted output above);
+      grepped the repo for other `deploy-manifest.json` staging sites — only `migrate.sh:493`, plus
+      `deploy-functions.sh` which structurally cannot hit the zero-applied case (always redeploys
+      every function found, so out of scope).
 - [x] The founder decision on `migrations_deployed_at` semantics is recorded in this spec, and the
       code matches it — option (a), *when migrations were last applied*; code now skips the stamp
-      entirely when `APPLIED_COUNT` is 0 (`scripts/migrate.sh:477-489`)
+      entirely when `APPLIED_COUNT` is 0 (`scripts/migrate.sh:479-497`)
 - [x] If the field is renamed: N/A — option (a) chosen, no rename. Confirmed no functional consumer
       via `grep -rn "migrations_deployed_at"` (only the writer in `stamp-deploy-manifest.sh` and one
       guidance string in `git-ops.sh:2768`)
 - [x] `./scripts/check-deploy-manifest.sh --env prod` behaviour is unchanged by this work — ran it
-      post-fix: reports the pre-existing, expected drift for the unpushed `20260826063353` migration
+      post-fix, actual output pasted:
+      ```
+      DEPLOY DRIFT DETECTED (prod):
+      MIGRATION_MISSING: 20260826063353_fix_transcribe_room_member_anon_grant.sql (version 20260826063353 not deployed to prod)
+
+      Fix commands:
+        ./scripts/migrate.sh --env prod
+      ```
+      Exit 0. This is the pre-existing, expected drift for the unpushed `20260826063353` migration
       (an artifact of unpushed stamp commits per this spec's own Non-Goals, unrelated to this fix —
-      the drift gate reads the migration array, never `migrations_deployed_at`)
+      the drift gate reads the migration array, never `migrations_deployed_at`). Independently
+      re-verified by the code-review subagent during the QA gate.
 
 ## Alternatives Considered
 

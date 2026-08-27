@@ -65,6 +65,8 @@ if [ "$QUIET" = true ]; then
 fi
 if printf '%s' "$PAYLOAD" | grep -q 'SELECT version'; then
   BODY=$(cat "$FAKE_LEDGER")
+elif printf '%s' "$PAYLOAD" | grep -q 'FAIL_THIS_MIGRATION_MARKER'; then
+  BODY='{"message":"canary-induced failure","code":"canary"}'
 else
   BODY='[]'
 fi
@@ -247,6 +249,37 @@ if [ "$RC" -eq 0 ] && grep -q 'Applied 0 new migration' <<< "$OUT" \
   PASS=$((PASS+1))
 else
   echo "  FAIL test-env-fallback-noop-also-clean — expected exit 0, 'Applied 0 new migration(s)', deploy-manifest.json absent from status; got exit $RC, status:"
+  printf '%s\n' "$STATUS" | sed 's/^/         /'
+  FAIL=$((FAIL+1))
+fi
+
+# --- 4. MIXED OUTCOME: one migration applies, a later one fails in the same run.
+# Documents PRE-EXISTING, unchanged-by-P1168 behavior (flagged in code review):
+# migrate.sh exits 1 on the FAIL_COUNT check (:473-476) BEFORE reaching the
+# APPLIED_COUNT gate this fix added, so a migration that genuinely applied in
+# this run is never stamped or staged either. Not a P1168 regression — this
+# canary exists so the gap is asserted, not just narrated in the spec.
+S=prod_mixed
+mkdir -p "$TMPROOT/$S/supabase/migrations"
+cat > "$TMPROOT/$S/supabase/migrations/20260810140000_p1038_featureA.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS public.feature_a (id uuid PRIMARY KEY);
+SQL
+cat > "$TMPROOT/$S/supabase/migrations/20260812090000_p1168_broken.sql" <<'SQL'
+-- FAIL_THIS_MIGRATION_MARKER
+CREATE TABLE IF NOT EXISTS public.broken (id uuid PRIMARY KEY);
+SQL
+run_migrate "$S" '[]' prod yes
+RC=$(cat "$TMPROOT/$S/exit.code")
+OUT=$(cat "$TMPROOT/$S/out.log")
+STATUS=$(git -C "$TMPROOT/$S" status --short)
+DIFF=$(git -C "$TMPROOT/$S" diff HEAD -- supabase/deploy-manifest.json)
+
+if [ "$RC" -ne 0 ] && grep -q 'FAILED' <<< "$OUT" \
+   && ! printf '%s' "$STATUS" | grep -q 'deploy-manifest.json' && [ -z "$DIFF" ]; then
+  echo "  OK   mixed-outcome-no-stamp — a run with one success + one failure exits non-zero and never reaches the stamp gate (pre-existing, documented here)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL mixed-outcome-no-stamp — expected non-zero exit, a FAILED line, and deploy-manifest.json untouched; got exit $RC, status:"
   printf '%s\n' "$STATUS" | sed 's/^/         /'
   FAIL=$((FAIL+1))
 fi
