@@ -2,7 +2,7 @@
 name: day
 description: Single daily skill — health checks, reflection on what shipped since last run, goals and branches forward. Replaces /day-start and /day-end.
 when_to_use: Start of any work session, or end of day before closing laptop. Run instead of /day-start or /day-end.
-version: 1.5.0
+version: 1.6.0
 ---
 
 # Day (/day)
@@ -181,6 +181,20 @@ eur_day=usd_day*0.92  # rough USD->EUR; estimate only
 print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(eur_day*days,2)} over {round(days,1)}d (current resources x elapsed; a warm GPU adds ~EUR19/day)")
 '
 echo "(empty above = no always-on/GPU cost leaks)"
+
+echo "=== GCP CREDITS ==="
+# Founder's personal Google Cloud credit balance (distinct from P1162, which caps
+# ClarityPledge's own Gemini-key spend — unrelated, still open). Google exposes no
+# API for a credit balance — only the console's Credits page shows it — so this
+# reads the Detailed usage cost BigQuery export (billing account
+# 010089-354936-77CD27, enabled 2026-08-27) and nets it against a manually-seeded
+# starting balance. Lives here rather than a GitHub Actions cron for the same
+# reason the RLS/function-grant checks do (see Wave 3a below): it needs the
+# founder's own gcloud credentials against a billing-scoped BigQuery dataset, which
+# is not a credential this repo puts in CI. Knowing stopgap, not an exception the
+# monitoring-is-a-scheduled-workflow rule anticipated — see decisions.md.
+./scripts/gcp-credits-check.sh 2>&1
+echo "gcp_credits_exit=$?"
 ```
 
 Process Wave 1 results before proceeding.
@@ -197,6 +211,12 @@ Flag cloud only if broken: Ghost non-200, backup >2d old.
   - Any tripwire present → one `⚠ COST LEAK: [line]` per `GPU_SERVICE:` / `ALWAYS_ON:` / `SCHEDULER_PINGING_RUN:` line. These are silent money drains the credit-masked budget won't catch until gross thresholds.
   - All clear → `✓ GPU/cost: no leak (no GPU services, no always-on, no Run-pinging scheduler)`.
 - **Spend line (always):** render the `EST_PER_DAY:` / `EST_SINCE_LAST:` output as `Est. spend: ~€X/day · ~€Y since last /day (Nd)`. This is a resource-based estimate (±5%), NOT billed — a warm GPU spikes it ~€19/day above the ~€4/day baseline. For billed-to-the-cent €: weekly `/gcp-spend`.
+
+**GCP credits — read `=== GCP CREDITS ===` and `gcp_credits_exit=N`, always printed:**
+- `0` — clean. Report each `Credits remaining (<currency>): ~X (±Y since last /day, Z% of baseline)` line verbatim. Note: a NEW credit grant never shows up here automatically — it only appears in the console's Credits page, so a top-up silently understates remaining until re-seeded with `--set-baseline`.
+- `1` — ran, but a `⚠ LOW BALANCE` or `⚠ UNTRACKED CURRENCY` line is present. Surface it prominently — this is real money, not an estimate.
+- `2` — **did not run** (`GCP-CREDITS-CHECK-DID-NOT-RUN`): dataset unset, export table not backfilled yet (`NO_BILLING_DATA` — expected for up to ~24h after enabling, 2026-08-27), the `bq` query failed, a `NOT MEASURED` line (the `credits.type='PROMOTION'` filter never matched a tracked currency — the assumption may be wrong, investigate before trusting anything else from this check), or an internal crash. Report `⚠ GCP credits: NOT checked this run — [reason]`, never as clean and never as "$0 remaining". Re-seed a stale/wrong baseline with `scripts/gcp-credits-check.sh --set-baseline USD=<amount> [EUR=<amount>]` read fresh off the console's Credits page.
+- **Any exit code other than 0/1/2** (e.g. `127`, command not found): treat identically to `2` — did not run. Never improvise a "looks fine" reading from stray output.
 
 **gcloud auth gate:** If output contains `GCLOUD_NOT_AUTHENTICATED`, stop and prompt:
 > ⚠ gcloud is not authenticated. Run `! gcloud auth login` to authenticate, then say "done" to continue.
@@ -594,6 +614,8 @@ HEALTH
   [✓/⚠] Ops issues (drift / prod-health alerts)
   [✓/⚠] RLS drift    ← known-open counts are ✓; any NEW finding is ⚠ and names the policy.
                         "NOT checked" (exit 2 / no output) must show here, never omitted.
+  [✓/⚠] GCP credits  ← the `gcp_credits_exit` line above; low-balance or "not checked"
+                        must show here, never rendered as clean or as $0.
   [✓/○/⚠] Agent VM   ← from /slava:util:agent-vm-health (step 5); printed
                         verbatim and in full, never omitted, never a prompt.
                         Healthy is one line; a problem may run to three.
