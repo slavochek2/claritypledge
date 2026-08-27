@@ -348,7 +348,8 @@ On a blocked API: report that nothing was written, keep the envelope, and requir
 
 Read back from a **fresh** query and **paste the output**. "Created successfully" is not evidence.
 
-Five asserts, all against that fresh read:
+Eight asserts, all against that fresh read. **Asserts 1–5 are the set that a wrong author
+assignment survives** — see the warning under assert 6, which is what catches it:
 
 1. **Every story is `visibility = 'public'`, `current_version = 1`, and its `tags` array EQUALS `{<event-tag>}`** — set equality, not containment. Containment passes on a story that picked up a hashtag out of a quote, which is the pollution case above. A story whose tag did not land at all is the silent half-artifact.
 2. **Every point is `visibility = 'public'`, carries the event tag, has empty `system_tags` and NULL `context`.**
@@ -357,8 +358,12 @@ Five asserts, all against that fresh read:
 5. **The after-counts equal the before-counts plus exactly what the payload contained**, compared as **id sets**, not cardinalities (a co-tenant run makes counts lie).
 6. **Each story is bound to the RIGHT agent.** Join `stories → agent_accounts ON profile_id = author_id` and assert the returned **`subject_key` per story equals the payload's mapping for that story's quotes.** `subject_key` is granted to `service_role` (`20260819120000:67`), so the read-back can see it even though the client cannot.
 
-   > **Without this, ANY permutation of the `author_id`s passes all five asserts above** — swapping two,
-   > or cycling three, which at N > 2 is the larger space and no less reachable — — two public stories, correct visibility, version and tags; correct points; one position per arguer per point; both authors registered agents; exact counts — while each person's verbatim quotes are published under the *other* person's machine identity. The attribution section earlier in this file binds quote→speaker **inside the transcript**; nothing revisited speaker→`author_id`, which is where the binding actually lands. The ids are opaque UUIDs the operator cannot eyeball at the gate, so this is reachable without malice.
+   > **Without this, ANY permutation of the `author_id`s passes asserts 1–5 above.** Not just a swap of
+   > two: at N arguers there are `N!−1` wrong assignments, and at N = 4 that is 23 rather than 1 — the
+   > space this assert has to cover grows factorially while the assert itself does not get harder.
+   > Every one of them yields N public stories with correct visibility, version and tags; correct
+   > points; one position per arguer per point; all authors registered agents; exact counts — while
+   > each person's verbatim quotes are published under *another* person's machine identity. The attribution section earlier in this file binds quote→speaker **inside the transcript**; nothing revisited speaker→`author_id`, which is where the binding actually lands. The ids are opaque UUIDs the operator cannot eyeball at the gate, so this is reachable without malice.
 
 7. **Every point has a `story_points` row to each story**, counted — an evidence link silently missing is published-and-wrong and no other assert looks at that table.
 8. **Every agent author's `profiles.name` still carries the reserved marker.** It is the one marker channel that survives a registry read failure (the name renders even when `isAgent` is false), and nothing else in this file checks it.

@@ -159,6 +159,21 @@ on its own.
   — a topic reframed until something finally looks contested is a manufactured disagreement reached
   by a slower route, and this skill exists to prevent exactly that.
 
+> **Nothing enforces the limit, and pretending otherwise is the risk.** This skill holds no state
+> between invocations. A third reframe laundered as *"a new run on a new topic"* is indistinguishable,
+> to the skill, from a genuinely fresh topic — no counter exists, and none can without a store this
+> skill does not have. **The limit is therefore made VISIBLE rather than enforced:** whenever a topic
+> arrives that descends from a `CONSENSUS` verdict — including as a "fresh" invocation — Phase 0's
+> output block MUST carry
+>
+> ```
+> Reframed from: "<original topic string>" — verdict CONSENSUS, <date>  (reframe #<n>)
+> ```
+>
+> so the founder sees the lineage at Gate 1 and can stop it. An agent that omits this line on a
+> descended topic has defeated the rule; the founder is the only backstop, which is exactly why the
+> line is mandatory and not a nicety.
+
 ### Phase 0 enumerates; it does not evaluate
 
 It names positions and advocates. It does **not** rank advocates, score argument quality, count
@@ -195,6 +210,7 @@ Positions enumerated: <n>
 Carried into Phase 1: <N, 2..6>   (set aside: <none | list + why>)
 Shared premise (CONSENSUS only): <the sentence they all agree with>
 Still open  (CONSENSUS only): <the axis they do differ on, or "none found">
+Reframed from: <none | "<original topic>" — verdict CONSENSUS, <date> (reframe #<n>)>
 Searches performed so far: 0
 ```
 
