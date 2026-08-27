@@ -153,8 +153,14 @@ else
     echo "[GATE 2.5] FAIL: spec has no '## Acceptance Criteria' and no '## Done-When' section (from ${spec_source}) — nothing to gate on; add completion criteria before shipping"
     fail=1
   else
-    # Match GitHub task-list syntax: -, *, or + bullet, then "[ ]" (unchecked).
-    _unticked_pat='^[[:space:]]*[-*+][[:space:]]+\[[[:space:]]\]'
+    # Match GitHub task-list syntax: -, *, or + bullet, then a box that is NOT
+    # ticked. Deliberately "any single char that is not x/X", not just a space:
+    # scoring only "[ ]" as open means any other glyph — "[~]", "[-]", "[?]" —
+    # reads as DONE. Found 2026-08-27 by inventing "[~] RETIRED" to mark a
+    # criterion closed-unmet and watching the gate pass it. A retired criterion
+    # is removed from the list with its reason recorded in prose, never marked
+    # with a novel glyph.
+    _unticked_pat='^[[:space:]]*[-*+][[:space:]]+\[[^xX]\]'
     open_total="$(printf '%s\n' "$completion_lines" | $GREP -cE "$_unticked_pat" || true)"
     open_total="${open_total:-0}"
 

@@ -22,6 +22,35 @@ reproduce_artifact:
 
 # P976: /live boolean-flag stale echo can clobber a just-submitted rating (P671 class)
 
+
+## Closure — one criterion retired unmet, 2026-08-27
+
+**Retired criterion (removed from Acceptance Criteria above, reproduced here verbatim):**
+*"No console errors during a normal two-party rating round (browser-observable; pending manual UAT)."*
+
+**Closed by founder instruction: _"p976 i will never finsih so close it now"._** Recorded rather
+than ticked, because the criterion was not met and marking it `[x]` would be false.
+
+**What IS proven — the fix itself shipped and is verified:**
+- `isStateRegression` is exported from `src/app/lib/live-state-merge.ts:86`.
+- Both not-in-flight call sites are guarded: `src/app/pages/clarity-live-page.tsx:1246` (realtime)
+  and `:1520` (drift poll); `mergeInFlight` applies the mirrored check internally. That is the full
+  `surfaces_in_scope` list from the reproduce artifact — realtime, drift-poll, mergeInFlight.
+- `src/tests/p976-reproduce.test.ts` passes 8/8 (re-run 2026-08-27), and it is the deterministic
+  proof of the guard contract recorded in this spec's `reproduce_artifact` frontmatter.
+
+**What is NOT proven, and the residual risk:** the criterion asked for a live two-party rating round
+driven through a browser, watching the console. That was never run and will not be. The unit canary
+exercises the merge logic, not the rendered session, so anything that would only surface in a real
+two-party round — a console error from a component reacting to the guarded state, for instance —
+remains unobserved. The `live.md` rule mandating a two-party UI-driven E2E for this class is
+therefore **not satisfied** by this closure.
+
+**Why closing is still the right call:** the bug being fixed is separable from the round never being
+run, and leaving the card open for 58 days did not make the round happen. If a stale-echo symptom
+reappears in `/live`, re-open from here — the guard contract and canary are the starting point, not
+a blank page.
+
 ## Summary
 
 In a two-party /live session, a stale Supabase Realtime echo arriving at the **same** `ratingPhase` can overwrite a locally-set `checkerSubmitted`/`responderSubmitted = true` back to `false`, reverting the UI to "waiting for partner" after the partner has already submitted — the P671 "stuck session" failure mode, reachable via a boolean flag rather than via a phase regression.
@@ -79,4 +108,3 @@ Per [.claude/rules/live.md](../.claude/rules/live.md), the fix is NOT complete u
 - [x] Both the realtime handler and the drift-poll branch apply the boolean-flag guard (not only `mergeInFlight`) — wired `isStateRegression` into realtime ~1254 and drift-poll ~1527
 - [x] Two-party UI-driven E2E reproduces the stuck state on the pre-fix commit and passes post-fix — `e2e/p976-boolean-flag-stale-echo.spec.ts` (button click + stale-echo DB inject, two subscribed browser contexts)
 - [x] Phase-regression behavior is unchanged — all 16 existing `isPhaseRegression` phase tests in `live-state-guard.test.ts` pass
-- [ ] No console errors during a normal two-party rating round (browser-observable; pending manual UAT)
