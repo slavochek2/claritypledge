@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [process]: A literal-only `>>` probe undercounts — YouTube auto-captions store turn markers HTML-escaped
+
+**Context:** `/slava:disagreement:prepare` Stage 2 (flagged but deliberately not fixed in the 2026-08-25 entry below) instructed attribution "by content and by the `>>` turn markers" in the same sentence claiming auto-captions carry no speaker labels — a contradiction, and the underlying measurement itself was incomplete. The 2026-08-24 control pair (`lJR-7_Dcess`, `sRv-ETHskXI`) genuinely returned 0 literal `>>` markers on both, but the probe never tried the HTML-escaped form. A third source (`_V_ed5fuexA`, a two-speaker interview) returned 0 literal `>>` and **106** escaped `&gt;&gt;` — a `.vtt` stores them escaped, so a literal-only probe silently misses them where they exist. **The original two-video result was not a probe artifact** — re-run with both spellings it still returns 0/0 — but generalizing it to "auto-captions carry no markers of any kind" was, from n=2.
+
+**Decision:** `/slava:disagreement:prepare` v0.7.1 now instructs a *probe* for both spellings rather than asserting presence or absence either way. A marker found means the speaker **changed**, never *who* it changed to — alternation parity alone is not attribution, identity still has to be confirmed per quote. Markers absent falls back to content-based attribution, with the existing unattributed-rather-than-guess safeguard unchanged. The `docs/process-learnings.md` filing entry was corrected in place (correction appended, original over-generalized claim kept verbatim) rather than deleted/graduated, so the wrong claim stays visible alongside its correction.
+
+**Alternatives rejected:** *Delete the `>>` clause entirely* (P1164's original solution) — would have removed the only signal available on sources that do carry markers, for no reason once the probe was fixed to actually find them.
+
+**Consequences:** Any future skill or script that greps a `.vtt` for a literal marker character needs both spellings, not one — this generalizes past this one skill. The standing 2026-08-19 ruling that attribution is solved by source selection, not by parsing transcript markers, is unaffected: markers now only ever signal a boundary, never an identity, so they can't substitute for selection-time identity resolution.
+
+**References:** [p1164](../features/p1164_points_prepare_false_turn_marker_instruction.md) · `docs/process-learnings.md` — "False `>>` marker claim in disagreement:prepare Stage 2 attribution instruction" · decisions.md 2026-08-25 (flagged, not fixed) · 2026-08-21 (turn markers mid-turn) · 2026-08-19 (attribution solved by source selection)
+
+---
+
 ## 2026-08-27 [process]: KDD already records negative knowledge on 95% of entries — the uncovered form is *attempted-and-failed*, not *considered-and-not-chosen*
 
 **Context:** The founder asked whether `/kdd` and `/kdd-private` should log negative knowledge and mistakes, believing they do not: *"KDD doesn't file negative knowledge in the sense what we tried and didn't work. Maybe it should. And we would have a much richer documentation."* The proposal was a new tag, a shared definition file both skills reference, a spec, and an adversarial review. Counting the corpus before designing anything falsified the premise.
