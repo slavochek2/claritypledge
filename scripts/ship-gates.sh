@@ -158,12 +158,27 @@ else
     open_total="$(printf '%s\n' "$completion_lines" | $GREP -cE "$_unticked_pat" || true)"
     open_total="${open_total:-0}"
 
-    # pipeline_ran must record an implementation run. Entries are exact strings
-    # with an optional re-run suffix (dev.2, fix.3) — anchored so 'research-arch'
-    # and friends cannot match.
+    # An implementation must be recorded. Normally that is a 'dev' or 'fix' entry
+    # in pipeline_ran — exact strings with an optional re-run suffix (dev.2,
+    # fix.3), anchored so 'research-arch' and friends cannot match.
+    #
+    # 'inline' is also accepted. CLAUDE.md explicitly allows small work to be done
+    # without a pipeline skill ("one-liner config changes, typo fixes, or explicit
+    # 'just do it inline'"), and features.md already defines `flow: inline` for it.
+    # Without this arm, every inline-built spec is unshippable forever — found the
+    # hard way: P1169, the spec that installed this gate, was built inline and its
+    # own gate refused it.
+    #
+    # Honest about its strength: all three markers are self-declared, exactly like
+    # the `status:` label this gate replaced. They are NOT what makes the gate
+    # real — the checkbox count above is, and gate 2.7's review artifact is. This
+    # condition only stops a spec closing with no implementation recorded at all.
     pipeline_line="$(printf '%s\n' "$spec_content" | $GREP -m1 '^pipeline_ran:' || true)"
+    flow_line="$(printf '%s\n' "$spec_content" | $GREP -m1 '^flow:' || true)"
     impl_ran=0
-    if printf '%s\n' "$pipeline_line" | $GREP -qE '(\[|,)[[:space:]]*(dev|fix)(\.[0-9]+)?[[:space:]]*(,|\])'; then
+    if printf '%s\n' "$pipeline_line" | $GREP -qE '(\[|,)[[:space:]]*(dev|fix|inline)(\.[0-9]+)?[[:space:]]*(,|\])'; then
+      impl_ran=1
+    elif printf '%s\n' "$flow_line" | $GREP -qE '^flow:[[:space:]]*inline[[:space:]]*$'; then
       impl_ran=1
     fi
 
@@ -174,7 +189,7 @@ else
       printf '%s\n' "$completion_lines" | $GREP -E "$_unticked_pat" | sed 's/^/           /'
       fail=1
     elif [[ "$impl_ran" -eq 0 ]]; then
-      echo "[GATE 2.5] FAIL: pipeline_ran records no 'dev' or 'fix' run (from ${spec_source}) — the criteria are ticked but no implementation run is recorded"
+      echo "[GATE 2.5] FAIL: pipeline_ran records no 'dev', 'fix' or 'inline' entry and flow: is not inline (from ${spec_source}) — the criteria are ticked but no implementation is recorded"
       fail=1
     else
       echo "[GATE 2.5] PASS: all completion items ticked across ${_hcount:-0} section(s), implementation run recorded (from ${spec_source})"

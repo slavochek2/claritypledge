@@ -324,8 +324,6 @@ deliberately and state the reason — not whichever file is open first.
 - [x] A letter sealed before this change renders identically after it
 - [x] Every agent story shows the byline, the machine marker, and the footer line, with the footer link resolving
 - [x] Story text renders structure (bold, breaks, blockquotes, headings); a link whose label differs from its destination does not render as a link
-- [ ] Filed story text uses the subject's full name and contains no pronoun referring to the subject
-- [ ] For one real story, every timecode lands within a few seconds of the words it points at, verified by playing it
 - [x] The voice rules and section label live in exactly one skill, with the choice stated
 - [x] An agent story shows no verified-understanding count and no Verify affordance; a human story is unchanged
 - [x] Per-quote timecodes are resolved from the retained raw caption file, not from the ~30s cleaned transcript
@@ -346,7 +344,6 @@ deliberately and state the reason — not whichever file is open first.
 - [x] A reader can check any quote in an agent story in one click, without leaving the page
 - [x] A reader can tell at a glance which words the machine wrote and which were quoted
 - [x] A reader who arrives from email or a shared link sees the video is a video and reaches the story to play it
-- [ ] Nothing a reader sees claims the named person holds the position the agent states
 
 ## UI Contract
 
@@ -874,3 +871,10 @@ never shipped, so there is no delivered behaviour to file against.
 4. **No trailing `Source:` line in filed story text.** The embedded player and the per-quote
    timecode links already carry the source, and under this spec's own link narrowing such a
    sentence renders as dead plain text because its label does not match its destination.
+
+## Deferred — first-run checks moved to P1172
+
+Three criteria on this spec described a **future run**, not the artifact: they required a filed
+agent story that does not exist yet. They cannot be checked at ship time and would block this spec
+permanently. Moved verbatim to **P1172**, which names its trigger (the first real agent story is
+filed). Moving them does not discharge them — they are still owed.

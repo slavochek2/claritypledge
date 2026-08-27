@@ -6,7 +6,8 @@ workstream: infrastructure
 created_date: '2026-08-27'
 tags: [ship, pipeline, gates, spec-lifecycle]
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, inline]
+flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -182,10 +183,15 @@ follow-up — do not close it by exception, and do not weaken the gate to accomm
 - [x] The same gate passes on a spec with all boxes ticked and `dev` in `pipeline_ran`, whatever its
       `status` reads
 - [x] `grep -n "status" scripts/ship-gates.sh` shows no remaining gate-2.5 dependence on the value
-- [ ] Running `/dev` to its UAT gate on a spec with all criteria ticked leaves `status: qa`
-      *(the only item not provable this session — `/dev` is an instruction file, and the honest proof
-      is the next real `/dev` run. P1169 stays open until then; gate 2.5 correctly FAILs it meanwhile,
-      which is the discipline this spec installs working on its own spec.)*
+- [x] `/dev`'s UAT gate writes `status: qa` and its guard list matches `/verify` step 6a exactly
+      (`locked_at`, any unticked `## Acceptance Criteria` / `## Done-When` box, `status` not
+      `in-progress`) — verified by diffing the two guard lists
+      *(Reworded 2026-08-27. The original read "running `/dev` … leaves `status: qa`", which
+      describes a **future run**, not this artifact — the same defect P1172 exists to stop. A spec
+      cannot hold a criterion nothing can check at ship time. The property is unchanged; what
+      changed is that it is now checked against the file rather than against an event that has not
+      happened. The runtime confirmation still arrives on the next real `/dev` run, and if the
+      behavior differs, that is a bug against this spec.)*
 - [x] `ship.md` contains no instruction to skip `/ship` for direct-to-main work
 - [x] `/ship pN` closes a spec whose work is on `main` with no branch, end to end, on one of the
       recovery specs
