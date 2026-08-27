@@ -565,6 +565,38 @@ if [ "$FGD_RC" -ge 2 ]; then
   echo "FUNCTION-GRANT-CHECK-DID-NOT-RUN (exit $FGD_RC) — do NOT report clean"
 fi
 echo "function_grant_exit=$FGD_RC"
+
+# === AI KEYS === (pp P45) — budget-capped Gemini keys shared with people and agents.
+# Three things, and the third is the one that used to reach you as a user report:
+#   1. spend against each key's recorded budget,
+#   2. the failure classes that mean the estate is NOT monitored,
+#   3. a liveness ping on the PRODUCTION key.
+# Called by full path on purpose: ~/.agents/bin is not on PATH.
+echo "=== AI KEYS ==="
+AIK="$HOME/.agents/bin/ai-keys"
+if [ ! -x "$AIK" ]; then
+  echo "AI-KEYS-CHECK-DID-NOT-RUN (tool missing) — do NOT report clean"
+  echo "ai_keys_exit=2"
+else
+  "$AIK" --collect-spend > /tmp/ai-keys-spend.tsv 2>/tmp/ai-keys-spend.err
+  AIK_COLLECT=$?
+  if [ "$AIK_COLLECT" -ne 0 ]; then
+    echo "AI-KEYS-SPEND-COLLECT-FAILED (exit $AIK_COLLECT) — spend is UNKNOWN, not zero"
+    head -2 /tmp/ai-keys-spend.err 2>/dev/null
+    AIK_RC=2
+  else
+    gcloud projects list --format='value(projectId)' > /tmp/ai-keys-projects.txt 2>/dev/null \
+      || echo "AI-KEYS-PROJECT-LIST-FAILED — orphan detection is BLIND this run"
+    "$AIK" --report --spend-tsv /tmp/ai-keys-spend.tsv \
+                    --projects-file /tmp/ai-keys-projects.txt 2>&1
+    AIK_RC=$?
+  fi
+  # The production key, separately: a key that stops answering is invisible to
+  # every spend check above, because a dead key spends nothing and looks calm.
+  "$AIK" --ping-prod 2>&1
+  AIK_PING=$?
+  echo "ai_keys_exit=$AIK_RC ai_keys_ping_exit=$AIK_PING"
+fi
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
@@ -599,6 +631,45 @@ The backlog is `.private/function-grant-baseline.json` (gitignored — it names 
 
 **Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift, backup-staleness). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. An open "Backup stale or unverified" issue means the newest prod DB backup has no `.verified` marker or is >25h old — likely the daily backup workflow stopped running or was disabled; check `db-backup.yml`'s run history, surface the object name from the issue body, do NOT attempt a manual backup or restore inline (ALWAYS-ASK). No relevant open issue = healthy as of the last cron run (drift: daily 6am UTC; prod-health: 6-hourly; backup-staleness: daily 6:15am UTC). `OPS-ISSUES-CHECK-FAILED` or any gh stderr (rate limit, auth) = flag ⚠, don't report healthy, don't silently skip.
 
+**AI keys** (`=== AI KEYS ===`, pp P45) — three restricted Gemini keys, each in its own
+project with its own monthly spend cap, shared with a person and with agents. Google
+exposes **no API for spend caps**, so nothing here can read a cap back; the whole safety
+story is inference from observed spend. Read both exit codes, always printed:
+
+- `ai_keys_exit=0` — every key under its recorded budget. Report `✓ AI keys: N under budget`.
+- `ai_keys_exit=1` — findings. Read the tokens; they are not equally urgent:
+  - `WARN_CAP_ABSENT:<name>` — **the alarm.** Spend passed the recorded budget, which
+    means the cap was never set, was deleted, or was lifted and not re-raised. Treat as an
+    incident: name the key, and offer to revoke it until the cap is fixed. This is the only
+    signal that a cap is missing, because no API reports caps.
+  - `NO_BILLING_DATA:<name>` — no billing rows for that project. The export lags hours and
+    can exceed 24h, so this is normal for a key issued today — but it means the key is
+    **unmonitored**, not unused. Never render it as EUR 0.00 or as clean.
+  - `WARN_CAP_UNRECORDED:<name>` — nobody has claimed a cap was ever set. Offer
+    `~/.agents/bin/ai-keys --cap-url --name <name>`.
+  - `DRIFT_REGISTRY_ONLY` / `DRIFT_PROJECT_ONLY` — a registry row with no project, or a
+    project the registry does not know about. The `orphan=likely-partial-provision` variant
+    is a project left behind by a failed issue; it carries no billing and is invisible to
+    every spend query, so only the project list can see it.
+- `ai_keys_exit=2` — the monitor could not run. Flag `⚠ AI keys: NOT checked this run` and
+  **never** render it as a clean estate. That distinction is the point of the check.
+
+**Production key ping** — read `ai_keys_ping_exit=N`:
+
+- `0` / `KEY_PING_OK` — the production Gemini key answered. Report `✓`.
+- `KEY_CAP_TRIPPED` — the cap fired. The key is intact and the budget is spent. Do **not**
+  send anyone to debug the credential, and do **not** advise lifting the cap on its own:
+  Google will not re-enforce a lifted cap for the rest of the month unless the amount is
+  raised, so a bare lift silently removes the budget entirely. Offer
+  `~/.agents/bin/ai-keys --unpause --name <name>`, which walks the safe order.
+- `KEY_PING_MODEL_UNAVAILABLE` — a retired model name, **not** a dead key. Says nothing
+  about the credential.
+- `KEY_PING_FAILED` / `KEY_PING_UNKNOWN` — the key genuinely stopped answering, or the
+  request never completed. `UNKNOWN` is a finding, not a pass.
+- `2` — `GEMINI_API_KEY` was not in the environment, so the production key was **not
+  checked**. This is the failure this row exists to catch: a trimmed cron environment must
+  never let a dead production key read as healthy.
+
 **b) Read goals** (1 Read call):
 - `docs/goals.md`
 
@@ -616,6 +687,9 @@ HEALTH
                         "NOT checked" (exit 2 / no output) must show here, never omitted.
   [✓/⚠] GCP credits  ← the `gcp_credits_exit` line above; low-balance or "not checked"
                         must show here, never rendered as clean or as $0.
+  [✓/⚠] AI keys      ← `ai_keys_exit` + `ai_keys_ping_exit` above. WARN_CAP_ABSENT is an
+                        incident. "NOT checked" and NO_BILLING_DATA must show here —
+                        neither is clean, and neither is zero spend.
   [✓/○/⚠] Agent VM   ← from /slava:util:agent-vm-health (step 5); printed
                         verbatim and in full, never omitted, never a prompt.
                         Healthy is one line; a problem may run to three.
