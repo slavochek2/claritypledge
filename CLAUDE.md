@@ -12,7 +12,7 @@ This file provides guidance for AI agents working with code in this repository. 
 
 **Clarity Pledge** — Vite + React 19 SPA (NOT Next.js) for calibrated communication practice — routes in `src/App.tsx`, pages in `src/app/pages/`, Supabase backend.
 
-**Development pattern:** Read spec → implement → test → `/dev` stops at the UAT gate, staying on the feature branch. You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed. Spec-field values are owned by [.claude/rules/features.md](.claude/rules/features.md) — never named here.
+**Development pattern:** Read spec → implement → test → `/dev` stops at the UAT gate, on a feature branch or on `main` when step 0 routed it there. You run `/ship pN` when satisfied → merges to prod, closes spec either way. Run `/verify` for visual QA when the change is user-visible. Spec-field values are owned by [.claude/rules/features.md](.claude/rules/features.md) — never named here.
 
 **Deep dive:** See `docs/technical/` for architecture, auth, database, testing guides.
 
