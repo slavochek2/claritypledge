@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: 2026-08-27
 created_date: '2026-08-27'
 tags: [migrations, deploy-manifest, shared-checkout, tooling]
-delivery_stage: fix
-pipeline_ran: [create-spec, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-spec, reproduce, fix, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
