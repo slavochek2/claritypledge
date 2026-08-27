@@ -6,12 +6,30 @@ Canonical specification of the points extraction pipeline — the stages, their 
 
 ---
 
+## 0. Running it — the conductor
+
+**`/slava:disagreement:run-pipeline`** runs all five stages in order, carrying the run file between
+them. It contains no pipeline logic and adds no gate of its own — every stage gate below still halts
+for the founder. Use it when you have a topic (or a link) and don't want to hold five command names
+and their order in memory. Use the individual stages when resuming a half-finished run, re-running one
+stage, or debugging.
+
+**It never chains TEST → PROD.** Filing to test and filing to production are two separate deliberate
+invocations; the conductor stops after a test run and prints the feed URL.
+
+> The leaf name is `run-pipeline`, not `run`: the skill projection is flat and name-keyed, and
+> `/slava:events:run` already holds `run`. Same constraint that made the story stage `story-draft`.
+
+**Topic sourcing is upstream and out of scope** — the pipeline takes a topic, it does not choose one.
+
+---
+
 ## 1. The Pipeline Overview
 
 The points pipeline turns public video into a published disagreement a room can take positions on.
 
 ```
-[Topic String]
+[Topic String]  (+ optional seed: a person and/or a video URL)
       │
       ▼
 ┌────────────────────────────────────────────────────────┐
@@ -72,7 +90,7 @@ The points pipeline turns public video into a published disagreement a room can 
 ### Step 1: `/slava:disagreement:select`
 - **Goal:** Find two credible, influential people with opposing stances on a topic, and identify single-speaker solo videos where each makes their case.
 - **Gates:**
-  - **Gate 1:** Founder approves the two people. Identity key resolved, agent existence checked, portrait feasibility verified (licensed photo required for v1).
+  - **Gate 1:** Founder approves the two people. Identity key resolved, agent existence checked, **portrait status recorded — never rejected on**. Three values: `cleared` / `none` / `UNKNOWN LICENCE`. `none` is a valid approvable outcome routed to the initials-only provisioning branch; only `UNKNOWN LICENCE` halts. Optionally one side is **seeded** by the founder (a person and/or a video URL), in which case only the counterpart is proposed.
   - **Gate 0:** Single-speaker constraint. Title screen → transcript opening read (~500 words) → founder confirmation → reported speech scan.
   - **Gate 2:** Founder approves the selected video pair. Evaluates candidate statistics, argument quality, claim match, and judge-step dissent.
 - **Writes:** The run file header, topic, room, approved people/sources, and Gate 1/Gate 2 approvals block. Seals the approvals block to `.points-run-seals/<slug>.approvals.sha256`.
@@ -253,13 +271,15 @@ content: |
    No multi-speaker sources (no panels, interviews, debates). Verified through title screen, ~500 word transcript read, founder glance, and reported-speech scan.
 3. **Exit Code 7 (Quota Exhaustion):**
    When `yt` returns exit code 7, halt immediately. Mark funnel INCOMPLETE. Never retry silently.
-4. **Portrait Feasibility (Gate 1):**
-   For v1, candidates without a rights-cleared licensed portrait are rejected at Gate 1. If both sides are institutional, state so explicitly.
-5. **Raw VTT Origin for Timecodes:**
+4. **Portrait Status (Gate 1) — nobody is rejected for lacking a photograph:**
+   Gate 1 **records** portrait status, it does not reject on it (Founder Decision **2026-08-26**, reversing the 2026-08-25 v1 rule — verbatim: *"i never want to reject a person based on profile photo — this makes no sense at all"*). `cleared` ⟹ licence line read, not assumed. `none` ⟹ provisioned initials-only (`/slava:content:provision-agent` Step 2b: no avatar generated, `p_avatar_url` `NULL`, `avatar_color` `#39424B`, the absence written to the registry log) and published via the deliberate-absence branch in `disagreement:publish`. `UNKNOWN LICENCE` ⟹ **STOP** — an unread licence is a rights risk; an absent photo is not. If both sides are institutional, state so explicitly.
+5. **A deliberate portrait absence must be distinguishable from an accidental one:**
+   `avatar_url IS NULL` renders identically whether it was intended or a lost upload. The discriminator is the **written registry line** made at provisioning time, deliberately outside the database. `NULL` + `portrait: none (deliberate, …)` ⟹ proceed. `NULL` with no line ⟹ STOP.
+6. **Raw VTT Origin for Timecodes:**
    `seconds:` MUST be resolved from raw `.vtt`, never from cleaned transcripts.
-6. **No Trailing `Source:` Line:**
+7. **No Trailing `Source:` Line:**
    Story drafts must not include a trailing `Source:` line.
-7. **Character & Constraint Safety:**
+8. **Character & Constraint Safety:**
    `stories.content <= 10000` chars; `(author_id, point_id)` unique across emitted story points.
-8. **Seal Re-verification:**
+9. **Seal Re-verification:**
    Every downstream skill (`disagreement:prepare`, `disagreement:positions`, `disagreement:story-draft`, `disagreement:publish`) re-extracts the approvals block, re-hashes it, and compares against `.points-run-seals/<slug>.approvals.sha256` before acting on the run file. A mismatch is a STOP, never a re-seal.

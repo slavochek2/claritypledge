@@ -36,7 +36,7 @@ Check all of them before building anything. A run where every gate passes and th
 | **The arguers resolve to DISTINCT agents** | compare the resolved `profile_id`s | Two arguers on one agent (the same person speaking in both sources, or a duplicated `subject_key`) collides on `story_points_author_point_unique UNIQUE (author_id, point_id)` and again on `point_positions UNIQUE(point_id, user_id)`. Atomically that aborts everything, which is safe — but catch it at resolve time rather than by transaction failure, and note that one agent cannot hold two positions on one point anyway, so there is no artifact to salvage. |
 | **Speaker attribution was checked, not assumed** | named per quote, with the basis | Right words, wrong mouth is a **different failure** from mis-transcription and neither check below catches it. See the warning after the deploy check. |
 | **Every story body is under 10,000 characters** | `char_length` per story, before the write | `stories.content` carries `CHECK (char_length(content) <= 10000)` (P427). Summary + quotes + inference chains approach it. The transaction aborts on violation, which is safe — but a length check at build time tells you which story to shorten, instead of a Postgres error that tells you only that one of them was too long. |
-| **Each agent's avatar renders** | probe the URL **read back from `profiles.avatar_url` on the target ref** — never a path you reconstructed — and assert `200` **and** `content-type: image/*` | A missing avatar drops the portrait channel to the initials fallback (`gravatar-avatar.tsx:134`) silently. **Against storage, never assert "not 404"** (P1135 decision (d)) — *measured 2026-08-21 with a control:* a missing object in the `agent-avatars` bucket returns `HTTP/2 400`, `content-type: application/json`, body carrying `"code":"NoSuchKey"`; only the JSON says 404, the status **line** is 400. An existing object returns `HTTP/2 200`, `content-type: image/*`. Assert the positive (`200` + `image/*`) only — a "not 404" check passes on every missing avatar on this host. |
+| **Each agent's avatar renders — OR is deliberately absent** | **Branch on `profiles.avatar_url` read back from the target ref.** `NULL` ⟹ take the *deliberate absence* path below (no probe, no stop). Non-`NULL` ⟹ probe **that** URL — never a path you reconstructed — and assert `200` **and** `content-type: image/*`. | A missing avatar drops the portrait channel to the initials fallback (`gravatar-avatar.tsx:134`) silently. **Against storage, never assert "not 404"** (P1135 decision (d)) — *measured 2026-08-21 with a control:* a missing object in the `agent-avatars` bucket returns `HTTP/2 400`, `content-type: application/json`, body carrying `"code":"NoSuchKey"`; only the JSON says 404, the status **line** is 400. An existing object returns `HTTP/2 200`, `content-type: image/*`. Assert the positive (`200` + `image/*`) only — a "not 404" check passes on every missing avatar on this host. |
 | **Quote verification artifacts exist** | the per-quote `grep -F` exit codes against the cleaned transcript, **and** the audio-at-timecode check with who ran it and when | Prose saying "checked before filing" is the sentence that lets the check not happen. |
 | **The prediction seal FILE exists** | `.points-run-seals/<slug>.sha256` is committed | Absent ⟹ **STOP**. Present ⟹ proceed, and see the honesty note below: presence is all this skill can check. |
 | **The (ref, key) pair for the CHOSEN target** | the table below | Credentials by **variable name only**. **`OPS_EMAIL` is deliberately NOT listed** — this run never signs in, so it needs no account credential, and naming one is what points an agent at the `Clarity Agent` machine profile. |
@@ -115,6 +115,30 @@ Declining still halts the run with nothing written — this offer replaces nothi
 > Also: `REVOKE DELETE, TRUNCATE … FROM service_role` plus `trg_guard_agent_account_delete` (`:321,:337`) — a registry row **cannot be deleted while its profile lives**, by anyone. Do not write a rollback that assumes it can.
 
 ---
+
+
+### A deliberate portrait absence is not a failed upload — D5
+
+`profiles.avatar_url IS NULL` and `avatar_url` pointing at a missing object look identical on the
+rendered card: both fall to the initials placeholder (`gravatar-avatar.tsx:134`). They are opposite
+facts, and **only one of them is a reason to stop.**
+
+| State at the target ref | What it means | What this skill does |
+|---|---|---|
+| `avatar_url` is **`NULL`** *and* the registry line reads `portrait: none (deliberate, …)` | The subject has no rights-cleared portrait. Provisioned via `/slava:content:provision-agent` **Step 2b**. | **PROCEED.** No probe. Assert `avatar_color = '#39424B'` instead — on this account the initials-on-slate *is* the portrait channel, and the `#0044CC` default would render it as an ordinary member. Print `portrait: none (deliberate)` in the run output so the absence is visible in the record, never inferred later from a blank. |
+| `avatar_url` is **`NULL`** *and* the registry line says nothing, or says `portrait: cleared` | Unexplained absence — a lost upload, a wrong branch, a hand-seeded row. | **STOP.** Resolve which it is before publishing. Do **not** repair it by writing a URL from here; provisioning owns account writes. |
+| `avatar_url` is **non-`NULL`** and probes `200` + `content-type: image/*` | Normal portrait account. | **PROCEED.** |
+| `avatar_url` is **non-`NULL`** and does not probe `200` + `image/*` | A real broken avatar. | **STOP** — unchanged from before. |
+
+**The registry file is the discriminator, and it is deliberately outside the database**
+(`.private/logs/agent-registry.log`). The database cannot hold the difference: `NULL` is `NULL`
+whatever put it there. Read the line for the subject's `subject_key`; a subject with no line at all is
+the second row — a STOP — because an absence nobody wrote down is not a decision, it is a gap.
+
+> Closes the open item flagged in [decisions.md](../../../../docs/decisions.md) 2026-08-21: *"a
+> deliberate absence must be distinguishable from an accidental one, and currently is not."* It is now,
+> and the distinguisher is a written record made at provisioning time, not a guess made at publication
+> time.
 
 ## The four constraints — verbatim, not by reference
 

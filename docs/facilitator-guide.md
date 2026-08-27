@@ -394,6 +394,36 @@ Measure movement **toward center** (extremity drop), not just sign change. Also 
 
 ---
 
+## Getting the room signed in before they stake (2026-08-27)
+
+**This is the block that stalls a live room, and it stalls silently.** Staking a position requires a
+**verified** account. Verification comes from one thing only: the person reaching the auth callback
+after confirming their identity. Until then their taps write nothing.
+
+**Route the room to "Continue with Google". Do not let them choose.**
+
+| Route | What happens in the room |
+|---|---|
+| **Google** *(say this one out loud)* | No email round-trip. Already the primary button on the login screen. |
+| **Magic link** | **An email round-trip in the middle of the block** — venue wifi, phone inboxes, spam folders, ten people at once. |
+
+**Say it as one instruction, before block 5:** *"Tap Continue with Google. Not the email link."* One
+sentence costs nothing and removes the only failure mode here that can eat ten minutes.
+
+**What to watch for.** A tapped position button **looks selected whether or not it saved.** If someone
+is not signed in, a small line under that card reads *"Sign up or log in to save your position"* —
+that line, not the button, is the truth. **Scan for it while the room stakes.** Someone can tap all
+seven dimensions, see seven selected buttons, and have staked nothing.
+
+**If a stake genuinely fails for a signed-in person**, the app says so — the button reverts and an
+error appears. Silent non-saving means *not signed in*, not a broken app.
+
+> **Known gap, accepted deliberately 2026-08-27.** The full path — a person who is *not* the founder
+> signing up fresh, confirming, and staking — has never been walked end to end. The founder's own
+> account is already confirmed, so testing from it never exercises the sign-up-and-confirm hop.
+> Routing the room to Google is the mitigation. **If block 5 stalls live, this is the first place to
+> look.**
+
 ## Related
 
 - [P567: False Belief Curriculum](../features/done/24_mar_26/p567_false_belief_workshop_curriculum.md)

@@ -5,7 +5,7 @@ rank: 70
 workstream: gtm
 created_date: '2026-08-26'
 tags: [events, disagreement-pipeline, cmp, chiang-mai]
-delivery_stage: create-spec
+delivery_stage: decompose
 pipeline_ran: [create-spec, challenge-prd]
 drafted_by: opus
 exec_model: opus
@@ -97,17 +97,13 @@ dimension movement as evidence about the instrument until that mechanism is name
 
 ### The sequence
 
-0. **Run the rename (D4) first.** All five stages into one namespace, every stage carrying the
-   prefix. Lands before step 1, on its own, with nothing else in flight. **Reordered by founder
-   decision 2026-08-27** — see D4.
-1. **Topic sourcing + signal check.** Candidate list from the founder's own interests (YouTube
-   history) and the Chiang Mai audience's revealed interests (Beeper — the AI group, "Questions That
-   Matter", 4C's). Score every candidate against the documented topic gate (care / disagree / fuzzy —
-   `clarity-forum.md:71-82`). Output: a ranked candidate backlog and one chosen topic. **Runs first,
-   in a fresh session.**
-2. **Run the Disagreement Pipeline** on the chosen topic (select → prepare → positions → story →
-   publish), by hand. `/slava:disagreement:run` stays deferred until this run completes
-   ([p1156](done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) decision 2d).
+0. ~~**Run the rename (D4) first.**~~ **DONE 2026-08-27 — shipped as
+   [P1165](done/2026-06-10/p1165_disagreement_pipeline_namespace_rename.md).** All five stages are
+   in one namespace: `/slava:disagreement:{select,prepare,positions,story-draft,publish}`. The leaf
+   is **`story-draft`, not `story`** — `/slava:content:story` already owns `story` and the
+   projection is flat and name-keyed. **Start at step 1.**
+1. **Topic sourcing + signal check.** ➡️ **Moved to [P1166](p1166_topic_sourcing_from_interest_corpora.md), 2026-08-27** — a standing capability, not part of this event. **Does not gate this spec:** the founder may hand the pipeline a topic or a video link directly (D1's seed). The YouTube export was requested 2026-08-27 and takes hours; P1166 proceeds in its own session while this one continues.
+2. **Run the Disagreement Pipeline** on the chosen topic. ✅ **`/slava:disagreement:run-pipeline` now exists (built 2026-08-27)** — one command, topic (+ optional seed) and room in, five stages in order, every stage gate still halting for the founder. The p1156 decision-2d deferral is **discharged**: its stated cause was stages that were still being renamed, and the rename shipped as P1165. **It never chains TEST → PROD** — that invariant is enforced inside the conductor.
 3. **File to TEST**, review the rendered feed against a stated criterion, then **file to PROD** as a
    second invocation.
 4. **Publish and promote the event.** Link the published points feed in the listing as *"here's what
@@ -118,7 +114,7 @@ dimension movement as evidence about the instrument until that mechanism is name
 6. **Close:** free community join is the single spoken CTA — the sayable link is **`/org/cm/join`**.
    Then a **paper shortlist, show of hands** for the next event's topic, feeding the backlog.
 
-### Deviations from the written docs — five, not two
+### Deviations from the written docs — four real, one struck
 
 1. **A host framing block replaces in-room story reading.** Reading three stories and staking six
    topic positions is 10–15 unbudgeted minutes in a schedule that already holds ten blocks
@@ -144,20 +140,25 @@ dimension movement as evidence about the instrument until that mechanism is name
    physical bracelets having been sourced** (grepped across `docs/`, `features/`, `.claude/`,
    `.private/` on 2026-08-26 — design and metric references only), so procurement is an unowned
    dependency before *any* event can offer one.
-5. **The bell is absent.** Block 6's mechanic (`clarity-practice-event.md:119`,
-   `facilitator-guide.md` § "The bell"). Reinstate it in step 5 or record why not.
+5. ~~**The bell is absent.**~~ **STRUCK 2026-08-27 — false alarm, verified by reading the file.** The bell is present: `clarity-practice-event.md` run-of-show block 6 carries it and points at `facilitator-guide.md` § "The bell" for the mechanic. Nothing to reinstate and nothing to record. **This is the second claim in this spec that did not survive opening the file it cited** (see the corrected stake-flow passage) — both were precise, both were wrong.
 
-### Dependencies — each becomes its own spec
+### Dependencies — a build list, not a wall
+
+> **Reframed 2026-08-27, founder direction.** Every row below is *work*, with an owner and a size.
+> None of it is impossible and none of it blocks the event in the sense of "cannot be done" — an
+> earlier draft's use of the word *blocks* made a to-do list read as a set of reasons the event could
+> not happen. **Exactly one row (D7) requires a person who is not the founder and cannot be done by an
+> agent at all.** That is a scheduling fact, not an engineering one.
 
 | # | What | Why it blocks | Scope |
 |---|---|---|---|
-| **D1** | **Seed input for the selector.** Optional person and/or video; the proposal step branches so a supplied side is accepted rather than proposed; Gate 1 approves only the counterpart. | The selector takes only a topic string and a room (`select.md:18-23`); Gate 1 halts for approval and cannot inject (`:72-73`). | One skill file |
-| **D2** | **Initials fallback in agent provisioning**, and removal of the Gate 1 portrait rejection. | Blocks any pseudonymous arguer — which killed a real run on 2026-08-21. | **≥2 skill files** — the branch in `provision-agent`, the rejection in `select.md:67-68`. `avatar_color` is already specified at `provision-agent.md:193`; do not re-specify it. **Reverses a 2026-08-25 founder decision — CONFIRMED by the founder 2026-08-26, build it.** The provisioning change is larger than one branch: `provision-agent.md:189-191` hard-requires an uploaded avatar asserted `200` + `content-type: image/*` in its own quality gates, so the initials path needs an explicit exemption there, not only in the write sequence. |
-| **D3** | **Topic sourcing.** Interest corpus + candidate backlog + the scoring pass. | Step 1 has no home and no repeatable method. | Small spec |
+| **D1** ✅ | **SHIPPED 2026-08-27.** **Seed input for the selector.** Optional person and/or video URL; the seeded side is accepted, Phase 1 proposes and Gate 1 approves only the counterpart. A video URL resolves to *who speaks*, never to the channel; a multi-speaker or unattributed seed is a named STOP. The seed never sets the topic, never skips `subject_key` or portrait status, and never bypasses Gate 1 — the seeded side is labelled `seeded` vs `proposed` so the founder can reject their own seed on seeing it beside the alternative. | Was: the selector took only a topic string and a room. | `disagreement/select.md` — Inputs table + Phase 1 |
+| **D2** ✅ | **SHIPPED 2026-08-27.** **No person is ever rejected for lacking a photograph.** Gate 1's portrait *rejection* is replaced by a portrait *status* with three values — `cleared` / `none` / `UNKNOWN LICENCE`. `none` is a valid, approvable outcome routed to a new **Step 2b initials-only branch** in `provision-agent` (no avatar generated, no asset uploaded, `p_avatar_url` passed as `NULL` — never `''` or a placeholder, `avatar_color` `#39424B` mandatory because the initials-on-slate *is* the portrait channel there, and the absence written to the registry log). `UNKNOWN LICENCE` remains a stop — an unread licence is a rights risk; an absent photo is not. Quality gates carry explicit `N/A` exemptions for the branch. | Was: blocked every pseudonymous or independent arguer — the exact voices the Institutional Bias Alert exists to protect. Killed a real run on 2026-08-21. | **Reverses the 2026-08-25 founder rule, deliberately** — its cause (no initials branch, publication hard-stop) is now gone. `disagreement/select.md` + `content/provision-agent.md` |
+| **D3** ➡️ | **MOVED OUT 2026-08-27 to [P1166](p1166_topic_sourcing_from_interest_corpora.md).** Topic sourcing is a standing capability run before *every* event, not part of running the first one. Keeping it here meant P1161 could not close until a permanent capability was built. **Does not block P1161:** the pipeline takes a topic, and with D1's seed the founder can hand it a topic or a link directly. | Was: "step 1 has no home and no repeatable method." It has a home now. | Own spec. The YouTube export is the long pole (hours) — requested 2026-08-27. |
 | **D4** ✅ | **SHIPPED 2026-08-27 as [P1165](done/2026-06-10/p1165_disagreement_pipeline_namespace_rename.md).** **Disagreement Pipeline rename** → one namespace, every stage carrying the prefix: `disagreement:select\|prepare\|positions\|story\|publish`. | **FOUNDER DECISION 2026-08-27: approved, and it runs FIRST — before the event, before the topic run.** The founder's reasoning: the stages are one pipeline and must read as one pipeline; splitting the naming *"doesn't make sense."* An earlier draft of this spec made deferral a Non-Goal — **that was the spec author's judgement, never a founder decision, and it is reversed here.** | Five stages, and **`points-*` matches only three** — `positions-create` and `story-create` must be named explicitly; `story*` over-matches four unrelated siblings (`story-gate`, `story-to-image`, `sifter-story`). Measured 2026-08-27: 15–33 referencing files per stage name. **Also touches `CLAUDE.md`'s namespace list**, so it goes through the CLAUDE.md gate. |
-| **D5** | **`/slava:disagreement:publish` must distinguish a deliberate avatar absence from an accidental one.** | `publish.md:39` is a **hard STOP**: assert `200` + `content-type: image/*`. An initials-only agent halts at publication. Flagged as open in [decisions.md](../docs/decisions.md) 2026-08-21: *"a deliberate absence must be distinguishable from an accidental one, and currently is not."* **D2 clears selection; it does not clear publication.** | One skill file |
-| **D6** | **Photographer attribution surface.** | [decisions.md](../docs/decisions.md) 2026-08-21: cleared photos are share-alike with *"attribution required, and the product has no surface that credits a photographer — contained on test, **a blocker before any public run**."* Step 3 files to PROD. | Routed to the story/image component work, not the pipeline |
-| **D7** | **Walk the in-room stake flow end-to-end with a non-founder account.** | [p1055](p1055_norm_measurement_instrument.md):169 — *"the path from 'logged in' to 'position staked' has never been walked by a non-founder... walk it end-to-end before event #1. **This is the failure that costs the room, not the schema.**"* Its `:206` Done-When box is unchecked, and P1161 **is** event #1. **The exact path is now traced — see "What D7 actually walks" below.** | Highest-consequence item in this spec |
+| **D5** ✅ | **SHIPPED 2026-08-27.** **`publish` now branches on `avatar_url` instead of hard-stopping.** `NULL` + a registry line reading `portrait: none (deliberate, …)` ⟹ proceed, no probe, assert `avatar_color = '#39424B'` instead, and print `portrait: none (deliberate)` into the run output so the absence is visible in the record. `NULL` with **no** registry line ⟹ STOP — an absence nobody wrote down is a gap, not a decision. Non-`NULL` keeps the `200` + `image/*` assert unchanged. | Was: `publish.md:39` hard-stopped on any missing avatar, so an initials-only agent died at the last step. | **The discriminator is deliberately outside the database** — `NULL` is `NULL` whatever put it there, so the written registry line made at provisioning time is what carries the intent. Closes the open item in [decisions.md](../docs/decisions.md) 2026-08-21. |
+| **D6** ⏭️ | **SKIPPED for event #1 — FOUNDER DECISION 2026-08-27.** Photographer attribution surface. | Attribution is owed only for a cleared photo *actually used*. D2's initials-only path means a run provisioned `portrait: none` publishes no photographs, so nothing is unattributed on prod. | **This is a choice for this run, not a claim D6 is solved.** D6 still gates the first run that publishes a cleared portrait. If a `portrait: cleared` arguer enters this run, D6 comes back. Routed to the story/image component work. |
+| **D7** ✅ | **CLOSED 2026-08-27 — FOUNDER DECISION: not load-bearing.** Walk the in-room stake flow with a non-founder account. | Founder's call, verbatim: *"I kind of tested it. It works."* | **What remains untested is named rather than hidden:** a *non-founder* signing up fresh, confirming their email, and staking — hops 3–4 of the traced path. The founder's own account is already confirmed, so testing from it never exercises the sign-up-and-confirm hop. **Accepted risk, deliberately taken.** Mitigation available at zero cost: the login screen already offers Google as the primary button, which has no email round-trip — **route the room to Google rather than letting them choose.** If block 5 stalls live, this row is the first place to look. |
 
 ### What D7 actually walks — traced by command 2026-08-26
 
@@ -210,12 +211,29 @@ is not the founder's. It cannot be satisfied by a test fixture.
 - The login screen offers **"Continue with Google" as the primary button**, with magic link second.
   The no-email-round-trip route is already the default the room will see.
 
-**Observed, not hypothesized — the silent-stake problem is real on this surface.** The tapped button
-renders `[pressed]` — visually selected, indistinguishable from a saved position — while nothing has
-been written; only a small line of text below the card says otherwise, and it appears **only on the
-card that was tapped**. An attendee can tap all seven, see seven selected buttons, and have staked
-nothing. **This is a room-facing defect, not a D7 test artifact.** Fix or explicitly host-manage it
-before block 5; it is the mechanism by which "the stake flow stalls live" actually costs the room.
+**Observed, not hypothesized — but NARROWER than first written. Corrected 2026-08-27 by reading the
+code.** The original claim here was that a tapped position renders selected while nothing is written,
+with no way for the attendee to tell. **That is true only for the logged-OUT case, and even there a
+per-card CTA does render.** Verified by command:
+
+- **Logged out:** `feed-point-card.tsx:114-120` sets local `anonPosition` and returns — nothing is
+  written, by design (P502), and counts are deliberately not inflated (`:105-107`). The
+  *"Sign up or log in to save your position"* line renders at `:254-255` **per card**, from that
+  card's own state — so tapping seven cards renders seven CTAs, not one. The earlier "the line appears
+  only on the card that was tapped" reading was a misreading of per-card state as a single shared CTA.
+  **The residual defect is styling, not silence:** the pressed button looks identical to a saved
+  position, so the CTA is doing all the work of signalling *not saved*.
+- **Logged in but UNVERIFIED — the case that would actually cost the room — does NOT fail silently on
+  this surface.** `points-service-real.ts:869-872` calls `throwDbError` on any error, so the RLS
+  refusal throws; `feed-point-card.tsx:132-136` catches it, reverts the optimistic state, and shows a
+  `Failed to save position.` toast. **The swallow named in the spec (`api.ts` / P705 / P1093) is on the
+  LETTER surface, not the feed** — `api.ts:774-784` documents it as staging into
+  `letter_point_responses`, replayed by `replay_letter_positions()` once verified.
+
+**Consequence for the event:** this is no longer a room-killer and no longer sequenced first. It is a
+**visual-affordance fix** — make an unsaved anon selection look unsaved — and it is optional for
+event #1, because the room will be asked to sign in *before* block 5 regardless (D7). Do not carry the
+original, stronger claim forward; it did not survive reading the code.
 
 **Hops 3 and 4 are NOT walked, and an agent may not walk them** — completing them means creating a
 real account, which the operating rules reserve to the founder. The runbook is below; it is the
@@ -303,17 +321,21 @@ p1055 predicted** — and it has been found in a private window rather than in t
 
 ## Done-When
 
-- [ ] **D7 done:** the stake flow was walked end-to-end by a **non-founder account** — signup through
-      a real inbox or a real non-founder Google account, the auth callback, `mark_self_verified`, and
-      a `point_positions` row that lands **without** any `service_role` write anywhere in the
-      sequence — and p1055's own `:206` box is ticked. A run using `e2e/helpers/test-user.ts` does
-      **not** satisfy this box (it sets `email_confirm: true` and writes `is_verified` as admin)
-- [ ] A ranked topic candidate backlog exists at a named path, scored against care / disagree / fuzzy,
-      with the chosen topic and its score shown
-- [ ] D1, D2 and D5 shipped — selector accepts a seed; provisioning has an initials branch; publish
-      distinguishes deliberate from accidental avatar absence, proven by a run that would previously
-      have halted
-- [ ] D6 resolved or the prod run uses only photos needing no attribution surface
+- [x] ~~**D7 done:** stake flow walked by a non-founder account~~ — **CLOSED 2026-08-27 by founder
+      decision as not load-bearing** (*"I kind of tested it. It works."*). The untested hop (a
+      non-founder signing up fresh and confirming) is an **accepted risk**, named in D7 above, with
+      the zero-cost mitigation being to route the room to Google rather than magic link. p1055's
+      `:206` box is **left unticked** — this decision closes it for *this event*, it does not satisfy
+      the original claim.
+- [x] **D1, D2 and D5 shipped 2026-08-27** — selector accepts a seed and records portrait status
+      instead of rejecting on it; provisioning has the Step 2b initials branch; publish branches on
+      deliberate-vs-accidental absence. **Still to prove at run time:** a run that would previously
+      have halted (an arguer with `portrait: none`) completing through publish. Shipped ≠ exercised.
+- [x] **D6 resolved for this event 2026-08-27** — the prod run uses no photographs (`portrait: none`
+      arguers), so no attribution surface is owed. Reverts to open if a `portrait: cleared` arguer
+      enters the run.
+- [x] **The pipeline conductor exists** — `/slava:disagreement:run-pipeline`, built 2026-08-27,
+      discharging the p1156 decision-2d deferral. **Still to prove:** one topic through it end to end.
 - [ ] One topic filed to TEST, and the rendered feed checked by **loading every point URL and reading
       the order back** (the criterion p1055:198 uses)
 - [ ] The same set filed to PROD as a separate invocation, returning a public tag feed URL
@@ -323,8 +345,17 @@ p1055 predicted** — and it has been found in a private window rather than in t
 - [ ] Attendance, opt-in count, dimension movement, the P1/P2 gap and community joins are written to
       **`.private/docs/events/event-01-results.md`**
 - [ ] The next-event topic shortlist was voted on paper and written back to the backlog
-- [ ] `goals.md` and `docs/events/clarity-practice-event.md` amended via the strategy gate — covering
-      **all five deviations above**, resolving the `:18` vs `:127` CTA contradiction, and recording
+- [x] **`docs/events/clarity-practice-event.md`, `docs/events/clarity-forum.md`,
+      `docs/facilitator-guide.md` amended 2026-08-27** — CTA contradiction resolved by qualifying the
+      offer *by configuration* (not by deleting one side), block 5b host-framing added, the seeding
+      exception recorded in both event docs, the bracelet absence and its three consequences stated,
+      and the room's sign-in routing written into the facilitator guide. `.private/docs/events/event-01-results.md` created.
+- [x] **`goals.md`:15 amended 2026-08-27**, wording approved by the founder before it landed. The
+      offline configuration now carries the seeding exception, marked event-#1-only with its
+      convergence mechanism named. **Not run through `/slava:maintain:docs-strategy-update`, and that
+      is correct** — that skill states `goals.md` is *"not a gated home (ungated/tactical) — free-standing
+      tactical edits to it are outside this skill entirely."* Event topic-source is tactical
+      (CHARTER rule 7). An earlier line in this spec called for the strategy gate here; that was wrong.
       the `Clarity Forum` name reuse with the definition loosening it forces (Open Question 3).
       `docs/events/clarity-forum.md` is in scope for that amendment too
 

@@ -20,7 +20,28 @@ Take a single topic string and a named room. Propose two credible people who arg
 | Input | Notes |
 |---|---|
 | **Topic** | Single topic string provided by the founder (e.g. "digital nomad lifestyle vs settling down", "effective altruism"). Run one topic per invocation — never batch. |
-| **The room** | Who these points will be shown to (e.g. "seed-stage founders at a Berlin event", "nomads in Chiang Mai"). |
+| **The room** | Who these points will be shown to. **Named rooms are registered in `.private/audiences.json` — read it and resolve by key rather than inventing a room string.** Pass the entry's `room` value verbatim; it is a founder decision. An entry with `"scope": "wide"` must not be narrowed for a single run — use the per-run overlay entry (`overlay_of`) instead. An unregistered room is accepted, but say so and offer to register it. |
+
+### Optional seed — one side supplied instead of proposed
+
+The founder may supply **one** side up front, as a person, a video URL, or both. This is a normal
+invocation, not a special case: the seeded side is **accepted**, and Phase 1 proposes and Gate 1
+approves **only the counterpart**.
+
+| Seed form | What the skill does with it |
+|---|---|
+| **Person only** (name, or a `subject_key`) | Take them as the seeded side. Still resolve `subject_key` and portrait status for them (identity and rights are never inherited from the founder's say-so), then run Phase 2 video search for them as normal. |
+| **Video URL only** | Resolve **who actually speaks in it** before anything else, and derive the person from that. A channel URL identifies whoever *publishes*, not who speaks — so a multi-speaker or unattributed video is a **STOP** with the reason named, not a guess. Once the speaker is resolved, treat as *person only* plus a pre-chosen video that still passes the Phase 2 solo/quality checks. |
+| **Person + video** | Both accepted; the video still passes the Phase 2 checks. A seeded video that fails them is reported and replaced, never waved through. |
+
+**What the seed does NOT do:** it never sets the topic (the topic input is still required and still
+governs), never skips the `subject_key` resolution, never skips portrait status, and never bypasses
+Gate 1 — Gate 1 still runs, still halts, and presents the seeded side as *supplied* alongside the
+proposed counterpart, so the founder can reject their own seed on seeing it beside the alternative.
+
+**State the seeded side out loud at Gate 1**, labelled `seeded` vs `proposed`. A founder-supplied side
+is an unbalanced starting condition, and the Institutional Bias Alert below applies to it with more
+force, not less.
 
 ---
 
@@ -56,6 +77,11 @@ Do not search YouTube for topics — search matches words, not stances. First pr
 1. **Side A (Thesis)**: 2–3 candidate people.
 2. **Side B (Antithesis)**: 2–3 candidate people.
 
+**If a side was seeded** (see *Optional seed* above): that side has one candidate — the supplied
+person — labelled `seeded`. Propose 2–3 candidates for the **counterpart side only**, and choose them
+*against* the seeded person specifically: the counterpart must actually disagree with the stance the
+seeded person holds on this topic, not merely occupy the opposite general camp.
+
 For each candidate:
 - Name & background
 - Why credible on this specific topic
@@ -64,13 +90,17 @@ For each candidate:
 - Agent existence check: Query `agent_accounts` by exact `subject_key`.
   - **Name the environment out loud.** `subject_key` is UNIQUE **per database** — a test agent is not a prod agent — so "an agent already exists" is meaningless without saying in which database. Print the environment and the project ref it resolved to, exactly as `/slava:content:provision-agent` Step 1 does. Default the check to the environment the run will publish to; state which one was checked.
   - **This check needs the service-role credential** — `agent_accounts` grants anon only `(profile_id, operator_name)`, not `subject_key`. There is no lesser credential that answers the question, so this skill holds a prod credential for a read-only lookup. **It reads; it never writes** — account creation stays in `/slava:content:provision-agent`, invoked by `/slava:disagreement:publish`.
-- **Portrait feasibility:** Verify a rights-cleared licensed portrait exists (Wikimedia Commons / press kit / subject-supplied). Licence line read, not assumed — `UNKNOWN LICENCE` is a stop at provisioning time.
-  *(Founder Decision, 2026-08-25: candidates with no rights-cleared photo are rejected at Gate 1 for v1 — `/slava:content:provision-agent` has no initials-only branch, and an approval this gate stamps would die at the last step, reproducing the 2026-08-21 failure.)*
+- **Portrait status — RECORD it, never reject on it.** Check whether a rights-cleared licensed portrait exists (Wikimedia Commons / press kit / subject-supplied). Licence line read, not assumed. Report one of exactly three values at Gate 1, and carry the value forward into the run file:
+  - `portrait: cleared | <source> | <licence line>` — a portrait exists and its licence was read.
+  - `portrait: none` — **no portrait, and this is a valid, complete outcome.** The account is provisioned initials-only via `/slava:content:provision-agent` Step 2b, and published via the deliberate-absence path in `/slava:disagreement:publish`. Not a defect, not a downgrade, not a reason to halt.
+  - `portrait: UNKNOWN LICENCE` — a portrait was found but its licence could not be read. **This one IS a stop** — an unread licence is a rights risk, unlike an absent photo. Resolve it by reading the licence or by treating the candidate as `portrait: none`.
+
+  > **Founder Decision, 2026-08-26 — reverses the 2026-08-25 v1 rejection rule, deliberately.** No person is ever excluded from this pipeline for lacking a photograph. Verbatim: *"i never want to reject a person based on profile photo — this makes no sense at all."* The 2026-08-25 rule existed only because provisioning had no initials branch and publication hard-stopped on a missing avatar; **both of those are now built**, so the cause is gone and the rule goes with it. Pseudonymous and independent voices are exactly the ones this gate was silently filtering out — see the Institutional Bias Alert directly below, which this rule was defeating.
 
 > **Institutional Bias Alert:** When both proposed sides are institutional/official figures, say so out loud at Gate 1 so the founder is aware that pseudonymous or independent voices are missing.
 
 ### [GATE 1: Founder Approves People]
-Present the candidate people, their credibility, resolved `subject_key`, agent status, and photo feasibility. **Halt for explicit founder approval of one person per side before searching for any video.**
+Present the candidate people, their credibility, resolved `subject_key`, agent status, and **portrait status (one of the three values above — `none` is an approvable outcome, never a rejection)**. **Halt for explicit founder approval of one person per side before searching for any video.**
 
 ---
 

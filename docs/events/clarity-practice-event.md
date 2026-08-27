@@ -13,9 +13,9 @@ Same run-of-show, same instrument, same opening question. **They differ only by 
 
 | | **Online — the funnel event** | **Offline — the forum** ([clarity-forum.md](clarity-forum.md)) |
 |---|---|---|
-| **Topic source** | **The founder picks it.** Prepared, rehearsed, repeated. | **The room brings it.** This is what makes it a *forum* — open-forum origin. |
+| **Topic source** | **The founder picks it.** Prepared, rehearsed, repeated. | **The room brings it.** This is what makes it a *forum* — open-forum origin. **⚠️ Event #1 deviates: the founder picks it**, because no community exists yet to propose or vote. See *Event #1 — the seeding exception* below. |
 | **First topic** | Feedback material, so entry question / argument / offer share one subject and the sale has no seam. | Whatever wins the vote. |
-| **CTA** | The membership, €295/month. | A bracelet. Nothing paid. |
+| **CTA** | The membership, €295/month. | **The free community join.** Nothing paid, nothing carried. *(Was "a bracelet"; changed 2026-08-27 — see the CTA section below.)* |
 | **Job** | Conversion. Gets better every run because the material is constant. | Community, content, and the founder's own meaning driver — it feeds the online one. |
 | **Venue** | Online, repeating. | Zuzalu library, Chiang Mai. |
 
@@ -103,6 +103,7 @@ Sequence is settled; timings are `[FOUNDER DECISION]`.
 | 3 | **`/meet`** | The principle is shown. Each person **opts in or out** — this is the champion filter, and it happens here, not in the targeting. Opting out is legitimate; those who opt out **observe** those who opted in. |
 | 4 | **Understanding question** | Each answers how much they understood. |
 | 5 | **Stake `cmp7`** | Seven dimensions. They build a model before arguing. |
+| 5b | **Host frames the two positions** | **~3 min.** The host states each side's position in that side's own terms, neutrally, without arguing either. **Added 2026-08-27.** |
 | 6 | **Argue — fishbowl** | 2–4 speak, everyone votes. The proposed process is the object. Those opted in have a job: **challenge each other to give the number.** |
 | 7 | **Re-stake** | Any dimension that moved. |
 | 8 | **Stake `cmp3`** | The triad, scoped to their real counterpart, who is absent. |
@@ -116,6 +117,38 @@ Points can't be edited). Correct as-is: the argument narrows, the instrument sta
 Fishbowl not breakouts, and what the event must demonstrate (*these two people did not mean the same
 thing*): [decisions.md](../decisions.md) 2026-08-10.
 
+### Block 5b — why the host frames, and why it does not move anything
+
+**It replaces reading the prepared stories aloud in the room.** Reading three stories and staking six
+topic positions is 10–15 unbudgeted minutes in a schedule that already holds ten blocks. The
+resolution: **topic material can be pre-published; the instrument cannot.** People are interested in
+the topic, so the disagreement can be published in advance and linked from the listing as *"here's what
+we'll argue"* — promotion, zero obligation, **no staking asked for before the night**. The instrument
+is different: *"the cmp and cmp7 and cmp3 etc.. this is genuinely part of the event."*
+
+**Requiring pre-work of RSVPs fails, and partial completion is worse than none** — verbatim: *"who
+invests 20 min at moment of rsvp? nobody?"*
+
+**The ordering invariant is intact.** The instrument requires dimensions staked *before* the argument,
+the triad adjacent to the offer, and the reveal after both
+([p1055](../../features/p1055_norm_measurement_instrument.md) — "load-bearing, do not reorder"). Block
+5b sits **between** staking `cmp7` and the argument, so no existing block moves.
+
+### Event #1 — the seeding exception
+
+**The offline configuration says the room brings the topic. Event #1 cannot honour that**, because the
+Clarity Practice Community · Chiang Mai has one member — the founder. There is nobody to propose or to
+vote. **Founder decision 2026-08-27: event #1 runs founder-picked**, and the open forum (the room
+proposes and votes on the night) is explicitly **v2**.
+
+Verbatim: *"forum is probably version two. Version one, we cannot run a forum if we didn't optimize for
+infrastructure so people can vote and then we can create it on any topic very, very fast. But we
+didn't. We need to run it."*
+
+**This is a seeding exception, not a redefinition.** The forum's open-forum origin stands as the target
+state; event #1 is how a room comes to exist that can exercise it. **Block 6's closing shortlist is the
+bridge** — a paper vote on the next event's topic, which is the room beginning to bring it.
+
 Block 6's challenge is rewarded with a **rotating bell** — whoever asks rings it, and passes it on
 when they miss. Mechanic, who rings it when you are absent, and why nothing is counted in the app:
 [facilitator-guide.md](../facilitator-guide.md) § "The bell". Do not restate it here.
@@ -124,7 +157,29 @@ when they miss. Mechanic, who rings it when you are absent, and why nothing is c
 
 ## The offer
 
-**One spoken CTA: the Clarity Practice Community, €295/month.** Ladder and prices: [goals.md](../goals.md):15.
+**One spoken CTA — and which one depends on the configuration.** This line was previously unqualified
+and therefore contradicted the CTA row in the table above, inside this same file. Resolved by founder
+decision **2026-08-27**; the fix is to qualify the offer by configuration, not to pick one and delete
+the other.
+
+| Configuration | The one spoken CTA |
+|---|---|
+| **Online — the funnel event** | **The Clarity Practice Community, €295/month.** Ladder and prices: [goals.md](../goals.md):15. |
+| **Offline — the forum** | **The free community join.** Local, free, open-ended. The sayable link is `/org/cm/join`. `[FOUNDER DECISION: exact wording]` — deferred until the topic and room are known; the *substance* is settled, only the phrasing is open. |
+
+**Why the offline ask is free.** The offline event's job is community, content, and the founder's own
+meaning driver — it feeds the online funnel rather than converting in the room. A paid ask from a
+stage with no community behind it converts nobody and costs the room's trust. Recorded verbatim:
+*"For the R and D, I think the ask is join the community. That's it. And I want the community to grow
+locally."*
+
+**The bracelet is not offered at event #1.** It is the documented offline CTA
+([clarity-forum.md](clarity-forum.md)), the panel entry condition, and a headline metric
+(*"bracelets carried in the wild"*). Event #1 runs no gated panel round, so the entry-condition role
+does not apply. **Three consequences, stated rather than hidden:** the North Star metric gets no first
+datapoint from event #1; the offline CTA is now the community join; and **no record exists anywhere in
+this repo of physical bracelets having been sourced** (grepped 2026-08-26 — design and metric
+references only), so procurement is an unowned dependency before *any* event can offer one.
 
 **The neighbouring session** — those who want more go to a separate adjacent session about the offers,
 rather than selling from the stage. `[FOUNDER DECISION: format, timing, same-day or scheduled]`.

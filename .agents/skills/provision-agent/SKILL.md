@@ -55,6 +55,39 @@ It gates the result at 20/40/96px and runs a similarity check against the source
 
 > **What the avatar is, since it is easy to mis-picture:** slate greys with one warm accent in the sensor eyes — *not* black and white. The **card** around it renders with its colour drained; the **avatar is deliberately exempt**, because a drained portrait stops being recognisable as a particular person, and recognition is the one thing the portrait channel exists to carry.
 
+## Step 2b — The initials-only branch (no rights-cleared portrait)
+
+**Take this branch when the run carries `portrait: none` from `/slava:disagreement:select`.** It is a
+first-class provisioning path, not a degraded one. **Never reject a subject for lacking a photograph**
+(Founder Decision 2026-08-26, reversing the 2026-08-25 v1 rule — verbatim: *"i never want to reject a
+person based on profile photo — this makes no sense at all."*).
+
+On this branch:
+
+- **Skip Step 2 and Step 3 entirely.** No avatar is generated and no asset is uploaded. There is
+  nothing to gate at 40px and nothing to probe in storage.
+- **Pass `p_avatar_url` as `NULL`** in Step 5 — never an empty string, never a placeholder path, never
+  a reconstructed URL to an object that does not exist. `NULL` is the value that means *deliberately
+  absent*; a broken URL is indistinguishable from an accident, which is the exact confusion this
+  branch exists to remove.
+- **`avatar_color` is not optional here — it is the whole portrait channel.** Set the desaturated
+  slate `#39424B` (see Step 5's rule below). On this branch the initials placeholder is the only thing
+  rendering, so the default `#0044CC` would make the account look precisely like an ordinary member
+  who has not uploaded a photo. Every other marker still holds: the `Agent · <Subject>` display name,
+  the `machine-<subject-slug>` slug, the drained card, the chip, the `Operated by` footer line.
+- **Record the absence as deliberate, in writing.** Append `portrait: none (deliberate,
+  founder-approved <date>)` to the subject's line in `.private/logs/agent-registry.log`, alongside
+  `subject_key`. This written record is what `/slava:disagreement:publish` reads to tell a deliberate
+  absence from a failed upload — the two are otherwise identical at the database.
+- **Say it out loud at the Step 4 creation gate**: *"This account will have no portrait. Initials
+  fallback on slate. Deliberate, per `portrait: none`."* The gate still requires an explicit
+  affirmative; silence is still refusal.
+
+> **Do not reach for a generated non-portrait** — a generic robot, a monogram render, an abstract
+> mark. A synthetic image in the portrait slot claims a likeness the subject never granted and defeats
+> the initials fallback that the product already ships and already renders correctly
+> (`gravatar-avatar.tsx:134`). Absence is the honest value. Render it.
+
 ## Step 3 — Upload the asset, before the account exists
 
 `/slava:content:gen-agent-avatar` Step 4 emits a 512px square PNG at a scratch path and hands it to this skill. Upload it to the **`agent-avatars`** storage bucket (P1135), object key `<subject-slug>/<uuid>.png`, `upsert: false`.
@@ -185,8 +218,9 @@ SELECT count(*) FROM agent_accounts;
 ## Quality Gates (self-review)
 
 - [ ] **Reuse was checked BEFORE any photo or avatar work**, by exact `subject_key`.
-- [ ] **The avatar came from `/slava:content:gen-agent-avatar`**, not a hand-written prompt, and passed its 40px and similarity gates.
-- [ ] **The asset was uploaded to `agent-avatars` storage before creation**, asserted `200` + `content-type: image/*` (never "not 404" — see decision (d)).
+- [ ] **The avatar came from `/slava:content:gen-agent-avatar`**, not a hand-written prompt, and passed its 40px and similarity gates. — **N/A on the Step 2b initials-only branch.**
+- [ ] **The asset was uploaded to `agent-avatars` storage before creation**, asserted `200` + `content-type: image/*` (never "not 404" — see decision (d)). — **N/A on the Step 2b initials-only branch.**
+- [ ] **On the Step 2b branch only:** `p_avatar_url` was passed as `NULL` (not `''`, not a placeholder), `avatar_color` is `#39424B`, and `portrait: none (deliberate, founder-approved <date>)` was written to `.private/logs/agent-registry.log` and read back.
 - [ ] **The gate received an explicit affirmative** on the operator's own turn; silence treated as refusal.
 - [ ] **The display name is `Agent · <Subject>`** and `is_reserved_agent_name` returns true on the target.
 - [ ] **The slug is `machine-<subject-slug>`** and `is_reserved_machine_slug` returns true on the target.

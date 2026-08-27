@@ -3,7 +3,10 @@
 > A recurring, in-person, **documented** event at the **Zuzalu library, Chiang Mai**, Monday 18:30.
 > Distinct from the no-CTA reading-circle salon ([chiang-mai-cognitive-science-salon.md](chiang-mai-cognitive-science-salon.md)).
 > **Community-first; documented so the practice can spread.** The audience brings provocative topics, the
-> room argues, and a panel demonstrates the **Min Principle as a game rule** on camera. The recording is
+> room argues, and a panel demonstrates the **Min Principle as a game rule** on camera.
+> **⚠️ Open-forum topic origin is the target state, not an entry condition** — see *Event #1 — the
+> seeding exception* below. A Forum whose first topic was founder-picked is still a Forum; a room has
+> to exist before it can bring anything. The recording is
 > documentation of a real practice, **not a performance for an audience.** Success is measured by
 > **bracelets carried in the wild** — people practising the verify-before-you-disagree habit outside the room.
 
@@ -119,6 +122,33 @@ watching ≠ practising — and a rep before the bracelet offer means people con
 actually done, not just seen. Cost: Round 1 capped to ~6 min (worth doing anyway).
 
 ---
+
+## Event #1 — the seeding exception
+
+**Founder decision 2026-08-27.** The definition above says the audience brings the topic. **Event #1
+cannot honour that**: the Clarity Practice Community · Chiang Mai has one member — the founder. Nobody
+exists to propose a topic or vote on one.
+
+**So event #1 runs founder-picked, and the open forum is v2.** Verbatim: *"forum is probably version
+two. Version one, we cannot run a forum if we didn't optimize for infrastructure so people can vote and
+then we can create it on any topic very, very fast. But we didn't. We need to run it."*
+
+**Why this loosens the definition rather than breaking it.** Open-forum origin was written as what
+*makes* it a Forum — a definition, not a goal. That reading makes the first event impossible by
+construction, which is a defect in the definition, not in the event. **The corrected reading:
+open-forum origin is what the Forum converges to, and the mechanism of convergence is the closing
+shortlist** — a paper vote on the next topic, at the end of every event, which is the room starting to
+bring it. Event #2's topic comes from event #1's room.
+
+**Event #1 also runs no gated panel round**, so the bracelet's entry-condition role (below) does not
+apply, and **no bracelet is offered.** Three consequences, stated rather than hidden:
+
+- The North Star metric (*bracelets carried in the wild*) gets **no first datapoint** from event #1.
+- The offline CTA for event #1 is **the free community join**, not the bracelet — see
+  [clarity-practice-event.md](clarity-practice-event.md) § The offer.
+- **No record exists anywhere in this repo of physical bracelets having been sourced** (grepped
+  2026-08-26 across docs, features, skills and private notes — design and metric references only).
+  **Procurement is an unowned dependency before *any* event can offer one**, including event #2.
 
 ## The bracelet — "in the game" token + North Star metric
 

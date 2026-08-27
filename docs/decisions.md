@@ -6,6 +6,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [process]: A deferral outlived its cause because the trigger written down was not the reason — and record the *cause*, not the milestone
+
+**Context:** [p1156](../features/done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) decision (2d) deferred the Disagreement Pipeline's orchestrator with an explicit trigger: *"Revisit once one topic has gone end-to-end."* The **reason** given in the same paragraph was different: *"a conductor over four skills that are being split this week is a conductor built on moving parts."* Those are not the same condition. The rename shipped 2026-08-27 (P1165) and the stages stopped moving — the *cause* ended — while the *trigger* stayed unmet, because no topic has run. The founder hit the gap directly: *"Why don't we have the orchestrator? ... I don't want to remember."*
+
+**Decision:** Build `/slava:disagreement:run-pipeline` now, ahead of the written trigger, and say in the skill file why the deferral is discharged. **When a deferral's stated cause has ended, the deferral is over — even if the milestone it was pinned to has not arrived.** Going forward, write deferrals as *"deferred until X stops being true"*, not *"deferred until Y happens"*, whenever X is the actual reason; a milestone is a proxy that can drift arbitrarily far from its cause.
+
+**What the cost of the gap was, concretely:** the founder was holding five command names and their order in working memory before an event, and re-asked across three separate turns whether the orchestrator existed. The deferral was correct when written and stayed in force about a day too long — cheap here, but the mechanism scales badly: nothing in the repo re-reads a deferral when its cause expires.
+
+**A second, independent naming collision in the same family.** The skill projection is **flat and name-keyed** — the leaf name must be unique across *all* namespaces. `/slava:events:run` already held `run`, so `disagreement:run` hard-failed the sync gate and shipped as **`run-pipeline`**. This is the same constraint that made the story stage `story-draft` rather than `story` in P1165, hit twice in two days by two different agents. **Check the flat namespace before naming any new skill leaf**, not just the directory you are adding to.
+
+**Alternatives rejected:** *Wait for the literal trigger (one topic end-to-end) before building.* It would have meant running the five stages by hand once specifically to earn permission to automate them — the manual run's value is finding where stages snag, which is unaffected by whether a conductor exists, since the conductor stops at every gate anyway.
+
+**Consequences:** The conductor deliberately does **not** copy `/video-publish`'s two-gate collapse. That design came from *"I don't want to review anything manually"*; this pipeline publishes verbatim quotes from named real people under machine accounts, so every stage gate is preserved and the conductor's only authority is ordering. It also refuses to chain TEST → PROD. **A conductor that removes remembering is not the same as a conductor that removes approving** — conflating them is the failure mode to watch when the next orchestrator is written.
+
+**Also corrected:** P1161's Done-When instructed that `goals.md` be amended *"via the strategy gate."* `/slava:maintain:docs-strategy-update` states the opposite — `goals.md` is *"not a gated home (ungated/tactical) — free-standing tactical edits to it are outside this skill entirely."* A spec naming a gate does not make the gate apply; read the gate's own scope before routing to it.
+
+**References:** [.claude/commands/slava/disagreement/run-pipeline.md](../.claude/commands/slava/disagreement/run-pipeline.md) · [docs/points-process.md](points-process.md) · [features/p1161_first_physical_event_chiang_mai.md](../features/p1161_first_physical_event_chiang_mai.md)
+
+---
+
+## 2026-08-27 [product]: A build list written as "blockers" stopped the first event for a month — and one of the seven was never engineering at all
+
+**Context:** P1161 (the first physical Clarity event) carried a seven-row dependency table, every row labelled by what it *blocks*. The founder read it as a wall: *"this spec seems to be super blocked... why do we input blockers in the fucking spec... everything can be done and we should unblock so it could be done within this spec."* Nothing in the table was impossible. Three rows were unwritten edits to three skill files. One had already shipped. One was a choice, not a task. One was a person with a phone.
+
+**Decision:** Reframe the table as work with owners and sizes, and build the three real items in one pass — the selector's photo rejection (removed; portrait status *recorded*, `none` is approvable), provisioning's initials-only branch, and publish's deliberate-vs-accidental avatar-absence branch. **The word "blocks" was doing the damage**: a to-do list phrased as an obstacle reads as a reason the thing cannot happen, and it read that way to the person who could have authorised every item.
+
+**What made it worse:** the rows were correct. Each cited a real file and a real line. Precision about *why* something is unbuilt makes an unbuilt thing look immovable — the more evidence attached to a blocker, the less it invites someone to just build it.
+
+**Two rows were never engineering:**
+- **D6** (photographer attribution) dissolved on inspection — attribution is owed only for a photo *actually used*, and the initials path means a run publishes none. A dependency removed by a choice, not by code.
+- **D7** (walk the stake flow as a non-founder) needed one person with their own phone and inbox, for about four minutes. **Closed by founder decision as not load-bearing** (*"I kind of tested it. It works."*). **The accepted risk, named rather than buried:** the founder's account is already confirmed, so testing from it never exercises the sign-up-and-confirm hop — the one the room will hit. Mitigation at zero cost: route the room to Google (no email round-trip), already the primary button. Recorded in `facilitator-guide.md` § "Getting the room signed in". p1055's `:206` box stays **unticked** — this closes it for *this event*, it does not satisfy the original claim.
+
+**A load-bearing claim in the spec did not survive reading the code.** The spec asserted a room-killing defect: tap a position, it looks saved, nothing is written, no signal. Verified false as stated — logged-out taps render a per-card "sign up to save your position" line (seven taps, seven lines), and a signed-in-but-unverified write **throws**, reverts, and toasts. The silent swallow it cited is on a different surface entirely. Corrected in place and de-prioritised from "fix first" to "optional styling". **The claim had been carried across two spec revisions and a `/challenge-prd` pass without anyone opening the file.**
+
+**Also:** the pipeline's own contract doc still carried the photo-rejection rule three days after the founder reversed it, and would have been read as authoritative by the next agent. Reversing a decision in conversation does not reverse it in the docs that encode it — grep for the rule, not just the file you were editing.
+
+**Consequence:** write dependency tables as *work*, with a size and an owner per row. Reserve "blocked" for something that genuinely cannot proceed — which, in practice, is almost never the case, and was zero-for-seven here.
+
+**Rejected:** running event #1 by picking around the gaps (choose a topic whose arguers both have usable photos). Faster to the first run, but leaves every wall standing for event #2.
+
+---
+
 ## 2026-08-27 [process]: `/day` shows the founder's Google Cloud credit balance by netting a manual reading against a BigQuery export — and it goes in `/day` against the 2026-08-09 monitoring rule, again
 
 **Context:** The founder asked for `/day` to show remaining Google Cloud credits and the delta since the last run. Google exposes no API for a promotional-credit balance — confirmed against the Cloud Billing API docs and directly against this account's `billingAccounts.get` response — only the console's Credits page shows it. The only path to a computed equivalent is the Detailed usage cost BigQuery export, which includes a `credits` array per billing row; enabling it is console-only and the export doesn't backfill history from before it was switched on. This is a different metric from P1162 (open, untouched by this work): P1162 caps *ClarityPledge's own* Gemini-key spend against a $75/month ceiling; this tracks the founder's personal multi-thousand-dollar credit pool.
