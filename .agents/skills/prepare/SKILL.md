@@ -2,7 +2,7 @@
 name: prepare
 description: "Read one or more sources — an opposed PAIR selected by /slava:disagreement:select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:disagreement:positions and /slava:disagreement:story-draft."
 when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select has approved a source pair. When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
-version: 0.7.1
+version: 0.7.2
 ---
 
 # /slava:disagreement:prepare
@@ -103,7 +103,7 @@ printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: 
 
 No sampling, no skimming. State characters, lines, and whether anything was truncated.
 
-**Probe the transcript for turn markers before attributing** — search for both the literal `>>` and the HTML-escaped `&gt;&gt;` (at least some caption tracks store them escaped; a literal-only probe returns 0 on a file that has them). Some auto-caption runs carry them, some don't — check, don't assume either way, and say what the probe found. **Markers found:** each one marks that the speaker *changed*, never *who* it changed to — attribution still requires confirming identity per quote, alternation parity alone is not attribution. **Markers absent:** attribute by content.
+**Probe the RAW `.vtt` for turn markers before attributing** — search for both the literal `>>` and the HTML-escaped `&gt;&gt;` (at least some caption tracks store them escaped; a literal-only probe returns 0 on a file that has them). **Probe the raw track, never the cleaned transcript:** measured 2026-08-27 on `_V_ed5fuexA`, `vtt-clean` drops turn boundaries — 36 markers in the reconstructed raw stream, 26 in its cleaned output, which flipped that source's Gate 0 verdict. Rolling auto-captions repeat every line, so reconstruct by stripping inline `<...>` tags and dropping **consecutive duplicate lines**; the naive raw grep count (106 here) counts those repeats and is not the turn count. Some auto-caption runs carry them, some don't — check, don't assume either way, and say what the probe found. **Markers found:** each one marks that the speaker *changed*, never *who* it changed to — attribution still requires confirming identity per quote, alternation parity alone is not attribution. **Markers absent:** attribute by content.
 
 This applies whichever branch fired above — confirming identity from a marked change is the same content-based judgment call as attributing from content alone, and can be just as ambiguous. Where attribution is genuinely ambiguous, mark the quote unattributed rather than guessing — a quote assigned to the wrong speaker is worse than no quote.
 

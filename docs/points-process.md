@@ -88,7 +88,7 @@ The points pipeline turns public video into a published disagreement a room can 
 ## 2. Each Step in Plain English
 
 ### Step 1: `/slava:disagreement:select`
-- **Goal:** Find two credible, influential people with opposing stances on a topic, and identify single-speaker solo videos where each makes their case.
+- **Goal:** Find two credible, influential people with opposing stances on a topic, and identify videos where each makes their case — a solo talk, or a one-way interview that clears Gate 0's measurement (`turn-verified`).
 - **Gates:**
   - **Gate 1:** Founder approves the two people. Identity key resolved, agent existence checked, **portrait status recorded — never rejected on**. Three values: `cleared` / `none` / `UNKNOWN LICENCE`. `none` is a valid approvable outcome routed to the initials-only provisioning branch; only `UNKNOWN LICENCE` halts. Optionally one side is **seeded** by the founder (a person and/or a video URL), in which case only the counterpart is proposed.
   - **Gate 0:** Single-speaker constraint. Title screen → transcript opening read (~500 words) → founder confirmation → reported speech scan.
@@ -226,7 +226,7 @@ Line-oriented emitting shape — `/slava:disagreement:publish` was built to read
 ### Side A: <Full Name A>
 arguer: <Display Name A> | subject_key: <canonical person reference> | source: <URL>
 
-quote: <verbatim text> | seconds: <integer start second> | basis: <single-speaker | speaker-labelled | turn-inferred> | point: Pn
+quote: <verbatim text> | seconds: <integer start second> | basis: <single-speaker | speaker-labelled | turn-verified> | point: Pn
 position: Pn = <strongly_disagree..strongly_agree> [close | derived | stretch]
 
 video_url: <canonical watch URL>

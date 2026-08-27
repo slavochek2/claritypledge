@@ -2,7 +2,7 @@
 name: story-draft
 description: "Draft one story per arguer per distinct experience: a machine account's reading of that person's argument, holding only that speaker's verbatim quotes with the source link in the video_url field. Enforces the P1141 voice rules, the 10,000-character limit, and (author_id, point_id) uniqueness at build time. Terminal output only; writes nothing to the product."
 when_to_use: "Stage 4 of the points pipeline. Run after /slava:disagreement:positions has verified quotes and set positions. Carries the P1141 voice rules and attribution-basis labelling, and appends the Story Drafts section to the run file."
-version: 1.0.0
+version: 1.0.1
 ---
 
 # /slava:disagreement:story-draft
@@ -64,7 +64,7 @@ duration_seconds: <integer>
 
 **Not the channel URL, not an embed URL, not a bare id.** The filer stores this one string and every surface re-derives the player, the thumbnail and the open-at-timestamp link from it.
 
-- Quotes carry their `seconds:` (resolved by `/slava:disagreement:positions` from the raw `.vtt`) and their attribution-basis label (`single-speaker` / `speaker-labelled` / `turn-inferred`). The filer assembles these into the `video_quotes` field — this skill ensures every quote in the story text is one of the run file's verified quotes, so the two never diverge.
+- Quotes carry their `seconds:` (resolved by `/slava:disagreement:positions` from the raw `.vtt`) and their attribution-basis label (`single-speaker` / `speaker-labelled` / `turn-verified`). **`turn-inferred` is deliberately not in that list** — `/slava:disagreement:positions` Step 4b drops an unconfirmed quote rather than passing it on, so a `turn-inferred` label arriving here means the drop did not happen and is a STOP, not a fourth option. The filer assembles these into the `video_quotes` field — this skill ensures every quote in the story text is one of the run file's verified quotes, so the two never diverge.
 
 ## Build-time limits
 

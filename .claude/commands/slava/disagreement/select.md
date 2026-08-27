@@ -1,15 +1,15 @@
 ---
 name: select
-description: "Given a topic, select a pair of opposed single-speaker sources: propose credible people first, gate for founder approval, rank each person's solo videos by argument quality, run an isolated judge step to argue why the pair does not work, gate for pair approval, and write the sealed run file for /slava:disagreement:prepare. Terminal output only; writes nothing to the product."
-when_to_use: "Start of the points pipeline. Run once per topic before /slava:disagreement:prepare. Takes a topic string and a named room, selects and proves two opposing sources exist and meet Gate 0 single-speaker standards. The selector proves creation and extraction will succeed; it never creates accounts or writes to the database."
-version: 1.0.0
+description: "Given a topic, select a pair of opposed sources — solo talks, or one-way interviews admitted on measured evidence: propose credible people first, gate for founder approval, rank each person's solo videos by argument quality, run an isolated judge step to argue why the pair does not work, gate for pair approval, and write the sealed run file for /slava:disagreement:prepare. Terminal output only; writes nothing to the product."
+when_to_use: "Start of the points pipeline. Run once per topic before /slava:disagreement:prepare. Takes a topic string and a named room, selects and proves two opposing sources exist and meet Gate 0 — one voice, or one voice plus a verified questioner. The selector proves creation and extraction will succeed; it never creates accounts or writes to the database."
+version: 1.1.0
 ---
 
 # /slava:disagreement:select
 
 **Announce at start:** "Running /slava:disagreement:select. Terminal output only — nothing is filed."
 
-Take a single topic string and a named room. Propose two credible people who argue opposite sides of the disagreement, find each person's solo videos, and produce an approved, evidenced, single-speaker source pair.
+Take a single topic string and a named room. Propose two credible people who argue opposite sides of the disagreement, find each person's solo videos, and produce an approved, evidenced source pair — each side a solo talk, or a one-way interview that cleared Gate 0's measurement.
 
 > **Pipeline Contract & Schema:** The complete pipeline architecture, run-file schema, and stage contracts live in [`docs/points-process.md`](../../../../docs/points-process.md). Read it there; **do not restate the schema here.**
 
@@ -31,7 +31,7 @@ approves **only the counterpart**.
 | Seed form | What the skill does with it |
 |---|---|
 | **Person only** (name, or a `subject_key`) | Take them as the seeded side. Still resolve `subject_key` and portrait status for them (identity and rights are never inherited from the founder's say-so), then run Phase 2 video search for them as normal. |
-| **Video URL only** | Resolve **who actually speaks in it** before anything else, and derive the person from that. A channel URL identifies whoever *publishes*, not who speaks — so a multi-speaker or unattributed video is a **STOP** with the reason named, not a guess. Once the speaker is resolved, treat as *person only* plus a pre-chosen video that still passes the Phase 2 solo/quality checks. |
+| **Video URL only** | Resolve **who actually speaks in it** before anything else, and derive the person from that. A channel URL identifies whoever *publishes*, not who speaks — so an **unattributed** video is a **STOP** with the reason named, not a guess. A **multi-speaker** video is not a stop by itself: route it through Gate 0 Step 2b, and derive the person from whoever the measurement identifies as the dominant side. It stops only if that step rejects it. Once the speaker is resolved, treat as *person only* plus a pre-chosen video that still passes the Phase 2 solo/quality checks. |
 | **Person + video** | Both accepted; the video still passes the Phase 2 checks. A seeded video that fails them is reported and replaced, never waved through. |
 
 **What the seed does NOT do:** it never sets the topic (the topic input is still required and still
@@ -108,14 +108,120 @@ Present the candidate people, their credibility, resolved `subject_key`, agent s
 
 For each approved person, search for their solo talks on the topic.
 
-### Gate 0 — One Speaker Per Source (Hard Gate)
-No interviews, podcasts with guests, panels, or debates. Every word must belong to the approved person.
+### Gate 0 — One Voice, or One Voice Plus a Verified Questioner (Hard Gate)
+
+**Two admissible source shapes, and nothing else:**
+
+| Shape | Basis it earns | Admitted how |
+|---|---|---|
+| **Solo** — every word belongs to the approved person | `single-speaker` | Steps 1–4 below |
+| **One-way interview** — one arguer plus a host who asks questions and takes no position | `turn-verified` | Steps 1–4 **plus Step 2b**, on pasted measurement |
+
+Debates, panels, and podcasts with a *second arguer* stay rejected. The line is **who argues**, not
+how many mouths are in the room.
+
+> **Why this is not a loosening.** `docs/decisions.md` 2026-08-19 ruled speaker attribution is solved
+> by source selection and named the acceptable shapes: *"Prefer single-speaker **or dominant-speaker**
+> sources."* Gate 0 implemented only the first half. A hard single-speaker rule also makes the
+> **cross-camp split** unreachable — `/slava:disagreement:positions` records that the only example ever
+> produced came from two speakers inside one video. This step restores the second half under
+> measurement; it does not relax anything downstream. `turn-inferred` remains a hard STOP at filing.
 
 **4-Step Screening:**
-1. **Title/Metadata screen:** Reject titles with `interview`, `podcast`, `conversation with`, `debate`, `panel`, `ft.`, `feat.`, `w/`, `Q&A`, `AMA`, `vs`, `episode #`. Favour `TEDx`, `keynote`, `talk`, `video essay`, `why I`, `my case for`.
-2. **Transcript-opening read (~500 words):** Fetch captions and read the opening. Check for second-person address to an interlocutor. If two voices are interacting, reject.
-3. **Founder glance confirmation:** Present video URL and title at Gate 2.
+1. **Title/Metadata screen:** Reject titles with `debate`, `panel`, `vs`, `ft.`, `feat.`, `w/` — these
+   name a *second arguer*. Titles carrying `interview`, `podcast`, `conversation with`, `Q&A`, `AMA`,
+   `episode #` are **no longer an automatic reject**: they route to Step 2b, which decides on evidence.
+   Favour `TEDx`, `keynote`, `talk`, `video essay`, `why I`, `my case for`.
+2. **Transcript-opening read (~500 words):** Fetch captions and read the opening. Check for
+   second-person address to an interlocutor. **Two voices interacting routes to Step 2b — it is no
+   longer a reject on its own.** A single voice skips 2b and is `single-speaker`.
+2b. **One-way measurement (multi-speaker sources only).** See below. A source that fails it is rejected
+   here, with its numbers printed — and the output distinguishes *rejected as two-way* from
+   *unmeasurable*, which are different findings.
+3. **Founder glance confirmation:** Present video URL and title at Gate 2. For a `turn-verified`
+   source, present the Step 2b measurement block alongside it — the founder approves the *shape*, not
+   just the video.
 4. **Reported-speech scan:** Scan full finalist transcript for extended quotes, read letters, or inserted clips. Exclude any non-author spans.
+
+### Step 2b — The one-way measurement
+
+**Run it and paste it. A claim that a source "is basically an interview" is not this step.**
+
+**Measure the RAW `.vtt`, not the cleaned transcript.** `vtt-clean` drops turn boundaries: measured
+2026-08-27 on `_V_ed5fuexA`, the raw track carries **36** turn markers and the cleaned output only
+**26**. Segmenting the cleaned file put the same source at 66.7% and rejected it; the raw track puts
+it at 82.3% and admits it. Rolling auto-captions repeat each line, so reconstruct the stream by
+stripping inline `<...>` tags and dropping **consecutive duplicate lines** before segmenting — the
+raw marker count (106 on this source) counts those repeats and is not the turn count.
+
+1. **Probe for turn markers, both spellings** — the literal `>>` and the HTML-escaped `&gt;&gt;`. At
+   least some caption tracks store them escaped, so a literal-only probe returns 0 on a file that has
+   them. Measured on `_V_ed5fuexA`: literal **0**, escaped **36** *after reconstruction* (the naive
+   grep on the raw file returns 106 — see the note above). A literal-only probe would have rejected
+   this source outright.
+
+2. **Two ways to be unmeasurable — both REJECT, and say which:**
+
+   | Condition | Why it is not a two-way verdict |
+   |---|---|
+   | **No markers at all** | Nothing to segment. Measured: two genuine AI-safety debates (`YsgiNQKscyY`, `6yQEA18C-XI`) carry **zero** markers, so the gate never gets to see their shape |
+   | **Fewer than 10 turns** | The ratio becomes meaningless — one long segment carries it. Measured: `OgOLjAVxsJc` has **2** markers, 3 segments, and scores **92.3%** while being a monologue clip with caption noise |
+
+   Print *unmeasurable* — never *two-way*. They are different findings and only one of them is about
+   the source's shape.
+
+3. **Segment on the markers and report all four numbers:**
+
+   | Figure | Parity? | How |
+   |---|---|---|
+   | **Dominant-side word share** | **parity-dependent** | Sum words per alternating side; report the larger as a % of total |
+   | Mid-turn marker rate | **parity-INDEPENDENT** | Share of segments opening mid-sentence (lowercase or comma first). States how scrambled the parity is *on this source* |
+   | Question density | **parity-INDEPENDENT** | Share of total words sitting in segments that contain a `?` |
+   | Median words/turn, each side | parity-dependent | Report both, labelled as parity-dependent |
+
+4. **One hard condition: dominant-side word share ≥ 75%** (with ≥10 turns, from Step 2). Below it the
+   source is a two-way exchange and is **REJECTED with the measured share printed**. The threshold is
+   not negotiable per-run.
+
+   *Measured 2026-08-27 — the gate discriminates:* admits `_V_ed5fuexA` at **82.3%**; rejects
+   `ihhmg_w1o-U` at **69.1%**, `rbCQKODKv1o` at **63.1%**, `YT7Io2oGCc8` at **54.1%**, `yAgQWnD31nE`
+   at **51.8%**.
+
+5. **The other three figures are REPORTED, never gating — and here is why, because the obvious design
+   was tried and falsified.** Two extra conditions were drafted and measured against the seed source:
+
+   | Condition drafted | Measured on `_V_ed5fuexA` | Outcome |
+   |---|---|---|
+   | *The questioner's turns are predominantly interrogative* | **11%** of the shorter half of segments end in `?` — the short segments are **backchannels** (*"Yes."*, *"Mhm."*, *"[laughter]"*), while the questions run 22–33 words | **Falsified.** As a gate it rejects the source this spec exists to admit |
+   | *The minor side's median turn is shorter* | **40 vs 36** — a 4-word margin, not the 75-vs-36 the spec recorded | **Too weak to gate on**, and the gap is itself a parity artifact (see below) |
+
+   Auto-captions drop punctuation, so testing the `?` glyph tests the captioner rather than the
+   speaker. Do not re-add either as a condition without new measurement.
+
+6. **The mid-turn marker rate is the honest confidence qualifier on the word share.** Measured on
+   `_V_ed5fuexA`: **5 of 37 segments (14%) open mid-sentence**, so the markers are not clean turn
+   boundaries and alternation parity on this source is genuinely scrambled — which is exactly why the
+   parity-dependent median came out 40 | 36 here against the 75 | 36 recorded when turns were merged
+   correctly. This reproduces `docs/decisions.md` 2026-08-21 (*a `>>` sits mid-turn*) on a different
+   video. A high rate does not reject the source; it tells the founder at Gate 2 how much the number
+   is worth.
+
+7. **Print this caveat with every measurement, verbatim — the numbers must never be read as proof:**
+
+   > The word-share and median-turn figures are computed by **alternation parity**, which is the same
+   > inference this pipeline refuses to attribute quotes by: one dropped or mid-turn marker merges two
+   > turns and distorts both. They screen source **shape**; they are never evidence of who said any
+   > given sentence. The mid-turn-marker rate states how scrambled that parity is on this source. The
+   > actual attribution guarantee is the **per-quote confirmation** in `/slava:disagreement:positions`
+   > Step 4b, which does not depend on parity at all.
+
+8. **Both thresholds are unvalidated.** ≥75% was chosen from a single measurement (82.3%); the 10-turn
+   floor was chosen because below it one segment carries the ratio, and it changed exactly one verdict
+   among the eight sources measured. Say so in the output. **Falsifier:** if a source that cleared 75%
+   still yields a misattribution at review, the threshold is wrong and per-quote confirmation was
+   carrying the whole gate.
+
+---
 
 ### Ranking Axes
 - **Insight / argument quality (Transcript-derived):** Decides the ranking. Does the speaker argue from causal mechanisms and reasons, or mere vibes/sentiment?
@@ -134,6 +240,7 @@ Funnel summary:
 - Candidates found: <N>
 - Dropped by title screen (Gate 0 Step 1): <N>
 - Dropped by transcript opening (Gate 0 Step 2): <N>
+- Multi-speaker, measured at Step 2b: <N>  (admitted turn-verified: <N> | rejected two-way: <N> | rejected unmeasurable, no markers: <N>)
 - Dropped by audience floor (<2k views / <50 comments): <N>
 - Finalists evaluated with full transcript: <N>
 - Surviving candidates: <N>

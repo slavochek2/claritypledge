@@ -2,7 +2,7 @@
 name: run-pipeline
 description: "One-command conductor for the Disagreement Pipeline. Takes a topic (optionally with a seed person or video URL) and a room, and runs /slava:disagreement:select → prepare → positions → story-draft → publish in order, carrying the run file across every stage. Does NOT reimplement any stage — it invokes each one as-is and stops at each stage's own founder gate. Publishes to TEST by default; the PROD run is a separate, deliberate invocation."
 when_to_use: "You have a topic (or a link) and want the whole disagreement filed without remembering five command names and their order. Use the individual stage skills instead when resuming a half-finished run, re-running one stage, or debugging a single stage's output."
-version: 1.0.0
+version: 1.0.1
 ---
 
 # /slava:disagreement:run-pipeline
@@ -47,7 +47,7 @@ positions those people never took. Every existing gate stays exactly where it is
 
 | Stage | Gates that still halt |
 |---|---|
-| `select` | **Gate 1** (people + portrait status) · **Gate 0** (single-speaker) · **Gate 2** (the video pair) |
+| `select` | **Gate 1** (people + portrait status) · **Gate 0** (one voice, or one voice plus a verified questioner) · **Gate 2** (the video pair) |
 | `prepare` | its own stage confirmations; the sealed prediction is written, never shown to a later pass |
 | `positions` | quote verification is evidence-producing, not a gate — but a failed `grep -F` **stops the run** |
 | `story-draft` | length and uniqueness asserts stop the run |
@@ -120,10 +120,13 @@ that could accidentally leak them across that boundary. Pass the slug, nothing e
 Invoke against `<slug>`. Quotes first, then positions.
 
 **Produces:** the `## Quotes & Positions` section, with `grep -F` exit codes pasted, timecodes
-resolved from the RAW `.vtt`, and an inference-strength label per position.
+resolved from the RAW `.vtt`, an inference-strength label per position, and — on a `turn-verified`
+source — a per-quote speaker confirmation naming which evidence landed (Step 4b), plus a printed
+`DROPPED (unconfirmed speaker)` line for every quote that could not be confirmed.
 
 **Stop conditions:** any quote that fails `grep -F` · a `turn-inferred` attribution on a multi-speaker
-source · a `subject_key: UNKNOWN`.
+source · a `turn-verified` label with no per-quote confirmation artifact behind it · a
+`subject_key: UNKNOWN`.
 
 ---
 
