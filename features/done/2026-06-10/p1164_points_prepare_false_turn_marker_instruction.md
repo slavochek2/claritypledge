@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 73
 workstream: infrastructure
 created_date: '2026-08-27'
 tags: [skills, points-pipeline, correctness]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-08-27
 ---
 
 # P1164 — `/slava:disagreement:prepare` instructs attribution by `>>` markers that captions do not contain
