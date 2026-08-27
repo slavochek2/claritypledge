@@ -193,9 +193,19 @@ shared premise; do not enumerate.
 > checkable instead of an honour rule, and it survives the no-run-file invariant intact. It does
 > **not** survive a fresh clone: `.private/` is gitignored, so the log is machine-local and a
 > different machine starts with an empty counter. That is an accepted limit, not an oversight —
-> the alternative is publishing every consensus topic to a public repo. **Still print the lineage
-> at Gate 1** (`Reframed from:` in the Phase 0 output block) so the founder sees it even when the
-> log is absent; the log is the check, the printed line is the backstop.
+> the alternative is publishing every consensus topic to a public repo.
+>
+> **On a machine with no log, the counter does not exist — say so, do not paper over it.** The
+> `Reframed from:` line is a **disclosure, not coverage**: with no log behind it, it is prose the
+> agent prints about its own history, which is precisely the unenforceable form this section
+> replaced. Calling it a "backstop" would overstate it in exactly the way the original cap did.
+> When `.private/points-runs/consensus-log.md` is absent, print the check's absence on its own line:
+>
+> ```
+> Consensus log: NOT PRESENT — reframe count unverifiable on this machine
+> ```
+>
+> That converts a silent gap into a visible one, which is the most this case admits.
 
 ### Phase 0 enumerates; it does not evaluate
 
@@ -233,7 +243,8 @@ Positions enumerated: <n>
 Carried into Phase 1: <N, 2..6>   (set aside: <none | list + why>)
 Shared premise (CONSENSUS only): <the sentence they all agree with>
 Still open  (CONSENSUS only): <the axis they do differ on, or "none found">
-Reframed from: <none | "<original topic>" — verdict CONSENSUS, <date> (reframe #<n>)>
+Consensus log: <read, <n> prior entries | NOT PRESENT — reframe count unverifiable on this machine>
+Reframed from: <none | "<original topic>" — verdict CONSENSUS, <date> (reframe #<n>) — DISCLOSED, not verified, when the log is absent>
 Searches performed so far: 0
 ```
 
