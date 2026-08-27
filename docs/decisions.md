@@ -6,6 +6,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [process]: Counting positions is not testing contestedness — a fork needs a sentence one advocate asserts and another DENIES
+
+**Context:** A live `/slava:disagreement:select` run on *"whether AI concentrates power or distributes it"* spent **seven search sweeps and ~12 fetched-and-measured sources** before the topic turned out to be a **consensus** — five public advocates, five distinguishable emphases, one proposition (*"AI power is concentrated today"*). The skill's own Phase 3 judge flagged it — *"both speakers say concentrated in the present tense"* — and the run argued past it. The cheapest check ran **last**, after every fetch was already paid for.
+
+**Decision:** `select` gains **Phase 0**, before any `yt` call: name the fork, enumerate the positions, require a named advocate with evidence for each — and then **write the contradiction**. `CONTESTED` requires, for at least one pair of positions, a sentence with a **truth value** that one advocate's own words **assert** and another's own words **deny**. Emphasis, vocabulary, tone and **silence** are not denial. No such sentence ⟹ `CONSENSUS`, however many positions were enumerated. `CONSENSUS` is a **successful terminal outcome**: print the shared premise, search nothing, write no run file. Exactly one remedy-level reframe may be *offered* and needs founder approval of the new topic string; a second `CONSENSUS` is the answer.
+
+**Alternatives rejected:** *Move the Phase 3 judge earlier* — it evaluates **sources**, which do not exist at Phase 0; different input, different question. Phase 0 explicitly does **not** retire it: the same-side check now runs pairwise across all N against the transcripts, and skipping Phase 3 because "Phase 0 established the fork" is named in the skill as the defect, not an optimisation. *Relax recency to manufacture a pair* — rejected by the founder on the merits: filing a fake disagreement between two people who agree is worse than filing nothing. *Gate the verdict on a position count alone* — this was the **first draft of this very change**, and it is the exact shape of the original failure: the five agreeing advocates would have scored `CONTESTED`. Caught in self-review before commit, not by a reviewer.
+
+**Consequences:** Phase 0 is prose executed by an agent, so it can be wrong — a wrong Phase 0 costs one desk-research round against the seven sweeps its absence cost. **Nothing here is exercised.** No run has been seen to STOP at Phase 0 and no judge run has fired on the retained negative control, so per [epistemic.md](../.claude/rules/epistemic.md) gate 7 both gates are unproven; four of P1171's Done-When items stay open for exactly that and need the parked Chiang Mai run. (Status: proposed)
+
+**References:** [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md) · [select.md](../.claude/commands/slava/disagreement/select.md) · [points-process.md](points-process.md) · 2026-08-25 [product] (people-first selection, and the `lJR-7_Dcess` + `5VSxrEH1-Rk` negative control)
+
+---
+
+## 2026-08-27 [process]: Before adding a founder halt, find the gate that already sits where the spend is
+
+**Context:** P1171 shipped with one open question: should Phase 0's enumerated spectrum get its own approval gate, or flow straight into the search? The question framed the choice as **new halt vs no review** — a halt costs a founder interruption, skipping it lets a mis-framed spectrum drive the whole search.
+
+**Decision:** Neither. Fold Phase 0's output into the **existing Gate 1**, which already halts *before any video search* — Phase 1's own standing rule is *"Do not search YouTube for topics"* — and that search is precisely the spend Phase 0 exists to protect. Gate 1 now presents the Phase 0 block first, then the per-position candidates.
+
+**Alternatives rejected:** *A separate Phase 0 gate* — it buys a second founder halt and **zero** additional protection; the only thing it saves is agent authoring effort on candidate people, which [CLAUDE.md](../CLAUDE.md) §Quality Over Build Speed explicitly excludes from the cost ranking. *Flow straight into Phase 2* — leaves no point at which a mis-framed spectrum can be rejected.
+
+**Consequences:** Reversible in one edit (split the Gate 1 heading back into two halts). **The generalisable move:** when a new check seems to need its own gate, name the spend it protects and check which existing gate already precedes that spend — the answer is often "one already does", and the apparent trade-off dissolves.
+
+**References:** [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md) · [select.md](../.claude/commands/slava/disagreement/select.md)
+
+---
+
+## 2026-08-27 [technical]: A self-describing emit format made pair→N a doc-only change — and exposed a contract doc no run file conforms to
+
+**Context:** P1171 generalised the disagreement chain from a 2-source pair to N ∈ 2..6 arguers. The expected cost was a rewrite of four downstream skills.
+
+**Decision & measurement:** Generalise the schema doc only. Measured by grep across `*.md *.sh *.py *.ts *.js *.yml`: **nothing outside `docs/points-process.md` reads `side_a`/`side_b` or the `### Side A`/`### Side B` headings.** The machine-read line has always been `arguer: <name> | subject_key: … | source: …` — a **repeated, self-describing block** — so `prepare`, `positions`, `story-draft` and `publish` needed no reader change, only pair-shaped prose reworded. Schema doc now emits repeatable `arguers:` entries and `### Arguer <n>` headings.
+
+**What the measurement also found — two drifts in the same doc:** the only substantial live run file already carries **three** arguers, has **no** `### Side A` headings, and **no `### Approvals Block` at all**; and invariant 2 still read *"no multi-speaker sources"* three days after P1167 admitted `turn-verified` sources in `select.md`. The contract doc was simultaneously **stricter than the skill** and **looser than every artifact**. Invariant 2 corrected with a dated note; story headings realigned to the observed `### Story — <Name>` form.
+
+**Alternatives rejected:** *Add `side_c`, `side_d`…* — the format was already repeatable; naming the slots is what made it look fixed. *Rebuild the downstream skills* — the spec's own Non-Goal, and the grep confirmed it was unnecessary rather than merely risky.
+
+**Consequences:** The property that made this cheap is **"repeat a self-describing block"**, not any property of the pipeline — worth reaching for wherever an N-generalisation looks expensive. But a contract doc that no artifact conforms to is not a contract, and this one drifted twice inside a week. **Falsifier / follow-up:** diff the next real run file against `points-process.md`'s schema; if it diverges again the doc needs a conformance check, not another hand edit. (Status: proposed)
+
+**References:** [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md) · [points-process.md](points-process.md) · P1167 (Gate 0 `turn-verified`)
+
+---
+
+## 2026-08-27 [process]: Never cite `decisions.md` by line number — the file is prepend-newest, so every line reference rots the same day
+
+**Context:** P1171's spec cited six rulings as `decisions.md:59`, `:617`, `:643`, `:1262`, `:1282`, `:3245`. Two were checked while implementing and **both were already wrong** — `:617` resolved to a multi-harness entry, `:1282` to a different portrait ruling. The spec was **written the same day**. Worse, the numbers shifted *mid-session*: two reads of the same line range minutes apart returned different entries, because a co-tenant session appended a new entry at the top.
+
+**Decision:** Cite `decisions.md` by **date + tag + title fragment** — `2026-08-25 [product], "YouTube search matches words, not stances"` — never by line number. Resolve an inherited line-number citation with `grep -n "<distinctive phrase>"` plus the nearest preceding `^## ` heading before repeating it anywhere.
+
+**Alternatives rejected:** *Append newest at the bottom* — would stabilise line numbers but the file is explicitly newest-first so the recent entries stay readable, which is the higher-frequency need. *Anchor links* — no stable slugs exist and generating them is its own maintenance surface.
+
+**Consequences:** Costs one `grep` per citation. Every existing line-number citation across `features/` should be treated as unverified; P1171's own were corrected in the two places this session touched, and the remaining four were left as-is rather than silently rewritten. This is [epistemic.md](../.claude/rules/epistemic.md) gate 9 applied to *your own repo's* references — a citation is a claim, and the fact that a past agent wrote it is not evidence it still points anywhere. (Status: proposed)
+
+**References:** [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 9
+
 ## 2026-08-27 [process]: Scoring only `[ ]` as open makes every other glyph mean DONE — and the `--no-verify` used earlier was never needed
 
 **Context:** Closing P976 by founder instruction (*"i will never finsih so close it now"*), one criterion was genuinely unmet — a live two-party browser round that will not happen. To mark it honestly I wrote `- [~] RETIRED, not met`. **Gate 2.5 passed the spec.** The unticked pattern matched only `[[:space:]]` inside the brackets, so `[~]`, `[-]`, `[?]` — any glyph at all — scored as ticked. A one-character fail-open, available to any agent that finds a criterion inconvenient, invented accidentally by the author of the gate within hours of writing it.
