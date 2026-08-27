@@ -13,7 +13,7 @@ Create a new email mailbox on any All-Inkl hosted domain via KAS browser automat
 
 ```
 /slava:create-email ops@claritypledge.com
-/slava:create-email hello@inguro.com
+/slava:create-email support@example.com
 ```
 
 ## Process
