@@ -179,8 +179,9 @@ call site, main ledger fetch, prod gate 1b, apply-loop membership guard).
 **Regression test:** `scripts/test-p1174-pending-set-integrity.sh` — 13 assertions, 4 of
 them no-false-positive guards (undisturbed prod run still applies; non-prod fallback
 untouched; well-formed empty ledger still applies). Failed 9/13 before the fix, passes
-13/13 after. Sibling canaries unaffected: `test-p1168-noop-stamp.sh` 9/9,
-`test-p1042-version-collision.sh` 10/10.
+13/13 after. Sibling canaries for this script unaffected:
+`src/tests/p887-reproduce.test.ts` 11/11 (the ack + coupling + smoke gates this
+bug defeated), `test-p1168-noop-stamp.sh` 9/9, `test-p1042-version-collision.sh` 10/10.
 
 **Known limits of the test (epistemic gate 7b — what the fixture cannot emit):**
 - The apply-loop membership guard is unreachable while gate 1b holds, so it is **not
