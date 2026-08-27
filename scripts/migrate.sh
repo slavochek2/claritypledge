@@ -476,16 +476,25 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   fi
   echo "Applied $APPLIED_COUNT new migration(s) via Management API."
   echo ""
-  # Stamp deploy manifest after successful migration
-  # (stamp BEFORE smoke: the manifest must reflect what was actually applied,
-  #  even when the smoke gate below fails)
-  "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
+  # migrations_deployed_at means "when migrations were last applied" (P1168) — a
+  # run that applied zero migrations must not stamp or stage anything. Without this
+  # gate, a no-pending run asserts a deployment happened today and leaves the edit
+  # staged on the shared main checkout (decisions.md 2026-08-23, 2026-08-25 — an
+  # uncommitted/staged manifest edit there gets absorbed by a co-tenant's commit).
+  if [ $APPLIED_COUNT -gt 0 ]; then
+    # Stamp deploy manifest after successful migration
+    # (stamp BEFORE smoke: the manifest must reflect what was actually applied,
+    #  even when the smoke gate below fails)
+    "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
 
-  # Stage the stamp so it can't sit uncommitted on main and block a later
-  # /ship cherry-pick ("local changes would be overwritten") — see
-  # docs/decisions.md 2026-04-25 [process] (proposed) and 2026-08-10 [process].
-  git -C "$PROJECT_DIR" add supabase/deploy-manifest.json 2>/dev/null || true
-  echo "Staged supabase/deploy-manifest.json — commit it (git-ops.sh commit-to-main if on main) before shipping."
+    # Stage the stamp so it can't sit uncommitted on main and block a later
+    # /ship cherry-pick ("local changes would be overwritten") — see
+    # docs/decisions.md 2026-04-25 [process] (proposed) and 2026-08-10 [process].
+    git -C "$PROJECT_DIR" add supabase/deploy-manifest.json 2>/dev/null || true
+    echo "Staged supabase/deploy-manifest.json — commit it (git-ops.sh commit-to-main if on main) before shipping."
+  else
+    echo "No migrations applied — manifest not stamped (nothing was deployed)."
+  fi
 
   # --- Prod gate 3 (P887): mandatory post-migrate smoke ---
   # prod-smoke-test.mjs reads .env.local from cwd; run it from the project root.
