@@ -98,18 +98,47 @@ fi
 # the coverage/mapping sections OUT when they are siblings. Loosening it to a
 # prefix match would count test-coverage checkboxes as completion criteria.
 
-# Extract a markdown section by heading text. Ends on a heading at the SAME or
-# SHALLOWER level, so sub-headings stay inside (mirrors gate 3.5's extractor).
-extract_section() {
-  # $1 = lowercase regex to match inside the heading line
-  printf '%s\n' "$spec_content" | awk -v pat="$1" '
+# Collect every completion section in one pass. A heading counts when its text
+# STARTS WITH "acceptance criteria" or "done-when" — whatever follows. An earlier
+# version anchored the match (`^#+ <name>$`) to keep "### Acceptance Criteria
+# coverage" and "-> Test Mapping" sections out; an adversarial review found that
+# fail-OPEN, live: "## Acceptance Criteria (revised)" with an unticked box, beside
+# a fully-ticked "## Done-When", reported PASS (exit 0) because the renamed
+# section was treated as ABSENT rather than as present-with-open-items. That is
+# the exact class this gate exists to close, reached through a heading variant
+# instead of a bad status label.
+#
+# Prefix matching is now used with NO exclusion list. Over-counting is
+# fail-closed (it can block a ship, never wave one through) and there is nothing
+# to evade by renaming. Measured 2026-08-27: zero OPEN specs carry a qualified
+# heading, so this costs nothing today; the five that exist are all in
+# features/done/, which is never re-gated. If a future spec puts test-mapping
+# checkboxes under such a heading they will count as completion items — tick
+# them or rename the section to something that is not a completion heading.
+#
+# A deeper sub-heading stays inside its section, so "### Phase 2" under
+# "## Done-When" is still gated; a nested completion heading re-opens the scope
+# at its own depth, so nothing is double-counted or dropped.
+#
+# Known limitation, shared with gate 3.5: a "- [ ]" inside a fenced code block
+# within a counted section counts. Fail-closed; a fence-aware scanner is not
+# worth the parser.
+
+collect_completion() {
+  # $1 = "lines" to emit section bodies, "headings" to emit matched headings
+  printf '%s\n' "$spec_content" | awk -v mode="$1" '
     /^#+[ \t]/ {
       lvl = 0
       while (substr($0, lvl + 1, 1) == "#") lvl++
-      if (tolower($0) ~ pat) { f = 1; hl = lvl; next }
-      else if (f && lvl <= hl) { f = 0 }
+      h = tolower($0)
+      sub(/^#+[ \t]+/, "", h)
+      if (h ~ /^(acceptance criteria|done-when)/) {
+        f = 1; hl = lvl
+        if (mode == "headings") print $0
+        next
+      } else if (f && lvl <= hl) { f = 0 }
     }
-    f { print }
+    f && mode == "lines" { print }
   '
 }
 
@@ -117,31 +146,17 @@ if [[ -z "$spec_content" ]]; then
   echo "[GATE 2.5] FAIL: spec not found for ${pn} on branch or disk"
   fail=1
 else
-  ac_section="$(extract_section '^#+[ \t]+acceptance criteria[ \t]*$')"
-  dw_section="$(extract_section '^#+[ \t]+done-when[ \t]*$')"
+  completion_headings="$(collect_completion headings)"
+  completion_lines="$(collect_completion lines)"
 
-  if [[ -z "$ac_section" && -z "$dw_section" ]]; then
+  if [[ -z "$completion_headings" ]]; then
     echo "[GATE 2.5] FAIL: spec has no '## Acceptance Criteria' and no '## Done-When' section (from ${spec_source}) — nothing to gate on; add completion criteria before shipping"
-    # Diagnosability, not leniency. The heading match is deliberately anchored
-    # (`^#+ <name>$`) so that "### Acceptance Criteria coverage" and
-    # "### Acceptance Criteria -> Test Mapping" — which carry checkboxes about
-    # TEST coverage, not completion — are not counted as completion criteria.
-    # A heading that starts right and then trails off is therefore a FAIL, and
-    # without this hint it reads as "no section" when one is visibly present.
-    # Measured 2026-08-27: zero of ~840 specs are affected, so this is a guard
-    # against a future confusing failure, not a live one.
-    _near="$(printf '%s\n' "$spec_content" | $GREP -ohE '^#+[[:space:]]+(Acceptance Criteria|Done-When)[[:space:]]*[^[:space:]].*$' | head -3 || true)"
-    if [[ -n "$_near" ]]; then
-      echo "           note: heading(s) that nearly match but are not counted (the match is anchored, so a trailing suffix excludes the section):"
-      printf '%s\n' "$_near" | sed 's/^/             /'
-    fi
     fail=1
   else
     # Match GitHub task-list syntax: -, *, or + bullet, then "[ ]" (unchecked).
     _unticked_pat='^[[:space:]]*[-*+][[:space:]]+\[[[:space:]]\]'
-    ac_open="$(printf '%s\n' "$ac_section" | $GREP -cE "$_unticked_pat" || true)"
-    dw_open="$(printf '%s\n' "$dw_section" | $GREP -cE "$_unticked_pat" || true)"
-    open_total=$(( ${ac_open:-0} + ${dw_open:-0} ))
+    open_total="$(printf '%s\n' "$completion_lines" | $GREP -cE "$_unticked_pat" || true)"
+    open_total="${open_total:-0}"
 
     # pipeline_ran must record an implementation run. Entries are exact strings
     # with an optional re-run suffix (dev.2, fix.3) — anchored so 'research-arch'
@@ -152,18 +167,17 @@ else
       impl_ran=1
     fi
 
+    _hcount="$(printf '%s\n' "$completion_headings" | $GREP -c . || true)"
     if [[ "$open_total" -gt 0 ]]; then
-      echo "[GATE 2.5] FAIL: ${open_total} unticked completion item(s) — ${ac_open:-0} under Acceptance Criteria, ${dw_open:-0} under Done-When (from ${spec_source})"
-      printf '%s\n%s\n' "$ac_section" "$dw_section" | $GREP -E "$_unticked_pat" | sed 's/^/           /'
+      echo "[GATE 2.5] FAIL: ${open_total} unticked completion item(s) across ${_hcount:-0} completion section(s) (from ${spec_source})"
+      printf '%s\n' "$completion_headings" | sed 's/^/           section: /'
+      printf '%s\n' "$completion_lines" | $GREP -E "$_unticked_pat" | sed 's/^/           /'
       fail=1
     elif [[ "$impl_ran" -eq 0 ]]; then
       echo "[GATE 2.5] FAIL: pipeline_ran records no 'dev' or 'fix' run (from ${spec_source}) — the criteria are ticked but no implementation run is recorded"
       fail=1
     else
-      _secs=""
-      [[ -n "$ac_section" ]] && _secs="Acceptance Criteria"
-      [[ -n "$dw_section" ]] && _secs="${_secs:+${_secs} + }Done-When"
-      echo "[GATE 2.5] PASS: all completion items ticked (${_secs}), implementation run recorded (from ${spec_source})"
+      echo "[GATE 2.5] PASS: all completion items ticked across ${_hcount:-0} section(s), implementation run recorded (from ${spec_source})"
     fi
   fi
 fi
