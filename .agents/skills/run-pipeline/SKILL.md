@@ -1,6 +1,6 @@
 ---
 name: run-pipeline
-description: "One-command conductor for the Disagreement Pipeline. Takes a topic (optionally with a seed person or video URL) and a room, and runs /slava:disagreement:select → prepare → positions → story-draft → publish in order, carrying the run file across every stage. Does NOT reimplement any stage — it invokes each one as-is and stops at each stage's own founder gate. Publishes to TEST by default; the PROD run is a separate, deliberate invocation."
+description: "One-command conductor for the Disagreement Pipeline. Takes a topic (optionally with a seed person or video URL) and a room, and runs /slava:disagreement:select → prepare → positions → story-draft → publish in order, carrying the run file across every stage. A topic that select's Phase 0 finds to be a CONSENSUS stops the whole pipeline there, reported, with nothing searched. Does NOT reimplement any stage — it invokes each one as-is and stops at each stage's own founder gate. Publishes to TEST by default; the PROD run is a separate, deliberate invocation."
 when_to_use: "You have a topic (or a link) and want the whole disagreement filed without remembering five command names and their order. Use the individual stage skills instead when resuming a half-finished run, re-running one stage, or debugging a single stage's output."
 version: 1.0.1
 ---
@@ -47,7 +47,7 @@ positions those people never took. Every existing gate stays exactly where it is
 
 | Stage | Gates that still halt |
 |---|---|
-| `select` | **Gate 1** (people + portrait status) · **Gate 0** (one voice, or one voice plus a verified questioner) · **Gate 2** (the video pair) |
+| `select` | **Phase 0** (contestedness — a `CONSENSUS` verdict STOPS the run here, before any search) · **Gate 1** (the spectrum + people + portrait status) · **Gate 0** (one voice, or one voice plus a verified questioner) · **Gate 2** (the video set, N ∈ 2..6) |
 | `prepare` | its own stage confirmations; the sealed prediction is written, never shown to a later pass |
 | `positions` | quote verification is evidence-producing, not a gate — but a failed `grep -F` **stops the run** |
 | `story-draft` | length and uniqueness asserts stop the run |

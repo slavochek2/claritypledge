@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [process]: P1141 closed on a red goal-gate by founder override — the second acceptance on the same spec, and the gate has no override mechanism
+
+**Context:** With the P1169 criteria gate satisfied, P1141's close was still refused by an **independent** control: `pre-commit-checks.sh` runs `scripts/goal-gate.sh <pN> --tier ci` on any goalified spec moving to `features/done/`, and it reported **53 failures across 17 check groups** — render hash mismatches for two 320px screenshots, `need 2 CONSECUTIVE trailing PASS rounds; got FAIL FAIL FAIL FAIL FAIL`, and a contract pin not matching `main`. Founder instructed an explicit override.
+
+**Decision:** Closed by override, with the override **recorded in the spec itself** under a `## Closure` heading naming what was overridden, the failure counts, the mechanism, and what was explicitly *not* skipped. A bypass that leaves no trace is the failure the gate exists to prevent; a bypass that documents itself is auditable. `scripts/audit-privacy.sh --staged` was run by hand and returned exit 0 before committing — only the goal-gate was bypassed, never the privacy boundary. The 53 failures are **not fixed** and the entry claims nothing otherwise: the code has been live on `main` since 2026-08-24 (12 commits, all landed), so this closed the card, not the gate.
+
+**Two things worth acting on later.** (1) **The goal-gate has no sanctioned override.** The UI gate in the same script takes a `.ui-gate-override` file carrying an `expires:` field; the goal-gate takes nothing, so the only route is `git commit --no-verify` — which also disables `audit-privacy`, a strictly wider blast radius than the operator intends. An expiring override file, matching the UI gate's shape, would make the bypass narrow and self-retiring. (2) **This is the second recorded red-gate acceptance on P1141** — commit `77ba9d69` is the first, and the spec was set to `qa` after it. A goalified spec that closes red twice is evidence about either the gate's calibration or the spec's renders, and is worth one look before the next goalified spec is filed.
+
+**Alternatives rejected:** *Fix the 53 failures* — real work (regenerate renders, drive to two green rounds), correctly the founder's scope call, not something to absorb silently at closing time. *Remove the `contract.sha256` pin so the gate stops running* — that is editing the artifact to evade the scan, forbidden outright. *Close it silently with `--no-verify` and no record* — the whole reason this entry exists.
+
+**References:** `scripts/goal-gate.sh` · `scripts/pre-commit-checks.sh` (goalified-spec block, ~L796) · `.claude/rules/git.md` §Banned commands · `features/done/2026-06-10/p1141_story_carries_a_video_with_jumpable_quotes.md` §Closure · commit `77ba9d69`
+
+---
+
 ## 2026-08-27 [process]: A criterion that describes a future RUN cannot be checked at ship time — under a criteria-reading gate it blocks forever (P1172)
 
 **Context:** Once P1169's gate 2.5 read checkboxes instead of a status label, three specs turned out to be blocked by criteria that describe a **future operational run**, not the artifact being shipped: P1141's *"for one real story, every timecode lands within a few seconds… verified by playing it"* (no agent story has been filed yet); six P1160 items each already carrying an implementer's honest *"UNVERIFIED — requires a live run"*; and P1169's own *"running `/dev` … leaves `status: qa`"*. Founder, correctly: *"who will check it if not you? … it will stick there forever or what?"* Under the old label gate these were invisible — the specs were hand-closed or waved through, which is precisely how P1141 reached `qa` with three open.

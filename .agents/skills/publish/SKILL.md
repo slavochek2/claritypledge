@@ -1,7 +1,7 @@
 ---
 name: publish
 description: "File a prepared disagreement to the product: one story per arguer holding only that speaker's verbatim quotes with the source link, the points public under one event tag, and each agent's position on each point. Never creates an account itself; on a missing agent it may invoke /slava:content:provision-agent (P1135 decision (c)) rather than only halting. Dry-run by default — it prints the exact payload it would write, and writes only that payload after an explicit affirmative. Returns the tag feed URL."
-when_to_use: "After the points chain — /slava:disagreement:select (approves the pair) → /slava:disagreement:prepare (extracts points, seals the prediction) → /slava:disagreement:positions (verifies quotes, sets positions) → /slava:disagreement:story-draft (drafts the stories) — has produced points, story drafts and agent positions for a named room, and the quotes have been checked against the source. Existing agent accounts are reused; missing ones may be provisioned inline, one gated confirmation each. Run it against TEST first; the prod run is a second, deliberate invocation. This is the only skill in the points chain that writes to the product."
+when_to_use: "After the points chain — /slava:disagreement:select (proves contestedness, approves the arguer set) → /slava:disagreement:prepare (extracts points, seals the prediction) → /slava:disagreement:positions (verifies quotes, sets positions) → /slava:disagreement:story-draft (drafts the stories) — has produced points, story drafts and agent positions for a named room, and the quotes have been checked against the source. Existing agent accounts are reused; missing ones may be provisioned inline, one gated confirmation each. Run it against TEST first; the prod run is a second, deliberate invocation. This is the only skill in the points chain that writes to the product."
 version: 0.8.0
 ---
 
@@ -169,7 +169,7 @@ This skill can check that the seal **file exists and is committed**. It **cannot
 ## Stage 1 — Resolve
 
 - **Target ref** from `.env.prod` (constraint 2). Print it.
-- **The event tag** — one per source pair. Ask if not supplied; never invent one.
+- **The event tag** — one per run (one per arguer set, whatever its size). Ask if not supplied; never invent one.
 - **The filing identity** — the account that owns `points.first_validator_id`. This is the operator's account, not an agent: the points are aimed at a room by a person, and the agents only hold positions on them.
 - **Per arguer:** resolve `subject_key` → `agent_accounts.profile_id`, exact match. Any miss ⟹ halt (above).
 - **Capture the before-counts.** These are the gate instrument and they are cheap — always take them:
@@ -246,9 +246,9 @@ points          one per point
 
 story_points    one per (point × arguer)
                   story_id, point_id, author_id = that story's author
-                  UNIQUE(point_id, author_id) holds because the two stories have
-                  different authors — a point links to BOTH stories, which is correct:
-                  a synthesized point is grounded in quotes from both speakers.
+                  UNIQUE(point_id, author_id) holds because the N stories have
+                  distinct authors — a point links to EVERY story in the set, which is
+                  correct: a synthesized point is grounded in quotes from every arguer.
 
 point_positions one per (point × arguer)
                   point_id, user_id = the agent, position = the enum below
@@ -296,7 +296,7 @@ Print in full — no truncation, no "…and 4 more":
 - the target **ref** and environment name;
 - per arguer: display name, `subject_key`, resolved agent `profile_id`, avatar URL + its HTTP status;
 - per story: the complete text, including the hashtag and the source link;
-- per point: the statement, the tag, and the two positions with their inference-strength labels;
+- per point: the statement, the tag, and **every** position — one per arguer, all N — with their inference-strength labels;
 - the before-counts.
 
 Print the hash of `request-envelope.json` alongside it, and the `env` field it carries.
@@ -357,7 +357,8 @@ Five asserts, all against that fresh read:
 5. **The after-counts equal the before-counts plus exactly what the payload contained**, compared as **id sets**, not cardinalities (a co-tenant run makes counts lie).
 6. **Each story is bound to the RIGHT agent.** Join `stories → agent_accounts ON profile_id = author_id` and assert the returned **`subject_key` per story equals the payload's mapping for that story's quotes.** `subject_key` is granted to `service_role` (`20260819120000:67`), so the read-back can see it even though the client cannot.
 
-   > **Without this, swapping the two `author_id`s passes all five asserts above** — two public stories, correct visibility, version and tags; correct points; one position per arguer per point; both authors registered agents; exact counts — while each person's verbatim quotes are published under the *other* person's machine identity. The attribution section earlier in this file binds quote→speaker **inside the transcript**; nothing revisited speaker→`author_id`, which is where the binding actually lands. The ids are opaque UUIDs the operator cannot eyeball at the gate, so this is reachable without malice.
+   > **Without this, ANY permutation of the `author_id`s passes all five asserts above** — swapping two,
+   > or cycling three, which at N > 2 is the larger space and no less reachable — — two public stories, correct visibility, version and tags; correct points; one position per arguer per point; both authors registered agents; exact counts — while each person's verbatim quotes are published under the *other* person's machine identity. The attribution section earlier in this file binds quote→speaker **inside the transcript**; nothing revisited speaker→`author_id`, which is where the binding actually lands. The ids are opaque UUIDs the operator cannot eyeball at the gate, so this is reachable without malice.
 
 7. **Every point has a `story_points` row to each story**, counted — an evidence link silently missing is published-and-wrong and no other assert looks at that table.
 8. **Every agent author's `profiles.name` still carries the reserved marker.** It is the one marker channel that survives a registry read failure (the name renders even when `isAgent` is false), and nothing else in this file checks it.
@@ -455,7 +456,7 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | disagreement:publish 
 ## Related
 
 - `docs/points-process.md` — the pipeline contract: stage boundaries, run-file schema, seal rules.
-- `/slava:disagreement:select` — selects the opposed pair; resolves `subject_key` and approvals at its gates.
+- `/slava:disagreement:select` — proves the topic is contested, selects the N opposed arguers; resolves `subject_key` and approvals at its gates.
 - `/slava:disagreement:prepare` — extracts the points and seals the prediction.
 - `/slava:disagreement:positions` — verifies quotes, resolves timecodes from the raw `.vtt`, sets positions.
 - `/slava:disagreement:story-draft` — drafts the stories; owns the P1141 voice rules.

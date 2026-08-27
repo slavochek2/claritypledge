@@ -1,7 +1,7 @@
 ---
 name: prepare
-description: "Read one or more sources — an opposed PAIR selected by /slava:disagreement:select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:disagreement:positions and /slava:disagreement:story-draft."
-when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select has approved a source pair. When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
+description: "Read one or more sources — the N ∈ 2..6 opposed arguers selected by /slava:disagreement:select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:disagreement:positions and /slava:disagreement:story-draft."
+when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select has proved the topic contested and approved a source set (N ∈ 2..6). When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
 version: 0.8.0
 ---
 
@@ -21,7 +21,7 @@ Take one or more conversations. Produce claims that would split a **specific roo
 
 | Input | Notes |
 |---|---|
-| **Run file** | `.private/points-runs/<slug>.md` from `/slava:disagreement:select` — carries the approved opposed pair, the room, the identity keys and the sealed approvals. **Re-verify the approvals seal before extracting**: re-extract the `### Approvals Block` (through `<!-- end-approvals-block -->`), re-hash it, compare against `.points-run-seals/<slug>.approvals.sha256` — **a mismatch is a STOP** (see `docs/points-process.md`). Sources may also be supplied directly (URLs, transcript paths, pasted text) for a manual run without the selector — in that case this skill writes the run file header itself. |
+| **Run file** | `.private/points-runs/<slug>.md` from `/slava:disagreement:select` — carries the approved opposed arguers (N ∈ 2..6, one per position), the room, the identity keys and the sealed approvals. **Re-verify the approvals seal before extracting**: re-extract the `### Approvals Block` (through `<!-- end-approvals-block -->`), re-hash it, compare against `.points-run-seals/<slug>.approvals.sha256` — **a mismatch is a STOP** (see `docs/points-process.md`). Sources may also be supplied directly (URLs, transcript paths, pasted text) for a manual run without the selector — in that case this skill writes the run file header itself. |
 | **The room** | Who these points will be shown to, in plain terms — "seed-stage founders at a Berlin event", "two cofounders of a 4-person SaaS". With a selector run file the room is read from it, still printed back. |
 
 > **Refuse to proceed without the room, and never invent one.** Which claims survive the load-bearing filter, and every predicted percentage, are relative to a named audience. **Print the room back before extracting** and treat silence as refusal — a 2026-08-17 run asserted its own room and every number downstream inherited an unchecked assumption.
@@ -282,7 +282,7 @@ Close with: how much was read, audience sizes, the origin tally, how many candid
 ## The chain this skill sits in (P1156)
 
 ```
-/slava:disagreement:select  → selects the opposed pair, resolves identity, seals approvals
+/slava:disagreement:select  → proves the topic is contested, selects the N opposed arguers, resolves identity, seals approvals
 THIS SKILL                    → extracts points, seals the prediction
 /slava:disagreement:positions → verifies quotes, resolves timecodes, sets positions
 /slava:disagreement:story-draft   → drafts the machine-reading stories
