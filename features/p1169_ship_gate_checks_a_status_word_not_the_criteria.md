@@ -31,9 +31,9 @@ supposed to stand for. P1141 reached `qa` and shipped with three criteria untick
 
 *The gate is also a lock nobody can open.* For a `/dev`-flow spec there is no supported path to
 `qa` at all unless `/verify` runs — and `/verify` drives a real browser, so it has nothing to do
-with a skill-file edit or a cloud-permissions change. Of 104 closed specs carrying `dev` in
-`pipeline_ran`, **14** also carry `verify`. The other 90 crossed by an agent hand-editing the
-status. That step is written in no skill, no rule and no script. It is a habit, and habits skip.
+with a skill-file edit or a cloud-permissions change. Of **106** closed specs carrying `dev` in
+`pipeline_ran`, **14** also carry `verify` (re-derived two ways 2026-08-27; an earlier count of 104
+used a looser glob). The other 92 crossed by an agent hand-editing the status. That step is written in no skill, no rule and no script. It is a habit, and habits skip.
 
 *And direct-to-main work has no closing ritual at all.* `dev.md` step 0 deliberately routes
 skill-file specs to `main` with no branch (a skill edited on a branch is not the skill that runs).
@@ -98,6 +98,14 @@ here; the column IS the signal"*), from which `dev.md` drifted. Purely a board s
 repair 1 in place, the ship path no longer depends on it. `dev.md`'s UAT gate is currently
 self-contradictory on this point (step 1 gates a `qa` transition that step 4 then forbids); this
 removes the contradiction rather than adding to it.
+
+**2b. `/dev` and `/verify` write the stamp string the closure gate reads.** *(Found during
+implementation, 2026-08-27 — already recorded as open on 2026-08-20, see Rulings 7.)*
+`git-ops.sh`'s no-branch closure proves an implementation landed by matching a non-revert commit
+whose subject carries the P-number and the literal `ready for QA`. `/fix` emits exactly that.
+`/dev` emitted `ready for UAT`; `/verify` emitted no stamp commit at all. So the no-branch path
+worked only for `/fix`-flow specs — it rejected P1164 (`/dev`) and P1001 (`/verify`) with *"no
+qualifying stamp commit found"*. Both writers now emit the contracted string.
 
 **3. `ship.md` routes direct-to-main work to `/ship`.**
 Delete the *"just say push, no need for /ship"* section and replace it with the P920 path that
@@ -167,23 +175,26 @@ follow-up — do not close it by exception, and do not weaken the gate to accomm
 
 ## Done-When
 
-- [ ] `scripts/ship-gates.sh` gate 2.5 fails, with a pasted non-zero exit code, on a spec with one
+- [x] `scripts/ship-gates.sh` gate 2.5 fails, with a pasted non-zero exit code, on a spec with one
       unticked `## Acceptance Criteria` box and `status: qa`
-- [ ] The same gate fails, with a pasted non-zero exit code, on a spec with all boxes ticked and
+- [x] The same gate fails, with a pasted non-zero exit code, on a spec with all boxes ticked and
       `pipeline_ran` containing neither `dev` nor `fix`
-- [ ] The same gate passes on a spec with all boxes ticked and `dev` in `pipeline_ran`, whatever its
+- [x] The same gate passes on a spec with all boxes ticked and `dev` in `pipeline_ran`, whatever its
       `status` reads
-- [ ] `grep -n "status" scripts/ship-gates.sh` shows no remaining gate-2.5 dependence on the value
+- [x] `grep -n "status" scripts/ship-gates.sh` shows no remaining gate-2.5 dependence on the value
 - [ ] Running `/dev` to its UAT gate on a spec with all criteria ticked leaves `status: qa`
-- [ ] `ship.md` contains no instruction to skip `/ship` for direct-to-main work
-- [ ] `/ship pN` closes a spec whose work is on `main` with no branch, end to end, on one of the
+      *(the only item not provable this session — `/dev` is an instruction file, and the honest proof
+      is the next real `/dev` run. P1169 stays open until then; gate 2.5 correctly FAILs it meanwhile,
+      which is the discipline this spec installs working on its own spec.)*
+- [x] `ship.md` contains no instruction to skip `/ship` for direct-to-main work
+- [x] `/ship pN` closes a spec whose work is on `main` with no branch, end to end, on one of the
       recovery specs
-- [ ] The stranded-work scan reports a spec at `status: qa`, a `done` spec still in `features/`, and
+- [x] The stranded-work scan reports a spec at `status: qa`, a `done` spec still in `features/`, and
       an unfinished ship journal — demonstrated against the current tree before recovery runs
-- [ ] P1113, P1164, P1002, P1001 closed and moved to `features/done/`
-- [ ] P1141 either closed via `--resume` with its three open criteria resolved, or explicitly left
+- [x] P1113, P1164, P1002, P1001 closed and moved to `features/done/`
+- [x] P1141 either closed via `--resume` with its three open criteria resolved, or explicitly left
       open with the reason recorded
-- [ ] `git worktree list` and `git branch` show no orphaned branch for any closed spec
+- [x] `git worktree list` and `git branch` show no orphaned branch for any closed spec
 
 ## Related
 
@@ -220,8 +231,28 @@ Cited by date + heading per the 2026-08-19 ruling on line-number rot.
    6a; the audit's framing — *file a repair spec per finding rather than layering a new control on
    top* — is the shape this spec follows.
 
+7. **2026-08-20 [process] — "Two checks that silently did not run — a canary dropped from its own
+   trigger, and a close gate no `/dev` spec can satisfy" (Status: proposed).** Records finding 2b
+   and repair 3 verbatim, seven days before this spec: *"`/dev` emits 'ready for UAT' … #2 is open
+   and blocks every future `/dev`-built direct-to-main spec from closing"* and *"`ship.md:160` tells
+   you not to run `/ship` at all when on main with no branch, contradicting the P920 arm built to do
+   that closure."* Its own closing line is *"no spec filed for either."* **P1169 is that spec.**
+
+   Its general ruling is the one this whole spec instantiates: *"treat a literal string shared
+   between two skills and a script as a contract that needs a single source or a test; today it has
+   neither."* Gate 2.5's old `status:` test was the same defect in a different costume — a string
+   shared between four skills and a script, with no single source and no test.
+
 ## Open Questions
 
-1. How many open specs carry neither `## Acceptance Criteria` nor `## Done-When`? Under repair 1
-   they FAIL by design. Count before shipping the rule — the number decides whether the
-   neither-section case needs an explicit escape or is genuinely empty.
+1. ~~How many open specs carry neither `## Acceptance Criteria` nor `## Done-When`?~~ **Answered
+   2026-08-27: 11 of 145** (p471, p559, p570, p572, p573, p635, p639, p687, p791, p1052, p1154).
+   All are pre-implementation — none carries `dev` or `fix` in `pipeline_ran`, so each would have
+   failed the second condition anyway. Fail-closed shipped with no escape hatch: a spec with no
+   completion criteria has nothing that could prove it done, and whichever pipeline skill implements
+   it will write a section.
+2. **P1141's three open criteria.** The new gate FAILs it (1 under Acceptance Criteria, 2 under
+   Done-When) — correctly; it was set to `qa` with those recorded as accepted-open, which is the
+   hollow-gate behavior this spec removes. Its twelve commits are all on `main` already, so the code
+   is live and only the closure is outstanding. Founder call: tick them with evidence, or file the
+   remainder as a follow-up and close. **Do not weaken the gate to accommodate it.**
