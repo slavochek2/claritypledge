@@ -1,16 +1,42 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 59
 workstream: C2
 created_date: '2026-08-21'
 tags: [stories, video, agents, quotes]
-delivery_stage: ship
 pipeline_ran: [create-spec, architect, goal, finish, ship]
 pipeline_skipped: [challenge-prd -- decisions already taken and alternatives recorded in Solution, ux -- covered by UX Notes + UI Contract + an approved visual reference]
 visual_reference: 'https://claude.ai/code/artifact/6c28e57e-cb11-4144-b99f-7312428714de'
 driver: heuristic
+completed_at: 2026-08-27
 ---
+
+
+## Closure — founder override of a red goal-gate, 2026-08-27
+
+**This spec was closed on a FAILING gate, by explicit founder instruction.** Recorded here because
+a bypass that leaves no trace is the thing the gate exists to prevent.
+
+- **What was overridden:** `scripts/goal-gate.sh p1141 --tier ci`, run by `pre-commit-checks.sh`,
+  which refuses to let a goalified spec move to `features/done/` while red. It reported
+  **53 failures across 17 check groups**, including: hash mismatches for
+  `features/verification/p1141/renders/player-blocked-320.png` and `player-loads-320.png`;
+  `need 2 CONSECUTIVE trailing PASS rounds; got FAIL FAIL FAIL FAIL FAIL`; and
+  `contract on this branch does not match the pin on main`.
+- **How:** `git commit --no-verify`. The goal-gate has **no sanctioned override mechanism** — unlike
+  the UI gate, which takes a `.ui-gate-override` file with an expiry. `--no-verify` is a banned
+  command in `.claude/rules/git.md` except on explicit user instruction, which was given.
+- **What was NOT skipped:** `scripts/audit-privacy.sh` was run by hand against the staged content
+  before committing, so the privacy boundary was not bypassed — only the goal-gate was.
+- **What this does not mean:** the 53 failures are not fixed and no claim is made that they are. The
+  code has been live on `main` since 2026-08-24 (12 commits, all landed). This closes the *card*,
+  not the gate.
+- **Precedent note:** commit `77ba9d69` already records a founder decision to *"accept the red
+  gate"* on this spec. This is the second such acceptance. A goalified spec that closes red twice
+  is a signal about the gate's calibration or the spec's renders — worth one look before the next
+  goalified spec is filed.
+- **Three first-run criteria** from this spec were moved to **P1172** and remain owed.
 
 # P1141: A story carries a video instead of a picture, and its quotes jump
 
