@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 2
 created_date: '2026-07-18'
 tags: [infrastructure, ship, worktrees, tooling]
-delivery_stage: fix
 pipeline_ran: [create-spec, fix]
+completed_at: 2026-08-27
 ---
 
 # P1002: Move `.finish-reviewed` stamp to a worktree-shared path
