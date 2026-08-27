@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 73
 severity: medium
@@ -7,7 +7,6 @@ workstream: infrastructure
 date_reported: 2026-08-27
 created_date: '2026-08-27'
 tags: [migrations, deploy-manifest, shared-checkout, tooling]
-delivery_stage: ship
 pipeline_ran: [create-spec, reproduce, fix, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -20,6 +19,7 @@ reproduce_artifact:
   surfaces_in_scope: [migrate.sh Management API fallback path — prod and non-prod]
   surfaces_deferred: [P1170 — primary CLI-success path, migrate.sh:265-273, unverifiable in this environment]
   reproduced_at: 2026-08-27
+completed_at: 2026-08-27
 ---
 
 # P1168: `migrate.sh --env prod` stamps a deployment timestamp when it deployed nothing, and the edit is left staged on the shared main checkout
@@ -87,7 +87,7 @@ and by any non-prod run where the CLI push fails (the common case in this repo's
 project has pre-existing migration-history drift that makes the CLI always fail and fall through to
 the Management API fallback — the true no-op-success branch was never observed this session, so no
 verified fix could be written for it (Falsify Before You Rely). Filed as
-[P1170](p1170_migrate_primary_path_may_stamp_an_unverified_noop.md).
+[P1170](../../p1170_migrate_primary_path_may_stamp_an_unverified_noop.md).
 
 ## Risks / Non-Goals
 
@@ -172,12 +172,12 @@ close the `decisions.md` 2026-08-23/2026-08-25 incident class. Filed rather than
 scope — needs real design, not a quick patch, and Non-Goals already rejects "have the stamp script
 commit its own change" as worse than the status quo):
 
-- **[P1173](p1173_migrate_manifest_stamp_stage_unsafe_under_concurrency.md)** — the `git add` at
+- **[P1173](../../p1173_migrate_manifest_stamp_stage_unsafe_under_concurrency.md)** — the `git add` at
   `migrate.sh:493` stages whatever's currently on disk with no freshness check vs `HEAD`; two
   reviewers independently reproduced a co-tenant's dangling edit riding along into this run's
   stamp. Also: swallowed `index.lock` failures (false "Staged..." message), and a lost-update race
   between two concurrent stamp writes (no lock anywhere in `stamp-deploy-manifest.sh`).
-- **[P1174](p1174_migrate_pending_migrations_toctou_bypasses_ack_gate.md)** — unrelated to the
+- **[P1174](../../p1174_migrate_pending_migrations_toctou_bypasses_ack_gate.md)** — unrelated to the
   stamp mechanism: `PENDING_FILES` (the ack list, P887) and the apply loop independently re-glob
   `supabase/migrations/*.sql`; a file landing between the ack prompt and the apply loop is applied
   to prod without ack or without the `requires-frontend` (P886) coupling check. Also a malformed-
