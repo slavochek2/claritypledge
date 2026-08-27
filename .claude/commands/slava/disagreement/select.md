@@ -159,20 +159,43 @@ on its own.
   — a topic reframed until something finally looks contested is a manufactured disagreement reached
   by a slower route, and this skill exists to prevent exactly that.
 
-> **Nothing enforces the limit, and pretending otherwise is the risk.** This skill holds no state
-> between invocations. A third reframe laundered as *"a new run on a new topic"* is indistinguishable,
-> to the skill, from a genuinely fresh topic — no counter exists, and none can without a store this
-> skill does not have. **The limit is therefore made VISIBLE rather than enforced:** whenever a topic
-> arrives that descends from a `CONSENSUS` verdict — including as a "fresh" invocation — Phase 0's
-> output block MUST carry
->
-> ```
-> Reframed from: "<original topic string>" — verdict CONSENSUS, <date>  (reframe #<n>)
-> ```
->
-> so the founder sees the lineage at Gate 1 and can stop it. An agent that omits this line on a
-> descended topic has defeated the rule; the founder is the only backstop, which is exactly why the
-> line is mandatory and not a nicety.
+### The consensus log — where the reframe counter lives
+
+**The cap needs an artifact, and the no-run-file rule takes away the obvious one.** A `CONSENSUS`
+verdict writes no run file by design, so a counter kept in the run file cannot exist; and this skill
+holds no state between invocations. That leaves a laundering route that is **compliant with every
+other sentence in this file**: present candidate remedy topics as *information*, let the founder pick
+one, invoke `/select` again, and Phase 0 starts at zero with no memory that this topic descends from
+a consensus. Reframing without limit, by the book.
+
+**A log line is not a run file.** So the counter lives in one:
+
+```bash
+# APPEND on every CONSENSUS verdict — one line, no exceptions
+mkdir -p .private/points-runs
+printf '%s | %s | reframe_of: %s | shared premise: %s\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "<topic string>" "<prior topic | none>" "<the shared premise>" \
+  >> .private/points-runs/consensus-log.md
+```
+
+**Phase 0 READS that file before enumerating anything** — every invocation, including one the founder
+opens as a fresh topic:
+
+```bash
+grep -F "<topic string>" .private/points-runs/consensus-log.md   # and follow any reframe_of chain
+```
+
+**A fork already reached through two `reframe_of` hops is a STOP** — in any invocation, by any route,
+including a founder-supplied restatement that never uses the word "reframe". Report the chain and the
+shared premise; do not enumerate.
+
+> **What this does and does not buy.** It makes *"a second `CONSENSUS` is the answer"* mechanically
+> checkable instead of an honour rule, and it survives the no-run-file invariant intact. It does
+> **not** survive a fresh clone: `.private/` is gitignored, so the log is machine-local and a
+> different machine starts with an empty counter. That is an accepted limit, not an oversight —
+> the alternative is publishing every consensus topic to a public repo. **Still print the lineage
+> at Gate 1** (`Reframed from:` in the Phase 0 output block) so the founder sees it even when the
+> log is absent; the log is the check, the printed line is the backstop.
 
 ### Phase 0 enumerates; it does not evaluate
 

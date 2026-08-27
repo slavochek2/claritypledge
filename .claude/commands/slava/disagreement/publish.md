@@ -309,11 +309,24 @@ Print the hash of `request-envelope.json` alongside it, and the `env` field it c
 FILE TO <ENVIRONMENT> — irreversible once public.
   Ref            : <project ref>
   Event tag      : <tag>
-  Agents         : <n>, all existing (none created)
+  Agents         : <n> resolved — <e> existing, <p> provisioned this run
+  Spectrum       : <filled> of <carried> positions filled
+                   unfilled: <position statements | none>
   Stories        : <n>     Points: <n>     Positions: <n>
   envelope sha256 : <hash>   (env: <test|prod>, url read from the envelope)
 Confirm to write.
 ```
+
+> **The `Spectrum` line is the only place a narrowed set is visible at filing time.** Every other
+> figure here is an aggregate cardinality: at N = 4 with one position unfilled, `Agents : 3` is
+> indistinguishable from a run that only ever carried three, and the operator confirms a narrowed
+> spectrum believing it complete. `/slava:disagreement:select` Gate 2 names unfilled positions;
+> that fact must **travel** to this gate rather than being re-derived from a count. Read
+> `positions_unfilled` and `arguers` from the run file's sealed approvals block — never from the
+> payload, which by construction contains only what was filled.
+>
+> **`Agents` is not hardcoded to "all existing".** Stage 2 can provision inline, and more arguers
+> make that likelier; print what actually happened, both numbers, every run.
 
 **Silence, ambiguity, or any non-affirmative ⟹ refuse and exit WITHOUT writing.** Not "assume yes", not "write and offer to undo". **No flag bypasses this gate and none may ever be added.**
 
@@ -365,7 +378,7 @@ assignment survives** — see the warning under assert 6, which is what catches 
    > points; one position per arguer per point; all authors registered agents; exact counts — while
    > each person's verbatim quotes are published under *another* person's machine identity. The attribution section earlier in this file binds quote→speaker **inside the transcript**; nothing revisited speaker→`author_id`, which is where the binding actually lands. The ids are opaque UUIDs the operator cannot eyeball at the gate, so this is reachable without malice.
 
-7. **Every point has a `story_points` row to each story**, counted — an evidence link silently missing is published-and-wrong and no other assert looks at that table.
+7. **Every point has a `story_points` row to each story**, counted — **and the count MUST equal `points × N`, stated before the query is run.** A count with no expected value is not an assert: at N = 2 a missing link is eyeballable, at N = 6 it is not, and an agent reporting "counted 5" passes on 5-of-6. An evidence link silently missing is published-and-wrong, and no other assert looks at that table.
 8. **Every agent author's `profiles.name` still carries the reserved marker.** It is the one marker channel that survives a registry read failure (the name renders even when `isAgent` is false), and nothing else in this file checks it.
 
 **On any failed assert:** print the failure, print what was written, state plainly what is public right now, and **do not print the feed URL as though the run succeeded.**
