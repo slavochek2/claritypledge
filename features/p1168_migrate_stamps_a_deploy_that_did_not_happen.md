@@ -158,6 +158,39 @@ verified fix could be written for it (Falsify Before You Rely). Filed as
       the drift gate reads the migration array, never `migrations_deployed_at`). Independently
       re-verified by the code-review subagent during the QA gate.
 
+## Adversarial Review (2026-08-27)
+
+3 hostile reviewers (sonnet), lenses: fail-open/operational, evasion, forgeable/racy assumptions.
+Full transcript in this session. Every attempt to force a false stamp on a genuine zero-applied
+run **failed** — the `APPLIED_COUNT`-gated core of this fix holds under env-var injection, `$ENV_NAME`
+variation, malformed API responses, and the P1042 collision-guard interaction. No regression to the
+claim this spec makes.
+
+But the review surfaced real, independently-reproduced, code-verified defects in the **surrounding**
+stamp+stage sequence — pre-existing (not introduced by this diff, which only wraps the existing
+`git add` in a conditional), but directly relevant because they undercut this spec's own claim to
+close the `decisions.md` 2026-08-23/2026-08-25 incident class. Filed rather than fixed here (out of
+scope — needs real design, not a quick patch, and Non-Goals already rejects "have the stamp script
+commit its own change" as worse than the status quo):
+
+- **[P1173](p1173_migrate_manifest_stamp_stage_unsafe_under_concurrency.md)** — the `git add` at
+  `migrate.sh:493` stages whatever's currently on disk with no freshness check vs `HEAD`; two
+  reviewers independently reproduced a co-tenant's dangling edit riding along into this run's
+  stamp. Also: swallowed `index.lock` failures (false "Staged..." message), and a lost-update race
+  between two concurrent stamp writes (no lock anywhere in `stamp-deploy-manifest.sh`).
+- **[P1174](p1174_migrate_pending_migrations_toctou_bypasses_ack_gate.md)** — unrelated to the
+  stamp mechanism: `PENDING_FILES` (the ack list, P887) and the apply loop independently re-glob
+  `supabase/migrations/*.sql`; a file landing between the ack prompt and the apply loop is applied
+  to prod without ack or without the `requires-frontend` (P886) coupling check. Also a malformed-
+  but-HTTP-200 ledger response is silently swallowed, misclassifying already-applied migrations as
+  pending.
+
+**Consequence for this spec's own claim:** the Problem section's framing ("that edit was staged...
+and that edit was absorbed by a concurrent session's unrelated commit") is fixed **only for the
+zero-applied case** this spec targets. The general absorption mechanism (P1173) survives on the
+apply-something path — this fix narrows the incident's trigger conditions, it does not close the
+incident class.
+
 ## Alternatives Considered
 
 - **Leave it — the timestamp is cosmetic.** Rejected: the staged edit is not cosmetic, and it is the
