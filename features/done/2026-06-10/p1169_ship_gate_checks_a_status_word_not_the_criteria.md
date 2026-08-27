@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 74
 workstream: infrastructure
 created_date: '2026-08-27'
 tags: [ship, pipeline, gates, spec-lifecycle]
-delivery_stage: create-spec
 pipeline_ran: [create-spec, inline]
 flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-08-27
 ---
 
 # P1169: The ship gate checks a status word, not the acceptance criteria — and direct-to-main work has no closing path
