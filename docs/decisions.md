@@ -20,6 +20,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [process]: P1094's link re-basing is attached to `/ship` only — the manual on-main close path bypasses it, and the 2026-08-17 failure recurred there
+
+**Context:** P1159 was closed by hand. It had **no feature branch** — skill files must be committed
+straight to main per `.claude/rules/skills.md`, and `ship.md:160` says so explicitly: *"For small
+work committed directly to main, just say 'push' — no need for /ship."* So the close was a manual
+`status: all-done` + `git mv` into `features/done/2026-08-27/`, then `commit-to-main`.
+
+The commit was blocked by the doc-link ratchet with two dead links — sibling references to P1163 and
+P1164 that were correct while the spec sat in `features/` and wrong one directory deeper. **That is
+the exact failure decisions.md 2026-08-17 recorded and marked RESOLVED by P1094.**
+
+**Decision:** Recorded as a **coverage gap, not a regression**. P1094's fix is real and works;
+`ship_rebase_doc_links()` has three call sites in `git-ops.sh` and **all three are inside `ship`**
+(verified: `grep -n ship_rebase_doc_links scripts/git-ops.sh`; `cmd_commit_to_main` contains zero
+references). There are two ways a spec reaches `features/done/` and the fix covers one of them. No
+fix applied here — the links were corrected by hand and the gap is being written down rather than
+absorbed silently, because absorbing it is how it stays invisible.
+
+**Alternatives rejected:** *Call `ship_rebase_doc_links` from `commit-to-main`* — that command is a
+general locked-commit path used for docs and one-off changes, not a spec-close; it has no notion of
+a spec moving and would need the source and destination paths threaded in. The right home is
+whatever owns the manual close, and nothing does today. *Treat it as a one-off* — 2026-08-17 already
+recorded this shape recurring "to an agent that had read this entry," which is the definition of a
+path problem rather than an attention problem.
+
+**Consequences:** Any spec closed without `/ship` — which is every spec whose work lives on main,
+i.e. every skill-file, rules-file and docs spec — carries whatever relative links it was authored
+with, one directory too shallow. **The gate does catch it**, so nothing ships broken; the cost is a
+blocked commit and a manual fix each time, and it lands on exactly the specs that never touch a
+feature branch. **Falsifier:** if the next hand-closed spec with relative links commits clean, the
+links happened to be root-relative and this is narrower than stated.
+
+**References:** `scripts/git-ops.sh` `ship_rebase_doc_links()` ~L1890, call sites L2304/L2824/L2907 ·
+`.claude/commands/slava/build/ship.md`:160 · `scripts/validate-doc-links.cjs` ·
+decisions.md 2026-08-17 (P1082 finding 1, RESOLVED by P1094) · 2026-08-17 (P1094's rebase design)
+
+---
+
 ## 2026-08-27 [process]: A long skill file's bulk is usually rules it copied — the trim that worked was Reference Over Duplication, and ~330 was still unreachable
 
 **Context:** P1159 left one Done-When open as **MISSED, not waived**: `create-spec.md` was 560 lines
