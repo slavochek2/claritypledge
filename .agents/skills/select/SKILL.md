@@ -92,8 +92,37 @@ fetch, no metadata read. Phase 0 costs one round of reasoning and desk research 
 
 | Verdict | Condition | What happens next |
 |---|---|---|
-| `CONTESTED` | **≥2** enumerated positions, each carrying a named advocate with evidence | The positions become Phase 2's search targets, replacing keyword guessing. Continue to Phase 1 |
-| `CONSENSUS` | Every advocate found argues the same proposition, differing only in emphasis, vocabulary or tone | **STOP. Print the shared premise. Search nothing.** |
+| `CONTESTED` | **≥2** enumerated positions, each with a named advocate **AND** a written contradiction between at least one pair — see the next section, which is the actual test | The positions become Phase 2's search targets, replacing keyword guessing. Continue to Phase 1 |
+| `CONSENSUS` | Every advocate found argues the same proposition, differing only in emphasis, vocabulary or tone — **or** no pair yields a contradiction sentence, whatever the count | **STOP. Print the shared premise. Search nothing.** |
+
+**The count is the cheap half and it is not the test.** Read the next section before returning either verdict.
+
+### Before returning `CONTESTED` — write the contradiction, or it is a `CONSENSUS`
+
+**≥2 positions with named advocates is NOT sufficient**, and treating it as sufficient is exactly how
+the 2026-08-27 run failed: five advocates, five distinguishable emphases, one proposition. Emphasis,
+vocabulary, tone, urgency and framing are **not** positions.
+
+The test is a disproof, not a count. For **each pair** of enumerated positions, write one sentence
+that satisfies all three:
+
+1. it has a **truth value** — it is a claim, not a topic or a mood;
+2. advocate X's own words **assert** it;
+3. advocate Y's own words would **deny** it — not merely fail to mention it, not emphasise something
+   else instead.
+
+**If you cannot write that sentence for at least one pair, the verdict is `CONSENSUS`, however many
+positions you enumerated.** Print the sentences you tried and could not complete — that failure *is*
+the shared-premise finding.
+
+> **Run the fixture against this test.** Harari and LeCun both assert *"AI power is concentrated
+> today"*; neither denies it. The pair produces no sentence, so the count of five advocates buys
+> nothing and the verdict is `CONSENSUS`. Silence on a claim is not denial — an advocate who simply
+> never addresses it is **not** the other side.
+
+**The parallel to Phase 3 is deliberate.** This is the same-side trap tested against people's
+*stated positions* before any search; Phase 3 tests it again against the *selected transcripts*
+afterwards. Passing here never excuses the later check.
 
 ### Consensus is a SUCCESSFUL outcome, not a failure
 
@@ -403,8 +432,12 @@ Run an isolated step whose sole purpose is to argue **why the proposed set does 
 **Clean-slate rules:**
 - The judge step receives only: the topic, the room, the N candidate transcripts, and the position
   each source is *claimed* to occupy.
-- It does NOT receive the ranking notes, candidate pool discards, Phase 0's reasoning, or why these
-  sources were picked.
+- It does NOT receive the ranking notes, candidate pool discards, Phase 0's **reasoning or evidence**,
+  or why these sources were picked.
+- **The position claims are input; Phase 0's case for them is not.** The judge needs to know what each
+  source is *claimed* to argue in order to test the claim — withholding that would leave it nothing to
+  falsify. It must not see *why* Phase 0 believed the fork was real, which is what would make it
+  agree by inheritance rather than by reading the transcripts.
 - It states in its output that it ran **same-session**.
 
 It evaluates:
@@ -412,8 +445,8 @@ It evaluates:
   looking opposed? At N > 2 this gets **more** likely, not less — the check is every unordered pair,
   `N·(N−1)/2` of them, not just the two extremes. **Negative control:** `lJR-7_Dcess` +
   `5VSxrEH1-Rk` (`docs/decisions.md` 2026-08-25 [product], *"YouTube search matches words, not
-  stances"*) — two videos that look cleanly opposed by title and
-  view count and are **the same side**. A judge step that does not fire on that pair is not running.
+  stances"*) — two videos that look cleanly opposed by title and view count and are **the same
+  side**. A judge step that does not fire on that pair is not running.
 - **Does each source argue the position it was admitted for?** A silent re-shuffle of who occupies
   what leaves N sources and fewer than N positions.
 - Is the disagreement genuine and load-bearing, or purely semantic?

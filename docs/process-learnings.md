@@ -853,3 +853,7 @@ busy-retry — poll `git status --short` until it goes quiet (no bystander diff)
 Falsifier: with a second session holding an unstaged edit to any `.claude/commands/slava/**` file,
 attempt an unrelated commit via `git-ops.sh commit-to-main` — it fails on that file's drift
 regardless of the lock.
+
+---
+
+<!-- Resolved 2026-08-27: "/slava:disagreement:select has no person-level fallback from Gate 1" — closed by P1171 (Gate 1 runners-up carried as per-position `alternates:`); see decisions.md 2026-08-27 [process] -->
