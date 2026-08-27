@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 73
 severity: medium
@@ -13,7 +13,6 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
-status: in-progress
 reproduce_artifact:
   test_file: scripts/test-p1168-noop-stamp.sh
   root_cause: "migrate.sh's Management API fallback path (used by --env prod always, and by any non-prod run where the CLI push fails) runs the apply loop unconditionally, then stamps + git-adds the manifest unconditionally after the loop — not gated on APPLIED_COUNT. A run where nothing is pending still stamps migrations_deployed_at and stages the edit."
