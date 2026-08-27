@@ -1,11 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 3
 created_date: '2026-07-17'
 tags: [infrastructure, security, gcp, service-accounts]
-delivery_stage: verify
 pipeline_ran: [create-spec, fix, verify]
+completed_at: 2026-08-27
 ---
 
 # P1001: Close the residual escalation paths left on the shared identity after P998
