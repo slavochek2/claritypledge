@@ -13,8 +13,8 @@ tags: [migrations, prod-safety, tooling, concurrency]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1174-pending-set-integrity.sh
   root_cause: "migrate.sh globs supabase/migrations/*.sql twice — once to build PENDING_FILES (the acked + coupling-scanned set) and again to drive the apply loop — so any file landing between the two globs is applied to prod ungated; separately, the ledger parse swallows a malformed-but-200 body via `2>/dev/null || true`, yielding an empty REMOTE_VERSIONS that reads as 'nothing applied yet'"
