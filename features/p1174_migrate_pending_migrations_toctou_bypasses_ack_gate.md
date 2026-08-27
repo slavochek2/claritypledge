@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 79
 severity: high
@@ -10,8 +10,15 @@ tags: [migrations, prod-safety, tooling, concurrency]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-p1174-pending-set-integrity.sh
+  root_cause: "migrate.sh globs supabase/migrations/*.sql twice — once to build PENDING_FILES (the acked + coupling-scanned set) and again to drive the apply loop — so any file landing between the two globs is applied to prod ungated; separately, the ledger parse swallows a malformed-but-200 body via `2>/dev/null || true`, yielding an empty REMOTE_VERSIONS that reads as 'nothing applied yet'"
+  confidence: high
+  surfaces_in_scope: [prod-interactive-ack, prod-yes-flag, ledger-fetch, preflight-ledger-check]
+  surfaces_deferred: []
+  reproduced_at: 2026-08-27
 ---
 
 # P1174: `migrate.sh`'s pending-migration enumeration and apply loop independently re-glob the migrations directory — a file landing in between bypasses the P887 ack gate and the P886 requires-frontend coupling gate
@@ -43,6 +50,37 @@ done
 Reproduced (adversarial reviewer): with 1 file present at ack time, a second file landing during the (simulated) ack wait resulted in the apply loop attempting 2 files — the second (`20260101000001_sneaky.sql`) applied to prod with neither ack nor `requires-frontend` coupling scan, because it was never in `PENDING_FILES`.
 
 This is exactly the incident class `migrate.sh`'s own header documents P887/P886 as preventing ("a client-breaking grants migration rode along with an unrelated backend ship").
+
+**Confirmed 2026-08-27 by `scripts/test-p1174-pending-set-integrity.sh`** (hermetic: throwaway git repo, PATH-stubbed `npx`/`curl`/`security`, no network, no real DB). The interactive scenario runs `migrate.sh` under `script(1)` so `[ -t 0 ]` is true and the real y/N prompt is exercised; the co-tenant's file is written only after the prompt has appeared in the session log, so the race is ordered by observation, not by a sleep. Observed session output:
+
+```
+Pending migrations (1) — these WILL be applied to PROD:
+  - 20260101000000_p1174_acked.sql
+
+Apply these 1 migration(s) to PROD? [y/N] y
+Acknowledged.
+
+  ✓ 20260101000000_p1174_acked.sql applied
+  ✓ 20260101000001_p1174_sneaky.sql applied
+
+Applied 2 new migration(s) via Management API.
+```
+
+The human acked one file; prod received two. The injected file carried `-- requires-frontend: deadbeef…` for a sha that is not on `origin/main` — had it reached the coupling gate it would have hard-blocked the entire run (P886). It never did, because the gate only ever sees `PENDING_FILES`.
+
+The same injection on the `--yes` path (injected during the coupling gate's own `git merge-base` call, which sits strictly between the two globs) reproduces identically — the window is not an artifact of a human reading the prompt.
+
+**Scenario audit (Track B) — every way the acked set can diverge from the applied set:**
+
+| # | Scenario | Pre-fix | Covered by |
+|---|----------|---------|-----------|
+| 1 | prod, interactive ack, file lands during the prompt | unguarded ✗ | canary `race_inject` |
+| 2 | prod, `--yes`, file lands during the coupling scan | unguarded ✗ | canary `race_inject_yes` |
+| 3 | prod, a pending file is *removed* during the window | acked set ≠ applied set | same divergence check (set comparison is symmetric) |
+| 4 | prod, **zero** pending at enumeration, file lands after | worst case — no prompt is shown at all | same divergence check: it runs outside the `if [ ${#PENDING_FILES[@]} -eq 0 ]` branch, so the empty case is not a separate path. Not raced independently (no observable window to synchronise on in the empty branch); covered by construction, and by canary `empty-ledger-is-valid` proving the block is reached on an empty-pending run. |
+| 5 | non-prod run | no ack gate exists there — not a defect | canary `test-env-unaffected` guards against the fix leaking into it |
+
+**Mechanism B reproduction:** a ledger SELECT returning HTTP 200 with a truncated body (`[{"version":"…","name":"…"`) leaves `REMOTE_VERSIONS` empty; the already-applied migration is then printed to the operator as "WILL be applied to PROD" and its SQL is re-sent to the API. Confirmed by canary scenario `malformed_ledger`. Scenario `empty_ledger` proves the fix must distinguish *parse failure* from a well-formed empty ledger (`[]`, a fresh project), which is legitimately "nothing applied yet".
 
 **Secondary, related finding (same reviewer, same investigation):** the `PENDING_FILES`/`REMOTE_VERSIONS` enumeration is also vulnerable to a **malformed-but-HTTP-200** API response. The `APPLIED_HTTP != 200/201` guard (`migrate.sh:323-330`) only catches transport-level failure; a response that returns HTTP 200 with a truncated/malformed body is invisible to that guard, and JSON parsing swallows the error via `2>/dev/null || true` (`migrate.sh:333-341`), silently yielding an empty `REMOTE_VERSIONS`. Reproduced: an already-applied migration got misclassified as pending, shown to the human as "WILL be applied to PROD" (a lie — it's already live), and re-sent to the API. Harmless in the reproduction because the migration was idempotent (`CREATE TABLE IF NOT EXISTS`), but a non-idempotent migration would either fail loudly (fail-safe, via the P417 `_check_api_success` guard) or — worse — apply destructively a second time if it lacks that guard's protection.
 
