@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 74.0
 workstream: infrastructure
 created_date: '2026-08-27'
 tags: [skills, naming, disagreement-pipeline, refactor]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-08-27
 ---
 
 # P1165: Disagreement Pipeline stages live in one namespace
@@ -182,8 +182,8 @@ file, database row or deployed surface is touched, so revert is complete by cons
 
 ## Related
 
-- [p1161](p1161_first_physical_event_chiang_mai.md) — D4, the parent decision; this is its step 0
-- [p1156](done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) — chain contract
+- [p1161](../../p1161_first_physical_event_chiang_mai.md) — D4, the parent decision; this is its step 0
+- [p1156](p1156_points_pipeline_selector_and_chain_contract.md) — chain contract
   and the `/points-run` deferral (decision 2d)
-- [p1157](done/2026-06-10/p1157_make_multi_harness_projection_runtime_correct.md) — the
+- [p1157](p1157_make_multi_harness_projection_runtime_correct.md) — the
   `.agents/skills/` projection this rename must regenerate
