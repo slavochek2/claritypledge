@@ -2,7 +2,7 @@
 name: positions
 description: "Select verbatim quotes from approved transcripts, verify quote existence with grep -F against cleaned transcripts, resolve exact second timecodes from raw .vtt, confirm the speaker per quote on multi-speaker sources, and set Likert positions (-3..+3) with inference-strength labels for each arguer on each synthesized point. Terminal output only; writes nothing to the product."
 when_to_use: "Stage 3 of the points pipeline. Run after /slava:disagreement:prepare has extracted synthesized points. Selects quotes BEFORE setting positions, resolves timecodes from raw .vtt, and appends the Quotes & Positions section to the run file."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # /slava:disagreement:positions
@@ -154,6 +154,49 @@ this costs little.
 
 **Record per quote, in the run output:** which of 1–3 confirmed it, and the confirming text quoted.
 Prose saying "attribution checked" is the sentence that lets the check not happen.
+
+### Step 4c — Independent attribution check (multi-speaker sources only)
+
+**Step 4b is the extractor grading its own homework.** The agent that chose a quote also decides who
+said it, and it decides that *knowing which speaker it wants the quote to belong to* — the arguer it
+is building a position for. That is the confirmation bias this repo already designs against elsewhere
+(`.claude/rules/visual-qa.md` spawns a QA reviewer that never sees the code diff, for the same
+reason). Attribution deserves the same separation, because it is the one error a downstream check
+cannot catch: `grep -F` proves the words exist and the audio check proves they were spoken, and
+**both pass on a quote filed under the wrong person**.
+
+For every quote surviving Step 4b, spawn a **separate subagent** (`model: "sonnet"`) and give it
+**only**:
+
+- the quote, verbatim;
+- the surrounding turns from the RAW `.vtt` — at least two on each side, markers intact;
+- the two people's names and one line on who each is.
+
+**Do NOT give it:** the claimed speaker, the point being built, the position being argued, the
+inference chain, or Step 4b's reasoning. It must arrive at the speaker independently or the check is
+theatre.
+
+Ask it exactly this:
+
+> Who said the quoted line — and what in the surrounding turns tells you? If the surrounding turns do
+> not settle it, answer UNRESOLVED. Answering UNRESOLVED is a correct outcome, not a failure; a
+> confident guess is the failure. Name the evidence you used.
+
+**Resolve the two answers:**
+
+| Step 4b | Step 4c | Outcome |
+|---|---|---|
+| speaker X | speaker X | **File** as `turn-verified`. Record both verdicts and 4c's evidence |
+| speaker X | speaker Y | **DROP.** Two readings of the same window disagree — that is the definition of unconfirmed. Never adjudicate between them yourself; you already hold the answer you want |
+| speaker X | UNRESOLVED | **DROP.** Print both, so the founder can see the window was genuinely ambiguous rather than that nobody looked |
+
+**A disagreement is never resolved by re-running 4c with a better prompt.** Re-running until the
+answers match is how you'd manufacture the agreement this step exists to test. Drop the quote and
+pick another — a run needs a handful of quotes and a long-form source has dozens.
+
+**Report the ratio, per `epistemic.md` gate 9b:** `<checks returned> of <quotes sent>`. A subagent
+that returns nothing is indistinguishable from one that found nothing, so a silent 4c is a **DROP**,
+not a pass.
 
 **Where none of the three lands, the quote is DROPPED, not filed** — and the drop is printed with its
 reason, not silently omitted. A quote assigned to the wrong speaker is worse than no quote. Print a

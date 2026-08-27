@@ -2,7 +2,7 @@
 name: prepare
 description: "Read one or more sources — an opposed PAIR selected by /slava:disagreement:select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:disagreement:positions and /slava:disagreement:story-draft."
 when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select has approved a source pair. When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
-version: 0.7.2
+version: 0.8.0
 ---
 
 # /slava:disagreement:prepare
@@ -83,7 +83,17 @@ artifact the 2026-08-21 incident showed does not survive.
 > ```
 
 **Record the provenance per source, before extracting.** `vtt-clean`'s version is part of what a
-quote is checked against — changing the cleaner changes what `grep -F` matches. Append one line
+quote is checked against — changing the cleaner changes what `grep -F` matches.
+
+> **On a multi-speaker source the RAW track is the authoritative provenance artifact, not the cleaned
+> text.** Both are already hashed below and P1140 retains both, so this is a statement about which one
+> answers which question — not new machinery. The cleaned text answers *"were these the words?"*
+> (`grep -F`). Only the raw track answers *"whose words were they?"*, because `vtt-clean` **drops turn
+> boundaries** — 36 markers raw vs 26 cleaned on `_V_ed5fuexA`, measured 2026-08-27, enough to flip
+> that source's Gate 0 verdict. A `turn-verified` attribution challenged later must be re-checked
+> against the raw `.vtt`; re-checking it against the cleaned text cannot reproduce the finding. This
+> narrows decisions.md 2026-08-27 [technical] and the earlier P1140 framing in which the cleaned text
+> alone was the provenance artifact. Append one line
 per source to `.points-run-seals/<slug>.transcripts.sha256` (hashes and filenames only, no
 transcript content — safe for a public repo):
 
