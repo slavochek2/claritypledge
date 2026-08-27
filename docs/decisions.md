@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [technical]: A cross-file "skip this approval, it's already been approved" condition needs a checkable artifact, not self-report
+
+**Context:** P1160's orchestrator (`/slava:events:run`) sequences existing event-promotion skills and collapses their duplicate approval stops into one combined review — each stage skill (`promote-all.md`, `promote-groups.md`) carries a branch reading "if invoked by the orchestrator with pre-approved text, skip your own approval stop." The first implementation (commit `e840951b`) wrote this branch as pure prose in three separate files with no shared signal tying them together — an implementing agent decided "was this really the orchestrator?" purely from its own memory of the conversation. A single adversarial reviewer (Sonnet — one agent, not the three initially proposed, per explicit founder pushback: "why 3 agents? I think one is enough") found this and one other CRITICAL: no lock exists around `promote-groups`' per-group send loop, so two overlapping invocations for the same event could both read "pending" and both send — a live duplicate post to a WhatsApp/Telegram group. A `/finish` code review earlier in the same build had already caught two adjacent gaps in the same suppression logic (it was implemented correctly in one file and missed in a second, twice), which in hindsight was the same root cause showing up early: three independent prose copies of one condition, with nothing to keep them in sync.
+
+**Decision:** A skip/suppression condition that spans multiple files must be gated on reading a shared, timestamped artifact (here: the orchestrator's own kickoff run-record file, `<slug>.run.json`) and confirming it is fresh to *this* session — never on an invoking agent's self-report or a downstream agent's recollection that "the orchestrator already handled this." Fixed by having the orchestrator pass the run-record's path explicitly to every stage it invokes, and having each stage's skip-branch read that file and check its `updated_at` before honoring the skip. Also added a lockfile around `promote-groups`' send loop, and a hard-stop instruction so the orchestrator can't silently end a turn with the groups leg still un-run (the same "silently dropped" failure shape the whole spec exists to fix, reachable again through a *designed* skip if left unguarded).
+
+**Alternatives rejected:** *Leave the prose branches as-is and trust an implementing LLM agent to reason correctly about invocation context.* This is what shipped first and is exactly what the review broke — a resumed or post-compaction session can misremember whether an orchestrator run actually happened this session, and there's no way to tell prose-recalled-as-fact apart from prose-verified-against-a-file without the file check.
+
+**Consequences:** Generalizes beyond this one skill: any future orchestrator-over-existing-skills design in this repo that wants to suppress a downstream stage's own gate needs the same artifact-check pattern, not a matching pair of "if invoked by X" sentences. Also: any skill that performs an automatic (no per-item human click) action against shared, cache-file-backed state needs an explicit concurrency guard stated up front — "no file locking exists" was true of `promote-groups.md` for its entire life until this pass found it.
+
+**References:** [.claude/commands/slava/events/run.md](../.claude/commands/slava/events/run.md) · [.claude/commands/slava/events/promote-all.md](../.claude/commands/slava/events/promote-all.md) · [.claude/commands/slava/events/promote-groups.md](../.claude/commands/slava/events/promote-groups.md) · [features/p1160_events_pipeline_orchestrator_and_process_doc.md](../features/p1160_events_pipeline_orchestrator_and_process_doc.md)
+
+---
+
 ## 2026-08-27 [process]: A long skill file's bulk is usually rules it copied — the trim that worked was Reference Over Duplication, and ~330 was still unreachable
 
 **Context:** P1159 left one Done-When open as **MISSED, not waived**: `create-spec.md` was 560 lines
