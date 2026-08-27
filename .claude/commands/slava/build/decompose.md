@@ -8,7 +8,7 @@ version: 1.0.0
 ## Dispatch
 
 Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
-Prompt: the skill instructions below + the spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Prompt: the skill instructions below + the spec path from $ARGUMENTS. Working dir: `<cp-root>`.
 The subagent reads the spec, runs pipeline stamp, pre-flight checks, consistency checks, and appends the task manifest — no user approval step required.
 Report subagent output verbatim.
 

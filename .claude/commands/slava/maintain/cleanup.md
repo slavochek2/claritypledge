@@ -9,7 +9,7 @@ version: 1.0.0
 
 **Phase A — Discovery (spawn → present → wait for approval):**
 Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
-Prompt: Steps 1 + 2 (discovery only) from the workflow below. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Prompt: Steps 1 + 2 (discovery only) from the workflow below. Working dir: `<cp-root>`.
 Collect the output. Present the "Files to organize" report to the user. Ask: "Proceed with moving these files? (y/n)"
 
 **Phase B — Execute (only after user approves):**

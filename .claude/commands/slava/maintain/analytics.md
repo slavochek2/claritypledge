@@ -30,7 +30,7 @@ Check if any tab has URL matching eu.mixpanel.com/project/3968494/...
 ## Step 2: Supabase user health
 
 ```bash
-source /Users/slavochek/Projects/public/claritypledge/.env.local
+source <cp-root>/.env.local
 node -e "
 const ref = 'besjtuodziykmjidubzw';
 const key = process.env.VITE_SUPABASE_ANON_KEY;

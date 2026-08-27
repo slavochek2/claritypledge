@@ -60,7 +60,7 @@ version: 1.0.0
 ## Dispatch
 
 Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
-Prompt: the Agent Directive below + spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Prompt: the Agent Directive below + spec path from $ARGUMENTS. Working dir: `<cp-root>`.
 Report subagent output verbatim.
 
 ## Agent Directive

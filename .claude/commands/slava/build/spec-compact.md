@@ -11,7 +11,7 @@ version: 1.0.0
 
 **Phase A — Measure + manifest (spawn → collect → present):**
 Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
-Prompt: Phases 1–2 from the skill below (measure + identify removable content) + spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Prompt: Phases 1–2 from the skill below (measure + identify removable content) + spec path from $ARGUMENTS. Working dir: `<cp-root>`.
 Collect the removal manifest. Present it to the user — quote the first line of each item and state why it's removable.
 Wait for user approval. User may exclude specific items ("keep item 3").
 

@@ -56,7 +56,7 @@ If >45 days: note overdue. If <20 days: note it's a short cycle and some analyse
 # Run this Python script to identify large session files from the review period
 import subprocess, os
 
-PROJECT_DIR = "/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/"
+PROJECT_DIR = os.path.expanduser("~/.claude/projects/<project-encoded-path>/")
 
 # Write a temp marker file for the since-date
 result = subprocess.run(

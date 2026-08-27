@@ -382,7 +382,7 @@ Spawn a subagent (`model: "sonnet"`) to scan docs changed this week for PII and 
 ```
 You are a privacy auditor. Run /slava:maintain:privacy on docs changed in this repo since [SINCE date].
 
-Repo: /Users/slavochek/Projects/public/claritypledge
+Repo: <cp-root>
 
 Steps:
 1. Run: git log --since="[SINCE]" --name-only --pretty="" -- "docs/" ".claude/commands/" "CLAUDE.md" "README.md" "features/" | sort -u
@@ -473,7 +473,7 @@ Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
 
 **Subagent prompt:**
 ```
-You are a code quality analyst. Run these checks in the repo at /Users/slavochek/Projects/public/claritypledge and return a brief health report. Do NOT fix anything — scan only.
+You are a code quality analyst. Run these checks in the repo at <cp-root> and return a brief health report. Do NOT fix anything — scan only.
 
 1. **TypeScript**: run `npx tsc --noEmit 2>&1 | tail -5` — report error count (0 = ✅)
 2. **Lint warnings**: run `npx eslint src --max-warnings 9999 2>&1 | grep "warning" | wc -l` — report count
@@ -509,7 +509,7 @@ Spawn a subagent (`model: "sonnet"`) in background to check `ops@claritypledge.c
 ```
 You are an email triage assistant for ops@claritypledge.com.
 
-Repo: /Users/slavochek/Projects/public/claritypledge
+Repo: <cp-root>
 
 Step 1 — fetch all unread email headers:
 Run: node scripts/read-ops-email.mjs --unread

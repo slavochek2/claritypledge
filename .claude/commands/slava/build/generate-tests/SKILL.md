@@ -20,7 +20,7 @@ version: 1.1.0
 
 **Phase A — Analyze + generate (spawn → collect → present):**
 Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
-Prompt: the full skill instructions below + spec path from $ARGUMENTS + existing test inventory from Phase 0. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Prompt: the full skill instructions below + spec path from $ARGUMENTS + existing test inventory from Phase 0. Working dir: `<cp-root>`.
 The subagent analyzes the spec, determines test strategy, and generates all test file content — but does NOT write files yet.
 
 When existing test inventory is provided:

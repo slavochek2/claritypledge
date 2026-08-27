@@ -9,7 +9,7 @@ version: 1.0.0
 
 **Phase A — Generate + preview (spawn → collect → present):**
 Spawn Agent tool: `model: "sonnet"`, `subagent_type: "general-purpose"`.
-Prompt: Steps 1–7 from the skill below + spec path from $ARGUMENTS. Working dir: `/Users/slavochek/Projects/public/claritypledge`.
+Prompt: Steps 1–7 from the skill below + spec path from $ARGUMENTS. Working dir: `<cp-root>`.
 Collect the subagent's output (test count, categories, file paths, preview content). Present to user.
 Ask: "Does this look correct? Should I save all 3 test files? (y/n)"
 
