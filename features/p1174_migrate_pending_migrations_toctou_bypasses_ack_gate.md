@@ -1,17 +1,20 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 79
 severity: high
 workstream: infrastructure
 date_reported: '2026-08-27'
+date_resolved: '2026-08-27'
+root_cause: "Two independent globs of supabase/migrations/*.sql (the ack/coupling enumeration and the apply loop) — plus a ledger parse that swallowed a malformed-but-200 body into an empty applied-versions list"
+resolution: "Prod gate 1b re-enumerates the pending set immediately before the apply loop and aborts on any difference; a shared _parse_ledger_rows helper fails loud on an unusable body while still accepting a well-formed empty ledger"
 created_date: '2026-08-27'
 tags: [migrations, prod-safety, tooling, concurrency]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p1174-pending-set-integrity.sh
   root_cause: "migrate.sh globs supabase/migrations/*.sql twice — once to build PENDING_FILES (the acked + coupling-scanned set) and again to drive the apply loop — so any file landing between the two globs is applied to prod ungated; separately, the ledger parse swallows a malformed-but-200 body via `2>/dev/null || true`, yielding an empty REMOTE_VERSIONS that reads as 'nothing applied yet'"
@@ -123,11 +126,70 @@ Not decided here — candidates:
 
 ## Acceptance Criteria
 
-- [ ] A migration file that appears on disk after the ack prompt is shown (but before the apply loop runs) is NOT applied to prod without a fresh ack and coupling-gate scan
-- [ ] A malformed-but-HTTP-200 ledger response causes the run to abort loudly, not silently proceed with an empty/wrong pending list
-- [ ] Regression test using the existing hermetic stub pattern for both mechanisms
+- [x] A migration file that appears on disk after the ack prompt is shown (but before the apply loop runs) is NOT applied to prod without a fresh ack and coupling-gate scan
+- [x] A malformed-but-HTTP-200 ledger response causes the run to abort loudly, not silently proceed with an empty/wrong pending list
+- [x] Regression test using the existing hermetic stub pattern for both mechanisms
 
 ## Related
 
 - **P1168** — the spec that triggered this discovery via adversarial review; unrelated fix (stamp/stage on no-op), does not touch this code path.
 - `scripts/migrate.sh` header comment — documents P887 (explicit ack) and the `requires-frontend` coupling gate (P886 prevention) as the mechanisms this bug defeats.
+
+
+---
+
+## Resolution
+
+**Fixed:** 2026-08-27 · `scripts/migrate.sh`
+
+**Mechanism A — prod gate 1b (`migrate.sh`, between the ack branch and the apply loop).**
+The pending set is re-enumerated from disk immediately before the apply loop and compared
+against `PENDING_FILES`. Any difference in either direction — a file that appeared, or one
+that vanished — prints the drift and exits 1 with nothing applied.
+
+Design choice: **abort, not re-prompt.** Re-prompting inside the same run would re-open the
+identical window, and the requires-frontend coupling gate must run against a set the operator
+has actually read. A fresh `./scripts/migrate.sh --env prod` gives both, from scratch.
+
+The block sits deliberately *outside* the `if [ ${#PENDING_FILES[@]} -eq 0 ]` branch: the
+empty case is the worst one — a file landing then is applied with no prompt shown at all —
+so it must not be a separate path that could be missed.
+
+Belt-and-braces: the apply loop now also refuses, on prod, to apply any basename absent from
+`PENDING_FILES`. Unreachable while gate 1b holds, and kept: the bug class here is precisely
+"a second glob of this directory was trusted", and that loop's glob is the second one.
+
+**Mechanism B — `_parse_ledger_rows()`.** One helper replaces both open-coded
+`python3 … 2>/dev/null || true` parses (the main ledger fetch and
+`preflight_ledger_name_check`). It exits 1 on anything that is not a well-formed list of
+row objects carrying `version`, and exits 0 with no output on a genuinely empty ledger —
+the two must never collapse into each other, because `[]` is legitimate on a fresh project
+while an unparseable body is not. The main fetch treats exit 1 as fatal; the preflight
+collision scan degrades to a WARNING, matching its existing behavior on an HTTP failure
+(it is an advisory scan, not a gate on what gets applied) — the run still stops at the main
+fetch before anything is applied.
+
+This extends the `_check_api_success()` principle from P417 (decisions.md: "Supabase
+Management API returns HTTP 200 with a JSON error object when SQL fails") from the *write*
+path to the *read* path, which had been left on status-code-only validation.
+
+**Files changed:** `scripts/migrate.sh` (header gate list, `_parse_ledger_rows`, preflight
+call site, main ledger fetch, prod gate 1b, apply-loop membership guard).
+
+**Regression test:** `scripts/test-p1174-pending-set-integrity.sh` — 13 assertions, 4 of
+them no-false-positive guards (undisturbed prod run still applies; non-prod fallback
+untouched; well-formed empty ledger still applies). Failed 9/13 before the fix, passes
+13/13 after. Sibling canaries unaffected: `test-p1168-noop-stamp.sh` 9/9,
+`test-p1042-version-collision.sh` 10/10.
+
+**Known limits of the test (epistemic gate 7b — what the fixture cannot emit):**
+- The apply-loop membership guard is unreachable while gate 1b holds, so it is **not
+  exercised** by any assertion. It is defence in depth, unverified by construction.
+- Scenario 4 in the audit table (zero pending at enumeration, file lands after) is not
+  raced independently: the empty branch offers no observable window to synchronise on. It
+  shares gate 1b's single code path with the raced scenarios, and `empty-ledger-is-valid`
+  proves that path is reached on an empty-pending run — but it is covered by construction,
+  not by its own race.
+- `curl` is PATH-stubbed, so no real Management API response shape is exercised. A body
+  that is well-formed JSON but semantically wrong (correct shape, wrong rows) is outside
+  what either mechanism detects.

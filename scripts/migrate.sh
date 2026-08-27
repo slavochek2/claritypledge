@@ -16,13 +16,18 @@
 #   1. Pending migrations are enumerated upfront; applying requires explicit ack
 #      (interactive y/N, or --yes for non-interactive runs). Prevents silently
 #      sweeping in a held-back client-breaking migration.
+#   1b. The acked set is re-verified against the directory immediately before the
+#      apply loop, and ANY difference aborts. The enumeration above and the apply
+#      loop glob supabase/migrations/ independently, so without this a file landing
+#      in between (co-tenant commit, git pull, merge on the shared main checkout)
+#      would reach prod having passed neither gate 1 nor gate 2. (P1174)
 #   2. Coupling marker: a pending migration containing
 #      "-- requires-frontend: <sha>" hard-blocks the prod apply until that
 #      commit is an ancestor of origin/main (i.e. the coupled frontend is
 #      deployed). Fail-safe: malformed marker or git failure also blocks.
 #   3. After any successful prod run, scripts/prod-smoke-test.mjs runs
 #      automatically; a smoke failure exits non-zero with a loud banner.
-#   Test-env behavior is unchanged by all three gates.
+#   Test-env behavior is unchanged by every gate above.
 #   Authoring side: pre-commit (check-migration-client-safety.sh) requires new
 #   migrations with client-breaking shapes to carry requires-frontend or a
 #   "-- client-safe: <reason>" annotation.
@@ -99,6 +104,37 @@ try:
 except Exception:
     sys.exit(1)       # unparseable = treat as error (fail safe)
 " <<< "$BODY"
+}
+
+# --- Helper: parse the schema_migrations ledger response (P1174) ---
+# The APPLIED_HTTP check upstream only catches transport failure. A body that is
+# truncated, HTML, or an error object still arrives as HTTP 200, and the old
+# `2>/dev/null || true` on this parse turned that into an EMPTY applied-versions
+# list — which reads downstream as "nothing is applied yet", so already-live
+# migrations get shown to the operator as pending and re-sent to prod.
+# Same principle as _check_api_success (P417): on this API the body decides, not
+# the status line. Exit 1 = unusable response (caller aborts). Exit 0 with no
+# output = a well-formed EMPTY ledger, which is legitimate on a fresh project and
+# must keep working — the two must never collapse into each other.
+# Emits one "version<TAB>name" row per ledger entry.
+_parse_ledger_rows() {
+  python3 -c "
+import json, sys
+try:
+    rows = json.loads(sys.stdin.read())
+except Exception:
+    sys.exit(1)
+if not isinstance(rows, list):
+    sys.exit(1)
+out = []
+for r in rows:
+    if not isinstance(r, dict) or 'version' not in r:
+        sys.exit(1)
+    # P1042: name is absent or NULL on every row written before that change,
+    # so r.get() must tolerate both a missing key and a null value.
+    out.append(str(r['version']) + '\t' + (r.get('name') or ''))
+print('\n'.join(out))
+" <<< "$1"
 }
 
 # --- Helper: ledger `name` for a migration basename (P1042) ---
@@ -223,9 +259,15 @@ preflight_ledger_name_check() {
     echo "WARNING: could not read migration history (HTTP $HTTP) — P1042 guard 2 did not run."
     return 0
   fi
-  NAMES=$(echo "$BODY" | python3 -c \
-    'import json,sys; rows=json.load(sys.stdin); print("\n".join(r["version"]+"\t"+(r.get("name") or "") for r in rows))' \
-    2>/dev/null || true)
+  # P1174: distinguish an unreadable body from an empty ledger. This check degrades
+  # to a warning like the HTTP branch above (it is an advisory collision scan, not a
+  # gate on what gets applied); the main ledger fetch below hard-aborts on the same
+  # body, so a malformed response still stops the run before anything is applied.
+  if ! NAMES=$(_parse_ledger_rows "$BODY"); then
+    echo "WARNING: could not parse the migration history (HTTP $HTTP, unusable body)"
+    echo "  — P1042 guard 2 did not run. The run will still abort at the ledger fetch."
+    return 0
+  fi
   for FILE in "$PROJECT_DIR"/supabase/migrations/*.sql; do
     [ -e "$FILE" ] || continue
     BASE=$(basename "$FILE")
@@ -342,16 +384,20 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     echo "  Do NOT 'security delete' the keychain entry — it is shared with edge-function deploys."
     exit 1
   fi
-  # Extract version values from JSON array (e.g. [{"version":"20250101"},...]
-  REMOTE_VERSIONS=$(echo "$APPLIED_JSON" | python3 -c \
-    'import json,sys; rows=json.load(sys.stdin); print("\n".join(r["version"] for r in rows))' \
-    2>/dev/null || true)
-  # P1042: version -> recorded filename, tab-separated. `name` is absent or NULL on every
-  # row written before this change (217 of 248 on the test ledger, measured 2026-08-24), so
-  # r.get() must tolerate both a missing key and a null value.
-  REMOTE_NAMES=$(echo "$APPLIED_JSON" | python3 -c \
-    'import json,sys; rows=json.load(sys.stdin); print("\n".join(r["version"]+"\t"+(r.get("name") or "") for r in rows))' \
-    2>/dev/null || true)
+  # P1042: version -> recorded filename, tab-separated. P1174: a parse failure here
+  # is fatal, not an empty list — an empty REMOTE_VERSIONS means "apply everything",
+  # which is the most dangerous possible reading of a response we could not read.
+  if ! REMOTE_NAMES=$(_parse_ledger_rows "$APPLIED_JSON"); then
+    echo "ERROR: could not parse the migration history returned by the Management API."
+    echo "  HTTP $APPLIED_HTTP was returned, but the body is not a usable schema_migrations"
+    echo "  result set. First 200 bytes: $(printf '%s' "$APPLIED_JSON" | head -c 200 | tr '<>|' '___')"
+    echo ""
+    echo "  Refusing to continue: an unreadable ledger would be treated as 'nothing is"
+    echo "  applied yet', which shows already-live migrations as pending and re-sends them"
+    echo "  to PROD (P1174). Nothing was applied. Re-run once the API responds normally."
+    exit 1
+  fi
+  REMOTE_VERSIONS=$(printf '%s\n' "$REMOTE_NAMES" | cut -f1)
 
   echo "Remote applied versions: $(echo "$REMOTE_VERSIONS" | wc -l | tr -d ' ') migrations"
   echo ""
@@ -428,6 +474,51 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
         exit 1
       fi
     fi
+
+    # --- Prod gate 1b (P1174): the acked set must be the applied set ---
+    # PENDING_FILES above is what the operator acked and what the coupling gate
+    # scanned. The apply loop below globs supabase/migrations/*.sql again,
+    # independently — so a file landing in between (a co-tenant commit, a git
+    # pull, a merge on the shared main checkout while the operator reads the
+    # prompt) would reach PROD having passed neither gate. Re-enumerate and
+    # refuse on ANY difference rather than trusting the directory held still.
+    # Deliberately OUTSIDE the "no pending migrations" branch above: the empty
+    # case is the worst one — no prompt is shown at all — not an exemption.
+    FRESH_PENDING=()
+    for MIGRATION_FILE in "$PROJECT_DIR"/supabase/migrations/*.sql; do
+      BASENAME=$(basename "$MIGRATION_FILE")
+      echo "$BASENAME" | grep -qE '^[0-9]' || continue
+      VERSION=$(echo "$BASENAME" | sed -E 's/^([0-9]+)[_.]?.*/\1/')
+      echo "$REMOTE_VERSIONS" | grep -qx "$VERSION" && continue
+      FRESH_PENDING+=("$BASENAME")
+    done
+
+    DRIFT=""
+    for FRESH in "${FRESH_PENDING[@]}"; do
+      printf '%s\n' "${PENDING_FILES[@]}" | grep -qxF "$FRESH" ||
+        DRIFT="$DRIFT  + $FRESH (appeared after the ack gate ran)
+"
+    done
+    for PENDING in "${PENDING_FILES[@]}"; do
+      printf '%s\n' "${FRESH_PENDING[@]}" | grep -qxF "$PENDING" ||
+        DRIFT="$DRIFT  - $PENDING (vanished after the ack gate ran)
+"
+    done
+
+    if [ -n "$DRIFT" ]; then
+      echo ""
+      echo "ERROR: the set of pending migrations changed after the ack gate ran."
+      printf '%s' "$DRIFT"
+      echo ""
+      echo "  supabase/migrations/ was modified between the pending list shown above and"
+      echo "  the apply loop. A file that appeared this way has passed neither the explicit"
+      echo "  ack (P887) nor the requires-frontend coupling scan (P886) — which is exactly"
+      echo "  the shape of the P886 outage those gates were added to prevent."
+      echo ""
+      echo "  Nothing was applied. Re-run ./scripts/migrate.sh --env prod to review the"
+      echo "  current list from scratch."
+      exit 1
+    fi
     echo ""
   fi
 
@@ -473,6 +564,17 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
       fi
       echo "  - $BASENAME (already applied, skipping)"
       continue
+    fi
+
+    # P1174 belt-and-braces: on prod, nothing may be applied that was not in the
+    # acked list. Unreachable while gate 1b above holds, and kept deliberately —
+    # the bug class here is precisely "a second glob of this directory was
+    # trusted", and this loop's glob is the second one.
+    if [ "$ENV_NAME" = "prod" ] && ! printf '%s\n' "${PENDING_FILES[@]}" | grep -qxF "$BASENAME"; then
+      echo ""
+      echo "ERROR: $BASENAME reached the apply loop without being on the acked pending list."
+      echo "Aborted — no further migrations applied."
+      exit 1
     fi
 
     if apply_via_api "$MIGRATION_FILE"; then
