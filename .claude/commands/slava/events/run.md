@@ -2,7 +2,7 @@
 name: run
 description: "One-command orchestrator over the existing event-lifecycle skills — create, assets, promote (platforms), promote (groups) — with one combined resume view. Modeled on /video-publish."
 when_to_use: "Running the full event pipeline end to end in one pass, or checking combined status/resume state across a past run. Individual stages stay independently invocable — use this only when you want the sequenced view."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # /slava:events:run
@@ -70,6 +70,7 @@ Two existing caches have an asymmetry that matters:
 - **`stages_in_scope`** declares, at kickoff, which stages this run intends to execute. A stage the operator explicitly opts out of at Gate 1 (e.g. "skip posters this time") is left out of the list — its absence from a result is then a deliberate skip, not ambiguity.
 - **Never a field appended to either existing cache.** This is a strictly separate, additive file — read-only intent for the orchestrator's own bookkeeping. `promote-all.json` and `<slug>.groups.json` keep their existing owners and schemas unchanged.
 - **Absence of a stage's result, cross-referenced against `stages_in_scope`, is what reports abandonment** — not absence of a file alone. If `promote_groups` is in scope and `<slug>.groups.json` does not exist (or exists with no matching-slug entries), the groups stage is **pending**, not "never had a groups leg." If `promote_groups` was never in scope for this run (operator said "platforms only" at kickoff), the same missing file means exactly that — an intentional exclusion.
+- **`stages_in_scope` is not immutable — update it the moment scope actually changes.** If the operator changes their mind mid-run (e.g. "let's do groups too" after excluding it at Gate 1), append the newly-added stage to `stages_in_scope` and bump `updated_at` **before** invoking that stage — do this in the same turn as the scope change, not retroactively. Skipping this update means the combined status report (step 9) will later show that stage as `n/a` even though it genuinely ran, actively contradicting the `.json`/`.groups.json` state it should agree with. This file exists specifically to avoid reporting states that contradict observable fact — this is that same discipline applied to a scope change, not just to a stage's own completion.
 
 ---
 
@@ -125,15 +126,17 @@ Count approval turns across a full run to confirm: exactly one combined *wording
 
 ### 6. Stage: Promote platforms (if in scope)
 
-Invoke `slava:events:promote-all` with the slug and the approved platform blurb from Gate 2. `promote-all`'s own per-platform stops (Gate 3, inherited) run as that skill already implements them — this orchestrator adds no wrapper around them.
+Before invoking, update the run record's `updated_at` to now (so the "from this session" freshness check the stage skills perform is satisfiable) and confirm `"promote_platforms"` is in `stages_in_scope`. Invoke `slava:events:promote-all` with the slug, the approved platform blurb from Gate 2, **and the run-record path `~/.private/event-state/<slug>.run.json`** — this is what lets `promote-all` verify (not just trust) that its skip-branches apply, per the "invoked by the orchestrator" checks added to its own step 3b and step 5. `promote-all`'s own per-platform stops (Gate 3, inherited) run as that skill already implements them — this orchestrator adds no wrapper around them.
 
 **`promote-all`'s own step 5 (WhatsApp blurb suggestion) is skipped when `promote_groups` is also in scope for this run** — see the "invoked by the events orchestrator" branch added to `promote-all.md` step 5. That step exists in `promote-all` as a standalone fallback for operators who never run `promote-groups`; when this orchestrator's Stage 7 is about to run `promote-groups` anyway, `promote-all` step 5 asking for its own WhatsApp-blurb approval would be an extra, un-inherited approval turn re-covering ground Gate 2 already covered. If `promote_groups` was explicitly excluded from this run's scope, `promote-all` step 5 runs normally as the operator's only group-copy path for that run.
 
 On completion (all platforms `done` or `skipped`), update the run record.
 
+**Hard requirement if `promote_groups` is in scope: do not end this turn without either running Stage 7 or explicitly deferring it.** Stage 6 above skipped `promote-all`'s own step-5 WhatsApp-blurb fallback specifically because Stage 7 was promised to cover that copy — if this session stops after Stage 6 (interruption, compaction, the operator assuming "platforms done" means "done"), that promise is broken and the groups leg is never generated anywhere, which is the July 5 failure recreated through a designed skip rather than an oversight. Before ending this turn, either proceed to Stage 7 now, or say explicitly: "Groups stage is still pending — `promote-all`'s own WhatsApp-blurb step was skipped on the assumption Stage 7 runs. Resume with `/slava:events:run <slug>` to complete it, or it will stay silently unresolved." Never let this go unstated.
+
 ### 7. Stage: Promote groups (if in scope)
 
-Invoke `slava:events:promote-groups` with the slug. Its own probe, staleness check, and blast-radius confirmation (Gate 4, inherited) run unchanged.
+Invoke `slava:events:promote-groups` with the slug and the run-record path `~/.private/event-state/<slug>.run.json` (same reason as Stage 6 — lets `promote-groups` verify, not trust, the "invoked by the orchestrator" skip in its own step 5). Its own probe, staleness check, and blast-radius confirmation (Gate 4, inherited) run unchanged.
 
 On completion, update the run record.
 

@@ -2,7 +2,7 @@
 name: promote-groups
 description: "Post an event blurb into the mapped WhatsApp/Telegram group chats via Beeper"
 when_to_use: "After the event is published, to share into recurring group chats. Reads group mapping from .private/event-channels.json"
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Promote Event into Group Chats
@@ -156,7 +156,9 @@ Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is require
 
 ### 5. Approval gate
 
-**If invoked by the events orchestrator (`slava:events:run`) with already-approved group blurbs passed in:** the wording was already shown and approved at the orchestrator's combined copy review (its Gate 2) — **skip item 1 below** (do not re-show the copy for a second wording approval; that would be the same duplicate-approval-turn defect the orchestrator's design closes for `promote-all` step 3b). The blast-radius group-count confirmation (item 2 + the ask) is unchanged and always runs — it is a distinct gate (Gate 4 in the orchestrator's numbering) about send scope, not wording, and stays inherited unmodified regardless of who invokes this skill.
+**Verifying "invoked by the orchestrator" — never trust self-report alone.** As in `promote-all.md` step 3b: the skip below is gated on a fact that must be checked against an artifact, not recalled from conversation memory. The invocation must have passed both the already-approved group blurbs **and** the run-record path `~/.private/event-state/<slug>.run.json`. Read it now — the skip is valid only if the file exists, its `updated_at` is from earlier in *this same session*, and `"promote_groups"` appears in its `stages_in_scope`. If any of that fails, treat this as a standalone invocation and show the full copy display (item 1) below, even if the caller claims the text is "already approved."
+
+**If invoked by the events orchestrator (`slava:events:run`) with already-approved group blurbs passed in, and the run-record check above passes:** the wording was already shown and approved at the orchestrator's combined copy review (its Gate 2) — **skip item 1 below** (do not re-show the copy for a second wording approval; that would be the same duplicate-approval-turn defect the orchestrator's design closes for `promote-all` step 3b). The blast-radius group-count confirmation (item 2 + the ask) is unchanged and always runs — it is a distinct gate (Gate 4 in the orchestrator's numbering) about send scope, not wording, and stays inherited unmodified regardless of who invokes this skill.
 
 **Otherwise (standalone invocation), show, in this order:**
 
@@ -173,6 +175,12 @@ Ask: "Post to the above groups? Reply with the group count to confirm, or `abort
 Wait for explicit confirmation. Do not proceed on any other reply.
 
 ### 6. Per-group send — fail-closed verify, immediate status write
+
+**Concurrency lock (mandatory before the send loop below).** This step sends live messages with no per-message human click — the earlier approval and blast-radius gates are the only human checkpoint, so two concurrent invocations for the same slug (a hung session plus a retry, or two operators) could both read "pending" before either has written a status update, and both send — a duplicate post to a live group. Before starting the loop:
+
+1. Check for `~/.private/event-state/{slug}.groups.json.lock`. If it exists and is less than 10 minutes old, **STOP**: "Another `promote-groups` run for this event may be in progress (lock file from {timestamp}). If that run has actually ended, delete the lock file and re-run." Do not proceed.
+2. If no lock exists (or it's stale — 10+ minutes old, treat as an abandoned prior run and proceed, but note it), create the lock file (`mkdir` or a simple file write, whichever is atomic in the available tools) before sending to the first group.
+3. Delete the lock file when the loop completes (success, or explicit `abort`) — in a `finally`-equivalent: if the run is interrupted, the next invocation's staleness check (step 1 above) is the recovery path, not a guaranteed cleanup.
 
 State file: `~/.private/event-state/{slug}.groups.json` (separate from `{slug}.json` owned by `promote-all` — never clobber).
 

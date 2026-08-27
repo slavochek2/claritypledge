@@ -2,7 +2,7 @@
 name: promote-all
 description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, Eventbrite, and Social Layer in one pass"
 when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
-version: 1.5.0
+version: 1.6.0
 ---
 
 # Promote Event to All Platforms
@@ -122,7 +122,9 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 
 This is what makes every platform's description consistent — no per-platform drift.
 
-**If invoked by the events orchestrator (`slava:events:run`) with an already-approved blurb passed in:** use that text verbatim as the canonical promo blurb and **skip the rest of this step entirely, including its own approval stop below**. The orchestrator's combined copy review (its Gate 2) already resolved and approved this text — stopping again here would be a second approval turn for the same decision. This is the one required change for the orchestrator to wrap this skill without adding a duplicate stop.
+**Verifying "invoked by the orchestrator" — never trust self-report alone.** The skip below is gated on a fact that must be checked against an artifact, not recalled from conversation memory (a resumed or post-compaction session can misremember whether an earlier orchestrator run happened). Before honoring the skip: the invocation must have passed **both** the already-approved blurb text **and** the run-record path `~/.private/event-state/<slug>.run.json`. Read that file now — the skip is valid only if it exists, its `updated_at` is from earlier in *this same session* (not a stale prior run), and `"promote_platforms"` appears in its `stages_in_scope`. If the run-record path was not passed, or the file doesn't exist, or its `updated_at` predates this session's Gate 2 — treat this as a standalone invocation and fall through to the full resolution below, even if the caller claims the text is "already approved."
+
+**If invoked by the events orchestrator (`slava:events:run`) with an already-approved blurb passed in, and the run-record check above passes:** use that text verbatim as the canonical promo blurb and **skip the rest of this step entirely, including its own approval stop below**. The orchestrator's combined copy review (its Gate 2) already resolved and approved this text — stopping again here would be a second approval turn for the same decision. This is the one required change for the orchestrator to wrap this skill without adding a duplicate stop.
 
 **Otherwise (standalone invocation — no orchestrator, no pre-approved blurb), resolve it here as before:**
 
@@ -171,7 +173,7 @@ For each platform:
 
 ### 5. WhatsApp blurb (always last — after the full platform fan-out)
 
-**If invoked by the events orchestrator (`slava:events:run`) with `promote_groups` in scope for this run:** skip this step entirely. The orchestrator's combined copy review (its Gate 2) already resolved and approved the group copy, and its own Stage 7 will invoke `slava:events:promote-groups` to actually post it — stopping here to approve a WhatsApp blurb the orchestrator already gathered would be an extra, un-inherited approval turn duplicating that same review. (If `promote_groups` was explicitly excluded from this run's scope at Gate 1, run this step as normal — the orchestrator made no promise to handle groups for that run.)
+**If invoked by the events orchestrator (`slava:events:run`) with `promote_groups` in scope for this run, verified the same way as step 3b above (read `~/.private/event-state/<slug>.run.json`, confirm `updated_at` is from this session and `"promote_groups"` is in `stages_in_scope`):** skip this step entirely. The orchestrator's combined copy review (its Gate 2) already resolved and approved the group copy, and its own Stage 7 will invoke `slava:events:promote-groups` to actually post it — stopping here to approve a WhatsApp blurb the orchestrator already gathered would be an extra, un-inherited approval turn duplicating that same review. (If `promote_groups` was explicitly excluded from this run's scope at Gate 1, or the run-record check fails, run this step as normal — the orchestrator made no verified promise to handle groups for that run.)
 
 **Otherwise (standalone invocation, or orchestrated with groups out of scope), once all platforms are `done` or `skipped`:**
 
