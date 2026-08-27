@@ -2,7 +2,7 @@
 name: prepare
 description: "Read one or more sources — an opposed PAIR selected by /slava:disagreement:select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:disagreement:positions and /slava:disagreement:story-draft."
 when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select has approved a source pair. When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /align-decompose: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
-version: 0.7.0
+version: 0.7.1
 ---
 
 # /slava:disagreement:prepare
@@ -103,7 +103,7 @@ printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: 
 
 No sampling, no skimming. State characters, lines, and whether anything was truncated.
 
-**Auto-captions carry no speaker labels.** Attribute by content and by the `>>` turn markers, and say so. Where attribution is genuinely ambiguous, mark the quote unattributed rather than guessing — a quote assigned to the wrong speaker is worse than no quote.
+**Probe the transcript for turn markers before attributing** — search for both the literal `>>` and the HTML-escaped `&gt;&gt;` (a VTT stores them escaped; a literal-only probe returns 0 on a file that has them). Some auto-caption runs carry them, some don't — check, don't assume either way, and say what the probe found. **Markers found:** each one marks that the speaker *changed*, never *who* it changed to — attribution still requires confirming identity per quote, alternation parity alone is not attribution. **Markers absent:** attribute by content. Where attribution is genuinely ambiguous, mark the quote unattributed rather than guessing — a quote assigned to the wrong speaker is worse than no quote.
 
 **Identify who ARGUES, not who speaks.** A host who asks questions for fifty minutes and takes no position gets no agent and no story. Five speakers routinely means two or three arguers.
 

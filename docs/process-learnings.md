@@ -810,3 +810,16 @@ Stage 2 would have widened P1156's blast radius past what its spec sanctioned. R
 one-line fix with its own evidence.
 
 Falsifier: fetch captions for any two-speaker YouTube video and count `>>` lines in the raw `.vtt`.
+
+**Correction — 2026-08-27 (P1164), kept in place rather than graduated so the over-generalized claim
+above stays on record.** "Auto-captions carry zero speaker labels of any kind" is over-generalized
+from n=2. Re-measured against this entry's own control pair plus a third source (`_V_ed5fuexA`,
+Harari two-speaker interview, 2886s, auto-captions only): literal `>>` **0**, HTML-escaped
+`&gt;&gt;` **106**. The original two-video result is confirmed correct on both spellings — not a
+probe artifact — but YouTube's auto-captioner does emit escaped turn markers on some videos and not
+others, so "no markers of any kind" is false as a general claim; a literal-only probe also misses
+them where they exist, since a `.vtt` stores them escaped.
+
+`/slava:disagreement:prepare` v0.7.1 (`features/p1164_points_prepare_false_turn_marker_instruction.md`)
+now instructs a probe for both spellings instead of asserting presence or absence; a marker found
+means the speaker *changed*, never *who* it changed to. Fixed.
