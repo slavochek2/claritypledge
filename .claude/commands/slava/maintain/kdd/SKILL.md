@@ -1,6 +1,6 @@
 ---
 name: kdd
-description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why) and surfaces session friction as chat output only — no file logging.
+description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why); presents session friction in chat, then persists it — confirmed items to decisions.md as (Status: proposed), gate-dropped items to the suppression log.
 when_to_use: "After features with trade-offs, architectural choices, or sessions worth learning from."
 version: 1.0.0
 ---
@@ -266,7 +266,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Report kanban result as returned by the curl command.
    - If `.finish-reviewed` is missing or empty: "Reminder: `/finish` wasn't run this session. Run it to review changes before shipping."
 
-7. **Meta-reflection** — output to chat only (no file logging):
+7. **Meta-reflection** — presented in chat, then persisted (confirmed items land in `decisions.md` as `(Status: proposed)` per 7.2; gate-dropped items land in the suppression log per 7.X). It is not chat-only:
 
    > **User-triggered only.** This step runs when `/kdd` is explicitly called by the user. Do NOT invoke `/kdd` autonomously to capture meta-reflection from your own session reasoning — only run when the user explicitly calls the skill.
 
