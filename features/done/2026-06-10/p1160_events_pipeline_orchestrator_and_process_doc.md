@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 71
 workstream: infrastructure
 created_date: '2026-08-26'
 tags: [events, skills, orchestrator, process-docs]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-08-27
 ---
 
 # P1160: Events pipeline has no orchestrator — the group-chat leg gets silently dropped
