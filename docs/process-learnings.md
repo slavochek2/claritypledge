@@ -823,3 +823,33 @@ them where they exist, since a `.vtt` stores them escaped.
 `/slava:disagreement:prepare` v0.7.1 (`features/p1164_points_prepare_false_turn_marker_instruction.md`)
 now instructs a probe for both spellings instead of asserting presence or absence; a marker found
 means the speaker *changed*, never *who* it changed to. Fixed.
+
+---
+
+## Agent-skills sync gate (P1151) compares the whole tree in the working tree — no git lock protects against a co-tenant's unstaged edit
+
+**Date:** 2026-08-27
+**Status:** proposed
+**due:** month
+
+`sync-agent-skills.sh --check` (run by `pre-commit-checks.sh` / the `.git/hooks/pre-commit` hook,
+which is byte-identical to it) diffs **every** source file under `.claude/commands/slava/**`
+against `.agents/skills/` with `cmp -s` against the **working tree** — not the git index, not HEAD.
+It is not scoped to the staged diff.
+
+On a shared main checkout with many concurrent sessions, any co-tenant's in-progress, unstaged edit
+anywhere in that tree fails **every** session's unrelated commit, including the p1164 commit this
+entry accompanies (blocked 3 times by concurrent drift in `select.md`, `kdd/SKILL.md`,
+`positions.md`, `publish.md`, `run-pipeline.md`, `story-draft.md`, `day.md`,
+`docs/points-process.md`, resolved only by polling `git status --short` until quiet). Critically,
+`git-ops.sh commit-to-main`'s `main.lock` does **not** protect against this: the lock serializes
+*committers*, not *editors* — a concurrent Claude session's Edit-tool write takes no git lock at
+all, so retrying under the lock does not help.
+
+**Real fix:** scope `sync-agent-skills.sh --check` to `git diff --cached --name-only` intersected
+with the source tree, instead of a whole-working-tree `cmp`. **Stopgap today:** if blocked, don't
+busy-retry — poll `git status --short` until it goes quiet (no bystander diff), then retry.
+
+Falsifier: with a second session holding an unstaged edit to any `.claude/commands/slava/**` file,
+attempt an unrelated commit via `git-ops.sh commit-to-main` — it fails on that file's drift
+regardless of the lock.
