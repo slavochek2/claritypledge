@@ -32,7 +32,7 @@ things have happened since that make the deferral more expensive than it was:
    2026-07-29 table already recorded construction as "absent" in that file. So an agent following
    the pointer finds a gap and reconstructs the missing piece — creating the fourth home *while
    believing it is complying*. A false pointer is worse than a copy.
-2. **A fourth consumer is now queued.** The points pipeline (`/points-prepare` → `/points-publish`)
+2. **A fourth consumer is now queued.** The points pipeline (`/slava:disagreement:prepare` → `/slava:disagreement:publish`)
    has no anti-point today. Adding one was considered on 2026-08-21 and **declined for this reason** —
    the concept is not stable enough to build a new consumer on. That decision blocks a wanted
    capability, so the reconciliation is now on someone's critical path rather than purely tidy-up.
@@ -103,7 +103,7 @@ been run.
   any new file. Pointers only, verified against their target.
 - Do NOT create a new document as the canonical home. Three homes is the problem; a fourth is not
   the fix. Pick one of the existing candidates.
-- Do NOT wire the anti-point into `/points-prepare` or `/points-publish` as part of this work. That
+- Do NOT wire the anti-point into `/slava:disagreement:prepare` or `/slava:disagreement:publish` as part of this work. That
   is decision 5's outcome, gated on the reconciliation landing first.
 - Do NOT change `create-letter-from-transcript` behaviour without its own adversarial review.
 - Do NOT resolve an axis by picking the longest or most recent text.

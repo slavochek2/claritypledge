@@ -58,7 +58,7 @@ strangers. **Reversibility: rows delete; publication does not.** **Decision dens
   with no cleared photo gets no avatar; the product's existing initials fallback carries the identity,
   verified in `gravatar-avatar.tsx` at the time — the account still renders *"square, drained,
   unringed and operator-named"* ([decisions.md](../docs/decisions.md) 2026-08-21). The Gate 1
-  rejection at `points-select.md:67-68` is an explicit **founder decision of 2026-08-25**, taken
+  rejection at `select.md:67-68` is an explicit **founder decision of 2026-08-25**, taken
   *"for v1"* with its cause named — provisioning has no initials branch, so the approval would die at
   the last step. **D2 reverses that founder call; it is not merely filling a gap** — and the
   reversal was taken deliberately by the founder on **2026-08-26**, with D5 acknowledged as
@@ -106,7 +106,7 @@ dimension movement as evidence about the instrument until that mechanism is name
    `clarity-forum.md:71-82`). Output: a ranked candidate backlog and one chosen topic. **Runs first,
    in a fresh session.**
 2. **Run the Disagreement Pipeline** on the chosen topic (select → prepare → positions → story →
-   publish), by hand. `/points-run` stays deferred until this run completes
+   publish), by hand. `/slava:disagreement:run` stays deferred until this run completes
    ([p1156](done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) decision 2d).
 3. **File to TEST**, review the rendered feed against a stated criterion, then **file to PROD** as a
    second invocation.
@@ -151,11 +151,11 @@ dimension movement as evidence about the instrument until that mechanism is name
 
 | # | What | Why it blocks | Scope |
 |---|---|---|---|
-| **D1** | **Seed input for the selector.** Optional person and/or video; the proposal step branches so a supplied side is accepted rather than proposed; Gate 1 approves only the counterpart. | The selector takes only a topic string and a room (`points-select.md:18-23`); Gate 1 halts for approval and cannot inject (`:72-73`). | One skill file |
-| **D2** | **Initials fallback in agent provisioning**, and removal of the Gate 1 portrait rejection. | Blocks any pseudonymous arguer — which killed a real run on 2026-08-21. | **≥2 skill files** — the branch in `provision-agent`, the rejection in `points-select.md:67-68`. `avatar_color` is already specified at `provision-agent.md:193`; do not re-specify it. **Reverses a 2026-08-25 founder decision — CONFIRMED by the founder 2026-08-26, build it.** The provisioning change is larger than one branch: `provision-agent.md:189-191` hard-requires an uploaded avatar asserted `200` + `content-type: image/*` in its own quality gates, so the initials path needs an explicit exemption there, not only in the write sequence. |
+| **D1** | **Seed input for the selector.** Optional person and/or video; the proposal step branches so a supplied side is accepted rather than proposed; Gate 1 approves only the counterpart. | The selector takes only a topic string and a room (`select.md:18-23`); Gate 1 halts for approval and cannot inject (`:72-73`). | One skill file |
+| **D2** | **Initials fallback in agent provisioning**, and removal of the Gate 1 portrait rejection. | Blocks any pseudonymous arguer — which killed a real run on 2026-08-21. | **≥2 skill files** — the branch in `provision-agent`, the rejection in `select.md:67-68`. `avatar_color` is already specified at `provision-agent.md:193`; do not re-specify it. **Reverses a 2026-08-25 founder decision — CONFIRMED by the founder 2026-08-26, build it.** The provisioning change is larger than one branch: `provision-agent.md:189-191` hard-requires an uploaded avatar asserted `200` + `content-type: image/*` in its own quality gates, so the initials path needs an explicit exemption there, not only in the write sequence. |
 | **D3** | **Topic sourcing.** Interest corpus + candidate backlog + the scoring pass. | Step 1 has no home and no repeatable method. | Small spec |
 | **D4** | **Disagreement Pipeline rename** → one namespace, every stage carrying the prefix: `disagreement:select\|prepare\|positions\|story\|publish`. | **FOUNDER DECISION 2026-08-27: approved, and it runs FIRST — before the event, before the topic run.** The founder's reasoning: the stages are one pipeline and must read as one pipeline; splitting the naming *"doesn't make sense."* An earlier draft of this spec made deferral a Non-Goal — **that was the spec author's judgement, never a founder decision, and it is reversed here.** | Five stages, and **`points-*` matches only three** — `positions-create` and `story-create` must be named explicitly; `story*` over-matches four unrelated siblings (`story-gate`, `story-to-image`, `sifter-story`). Measured 2026-08-27: 15–33 referencing files per stage name. **Also touches `CLAUDE.md`'s namespace list**, so it goes through the CLAUDE.md gate. |
-| **D5** | **`/points-publish` must distinguish a deliberate avatar absence from an accidental one.** | `points-publish.md:39` is a **hard STOP**: assert `200` + `content-type: image/*`. An initials-only agent halts at publication. Flagged as open in [decisions.md](../docs/decisions.md) 2026-08-21: *"a deliberate absence must be distinguishable from an accidental one, and currently is not."* **D2 clears selection; it does not clear publication.** | One skill file |
+| **D5** | **`/slava:disagreement:publish` must distinguish a deliberate avatar absence from an accidental one.** | `publish.md:39` is a **hard STOP**: assert `200` + `content-type: image/*`. An initials-only agent halts at publication. Flagged as open in [decisions.md](../docs/decisions.md) 2026-08-21: *"a deliberate absence must be distinguishable from an accidental one, and currently is not."* **D2 clears selection; it does not clear publication.** | One skill file |
 | **D6** | **Photographer attribution surface.** | [decisions.md](../docs/decisions.md) 2026-08-21: cleared photos are share-alike with *"attribution required, and the product has no surface that credits a photographer — contained on test, **a blocker before any public run**."* Step 3 files to PROD. | Routed to the story/image component work, not the pipeline |
 | **D7** | **Walk the in-room stake flow end-to-end with a non-founder account.** | [p1055](p1055_norm_measurement_instrument.md):169 — *"the path from 'logged in' to 'position staked' has never been walked by a non-founder... walk it end-to-end before event #1. **This is the failure that costs the room, not the schema.**"* Its `:206` Done-When box is unchecked, and P1161 **is** event #1. **The exact path is now traced — see "What D7 actually walks" below.** | Highest-consequence item in this spec |
 
@@ -295,7 +295,7 @@ p1055 predicted** — and it has been found in a private window rather than in t
 - **Do NOT rescope the triad to "this room."** `p1055:175` — rescoping *"silently breaks the reveal
   without breaking anything visible."* The triad is scoped to the attendee's real, absent counterpart.
 - Do NOT build the open-forum topic submission or upvoting surface. Paper and hands for event #1.
-- Do NOT build `/points-run`. It stays deferred until this run completes.
+- Do NOT build `/slava:disagreement:run`. It stays deferred until this run completes.
 - Do NOT move any instrument staking to after the event.
 - Do NOT edit `goals.md` or `docs/events/clarity-practice-event.md` directly — amendments go through
   `/slava:maintain:docs-strategy-update`.

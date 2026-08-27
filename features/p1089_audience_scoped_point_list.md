@@ -15,7 +15,7 @@ pipeline_ran: [create-spec]
 
 ## Problem
 
-**Situation:** `/slava:content:points-prepare` turns a conversation into polarizing points. Two delivery paths exist today and neither needs new work: points from a **public** source can be filed public and browsed by tag; points from a **private** conversation can reach exactly one other person as a sealed letter.
+**Situation:** `/slava:disagreement:prepare` turns a conversation into polarizing points. Two delivery paths exist today and neither needs new work: points from a **public** source can be filed public and browsed by tag; points from a **private** conversation can reach exactly one other person as a sealed letter.
 
 **Complication:** A point's statement is only answerable relative to a retrievable context. In a 2026-08-17 run over a private 2h20m two-person transcript, six points were sharp enough for both participants to take ±3 positions — **because both had been in the room**. Published to strangers, the same sentences lose their referents ("the protocol", "the mess", "the measure"), and the author reported he would have to hedge them heavily before committing to any strong position. Hedging weakens the statement; the alternative is re-filing repeatedly until it is answerable. **The blocker is not privacy — it is whether the audience can retrieve the context.** A public video supplies it by link. A private conversation cannot, to anyone who was not there.
 
@@ -75,5 +75,5 @@ Not applicable while parked. If built, rollback requires deciding what happens t
 ## References
 
 - `features/p1088_video_selector_for_point_extraction.md` — selects the conversations
-- `.claude/commands/slava/content/points-prepare.md` — produces the points
+- `.claude/commands/slava/disagreement/prepare.md` — produces the points
 - The 2026-08-17 private-transcript run that produced this reasoning is in `.private/points-runs/`

@@ -13,11 +13,11 @@ exec_effort: low
 driver: anomaly
 ---
 
-# P1164 — `/points-prepare` instructs attribution by `>>` markers that captions do not contain
+# P1164 — `/slava:disagreement:prepare` instructs attribution by `>>` markers that captions do not contain
 
 ## Problem
 
-`.claude/commands/slava/content/points-prepare.md:106` (v0.7.0) reads: *"Auto-captions carry no
+`.claude/commands/slava/disagreement/prepare.md:106` (v0.7.0) reads: *"Auto-captions carry no
 speaker labels. Attribute by content and by the `>>` turn markers, and say so."* The sentence
 contradicts itself — it states the absence, then instructs the reader to use the absent thing.
 
@@ -53,14 +53,14 @@ guess rule carrying the ambiguous cases — that rule is the actual safeguard an
 
 ## Done-When
 
-- [ ] `grep -n '>>' points-prepare.md` returns only the `.sha256` redirect at line ~95 — no
+- [ ] `grep -n '>>' prepare.md` returns only the `.sha256` redirect at line ~95 — no
       attribution instruction among the hits
 - [ ] The unattributed-rather-than-guess sentence is present and unchanged
 - [ ] The `docs/process-learnings.md` entry that filed this is closed out
 
 ## Related
 
-- `docs/process-learnings.md` — "False `>>` marker claim in points-prepare Stage 2", filed
+- `docs/process-learnings.md` — "False `>>` marker claim in disagreement:prepare Stage 2", filed
   2026-08-25 with the control-pair measurement and its falsifier
 - `docs/decisions.md` — the P1156 entry flagging this **"Open and flagged, not fixed here"**
 - P1156 — the spec that measured it and deliberately left it
