@@ -6,6 +6,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-27 [technical]: Gate 0 admits one-way interviews, and the artifact you measure decides the verdict
+
+**Context:** `/slava:disagreement:select` Gate 0 hard-rejected every multi-speaker source, so most credible interview material was unreachable and the cross-camp split — whose only produced example came from two speakers in one video — could not occur. Re-reading the ruling Gate 0 implements settled the question: 2026-08-19 says *"prefer single-speaker **or dominant-speaker** sources."* Gate 0 had kept only the first half.
+
+**Decision:** Add a fourth attribution basis, **`turn-verified`**, admitted on pasted measurement rather than by relaxing `turn-inferred` (still a hard STOP at filing). Two independent things carry it: a **source-shape screen** in `select.md` Step 2b (dominant-side word share ≥75%, ≥10 turns), and the actual guarantee — **per-quote speaker confirmation** in `positions.md` Step 4b, whose Tier 1 is the interlocutor's reply, adopted verbatim from the 2026-08-21 ruling because a reply is produced by a different person and cannot be forged by a caption artifact. A quote that cannot be confirmed is **dropped with its reason printed**, never downgraded and passed on.
+
+**The finding worth keeping is about the artifact, not the gate.** `vtt-clean` **drops turn boundaries**: the raw `.vtt` for `_V_ed5fuexA` reconstructs to **36** turn markers, its cleaned output carries **26**. Segmenting the cleaned file scores that source **66.7% → REJECT**; segmenting the raw track scores it **82.3% → ADMIT**. The same source, the same code, opposite verdicts — decided entirely by which file was read. `positions` Step 3 already carried this invariant for *timecodes* (the raw `.vtt`, never the cleaned text); it turns out to bind **anything** that reasons about turn structure, and `prepare.md`/`positions.md`/`select.md` now all name the raw track. A second trap rides with it: the naive grep on the raw file returns **106**, because rolling auto-captions repeat every line — the stream must be reconstructed (strip inline `<...>` tags, drop consecutive duplicate lines) before any count means anything.
+
+**Alternatives rejected:** *Loosen Gate 0 to `turn-inferred`* — it is a filing STOP, so the source dies two stages later and more expensively (this exact outcome blocked a prod-shaped run, 2026-08-21). *Use `speaker-labelled`* — requires explicit speaker metadata; markers mark changes, not identities. *Build diarization* — reverses the standing source-selection ruling and would not have helped, since per-quote confirmation is cheaper and stronger.
+
+**Consequences:** The gate discriminates on measurement, exercised on eight sources: admits at 82.3%; rejects at 69.1 / 63.1 / 54.1 / 51.8%; and rejects two genuine debates as **unmeasurable** (zero markers) rather than as two-way — the two rejection modes print differently on purpose, because only one of them is a finding about the source's shape. The enum needed changing in **seven** files, not the five the spec named. Also confirmed incidentally: the 2026-08-21 mid-turn-marker finding reproduces on a different video (**5 of 37** segments open mid-sentence), so alternation parity is genuinely scrambled here — which is why the mid-turn rate is now printed as a confidence qualifier on the word share, and why the word share is never allowed to read as proof. Unresolved and explicitly not investigated: what makes YouTube's captioner emit markers at all. Weak signal only, n=8 — every broadcast-captioned source carried them, every YouTube-native long-form debate carried none.
+
+**References:** [p1167](../features/done/2026-08-27/p1167_gate0_accepts_one_way_interviews.md) · `/slava:disagreement:select` · `/slava:disagreement:positions` · decisions.md 2026-08-19, 2026-08-21
+
+---
+
+## 2026-08-27 [process]: Two of a spec's three admission criteria were falsified by the very source the spec was written from
+
+**Context:** P1167 specified three conditions for admitting a one-way interview, all derived from one measured source. Implementing them meant running them against that source. Two failed on it.
+
+**Decision:** Keep the one condition the evidence supports and **report the rest as diagnostics rather than gates**. *"The other's turns are predominantly interrogative"* measured **11%** — the short turns are backchannels (*"Yes."*, *"Mhm."*, *"[laughter]"*) while the questions run 22–33 words; as a gate it rejects the source the spec exists to admit. *"Median turn 36 vs 75"* measured **40 vs 36** under parity, a four-word margin. Auto-captions drop punctuation, so testing the `?` glyph tests the captioner, not the speaker.
+
+**Alternatives rejected:** *Tune the thresholds until the seed source passes* — that is fitting a gate to n=1, which is the failure the spec already flagged about its own 75% figure; doing it twice more would have buried it. *Ship the criteria unmeasured* — they were written in prose that reads as measured, and nothing downstream would have caught them: a gate whose conditions never fire looks identical to a gate that works.
+
+**Consequences:** The falsified criteria are recorded **in the skill**, with their numbers and a *"do not re-add without new measurement"* note — a dropped condition with no gravestone gets re-proposed by the next reader of the spec, which still contains the original prose. A third condition was **added** from the same measurement pass: a ≥10-turn floor, because without it a monologue clip with 2 stray markers scores 92.3% and is admitted; it changes exactly one verdict across the eight sources. It is unvalidated and labelled as such, like the 75%. **The generalisable form:** a spec's acceptance criteria are hypotheses about the artifact, not descriptions of it — and the cheapest moment to falsify them is the first time you run them, before they harden into a gate whose green means nothing.
+
+**References:** [p1167](../features/done/2026-08-27/p1167_gate0_accepts_one_way_interviews.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
 ## 2026-08-27 [process]: A literal-only `>>` probe undercounts — YouTube auto-captions store turn markers HTML-escaped
 
 **Context:** `/slava:disagreement:prepare` Stage 2 (flagged but deliberately not fixed in the 2026-08-25 entry below) instructed attribution "by content and by the `>>` turn markers" in the same sentence claiming auto-captions carry no speaker labels — a contradiction, and the underlying measurement itself was incomplete. The 2026-08-24 control pair (`lJR-7_Dcess`, `sRv-ETHskXI`) genuinely returned 0 literal `>>` markers on both, but the probe never tried the HTML-escaped form. A third source (`_V_ed5fuexA`, a two-speaker interview) returned 0 literal `>>` and **106** escaped `&gt;&gt;` — a `.vtt` stores them escaped, so a literal-only probe silently misses them where they exist. **The original two-video result was not a probe artifact** — re-run with both spellings it still returns 0/0 — but generalizing it to "auto-captions carry no markers of any kind" was, from n=2.

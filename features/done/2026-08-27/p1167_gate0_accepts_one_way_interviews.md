@@ -1,12 +1,13 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 74
 workstream: infrastructure
 created_date: '2026-08-27'
+completed_at: '2026-08-27'
 tags: [skills, points-pipeline, attribution, correctness]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
