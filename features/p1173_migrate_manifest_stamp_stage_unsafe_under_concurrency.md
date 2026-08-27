@@ -1,17 +1,18 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 78
 severity: high
 workstream: infrastructure
 date_reported: '2026-08-27'
+date_resolved: '2026-08-27'
 created_date: '2026-08-27'
 tags: [migrations, deploy-manifest, shared-checkout, tooling, concurrency]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p1173-manifest-stamp-concurrency.sh
   root_cause: "stamp-deploy-manifest.sh reads whatever is on disk as its merge baseline and writes back through a truncating redirect with no lock; migrate.sh then stages the whole file and swallows every git-add failure"
@@ -81,10 +82,38 @@ Needs real design, not a quick patch — candidates to evaluate, not a decision 
 
 ## Acceptance Criteria
 
-- [ ] A dangling bystander edit to `supabase/deploy-manifest.json` cannot be absorbed into another session's stamp commit — either detected and refused, or made structurally impossible
-- [ ] `git add` failures (e.g. index.lock contention) are surfaced to the operator, not silently swallowed with a false "Staged..." message
-- [ ] Two concurrent `migrate.sh` stamp runs cannot silently lose one session's write — either serialized or merged correctly
-- [ ] Regression test using the existing hermetic stub pattern for at least the dangling-edit-absorption case (the highest-severity, most directly-relevant-to-cited-incidents finding)
+- [x] A dangling bystander edit to `supabase/deploy-manifest.json` cannot be absorbed into another session's stamp commit — either detected and refused, or made structurally impossible
+- [x] `git add` failures (e.g. index.lock contention) are surfaced to the operator, not silently swallowed with a false "Staged..." message
+- [x] Two concurrent `migrate.sh` stamp runs cannot silently lose one session's write — either serialized or merged correctly
+- [x] Regression test using the existing hermetic stub pattern for at least the dangling-edit-absorption case (the highest-severity, most directly-relevant-to-cited-incidents finding)
+
+## Resolution
+
+**Fixed:** 2026-08-27 · **Regression test:** `scripts/test-p1173-manifest-stamp-concurrency.sh` (12 assertions)
+
+`scripts/stamp-deploy-manifest.sh` — three changes, all before/around the read-merge-write:
+
+1. **Exclusive lock** (`supabase/.deploy-manifest.lock`) held across read→merge→write, using the same atomic hard-link (`ln`) primitive `git-ops.sh` uses for `main.lock` — `flock` is not on stock macOS. Placed here rather than in `migrate.sh` because *every* writer converges on this script (`migrate.sh`, `deploy-functions.sh`, standalone runs); a lock in `migrate.sh` would not serialize the other two. A lock whose holder is gone is broken with a notice; a live holder's lock is waited on, then reported, never stolen.
+
+    Staleness is decided on PID **and** recorded process start time (mirroring `git-ops.sh`'s `classify_lock_state`), so a recycled PID cannot disguise a dead holder as a live one. The break itself claims the file by `mv` before deleting it: `rename(2)` is atomic, so when several waiters spot the same stale lock only the one that wins the move may delete it — deleting `$LOCKFILE` directly let a loser delete the *new* lock the winner had meanwhile acquired (code-review finding, a TOCTOU in the very race the lock exists to close).
+2. **Shape-aware dirty refusal.** If the working-tree manifest differs from `HEAD`, the difference is classified: changes confined to the fields a stamp writes (`functions`, `functions_deployed_at`, `migrations`, `migrations_deployed_at`, under any env key) are stamp output and are allowed through with a note; anything else — a foreign top-level key, a non-dict env value, unparsable JSON — is refused with the offending diff and three named resolutions. `--allow-dirty` bypasses the classification entirely; `migrate.sh` never passes it.
+
+    A blanket "differs from `HEAD`" refusal was the first implementation and code review reproduced it breaking the tool's own documented workflow: `migrate.sh` stamps **and stages**, expecting a later commit, so the manifest is routinely dirty when the next run starts — a second `migrate.sh` before that commit hard-failed, with an error message that wrongly blamed another session. The shape test keeps the refusal for foreign content (staged or not) while letting the sequential case through.
+
+    **Residual, stated honestly:** a co-tenant's *stamp-shaped* uncommitted leftover is merged and staged rather than refused, because it is byte-for-byte indistinguishable from this tool's own prior output. The merge preserves it rather than dropping it, so the outcome is a correct manifest committed under the wrong session's name — strictly milder than the incident class this spec cites, but not zero. Refusing it would require per-session provenance the script does not have.
+3. **Atomic write.** `python3 ... > "$MANIFEST"` truncated the file to zero bytes *before* python ran, so any merge failure destroyed the manifest. Now builds into a sibling temp file and `mv`s it into place.
+
+`scripts/migrate.sh` — the stamp+stage sequence no longer relies on `set -e` or `|| true`:
+
+4. Stamp failure and staging failure are each checked explicitly and reported with the recovery command, **at both stamp call sites** — the Management-API fallback path and the primary `supabase db push` path (line 271), which code review found unguarded. That path is the default `./scripts/migrate.sh` invocation; under bare `set -e` a stamp refusal aborted it with no sign the push had already succeeded, which reads as a failed migration and invites a blind re-run.
+5. `STAMP_FAILED` defers the non-zero exit until *after* the mandatory P887 prod smoke gate, so a manifest problem can never suppress a schema-ahead-of-client check.
+6. A *missing git checkout* is distinguished from a *refused write*: only the latter is fatal. Without this, every non-repo invocation of `migrate.sh` fails (caught by the P1042 canary, which runs outside a repo).
+
+**Verified both directions.** The canary runs against pre-fix scripts via `P1173_MIGRATE_SRC` / `P1173_STAMP_SRC`: **11 of its 16 assertions FAIL pre-fix and pass post-fix.** The other 5 must pass in both directions — three no-false-positive guards (a clean run still applies, stamps and stages) and two regression guards against *this fix* rather than the original bug (`no-repo-is-not-a-failure`, `sequential-stamp-allowed`), both of which describe behavior that was already correct before the change.
+
+**Neutral to adjacent work:** P1174's canary (on `main`, red pending its own fix) returns an identical 4-passed/9-failed against this branch's `migrate.sh` and against `main`'s, so this change neither fixes nor worsens it.
+
+**Known limits of the fixture** (gate 7b): every scenario runs against a throwaway repo with PATH-stubbed `npx`/`curl`/`security`. It does not exercise a real concurrent `/ship`, a real Management API, or contention on the actual shared checkout — only the mechanisms above, hermetically. Two specific gaps remain unmodelled: **multi-waiter** stale-lock contention (scenarios 6, 7 and 11 each use a single waiter, so the rename-based break is reasoned-correct but not observed under real contention), and the stamp-shaped-leftover residual described under change 2, which the fixture cannot distinguish by construction.
 
 ## Related
 

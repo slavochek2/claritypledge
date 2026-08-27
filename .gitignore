@@ -134,3 +134,10 @@ events/*.json
 # Video pipeline scratch artifacts (captures, voice renders) — P973
 tmp/
 __pycache__/
+
+# Deploy-manifest stamp lock + atomic-write temp files (P1173). A crashed stamp
+# can leave these on the shared main checkout, where an untracked leftover is
+# not inert (decisions.md 2026-08-23).
+supabase/.deploy-manifest.lock
+supabase/.deploy-manifest.lock.*
+supabase/deploy-manifest.json.*

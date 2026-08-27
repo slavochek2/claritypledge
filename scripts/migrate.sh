@@ -267,8 +267,21 @@ if [ "$ENV_NAME" != "prod" ]; then
   if [ $PUSH_EXIT -eq 0 ]; then
     echo "$PUSH_OUTPUT"
     echo ""
-    # Stamp deploy manifest after successful migration
-    "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
+    # Stamp deploy manifest after successful migration.
+    # P1173: checked explicitly, like the fallback path below. Under bare `set -e`
+    # a stamp refusal aborts here with no indication the push already SUCCEEDED,
+    # which reads as "the migration failed" when the opposite is true.
+    if ! "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only; then
+      echo ""
+      echo "============================================================"
+      echo "MIGRATIONS APPLIED, BUT THE MANIFEST WAS NOT STAMPED"
+      echo "The push to $ENV_NAME above SUCCEEDED — do not re-run it blindly."
+      echo "Only the manifest stamp refused or failed; see its message above."
+      echo "Resolve that, then run:"
+      echo "  ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME --migrations-only"
+      echo "============================================================"
+      exit 1
+    fi
     echo "Done."
     exit 0
   fi
@@ -485,13 +498,49 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     # Stamp deploy manifest after successful migration
     # (stamp BEFORE smoke: the manifest must reflect what was actually applied,
     #  even when the smoke gate below fails)
-    "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only
+    # P1173: both steps below are checked explicitly rather than left to `set -e`
+    # or `|| true`. Migrations have ALREADY been applied by this point, so a
+    # failure here is a state the operator has to act on — never a silent one.
+    # STAMP_FAILED defers the non-zero exit past the mandatory P887 smoke gate
+    # below, so a manifest problem can never suppress a schema-ahead-of-client
+    # check that just applied migrations to prod.
+    if ! "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --migrations-only; then
+      STAMP_FAILED=1
+      echo ""
+      echo "============================================================"
+      echo "MIGRATIONS APPLIED, BUT THE MANIFEST WAS NOT STAMPED"
+      echo "$APPLIED_COUNT migration(s) were applied to $ENV_NAME."
+      echo "The stamp refused or failed — see its message above."
+      echo "Resolve that, then run:"
+      echo "  ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME --migrations-only"
+      echo "  ./scripts/git-ops.sh commit-to-main --message 'chore: stamp deploy manifest' \\"
+      echo "    --files supabase/deploy-manifest.json"
+      echo "============================================================"
 
     # Stage the stamp so it can't sit uncommitted on main and block a later
     # /ship cherry-pick ("local changes would be overwritten") — see
     # docs/decisions.md 2026-04-25 [process] (proposed) and 2026-08-10 [process].
-    git -C "$PROJECT_DIR" add supabase/deploy-manifest.json 2>/dev/null || true
-    echo "Staged supabase/deploy-manifest.json — commit it (git-ops.sh commit-to-main if on main) before shipping."
+    # P1173: a concurrent session holding .git/index.lock makes this exit 128.
+    # The old `2>/dev/null || true` swallowed that and still printed "Staged...",
+    # leaving the edit on disk, unstaged, with zero signal anything went wrong.
+    elif ! git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+      # Not a git checkout at all — there is no index to stage into, so there is
+      # nothing to report. Distinct from a staging FAILURE (below), which means
+      # a repo exists and the write was refused: only that second case is fatal.
+      echo "Stamped supabase/deploy-manifest.json (not a git checkout — nothing to stage)."
+    elif git -C "$PROJECT_DIR" add supabase/deploy-manifest.json; then
+      echo "Staged supabase/deploy-manifest.json — commit it (git-ops.sh commit-to-main if on main) before shipping."
+    else
+      STAMP_FAILED=1
+      echo ""
+      echo "============================================================"
+      echo "MANIFEST STAMPED BUT COULD NOT BE STAGED"
+      echo "git add failed — a concurrent session may hold .git/index.lock."
+      echo "The manifest IS updated on disk. Commit it explicitly:"
+      echo "  ./scripts/git-ops.sh commit-to-main --message 'chore: stamp deploy manifest' \\"
+      echo "    --files supabase/deploy-manifest.json"
+      echo "============================================================"
+    fi
   else
     echo "No migrations applied — manifest not stamped (nothing was deployed)."
   fi
@@ -513,6 +562,11 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
       echo "============================================================"
       exit 1
     fi
+  fi
+  if [ "${STAMP_FAILED:-0}" -eq 1 ]; then
+    echo ""
+    echo "Migrations applied, but the deploy manifest needs manual attention (see above)."
+    exit 1
   fi
   echo "Done."
 fi
