@@ -525,7 +525,7 @@ Running /finish...
 [Review findings presented — HIGH/MEDIUM/LOW]
 Fix issues before closing? (all HIGH / select / skip)
 
-Feature ready for UAT — delivery_stage: dev set in spec.
+Feature ready for QA — status: qa, delivery_stage: dev set in spec.
 Branch: feature/pN-xxx
 Run /verify pN for live UAT, then /ship pN when satisfied → merges to prod and closes the spec.
 ```
@@ -729,7 +729,7 @@ Feature implementation complete.
 
 ## Feature UAT Gate
 
-After successful commit, mark the feature ready for UAT — do NOT move to `features/done/` yet.
+After successful commit, mark the feature ready for QA — do NOT move to `features/done/` yet.
 
 1. **AC completeness check:** Review each `## Acceptance Criteria` checkbox. Only mark `[x]` for items you actually implemented and verified in this run. If any items remain `[ ]` (e.g., layers not yet fixed in a matryoshka spec), do NOT set `status: qa`. Report: "Cannot mark as ready — {N} acceptance criteria still unchecked: {list}."
 2. **Determine test URL:** Run `pwd` to identify worktree slot. Look up port from `docs/technical/worktree-setup.md` (w0=5001, w1=5100, w2=5200, etc.). If on main (w0), port is 5001.
@@ -787,9 +787,16 @@ After successful commit, mark the feature ready for UAT — do NOT move to `feat
    - Any `## Acceptance Criteria` or `## Done-When` checkbox still `[ ]` → do not change status;
      report the unticked items (this is step 1 above, restated as the write-time guard)
    - `status:` not `in-progress` → do not change status
-5. Commit: `chore: pN ready for UAT — {title}`
+5. Commit: `chore: pN ready for QA — {title}`
+
+   **"QA", not "UAT" — the string is a contract, not a label.** `git-ops.sh`'s no-branch closure
+   path (P920) proves the implementation actually landed by looking for a non-revert commit whose
+   *subject* carries the P-number and the literal phrase `ready for QA`. `/fix` has always written
+   that phrase; `/dev` wrote `ready for UAT`, so the closure path has only ever worked for
+   `/fix`-flow specs — it rejected every `/dev` spec with *"no qualifying stamp commit found"*
+   (found on P1164, 2026-08-27). Do not reword this subject.
 6. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
-7. Tell user: "Feature ready for UAT on branch `feature/pN-xxx` at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/verify pN` for live UAT **if this feature changed something a user sees** — it drives a real browser, so it has nothing to check on infra, docs or skill work. Then `/ship pN` to merge and close the spec."
+7. Tell user: "Feature ready for QA — on branch `feature/pN-xxx`, or on `main` if step 0 routed this there (say which) — at **http://localhost:{port}/**. Visual QA: {✅ passed / ⚠️ issues found — see above / ⏭️ skipped (Chrome unavailable)}. Run `/verify pN` for live UAT **if this feature changed something a user sees** — it drives a real browser, so it has nothing to check on infra, docs or skill work. Then `/ship pN` to merge and close the spec."
 
 **Do NOT:**
 - Move spec to `features/done/` — that happens in `/ship`
