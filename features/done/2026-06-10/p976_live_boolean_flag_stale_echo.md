@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1
 severity: medium
@@ -7,7 +7,6 @@ workstream: C1
 date_reported: '2026-06-30'
 created_date: '2026-06-30'
 tags: [live, realtime, stale-echo, p671, stuck-session]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p976-reproduce.test.ts
@@ -18,6 +17,7 @@ reproduce_artifact:
   surfaces_deferred: []
   note_for_fix: "p976-reproduce.test.ts carries a @ts-expect-error on the isStateRegression import — remove it once the export exists. live.md mandates a two-party UI-driven E2E (button clicks, template e2e/p827-picker-real-flow.spec.ts) that fails pre-fix and passes post-fix; author it in /fix (the unit canary is the deterministic guard-contract proof, not a substitute for the E2E)."
   reproduced_at: 2026-06-30
+completed_at: 2026-08-27
 ---
 
 # P976: /live boolean-flag stale echo can clobber a just-submitted rating (P671 class)
@@ -100,7 +100,7 @@ The same-phase `false` echo is applied wholesale, resetting the local `true` and
 
 Extend the regression guard to also reject **same-phase boolean-flag regressions**: when incoming `ratingPhase === local ratingPhase`, a flag transition `true → false` for `checkerSubmitted` / `responderSubmitted` (and any other monotonic submission flags) is a regression and the echo must be skipped — in BOTH the realtime and drift-poll not-in-flight branches, not only inside `mergeInFlight`. Prefer a single shared guard used by all three call sites.
 
-Per [.claude/rules/live.md](../.claude/rules/live.md), the fix is NOT complete until a **two-party E2E that drives the real UI** (button clicks, not `advanceSessionState`) fails on the pre-fix commit and passes on the post-fix commit. Reference template: `e2e/p827-picker-real-flow.spec.ts`. The 4 `it.todo` entries in `live-state-guard.test.ts` should become real unit assertions against the extended guard.
+Per [.claude/rules/live.md](../../../.claude/rules/live.md), the fix is NOT complete until a **two-party E2E that drives the real UI** (button clicks, not `advanceSessionState`) fails on the pre-fix commit and passes on the post-fix commit. Reference template: `e2e/p827-picker-real-flow.spec.ts`. The 4 `it.todo` entries in `live-state-guard.test.ts` should become real unit assertions against the extended guard.
 
 ## Acceptance Criteria
 
