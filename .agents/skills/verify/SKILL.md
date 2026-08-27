@@ -479,8 +479,17 @@ find features -name "p{N}_*.md" -not -path "*/done/*" -not -path "*/archive/*"
 - `status:` not `in-progress` → status not changed
 - **Any `## Acceptance Criteria` or `## Done-When` checkbox still `[ ]` → status not changed.** A green runtime pass does not override an incomplete checklist — the drive only tests paths that exist, not the ones still missing. Override the verdict to **BLOCKED-by-state**, list every unticked item, and report what is left to build.
 
-**4. All guards pass** — replace `status: in-progress` with `status: qa`.
-Report: "Set `status: qa` in {spec-path}. Run `/ship p{N}` when ready to merge."
+**4. All guards pass** — replace `status: in-progress` with `status: qa`, then **commit it with the
+subject `chore: pN ready for QA — {title}`.**
+
+**The subject string is a contract.** `git-ops.sh`'s no-branch closure path (P920) proves an
+implementation landed by matching a non-revert commit whose *subject* carries the P-number and the
+literal phrase `ready for QA`. `/fix` writes it; `/dev` writes it since P1169. `/verify` wrote no
+stamp at all, so a spec whose work lives on `main` with no branch and which reached `qa` through
+`/verify` could not be closed by `/ship` — found on P1001, 2026-08-27, 41 days after it was
+finished. Do not reword this subject.
+
+Report: "Set `status: qa` in {spec-path} and stamped it. Run `/ship p{N}` when ready to merge."
 
 ---
 
