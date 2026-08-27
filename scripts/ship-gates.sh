@@ -83,9 +83,20 @@ fi
 # Fails closed: no spec, or a spec carrying neither section, is a FAIL. A spec
 # with no completion criteria has nothing that could prove it done.
 #
-# Known limitation, shared with gate 3.5: a "- [ ]" inside a fenced code block
-# within one of these sections counts. Ticking or rewording it is the workaround;
-# a fence-aware scanner is not worth the parser.
+# Two known limitations, both fail-CLOSED (they can block a ship, never wave one
+# through), and both measured at zero live occurrences on 2026-08-27:
+#   1. A "- [ ]" inside a fenced code block within one of these sections counts.
+#      Shared with gate 3.5. A fence-aware scanner is not worth the parser.
+#   2. A DEEPER sub-heading stays inside its section by design (so "### Phase 2"
+#      under "## Done-When" is still gated). The cost is that a "### Acceptance
+#      Criteria coverage" or "-> Test Mapping" subsection nested under a
+#      completion heading would have its test-mapping boxes counted as
+#      completion items. Zero of ~840 specs nest one that way — those headings
+#      live under Test Coverage Strategy instead. Revisit only if that changes.
+#
+# The heading match is anchored (`^#+ <name>$`) on purpose: that is what keeps
+# the coverage/mapping sections OUT when they are siblings. Loosening it to a
+# prefix match would count test-coverage checkboxes as completion criteria.
 
 # Extract a markdown section by heading text. Ends on a heading at the SAME or
 # SHALLOWER level, so sub-headings stay inside (mirrors gate 3.5's extractor).
@@ -111,6 +122,19 @@ else
 
   if [[ -z "$ac_section" && -z "$dw_section" ]]; then
     echo "[GATE 2.5] FAIL: spec has no '## Acceptance Criteria' and no '## Done-When' section (from ${spec_source}) — nothing to gate on; add completion criteria before shipping"
+    # Diagnosability, not leniency. The heading match is deliberately anchored
+    # (`^#+ <name>$`) so that "### Acceptance Criteria coverage" and
+    # "### Acceptance Criteria -> Test Mapping" — which carry checkboxes about
+    # TEST coverage, not completion — are not counted as completion criteria.
+    # A heading that starts right and then trails off is therefore a FAIL, and
+    # without this hint it reads as "no section" when one is visibly present.
+    # Measured 2026-08-27: zero of ~840 specs are affected, so this is a guard
+    # against a future confusing failure, not a live one.
+    _near="$(printf '%s\n' "$spec_content" | $GREP -ohE '^#+[[:space:]]+(Acceptance Criteria|Done-When)[[:space:]]*[^[:space:]].*$' | head -3 || true)"
+    if [[ -n "$_near" ]]; then
+      echo "           note: heading(s) that nearly match but are not counted (the match is anchored, so a trailing suffix excludes the section):"
+      printf '%s\n' "$_near" | sed 's/^/             /'
+    fi
     fail=1
   else
     # Match GitHub task-list syntax: -, *, or + bullet, then "[ ]" (unchecked).
