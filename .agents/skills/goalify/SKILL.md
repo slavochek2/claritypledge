@@ -53,11 +53,15 @@ So the goal condition is one clause, and the thing it names is an exit code the
 agent cannot author:
 
 ```
-./scripts/goal-gate.sh pN exits 0, output pasted. Stop after 30 turns.
+Work in the worktree on branch feature/pN-<slug>. Then: ./scripts/goal-gate.sh pN exits 0, output pasted. Stop after 30 turns.
 ```
 
-**One clause, deliberately.** More clauses push evidence out of the evaluator's
-window and force re-pastes from memory — which is fabrication pressure.
+**One evidence clause, deliberately.** More clauses push evidence out of the
+evaluator's window and force re-pastes from memory — which is fabrication
+pressure. The worktree prefix is the single permitted exception: it names a
+*location*, not a method, and the gate hard-refuses outside a worktree (CHECK 3),
+so without it the run cannot reach exit 0 at all. Everything else the loop needs
+to know lives in the spec, not in this line — see Phase 5 step 3.
 
 **State the guarantee honestly.** The loop still stops on the agent's *paste* of
 the exit code. Nothing here changes that. What the gate buys is that forgery and
@@ -213,21 +217,33 @@ cat /tmp/claim-stderr.log
 
 One argument exits 2. The sentinel `eval` form is required so the nonce exports.
 
-**3. Check where the session already is — never *tell* the founder to `cd`.**
+**3. The founder never types `cd`, and never types a rebase.**
 
-Run `pwd`. The claim in step 2 may have put this very session in the slot, in
-which case an instruction to "run it from wN" describes somewhere they are
-already standing, and reads as a second task that does not exist. Compare against
-the claimed slot path and say which of the two is true:
+The loop must end up in the worktree — that is not a preference. `goal-gate.sh`
+CHECK 3 hard-refuses on the main checkout (*"refusing to soft-reset outside a
+worktree — main's index and HEAD are shared"*), so a loop started there cannot
+reach exit 0 no matter what it builds. The invariant is the one that has always
+been here: a loop running in the main checkout shares an index and HEAD with
+co-tenant sessions and can flip verification into **prod mode** — writing rows to
+the live database, unattended.
 
-- **already there** → say so in those words, then print the line alone.
-- **not there** → put the `cd` *inside* the copy-pasteable block, never beside it.
-  One paste, one action.
+**But the loop's own agent can move itself there, so the instruction belongs in
+the goal line rather than in the founder's fingers.** Claude Code enters an
+existing worktree in-session; it does not need a shell. So do NOT run `pwd`, do
+NOT branch on where the session happens to be standing, and do NOT emit a `cd`.
+Emit one line that works from anywhere in the repo.
 
-The invariant behind this is unchanged and is why the check exists at all: a loop
-left running in the main checkout shares an index and HEAD with co-tenant
-sessions and can flip verification into **prod mode** — writing rows to the live
-database, unattended.
+**Name the BRANCH, never the slot.** `feature/pN-*` is stable; `wN` is an
+allocation that goes stale the moment work moves, and a stale slot number in a
+security-relevant command is worse than no number. The slot is resolved from
+`git worktree list` at run time.
+
+**Order matters, and getting it wrong is what creates the rebase you must not
+emit.** Step 1's pin commit has to land on `main` *before* step 2's claim, so the
+worktree is cut from a commit that already carries the contract. If the pin was
+blocked and you claimed first — a co-tenant holding the shared index will do
+this — **rebase the worktree yourself and say you did.** Never hand the founder a
+sync step; they did not create the ordering problem.
 
 **4. Write the goal line into the spec *before* printing it.**
 
@@ -239,15 +255,26 @@ survives skimming:
 ```markdown
 ## Run This
 
-Run from `<absolute slot path>` (this is the claimed worktree for this spec):
+Type this from anywhere in the repo — the main checkout is fine. Nothing to `cd`
+into, nothing to rebase; the worktree is already claimed for this spec and
+already carries the pinned contract.
 
-    /goal "./scripts/goal-gate.sh pN exits 0, output pasted. Stop after 30 turns."
+    /goal "Work in the worktree on branch feature/pN-<slug>. Then: ./scripts/goal-gate.sh pN exits 0, output pasted. Stop after 30 turns."
 
 `/goal` is native Claude Code, not a repo skill — the founder types it; no agent
 can invoke it for them. The condition names an exit code on purpose: the
 evaluator reads the transcript and runs nothing, so the only trustworthy
 condition is one naming an artifact the agent cannot author.
+
+**Why the worktree clause is not decoration.** The gate hard-refuses to run on
+the shared main checkout, so a loop started there cannot reach exit 0. Naming the
+branch rather than a slot keeps this line correct if the work is ever moved.
 ```
+
+**The worktree clause is the ONE permitted second clause.** It names a location,
+not a method, and it is load-bearing for the shared-index invariant above. Nothing
+else joins it: more clauses push the evidence out of the evaluator's window and
+force re-pastes from memory, which is fabrication pressure.
 
 **Top of file, never inside `## Verification Contract`** — the pin hashes that
 section alone, and a new heading inside it silently breaks the digest.
