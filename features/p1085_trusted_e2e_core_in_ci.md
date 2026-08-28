@@ -67,6 +67,63 @@ fix for (2) is **jittered backoff paced against the burst** — a change in the 
 infrastructure. Sequence to evaluate: pacing fix -> schedule the already-green core nightly -> only
 then ask whether a separate database is still needed.
 
+## Autonomy policy — what the nightly run may do unattended (founder, 2026-08-28)
+
+The founder's stated goal is to be out of the loop: "I don't want to every day have that work that
+can be automated." These are the open design questions this spec must answer **before** Job B
+(auto-repair) is switched on. Recorded now so the run is not designed twice.
+
+**The safe unit of autonomous output is a pull request, never a commit to `main`.** A PR is
+reviewable in one glance, revertible by closing it, and costs the founder nothing overnight. It
+keeps publishing and merging inside the existing ALWAYS-ASK boundary (CLAUDE.md) while still letting
+the morning start from finished work rather than from a task list.
+
+**Proposed triage, to be confirmed:**
+
+| Failure shape | Action | Actor |
+|---|---|---|
+| Deterministic, mechanical, cause visible in the diff (renamed selector, moved copy, changed route) | fix + open a PR | Sonnet subagent |
+| Flaky/timing — passes on re-run | quarantine out of the core, note it, no code change | Sonnet subagent |
+| Needs judgement: real product regression, security/RLS boundary, or the fix would change a test's meaning | **file a spec, change nothing** | escalate to Opus |
+| Bulk mechanical sweeps across many files | delegate per `~/.agents/model-routing.md` via the `delegate-gemini` wrapper (never raw `dsh`) | external executor |
+
+*(The founder mentioned a specific Gemini version; that version string is unverified here — route by
+the wrapper and its roster, which is the single source of truth, rather than pinning a number in
+this spec.)*
+
+**The hard guardrail, and the reason auto-repair is gated behind a green Job A:** an autonomous
+fixer may **not** edit a test file to make it pass. Tests are the specification
+(`.claude/rules/tests.md`); the easiest way to turn a suite green is to weaken it, and nobody is
+watching at 3am. Mechanically: if a candidate fix touches anything under `e2e/` or `src/tests/`,
+that run files a spec instead of opening a PR. The check is cheap and binds the exact failure mode.
+
+**Open, must be answered before Job B ships:**
+- May a run open more than one PR per night, or does it batch into one?
+- What is the token ceiling per night, and what happens when it is hit mid-repair?
+- Who closes a PR nobody merged — does the next night's run rebase it, supersede it, or leave it?
+
+## Scheduling window and time zones (founder, 2026-08-28)
+
+**Requirement:** runs happen roughly midnight to 07:00 local and must not run during the working
+day — the founder's sessions and the suite contend for the same test database, which is the
+cross-session interference named above.
+
+**Design constraints:**
+- Schedule in **UTC** (cron has no local-time concept), with the local window written beside it as a
+  comment, and revisited on travel or DST rather than silently drifting an hour.
+- The runner asserts it is **inside** the window before starting and exits otherwise, so a delayed
+  or hand-triggered run cannot bleed into the working day.
+- A run still going at the window's end is **stopped**, not allowed to overrun — the suite is
+  multi-hour, so this will happen and must be a designed outcome, not a surprise. Partial results
+  still produce a morning report, labelled partial.
+- A visible **pause switch** the founder can flip without editing a schedule.
+- Status is written where the morning gate can read it: last run's start, end, verdict, and whether
+  it completed or was cut off. "No run last night" must be distinguishable from "run was green" — a
+  missing result must never read as a pass.
+
+**Open:** a cloud-scheduled run does not need the laptop on but still contends for the same
+database; a laptop-scheduled run needs the lid open. Pick one before building.
+
 ## Appetite
 
 **Blast radius: medium-high** — introduces a check that can block merges to `main`, and may
