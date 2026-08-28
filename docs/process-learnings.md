@@ -692,7 +692,7 @@ are accurate today. Droppable if the links move to a CMS or env config with its 
 
 ## Harvested YouTube comments may carry private individuals' identifiers onto a public page — unverified
 
-*due: month · surfaced by the P1141 security review, 2026-08-21*
+**due:** month · surfaced by the P1141 security review, 2026-08-21
 
 `/slava:disagreement:prepare` harvests comment sections as opposition material. The subjects being
 quoted are public figures cited from public recordings, which `.claude/rules/pii.md` explicitly does
