@@ -6,6 +6,55 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [product]: The problem board is a ClarityPledge surface, not a separate build — and the unit of disagreement is a slot, not a problem
+
+**Context:** A design session for a closed community where each member's agent surfaces the problem they are actually stuck on, other members' agents read the corpus, and matching produces someone worth arguing with. It began as a candidate separate project (open-source, its own repo, possibly on Block's Buzz). It is `UNTESTED` — no round has run.
+
+**Decision — five rulings, each with the reason it beat the alternative.**
+
+1. **No voting.** Upvoting selects for the *most broadly relatable* problem; matching wants the *narrow* problem exactly two people share. In a 20-person room the highest-value item is a 2-vote problem a leaderboard buries by construction. At 30–45 items there is no attention scarcity to allocate, so ranking is emergent — what got answered.
+2. **Four slots, one story, third person.** A problem statement holds four separately-contestable claims — **Point A · Point B · obstacle · hypothesis** — each with its anti-point, over one story (private referent, only the author arbitrates). The **hypothesis slot is new**: `/problemify` stops before solutions by design, and the founder's own example (interested in the *problem* of looking good, uninterested in the *method* of matching clothes to face colour) is evidence the slot is needed — the reaction attached to a part the three-slot model could not address. **Slot B is different in kind:** disagreement there is about values, is not settled by evidence, and routes to verified comprehension rather than argument (the Deutsch Gap, arrived at independently by the founder: *"does he understand my point of view? if he understands it and I verify — go and do it"*).
+3. **Match on the slot, not the problem.** A whole-problem vote cannot express *"agree it matters, think your method is wrong"*, which is the common useful case.
+4. **One project inside cp.** Reversed from an earlier "separate repo, MIT" call. What moved it: `align-create-letter` already writes story + point + anti-point to prod authenticated; cp is **already a public AGPL repo**, so the "outside contributors need their own repo" objection was simply false; point and story **embeds** plus the blog pipeline already exist (verified in code, `point-detail-page.tsx`, `story-detail-page.tsx`); and deductively, the submission filter requires an **arbiter-failure mode**, which *is* cp's qualifying condition for when verified comprehension is needed — so every qualifying problem is by construction a cp-instrument problem. **Discipline retained:** it gets its own doc and specs; it does **not** enter `lean-canvas.md` or move the active wedge.
+5. **Buzz is the consumer, not the substrate.** Its unique property is agents interacting in real time in front of humans; this MVP has no agent-to-agent interaction, so its adoption cost buys nothing yet. The founder's own observation inverts the architecture cleanly: *"the people in Buzz don't know what to talk about"* — the board produces the missing agenda.
+
+**What it tests, and this is the point.** `decisions.md` 2026-08-12 [product] recorded a successor hypothesis before this design existed: *the letter's value is a function of counterparty **absence*** — present counterparty → no value (observed), **absent counterparty → value (untested)**. The board is that configuration: a letter filed to someone not in the room, found by matching. **Round one is therefore a private Clarity Letter between two people** (founder ruling), which uses shipped infrastructure and needs no new visibility. **Falsifier:** two people, each with an agent, produce no letter either completes ⟹ counterparty-absence is not the operative variable.
+
+**Alternatives rejected:** *(a) Reuse `augmentable/project-slido`* — verified: zero Buzz/Nostr references, PR #1 open and CONFLICTING against a master rewritten the same day, `questions.authorName` is free text with no user FK and `upvotes` key on a localStorage token, so whose-problem and vote budgets are both unrepresentable. *(b) Round one in a private git repo* — superseded by the founder's letter-first proposal, which tests the real artifact instead of a proxy. *(c) Separate repo/MIT* — see ruling 4.
+
+**Consequences:** three specs, sequenced — **(i)** draft a problem and file it as a private letter to one named person *(blocks everything)*; **(ii)** what "shared with the group" means *(between i and iii)*; **(iii)** the reader/matcher *(holds the bet)*. A provenance field on `align-detect` — first-seen, reformulation count, related work, explicitly **not** a score — folds into (i). The one-pager drafted this session needs a home in `docs/`. **Open, founder's:** naming; whether to run an adversarial review of the one-pager. **Not tracked yet — no P-numbers exist for any of this.** (Status: proposed)
+
+**References:** [decisions.md](decisions.md) 2026-08-12 [product] (counterparty-absence successor) · 2026-08-14 [product] (43% completion — the prior evidence, corrected) · [definitions.md](definitions.md) §Problem-Statement Clarity, §Stories vs Points, §Clarity Organization · [hypotheses.md](hypotheses.md) H-LetterAsProduct · `~/.claude/commands/slava/think/problemify.md` · `/presi` slides 27–28 (Deutsch's Principle of Optimism — the four-slot diagram)
+
+---
+
+## 2026-08-28 [process]: Three skill families, told apart by counterparty — and the align chain is misnamed
+
+**Context:** Repeatedly re-derived in-session: which of `/problemify`, `/align`, the `align-detect → decompose → create-letter` chain, and the `disagreement/*` pipeline applies to a given corpus. The names do not carry the distinction, and `/align` (a human↔AI protocol) shares a prefix with a chain that does something else entirely.
+
+**Decision — classify by four fields, and rename the chain.**
+
+| Family | Subject | Source | Counterparty | Produces |
+|---|---|---|---|---|
+| `/problemify` | you, stuck | this conversation | none | a diagnosis, chat only |
+| `/align` | you ↔ **the AI** | the live exchange | the AI itself | the AI's comprehension made legible before it agrees |
+| `align-detect → decompose → create-letter` | one declared person | a **corpus** | one **named** person | a filed Clarity Letter, scored by the experience owner |
+| `disagreement:*` | two **absent** speakers | recorded video | a **room** | published points + agent positions |
+
+**The discriminator for a recorded conversation is not headcount — it is: does the subject rate whether it captured their meaning?** Yes ⟹ the letter chain (it authors one person's interiority and hands it back). No ⟹ the disagreement pipeline (*"authors no one's interiority, quotes only"*). A corollary that settles most cases: **the disagreement pipeline needs a publishable source**, so private recordings route to the letter chain. A third axis was added by the 2026-08-12 finding: **if the counterparty is present, neither applies — they just talk.**
+
+**Rename:** the chain moves to an **`understanding/`** namespace (`understanding:detect · decompose · create-letter`), parallel to `disagreement/`. Both are "extract X from a source and file it", and the pair finally states cp's own central distinction — *understanding ≠ agreement* — in the namespace itself. `/align` stays in `think/`: it is a different job, and it is cited as *"the `/align` contract"* in the €1,000 milestone (`decisions.md` 2026-08-14 [product]), so renaming it rots a priced artifact.
+
+**The board is a third source into the same substrate:** the disagreement pipeline is **supply curated by one person**; the board is **supply self-served by many**. Not a competing product.
+
+**Corrected in session, and worth recording because it nearly went into a skill file:** the claim *"we proved `/align` is not valuable"* does not hold. What is on record is narrower — the **agent-as-counterparty letter** was abandoned on a structural argument (an agent is more present than a co-builder, so supplying a counterparty made the async leg strictly worse), while *"`/align-detect` layer 1 is untouched… note which artifact he valued: **the brief, not the letter**."* Writing "not valuable" into the skill would have recorded a falsification that never happened.
+
+**Consequences:** the rename needs a grep-and-update pass — `decisions.md` (append-only, so old references stay stale by design and need a pointer, not an edit), `skills.md`, `story-point-model-consumers.md`, `definitions.md`. Each skill's own frontmatter should carry its four fields; **cross-references stay sparse** — this repo already records that cross-skill references rot silently (2026-08-05 [process]), so a skill describing itself stays true while one describing its neighbour does not. **Not yet done.** (Status: proposed)
+
+**References:** `.claude/commands/slava/think/align.md` · `align-detect.md` · `align-decompose.md` · `align-create-letter.md` · `.claude/commands/slava/disagreement/*` · `~/.claude/commands/slava/think/problemify.md` · [decisions.md](decisions.md) 2026-08-12 [product] · 2026-08-14 [product] · 2026-08-05 [process] (cross-skill references rot silently)
+
+---
+
 ## 2026-08-28 [technical]: A one-off `Sentry.captureException` call site is a bypass, not a variant — audit siblings whenever one is found
 
 **Context:** P1176 fixed a Sentry noise issue (`JAVASCRIPT-REACT-2W`): `agent-accounts-context.tsx`'s `getAgentAccounts()` `.catch()` called `Sentry.captureException` unconditionally, never consulting `isNetworkBlip()` (`src/lib/network-blip.ts`) — the P990 mechanism every other data-layer call site uses via `db-error-logger.ts`. The call site was added directly during P1104 rather than routed through the existing logger, so it silently inherited none of the suppression built for exactly this failure shape (a "Load failed"/"Failed to fetch" transient fetch error, zero users impacted).
