@@ -6,6 +6,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: P1184 — the align chain moved to `understanding/`; every prior `align-detect` / `align-decompose` / `align-create-letter` reference is now stale by design
+
+**Context:** `docs/decisions.md` 2026-08-28 [process] ("Three skill families...") ruled the rename but left it undone. P1184 executed it.
+
+**Old → new (forward pointer for this and every earlier append-only reference to the old names):**
+
+| Old | New |
+|---|---|
+| `.claude/commands/slava/think/align-detect.md`, `/slava:think:align-detect` | `.claude/commands/slava/understanding/detect.md`, `/slava:understanding:detect` |
+| `.claude/commands/slava/think/align-decompose.md`, `/slava:think:align-decompose` | `.claude/commands/slava/understanding/reconstruct.md`, `/slava:understanding:reconstruct` |
+| `.claude/commands/slava/think/align-create-letter.md`, `/slava:think:align-create-letter` | `.claude/commands/slava/understanding/create-letter.md`, `/slava:understanding:create-letter` |
+
+**One name deviated from the 2026-08-28 ruling's literal text.** That entry named the middle stage `understanding:decompose`. `.agents/skills/` (P1151's generated flat projection for non-Claude harnesses) hard-fails on two sources projecting the same basename, and `.claude/commands/slava/build/decompose.md` — the unrelated, actively-used task-decomposition skill in the `/dev` pipeline — already owns `decompose`. Renaming that skill was out of this spec's blast radius. The middle stage is `/slava:understanding:reconstruct` instead, matching the file's own central section header ("Reconstruct, never elicit — the constraint the measurement rests on"). `detect` and `create-letter` matched the ruling exactly; no collision on either.
+
+**Each skill's frontmatter now carries the four classifying fields** (`subject` / `source` / `counterparty` / `produces`) plus a `discriminator` line, per the 2026-08-28 ruling's table.
+
+**Live referrers updated:** `.claude/commands/slava/think/align.md`, `.claude/commands/slava/disagreement/prepare.md`, `.claude/commands/slava/disagreement/publish.md`, `.claude/commands/slava/maintain/analyze-demo-meeting.md`, `docs/story-point-model-consumers.md`, `features/p1084_crux_letter.md`, `features/p1180_problem_submit_skill.md` (all open at time of rename). `.agents/skills/` regenerated via `scripts/sync-agent-skills.sh`.
+
+**Left untouched, deliberately:** `docs/decisions.md` entries before this one (append-only — this entry is the pointer); `features/done/**`, `features/archive/**`, `features/done/INDEX.md`, and `features/uat/p1030.md` (a UAT companion for an already-shipped, already-`done` spec) — these are historical records of what ran under the old names at the time, not live routing prose, and are treated the same way the append-only decisions log already is: frozen, corrected forward rather than edited in place.
+
+**References:** `docs/decisions.md` 2026-08-28 [process] "Three skill families, told apart by counterparty — and the align chain is misnamed" · `features/p1184_understanding_namespace_rename.md`
+
+---
+
 ## 2026-08-28 [product]: The problem board is a ClarityPledge surface, not a separate build — and the unit of disagreement is a slot, not a problem
 
 **Context:** A design session for a closed community where each member's agent surfaces the problem they are actually stuck on, other members' agents read the corpus, and matching produces someone worth arguing with. It began as a candidate separate project (open-source, its own repo, possibly on Block's Buzz). It is `UNTESTED` — no round has run.

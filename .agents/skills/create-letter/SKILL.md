@@ -1,15 +1,20 @@
 ---
-name: align-create-letter
-description: "File an approved /align-decompose output as a private Clarity Letter on PROD: story + point + anti-point + doc + letter, sealed by the agent's own authenticated session, then stamped as a reverse story so the reader is asked whether it captured THEIR meaning. The only skill in the align chain that writes to prod."
-when_to_use: "After /slava:think:align-decompose has produced an APPROVED decomposition in the run file, and the experience owner is going to score it in the product. Never as a tail of decompose — the skill boundary is the approval gate. NOT for ordinary letters: /slava:content:create-letter-from-transcript files a Doc, and this files a reverse-story letter."
+name: create-letter
+description: "File an approved /slava:understanding:reconstruct output as a private Clarity Letter on PROD: story + point + anti-point + doc + letter, sealed by the agent's own authenticated session, then stamped as a reverse story so the reader is asked whether it captured THEIR meaning. The only skill in the understanding chain that writes to prod."
+when_to_use: "After /slava:understanding:reconstruct has produced an APPROVED decomposition in the run file, and the experience owner is going to score it in the product. Never as a tail of decompose — the skill boundary is the approval gate. NOT for ordinary letters: /slava:content:create-letter-from-transcript files a Doc, and this files a reverse-story letter."
+subject: "one declared person"
+source: "a corpus"
+counterparty: "one named person"
+produces: "a filed Clarity Letter, scored by the experience owner"
+discriminator: "Does the subject rate whether it captured their meaning? Yes — this is what separates the understanding chain from disagreement:* (docs/decisions.md 2026-08-28 [process])."
 version: 1.0.0
 ---
 
-# /align-create-letter
+# /slava:understanding:create-letter
 
 File an approved decomposition as a **private letter on prod**, from the agent to the person whose experience the story describes, marked so the product asks him the right question.
 
-**Announce at start:** "Running /align-create-letter. This writes to PROD."
+**Announce at start:** "Running /slava:understanding:create-letter. This writes to PROD."
 
 **What makes this a *reverse* story:** the agent wrote the text; the founder owns the experience. So the reading flow must ask *"how well does this represent your intended meaning?"* rather than the default *"how well did you understand the sender?"* — the opposite measurement. That switch is carried by one key on the sealed snapshot (`point_config.reverseStory`), written by **step 6b of this file and by nothing else in the product**. An unstamped letter asks the wrong question and returns a number that looks valid and measures something else.
 
@@ -19,7 +24,7 @@ File an approved decomposition as a **private letter on prod**, from the agent t
 
 | Requires | Why |
 |---|---|
-| `## Decomposition` in `.private/align/runs/{slug}.md`, marked approved | This skill files; it does not author. No approved decomposition ⟹ run `/slava:think:align-decompose`. |
+| `## Decomposition` in `.private/align/runs/{slug}.md`, marked approved | This skill files; it does not author. No approved decomposition ⟹ run `/slava:understanding:reconstruct`. |
 | The agent identity provisioned on prod | `node scripts/bootstrap-align-agent.mjs` — one-time, idempotent, founder-run. |
 | `.env.local`: `OPS_EMAIL` (the agent address; `PROD_ALIGN_AGENT_EMAIL` overrides it **only if set** — it normally is not), `PROD_ALIGN_AGENT_PASSWORD`, `PROD_SUPABASE_ANON_KEY`, `PROD_SUPABASE_SERVICE_ROLE_KEY`, `COPY_PROD_FOUNDER_EMAIL` | Credentials by **variable name only**. Resolve the address exactly as `scripts/bootstrap-align-agent.mjs:69` does: `PROD_ALIGN_AGENT_EMAIL || OPS_EMAIL`. |
 | `.env.prod`: `SUPABASE_ACCESS_TOKEN`, `VITE_SUPABASE_URL` | The prod ref, and only from here. |
@@ -265,7 +270,7 @@ Append one line to `.private/logs/align-calibration.log` on **every** exit, sile
 ```
 
 And one to `.private/logs/skill-costs.log`:
-`<ISO-timestamp> | align-create-letter | <model> | <tier>`
+`<ISO-timestamp> | create-letter | <model> | <tier>`
 
 ---
 
@@ -291,14 +296,14 @@ And one to `.private/logs/skill-costs.log`:
 
 - **Not a Doc filer.** `/slava:content:create-letter-from-transcript` writes `clarity_docs` / `stories` / `points` / `story_points` / `doc_stories` and **nothing** in `clarity_letters`, `letter_deliveries`, `letter_predictions` or `letter_story_snapshots` — its own default is Doc-only. What is lifted from it is the prod-write *mechanics*, not the outcome.
 - **Not that skill's emotion gate, and not its element table.** An agent paraphrasing someone's reasoning has no feelings to elicit, and the three-element structure (fact point → anti-point → norm point) is a deliberate divergence, registered as such. Two points here: the point and its anti-point.
-- **Not an author.** It files what `/slava:think:align-decompose` approved. If the story is wrong, re-run decompose — do not edit the text here.
+- **Not an author.** It files what `/slava:understanding:reconstruct` approved. If the story is wrong, re-run decompose — do not edit the text here.
 - **Not re-runnable in the way decompose is.** Every run writes to prod. A second run files a second letter.
 - **Not a user-facing feature.** One agent, one reader, filed programmatically. There is deliberately no client path that can mark a story as being about someone else's experience.
 
 ## Related
 
-- `/slava:think:align-decompose` — upstream; produces the approved decomposition this files.
-- `/slava:think:align-detect` — two upstream; produces the picked card.
+- `/slava:understanding:reconstruct` — upstream; produces the approved decomposition this files.
+- `/slava:understanding:detect` — two upstream; produces the picked card.
 - `/slava:content:create-letter-from-transcript` — source of the prod-write mechanics (owner lookup with assert-exactly-one-row, one atomic `DO $$`, curl not python, prod ref from `.env.prod`, REST fallback).
 - `scripts/bootstrap-align-agent.mjs` — provisions the agent identity this skill signs in as.
 - `docs/story-point-model.md` — story, point, anti-point.

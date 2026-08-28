@@ -1,17 +1,22 @@
 ---
-name: align-detect
-description: "Detection stage of /align — scan a corpus for high-stakes decisions, assumptions, hypotheses and problem statements belonging to one declared subject (or to a declared two-party exchange), and emit them as ranked classified cards carrying a potential-loss estimate in its own currency (time, real money, or a burned read) plus a verification rung. Runs standalone; no counterparty required."
-when_to_use: "When you want the high-stakes items surfaced from a corpus (a meeting transcript, a session, a decision log) WITHOUT entering the comprehension loop — including 'which of these did we never actually check we meant the same thing by?'. Also runs as stage 1 of /slava:think:align. NOT for verifying that understanding landed — that's the rest of /align."
+name: detect
+description: "Detection stage of the understanding chain — scan a corpus for high-stakes decisions, assumptions, hypotheses and problem statements belonging to one declared subject (or to a declared two-party exchange), and emit them as ranked classified cards carrying a potential-loss estimate in its own currency (time, real money, or a burned read) plus a verification rung. Runs standalone; no counterparty required."
+when_to_use: "When you want the high-stakes items surfaced from a corpus (a meeting transcript, a session, a decision log) WITHOUT entering the comprehension loop — including 'which of these did we never actually check we meant the same thing by?'. Also runs as stage 1 of /slava:understanding:reconstruct's upstream chain. NOT for verifying that understanding landed — that's `/slava:think:align`, a different family (see Family fields below)."
+subject: "one declared person"
+source: "a corpus"
+counterparty: "one named person"
+produces: "ranked candidate cards, feeding a filed Clarity Letter scored by the experience owner"
+discriminator: "Does the subject rate whether it captured their meaning? Yes — this is what separates the understanding chain from disagreement:* (docs/decisions.md 2026-08-28 [process])."
 version: 1.7.0
 ---
 
-# /align-detect
+# /slava:understanding:detect
 
-Stage 1 of `/slava:think:align`, invocable on its own. Scan a corpus for **one declared subject's** high-stakes points and emit them as ranked, classified, evidence-anchored cards.
+Stage 1 of the understanding chain (`understanding:detect → decompose → create-letter`), invocable on its own. Scan a corpus for **one declared subject's** high-stakes points and emit them as ranked, classified, evidence-anchored cards.
 
-**The frame** (inherited from `/align`): the agent is a **transmission instrument between humans**, not a proxy holding a stance. Detection makes what is at stake *legible*; it takes no position on it.
+**The frame**: the agent is a **transmission instrument between humans**, not a proxy holding a stance. Detection makes what is at stake *legible*; it takes no position on it. This is a distinct family from `/slava:think:align` (a human↔AI protocol, different subject/counterparty — see frontmatter fields above and `docs/decisions.md` 2026-08-28 [process]).
 
-**Announce at start:** "Running /align-detect."
+**Announce at start:** "Running /slava:understanding:detect."
 
 **Standalone value is a recorded decision** — `docs/decisions.md` 2026-07-14 [product]: `/align` has two separable layers, and layer 1 (detection) "has real solo value with no counterparty." This file is that decision made mechanical.
 
@@ -361,7 +366,7 @@ End the brief with, in the reader's voice:
 
 Then **STOP and wait.** Do not pick for them, do not rank-by-recommendation, do not proceed to recovery unprompted.
 
-- **On a pick** → hand off to `/slava:think:align` (Gate 0 → stake gate → recovery), or to `/slava:think:align-decompose` when the remedy is a **paraphrase filed as a letter** rather than a live in-conversation loop. Note in the run file which item was picked, and which of the two it went to. Neither is invoked from inside this file — the reader picks, then runs the next skill.
+- **On a pick** → hand off to `/slava:think:align` (Gate 0 → stake gate → recovery), or to `/slava:understanding:reconstruct` when the remedy is a **paraphrase filed as a letter** rather than a live in-conversation loop. Note in the run file which item was picked, and which of the two it went to. Neither is invoked from inside this file — the reader picks, then runs the next skill.
 - **On a correction** → treat it as rubric-improvement signal, fix the wording in this file, and re-run detection on the same corpus.
 - **On silence** → the unit stays unpicked. Silence is not a pick.
 
@@ -382,16 +387,16 @@ Then **STOP and wait.** Do not pick for them, do not rank-by-recommendation, do 
 - stages:    detect ⬚ · recover ⬚ · verify ⬚
 
 ## Candidates
-[Will be added by align-detect]
+[Will be added by /slava:understanding:detect]
 
 ## Confirmed
 [Will be added by /align at the gates]
 
 ## Story
-[Will be added by align-decompose]
+[Will be added by /slava:understanding:reconstruct]
 
 ## Decomposition
-[Will be added by align-decompose]
+[Will be added by /slava:understanding:reconstruct]
 
 ## Verification
 [Will be added by align-verify]
@@ -452,8 +457,8 @@ If any gate fails, fix the output before showing it.
 
 ## Related
 
-- `/slava:think:align` — the full loop; runs this as stage 1, then Gate 0 → Gate 1→2 → recovery → verification → position.
-- `/slava:think:align-decompose` — the other downstream of the pick: turns one picked card into story + point + anti-point. Writes nothing anywhere but `.private/`.
-- `/slava:think:align-create-letter` — files an approved decomposition as a private letter on prod. Two skills downstream of here; never reached directly from a pick.
+- `/slava:think:align` — a different family (human↔AI protocol); can also run this skill as its stage 1, then Gate 0 → Gate 1→2 → recovery → verification → position.
+- `/slava:understanding:reconstruct` — the other downstream of the pick: turns one picked card into story + point + anti-point. Writes nothing anywhere but `.private/`.
+- `/slava:understanding:create-letter` — files an approved decomposition as a private letter on prod. Two skills downstream of here; never reached directly from a pick.
 - `docs/story-point-model.md` — the story↔point link, the two axes, the unit of analysis.
 - `CLAUDE.md` "Decisive Action — Reversibility classifier" — the irreversible class behind trigger (c).

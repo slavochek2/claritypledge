@@ -31,7 +31,7 @@ Check all of them before building anything. A run where every gate passes and th
 |---|---|---|
 | **P1104's TABLE is live on the target ref, READABLE BY ANON** | `agent_accounts` responds to a select **with the anon key**, not the service role | Service role bypasses RLS and column grants. The client reads `.select('profile_id, operator_name')` with the **anon** key (`agent-accounts-service.ts:46`), which needs `GRANT SELECT (profile_id, operator_name) … TO anon` to have landed. A service-role probe returns rows while the browser gets 403 — and on a failed fetch `isAgent` is `false` while pending, so the card renders **undrained, round, unmarked**. Probe with the credential the browser uses. |
 | **The filing identity is a HUMAN account** | an explicit `profile_id`, asserted `NOT EXISTS (SELECT 1 FROM agent_accounts WHERE profile_id = <it>)` | `first_validator_id` renders as the point's creator on the feed card and detail page (`points-service-real.ts:262,323,352,525,680,775`). Take it as an explicit id — never resolve it from an env var. **Do not reach for `OPS_EMAIL`:** the only prod identity this repo resolves from it is `bootstrap-align-agent.mjs:69`, the machine `Clarity Agent` account, which would file every point under a machine. |
-| **P1104's CLIENT is DEPLOYED to the target host** | the command below, `>= 1` | See the warning under this table. This is the assert that was prose in the first draft, and prose is what let `/align-create-letter` reach a green run measuring the wrong thing. |
+| **P1104's CLIENT is DEPLOYED to the target host** | the command below, `>= 1` | See the warning under this table. This is the assert that was prose in the first draft, and prose is what let `/slava:understanding:create-letter` reach a green run measuring the wrong thing. |
 | **An `agent_accounts` row for every arguer** | exact match on `subject_key` | Reuse is the account model (P1096). A miss halts or offers `/provision-agent` inline — never a create inside this skill. See below. |
 | **The arguers resolve to DISTINCT agents** | compare the resolved `profile_id`s | Two arguers on one agent (the same person speaking in both sources, or a duplicated `subject_key`) collides on `story_points_author_point_unique UNIQUE (author_id, point_id)` and again on `point_positions UNIQUE(point_id, user_id)`. Atomically that aborts everything, which is safe — but catch it at resolve time rather than by transaction failure, and note that one agent cannot hold two positions on one point anyway, so there is no artifact to salvage. |
 | **Speaker attribution was checked, not assumed** | named per quote, with the basis | Right words, wrong mouth is a **different failure** from mis-transcription and neither check below catches it. See the warning after the deploy check. |
@@ -46,7 +46,7 @@ Check all of them before building anything. A run where every gate passes and th
 
 ### The environment table — BOTH targets are named, because only naming prod is what sends a "test" run to prod
 
-The first draft named `.env.prod: VITE_SUPABASE_URL` and the `PROD_*` keys and nothing else, while *also* mandating a test run first and banning `.env.local` as a URL source. That leaves an agent told to run against test holding exactly one blessed pair — the prod one — with its own STOP rule firing on the missing test ref. The silent improvisation is to write to prod and label the ledger `env:test`. That is `/align-create-letter`'s incident shape, reproduced by inheriting a **prod-only** constraint into a **two-environment** skill.
+The first draft named `.env.prod: VITE_SUPABASE_URL` and the `PROD_*` keys and nothing else, while *also* mandating a test run first and banning `.env.local` as a URL source. That leaves an agent told to run against test holding exactly one blessed pair — the prod one — with its own STOP rule firing on the missing test ref. The silent improvisation is to write to prod and label the ledger `env:test`. That is `/slava:understanding:create-letter`'s incident shape, reproduced by inheriting a **prod-only** constraint into a **two-environment** skill.
 
 | Target | Ref from | Service key | Anon key |
 |---|---|---|---|
@@ -83,7 +83,7 @@ done
 
 For each quote, state the attribution basis: `speaker-labelled` / `single-speaker` / `turn-verified` / `turn-inferred`. **`turn-inferred` — a speaker taken from alternation parity or the transcript's overall shape — is a stop on any multi-speaker source**: drop the quote, or supply one whose speaker was confirmed. `turn-verified` passes *because* the speaker was confirmed for that individual quote (interlocutor reply, self-identifying content, or unambiguous interrogative structure — `/slava:disagreement:positions` Step 4b), so **check the confirmation artifact is present, not just the label**. P1096 decided this is solved by source selection, not by build; the 2026-08-19 ruling named the admissible shapes as *single-speaker or dominant-speaker*, and this is where both get enforced.
 
-> **A missing variable is a STOP, never a search.** Do not go looking for a nearby variable that would satisfy the name. `/align-create-letter` records exactly this: an undefined variable sat two lines from the shared e2e prod test account, whose address and password are literals in a tracked file, and every downstream assert in that run would still have passed while filing under a fixture identity.
+> **A missing variable is a STOP, never a search.** Do not go looking for a nearby variable that would satisfy the name. `/slava:understanding:create-letter` records exactly this: an undefined variable sat two lines from the shared e2e prod test account, whose address and password are literals in a tracked file, and every downstream assert in that run would still have passed while filing under a fixture identity.
 
 ### On a missing agent: HALT, or invoke `/provision-agent` inline (P1135 decision (c))
 
@@ -480,7 +480,7 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | disagreement:publish 
 - `/slava:disagreement:story-draft` — drafts the stories; owns the P1141 voice rules.
 - `/slava:content:provision-agent` — creates the accounts this requires, and appends the `subject_key` registry line this skill reads. May now be invoked inline from this skill's halt point (P1135). **Built (v0.2.0).**
 - `/slava:content:gen-agent-avatar` — mandatory for every new account; invoked by provision-agent, never by this skill.
-- `/slava:think:align-create-letter` — the prod-write precedent: credential discipline, the confirm gate, the constraints.
+- `/slava:understanding:create-letter` — the prod-write precedent: credential discipline, the confirm gate, the constraints.
 - `features/p1130_points_publish_filer.md` — this skill's spec.
 - `features/p1135_agent_avatars_in_storage.md` — why a missing agent is now an offer, not only a halt.
 - `features/p1096_public_multisource_point_pipeline.md` — the pipeline.

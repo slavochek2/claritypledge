@@ -48,7 +48,7 @@ driver: anomaly
 6. Each rates how well they understand **that person's** position, then takes their own position on the crux.
 
 **What the agent optimises for — three axes, all required:**
-- **Load-bearing** — the crux sits on a genuinely high-stakes matter. This is why `align-detect` remains essential upstream; it already ranks by unguarded stake.
+- **Load-bearing** — the crux sits on a genuinely high-stakes matter. This is why `/slava:understanding:detect` remains essential upstream; it already ranks by unguarded stake.
 - **Evidence-grounded** — every claim traces to a quotable line, and the quotes are shown.
 - **Polarisation-predicting** — the more genuinely opposed the two predicted positions, the better the agent did.
 
@@ -56,7 +56,7 @@ driver: anomaly
 
 ### What carries over unchanged
 
-`align-detect` (five candidates with verified quotes, ranked by unguarded stake — undisputed in the P1074 run), the point/anti-point construction discipline in `align-decompose`, and the prod-write mechanics in `align-create-letter`.
+`/slava:understanding:detect` (five candidates with verified quotes, ranked by unguarded stake — undisputed in the P1074 run), the point/anti-point construction discipline in `/slava:understanding:reconstruct`, and the prod-write mechanics in `/slava:understanding:create-letter`.
 
 ## Risks / Non-Goals
 
@@ -65,7 +65,7 @@ driver: anomaly
 - **There is no incentive to answer, and the predecessor had one.** P1074's crossing + mutual-reveal gate (*"you see theirs once you have given yours"*) was its only **designed** answer to the recipient-completion problem. This spec has none yet. **MITIGATE:** decide the incentive explicitly before the first send — reuse the reveal gate, or state what replaces it. **Do not assume a session invitation is easier to accept than a letter; that is untested.**
 - **The crux may find only the disagreements they already know about.** Position disagreements self-surface — people voice them out loud, for free. The valuable crux is one where both currently believe they agree. **MITIGATE:** score each filed crux on whether either party reports being surprised by it; a crux nobody was surprised by is a cheap find.
 - **The agent picks the wrong crux and it is unfalsifiable from inside.** Its own prediction (+3/−3) is the check. **MITIGATE:** seal the predicted pair before either party answers, and report predicted-vs-actual every run. A run without a sealed prediction produces no evidence about the agent.
-- **The quotes can misrepresent by selection.** Real quotes, honestly attributed, can still be cherry-picked to manufacture a crux. **MITIGATE:** carry `align-detect`'s existing rule — where a party said something nearby that cuts against the quote, it appears too.
+- **The quotes can misrepresent by selection.** Real quotes, honestly attributed, can still be cherry-picked to manufacture a crux. **MITIGATE:** carry `/slava:understanding:detect`'s existing rule — where a party said something nearby that cuts against the quote, it appears too.
 - **Consent is a precondition, not a step.** A recorded conversation is not permission to file a person's quotes into a letter to someone else. **MITIGATE:** explicit agreement from both parties before any transcript is processed. ALWAYS-ASK.
 - **A hypothesis this depends on still carries a disproven number.** `docs/hypotheses.md` H-LetterAsProduct records *"0 async completions"*; prod shows 12 completions of 28 real external deliveries. Corrected in `decisions.md` 2026-08-14, filed as deferred work, **not yet propagated**. **[RESOLVED 2026-08-27 — both halves of this mitigation are now false.** It HAS been propagated (hypotheses, progress, lean-canvas, theory-of-change, research-programme, goals, p1028, p948), and the ruling that day was that a factual correction goes **direct**, not through `/docs-strategy-update` — that routing is what deferred it 13 days. See [§CORRECTED](../docs/hypotheses.md#corrected-the-completions-figure) and decisions.md 2026-08-27 [product].]**
 
@@ -95,7 +95,7 @@ Skill changes revert with `git revert`. Filed letters are deletable rows (delive
 2. **What is the incentive to answer?** `[FOUNDER DECISION]` — reuse P1074's mutual-reveal gate, or name a replacement. See Risks.
 3. **`story_points_author_point_unique UNIQUE (author_id, point_id)`** means one agent-authored story per point. Two quote-bundles on one crux therefore need two letters, two points, or a relaxed constraint. Verify against the migration, not this prose.
 4. **Consent protocol** — what both parties agree to, when, and in what form.
-5. **Does `align-decompose` get extended or replaced?** Its point/anti-point construction is reusable; its story authoring is exactly what this spec forbids.
+5. **Does `/slava:understanding:reconstruct` get extended or replaced?** Its point/anti-point construction is reusable; its story authoring is exactly what this spec forbids.
 
 ## Done-When
 
@@ -116,7 +116,7 @@ Skill changes revert with `git revert`. Filed letters are deletable rows (delive
 - [ ] At least one party reports learning where they actually differ, beyond what the conversation already told them
 - [ ] No existing letter or `/live` behaviour changes
 
-**Falsifier for the bet itself:** the filed crux is one both parties say they already knew they disagreed about, **or** the predicted +3/−3 pair misses on the first three runs ⟹ the agent is finding self-surfacing disagreement rather than load-bearing cruxes, and the value is in `align-detect` alone rather than in this construction.
+**Falsifier for the bet itself:** the filed crux is one both parties say they already knew they disagreed about, **or** the predicted +3/−3 pair misses on the first three runs ⟹ the agent is finding self-surfacing disagreement rather than load-bearing cruxes, and the value is in `/slava:understanding:detect` alone rather than in this construction.
 
 ## References
 

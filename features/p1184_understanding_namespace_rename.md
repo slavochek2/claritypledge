@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 81
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [skills, namespaces, refactor]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -39,6 +39,8 @@ create-letter`), parallel to `disagreement/`. **`/align` stays in `think/`** —
 different job, and it is cited as *"the `/align` contract"* in the €1,000 milestone
 (`decisions.md` 2026-08-14 [product]), so renaming it rots a priced artifact.
 
+**Shipped as `understanding:reconstruct`, not `understanding:decompose`** — see Done-When for why.
+
 Add each skill's four identifying fields — subject · source · counterparty · produces — to its own
 frontmatter, plus the discriminator that tells the two families apart: **does the subject rate
 whether it captured their meaning?**
@@ -64,11 +66,14 @@ whether it captured their meaning?**
 
 ## Done-When
 
-- [ ] The three skills resolve under `understanding/` and are invocable
-- [ ] Every referrer updated: `skills.md`, `story-point-model-consumers.md`, `definitions.md`, and any others a fresh grep finds
-- [ ] **Every `/skill-name` mentioned in prose across the repo resolves** — proven by a grep whose output is pasted, not asserted
-- [ ] Each of the three carries its four fields plus the rating discriminator in frontmatter
-- [ ] One `decisions.md` entry records old → new for the append-only references
+- [x] The three skills resolve under `understanding/` and are invocable — `/slava:understanding:detect`, `/slava:understanding:reconstruct`, `/slava:understanding:create-letter`. **Deviation from the decisions.md text:** the middle stage is `reconstruct`, not `decompose` — `.claude/commands/slava/build/decompose.md` (the unrelated `/dev`-pipeline task-decomposition skill) already owns that basename, and `.agents/skills/` (P1151's generated flat projection) hard-fails on two sources sharing one. Recorded as a forward pointer in `decisions.md` 2026-08-28 [process] "P1184 —...".
+- [x] Every referrer updated: `.claude/rules/skills.md` and `docs/definitions.md` had zero existing references (nothing to update); `docs/story-point-model-consumers.md` updated; fresh grep also found and updated `.claude/commands/slava/think/align.md`, `.claude/commands/slava/disagreement/prepare.md`, `.claude/commands/slava/disagreement/publish.md`, `.claude/commands/slava/maintain/analyze-demo-meeting.md`, `features/p1084_crux_letter.md`, `features/p1180_problem_submit_skill.md`
+- [x] **Every `/skill-name` mentioned in prose across the repo resolves** — proven by grep. Remaining hits after the rename are all frozen historical record, treated like `decisions.md`'s own append-only entries (never edited in place): `docs/decisions.md` (pre-rename entries), `features/archive/2026-08/{p1051,p1074,p1101}*.md` (archived), `features/done/2026-06-10/{p1030,p1096,p1130,p1140,p1157}*.md` (shipped), `features/done/INDEX.md` (narrates shipped work), `features/uat/p1030.md` (UAT companion of an already-done spec), and this spec file itself (names its own subject matter). Command:
+  ```
+  grep -rln "align-detect\|align-decompose\|align-create-letter" --include="*.md" .
+  ```
+- [x] Each of the three carries its four fields (`subject`/`source`/`counterparty`/`produces`) plus the rating discriminator in frontmatter
+- [x] One `decisions.md` entry records old → new for the append-only references (2026-08-28 [process] "P1184 — the align chain moved to `understanding/`...")
 
 ## Related
 

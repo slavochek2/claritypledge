@@ -1,7 +1,7 @@
 ---
 name: analyze-demo-meeting
 description: Analyze a 1:1 meeting transcript — either a founder interview / demonstration-discovery (customer dev where the product IS the conversation) or a peer/collaborator working session — for signals, strategy impact, product ideas, relationship next steps, AND a lens-aware critique of how you ran it. COUNTERPART — INTERVIEW (Mom Test / Demonstration Critic, per mode) or PEER (Collaboration Critic; overrides mode). Compounds per-person over time.
-when_to_use: After a founder interview, discovery call, any 1:1 where you ran customer development AND/OR demonstrated the product live, OR a peer/collaborator brainstorm or working session where nobody is being interviewed. Renamed from analyze-discovery (2026-07) — demonstration-discovery is now the default interview shape. NOT for product practice-session transcripts (that's /analyze-transcripts). NOT for batch Claude.ai review (that's /claude-conversations-to-cp). NOT for surfacing one person's high-stakes items — that's /slava:think:align-detect.
+when_to_use: After a founder interview, discovery call, any 1:1 where you ran customer development AND/OR demonstrated the product live, OR a peer/collaborator brainstorm or working session where nobody is being interviewed. Renamed from analyze-discovery (2026-07) — demonstration-discovery is now the default interview shape. NOT for product practice-session transcripts (that's /analyze-transcripts). NOT for batch Claude.ai review (that's /claude-conversations-to-cp). NOT for surfacing one person's high-stakes items — that's /slava:understanding:detect.
 version: 2.1.0
 ---
 

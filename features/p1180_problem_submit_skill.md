@@ -35,9 +35,9 @@ A skill that runs over the member's own corpus and produces one submission per a
 
 **Stage 1 — detect.** Scan the corpus for the member's high-stakes items: a `WHOSE STAKES` declaration, ranked by potential loss in its own currency, third person for the subject.
 
-**This skill INLINES those steps. It is not an orchestrator and it does not call `align-detect`.** `decisions.md` 2026-08-06 [process] rules it directly: *"Composite skills do not call sub-skills… **Elicitation procedure is not** [shareable], and each skill inlines its own."* The reason names this exact case — eliciting from a chat archive (*can grep, cannot ask*) is a different procedure from eliciting from a live human, and forcing one shared procedure makes each worse. What **is** shareable per the same ruling: the **definitions** and the **acceptance contract** (declarative output properties). Borrow those; inline the procedure.
+**This skill INLINES those steps. It is not an orchestrator and it does not call `/slava:understanding:detect`.** `decisions.md` 2026-08-06 [process] rules it directly: *"Composite skills do not call sub-skills… **Elicitation procedure is not** [shareable], and each skill inlines its own."* The reason names this exact case — eliciting from a chat archive (*can grep, cannot ask*) is a different procedure from eliciting from a live human, and forcing one shared procedure makes each worse. What **is** shareable per the same ruling: the **definitions** and the **acceptance contract** (declarative output properties). Borrow those; inline the procedure.
 
-**Consequence:** this spec does **not** modify `align-detect`. If the provenance field (first-seen, reformulation count, related work) belongs in `align-detect` for its own sake, that is a separate change to that skill — not a side effect of this one.
+**Consequence:** this spec does **not** modify `/slava:understanding:detect`. If the provenance field (first-seen, reformulation count, related work) belongs in `/slava:understanding:detect` for its own sake, that is a separate change to that skill — not a side effect of this one.
 
 **Stage 2 — filter.** A candidate qualifies only when it carries a real stake **and** trips at least one arbiter-failure mode (fuzzy intent · delayed feedback · concentrated stakes · explanatory divergence, per `lean-canvas.md` 2026-08-24) **and** does not trip the interface disqualifier. Duration-still-open is a tiebreaker, never the gate — a two-day-old problem you just bet the year on is the most valuable thing here.
 
@@ -45,7 +45,7 @@ A skill that runs over the member's own corpus and produces one submission per a
 
 **Stage 4 — confirm in third person.** Present each slot beside its anti-point and make the member choose between them. Do not ask "does this match?"
 
-**Stage 5 — file** as a **private Clarity Letter to one named person**, via the path `align-create-letter` already implements.
+**Stage 5 — file** as a **private Clarity Letter to one named person**, via the path `/slava:understanding:create-letter` already implements.
 
 > Founder framing on voice, verbatim: *"in third person they have to force themselves into the mindset of the readers of this problem statement… they confirm not for themselves or not only for themselves but for others and I think the formulation will be much better."*
 
@@ -65,7 +65,7 @@ Per the 2026-08-06 ruling, **definitions are exactly the reusable kind**. Home i
 
 ## Invariants
 
-- **The agent drafts; the human approves.** No submission is filed without explicit per-problem approval. Founder framing, verbatim: *"Agents propose, people improve and approve. And then similar on voting. Agents read and propose... and people approve."* Corroborated by `/problemify`'s own two-stage gate, which blocks diagnosis until the frame is confirmed, and by `align-create-letter`'s approval precondition. *(An earlier draft of this line cited `decisions.md` 2026-08-16 for a claim that appears nowhere in `docs/` — the citation was lifted from a chat transcript. Removed 2026-08-28.)*
+- **The agent drafts; the human approves.** No submission is filed without explicit per-problem approval. Founder framing, verbatim: *"Agents propose, people improve and approve. And then similar on voting. Agents read and propose... and people approve."* Corroborated by `/problemify`'s own two-stage gate, which blocks diagnosis until the frame is confirmed, and by `/slava:understanding:create-letter`'s approval precondition. *(An earlier draft of this line cited `decisions.md` 2026-08-16 for a claim that appears nowhere in `docs/` — the citation was lifted from a chat transcript. Removed 2026-08-28.)*
 - **Whose problem it is is a declared field, never inferred silently.** The member's own, or their customer's seen through them.
 - **The four slots stay separately addressable.** Bundling them forecloses the case this exists for — agreeing a problem matters while contesting the method.
 - **Confirmation happens against the anti-point, not against a yes/no.** Third person reads like a report and gets nodded at; the anti-point is what forces a choice.
