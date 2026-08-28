@@ -11,8 +11,8 @@ tags: [migrations, deploy-manifest, shared-checkout, tooling, concurrency]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1173-manifest-stamp-concurrency.sh
   root_cause: "stamp-deploy-manifest.sh reads whatever is on disk as its merge baseline and writes back through a truncating redirect with no lock; migrate.sh then stages the whole file and swallows every git-add failure"
