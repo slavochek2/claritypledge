@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [technical]: An unquoted comma inside a YAML flow sequence is a separator — `pipeline_skipped` reasons were silently splitting into fake skill names
+
+**Context:** A `/slava:maintain:prioritize` run on cp patched four specs through the kanban API and the frontmatter came back visibly different — flow-style lists re-emitted as block style, and `pipeline_skipped` holding *more* entries than were written. The obvious reading, and the one first reported to the founder, was that the kanban PATCH endpoint corrupts frontmatter on write.
+
+**That reading was wrong, and the correction is the decision.** gray-matter parsed the file exactly as YAML requires: inside a flow sequence `[...]`, an unquoted comma **is** the element separator. `pipeline_skipped: [challenge-prd -- founder declined 2026-08-28, see Pipeline note, ux -- settled by …]` had always parsed as four entries where three were intended, one of them the fragment `"see Pipeline note"` — which reads like the name of a skipped skill. The file was already broken on disk; the round-trip only made it visible. **The writer was faithful; the reader had been right all along and nothing had ever asked it.**
+
+**Decision:** `pipeline_skipped` elements must be quoted, always — `["ux -- no net-new visual component", "decompose -- under 5 files"]`. Enforced at the emitter (`/pick-flow` SKILL.md, with the reason written inline so it is not optimised away later) rather than by a validator, because the defect is in what gets authored, not in what gets stored. Amends 2026-05-08's pipeline-fields decision, whose F1 chose "flat string list with `--` separator" and inline `[a, b, c]` format without noticing that free-text reasons and comma-separated flow sequences cannot coexist unquoted.
+
+**Blast radius, measured not assumed:** a parse of every list field on the board — 1529 fields — found **4** affected. Two live (p1171, p1179) were quoted; two in `features/done/` were left. Small, because most reasons happened not to contain commas. The exposure was structural, not the count.
+
+**Alternatives rejected:** (a) Fix the kanban writer — nothing to fix; it round-trips correctly. (b) A pre-commit validator that rejects unquoted flow sequences — catches it after authoring, and would have to re-implement YAML's own rules to decide what is legal. (c) Switch `pipeline_skipped` to block-style lists — more churn in every spec and does not stop a reason containing a colon or a `#` from biting next.
+
+**Consequences:** The general lesson outranks the specific fix: **a round-trip that changes a file is not evidence the writer is wrong.** Check whether the reader was right first — a file that "looks correct" has only ever been checked by human eyes, and frontmatter is not rendered until something parses it. `.claude/rules/features.md` still shows the unquoted example and still teaches the bug; that file is gated by `/slava:maintain:claude-md` and the fix is outstanding. (Status: proposed)
+
+**References:** [.claude/commands/slava/build/pick-flow/SKILL.md](../.claude/commands/slava/build/pick-flow/SKILL.md) · decisions.md 2026-05-08 (pipeline fields, F1) · [.claude/rules/features.md](../.claude/rules/features.md)
+
+---
+
+## 2026-08-28 [process]: cp's WIP limits shipped, rendered, and were never switched on — `week` reached 58 items
+
+**Context:** A `/slava:maintain:prioritize` run found cp's `week` column holding 58 specs and `today` ranked `0.125 / 0.188 / 0.25` — fractions, because agents were halving to squeeze in past items nobody would demote. The skill's own config table said cp's WIP limits lived in `KANBAN_WIP_LIMITS` in `scripts/kanban.sh`. They did not; the variable appeared nowhere in the repo.
+
+**The find:** the feature was not missing. `tools/kanban/server/api.ts:38` reads `KANBAN_WIP_LIMITS`, `Column.tsx` tints the count at or over the limit, and **pp's kanban is cp's kanban** — pp's `scripts/kanban.sh` launches `claritypledge/tools/kanban/`. pp had set the variable; cp never had. The rendering had been shipping in cp's own code the whole time, showing every column as unbounded.
+
+**Decision:** Set `KANBAN_WIP_LIMITS="today=5,week=10,in-progress=3"` in cp's `scripts/kanban.sh`, matching pp. Advisory: nothing is blocked, the limit exists so an overflow is visible at the moment of the drag and so `/slava:maintain:prioritize` has a number to force a verdict against.
+
+**Consequences:** `today` fit to 5/5 the same session; `week` went 57 → 14 with ten slots allocated deliberately, five to security with a live exploit path and five to the event funnel. It stopped at 14, not 10, because five `week` specs carry `locked_at` — manual founder pins that `.claude/rules/features.md` forbids the skill overriding. **A limit the agent cannot reach without the founder is still the right limit**; the residue is a founder action, not a skill bug.
+
+**This is the third instance of the same shape** — an artifact that exists, is correct, and is switched off. The 2026-06-10 cadence entry named this skill by path and left it `Status: proposed` for 79 days; 2026-08-14 recorded *"a rule with no trigger is documentation, not a control."* Here the control was built AND triggered AND rendered, and still did nothing, because one environment variable was unset in one of the two repos that share the code. **Extending the check: for any shared tool, verify the configuration in each consumer, not once in the tool.** A capability confirmed present in the codebase is not a capability confirmed active in this repo.
+
+**Alternatives rejected:** (a) Hard-block drags over the limit — the overflow is information about capacity; refusing the drag hides it and invites `--no-verify`-shaped workarounds. (b) Bulk-demote unread to hit 10 — the skill forbids demoting arbitrarily to satisfy a number, and ~15 of the 57 were security specs. (c) Leave it unset and report the count in `/weekly` — a number in a report nobody must act on is the documentation-not-a-control failure again.
+
+**References:** [scripts/kanban.sh](../scripts/kanban.sh) · [tools/kanban/server/api.ts](../tools/kanban/server/api.ts) · [.claude/rules/features.md](../.claude/rules/features.md) · decisions.md 2026-08-14 · 2026-06-10
+
+---
+
 ## 2026-08-28 [process]: A search that keeps failing may be measuring a consensus — and `select` was found stricter than its own chain three times in two days
 
 **Context:** A `/slava:disagreement:select` run on *"whether AI concentrates power or distributes it"* consumed **seven search sweeps and ~12 fetched-and-measured sources** before the topic turned out to be a **consensus**, not a thin topic. Every advocate found asserts power *is* concentrated: Ng (*"why is AI largely concentrated in the big tech companies"*), Harari, Mensch (*"Warns Against AI Power Concentration"*), LeCun (*"AI Is Power, Not Intelligence"*), Van Jones. The skill's **own Phase 3 judge step had flagged it** in objection 1 — *"both speakers say concentrated in the present tense"* — and the run argued past it. The founder diagnosed it, not the agent: *"we agree but we dont know how to solve it"*.
