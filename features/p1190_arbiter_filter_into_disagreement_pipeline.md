@@ -213,6 +213,18 @@ Recorded rather than quietly swapped, because a rubric changed after seeing the 
 what pre-registration exists to prevent — this change was made from run A alone, before run B
 exists, and that is the only reason it is legitimate.
 
+**Who scores, fixed now — a subagent is fine; the blinding is not the scorer's job.**
+The requirement is that the scorer never generated either run, and a fresh subagent satisfies that
+by construction. It does **not** need to be a separate interactive session.
+
+But the scorer cannot blind itself, and neither can the session that produced run B — that session
+knows which set is which, so if it shuffles the labels it also holds the key while reading the
+verdict. **A script does the shuffle**, not an agent: it writes the two sets to `X.md` and `Y.md`
+in random order and the mapping to a third file that nobody opens until the verdict is recorded.
+Then the subagent scores X and Y, and only afterwards is the mapping read.
+
+Without that, "blind" means an agent promising not to think about something it knows.
+
 **Scorer input, fixed now.** For every criterion, the scoring session receives, per statement: the
 statement, **all four inference chains** (chain count normalised to four — run A's P3 carries only
 two, and that gap is a fingerprint of the Soares block, so P3's missing chains are marked
@@ -294,7 +306,9 @@ session hunting a fifth and reintroduce the confound this spec declares out of s
 - [ ] Scorer dry-run against run A alone recorded, with its fired-mode count, before run B is generated
 - [ ] If they moved: `grep -rn` finds zero remaining definitions outside the new home, and every pointer resolves to a section that actually contains what it claims (the P1145 false-pointer failure mode)
 - [ ] Run B generated in a session with no access to run A's points
-- [ ] Scoring run by a third session against the six criteria above, with the fixed scorer input and bearer, verdict recorded
+- [ ] A script shuffled the two sets into `X`/`Y` and wrote the mapping to a file left unopened
+- [ ] A fresh subagent scored X and Y against the six criteria with the fixed input and bearer
+- [ ] The mapping was read only after the verdict was written down, and the verdict recorded
 - [ ] Verdict applied per criterion 6 — provisional in every branch; rejecting the model itself deferred to a second topic
 
 ## Open Questions
