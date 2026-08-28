@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 238
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [edge-functions, auth, silent-failure, email]
 driver: anomaly
-delivery_stage: ship
 pipeline_ran: [reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p1178-reproduce.spec.ts
@@ -21,6 +20,7 @@ reproduce_artifact:
 date_resolved: '2026-08-28'
 root_cause: "create-and-sign sent the service_role JWT in the Authorization: Bearer position; send-agreement-emails resolved it with auth.getUser(), got no user (service_role carries no sub claim), and returned 401. The caller was fire-and-forget with a bare .catch(), which never inspects status, so the 401 was invisible."
 resolution: "send-agreement-emails gained an internal-caller branch keyed on an INTERNAL_FN_SECRET header (the WEBHOOK_SECRET / CRON_SECRET / GCS_UPLOAD_SECRET pattern), confined to action 'accepted'. create-and-sign now sends the anon key for the gateway plus that secret — no database key leaves the function — and logs every non-2xx with a P1178-DIAG marker instead of swallowing it."
+completed_at: 2026-08-28
 ---
 
 # P1178: `create-and-sign` sends the service-role key where a user login token is expected — silently
