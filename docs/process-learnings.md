@@ -436,31 +436,10 @@ permanently disabled control is a plausible real defect, and the p617 suite's ot
 
 ---
 
-## Propagate the disproven R₀≈0 figure through the strategy docs
-
-**Status:** proposed
-**due:** week
-
-`docs/decisions.md` 2026-08-14 [product] retired *"R₀≈0 — 18 letters, 16 founder-authored, 0 async
-completions"* against prod: **28 real external deliveries, 25 opened, 12 completed (43%)**, with 4
-completions predating the 2026-06-02 measurement date. The decision is recorded and committed; the
-strategy docs still carry the old number.
-
-Three known inheritors, all in `docs/hypotheses.md`:
-- **H-LetterAsProduct** — the evidence cell retiring the bet quotes the figure directly.
-- The **2026-06-02 transform-trigger** entry — *"Prod query — R₀≈0 … meets the transform threshold"*.
-- **H-CoachChannel** — *"Promoted 2026-06-02 (primary after R₀≈0)"*. A distribution pivot to coaches
-  was justified by a number that was wrong; the promotion rationale needs re-examining, not just
-  the number corrected.
-
-Run `/slava:maintain:docs-strategy-update` in a fresh session — it needs all six strategy docs read
-in full plus nine gates with quoted artifacts, which is why it was deferred rather than attempted at
-low context. Gate 2 will surface the 2026-06-02 ruling; that is expected and is the point.
-
-Open question the sync must answer rather than skip: the source says *async* completions, and that
-qualifier may have excluded the 4 pre-06-02 completions as prompted or in-session. Delivery data
-cannot settle it. If the qualifier holds, the headline was misleading rather than false — the
-conclusion still does not survive 12/28 either way.
+<!-- Resolved 2026-08-27: "Propagate the disproven R₀≈0 figure through the strategy docs" — applied
+     directly (a factual correction is a bug fix, not a strategy change). Propagated to hypotheses,
+     progress, lean-canvas, theory-of-change, research-programme, goals, the LessWrong blog draft,
+     p1028, p948, p1084. See decisions.md 2026-08-27 [product]. -->
 
 ## Reap zombie vite/playwright processes between e2e runs
 

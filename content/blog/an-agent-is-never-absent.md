@@ -75,9 +75,11 @@ The successor hypothesis follows directly from the mechanism: if the letter's va
 
 Now the part that makes me uneasy, stated rather than sold past.
 
-Human-to-human letters have already failed once, on production data: 18 letters, 16 of them authored by me, **zero** async completions, zero unprompted forwards to a real relationship. That failure was at the *recipient* end, where nobody completed. Today's failure is at the *author* end, where I had no will to receive one.
+I believed, until I checked, that human-to-human letters had already failed once — *18 letters, zero async completions.* That figure was wrong. Queried against production: **28 real external deliveries, 25 opened, 12 completed — 43%**, four of them predating the date the zero was recorded. The number was false the day it was written, and it had been quoted in my own strategy documents for ten weeks.
 
-We now have failures at both ends, and the two-agent configuration has to beat both. Counterparty-absence explains today's result. It does not explain the zero completions.
+So the recipient end did not fail. **What fails is a letter nobody had a reason to answer** — which is a fact about motive, not about the form. That leaves today's result standing alone: the *author* end failed, because I had no will to receive a letter from an agent that was already in the room with me. Counterparty-absence explains that, and there is no longer a second failure it has to explain away.
+
+I am keeping this passage rather than deleting it, because the correction is the more useful finding. The uneasy version of this section was written from a number in my own documents, and the number did not survive a query. That is the same failure mode the essay is about, one level up: a claim that reads fine, was never checked, and was load-bearing.
 
 There is also a contamination fork waiting there: a party who edits their agent's draft produces a better letter and a void measurement. That configuration has to pick which of the two it is for, before anyone builds it.
 
@@ -107,5 +109,5 @@ Stating these so the claim is not unfalsifiable, and so you can hold me to them.
 - `docs/decisions.md`, 2026-08-12 [process]: overriding a recorded decision requires quoting the whole premise.
 - `features/done/2026-06-10/p1030_reverse_story_and_align_pipeline.md`: the built instrument, `status: all-done`, completed 2026-08-12.
 - `features/archive/2026-08/p1051_align_agent_orchestrator_and_readback.md`: `status: rejected`, gate can no longer open.
-- `docs/hypotheses.md`, H-LetterAsProduct: R₀≈0, 18 letters, 16 founder-authored, 0 async completions, production query 2026-06-02.
+- `docs/hypotheses.md`, H-LetterAsProduct: the 2026-06-02 transform, and the 2026-08-14 correction to it — the completions figure was false (28 deliveries / 12 completed, 43%), though the transform itself fired legitimately on the criterion's *zero forwards* leg, which was true that day.
 - `content/articles/a61_a-twin-cannot-say-thats-not-what-i-meant.md`: the nine-days-early prediction, committed 2026-08-03.

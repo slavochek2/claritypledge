@@ -85,7 +85,7 @@ this choice sets what gets verified.
 ## Risks / Non-Goals
 
 ### Risks
-- **Willingness unproven (R₀≈0 ghost).** `DEFER` Do not build until P904 shows responses
+- **Willingness unproven (R₀≈0 ghost).** `DEFER` Do not build until P904 shows responses **[R₀≈0's completions figure is FALSE — prod 2026-08-14: 28 deliveries / 12 completed (43%). The retirement itself stands (the OR's *zero forwards* leg was true on 2026-06-02), but both legs are false now ⇒ grounds to revisit. Re-check this decision: docs/hypotheses.md#corrected-the-completions-figure H-LetterAsProduct §CORRECTED, decisions.md 2026-08-27.]**
   happen. A story-bootstrap no one uses is wasted work.
 - **Synthesis quality.** `DEFER` Assembling a position + explain-back into a coherent story
   is non-trivial; design at expansion, not now.

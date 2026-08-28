@@ -52,7 +52,7 @@ Extract `WebinarCTA` into a shared component and mount it on `/`, `/hiring`, `/c
 
 1. **Webinar** when an upcoming event exists (`useNextWebinar` returns non-null)
 2. **Booking** (`/intro`) as the fallback when no event exists
-3. The **letter CTA drops out of the primary slot** — it is the artifact with R₀≈0 and it competes with two CTAs that lead somewhere
+3. The **letter CTA drops out of the primary slot** — it is the artifact with R₀≈0 and it competes with two CTAs that lead somewhere **[R₀≈0's completions figure is FALSE — prod 2026-08-14: 28 deliveries / 12 completed (43%). The retirement itself stands (the OR's *zero forwards* leg was true on 2026-06-02), but both legs are false now ⇒ grounds to revisit. Re-check this decision: docs/hypotheses.md#corrected-the-completions-figure H-LetterAsProduct §CORRECTED, decisions.md 2026-08-27.]**
 
 **No `/events` page is needed.** `/org/:slug` already exists in `App.tsx` and `/org/cm` serves that purpose.
 

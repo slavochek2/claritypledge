@@ -25,6 +25,26 @@ This skill **owns the strategy-doc layer.** `/kdd` owns `decisions.md` + meta-re
 | Capture a decision + run session meta-reflection | `/kdd` (writes decisions.md) |
 | Change CLAUDE.md or a `.claude/rules/` file | `/slava:maintain:claude-md` |
 | Output is a tracked feature, not a strategy-doc change | `/slava:build:create-spec` |
+| **A stated fact in a strategy doc is wrong** — a number measured to be false, a figure a later decision retired, a fired threshold, a broken pointer | **Correct it DIRECTLY. Do not run this skill.** See below. |
+
+---
+
+## The nine gates guard strategy CHANGES, not defect corrections — this skill is not the router for both
+
+**Discriminator, one question: does any bet, position, priority or claim MOVE?**
+
+- **No** → it is a **defect correction**: the doc simply stops asserting something false. **Fix it directly**, then record what and why in `decisions.md`. The log entry is the audit trail; the gates add nothing, because there is no drift to detect in replacing a wrong number with a measured one.
+- **Yes** → it is a strategy change. Run this skill, all nine gates.
+
+**Why this exists (2026-08-27).** A prod measurement on 2026-08-14 refuted a completions figure that six strategy docs, three live feature specs and a blog post staged for external publication were quoting. The correction was written, committed, and **never propagated for 13 days** — because the follow-up task routed it here, and said so in its own words: *"needs all six strategy docs read in full plus nine gates with quoted artifacts, **which is why it was deferred** rather than attempted at low context."* Deferred three times. **The gate's cost was paid by the error, not by the fix.**
+
+**The boundary that ruling does NOT license — learned the same day, the expensive way.** Direct means *without these gates*, never *without checking*. The first attempt at that very correction inverted the source: it re-measured one leg of an **OR** kill-criterion and declared the criterion void, which is the exact error the source entry had already caught in itself and warned about in writing — and it fabricated a quotation into the append-only log. Both were found by an adversarial reviewer, neither by the author, who had read the source and stopped six lines short of its self-correction. So:
+
+1. **Read the cited source to its end**, including anything after the References line. Correction entries self-correct; the retraction is usually the load-bearing half.
+2. **A compound criterion (`OR` / `AND`) is refuted only by falsifying every leg.** Re-measuring one leg says nothing about the criterion.
+3. **Never quote a string you have not `grep -F`'d.** A fabricated quote in an append-only log outlives the correction, because later readers search for it and find it.
+4. **Have someone else attack the corrected diff before committing** — one hostile reviewer is cheaper than nine gates and, measured here, caught 23 defects across two rounds where author self-review caught two. **Wip-commit BEFORE that review, not after:** the first completed version of this correction was destroyed uncommitted on the shared main checkout while the review ran, and uncommitted content has no reflog to recover from.
+5. **State propagation as incomplete when it is.** Enumerate remaining sites from a fresh `grep`, never from a prior list — the entry documenting incomplete propagation is itself the likeliest place to under-scope it.
 
 ---
 
