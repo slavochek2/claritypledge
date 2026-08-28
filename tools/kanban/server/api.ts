@@ -30,6 +30,23 @@ const HIDDEN_COLUMNS = new Set(
 )
 const WORKTREES_DISABLED = process.env.KANBAN_DISABLE_WORKTREES === 'true'
 
+// Per-column WIP limits (CSV in env: "today=5,week=10,in-progress=3"). Purely
+// advisory — the board renders "N / limit" and tints the count when a column is
+// at or over its limit; nothing blocks a drag. The point is that the limit is
+// visible where the decision is made. Absent or unparseable entries are skipped,
+// so a malformed value degrades to today's plain-count behaviour.
+const WIP_LIMITS: Record<string, number> = Object.fromEntries(
+  (process.env.KANBAN_WIP_LIMITS ?? '')
+    .split(',')
+    .map((pair) => pair.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const [col, raw] = pair.split('=').map((s) => s.trim())
+      return [col, Number(raw)] as const
+    })
+    .filter(([col, n]) => Boolean(col) && Number.isFinite(n) && n > 0)
+)
+
 // Branding — overrideable so embedding projects (pp, sd, etc.) can distinguish
 // their tab/favicon at a glance. Defaults preserve cp's identity.
 const KANBAN_TITLE = process.env.KANBAN_TITLE ?? 'Clarity Kanban'
@@ -547,6 +564,7 @@ app.get('/api/config', (_req, res) => {
     disableWorktrees: WORKTREES_DISABLED,
     title: KANBAN_TITLE,
     faviconEmoji: KANBAN_FAVICON_EMOJI,
+    wipLimits: WIP_LIMITS,
   })
 })
 

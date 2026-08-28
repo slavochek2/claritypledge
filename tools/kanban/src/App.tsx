@@ -50,6 +50,9 @@ interface KanbanConfig {
   disableWorktrees: boolean
   title?: string
   faviconEmoji?: string
+  // Per-column WIP limits from KANBAN_WIP_LIMITS. Advisory only — rendered as
+  // "N / limit" in the column header. Missing key = no limit shown.
+  wipLimits?: Record<string, number>
 }
 
 interface ColumnConfig {
@@ -830,6 +833,7 @@ export default function App() {
                       id={col.id}
                       title={col.title}
                       color={col.color}
+                      limit={config?.wipLimits?.[col.id]}
                       features={getColumnFeatures(col)}
                       dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
                       isDragging={activeId !== null}

@@ -10,6 +10,11 @@ interface ColumnProps {
   title: string
   color: string
   features: Feature[]
+  // Advisory WIP limit for this column (from KANBAN_WIP_LIMITS). When set, the
+  // header reads "N / limit" and the count is tinted at or over the limit.
+  // Nothing is blocked — the limit exists to make the trade-off visible at the
+  // moment of the drag, not to refuse it.
+  limit?: number
   dropIndicator: DropIndicator | null
   isDragging: boolean
   onFeatureUpdate?: () => void
@@ -45,7 +50,7 @@ const getStatusStyle = (color: string) => {
   return colorMap[color] || { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' }
 }
 
-export function Column({ id, title, color, features, dropIndicator, isDragging: _isDragging, onFeatureUpdate, renderCard }: ColumnProps) {
+export function Column({ id, title, color, features, limit, dropIndicator, isDragging: _isDragging, onFeatureUpdate, renderCard }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
   const featureIds = features.map((f) => f.id)
   const statusStyle = getStatusStyle(color)
@@ -94,14 +99,32 @@ export function Column({ id, title, color, features, dropIndicator, isDragging: 
           {title}
         </span>
 
-        {/* Count - plain text */}
+        {/* Count - plain text, with the WIP limit when one is configured */}
         <span
           style={{
             fontSize: 'var(--font-size-14)',
-            color: 'var(--text-tertiary)',
+            color:
+              limit === undefined || features.length < limit
+                ? 'var(--text-tertiary)'
+                : features.length > limit
+                  ? '#eb5757'
+                  : '#d9730d',
+            fontWeight:
+              limit !== undefined && features.length >= limit
+                ? 'var(--font-weight-medium)'
+                : 'var(--font-weight-regular)',
           }}
+          title={
+            limit === undefined
+              ? undefined
+              : features.length > limit
+                ? `Over the WIP limit (${features.length} of ${limit}) — something here needs a decision`
+                : features.length === limit
+                  ? `At the WIP limit (${limit}) — adding one means moving one out`
+                  : `${features.length} of ${limit}`
+          }
         >
-          {features.length}
+          {limit === undefined ? features.length : `${features.length} / ${limit}`}
         </span>
       </div>
 
