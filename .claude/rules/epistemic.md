@@ -54,6 +54,30 @@ Mutation testing does not close this: mutations prove the assertions bind the co
 
 Two live instances: a page-title injection suite reached 162/0 while every defect class it claimed closed was still reachable through a window the fixture never emitted (the docs had described that window for three days); and a GCS lifecycle rule that matched a prefix the archive layout never produced, under a script that was genuinely end-to-end tested against itself. See `pp/docs/decisions.md` 2026-08-07 and 2026-08-01.
 
+## 7c. A new gate must be run against the workflows that already exist
+
+Gate 7 proves a gate CAN fire. It says nothing about what the gate does to work that was already
+correct. Both halves are needed, and only the first one has a natural prompt — a gate you built
+because something slipped past is a gate you are motivated to see catch things, not a gate you are
+motivated to see wave things through.
+
+**Before shipping any new refusal, gate, validation or guard: run the tool's own documented
+workflows through it and confirm they still pass.** Not a synthetic happy path you invent — the
+sequences the tool's own help text, skill files or comments already tell people to perform.
+
+The tell is a gate whose test suite contains only inputs the gate should reject. If nothing in the
+fixture is a legitimate input that must be *allowed*, the false-positive rate is unmeasured.
+
+P1173 (2026-08-27): a new guard refused any manifest differing from `HEAD`, on the reasoning that
+this run did not write that difference. But `migrate.sh` stamps the manifest **and stages it**,
+expecting a later commit — so the manifest is routinely dirty when the next run starts. Running
+`migrate.sh` twice before committing hard-failed, and the error blamed a co-tenant session for an
+edit the same tool had written a minute earlier. Three commands would have caught it; the canary
+had a "no false positive" scenario and still missed it, because that scenario only covered a clean
+run and never the stage-then-run-again sequence the tool itself creates. Fixed by classifying the
+diff's *shape* rather than its existence. See [decisions.md](../../docs/decisions.md) 2026-08-27
+[technical] (P1173).
+
 ## 8. Record under uncertainty — never withhold on "wait until validated" grounds
 
 Recording a decision, bet, or learning is never deferred because it is unvalidated, unproven, or "wait until the test / the interviews / it's confirmed." Record it NOW with an honest `UNTESTED` label + a one-line falsifier — that axis is retired ([docs/decisions.md](../../docs/decisions.md) 2026-07-03 [process]). Routing (which doc it belongs in) is advisory, never a block. Applies **in open conversation too**, before `/docs-strategy-update` or `/kdd` is entered — the recommendation to "hold off recording for now" is itself the failure this gate names.
