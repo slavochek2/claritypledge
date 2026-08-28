@@ -64,6 +64,13 @@ three and was not acted on until attempt five.
      took the common case from 3 failed to 1 failed and the runtime from ~6m to ~2.2m — an
      improvement, not a fix.
 
+   - The machine itself was loaded: `uptime` at the end of the session reported load averages
+     **5.64 / 8.28 / 8.76** with 14 users, sustained across the 5- and 15-minute windows. No zombie
+     Vite servers (port 5100 free; the running vite processes were idle kanban tools), so this is
+     ambient load plus this session's own ~20 Playwright invocations — not a leak to clean up.
+     Decisive corroboration for the environment read, and no lever: it is not fixable from inside
+     the loop.
+
    Two things were tried and REVERTED because the evidence turned against them: `mode: 'serial'`
    (chained one failure into five) and a lazy-chunk warmup `beforeAll` (justified by a cold-compile
    hypothesis that the 90s-timeout evidence then falsified).
