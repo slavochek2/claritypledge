@@ -48,11 +48,6 @@ export function EventsList({
   const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
   const [userRsvps, setUserRsvps] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  // P1060 D6: this org has nothing upcoming but does have past events, so the tab
-  // opened on Past instead of showing an empty state. Tracked separately from
-  // activeTab because the user may click back to Upcoming, and the explanatory
-  // heading belongs to the Past view only.
-  const [fellThroughToPast, setFellThroughToPast] = useState(false);
   const isOrgScoped = !!orgId;
 
   // When series filter is active, force upcoming tab so the filter is applied.
@@ -70,18 +65,6 @@ export function EventsList({
       ]);
       setUpcomingEvents(upcoming);
       setPastEvents(past);
-
-      // D6: fall through to Past, explicitly labelled — rather than showing an
-      // empty Upcoming list. · Online launches with 0 upcoming and 0 past (handled
-      // by the honest-line branch below); · Chiang Mai reaches this state the day
-      // after its last scheduled event. Only in org context: the standalone
-      // /events list keeps its existing Upcoming-first behaviour.
-      if (orgId && upcoming.length === 0 && past.length > 0) {
-        setActiveTab('past');
-        setFellThroughToPast(true);
-      } else {
-        setFellThroughToPast(false);
-      }
 
       if (user) {
         const allEvents = [...upcoming, ...past];
@@ -104,7 +87,22 @@ export function EventsList({
   const filteredUpcoming = isSeriesFiltered
     ? seriesEvents.slice(0, 2)
     : upcomingEvents;
-  const events = activeTab === 'upcoming' ? filteredUpcoming : pastEvents;
+  // D6: an org with nothing upcoming but something in the past falls through to its
+  // past events, under an explicit label — rather than showing an empty list.
+  //
+  // The Upcoming pill STAYS SELECTED while this happens. An earlier build switched
+  // activeTab to 'past' here, which left the control lying: the pill highlight said
+  // Past while the copy above it said "nothing coming up", so the page claimed two
+  // different tabs were current at once and the viewer could not explain what they
+  // were looking at. Falling through is a display decision about what to show under
+  // the empty Upcoming state; it is not the user changing filters, so it must not
+  // move the filter. Only in org context — the standalone /events list is unchanged.
+  const fellThroughToPast =
+    isOrgScoped && !loading && upcomingEvents.length === 0 && pastEvents.length > 0;
+  const events =
+    activeTab === 'upcoming'
+      ? (fellThroughToPast ? pastEvents : filteredUpcoming)
+      : pastEvents;
   const listIsEmpty = !loading && events.length === 0;
   // `&& !loading` is load-bearing for POSITION, not just visibility. The actions live
   // in two places depending on `listIsEmpty`, which is false while loading — so
@@ -202,7 +200,7 @@ export function EventsList({
             {/* D6's explicit label. Deliberately avoids the phrase "No upcoming
                 events" — that is the generic empty state this fall-through exists
                 to replace, and repeating it here would reintroduce the dead end. */}
-            {fellThroughToPast && activeTab === 'past' && (
+            {fellThroughToPast && activeTab === 'upcoming' && (
               <>
                 {/* The empty Upcoming state is still SHOWN — it is a real fact about
                     this organization — but it is not a dead end: the past list

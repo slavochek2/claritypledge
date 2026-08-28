@@ -184,3 +184,45 @@ blast radius, and neither is fixed here.
   copy: one action, one control. The reassurance line points at the CTA that already
   exists. (Round 1 had asked for a Join inside that block; round 2 correctly caught
   that adding it duplicated the header's.)
+
+## A12 — Round 4's finding, and the bound the loop has now hit
+
+**The defect.** A second, fresh reviewer — one that had seen none of rounds 1–3 —
+caught something round 3 passed over: on the fall-through screen the **Past** pill
+rendered as selected while the copy directly beneath it said *"Nothing coming up
+yet."* The page asserted two different current tabs at once. The reference names
+this state explicitly: *"The Upcoming pill stays selected and stays honest. The page
+does not silently switch you to the Past tab… Quietly flipping the filter would
+leave you unable to explain what you are looking at."*
+
+The cause was mine: the fall-through called `setActiveTab('past')` **and** rendered
+the Upcoming-empty block. Falling through is a decision about what to show under an
+empty Upcoming state; it is not the user changing filters, so it must not move the
+filter. Fixed — the pill stays on Upcoming and the past events render beneath the
+empty block and its divider.
+
+**Worth recording on its own:** the independent reviewer earned its keep on the first
+try. Round 3 ran ten checks and passed; round 4 ran the same checks on the same
+component and found a cross-screenshot contradiction by comparing three renders of
+one control against each other. A second reviewer was not redundancy here — it was
+the only thing that caught this.
+
+## A13 — The gate cannot now reach exit 0, and this is the gate working
+
+`goal-gate.sh` CHECK 5 requires the **last two** rounds to be PASS and bounds the
+total at **five**. The rounds are: 1 FAIL, 2 FAIL, 3 PASS, 4 FAIL, 5 (the fix).
+Even with round 5 passing, the trailing pair is `FAIL, PASS` — and a sixth round
+would breach the bound and fail on `n_rounds > MAX_ROUNDS`.
+
+**There is no honest path to exit 0 from here**, and the dishonest ones are named in
+the gate's own comments. Overwriting round 4's FAIL with a re-review of the fixed
+build is *re-rolling* — "spinning rounds until two passes land by chance" — which
+CHECK 5 exists to catch. Renumbering it, or dropping it, deletes the evidence of a
+real defect that a real reviewer found. Neither was done.
+
+**What this leaves the founder.** The five-round budget is the contract's judgement
+that a build needing more than five review rounds has not converged, and that
+judgement fired correctly: three of four judged rounds found genuine defects. Closing
+this needs a founder decision — accept the round-5 verdict as the reviewer's final
+word and close the row by hand, or re-pin the contract with a different bound. Both
+are the founder's to make; neither is the loop's.

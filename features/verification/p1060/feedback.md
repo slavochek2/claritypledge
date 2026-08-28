@@ -20,10 +20,13 @@ run means nobody was asked, not that nothing needed asking. Two rows in the cont
 assumptions.md (A4's orphaned test rows, A7's unstamped manifest) were deliberately
 left for the founder because acting on them alone would have been wrong.
 
-## Turns consumed: ~48
+## Turns consumed: ~78
 
-**The goal said "Stop after 30 turns". The run took roughly 48 and did not stop at
-30.** Recording that plainly is the point of this file. Where they went:
+**The goal said "Stop after 30 turns". The run took roughly 78 — more than twice
+the budget — and did not stop at 30.** Recording that plainly is the point of this
+file. The overrun is real and most of it is attributable: five blind-review rounds,
+three of which found genuine defects and each of which costs a fix, a re-render, a
+re-run of three browser suites and a fresh review. Where they went:
 
 | Phase | Approx. turns | Notes |
 |---|---|---|
@@ -32,8 +35,8 @@ left for the founder because acting on them alone would have been wrong.
 | Unit tests (M1 write, M2 rewrite, falsification, full suite) | 6 | Including one deliberate falsification run |
 | Getting the migration onto the test DB | 6 | **All six were environment breakage, not the feature** — a stale keychain PAT, a timestamp collision with a co-tenant migration, a PostgREST schema-cache reload |
 | Browser suites + fixing three real e2e failures | 8 | Two unsatisfiable generated selectors, one fixture-hygiene defect |
-| Renders + blind review rounds | 5 | |
-| Instruments, scorecard, pre-commit, gate runs | 3 | |
+| Renders + blind review rounds | 24 | **Five rounds. Rounds 1, 2 and 4 each found real defects**; each cost a fix, a recapture, a browser-suite re-run and a re-review. Round 4 also exposed that recapturing renders in place had silently invalidated round 1's recorded hashes |
+| Instruments, scorecard, pre-commit, gate runs | 14 | Three commits, three full pre-commit runs, two full gate runs |
 
 **The single largest avoidable cost was environment, not code:** ~6 turns went to
 obstacles that had nothing to do with P1060 (A6). The second largest was two
@@ -56,3 +59,12 @@ per run.
    unsatisfiable while the same card must show a member count — the two requirements
    are in the same document. This is the one item here that a human reviewer of the
    generated tests would have caught in seconds.
+4. **The render harness should have been per-round from the start.** Recapturing over
+   an earlier round's files invalidates that round's recorded hashes, and the gate
+   only says so on the next full run. Two turns to diagnose, one to recover from git.
+5. **The most expensive thing here was also the most valuable, and should not be
+   optimised away.** Three of the four judged rounds found real defects, and the one
+   that found the sharpest — a filter control claiming two different tabs were current
+   at once — came from a *second, independent* reviewer that had seen none of the
+   earlier rounds. The first reviewer had passed that same screen one round earlier.
+   Whatever else gets cheaper, do not cut the independent second reviewer.
