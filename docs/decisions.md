@@ -6,6 +6,81 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [technical]: The nav centre slot's 320px clearance was measured for an anonymous visitor — a signed-in one does not fit, and a navigation control may not use it (P1179)
+
+**Context:** P1179 designs a "Links" menu for the event room, and its first Solution proposed
+`SimpleNavigation`'s absolutely-positioned centre slot (`id="nav-center-slot"`) as the button's home
+— the mechanism the 2026-07-01 [technical] entry below established for `/terms`. That entry's
+verification explicitly measured the narrow case: *"at 320px the logo ends at x=40 and the first
+track label starts at x=72."* It fit. **That measurement was taken against `/terms`' usual visitor —
+an anonymous one, whose right-hand control is a bare hamburger.**
+
+The room's visitor is always signed in, and their right-hand control is a wider avatar chip. The
+slot's own code comment (`simple-navigation.tsx:397-405`, added by P1114) records what happened:
+the track's *"min-content width alone exceeds the slot's total available space once logo+avatar
+clearance is reserved"*, and it was fixed **on the consumer side by hiding the portal below 375px**
+rather than by re-padding the shared slot.
+
+**Decision:** The slot is sound and unchanged — but it carries an unwritten precondition: **its
+usable width depends on the width of the right-hand control, which depends on auth state.** A
+consumer must check its own case, not inherit `/terms`' measurement. And a **control that is the
+only means of navigation may not use it at all**, because the mitigation available to the track —
+disappear on a small phone — is not available to a control people need. P1179's button moves to the
+nav's right-hand flex group, where it and the avatar negotiate space with each other instead of one
+being centred over the other.
+
+**Alternatives rejected:** (a) Re-pad the shared slot so both cases fit — P1114 considered and
+rejected this: it does not by itself solve the narrowest case and adds risk to `/terms`' unrelated
+anonymous rendering. (b) Centre slot above 375px, right group below — the control would move
+depending on which phone the attendee brought, which defeats the one property a
+point-at-it-with-your-voice menu exists to provide, and carries both placements' code.
+(c) Hide below 375px as the track does — forbidden here; recorded as a P1179 invariant.
+
+**Consequences:** The 2026-07-01 entry is **refined, not superseded** — absolute positioning is
+still load-bearing and the slot still must not become a flex child. What changes is that its
+"verified at 320px" line is now known to be conditional on auth state; any future consumer should
+measure its own right-hand control before portalling. **Generalises:** a clearance measurement is
+only valid for the sibling widths it was taken against, and auth state silently changes those.
+
+**References:** [features/p1179](../features/p1179_event_room_links_menu_and_stake_surface.md) ·
+`src/app/components/layout/simple-navigation.tsx:178`, `:397-405`, `:407` · this log 2026-07-01
+[technical] (the slot's original decision + its 320px measurement)
+
+## 2026-08-28 [process]: `/goalify` refuses a spec that is more than a quarter taste — that rule is the routing answer, and it was never surfaced to the founder
+
+**Context:** Founder, verbatim: *"I see in the chat history in the past a lot of times I was advised
+against it and I don't know why."* Repeated advice against goalifying a spec had been given without
+ever naming the criterion. The criterion exists and is mechanical: `goalify/SKILL.md` Phase 0
+classifies every `Done-When` / `Acceptance Criteria` line as MECHANICAL, COMPARABLE or HUMAN-ONLY,
+and **refuses to emit if HUMAN-ONLY > 25%** — *"a spec that is mostly taste is not loopable, and
+pretending otherwise produces a run that burns 30 turns and lands on a judgement nobody made."*
+
+**Decision:** When the founder asks whether to goalify, **run the Phase-0 classification against the
+spec's own lines and answer with the ratio**, rather than giving a bare recommendation. The answer
+is computable from the spec in front of you. P1179 classified at roughly 0% human-only across 16
+lines and is a clear yes; the reason is not that it is a big feature but that three exchanges of
+design conversation had already converted its taste questions (placement, open-shape) into decided
+facts. **Converting taste into decisions is what makes a spec loopable** — which means goalifiability
+is an outcome of how the spec was filed, not a fixed property of the work.
+
+**Alternatives rejected:** (a) Make `/goalify` generate its own tests so it can run earlier —
+rejected: it breaks the skill's own stated design rule (*"This skill never builds anything"*), and
+the contract's rows point at test commands, so a self-authored suite would have the loop grading its
+own homework. Order stays `/generate-tests` → `/goalify`. (b) Recommend goalify by default because
+"most specs probably need it" — the 25% rule says the opposite is true of most specs.
+
+**Consequences:** **`/goalify` does not stamp `pipeline_ran`** (verified: no such write in its skill
+file), so it must **never** appear in a spec's `pipeline_plan` — every tracked skill's predecessor
+check is an exact string match, so a plan naming it deadlocks whatever step follows, permanently.
+This is the same trap `/pick-flow` already documents for `/spec-compact` and `/kdd`; goalify belongs
+on that list. P1179's plan is `[create-spec, generate-tests, dev, verify]` with goalify deliberately
+outside it. **Status: proposed** — adding goalify to `/pick-flow`'s non-stamping `†` list is an
+unmade skill edit.
+
+**References:** `.claude/commands/slava/build/goalify/SKILL.md` (Phase 0 refusal; "never builds
+anything") · `.claude/commands/slava/build/pick-flow/SKILL.md` (the `†` non-stamping list) ·
+[features/p1179](../features/p1179_event_room_links_menu_and_stake_surface.md)
+
 ## 2026-08-28 [process]: Inline work on main is a third emitter with no `ready for QA` stamp — the P920 closure gate refuses it, and the stamp must be written by hand (P1185)
 
 **Context:** P1185 was a skill-file spec, implemented inline on `main` — no `/dev`, no `/fix`, no
