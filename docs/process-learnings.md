@@ -30,6 +30,31 @@ an empty file is the healthy state.
 
 ---
 
+## The Codex-vs-Opus review bake-off is unresolved — n=1, and the control lens never reported
+
+due: month
+
+2026-08-28 (P1187). A spec was handed blind to two hostile reviewers on an identical prompt. Codex
+GPT-5.6-Sol (max) returned 9 findings, **8 confirmed by command**, and found a root cause that the
+Opus author and an earlier Opus-side review had both missed. The Opus control returned **nothing,
+twice**, then was stopped. So the comparison did not happen: we know Codex did well on one infra
+spec; we do not know it did better than Opus on anything.
+
+**What would settle it:** on the next 2-3 adversarial reviews, run both lenses blind on the same
+prompt and score *findings the other lens missed, confirmed by command* — not by reading quality,
+and never by the spec author's judgement (the author is not independent of the artifact). Record
+the ratio each time. After three, the answer is either obvious or the difference is noise.
+
+**Why this is debt and not just a nice-to-have:** a provisional default is already in force
+(decisions.md 2026-08-28 [process] adopted Codex as the default *second* lens). If the benchmark
+never runs, that provisional default silently becomes permanent policy on n=1 evidence — which is
+the exact failure the entry warns about.
+
+Falsifier: three reviews from now, `grep -c "reports received" docs/decisions.md` shows no new
+ratios recorded — the benchmark was adopted in writing and never executed.
+
+---
+
 ## goal-gate CHECK 5 is unreachable for any feature that needs more than a few review rounds
 
 **Date:** 2026-08-24

@@ -6,6 +6,74 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [technical]: A symlinked entry point that derives its own directory from an unresolved `$BASH_SOURCE` splits one tool into two silently different tools
+
+**Context:** P1187. A machine-global fetch cache (P1140) served **zero** hits across ~15 fetches over
+two sessions while its store quietly filled to 15 entries. The spec blamed two subtle
+classification bugs (an `-o` template shape, a `sub_langs` key mismatch). An adversarial review
+found neither was ever reached. The installed command is a symlink (`~/.local/bin/yt` → the repo
+script), but the script computes its own directory from `BASH_SOURCE[0]` **without resolving the
+symlink**, so it looked for its Python library beside the *symlink* rather than beside the *real
+file*. `bash -x "$(command -v yt)"` resolves the library to a path where `test -e` returns 1; the
+resulting `can't open file` is captured into a temp file and discarded, and `save` is `|| true`.
+
+**Decision:** Resolve the script's real path before deriving its directory, and — the part that
+generalizes — **test every reuse/caching claim through the installed entry point (`command -v`),
+never the repo path.** A suite that invokes the repo copy passes while the command every caller
+actually runs stays permanently cold.
+
+**Alternatives rejected:** Ship the library beside the symlink (duplicates a file that must then be
+kept in sync); test the repo path only (the blind spot that hid this for weeks); keep debugging the
+two named causes (they were never reachable — both are now marked UNPROVEN pending re-test).
+
+**Consequences:** Three compounding properties made this invisible, and each is the real lesson.
+(1) **Fail-open plus a discarded refusal is indistinguishable from success** — the cache computed
+`NOCACHE <reason>` on every call and redirected it to a temp file, so the only symptom of total
+failure was paying twice. Any fail-open path must emit its bypass reason on a channel a human sees.
+(2) **Two invocation spellings became two different programs** — repo path cached, PATH name did not,
+so the store filled from one caller while another never hit it; "the store has entries" was taken as
+evidence the store worked. (3) **A ticked acceptance box was false in production** — P1140's
+Done-When *"a transcript is still readable, byte-identical, in a later session"* was ticked and had
+never been verified through the installed command. Re-verification of a shipped guarantee needs a
+cross-session read, not an assertion. *(Status: proposed — implementation tracked by P1187.)*
+**References:** [p1187](../features/p1187_transcript_reuse_is_unenforced.md) ·
+[p1140](../features/done/2026-06-10/p1140_transcript_retention_for_quote_reverification.md)
+
+---
+
+## 2026-08-28 [process]: A cross-family review lens found the root cause two same-family passes missed — adopt Codex as the default *second* lens, not as the reviewer
+
+**Context:** P1187's spec was handed blind to two hostile reviewers on an identical prompt: Codex
+GPT-5.6-Sol (max reasoning, ~22 min, 245,602 tokens, off the Claude subscription) and an Opus
+subagent. Founder's stated hypothesis: *"divergent, another model might be finding better the
+flaws."* Codex returned 9 findings; **8 were confirmed by running a command**, including the
+symlink root cause above — which the spec's own author (Opus) and an earlier Opus-side adversarial
+review had both missed. It also found a **live** key collision in shipped code
+(`classify(a)["key"] == classify(a + ["--write-info-json"])["key"]` → `True`) and two real holes in
+the reviewed design. The Opus lens returned **no report, twice**, then was stopped.
+
+**Decision:** Adopt Codex Sol as the **default second lens** for adversarial review — not as a
+replacement reviewer. The comparison never actually ran, so the bake-off is **unresolved**: we know
+Codex did well; we do not know it did better. Settle it by running both on the next two or three
+reviews and scoring *findings the other missed, confirmed by command*.
+
+**Alternatives rejected:** "Codex is our reviewer now" — an n=1 result on one infra spec cannot carry
+that. "Opus is unreliable for review" — two silent runs is a harness-reliability datum, not a model-
+quality one. Grading the two reviews by the author's own judgement — the author wrote the spec, so
+that scores a replacement against the signal it replaces; the oracle must be command output.
+
+**Consequences:** Two method rules survive this session regardless of which model wins. **(1) The
+oracle must be independent of the author** — every finding was kept or discarded by running the
+command it named, not by whether it read well; 8 of 9 survived, which is an unusually high precision
+worth measuring again rather than assuming. **(2) A silent lens is recorded as *uncovered*, not
+*clean*** (epistemic gate 9b) — the spec now carries "1 of 2 reports received" in writing, because
+"a second reviewer found nothing else" and "a second reviewer never reported" are indistinguishable
+to whoever reads the spec next. *(Status: proposed — benchmark over the next 2-3 reviews.)*
+**References:** [p1187](../features/p1187_transcript_reuse_is_unenforced.md) ·
+[epistemic.md](../.claude/rules/epistemic.md) gate 9b
+
+---
+
 ## 2026-08-28 [technical]: An edge function calling another edge function needs a service credential, not a user token — the service-role key in the Bearer slot fails silently
 
 **Context:** P1178. `create-and-sign` notified `send-agreement-emails` with
