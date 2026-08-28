@@ -6,6 +6,28 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [infra]: The prod `service_role` key leaked; the fix is migrating off legacy API keys, not rotating the JWT signing key
+
+**Context:** The production `service_role` JWT for `besjtuodziykmjidubzw` (full DB access, bypasses RLS) leaked into 700+ files on the founder's laptop and its immutable backups, and was verified still live by an authenticated request. Redaction cannot reach backup snapshots, so only invalidating the key helps. Tracked in `pp/tasks/p46`; this entry records the cp-side architecture finding. Written by hand — `/kdd` is cp-scoped and the session ran from pp.
+
+**Decision:** Do **not** rotate the Supabase JWT signing key. Replace the legacy `service_role` key with a new-format `sb_secret_…` key, move the frontend from `anon` to `sb_publishable_…`, redeploy, then disable legacy JWT-based API keys — which is the step that actually kills the leaked credential.
+
+**Why:** Supabase surfaces two things both labelled "JWT," and they are unrelated concerns. The **signing key** signs every logged-in user's session token; the **API keys** (`anon`, `service_role`) are static database credentials. The leak is an API key. The obvious-looking dashboard path leads to the signing-key page and came within one click of rotating user-session signing to fix a credential problem that never touched user sessions.
+
+The reason the work looked disproportionate is a real coupling, and it is worth knowing: **`anon` and `service_role` are twins — two static JWTs signed by one shared secret.** The admin key cannot be killed without also killing the public frontend key. That is why disabling legacy keys forces a frontend redeploy, and it is precisely what Supabase's new publishable/secret format fixes: each new key is independent and individually revocable.
+
+**Two claims checked and withdrawn during this work:**
+- *"Several edge functions verify the legacy JWT secret themselves."* False — grep shows none do; all call `getUser()`, which validates server-side and survives rotation. Supabase's dialog listing 15 functions as "may stop functioning" is generic boilerplate, not a finding about this repo. Provider blast-radius warnings are hypotheses to verify, not facts.
+- *"This means changes in many places."* False — **zero code changes.** Every consumer already reads the key from an env var; the surface is 4 config locations plus a redeploy. The codebase is fine; the legacy key format is the problem.
+
+**Consumers (enumerated, verified):** 13 edge functions reading `SUPABASE_SERVICE_ROLE_KEY` via `supabase secrets`; Cloud Run `transcribe-session` via a Secret Manager secret; 8 one-off scripts in `scripts/` reading `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`; `gpu-status()` in `~/.zshrc`. No CI/CD references.
+
+**Operational notes:** There is **no** Supabase CLI command to rotate the JWT secret or a service_role key (v2.106 — `secrets set` covers edge-function env only, `projects api-keys` lists). Dashboard only. A `sb_secret_`/`sb_publishable_` key may not be sent in `Authorization: Bearer` unless it exactly equals the `apikey` header — verified safe here, since `supabase-js` sets both identically and the one hand-built header set (`src/app/data/api.ts:4599`) pairs `apikey` with a *user* JWT bearer, which is the supported pattern. `.env.local` has **no** `PROD_SUPABASE_URL` variable, so the only Supabase URL in the file names the *test* project — a trap that made the prod key initially test as dead.
+
+Rotation-system implications recorded as items 11–15 in `features/p1148_credential_rotation_system.md`.
+
+---
+
 ## 2026-08-28 [process]: Third recurrence of the prod-drift misread — the check prints the wrong fix command at the moment of decision, and two log entries have not stopped it
 
 **Context:** `check-deploy-manifest.sh --env prod` reported `MIGRATION_MISSING: 20260826063353_… (not deployed to prod)`. It was relayed to the founder as a real gap, and a prod migrate was recommended — describing an open anon EXECUTE grant on prod as current fact, on the strength of the migration's header comment plus the drift line. It was not current. `--env prod` reads the manifest from **`origin/main`** by design (P820); local main was 127 commits ahead, the stamp was simply unpushed, and the live ledger already held all 255 versions. `migrate.sh --env prod` applied nothing and its mandatory smoke passed 8/8. The remedy was the push the founder had already planned — the opposite of the recommendation given.

@@ -91,6 +91,50 @@ must never require a driver edit** — one rotator file, one registry row.
 10. **Interrupted runs need a Done-When box.** Every criterion in the predecessor exercised a
     clean path or a single refusal; none killed a run mid-batch.
 
+### Learned in the field (2026-08-28, rotating the leaked prod Supabase `service_role` key)
+
+Not from adversarial review — from an actual attempted rotation that went down the wrong path
+and was caught by the operator's instinct, not by analysis. Full write-up: `pp/docs/decisions.md`
+2026-08-28 "The leaked credential's TYPE decides the rotation path".
+
+11. **Credentials can be *coupled* — a shared-fate set, not independent rows.** Supabase's
+    legacy `anon` and `service_role` are two static JWTs signed by **one** secret: revoking the
+    admin key necessarily kills the public frontend key. A rotator that models credentials as
+    independent will plan a safe-looking rotation and take down an unrelated public surface.
+    This is distinct from item 1 — those are the *same* credential under several names; these
+    are *different* credentials that die together. `describe` must declare
+    `coupled_with: [...]`, and the driver must expand any rotation to the full coupled set and
+    plan a single ordered cutover across all of them.
+
+12. **Prefer migrating the credential *type* over rotating the value in place.** Before
+    rotating, ask whether the provider offers a newer key format that decouples the credential
+    from whatever it is entangled with. Here, rotating the legacy key meant an auth-wide JWT
+    signing-key operation; switching to the new `sb_secret_`/`sb_publishable_` format made the
+    key independently revocable and reduced every future rotation to create → swap → delete.
+    A rotator should declare `preferred_target_format`, and a one-time migration is the correct
+    output when the current format is the reason rotation is expensive. **Corollary:** the first
+    rotation of a badly-designed credential is a migration, and should be estimated as one.
+
+13. **Provider warning dialogs are boilerplate; verify their claims against the codebase.**
+    Supabase's rotation dialog listed 15 edge functions as "may stop functioning… as they verify
+    the legacy JWT secret." Grep proved **none** verify it — all call `getUser()`, which
+    validates server-side and survives rotation. Had that warning been taken at face value it
+    would have inflated the work and could have aborted a safe rotation. Treat provider blast-radius
+    claims as hypotheses to check, never as findings. (The inverse of gate 7: a scary warning is
+    as unproven as a passing test.)
+
+14. **Some providers have no rotation API at all.** Verified 2026-08-28: `supabase` CLI v2.106
+    can `secrets set` (edge-function env) and `projects api-keys` (list only) — there is **no**
+    command to rotate the JWT secret or service_role key. Dashboard only. Such credentials are
+    `manual-only` by provider constraint, not by policy choice, and the registry should record
+    *why* so it is not re-litigated each cycle.
+
+15. **The rotation itself cannot run inside an agent session.** The new value passing through any
+    tool call is written to the session transcript — reproducing the leak the rotation exists to
+    close. This bounds the whole system: the driver can plan, enumerate consumers, and verify by
+    status code, but the mint/paste steps are human-only. `auto-api` is therefore never fully
+    autonomous for any credential whose value the agent would observe.
+
 ### Leak paths to close by construction
 
 Argv exposure (`cmd --token "$VALUE"` is visible in `ps`), shell history, `source` on env files
