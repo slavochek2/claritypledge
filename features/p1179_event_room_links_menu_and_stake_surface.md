@@ -19,15 +19,20 @@ driver: heuristic
 
 ## Run This
 
-Run from `<cp-root>/.claude/worktrees/w1` — the claimed worktree for this spec, already on
-`feature/p1179-links-menu`.
+Type this from anywhere in the repo — the main checkout is fine. Nothing to `cd` into, nothing to
+rebase; the worktree is already claimed for this spec and already carries the pinned contract.
 
-    /goal "./scripts/goal-gate.sh p1179 exits 0, output pasted. Stop after 30 turns."
+    /goal "Work in the worktree on branch feature/p1179-links-menu. Then: ./scripts/goal-gate.sh p1179 exits 0, output pasted. Stop after 30 turns."
 
-`/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke it
-for them. The condition names an exit code on purpose: the loop's evaluator reads the transcript
-and runs nothing, so the only trustworthy condition is one naming an artifact the agent cannot
-author.
+`/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke it for
+them. The condition names an exit code on purpose: the loop's evaluator reads the transcript and
+runs nothing, so the only trustworthy condition is one naming an artifact the agent cannot author.
+
+**Why the worktree clause is there and is not decoration.** The gate hard-refuses to run on the
+shared main checkout — `CHECK 3` exits non-zero with *"refusing to soft-reset outside a worktree
+(main's index and HEAD are shared)"* — so a loop started on main cannot reach exit 0 no matter what
+it builds. Naming the **branch** rather than a slot number is deliberate: the slot is resolved from
+`git worktree list` at run time, so this line stays correct if the work is ever moved.
 
 **What this does and does not guarantee.** The loop still stops on the agent's *paste* of the exit
 code, and nothing here changes that. What the pinned contract buys is that forgery and decay are
@@ -36,6 +41,7 @@ usually-but-not-always green — not a self-proven branch.
 
 **The loop stops at a committed branch.** Merging, migrating prod, deploying and pushing are all
 ALWAYS-ASK and none of them are pre-approvable.
+
 
 ## Problem
 
