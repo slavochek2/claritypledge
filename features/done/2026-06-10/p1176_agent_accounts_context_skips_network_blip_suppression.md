@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 78
 severity: low
@@ -10,7 +10,6 @@ drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
 tags: [sentry, agent-accounts, network-blip, noise-reduction]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/agent-accounts-context.test.tsx
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [agent-accounts-context.tsx]
   surfaces_deferred: []
   reproduced_at: 2026-08-28
+completed_at: 2026-08-28
 ---
 
 # P1176: agent-accounts-context skips the network-blip suppression every other data-layer call site uses
