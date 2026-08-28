@@ -6,6 +6,50 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: Inline work on main is a third emitter with no `ready for QA` stamp — the P920 closure gate refuses it, and the stamp must be written by hand (P1185)
+
+**Context:** P1185 was a skill-file spec, implemented inline on `main` — no `/dev`, no `/fix`, no
+branch, which is the correct routing (a skill edited on a branch is not the skill that runs, and
+CLAUDE.md's "just do it inline" exception covers ad-hoc work of this size). `/ship p1185` passed
+every gate and then refused at `git-ops.sh ship`: *no qualifying 'p1185 ready for QA' stamp commit
+found*. The P920 direct-to-main closure path requires a non-revert commit whose **subject** carries
+both the P-number and the literal `ready for QA` — a code-presence gate that stops a spec being
+closed when its implementation never landed.
+
+**Decision:** Write the stamp commit explicitly, naming the SHA the work actually landed in, rather
+than loosening the gate or hand-editing the spec to `all-done`. The gate is doing its job; the
+missing piece is that nothing in the inline path emits the string it greps for.
+
+**This is the third emitter of a shape already ruled on twice.** `2026-08-20 [process]` stated it
+(*"treat a literal string shared between two skills and a script as a contract that needs a single
+source or a test; today it has neither"*), and the 2026-08-21 entry recorded two instances against
+this exact gate: `/dev` emitting `ready for UAT` where the script greps `ready for QA` (so the
+direct-to-main path had only ever worked for `/fix`-flow specs), and `/verify` setting `qa` while
+writing no stamp at all (P1001, stranded 41 days). Inline-on-main is the third: it is not a skill
+that could be fixed by correcting a string, because **no skill runs at all**, so there is nowhere
+for the stamp to be emitted from. That distinction is why it is recorded rather than folded into
+the existing entries — a single-source-for-the-string fix, the remedy those entries propose, would
+not have caught this one.
+
+**Alternatives rejected:** *Set `status: all-done` and `git mv` the spec by hand* — bypasses the
+code-presence gate entirely, which is the one check standing between a closed spec and work that
+never landed; the four-specs-stranded history (P1169) argues for making the path work, not for
+stepping around it. *Widen the grep to a bare P-number match* — explicitly rejected when P920 was
+designed, because real implementation commits carry no pN token and a bare match reintroduces the
+seed/cross-reference/restore-commit false positives the stamp-grep exists to eliminate.
+
+**Consequences:** Any spec implemented inline on main needs a hand-written
+`chore: pN ready for QA — …` commit before `/ship` will close it. Worth watching whether this
+recurs often enough to justify `/ship` offering to write the stamp itself when it can point at a
+commit carrying the P-number — a fix that would have to prove the work landed on some other
+evidence, which is the whole difficulty. **(Status: proposed)**
+
+**References:** `2026-08-21 [process]` on the four literal-string defects · `2026-06-10 [process]`
+on the P920 closure gate and why the stamp-grep beat a bare pN match ·
+`features/done/2026-06-10/p1185_align_detect_arbiter_filter_and_provenance.md`
+
+---
+
 ## 2026-08-28 [process]: A rename that ships mid-session orphans the specs filed before it — and the spec that ships it is the one least likely to notice
 
 **Context:** P1184 (move the align chain into an `understanding/` namespace) was filed this session and executed by a **different concurrent session** roughly forty minutes later, while this one was still filing specs. It shipped clean: `align-*` gone, `understanding/detect · reconstruct · create-letter` in place, `status: qa`. The executing session also improved the middle stage's name — `reconstruct` rather than the `decompose` the spec proposed.
