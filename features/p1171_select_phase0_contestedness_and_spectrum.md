@@ -64,7 +64,7 @@ already per-arguer.
 
 **This is the second time in one day `select` was found stricter than the chain it feeds.** The first
 was Gate 0 rejecting multi-speaker sources that `positions`/`publish` already supported
-([decisions.md:59](../docs/decisions.md), P1167). The pattern itself is the finding.
+([decisions.md](../docs/decisions.md) 2026-08-27 [technical], *"Gate 0 admits one-way interviews"*, P1167). The pattern itself is the finding.
 
 **Question:** How does selection establish that a disagreement exists *before* spending search, and
 carry N positions instead of two poles?
@@ -107,10 +107,10 @@ Generalize the `### Side A` / `### Side B` schema headings to repeatable per-arg
 
 | Risk | Label | Note |
 |---|---|---|
-| With 6 voices, points may land everyone mid-scale — comprehensive and inert | DEFER | Watch on the first run; do not design around it now. The cross-camp split gets **more** likely with more arguers, which is the upside ([decisions.md:1262](../docs/decisions.md) — two of six points were built on one arguer's cross-camp split) |
+| With 6 voices, points may land everyone mid-scale — comprehensive and inert | DEFER | Watch on the first run; do not design around it now. The cross-camp split gets **more** likely with more arguers, which is the upside ([decisions.md](../docs/decisions.md) 2026-08-27 [technical], *"Gate 0 admits one-way interviews"* — the cross-camp split is unreachable under a hard single-speaker rule) |
 | Phase 0 is prose executed by an agent, so it can be wrong | ACCEPT | A wrong Phase 0 costs one cheap check; its absence cost seven sweeps |
 | Phase 0 becomes a research rabbit hole | MITIGATE | It enumerates positions and advocates; it does not evaluate them. Ranking stays in Phase 2 |
-| More arguers ⇒ more agent accounts ⇒ more provisioning at filing | ACCEPT | `p1096`'s *"one agent identity per speaker"* ruling holds unchanged at any N ([decisions.md:3245](../docs/decisions.md)) |
+| More arguers ⇒ more agent accounts ⇒ more provisioning at filing | ACCEPT | `p1096`'s *"one agent identity per speaker"* ruling holds unchanged at any N ([decisions.md](../docs/decisions.md) 2026-08-19 [technical], *"Fail-closed is a property of a lookup PLUS its population path"*) |
 
 **Non-Goals**
 
@@ -118,9 +118,9 @@ Generalize the `### Side A` / `### Side B` schema headings to repeatable per-arg
   confirmation.
 - Do **NOT** relax the recency or audience floors as part of this work.
 - Do **NOT** rebuild `prepare` / `positions` / `story-draft` / `publish` — they are already
-  N-agnostic. Generalize the schema headings only. `decisions.md:643` split this chain by **moving**
+  N-agnostic. Generalize the schema headings only. `decisions.md` 2026-08-25 [process], *"Story writing is craft that iterates; point extraction is a rule engine"*, split this chain by **moving**
   stages rather than rewriting them *"so every hard-won rule travels intact"*; that constraint holds.
-- Do **NOT** drop an arguer to make a set fit. `decisions.md:1282` records that dropping a subject
+- Do **NOT** drop an arguer to make a set fit. `decisions.md` 2026-08-21 [product], *"Requiring a rights-cleared portrait…"*, records that dropping a subject
   *"silently deletes the opposing camp."*
 
 ## Done-When
@@ -188,10 +188,10 @@ self-describing and were never the thing that changed.
 - **P1167** (shipped 2026-08-27) — Gate 0 `turn-verified`; the *first* instance of `select` being
   stricter than the chain. Same defect shape.
 - **P1164** — the marker probe `select` Phase 2b depends on.
-- `decisions.md:617` — the same-side trap and its retained negative control.
-- `decisions.md:1262` — a full run reaching the filing step before a blocking question surfaced; the
+- `decisions.md` 2026-08-25 [product], *"YouTube search matches words, not stances"* — the same-side trap and its retained negative control.
+- `decisions.md` 2026-08-21 [process], *"The points pipeline picks its cast LAST"* — a full run reaching the filing step before a blocking question surfaced; the
   argument for cheap checks early.
-- `decisions.md:643` — move stages, never rewrite them.
+- `decisions.md` 2026-08-25 [process], *"Story writing is craft that iterates…"* — move stages, never rewrite them.
 
 ## Open Questions
 

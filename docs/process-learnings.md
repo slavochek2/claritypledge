@@ -540,7 +540,7 @@ anything serially, which is exactly what you want during an incident. Found whil
 canary at `--workers=1` to remove doubt about a flake. Fix is per-layer fixtures in L6 (the file's
 own header already notes layers get one story each — L6 reuses L4's).
 
-`due: month`
+**due:** month
 
 ---
 
@@ -581,7 +581,7 @@ git-ops's own lines, and fails if its filter captures nothing so a blind pass is
 here because the shape recurs: an append-only log checked from the middle of the file silently
 stops covering everything added below it.
 
-`due: month`
+**due:** month
 
 ---
 
@@ -629,7 +629,7 @@ if the room grows its own copy of a shared control again. Note the asymmetry: th
 
 Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08-19 (three entries).
 
-`due: month`
+**due:** month
 
 ## Activate the goal-gate boundary — push, prove it red, then mark it required
 
@@ -769,7 +769,7 @@ longer matches. Scope: docs that name `.claude/commands/` as the only skill loca
 ## Pre-existing 320px horizontal overflow on the story detail page
 <!-- filed 2026-08-23, during P1141 -->
 
-`due: month` — **Not caused by P1141.** A control probe during P1141's e2e work measured the
+**due:** month — **Not caused by P1141.** A control probe during P1141's e2e work measured the
 overflow at 320px on a story with NO video and on a story WITH one, and got an *identical* set of
 offending elements both times:
 
@@ -793,7 +793,7 @@ Falsifier: set a 320px viewport on any `/story/:id` route on `main` and check
 ## False `>>` marker claim in disagreement:prepare Stage 2 attribution instruction
 <!-- filed 2026-08-25, during P1156; deliberately NOT fixed there -->
 
-`due: week` — **Measured 2026-08-24 (P1156 D2): auto-captions carry zero speaker labels of any
+**due:** week — **Measured 2026-08-24 (P1156 D2): auto-captions carry zero speaker labels of any
 kind.** A control pair — a one-speaker TEDx talk (`lJR-7_Dcess`) and a two-speaker interview clip
 (`sRv-ETHskXI`) — was probed identically: `>>` turn markers **0 and 0**, dash-dialogue markers
 **0 and 0**, bracketed speaker labels **0 and 0**. The two-speaker control is textually

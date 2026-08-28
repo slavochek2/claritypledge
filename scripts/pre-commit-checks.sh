@@ -1363,6 +1363,36 @@ else
 fi
 echo ""
 
+# 18b. decisions.md line-number citations — refuse NEW ones (P1171)
+#
+# docs/decisions.md is prepend-newest, so every "decisions.md:1234" reference
+# rots the moment another entry lands — often the same day, sometimes within
+# the same session. Measured 2026-08-27: all 6 such citations in p1171's spec
+# pointed at unrelated entries hours after being written, one of them at an
+# entry added later that same afternoon.
+#
+# SCOPE IS ADDED LINES ONLY, BY DESIGN (epistemic.md gate 7c). 68 of these
+# already exist across 22 files, most of them closed specs in features/done/.
+# A repo-wide check would refuse every commit that touches one of those files
+# for an unrelated reason. This refuses only citations being INTRODUCED.
+echo ">>> Checking for new decisions.md line-number citations..."
+NEW_LINE_CITES=$(git diff --cached -U0 -- '*.md' \
+    | grep -E '^\+' | grep -v '^+++' \
+    | grep -oE 'decisions\.md:[0-9]+' || true)
+if [ -n "$NEW_LINE_CITES" ]; then
+    echo -e "${RED}✗ New line-number citation(s) into decisions.md:${NC}"
+    echo "$NEW_LINE_CITES" | sort -u | sed 's/^/  /'
+    echo -e "${RED}  decisions.md is prepend-newest — line numbers rot within hours.${NC}"
+    echo -e "${RED}  Cite by date + tag + title instead:${NC}"
+    echo -e "${RED}    decisions.md 2026-08-25 [product], \"YouTube search matches words, not stances\"${NC}"
+    echo -e "${RED}  Resolve an existing one with:${NC}"
+    echo -e "${RED}    sed -n '1,<LINE>p' docs/decisions.md | grep '^## ' | tail -1${NC}"
+    ERRORS=$((ERRORS + 1))
+else
+    echo -e "${GREEN}✓ No new decisions.md line-number citations${NC}"
+fi
+echo ""
+
 # 19. Zombie Vite server check — detect dev servers from deleted worktrees
 echo ">>> Checking for zombie Vite dev servers..."
 ZOMBIE_COUNT=0
