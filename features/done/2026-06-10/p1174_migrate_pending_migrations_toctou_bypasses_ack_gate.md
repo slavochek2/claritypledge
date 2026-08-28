@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 79
 severity: high
@@ -13,7 +13,6 @@ tags: [migrations, prod-safety, tooling, concurrency]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1174-pending-set-integrity.sh
@@ -22,6 +21,7 @@ reproduce_artifact:
   surfaces_in_scope: [prod-interactive-ack, prod-yes-flag, ledger-fetch, preflight-ledger-check]
   surfaces_deferred: []
   reproduced_at: 2026-08-27
+completed_at: 2026-08-28
 ---
 
 # P1174: `migrate.sh`'s pending-migration enumeration and apply loop independently re-glob the migrations directory — a file landing in between bypasses the P887 ack gate and the P886 requires-frontend coupling gate
