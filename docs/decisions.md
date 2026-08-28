@@ -6,6 +6,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: `git-ops.sh ship` guards untracked files that would block the cherry-pick, but not tracked-and-dirty ones — and its lock cannot see a co-tenant's ordinary edits
+
+**Context:** Shipping P1174 halted after 1 of 4 commits: `error: Your local changes to the following files would be overwritten by merge: docs/decisions.md`. The main checkout had been verified clean four minutes earlier, and the branch had already been rebased onto current main with that exact file's collision resolved by hand in the worktree. A co-tenant session wrote `decisions.md` again in the gap. Net state: the code fix landed on main, the KDD entry and spec closure did not.
+
+**Not a missing lock.** `cmd_ship` acquires the main lock *before* the cherry-pick, and it already carries a guard that refuses when an **untracked** spec file in main's working tree would block the pick — with the exact `rm` to unblock. The gap is narrower: (1) there is no equivalent preflight for **tracked, modified** files the pick will touch — every `git diff --quiet` in `cmd_ship` is scoped to the spec pattern, never the working tree at large; and (2) the main lock serialises *git-ops operations*, so it is invisible to a co-tenant agent editing a file with an ordinary write. No lock this repo could take would have prevented it.
+
+**Decision:** Recorded, not yet fixed. The proposed guard mirrors the untracked-spec one exactly: before the first pick, intersect `git diff --name-only main..<branch>` with main's dirty set and refuse up front, naming the files — rather than discovering it commit-by-commit partway through a sequence. Deliberately *not* implemented in the P1174 ship: that would be an unrequested change to the tool actively performing the merge.
+
+**Alternatives rejected:** *Have `/ship` verify a clean tree first* — that is what happened; the verification passed and went stale in four minutes, which is the failure, not the remedy. *Auto-commit or set aside the co-tenant's work* — stash is banned, and committing another session's half-written `/docs-strategy-update` under a ship message is exactly the bystander-absorption this repo has already logged twice.
+
+**Consequences:** The failure was **safe and fully recoverable**, which is the part worth keeping: git refused before applying, so no `CHERRY_PICK_HEAD` and no sequencer state; the ship journal recorded `landed_sha` for the one commit that made it and `null` for the rest; `git-ops ship p1174 --resume` converged cleanly once the tree settled. That design worked. The residual cost is a window where main carries a fix without its KDD entry or a closed spec. Follow-up: file the preflight guard as a bug spec. Sharpest lesson, and the reason this sits next to P1174's own entry: this is the same defect class as the bug being shipped — a check whose subject can move between check and act — reached in the tooling performing the ship, while shipping the fix for it.
+
+**References:** [scripts/git-ops.sh](../scripts/git-ops.sh) · this log 2026-08-27 [technical] (P1174, gate binds only the set it inspected) · this log 2026-08-28 [process] (two-branch KDD writes conflict by construction) · this log 2026-08-28 [process] (a guard that aborts the edit does not abort the commit queued behind it) · [.claude/rules/git.md](../.claude/rules/git.md) (shared main checkout)
+
+## 2026-08-28 [process]: A prose warning inside the file it protects failed six times in fourteen days — proximity is not enforcement
+
+**Context:** `docs/process-learnings.md` is the task inbox — where [CLAUDE.md](../CLAUDE.md) sends every piece of deferred work so it never lives in the founder's memory. Its `due:` field routes an entry to `/weekly` or `/monthly`. Line 24 of that file warns, explicitly and correctly, that `/monthly` selects with `awk '/^\*\*due:\*\* month/'` and that *"an unbolded or indented `due:` line is invisible to it and the entry silently stays weekly."*
+
+**Measured 2026-08-28.** Five entries carried the unbolded form. `git log -S` attributes them to **six distinct sessions between 2026-08-14 and 2026-08-23** — the warning failed roughly weekly, for two weeks, in the file that contains it. The offending lines sat **519 to 772 lines below** the warning. Four were `due: month`; after reformatting, `/monthly`'s reader picks up **13 entries where it saw 8**. Five of the founder's own deferred items had been surfacing on the wrong cadence, inside the mechanism built so nothing would be forgotten.
+
+**Decision:** Treat *"the rule is stated in the file"* as **documentation, not a control** — the status [.claude/rules/pii.md](../.claude/rules/pii.md) already assigns itself (*"a green gate is not evidence that this rule was followed"*). Where a field is machine-read, its format needs a machine check. Concretely: a `pre-commit-checks.sh` check refusing an unbolded or indented `due:` line in either process-learnings store, built like check 18b — **added lines only**, so existing entries never block an unrelated commit ([epistemic.md](../.claude/rules/epistemic.md) gate 7c). (Status: proposed — not built; needs a spec.)
+
+**Alternatives rejected:** *Move the warning next to the entries* — there is no "next to" in an append-only log; every new entry is written further from it, so this decays by construction. *Make `/weekly` and `/monthly` accept both forms* — hides the drift and leaves the two readers disagreeing about what an entry means. *Rely on `/note` to write the field* — entries arrive by hand too, and all six sessions had the same instructions available.
+
+**Consequences:** The generalisable claim, stated narrowly: **proximity feels like coverage and is not.** A warning is read when someone goes looking for it, and not read when someone is doing the thing it warns about — which is the only moment that matters. Third instance in two days of a rule that existed and did not fire, alongside gate 7c (P1173: a guard whose fixture held only inputs it should reject) and the citation rot below. **Falsifier:** if the unbolded form reappears after a check is built, the diagnosis is wrong and the cause is upstream in how entries are authored.
+
+**Recorded here rather than as its own entry:** the author of a fix is a poor judge of the fix's *replacement text*. Diagnosing the P1171 reframe cap as unenforceable prose, then calling its successor's fallback a "backstop" — prose with no artifact behind it — happened in one edit and was caught by the independent reviewer, not by self-review. Already carried in the 2026-08-27 P1171 entry's review note; this is a pointer, not a second copy.
+
+**References:** [process-learnings.md](process-learnings.md) · [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 7c · [pii.md](../.claude/rules/pii.md) · 2026-08-27 [process] (citation rot, and check 18b's shape)
+
+---
+
 ## 2026-08-28 [process]: Writing KDD entries on a feature branch AND on main in one session guarantees a cherry-pick conflict
 
 **Context:** `/kdd` ran twice in the P1173 session — once on the feature branch (per the skill's
