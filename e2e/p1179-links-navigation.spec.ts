@@ -55,93 +55,85 @@ async function openMenu(page: Page) {
  * not a flaky product: the same test passes deterministically once the chunk
  * exists. Raised here rather than retried.
  */
-// The timeout is raised because this file's shape demands it, not because the
-// product is flaky:
-//   - every test crosses a route boundary into a LAZILY-imported chunk (/live,
-//     /transcribe, /stake), which the dev server compiles on first hit;
-//   - they share one beforeAll-created event and all drive the same dev server.
-// Set here rather than on the command line, because the contract runs this file
-// with the project's default worker count. (`mode: 'serial'` was tried and
-// REVERTED: these tests are independent, and serial turned one real failure into
-// five by chaining the rest behind it.)
-test.describe.configure({ timeout: 90_000 });
+/**
+ * COST, and why this file is shaped the way it is.
+ *
+ * Each test needs a signed-in REGISTERED attendee. Minting one through the
+ * Supabase Admin API is by far the most expensive thing here, and doing it five
+ * times — once per test, across three workers — is what made this file take
+ * minutes while its three sibling p1179 specs finish in seconds. It also put
+ * five concurrent Admin-API calls on a SHARED test database, which is where the
+ * intermittent failures came from (including a spell of PostgREST answering
+ * `PGRST002: Could not query the database for the schema cache`, an environment
+ * condition no assertion in this file can survive).
+ *
+ * So the attendee and the event are created ONCE per worker and reused; each
+ * test still gets its own PAGE, which is cheap and keeps the tests independent.
+ *
+ * Two API notes worth keeping, both learned the hard way here:
+ *   - `test.describe.configure({ timeout })` at file scope did NOTHING — the
+ *     reporter kept saying "Test timeout of 30000ms exceeded" (the project
+ *     default) while the file claimed 90s. `test.setTimeout()` is what binds.
+ *   - A HOOK has its own timeout, and `test.setTimeout()` in a `beforeEach` does
+ *     not reach it. A `beforeAll` doing Admin-API work needs its own call.
+ *   - `mode: 'serial'` was tried and REVERTED: these tests are independent, and
+ *     serial turned one failure into five by chaining the rest behind it.
+ */
+test.beforeEach(() => {
+  test.setTimeout(90_000);
+});
 
 test.describe('P1179 AC-11 — the entries reach their destinations', () => {
   let eventId: string;
   let slug: string;
+  let auth: Awaited<ReturnType<typeof getTestAuthContext>>;
 
-  test.beforeAll(async () => {
-    const { user } = await createTestUser({ name: 'P1179 Nav Host' });
-    const event = await createTestEvent(user.id);
+  test.beforeAll(async ({ browser }) => {
+    test.setTimeout(120_000);
+    const { user: host } = await createTestUser({ name: 'P1179 Nav Host' });
+    const event = await createTestEvent(host.id);
     eventId = event.id;
     slug = event.slug;
     // One per-event extra, so the "This event" group is exercised on a real row.
     const { error: linkErr } = await supabaseAdmin.from('events')
       .update({ links: [{ tag: 'tonight', label: 'Tonight' }] }).eq('id', eventId);
     if (linkErr) throw new Error(`seeding events.links failed: ${linkErr.message}`);
+
+    // ONE attendee for every test in this worker — see the note above.
+    auth = await getTestAuthContext('host', browser);
+    await rsvpToEvent(eventId, auth.user.user.id);
   });
 
-  /**
-   * WARM THE LAZY CHUNKS FIRST.
-   *
-   * Every destination here (/live, /transcribe, /stake/:tag) is a lazily-imported
-   * route that the dev server compiles ON FIRST HIT. Clicking a menu entry starts
-   * that navigation, and Playwright's click waits for the page to settle after it
-   * — so a cold compile shows up as a CLICK that never returns, with no assertion
-   * error and no failing locator, which is why this read as an unrelated hang.
-   *
-   * Measured 2026-08-28 with a probe spec: identical flow, first run failed inside
-   * the entry click at 14.8s, the immediate retry passed the whole flow at 8.6s.
-   * The only difference between them was whether the chunk already existed.
-   *
-   * Visiting the routes once here compiles them before any test measures anything.
-   * It hides nothing: no assertion is relaxed, and the click-through behaviour is
-   * still what every test below exercises.
-   */
-  test.beforeAll(async ({ browser }) => {
-    const page = await browser.newPage();
-    try {
-      for (const route of ['/live', '/transcribe', '/stake/cmp7', '/stake/cmp3', '/stake/tonight']) {
-        await page.goto(route, { waitUntil: 'domcontentloaded' }).catch(() => {});
-      }
-    } finally {
-      await page.close();
-    }
+  test.afterAll(async () => {
+    if (auth) await auth.cleanup();
+    if (eventId) await deleteTestEvent(eventId);
   });
 
-  test.afterAll(async () => { if (eventId) await deleteTestEvent(eventId); });
-
-  test('Start a Clarity Session reaches /live', async ({ browser }) => {
-    const { context, user, cleanup } = await getTestAuthContext('host', browser);
+  test('Start a Clarity Session reaches /live', async () => {
+    const page = await auth.context.newPage();
     try {
-      await rsvpToEvent(eventId, user.user.id);
-      const page = await context.newPage();
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
       await page.getByTestId('event-links-entry').filter({ hasText: 'Start a Clarity Session' }).click();
       await expect(page).toHaveURL(/\/live/, { timeout: 30000 });
-    } finally { await cleanup(); }
+    } finally { await page.close(); }
   });
 
-  test('Transcribe reaches the transcription room', async ({ browser }) => {
-    const { context, user, cleanup } = await getTestAuthContext('host', browser);
+  test('Transcribe reaches the transcription room', async () => {
+    const page = await auth.context.newPage();
     try {
-      await rsvpToEvent(eventId, user.user.id);
-      const page = await context.newPage();
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
       await page.getByTestId('event-links-entry').filter({ hasText: 'Transcribe' }).click();
       await expect(page).toHaveURL(/\/transcribe/, { timeout: 30000 });
       // Not a 404 / not-found shell — the working room actually mounted.
       await expect(page.locator('body')).not.toContainText(/page not found/i);
-    } finally { await cleanup(); }
+    } finally { await page.close(); }
   });
 
-  test('the button PERSISTS on the destination — no Back hop needed for the next one', async ({ browser }) => {
-    const { context, user, cleanup } = await getTestAuthContext('host', browser);
+  test('the button PERSISTS on the destination — no Back hop needed for the next one', async () => {
+    const page = await auth.context.newPage();
     try {
-      await rsvpToEvent(eventId, user.user.id);
-      const page = await context.newPage();
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
       await page.getByTestId('event-links-entry').filter({ hasText: /^cmp7$/ }).click();
@@ -155,31 +147,28 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
       await page.getByTestId('event-links-entry').filter({ hasText: /^cmp3$/ }).click();
       await expect(page).toHaveURL(new RegExp(`/stake/cmp3\\?event=${slug}`), { timeout: 30000 });
       await expect(linksButton(page)).toBeVisible();
-    } finally { await cleanup(); }
+    } finally { await page.close(); }
   });
 
-  test('the per-event extra appears and resolves to its tag', async ({ browser }) => {
-    const { context, user, cleanup } = await getTestAuthContext('host', browser);
+  test('the per-event extra appears and resolves to its tag', async () => {
+    const page = await auth.context.newPage();
     try {
-      await rsvpToEvent(eventId, user.user.id);
-      const page = await context.newPage();
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
       await expect(page.getByTestId('event-links-entry')).toHaveCount(6);
       await page.getByTestId('event-links-entry').filter({ hasText: 'Tonight' }).click();
       await expect(page).toHaveURL(new RegExp(`/stake/tonight\\?event=${slug}`), { timeout: 30000 });
-    } finally { await cleanup(); }
+    } finally { await page.close(); }
   });
 
-  test('a BARE /stake/:tag renders the cut-down feed with NO button and no event context', async ({ browser }) => {
-    const { context, cleanup } = await getTestAuthContext('host', browser);
+  test('a BARE /stake/:tag renders the cut-down feed with NO button and no event context', async () => {
+    const page = await auth.context.newPage();
     try {
-      const page = await context.newPage();
       await page.goto('/stake/cmp7');
       // The surface itself mounted...
       await expect(page.getByTestId('stake-event-slug')).toHaveText('', { timeout: 30000 });
       // ...and carries no Links button, because there is no event.
       await expect(page.getByTestId('event-links-button')).toHaveCount(0);
-    } finally { await cleanup(); }
+    } finally { await page.close(); }
   });
 });
