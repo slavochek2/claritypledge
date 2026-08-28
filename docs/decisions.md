@@ -6,6 +6,64 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: The qualifying criteria became a runtime filter — and a filter that excludes must print the exclusion, not drop it (P1185)
+
+**Context:** `understanding:detect` ranked candidates by potential loss and applied no other filter. But
+the question its output is used to decide is not *how big is this* — it is *is this worth the
+comprehension instrument at all*, and cp has had a written, dated answer to that since 2026-07-03,
+extended 2026-08-24: a challenge earns the instrument when its natural consequence-arbiter fails
+(fuzzy intent · delayed feedback · concentrated stakes · explanatory divergence), and the interface
+disqualifier says where a specifying interface already arbitrates, use it and don't. The criteria
+lived in `lean-canvas.md` and `definitions.md` and were read by humans writing positioning; nothing
+in the pipeline that *produces candidates* applied them.
+
+**Decision — three rulings.**
+
+1. **The filter belongs in the detector, not its consumers.** `understanding:detect` feeds a decision
+   about whether to run the protocol on an item; the arbiter-failure criteria are precisely the
+   project's answer to that question, so leaving it downstream makes every consumer re-derive the
+   same filter from the same two docs. This is inside the shareable class fixed on 2026-08-06
+   [process] — a **definition** and an **acceptance contract**, not elicitation procedure. The
+   four-slot decomposition from P1180 deliberately did *not* move for the same reason: it is one
+   consumer's output shape.
+
+2. **An excluded item is printed with its reason; it is never dropped.** A `NONE` tag or an interface
+   skip is a judgement the agent made *on the reader's behalf*, and a judgement made silently cannot
+   be corrected. This is the same asymmetry the `rung` field already runs on: the cheap error is the
+   visible one. It forced a deliberate exception to the deliverable's own omit-rather-than-pad rule —
+   a precedent you failed to find is an absence and is omitted, while an item you set aside is a
+   decision and must appear. Two bounds keep the disqualifier from deleting real candidates: the
+   interface must be **named** (a price, a standard, a precedent, a default, a gate — "there's
+   probably a process" does not fire it), and the skipped card is still emitted.
+
+3. **`NONE` is a finding, and a filter that never excludes is not running.** A high-stakes item whose
+   arbiter works is a card the instrument does not serve, and saying so is the output. The spec made
+   this testable rather than aspirational: its third criterion required a run on a real corpus to
+   produce at least one excluded card. On `docs/decisions.md`, two of four items were set aside — one
+   `NONE` (a rotted line-number citation resolves to a visibly wrong entry the moment anyone follows
+   it: immediate feedback, unambiguous intent) and one interface skip (a KDD-on-both-branches
+   cherry-pick conflict is arbitrated deterministically by git's own conflict machinery at merge).
+
+**Alternatives rejected:** *Fold the tag into the ranking* — the tag answers a different question
+from the stake, and a combined ordering makes both unreadable; set-aside items are listed after the
+ranked set instead, keeping their stake. *Let provenance feed the ranking* — first-seen ·
+reformulations · related work is history, not a score; feed it into an ordering and it becomes a
+number people optimise by restating things. Its three parts are printed separately for the same
+reason: improving a problem statement does not restart its clock, and a stable statement with
+shipped work behind it is the opposite signal from five reformulations with nothing produced.
+
+**Consequences:** Every emitted card now carries `arbiter-failure` and `provenance`; the run state
+carries per-mode counts; the reader-facing brief gains a *worth working through* column, a
+**Since when** line, and a **Not for this instrument** section. `explanatory divergence` is tagged
+where it fires but stays **UNTESTED** (deductive, zero field contact, 2026-08-24) — it is not
+weighted as if corroborated. Skill at v1.8.0.
+
+**References:** [lean-canvas.md](lean-canvas.md) §Customer Segments · [definitions.md](definitions.md)
+§When the Protocol Applies · `2026-08-24 [product], "A fourth arbiter-failure mode — attribution"` ·
+`2026-08-06 [process]` on what is shareable between skills · `features/p1185_align_detect_arbiter_filter_and_provenance.md`
+
+---
+
 ## 2026-08-28 [process]: P1184 — the align chain moved to `understanding/`; every prior `align-detect` / `align-decompose` / `align-create-letter` reference is now stale by design
 
 **Context:** `docs/decisions.md` 2026-08-28 [process] ("Three skill families...") ruled the rename but left it undone. P1184 executed it.
