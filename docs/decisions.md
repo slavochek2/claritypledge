@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: Writing KDD entries on a feature branch AND on main in one session guarantees a cherry-pick conflict
+
+**Context:** `/kdd` ran twice in the P1173 session — once on the feature branch (per the skill's
+step 0: entries ride to main when the feature merges) and once on `main` later, for work done
+directly there. `decisions.md` is prepend-newest, so both writes inserted at the top of the same
+file. `/ship p1173` then hit a guaranteed content conflict on the KDD commit, resolved by hand
+keeping both sides.
+
+**Decision:** The conflict is **structural, not accidental** — any prepend-newest file written from
+two branches in one session conflicts on merge, every time. `decisions.md` is the only such file in
+routine multi-write use. Two workable disciplines, and the choice is per-session, not global:
+write every entry in one place (branch **or** main, whichever the work belongs to) and let the
+merge carry it; or accept the conflict as expected and resolve by concatenating both blocks, which
+is what happened here and cost one manual step.
+
+What is **not** acceptable is treating it as a surprise: a `/ship` that conflicts on `decisions.md`
+after two `/kdd` runs is the predicted outcome, and `git-ops.sh` already special-cases this shape
+for `deploy-manifest.json` (`git-ops.sh:2763`) precisely because two-branch writes to one file are
+a known recurring class.
+
+**Alternatives rejected:** Append-oldest-last ordering to avoid top-of-file collisions — would
+invert the file's whole reading convention for every reader and tool that assumes newest-first, to
+save one merge resolution. Have `/kdd` refuse to run when an entry already exists on another branch
+this session — it cannot see other branches' uncommitted state reliably, and the check would fire on
+legitimate cases.
+
+**Consequences:** When a session writes KDD on a branch and expects to write more on main, resolve
+by keeping BOTH blocks — never take one side. Taking `--ours` or `--theirs` on a prepend-newest file
+silently discards a whole entry, and the loss is invisible afterward because the file still parses
+and still reads newest-first. The resolution here was verified by grepping for one heading from each
+side after the merge, which is the cheap check worth repeating.
+
+**References:** this log 2026-08-28 [process] (check-then-act) · 2026-08-27 [technical] (P1173) ·
+`scripts/git-ops.sh:2763` (the deploy-manifest special case for the same conflict shape)
+
+
 ## 2026-08-28 [process]: A guard that aborts the edit does not abort the commit queued behind it
 
 **Context:** Re-applying a parked spec edit, the script asserted the file still held the value it
