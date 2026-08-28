@@ -13,7 +13,7 @@ driver: heuristic
 
 > **[WIDENED 2026-08-19 — founder decision.]** Filed 2026-08-13 as a schema placeholder (`events.org_id`, column + backfill, *"Do NOT change event visibility or access rules here"*). That Non-Goal is **retired, deliberately**, because the condition it was waiting for arrived: the founder wants a **second Clarity Organization for online events**. The column alone does not make two organizations usable — see Problem — so shipping it without the surfaces that read it leaves the visible defect in place on the day org #2 appears. The original narrow scope is preserved at the bottom under *Superseded scope*.
 >
-> **[FINALIZED 2026-08-28 — eight founder decisions recorded below; spec is ready for development, with one copy string outstanding (D7).]** Two changes to the widened scope. **(a) The paid membership level and gated events are split out to [p1183](p1183_membership_levels_and_gated_events.md)** — different blast radius (it writes onto the terms-acceptance record, irreversible once anyone pays), nothing to attach to (zero paid members, no payment collection), and it was gating the four items that unblock org #2 this week. **(b) `/org` — a directory of all organizations — is added**, closing the follow-up that [decisions.md](../docs/decisions.md) 2026-07-23 [product] deferred by name (*"Deferred to followups: user-facing org creation, discovery index (`/org`)…"*). The condition that deferral was waiting for is the same one that widened this spec: a second organization.
+> **[FINALIZED 2026-08-28 — eleven founder decisions recorded below, visual reference approved, zero open. Ready for `/generate-tests` then `/goalify`.]** Two changes to the widened scope. **(a) The paid membership level and gated events are split out to [p1183](p1183_membership_levels_and_gated_events.md)** — different blast radius (it writes onto the terms-acceptance record, irreversible once anyone pays), nothing to attach to (zero paid members, no payment collection), and it was gating the four items that unblock org #2 this week. **(b) `/org` — a directory of all organizations — is added**, closing the follow-up that [decisions.md](../docs/decisions.md) 2026-07-23 [product] deferred by name (*"Deferred to followups: user-facing org creation, discovery index (`/org`)…"*). The condition that deferral was waiting for is the same one that widened this spec: a second organization.
 
 ## Problem
 
@@ -29,7 +29,7 @@ driver: heuristic
 
 ## Appetite
 
-**Blast radius: medium** — one nullable column is low, but the surfaces reading it are the org page, the events list, event creation, and a new public route. Reduced from *high* by the p1183 split: nothing here touches the acceptance record. **Reversibility: high** — the column, the seed, the directory route and the scoping are all revertible; no financial or terms state is written. **Decision density: one open** — the participant count's exact card wording (Solution item 8), which blocks nothing structural. All eleven decisions are recorded below.
+**Blast radius: medium** — one nullable column is low, but the surfaces reading it are the org page, the events list, event creation, and a new public route. Reduced from *high* by the p1183 split: nothing here touches the acceptance record. **Reversibility: high** — the column, the seed, the directory route and the scoping are all revertible; no financial or terms state is written. **Decision density: none open** — all eleven decisions are recorded below, and the visual reference is approved.
 
 ## Decisions (recorded 2026-08-28, founder)
 
@@ -96,12 +96,11 @@ lands, and it is exactly what the org edge buys beyond scoping a list.
   That component's own comment records why the badge needs `z-10`; a fresh implementation will
   rediscover that bug. The same reuse applies to the card's "Open" affordance — match whatever
   `/pledgers` and the profile cards already use, do not author a new one.
-- **Honest label — `[FOUNDER DECISION: exact wording]`.** We record RSVPs, not attendance. *"45
-  participants"* reads as *45 people came*; what we know is *45 people said they would*. For a product
-  whose subject is calibrated claims, that gap should not be papered over in its own directory.
-  Recommended: **"45 have joined events"** on the card, with *participant* as the roster noun in
-  [p1192](p1192_organization_participant_roster.md). If attendance is ever recorded separately, the
-  stricter word becomes available.
+- **Honest label — RESOLVED 2026-08-28: "45 have joined events".** We record RSVPs, not attendance.
+  *"45 participants"* reads as *45 people came*; what we know is *45 people said they would*. For a
+  product whose subject is calibrated claims, that gap is not papered over in its own directory.
+  *Participant* remains the roster noun in [p1192](p1192_organization_participant_roster.md). If
+  attendance is ever recorded separately, the stricter word becomes available.
 - **Zero-participant organizations** (· Online at launch) omit the row entirely rather than printing
   `0` — the same rule as the blurb and the past-event count.
 - **Not a new visibility surface.** `event_rsvps` is already world-readable; this reads rows anon can
@@ -125,7 +124,8 @@ The collision this resolved: `goals.md:15` and `lean-canvas.md:590` name the **�
 
 ## UX Design
 
-**Visual reference (PROPOSED — awaiting founder approval, 2026-08-28):**
+**Visual reference — APPROVED by the founder 2026-08-28.** `/goalify` Phase 2 is satisfied; do
+not re-ask for it.
 https://claude.ai/code/artifact/10cedd0b-ddac-42f6-8c45-4fa002319810
 
 This is the **named reference** for `/goalify`'s Phase 2 and the artifact the blind reviewer is given.
@@ -154,14 +154,17 @@ navigation levels as pills has broken a real idiom.
 like that"*). Revised in the same pass to carry the participant count and avatar row (D9/D10), and to
 drop the blurb placeholder now that D7 seeds NULL.
 
-**Still agent-drafted, needing sign-off before the reference is pinned:** the participant-count
-wording (*"45 have joined events"* — see Solution item 8, the one open `[FOUNDER DECISION]`); and the
-one-line differentiator under each org name (*"The room brings the topic"* / *"The topic is set in
-advance"*, derived from [goals.md](../docs/goals.md)'s topic-source split) — **load-bearing now that
-· Online carries no blurb**, since it becomes the only text distinguishing two near-identical names.
+**All open items signed off 2026-08-28** — the participant-count wording (*"45 have joined events"*),
+the initials tiles, and the one-line differentiator under each org name (*"The room brings the
+topic"* / *"The topic is set in advance"*, from [goals.md](../docs/goals.md)'s topic-source split).
+That last line is **load-bearing now that · Online carries no blurb**: it is the only text
+distinguishing two near-identical names, so treat it as product copy, not a caption.
 
-**Not yet approved — do not pin the contract against it until it is.** Changing the reference after
-`goal-gate` pins its hash changes what "done" means mid-run.
+**Freeze it at pin time.** The URL is stable across republishes — which is why one link suffices, and
+also the hazard: the page behind it can change while the link cannot. Once `goal-gate` pins the
+contract hash, **do not republish the artifact**; a changed reference silently changes what the blind
+reviewer is judging against, mid-run, with nothing to detect it. If it must change, unpin, republish,
+re-pin.
 
 ## Risks / Non-Goals
 
