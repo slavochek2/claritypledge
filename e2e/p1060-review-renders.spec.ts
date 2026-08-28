@@ -43,6 +43,8 @@ test.describe('P1060 reviewer renders', () => {
   let host: TestUser;
   let p1: TestUser;
   let p2: TestUser;
+  /** Overflow participants — see the comment at their RSVPs below. */
+  let overflow: TestUser[] = [];
   let upcoming: TestEvent;
   let past: TestEvent;
   let pastOnlyEvent: TestEvent;
@@ -64,6 +66,17 @@ test.describe('P1060 reviewer renders', () => {
     host = await createTestUser({ name: 'Render Host' });
     p1 = await createTestUser({ name: 'Ada Lovelace' });
     p2 = await createTestUser({ name: 'Grace Hopper' });
+    // The avatar row draws at most PARTICIPANT_AVATAR_LIMIT (5) faces and collapses
+    // the remainder into a "+N" chip. With three participants that chip NEVER
+    // RENDERS — which is why a reviewer reported it untested rather than passed,
+    // and why contract row UI-2 ("the +N badge legible rather than obscured by the
+    // last avatar") has no evidence behind it. Seed past the limit so the state the
+    // contract names is actually reachable.
+    overflow = await Promise.all(
+      ['Katherine Johnson', 'Barbara Liskov', 'Radia Perlman', 'Margaret Hamilton'].map((name) =>
+        createTestUser({ name }),
+      ),
+    );
 
     await createTestMembership(org.id, member.user.id, { role: 'member' });
     await createTestMembership(org.id, host.user.id, { role: 'organizer' });
@@ -86,16 +99,17 @@ test.describe('P1060 reviewer renders', () => {
     await rsvpToEvent(upcoming.id, p1.user.id);
     await rsvpToEvent(past.id, p2.user.id);
     await rsvpToEvent(past.id, member.user.id);
+    for (const u of overflow) await rsvpToEvent(upcoming.id, u.user.id);
 
     // `createTestUser` hardcodes avatar_color '#4A90E2' for every fixture profile
     // (test-user.ts:178). Real profiles carry distinct colours, so a render left at
     // the default photographs three identical discs and certifies an avatar stack
     // nobody sees in production. Give each participant its own colour so the
     // reviewer is judging the real thing.
-    const COLOURS = ['#3B82F6', '#0EA5E9', '#6366F1'];
+    const COLOURS = ['#3B82F6', '#0EA5E9', '#6366F1', '#14B8A6', '#F43F5E', '#8B5CF6', '#64748B'];
     await Promise.all(
-      [p1, p2, member].map((u, i) =>
-        supabaseAdmin.from('profiles').update({ avatar_color: COLOURS[i] }).eq('id', u.user.id),
+      [p1, p2, member, ...overflow].map((u, i) =>
+        supabaseAdmin.from('profiles').update({ avatar_color: COLOURS[i % COLOURS.length] }).eq('id', u.user.id),
       ),
     );
 
@@ -113,7 +127,7 @@ test.describe('P1060 reviewer renders', () => {
   test.afterAll(async () => {
     for (const e of [upcoming, past, pastOnlyEvent]) if (e?.id) await deleteTestEvent(e.id);
     for (const o of [org, pastOnlyOrg]) if (o?.id) await deleteTestOrganization(o.id);
-    for (const u of [member, host, p1, p2]) if (u?.user?.id) await deleteTestUser(u.user.id);
+    for (const u of [member, host, p1, p2, ...overflow]) if (u?.user?.id) await deleteTestUser(u.user.id);
   });
 
   test('A — /org signed out, desktop', async ({ page }) => {
@@ -174,6 +188,11 @@ test.describe('P1060 reviewer renders', () => {
     await page.goto(`/org/${org.slug}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(/have joined events/)).toBeVisible({ timeout: 15000 });
+    // Prove the state the contract names is actually IN this render before it is
+    // handed to anyone: more participants than the row draws, so the "+N" chip
+    // exists rather than being assumed. A render that silently lacks the state it
+    // was captured for certifies nothing.
+    await expect(page.getByText(/^\+\d+$/)).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: `${OUT}/F-org-header-participants.png`, fullPage: true });
   });
 });
