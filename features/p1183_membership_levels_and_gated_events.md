@@ -4,12 +4,15 @@ type: story
 rank: 44
 created_date: '2026-08-28'
 tags: [organizations, membership, events, pricing, schema]
+blocked_by: [p1060]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: founder
 ---
 
 # P1183: A membership carries a level, and some events only paid members may join
+
+**Blocked by [P1060](p1060_link_events_to_organizations.md).** Do not start until P1060 has shipped. P1060 creates `events.org_id` and the second organization; without that edge there is no organization for a level to be scoped to and no gated event to attach a requirement to. This is an ordering dependency, not an association — P1183 is unbuildable before it, not merely related to it.
 
 > **Split out of [p1060](p1060_link_events_to_organizations.md) on 2026-08-28 (founder decision).** P1060 was widened 2026-08-19 to carry both the org↔event edge *and* the paid membership level. They have different blast radii and different readiness: the edge is reversible schema-and-UI work that unblocks the second organization this week; the level writes onto the row that **is** the Clarity Organization Terms acceptance record, is irreversible once anyone has paid, and has nothing to attach to — **zero paid members exist and no payment collection is built**. P1060 keeps items 1–4 plus the `/org` directory. This spec owns item 5.
 
