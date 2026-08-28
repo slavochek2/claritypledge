@@ -22078,7 +22078,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** Disable macOS auto-restarts (`sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -int 0`). Accept that Claude conversations are always lost on restart. Use `/resume` within the same project dir for continuity. tmux remains useful for background processes and surviving accidental Ghostty close — not for Claude conversation persistence.
 **Alternatives rejected:** tmux-resurrect/continuum layering — restores shell only, not the claude process or its conversation state.
 **Consequences:** Machine no longer auto-restarts. Claude conversations lost on any restart are expected and not worth engineering around. tmux kept for legitimate uses (background processes, window organization).
-**References:** [tmux-setup.md](~/Projects/private/personal/docs/tmux-setup.md) · MEMORY.md
+**References:** `tmux-setup.md` in the private personal repo (link removed — a relative markdown link cannot reach outside this repo, so it was dead from the day it was written) · MEMORY.md
 
 ---
 
