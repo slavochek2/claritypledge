@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: `/goalify` hands the founder ONE line runnable from anywhere — the `cd` and the rebase were artifacts of my own step ordering, not of the design
+
+**Context:** P1179's goalify run ended by telling the founder to paste `cd .../worktrees/w1 && git rebase main` and *then* type `/goal`. Founder, verbatim: *"I find it weird. I don't want, for example, to do CD and go into the worktree… I was thinking that I can just go slash goal from main… now you hardcoded it and who knows maybe some other neighboring session already occupied working tree."*
+
+Three separate complaints, and **only one of them was about the design.**
+
+**The rebase was a self-inflicted ordering bug.** `goalify` Phase 5 pins the contract to `main` (step 1) *then* claims the worktree (step 2), precisely so the slot is cut from a commit that already carries the contract. This run inverted it — the pin commit was blocked for ~10 minutes by a co-tenant session holding the shared index (a live `/ship p1161` with four files staged, including the P1161 spec-close rename), so the claim happened first and the worktree came up one commit short. **The founder was then handed a sync step they had no part in creating.** The skill now says: if the pin is blocked and you claim first, rebase the worktree yourself and say so.
+
+**The hardcoded slot was real and is fixed.** `w1` is reserved atomically by `git-ops.sh claim`, so a neighbouring session genuinely cannot take it — the founder's worry was wrong about *that* mechanism but right about the artifact: a literal `wN` in a security-relevant command goes stale the moment work moves. The emitted line now names the **branch** (`feature/pN-<slug>`) and lets the slot resolve from `git worktree list` at run time.
+
+**The `cd` was the only real constraint, and it still did not need to reach the founder.** `goal-gate.sh` CHECK 3 hard-refuses on the main checkout (*"refusing to soft-reset outside a worktree — main's index and HEAD are shared"*), so a loop started there cannot reach exit 0 no matter what it builds; the invariant behind that refusal is the same shared index that had just blocked the pin. But Claude Code enters an existing worktree **in-session** — it needs no shell — so the instruction belongs in the goal line, not in the founder's fingers.
+
+**Decision:** `goalify` Phase 5 no longer runs `pwd`, no longer branches on where the session is standing, and never emits a `cd`. It emits one line, runnable from anywhere in the repo:
+
+    /goal "Work in the worktree on branch feature/pN-<slug>. Then: ./scripts/goal-gate.sh pN exits 0, output pasted. Stop after 30 turns."
+
+**This deliberately breaks the skill's own "one clause" rule, and the rule was amended rather than quietly violated.** The worktree prefix names a *location*, not a method, and without it the run cannot reach exit 0 at all. It is now documented as the single permitted exception; everything else the loop needs lives in the spec.
+
+**Alternatives rejected:** (a) **Leave the `cd` and explain it better** — the founder's objection was not that it was unexplained. (b) **Let the gate's own refusal teach the loop** — CHECK 3 already prints "run the loop in a worktree", so an agent started on main would self-correct on turn 1. Rejected: it burns a turn and makes a safety property depend on an agent reading an error, when a five-word prefix makes it structural. (c) **Drop the worktree requirement and let the loop run on main** — this is the one that must never happen; it is the unattended-prod-write hazard the refusal exists for.
+
+**Consequences:** Applied to P1179's spec and to `goalify/SKILL.md` in the same session. The "one clause" prose in the skill's *Why the finish line is an exit code* section was updated in step with Phase 5, so the two cannot drift. **The general lesson is the ordering one, not the format one:** a step sequence that is correct on paper produces founder-visible manual work the moment a co-tenant blocks the middle of it, and the agent that caused the inversion is the one that must absorb it. (Status: proposed)
+
+---
+
+## 2026-08-28 [product]: the locked stake surface is a GLOBAL route, not a page nested under an event — the content was never event-scoped, only the button was
+
+**Context:** P1179's spec proposed `/events/:slug/stake/:tag`, reasoning that the surface must sit "inside the event" so the Links button persists on it. I recommended that shape. The founder rejected the premise: *"I don't know if it should live under an event, should it? Because it's a general thing. It's just like a feed… so it's probably not under event, right? Because it's for all events."*
+
+**They were right, and the spec's reasoning had conflated two different things.** `cmp7` renders the same seven Points at every event — nothing about the *content* belongs to an event. The only thing that did was the **Links button**, which renders on room routes; nest the page and the button follows for free, hoist it and the attendee has nothing to tap when the host says "now go to `cmp3`", which is the single failure the whole feature exists to prevent.
+
+**Decision:** `/stake/:tag`, global, with the event carried alongside as `?event=<slug>`. The Links menu writes the param onto every entry it generates, so the button persists across destinations with no Back hop; a bare `/stake/:tag` is a usable, handable cut-down feed with no button and no event context. **This overrides the spec's own Solution §3** and is recorded in its `## Resolved Decisions`.
+
+**Alternatives rejected:** (a) **Nested under the event** — the spec's original; the button works with nothing extra, but the page cannot be handed to anyone outside an event, which contradicts what it is. (b) **Global and plain, no param** — matches the mental model exactly but the button has no way to know it is in an event, so it disappears and the room goes back between destinations.
+
+**Consequences:** The room gate does **not** extend to the stake surface — a signed-out visitor reaching `/stake/:tag` directly sees public content, exactly as `/feed` does today, so the spec's UX-Notes line about inheriting `EventRoomGate` no longer applies. A new public top-level route is added to the URL namespace. **UNTESTED** — nothing is built yet; the falsifier is the first live event: if an attendee lands on a stake page and cannot reach the next destination without pressing Back, the param is not being carried and the design has failed on its one requirement. (Status: proposed)
+
 ## 2026-08-28 [process]: `/reproduce` now hands `/fix` a fact about the remedy, not a model budget — the first draft was a self-serving ratchet
 
 **Context:** `/pick-flow` routes `/fix` to Sonnet low/medium by name, on the assumption a fix *executes* a decided remedy. `/fix` itself has no model/effort step at all (zero hits in `fix.md`). P1178 broke that assumption: reproduction found two credible remedies, an auth-boundary change, and a spec requirement the canary does not assert. The only reason that `/fix` will run on Opus is that the founder asked in the same session as the reproduction — the judgment does not survive a day's gap.
