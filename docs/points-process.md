@@ -190,7 +190,8 @@ arguers:                              # REPEATABLE, 2..6 entries, one per distin
     view_count: <int>
     comment_count: <int>
     gate_0_method: "<title-screen | transcript-read | founder-confirmed>"
-    gate_0_basis: "<single-speaker | turn-verified>"
+    gate_0_basis: "<single-speaker | turn-verified | speaker-labelled>"
+    diarization: "<null | { oracle: passed, turns: <int>, speakers: <int>, mapping_evidence: '<the in-transcript line that fixes the label to the person>' }>"  # required when gate_0_basis is speaker-labelled
     claim: "<what this video argues>"
   - position: 2
     ...                               # repeat per arguer, up to 6

@@ -319,15 +319,111 @@ rather than guessing keywords off the topic string.
 
 ### Gate 0 — One Voice, or One Voice Plus a Verified Questioner (Hard Gate)
 
-**Two admissible source shapes, and nothing else:**
+**Three admissible source shapes, and nothing else:**
 
 | Shape | Basis it earns | Admitted how |
 |---|---|---|
 | **Solo** — every word belongs to the approved person | `single-speaker` | Steps 1–4 below |
 | **One-way interview** — one arguer plus a host who asks questions and takes no position | `turn-verified` | Steps 1–4 **plus Step 2b**, on pasted measurement |
+| **Diarized multi-speaker** — two or more voices, speaker-labelled by `/slava:util:diarize` | `speaker-labelled` | Steps 1–4 **plus Step 2c**, on pasted diarization + oracle |
 
-Debates, panels, and podcasts with a *second arguer* stay rejected. The line is **who argues**, not
-how many mouths are in the room.
+Panels and debates **with a second arguer on the same fork** stay rejected even when diarized —
+diarization fixes *attribution*, not the same-side trap, and a second arguer collapses one position
+into two sources. The line is still **who argues**, not how many mouths are in the room.
+
+> **Why the third shape is an upgrade, not a relaxation.** `turn-verified` rests on **alternation
+> parity** — the markers say a speaker *changed*, never *who* — so its ≥75% threshold is a proxy for
+> "is attribution safe here?". Diarization answers that question **directly**, with consistent
+> per-turn labels. A `speaker-labelled` source is therefore held to a *higher* standard than a
+> `turn-verified` one, not a lower one, and needs no word-share threshold at all.
+>
+> **Why it was added (2026-08-28).** Measured across two topics and ~25 sources: every recent
+> (post-2025-11) AI source with audience reach is a two-way podcast. Gate 0 admitted **1 of 5**
+> positions on a topic Phase 0 had proved genuinely contested — LeCun, Bengio, Yudkowsky and
+> Andreessen all rejected as two-way at 60.0%, 56.0%, 53.8% and (panel) 80.8%. That is a property of
+> the **medium**, not of the topics, and no amount of searching fixes it.
+
+### Step 2c — Diarization (multi-speaker sources)
+
+**Run `/slava:util:diarize` and paste its output. A claim that "the speakers are clearly
+distinguishable" is not this step.**
+
+0. **Check the store FIRST, and write back to it after.**
+   `~/.local/share/diarize-store/<video_id>/<start>s+<duration>s.json` — a hit means this window is
+   already transcribed; use it and spend nothing. After any real diarize run, copy the `--json` output
+   in under that name. **The script does not do this for you**, and this step lives here rather than
+   only in `/slava:util:diarize` because an agent following Step 2c verbatim would otherwise never
+   consult or populate the store — which is how five diarizations (~$2, ~40 min of downloads) were
+   left one session-exit from deletion on 2026-08-28.
+
+1. **Diarize the source.** `diarize <url|file> --speakers N --json <out>`. Note its **30-minute cap**:
+   a longer source needs successive `--start` calls, and a `truncated: true` in the JSON must never be
+   read as a whole transcript. **Do NOT pass `--vocab`** — the API rejects it whenever timestamps are
+   on, and diarization always requires timestamps (measured 2026-08-28:
+   `custom_vocabulary is incompatible with timestamps`).
+
+2. **Apply the structural oracle, and paste it.** In an interview the host asks and the guest answers
+   at length. **If questions and answers land on the same speaker label, diarization failed and the
+   source is REJECTED.** This oracle is semantic, so it is independent of the acoustics being tested —
+   which is exactly what makes it admissible evidence about them.
+
+3. **Map speaker labels to real names from CONTENT, and show the line that does it.** `spk:0`/`spk:1`
+   are arbitrary and **not stable across runs**. Never map them from a name appearing in the
+   transcript — the ASR fills proper nouns from its priors and has been measured rendering one
+   person's name two different ways across two runs of the same audio. Map from an unambiguous
+   in-transcript referent instead (measured 2026-08-28: *"the title of **your** book"* addressed to
+   `spk:0` fixes `spk:0` as the author).
+
+4. **A source whose labels cannot be mapped to real names is REJECTED**, however clean the
+   diarization. An unmapped label is `turn-inferred` wearing a better costume.
+
+**Consolidate labels to PEOPLE before trusting any count. Measured, and it reversed a conclusion.**
+Diarization **over-splits a single speaker across multiple labels**. On `_V_ed5fuexA` it returned
+3 speakers for a 2-person interview: `spk:0` the host (*"Good evening, everybody. Good evening,
+Yuval"*), and **both `spk:1` and `spk:2` were Harari** (*"Hey, it's good to be here"* / *"democracy in
+essence is a conversation whereas dictatorship is a dictate"*). Raw per-label shares read
+53.2/29.2/17.7 — apparently a REJECT at the 75% bar. Consolidated to people: **1169 + 2129 = 3298 of
+4005 = 82.3%**, reproducing the independent parity figure to the decimal and confirming the ADMIT.
+
+Two consequences, both load-bearing:
+
+1. **Never compute a share, a speaker count, or a verdict from raw `spk:N` labels.** Map labels to
+   people first (step 3 below), then aggregate. A run that skips this rejects sound sources and can
+   admit unsound ones — the mapping step is the measurement, not paperwork around it.
+2. **The panel signal is the ORACLE, not the word share.** On the fixture below, three *distinct*
+   speakers ask questions — that is what makes it a panel, and it survives label over-splitting.
+   Word share does not: consolidate the fixture's two largest labels and it would read ~81%, right
+   past the bar. **Count the askers.**
+
+**FAILURE FIXTURE — this gate has been watched fail, on a real source (2026-08-28).**
+`Gw1azCJpsPw` ("Why AI Sovereignty Depends on Open Source", a 4-person panel) is the negative control
+for Step 2c. Re-run it whenever this step is edited; a Step 2c that admits it is broken.
+
+| Signal | Value | Verdict |
+|---|---|---|
+| Speakers detected (`--speakers 2` passed) | **4** | unreliable-labels warning fires |
+| Word share | 48.0% / 33.2% / 18.7% / 0.1% | **no dominant speaker** |
+| Oracle: which speakers ask questions | **three** of them (8/11, 4/6, 4/9) | one-way interview has ONE asker → FAIL |
+
+**The number that matters most is the disagreement between the two methods.** Step 2b's parity
+measurement scored this same source **80.8%** — comfortably above its own ≥75% bar, i.e. Step 2b
+would have ADMITTED a four-person panel. Diarization puts the dominant speaker at **48.0%**. That is a
+**33-point error in the parity method on a real source**, and it is the clearest available evidence
+for the ordering asserted above: `speaker-labelled` is strictly stronger than `turn-verified`, and a
+`turn-verified` word share is a screening heuristic that can be badly wrong, never a measurement.
+
+**Consequence for Step 2b, stated rather than left implicit:** a source admitted on parity alone has
+never been checked against acoustics. Prefer diarization for any multi-speaker source where the
+quotes will be published.
+
+5. **Per-quote confirmation in `/slava:disagreement:positions` Step 4b is NOT waived.** Diarization
+   makes it reliable; it does not replace it. Every guarantee that held at `turn-verified` holds here.
+
+6. **Cost and limits, stated so a run can budget:** ≈$0.005/min of audio. YouTube audio download is
+   IP-gated — a datacenter/VPN address returns 403 on the media CDN even when captions and metadata
+   succeed from the same machine (measured 2026-08-28: VPN egress `M247/Singapore` → 403 on every
+   player client; the same request from a residential IP succeeded). Route via `proxy run` or a home
+   IP; this is not a cookie problem and signing into Chrome does not fix it.
 
 > **Why this is not a loosening.** `docs/decisions.md` 2026-08-19 ruled speaker attribution is solved
 > by source selection and named the acceptable shapes: *"Prefer single-speaker **or dominant-speaker**

@@ -6,6 +6,65 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: A search that keeps failing may be measuring a consensus — and `select` was found stricter than its own chain three times in two days
+
+**Context:** A `/slava:disagreement:select` run on *"whether AI concentrates power or distributes it"* consumed **seven search sweeps and ~12 fetched-and-measured sources** before the topic turned out to be a **consensus**, not a thin topic. Every advocate found asserts power *is* concentrated: Ng (*"why is AI largely concentrated in the big tech companies"*), Harari, Mensch (*"Warns Against AI Power Concentration"*), LeCun (*"AI Is Power, Not Intelligence"*), Van Jones. The skill's **own Phase 3 judge step had flagged it** in objection 1 — *"both speakers say concentrated in the present tense"* — and the run argued past it. The founder diagnosed it, not the agent: *"we agree but we dont know how to solve it"*.
+
+**Decision:** Contestedness is established **before** any search (shipped as P1171's Phase 0), and the test is a **written contradiction sentence**, not a count of positions. ≥2 advocates with distinguishable emphases is not a disagreement — for at least one pair you must be able to write a sentence X asserts and Y **denies**. Silence is not denial. A consensus verdict is a **successful, informative outcome** that stops the run with the shared premise named and zero searches performed.
+
+**Alternatives rejected:** (a) *Relax the recency floor to pair an older source with a recent one* — founder rejected on the merits: it manufactures a fake disagreement between people who agree, which is worse than filing nothing. (b) *Move the judge step earlier* — the judge evaluates sources, which do not exist at Phase 0; different input, different question. (c) *Keep searching* — the seventh sweep was as uninformative as the first, because the search was not failing.
+
+**Consequences:** The general form is worth carrying beyond this pipeline: **when a search repeatedly returns near-misses, test whether the question has an answer everyone already shares before widening the search again.** Related and recorded here because it surfaced in the same run: **`select` was found stricter than its own downstream chain three separate times in two days** — Gate 0 rejected multi-speaker sources that `positions`/`publish` already supported via `speaker-labelled`; `select` was pair-shaped while `story-draft` was already N-agnostic (zero pair-hits) and the schema's arguer blocks were already repeatable; and the schema enum was missing `speaker-labelled` after the Gate 0 change. The pattern is that the **entry-point stage accretes constraints its consumers never required**. Standing check: when a stage refuses something, grep whether the rest of the chain actually needs the refusal.
+
+**References:** [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md) · [p1167](../features/done/2026-08-27/p1167_gate0_accepts_one_way_interviews.md) · `.private/points-runs/consensus-log.md`
+
+## 2026-08-28 [technical]: Diarization admits multi-speaker sources — but consolidate labels to PEOPLE before computing any share, count or verdict
+
+**Context:** Across two topics and ~25 measured sources, **every recent AI source with audience reach is a two-way podcast.** Gate 0 filled **1 of 5** positions on a topic Phase 0 had proved genuinely contested — Bengio, Yudkowsky and Andreessen rejected as two-way at 60.0%, 56.0% and 53.8%, and LeCun's on-thesis source rejected as a panel. That is a property of the **medium**, not the topics, and no amount of searching fixes it.
+
+**Decision:** A third admissible Gate 0 shape — **diarized multi-speaker**, earning the pre-existing `speaker-labelled` basis, admitted via a new Step 2c. It is a **higher** standard than `turn-verified`, not a lower one: `turn-verified` rests on alternation parity (markers say a speaker *changed*, never *who*), while diarization answers the question directly, so no word-share threshold applies at all. Per-quote confirmation is **not** waived.
+
+**Two measured rules inside it, both of which reversed a conclusion:**
+1. **Never compute a share, speaker count or verdict from raw `spk:N` labels.** Diarization **over-splits one speaker across several labels**. On `_V_ed5fuexA` it returned 3 speakers for a 2-person interview, with **both `spk:1` and `spk:2` being Harari**. Raw shares read 53.2/29.2/17.7 — an apparent REJECT. Consolidated to people: **3298 of 4005 = 82.3%**, reproducing the independent parity figure to the decimal and confirming the ADMIT.
+2. **The panel signal is the ORACLE — count distinct askers — never word share.** The negative-control panel `Gw1azCJpsPw` scored **80.8%** on parity, comfortably above the ≥75% bar; diarization put its top speaker at 48.0% and found **three different speakers asking questions**. Consolidate its two largest labels and it reads ~81% and sails through. Word share cannot tell one dominant speaker from one dominant panelist; the asker count can.
+
+**Alternatives rejected:** *Escalate transcription to a newer model* — `gemini-3.7-flash` exists but **no 3.7 transcribe model does**; a general model would infer speakers from content, which is precisely the `turn-inferred` guessing the pipeline forbids. A general model **is** right for label consolidation, which is a text judgment strictly downstream of transcription.
+
+**Consequences:** `Gw1azCJpsPw` is retained as the **failure fixture** for Step 2c — a gate never watched fail is unproven (epistemic gate 7), and building this one surfaced both rules above. Note the two error directions: the panel case would have **admitted** a bad source, the over-split would have **rejected** a good one. Same class, opposite signs.
+
+**References:** `.claude/commands/slava/disagreement/select.md` Step 2c · `/slava:util:diarize` · [p1164](../features/p1164_points_prepare_false_turn_marker_instruction.md)
+
+## 2026-08-28 [process]: Six probes returned confident wrong answers in one session — every one caught by re-running a control, none by reasoning harder
+
+**Context:** A single session produced six measurements that were confidently wrong, in both directions:
+1. a literal `>>` grep that missed **HTML-escaped** markers (`&gt;&gt;`), returning 0 on a file with 106;
+2. an `awk` date filter where `"NA" > "20251127"` is true, so **every row passed** — a filter that admits everything is indistinguishable from one that finds everything valid;
+3. the agent's own "the earlier probe was blind" hypothesis, **refuted** by re-running that spec's named control pair (0 in both spellings on both controls);
+4. a portrait script printing `portrait: none` for three people whose API calls had **failed** — an error reported as an absence;
+5. a 4-person panel scoring **80.8%** on a gate meant to detect one-way interviews (would have admitted it);
+6. diarization over-splitting one speaker into two labels, 53.2% apparent vs 82.3% true (would have rejected a sound source).
+
+**Decision:** Record the pattern rather than six separate fixes. **The catching mechanism was the same every time: run a known-good control through the identical probe, on the identical metric.** Reasoning harder caught none of them; in case 3 the agent's reasoning was the thing that was wrong, and only the control re-run settled it.
+
+**Alternatives rejected:** *Add a rule per failure* — six rules for one failure mode trains the next agent to skim all six. *Trust producer self-verification* — case 3 is an agent asserting a verification it had not correctly performed.
+
+**Consequences:** Two additions to the existing control-probe discipline, both earned here. **(a) An error path must never render as an absence** — cases 1 and 4 both printed a clean negative for a call that failed or a pattern searched in the wrong spelling; separate the two outcomes in the output. **(b) A comparison between two methods must hold the window fixed** — case 6's apparent refutation of a sealed artifact came from comparing diarization over 0–29min against parity over the full 48min; re-running parity on the *same* window kept the gap, and only then did label consolidation resolve it. Sequence worth keeping: fixture → apparent refutation → coverage check → consolidation → convergence.
+
+**References:** [epistemic.md](../.claude/rules/epistemic.md) gates 5 and 7 · [p1164](../features/p1164_points_prepare_false_turn_marker_instruction.md)
+
+## 2026-08-28 [technical]: Correction — "auto-captions contain none" is over-generalized from n=2, and expensive results silently failed to persist in two tools
+
+**Context:** This log's entry **2026-08-25 [process], "Story writing is craft that iterates; point extraction is a rule engine that must not move — so they stop sharing a skill"** states, in its Consequences, that *"`/points-prepare` v0.6.1 still instructs attribution 'by content and by the `>>` turn markers'; **auto-captions contain none**"*. `decisions.md` is append-only, so this entry corrects it rather than editing it. (Cited by date+title, not line number. The first draft of this entry used a line number and the pre-commit gate refused it — correctly, since prepending these four entries had already moved the line it pointed at.)
+
+**Decision:** **The claim is over-generalized from n=2 and is false as a general statement.** Measured 2026-08-27 across three **auto-caption-only** videos (no manual subtitle track on any): `lJR-7_Dcess` **0** markers, `sRv-ETHskXI` **0**, `_V_ed5fuexA` **36 after reconstruction** (106 naive, because rolling captions repeat lines). YouTube's auto-captioner emits speaker-change markers on some videos and not others. The original measurement was **correct on its own two sources** — this is a generalization defect, not a bad measurement, and the fix is to **probe per source, in both spellings**, never to assert presence or absence globally.
+
+**Also recorded — the same shape, twice, in two tools:** expensive results silently failed to persist. `yt-store` bypassed **every** caption fetch this session, from three stacked causes: an unrecognized `--write-auto-sub` alias (fixed, with all aliases routed to one cache key); an **undocumented** requirement that `-o` be exactly `PREFIX%(id)s.%(ext)s`; and an unresolved miss even when correctly shaped. Diarization had **no store at all** — five results (~$2, ~40 min of downloads) sat in a session scratchpad one exit from deletion.
+
+**Consequences:** The shared shape is worth more than either bug: **the refusal is computed, sent to a control channel, and the operation then succeeds normally — so the only symptom is paying twice.** Surfacing that one line would have exposed all three yt-store causes on the first fetch instead of after two sessions. **The alias fix is safe *vacuously*, not structurally:** aliases agree, and so does everything else, because nothing ever hits — the key-collision property is untested and becomes load-bearing exactly when the store starts working. A wrong hit would serve one video's transcript for another's, silently, into quote verification. Required test recorded in `pp/docs/infra/youtube.md` before that cause is closed.
+
+**References:** `pp/docs/infra/youtube.md` · [p1164](../features/p1164_points_prepare_false_turn_marker_instruction.md) · `~/.local/share/diarize-store/`
+
+
 ## 2026-08-28 [technical]: The nav centre slot's 320px clearance was measured for an anonymous visitor — a signed-in one does not fit, and a navigation control may not use it (P1179)
 
 **Context:** P1179 designs a "Links" menu for the event room, and its first Solution proposed
