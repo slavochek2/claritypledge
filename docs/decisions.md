@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: A rename that ships mid-session orphans the specs filed before it — and the spec that ships it is the one least likely to notice
+
+**Context:** P1184 (move the align chain into an `understanding/` namespace) was filed this session and executed by a **different concurrent session** roughly forty minutes later, while this one was still filing specs. It shipped clean: `align-*` gone, `understanding/detect · reconstruct · create-letter` in place, `status: qa`. The executing session also improved the middle stage's name — `reconstruct` rather than the `decompose` the spec proposed.
+
+**It immediately created the exact failure its own Done-When exists to catch.** P1185 had been filed ~40 minutes earlier and referenced `align-detect` in its title, Problem, Solution and Related sections. The moment P1184 landed, P1185 was a live spec pointing at a skill that no longer exists — and P1184's Done-When (*"every `/skill-name` mentioned in prose across the repo resolves — proven by a grep whose output is pasted"*) could pass against the repo as it stood when that session ran it, because P1185 was committed **after** it started.
+
+**Decision:** three things, none of which is "check harder".
+
+1. **A namespace rename's reference sweep is not a point-in-time check on a shared checkout.** Re-run it at merge, not only at implementation. The window between the sweep and the merge is exactly where concurrently-filed specs land.
+2. **The renaming spec cannot be the only thing that catches this** — it greps a repo that other sessions are still writing to. Anything filed during the rename's lifetime needs its own check, and the person who notices is whoever filed it, not whoever shipped the rename.
+3. **`decisions.md` references to renamed skills stay stale by design** (append-only) and are correctly left alone; only live specs and live docs get repointed. P1185 was repointed; the log was not.
+
+**Why this is a distinct entry rather than an instance of the co-tenant theme.** The other two collisions this session were destructive — uncommitted work reverted, and a commit landing another session's files under this session's message. This one is neither: both sessions did correct work, both commits are good, and the defect exists only in the *relationship* between two artifacts that were individually fine. No lock, index discipline or commit-verification step would have caught it, because nothing went wrong at commit time.
+
+**Consequences:** P1185 repointed to `understanding:detect` / `understanding:reconstruct` in `74455b0c`. **Unproven:** nothing detects a spec referencing a renamed skill — the same gap P1184 names, now with a second instance and a demonstrated timing hole. A rename-aware reference check that runs at merge would close it; not filed, because it needs one deliberate decision about where such a check lives. (Status: proposed)
+
+**References:** [features/p1184_understanding_namespace_rename.md](../features/p1184_understanding_namespace_rename.md) · [features/p1185_align_detect_arbiter_filter_and_provenance.md](../features/p1185_align_detect_arbiter_filter_and_provenance.md) · decisions.md 2026-08-28 [process] (skill families, which specified the rename) · 2026-08-05 [process] (cross-skill references rot silently)
+
+---
+
+## 2026-08-28 [process]: Two routing calls on the problem-board chain — inline the procedure, and the four slots are a composition, not a primitive
+
+**Context:** Filing P1180 raised two questions whose answers were already in the repo and were nearly re-derived by hand.
+
+**Decision 1 — `/problem-submit` inlines its detection steps; it is not an orchestrator.** `decisions.md` 2026-08-06 [process] rules that *"composite skills do not call sub-skills"* and that **elicitation procedure is never shareable** — each skill inlines its own, while **definitions and acceptance contracts are**. Its stated reason names this case exactly: eliciting from a chat archive (*can grep, cannot ask*) is a different procedure from eliciting from a live human, and forcing one shared procedure makes each worse. The first draft of P1180 said *"extend it rather than reimplement it"*, which reads as orchestration and contradicts the ruling.
+
+**But two things DO transfer, and that is a separate spec (P1185), not a side effect.** The arbiter-failure filter and item provenance serve the detection skill's **own** job — it feeds a decision about whether the comprehension instrument applies at all, which is precisely what the arbiter-failure criteria answer, and it currently filters on stake magnitude alone. What does **not** transfer is the four-slot decomposition: that is one consumer's output shape, and `understanding:reconstruct` already builds anti-point → reverse-story → point aimed at −3/10/+3, a joint construction four independent slots would break.
+
+**Decision 2 — the four-slot construct lives in `docs/story-point-model.md`, not `definitions.md` and not its own file.** Founder's read decided it: *"the problem is a very specific kind of content that lives within story and point."* The slots are a **composition** of the existing model (three or four points, one story), not a new primitive, so they do not earn a glossary concept; `definitions.md` gets a pointer. And a dedicated file is what you extract once a model grows edge cases of its own — which is why `story-point-model.md` was itself split out of `definitions.md`. At roughly ten lines it has not earned that yet. It is still a new construct, so the write goes through `/slava:maintain:docs-strategy-update`.
+
+**Consequences:** P1181 and P1182 are filed deliberately thin — their requirements are what P1180's round-one test produces, and specifying them now would decide something only the test can answer. P1181 carries a third option nobody had costed: leave `private` alone and scope sharing at the **container** (whose privacy — the member's, or their organisation's), which touches no story-level enum and therefore none of the 47 `private` references across 66 visibility-touching files. It is the cheapest of the three to assess and is assessed by thinking, not building. (Status: proposed)
+
+**References:** [decisions.md](decisions.md) 2026-08-06 [process] (what is shareable between skills) · 2026-08-28 [product] (the board's five rulings) · P1180 · P1181 · P1182 · P1185
+
+---
+
 ## 2026-08-28 [process]: The qualifying criteria became a runtime filter — and a filter that excludes must print the exclusion, not drop it (P1185)
 
 **Context:** `understanding:detect` ranked candidates by potential loss and applied no other filter. But
