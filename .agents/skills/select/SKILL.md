@@ -319,6 +319,35 @@ rather than guessing keywords off the topic string.
 
 ### Gate 0 — One Voice, or One Voice Plus a Verified Questioner (Hard Gate)
 
+**Step 0 — Identity, before shape. A name-bearing artefact, never an inference from a turn boundary.**
+
+Gate 0 asks *how many people argue here*. It cannot ask that until it knows **who** the arguer is,
+and that question has its own evidence standard: identity must be fixed by an artefact that
+**carries the name** — the transcript, the video description, or the title. Never by inference from
+a turn boundary, a form of address, or a biographical detail that more than one candidate satisfies.
+
+Step 2b already states the principle for its own markers — *each one marks that the speaker
+changed, never who it changed to* — and the same limit binds identity evidence. Run the check and
+paste its output; **a count of 0 is a STOP**, not a prompt to reason around:
+
+```bash
+grep -ciE "<surname>" ~/.local/share/yt-store/<id>/en.vtt   # 0 is a STOP
+```
+
+If the surname is absent from the track, the name may still be carried by the description or the
+title — **name which artefact carries it, and paste that line.** "The speaker is obviously X" is
+not this step. Where no artefact carries a name, the source is **unattributed**, which the intake
+table already routes to a STOP with the reason named.
+
+> **Why this step exists (P1190, 2026-08-28).** A sealed `mapping_evidence` read *"spk:1 addresses
+> spk:0 with 'the title of your book'"*. That establishes two things — a speaker changed, and they
+> wrote a book — and **both co-authors of the book satisfy it.** Gate 0 accepted it. The source was
+> the other co-author. The failure was not a missing rule about turn markers; Step 2b's rule was
+> already correct and already written. It was that identity was never given evidence of its own,
+> so the shape measurement's markers were silently borrowed to answer a question they cannot
+> answer. Measured on that source: the wrongly-inferred surname returns **0** on the raw track, the
+> actual speaker's returns **6** — one command, run before the seal, would have caught it.
+
 **Three admissible source shapes, and nothing else:**
 
 | Shape | Basis it earns | Admitted how |
@@ -446,7 +475,24 @@ quotes will be published.
 3. **Founder glance confirmation:** Present video URL and title at Gate 2. For a `turn-verified`
    source, present the Step 2b measurement block alongside it — the founder approves the *shape*, not
    just the video.
-4. **Reported-speech scan:** Scan full finalist transcript for extended quotes, read letters, or inserted clips. Exclude any non-author spans.
+4. **Reported-speech scan — exclude the passage, never the source.** Scan the full finalist
+   transcript for extended quotes, read letters, or inserted clips. **A source is not rejected for
+   containing reported speech.** The passages where the speaker voices someone else are excluded
+   from the quotable span, with their timecodes printed; the exclusion is then confirmed **per
+   quote** in `/slava:disagreement:positions`, which already establishes the speaker for every
+   quote it files. An unprinted exclusion is unreviewable, so print the spans even when none are
+   used downstream.
+
+   > **Why this is spelled out (P1190, 2026-08-28).** This step previously read only *"Exclude any
+   > non-author spans"* — correct as far as it goes, and silent on the question that actually gets
+   > asked at the gate: does the source survive? Nothing in the six disagreement skills answered
+   > it, so the answer was carried by whoever remembered it. The guard belongs at passage
+   > granularity because it is **available** at passage granularity one stage later, and because
+   > the medium cannot afford the source-level reading: the Gate 0 note above records **1 of 5**
+   > positions admitted on a topic Phase 0 had proved contested. *(That figure measures two-way
+   > word share and panel shape, not reported speech — it argues the medium is starved, which is
+   > why a source-level reject is expensive here, and it argues nothing about this scan's
+   > mechanism.)*
 
 ### Step 2b — The one-way measurement
 
@@ -607,9 +653,10 @@ It evaluates:
 Present the proposed set to the founder:
 1. **Per arguer, position 1..N — one block each, no truncation, no "…and 2 more":** the position
    statement they occupy, the person, then Title, URL, uploader, duration, view count, comment count
-   (from metadata `--print`), Gate 0 detection method and basis label (`single-speaker` |
-   `turn-verified` — for the latter, print the Step 2b measurement block **and its verbatim caveat**
-   alongside), and the core claim with a short supporting quote.
+   (from metadata `--print`), **the Gate 0 Step 0 identity evidence — the artefact that carries the
+   name, and the pasted `grep -ciE` count against the raw `.vtt`**, Gate 0 detection method and basis
+   label (`single-speaker` | `turn-verified` — for the latter, print the Step 2b measurement block
+   **and its verbatim caveat** alongside), and the core claim with a short supporting quote.
 2. **Position coverage:** state N carried and N filled, and **name every carried position that
    produced no admissible source**. An unfilled position is a finding presented to the founder, never
    a silent narrowing of the spectrum.

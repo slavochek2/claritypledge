@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 87
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [disagreement, arbiter-failure, points, skills]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -293,18 +293,19 @@ session hunting a fifth and reintroduce the confound this spec declares out of s
 
 ## Done-When
 
-- [ ] The operational mode table has exactly one home; `detect.md` and `prepare.md` both point at it
-- [ ] `prepare.md` applies the interface disqualifier as the gate and a loss estimate as the rank, **at Stage 4a on the synthesized statement**, and prints a `Not for this instrument` list naming each interface
-- [ ] `prepare.md` writes the frozen list between Stage 4a and Stage 4c, and the ordering is stated as a constraint in the file
-- [ ] `select.md` Gate 0 carries the reported-speech rule in exclude-the-passage form; `grep -c "reported speech"` across the six disagreement skills returns non-zero
-- [ ] `select.md` Gate 0 requires a name-bearing identity artefact, and the pasted evidence includes a surname `grep -ciE` count against the raw `.vtt`
-- [ ] The new identity check is exercised against its failure path: run it on `B_HDkqZtGOE` for `yudkowsky` and confirm it returns 0 and halts (epistemic gate 7 — a gate not seen to fail is unproven)
-- [ ] Founder decision recorded on whether the four modes move out of `lean-canvas.md`
-- [ ] `points-process.md` invariant 2 updated in the same change as `select.md` Gate 0
-- [ ] Run B's redacted input file written and hashed before run B starts; `grep -c "### Point P"` on it returns 0
-- [ ] Run A's Stage 3 discards recovered into a companion file, or criterion 2 recorded as unavailable
-- [ ] Scorer dry-run against run A alone recorded, with its fired-mode count, before run B is generated
-- [ ] If they moved: `grep -rn` finds zero remaining definitions outside the new home, and every pointer resolves to a section that actually contains what it claims (the P1145 false-pointer failure mode)
+- [x] The operational mode table has exactly one home; `detect.md` and `prepare.md` both point at it
+- [x] `prepare.md` applies the interface disqualifier as the gate and a loss estimate as the rank, **at Stage 4a on the synthesized statement**, and prints a `Not for this instrument` list naming each interface  
+      *(Implemented at **4b-iii**, not inside 4a: the tag and loss are computed on the 4a statement, but the gate and freeze run after 4b/4b-ii, which can force a set rebuild. Freezing before a rebuild would describe a set that no longer exists. Reason stated in the file.)*
+- [x] `prepare.md` writes the frozen list between Stage 4a and Stage 4c, and the ordering is stated as a constraint in the file
+- [x] `select.md` Gate 0 carries the reported-speech rule in exclude-the-passage form; `grep -c "reported speech"` across the six disagreement skills returns non-zero
+- [x] `select.md` Gate 0 requires a name-bearing identity artefact, and the pasted evidence includes a surname `grep -ciE` count against the raw `.vtt`
+- [x] The new identity check is exercised against its failure path: run it on `B_HDkqZtGOE` for `yudkowsky` and confirm it returns 0 and halts (epistemic gate 7 — a gate not seen to fail is unproven)
+- [x] Founder decision recorded on whether the four modes move out of `lean-canvas.md`
+- [x] `points-process.md` invariant 2 updated in the same change as `select.md` Gate 0
+- [x] Run B's redacted input file written and hashed before run B starts; `grep -c "### Point P"` on it returns 0
+- [x] Run A's Stage 3 discards recovered into a companion file, or criterion 2 recorded as unavailable
+- [x] Scorer dry-run against run A alone recorded, with its fired-mode count, before run B is generated
+- [x] If they moved: `grep -rn` finds zero remaining definitions outside the new home, and every pointer resolves to a section that actually contains what it claims (the P1145 false-pointer failure mode)
 - [ ] Run B generated in a session with no access to run A's points
 - [ ] A script shuffled the two sets into `X`/`Y` and wrote the mapping to a file left unopened
 - [ ] A fresh subagent scored X and Y against the six criteria with the fixed input and bearer

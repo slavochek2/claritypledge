@@ -119,11 +119,23 @@ This applies whichever branch fired above — confirming identity from a marked 
 
 **Identify who ARGUES, not who speaks.** A host who asks questions for fifty minutes and takes no position gets no agent and no story. Five speakers routinely means two or three arguers.
 
-## Stage 3 — Candidate claims: the load-bearing filter
+## Stage 3 — Candidate claims: the cheap pre-filter
 
 > **Does taking a position on this decide an allocation?** Money, policy, who gets invited, what someone does on Monday.
 
 If nothing moves either way, drop it. A claim where both answers lead to the same behaviour is worldview trivia, however interesting. Discard truisms and anything that survives rewording unchanged.
+
+> **This stage is a pre-filter, NOT the load-bearing gate — corrected 2026-08-28 (P1190).** It used to be
+> the entire consequence filter in this skill, which is why a shipped run could not say whether its
+> points were the *most* load-bearing: one sentence, no magnitude, no ordering, and the skill's actual
+> optimisation target was the polarization band downstream.
+>
+> **It also runs on the wrong object.** Every point this skill ships is `is_synthesized: true` — a
+> statement **neither speaker made**, invented at Stage 4a. So at Stage 3 the thing the room will take
+> a position on **does not exist yet**; scoring candidate claims here and stopping scores something
+> other than the shipped artifact. Keep this filter — it is cheap and it removes obvious trivia before
+> synthesis spends effort on it — but the gate that decides what ships is **Stage 4b-iii**, applied to
+> the synthesized statement.
 
 ## Stage 4 — Build the point
 
@@ -154,6 +166,67 @@ Count the position pattern **across the set**. If one agent holds the same extre
 > **Threshold: at least one third of a set must be points where some speaker's position DIFFERS from their position on the other points.** Run 1 had one critic at −3 on five of six — a single pro/anti axis wearing six statements — and it was not caught by any rule.
 
 The valuable point is the one whose answer you **cannot** predict from someone's side. If every point in a set is predictable from one prior commitment, the set has one point in it.
+
+### 4b-iii. The load-bearing gate — applied to the synthesized statement, frozen before 4c
+
+**This is the gate Stage 3 is not.** It runs on the object that actually ships: the synthesized
+statement from 4a, after 4b and 4b-ii have finished rebuilding the set.
+
+> **Ordering is a constraint, not a preference — three reasons, all load-bearing.**
+> **(1)** The statement must exist: it is invented at 4a, so nothing before 4a can score it.
+> **(2)** The set must be stable: 4b (framing tally) and 4b-ii (axis diversity) can force a **rebuild**,
+> and a list frozen before a rebuild describes a set that no longer exists.
+> **(3)** The freeze must precede 4c: bald restatement deliberately sharpens the wording, so a gate
+> run after it scores the sharpening rather than the claim. **Freeze here, then restate.**
+
+Read the model from **[arbiter-failure-model.md](../../../../docs/arbiter-failure-model.md)** — the four
+modes, the interface disqualifier and its two bounding rules, and the firing-conditions table for
+**this** consumer (§Firing conditions, by consumer → *a public claim, a room as bearer*). That file
+also carries a *private-corpus* column for `/slava:understanding:detect`; it is a different consumer's
+evidence standard and does not apply here. **Do not copy any of it into this file** — the single home
+exists because the operational layer previously lived inside a skill, where no other skill could reach it.
+
+**Three components, and they do different jobs. Do not collapse them.**
+
+**1. GATE — the interface disqualifier.** A statement that a document, price, standard, precedent or
+default already arbitrates is **set aside**, with the interface **named**:
+
+```
+SKIP — interface: ‹the named interface› · ‹the one line saying why it arbitrates this statement›
+```
+
+On a public corpus the **document** form is the common one, and it is the distinction that does the
+work: *"the report found X"* is settled by reading the report and is skipped, naming the report; the
+interpretation built on it — *"labs are turning to AI to oversee AI development"* — is settled by
+nothing and stands. "There's probably something on this" is not an interface; if you cannot name it,
+the disqualifier does not fire.
+
+**2. RANK — potential loss to the room, in its own currency.** Estimate it the way
+`/slava:understanding:detect` Step B does: time · money · **a burned read**. **For an event the burned
+read dominates.** A weak point spends the room's willingness to take a position on that topic, and
+that willingness is spent **once** — the room does not re-enter the same question later in the evening
+because the first attempt was thin. Rank the surviving statements by it and state the currency per item.
+
+**3. TAG — which mode fires, reported and never gating.** Name the mode, or `NONE`.
+
+> **The tag is expected to be a near-universal pass here, and that is a measured finding, not a bug**
+> (dry-run, 2026-08-28: **5 of 5** fired, `NONE` zero). A public argument about what *should* be done
+> is normative or long-horizon by construction, so its natural arbiter fails almost always. **Therefore
+> the modes do not discriminate on this corpus and must not be used as the gate** — a gate that never
+> closes is a label. Report the distribution; gate on the disqualifier.
+>
+> **Inverting P1185's `NONE`-is-a-finding rule:** there, an empty exclusion list meant the filter was
+> not running. Here, a run where the tag fires on **everything** is the same class of signal — say so
+> in the summary rather than presenting it as the filter having worked.
+
+**Then freeze.** Write the surviving list and the set-aside list before 4c runs. The frozen list is
+what the rest of the skill operates on; 4c may reword a statement, never re-admit one this gate set
+aside.
+
+**Print the set-aside list. Always, and even when it is empty.** A statement removed without its
+reason is unreviewable, and an empty list is itself a finding — it means the gate excluded nothing,
+which is either an unusually clean candidate set or a gate that is not running. Say which, and why
+that is credible.
 
 ### 4c. Bald restatement
 
@@ -250,9 +323,17 @@ Story drafting, the P1141 voice rules, the per-quote timecode resolution and the
 ```
 Room: <as confirmed by the user>
 Framing origin tally: <source A: n> / <source B: n>
+Arbiter tag distribution: fuzzy intent <n> · delayed feedback <n> · concentrated stakes <n> · explanatory divergence <n> · NONE <n>
+  <if every statement fired a mode, say so here: the tag did not discriminate on this corpus>
+
+Not for this instrument — <n> set aside   (printed even when n = 0)
+  <statement> — SKIP — interface: <the named interface> · <why it arbitrates this statement>
+  <if n = 0: "nothing was set aside" + the one line saying why that is credible>
 
 Pn — Predicted agreement: NN%
      basis — camp: <read in full / sampled / not found> · room: <data / INFERRED, no data>
+     potential loss to the room: <estimate> · currency: <time | money | a burned read>
+     arbiter tag: <mode | NONE>   [reported, not gating]
 <the bald statement>            [SYNTHESIZED — neither speaker said this]
 
   Inference chain:
@@ -264,7 +345,7 @@ Pn — Predicted agreement: NN%
 
 The `±n` in each chain is the **provisional** position the synthesis rests on; `/slava:disagreement:positions` verifies or flips it against the quotes, and assigns the inference-strength label (`close` / `derived` / `stretch`) — that axis and its rules live there now.
 
-Close with: how much was read, audience sizes, the origin tally, how many candidates were dropped and why, and every quote that could not be attributed.
+Close with: how much was read, audience sizes, the origin tally, **the arbiter tag distribution and the set-aside list with each interface named**, how many candidates were dropped at Stage 3's pre-filter and why, and every quote that could not be attributed.
 
 ---
 

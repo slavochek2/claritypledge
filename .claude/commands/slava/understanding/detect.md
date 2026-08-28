@@ -206,25 +206,18 @@ CANDIDATE ‹n›
 - **`agent-introduced` is a required type, not a nicety.** Use it when the item entered the record from **the agent's** turn — an operationalization, a proxy, a number, a definition — and the subject never saw it stated in those words, whether or not they later assented. The other six types all attribute the item to the subject; filing an agent's substitution as *"a decision you've made"* misattributes it to the reader and is the exact error the exchange mode exists to expose. *(Measured 2026-08-10: an agent silently rendered "convinced within the first hour" as a specific observable act, and the card labelled it the founder's decision — his response was "it doesn't sound like a decision", and he was right.)* An `agent-introduced` card must quote **both** turns: the subject's original words and the agent's rendering of them, so the substitution is visible rather than argued.
 - **stakeholders** — everyone the decision touches, tagged by relation + align-relevance: **partner** (align-target; channel = a Clarity Letter / onboard), **contractor / peer** (align-target you *call or ask*, don't onboard), **adversary / irrelevant** (NOT an align-target), **future recipient** (nobody now; the corpus is for a later counterparty).
 - **align-target** — distilled from `stakeholders`. **This stage reports it as a field value; it does not gate on it.** `NONE` and `future recipient` are valid, complete results here — the gating decision belongs to `/slava:think:align`.
-- **arbiter-failure** — **which of cp's four failure modes makes this item worth the comprehension instrument at all.** Stake magnitude answers *how much is riding on it*; it does not answer *is this the kind of challenge the instrument serves*. cp already has that filter written down and dated — [lean-canvas.md](../../../../docs/lean-canvas.md) §Customer Segments, fourth mode added 2026-08-24 — so a detector that ranks by stake and stops makes every consumer re-derive it.
+- **arbiter-failure** — **which of cp's four failure modes makes this item worth the comprehension instrument at all.** Stake magnitude answers *how much is riding on it*; it does not answer *is this the kind of challenge the instrument serves*. cp has that filter written down and dated, and since 2026-08-28 it has exactly one home — **[arbiter-failure-model.md](../../../../docs/arbiter-failure-model.md)** — so a detector that ranks by stake and stops makes every consumer re-derive it.
 
-  A challenge is worth the instrument when its **natural consequence-arbiter fails**. Name which way it fails, by what breaks about arbitration:
+  **Read the model there and apply it. It is deliberately not restated here** — this file held the only copy of the operational layer until P1190 extracted it, which is how a third consumer found nothing it could point at. What this stage needs from that file:
 
-  | mode | what breaks | fires when the corpus shows |
-  |---|---|---|
-  | `fuzzy intent` | too ambiguous to arbitrate | neither party can fully articulate what they mean by the load-bearing term |
-  | `delayed feedback` | too late to arbitrate | the consequence lands months out, long after the decision is unwindable |
-  | `concentrated stakes` | too costly to arbitrate by trial | the cost of being wrong lands on specific named people, so you cannot just run it and see |
-  | `explanatory divergence` | not *attributed* to comprehension | feedback arrives on time and each party's own causal model explains the outcome, so neither reads the divergence as a misunderstanding |
-  | `NONE` | nothing breaks | the natural arbiter works — consequence will settle this without the instrument |
+  - the **four modes** — `fuzzy intent` · `delayed feedback` · `concentrated stakes` · `explanatory divergence` — plus `NONE`, each with what breaks about arbitration;
+  - **the firing-conditions table for *this* consumer**: §Firing conditions, by consumer → ***a private corpus, one bearer***. That file also carries a *public-claim* column for the disagreement pipeline; it is a different consumer's evidence standard and does **not** apply here;
+  - the **interface disqualifier** and the two rules that bound it, written on the card as `SKIP — interface: ‹the interface› · ‹the one line saying why it arbitrates this item›`;
+  - the **reader translation** for each mode, needed at the render step below.
+
+  Two of its rules bind hard enough to restate as instructions, because this stage is where they are violated:
 
   **`explanatory divergence` is UNTESTED** (deductive, zero field contact, added 2026-08-24). Tag it where it fires; do not weight it as if it were corroborated.
-
-  **The interface disqualifier — a skip, stated, never silent.** Where a **specifying interface already carries the coordination** — a price, a technical standard, a legal precedent, a default, an ADR or a PR gate that actually arbitrates *this* item — the instrument is not needed, because an interface **is** a working consequence-arbiter ([definitions.md](../../../../docs/definitions.md) §When the Protocol Applies, 2026-08-24). Write `SKIP — interface: ‹the interface› · ‹the one line saying why it arbitrates this item›`.
-
-  Two rules bound it, because a disqualifier that fires loosely deletes real candidates:
-  1. **Name the interface, or you have not applied it.** "There's probably a process for this" is not an interface. If you cannot name the specific price, standard, precedent, default or gate, the disqualifier does not fire.
-  2. **A skipped card is still emitted, with its reason on it.** Skips are printed, never removed — a wrongly-applied disqualifier that deletes the card is unreviewable, while one that prints its reasoning is one line for the reader to reject. This is the same asymmetry as the `rung` default: the cheap error is the visible one.
 
   **`NONE` is a finding, not a defect.** A high-stakes item whose arbiter works is a card the instrument does not serve, and saying so is the point of carrying the field. Never re-label it to make a run look productive — a run where the filter never excludes anything is a filter that is not running.
 - **provenance** — **stake-adjacent history, and explicitly not a score.** A high-stakes item you have restated five times without resolving is a different signal from one raised yesterday, and a card carrying neither fact hides that difference. Three parts: **first seen** (earliest appearance in the corpus) · **reformulations** (distinct restatements of the same item) · **related work** (what was actually produced since).
@@ -388,16 +381,9 @@ Write `.private/align/runs/{slug}-brief.md` in the READER's voice, structured so
   | `both-at-10` | both of you at 10 |
 
   **`none` is the opposite of a missing precedent: it is the finding, not the absence of one.** The omit-rather-than-pad rule below does not reach this line.
-- **KEEP the arbiter-failure mode, translated — it is the line that says why this item is here at all.** The reader is being asked to spend real effort working something through; the mode is the answer to "why this one and not the twenty other things I said". Translate, never drop:
+- **KEEP the arbiter-failure mode, translated — it is the line that says why this item is here at all.** The reader is being asked to spend real effort working something through; the mode is the answer to "why this one and not the twenty other things I said". Translate, never drop.
 
-  | mode | in the reader's words |
-  |---|---|
-  | `fuzzy intent` | neither of you could say exactly what you meant — so nothing will settle it by itself |
-  | `delayed feedback` | you'd find out you were wrong months from now, long after you can unwind it |
-  | `concentrated stakes` | being wrong lands on specific people, so you can't just try it and see |
-  | `explanatory divergence` | you'd both explain the outcome your own way and neither would call it a misunderstanding |
-  | `NONE` | this one will settle itself — it belongs under *Not for this instrument* |
-  | interface skip | ‹the named interface› already decides this; use it |
+  **The translations live in [arbiter-failure-model.md](../../../../docs/arbiter-failure-model.md) §Reader translation** — one row per mode plus `NONE` and the interface skip. Read them from there; a second copy in this file is how the operational layer drifted in the first place.
 
 - **A skipped item appears in the deliverable, in its own section, with its reason.** It does not appear in the ranked cards and it does not appear in the At-a-glance table. **This is a real exception to the omit-rather-than-pad rule**, and it is deliberate: a precedent you did not find is an absence, while an item you set aside is a *judgement you made on the reader's behalf*, and a judgement made silently cannot be corrected. One line each is enough — the reasoning lives in the run state.
 - **Provenance is a line on the card, never a ranking and never a headline.** Print it as **Since when**, in the reader's words ("first came up in March · you've restated it four times · nothing shipped from it yet"). Do not sum it, score it, or use it to argue the item matters more — the reader draws that conclusion or does not.
@@ -519,5 +505,5 @@ If any gate fails, fix the output before showing it.
 - `/slava:understanding:create-letter` — files an approved decomposition as a private letter on prod. Two skills downstream of here; never reached directly from a pick.
 - `docs/story-point-model.md` — the story↔point link, the two axes, the unit of analysis.
 - `CLAUDE.md` "Decisive Action — Reversibility classifier" — the irreversible class behind trigger (c).
-- `docs/lean-canvas.md` §Customer Segments — the arbiter-failure criteria (fourth mode 2026-08-24) behind the `arbiter-failure` field.
+- `docs/arbiter-failure-model.md` — **the single home** for the arbiter-failure criteria (four modes, per-consumer firing conditions, the interface disqualifier, reader translations, falsifiers) behind the `arbiter-failure` field. `docs/lean-canvas.md` §Customer Segments keeps the derivation, provenance and GTM reading, and points there.
 - `docs/definitions.md` §When the Protocol Applies — the interface disqualifier behind the `SKIP` tag.
