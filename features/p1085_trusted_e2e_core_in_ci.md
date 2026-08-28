@@ -1,12 +1,18 @@
 ---
-status: week
+status: today
 type: task
-rank: 33
+rank: 0.125
 created_date: '2026-08-14'
-tags: [testing, e2e, ci, coverage]
+tags:
+  - testing
+  - e2e
+  - ci
+  - coverage
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 driver: anomaly
+locked_at: '2026-08-28T05:20:54.230Z'
 ---
 
 # P1085: A trusted E2E core that runs in CI
