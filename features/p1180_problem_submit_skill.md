@@ -53,7 +53,7 @@ A skill that runs over the member's own corpus and produces one submission per a
 
 ## Invariants
 
-- **The agent drafts; the human approves.** No submission is filed without explicit per-problem approval. `decisions.md` 2026-08-16 records that autonomous agent filing inverts the invariant the align chain was built on.
+- **The agent drafts; the human approves.** No submission is filed without explicit per-problem approval. Founder framing, verbatim: *"Agents propose, people improve and approve. And then similar on voting. Agents read and propose... and people approve."* Corroborated by `/problemify`'s own two-stage gate, which blocks diagnosis until the frame is confirmed, and by `align-create-letter`'s approval precondition. *(An earlier draft of this line cited `decisions.md` 2026-08-16 for a claim that appears nowhere in `docs/` — the citation was lifted from a chat transcript. Removed 2026-08-28.)*
 - **Whose problem it is is a declared field, never inferred silently.** The member's own, or their customer's seen through them.
 - **The four slots stay separately addressable.** Bundling them forecloses the case this exists for — agreeing a problem matters while contesting the method.
 - **Confirmation happens against the anti-point, not against a yes/no.** Third person reads like a report and gets nodded at; the anti-point is what forces a choice.
