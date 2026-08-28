@@ -33,7 +33,11 @@ driver: heuristic
 
 A skill that runs over the member's own corpus and produces one submission per approved problem.
 
-**Stage 1 — detect.** Scan the corpus for the member's high-stakes items. This is `align-detect`'s existing job (`WHOSE STAKES` declaration, ranked by potential loss in its own currency, third person for the subject) — extend it rather than reimplement it.
+**Stage 1 — detect.** Scan the corpus for the member's high-stakes items: a `WHOSE STAKES` declaration, ranked by potential loss in its own currency, third person for the subject.
+
+**This skill INLINES those steps. It is not an orchestrator and it does not call `align-detect`.** `decisions.md` 2026-08-06 [process] rules it directly: *"Composite skills do not call sub-skills… **Elicitation procedure is not** [shareable], and each skill inlines its own."* The reason names this exact case — eliciting from a chat archive (*can grep, cannot ask*) is a different procedure from eliciting from a live human, and forcing one shared procedure makes each worse. What **is** shareable per the same ruling: the **definitions** and the **acceptance contract** (declarative output properties). Borrow those; inline the procedure.
+
+**Consequence:** this spec does **not** modify `align-detect`. If the provenance field (first-seen, reformulation count, related work) belongs in `align-detect` for its own sake, that is a separate change to that skill — not a side effect of this one.
 
 **Stage 2 — filter.** A candidate qualifies only when it carries a real stake **and** trips at least one arbiter-failure mode (fuzzy intent · delayed feedback · concentrated stakes · explanatory divergence, per `lean-canvas.md` 2026-08-24) **and** does not trip the interface disqualifier. Duration-still-open is a tiebreaker, never the gate — a two-day-old problem you just bet the year on is the most valuable thing here.
 
@@ -50,6 +54,14 @@ A skill that runs over the member's own corpus and produces one submission per a
 [FOUNDER DECISION: how many problems may one member submit per round? Discussed as a limit, never set.]
 
 [FOUNDER DECISION: the name of the wider project. Explicitly deprioritised — *"i honestly dont care i guess at this point until its validated"* — recorded so it is not silently invented.]
+
+## Where the four-slot definition lives — centrally, not in this spec
+
+**The four slots are a concept, not a feature detail, and they do not belong here.** Verified: `docs/definitions.md` currently has **zero** hits for the construct. Future consumers already exist on paper — P1182's matcher operates on slots, and any later reader or profile does too — so a definition that lives only in this spec will be restated and will drift, which is the failure `CHARTER.md`'s one-fact-one-home rule exists to prevent.
+
+Per the 2026-08-06 ruling, **definitions are exactly the reusable kind**. Home is the strategy-doc layer — `docs/definitions.md` or `docs/story-point-model.md`, which is already the dedicated home for the story/point model and is read by five consumers. Either way it is a **new construct**, so it is a strategy change and goes through `/slava:maintain:docs-strategy-update` and its nine gates — not written directly, and not by this spec.
+
+**Until that lands, this spec is the temporary home and says so.** [FOUNDER DECISION: `definitions.md` or `story-point-model.md`?]
 
 ## Invariants
 

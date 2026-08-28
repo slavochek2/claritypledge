@@ -33,6 +33,20 @@ driver: heuristic
 
 What is known: the **Clarity Organization** container already exists with a join gate and a `community` type, and community feeds were already contemplated for it. That is the likely anchor, not a new concept.
 
+## Open Questions — recorded 2026-08-28, none resolved
+
+**1. Can we reuse `private` and widen it to mean "the member and their community", instead of adding a third level?**
+
+Attractive because it avoids new interface language. **Measured against the code, it is the dangerous option:** `private` is referenced **47 times across `src/app/`**, and **66 files** touch visibility. Widening what an existing value *means* silently reclassifies every row already stored under it — every existing private story would become community-visible the moment its author belongs to an organisation. That is a privacy regression on data people wrote under a different promise, and it trips the standing rule about altering the meaning of a shared value before enumerating what reads it.
+
+**A third option nobody has costed:** leave `private` alone and scope sharing at the **container** level — the letter, or the organisation — so no story-level enum changes at all. This is the option that does not touch 66 files. Unassessed.
+
+**2. Is the name wrong even if the mechanism is right?** Founder framing: *"it's kind of private, but shared with all the members. Can it be said so or not?"* A level that reads as private and behaves as group-visible is the imprecision that got `shared` cut in the first place.
+
+**3. Can this be backend-only?** Almost certainly not, and this is the part most likely to be underestimated. The interface already carries visual language for the existing levels — a colour for private points, icons distinguishing them from public. A third state that renders identically to private is worse than no third state: people calibrate what they reveal from what they see, and this whole surface exists so members can be candid. **Minimum frontend is not zero.** What the minimum actually is — one badge, or a full pass across every surface that renders a point or story — is unscoped.
+
+**4. Scope reality.** Founder: *"that thing is a bit big, it seems."* Agreed, and the 66-file figure is why. Whatever lands here should be sized against option 1's third path before assuming an enum change.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
