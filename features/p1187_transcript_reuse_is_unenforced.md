@@ -5,8 +5,8 @@ rank: 84
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [transcripts, caching, points-pipeline, correctness, storage]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -270,47 +270,94 @@ Never guess a key for existing bytes.
 
 ## Done-When
 
-**Every item below runs against `command -v yt` / the installed `diarize`, never a repo path.**
+**Status 2026-08-28: implemented and gated. Every item below was run against `command -v yt` /
+the installed `diarize`, never a repo path.** Code: `pp/scripts/{yt,yt-store-lib.py,agent_store.py,
+ytaudio,agent-store-backfill.py}` (commit `f79c456`) and `~/.agents/bin/diarize` (not in a repo).
 
 *Gate A — the split-brain (F7), which blocks all the rest*
-- [ ] `bash -x "$(command -v yt)" --version` resolves `STORE_LIB` to an existing file
-- [ ] A fetch through the **installed** `yt` writes the ledger; a second identical fetch HITs it
+- [x] `bash -x "$(command -v yt)" --version` resolves `STORE_LIB` to an existing file —
+      before: `STORE_LIB=~/.local/bin/yt-store-lib.py`, `test -e` → 1. After:
+      `STORE_LIB=/Users/…/pp/scripts/yt-store-lib.py`, file present
+- [x] A fetch through the **installed** `yt` writes the ledger; a second identical fetch HITs it —
+      cold 2.63s `[store] MISS` → warm 0.099s `[store] HIT rev=1 (1 file(s), no fetch)`,
+      delivered bytes byte-identical (`6a78d6a7…`)
 
 *Gate B — reuse actually happens*
-- [ ] A caption fetch in one session is served from the ledger in a later one — P1140's Done-When
-      box 1 re-verified by a real cross-session read, not asserted
-- [ ] A second identical `diarize` call makes zero paid calls — output pasted
-- [ ] An audio download is not repeated for a video already downloaded
-- [ ] v1's causes 2 and 3 are **re-tested now that the store is reachable**, and each is either
-      reproduced or struck from the record
+- [x] A caption fetch in one session is served from the ledger in a later one — the strongest
+      available form: a **backfilled** entry written by a PRIOR session's fetch served the
+      disagreement `prepare` skill's own documented command, `[store] HIT rev=9 (2 file(s))`
+- [x] A second identical `diarize` call makes zero paid calls — 8.69s → 0.075s, `[store] HIT
+      rev=13 — 0 paid calls, 0 downloads`, turns and speakers identical. Paid calls counted by
+      replacing `curl` (every Gemini call goes through it) with a logger: **0 lines**
+- [x] An audio download is not repeated — 2 requests, 1 download. **Measured against a stub
+      producer, not live YouTube**: live audio download is currently 403-walled on this machine
+      (`unable to download video data: HTTP Error 403`), which is the pre-existing cookie/bot-wall
+      condition, not a regression — `diarize` used the same direct+cookies path before
+- [x] v1's causes 2 and 3 re-tested. **Cause 2 reproduces and is kept, now visible**: a natural
+      `-o "harari.%(ext)s"` still refuses, and says `[store] BYPASS unsupported -o template
+      shape…` instead of refusing mutely. **Cause 3 did NOT reproduce** — save-then-read across
+      separate processes HIT on 3 of 3 fresh keys. **Not struck**: one run early in the session
+      recorded nothing and said nothing, and the evidence was mutated before diagnosis. The write
+      path is now instrumented (`[store] NOT-RECORDED <reason>`, `[store] SAVE-FAILED <exc>`),
+      so a recurrence names itself. See the correction in `pp/docs/infra/youtube.md`
 
-*Gate C — failure paths exercised (epistemic gate 7). Each must be seen to FAIL.*
-- [ ] Three caption alias spellings resolve to one `params_hash` and HIT one revision, while
-      human-vs-auto, `en.*`-vs-`de.*` and `vtt`-vs-`srt` each MISS. Both halves, output pasted
-- [ ] **(F5)** A request with `--write-info-json` and one without produce **different** keys.
-      Regression guard: `classify(a)["key"] != classify(a + ["--write-info-json"])["key"]`
-- [ ] **(F4)** Tampering with **each** output member in turn — `en.vtt` alone, then `en-orig.vtt`
-      alone — produces MISS every time. A one-file tamper test passes while this defect remains
-- [ ] **(F2)** Alternating producer across fetch → `YT_STORE=refresh` → offline read returns
-      hashes **A, B, B**. The v1 design returns A, B, A
-- [ ] **(F3)** With `copyfile` monkeypatched to replace the source immediately before copying,
-      the result is MISS or `sha256(delivered) == recorded hash` — never silently the new bytes
-- [ ] **(F1)** A `watch?v=A&list=P&index=3` input either BYPASSes or stores under the ID `yt-dlp`
-      actually resolved; never under `A` when a different member was downloaded
-- [ ] **(F6)** A cached over-length transcript called again *without* `--allow-truncate` exits
-      nonzero, and a `--speakers 2` HIT on a 3-speaker transcript still emits the warning — both
-      with paid calls still at one
-- [ ] **(F8)** `--output=DIR/%(id)s.%(ext)s` and `-o DIR/%(id)s.%(ext)s` deliver to the **same**
-      directory against one seeded revision
-- [ ] A crashed run mid-write leaves no revision row — simulated, output pasted
+*Gate C — failure paths exercised (epistemic gate 7). Each was seen to FAIL.*
+- [x] Three caption alias spellings → one `params_hash`, all three `HIT rev=1` through the
+      installed `yt`; human-vs-auto, `en`-vs-`de`, `vtt`-vs-`srt` each `MISS`. Both halves
+- [x] **(F5)** `classify(a)["key"] != classify(a + ["--write-info-json"])["key"]` → `fa3c74eb…`
+      vs `6e9a9124…`. Enforced structurally: every accepted flag is now classified SEPARATING or
+      EQUIVALENT, and an unclassified flag is refused
+- [x] **(F4)** Tampering with `en.vtt` alone → MISS; restore; tamper `en-orig.vtt` alone → MISS;
+      restore → HIT. Nothing delivered on either failure, and the pointer was dropped both times
+- [x] **(F2)** fetch → `YT_STORE=refresh` → offline read returned **A, B, B**
+      (`c3772c61`, `2f028c37`, `2f028c37`). Revision 1's bytes remain readable at `en.vtt` while
+      revision 2 holds `en.2.vtt` — a quote verified against superseded bytes is still checkable
+- [x] **(F3)** `copyfile` monkeypatched to overwrite the store file immediately before every copy:
+      `sha256(delivered) == recorded` (delivered `BBBB-content`, not the substituted bytes)
+- [x] **(F1)** `watch?v=AAAAAAAAAAA&list=PL1&index=3` where the producer resolves `OTHERvid123`:
+      indexed under `audio/OTHERvid123`, warned, and **nothing** written under `AAAAAAAAAAA`.
+      `--no-playlist` is now passed (it was absent: `grep -c` → 0)
+- [x] **(F6)** Cached over-length transcript called without `--allow-truncate` → **exit 1**,
+      0 paid calls; `--speakers 5` on a 2-speaker cached transcript → warning still emitted,
+      0 paid calls. Total paid calls across the whole F6 sequence: **1** (the cold run).
+      *Method note:* `MAX_DIARIZE_SEC` was lowered in-process so a 21s fixture exercises the
+      truncation branch — paying for 30 minutes of audio to test a branch was not warranted
+- [x] **(F8)** `--output=DIR/…` and `-o DIR/…` both delivered into their named directory against
+      one seeded revision; the cwd stayed **empty** (the old bug delivered there)
+- [x] A crashed run mid-write leaves no revision row — process killed after bytes landed:
+      store file present, `revisions=0 current=0 outputs=0`, next lookup `MISS`
 
 *Gate D — no false positives (epistemic gate 7c)*
-- [ ] Each tool's own documented workflows run through the new behaviour and still succeed
-- [ ] **(F9)** `yt --output=- ...` still streams correctly **and** emits `[store] BYPASS`
-- [ ] Backfill indexes only unambiguously recoverable entries; count reported
+- [x] Each tool's own documented workflows still succeed. `yt`: the `prepare` skill's captions
+      line (HIT), its metadata line, `--proxy-status`, and its comments line with
+      `--extractor-args` — all pass, and metadata + comments now HIT on repeat with the
+      `info.json` byte-identical. `diarize`: all six documented shapes from its skill file
+      (bare, `--json`, `--speakers`, `-q`, `--keep-audio`, `--allow-truncate`) → 6 HITs,
+      **0 paid calls**; `--lang en-US` correctly MISSes as different work
+- [x] **(F9)** `yt --output=- …` still streams correctly (byte-identical to plain `yt-dlp` with
+      the same args — the control was run) **and** emits one `[store] BYPASS stdout-stream (…)`
+- [x] Backfill indexes only unambiguously recoverable entries; count reported: **indexed 5,
+      skipped 18**. The 5 were recovered by REPRODUCING the recorded key hash from a candidate
+      list (`langs='en.*' fmt='vtt'`, uniquely), never guessed. Re-running is a no-op
 
 *Gate E — visibility*
-- [ ] Every run prints exactly one `[store]` line. No bypass is silent, including the streaming path
+- [x] Exactly one `[store]` line per run, audited across 9 shapes (subs HIT, subs MISS, metadata,
+      non-allowlisted `--print` field, `YT_STORE=off`, stdout stream, non-canonical `-o`,
+      unclassified flag, non-YouTube host): **0 runs with none, 0 runs with more than one.**
+      `diarize`'s refused-admission path also prints its line before exiting nonzero
+
+### What is NOT proven
+
+- **Live audio download reuse.** The ledger logic is proven; the live path is currently
+  403-walled, so `ytaudio` has not fetched real YouTube audio end to end. First real run will
+  exercise it.
+- **The second review lens is still uncovered** (epistemic gate 9b). The design was attacked from
+  one direction only — Codex GPT-5.6-Sol. An Opus lens was spawned twice and never reported, and
+  this implementation has not been adversarially reviewed at all.
+- **Open Question 2** (record failed attempts) remains unanswered and unimplemented; failures are
+  not recorded, so a known-impossible fetch is still retried. **Open Question 3** is answered:
+  `ytaudio` is its own command, so a future non-diarize audio consumer gets reuse for free.
+- **`--keep-audio` on a HIT** has nothing to write. It now warns rather than silently no-opping.
 
 ## Alternatives Considered
 

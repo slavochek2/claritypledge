@@ -6,6 +6,121 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+
+## 2026-08-28 [process]: A model with three consumer skills needs a concept-model doc — the operational layer had drifted into a skill file, where no other skill could point at it
+
+**Context:** P1190 set out to wire the arbiter-failure criteria into `/slava:disagreement:prepare`,
+making it the third consumer after `/slava:understanding:detect` and `/slava:think:align`. The wiring
+was blocked before it started, on a routing problem nobody had noticed: **there was no doc that held
+what a consumer needs.** `lean-canvas.md` §Customer Segments carried the four modes as parenthetical
+glosses with **no firing conditions**; the only operational table — mode · what breaks · *fires when
+the corpus shows* — lived inside `understanding/detect.md`, created there by P1185 the day before.
+Measured: `grep -c "fuzzy intent"` returned **4** in `lean-canvas.md`, **4** in `detect.md`, **0** in
+`definitions.md`. Two homes holding content, not one home and two pointers.
+
+So `prepare.md` could point at the canvas (and get a definition too thin to apply), point at another
+skill file (making a skill the source of truth for three skills), or copy the table (the drift the
+canvas entry already records happening once — *"Read 'the three criteria' anywhere else in this repo
+as this list"*). All three are wrong.
+
+**Decision:** Extract to **`docs/arbiter-failure-model.md`**, a concept-model doc, under
+[CHARTER.md](CHARTER.md) rule 2's exception clause — *"a concept whose full model needs edge cases +
+reasoning + an evolving, still-UNTESTED operational layer a glossary can't hold ... its own
+concept-model doc ... Consumer skills read the model from that one file."* The match is exact: edge
+cases (the interface disqualifier), reasoning (what breaks about arbitration), a still-UNTESTED layer
+(`explanatory divergence`, zero field contact), and three consumer skills. `story-point-model.md` is
+the existing precedent for the same shape.
+
+**The move is a split, not a cut-and-paste**, and the split line is *definitional vs go-to-market*:
+
+- **To the model doc** — the four modes *defined* (reconciled name, the rival name from the
+  2026-08-24 reconciliation, what breaks about arbitration, per-mode epistemic status), the
+  interface disqualifier and its two bounding rules, the reader-translation table, and the three
+  falsifiers.
+- **Staying in `lean-canvas.md`** — the derivation, the provenance, the 2026-04-23 term-drift
+  supersession, the `hypotheses.md` corroboration, the "not pitch copy" caveat, and the novel
+  prediction about *who buys*, which is a targeting claim and not a definitional one.
+- **Firing conditions are per-consumer, and are not interchangeable text.** The doc carries two
+  columns: *fires when the corpus shows* (a private corpus, one bearer) and *fires when a public
+  claim shows* (a public claim, a room as bearer). A private corpus offers the reasoning of a
+  specific bearer; a public claim offers only the claim. Copying one column into the other
+  consumer's slot would have been the silent failure this extraction exists to prevent.
+
+**Nothing in the model changed.** No bet, position, priority or claim moved — which is why this ran
+as a direct edit rather than through `/docs-strategy-update`'s nine gates, per that skill's own
+discriminator. Mechanical gates were still run: fragile-refs **0 matches**,
+`check-single-value-slots.py` **exit 0**, link anchors confirmed present.
+
+**Alternatives rejected:** (a) *Consolidate into `definitions.md`* — it already holds the interface
+disqualifier correctly, but CHARTER rule 2 scopes it to *"glossary only — no status words, no GTM
+claims"*, and these modes carry an `UNTESTED` label plus two falsifiers. That constraint is precisely
+what the rule-2 exception was written for. (b) *Keep it in `lean-canvas.md`, pulling `detect.md`'s
+table into the canvas* — one home and no new file, but it makes a go-to-market section the
+operational source for three skills, in a bullet already ~1,900 words long.
+
+**Consequences:** `detect.md` loses both derived tables and points at the model doc; the mode names
+survive there only as field-value enumerations, which is correct — a skill must know the legal values
+it emits. `prepare.md` points at the same file. The general rule this instance makes concrete:
+**when a second consumer appears, a model that lives inside a consumer is already mis-homed; the
+third consumer is just when it becomes unignorable.**
+
+**Falsifier:** if six months on, `arbiter-failure-model.md` has one reader and the canvas entry is
+still what agents actually quote, the extraction served the routing rule and not the consumers, and
+the model should collapse back into the canvas with the skills pointing there.
+
+**References:** `features/p1190_arbiter_filter_into_disagreement_pipeline.md`; the 2026-08-28
+[product] entry below (the dry-run that inverted the filter's design); decisions.md 2026-08-24
+[product] (the four modes + rival-axis reconciliation); CHARTER.md rule 2.
+
+---
+
+## 2026-08-28 [technical]: A cache key must exclude the parameters that don't change the bytes — which is exactly why a hit must still run them
+
+**Context:** P1187 wired reuse into three tools that spend money or minutes. Two parameters of the
+speaker-labelling tool are deliberately **not** in its cache key, correctly: `--allow-truncate`
+(refuses a source longer than the API's 30-minute cap) and `--speakers N` (warns when the model
+disagrees). Neither changes a byte of the transcript, so keying on them would split the cache for
+nothing. But "not in the key" and "not run" are one line apart in a naive cache — and both of these
+are the **safety surface**: an operator who did not pass `--allow-truncate` would have silently
+received a partial transcript, and a speaker-count mismatch would have gone unwarned, precisely
+because the cache was correct about them not mattering to the bytes.
+
+**Decision:** **Cache the expensive core only; re-run everything else on a hit.** A hit skips the
+paid call and nothing else — admission checks, warnings, destination writes and presentation all
+still run. Concretely this forced the stored record to carry the source's full length, so the
+admission check can re-run on a hit without re-downloading the audio to measure it. The companion
+rule is the **two-axis posture**: *"should I consult the cache at all?"* fails **open** (cannot
+canonicalize → do the work; cost = one repeated fetch), while *"is this stored result the same
+work?"* fails **closed** (exact key **and** byte-equal parameter text **and** every output member
+hash-verified; cost of being wrong = a published misattribution). The single earlier rule — "fail
+open, always" — read as covering both and covered only the first.
+
+**Alternatives rejected:** Put the safety flags in the key — splits the cache four ways for
+parameters that provably do not change the result, and still would not have run the check on the
+branch that did hit. Trust the stored result's own recorded verdict — it was recorded under the
+flags of a *different* invocation, so it answers the wrong question. Compare the parameter hash
+alone on read — a hash is an index, never the decision; the full parameter text is stored and
+compared byte-for-byte.
+
+**Consequences:** A general test for any cache added here: **list what the key deliberately
+excludes, then check each exclusion is re-executed on a hit.** Anything on that list that is a
+refusal, a warning, or a side effect the caller asked for is a silent-skip waiting to happen — this
+is the same shape as a fail-open path discarding its refusal (the entry below), one layer up. Three
+adjacent findings from the same pass are worth carrying: a request must be keyed on the **complete
+set of outputs it asked for**, not just the byte-producing flags (a flag was being parsed and then
+dropped from the key, so a request needing an extra file collided with one that did not and got a
+hit without it); a stored result with several files hits only when **every** member verifies, since
+verifying one leaves the rest unguarded; and verification must **deliver the bytes it verified** —
+hashing at one file open and copying at another lets a concurrent replace substitute unverified
+bytes. Each failure path was exercised and seen to fail before being trusted (epistemic gate 7), and
+every documented workflow of both tools was re-run through the new behaviour to measure false
+refusals (gate 7c) — six shapes, six hits, zero paid calls. **Where recovering pre-existing entries
+was needed, parameters were recovered by *reproducing the recorded key hash* from a candidate list,
+never guessed: 5 indexed, 18 left out to be redone once.**
+**References:** [p1187](../features/p1187_transcript_reuse_is_unenforced.md) ·
+[epistemic.md](../.claude/rules/epistemic.md) gates 7, 7c
+
+---
 ## 2026-08-28 [product]: An organization has *members* and *participants* — one member and forty-five people who turned up are both true, and the page showed only the smaller number
 
 **Context:** While designing the `/org` directory ([P1060](../features/p1060_link_events_to_organizations.md)), the card read *"1 member"* for · Chiang Mai. Measured against prod the same session: **1 member, and 45 distinct profiles with an RSVP** to its 8 events. Membership is the Clarity Organization Terms acceptance record, so it counts commitments; nobody but the founder has made one. The directory — the surface whose whole job is to make a stranger want to walk in — was rendering a live community as a dead one, using a number that was accurate and unrepresentative. The founder raised it unprompted (*"wouldn't it be great to have showed the number of participants"*); the data backed it harder than either of us expected.
@@ -184,7 +299,21 @@ so the store filled from one caller while another never hit it; "the store has e
 evidence the store worked. (3) **A ticked acceptance box was false in production** — P1140's
 Done-When *"a transcript is still readable, byte-identical, in a later session"* was ticked and had
 never been verified through the installed command. Re-verification of a shipped guarantee needs a
-cross-session read, not an assertion. *(Status: proposed — implementation tracked by P1187.)*
+cross-session read, not an assertion.
+
+**RESOLVED 2026-08-28 — fix implemented and each property re-measured through `command -v yt`.**
+`STORE_LIB` now resolves to the real file (it resolved to a non-existent path before); a cold fetch
+took 2.63s and the identical warm fetch 0.099s with byte-identical output. Property (1): every run
+now emits exactly one visible `[store]` line — audited across nine request shapes, **0 runs with
+none and 0 with more than one** — and the *write* path was instrumented too, after a save that
+recorded nothing and said nothing could not be diagnosed from the wreckage. Property (3): the false
+P1140 box was re-verified the only way that counts — a caption fetch from a **prior** session was
+served to a later one. **The two named causes, re-tested as required: cause 2 (the `-o` template
+shape) still refuses and is kept, but now says so; cause 3 (a `sub_langs` key mismatch) did NOT
+reproduce across 3 of 3 fresh keys and is *not struck* — the one contrary run could not be
+diagnosed, so the write path was made self-reporting instead of the cause being declared dead.**
+Declaring an unreproduced cause dead is how a silent failure returns; making it announce itself is
+the substitute for a proof we do not have.
 **References:** [p1187](../features/p1187_transcript_reuse_is_unenforced.md) ·
 [p1140](../features/done/2026-06-10/p1140_transcript_retention_for_quote_reverification.md)
 

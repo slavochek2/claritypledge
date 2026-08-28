@@ -22,6 +22,28 @@ When proposing why something failed, frame it as:
 
 Do not declare "root cause" without running the disproof. A confident-sounding diagnosis without a falsifying test is a guess in costume.
 
+## 2b. The cheapest disproof must also be a non-destructive one
+
+Gate 2 asks for the *smallest* test that would falsify a hypothesis. It never says the test may not
+destroy the answer. **A diagnostic that WRITES to the system under investigation overwrites the
+evidence: use the read-only probe, or snapshot the state first.**
+
+Reading is almost always available and costs nothing — dump the rows, print the pointer, copy the
+directory. Re-running the failing write "to see what it does" is not a probe; it is the experiment
+and the destruction of its own control, in one command.
+
+Three existing rules each name one instance of this and none of them reach the general case, which
+is why it kept happening: [db-access.md](db-access.md) scopes it to databases (*"if you're about to
+use a tool that needs user approval just to look at something, you're using the wrong tool"*),
+[git.md](git.md) scopes it to `git checkout HEAD --` / `git restore` (wip-commit before an
+experiment that reverts files), and `docs/technical/debugging.md` does not mention it at all.
+Any persistent store is in scope: a cache, a ledger, a journal, a task board, a log.
+
+P1187 (2026-08-28): investigating why a caption-store save had recorded nothing, the same save was
+re-run by hand as a "diagnostic". It wrote a new revision and moved the pointer, so the failing
+state no longer existed. The cause was never found, is recorded as unexplained, and the substitute
+was instrumenting the write path so a recurrence self-reports — a mitigation, not the answer.
+
 ## 3. Test model claims against fixture, not prose
 
 Before declaring "the model/schema/system can't represent X" — grep the seed data, migration, or live row. Spec prose and type definitions are not reality; the database and runtime state are. Verify against the artifact, not the documentation about the artifact. This includes infra capacity numbers (GPU quota, instance limits, tier counts): a stale doc is not authoritative — verify against the live source (provider console / CLI / quota API) before designing around the constraint.
