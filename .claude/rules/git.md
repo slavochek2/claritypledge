@@ -15,6 +15,7 @@ globs: "*"
 | `git add .` | Can stage secrets and ignored files |
 | `git add -A` | Same problem |
 | `git add -f <file>` | Forces adding ignored files |
+| `git add -u` / `git add -u <path>` | Stages every *modified* file under the path — including a co-tenant session's in-flight edits. Same failure mode as `-A`, but reads as narrower, which is exactly why it slips through. |
 | `git reset HEAD` (no args) | Resets entire index; use `git reset HEAD -- file1 file2` |
 | `git checkout HEAD -- <files>` / `git restore <files>` | Destroys working-tree edits **with no reflog recovery** — uncommitted content never entered the object database, so unlike a bad `git reset` there is nothing to recover. Wip-commit first, and derive the file list from `git diff --name-only` — never type it from memory. |
 | `git push --force` to main/master | Destructive; always warn user |
@@ -23,6 +24,10 @@ globs: "*"
 | `git cherry-pick --quit` (mid-sequence) | Clears `.git/sequencer/` without reverting applied commits — if prior picks in the sequence already committed, a re-attempt re-applies them and silently duplicates changes. Inspect `.git/sequencer/todo` and `git log` first; only run with explicit user instruction. |
 | `git commit --no-verify` | Bypasses `pre-commit-checks.sh` and `audit-privacy.sh` silently |
 | `git push --no-verify` | Bypasses push hooks including the privacy gate silently |
+
+**The table is four spellings of one mistake — the rule is the class, not the list.** Any staging form that expands to a set you did not type is banned: `.`, `-A`, `-u`, `:/`, a bare directory, a glob. If you cannot read the filenames in the command you are about to run, you do not know what you are committing. A new spelling not listed above is still banned; the list is examples, not an allowlist by omission.
+
+Incident 2026-08-28: `git add -u tasks/ docs/decisions.md` swept another session's in-flight spec edit into a commit under the wrong message — **one hour after** the same thing was done to this session by a co-tenant, diagnosed, written up, and explicitly declined to be repeated. The table banned `.`, `-A` and `-f`; `-u` was absent and read as the safe narrow option. Recovery: reset to the parent SHA resolved absolutely (never `HEAD~1` — see below), unstage the bystander, recommit. See pp `docs/decisions.md` 2026-08-28.
 
 ## Commits must come from the main session
 
