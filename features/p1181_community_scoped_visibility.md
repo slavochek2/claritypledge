@@ -5,6 +5,7 @@ rank: 90
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [visibility, privacy, rls, problem-board]
+blocked_by: [p1180]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -39,7 +40,7 @@ What is known: the **Clarity Organization** container already exists with a join
 
 Attractive because it avoids new interface language. **Measured against the code, it is the dangerous option:** `private` is referenced **47 times across `src/app/`**, and **66 files** touch visibility. Widening what an existing value *means* silently reclassifies every row already stored under it — every existing private story would become community-visible the moment its author belongs to an organisation. That is a privacy regression on data people wrote under a different promise, and it trips the standing rule about altering the meaning of a shared value before enumerating what reads it.
 
-**A third option nobody has costed:** leave `private` alone and scope sharing at the **container** level — the letter, or the organisation — so no story-level enum changes at all. This is the option that does not touch 66 files. Unassessed.
+**A third option nobody has costed — and the one worth thinking about first:** leave `private` alone and scope sharing at the **container**, not the record. A story stays `private`; what changes is *whose* privacy it is — the member's alone, or the member's **organisation**. Founder framing: *"private but scoped to the whole organization."* Attractive because it touches no story-level enum, so the 47 references and 66 files stay as they are, and the interface may need no third state at all — a member's own private and their organisation's private can render identically to them, because in both cases the answer to *"can anyone outside see this?"* is no. **What would have to be true:** membership is unambiguous at read time (the organisation container already has a join gate), and the boundary is the organisation rather than an ad-hoc group. **What would break it:** a member in two organisations, or one who leaves — does the story follow them, stay, or vanish? Nobody has worked that through. **Unassessed, and the cheapest of the three to assess first.**
 
 **2. Is the name wrong even if the mechanism is right?** Founder framing: *"it's kind of private, but shared with all the members. Can it be said so or not?"* A level that reads as private and behaves as group-visible is the imprecision that got `shared` cut in the first place.
 

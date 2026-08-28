@@ -5,6 +5,8 @@ rank: 80
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [skills, letters, problem-board, matching]
+blocks: [p1181, p1182]
+related: [p1185]
 delivery_stage: challenge-prd
 pipeline_ran: [create-spec, challenge-prd]
 drafted_by: opus
@@ -59,9 +61,11 @@ A skill that runs over the member's own corpus and produces one submission per a
 
 **The four slots are a concept, not a feature detail, and they do not belong here.** Verified: `docs/definitions.md` currently has **zero** hits for the construct. Future consumers already exist on paper — P1182's matcher operates on slots, and any later reader or profile does too — so a definition that lives only in this spec will be restated and will drift, which is the failure `CHARTER.md`'s one-fact-one-home rule exists to prevent.
 
-Per the 2026-08-06 ruling, **definitions are exactly the reusable kind**. Home is the strategy-doc layer — `docs/definitions.md` or `docs/story-point-model.md`, which is already the dedicated home for the story/point model and is read by five consumers. Either way it is a **new construct**, so it is a strategy change and goes through `/slava:maintain:docs-strategy-update` and its nine gates — not written directly, and not by this spec.
+Per the 2026-08-06 ruling, **definitions are exactly the reusable kind**. **Home: `docs/story-point-model.md`.** The four slots are not a new primitive — they are a **composition of the existing model**: three or four points and one story. Founder's own read, and it is the deciding one: *"the problem is a very specific kind of content that lives within story and point."* That model doc exists precisely because the model outgrew a glossary entry, it already holds the operational patterns with their edge cases, and it is read by five consumers. `definitions.md` gets a short pointer entry, not the model — the same shape as the Stories-vs-Points entry already there.
 
-**Until that lands, this spec is the temporary home and says so.** [FOUNDER DECISION: `definitions.md` or `story-point-model.md`?]
+**Not its own file, for now.** The construct is roughly ten lines; a dedicated doc is what you extract once a model grows edge cases of its own — which is exactly why `story-point-model.md` was split out of `definitions.md` in the first place. Revisit if the slots accumulate their own boundary cases.
+
+It remains a **new construct**, so it is a strategy change: it goes through `/slava:maintain:docs-strategy-update` and its nine gates, not written directly and not by this spec. **Until that lands, this spec is the temporary home and says so.**
 
 ## Invariants
 

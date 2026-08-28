@@ -5,6 +5,7 @@ rank: 91
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [matching, letters, problem-board, agents]
+blocked_by: [p1180, p1181]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus

@@ -895,3 +895,23 @@ migrate prod.
 ---
 
 <!-- Resolved 2026-08-27: "/slava:disagreement:select has no person-level fallback from Gate 1" — closed by P1171 (Gate 1 runners-up carried as per-position `alternates:`); see decisions.md 2026-08-27 [process] -->
+
+## Spec dependency fields are five undefined spellings across 32 specs
+
+**Date:** 2026-08-28
+**Status:** proposed
+**due:** month
+
+`.claude/rules/features.md` defines relationship fields only for `type: change-request`
+(`changes:`, `superseded_by:`). Everything else is ad hoc. Measured across `features/`:
+`parent:` 12 · `blocked_by:` 7 · `depends_on:` 6 · `blocks:` 5 · `related:` 2 — five spellings
+for two ideas (ordering and association), none in the schema, and nothing consuming them
+(control-checked: the same probe finds `delivery_stage` in `scripts/` fine).
+
+Consequence: a spec chain is invisible unless someone reads the prose. P1180 → P1181 → P1182
+was filed this session and the ordering lived only in a `## Related` section until it was
+added by hand.
+
+Fix is small but lands in a gated file: pin one spelling for each idea in `features.md`, and
+have `/create-spec` and `/create-bug` emit them. Drop this entry if a kanban consumer is
+built first — that would settle the vocabulary by making one spelling load-bearing.
