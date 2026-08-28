@@ -26,6 +26,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { getAgentAccounts } from '@/app/data/agent-accounts-service';
 import * as Sentry from '@sentry/react';
+import { isNetworkBlip } from '@/lib/network-blip';
 
 interface AgentAccountsState {
   /** True when this profile id is a machine's reading of a person. */
@@ -54,6 +55,18 @@ export function AgentAccountsProvider({ children }: { children: ReactNode }) {
       .catch(err => {
         // Deliberately does NOT set an empty Map. See FAIL-CLOSED above: consumers stay
         // gated rather than rendering agent accounts as people.
+        //
+        // P1176: a transient network blip (offline / tab-switch mid-flight) is not a real
+        // error — matches the P990 suppression every other data-layer call site uses via
+        // db-error-logger.ts. Dropped with a breadcrumb instead of a Sentry issue.
+        if (isNetworkBlip(err)) {
+          Sentry.addBreadcrumb({
+            category: 'db-error-suppressed',
+            level: 'info',
+            data: { context: 'agent-accounts', reason: 'network-blip' },
+          });
+          return;
+        }
         Sentry.captureException(err, { tags: { feature: 'p1104-agent-accounts' } });
       });
     return () => { cancelled = true; };

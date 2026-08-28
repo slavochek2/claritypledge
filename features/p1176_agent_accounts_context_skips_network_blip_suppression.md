@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 78
 severity: low
@@ -10,8 +10,8 @@ drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
 tags: [sentry, agent-accounts, network-blip, noise-reduction]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/agent-accounts-context.test.tsx
   root_cause: "agent-accounts-context.tsx:57's .catch() calls Sentry.captureException unconditionally on any getAgentAccounts() rejection, never consulting isNetworkBlip() from src/lib/network-blip.ts — the only data-layer call site that bypasses the P990 blip-suppression mechanism used everywhere else via db-error-logger.ts."
@@ -72,9 +72,28 @@ Import `isNetworkBlip` from `@/lib/network-blip`. In the `.catch(err => ...)` ha
 
 ## Acceptance Criteria
 
-- [ ] A blip-shaped rejection (`isNetworkBlip(err) === true`) does not call `Sentry.captureException`
-- [ ] A blip-shaped rejection emits a `db-error-suppressed` breadcrumb
-- [ ] A non-blip rejection still calls `Sentry.captureException` with the same tags as before
-- [ ] `isLoading` remains `true` after any rejection (blip or not) — FAIL-CLOSED invariant unchanged
-- [ ] Regression test passes — `src/tests/p1176-*.test.ts`
-- [ ] No console errors during either flow
+- [x] A blip-shaped rejection (`isNetworkBlip(err) === true`) does not call `Sentry.captureException`
+- [x] A blip-shaped rejection emits a `db-error-suppressed` breadcrumb
+- [x] A non-blip rejection still calls `Sentry.captureException` with the same tags as before
+- [x] `isLoading` remains `true` after any rejection (blip or not) — FAIL-CLOSED invariant unchanged
+- [x] Regression test passes — landed in `src/tests/agent-accounts-context.test.tsx` (existing file for this component) rather than a new `p1176-*.test.ts`; two `p1176:`-prefixed tests added there
+- [x] No console errors during either flow
+
+## Resolution
+
+**Fixed:** 2026-08-28
+**Root cause:** `agent-accounts-context.tsx:57`'s `.catch()` called `Sentry.captureException` unconditionally, never consulting `isNetworkBlip()`.
+**Resolution:** Added an `isNetworkBlip(err)` gate before the `captureException` call — on a blip, emits an `addBreadcrumb` (category `db-error-suppressed`) and returns; otherwise unchanged. Mirrors `db-error-logger.ts:56-59`.
+
+**Files changed:**
+- `src/app/contexts/agent-accounts-context.tsx` — added the gate + import
+- `src/tests/agent-accounts-context.test.tsx` — two new tests (blip suppressed, non-blip still reported)
+
+**Regression tests:** `src/tests/agent-accounts-context.test.tsx` (tests prefixed `p1176:`)
+
+**Code review:** 0 HIGH, 1 MEDIUM (Tier-1 sibling finding — filed as P1177, not fixed in this branch). Full suite: 289/291 files, 3266/3285 tests pass (pre-existing skips unrelated).
+
+**Deferrals manifest (p1176):**
+- Filed during this fix: [p1177]
+- Already-filed deferrals referenced: none
+- Unnamed deferrals: 0
