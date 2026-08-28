@@ -230,20 +230,25 @@ function deploys. Verified 2026-08-28: `INTERNAL_FN_SECRET` is present on the te
 **absent on prod** (19 secrets listed, not among them).
 
 ### Secrets to provision
-- [ ] `INTERNAL_FN_SECRET` — `supabase secrets set INTERNAL_FN_SECRET=$(openssl rand -hex 32) --project-ref <prod-ref>`
-      (a **fresh** value — never reuse the test project's)
+- [x] `INTERNAL_FN_SECRET` — set on prod 2026-08-28 with a fresh `openssl rand -hex 32` value,
+      distinct from the test project's. Verified present (20 secrets listed).
 
 ### Deploy commands
-- [ ] `./scripts/deploy-functions.sh send-agreement-emails --env prod` — **receiver first.** If the
-      caller ships first, it sends a header the old receiver ignores and the notification 401s
-      exactly as it does today (logged, not silent). The reverse order is never worse than the
-      status quo, but receiver-first has no gap at all.
-- [ ] `./scripts/deploy-functions.sh create-and-sign --env prod`
-- [ ] No Vercel redeploy needed — nothing here is a `VITE_*` build-time var.
+- [x] `send-agreement-emails` deployed to prod (v33 → **v35**, `verify_jwt=true`) — receiver first.
+      Deployed from the worktree with the CLI directly: `deploy-functions.sh --env prod` resolves
+      `.env.prod` relative to a native worktree `scripts/` and fails there, and deploying from the
+      main checkout would have shipped the pre-fix source (this branch is not merged yet).
+      `check-edge-function-secrets.sh --env prod` was run separately and passed.
+- [x] `create-and-sign` deployed to prod (**v29**, `--no-verify-jwt` per `deploy-functions.sh:114`,
+      confirmed `verify_jwt=false` after deploy).
+- [x] No Vercel redeploy needed — nothing here is a `VITE_*` build-time var. N/A.
 
 ### Post-deploy verification
 - [ ] Direct-sign a test agreement on prod as a new user; confirm the creator receives the
       "co-signed your Clarity Partner Agreement" email (Mailgun `accepted` event).
+      **Blocked for the agent, owned by the founder:** driving this needs a prod service-role key to
+      seed a pending agreement + invitation token, and `.env.prod` carries no such key (only URL,
+      anon, DB URL, PAT). The equivalent check passed against test twice on the identical code.
 - [ ] Grep the `create-and-sign` prod logs for `P1178-DIAG` — any hit means the notification is
       still failing, and the log line carries the status and body.
 
