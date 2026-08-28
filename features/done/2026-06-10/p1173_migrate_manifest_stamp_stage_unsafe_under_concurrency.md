@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 78
 severity: high
@@ -11,7 +11,6 @@ tags: [migrations, deploy-manifest, shared-checkout, tooling, concurrency]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1173-manifest-stamp-concurrency.sh
@@ -20,6 +19,7 @@ reproduce_artifact:
   surfaces_in_scope: [stamp-deploy-manifest-write, migrate-stage-manifest]
   surfaces_deferred: []
   reproduced_at: 2026-08-27
+completed_at: 2026-08-28
 ---
 
 # P1173: `migrate.sh`'s manifest stamp+stage sequence is unsafe under concurrent sessions — absorbs bystander edits, swallows lock failures, races other stamps
