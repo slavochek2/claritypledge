@@ -10,6 +10,7 @@ vi.mock('@/app/data/agent-accounts-service', () => ({
 
 vi.mock('@sentry/react', () => ({
   captureException: vi.fn(),
+  addBreadcrumb: vi.fn(),
 }));
 
 async function renderProvider() {
@@ -51,6 +52,39 @@ describe('AgentAccountsProvider / useAgentAccountIds', () => {
     await new Promise(r => setTimeout(r, 20));
 
     expect(result.current.isLoading, 'a failed registry fetch must not read as "no agents"').toBe(true);
+  });
+
+  it('p1176: a network-blip rejection ("Load failed") is not reported to Sentry as an issue', async () => {
+    const Sentry = await import('@sentry/react');
+    mockGetAgentAccounts.mockRejectedValue(new Error('Load failed'));
+
+    const { result } = await renderProvider();
+
+    await waitFor(() => expect(mockGetAgentAccounts).toHaveBeenCalledTimes(1));
+    await new Promise(r => setTimeout(r, 20));
+
+    expect(result.current.isLoading, 'FAIL-CLOSED must hold on a blip too').toBe(true);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'db-error-suppressed', data: expect.objectContaining({ reason: 'network-blip' }) })
+    );
+  });
+
+  it('p1176: a non-blip rejection is still reported to Sentry with the p1104-agent-accounts tag', async () => {
+    const Sentry = await import('@sentry/react');
+    const realError = new Error('permission denied for table agent_accounts');
+    mockGetAgentAccounts.mockRejectedValue(realError);
+
+    const { result } = await renderProvider();
+
+    await waitFor(() => expect(mockGetAgentAccounts).toHaveBeenCalledTimes(1));
+    await new Promise(r => setTimeout(r, 20));
+
+    expect(result.current.isLoading).toBe(true);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      realError,
+      expect.objectContaining({ tags: { feature: 'p1104-agent-accounts' } })
+    );
   });
 
   it('isAgentAccountId(undefined) and (null) are false once loaded', async () => {
