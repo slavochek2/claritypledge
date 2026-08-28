@@ -4,12 +4,33 @@ type: story
 rank: 4
 created_date: '2026-08-13'
 tags: [organizations, events, schema, membership]
-delivery_stage: create-spec
-pipeline_ran: [create-spec, grill-me]
+delivery_stage: generate-tests
+pipeline_ran: [create-spec, grill-me, generate-tests]
 driver: heuristic
+uat_file: features/uat/p1060.md
+test_files:
+  - e2e/integration/p1060-events-org-migration.spec.ts
+  - e2e/p1060-org-scoped-events.spec.ts
+  - e2e/p1060-org-directory.spec.ts
+  - e2e/a11y/p1060-accessibility.spec.ts
 ---
 
 # P1060: Events belong to an organization — and the second organization that needs it
+
+## Run This
+
+Type this from anywhere in the repo — the main checkout is fine. Nothing to `cd` into, nothing to
+rebase; the worktree is already claimed for this spec and already carries the pinned contract.
+
+    /goal "Work in the worktree on branch feature/p1060-events-org. Then: ./scripts/goal-gate.sh p1060 exits 0, output pasted. Stop after 30 turns."
+
+`/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke it for
+them. The condition names an exit code on purpose: the evaluator reads the transcript and runs
+nothing, so the only trustworthy condition is one naming an artifact the agent cannot author.
+
+**Why the worktree clause is not decoration.** `goal-gate.sh` CHECK 3 hard-refuses to run on the
+shared main checkout, so a loop started there cannot reach exit 0 no matter what it builds. Naming
+the branch rather than a slot keeps this line correct if the work is ever moved.
 
 > **[WIDENED 2026-08-19 — founder decision.]** Filed 2026-08-13 as a schema placeholder (`events.org_id`, column + backfill, *"Do NOT change event visibility or access rules here"*). That Non-Goal is **retired, deliberately**, because the condition it was waiting for arrived: the founder wants a **second Clarity Organization for online events**. The column alone does not make two organizations usable — see Problem — so shipping it without the surfaces that read it leaves the visible defect in place on the day org #2 appears. The original narrow scope is preserved at the bottom under *Superseded scope*.
 >
@@ -232,6 +253,157 @@ re-pin.
 ## Superseded scope (original filing, 2026-08-13)
 
 Filed as: add `org_id`, index it, backfill to the single existing org, review RLS — with Non-Goals *"Do NOT change event visibility or access rules here. Column and backfill only"* and *"Do NOT build the org-scoped position overview."* The second of those still stands (that is [p1055](p1055_norm_measurement_instrument.md) plus a view spec). The first is retired by the 2026-08-19 widening. Original rationale: *"Not urgent while one organization exists, which is why this is backlog and not week. It becomes blocking the moment a second one does."* — which is exactly what happened.
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- ✅ Schema: `events.org_id` — nullable, FK-enforced, indexed (integration, MANDATORY per P270)
+- ✅ RLS regression guard: an org-scoped event stays world-readable to anon (integration)
+- ✅ · Online seed: public, has_events, blurb NULL (D7), organizer membership exists (integration)
+- ⚠️ Backfill correctness (8 CM slugs → org_id=cm, 2 Ko Phangan slugs → NULL): **best-effort** against the named prod slugs — skips with a warning on a DB that never had those prod rows (integration; the migration is a literal slug enumeration, not a location classifier, so synthetic test data cannot exercise it)
+- ✅ Org-scoped Events tab: cross-org isolation, both directions (E2E)
+- ✅ Standalone `/events` unaffected — the explicit ALLOWED path (E2E, gate 7c)
+- ✅ D4 host-CTA matrix: organizer sees it / non-organizer doesn't / any logged-in user still sees it on `/events` — all three states (E2E, gate 7c)
+- ⚠️ Done-When "event created from org page carries that org" — link carries org context forward is tested; full form-submission round trip is not (form complexity out of scope; flagged UAT-manual)
+- ✅ D6 empty-Upcoming fallback: 0-upcoming/some-past and 0-upcoming/0-past, structurally (exact copy not yet specified — TODO(/dev) to tighten once written)
+- ✅ D9/D10 participant count: verbatim "N have joined events" wording, distinct-profile counting, zero-case omission (no row, no "0") (E2E)
+- ✅ Avatar row reuse: `data-testid="person-avatar"` renders, accessible name/alt present (E2E + a11y)
+- ⚠️ `+N` badge `z-10` visual correctness — flagged for manual `/verify`, not automated (paint-order assertions at this DOM depth are unreliable)
+- ✅ Participant payload shape: no `email`/`reason` beyond public avatar fields (E2E)
+- ✅ `/org` directory: lists public orgs only, links to each, no create-org affordance, signed-out readable, NULL-blurb omission, membership badge delta (E2E)
+- ✅ `/org` registered in `PROD_HEALTH_ROUTES` (mechanical assertion, closes the "nothing enforces it" gap named in Risks)
+- ✅ Directory keyboard reachability + member-count button semantics (a11y)
+- ✅ No-horizontal-overflow at 320px (E2E, structural)
+
+**What's NOT Tested (and why):**
+- ❌ Pixel-level visual match to the approved reference (screens A-F) — no visual-regression tooling in this repo; owned by `/verify` against the pinned artifact URL
+- ❌ The differentiator line under each org name ("The room brings the topic" / "The topic is set in advance") — founder-approved UI copy with no backing schema column named anywhere in the Solution section. **Open question for `/dev`:** confirm where this text lives (hardcoded per-slug constant vs. a new column) before shipping — untested because unimplemented.
+- ❌ Full event-creation form submission from the org page through to a saved `org_id` — the org-context link is tested; the form itself is existing `/events/new` surface, out of this spec's blast radius
+- ❌ Exact copy for D6's empty-state headings — not specified verbatim in the spec; structural assertions only, with a TODO to tighten
+
+**Test Pyramid:**
+```
+       /\
+      /  \    2 E2E files (org-scoped-events, org-directory) — ~15 tests
+     /____\
+    / 1 A11Y \  1 file — 3 tests
+   /__________\
+  / 1 INTEGRATION \  MANDATORY (P270) — 8 tests
+ /__________________\
+/ 1 UNIT (targeted)   \  addition to existing events-service-real.test.ts
+```
+
+**Files generated:**
+- `e2e/integration/p1060-events-org-migration.spec.ts` (new)
+- `e2e/p1060-org-scoped-events.spec.ts` (new)
+- `e2e/p1060-org-directory.spec.ts` (new)
+- `e2e/a11y/p1060-accessibility.spec.ts` (new)
+- `e2e/helpers/test-organization.ts` (updated — `blurb: null` support)
+- `e2e/helpers/test-event.ts` (updated — `orgId` support)
+- `e2e/helpers/prod-health.ts` (updated — `/org` added to `PROD_HEALTH_ROUTES`)
+- `src/tests/events-service-real.test.ts` (updated — org-filter call-shape tests, TODO-flagged for `/dev` to tighten against the real query-builder shape)
+- `features/uat/p1060.md` (new — 8 scenario groups covering every Done-When bullet)
+
+## Verification Contract
+
+**Pinned to main.** The gate reads this section from `main`, never from the branch it is judging —
+otherwise a loop can delete the row it is about to fail. Adding a heading inside this section breaks
+the digest; put new prose above it, and keep every sub-heading at `###`.
+
+**16 Done-When lines plus 2 UI-Contract bindings and one regression baseline, grouped into 11 rows:
+7 MECHANICAL, 2 COMPARABLE, 2 HUMAN-ONLY.** HUMAN-ONLY is 18% — under goalify's 25% refusal bar.
+These are the gate's own figures, read off `./scripts/goal-gate.sh p1060 --tier ci`, not a hand
+count: the threshold is mechanized precisely because an agent grading its own spec can round it.
+
+**Two Done-When lines were satisfied before the pin and are not loop work.** DW-3 (*"the · Online
+blurb is supplied by the founder and recorded in this spec"*) was written before D7 and is
+**answered by D7: seed it NULL, render nothing where it would go.** It survives here only as the
+negative assertion in row M1 — no placeholder string reaches the migration or the UI. DW-6 (*"the
+visual reference is founder-approved and its four open items are resolved, before the contract is
+pinned"*) is **satisfied at pin time**: `## UX Design` records the founder approval of 2026-08-28 and
+the sign-off on all four open items. Row M1 re-asserts that the artifact URL is still the one
+recorded, because a republished reference silently changes what the blind reviewer judges against.
+
+The gate additionally requires a UAT scorecard at `features/uat/p1060.md` with every row carrying a
+result (CHECK 4) and `assumptions.md` + `feedback.md` present with both axes (CHECK 6). Those are
+the loop's to produce; they are not contract rows.
+
+| line | class | decided by | artifact |
+|---|---|---|---|
+| M1 — source contract. DW-2 the backfill enumerates the 8 named slugs literally, asserts it touched exactly 8 rows, and contains no location substring match. DW-3/D7 the · Online seed writes a NULL blurb and no placeholder string. DW-13 the avatar row reuses the social-proof pattern including the +N badge's z-10, rather than a fresh implementation. DW-16 the migration comment states events RLS is unchanged. Both differentiator lines render verbatim, /org is a registered route, and the approved reference URL in this spec is unchanged | MECHANICAL | `npx vitest run src/tests/p1060-source-contract.test.ts` | src/tests/p1060-source-contract.test.ts |
+| M2 — the query half of DW-5. Passing an org id produces exactly one .eq on org_id; omitting it produces none, so the standalone /events list stays unfiltered | MECHANICAL | `npx vitest run src/tests/events-service-real.test.ts` | src/tests/events-service-real.test.ts |
+| M3 — the whole unit suite stays green. The regression baseline for every row above and below | MECHANICAL | `npx vitest run` | package.json |
+| M4 — DW-1 events.org_id exists, is nullable, FK-enforced and indexed. DW-2 the 8 Chiang Mai slugs carry the cm org and the 2 Ko Phangan slugs stay NULL. DW-4 · Online exists at /org/online, public, has_events, blurb NULL, with an organizer membership row. DW-16 an org-scoped event stays world-readable to anon | MECHANICAL | `npx playwright test e2e/integration/p1060-events-org-migration.spec.ts` | e2e/integration/p1060-events-org-migration.spec.ts |
+| M5 — DW-5 cross-org isolation in both directions. DW-9 the org-page Host Event link carries org context forward. DW-10 the host-CTA matrix in all three states, including the ALLOWED path on standalone /events that gate 7c exists to protect. DW-11 both empty-Upcoming fall-throughs. DW-12 the participant count from distinct RSVP profiles. DW-14 a zero-participant org renders no row and no 0. DW-15 the payload carries no PII beyond name, slug and avatar | MECHANICAL | `npx playwright test e2e/p1060-org-scoped-events.spec.ts` | e2e/p1060-org-scoped-events.spec.ts |
+| M6 — DW-7 /org lists every public organization and no private one, links to each, is readable signed out, omits the blurb line entirely for a NULL blurb, carries no create-organization affordance signed in or out, and does not overflow horizontally at 320px. DW-8 /org is registered in PROD_HEALTH_ROUTES | MECHANICAL | `npx playwright test e2e/p1060-org-directory.spec.ts` | e2e/p1060-org-directory.spec.ts |
+| M7 — directory cards are keyboard reachable and activate on Enter, the member-count control is a real button rather than a styled span, and every person avatar carries an accessible name or is correctly decorative | MECHANICAL | `npx playwright test e2e/a11y/p1060-accessibility.spec.ts` | e2e/a11y/p1060-accessibility.spec.ts |
+| UI-1 — /org matches the approved reference at 320px, 375px and desktop: card structure and density, the two counts, the avatar row, a NULL blurb rendering as absence rather than placeholder, the differentiator line under each name, and the signed-in membership badge as the only signed-in delta | COMPARABLE | blind-reviewer | features/verification/p1060/review-round-*.md |
+| UI-2 — the org Events tab reads as the same product in every state the reference draws: /org/cm with Upcoming empty falling through to a labelled Past, /org/online with nothing at all, and the org header's participant row with its +N badge legible rather than obscured by the last avatar | COMPARABLE | blind-reviewer | features/verification/p1060/review-round-*.md |
+| HUM-1 — the one honest line an organization with neither upcoming nor past events shows is the right sentence to put in front of an invited stranger who may not host | HUMAN-ONLY | founder | — |
+| HUM-2 — an organizer completes the real /events/new form from an org page and the saved row carries that organization, end to end. The link half is M5; the form itself is existing surface outside this spec's blast radius | HUMAN-ONLY | founder | — |
+
+### The blind reviewer
+
+**It must not be the agent that built the thing.** That is the one durable constraint here, and the
+only property the repo's evidence supports: P1083 ran four review rounds, every defect was found by
+a reviewer given renders and nothing else, and every rejected version had already passed its own
+implementer's review.
+
+**Given:** the named reference — the founder-approved artifact linked under `## UX Design`, frozen
+at pin time — and renders of `/org` at **320px, 375px and desktop** signed out and signed in as a
+member of · Chiang Mai, plus `/org/cm` Events with Upcoming empty and `/org/online` Events with
+nothing at all. The reference is authoritative for structure, density and placement, and explicitly
+**not** for copy.
+
+**Forbidden:** the diff, this spec, the rationale, this contract, and any statement of what the
+build was trying to do.
+
+**Writes** `features/verification/p1060/review-round-N.md` itself: `VERDICT: PASS|FAIL`, then one
+`SCREENSHOT: <sha256>  <path>` line per image judged. The gate re-hashes every image and never
+trusts a hash it is handed. Hashing binds the verdict to the pixels judged; it cannot establish who
+authored the verdict — the defence against that is independence, not arithmetic.
+
+**Screenshots must reach the real states.** `/org/online` at day one has zero events and zero
+participants, and `/org/cm` needs at least one past and zero upcoming to show the fall-through;
+seed those rather than mocking them. The signed-in render needs a real membership — `getTestAuthContext()`
+in `e2e/helpers/auth-context.ts` mints a real user JWT. A component fed mock props certifies a
+screen the user never sees. `resize_window` can silently no-op below some minimum width, so confirm
+`window.innerWidth` before trusting any 320px render (`.claude/rules/browser.md`).
+
+### Evidence
+
+| file | holds |
+|---|---|
+| `contract.sha256` | the pin |
+| `review-round-N.md` | the verdict and the image hashes |
+| `assumptions.md` | every call the loop made alone. There is no escalation clause — the agent decides, logs, continues |
+| `feedback.md` | **two numbers**: corrections given, and turns consumed. Quality bought with runaway spend reads as success on a one-axis scoreboard |
+
+### Red-first (run 2026-08-28, before the loop existed)
+
+| command | result | strength |
+|---|---|---|
+| `npx vitest run` | **exit 1** — 288 files passed, **1 failed**: the P1060 org-filter case in `events-service-real.test.ts`. Nothing else in the suite is red | **real red, and diagnostic.** The baseline is red for exactly the reason this spec exists, and green means the org filter landed without breaking 3267 other tests |
+| `npx vitest run src/tests/events-service-real.test.ts` | **exit 1** — `TypeError: Cannot read properties of undefined (reading 'map')` at `events-service-real.ts:158` | **weak red.** It fails because the mock's query builder never resolves the `.eq` the service does not make, not because an assertion about org filtering fired. `grep -c org_id src/app/data/events-service-real.ts` is **0** — the behaviour genuinely does not exist. The loop's first job on this row is to tighten the test against the real builder shape so it fails for its own reason |
+| `npx vitest run src/tests/p1060-source-contract.test.ts` | **exit 1** — no test files found | **unproven-by-absence.** This proves only that the command fails when its file is missing, never that any assertion binds. Do not count it as evidence |
+| the four `npx playwright test e2e/…p1060…` rows | **not run to completion** — `--list` parses all four files and enumerates 8 directory tests, so the specs are syntactically live, but no saved auth state exists locally (`.private/test-auth/local.json` absent) and the DB-backed rows need a seeded fixture org and event | **unproven.** Flagged rather than counted |
+
+**Stated plainly: five of the seven MECHANICAL rows are unproven or weakly proven at pin time.** A
+check nobody has watched fail for the right reason is not a check, and saying so here is cheaper
+than discovering it at the merge boundary.
+
+**One row is green at pin time and must not be mistaken for evidence.** `/org` is already present in
+`PROD_HEALTH_ROUTES` (`e2e/helpers/prod-health.ts:30`) — added by `/generate-tests`, uncommitted on
+the main checkout at pin time and carried into the worktree. Its assertion in M6 therefore passes on
+arrival and has never been seen to fail. It is retained because the standing rule it enforces
+([decisions.md](../docs/decisions.md) 2026-06-06) has nothing else enforcing it, not because this run
+proved it.
+
+**No `it.fails` markers are pre-authorised for this spec.** P1114 committed red tests under that
+convention to keep `npm test` green while its build was outstanding; the cost was rows that exited 0
+over assertions nobody had satisfied. The loop works in a worktree, so there is no green-suite
+pressure on `main` to relieve — a `p1060-*` test that is committed must be committed passing.
+
 
 ## References
 
