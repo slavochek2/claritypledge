@@ -244,13 +244,16 @@ function deploys. Verified 2026-08-28: `INTERNAL_FN_SECRET` is present on the te
 - [x] No Vercel redeploy needed — nothing here is a `VITE_*` build-time var. N/A.
 
 ### Post-deploy verification
-- [ ] Direct-sign a test agreement on prod as a new user; confirm the creator receives the
-      "co-signed your Clarity Partner Agreement" email (Mailgun `accepted` event).
-      **Blocked for the agent, owned by the founder:** driving this needs a prod service-role key to
-      seed a pending agreement + invitation token, and `.env.prod` carries no such key (only URL,
-      anon, DB URL, PAT). The equivalent check passed against test twice on the identical code.
-- [ ] Grep the `create-and-sign` prod logs for `P1178-DIAG` — any hit means the notification is
-      still failing, and the log line carries the status and body.
+- [x] Direct-sign a test agreement on prod as a new user; confirm the creator receives the
+      "co-signed your Clarity Partner Agreement" email — **done 2026-08-28 against prod.** Signed in
+      as the prod test agent (`PROD_TEST_AGENT_*`, no service-role key needed — the agreement insert
+      is an ordinary RLS-permitted creator write), created a pending agreement, and called the real
+      `create-and-sign` with its DB-generated invitation token: `200 {"ok":true,...}`. Mailgun logged
+      the `accepted` event to the creator within the 90s window:
+      `P1178 Verify Partner co-signed your Clarity Partner Agreement`.
+- [x] Grep the `create-and-sign` prod logs for `P1178-DIAG` — **zero hits** after the verification
+      run (`function_logs` via the Management API, `error: null`). Confirmed as a real absence rather
+      than a blind probe by a control query on the same table, which returned rows.
 
 **Fail-closed until then.** `check-edge-function-secrets.sh` classifies `INTERNAL_FN_SECRET` as
 REQUIRED-EMPTY, so a prod deploy is mechanically blocked while the secret is missing. If it were
