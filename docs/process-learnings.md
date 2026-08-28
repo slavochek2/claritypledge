@@ -891,4 +891,28 @@ Falsifier: with a second session holding an unstaged edit to a file the branch a
 
 ---
 
+## `check-deploy-manifest.sh --env prod` prints the wrong fix command for the unpushed-stamp case (3rd recurrence)
+
+**Date:** 2026-08-28
+**Status:** proposed
+**due:** month
+
+`--env prod` reads the manifest from `origin/main` (P820). When local main is ahead of origin, an
+unpushed stamp reads as `MIGRATION_MISSING: … not deployed to prod`, and the script's `Fix commands:`
+block names `./scripts/migrate.sh --env prod` — the wrong action, at the moment the operator is
+deciding. This has now misled three times (2026-08-18; an earlier `migrate.sh`-disagreement incident;
+2026-08-28), with two decisions.md entries prescribing a manual two-command check that nobody runs,
+because the tool sounds authoritative and the manual check is not where the decision happens.
+
+**Real fix:** in the drift branch, compare the `origin/main` manifest against the working-tree
+manifest. If the missing version is present locally, emit `MIGRATION_UNPUSHED_STAMP: <file> (applied
+and stamped locally; the stamp has not reached origin/main)` and name pushing main as the remedy.
+Emit `MIGRATION_MISSING` only when the version is absent from both.
+
+Falsifier: commit a manifest stamp locally without pushing, then run
+`./scripts/check-deploy-manifest.sh --env prod` — it reports MIGRATION_MISSING and tells you to
+migrate prod.
+
+---
+
 <!-- Resolved 2026-08-27: "/slava:disagreement:select has no person-level fallback from Gate 1" — closed by P1171 (Gate 1 runners-up carried as per-position `alternates:`); see decisions.md 2026-08-27 [process] -->
