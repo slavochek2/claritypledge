@@ -6,6 +6,88 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [technical]: An edge function calling another edge function needs a service credential, not a user token — the service-role key in the Bearer slot fails silently
+
+**Context:** P1178. `create-and-sign` notified `send-agreement-emails` with
+`Authorization: Bearer <service_role JWT>`. The receiver resolved that header with
+`auth.getUser()`, which returns no user for a `service_role` token (no `sub` claim), and returned
+401. The caller was fire-and-forget with a bare `.catch()` — which only fires on transport errors,
+never on a non-2xx — so the "X co-signed your Clarity Partner Agreement" email had not sent on the
+P527 new-user direct-sign path since 2026-04-03 (147 days) with no error anywhere. The existing-user
+accept path was unaffected: it calls the same function with a real user JWT.
+
+**Decision:** The receiver gained an internal-caller branch keyed on an `x-internal-secret` header
+matching an `INTERNAL_FN_SECRET` env var — the pattern `WEBHOOK_SECRET`, `CRON_SECRET` and
+`GCS_UPLOAD_SECRET` already establish. It skips the JWT resolution and the party check (the two
+things a caller with no user identity can never satisfy) and is bounded three ways: the action must
+be `accepted`, the agreement must exist, and it must be `status = 'active'`. The caller sends the
+**anon** key in `apikey` + `Authorization` purely to clear the gateway's `verify_jwt` check, and
+proves identity with the secret — so no database key travels as a request header. An unset secret
+makes the branch structurally unreachable, so it fails closed.
+
+**Alternatives rejected:** *Inline the send into the caller* — `send-agreement-emails` holds private
+copies of `escapeHtml`/`htmlEmail`/`button`/`sendEmail` and the `agreements@` sender
+(`_shared/email-helpers.ts` is the *events* variant, `events@`), so inlining meant either a second
+copy of the accepted-email template or extracting five helpers used by all five handlers — a refactor
+across the whole email surface inside a bug fix. *Add an `apikey` header equal to the bearer* —
+silences the transport rejection while the receiver still tries, and fails, to resolve a user.
+
+**Consequences:** Three generalisable points. (1) A **signature-valid but subject-less** credential is
+the worst kind: it clears the gateway and dies inside the function, so the failure looks like an
+application 401 rather than a config error. (2) `.catch()` on a `fetch` is not error handling — it
+cannot see a 4xx; `res.ok` must be inspected explicitly. Any fire-and-forget call that is the sole
+trigger for a user-visible outcome needs that check. (3) The status guard came from code review, not
+from the fix: the action allowlist bounded *which action* a leaked secret could fire but not *which
+agreement*, so it could have told the creator of a pending or declined agreement it had been
+co-signed. An allowlist on the verb is not a bound on the object. Edge functions still have no Sentry
+in this repo, so failures carry a greppable `P1178-DIAG` marker read via the dashboard.
+
+**References:** [supabase/functions/create-and-sign/index.ts](../supabase/functions/create-and-sign/index.ts) ·
+[supabase/functions/send-agreement-emails/index.ts](../supabase/functions/send-agreement-emails/index.ts) ·
+`e2e/integration/p1178-reproduce.spec.ts` · `e2e/integration/edge-fn-authz-regression.spec.ts` ·
+features/p1178 · relates to P46 (API-key migration) and P1189 (`generate-banner` uses the DB master
+key as its service secret)
+
+---
+
+## 2026-08-28 [process]: Gate 3.5 blocked a ship for the third time — and this instance is guaranteed by the required spec template, not by the work
+
+**Context:** P1178's `/ship` hard-failed gate 3.5 on two unticked items. Both were under
+`### Post-deploy verification` — a subsection that `.claude/rules/features.md` **requires** inside
+`## Pre-deploy Checklist`. Gate 3.5 fails any unticked `- [ ]` under that heading, so a spec that
+follows the mandated template cannot ship until someone ticks post-deploy boxes before the deploy.
+Prior entries recorded this for merge-blocked migration work (2026-08-17) and for the absent-section
+case (2026-08-27); neither noticed that the template itself manufactures the conflict for *every*
+compliant spec, whatever the work is.
+
+**Decision:** Recorded, not fixed — the fix belongs to whoever owns `ship-gates.sh`, and inventing a
+heading convention mid-ship would have been an undiscussed change to a shared gate. P1178's four
+genuine pre-deploy items were done and ticked (prod secret set, both functions deployed); the two
+post-deploy items were left unticked with the reason written inline, and the ship was left blocked
+rather than attested falsely.
+
+**Alternatives rejected:** *Tick the post-deploy boxes* — false attestation, and the exact pressure
+the 2026-08-17 entry names. *Move the subsection out from under the heading* — games the gate by
+renaming, and silently drops the deploy record the section exists to hold.
+
+**Consequences:** The two prior entries treated this as situational; three instances across
+three unrelated specs make it structural. Any fix needs to distinguish *pre-deploy* from
+*post-deploy* items rather than treating every box under one heading as a merge precondition —
+which is [epistemic.md](../.claude/rules/epistemic.md) gate 7c exactly: the gate was never run
+against the workflows the template already prescribes. **Second, smaller finding from the same
+ship:** `deploy-functions.sh --env prod` cannot run from a worktree — it resolves `.env.prod`
+relative to `scripts/`, which is a native checkout in worktrees since `3d7a010e`, and `.env.prod`
+exists only in the main checkout. Deploying from the main checkout instead would ship the *pre-fix*
+source whenever the branch is unmerged, which is precisely when gate 3.5 demands the deploy. The
+deploy was done with the CLI directly, after running `check-edge-function-secrets.sh --env prod`
+separately to keep the hygiene gate in the loop. (Status: proposed — both need an owner.)
+
+**References:** `scripts/ship-gates.sh` gate 3.5 · [.claude/rules/features.md](../.claude/rules/features.md):231-255 ·
+`scripts/deploy-functions.sh`:36-46 · decisions.md 2026-08-17 [technical] and 2026-08-27 [technical]
+(the two prior instances) · features/p1178
+
+---
+
 ## 2026-08-28 [process]: `/goalify` hands the founder ONE line runnable from anywhere — the `cd` and the rebase were artifacts of my own step ordering, not of the design
 
 **Context:** P1179's goalify run ended by telling the founder to paste `cd .../worktrees/w1 && git rebase main` and *then* type `/goal`. Founder, verbatim: *"I find it weird. I don't want, for example, to do CD and go into the worktree… I was thinking that I can just go slash goal from main… now you hardcoded it and who knows maybe some other neighboring session already occupied working tree."*
