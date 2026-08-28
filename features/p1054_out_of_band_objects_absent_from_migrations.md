@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 19
+rank: 210
 created_date: '2026-08-12'
 tags: [security, rls, drift, migrations]
 delivery_stage: create-spec

@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 84
+rank: 240
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [transcripts, caching, points-pipeline, correctness]

@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 20
+rank: 5
 created_date: '2026-08-12'
 tags: [cmp, points, events, commercial]
 delivery_stage: create-spec

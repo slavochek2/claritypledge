@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: comment
-rank: 62
+rank: 230
 workstream: infrastructure
 created_date: '2026-08-21'
 tags: [idea-feed, dead-code, founder-decision, rls]

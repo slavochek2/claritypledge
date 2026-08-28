@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: comment
-rank: 50
+rank: 224
 created_date: '2026-08-20'
 tags: [previews, og, crawlers, survey]
 delivery_stage: create-spec

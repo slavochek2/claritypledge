@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 71
+rank: 232
 workstream: infrastructure
 created_date: '2026-08-26'
 tags: [infrastructure, cost-control, edge-functions, gemini]

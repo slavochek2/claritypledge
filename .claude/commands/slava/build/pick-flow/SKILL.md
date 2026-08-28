@@ -229,7 +229,8 @@ Most flows split: **Opus to plan, Sonnet to execute.** Name the switch point in 
 
 - Set `flow:` in spec frontmatter if spec exists (values: `fix|dev|inline` — `quick-feature` is legacy, never newly assigned; see `.claude/rules/features.md`)
 - **Set `pipeline_plan:`** — ordered inline list of all tracked skills in the confirmed flow. Example: `pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, dev, verify]`
-- **Set `pipeline_skipped:`** — inline list of skipped skills with reasons. Example: `pipeline_skipped: [ux -- no net-new visual component, decompose -- under 5 files]`. Omit if nothing skipped.
+- **Set `pipeline_skipped:`** — inline list of skipped skills with reasons. **Quote every element**, always: `pipeline_skipped: ["ux -- no net-new visual component", "decompose -- under 5 files"]`. Omit if nothing skipped.
+  - **Why the quotes are not optional.** This is a YAML *flow sequence*, where an unquoted comma is the element separator. A reason containing a comma therefore splits into two entries — `["challenge-prd -- founder declined, see Pipeline note"]` silently parses as `["challenge-prd -- founder declined", "see Pipeline note"]`, and the kanban, the validators and every later reader see a fragment that reads like a skipped skill named "see Pipeline note". The file *looks* right on disk, which is why it survived: nothing renders frontmatter until something parses it. Found 2026-08-28 in 4 specs during a `/slava:maintain:prioritize` run. Quoting makes the comma inert, so reasons can be written as prose.
 - **Initialize `pipeline_ran: []`** (empty — skills fill this as they run)
 - Do NOT write skip info to `## Next Steps` (it goes to `pipeline_skipped` in frontmatter)
 - If in a worktree: remind user that spec creation must happen from main repo

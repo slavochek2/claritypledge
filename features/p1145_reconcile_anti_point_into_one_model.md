@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 61
+rank: 229
 created_date: '2026-08-21'
 tags: [anti-point, model, docs, align]
 delivery_stage: create-spec

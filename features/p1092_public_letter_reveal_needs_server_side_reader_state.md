@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 3
+rank: 217
 created_date: '2026-08-17'
 tags: [security, letters, sealed-bid, integrity]
 delivery_stage: create-bug

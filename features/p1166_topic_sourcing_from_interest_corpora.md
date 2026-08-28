@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 71
+rank: 6
 workstream: gtm
 created_date: '2026-08-27'
 tags: [events, disagreement-pipeline, topic-sourcing, cmp, chiang-mai]

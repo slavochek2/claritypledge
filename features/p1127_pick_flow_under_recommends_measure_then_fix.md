@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 49
+rank: 223
 created_date: '2026-08-20'
 tags: [infrastructure, skills, pick-flow, measurement]
 delivery_stage: create-spec

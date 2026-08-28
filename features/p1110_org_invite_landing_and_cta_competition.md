@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 42
+rank: 7
 workstream: landing
 created_date: '2026-08-19'
 tags: [organizations, invite, navigation, cta]

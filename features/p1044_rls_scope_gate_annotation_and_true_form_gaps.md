@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 17
+rank: 207
 severity: medium
 workstream: security
 date_reported: '2026-08-11'

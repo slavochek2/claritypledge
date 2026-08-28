@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: story
-rank: 60
+rank: 228
 workstream: C2
 created_date: '2026-08-21'
 tags: [agents, accountability, disclosure]

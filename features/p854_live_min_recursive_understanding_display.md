@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: story
-rank: 10
+rank: 241
 created_date: '2026-05-27'
 tags:
   - live

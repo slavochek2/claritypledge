@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 80
+rank: 10
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [skills, letters, problem-board, matching]

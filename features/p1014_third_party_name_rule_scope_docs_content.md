@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 6
+rank: 201
 created_date: '2026-07-30'
 tags: [privacy, audit-privacy, rules, pii]
 delivery_stage: create-spec

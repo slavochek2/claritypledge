@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: story
-rank: 5
+rank: 242
 workstream: content
 created_date: '2026-06-10'
 tags: [content, topic-selection, founder-guide, h-topicdepthgate]

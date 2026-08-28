@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 55.0
+rank: 226
 created_date: '2026-08-20'
 tags: [git-safety, goal-gate, tooling]
 delivery_stage: create-spec

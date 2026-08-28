@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 77
+rank: 236
 workstream: infrastructure
 created_date: '2026-08-27'
 tags: [verification, specs, events, stories]

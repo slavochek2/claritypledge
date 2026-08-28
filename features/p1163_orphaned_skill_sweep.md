@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: comment
-rank: 72
+rank: 233
 workstream: infrastructure
 created_date: '2026-08-27'
 tags: [skills, infrastructure, measurement, routing]

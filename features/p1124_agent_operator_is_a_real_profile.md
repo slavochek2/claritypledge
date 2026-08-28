@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: story
-rank: 48
+rank: 222
 workstream: C2
 created_date: '2026-08-20'
 tags: [agent-accounts, accountability, schema, profiles]

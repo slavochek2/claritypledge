@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 0.25
+rank: 9
 created_date: '2026-08-06'
 tags:
   - cta

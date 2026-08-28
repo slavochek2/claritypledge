@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 68
+rank: 231
 workstream: infrastructure
 created_date: '2026-08-24'
 tags: [monitoring, alerting, process, silent-skip]

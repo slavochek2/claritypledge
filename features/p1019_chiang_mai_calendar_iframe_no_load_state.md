@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 12
+rank: 202
 severity: low
 date_reported: '2026-07-31'
 created_date: '2026-07-31'

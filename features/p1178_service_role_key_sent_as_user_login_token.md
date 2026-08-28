@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 4
+rank: 238
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [edge-functions, auth, silent-failure, email]

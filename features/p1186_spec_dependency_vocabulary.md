@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 83
+rank: 239
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [specs, schema, skills, kanban]

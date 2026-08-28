@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 14
+rank: 208
 severity: high
 created_date: '2026-08-11'
 tags: [security, rls, anonymous-writes]
