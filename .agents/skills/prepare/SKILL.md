@@ -241,7 +241,9 @@ Test each draft: *is the load-bearing half buried behind a premise nobody disput
 - **Agree commits you to:** …
 - **Disagree commits you to:** …
 
-If either side is hard to write, the point is not load-bearing. Return to stage 3.
+If either side is hard to write, the **statement** is not forcing a real choice — return to **4a** and re-synthesize it, since the statement is 4a's artifact and Stage 3 never saw it.
+
+> **This test is not the load-bearing verdict — corrected 2026-08-28 (P1190).** It used to read *"the point is not load-bearing. Return to stage 3."*, which is wrong twice now: Stage 3 is a pre-filter that runs on candidate claims, not on this statement, and the load-bearing verdict belongs to **4b-iii** (disqualifier gate + loss rank). What this test actually detects is a statement whose two sides do not diverge — a synthesis defect, fixed by re-synthesizing.
 
 ### 4e. Stranger test — conditional, not automatic
 

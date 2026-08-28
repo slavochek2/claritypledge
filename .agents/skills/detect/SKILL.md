@@ -215,11 +215,7 @@ CANDIDATE ‹n›
   - the **interface disqualifier** and the two rules that bound it, written on the card as `SKIP — interface: ‹the interface› · ‹the one line saying why it arbitrates this item›`;
   - the **reader translation** for each mode, needed at the render step below.
 
-  Two of its rules bind hard enough to restate as instructions, because this stage is where they are violated:
-
-  **`explanatory divergence` is UNTESTED** (deductive, zero field contact, added 2026-08-24). Tag it where it fires; do not weight it as if it were corroborated.
-
-  **`NONE` is a finding, not a defect.** A high-stakes item whose arbiter works is a card the instrument does not serve, and saying so is the point of carrying the field. Never re-label it to make a run look productive — a run where the filter never excludes anything is a filter that is not running.
+  **Two of its rules are violated at this stage specifically — read them there before you tag anything:** the **epistemic-status rule** on `explanatory divergence` (§The four modes — defined, not listed, status column) and **`NONE` is a finding, not a defect** (§The four modes, immediately below the table). They are named here, not restated, because a second copy of a rule about how to weight evidence is exactly the drift this extraction removed.
 - **provenance** — **stake-adjacent history, and explicitly not a score.** A high-stakes item you have restated five times without resolving is a different signal from one raised yesterday, and a card carrying neither fact hides that difference. Three parts: **first seen** (earliest appearance in the corpus) · **reformulations** (distinct restatements of the same item) · **related work** (what was actually produced since).
 
   - **It is not a ranking input, and it never becomes one.** Ranking is by unguarded stake, below. Provenance sits on the card so a reader can weigh it; feed it into an ordering and it becomes a number people optimise — restate a thing five times and watch it climb.
