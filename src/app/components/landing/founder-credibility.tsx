@@ -63,7 +63,10 @@ function CountUpMoney({ target, className }: { target: number; className?: strin
   const reduce = useReducedMotion();
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.6 });
-  const [val, setVal] = useState(reduce ? target : 0);
+  // Default to the real target, not 0: if JS never runs (hydration failure — e.g. Google
+  // Translate mutating text nodes before hydration) or inView never fires, the visitor
+  // still sees the correct number instead of a permanent 0.
+  const [val, setVal] = useState(target);
   useEffect(() => {
     if (reduce || !inView) return;
     const controls = animate(0, target, {
