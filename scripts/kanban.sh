@@ -17,6 +17,15 @@ FRONTEND_PORT=$(node -e "console.log(require('$BASE_DIR/claritypledge/tools/kanb
 API_PORT=$(node -e "console.log(require('$BASE_DIR/claritypledge/tools/kanban/config.cjs').KANBAN_CONFIG.ports.api)")
 PORTS="$FRONTEND_PORT,$API_PORT"
 LOG_FILE="/tmp/kanban.log"
+
+# Advisory per-column WIP limits, rendered as "N / limit" in the column header by
+# tools/kanban (server/api.ts:38 reads this; src/components/Column.tsx renders it).
+# The rendering already shipped -- cp simply never set the variable, so every column
+# read as unbounded. Chosen 2026-08-28 during a /slava:maintain:prioritize run that
+# found 'week' holding 58 items: a column nobody could act on.
+# Nothing is blocked. These are pressure, not gates -- the point is that an overflow
+# is visible, and that /slava:maintain:prioritize has a number to force a verdict against.
+export KANBAN_WIP_LIMITS="today=5,week=10,in-progress=3"
 PID_FILE="/tmp/kanban.pid"
 
 # Parse flags

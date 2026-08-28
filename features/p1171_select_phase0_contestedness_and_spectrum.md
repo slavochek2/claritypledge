@@ -9,7 +9,7 @@ delivery_stage: create-spec
 pipeline_ran: [create-spec]
 flow: inline
 pipeline_plan: [create-spec, dev]
-pipeline_skipped: [challenge-prd -- decision density zero, founder decisions pre-recorded; ux -- no visual surface; architect -- prose skill, no schema/API/state dependency beyond the run-file headings; generate-tests -- no code; decompose -- 5 files, 1 concern]
+pipeline_skipped: ["challenge-prd -- decision density zero, founder decisions pre-recorded", "ux -- no visual surface", "architect -- prose skill, no schema/API/state dependency beyond the run-file headings", "generate-tests -- no code", "decompose -- 5 files, 1 concern"]
 drafted_by: opus
 exec_model: opus
 exec_effort: xhigh

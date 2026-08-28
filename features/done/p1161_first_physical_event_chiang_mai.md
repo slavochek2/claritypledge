@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1
 workstream: gtm
@@ -21,8 +21,8 @@ driver: heuristic
 
 ## Problem
 
-**Situation:** The instrument ([p1055](p1055_norm_measurement_instrument.md)), the Disagreement
-Pipeline ([p1156](done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md)) and the
+**Situation:** The instrument ([p1055](../p1055_norm_measurement_instrument.md)), the Disagreement
+Pipeline ([p1156](2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md)) and the
 event-publishing skills exist. **Zero events have been run. The Clarity Practice Community · Chiang
 Mai has one member — the founder.**
 
@@ -57,7 +57,7 @@ strangers. **Reversibility: rows delete; publication does not.** **Decision dens
 - **No person is ever rejected from the pipeline for lacking a rights-cleared photograph.** A subject
   with no cleared photo gets no avatar; the product's existing initials fallback carries the identity,
   verified in `gravatar-avatar.tsx` at the time — the account still renders *"square, drained,
-  unringed and operator-named"* ([decisions.md](../docs/decisions.md) 2026-08-21). The Gate 1
+  unringed and operator-named"* ([decisions.md](../../docs/decisions.md) 2026-08-21). The Gate 1
   rejection at `select.md:67-68` is an explicit **founder decision of 2026-08-25**, taken
   *"for v1"* with its cause named — provisioning has no initials branch, so the approval would die at
   the last step. **D2 reverses that founder call; it is not merely filling a gap** — and the
@@ -65,14 +65,14 @@ strangers. **Reversibility: rows delete; publication does not.** **Decision dens
   separate, still-required work rather than a side effect of D2.
 - **Two separate frozen things, previously fused — do not re-merge them.** (a) The **avatar
   generator's** slate palette and amber accent are load-bearing and frozen in `gen-agent-avatar`
-  ([decisions.md](../docs/decisions.md) **2026-08-19**, not 08-25) — *"a disclosure mechanism can be
+  ([decisions.md](../../docs/decisions.md) **2026-08-19**, not 08-25) — *"a disclosure mechanism can be
   defeated by its own styling."* That same entry **rejects** greying the avatar as a disclosure
   device, falsified by a real user's photo measuring blacker than any robot. (b) The profile's
   **`avatar_color`** field must be a desaturated slate `#39424B`, never the `#0044CC` default
   (`provision-agent.md:120-126`, `:193` — found 2026-08-24 on a hand-seeded account). An
   initials-only account is governed by (b), not (a).
 - **The instrument's ordering holds:** dimensions staked before the argument, triad adjacent to the
-  offer, reveal after both ([p1055](p1055_norm_measurement_instrument.md) — "load-bearing, do not
+  offer, reveal after both ([p1055](../p1055_norm_measurement_instrument.md) — "load-bearing, do not
   reorder"). Nothing here may move staking to after the event; a movement metric with no before is
   not a movement metric.
 - **Filing to test and filing to production are two separate deliberate invocations.** Never one.
@@ -98,11 +98,11 @@ dimension movement as evidence about the instrument until that mechanism is name
 ### The sequence
 
 0. ~~**Run the rename (D4) first.**~~ **DONE 2026-08-27 — shipped as
-   [P1165](done/2026-06-10/p1165_disagreement_pipeline_namespace_rename.md).** All five stages are
+   [P1165](2026-06-10/p1165_disagreement_pipeline_namespace_rename.md).** All five stages are
    in one namespace: `/slava:disagreement:{select,prepare,positions,story-draft,publish}`. The leaf
    is **`story-draft`, not `story`** — `/slava:content:story` already owns `story` and the
    projection is flat and name-keyed. **Start at step 1.**
-1. **Topic sourcing + signal check.** ➡️ **Moved to [P1166](p1166_topic_sourcing_from_interest_corpora.md), 2026-08-27** — a standing capability, not part of this event. **Does not gate this spec:** the founder may hand the pipeline a topic or a video link directly (D1's seed). The YouTube export was requested 2026-08-27 and takes hours; P1166 proceeds in its own session while this one continues.
+1. **Topic sourcing + signal check.** ➡️ **Moved to [P1166](../p1166_topic_sourcing_from_interest_corpora.md), 2026-08-27** — a standing capability, not part of this event. **Does not gate this spec:** the founder may hand the pipeline a topic or a video link directly (D1's seed). The YouTube export was requested 2026-08-27 and takes hours; P1166 proceeds in its own session while this one continues.
 2. **Run the Disagreement Pipeline** on the chosen topic. ✅ **`/slava:disagreement:run-pipeline` now exists (built 2026-08-27)** — one command, topic (+ optional seed) and room in, five stages in order, every stage gate still halting for the founder. The p1156 decision-2d deferral is **discharged**: its stated cause was stages that were still being renamed, and the rename shipped as P1165. **It never chains TEST → PROD** — that invariant is enforced inside the conductor.
 3. **File to TEST**, review the rendered feed against a stated criterion, then **file to PROD** as a
    second invocation.
@@ -154,9 +154,9 @@ dimension movement as evidence about the instrument until that mechanism is name
 |---|---|---|---|
 | **D1** ✅ | **SHIPPED 2026-08-27.** **Seed input for the selector.** Optional person and/or video URL; the seeded side is accepted, Phase 1 proposes and Gate 1 approves only the counterpart. A video URL resolves to *who speaks*, never to the channel; a multi-speaker or unattributed seed is a named STOP. The seed never sets the topic, never skips `subject_key` or portrait status, and never bypasses Gate 1 — the seeded side is labelled `seeded` vs `proposed` so the founder can reject their own seed on seeing it beside the alternative. | Was: the selector took only a topic string and a room. | `disagreement/select.md` — Inputs table + Phase 1 |
 | **D2** ✅ | **SHIPPED 2026-08-27.** **No person is ever rejected for lacking a photograph.** Gate 1's portrait *rejection* is replaced by a portrait *status* with three values — `cleared` / `none` / `UNKNOWN LICENCE`. `none` is a valid, approvable outcome routed to a new **Step 2b initials-only branch** in `provision-agent` (no avatar generated, no asset uploaded, `p_avatar_url` passed as `NULL` — never `''` or a placeholder, `avatar_color` `#39424B` mandatory because the initials-on-slate *is* the portrait channel there, and the absence written to the registry log). `UNKNOWN LICENCE` remains a stop — an unread licence is a rights risk; an absent photo is not. Quality gates carry explicit `N/A` exemptions for the branch. | Was: blocked every pseudonymous or independent arguer — the exact voices the Institutional Bias Alert exists to protect. Killed a real run on 2026-08-21. | **Reverses the 2026-08-25 founder rule, deliberately** — its cause (no initials branch, publication hard-stop) is now gone. `disagreement/select.md` + `content/provision-agent.md` |
-| **D3** ➡️ | **MOVED OUT 2026-08-27 to [P1166](p1166_topic_sourcing_from_interest_corpora.md).** Topic sourcing is a standing capability run before *every* event, not part of running the first one. Keeping it here meant P1161 could not close until a permanent capability was built. **Does not block P1161:** the pipeline takes a topic, and with D1's seed the founder can hand it a topic or a link directly. | Was: "step 1 has no home and no repeatable method." It has a home now. | Own spec. The YouTube export is the long pole (hours) — requested 2026-08-27. |
-| **D4** ✅ | **SHIPPED 2026-08-27 as [P1165](done/2026-06-10/p1165_disagreement_pipeline_namespace_rename.md).** **Disagreement Pipeline rename** → one namespace, every stage carrying the prefix: `disagreement:select\|prepare\|positions\|story\|publish`. | **FOUNDER DECISION 2026-08-27: approved, and it runs FIRST — before the event, before the topic run.** The founder's reasoning: the stages are one pipeline and must read as one pipeline; splitting the naming *"doesn't make sense."* An earlier draft of this spec made deferral a Non-Goal — **that was the spec author's judgement, never a founder decision, and it is reversed here.** | Five stages, and **`points-*` matches only three** — `positions-create` and `story-create` must be named explicitly; `story*` over-matches four unrelated siblings (`story-gate`, `story-to-image`, `sifter-story`). Measured 2026-08-27: 15–33 referencing files per stage name. **Also touches `CLAUDE.md`'s namespace list**, so it goes through the CLAUDE.md gate. |
-| **D5** ✅ | **SHIPPED 2026-08-27.** **`publish` now branches on `avatar_url` instead of hard-stopping.** `NULL` + a registry line reading `portrait: none (deliberate, …)` ⟹ proceed, no probe, assert `avatar_color = '#39424B'` instead, and print `portrait: none (deliberate)` into the run output so the absence is visible in the record. `NULL` with **no** registry line ⟹ STOP — an absence nobody wrote down is a gap, not a decision. Non-`NULL` keeps the `200` + `image/*` assert unchanged. | Was: `publish.md:39` hard-stopped on any missing avatar, so an initials-only agent died at the last step. | **The discriminator is deliberately outside the database** — `NULL` is `NULL` whatever put it there, so the written registry line made at provisioning time is what carries the intent. Closes the open item in [decisions.md](../docs/decisions.md) 2026-08-21. |
+| **D3** ➡️ | **MOVED OUT 2026-08-27 to [P1166](../p1166_topic_sourcing_from_interest_corpora.md).** Topic sourcing is a standing capability run before *every* event, not part of running the first one. Keeping it here meant P1161 could not close until a permanent capability was built. **Does not block P1161:** the pipeline takes a topic, and with D1's seed the founder can hand it a topic or a link directly. | Was: "step 1 has no home and no repeatable method." It has a home now. | Own spec. The YouTube export is the long pole (hours) — requested 2026-08-27. |
+| **D4** ✅ | **SHIPPED 2026-08-27 as [P1165](2026-06-10/p1165_disagreement_pipeline_namespace_rename.md).** **Disagreement Pipeline rename** → one namespace, every stage carrying the prefix: `disagreement:select\|prepare\|positions\|story\|publish`. | **FOUNDER DECISION 2026-08-27: approved, and it runs FIRST — before the event, before the topic run.** The founder's reasoning: the stages are one pipeline and must read as one pipeline; splitting the naming *"doesn't make sense."* An earlier draft of this spec made deferral a Non-Goal — **that was the spec author's judgement, never a founder decision, and it is reversed here.** | Five stages, and **`points-*` matches only three** — `positions-create` and `story-create` must be named explicitly; `story*` over-matches four unrelated siblings (`story-gate`, `story-to-image`, `sifter-story`). Measured 2026-08-27: 15–33 referencing files per stage name. **Also touches `CLAUDE.md`'s namespace list**, so it goes through the CLAUDE.md gate. |
+| **D5** ✅ | **SHIPPED 2026-08-27.** **`publish` now branches on `avatar_url` instead of hard-stopping.** `NULL` + a registry line reading `portrait: none (deliberate, …)` ⟹ proceed, no probe, assert `avatar_color = '#39424B'` instead, and print `portrait: none (deliberate)` into the run output so the absence is visible in the record. `NULL` with **no** registry line ⟹ STOP — an absence nobody wrote down is a gap, not a decision. Non-`NULL` keeps the `200` + `image/*` assert unchanged. | Was: `publish.md:39` hard-stopped on any missing avatar, so an initials-only agent died at the last step. | **The discriminator is deliberately outside the database** — `NULL` is `NULL` whatever put it there, so the written registry line made at provisioning time is what carries the intent. Closes the open item in [decisions.md](../../docs/decisions.md) 2026-08-21. |
 | **D6** ⏭️ | **SKIPPED for event #1 — FOUNDER DECISION 2026-08-27.** Photographer attribution surface. | Attribution is owed only for a cleared photo *actually used*. D2's initials-only path means a run provisioned `portrait: none` publishes no photographs, so nothing is unattributed on prod. | **This is a choice for this run, not a claim D6 is solved.** D6 still gates the first run that publishes a cleared portrait. If a `portrait: cleared` arguer enters this run, D6 comes back. Routed to the story/image component work. |
 | **D7** ✅ | **CLOSED 2026-08-27 — FOUNDER DECISION: not load-bearing.** Walk the in-room stake flow with a non-founder account. | Founder's call, verbatim: *"I kind of tested it. It works."* | **What remains untested is named rather than hidden:** a *non-founder* signing up fresh, confirming their email, and staking — hops 3–4 of the traced path. The founder's own account is already confirmed, so testing from it never exercises the sign-up-and-confirm hop. **Accepted risk, deliberately taken.** Mitigation available at zero cost: the login screen already offers Google as the primary button, which has no email round-trip — **route the room to Google rather than letting them choose.** If block 5 stalls live, this row is the first place to look. |
 
@@ -271,7 +271,7 @@ p1055 predicted** — and it has been found in a private window rather than in t
 
 - **Run the open forum for event #1.** Rejected: no community to propose or vote, and no
   submission/upvote surface exists — out of scope in
-  [p1156](done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md).
+  [p1156](2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md).
 - **Collect all ten instrument statements after the event by link.** Rejected: no before means no
   movement metric, and the reveal would land in an empty room after the ask was already made.
 - **Ask attendees to read stories and stake topic positions at RSVP.** Rejected by the founder on
@@ -303,7 +303,7 @@ p1055 predicted** — and it has been found in a private window rather than in t
 | Share-alike photo used publicly with no credit surface | MITIGATE | D6 — named as a blocker before any public run |
 | Nobody reads the pre-published feed | ACCEPT | The host framing block makes the room runnable regardless |
 | Attendance too low to produce signal | ACCEPT | Event #1's job is one sale and first observations, not throughput |
-| The event-publishing orchestrator ([p1160](p1160_events_pipeline_orchestrator_and_process_doc.md)) is `status: in-progress`, mid-`/dev`, with six unchecked Done-When | ACCEPT | The 14 `events/` skills exist, so step 4's promote surface is real; run the stages by hand if the orchestrator is not shipped by then |
+| The event-publishing orchestrator ([p1160](2026-06-10/p1160_events_pipeline_orchestrator_and_process_doc.md)) is `status: in-progress`, mid-`/dev`, with six unchecked Done-When | ACCEPT | The 14 `events/` skills exist, so step 4's promote surface is real; run the stages by hand if the orchestrator is not shipped by then |
 | Dimension movement is reported as evidence about the instrument | MITIGATE | See "which reading" above — exploratory on this run only |
 | Position counts on the public feed are global, not scoped to the room | DEFER | Not load-bearing — show of hands does the same job. Becomes urgent the first time the room must see *its own* split |
 | The rename (D4) lands mid-preparation | ACCEPT — **founder decision 2026-08-27** | Reordered to run first instead, on its own, before any pipeline run. The residual risk is a missed reference breaking a stage: contained by renaming **before** the pipeline is exercised, so the first end-to-end run is also the rename's proof |
@@ -394,10 +394,50 @@ p1055 predicted** — and it has been found in a private window rather than in t
 
 ## Related
 
-- [p1055](p1055_norm_measurement_instrument.md) — the CMP instrument, and D7's origin
-- [p1156](done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) — pipeline + contract
-- [p1160](p1160_events_pipeline_orchestrator_and_process_doc.md) — event publish + promote (in-progress)
-- [p1060](p1060_link_events_to_organizations.md) — events belong to an org, membership levels
+- [p1055](../p1055_norm_measurement_instrument.md) — the CMP instrument, and D7's origin
+- [p1156](2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) — pipeline + contract
+- [p1160](2026-06-10/p1160_events_pipeline_orchestrator_and_process_doc.md) — event publish + promote (in-progress)
+- [p1060](../p1060_link_events_to_organizations.md) — events belong to an org, membership levels
 - `docs/events/clarity-practice-event.md` · `docs/events/clarity-forum.md` · `docs/points-process.md`
-- [decisions.md](../docs/decisions.md) 2026-08-19 (frozen generator palette; greying rejected),
+- [decisions.md](../../docs/decisions.md) 2026-08-19 (frozen generator palette; greying rejected),
   2026-08-21 (initials fallback, publish-precondition conflict, attribution blocker)
+
+---
+
+## Closed 2026-08-28 — `all-done`. Founder decision: the spec was about *preparing*, and preparation shipped.
+
+**Founder, 2026-08-28:** *"it was never about organizing the event itself. The success was just
+preparing and we prepared and now we run a neighbouring session, our disagreement pipeline."*
+
+### What actually shipped (six ticked items, verified against the artifacts — not this spec's text)
+
+- **The doc landings this spec existed to force.** `docs/events/clarity-practice-event.md`,
+  `docs/events/clarity-forum.md` and `docs/facilitator-guide.md` all exist and were last amended
+  2026-08-27; the seeding exception is present in all three homes it was owed
+  (`clarity-practice-event.md` ×3, `clarity-forum.md` ×2, `goals.md` ×1).
+  `.private/docs/events/event-01-results.md` exists, created and waiting for the run.
+- **`goals.md`:15** carries the event-#1-only seeding exception with its convergence mechanism named.
+- **D1, D2, D5 shipped 2026-08-27** — the selector accepts a seed and records portrait status
+  instead of rejecting on it; provisioning has the Step 2b initials branch; publish branches on
+  deliberate-vs-accidental absence.
+- **D6 resolved for this event**; **D7 closed by founder decision** as not load-bearing.
+- **The pipeline conductor exists** — `/slava:disagreement:run-pipeline`, built 2026-08-27,
+  discharging the p1156 decision-2d deferral.
+
+### What is NOT done, and why it is not tracked here
+
+Six Done-When items remain unticked. Every one of them is **the run itself**, not the preparation:
+filing a topic to TEST then PROD, publishing and promoting the event, the `point_positions` /
+`cmp7` / `cmp3` timing query, writing attendance and dimension movement to
+`.private/docs/events/event-01-results.md`, and voting the next-event topic shortlist on paper.
+
+These are **executing** work, and they are running in a neighbouring session through the
+disagreement pipeline. Their home is `.private/docs/events/event-01-results.md`, which already
+exists for exactly this. **They are deliberately not carried forward as a spec** — this spec's
+appetite was preparation, and holding it open until an event runs would have made a prepared board
+look unprepared.
+
+**If the run should be tracked as its own task, that is a `/slava:build:create-spec` call, not a
+status change here.** Flagged to the founder; not filed by this skill.
+
+Closed by `/slava:maintain:prioritize`.
