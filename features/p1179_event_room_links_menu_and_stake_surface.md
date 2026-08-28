@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-rank: 79
+rank: 3
 workstream: events
 created_date: '2026-08-28'
 tags: [events, room, navigation, cmp]
