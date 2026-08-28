@@ -145,6 +145,22 @@ fidelity a reviewer can judge:
 Screens A, B and C additionally carry the avatar row and the two counts; E is the reference for the
 zero-participant case (**no row, no `0`**) and for a NULL blurb rendering as absence, not placeholder.
 
+**Fidelity verified 2026-08-28 — both checks per [decisions.md](../docs/decisions.md) 2026-08-21 [process].**
+Ran against the app at `localhost:5001/org/cm`. **Token diff: 12 divergences found, all corrected** —
+the reference had been built from `docs/design-system.md` prose rather than measured values, so its
+neutrals were blue-biased where the app's are zinc (`--foreground #09090b`, `--muted-foreground
+#71717a`, `--border #e4e4e7`, `--radius 8px`), and the mock used a system font stack where the app
+resolves to **Inter**. **Screenshot comparison: 4 structural defects the token diff could not see** —
+production event cards carry a **4px `blue-500` left rail** and a banner image (mock had neither),
+the Upcoming/Past filters carry counts in their labels (`"Upcoming (1)"`, `"Past (27)"`), and the org
+header has **no avatar tile** — the reference had invented one. Join CTA reads *"Join as member"*.
+
+**The rail is the second occurrence of the identical defect** the 2026-08-21 entry recorded on a prior
+reference. The measured table is in the artifact's *Fidelity check* section.
+
+**Not claimed:** `/org` itself has no live page to screenshot; its layout is verified only against its
+sibling's measured values and structure. Local DB counts differ from prod.
+
 **Design values are lifted, not invented** — blue-500/600 actions, green-600 for the membership badge
 only, no amber/orange/yellow/purple, `max-w-5xl px-4 py-8 space-y-8`, 44px targets, and the existing
 underline-tabs-vs-pills split (`org-page.tsx` ORG_TAB_CLASS comment). A build that renders both
