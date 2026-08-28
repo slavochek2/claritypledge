@@ -6,6 +6,76 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: A guard that aborts the edit does not abort the commit queued behind it
+
+**Context:** Re-applying a parked spec edit, the script asserted the file still held the value it
+expected. It did not — the kanban board had rewritten the frontmatter (status, rank, `locked_at`)
+in the interim — so the assertion fired and the edit correctly did not apply. But `commit-to-main`
+had been queued as the next line of the same shell invocation, on its own line rather than behind
+`&&`. It ran, found the kanban's rewrite in the working tree, and committed **someone else's
+change under a message describing work that was never applied**. In a session whose entire subject
+was P1173 — stop tooling from committing edits it did not write — this was the same defect,
+performed by hand, two hours after fixing it in the scripts.
+
+**Decision:** A verification step and the action it guards must be **one** conditional unit. In
+shell that means `&&`, an `if`, or `set -e` with the guard in the same command — never two adjacent
+lines, which run independently. Concretely, when a commit follows a generated edit: chain it, or
+re-check `git diff --cached --name-only` content *after* the edit and before the commit. The same
+trap appeared earlier the same session in the opposite direction: `cd X && python3 …` where the
+`cd` failed, so the edit silently never applied while the line after it ran anyway and produced a
+green-looking test result.
+
+**Alternatives rejected:** Rely on `commit-to-main`'s own safety — it holds the main lock and
+refuses an index containing paths other than those named, but the path named *was* the right path;
+only its content was foreign. No lock detects that. Amend or rewrite the bad commit — history on
+the shared main checkout is not the agent's to rewrite; a corrective follow-up commit naming what
+happened is the honest form and is what was done.
+
+**Consequences:** Two commits now stand where one was intended, the second stating plainly that the
+first carried a message it did not earn. Generalises beyond git: any "check, then act" pair written
+as separate statements is a check that does not gate anything. Worth noting that both instances this
+session were caught by reading output for *why* it said what it said — the assertion message in one
+case, an implausible pass reason in the other — not by any gate.
+
+**References:** `features/p1085_trusted_e2e_core_in_ci.md` (the file involved) · this log 2026-08-27
+[technical] (P1173, the same defect in tooling) · 2026-08-20 [process] (false greens)
+
+## 2026-08-28 [process]: Test automation — nightly run with a morning gate, and night does not fix the auth limit
+
+**Context:** Founder goal, verbatim: *"I just want to make sure that we can push every day and we
+can fix things every day and I'm out of the loop of this."* The E2E suite is 1,592 tests across 237
+files and nothing runs it; a full run is multi-hour, so gating a push on it is not viable. Founder
+proposed running it overnight and gating the morning push on the result.
+
+**Decision:** Direction confirmed and recorded in P1085 (promoted to `today`): schedule the trusted
+core **overnight**, and let the morning gate read last night's verdict — a push never waits on the
+suite, and the founder stops being the mechanism that remembers to run it. Autonomy is split in two:
+*run + triage + report* ships first and changes no code; *auto-repair* is deferred behind it, may
+only open a PR (never commit to `main`), and may **not** edit a test file to make it pass — if a
+candidate fix touches `e2e/` or `src/tests/`, it files a spec instead. Coverage thresholds and
+SonarQube-style gates were rejected outright: the defect is that tests do not run, not that too
+little is covered, and a coverage number would have read green through the entire rot.
+
+**Alternatives rejected:** Gate the full suite at push time — multi-hour, and a gate that starts red
+is ignored within a week. Force 100% coverage as a hard gate — measures reachability, not truth; a
+test asserting copy renamed in March survived until August while "covered". Auto-repair from day one
+— unattended, the cheapest way to green a suite is to weaken it, with nobody watching.
+
+**Consequences:** The blocker is **smaller than previously recorded.** This log's earlier framing —
+that a dedicated CI Supabase project may be needed — is weakened by the 2026-08-13 measurement:
+average demand of 841–1381/hr sat under the 1800/hr budget throughout and *"the existing IP was
+never the constraint."* The suite drains its own 30-token burst because workers create users in
+tight loops and retry in lockstep. That is self-inflicted burstiness, so running at night does **not**
+help it — night only dissolves the separate problem of ~15 concurrent local sessions contending for
+the same database. Sequence to evaluate: jittered backoff → schedule the already-green core → only
+then ask whether a separate database is needed. Filed alongside: P1175 (the shell canaries have no
+automated runner — same root cause, no database dependency, seconds not hours).
+
+**References:** [features/p1085](../features/p1085_trusted_e2e_core_in_ci.md) ·
+[features/p1175](../features/p1175_shell_canaries_have_no_automated_runner.md) · this log
+2026-08-13 [technical] (auth burst) · 2026-08-11 (no automated consumer is the root cause)
+
+
 ## 2026-08-27 [process]: Counting positions is not testing contestedness — a fork needs a sentence one advocate asserts and another DENIES
 
 **Context:** A live `/slava:disagreement:select` run on *"whether AI concentrates power or distributes it"* spent **seven search sweeps and ~12 fetched-and-measured sources** before the topic turned out to be a **consensus** — five public advocates, five distinguishable emphases, one proposition (*"AI power is concentrated today"*). The skill's own Phase 3 judge flagged it — *"both speakers say concentrated in the present tense"* — and the run argued past it. The cheapest check ran **last**, after every fetch was already paid for.
