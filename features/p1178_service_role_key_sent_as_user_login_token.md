@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-08-28'
 tags: [edge-functions, auth, silent-failure, email]
 driver: anomaly
-delivery_stage: fix
-pipeline_ran: [reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/integration/p1178-reproduce.spec.ts
   root_cause: "create-and-sign:265 sends the service_role JWT as Bearer; send-agreement-emails:405 resolves it with auth.getUser(), which yields no user (no sub claim) and returns 401. Blast radius is the P527 new-user direct-sign path only."
@@ -155,7 +155,7 @@ Do **not** simply add an `apikey` header equal to the bearer. That silences the 
 rejection while leaving the receiver still trying, and failing, to resolve a user from a
 non-user credential.
 
-## Done when
+## Done-When
 
 - [x] It is established from Mailgun evidence whether this email sends today — **it did not.**
       The canary's Mailgun oracle answered what the 1-day event log could not: canary red (no
