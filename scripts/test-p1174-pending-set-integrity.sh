@@ -91,7 +91,19 @@ build_scenario() {
   mkdir -p "$PDIR/scripts" "$PDIR/supabase/migrations" "$PDIR/incoming"
   cp "$REAL_MIGRATE" "$PDIR/scripts/migrate.sh"
   cp -R "$REPO_ROOT/scripts/lib" "$PDIR/scripts/lib"
-  printf '#!/bin/bash\nexit 0\n' > "$PDIR/scripts/stamp-deploy-manifest.sh"
+  # Rewrites the tracked manifest (rather than a bare `exit 0`) so the
+  # stage-then-run-again sequence migrate.sh itself creates can be replayed.
+  cat > "$PDIR/scripts/stamp-deploy-manifest.sh" <<'STUB'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+python3 -c "
+import json
+d = json.load(open('$PROJECT_DIR/supabase/deploy-manifest.json'))
+d.setdefault('prod', {})['migrations_deployed_at'] = '2099-01-01T00:00:00Z'
+json.dump(d, open('$PROJECT_DIR/supabase/deploy-manifest.json', 'w'), indent=2)
+"
+STUB
   printf '#!/usr/bin/env node\nprocess.exit(0);\n' > "$PDIR/scripts/prod-smoke-test.mjs"
   chmod +x "$PDIR/scripts"/*.sh "$PDIR/scripts/prod-smoke-test.mjs"
 
@@ -331,6 +343,40 @@ OUT=$(cat "$TMPROOT/$S/out.log")
 [ "$RC" -eq 0 ] && grep -q 'Applied 1 new migration' <<< "$OUT"; check \
   "empty-ledger-is-valid — an empty-but-well-formed ledger still applies normally" $? \
   "expected exit 0 + 'Applied 1 new migration(s)', got exit $RC"
+
+# --- 6. THE TOOL'S OWN DOCUMENTED WORKFLOW (epistemic gate 7c): run migrate.sh
+# twice before committing the manifest. Run 1 applies and leaves the manifest
+# stamped + STAGED by design; run 2 therefore starts on a dirty tree with nothing
+# pending. A new refusal must wave this through — P1173 (2026-08-27) shipped a
+# guard that hard-failed on exactly this sequence and blamed a co-tenant for an
+# edit the same tool had written a minute earlier. Gate 1b must not repeat it.
+S=documented_double_run
+build_scenario "$S" '[]' prod
+cat > "$TMPROOT/$S/supabase/migrations/20260101000000_p1174_acked.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS public.acked (id uuid PRIMARY KEY);
+SQL
+run_direct "$S" prod yes
+RC1=$(cat "$TMPROOT/$S/exit.code")
+OUT1=$(cat "$TMPROOT/$S/out.log")
+# The API recorded the version; the operator has NOT committed the staged manifest.
+printf '%s' '[{"version":"20260101000000","name":"p1174_acked"}]' > "$TMPROOT/$S/ledger.json"
+STAGED_BEFORE=$(git -C "$TMPROOT/$S" status --short -- supabase/deploy-manifest.json)
+run_direct "$S" prod yes
+RC2=$(cat "$TMPROOT/$S/exit.code")
+OUT2=$(cat "$TMPROOT/$S/out.log")
+
+[ "$RC1" -eq 0 ] && printf '%s' "$STAGED_BEFORE" | grep -q 'deploy-manifest.json'; check \
+  "double-run-setup — run 1 applies and leaves the manifest staged, as migrate.sh intends" $? \
+  "expected exit 0 and a staged manifest after run 1, got exit $RC1, status: $STAGED_BEFORE"
+
+[ "$RC2" -eq 0 ] && grep -q 'Applied 0 new migration' <<< "$OUT2"; check \
+  "double-run-second-pass — gate 1b waves through the dirty-tree re-run the tool creates" $? \
+  "expected exit 0 + 'Applied 0 new migration(s)' on run 2, got exit $RC2"
+
+! grep -qi 'changed after the ack' <<< "$OUT2"; check \
+  "double-run-no-false-drift — an uncommitted manifest is not mistaken for pending-set drift" $? \
+  "gate 1b fired on a legitimate documented workflow (false positive):" \
+  "$(grep -i 'changed after the ack' <<< "$OUT2")"
 
 echo ""
 echo "Passed: $PASS  Failed: $FAIL"
