@@ -856,4 +856,39 @@ regardless of the lock.
 
 ---
 
+## `git-ops.sh ship` has no tracked-and-dirty preflight before the cherry-pick — second instance of "the lock serializes committers, not editors"
+
+**Date:** 2026-08-28
+**Status:** proposed
+**due:** month
+
+Shipping P1174 halted after 1 of 4 commits: `error: Your local changes to the following files would
+be overwritten by merge: docs/decisions.md`. The main checkout had been verified clean four minutes
+earlier and the branch was already rebased onto current main with that file's collision resolved by
+hand; a co-tenant session wrote `decisions.md` again in the gap.
+
+Not a missing lock. `cmd_ship` **does** acquire the main lock before the cherry-pick, and it already
+refuses when an **untracked** spec file in main's working tree would block the pick (naming the exact
+`rm`). The gap is that every `git diff --quiet` in `cmd_ship` is scoped to the spec pattern — there
+is no equivalent check for **tracked, modified** files the pick will touch. And the lock cannot help:
+this is the same mechanism as the agent-skills-sync entry above (2026-08-27) — a co-tenant's
+Edit-tool write takes no git lock, so `main.lock` serializes *committers*, not *editors*. Two
+different tools, one mechanism; worth treating as a class rather than patching twice.
+
+**Real fix:** before the first pick, intersect `git diff --name-only main..<branch>` with main's dirty
+set and refuse up front, naming the files — mirroring the existing untracked-spec guard, so the
+operator learns the whole blocking set at once instead of discovering it commit-by-commit partway
+through a sequence. **Stopgap today:** same as the entry above — poll `git status --short` until quiet,
+then run `git-ops.sh ship pN --resume`.
+
+Worth keeping in proportion: the failure was safe and fully recoverable. Git refused before applying
+(no `CHERRY_PICK_HEAD`, no sequencer state), the ship journal recorded `landed_sha` for the commit
+that landed and `null` for the rest, and `--resume` converged cleanly once the tree settled. The
+residual cost is a window where main carries a fix without its KDD entry or a closed spec.
+
+Falsifier: with a second session holding an unstaged edit to a file the branch also modifies, run
+`git-ops.sh ship pN` — it starts the sequence and halts partway rather than refusing up front.
+
+---
+
 <!-- Resolved 2026-08-27: "/slava:disagreement:select has no person-level fallback from Gate 1" — closed by P1171 (Gate 1 runners-up carried as per-position `alternates:`); see decisions.md 2026-08-27 [process] -->
