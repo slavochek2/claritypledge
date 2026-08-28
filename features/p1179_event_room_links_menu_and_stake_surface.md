@@ -1,5 +1,5 @@
 ---
-status: week
+status: today
 type: story
 rank: 3
 workstream: events
@@ -8,7 +8,7 @@ tags: [events, room, navigation, cmp]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 pipeline_plan: [create-spec, generate-tests, dev, verify]
-pipeline_skipped: [challenge-prd -- founder declined 2026-08-28, see Pipeline note, ux -- settled by the 2026-08-28 prototype pass, architect -- placement + schema shape decided in spec, decompose -- 3 concerns, under the 5-file trigger]
+pipeline_skipped: ["challenge-prd -- founder declined 2026-08-28, see Pipeline note", "ux -- settled by the 2026-08-28 prototype pass", "architect -- placement + schema shape decided in spec", "decompose -- 3 concerns, under the 5-file trigger"]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -16,6 +16,26 @@ driver: heuristic
 ---
 
 # P1179: The event room "Links" menu and the locked stake surface
+
+## Run This
+
+Run from `<cp-root>/.claude/worktrees/w1` — the claimed worktree for this spec, already on
+`feature/p1179-links-menu`.
+
+    /goal "./scripts/goal-gate.sh p1179 exits 0, output pasted. Stop after 30 turns."
+
+`/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke it
+for them. The condition names an exit code on purpose: the loop's evaluator reads the transcript
+and runs nothing, so the only trustworthy condition is one naming an artifact the agent cannot
+author.
+
+**What this does and does not guarantee.** The loop still stops on the agent's *paste* of the exit
+code, and nothing here changes that. What the pinned contract buys is that forgery and decay are
+caught at the merge boundary by CI, before anything reaches `main`. Expect a walk-back that is
+usually-but-not-always green — not a self-proven branch.
+
+**The loop stops at a committed branch.** Merging, migrating prod, deploying and pushing are all
+ALWAYS-ASK and none of them are pre-approvable.
 
 ## Problem
 
@@ -307,3 +327,170 @@ file citations here as unaudited.
 - [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md) — `/transcribe`, one menu entry.
 - [P1075](done/2026-06-10/p1075_feed_tag_filter_client_side_only.md) — the server-side single-tag path.
 - `decisions.md` 2026-07-01 (nav centre slot), 2026-03-13 (DB-level sort).
+
+## Resolved Decisions
+
+Recorded 2026-08-28 by `/goalify` Phase 1. Append-only — nothing above this line was rewritten.
+
+**1. The entry labels are the tags themselves.** `cmp7`, `cmp3`, `cmp10`, plus `Transcribe` and
+`Start a Clarity Session`.
+This closes the `[FOUNDER DECISION: the five entry labels]` marker in the UI Contract. The
+prototype's "Seven dimensions" / "The triad" / "All ten" are the agent's words and are **not
+approved**; they must not appear. Rationale, founder's own verbatim: *"if I say go to the menu
+and then select the CMP7"* — the spoken word and the rendered label are now the same token, and
+no unapproved copy reaches the screen. The approved reference's label-alongside-tag pairing
+collapses to a single token for the three standard entries; the separator before `Transcribe`
+and the quiet "This event" heading for extras are unchanged and still authoritative.
+
+**1b. A fifth standard entry: `Start a Clarity Session` → `/live`.** Founder, 2026-08-28, added
+after the labels were settled. This raises the standard set from four to **five**, and Solution §2's
+"every event gets the same four" is superseded. The label is **not new copy** — `Start a Clarity
+Session` is verbatim the existing nav CTA's own wording (`simple-navigation.tsx`), so nothing
+agent-authored reaches the screen here either. `/live` is an internal path and satisfies the
+open-redirect invariant unchanged.
+
+**Recorded consequence, not a blocker:** the nav hides its Start-a-Session CTA whenever it mounts
+`compact` and on event detail pages, because there it competes with the page's primary action
+(P844). Putting `/live` in the sheet reinstates that destination inside the room. Inside a menu it
+is one entry among five rather than a competing primary, so P844's reason does not carry over — but
+the two decisions now point in opposite directions on the same route and that is deliberate.
+
+**2. The stake surface is a GLOBAL route, with the event carried alongside.**
+`/stake/:tag`, optionally `?event=<slug>`. This **overrides Solution §3's "a new route inside the
+event"** and it is the founder's call, made 2026-08-28 after reading what the surface actually is:
+
+> "I don't know if it should live under an event, should it? Because it's a general thing. It's
+> just like a feed… so it's probably not under event, right? Because it's for all events."
+
+Correct — the content is global; `cmp7` is the same seven Points at every event. The only reason
+the spec nested it was the Links button, which renders on room routes. The query param resolves
+both: the Links menu writes `?event=<slug>` onto every entry it generates, so the button persists
+across destinations without a Back hop, and a bare `/stake/cmp7` is a usable, handable cut-down
+feed with no button and no event context. A signed-out visitor reaching `/stake/:tag` directly
+sees public content, exactly as `/feed` does today — so the room gate does **not** extend here,
+and the UX Notes line "the stake routes sit inside the event and inherit it" no longer applies.
+
+**3. The per-event extra carries an optional name.** JSONB shape `{tag, label?}`; render `label ?? tag`.
+One column, one render path with a fallback, no field required of the operator at publish time.
+Closes Open Question 1. Consistent with decision 1: an extra with no label shows its tag.
+
+**4. Open Question 2 (short code → `/room` or `/meet`) is NOT in this spec's contract.** It is not
+named by any Done-When or Acceptance-Criteria line and nothing here depends on it. Left open.
+
+### Phase-0 citation corrections
+
+The spec's own Pipeline note says *"treat remaining file citations here as unaudited."* Three were
+checked while confirming the contract rows are decidable. The corrections are recorded here rather
+than by editing Problem / Solution / Invariants / Risks, which `/goalify` does not rewrite.
+
+1. **`docs/events/clarity-practice-event.md` does not call `/feed/cmp7` "the room's URL."** It
+   contains no route pointer at all — `grep -n 'feed'` returns 17 hits, every one the English word
+   "feedback". The Risks row and Done-When line naming it have no referent. **Contract decision:**
+   DW-4 binds `P1161` only, and the practice-event doc is left untouched. Taken by the agent —
+   the question was put to the founder twice and not answered; logged in `assumptions.md`.
+2. **`EventRoomMeet.tsx` does not "hide its portal below 375px."** It portals nothing and contains
+   no `createPortal` or `NAV_CENTER_SLOT_ID` reference; its header records that the level track was
+   **removed outright** by founder call (2026-08-21 round 3), not hidden at a breakpoint. The claim
+   originates in `simple-navigation.tsx`'s own comment, which the Invariant copied. **The
+   load-bearing half survives:** that comment's finding — the track's min-content width alone
+   exceeds the centre slot's available space at 320px once logo and avatar clearance is reserved —
+   is real, and remains the reason placement B beat the centre slot. Only the stated *mechanism* of
+   the historical fix was wrong.
+3. **The open-redirect guard is `src/app/data/short-links.ts:40-42`**, not `short-link-redirect.tsx`.
+   The quoted comment (*"only allow relative paths (prevent open redirects)"*) is verbatim correct;
+   only the file is misnamed. The invariant it supports is unaffected.
+
+Verified and correct as cited: `stories-service.interface.ts:75` (exact signature), the `events`
+table having no column that could hold a link list (`20260118_create_events.sql:6-31`), the three
+room routes mounting `compact` (`App.tsx`), and `EventRoomMeet` portaling nothing.
+
+## Verification Contract
+
+**Pinned to main.** The gate reads this section from `main`, never from the branch it is judging —
+otherwise a loop can delete the row it is about to fail. Adding a heading inside this section breaks
+the digest; put new prose above it.
+
+**16 spec lines (11 Acceptance Criteria, 5 Done-When) plus 3 UI-Contract bindings and one
+regression baseline, grouped into 15 rows: 12 MECHANICAL, 2 COMPARABLE, 1 HUMAN-ONLY.** HUMAN-ONLY
+is 6% — well under goalify's 25% refusal bar. These are the gate's own figures, read off
+`goal-gate.sh p1179 --tier ci`, not a hand count: the threshold is mechanized precisely because an
+agent grading its own spec can round it.
+
+The gate also requires a UAT scorecard at `features/uat/p1179.md` with every row carrying a result
+(CHECK 4) and `assumptions.md` + `feedback.md` present with both axes (CHECK 6). Those are the
+loop's to produce; they are not contract rows.
+
+| line | class | decided by | artifact |
+|---|---|---|---|
+| AC-1 the Links button renders beside the avatar in the nav's right-hand group on /room, /ready, /meet and the stake surface; AC-4 an event with no extras lists exactly Start a Clarity Session, Transcribe, cmp7, cmp3, cmp10 with those labels verbatim; AC-5 one configured extra yields six entries and a second event with none still yields exactly five | MECHANICAL | `npx vitest run src/tests/p1179-links-menu.test.tsx` | src/tests/p1179-links-menu.test.tsx |
+| DW-1 a route outside the room renders its nav with unchanged logo and right-hand-group geometry — the assertion fails if the button leaks outside an event context; DW-2 the nav centre slot is untouched and still absolutely positioned, and /terms still portals into it | MECHANICAL | `npx vitest run src/tests/p1179-nav-containment.test.tsx` | src/tests/p1179-nav-containment.test.tsx |
+| UI-1 the control is built from the existing design system — the shared Button or the room's PRIMARY_BUTTON_CLASS/ANSWER_BUTTON_CLASS treatment and the existing ui/drawer sheet primitive; no new colour, radius or control height is introduced | MECHANICAL | `npx vitest run src/tests/p1179-design-system-reuse.test.ts` | src/tests/p1179-design-system-reuse.test.ts |
+| DW-3 an entry configured with an external or protocol-relative URL is rejected or ignored, verified by attempting one; entries resolve to internal paths only | MECHANICAL | `npx vitest run src/tests/p1179-entry-safety.test.ts` | src/tests/p1179-entry-safety.test.ts |
+| AC-6 the stake surface renders its tag's Points oldest-first with no search box, no tag cloud, no sort toggle and no Share a Story button; AC-7 a Points-only tag shows no tabs; AC-8 a tag carrying both Points and Stories shows both tabs; the oldest-first ordering is requested from the database, never reversed client-side | MECHANICAL | `npx vitest run src/tests/p1179-stake-surface.test.tsx` | src/tests/p1179-stake-surface.test.tsx |
+| AC-9 no refetch is wired to a position change — the guard that keeps optimistic counts from causing a loading flash is not reintroduced | MECHANICAL | `npx vitest run src/tests/p1179-no-refetch-on-position.test.tsx` | src/tests/p1179-no-refetch-on-position.test.tsx |
+| DW-4 P1161 no longer calls /feed/cmp7 the room's URL anywhere, and names the Links menu instead | MECHANICAL | `bash -c 'f=$(find features -name "p1161_*.md" -not -path "*/archive/*" -print -quit); test -n "$f" && ! /usr/bin/grep -q "feed/cmp" "$f" && /usr/bin/grep -q "Links" "$f"'` | features/p1161_first_physical_event_chiang_mai.md |
+| the whole unit suite stays green — the regression baseline for every row above | MECHANICAL | `npx vitest run` | package.json |
+| AC-2 the button is visible and tappable at a literal 320px with nothing overlapping the logo or the avatar, asserted on measured bounding boxes after confirming window.innerWidth actually took the resize; AC-3 tapping it opens a bottom sheet rather than a top-anchored dropdown and every entry measures at least 44px tall | MECHANICAL | `npx playwright test e2e/p1179-links-menu.spec.ts` | e2e/p1179-links-menu.spec.ts |
+| AC-11 the Transcribe entry reaches the working transcription room and the Start a Clarity Session entry reaches /live; the Links button persists across destinations without a Back hop when the event is carried on the URL; a bare /stake/:tag renders the cut-down feed with no button and no event context | MECHANICAL | `npx playwright test e2e/p1179-links-navigation.spec.ts` | e2e/p1179-links-navigation.spec.ts |
+| AC-9 staking a position updates the count with no full-list reload and no loading flash, asserted on the feed request count observed across the click; AC-10 an attendee who opted out at /meet can reach the stake surface and record positions | MECHANICAL | `npx playwright test e2e/p1179-stake-surface.spec.ts` | e2e/p1179-stake-surface.spec.ts |
+| DW-5 the migration applies to test and the new column defaults to an empty list on every pre-existing event row; the column holds the {tag, label?} shape and nothing else | MECHANICAL | `npx playwright test e2e/integration/p1179-events-links-column.spec.ts` | e2e/integration/p1179-events-links-column.spec.ts |
+| UI-2 the open sheet matches the approved reference in density and structure — grouped entries, the separator before Transcribe, and the per-event extra under its own quiet "This event" heading | COMPARABLE | blind-reviewer | features/verification/p1179/review-round-*.md |
+| UI-3 the four room screens still read as the same product with the button added, at 320px, 375px and desktop, including the stake surface's empty state | COMPARABLE | blind-reviewer | features/verification/p1179/review-round-*.md |
+| HUM-1 the entry labels are the right words to say out loud to a room of strangers | HUMAN-ONLY | founder | — |
+
+### The blind reviewer
+
+**It must not be the agent that built the thing.** That is the one durable constraint here: the
+repo's evidence is P1083 — four review rounds, every defect found by a reviewer given renders and
+nothing else, every rejected version having already passed its own implementer's review.
+
+**Given:** the named reference (the approved 2026-08-28 prototype artifact linked under *Approved
+Visual Reference*), and renders of `/events/:slug/room`, `/ready`, `/meet` and `/stake/cmp7?event=…`
+at **320px, 375px and desktop**, each with the Links sheet closed and open, plus the stake
+surface's **empty state**. The reference is authoritative for placement, open shape, and sheet
+density — and explicitly **not** for copy or for exact colour.
+
+**Forbidden:** the diff, the spec, the rationale, this contract, and any statement of what the build
+was trying to do.
+
+**Writes** `features/verification/p1179/review-round-N.md` itself: `VERDICT: PASS|FAIL`, then one
+`SCREENSHOT: <sha256>  <path>` line per image judged. The gate re-hashes every image itself and
+never trusts a hash it is handed. Hashing binds the verdict to the pixels judged; it cannot
+establish who authored the verdict — the defence against that is independence, not arithmetic.
+
+**Screenshots must reach the real gated states.** The room routes are behind auth plus registration;
+`getTestAuthContext()` in `e2e/helpers/auth-context.ts` mints a real user JWT. A component fed mock
+props certifies a screen the user never sees. Reach the real state or say plainly that you did not.
+`resize_window` can silently no-op below some minimum — confirm `window.innerWidth` before trusting
+any 320px render (`.claude/rules/browser.md`).
+
+### Evidence
+
+| file | holds |
+|---|---|
+| `contract.sha256` | the pin |
+| `review-round-N.md` | the verdict and the image hashes |
+| `assumptions.md` | every call the loop made alone. There is no escalation clause — the agent decides, logs, continues |
+| `feedback.md` | **two numbers**: corrections given, and turns consumed. Quality bought with runaway spend reads as success on a one-axis scoreboard |
+
+### Red-first (run 2026-08-28, before the loop existed)
+
+| command | result | strength |
+|---|---|---|
+| the DW-4 grep row | **exit 1** — P1161 still says `feed/cmp` at four places (`:205`, `:246`, `:256`) | **real red.** The assertion ran against live content and failed for the reason it exists to catch |
+| `npx vitest run` (whole suite) | **exit 0** — 289 files / 3266 tests passed, 2 files and 19 tests skipped | **the baseline.** This row must stay green throughout; it is the only row that is green at pin time |
+| the six `src/tests/p1179-*` rows | **exit 1** each — `No test files found` | **unproven-by-absence.** These prove only that the command fails when its file is missing, not that any assertion binds. Do not count them as evidence |
+| the four `e2e/p1179-*` rows | **not run** — the files do not exist, and the DB-backed and browser rows additionally need a seeded fixture event and a running dev server | **unproven.** Flagged rather than counted |
+
+**Stated plainly: eleven of the eighteen MECHANICAL rows are unproven at pin time.** A check nobody
+has seen fail for the right reason is not a check, and saying so here is cheaper than discovering it
+at the merge boundary. The loop's first job on each of those rows is to write the assertion, watch it
+fail against the unbuilt behaviour, and only then build — CHECK 1 of the gate refuses a contract whose
+test artifacts do not exist at all, and CHECK 3 refuses an empty index, but neither can tell a
+load-bearing assertion from a vacuous one.
+
+**No `it.fails` markers are pre-authorised for this spec.** P1114 committed red tests under that
+convention to keep `npm test` green while its build was outstanding; the cost was rows that exited 0
+over assertions nobody had satisfied. This contract's baseline row (`npx vitest run`) is green today
+and the loop works in a worktree, so there is no green-suite pressure to relieve — if a `p1179-*`
+test is committed, it must be committed passing.
