@@ -6,6 +6,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [product]: An organization has *members* and *participants* — one member and forty-five people who turned up are both true, and the page showed only the smaller number
+
+**Context:** While designing the `/org` directory ([P1060](../features/p1060_link_events_to_organizations.md)), the card read *"1 member"* for · Chiang Mai. Measured against prod the same session: **1 member, and 45 distinct profiles with an RSVP** to its 8 events. Membership is the Clarity Organization Terms acceptance record, so it counts commitments; nobody but the founder has made one. The directory — the surface whose whole job is to make a stranger want to walk in — was rendering a live community as a dead one, using a number that was accurate and unrepresentative. The founder raised it unprompted (*"wouldn't it be great to have showed the number of participants"*); the data backed it harder than either of us expected.
+
+**Decision:** Two counts, separately derived, never merged. **Member** = accepted the Clarity Organization Terms (`membership` row; a commitment). **Participant** = has an RSVP to an event belonging to that organization (a fact). Both appear on the directory card and in the organization header, participants leading with the existing overlapping-avatar row from `social-proof.tsx`. **The label is "N have joined events", not "N participants"** — we record RSVPs, not attendance, and on a product whose subject is calibrated claims the directory may not round *said they would come* up to *came*. Zero participants renders nothing, never `0`.
+
+**Alternatives rejected:** *"Guests"* — [definitions.md](definitions.md) binds **Unverified Guest** to a specific auth type (anonymous auth, `is_verified: false`, `slug: null`, cannot author content) reached via `/live`; reusing it collides with an identity class, not just a label. *One combined number* — inflates membership, which is a terms-acceptance record, with people who accepted nothing. *"N participants"* — the small overclaim, rejected on the product's own grounds. *Ship the roster too* — split to [P1192](../features/p1192_organization_participant_roster.md): publishing a list of who attended is a different act from publishing a count, needs its own PII-gated accessor, and needs a decision about whether someone who RSVP'd to a February hike consented to appear on an August roster.
+
+**Consequences:** The count needs no RLS work — `event_rsvps` has been world-readable since it shipped. `definitions.md` should gain **Participant** beside the existing Guest/member entries so the three stop being confusable — **hand off to `/slava:maintain:docs-strategy-update`**, not written here. Status: proposed; the roster (P1192) is blocked on P1060.
+
+**References:** [p1060](../features/p1060_link_events_to_organizations.md) D9/D10 · [p1192](../features/p1192_organization_participant_roster.md) · [definitions.md](definitions.md) "Unverified Guest"
+
+---
+
+## 2026-08-28 [technical]: A migration's seed values are not the current state — read prod for live copy, and never mirror a seed you have not confirmed still applies
+
+**Context:** P1060 needed a blurb for a second organization, so the recommendation was *"mirror · Chiang Mai's factual form"* — read off the p1010 seed migration, which sets *"Calibrated communication practice in Chiang Mai."* Prod's live blurb is nothing like it: *"In every conversation there's a hidden number: how well you both know you understood each other. Nobody asks. We ask."* — replaced by `20260729220000_p1010_cm_about_copy.sql` a month ago. Mirroring the seed would have shipped a sibling in a register the founder had already moved away from, visible side-by-side on the directory being designed. The same session made the mirror-image error from the other direction: `getUpcomingEvents` filters `datetime >= grace AND status IN ('upcoming','cancelled')`, so a decision rationale claiming *"Chiang Mai has past events but none upcoming"* was false — one event qualified.
+
+**Decision:** Treat a `CREATE`/`INSERT` migration as **the value at creation, never the value now**. Any user-visible string, copy, or configuration read for the purpose of matching or extending it must come from the live database (read-only anon `curl`, per [db-access.md](../.claude/rules/db-access.md)) or from the latest migration that touches that column — established by grepping the column name across `supabase/migrations/`, not by opening the file that created it. This is narrower than the existing local-first schema rule and does not weaken it: **shape** stays local and authoritative; **content** does not.
+
+**Alternatives rejected:** *Query prod for schema too* — the local-first rule exists for good reasons and this does not touch it. *Trust the newest migration filename* — a later migration may not touch that column; grep the column, not the date. *Leave it and let review catch it* — the review here was a visual reference the founder approves, and a wrong sibling blurb reads as deliberate house style rather than as an error.
+
+**Consequences:** P1060 carries a Non-Goal: *"Do NOT read org copy from the p1010 migration seed."* The org blurb decision changed outcome entirely — · Online now seeds **NULL** (the column is nullable and `org-header.tsx:121` already guards it), because the founder does not yet know who that community is for and a guessed blurb is a positioning claim made before the positioning exists. Related in kind to [epistemic.md](../.claude/rules/epistemic.md) gate 3 (verify against the artifact, not the documentation about it) — a seed migration is documentation about a row, not the row.
+
+**References:** [p1060](../features/p1060_link_events_to_organizations.md) D6/D7 · `supabase/migrations/20260729220000_p1010_cm_about_copy.sql` · [db-access.md](../.claude/rules/db-access.md)
+
+---
+
+## 2026-08-28 [process]: Build the visual reference BEFORE `/goalify`, not inside it — and a published artifact's stable URL is a hazard once its hash is pinned
+
+**Context:** With P1060 spec'd, the question was whether to run `/goalify` and let its Phase 2 produce the design reference. The initial recommendation was yes — *don't spend a separate founder turn*. The founder pushed back: *"if slash org is a brand new surface, maybe we need to create an artifact… and after approval we point this back to it as a reference. So goalify actually has something to do. Why would we goalify now without having that?"* That is correct, and the reasoning was backwards: `/goalify` budgets **two** founder turns total, and a genuinely new surface iterates (the 2026-08-21 P1141 reference took four rounds). Design iteration inside the loop-prep session consumes the turns that exist for the contract.
+
+**Decision:** For any spec whose Done-When contains a COMPARABLE row against a surface that does not exist yet, **produce and approve the visual reference in the design session, then enter `/goalify` with Phase 2 already satisfied.** Record the reference URL in the spec's `## UX Design` section marked APPROVED, so Phase 1 has nothing to sweep and Phase 2 nothing to build. Second, and separately: **never republish an artifact once `goal-gate` has pinned the contract that references it.** The artifact URL is stable across republishes — which is why one link suffices in the spec, and exactly why it is dangerous: the page behind the link can change while the reference cannot, silently changing what the blind reviewer grades against, mid-run, with nothing to detect it. Unpin, republish, re-pin.
+
+**Alternatives rejected:** *Run `/goalify` first and let Phase 2 iterate* — the founder's objection, and correct. *Run `/ux` first as a separate step* — spends a founder turn on the same question `goalify` Phase 1 asks. *Version the artifact per pin (new URL each time)* — breaks the spec's single stable link, which is the property that makes the reference findable at all.
+
+**Consequences:** **Honest gap, unresolved this session:** the P1060 reference was built from the design system doc and `org-page.tsx` source, and **neither check required by 2026-08-21 [process] was run** — no token diff against the running app, no screenshot comparison against the live `/org/cm`. That entry's own rationale applies directly here: *"the reviewer grades the build against this reference, so an inaccurate reference certifies the wrong screen."* The reference is founder-approved on content and layout but **unverified on fidelity**; both checks should run before `goal-gate` pins it. This is the second occurrence of building a reference and reaching approval without them, which suggests the requirement needs a prompt at reference-creation time rather than a decisions.md entry to remember.
+
+**References:** 2026-08-21 [process] (P1141 — token fidelity is necessary and not sufficient) · [p1060](../features/p1060_link_events_to_organizations.md) §UX Design · `.claude/commands/slava/build/goalify/SKILL.md` Phase 2, Phase 5
+
+---
+
 ## 2026-08-28 [product]: The arbiter-failure criteria do not discriminate on a public-argument corpus — the interface disqualifier is the only part that excludes
 
 **Context:** `/slava:disagreement:prepare` Stage 3 is a one-sentence load-bearing filter, so the
