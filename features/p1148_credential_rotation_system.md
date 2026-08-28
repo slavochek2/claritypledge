@@ -97,6 +97,31 @@ Not from adversarial review — from an actual attempted rotation that went down
 and was caught by the operator's instinct, not by analysis. Full write-up: `pp/docs/decisions.md`
 2026-08-28 "The leaked credential's TYPE decides the rotation path".
 
+**Reference implementation — read this before designing any rotator.**
+`pp/docs/infra/supabase.md` is a rotation that was actually carried out end-to-end against live
+production: leaked key enumerated, replaced, cut over, killed, and the kill *proven*. It is the
+only worked example this spec has, and it is worth more than the abstractions below because it
+records what the real thing cost. It maps 1:1 onto the ordering diagram above:
+
+| This spec's verb | What it was, concretely |
+|---|---|
+| `mint` | `POST /api-keys?reveal=false` — creates without returning the value, so the secret never enters the agent session. **The `reveal` flag is the single most useful thing found**; any provider offering it should be preferred over a dashboard copy-paste |
+| `write-consumers` | GCP Secret Manager version, `.env.local`, Vercel env var. Edge functions needed nothing — the platform swaps its own injected values |
+| `verify` | new key 200 *and* the live site up, before anything was revoked |
+| `archive-old` / `revoke-old` | `PUT /api-keys/legacy?enabled=false`, then `DELETE /api-keys/{id}?was_compromised=true` |
+
+Also note what this example proves about **item 15**: the rotation *was* driver-automatable end
+to end — the mint/write steps ran as a script and no human pasted anything. What stayed human was
+the **deploy** (gated by a push flag the agent must not touch). So the boundary in item 15 is
+sharper than first written: the constraint is not "an agent cannot mint," it is "an agent must
+never *observe* the value, and must never deploy." A rotator that pipes `reveal=true` straight to
+its destination and prints only a fingerprint satisfies both.
+
+And what it proves about **item 11**: the coupled set was not discovered from documentation. It
+surfaced from a provider warning dialog and had to be confirmed against the codebase. `describe`
+declaring `coupled_with` is right, but the spec needs to say where that list comes from — nothing
+in the registry today would have contained it.
+
 11. **Credentials can be *coupled* — a shared-fate set, not independent rows.** Supabase's
     legacy `anon` and `service_role` are two static JWTs signed by **one** secret: revoking the
     admin key necessarily kills the public frontend key. A rotator that models credentials as
