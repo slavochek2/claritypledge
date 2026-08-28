@@ -321,7 +321,14 @@ export function OrgPage() {
                   called getUpcomingEvents()/getPastEvents() with no org argument,
                   so every organization showed every event on the platform — the
                   defect that made two organizations worse than one. */}
-              <EventsList embedded orgId={org.id} orgSlug={org.slug} canHost={canHost} />
+              <EventsList
+                embedded
+                orgId={org.id}
+                orgSlug={org.slug}
+                orgName={org.name}
+                canHost={canHost}
+                orgJoinHref={isMember ? undefined : `/org/${org.slug}/join`}
+              />
             </TabsContent>
           )}
 

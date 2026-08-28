@@ -21,6 +21,12 @@ interface EventsListProps {
   orgId?: string;
   /** The scoped org's slug — carried onto /events/new so a created event knows its org. */
   orgSlug?: string;
+  /** The scoped org's display name, used in the "Previously in …" divider. */
+  orgName?: string;
+  /** Where a non-member joins this org. Omitted for a member (and signed-out flows
+   *  still get it — the join page is where the terms are read). Never a HOST cta:
+   *  joining is open, hosting is D4-gated. */
+  orgJoinHref?: string;
   /** P1060 D4: may the viewer host INTO this org? Organizers of that org only.
    *  Only consulted when orgId is set; the standalone list stays open to any
    *  logged-in user. `membership_insert` lets any authenticated user join a public
@@ -28,7 +34,14 @@ interface EventsListProps {
   canHost?: boolean;
 }
 
-export function EventsList({ embedded = false, orgId, orgSlug, canHost = false }: EventsListProps = {}) {
+export function EventsList({
+  embedded = false,
+  orgId,
+  orgSlug,
+  orgName,
+  orgJoinHref,
+  canHost = false,
+}: EventsListProps = {}) {
   const { user } = useAuth();
   const isLoggedIn = !!user;
   const [searchParams] = useSearchParams();
@@ -195,9 +208,24 @@ export function EventsList({ embedded = false, orgId, orgSlug, canHost = false }
                 events" — that is the generic empty state this fall-through exists
                 to replace, and repeating it here would reintroduce the dead end. */}
             {fellThroughToPast && activeTab === 'past' && (
-              <h3 className="mb-4 text-base font-semibold">
-                Nothing coming up yet — here is what this organization has hosted
-              </h3>
+              <>
+                {/* The empty Upcoming state is still SHOWN — it is a real fact about
+                    this organization — but it is not a dead end: the past list
+                    follows it under its own divider. Dashed border marks it as an
+                    absence rather than a card. */}
+                <div className="mb-6 rounded-lg border border-dashed border-border px-6 py-8 text-center">
+                  <h3 className="text-base font-semibold">Nothing coming up yet</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Nothing is scheduled right now. Here is what this organization has hosted.
+                  </p>
+                </div>
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {orgName ? `Previously in ${orgName}` : 'Previously'}
+                  </span>
+                  <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                </div>
+              </>
             )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.map(event => (
@@ -216,14 +244,37 @@ export function EventsList({ embedded = false, orgId, orgSlug, canHost = false }
              honest line — not a bare empty list, and not an invitation to host aimed
              at a visitor who may not host (D4). The host actions appear here only
              for an organizer of this org. */
-          <div className="text-center py-16">
-            <p className="text-base text-muted-foreground">
-              {upcomingEvents.length === 0 && pastEvents.length === 0
-                ? "This organization hasn't hosted an event yet."
-                : activeTab === 'upcoming'
-                  ? 'Nothing coming up yet.'
-                  : 'Nothing in the past yet.'}
-            </p>
+          <div className="rounded-lg border border-dashed border-border px-6 py-14 text-center">
+            {upcomingEvents.length === 0 && pastEvents.length === 0 ? (
+              <>
+                <h3 className="text-lg font-semibold">The first event is being planned</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                  This organization hasn&apos;t hosted an event yet. Join to hear when the
+                  first one is scheduled.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold">
+                  {activeTab === 'upcoming' ? 'Nothing coming up yet' : 'Nothing in the past yet'}
+                </h3>
+                <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                  {activeTab === 'upcoming'
+                    ? 'Nothing is scheduled right now.'
+                    : 'Events appear here once they have been held.'}
+                </p>
+              </>
+            )}
+            {/* Join, never Host. Outline rather than primary: the header already
+                carries this org's one primary action (P955 — one primary per view),
+                and a second blue button would compete with it for the same glance. */}
+            {orgJoinHref && !showActions && (
+              <div className="mt-6 flex justify-center">
+                <Link to={orgJoinHref}>
+                  <Button variant="outline" className="min-h-[44px]">Join as member</Button>
+                </Link>
+              </div>
+            )}
             {showActions && <div className="mt-6 flex justify-center">{actionButtons}</div>}
           </div>
         ) : (

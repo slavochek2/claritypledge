@@ -17,11 +17,16 @@
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRightIcon, CalendarDaysIcon, UsersIcon } from "lucide-react";
 import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { OrgParticipantRow } from "@/app/components/organizations/org-participant-row";
 import { organizationsService } from "@/app/data/organizations-service";
-import type { Organization, OrgParticipation } from "@/app/data/organizations-service.interface";
+import type {
+  Organization,
+  OrgEventSummary,
+  OrgParticipation,
+} from "@/app/data/organizations-service.interface";
 
 /**
  * The one-line differentiator under each org name. Founder-approved copy
@@ -49,6 +54,7 @@ export function OrgDirectoryPage() {
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
   const [participation, setParticipation] = useState<Record<string, OrgParticipation>>({});
   const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
+  const [eventSummaries, setEventSummaries] = useState<Record<string, OrgEventSummary>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -64,15 +70,17 @@ export function OrgDirectoryPage() {
         // a card with a name and a link is already useful, and a failed count must
         // never take the directory down with it. Each degrades to absent — which is
         // also the honest rendering (no row, no "0").
-        const [counts, part, mine] = await Promise.all([
+        const [counts, part, mine, summaries] = await Promise.all([
           organizationsService.getMemberCounts(ids).catch(() => ({})),
           organizationsService.getParticipation(ids).catch(() => ({})),
           organizationsService.getMyMembershipOrgIds().catch(() => [] as string[]),
+          organizationsService.getEventSummaries(ids).catch(() => ({})),
         ]);
         if (cancelled) return;
         setMemberCounts(counts);
         setParticipation(part);
         setMyOrgIds(new Set(mine));
+        setEventSummaries(summaries);
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to load organizations", err);
@@ -125,6 +133,7 @@ export function OrgDirectoryPage() {
                   org={org}
                   memberCount={memberCounts[org.id] ?? 0}
                   participation={participation[org.id]}
+                  eventSummary={eventSummaries[org.id]}
                   isMine={myOrgIds.has(org.id)}
                 />
               </li>
@@ -147,38 +156,76 @@ export function OrgDirectoryPage() {
   );
 }
 
+/** Initials tile for an organization. Founder-approved (2026-08-28, "the initials
+ *  tiles"). Two characters at most: a bare glyph reads as an avatar, three reads as
+ *  a word. Decorative — the name beside it carries the accessible identity. */
+function OrgInitials({ name }: { name: string }) {
+  const initials = name
+    .replace(/^Clarity Practice Community[^A-Za-z0-9]*/i, "")
+    .split(/\s+/)
+    .filter((w) => /[A-Za-z0-9]/.test(w))
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+  return (
+    <div
+      aria-hidden="true"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-semibold text-blue-700"
+    >
+      {initials || "C"}
+    </div>
+  );
+}
+
 function OrgCard({
   org,
   memberCount,
   participation,
+  eventSummary,
   isMine,
 }: {
   org: Organization;
   memberCount: number;
   participation?: OrgParticipation;
+  eventSummary?: OrgEventSummary;
   isMine: boolean;
 }) {
   const differentiator = ORG_DIFFERENTIATOR[org.slug];
+  const pastCount = eventSummary?.pastCount ?? 0;
+  const nextEventAt = eventSummary?.nextEventAt ?? null;
+
+  // The footer badge answers the one question a directory is asked: is anything
+  // happening here. An org with nothing scheduled says so rather than going blank —
+  // a missing badge reads as a broken card, not as an empty calendar.
+  const badgeLabel = nextEventAt
+    ? `Next event ${new Date(nextEventAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+    : pastCount > 0
+      ? "Nothing scheduled"
+      : "First event coming";
+
   return (
     <div
       data-testid="org-card"
       className="flex h-full flex-col gap-3 rounded-lg border border-border bg-card p-5"
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          {/* The whole card is NOT the link: the card carries counts and avatars, and
-              wrapping them in an anchor makes every avatar part of the link's
-              accessible name. One named link per card, keyboard-reachable, Enter
-              activates — the a11y contract. */}
-          <Link
-            to={`/org/${org.slug}`}
-            className="rounded text-lg font-semibold underline-offset-2 hover:text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            {org.name}
-          </Link>
-          {differentiator && (
-            <p className="mt-1 text-sm text-muted-foreground">{differentiator}</p>
-          )}
+        <div className="flex min-w-0 gap-3">
+          <OrgInitials name={org.name} />
+          <div className="min-w-0">
+            {/* The whole card is NOT the link: the card carries counts and avatars,
+                and wrapping them in an anchor makes every avatar part of the link's
+                accessible name. One named link per card, keyboard-reachable, Enter
+                activates — the a11y contract. */}
+            <Link
+              to={`/org/${org.slug}`}
+              className="rounded text-lg font-semibold underline-offset-2 hover:text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {org.name}
+            </Link>
+            {differentiator && (
+              <p className="mt-1 text-sm text-muted-foreground">{differentiator}</p>
+            )}
+          </div>
         </div>
         {/* The ONLY signed-in delta (UX reference Screen B). green-600 is reserved
             for the membership badge and nothing else. Carries its own text, never
@@ -199,9 +246,39 @@ function OrgCard({
 
       <OrgParticipantRow participation={participation} />
 
-      <p className="mt-auto text-sm text-muted-foreground">
-        {memberCount} {memberCount === 1 ? "member" : "members"}
+      {/* Meta row. The member count carries the same person glyph the org header
+          gives it — one fact, one rendering, on both surfaces. */}
+      <p className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <UsersIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {memberCount} {memberCount === 1 ? "member" : "members"}
+        </span>
+        {pastCount > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <CalendarDaysIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {pastCount} past {pastCount === 1 ? "event" : "events"}
+          </span>
+        )}
       </p>
+
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+          {badgeLabel}
+        </span>
+        {/* Matches the existing text-link idiom (font-medium text-blue-600 with an
+            offset underline) used elsewhere on org surfaces rather than inventing a
+            new affordance. aria-hidden on the arrow keeps the link's accessible
+            name to the words. */}
+        <Link
+          to={`/org/${org.slug}`}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline"
+        >
+          Open
+          <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </div>
     </div>
   );
 }

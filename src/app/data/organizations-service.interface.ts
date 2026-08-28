@@ -71,6 +71,14 @@ export interface OrgParticipation {
   sample: OrgParticipant[];
 }
 
+/** P1060: what the directory card's meta row and footer badge need per organization. */
+export interface OrgEventSummary {
+  /** Events already held. Absent (0) organizations print no count line. */
+  pastCount: number;
+  /** ISO datetime of the next upcoming event, or null when nothing is scheduled. */
+  nextEventAt: string | null;
+}
+
 export interface OrganizationsService {
   /**
    * Every PUBLIC organization, for the /org directory (D5). Private orgs are
@@ -84,6 +92,8 @@ export interface OrganizationsService {
   getParticipation(orgIds: string[]): Promise<Record<string, OrgParticipation>>;
   /** Org ids the signed-in caller belongs to. Empty for a signed-out visitor. */
   getMyMembershipOrgIds(): Promise<string[]>;
+  /** Next-event date + past-event count per org id, for the directory card. */
+  getEventSummaries(orgIds: string[]): Promise<Record<string, OrgEventSummary>>;
   /** Public org by slug, or null for a private/unknown slug (RLS-gated). */
   getOrganizationBySlug(slug: string): Promise<Organization | null>;
   /** The org's roster (organizer-first), via the PII-safe SECURITY DEFINER RPC. */

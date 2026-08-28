@@ -13,6 +13,7 @@ import type {
   Organization,
   OrganizationsService,
   OrgMember,
+  OrgEventSummary,
   OrgParticipant,
   OrgParticipation,
   OrgRole,
@@ -186,6 +187,33 @@ export const organizationsService: OrganizationsService = {
       // D9's "no row, no 0" is enforced at the data layer, not left to the caller.
       if (profileIds.size === 0) continue;
       out[orgId] = { count: profileIds.size, sample: sample.get(orgId) ?? [] };
+    }
+    return out;
+  },
+
+  async getEventSummaries(orgIds) {
+    if (orgIds.length === 0) return {};
+    // Same grace-period convention as the events service: an event stays
+    // "upcoming" for a few hours past its start, so a session running right now
+    // is not reported as already over.
+    const graceCutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('events')
+      .select('org_id, datetime, status')
+      .in('org_id', orgIds);
+    if (error) throw new Error(`Failed to load org events: ${error.message}`);
+
+    const out: Record<string, OrgEventSummary> = {};
+    for (const row of (data ?? []) as { org_id: string | null; datetime: string; status: string }[]) {
+      if (!row.org_id) continue;
+      const summary = out[row.org_id] ?? { pastCount: 0, nextEventAt: null };
+      const isUpcoming = row.datetime >= graceCutoff && row.status !== 'completed';
+      if (isUpcoming) {
+        if (!summary.nextEventAt || row.datetime < summary.nextEventAt) summary.nextEventAt = row.datetime;
+      } else {
+        summary.pastCount += 1;
+      }
+      out[row.org_id] = summary;
     }
     return out;
   },

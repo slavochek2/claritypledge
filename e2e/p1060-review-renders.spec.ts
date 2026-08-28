@@ -22,6 +22,7 @@ import {
   type TestOrganization,
 } from './helpers/test-organization';
 import { createTestEvent, rsvpToEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const OUT = 'features/verification/p1060/renders';
 const RUN = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -79,6 +80,28 @@ test.describe('P1060 reviewer renders', () => {
     await rsvpToEvent(upcoming.id, p1.user.id);
     await rsvpToEvent(past.id, p2.user.id);
     await rsvpToEvent(past.id, member.user.id);
+
+    // `createTestUser` hardcodes avatar_color '#4A90E2' for every fixture profile
+    // (test-user.ts:178). Real profiles carry distinct colours, so a render left at
+    // the default photographs three identical discs and certifies an avatar stack
+    // nobody sees in production. Give each participant its own colour so the
+    // reviewer is judging the real thing.
+    const COLOURS = ['#3B82F6', '#0EA5E9', '#6366F1'];
+    await Promise.all(
+      [p1, p2, member].map((u, i) =>
+        supabaseAdmin.from('profiles').update({ avatar_color: COLOURS[i] }).eq('id', u.user.id),
+      ),
+    );
+
+    // Same reasoning for the event banner: EventCard renders its 16:9 banner only
+    // when bannerUrl is set (EventCard.tsx:33), and `createTestEvent` never sets
+    // one — so an un-bannered fixture makes a production card look like it has no
+    // banner treatment at all. A repo-local asset keeps the render offline-safe.
+    await Promise.all(
+      [upcoming.id, past.id, pastOnlyEvent.id].map((id) =>
+        supabaseAdmin.from('events').update({ banner_url: '/founder-photo.jpg' }).eq('id', id),
+      ),
+    );
   });
 
   test.afterAll(async () => {
