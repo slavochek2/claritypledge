@@ -6,6 +6,16 @@ workstream: infrastructure
 created_date: '2026-08-28'
 tags: [edge-functions, auth, silent-failure, email]
 driver: anomaly
+delivery_stage: reproduce
+pipeline_ran: [reproduce]
+reproduce_artifact:
+  test_file: e2e/integration/p1178-reproduce.spec.ts
+  root_cause: "create-and-sign:265 sends the service_role JWT as Bearer; send-agreement-emails:405 resolves it with auth.getUser(), which yields no user (no sub claim) and returns 401. Blast radius is the P527 new-user direct-sign path only."
+  confidence: high
+  scenarios_in_scope: [direct-sign-new-user]
+  scenarios_cleared: [existing-user-accept, invitation, declined, terminated, resend]
+  sibling_grep: "Authorization: `Bearer — 2 hits in supabase/functions/; only create-and-sign:265 is the pattern (enqueue-transcription:72 is a Google OAuth token to Cloud Tasks)"
+  reproduced_at: 2026-08-28
 ---
 
 # P1178: `create-and-sign` sends the service-role key where a user login token is expected — silently
@@ -50,23 +60,81 @@ second, independent reason: secret keys are not JWTs and are rejected in the
 migration does not make the outcome worse — it fails either way — which is why it was
 deliberately left untouched rather than patched blind.
 
-## Question
+## Root Cause (confirmed 2026-08-28)
 
-Does the accepted-agreement email currently send in production, and if not, how long has it been
-silent?
+**Confirmed.** The 401 is real, it comes from the function (not the gateway), and its blast radius
+is narrower than this spec first assumed.
 
-## Investigation (do this before designing a fix)
+**The 401 is the function's own, not the gateway's.** Replaying the exact call shape against
+**test** (`gfjctyxqlwexxwsmkakq`) with a control:
 
-- [ ] Establish ground truth from Mailgun logs, not from reading the code: search
-      `api.eu.mailgun.net` events for accepted-agreement sends over the last 90 days. Zero
-      matches alongside non-zero accepted agreements in the DB confirms the failure.
-- [ ] Confirm the 401 directly — invoke `send-agreement-emails` with a service-role bearer and a
-      real `agreementId` against **test** (`gfjctyxqlwexxwsmkakq`), never prod.
-- [ ] Check whether `send-agreement-emails` is deployed with `--no-verify-jwt`. If it is
-      gateway-verified, the request fails earlier still.
-- [ ] Grep for the same shape elsewhere — any internal edge-function-to-edge-function call passing
-      a service credential into a handler that calls `getUser()`. This is a pattern bug, and one
-      instance is unlikely to be the only one.
+| Bearer | HTTP | Body | Who answered |
+|---|---|---|---|
+| garbage string | 401 | `{"code":"UNAUTHORIZED_INVALID_JWT_FORMAT","message":"Invalid JWT"}` | gateway |
+| legacy `service_role` JWT | 401 | `{"error":"Unauthorized"}` | **the function**, `index.ts:405` |
+
+The service-role JWT is signature-valid, so it clears the gateway and dies at `getUser()`. Its
+decoded payload carries no `sub`: `{"iss":"supabase","ref":"…","role":"service_role","iat":…,"exp":…}`.
+Only lines 399 and 405 can emit that exact body, and the header does start with `Bearer `, so it is
+405.
+
+**Scope correction — two `accepted` triggers exist, only one is broken.** The code comment calling
+this "the ONLY email trigger for this flow" is true of the create-and-sign flow, not of accepted
+agreements generally:
+
+| Trigger | Credential | Outcome |
+|---|---|---|
+| `accept-agreement-page.tsx:203` — existing-user accept | user JWT | works ✓ |
+| `create-and-sign/index.ts:261` — **P527 new-user direct-sign** | `service_role` JWT | 401, no email ✗ |
+
+`accept-agreement-page.tsx:427` deliberately skips the frontend send on the direct-sign path
+(`// Do NOT fire invokeAgreementEmails — the edge function already did`), so nothing covers it.
+
+**Silent since 2026-04-03 — 147 days.** `git log -L` on both hunks: the fire-and-forget call was
+written 2026-03-16 (`c642d74e`, P527); the `getUser` gate was added 2026-04-03 (`448c4c66`, security
+hardening). Before that commit the function had **no caller auth at all** (`git show 448c4c66^`
+shows the only `Authorization` in the file is Mailgun's own Basic header) — so the email did send
+for those first ~18 days. Prod `send-agreement-emails` is v33, deployed 2026-06-02 with
+`verify_jwt=true`, so prod carries the gate.
+
+**Mailgun logs cannot corroborate the duration — and did not.** Retention on this plan is ~1 day:
+a 90-day query returned 15 `accepted` events spanning 2026-08-27 → 2026-08-28, all of them signup
+emails, with **zero agreement emails of any kind** — including invitations, which are known to
+work. The window is uninformative in both directions, not evidence of absence. The duration above
+comes from git history plus the live 401, not from delivery logs.
+
+**Sibling grep recorded.** `Authorization: \`Bearer` across `supabase/functions/` returns 2 hits:
+`create-and-sign:265` (this bug) and `enqueue-transcription:72`, which passes a Google OAuth token
+to Cloud Tasks — a different pattern, cleared. No other edge-function-to-edge-function call exists
+(`functions/v1/` appears exactly once in `supabase/functions/`).
+
+## Canary
+
+`e2e/integration/p1178-reproduce.spec.ts` — two tests against the deployed **test** functions,
+asserting the user-visible outcome (the creator's email is sent) via Mailgun's `accepted` event log,
+an oracle independent of the functions under test. Fix-shape agnostic: it asserts the email, not the
+header.
+
+- **control** — existing-user accept path with a user JWT: **passes** (10.0s). Proves the oracle can
+  see an accepted-agreement email at all.
+- **canary** — real `create-and-sign` direct sign (returns 200 `ok:true`), then wait 90s for the
+  creator's email: **fails**, deterministically, on two consecutive runs.
+
+A first version of this canary went **2/2 green against unfixed code**: both tests shared one
+creator, so the canary matched the control's email — same recipient, same subject. Each test now
+creates its own creator. The control is what makes a canary failure meaningful rather than blind.
+
+## Investigation (done 2026-08-28 — see Root Cause)
+
+- [x] Mailgun ground truth — **inconclusive by retention, not by result.** ~1 day of logs; the
+      window holds no agreement emails at all, including working ones. Duration established from
+      git history instead.
+- [x] Confirm the 401 directly against test — done, with a garbage-bearer control that attributes
+      it to the function rather than the gateway.
+- [x] `send-agreement-emails` deploy flags — `verify_jwt=true` on both test (v25) and prod (v33);
+      `deploy-functions.sh:114` grants `--no-verify-jwt` to `create-and-sign` alone. The
+      service-role JWT clears the gateway anyway, so the gate that fires is the in-function one.
+- [x] Sibling grep — one instance only; `enqueue-transcription:72` inspected and cleared.
 
 ## Fix sketch (only after the above)
 
