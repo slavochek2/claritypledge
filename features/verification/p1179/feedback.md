@@ -69,7 +69,11 @@ three and was not acted on until attempt five.
      Vite servers (port 5100 free; the running vite processes were idle kanban tools), so this is
      ambient load plus this session's own ~20 Playwright invocations — not a leak to clean up.
      Decisive corroboration for the environment read, and no lever: it is not fixable from inside
-     the loop.
+     the loop. CONFIRMED by the last experiment of the session — re-running both failing specs with
+     `PLAYWRIGHT_WORKERS=1` made things WORSE, not better (3 failed / 5 passed, 11.2 minutes). So
+     the failures are not contention between workers that could be tuned away; the machine cannot
+     currently run this browser tier reliably at any parallelism. Re-run the local tier on an
+     unloaded machine before drawing any conclusion about these two specs.
 
    Two things were tried and REVERTED because the evidence turned against them: `mode: 'serial'`
    (chained one failure into five) and a lazy-chunk warmup `beforeAll` (justified by a cold-compile
