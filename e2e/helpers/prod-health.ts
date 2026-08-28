@@ -27,7 +27,7 @@ import type { Page } from '@playwright/test';
 // gate loaded the route on prod — frame-src violations only surface live.
 // /coach added by P916: the coach landing moved off "/" to its own route — without it
 // here, the coach page (CTAs, agreement-certificate surface) has no prod health coverage.
-export const PROD_HEALTH_ROUTES = ['/', '/coach', '/live', '/feed', '/manifesto', '/events', '/cm'];
+export const PROD_HEALTH_ROUTES = ['/', '/coach', '/live', '/feed', '/manifesto', '/events', '/cm', '/org'];
 
 // ── Stabilization poll ──────────────────────────────────────────────────────
 // Third-party SDKs (LogRocket, Mixpanel) init behind requestIdleCallback / a ~2s

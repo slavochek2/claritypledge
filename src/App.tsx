@@ -34,6 +34,7 @@ const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ defau
 const IntroPage = lazy(() => import("@/app/pages/intro-page").then(m => ({ default: m.IntroPage })));
 const ChiangMaiPage = lazy(() => import("@/app/pages/chiang-mai-page").then(m => ({ default: m.ChiangMaiPage })));
 const OrgPage = lazy(() => import("@/app/pages/org-page").then(m => ({ default: m.OrgPage })));
+const OrgDirectoryPage = lazy(() => import("@/app/pages/org-directory-page").then(m => ({ default: m.OrgDirectoryPage })));
 const OrgJoinPage = lazy(() => import("@/app/pages/org-join-page").then(m => ({ default: m.OrgJoinPage })));
 const FullArticlePage = lazy(() => import("@/app/pages/full-article-page").then(m => ({ default: m.FullArticlePage })));
 const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").then(m => ({ default: m.PrivacyPolicyPage })));
@@ -966,7 +967,11 @@ export default function ClarityPledgeApp() {
         {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}
         <Route path="/cm" element={<ClarityLandingLayout chromeFree><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
 
-        {/* P1010: Clarity Organizations — /org/:slug (one seeded org: cm) */}
+        {/* P1060 D5: /org — the public directory of all organizations. Declared
+            BEFORE /org/:slug so the bare path is never captured as a slug. A
+            listing only; p1010 Decision 7 (no create-org surface) stands. */}
+        <Route path="/org" element={<ClarityLandingLayout><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1010: Clarity Organizations — /org/:slug (seeded orgs: cm, online) */}
         <Route path="/org/:slug" element={<ClarityLandingLayout><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
         {/* Join gate — accepting the Clarity Organization Terms IS the join (focus page). */}
         <Route path="/org/:slug/join" element={<ClarityLandingLayout><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />

@@ -15,9 +15,20 @@ interface EventsListProps {
    *  drops the page chrome — full-height background, page title, top padding —
    *  so the host page owns the heading and spacing. Behavior is identical. */
   embedded?: boolean;
+  /** P1060: scope the list to one Clarity Organization. Omitted → the standalone
+   *  /events list, which keeps showing EVERY event, org-scoped or not. That is its
+   *  job (spec Non-Goals) and the ALLOWED path gate 7c exists to protect. */
+  orgId?: string;
+  /** The scoped org's slug — carried onto /events/new so a created event knows its org. */
+  orgSlug?: string;
+  /** P1060 D4: may the viewer host INTO this org? Organizers of that org only.
+   *  Only consulted when orgId is set; the standalone list stays open to any
+   *  logged-in user. `membership_insert` lets any authenticated user join a public
+   *  org in one click, so "any member" would be close to "anyone" — hence organizer. */
+  canHost?: boolean;
 }
 
-export function EventsList({ embedded = false }: EventsListProps = {}) {
+export function EventsList({ embedded = false, orgId, orgSlug, canHost = false }: EventsListProps = {}) {
   const { user } = useAuth();
   const isLoggedIn = !!user;
   const [searchParams] = useSearchParams();
@@ -29,6 +40,12 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
   const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
   const [userRsvps, setUserRsvps] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  // P1060 D6: this org has nothing upcoming but does have past events, so the tab
+  // opened on Past instead of showing an empty state. Tracked separately from
+  // activeTab because the user may click back to Upcoming, and the explanatory
+  // heading belongs to the Past view only.
+  const [fellThroughToPast, setFellThroughToPast] = useState(false);
+  const isOrgScoped = !!orgId;
 
   // When series filter is active, force upcoming tab so the filter is applied.
   // Without this, a user switching from /events (past tab) to ?series= would
@@ -40,11 +57,23 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
   useEffect(() => {
     async function fetchEvents() {
       const [upcoming, past] = await Promise.all([
-        eventsService.getUpcomingEvents(),
-        eventsService.getPastEvents(),
+        eventsService.getUpcomingEvents(orgId),
+        eventsService.getPastEvents(orgId),
       ]);
       setUpcomingEvents(upcoming);
       setPastEvents(past);
+
+      // D6: fall through to Past, explicitly labelled — rather than showing an
+      // empty Upcoming list. · Online launches with 0 upcoming and 0 past (handled
+      // by the honest-line branch below); · Chiang Mai reaches this state the day
+      // after its last scheduled event. Only in org context: the standalone
+      // /events list keeps its existing Upcoming-first behaviour.
+      if (orgId && upcoming.length === 0 && past.length > 0) {
+        setActiveTab('past');
+        setFellThroughToPast(true);
+      } else {
+        setFellThroughToPast(false);
+      }
 
       if (user) {
         const allEvents = [...upcoming, ...past];
@@ -61,7 +90,7 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
       setLoading(false);
     }
     fetchEvents();
-  }, [user]);
+  }, [user, orgId]);
 
   const seriesEvents = filterWebinarSeries(upcomingEvents);
   const filteredUpcoming = isSeriesFiltered
@@ -74,7 +103,13 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
   // without this they rendered top-right on first paint and then visibly jumped into
   // the centered empty block once the fetch resolved to zero events. Withholding them
   // until the list is known means they render once, already in their final position.
-  const showActions = isLoggedIn && !isSeriesFiltered && !loading;
+  // P1060 D4: in the org-page context the host actions belong to that org's
+  // ORGANIZERS. Before this, the org page offered "Host Event" to any logged-in
+  // visitor and filed an event that belonged to nothing — inviting a stranger to
+  // host into a community they may not be part of. The standalone list is unchanged.
+  const showActions = isOrgScoped
+    ? canHost && !loading
+    : isLoggedIn && !isSeriesFiltered && !loading;
 
   // Host / Co-create. Two positions, one definition:
   //  - list has events → top row, RIGHT of the filters (filters change what you see,
@@ -93,7 +128,9 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
           Co-create
         </Button>
       </Link>
-      <Link to="/events/new">
+      {/* Org context carries the org forward so the created event can be assigned
+          org_id; the standalone link is untouched. */}
+      <Link to={orgSlug ? `/events/new?org=${encodeURIComponent(orgSlug)}` : '/events/new'}>
         <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
           <Plus className="w-4 h-4" />
           Host Event
@@ -153,6 +190,15 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
             <div className="text-muted-foreground">Loading events...</div>
           </div>
         ) : events.length > 0 ? (
+          <>
+            {/* D6's explicit label. Deliberately avoids the phrase "No upcoming
+                events" — that is the generic empty state this fall-through exists
+                to replace, and repeating it here would reintroduce the dead end. */}
+            {fellThroughToPast && activeTab === 'past' && (
+              <h3 className="mb-4 text-base font-semibold">
+                Nothing coming up yet — here is what this organization has hosted
+              </h3>
+            )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.map(event => (
               <EventCard
@@ -163,6 +209,22 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
                 isUserGoing={userRsvps.has(event.id)}
               />
             ))}
+          </div>
+          </>
+        ) : isOrgScoped ? (
+          /* D6, second half: when an org has neither upcoming nor past events, ONE
+             honest line — not a bare empty list, and not an invitation to host aimed
+             at a visitor who may not host (D4). The host actions appear here only
+             for an organizer of this org. */
+          <div className="text-center py-16">
+            <p className="text-base text-muted-foreground">
+              {upcomingEvents.length === 0 && pastEvents.length === 0
+                ? "This organization hasn't hosted an event yet."
+                : activeTab === 'upcoming'
+                  ? 'Nothing coming up yet.'
+                  : 'Nothing in the past yet.'}
+            </p>
+            {showActions && <div className="mt-6 flex justify-center">{actionButtons}</div>}
           </div>
         ) : (
           <div className="text-center py-16">
@@ -198,7 +260,9 @@ export function EventsList({ embedded = false }: EventsListProps = {}) {
       </div>
 
       {/* CTA Section — only in unfiltered view */}
-      {!isSeriesFiltered && events.length > 0 && activeTab === 'upcoming' && !isLoggedIn && (
+      {/* Never in org context: this block invites a signed-out visitor to host,
+          which is exactly what D4 removes from the org page. */}
+      {!isOrgScoped && !isSeriesFiltered && events.length > 0 && activeTab === 'upcoming' && !isLoggedIn && (
         <div className="max-w-5xl mx-auto px-4 pb-12">
           <div className="bg-blue-50 rounded-xl p-6 text-center">
             <h2 className="text-xl font-semibold mb-2">Want to host an event?</h2>

@@ -19,6 +19,7 @@ export interface TestEvent {
   slug: string;
   hostId: string;
   title: string;
+  orgId: string | null;
 }
 
 /**
@@ -37,6 +38,7 @@ export async function createTestEvent(
     location?: string;
     timezone?: string;
     status?: 'upcoming' | 'live' | 'completed' | 'cancelled';
+    orgId?: string | null;
   } = {}
 ): Promise<TestEvent> {
   // P1179: `Date.now()` alone is NOT unique across Playwright workers — three
@@ -64,8 +66,9 @@ export async function createTestEvent(
       location: options.location || 'Test Location',
       host_id: hostId,
       status: options.status || 'upcoming',
+      ...(options.orgId !== undefined && { org_id: options.orgId }),
     })
-    .select('id, slug, host_id, title')
+    .select('id, slug, host_id, title, org_id')
     .single();
 
   if (error) {
@@ -80,6 +83,7 @@ export async function createTestEvent(
     slug: data.slug,
     hostId: data.host_id,
     title: data.title,
+    orgId: data.org_id ?? null,
   };
 }
 

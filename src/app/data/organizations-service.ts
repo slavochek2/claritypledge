@@ -13,6 +13,8 @@ import type {
   Organization,
   OrganizationsService,
   OrgMember,
+  OrgParticipant,
+  OrgParticipation,
   OrgRole,
 } from './organizations-service.interface';
 
@@ -77,7 +79,128 @@ async function requireUserId(): Promise<string> {
   return user.id;
 }
 
+/**
+ * P1060: how many avatars the participant row draws before it collapses into a
+ * `+N` badge. The badge is computed from what is actually DRAWN, never from this
+ * constant (social-proof.tsx's own comment records the off-by-N bug that caused).
+ */
+export const PARTICIPANT_AVATAR_LIMIT = 5;
+
+/** Rows read for the avatar sample. Bounded — the full roster is p1192, not this. */
+const PARTICIPANT_SAMPLE_ROWS = 200;
+
+interface RsvpProfileRow {
+  profile_id: string;
+  profiles: {
+    name: string | null;
+    slug: string | null;
+    avatar_color: string | null;
+    avatar_url: string | null;
+    has_pledged: boolean | null;
+  } | null;
+}
+
 export const organizationsService: OrganizationsService = {
+  async listPublicOrganizations() {
+    // `.eq('visibility','public')` is redundant with RLS on purpose: the directory
+    // is a public surface, and a policy change elsewhere must not silently turn it
+    // into a private-org index.
+    const { data, error } = await supabase
+      .from('organization')
+      .select('id, slug, name, blurb, description, visibility, has_events')
+      .eq('visibility', 'public')
+      .order('name', { ascending: true });
+    if (error) throw new Error(`Failed to list organizations: ${error.message}`);
+    return ((data ?? []) as OrgRow[]).map(mapOrg);
+  },
+
+  async getMemberCounts(orgIds) {
+    if (orgIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from('membership')
+      .select('org_id')
+      .in('org_id', orgIds);
+    if (error) throw new Error(`Failed to count members: ${error.message}`);
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as { org_id: string }[]) {
+      counts[row.org_id] = (counts[row.org_id] ?? 0) + 1;
+    }
+    return counts;
+  },
+
+  async getParticipation(orgIds) {
+    if (orgIds.length === 0) return {};
+
+    // Two hops, not a join: `events` carries the org edge, `event_rsvps` carries the
+    // people. Both are anon-readable already — this adds no visibility surface.
+    const { data: eventRows, error: eventErr } = await supabase
+      .from('events')
+      .select('id, org_id')
+      .in('org_id', orgIds);
+    if (eventErr) throw new Error(`Failed to load org events: ${eventErr.message}`);
+
+    const orgOfEvent = new Map<string, string>();
+    for (const row of (eventRows ?? []) as { id: string; org_id: string | null }[]) {
+      if (row.org_id) orgOfEvent.set(row.id, row.org_id);
+    }
+    if (orgOfEvent.size === 0) return {};
+
+    const { data: rsvpRows, error: rsvpErr } = await supabase
+      .from('event_rsvps')
+      .select('event_id, profile_id, profiles(name, slug, avatar_color, avatar_url, has_pledged)')
+      .in('event_id', [...orgOfEvent.keys()])
+      .limit(PARTICIPANT_SAMPLE_ROWS);
+    if (rsvpErr) throw new Error(`Failed to load participants: ${rsvpErr.message}`);
+
+    // DISTINCT PROFILE, not distinct RSVP: one person who came to four events is one
+    // participant. Counting rows would inflate a small community into a busy one.
+    const seen = new Map<string, Set<string>>();
+    const sample = new Map<string, OrgParticipant[]>();
+    for (const row of (rsvpRows ?? []) as unknown as (RsvpProfileRow & { event_id: string })[]) {
+      const orgId = orgOfEvent.get(row.event_id);
+      if (!orgId) continue;
+      const seenForOrg = seen.get(orgId) ?? new Set<string>();
+      if (seenForOrg.has(row.profile_id)) continue;
+      seenForOrg.add(row.profile_id);
+      seen.set(orgId, seenForOrg);
+
+      const list = sample.get(orgId) ?? [];
+      if (list.length < PARTICIPANT_AVATAR_LIMIT) {
+        list.push({
+          profileId: row.profile_id,
+          name: row.profiles?.name ?? 'Participant',
+          slug: row.profiles?.slug ?? null,
+          avatarColor: row.profiles?.avatar_color ?? null,
+          avatarUrl: row.profiles?.avatar_url ?? null,
+          // Default FALSE, never true — the pledge ring must never be shown to
+          // someone who has not earned it (same rule as mapMember above).
+          hasPledged: row.profiles?.has_pledged ?? false,
+        });
+      }
+      sample.set(orgId, list);
+    }
+
+    const out: Record<string, OrgParticipation> = {};
+    for (const [orgId, profileIds] of seen) {
+      // A zero-participant org is ABSENT from this map, not present with count 0 —
+      // D9's "no row, no 0" is enforced at the data layer, not left to the caller.
+      if (profileIds.size === 0) continue;
+      out[orgId] = { count: profileIds.size, sample: sample.get(orgId) ?? [] };
+    }
+    return out;
+  },
+
+  async getMyMembershipOrgIds() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from('membership')
+      .select('org_id')
+      .eq('user_id', user.id);
+    if (error) throw new Error(`Failed to load memberships: ${error.message}`);
+    return ((data ?? []) as { org_id: string }[]).map((r) => r.org_id);
+  },
+
   async getOrganizationBySlug(slug) {
     const { data, error } = await supabase
       .from('organization')

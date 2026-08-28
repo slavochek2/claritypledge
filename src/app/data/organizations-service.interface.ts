@@ -44,7 +44,46 @@ export interface OrgMember {
   linkedinUrl: string | null;
 }
 
+/**
+ * P1060 D9/D10: a PARTICIPANT is a distinct profile with an RSVP to an event whose
+ * org_id is this organization. Distinct from a MEMBER, who has accepted the Clarity
+ * Organization Terms (the membership row IS that acceptance record).
+ *
+ * Public avatar fields ONLY. `event_rsvps` is already world-readable
+ * (`SELECT USING (true)`, 20260118_create_events.sql:70) and these four profile
+ * columns are the same ones the events list already exposes to anon — no PII column
+ * is added to any payload here. The browsable roster and its gated accessor are p1192.
+ */
+export interface OrgParticipant {
+  profileId: string;
+  name: string;
+  slug: string | null;
+  avatarColor: string | null;
+  avatarUrl: string | null;
+  hasPledged: boolean;
+}
+
+/** Per-organization participation: the total distinct count plus a display sample. */
+export interface OrgParticipation {
+  /** Distinct profiles with an RSVP to one of this org's events. */
+  count: number;
+  /** A bounded sample for the avatar row — never the full roster (that is p1192). */
+  sample: OrgParticipant[];
+}
+
 export interface OrganizationsService {
+  /**
+   * Every PUBLIC organization, for the /org directory (D5). Private orgs are
+   * excluded twice over: RLS (`organization_select USING (visibility = 'public')`)
+   * and the explicit filter. A listing, never a creation surface.
+   */
+  listPublicOrganizations(): Promise<Organization[]>;
+  /** Member counts keyed by org id. Reads `membership`, which anon may read for public orgs. */
+  getMemberCounts(orgIds: string[]): Promise<Record<string, number>>;
+  /** Participation (count + avatar sample) keyed by org id. Zero-participant orgs are absent. */
+  getParticipation(orgIds: string[]): Promise<Record<string, OrgParticipation>>;
+  /** Org ids the signed-in caller belongs to. Empty for a signed-out visitor. */
+  getMyMembershipOrgIds(): Promise<string[]>;
   /** Public org by slug, or null for a private/unknown slug (RLS-gated). */
   getOrganizationBySlug(slug: string): Promise<Organization | null>;
   /** The org's roster (organizer-first), via the PII-safe SECURITY DEFINER RPC. */

@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/app/components/shared/confirm-dialog";
 import { ShareDialog } from "@/app/components/shared/ShareDialog";
-import type { Organization } from "@/app/data/organizations-service.interface";
+import { OrgParticipantRow } from "./org-participant-row";
+import type { Organization, OrgParticipation } from "@/app/data/organizations-service.interface";
 
 interface OrgHeaderProps {
   org: Organization;
@@ -27,6 +28,8 @@ interface OrgHeaderProps {
   onLeave: () => void | Promise<void>;
   /** Switches the page to the Members tab. Omit to render the count as plain text. */
   onShowMembers?: () => void;
+  /** P1060 D9: distinct RSVP'd profiles across this org's events. Absent/zero → no row. */
+  participation?: OrgParticipation;
   /** The signed-in caller's own profile id — stamped into the invite link as ?from=
    *  (silent attribution, P1076). Only read when isMember (a member is always signed in). */
   currentUserId?: string | null;
@@ -39,6 +42,7 @@ export function OrgHeader({
   onJoin,
   onLeave,
   onShowMembers,
+  participation,
   currentUserId,
 }: OrgHeaderProps) {
   // Leaving deletes the membership row, and that row IS the COA acceptance record —
@@ -118,6 +122,12 @@ export function OrgHeader({
             <span>{memberLabel}</span>
           )}
         </p>
+        {/* P1060 D9: the participant row sits beside the member count, not inside it —
+            they are different claims. Member = accepted the terms. Participant = has
+            RSVP'd to one of this org's events. · Chiang Mai reads 1 member and 45 who
+            have joined events; a card showing only the former makes a live community
+            read as dead. Renders nothing when the count is zero. */}
+        <OrgParticipantRow participation={participation} className="mt-2" />
         {org.blurb && (
           <p className="mt-3 max-w-prose text-base text-muted-foreground">{org.blurb}</p>
         )}

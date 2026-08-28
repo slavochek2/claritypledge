@@ -27,7 +27,7 @@ import { OrgHeader } from "@/app/components/organizations/org-header";
 import { PledgerGrid } from "@/app/components/social/pledger-grid";
 import { EventsList } from "@/app/prototypes/events/components/EventsList";
 import { organizationsService } from "@/app/data/organizations-service";
-import type { Organization, OrgMember, OrgRole } from "@/app/data/organizations-service.interface";
+import type { Organization, OrgMember, OrgParticipation, OrgRole } from "@/app/data/organizations-service.interface";
 
 type OrgTab = "about" | "members" | "events";
 
@@ -50,6 +50,9 @@ export function OrgPage() {
   const [org, setOrg] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [myRole, setMyRole] = useState<OrgRole | null>(null);
+  // P1060 D9: distinct RSVP'd profiles across this org's events. Undefined until
+  // loaded and absent for a zero-participant org — both render as no row at all.
+  const [participation, setParticipation] = useState<OrgParticipation | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<OrgTab>("about");
   // P1076: the post-join nudge — shown once, from either join path (own click via
   // org-join-page, or auto-join via AuthCallbackPage), both of which navigate here
@@ -74,6 +77,10 @@ export function OrgPage() {
   const orgSlug = org?.slug ?? null;
   const userId = user?.id ?? null;
   const isMember = myRole !== null;
+  // P1060 D4: hosting into an organization is an ORGANIZER capability, not a
+  // membership one — `membership_insert` lets any authenticated user join a public
+  // org in one click, so "any member" would be close to "anyone" in practice.
+  const canHost = myRole === "organizer";
 
   // Load the org + its (public) roster. Keyed on slug/reload ONLY — a user or
   // token-refresh change must never flash the spinner or reset the active tab
@@ -93,6 +100,15 @@ export function OrgPage() {
       }
     }
 
+    async function loadParticipation(id: string) {
+      try {
+        const byOrg = await organizationsService.getParticipation([id]);
+        if (!cancelled) setParticipation(byOrg[id]);
+      } catch (err) {
+        console.error("Failed to load participants", err);
+      }
+    }
+
     async function loadOrg() {
       if (!slug) return;
       setLoading(true);
@@ -104,6 +120,7 @@ export function OrgPage() {
       // without this the previous org's member count and roster render under the new
       // org's name. If the roster fetch then fails, the wrong roster stays for good.
       setMembers([]);
+      setParticipation(undefined);
       try {
         const loadedOrg = await organizationsService.getOrganizationBySlug(slug);
         if (cancelled) return;
@@ -123,6 +140,10 @@ export function OrgPage() {
         // degrade to an empty roster, not to a dead page. It also keeps the events
         // behind two sequential round-trips instead of one.
         void loadRoster(loadedOrg.slug);
+        // Not awaited, for the same reason the roster is not: a failed count must
+        // degrade to no row (which is also the honest zero rendering), never to a
+        // dead Events page.
+        void loadParticipation(loadedOrg.id);
       } catch (err) {
         // A thrown error is a transient failure (network/RPC), NOT a 404 —
         // surface a retryable error state, never a misleading "not found".
@@ -274,6 +295,7 @@ export function OrgPage() {
           onJoin={handleJoin}
           onLeave={handleLeave}
           onShowMembers={() => setActiveTab("members")}
+          participation={participation}
           currentUserId={userId}
         />
 
@@ -295,7 +317,11 @@ export function OrgPage() {
             <TabsContent value="events" className="pt-4">
               {/* The production events list, embedded — NOT the /cm Google Calendar
                   embed, which stays on /cm and is a different surface entirely. */}
-              <EventsList embedded />
+              {/* P1060: the org's OWN events only. Before this the embedded list
+                  called getUpcomingEvents()/getPastEvents() with no org argument,
+                  so every organization showed every event on the platform — the
+                  defect that made two organizations worse than one. */}
+              <EventsList embedded orgId={org.id} orgSlug={org.slug} canHost={canHost} />
             </TabsContent>
           )}
 

@@ -118,6 +118,82 @@ describe('realEventsService', () => {
     });
   });
 
+  // P1060: org-scoped queries. getUpcomingEvents/getPastEvents gain an optional
+  // org filter (Solution item 4) — the standalone /events call site passes none.
+  //
+  // TIGHTENED BY /dev (the pin recorded this row as "weak red"): the original
+  // fixture nested hand-built objects in a fixed method order, so it failed with
+  // `Cannot read properties of undefined (reading 'map')` — the mock's chain never
+  // resolving — rather than because an assertion about org filtering fired. That
+  // is a test failing for the wrong reason, which proves nothing when it later
+  // passes. Replaced with a CHAINABLE recording builder: every PostgREST filter
+  // returns the same object, the object is awaitable, and each call is logged. The
+  // assertion that had to survive is unchanged and is now the only thing that can
+  // fail — exactly one .eq('org_id', <value>) when an org id is passed, and none
+  // at all when it is omitted.
+  function makeQueryRecorder(rows: unknown[] = []) {
+    const calls: Array<{ method: string; args: unknown[] }> = [];
+    const builder: Record<string, unknown> = {};
+    for (const method of ['select', 'gte', 'lte', 'in', 'or', 'order', 'eq', 'limit']) {
+      builder[method] = vi.fn((...args: unknown[]) => {
+        calls.push({ method, args });
+        return builder;
+      });
+    }
+    // Awaitable: PostgREST builders are thenables, and the service awaits the chain
+    // rather than calling a terminal method.
+    builder.then = (resolve: (v: unknown) => unknown) => resolve({ data: rows, error: null });
+    return { builder, calls };
+  }
+
+  describe('getUpcomingEvents with org filter (P1060)', () => {
+    it('applies exactly one .eq("org_id", <id>) when an org id is passed', async () => {
+      const { builder, calls } = makeQueryRecorder([]);
+      mockSelect.mockReturnValue(builder);
+
+      await realEventsService.getUpcomingEvents('org-uuid-cm');
+
+      const orgEqCalls = calls.filter((c) => c.method === 'eq' && c.args[0] === 'org_id');
+      expect(orgEqCalls, 'exactly one org_id filter must be applied').toHaveLength(1);
+      expect(orgEqCalls[0].args[1]).toBe('org-uuid-cm');
+    });
+
+    it('omitting the org id applies NO org filter (standalone /events unaffected)', async () => {
+      const { builder, calls } = makeQueryRecorder([]);
+      mockSelect.mockReturnValue(builder);
+
+      const events = await realEventsService.getUpcomingEvents();
+
+      expect(Array.isArray(events)).toBe(true);
+      expect(
+        calls.filter((c) => c.method === 'eq' && c.args[0] === 'org_id'),
+        'no org filter must be applied when orgId is omitted — this is the ALLOWED path gate 7c protects',
+      ).toHaveLength(0);
+    });
+  });
+
+  describe('getPastEvents with org filter (P1060)', () => {
+    it('applies exactly one .eq("org_id", <id>) when an org id is passed', async () => {
+      const { builder, calls } = makeQueryRecorder([]);
+      mockSelect.mockReturnValue(builder);
+
+      await realEventsService.getPastEvents('org-uuid-online');
+
+      const orgEqCalls = calls.filter((c) => c.method === 'eq' && c.args[0] === 'org_id');
+      expect(orgEqCalls).toHaveLength(1);
+      expect(orgEqCalls[0].args[1]).toBe('org-uuid-online');
+    });
+
+    it('omitting the org id applies NO org filter', async () => {
+      const { builder, calls } = makeQueryRecorder([]);
+      mockSelect.mockReturnValue(builder);
+
+      await realEventsService.getPastEvents();
+
+      expect(calls.filter((c) => c.method === 'eq' && c.args[0] === 'org_id')).toHaveLength(0);
+    });
+  });
+
   describe('getEventBySlug', () => {
     it('returns null for non-existent event', async () => {
       mockSelect.mockReturnValue({

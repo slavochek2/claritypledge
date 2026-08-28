@@ -132,11 +132,14 @@ export async function generateSlug(title: string): Promise<string> {
 }
 
 export const realEventsService: EventsService = {
-  async getUpcomingEvents(): Promise<EventWithHost[]> {
-    log(' getUpcomingEvents');
+  async getUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
+    log(' getUpcomingEvents', orgId ?? '(unscoped)');
 
     const graceCutoff = getGraceCutoff();
-    const { data, error } = await supabase
+    // P1060: the org filter is applied CONDITIONALLY and last. Omitting orgId must
+    // add no `.eq` at all — the standalone /events list stays unfiltered, which is
+    // the ALLOWED path the spec's gate-7c risk exists to protect.
+    let query = supabase
       .from('events')
       .select(`
         *,
@@ -154,6 +157,10 @@ export const realEventsService: EventsService = {
       .gte('datetime', graceCutoff)
       .in('status', ['upcoming', 'cancelled'])  // Include cancelled future events
       .order('datetime', { ascending: true });
+
+    if (orgId) query = query.eq('org_id', orgId);
+
+    const { data, error } = await query;
 
     if (error) {
       logDbError('getUpcomingEvents', error);
@@ -186,13 +193,14 @@ export const realEventsService: EventsService = {
     return events;
   },
 
-  async getPastEvents(): Promise<EventWithHost[]> {
-    log(' getPastEvents');
+  async getPastEvents(orgId?: string): Promise<EventWithHost[]> {
+    log(' getPastEvents', orgId ?? '(unscoped)');
 
     const graceCutoff = getGraceCutoff();
     // Past events: completed status OR (cancelled/upcoming AND past grace cutoff)
     // Grace cutoff = now - 5 hours, so recently-started events stay in "upcoming"
-    const { data, error } = await supabase
+    // P1060: same conditional org filter as getUpcomingEvents — see the note there.
+    let query = supabase
       .from('events')
       .select(`
         *,
@@ -209,6 +217,10 @@ export const realEventsService: EventsService = {
       `)
       .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${graceCutoff}),and(status.eq.upcoming,datetime.lt.${graceCutoff})`)
       .order('datetime', { ascending: false });
+
+    if (orgId) query = query.eq('org_id', orgId);
+
+    const { data, error } = await query;
 
     if (error) {
       logDbError('getPastEvents', error);

@@ -4,11 +4,12 @@
  * E2E test helpers for P1010 (Clarity Organizations).
  *
  * The app has no user-facing org-creation UI (P1010 Non-Goals: no `/org/new`) —
- * only ONE hardcoded org (`cm`) exists via migration seed. Tests that need another
- * disposable org (no-events state, empty-roster state, private-org state, controlled
- * organizer-ordering fixtures) must seed it directly via supabaseAdmin, the same
- * way the migration itself seeds `cm` (Decision 9). This mirrors the
- * existing per-entity helper pattern (test-event.ts, test-story.ts, test-point.ts).
+ * only ONE hardcoded org (`cm`) exists via migration seed, plus `online` (P1060).
+ * Tests that need another disposable org (no-events state, empty-roster state,
+ * private-org state, zero-participant state, controlled organizer-ordering
+ * fixtures) must seed it directly via supabaseAdmin, the same way the migration
+ * itself seeds `cm`/`online` (Decision 9). This mirrors the existing per-entity
+ * helper pattern (test-event.ts, test-story.ts, test-point.ts).
  *
  * Column names verified against Architecture Decisions 2 & 3 in
  * features/p1010_clarity_organizations_community_container.md.
@@ -25,11 +26,15 @@ export interface TestOrganization {
 /**
  * Creates a throwaway `organization` row via service-role (bypasses RLS —
  * there is no client-side create path for orgs in v1).
+ *
+ * `blurb: null` is a deliberate, explicit value (P1060 D7 — "· Online launches
+ * with a NULL blurb, not a placeholder string") — distinct from omitting the
+ * option, which falls back to the disposable-fixture default string below.
  */
 export async function createTestOrganization(overrides?: Partial<{
   slug: string;
   name: string;
-  blurb: string;
+  blurb: string | null;
   visibility: 'public' | 'private';
   hasEvents: boolean;
 }>): Promise<TestOrganization> {
@@ -41,7 +46,7 @@ export async function createTestOrganization(overrides?: Partial<{
     .insert({
       slug,
       name: overrides?.name ?? 'P1010 Test Org',
-      blurb: overrides?.blurb ?? 'A disposable org fixture for P1010 test coverage.',
+      blurb: 'blurb' in (overrides ?? {}) ? overrides!.blurb : 'A disposable org fixture for P1010 test coverage.',
       visibility: overrides?.visibility ?? 'public',
       has_events: overrides?.hasEvents ?? false,
     })

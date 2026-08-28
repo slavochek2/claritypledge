@@ -2,8 +2,13 @@ import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/type
 
 export interface EventsService {
   // Queries
-  getUpcomingEvents(): Promise<EventWithHost[]>;
-  getPastEvents(): Promise<EventWithHost[]>;
+  /**
+   * P1060: `orgId` scopes the list to one Clarity Organization. Omitted (the
+   * standalone /events list) the query is unfiltered and keeps showing every
+   * event, org-scoped or not — that is its job (spec Non-Goals).
+   */
+  getUpcomingEvents(orgId?: string): Promise<EventWithHost[]>;
+  getPastEvents(orgId?: string): Promise<EventWithHost[]>;
   getEventBySlug(slug: string): Promise<EventWithHost | null>;
   getEventAttendees(eventId: string): Promise<EventAttendee[]>;
   isUserRsvpd(eventId: string, profileId: string): Promise<boolean>;
