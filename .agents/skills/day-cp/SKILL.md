@@ -21,7 +21,7 @@ inside a public repo.
 | `$SINCE` and its floor rule | Do **not** compute your own window |
 | The gcloud auth gate | Assume gcloud is authenticated; if a gcloud call fails anyway, report `⚠ ... NOT checked`, never clean |
 | Rendering the HEALTH block | Emit rows, do not print the block |
-| Every `~/.claude*` marker | No personal state is read here |
+| Every `~/.claude*` marker | No personal state is read **in this file** (weekly/monthly still read their own — known gap) |
 
 **Inputs from the dispatcher:** `$SINCE` (ISO 8601) and `$DUE_VERDICT` (the Due Board
 rows, or empty). If `$SINCE` is not supplied — you were invoked directly, not by `/day` —
@@ -728,7 +728,12 @@ Ask: "Apply, drop, or continue?" Wait for response.
 
 **You do not read the markers.** `~/.claude_weekly_last_run` and
 `~/.claude_monthly_last_run` are personal state and belong to the dispatcher (pp p48);
-this repo is public and reads no home-directory state at all. The dispatcher passes
+this sub-day reads no home-directory state. (Scoped deliberately: `/slava:maintain:weekly`
+and `/slava:maintain:monthly` in this same public repo still read *and write* their own
+`~/.claude_*_last_run` markers. That is a known inconsistency with p48's marker-ownership
+rule, not an oversight here — see pp `tasks/p48` "Done when". Do not read this line as a
+claim about the whole repo; it was written as one on 2026-08-28 and was false.)
+The dispatcher passes
 `$DUE_VERDICT` — zero or more rows in this shape:
 
 ```
