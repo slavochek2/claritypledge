@@ -327,7 +327,6 @@ export function OrgPage() {
                 orgSlug={org.slug}
                 orgName={org.name}
                 canHost={canHost}
-                orgJoinHref={isMember ? undefined : `/org/${org.slug}/join`}
               />
             </TabsContent>
           )}

@@ -23,10 +23,6 @@ interface EventsListProps {
   orgSlug?: string;
   /** The scoped org's display name, used in the "Previously in …" divider. */
   orgName?: string;
-  /** Where a non-member joins this org. Omitted for a member (and signed-out flows
-   *  still get it — the join page is where the terms are read). Never a HOST cta:
-   *  joining is open, hosting is D4-gated. */
-  orgJoinHref?: string;
   /** P1060 D4: may the viewer host INTO this org? Organizers of that org only.
    *  Only consulted when orgId is set; the standalone list stays open to any
    *  logged-in user. `membership_insert` lets any authenticated user join a public
@@ -39,7 +35,6 @@ export function EventsList({
   orgId,
   orgSlug,
   orgName,
-  orgJoinHref,
   canHost = false,
 }: EventsListProps = {}) {
   const { user } = useAuth();
@@ -265,16 +260,13 @@ export function EventsList({
                 </p>
               </>
             )}
-            {/* Join, never Host. Outline rather than primary: the header already
-                carries this org's one primary action (P955 — one primary per view),
-                and a second blue button would compete with it for the same glance. */}
-            {orgJoinHref && !showActions && (
-              <div className="mt-6 flex justify-center">
-                <Link to={orgJoinHref}>
-                  <Button variant="outline" className="min-h-[44px]">Join as member</Button>
-                </Link>
-              </div>
-            )}
+            {/* NO Join button here, deliberately. The org header already carries this
+                org's Join, on every org page, empty events tab or not — so a second
+                control inside this block offers one action through two separate
+                buttons in two different styles, and a visitor has to work out that
+                they do the same thing. The reassurance line above points at the CTA
+                that already exists rather than duplicating it. And never a Host CTA:
+                joining is open, hosting is D4-gated to organizers. */}
             {showActions && <div className="mt-6 flex justify-center">{actionButtons}</div>}
           </div>
         ) : (

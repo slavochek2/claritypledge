@@ -24,7 +24,13 @@ import {
 import { createTestEvent, rsvpToEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
 import { supabaseAdmin } from './helpers/supabase-admin';
 
-const OUT = 'features/verification/p1060/renders';
+// Per-round output directory. The gate RE-HASHES every round's screenshots, so
+// recapturing over an earlier round's files silently invalidates that round's
+// recorded evidence — which is exactly what happened between rounds 1 and 2, and
+// had to be recovered from git. Each round photographs into its own directory and
+// nothing is ever overwritten.
+const ROUND = process.env.P1060_ROUND ?? '1';
+const OUT = `features/verification/p1060/renders/round-${ROUND}`;
 const RUN = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
 test.describe('P1060 reviewer renders', () => {

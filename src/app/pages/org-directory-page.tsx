@@ -202,6 +202,14 @@ function OrgCard({
     : pastCount > 0
       ? "Nothing scheduled"
       : "First event coming";
+  // The one state that must stand out gets the only colour on the row. A visitor
+  // scanning this grid is asking one question — which of these has something
+  // happening soon — and rendering all three states in the same neutral grey
+  // answers it nowhere. Blue is the actions/attention token; the two nothing-yet
+  // states stay neutral, because "nothing scheduled" is not an invitation.
+  const badgeClass = nextEventAt
+    ? "bg-blue-50 text-blue-700"
+    : "bg-muted text-muted-foreground";
 
   return (
     <div
@@ -262,7 +270,7 @@ function OrgCard({
       </p>
 
       <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${badgeClass}`}>
           {badgeLabel}
         </span>
         {/* Matches the existing text-link idiom (font-medium text-blue-600 with an

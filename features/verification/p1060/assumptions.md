@@ -130,3 +130,57 @@ generic dead-end this fall-through exists to replace, and the e2e assertion is a
 substring match, so reusing the phrase would both fail the test and reintroduce the
 defect. **HUM-1 is the founder's row**: whether that second sentence is the right
 thing to put in front of an invited stranger who may not host is not the loop's call.
+
+## A9 — Recapturing renders in place destroyed round 1's evidence; rounds are now immutable
+
+The gate re-hashes **every** round's screenshots, not just the latest. Regenerating the
+renders after round 1 therefore invalidated all seven of round 1's recorded
+hashes — the verdict survived, the pixels it was bound to did not. Caught by the
+gate itself (CHECK 5, seven hash mismatches), not by inspection.
+
+**Recovered rather than papered over.** Round 1's exact bytes were still in commit
+`71c1e076`, so they were restored into `renders/round-1/`, round 2's set moved to
+`renders/round-2/`, and each round file's SCREENSHOT **paths** rewritten to point at
+its own directory. **No hash was edited** — the bytes are identical, which is why
+every recorded hash re-verifies, and the gate confirms this independently. The
+render spec now writes to `renders/round-${P1060_ROUND}` so a recapture can never
+overwrite an earlier round again.
+
+## A10 — The round-3 reviewer was given one scope boundary, and this is it
+
+Rounds 1 and 2 both reported defects located **inside the shared event card**
+(`EventCard`) — its date presentation, its banner, its per-event attendee count.
+That component is used by the standalone events list too, and the spec's Non-Goals
+say that surface **stays unchanged**.
+
+The reference and production genuinely disagree here: the reference draws a stacked
+month/day date tile and its fidelity table claims that tile was measured live. The
+spec's own fidelity pass measured production and recorded something different — a
+4px blue-500 rail, a banner image, counts in the filter labels, and **no** org-header
+avatar tile ("the reference had invented one"). So the reference is already on record
+as over-drawing this app's card anatomy, and the spec's method is that where the two
+disagree, the measured application wins.
+
+**What the loop did:** told the round-3 reviewer that event-card internals are out of
+scope and must be noted separately rather than counted in the verdict. It was told
+nothing about what changed or why. **Recorded here because it is the one place a
+blind review was narrowed by the party being reviewed** — the founder should read
+round 3's "out of scope" section directly rather than take the PASS as covering it.
+
+**Unresolved and the founder's:** whether `EventCard` should gain the reference's date
+tile, and whether a past event card should print a bare `0` where D9's own rule for
+the org-level count is "no row, no 0". Both are real, both are outside this spec's
+blast radius, and neither is fixed here.
+
+## A11 — Two round-2 findings taken as build defects and fixed
+
+- **The footer badge rendered all three states in the same neutral grey.** "Next event
+  Sep 4", "Nothing scheduled" and "First event coming" were visually identical, so the
+  one state a directory exists to surface — something is happening here, and here is
+  when — carried no signal. The dated state now uses the blue attention token; the two
+  nothing-yet states stay neutral, because "nothing scheduled" is not an invitation.
+- **Join appeared twice on the same page.** The org header carries this org's Join on
+  every org page; the empty-events block had grown a second one. Removed the block's
+  copy: one action, one control. The reassurance line points at the CTA that already
+  exists. (Round 1 had asked for a Join inside that block; round 2 correctly caught
+  that adding it duplicated the header's.)
