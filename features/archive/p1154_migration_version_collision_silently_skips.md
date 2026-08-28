@@ -14,7 +14,7 @@ driver: anomaly
 
 # P1154: Two migrations sharing a version prefix — one silently never runs
 
-> **REJECTED 2026-08-24, hours after filing — duplicate of [P1042](p1042_migrate_silently_skips_on_version_collision.md).**
+> **REJECTED 2026-08-24, hours after filing — duplicate of [P1042](../done/2026-06-10/p1042_migrate_silently_skips_on_version_collision.md).**
 >
 > P1042 (`status: week`, `severity: high`, filed 2026-08-10) already specifies this defect and its
 > fix, in more detail than this spec did: record the filename in `schema_migrations.name` on apply,
@@ -51,9 +51,9 @@ Recorded here only as provenance; the authoritative copy now lives in P1042's Ev
 
 ## Related
 
-- **Superseded by:** [P1042](p1042_migrate_silently_skips_on_version_collision.md) — the original,
+- **Superseded by:** [P1042](../done/2026-06-10/p1042_migrate_silently_skips_on_version_collision.md) — the original,
   still open.
-- **Origin:** [decisions.md](../docs/decisions.md) 2026-08-11 "A `migrate.sh` success line is not
+- **Origin:** [decisions.md](../../docs/decisions.md) 2026-08-11 "A `migrate.sh` success line is not
   evidence the schema changed".
-- **Sibling filed the same day, not a duplicate:** [P1155](p1155_correct_alarm_rang_into_an_empty_room.md)
+- **Sibling filed the same day, not a duplicate:** [P1155](../p1155_correct_alarm_rang_into_an_empty_room.md)
   — the drift alarm that reported this correctly for three days and reached nobody.

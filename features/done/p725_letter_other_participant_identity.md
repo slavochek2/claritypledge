@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: done
 type: story
 rank: 50
 created_date: '2026-04-17'
@@ -25,6 +25,8 @@ test_files:
   - e2e/integration/p725-db-migrations.spec.ts
   - e2e/p725-letter-identity.spec.ts
   - e2e/a11y/p725-accessibility.spec.ts
+completed_at: '2026-08-28'
+locked_at: '2026-08-28T09:25:29.191Z'
 ---
 
 # P725: Other participant identity across letter surfaces
@@ -399,3 +401,15 @@ Deleted profile FK — `letter_deliveries.receiver_profile_id REFERENCES profile
 - `features/uat/p725.md` — 21 UAT scenarios
 
 **Estimated run time:** ~45–60 seconds (E2E + integration, parallel workers)
+
+---
+
+## Closed 2026-08-28 — Built elsewhere (already shipped)
+
+**Verified by command, not by spec text.** Four migrations shipped
+(`20260417100000_p725_inbox_actor_slug.sql`, `…100100_p725_deliveries_receiver_slug.sql`,
+`…100200_p725_results_profile_slug.sql`, `…100300_p725_reading_rpc_sender_slug.sql`), the E2E suite
+`e2e/p725-letter-identity.spec.ts` exists, and 54 acceptance/deliverable items in this file are
+already ticked. The work landed; only the frontmatter was stale.
+
+Closed by `/slava:maintain:prioritize`.

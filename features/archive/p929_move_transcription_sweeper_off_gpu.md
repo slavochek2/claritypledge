@@ -1,11 +1,20 @@
 ---
-status: backlog
+status: rejected
 type: task
 rank: 71
 created_date: '2026-06-11'
-tags: [infrastructure, transcription, gcp, cost, pg_cron]
+tags:
+  - infrastructure
+  - transcription
+  - gcp
+  - cost
+  - pg_cron
 delivery_stage: park
-pipeline_ran: [create-spec, challenge-prd, park]
+pipeline_ran:
+  - create-spec
+  - challenge-prd
+  - park
+locked_at: '2026-08-28T09:25:29.337Z'
 ---
 
 # P929: Move transcription sweeper off the GPU service
@@ -95,3 +104,21 @@ No data migration involved — `transcription_jobs` schema is untouched, so roll
 - [ ] pg_cron migration skips cleanly on a local/test instance lacking the extension (no error).
 - [ ] `docs/technical/infrastructure.md` Cloud Run section updated: sweeper is now pg_cron + conditional re-enqueue; `tx-job-janitor` removed from the scheduler description.
 - [ ] Billing console (or Cloud Run GPU-second metric) shows the recurring idle-L4 wake-ups gone after ~one billing cycle.
+
+---
+
+## Closed 2026-08-28 — Superseded by a recorded decision (`rejected`, not `done`)
+
+**The work was decided against and never happened**, so this closes as `rejected`: writing it as
+`done` would put a false claim in the log.
+
+[decisions.md](../../docs/decisions.md) 2026-06-11 [technical] — *"Transcription sweeper stays on the
+GPU — moving it off costs more than it saves (P929 parked)"* — records the ruling and all four
+rejected alternatives. The cost win requires moving re-dispatch off the GPU-poke path, which adds
+two failure modes (pg_cron-reachable webhook secret; the Cloud Tasks `name=job_id` dedup tombstone
+silently dropping exactly the recovery case), for an unverified ~$8/mo.
+
+It sat in `backlog` for 78 days after that decision, indistinguishable from open work. Revive by
+re-opening the decision, not by re-opening this spec.
+
+Closed by `/slava:maintain:prioritize`.
