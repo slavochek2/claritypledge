@@ -6,6 +6,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: `/reproduce` now hands `/fix` a fact about the remedy, not a model budget — the first draft was a self-serving ratchet
+
+**Context:** `/pick-flow` routes `/fix` to Sonnet low/medium by name, on the assumption a fix *executes* a decided remedy. `/fix` itself has no model/effort step at all (zero hits in `fix.md`). P1178 broke that assumption: reproduction found two credible remedies, an auth-boundary change, and a spec requirement the canary does not assert. The only reason that `/fix` will run on Opus is that the founder asked in the same session as the reproduction — the judgment does not survive a day's gap.
+
+**The first draft was rejected by its own review.** It added `fix_effort: {model, effort, why}` to `reproduce_artifact`. A hostile reviewer found the Opus triggers as worded ("crosses a trust boundary", "more than one surface in scope", "fix shape still open") fire on nearly every bug an agent would bother reproducing — the schema's own example for `surfaces_in_scope` has two items. **An agent writing its own successor's budget, graded on nothing, ratchets to Opus/xhigh and the field becomes pure cost with no signal.**
+
+**Decision:** record `fix_shape: decided | open` plus a required `fix_shape_why` — a fact about the bug, never a budget. The agent may not name a model. The mapping (`open` → Opus/high) lives in `/pick-flow`'s table and nowhere else, so the artifact that claims to own per-command routing still owns it. **The falsifier is the naming test:** if you cannot write down two remedies a reasonable person would weigh, the shape is `decided`. "Feels involved" and "touches auth" are explicitly not open shapes — a value an agent can inflate by feeling something is a value it will inflate.
+
+**Alternatives rejected:** (a) `fix_effort` with model+effort enums — the ratchet above; also created a second per-command authority contradicting `.claude/rules/model-effort.md`'s "the cp-specific per-command list remains in `/pick-flow`". (b) **Add nothing, derive it at read time** — the strongest case, and it nearly held: `/fix` Phase -1 already reads `root_cause`, `surfaces_in_scope` and `confidence` unconditionally. Rejected because none of those carries it — `surfaces_in_scope` measures the bug's *extent*, `confidence` measures certainty about the *cause*, and neither says whether the *remedy* is chosen. That is the one fact reproduction learns and no later reader can cheaply re-derive. (c) A staleness check against the spec's `last_modified` — **not implementable: no spec carries that field** (0 of `features/*.md`); `/fix` re-checks with `git log --since={reproduced_at}` instead.
+
+**Consequences:** Unlike `post_fix_timeout`, which the very next action validates by running the canary, nothing downstream validates `fix_shape` — so `/fix` is instructed to re-derive rather than trust it, and to fall through silently when it is absent, `decided`, or malformed. Absence is the common case and must never be read as a signal. Applied to P1178 itself (`fix_shape: open`). (Status: proposed)
+
 ## 2026-08-28 [technical]: An unquoted comma inside a YAML flow sequence is a separator — `pipeline_skipped` reasons were silently splitting into fake skill names
 
 **Context:** A `/slava:maintain:prioritize` run on cp patched four specs through the kanban API and the frontmatter came back visibly different — flow-style lists re-emitted as block style, and `pipeline_skipped` holding *more* entries than were written. The obvious reading, and the one first reported to the founder, was that the kanban PATCH endpoint corrupts frontmatter on write.

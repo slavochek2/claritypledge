@@ -204,6 +204,8 @@ Every flow runs at a model + effort tier. Recommend it explicitly — the user t
 | Executing a detailed spec or plan — `/dev`, `/fix`, `/generate-tests`, `/decompose`, `/verify`, `/kdd`, `/finish`, code review, mechanical edits | **Sonnet** | low / medium |
 | Status, cleanup, lookups, frontmatter fixes | Sonnet / Haiku | low |
 
+**`/fix` has one documented exception, and this table stays its owner.** The Sonnet row assumes the fix executes a decided remedy. Before applying it to a bug, read the spec's `reproduce_artifact.fix_shape` — `open` means `/reproduce` found the remedy is still a design choice, so route that `/fix` to **Opus, high** and name the competing options from `fix_shape_why`. Absent or `decided` → the Sonnet row above stands. `/reproduce` records the fact; the mapping to a model lives here and nowhere else.
+
 Most flows split: **Opus to plan, Sonnet to execute.** Name the switch point in the output, e.g. "Opus/xhigh through `/architect`, then Sonnet/low for `/dev`." This table is for the **session** model only — subagents spawned inside skills are already pinned to `sonnet`.
 
 ## Firewalls

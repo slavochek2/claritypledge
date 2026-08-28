@@ -309,10 +309,21 @@ reproduce_artifact:
   surface_audit_anchor: "<GravatarAvatar"   # optional — set when Track A's dropped-value inversion ran; the consumer-anchor grep actually executed
   surface_audit_hits: 58                    # optional — count of sites the anchor returned
   reproduced_at: 2026-04-16
+  fix_shape: decided | open   # is the REMEDY chosen, or still a design choice?
+  fix_shape_why: "two credible remedies: shared-secret header vs inlining the send"  # required when open
   post_fix_timeout: 20000   # optional (ms). Set when canary uses a tight timeout
                              # to prove staleness/no-update bug. /fix reads this
                              # and updates the assertion timeout before running.
 ```
+
+> **`fix_shape` rule:** `/pick-flow` routes `/fix` to Sonnet low/medium because a fix is assumed to *execute* a decided remedy. Reproduction is the only step that learns whether that assumption holds, and nothing else in the artifact carries it: `surfaces_in_scope` measures the bug's extent, `confidence` measures certainty about the *cause* — neither says whether the *remedy* has been chosen.
+>
+> Record a fact about the bug, never a budget. `/fix` owns the mapping to a model; you do not name one.
+>
+> - `decided` — the remedy is determined and the canary names the expected behavior. **This is the default.**
+> - `open` — a design choice genuinely remains. Set `fix_shape_why` to the competing options in one clause, e.g. *"shared-secret header vs inlining the send"*. **Naming the alternatives is the test:** if you cannot write down two remedies a reasonable person would weigh, the shape is `decided`. "Feels involved", "touches auth", or "several surfaces" are not open shapes — those are already carried by `surfaces_in_scope` and `confidence`.
+>
+> Omit both fields when the shape is `decided` — absence is the default and `/fix` reads it as such.
 
 > **`post_fix_timeout` rule:** When the canary assertion uses `toBeVisible({ timeout: N })` or `toHaveText()` with a short N (≤ 6000ms) to prove that an update does NOT appear within N ms — set `post_fix_timeout` to `expected_polling_interval + 5000`. This signals to /fix that the timeout is a staleness sentinel, not a UX budget.
 

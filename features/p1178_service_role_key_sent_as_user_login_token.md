@@ -16,6 +16,8 @@ reproduce_artifact:
   scenarios_cleared: [existing-user-accept, invitation, declined, terminated, resend]
   sibling_grep: "Authorization: `Bearer — 2 hits in supabase/functions/; only create-and-sign:265 is the pattern (enqueue-transcription:72 is a Google OAuth token to Cloud Tasks)"
   reproduced_at: 2026-08-28
+  fix_shape: open
+  fix_shape_why: "shared-secret header on send-agreement-emails vs inlining the send into create-and-sign"
 ---
 
 # P1178: `create-and-sign` sends the service-role key where a user login token is expected — silently
