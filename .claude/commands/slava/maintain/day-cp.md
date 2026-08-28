@@ -1,83 +1,40 @@
 ---
-name: day
-description: Single daily skill — health checks, reflection on what shipped since last run, goals and branches forward. Replaces /day-start and /day-end.
-when_to_use: Start of any work session, or end of day before closing laptop. Run instead of /day-start or /day-end.
-version: 1.6.0
+name: day-cp
+description: ClarityPledge half of the daily run — prod smoke, git/spec health, Supabase + Sentry + Mixpanel user intelligence, repo baseline, RLS and function-grant drift, reflection, goals and branches. Returns HEALTH rows to its caller.
+when_to_use: Invoked by the global /day dispatcher, which owns the timestamp, the gcloud gate and the health block. Run directly only to re-check cp health mid-day.
+version: 2.0.0
 ---
 
-# Day (/day)
+# Day — ClarityPledge (/slava:maintain:day-cp)
 
-Single daily skill. Looks backward (what happened since last run), then forward (health, goals, what's next).
-Replaces /day-start and /day-end.
+The ClarityPledge half of `/day`. Split out of the monolithic `slava/day.md` on
+2026-08-28 (pp p48), which had accreted a personal daily driver — and private paths —
+inside a public repo.
 
-## Timestamp Management
+## Contract with the dispatcher
 
-At the START of the skill, read the last-run timestamp:
-```bash
-LAST_RUN=$(cat ~/.claude-day-last-run 2>/dev/null || echo "")
-```
+**This skill is a sub-day. It does not own the frame.**
 
-If empty or file missing: fall back to `date -u -v-24H +"%Y-%m-%dT%H:%M:%SZ"` (last 24h).
-If present: use the stored ISO 8601 timestamp as `$SINCE`.
+| Owned by the dispatcher (`~/.claude/commands/day.md`) | Never done here |
+|---|---|
+| `~/.claude-day-last-run` — read at start, written at end | Do **not** read or write it |
+| `$SINCE` and its floor rule | Do **not** compute your own window |
+| The gcloud auth gate | Assume gcloud is authenticated; if a gcloud call fails anyway, report `⚠ ... NOT checked`, never clean |
+| Rendering the HEALTH block | Emit rows, do not print the block |
+| Every `~/.claude*` marker | No personal state is read here |
 
-**Floor rule:** If `$SINCE` is more recent than 6am local today, use `$SINCE`. If `$SINCE` is before 6am local today, use 6am local today as the floor. This ensures a second-same-day run shows the afternoon delta, while a morning run always covers at least the full workday.
+**Inputs from the dispatcher:** `$SINCE` (ISO 8601) and `$DUE_VERDICT` (the Due Board
+rows, or empty). If `$SINCE` is not supplied — you were invoked directly, not by `/day` —
+fall back to `date -u -v-24H` and **say so in the output**, because every delta below is
+then a 24h delta rather than a since-last-run delta.
 
-Use `$SINCE` wherever the skill says "since last run."
-
-Write the new timestamp at the very end (Step 10).
+**Output to the dispatcher:** the reflection/goals/branches blocks printed inline, plus
+the HEALTH rows listed at the end of this file. Return the rows; do not wrap them in a
+`HEALTH` header — the dispatcher concatenates them with its own.
 
 ---
 
 ## Steps
-
-### 0. Setup Reminders
-
-**a) Reset Whisper language to English**
-```bash
-echo "en" > ~/.whisper-lang
-```
-Silent. Clears yesterday's `whisper ru`/`whisper de` pin so a stale language can't
-carry into today's calls. Resets to `en`, **not** auto-detect: on 2026-07-27 an
-auto-detect reset caused a 50-min English call to be transcribed as
-hallucinated pseudo-Norwegian. Auto-detect is opt-in per call via `whisper all`.
-
-**b) Lid sleep reset**
-```bash
-sudo pmset -a disablesleep 0
-```
-Silent.
-
-**c) Claude extension check**
-Output immediately:
-```
-⚠ Check: Claude extension connected in Chrome? (chrome://extensions → Claude — must be enabled & connected)
-```
-
-**d) Did the calendar actually get refreshed last time?**
-```bash
-cd "$(git rev-parse --show-toplevel)" && ./scripts/day-gates.sh --mode=start
-```
-
-**Relay its stdout verbatim.** Do not summarise it, do not re-attest it, do not
-compose a `✓` line of your own from it — the script's output *is* the finding.
-
-This is the only thing that makes a missed run visible. `$SINCE`'s floor rule
-(above) clamps to 6am today whenever the marker is older, so a marker 6 days stale
-renders **identically** to a healthy one — nothing else in this skill prints the
-age of anything.
-
-**It also records the push stamp that Step 8b compares against, so do not skip it.**
-Without it, Step 8b can only ask "is the receipt recent", which a push from earlier
-today satisfies — and that is exactly the 2026-08-13 shape, where Step 8 was dropped
-entirely from a complete-looking report. With it, Step 8b asks the sharper question:
-*did the stamp move during this run.*
-
-**A day or three off is not an alarm here** and will not print as one — the check
-only raises a flag after a week with no successful push. If it does print
-`CALENDAR: STALE`, surface it and carry on to Step 8, which refreshes and re-verifies;
-today's run cannot change the previous run's outcome. The blocking invocation is Step 8b.
-
----
 
 ### 1. Health Checks (3 sequential waves — NOT all in parallel)
 
@@ -184,10 +141,12 @@ done
 # €/day estimate + cost since last /day run — resource-based (±5%), NOT billed actuals.
 # Snapshot rate × elapsed window: catches PERSISTENT spend. A leak that started-and-stopped
 # between runs won't show here (only BigQuery billing history would) — that's what the tripwire above is for.
-LAST_RUN=$(cat ~/.claude-day-last-run 2>/dev/null)
+# Window comes from $SINCE, which the dispatcher owns — this sub-day never reads the
+# marker file itself (pp p48). If both halves computed their own window, a half that
+# failed would still let the other advance it, and the two would silently disagree.
 NOW_EPOCH=$(date +%s)
-if [ -n "$LAST_RUN" ]; then
-  LR_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$LAST_RUN" +%s 2>/dev/null || date -d "$LAST_RUN" +%s 2>/dev/null)
+if [ -n "${SINCE:-}" ]; then
+  LR_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$SINCE" +%s 2>/dev/null || date -d "$SINCE" +%s 2>/dev/null)
   DAYS_ELAPSED=$(python3 -c "print(max(0.04,($NOW_EPOCH-${LR_EPOCH:-$NOW_EPOCH})/86400))")
 else
   DAYS_ELAPSED=1
@@ -207,24 +166,17 @@ print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(e
 '
 echo "(empty above = no always-on/GPU cost leaks)"
 
-echo "=== GCP CREDITS ==="
-# Founder's personal Google Cloud credit balance (distinct from P1162, which caps
-# ClarityPledge's own Gemini-key spend — unrelated, still open). Google exposes no
-# API for a credit balance — only the console's Credits page shows it — so this
-# reads the Detailed usage cost BigQuery export (billing account
-# 010089-354936-77CD27, enabled 2026-08-27) and nets it against a manually-seeded
-# starting balance. Lives here rather than a GitHub Actions cron for the same
-# reason the RLS/function-grant checks do (see Wave 3a below): it needs the
-# founder's own gcloud credentials against a billing-scoped BigQuery dataset, which
-# is not a credential this repo puts in CI. Knowing stopgap, not an exception the
-# monitoring-is-a-scheduled-workflow rule anticipated — see decisions.md.
-./scripts/gcp-credits-check.sh 2>&1
-echo "gcp_credits_exit=$?"
 ```
 
 Process Wave 1 results before proceeding.
 Show: `✓ Prod smoke: all pass` or `✗ Prod smoke: N failed — [first failure]`
 Flag cloud only if broken: Ghost non-200, backup >2d old.
+
+**gcloud:** if `GCLOUD_NOT_AUTHENTICATED` appears, the dispatcher's gate (Step 0e of
+`~/.claude/commands/day.md`) either did not run or was answered without authenticating.
+**Do not prompt from here** — that is the dispatcher's job and prompting twice is the thing
+the single gate exists to prevent. Report every cloud-dependent row as
+`⚠ ... NOT checked this run (gcloud unauthenticated)` and carry on. Never clean, never silent.
 
 **Cost tripwire — flag if ANY line appears under `=== COST TRIPWIRE ===`:**
 - `GPU_SERVICE:` → a GPU is attached to a Cloud Run service. GPUs bill ~€0.80/hr while allocated. Confirm it is intended and scales to zero (`minScale=0`, but note `cpu-throttle=false` still bills GPU between requests if kept warm).
@@ -236,17 +188,6 @@ Flag cloud only if broken: Ghost non-200, backup >2d old.
   - Any tripwire present → one `⚠ COST LEAK: [line]` per `GPU_SERVICE:` / `ALWAYS_ON:` / `SCHEDULER_PINGING_RUN:` line. These are silent money drains the credit-masked budget won't catch until gross thresholds.
   - All clear → `✓ GPU/cost: no leak (no GPU services, no always-on, no Run-pinging scheduler)`.
 - **Spend line (always):** render the `EST_PER_DAY:` / `EST_SINCE_LAST:` output as `Est. spend: ~€X/day · ~€Y since last /day (Nd)`. This is a resource-based estimate (±5%), NOT billed — a warm GPU spikes it ~€19/day above the ~€4/day baseline. For billed-to-the-cent €: weekly `/gcp-spend`.
-
-**GCP credits — read `=== GCP CREDITS ===` and `gcp_credits_exit=N`, always printed:**
-- `0` — clean. Report each `Credits remaining (<currency>): ~X (±Y since last /day, Z% of baseline)` line verbatim. Note: a NEW credit grant never shows up here automatically — it only appears in the console's Credits page, so a top-up silently understates remaining until re-seeded with `--set-baseline`.
-- `1` — ran, but a `⚠ LOW BALANCE` or `⚠ UNTRACKED CURRENCY` line is present. Surface it prominently — this is real money, not an estimate.
-- `2` — **did not run** (`GCP-CREDITS-CHECK-DID-NOT-RUN`): dataset unset, export table not backfilled yet (`NO_BILLING_DATA` — expected for up to ~24h after enabling, 2026-08-27), the `bq` query failed, a `NOT MEASURED` line (the `credits.type='PROMOTION'` filter never matched a tracked currency — the assumption may be wrong, investigate before trusting anything else from this check), or an internal crash. Report `⚠ GCP credits: NOT checked this run — [reason]`, never as clean and never as "$0 remaining". Re-seed a stale/wrong baseline with `scripts/gcp-credits-check.sh --set-baseline USD=<amount> [EUR=<amount>]` read fresh off the console's Credits page.
-- **Any exit code other than 0/1/2** (e.g. `127`, command not found): treat identically to `2` — did not run. Never improvise a "looks fine" reading from stray output.
-
-**gcloud auth gate:** If output contains `GCLOUD_NOT_AUTHENTICATED`, stop and prompt:
-> ⚠ gcloud is not authenticated. Run `! gcloud auth login` to authenticate, then say "done" to continue.
-
-Wait for user response before proceeding to Wave 2. Cloud checks (VM status, backup age) and Step 5 (cloud server check) depend on gcloud.
 
 #### Wave 2: Supabase + Sentry (2 calls max, parallel)
 
@@ -574,7 +515,8 @@ RLS_RC=$?
 # 0 clean, 1 NEW drift (the alarm), 2 "The check did NOT run. This is not a clean
 # result." — the script's own words, on three separate paths. With the code discarded,
 # "did not run" and "ran clean" were indistinguishable in the output, which is the
-# same class of bug day-gates.sh exists to close, sitting on live security signal.
+# same class of bug ~/.claude/scripts/day-gates.sh exists to close, sitting on live
+# security signal. (That script moved out of this public repo 2026-08-28, pp p48.)
 # Printing the code unconditionally means the agent cannot infer clean from silence.
 if [ "$RLS_RC" -ge 2 ]; then
   echo "RLS-DRIFT-CHECK-DID-NOT-RUN (exit $RLS_RC) — do NOT report clean"
@@ -590,38 +532,6 @@ if [ "$FGD_RC" -ge 2 ]; then
   echo "FUNCTION-GRANT-CHECK-DID-NOT-RUN (exit $FGD_RC) — do NOT report clean"
 fi
 echo "function_grant_exit=$FGD_RC"
-
-# === AI KEYS === (pp P45) — budget-capped Gemini keys shared with people and agents.
-# Three things, and the third is the one that used to reach you as a user report:
-#   1. spend against each key's recorded budget,
-#   2. the failure classes that mean the estate is NOT monitored,
-#   3. a liveness ping on the PRODUCTION key.
-# Called by full path on purpose: ~/.agents/bin is not on PATH.
-echo "=== AI KEYS ==="
-AIK="$HOME/.agents/bin/ai-keys"
-if [ ! -x "$AIK" ]; then
-  echo "AI-KEYS-CHECK-DID-NOT-RUN (tool missing) — do NOT report clean"
-  echo "ai_keys_exit=2"
-else
-  "$AIK" --collect-spend > /tmp/ai-keys-spend.tsv 2>/tmp/ai-keys-spend.err
-  AIK_COLLECT=$?
-  if [ "$AIK_COLLECT" -ne 0 ]; then
-    echo "AI-KEYS-SPEND-COLLECT-FAILED (exit $AIK_COLLECT) — spend is UNKNOWN, not zero"
-    head -2 /tmp/ai-keys-spend.err 2>/dev/null
-    AIK_RC=2
-  else
-    gcloud projects list --format='value(projectId)' > /tmp/ai-keys-projects.txt 2>/dev/null \
-      || echo "AI-KEYS-PROJECT-LIST-FAILED — orphan detection is BLIND this run"
-    "$AIK" --report --spend-tsv /tmp/ai-keys-spend.tsv \
-                    --projects-file /tmp/ai-keys-projects.txt 2>&1
-    AIK_RC=$?
-  fi
-  # The production key, separately: a key that stops answering is invisible to
-  # every spend check above, because a dead key spends nothing and looks calm.
-  "$AIK" --ping-prod 2>&1
-  AIK_PING=$?
-  echo "ai_keys_exit=$AIK_RC ai_keys_ping_exit=$AIK_PING"
-fi
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
@@ -656,53 +566,17 @@ The backlog is `.private/function-grant-baseline.json` (gitignored — it names 
 
 **Ops issues** (`=== OPS ISSUES ===`): scheduled workflows alert via find-or-append GitHub issues instead of failure emails (P866 pattern — prod-health-smoke, check-deploy-drift, backup-staleness). An open "Deploy drift detected on prod" issue means a merged migration/function is not deployed — surface it with the fix command from the issue body and offer to resolve now (prod migrate = ALWAYS-ASK). An open "Prod health smoke" issue means a public route is erroring. An open "Backup stale or unverified" issue means the newest prod DB backup has no `.verified` marker or is >25h old — likely the daily backup workflow stopped running or was disabled; check `db-backup.yml`'s run history, surface the object name from the issue body, do NOT attempt a manual backup or restore inline (ALWAYS-ASK). No relevant open issue = healthy as of the last cron run (drift: daily 6am UTC; prod-health: 6-hourly; backup-staleness: daily 6:15am UTC). `OPS-ISSUES-CHECK-FAILED` or any gh stderr (rate limit, auth) = flag ⚠, don't report healthy, don't silently skip.
 
-**AI keys** (`=== AI KEYS ===`, pp P45) — three restricted Gemini keys, each in its own
-project with its own monthly spend cap, shared with a person and with agents. Google
-exposes **no API for spend caps**, so nothing here can read a cap back; the whole safety
-story is inference from observed spend. Read both exit codes, always printed:
-
-- `ai_keys_exit=0` — every key under its recorded budget. Report `✓ AI keys: N under budget`.
-- `ai_keys_exit=1` — findings. Read the tokens; they are not equally urgent:
-  - `WARN_CAP_ABSENT:<name>` — **the alarm.** Spend passed the recorded budget, which
-    means the cap was never set, was deleted, or was lifted and not re-raised. Treat as an
-    incident: name the key, and offer to revoke it until the cap is fixed. This is the only
-    signal that a cap is missing, because no API reports caps.
-  - `NO_BILLING_DATA:<name>` — no billing rows for that project. The export lags hours and
-    can exceed 24h, so this is normal for a key issued today — but it means the key is
-    **unmonitored**, not unused. Never render it as EUR 0.00 or as clean.
-  - `WARN_CAP_UNRECORDED:<name>` — nobody has claimed a cap was ever set. Offer
-    `~/.agents/bin/ai-keys --cap-url --name <name>`.
-  - `DRIFT_REGISTRY_ONLY` / `DRIFT_PROJECT_ONLY` — a registry row with no project, or a
-    project the registry does not know about. The `orphan=likely-partial-provision` variant
-    is a project left behind by a failed issue; it carries no billing and is invisible to
-    every spend query, so only the project list can see it.
-- `ai_keys_exit=2` — the monitor could not run. Flag `⚠ AI keys: NOT checked this run` and
-  **never** render it as a clean estate. That distinction is the point of the check.
-
-**Production key ping** — read `ai_keys_ping_exit=N`:
-
-- `0` / `KEY_PING_OK` — the production Gemini key answered. Report `✓`.
-- `KEY_CAP_TRIPPED` — the cap fired. The key is intact and the budget is spent. Do **not**
-  send anyone to debug the credential, and do **not** advise lifting the cap on its own:
-  Google will not re-enforce a lifted cap for the rest of the month unless the amount is
-  raised, so a bare lift silently removes the budget entirely. Offer
-  `~/.agents/bin/ai-keys --unpause --name <name>`, which walks the safe order.
-- `KEY_PING_MODEL_UNAVAILABLE` — a retired model name, **not** a dead key. Says nothing
-  about the credential.
-- `KEY_PING_FAILED` / `KEY_PING_UNKNOWN` — the key genuinely stopped answering, or the
-  request never completed. `UNKNOWN` is a finding, not a pass.
-- `2` — `GEMINI_API_KEY` was not in the environment, so the production key was **not
-  checked**. This is the failure this row exists to catch: a trimmed cron environment must
-  never let a dead production key read as healthy.
-
 **b) Read goals** (1 Read call):
 - `docs/goals.md`
 
-#### Health output block
+#### HEALTH rows this sub-day returns
 
-After all 3 waves, output:
+Return these rows to the dispatcher. Same rules as ever: a SKIPPED row must read
+differently from a clean one, and a row is **never omitted** — an absent row is
+indistinguishable from a healthy one, which is the confusion every line below exists
+to prevent.
+
 ```
-HEALTH
   [✓/✗] Prod smoke
   [✓/⚠] Sentry       ← the explicit Wave 2a status line; SKIPPED must show here, never omitted
   [✓/⚠] Mixpanel     ← the explicit Wave 2b status line; "not called (no users)" ≠ "SKIPPED (failed)"
@@ -710,17 +584,12 @@ HEALTH
   [✓/⚠] Ops issues (drift / prod-health alerts)
   [✓/⚠] RLS drift    ← known-open counts are ✓; any NEW finding is ⚠ and names the policy.
                         "NOT checked" (exit 2 / no output) must show here, never omitted.
-  [✓/⚠] GCP credits  ← the `gcp_credits_exit` line above; low-balance or "not checked"
-                        must show here, never rendered as clean or as $0.
-  [✓/⚠] AI keys      ← `ai_keys_exit` + `ai_keys_ping_exit` above. WARN_CAP_ABSENT is an
-                        incident. "NOT checked" and NO_BILLING_DATA must show here —
-                        neither is clean, and neither is zero spend.
-  [✓/○/⚠] Agent VM   ← from /slava:util:agent-vm-health (step 5); printed
-                        verbatim and in full, never omitted, never a prompt.
-                        Healthy is one line; a problem may run to three.
   [user activity summary line]
   [nothing if cloud ok / ⚠ per issue]
 ```
+
+The GCP credits, AI keys and Agent VM rows are **not** yours — they are personal checks
+and the dispatcher emits them. Do not print placeholders for them.
 
 ---
 
@@ -794,7 +663,6 @@ TOMORROW
 If git log is empty: "No commits since last /day." Reflect on non-code work from KDD/milestone reads.
 
 ---
-
 ### 3. Goals & Milestone
 
 **Primary source: `docs/goals.md`**
@@ -823,7 +691,6 @@ DON'T: [comma-separated one-liners]
 ```
 
 ---
-
 ### 4. Branch Status
 
 Use the branch, stranded spec, and stash data already collected in Wave 1 (no additional tool calls).
@@ -857,255 +724,35 @@ Note: stash message includes the branch it was created on — apply only if you 
 Ask: "Apply, drop, or continue?" Wait for response.
 
 ---
+### 5. Due Board — act on the dispatcher's verdict
 
-### 5. Cloud Server Check (information only — never prompts, never suggests)
+**You do not read the markers.** `~/.claude_weekly_last_run` and
+`~/.claude_monthly_last_run` are personal state and belong to the dispatcher (pp p48);
+this repo is public and reads no home-directory state at all. The dispatcher passes
+`$DUE_VERDICT` — zero or more rows in this shape:
 
-**Invoke `/slava:util:agent-vm-health` via the Skill tool** and print what it
-returns in the HEALTH block, **verbatim and in full**. That skill owns the
-details; this step owns nothing but the call and the placement.
-
-A healthy result is one line. A problem result may be two or three sentences —
-the extra ones carry how long the fault has been open and whether it will clear
-itself, which is the part that decides whether you act now or later. Do not
-summarise, truncate to the first sentence, or reformat.
-
-**Do not suggest stopping the VM. Do not ask whether to stop it. Do not mention
-the idle cost.** Until 2026-08-06 this step prompted *"clarity-agent is still
-running (~$3/day idle). Stop it?"* every run. Two things were wrong with it:
-answering "yes" silently killed a long-running workload on that VM, and a daily
-yes/no about the same €3 is nagging, not information. The founder asked for the
-state and nothing else — a running VM is usually deliberate.
-
-**Never go silent on TERMINATED or on a gcloud failure.** The old step printed
-nothing in both cases, which made "stopped", "unreachable", and "fine" all look
-identical — the exact ambiguity this step now exists to remove. Three states,
-three distinct lines, always one of them:
-
-```
-✓ Agent VM: healthy (autoheal 6m ago)
-○ Agent VM: stopped — the workload is not running.
-⚠ Agent VM: status unknown (gcloud failed) — NOT checked.
-```
-
-If `/slava:util:agent-vm-health` is not available, print
-`⚠ Agent VM: NOT checked — /slava:util:agent-vm-health missing` and move on.
-Never render an unchecked VM as healthy.
-
----
-
-### 6. Save to Memory (auto, no confirmation)
-
-After all output, silently:
-- If INSIGHT is substantive → append to relevant topic file in memory dir
-- If CHALLENGE reveals a recurring pattern → add to MEMORY.md
-- If new tool/script/workflow discovered → add to relevant memory section
-- Do NOT save trivial observations
-
----
-
-### 7. Write Timestamp — moved
-
-Runs last now, as **Step 10**. It sat here, before Step 8, so a run that dropped
-Step 8 still advanced the marker and left no trace of the drop (2026-08-13).
-
-Moved, **not gated**: the marker is written unconditionally at the end regardless of
-what Step 8 reported. It is the reflection window and nothing else — `$SINCE` drives
-git log, Sentry deltas, signups, Mixpanel and spend, so withholding it on a calendar
-failure would pin `$SINCE`, the floor rule would then truncate every window to 6am
-today, and yesterday's data would never be reported by any run. "The calendar is
-verified" is carried by the push receipt (Step 8), not by this file. One file, one
-meaning.
-
----
-
-### 8. CM Events Calendar Refresh (always, inline)
-
-**Always invoke `/slava:util:cm-events-update` in THIS conversation via the Skill tool.** This is unconditional — do not decide whether to run it, do not gate it on anything, always invoke. The skill's own `state.json` `last_run` gate no-ops the expensive Beeper refresh if it already ran today, so invoking is always cheap and safe.
-
-This invocation is a **strict `/day` run**. Every browser source recorded as due by
-Step 0d must finish its scrape and writer successfully. Chrome/MCP unavailable, extension
-disconnected, login wall, Cloudflare, empty/rotted extraction, or writer failure is a
-calendar-refresh failure. Do not turn any of those into a skip or continue as though the
-refresh succeeded. A separate unattended run may push in `partial` mode, but `/day` must
-never call that result verified.
-
-**Never spawn it as a subagent.** cm-events is browser-mediated — it needs the claude-in-chrome MCP, Beeper Desktop (`localhost:23373`), and the gcloud `beeper-digest` config. Subagents have **no MCP access** (`.claude/rules/skills.md`), so a spawned subagent fails silently and the calendar never updates. *(The disk-access half of the old wording was false and was removed 2026-07-30 — subagents can read files. MCP is the binding constraint here, and it alone is sufficient.)* It must run inline in the main conversation where those tools live.
-
-Announce before invoking: *"cm-events: refreshing the CM Events calendar now."* If Beeper Desktop is closed the skill pauses and warns — surface that to the founder, never silently skip.
-
-**Relay the pipeline's final `[concerns]` block verbatim** — impossible times, a person's name published as a venue, self-contradicting entries. Every run, including a clean one. A check whose output nobody repeats is a check that does not exist (2026-08-23); the block is printed last precisely so it is the thing still on screen when the run ends.
-
-**8a. Beeper token pre-flight — run this BEFORE invoking cm-events:**
-
-```bash
-python3 ~/Projects/private/personal/beeper-digest/scripts/beeper_token_status.py
-```
-
-The Beeper OAuth token has a ~29-day TTL. On 2026-07-29 it lapsed and **nothing noticed for 6 days** — `/day` kept publishing a stale triage report while the CM Events calendar silently stopped updating. The pipeline's own check fires only after it starts work and cannot tell "token lapsed" from "app closed". This pre-flight runs first and is the fix.
-
-Run it **without** `--read-only` here: this is the one invocation that heals the
-repairable case (keychain token valid, `.env` out of sync) and appends to the TTL
-observation log. `day-gates.sh` probes the same script with `--read-only`, so those
-side effects happen once a run, not on every status read.
-
-Branch on the exit code — the wording matters, because a lapsed token and a closed app look identical downstream:
-
-| Exit | Meaning | What /day does |
-|---|---|---|
-| 0 | valid (or self-healed from keychain) | proceed to cm-events normally |
-| 1 | EXPIRING | proceed to cm-events normally |
-| 2 | EXPIRED | **skip cm-events entirely** (it would only abort), then run the Step 8b gate |
-| 3 | UNKNOWN (no keychain entry) | skip cm-events, then run the Step 8b gate |
-
-**Do not compose the warning yourself.** `day-gates.sh` D4 reads the same exit code
-and emits the `⚠ CM EVENTS: NOT REFRESHED` block and the reconnect instruction as
-script output. That is the whole point: the loud line is emitted by something that
-cannot forget to emit it. Your job here is only the branch — run cm-events, or don't.
-
-**Renewal cannot be automated — do not try, and do not promise it.** Verified 2026-08-04: the keychain entry carries **no `refreshToken`**, and the local authorization server advertises `grant_types_supported: ["authorization_code"]` only — `GET /oauth/authorize` returns an HTML consent page requiring a human click. Driving that click with browser automation would forge a consent grant; that is out of bounds for a daily background job. The script self-heals only the genuinely repairable case: keychain token still valid but `.env` out of sync (the normal post-reconnect state).
-
-**Do not diagnose a Beeper 401 by curling `/v1/info`** — that endpoint is unauthenticated and returns 200 with a dead token. The real probe is `/v1/chats?limit=1`, which is what `digest.py` validates against.
-
-**8b. Prove it — run this AFTER cm-events returns (and also on the 8a skip paths):**
-
-```bash
-cd "$(git rev-parse --show-toplevel)" && ./scripts/day-gates.sh --mode=verify
-```
-
-**Relay its stdout verbatim and in full.** Never write a `✓ CM Events: refreshed`
-line of your own — not as a summary, not as a paraphrase, not "in addition to" the
-script output. If the script did not print `CALENDAR: VERIFIED`, the calendar is not
-verified, whatever the cm-events transcript looked like.
-
-**Pass `--mode=verify` explicitly, and check the verdict says `(mode=verify)`.** Step 0d
-runs the same script with a 36h window; re-relaying *that* block here would show a
-verdict for a push that could be a day and a half old. The mode is printed in the
-verdict line precisely so this is visible to whoever reads the report.
-
-**A `/day` report with no `── CM EVENTS VERDICT ──` block in it is defective**, whatever
-else it contains. Not "the calendar was fine" and not "nothing to report" — the block is
-missing, which means this step did not run. Say that plainly rather than omitting the
-section, and run the script.
-
-It reads four artifacts and decides: the push receipt `tmp/last-push.json` is fresh
-**and its stamp moved since Step 0d** (D1), the push reached the calendar and ran in
-`full` mode (D2), every source due at Step 0d has receipt status `success` and a changed,
-usable cache artifact (D3), and the Beeper token is valid (D4). `mode: full` means all
-sources due at `/day` start completed successfully; a Beeper-only or otherwise incomplete
-run is `partial`. All four were previously things this skill
-*asserted*. `Push complete:` prints unconditionally after the push loop, so
-`0 created, 0 skipped, 60 failed` reads exactly like a healthy run to anyone grepping
-the log — D2 is the check that tells them apart.
-
-On a clean run this collapses to a single `checks passed:` line. That is deliberate:
-eleven near-identical lines twice a day is how a reader learns to skip the block. Any
-WARN or FAIL prints in full.
-
-The final calendar message is exactly the gate's verdict, never agent-authored prose:
-
-- Success: `CALENDAR: VERIFIED (mode=verify)`
-- Any due-source failure: `[D3] FAIL: <label> (<source>) was due at /day start but was not refreshed — <concrete failure>. ACTION: <concrete human action>` followed by `CALENDAR: NOT VERIFIED — do not report the calendar as refreshed.`
-- Partial/background push: `[D2] FAIL: the last push ran in mode 'partial', not a full refresh — the sources were never re-read` followed by the same `CALENDAR: NOT VERIFIED` verdict.
-
-Run it on the 8a skip paths too. A run that never reached the calendar still owes the
-founder a verdict, and D1 will say how stale the calendar now is.
-
----
-
-### 8.5. Personal Triage Surface (always, inline — read-only)
-
-After the cm-events refresh, surface the day's personal Beeper triage so the founder sees who came up, what's worth a reply, and any help/job leads — without opening Beeper. **Read the existing report, don't re-scrape** (cm-events already refreshed the Beeper data this run; re-running the digest here would double the work).
-
-Read the most recent report at `~/Projects/private/personal/beeper-digest/reports/<YYYY-MM-DD>.md` (today's; if only an older file exists, read the newest and state its date — the data is stale). Surface ONLY these three sections inline, compact:
-
-- **🔔 You came up** — every hit (rare; always show).
-- **💬 Worth engaging** — top items with their suggested replies.
-- **🤝 Help & matchmaking** — unanswered help requests, connect opportunities.
-
-Skip 📅 events (already on the calendar via Step 8) and 📍 what's happening (ambient, not actionable). If all three sections are empty, say so in one line. This is read-only — the founder replies in Beeper himself; never send anything.
-
-**📣 Replies to your event posts** (always, inline — read-only). The founder posts events into group chats via `/slava:events:promote-groups`, which records every posted group in `~/.private/event-state/*.groups.json` (each row: `chatID`, `name`, `posted_at`, `status`). These posts go out *as the founder*, so replies and questions ("what time?", "is it hard?", "can I bring a friend?") land in those groups and are easy to miss.
-
-For **every** event (any type, not just hikes), read all `*.groups.json` state files, and for each group row with `status: "sent"` **and** `posted_at` within the **last 7 days**:
-
-1. Load Beeper MCP (see Step 8's transport note — needs the inline claude-in-chrome/Beeper setup; skip with a one-line warning if Beeper Desktop is closed).
-2. `list_messages` for that `chatID`, filtered to messages **after `posted_at`** (parse both as ISO timestamps — do not compare as raw strings) from senders **other than the founder's own account** (exclude the Beeper `me`/self sender — the same self identity Step 8 uses — else the founder's own posted blurb reads as a "reply").
-3. Surface any that reference the event or reply to the post — group name + the message + a suggested reply.
-
-Show as a compact list grouped by event. If no posted groups in the window, or no replies, say so in one line. **Read-only — never auto-reply; the founder responds in Beeper himself.**
-
----
-
-
-### 9. Due Board (auto-runs the most-overdue review — P900)
-
-Runs last of the reporting steps — after Step 8's calendar refresh, so a `/day` always delivers its daily output first and a long review never defers it. (Only Step 10's one-line timestamp write follows it.) Overdue reviews are **auto-run, not printed as commands** (P900: printed commands never got copy-pasted; reviews didn't happen). Control is preserved via a conversational "skip", not a y/n gate.
-
-Read the *existing* markers and compute overdue rows (no new files):
-
-```bash
-TODAY_EPOCH=$(date +%s)
-WK=$(grep "^date:" ~/.claude_weekly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
-MO=$(grep "^date:" ~/.claude_monthly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
-
-# weekly: overdue if >7d (prints days past threshold for most-overdue comparison)
-if [ -z "$WK" ]; then
-  [ -f ~/.claude_weekly_last_run ] || echo "WEEKLY: never run"
-else
-  WK_EPOCH=$(date -j -f "%Y-%m-%d" "$WK" +%s 2>/dev/null || date -d "$WK" +%s 2>/dev/null)
-  if [ -n "$WK_EPOCH" ]; then
-    WK_DAYS=$(( (TODAY_EPOCH - WK_EPOCH) / 86400 ))
-    [ "$WK_DAYS" -gt 7 ] && echo "WEEKLY: last $WK ($WK_DAYS d ago) OVERDUE by $(( WK_DAYS - 7 ))d"
-  fi
-fi
-
-# monthly: overdue if >28d
-if [ -z "$MO" ]; then
-  [ -f ~/.claude_monthly_last_run ] || echo "MONTHLY: never run"
-else
-  MO_EPOCH=$(date -j -f "%Y-%m-%d" "$MO" +%s 2>/dev/null || date -d "$MO" +%s 2>/dev/null)
-  if [ -n "$MO_EPOCH" ]; then
-    MO_DAYS=$(( (TODAY_EPOCH - MO_EPOCH) / 86400 ))
-    [ "$MO_DAYS" -gt 28 ] && echo "MONTHLY: last $MO ($MO_DAYS d ago) OVERDUE by $(( MO_DAYS - 28 ))d"
-  fi
-fi
-```
-
-**Render rules:**
-- Show a row ONLY if it's overdue (or never-run). A not-due review is omitted — keeps the board quiet.
-- **Fresh-machine guard:** if a marker file is absent, the script emits `never run`; render it as `never run → consider running`, not a loud OVERDUE, and do NOT auto-run it. If BOTH weekly and monthly markers are absent (no output at all), **suppress the board entirely** — this is a genuinely new setup, not stale reviews.
-
-(cm-events is no longer part of this board — it is its own unconditional Step 8, run inline before the Due Board.)
-
-Output (only the rows that apply):
 ```
 DUE BOARD
   weekly    — last done Apr 11 (52d ago)  OVERDUE (>7d)   → running now
   monthly   — last done Mar 30 (64d ago)  OVERDUE (>28d)  → next /day run
 ```
 
-If no rows apply: print nothing (no empty board).
+Empty verdict → print nothing (no empty board). Otherwise print the rows verbatim, then:
 
-**Auto-run rules (after rendering the board):**
-1. **Max one review per `/day` run.** If both weekly and monthly are OVERDUE, run the one with more days past its threshold (the `OVERDUE by Nd` value) and name the other: "monthly is also overdue — it'll run on the next /day."
+1. **Max one review per run.** If both are OVERDUE, run the one with more days past its
+   threshold and name the other: "monthly is also overdue — it'll run on the next /day."
 2. **Announce, then invoke** — no y/n gate:
    > weekly is Nd overdue — running it now. Say "skip" at any point to abandon it.
-   Then immediately invoke the skill (`/slava:maintain:weekly` or `/slava:maintain:monthly`) in this conversation.
-3. **Skip is conversational.** If the founder says "skip" during the review, stop it. Markers are written only on review completion (by the review skill itself), so a skipped or abandoned run stays overdue and resurfaces on the next `/day`.
-4. **Never-run rows are not auto-run** (fresh-machine guard above) — offer only.
+   Then immediately invoke `/slava:maintain:weekly` or `/slava:maintain:monthly` in this
+   conversation. These are cp skills, which is why the *acting* half lives here while the
+   *marker* half lives in the dispatcher.
+3. **Skip is conversational.** If the founder says "skip", stop. Markers are written only
+   on review completion (by the review skill itself), so a skipped run stays overdue and
+   resurfaces on the next `/day`.
+4. **Never-run rows are not auto-run** — the dispatcher marks those `never run`; offer only.
 
----
-
-### 10. Write Timestamp (unconditional, and genuinely last)
-
-```bash
-date -u +"%Y-%m-%dT%H:%M:%SZ" > ~/.claude-day-last-run
-```
-
-Write it whatever Step 8b reported. This marker is the reflection window and nothing
-more — see Step 7 for why gating it on the calendar would corrupt every other section
-of the report. It moved here from slot 7 so it records a run that reached the end,
-rather than one that reached Step 6.
+Reviews are auto-run rather than printed as commands because printed commands never got
+copy-pasted and the reviews simply did not happen (P900).
 
 ---
 
@@ -1127,7 +774,6 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 **Auth method detection** (from `profile_created` properties): `auth_method = 'google'` → "via Google OAuth", `auth_method = 'magic_link'` → "via magic link"
 
 ---
-
 ## Tone
 
 - Direct. Warm. No fluff.
@@ -1139,6 +785,11 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 ## Notes
 
 - Never show done steps in goals. Only what's coming.
-- Only interactive prompts: open items (step 0), stash (step 4c). **Step 5 no longer prompts** — it reports the agent VM's state and nothing else (changed 2026-08-06; it used to ask whether to stop the VM, and "yes" silently killed a long-running workload). The Due Board auto-run (step 9) announces and proceeds — "skip" is conversational, not a prompt that waits.
-- Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry, Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool calls per wave to prevent permission prompt floods.
-- First run (no timestamp file): behaves like old /day-start with 24h lookback.
+- Only interactive prompt here: stash (step 4c).
+- Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry,
+  Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool
+  calls per wave to prevent permission prompt floods.
+- **This file is in a PUBLIC repo.** Nothing personal goes here: no `~/Projects/private/`
+  paths, no home-directory state files, no personal accounts or balances. If a new morning
+  check is personal, it belongs in `~/.claude/commands/day.md` instead. `pre-commit-checks.sh`
+  enforces the path half of this mechanically (pp p48); the judgement half is yours.

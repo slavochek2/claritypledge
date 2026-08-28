@@ -1315,6 +1315,46 @@ else
 fi
 echo ""
 
+# 17d. Private-repo paths must not appear in ANY file of this public repo (pp p48).
+# Distinct from 17c in BOTH pattern and scope, and the scope is the load-bearing half:
+# 17c watches docs/|features/|content/|src/|README|CLAUDE.md, so it is structurally blind
+# to .claude/commands/ and scripts/ — which is exactly where the 2026-08-28 leak landed and
+# passed a green privacy check. /day had accreted 15 private references over months, plus a
+# hardcoded deep private-repo path as a default inside the (now relocated) day-gates.sh.
+# Nothing caught any of them, because nothing was looking at those directories.
+#
+# NOTE TO WHOEVER EDITS THIS: write private paths as ~/Projects/private/<repo>/ when you need
+# to describe one. A literal deep path in this very comment made the guard block the commit
+# that installed it — caught by running the guard against its own change before shipping it.
+#
+# Referencing the private ROOT is deliberately allowed — a rule that says "no
+# ~/Projects/private/ paths here" has to be able to name the thing it forbids, and the same
+# carve-out is what 17c does one section up. What is blocked is a path that reaches INTO a
+# private repo: one or more segments past private/.
+echo ">>> Checking for private-repo paths in public files..."
+STAGED_NONPRIVATE=$(echo "$STAGED_FILES_ALL" | grep -v '^\.private/' || true)
+if [ -n "$STAGED_NONPRIVATE" ]; then
+    # Same -E '^\+' then -vF '+++' idiom as 17b/17c (BSD basic-regex chokes on '^\+\+\+').
+    PRIVATE_PATH_HITS=$(echo "$STAGED_NONPRIVATE" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
+        grep -E '^\+' | grep -vF '+++' | \
+        grep -oE '(~|\$HOME|/Users/[A-Za-z0-9_.-]+)/Projects/private/[A-Za-z0-9_.-]+' || true)
+    if [ -n "$PRIVATE_PATH_HITS" ]; then
+        echo -e "${RED}✗ Public file references a path inside a PRIVATE repo:${NC}"
+        echo "$PRIVATE_PATH_HITS" | sort -u | head -5
+        echo -e "${RED}  → This repo is public. A private path here names a repo, a project, or a person's data.${NC}"
+        echo -e "${RED}  → If the thing you are adding is personal, it belongs in ~/.claude/commands/day.md${NC}"
+        echo -e "${RED}    (or another private home), not in a ClarityPledge file. See pp tasks/p48.${NC}"
+        echo -e "${RED}  → Naming the private ROOT alone (~/Projects/private/) is allowed. To DESCRIBE a${NC}"
+        echo -e "${RED}    private path in prose, use a placeholder segment: ~/Projects/private/<repo>/${NC}"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ No private-repo paths in public files${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ Only .private/ files staged (private-path check skipped)${NC}"
+fi
+echo ""
+
 # 17b. Broad email check in feature specs — catch any real user email that slipped in
 echo ">>> Checking feature specs for unrecognized email addresses..."
 STAGED_FEATURE_FILES=$(echo "$STAGED_FILES_ALL" | grep -E '^features/.*\.md$' || true)

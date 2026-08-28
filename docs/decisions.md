@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [process]: Third recurrence of the prod-drift misread — the check prints the wrong fix command at the moment of decision, and two log entries have not stopped it
+
+**Context:** `check-deploy-manifest.sh --env prod` reported `MIGRATION_MISSING: 20260826063353_… (not deployed to prod)`. It was relayed to the founder as a real gap, and a prod migrate was recommended — describing an open anon EXECUTE grant on prod as current fact, on the strength of the migration's header comment plus the drift line. It was not current. `--env prod` reads the manifest from **`origin/main`** by design (P820); local main was 127 commits ahead, the stamp was simply unpushed, and the live ledger already held all 255 versions. `migrate.sh --env prod` applied nothing and its mandatory smoke passed 8/8. The remedy was the push the founder had already planned — the opposite of the recommendation given.
+
+**This log had already said so, twice** — 2026-08-18 [process] ("an unpushed stamp is indistinguishable from un-applied migrations", same root, 8 migrations, two of them security fixes) and an earlier entry reaching the same conclusion via `migrate.sh` disagreeing with the manifest. Both prescribe the same two-command check. Neither was consulted. Three occurrences, two prior write-ups, zero mechanical change: that ratio is the finding, not the misread.
+
+**Decision:** Stop writing the advisory a third time and change the artifact. `check-deploy-manifest.sh` can detect this case itself — a version absent from the `origin/main` manifest but present in the working-tree manifest is an *unpushed stamp*, not an *undeployed migration*. Say that, and name pushing as the fix. Today it prints `./scripts/migrate.sh --env prod`, which is the wrong action, at the exact moment the operator is deciding. Filed as process debt alongside the ship-preflight gap.
+
+**Alternatives rejected:** *A third decisions entry restating the manual check* — the two that exist are clear, correctly titled and easy to grep; their existence is what proves prose is not the missing ingredient. Sibling entry from today: "A prose warning inside the file it protects failed six times in fourteen days — proximity is not enforcement." *Treat it as a pure execution lapse* — the repo rule to grep `decisions.md` before asserting rationale is real and was skipped, but a rule that has failed three times on one topic is a design signal too.
+
+**Consequences:** Two epistemic notes, separate from the tooling fix. (1) A *live security state* was asserted ("that grant is open on prod right now") from a header comment plus a check that reports a git state — inference presented as confirmed, the failure "Falsify Before You Rely" names. The migration's header warns not to treat "applied" as evidence the grant is gone; that caution applies just as hard to "not applied". (2) Still genuinely open and NOT verified: whether `has_function_privilege('anon', 'public.is_transcribe_room_member(uuid,uuid)', 'execute')` is false on prod. The ledger says the REVOKE ran, which the header explicitly calls insufficient. `function-grant-drift-check.py` takes no `--env` flag — it wants `--prod-json`/`--dump-prod` — and the invocation was not guessed at.
+
+**References:** [scripts/check-deploy-manifest.sh](../scripts/check-deploy-manifest.sh) · this log 2026-08-18 [process] (unpushed stamp indistinguishable from un-applied) · this log 2026-08-28 [process] (proximity is not enforcement) · [docs/process-learnings.md](process-learnings.md)
+
 ## 2026-08-28 [process]: `git-ops.sh ship` guards untracked files that would block the cherry-pick, but not tracked-and-dirty ones — and its lock cannot see a co-tenant's ordinary edits
 
 **Context:** Shipping P1174 halted after 1 of 4 commits: `error: Your local changes to the following files would be overwritten by merge: docs/decisions.md`. The main checkout had been verified clean four minutes earlier, and the branch had already been rebased onto current main with that exact file's collision resolved by hand in the worktree. A co-tenant session wrote `decisions.md` again in the gap. Net state: the code fix landed on main, the KDD entry and spec closure did not.
@@ -491,7 +505,7 @@ Also fixed: a heredoc that spliced live BigQuery CSV output into a Python source
 
 **Consequences: this is the RLS-drift precedent's stopgap, again, not a new exception.** The 2026-08-12 [process] entry above already states the honest position: `.claude/rules/skills.md` says automated detection belongs in a cron, not a skill, and this violates it on the same credential grounds — the check needs the founder's own `gcloud`/`bq` credentials against a billing-scoped BigQuery dataset, not something this repo puts in CI. The intended end state is unchanged: a scheduled workflow, once there's a credential-scoping story for it. Until then this is a second data point that the credential exception fires more than once, which is worth naming: if a third recurring check needs to go into `/day` for the same reason, that is the signal to build the scoped-CI-credential path rather than accept a fourth stopgap by default. A new credit grant also never appears in the `credits` array — a top-up silently understates remaining until re-seeded with `--set-baseline`; `/day`'s reporting instructions say so.
 
-**References:** [scripts/gcp-credits-check.sh](../scripts/gcp-credits-check.sh), [.claude/commands/slava/day.md](../.claude/commands/slava/day.md), decisions.md 2026-08-12 [process] (RLS check into `/day`, against the monitoring rule), decisions.md 2026-08-09 [process] (monitoring is a scheduled workflow)
+**References:** `gcp-credits-check.sh` and `/day` (both relocated out of this public repo 2026-08-28 to `~/.claude/` — pp p48; they were personal checks and the paths above are dead), decisions.md 2026-08-12 [process] (RLS check into `/day`, against the monitoring rule), decisions.md 2026-08-09 [process] (monitoring is a scheduled workflow)
 
 ---
 
@@ -5019,7 +5033,7 @@ public-repo leak came from the founder rather than the gate (see 2026-07-30, P10
 
 **Consequences:** Phase 1 is live in `/day`; Phases 2 and 3 are parked, Phase 2 on a refuted premise rather than on cost. The P1031 stopgap stands as recorded below — detection inside a skill, on credential grounds, with a local scheduled job as the named end state. When Phase 2 is built it is five artifact/exit-code gates reusing Phase 1's ledger, trap and harness — no new mechanism, and no receipt files. **Residual, named not closed:** every artifact the gate reads is local, so nothing proves a Google Calendar write actually landed; the receipt is a plain file an agent could forge, though forging it is strictly harder than doing the real thing and no step instructs anyone to write it; `run_pipeline`'s early exits (Beeper down, cache missing, dry-run) still write no receipt at all, so those runs are caught by the seen-stamp rather than by a receipt of their own; three source writers stamp `run_date` in Bangkok while two read it as UTC, so every printed cache age can be off by one; and the gate is still prose-invoked, so "never ran at all" is Phase 3's problem. **Falsifier:** a `/day` report that contains no `── CM EVENTS VERDICT ──` block and nobody notices.
 
-**References:** the entry directly below (the plan) · [scripts/day-gates.sh](../scripts/day-gates.sh) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7/7b/9
+**References:** the entry directly below (the plan) · `day-gates.sh` (relocated to `~/.claude/scripts/` on 2026-08-28 — pp p48) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7/7b/9
 
 ---
 
