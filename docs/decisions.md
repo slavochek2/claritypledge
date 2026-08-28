@@ -6,6 +6,113 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-28 [product]: The arbiter-failure criteria do not discriminate on a public-argument corpus — the interface disqualifier is the only part that excludes
+
+**Context:** `/slava:disagreement:prepare` Stage 3 is a one-sentence load-bearing filter, so the
+`ai-power-remedies` run could not say whether its five points were the *most* consequential — it
+gates on split-hardness and stops. The obvious fix was to wire in the arbiter-failure criteria,
+which P1185 had just wired into `/understanding:detect` the same day. Before designing around them,
+the model was dry-run against the five points already produced.
+
+**Decision:** **Measured: 5 of 5 fire.** P1 and P5 on fuzzy intent (*"a bigger threat to your
+life"*, *"should be decided by a vote"* are not specifiable), P2/P3/P4 on delayed feedback. `NONE`:
+zero. This is not an artefact of that run — **a public argument about what *should* be done is
+normative or long-horizon by construction**, so its natural consequence-arbiter fails almost always.
+On this class of corpus the four modes are a near-universal pass and sort nothing.
+
+The component that *does* exclude is the **interface disqualifier** — the claim a price, standard,
+precedent, default **or a document** already settles. So the filter inverts: **disqualifier gates,
+potential-loss magnitude ranks, and the four modes are a reported tag, not a gate.** A candidate
+technical claim (*"the report found X"*) is skipped because reading the report settles it; the
+interpretation built on it (*"labs are using AI to supervise AI"*) is settled by nothing and stands.
+
+**Alternatives rejected:** (a) *Wire the four modes in as the gate* — what the session set out to do,
+falsified by the dry-run before any code was written. (b) *Score "which point set has more fired
+modes"* — the pre-registered metric in P1190's first draft; run A scores at the 5/5 ceiling, so the
+rubric had no path to `adopt` and would have forced a tie broken on impression. (c) *A percentage
+quota of load-bearing vs polarizing points* — rejected on the founder's correction that both
+properties are required, so a quota licences shipping points that fail one.
+
+**Consequences:** P1190 carries the redesign and a re-run protocol whose verdict branches now include
+*"the four modes do not transfer"* — the outcome the dry-run predicts, which is what makes it
+evidence rather than an excuse. **Status: proposed** — n=1, one topic, one room; rejecting the model
+itself requires a second topic. **Falsifier:** run the same dry-run on a corpus of *operational*
+disputes (what a team should do next quarter) — if `NONE` and interface-skips appear there, the modes
+discriminate and the failure is specific to public-argument corpora, not to the model.
+
+**References:** `features/p1190_arbiter_filter_into_disagreement_pipeline.md` · 2026-08-24 [product]
+"A fourth arbiter-failure mode" · P1185 (`features/done/2026-06-10/`)
+
+---
+
+## 2026-08-28 [process]: A turn marker fixes that the speaker changed, never who it changed to — and a co-author is the case that slips through
+
+**Context:** The `ai-power-remedies` run file passed its approvals seal and named Eliezer Yudkowsky
+as position 3. The source is an interview with **Nate Soares**, his co-author on the same book. The
+transcript addresses him by name twice, the raw caption track carries the surname six times,
+`grep -ciE "yudkowsky|eliezer"` returns **0**, and the video description names him outright.
+
+**Decision:** The failure is in what Gate 0 accepted as identity evidence. The sealed
+`mapping_evidence` read *"spk:1 addresses spk:0 with 'the title of your book'"* — which establishes
+that a speaker **changed** and that the speaker **wrote a book**, and nothing more. Both co-authors
+satisfy it. `select.md` Step 2b already states the principle (*"each one marks that the speaker
+changed, never who it changed to"*); Gate 0 recorded evidence that did not meet it. **A single
+`grep -ciE "<surname>"` against the raw track would have caught it, and is now the cheapest
+available identity check.** The seal was **not** re-hashed to accommodate the finding — a mismatch
+is a STOP, and re-sealing to absorb a late discovery is the move that rule exists to forbid.
+
+**Alternatives rejected:** (a) *Substitute Soares as position 3* — he was never approved at Gate 1
+and argues the same position, so it buys a name, not an axis. (b) *Re-seal the approvals block with
+the corrected name* — forbidden above. (c) *Proceed at five and quietly attribute* — the pipeline's
+standing rule is that a quote assigned to the wrong speaker is worse than no quote.
+
+**Consequences:** The run shipped at **4 arguers with position 3 reported unfilled**, which is the
+documented outcome rather than a silent narrowing. Gate 0's identity evidence should require a
+name-bearing artefact — the transcript, the description, or the title — not an inference from a turn
+boundary. **Status: proposed**, and it needs a skill edit to `select.md` that this entry does not make.
+
+**References:** `.private/points-runs/ai-power-remedies.md` (post-seal correction) ·
+`.claude/commands/slava/disagreement/select.md` Step 2b
+
+---
+
+## 2026-08-28 [product]: A scene-setting article that carries the predicted split removes the measurement while every seal still verifies green
+
+**Context:** P1191 proposed accumulating each disagreement stage's output into a draft for a
+pre-event blog article, and listed *"the sealed prediction"* among `prepare`'s contributions. The
+article's stated purpose is that the room reads it **before** taking positions.
+
+**Decision:** Struck, with a never-enter rule: **prediction content never leaves
+`.private/points-runs/<slug>.md`, at any stage, in any paraphrase.** Two independent sources already
+forbade it — `run-pipeline.md`'s gate table (*the prediction "is written, never shown to a later
+pass"*; the assembling step and the founder reading a draft are both later passes) and the standing
+2026-08-13 [product] ruling that *"a prediction the reader already saw is not a measurement at all."*
+
+**The failure mode worth naming: every seal would still have verified.** Three tracked hash files, an
+isolated prediction pass and a named-block seal design all remain green while the signal they exist
+to protect is gone — because the seal binds the *hash*, and the leak is the *content*, through a
+second unsealed human-readable copy. **A green integrity check is not evidence that the property the
+check was built for still holds** (`.claude/rules/epistemic.md` gate 7b, applied to a seal).
+
+**Alternatives rejected:** (a) *Publish the prediction and rely on the seal* — the seal proves the
+prediction was not retrofitted; it says nothing about anchoring. (b) *Publish a hedged or rounded
+prediction* — anchoring does not require precision. (c) *One article covering both* — the corollary
+below replaces it.
+
+**Consequences:** **Before-the-event and after-the-event are two artifacts, not one.** The
+scene-setter carries the fork, the people and the points and no prediction; a second, after-the-fact
+piece may carry the prediction against what the room actually did, which is the only context in which
+publishing it is a result rather than an anchor. **Status: proposed.** Separately, the privacy
+mitigation in P1191's first draft named `audit-privacy.sh` — which matches only founder identifiers
+and which **no blog skill invokes**, while Ghost publishing bypasses the repo entirely; the control is
+a named human read-and-approve, and two run-file fields (`judge_dissent`, `positions_set_aside`,
+both holding critical characterizations of named living people) are on an explicit never-append list.
+
+**References:** `features/p1191_progressive_scene_setting_draft.md` · 2026-08-13 [product] "The
+sealed-bid guarantee is load-bearing" · `.claude/rules/pii.md`
+
+---
+
 ## 2026-08-28 [technical]: A symlinked entry point that derives its own directory from an unresolved `$BASH_SOURCE` splits one tool into two silently different tools
 
 **Context:** P1187. A machine-global fetch cache (P1140) served **zero** hits across ~15 fetches over
