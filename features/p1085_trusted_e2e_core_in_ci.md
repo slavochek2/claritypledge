@@ -35,6 +35,38 @@ repaired so far, and the mechanism that rotted them is untouched.
 **Question:** What is the smallest set of E2E tests that can run automatically on every push, and
 what database does it run against?
 
+## Scheduling + autonomy direction (founder, 2026-08-28)
+
+Recorded so this spec is self-explanatory next time it is opened.
+
+**Target shape:** the suite runs **overnight on a schedule**, not at push time. The morning push
+gate is "last night's core run was green" — so a push never waits on a multi-hour suite, and the
+founder is not the mechanism that remembers to run anything. One guaranteed push opportunity per
+day, minimum.
+
+**Run vs auto-repair are two jobs; only the first is safe to start with.**
+- *Job A — run + triage + report.* Nightly run, quarantine what fails, write a morning summary.
+  Changes no code. Machine time only; tokens are spent solely when something is actually red.
+- *Job B — auto-repair.* Deferred until Job A is boringly green and failures are rare. An agent
+  repairing tests unattended is precisely where "weaken the test until it passes" beats "fix the
+  code" — the inversion `.claude/rules/tests.md` exists to prevent, with nobody watching at 3am.
+
+**Does running at night solve the database question? Partly — and it is the smaller part.**
+Two problems were being conflated:
+1. *Cross-session interference* (~15 concurrent local sessions on the shared test DB; the P885
+   schema-drift incident is the worst case). **Night dissolves this** — those sessions are idle.
+2. *Auth rate limiting.* **Night does NOT help.** Per decisions.md 2026-08-13 the ceiling is
+   1800/hour bursting to ~30; measured average demand of 841–1381/hr sat *under* budget throughout,
+   and **"the existing IP was never the constraint"**. The suite drains the 30-token burst by
+   itself in seconds because workers create users in tight loops and retry in lockstep. Self-
+   inflicted burstiness, not contention — an empty network at 3am is just as jammed.
+
+**Consequence for Part 1 below:** the "provision a new Supabase project" option is weaker than this
+spec's Problem section implies, and the [FOUNDER DECISION] may be closable at no cost. The diagnosed
+fix for (2) is **jittered backoff paced against the burst** — a change in the test harness, not new
+infrastructure. Sequence to evaluate: pacing fix -> schedule the already-green core nightly -> only
+then ask whether a separate database is still needed.
+
 ## Appetite
 
 **Blast radius: medium-high** — introduces a check that can block merges to `main`, and may
