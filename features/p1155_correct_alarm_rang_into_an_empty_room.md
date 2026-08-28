@@ -38,9 +38,12 @@ nobody opened?
 | Producing the signal | daily, on a cron, unattended | ran 5/5, verified via `gh run list` |
 | Consuming the signal | whenever a human types `/day` | unknown — see below |
 
-`/day` is the **only** consumer. Verified: `grep -rln 'Deploy drift\|check-deploy-drift'
-.claude/commands/` returns exactly one file, `.claude/commands/slava/day.md`, which lists open
-issues at `day.md:519` (`gh issue list --state open --limit 50`). Nothing else in the repo reads it.
+`/day` is the **only** consumer. Verified, and re-verified against the current tree on
+2026-08-28: `grep -rln 'Deploy drift\|check-deploy-drift' .claude/commands/` returns exactly one
+file — now `.claude/commands/slava/maintain/day-cp.md`, after the pp p48 split moved the personal
+half of `/day` out of this public repo — which lists open issues via
+`gh issue list --state open --limit 50`. Nothing else in the repo reads it. (The claim survived the
+split unchanged; only the path moved. Line-number citation dropped rather than re-pinned.)
 
 A machine produces the signal on a fixed schedule; a human decides when it is read. That gap is the
 whole defect, and it widens silently — every day of drift looks exactly like every other day.

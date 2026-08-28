@@ -14,7 +14,7 @@ pipeline_ran: [create-spec, challenge-prd]
 
 > Follow-on to [P858: Event-Driven Transcription](./done/2026-04-22/p858_event_driven_transcription.md). Deploy + cost-cap validation lives in P858's `## Pre-deploy Checklist` + `features/uat/p858.md` — this spec is the **operational visibility layer**, not the deploy.
 
-> **Status: BACKLOG. Tier 0 already shipped** — a job-health block (status counts + stale/lost detection) was added to the `/day` skill (`.claude/commands/slava/day.md`, `=== TRANSCRIPTION HEALTH ===`), which is the minimal monitoring that follows the data without new runtime. This spec's remaining deliverable — the `transcription_health()` **SQL view** (Tier A: p95 timing, failure-category aggregation) and any dashboard (Tier B/C) — is **deferred until the `/day` counts aren't enough** (i.e., once P858 is producing real job volume). Don't build the view ahead of that need. The `attempts` distribution is added to the `/day` block once P858's migration is on prod.
+> **Status: BACKLOG. Tier 0 already shipped** — a job-health block (status counts + stale/lost detection) was added to the `/day` skill (now `.claude/commands/slava/maintain/day-cp.md`, `=== TRANSCRIPTION HEALTH ===`, after the 2026-08-28 split — pp p48), which is the minimal monitoring that follows the data without new runtime. This spec's remaining deliverable — the `transcription_health()` **SQL view** (Tier A: p95 timing, failure-category aggregation) and any dashboard (Tier B/C) — is **deferred until the `/day` counts aren't enough** (i.e., once P858 is producing real job volume). Don't build the view ahead of that need. The `attempts` distribution is added to the `/day` block once P858's migration is on prod.
 
 ## Problem
 

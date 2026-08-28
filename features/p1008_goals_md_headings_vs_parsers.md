@@ -10,7 +10,7 @@ tags: [tooling, kanban, docs, goals]
 
 ## Problem
 
-**Situation:** Two consumers parse `docs/goals.md` by `##` heading: the kanban server (`tools/kanban/server/api.ts`, `GET /api/goals-strategic`) and `/day` step 3 (`.claude/commands/slava/day.md:556-575`). Both look for `## Next Steps`, `## Dos`, `## Don'ts`, and an optional `## Last Weekly Review (...)`.
+**Situation:** Two consumers parse `docs/goals.md` by `##` heading: the kanban server (`tools/kanban/server/api.ts`, `GET /api/goals-strategic`) and `/day` step 3, now `.claude/commands/slava/maintain/day-cp.md` §3 (the skill was split on 2026-08-28 — pp p48; goals parsing stayed on the ClarityPledge side). Both look for `## Next Steps`, `## Dos`, `## Don'ts`, and an optional `## Last Weekly Review (...)`.
 
 **Complication:** `goals.md` has none of those headings. Its actual sections are the active-motion section, `## Dormant / Superseded`, and `## See Also`. So the endpoint returned `{steps:[],dos:[],donts:[],weeklyReview:null}`, the kanban Goals page rendered "No goals. Edit `docs/goals.md`.", and `/day`'s WHAT'S NEXT block printed empty — for an unknown period, with no error anywhere.
 
@@ -44,4 +44,4 @@ $ curl -s localhost:9051/api/goals-strategic
 - `docs/decisions.md` 2026-07-23 [process] — the canary repair + the honest limit that nothing mechanical watches `goals.md`
 - `tools/kanban/server/api.ts` — `GET /api/goals-strategic`
 - `tools/kanban/src/components/GoalsPage.tsx`
-- `.claude/commands/slava/day.md` §3 Goals & Milestone
+- `.claude/commands/slava/maintain/day-cp.md` §3 Goals & Milestone
