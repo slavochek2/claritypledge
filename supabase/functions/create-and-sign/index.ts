@@ -40,6 +40,51 @@ function generateSlug(name: string): string {
     .replace(/--+/g, '-');
 }
 
+const INTERNAL_FN_SECRET = Deno.env.get('INTERNAL_FN_SECRET') ?? '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+/**
+ * P1178: notify the creator that their agreement was co-signed.
+ *
+ * Fire-and-forget by design — the agreement is already sealed and the signer must
+ * not wait on Mailgun — but no longer silent. Before this fix the call sent the
+ * service-role key as the Bearer token; send-agreement-emails resolved that header
+ * with auth.getUser(), found no user, and returned 401, which a bare .catch() threw
+ * away. The email had not sent since 2026-04-03.
+ *
+ * Authorization/apikey now carry the anon key purely to clear the gateway's
+ * verify_jwt check — no database key leaves this function. The caller's identity is
+ * proven by INTERNAL_FN_SECRET, matching the WEBHOOK_SECRET / CRON_SECRET /
+ * GCS_UPLOAD_SECRET pattern already used elsewhere in supabase/functions.
+ *
+ * Edge functions have no Sentry wired up; the read path for these logs is the
+ * Supabase dashboard, so failures carry the greppable P1178-DIAG marker.
+ */
+function notifyCreator(supabaseUrl: string, agreementId: string): void {
+  if (!INTERNAL_FN_SECRET) {
+    console.error(`[create-and-sign] P1178-DIAG notify skipped: INTERNAL_FN_SECRET not configured, agreement=${agreementId}`);
+    return;
+  }
+
+  fetch(`${supabaseUrl}/functions/v1/send-agreement-emails`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'x-internal-secret': INTERNAL_FN_SECRET,
+    },
+    body: JSON.stringify({ action: 'accepted', agreementId }),
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const body = await res.text().catch(() => '<body unreadable>');
+        console.error(`[create-and-sign] P1178-DIAG notify failed: HTTP ${res.status} agreement=${agreementId} body=${body.slice(0, 300)}`);
+      }
+    })
+    .catch((err) => console.error(`[create-and-sign] P1178-DIAG notify failed: agreement=${agreementId}`, err));
+}
+
 serve(async (req: Request) => {
   const corsHeaders = buildCorsHeaders(req);
 
@@ -258,14 +303,7 @@ serve(async (req: Request) => {
     // ── Fire-and-forget: notify creator ───────────────────────────────────
 
     // Trigger send-agreement-emails with action 'accepted' — the ONLY email trigger for this flow
-    fetch(`${supabaseUrl}/functions/v1/send-agreement-emails`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${serviceRoleKey}`,
-      },
-      body: JSON.stringify({ action: 'accepted', agreementId }),
-    }).catch(err => console.error('[create-and-sign] email notification failed:', err));
+    notifyCreator(supabaseUrl, agreementId);
 
     // ── Success ───────────────────────────────────────────────────────────
 

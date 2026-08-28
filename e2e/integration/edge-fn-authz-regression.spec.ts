@@ -19,6 +19,12 @@
  *        Guard: resolveMembership → !isReceiver && !isSender (index.ts ~315-330)
  *   4. create-and-sign          — 409 ALREADY_PROCESSED
  *        Guard: status !== 'pending' check (index.ts ~113-114)
+ *   5. send-agreement-emails    — 401 / 403 on the P1178 internal-caller branch
+ *        Guard: isInternal = INTERNAL_FN_SECRET !== '' && header === secret,
+ *        plus the action allowlist (internal callers may only fire 'accepted')
+ *        and the agreement-status guard (only an 'active' agreement was co-signed).
+ *        The party check is skipped for internal callers, so BOTH halves of that
+ *        branch need failure-path coverage or the bypass becomes a hole.
  *
  * These tests invoke DEPLOYED edge functions over HTTP against the TEST Supabase
  * project, using real JWTs (same harness style as p683-edge-function.spec.ts).
@@ -75,6 +81,28 @@ async function getAccessToken(email: string): Promise<string> {
     throw new Error(`[TEST] sign-in failed for ${email}: ${error?.message}`);
   }
   return data.session.access_token;
+}
+
+/**
+ * Invoke a deployed edge function the way ANOTHER EDGE FUNCTION does (P1178):
+ * the anon key clears the gateway's verify_jwt check, and `x-internal-secret`
+ * carries the caller's actual identity. Pass `secret: null` to omit the header
+ * entirely — that is the pre-fix shape and must still be rejected.
+ */
+async function callFnInternal(
+  name: string,
+  secret: string | null,
+  body: unknown,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+  };
+  if (secret !== null) headers['x-internal-secret'] = secret;
+  const res = await fetch(fnUrl(name), { method: 'POST', headers, body: JSON.stringify(body) });
+  const parsed = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return { status: res.status, body: parsed };
 }
 
 /**
@@ -181,6 +209,123 @@ test.describe('Edge-fn authz regression — send-agreement-emails party guard', 
     // Outsider matches neither → 403 "Forbidden".
     expect(status, 'Non-party caller must be rejected with 403').toBe(403);
     expect(body.error).toBe('Forbidden');
+  });
+});
+
+// ===========================================================================
+// 5. send-agreement-emails — P1178 internal service-to-service caller branch
+// ===========================================================================
+
+/**
+ * P1178 replaced a broken credential (the service-role key sent where a user
+ * login token was expected, which 401'd silently) with a shared-secret bypass of
+ * the JWT + party checks. A bypass is only as good as the cases it REFUSES, so
+ * every refusal below is asserted directly: no secret, wrong secret, and a
+ * correct secret used for an action internal callers may not fire.
+ */
+test.describe('Edge-fn authz regression — send-agreement-emails internal-caller guard (P1178)', () => {
+  test.describe.configure({ timeout: 90000 });
+
+  const INTERNAL_FN_SECRET = process.env.INTERNAL_FN_SECRET;
+
+  test.skip(
+    !INTERNAL_FN_SECRET,
+    'INTERNAL_FN_SECRET missing from .env.test.local — cannot exercise the P1178 internal-caller branch',
+  );
+
+  let creator: TestUser;
+  let partner: TestUser;
+  let agreementId: string;
+
+  test.beforeAll(async () => {
+    creator = await createTestUser({ name: 'P1178 Internal Creator' });
+    partner = await createTestUser({ name: 'P1178 Internal Partner' });
+    const agreement = await createTestAgreement(creator.user.id, partner.email, {
+      status: 'active',
+      partnerProfileId: partner.user.id,
+      partnerSignedAt: new Date().toISOString(),
+    });
+    agreementId = agreement.id;
+  });
+
+  test.afterAll(async () => {
+    if (agreementId) await deleteTestAgreement(agreementId);
+    if (partner?.user?.id) await deleteTestUser(partner.user.id);
+    if (creator?.user?.id) await deleteTestUser(creator.user.id);
+  });
+
+  test('rejects an internal-shaped call with NO secret header (401)', async () => {
+    // The anon key clears the gateway, so this 401 is the function's own guard:
+    // no internal secret means the JWT path runs, and the anon key resolves to
+    // no user. This is the exact pre-fix outcome, now asserted deliberately.
+    const { status, body } = await callFnInternal('send-agreement-emails', null, {
+      action: 'accepted',
+      agreementId,
+    });
+    expect(status, 'A call with no internal secret must not be treated as internal').toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  test('rejects a WRONG internal secret (401)', async () => {
+    const { status, body } = await callFnInternal('send-agreement-emails', 'not-the-secret', {
+      action: 'accepted',
+      agreementId,
+    });
+    expect(status, 'A wrong secret must not open the internal branch').toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  test('rejects a valid internal secret used for a non-accepted action (403)', async () => {
+    // Least privilege: 'accepted' is the only notification any internal caller
+    // fires, so a leaked secret cannot blast invitations at arbitrary agreements.
+    const { status, body } = await callFnInternal('send-agreement-emails', INTERNAL_FN_SECRET!, {
+      action: 'invitation',
+      agreementId,
+    });
+    expect(status, "Internal callers must be confined to action 'accepted'").toBe(403);
+    expect(body.error).toBe('Forbidden');
+  });
+
+  test('rejects a valid internal secret for an agreement that does not exist (404)', async () => {
+    const { status, body } = await callFnInternal('send-agreement-emails', INTERNAL_FN_SECRET!, {
+      action: 'accepted',
+      agreementId: '00000000-0000-0000-0000-000000000000',
+    });
+    expect(status, 'Agreement existence is still checked for internal callers').toBe(404);
+    expect(body.error).toBe('Agreement not found');
+  });
+
+  test('rejects a valid internal secret firing accepted for a non-active agreement (403)', async () => {
+    // accept_agreement sets status = 'active'. A pending agreement was never
+    // co-signed, so an internal 'accepted' notification for it is always spurious —
+    // without this guard a leaked secret could tell any creator their agreement is
+    // active when it is not.
+    const pending = await createTestAgreement(
+      creator.user.id,
+      `p1178-pending-${Date.now()}@example.com`,
+    );
+    try {
+      const { status, body } = await callFnInternal('send-agreement-emails', INTERNAL_FN_SECRET!, {
+        action: 'accepted',
+        agreementId: pending.id,
+      });
+      expect(status, 'Internal accepted must require an active agreement').toBe(403);
+      expect(body.error).toBe('Forbidden');
+    } finally {
+      await deleteTestAgreement(pending.id);
+    }
+  });
+
+  test('accepts a valid internal secret firing the accepted notification (200)', async () => {
+    // The allow half of the branch. The canary
+    // (e2e/integration/p1178-reproduce.spec.ts) proves the email actually sends;
+    // this asserts the authorization decision itself, without a 90s Mailgun wait.
+    const { status, body } = await callFnInternal('send-agreement-emails', INTERNAL_FN_SECRET!, {
+      action: 'accepted',
+      agreementId,
+    });
+    expect(status, 'The internal caller must be authorized (P1178 fix)').toBe(200);
+    expect(body.ok).toBe(true);
   });
 });
 

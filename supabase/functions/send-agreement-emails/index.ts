@@ -7,6 +7,9 @@ const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+// P1178: shared secret proving an internal edge-function caller (create-and-sign).
+// Such a caller has no user to resolve, so auth.getUser() can never authorize it.
+const INTERNAL_FN_SECRET = Deno.env.get('INTERNAL_FN_SECRET') ?? '';
 
 const MAILGUN_BASE = MAILGUN_REGION === 'eu'
   ? 'https://api.eu.mailgun.net/v3'
@@ -393,18 +396,30 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), { status: 500, headers: corsHeaders });
     }
 
-    // ── JWT validation ────────────────────────────────────────────────────────
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    // ── Caller authentication ─────────────────────────────────────────────────
+    // Two kinds of caller exist:
+    //   1. A party to the agreement holding a user JWT — the app's normal path.
+    //   2. An internal edge function (create-and-sign, the P527 direct-sign flow)
+    //      holding INTERNAL_FN_SECRET. It acts for no user, so auth.getUser() can
+    //      never authorize it: pre-P1178 it sent the service-role key in the Bearer
+    //      position and got a silent 401, so the accepted-email never sent.
+    const internalSecretHeader = req.headers.get('x-internal-secret');
+    const isInternal = INTERNAL_FN_SECRET !== '' && internalSecretHeader === INTERNAL_FN_SECRET;
+
+    let callerId: string | null = null;
+    if (!isInternal) {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const anonClient = createClient(supabaseUrl, SUPABASE_ANON_KEY);
+      const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      }
+      callerId = user.id;
     }
-    const token = authHeader.replace('Bearer ', '');
-    const anonClient = createClient(supabaseUrl, SUPABASE_ANON_KEY);
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-    }
-    const callerId = user.id;
 
     const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
@@ -423,10 +438,17 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Missing action or agreementId' }), { status: 400, headers: corsHeaders });
     }
 
+    // Least privilege for internal callers: 'accepted' is the only notification any
+    // internal caller fires today, so a leaked secret cannot blast invitations or
+    // resends at arbitrary agreement ids.
+    if (isInternal && action !== 'accepted') {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
+    }
+
     // ── Authorization: caller must be a party to the agreement ────────────────
     const { data: agreementCheck } = await supabaseClient
       .from('clarity_agreements')
-      .select('creator_profile_id, partner_profile_id')
+      .select('creator_profile_id, partner_profile_id, status')
       .eq('id', agreementId)
       .single();
 
@@ -434,12 +456,24 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Agreement not found' }), { status: 404, headers: corsHeaders });
     }
 
-    const isParty =
-      agreementCheck.creator_profile_id === callerId ||
-      agreementCheck.partner_profile_id === callerId;
-
-    if (!isParty) {
+    // Internal callers carry no user identity, so the party check cannot apply to
+    // them — the shared secret is their authorization, and these two checks are
+    // their scope. accept_agreement sets status = 'active' (p443 migration), so an
+    // internal 'accepted' notification is only ever legitimate for an active
+    // agreement; without this, a leaked secret could fire "X co-signed your
+    // agreement" at the creator of a pending, declined or terminated one.
+    if (isInternal && agreementCheck.status !== 'active') {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
+    }
+
+    if (!isInternal) {
+      const isParty =
+        agreementCheck.creator_profile_id === callerId ||
+        agreementCheck.partner_profile_id === callerId;
+
+      if (!isParty) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
+      }
     }
 
     switch (action) {

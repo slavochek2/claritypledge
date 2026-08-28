@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: qa
 type: bug
 rank: 238
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [edge-functions, auth, silent-failure, email]
 driver: anomaly
-delivery_stage: reproduce
-pipeline_ran: [reproduce]
+delivery_stage: fix
+pipeline_ran: [reproduce, fix]
 reproduce_artifact:
   test_file: e2e/integration/p1178-reproduce.spec.ts
   root_cause: "create-and-sign:265 sends the service_role JWT as Bearer; send-agreement-emails:405 resolves it with auth.getUser(), which yields no user (no sub claim) and returns 401. Blast radius is the P527 new-user direct-sign path only."
@@ -18,6 +18,9 @@ reproduce_artifact:
   reproduced_at: 2026-08-28
   fix_shape: open
   fix_shape_why: "shared-secret header on send-agreement-emails vs inlining the send into create-and-sign"
+date_resolved: '2026-08-28'
+root_cause: "create-and-sign sent the service_role JWT in the Authorization: Bearer position; send-agreement-emails resolved it with auth.getUser(), got no user (service_role carries no sub claim), and returned 401. The caller was fire-and-forget with a bare .catch(), which never inspects status, so the 401 was invisible."
+resolution: "send-agreement-emails gained an internal-caller branch keyed on an INTERNAL_FN_SECRET header (the WEBHOOK_SECRET / CRON_SECRET / GCS_UPLOAD_SECRET pattern), confined to action 'accepted'. create-and-sign now sends the anon key for the gateway plus that secret — no database key leaves the function — and logs every non-2xx with a P1178-DIAG marker instead of swallowing it."
 ---
 
 # P1178: `create-and-sign` sends the service-role key where a user login token is expected — silently
@@ -154,12 +157,100 @@ non-user credential.
 
 ## Done when
 
-- [ ] It is established from Mailgun evidence whether this email sends today
-- [ ] A signed agreement on test produces the accepted-email, proven by a Mailgun event
-- [ ] The failure is no longer silent — a failed internal notification raises something a human
-      or Sentry can see, rather than being swallowed by `.catch()`
-- [ ] The grep for sibling instances of the pattern is recorded, with each hit either fixed or
-      explicitly cleared
+- [x] It is established from Mailgun evidence whether this email sends today — **it did not.**
+      The canary's Mailgun oracle answered what the 1-day event log could not: canary red (no
+      accepted-email in 90s) against a green control on the same oracle, twice.
+- [x] A signed agreement on test produces the accepted-email, proven by a Mailgun event — canary
+      green in 16.4s, then 10.0s on a re-run against the final deployed versions.
+- [x] The failure is no longer silent — see Resolution: `notifyCreator` inspects `res.ok` and logs
+      status + body under a `P1178-DIAG` marker; a missing secret is logged rather than dropped.
+- [x] The grep for sibling instances of the pattern is recorded, with each hit either fixed or
+      explicitly cleared — re-run at fix time, output in Resolution.
+
+## Resolution (2026-08-28)
+
+**Fix shape chosen: 1 (service-to-service path on the receiver), not 2 (inline the send).**
+`send-agreement-emails` holds its own private `escapeHtml` / `htmlEmail` / `button` / `sendEmail`
+and the `agreements@` sender; `_shared/email-helpers.ts` is the *events* variant (`events@`).
+Inlining therefore means either a second copy of the accepted-email template — two copies of one
+user-visible email, free to diverge — or extracting five helpers used by all five handlers, a
+refactor across the whole email surface inside a bug fix. Option 1 adds one auth branch to an
+existing hop and reuses a pattern the codebase already carries three times.
+
+**Receiver (`send-agreement-emails`).** An internal-caller branch keyed on `x-internal-secret`
+matching the `INTERNAL_FN_SECRET` env var skips the JWT resolution and the party check — the two
+things a caller with no user identity can never satisfy. Three limits keep the bypass narrow:
+internal callers may only fire `action: 'accepted'`; the agreement must exist (404 unchanged); and
+it must be `status = 'active'`, which `accept_agreement` is what sets. The status check came from
+code review — without it, the action allowlist bounded *which action* a leaked secret could fire
+but not *which agreement*, so it could have told the creator of a pending, declined or terminated
+agreement that it had just been co-signed. An unset secret makes `isInternal` structurally false,
+so the branch fails closed.
+
+**Caller (`create-and-sign`).** `notifyCreator()` sends the anon key in `apikey` + `Authorization`
+purely to clear the gateway's `verify_jwt` check (`send-agreement-emails` is deployed
+`verify_jwt=true`, confirmed v27/v28 on test), and proves who it is with the secret header. No
+database key leaves the function. The call stays fire-and-forget — the agreement is already sealed
+and the signer must not wait on Mailgun — but a non-2xx response and a transport error are both
+logged with a greppable `P1178-DIAG` marker. Edge functions have no Sentry wired up in this repo
+(grep: zero hits under `supabase/functions/`), so the Supabase dashboard log is the read path,
+per the `[BUG_ID-DIAG]` convention in `docs/decisions.md` 2026-04-17.
+
+**Sibling grep, re-run at fix time:**
+
+```
+$ grep -rn 'Authorization: `Bearer' supabase/functions/
+enqueue-transcription/index.ts:72  Google OAuth token to Cloud Tasks — different pattern, cleared
+create-and-sign/index.ts:74        this fix (now the anon key, not the service-role key)
+
+$ grep -rn 'functions/v1/' supabase/functions/
+create-and-sign/index.ts:69        the only edge-function-to-edge-function call in the repo
+```
+
+Adjacent, **not** the same class and left alone: `generate-banner/index.ts:450` accepts the
+service-role key as an `x-service-key` shared secret. That receiver expects the key deliberately,
+so it does not fail silently — but it does use the database master key as a service credential, and
+no caller in this repo sends that header.
+
+**Evidence.**
+
+| Check | Result |
+|---|---|
+| Canary before fix (`p1178-reproduce.spec.ts`) | control ✓ 11.4s, canary ✘ 1.6m |
+| Canary after fix, final deployed versions | 2 passed (14.2s) — canary 10.0s |
+| `edge-fn-authz-regression.spec.ts` (6 new P1178 cases) | no secret → 401, wrong secret → 401, valid secret + `invitation` → 403, valid secret + unknown agreement → 404, valid secret + non-active agreement → 403, valid secret + `accepted` → 200 |
+| Pre-existing party guard (non-party JWT → 403) | still passes — the bypass did not widen it |
+| Unit suite | 3266 passed, 19 skipped, 0 failed |
+| `pre-commit-checks.sh` | all checks passed |
+
+## Pre-deploy Checklist
+
+This fix introduces a new server-side secret, so prod needs it provisioned *before* either
+function deploys. Verified 2026-08-28: `INTERNAL_FN_SECRET` is present on the test project and
+**absent on prod** (19 secrets listed, not among them).
+
+### Secrets to provision
+- [ ] `INTERNAL_FN_SECRET` — `supabase secrets set INTERNAL_FN_SECRET=$(openssl rand -hex 32) --project-ref <prod-ref>`
+      (a **fresh** value — never reuse the test project's)
+
+### Deploy commands
+- [ ] `./scripts/deploy-functions.sh send-agreement-emails --env prod` — **receiver first.** If the
+      caller ships first, it sends a header the old receiver ignores and the notification 401s
+      exactly as it does today (logged, not silent). The reverse order is never worse than the
+      status quo, but receiver-first has no gap at all.
+- [ ] `./scripts/deploy-functions.sh create-and-sign --env prod`
+- [ ] No Vercel redeploy needed — nothing here is a `VITE_*` build-time var.
+
+### Post-deploy verification
+- [ ] Direct-sign a test agreement on prod as a new user; confirm the creator receives the
+      "co-signed your Clarity Partner Agreement" email (Mailgun `accepted` event).
+- [ ] Grep the `create-and-sign` prod logs for `P1178-DIAG` — any hit means the notification is
+      still failing, and the log line carries the status and body.
+
+**Fail-closed until then.** `check-edge-function-secrets.sh` classifies `INTERNAL_FN_SECRET` as
+REQUIRED-EMPTY, so a prod deploy is mechanically blocked while the secret is missing. If it were
+somehow bypassed, `create-and-sign` skips the notification and logs `P1178-DIAG notify skipped`
+rather than failing silently.
 
 ## Notes
 
