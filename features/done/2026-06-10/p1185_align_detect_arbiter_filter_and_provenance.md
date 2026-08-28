@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 82
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [skills, align, detection, filtering]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-08-28
 ---
 
 # P1185: `/understanding:detect` gains an arbiter-failure filter and item provenance
