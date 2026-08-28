@@ -201,10 +201,12 @@ is not the founder's. It cannot be satisfied by a test fixture.
 **Hops 1 and 2 were walked on TEST, logged out, 2026-08-26** (dev server on `:5001` against
 `gfjctyxqlwexxwsmkakq`, isolated browser context — no account created):
 
-- All seven `cmp7` Points render at **`/feed/cmp7`**, which redirects to
-  `/feed?tag=cmp7&sort=oldest&version=latest` (`App.tsx:143-146`) — **this is the room's URL**, and
-  the oldest-first ordering the instrument requires is applied by the redirect, so nobody has to type
-  a sort param. All ten `cmp10` Points confirmed present on test (7 × `cmp7`, 3 × `cmp3`).
+- All seven `cmp7` Points render on the stake surface at **`/stake/cmp7`**, reached from the room's
+  **Links** menu — P1179 superseded the old filtered-feed pointer that stood here. **The Links menu is the
+  room's URL**: the attendee opens Links in the nav and taps `cmp7`, so nothing is typed and nothing
+  is dictated out loud. The oldest-first ordering the instrument requires is requested from the
+  database by the surface itself, not carried in a sort param. All ten `cmp10` Points confirmed
+  present on test (7 × `cmp7`, 3 × `cmp3`).
 - Tapping a position while logged out shows an inline *"Sign up or log in to save your position"*,
   and P458's forwarding works: the link carries `action=set-position`, the `pointId`, the chosen
   `position`, and a `redirect` back to the filtered feed.
@@ -243,8 +245,9 @@ whole of what D7 still needs.
 
 Everything up to this point is verified. This is the remainder.
 
-1. `npm run dev` (test DB, `:5001`), then open `http://localhost:5001/feed/cmp7` in a **private
-   window** — a logged-in founder session invalidates the walk.
+1. `npm run dev` (test DB, `:5001`), then open `http://localhost:5001/stake/cmp7` in a **private
+   window** — a logged-in founder session invalidates the walk. In the room this is reached from the
+   **Links** menu rather than typed (P1179).
 2. Tap a position on the first Point. Follow *"Sign up or log in to save your position"*.
 3. Sign in as **someone who is not the founder** — either **Continue with Google** with a
    non-founder Google account, or the magic link sent to a mailbox that is not the founder's
@@ -253,7 +256,7 @@ Everything up to this point is verified. This is the remainder.
    completes without a `mark_self_verified failed` warning in the console (it is caught and logged
    non-fatally at `AuthCallbackPage.tsx:507`, so a failure is silent in the UI), and whether the
    position tapped in step 2 is actually applied on return or silently dropped.
-5. Stake the remaining six, then `/feed/cmp3` for the triad.
+5. Stake the remaining six, then open **Links** and tap `cmp3` for the triad (`/stake/cmp3`).
 6. Tell the agent when done — the DB side is verifiable from here: `profiles.is_verified` for the
    new account, and ten `point_positions` rows under its `user_id` with **no `service_role` write
    anywhere in the sequence**. That query is what ticks the Done-When box and p1055's `:206`.

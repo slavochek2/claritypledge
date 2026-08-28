@@ -18,6 +18,10 @@ import {
 import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+// P1179: the room's Links button. Renders as a sibling of the avatar in BOTH
+// right-hand groups so it holds the same position at every width, and returns
+// null outside an event context so the ~30 other routes are untouched (DW-1).
+import { EventLinksMenu, EventLinksButton } from "@/app/components/layout/event-links-menu";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
@@ -358,6 +362,10 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   // iOS status-bar inset (active once viewport-fit=cover is set) so the nav row
   // sits below the notch instead of under it. Resolves to 0 on Android/desktop.
   return (
+    // P1179: ONE provider for the whole nav — it owns the Links sheet and the
+    // event fetch, while EventLinksButton is mounted in BOTH right-hand groups.
+    // Mounting the whole menu in both gave two independent instances.
+    <EventLinksMenu>
     <nav
       data-nav="main"
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 pt-[env(safe-area-inset-top)] ${
@@ -515,6 +523,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     Start a Clarity Session
                   </Link>
                 )}
+                {/* P1179: Links — sibling of the avatar, same slot at every width */}
+                <EventLinksButton />
                 {/* Menu Trigger - P67: Avatar for verified users */}
                 <DropdownMenu modal={false} onOpenChange={(open) => {
                   if (open) {
@@ -621,6 +631,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   Start a Session
                 </Link>
               )}
+              {/* P1179: Links — sibling of the avatar, same slot at every width */}
+              <EventLinksButton />
               {/* Avatar (logged in) or hamburger (logged out) — hide hamburger in compact mode */}
               {(showUserMenu || !compact) && (
                 <button
@@ -721,5 +733,6 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         )}
       </div>
     </nav>
+    </EventLinksMenu>
   );
 }

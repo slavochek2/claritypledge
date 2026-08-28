@@ -39,7 +39,13 @@ export async function createTestEvent(
     status?: 'upcoming' | 'live' | 'completed' | 'cancelled';
   } = {}
 ): Promise<TestEvent> {
-  const slug = `test-event-${Date.now()}`;
+  // P1179: `Date.now()` alone is NOT unique across Playwright workers — three
+  // workers entering beforeAll in the same millisecond collide on the
+  // `events_slug_key` unique constraint, which surfaces as an unrelated-looking
+  // flake in whichever spec lost the race. Observed 2026-08-28 on
+  // e2e/integration/p1179-events-links-column.spec.ts (1 flaky, passed on retry).
+  // The random suffix makes the slug unique per CALL, not per millisecond.
+  const slug = `test-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const title = options.title || `Test Event ${Date.now()}`;
   const description = options.description || 'Test event for E2E tests';
   const datetime = (startDatetime || new Date()).toISOString();

@@ -24,6 +24,20 @@ function useIsMobile() {
 }
 
 // Context to share open state and mobile detection
+/**
+ * P1179: `forceSheet` pins the simple portal branch at EVERY width instead of
+ * switching to vaul above the mobile breakpoint.
+ *
+ * Why it exists: the vaul branch never opens for a controlled `open` with no
+ * `DrawerTrigger` inside the Root — the trigger lives in the nav's right-hand
+ * group, outside the drawer. Every existing consumer of this component is
+ * mobile-only in practice, so that branch was never exercised and the bug was
+ * invisible (epistemic.md 7b: green bounds what was modelled). Caught by
+ * e2e/p1179-links-navigation.spec.ts at the default desktop viewport, where the
+ * button rendered, reported itself active, and no sheet ever appeared.
+ *
+ * Opt-in on purpose: no existing consumer changes behaviour.
+ */
 const DrawerContext = React.createContext<{
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -41,10 +55,11 @@ const Drawer = ({
   open,
   onOpenChange,
   dismissible = true,
+  forceSheet = false,
   children,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root> & { dismissible?: boolean }) => {
-  const isMobile = useIsMobile()
+}: React.ComponentProps<typeof DrawerPrimitive.Root> & { dismissible?: boolean; forceSheet?: boolean }) => {
+  const isMobile = useIsMobile() || forceSheet
   const [internalOpen, setInternalOpen] = React.useState(open ?? false)
 
   const isControlled = open !== undefined

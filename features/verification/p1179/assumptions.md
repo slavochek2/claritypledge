@@ -24,3 +24,37 @@ carry over. Recorded because the two decisions now point opposite ways on the sa
 ## Made by the loop
 
 <!-- append below, one heading per call -->
+
+### A4. Entry ORDER: the three stake tags first, then the two tools, then extras.
+
+The contract's AC-4 lists the labels as "Start a Clarity Session, Transcribe, cmp7, cmp3, cmp10",
+which reads as an order; the approved reference says the separator falls **before Transcribe**.
+Those two cannot both be satisfied. Taken as: the reference wins on layout, the AC line is a list of
+which labels must appear verbatim, and the unit suite asserts the reference's grouping
+(`cmp7, cmp3, cmp10 | Transcribe, Start a Clarity Session | This event …`). Reversible — the order
+lives in one array in `event-links.ts`.
+
+### A5. A hostile or malformed extra is DROPPED silently, not surfaced as an error.
+
+DW-3 says "rejected or ignored". Both were available. Chose ignore: a malformed row written at
+publish time must not take the room's menu down in front of a live audience, and the operator sees
+the missing entry when they check the link before the event (the spec's own mitigation for the
+empty-surface risk). The five standard entries always render.
+
+### A6. An unreadable event row still yields the five standard entries.
+
+`getEventBySlug` failing (network, RLS, a row not yet migrated) resolves to `extras = []` rather
+than hiding the button. Same reasoning as A5: the standard five are global content that does not
+depend on the row at all, so failing closed would remove working destinations for no gain.
+
+### A7. `links` is mapped defensively in `events-service-real.ts` (`Array.isArray(row.links) ? … : []`).
+
+The column is `NOT NULL DEFAULT '[]'` with a `jsonb_typeof = 'array'` CHECK, so this branch should
+be unreachable in a migrated database. It is there for the window where code is deployed against a
+database the migration has not reached yet — during which `row.links` is `undefined`, not `[]`.
+
+### A8. The stake surface reads `?event=` but renders identically with or without it.
+
+Resolved Decision 2 makes the route global and the param purely a carrier for the Links button.
+The page therefore does not gate, filter or style anything on it. It is exposed in the DOM only so
+the e2e spec can assert the param survived the hop.

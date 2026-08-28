@@ -901,6 +901,19 @@ export interface Event {
   createdAt: string;
   status: EventStatus;
   bannerUrl?: string;
+  /** P1179: optional extra Links-menu entries. Tags only, never paths — see event-links.ts. */
+  links?: EventLinkEntry[];
+}
+
+/**
+ * P1179: one per-event extra in the room's Links menu.
+ * A TAG, never a path or URL — that is what makes the open-redirect invariant
+ * hold by construction rather than by a runtime check.
+ */
+export interface EventLinkEntry {
+  tag: string;
+  /** Optional display name; render `label ?? tag` (Resolved Decision 3). */
+  label?: string;
 }
 
 export interface EventWithHost extends Event {
@@ -946,6 +959,8 @@ export interface DbEvent {
   created_at: string;
   status: EventStatus;
   banner_url?: string | null;
+  /** P1179: JSONB array, defaults to [] on every row. */
+  links?: EventLinkEntry[] | null;
 }
 
 export interface DbEventRsvp {

@@ -39,6 +39,8 @@ interface DbEventWithHost {
   created_at: string;
   status: 'upcoming' | 'completed' | 'cancelled';
   banner_url: string | null;
+  /** P1179: JSONB [{tag, label?}] — extra Links-menu entries, [] on every row by default. */
+  links: { tag: string; label?: string }[] | null;
   host: {
     id: string;
     full_name: string | null;
@@ -91,6 +93,10 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     hostHasPledged: row.host?.has_pledged ?? false, // P118: Host pledge status
     hostEarCount: earCountOf(row.host), // P940: distinct stories host was rated on
     bannerUrl: row.banner_url ?? undefined,
+    // P1179: the column defaults to [] in the DB, but a row read before the
+    // migration lands (or a select that omits it) must still render the five
+    // standard entries rather than crash the room's menu.
+    links: Array.isArray(row.links) ? row.links : [],
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,

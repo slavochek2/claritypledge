@@ -43,6 +43,9 @@ const ReadyPage = lazy(() => import("@/app/pages/ready-page").then(m => ({ defau
 const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
 const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default: m.FeedPage })));
+// P1179: the locked stake surface. GLOBAL route — the content is the same at every
+// event; the Links button carries ?event=<slug> so it persists without nesting.
+const StakePage = lazy(() => import("@/app/pages/stake-page").then(m => ({ default: m.StakePage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
 const TranscribeRoomPage = lazy(() => import("@/app/pages/transcribe-room-page").then(m => ({ default: m.TranscribeRoomPage })));
 const MySessionsPage = lazy(() => import("@/app/pages/my-sessions-page").then(m => ({ default: m.MySessionsPage })));
@@ -764,6 +767,10 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+        {/* P1179: /stake/:tag — the feed with search, tag cloud, sort and Share removed.
+            `compact` matches the room routes so the nav's right-hand group (and the
+            Links button in it) is present and in the same place on arrival. */}
+        <Route path="/stake/:tag" element={<ClarityLandingLayout compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}
         <Route path="/feed/:tag" element={<FeedTagRedirect />} />
 
