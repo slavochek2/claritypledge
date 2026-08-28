@@ -137,6 +137,23 @@ accurate, but it measures rejections for two-way word share and panel shape — 
 80.8% — which is a different mechanism. It argues that the medium is source-starved; it does not
 argue about reported speech.)*
 
+**4b. Gate 0 must require a name-bearing artefact as identity evidence.** The sealed
+`mapping_evidence` for position 3 read *"spk:1 addresses spk:0 with 'the title of your book'"* —
+which establishes that a speaker **changed** and that they **wrote a book**, and nothing else. Both
+co-authors satisfy it, and the source turned out to be Nate Soares, not Eliezer Yudkowsky.
+`select.md` Step 2b already states the principle (*"each one marks that the speaker changed, never
+who it changed to"*); Gate 0 accepted evidence that did not meet it.
+
+Add to `select.md` Gate 0: identity must be fixed by an artefact that **carries the name** — the
+transcript, the video description, or the title — never by inference from a turn boundary. The
+cheapest form is one command, and it is now required in the pasted Gate 0 evidence:
+
+```bash
+grep -ciE "<surname>" ~/.local/share/yt-store/<id>/en.vtt   # 0 is a STOP
+```
+
+Today's failure returns **0** for `yudkowsky|eliezer` and **6** for `soares|sores` on the same track.
+
 **5. The single-source question.** [FOUNDER DECISION: do the four arbiter-failure modes move out of
 `lean-canvas.md` §Customer Segments into their own model doc?]
 
@@ -259,7 +276,7 @@ session hunting a fifth and reintroduce the confound this spec declares out of s
 - Do NOT change the seal mechanics, gate structure, or approvals flow.
 - Do NOT re-open the `ai-power-remedies` approvals block or re-seal it.
 - Do NOT add a sixth pipeline command.
-- Do NOT resolve the Nate Soares misattribution here — separate decision, separate change.
+- Do NOT resolve the Nate Soares misattribution here — *which person fills position 3* stays a separate founder decision. Item 4b fixes the **check that missed it**, not the run.
 - Do NOT copy the arbiter-failure definitions into any skill file; skills point at the source.
 
 ## Done-When
@@ -268,6 +285,8 @@ session hunting a fifth and reintroduce the confound this spec declares out of s
 - [ ] `prepare.md` applies the interface disqualifier as the gate and a loss estimate as the rank, **at Stage 4a on the synthesized statement**, and prints a `Not for this instrument` list naming each interface
 - [ ] `prepare.md` writes the frozen list between Stage 4a and Stage 4c, and the ordering is stated as a constraint in the file
 - [ ] `select.md` Gate 0 carries the reported-speech rule in exclude-the-passage form; `grep -c "reported speech"` across the six disagreement skills returns non-zero
+- [ ] `select.md` Gate 0 requires a name-bearing identity artefact, and the pasted evidence includes a surname `grep -ciE` count against the raw `.vtt`
+- [ ] The new identity check is exercised against its failure path: run it on `B_HDkqZtGOE` for `yudkowsky` and confirm it returns 0 and halts (epistemic gate 7 — a gate not seen to fail is unproven)
 - [ ] Founder decision recorded on whether the four modes move out of `lean-canvas.md`
 - [ ] `points-process.md` invariant 2 updated in the same change as `select.md` Gate 0
 - [ ] Run B's redacted input file written and hashed before run B starts; `grep -c "### Point P"` on it returns 0
