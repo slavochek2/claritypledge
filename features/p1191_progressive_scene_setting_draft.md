@@ -41,40 +41,76 @@ is nearly assembled by the time the points are published?
 
 ## Appetite
 
-**Blast radius: low** — additive appends to a new file; no stage's existing output changes.
+**Blast radius: low for stage 1** (one stage writes two extra lines). **Medium for stage 2** — five skill files, each carrying pipeline STOPs, is not low.
 **Reversibility: high** — delete the file, remove the append block. **Decision density: two** —
 whether the assembling skill is new or an extension of an existing blog skill, and whether facts
 from non-arguer sources may appear.
 
 ## Solution
 
-**1. A per-run draft file, append-only, one section per stage.** Each disagreement stage appends
-what it alone knows, in prose a reader could use, at the moment it has it. Nothing is rewritten by
-a later stage — appends only, so a stage re-run never destroys an earlier stage's material.
+**Corrected premise first — the original rejection reasoning was false.** This spec rejected the
+cheap option ("assembly reads the run file directly") on the grounds that the reader-facing
+reasoning lives in terminal output, not the run file. That is wrong.
+`grep -c "agree_commits_to\|disagree_commits_to\|phase_0_note\|judge_dissent\|position_statement"`
+on the live run file returns **18**. Every category this spec claimed was missing is present, in
+prose: `phase_0_note` (why this fork), `position_statement` and `claim` (who argues what),
+`judge_dissent` (why this set), `inference_chains`, `agree_commits_to` / `disagree_commits_to`
+(why the point matters). Four of the five stages' proposed contributions already exist there.
 
-**2. What each stage contributes.** `select` — the fork, why it is contested, who occupies each
-position and why they were chosen. `prepare` — the points, why each is load-bearing, and the sealed
-prediction. `positions` — the quotes with timecodes and source links. `story-draft` — the narrative
-per arguer. `publish` — the live embed URLs and the public feed link.
+**So the scope collapses. Ship stage 1; stage 2 only if stage 1 proves insufficient.**
 
-**3. Assembly is a separate, later step** that reads the accumulated draft plus the published
-points and stories and produces the article. It rewrites freely; the accumulated file is raw
-material, not a draft article. Route through the existing blog pipeline rather than inventing a
-publishing path.
+### Stage 1 — the minimum that closes the real gap
 
-**4. Facts from sources that are not arguers.** The scene-setting half wants material an approved
-arguer never said — what a report contained, what a number was. [FOUNDER DECISION: may the draft
-carry facts from non-arguer sources, and under what attribution?] The pipeline's standing rule is
-that no unapproved person gets an agent, a story, or an imputed position; quoting a *document* is a
-different act from imputing a *position*, and the boundary needs stating before anything is written.
+1. **`publish` writes the live embed URLs and the public feed link back to the run file.** This is
+   the one contribution genuinely absent from it, and it is one stage touched, not five.
+2. **Assembly is `/prepare-blog`, not a new skill.** Open Question 1 is answerable by reading the
+   file: `prepare-blog` shapes rough material into a post and already reads raw-material
+   directories, with a mode for shaping an external long document. Entry is `/quick-blog` for the
+   A-number and the `content/articles/` path that `privacy-watched-paths.sh` depends on. The real
+   pipeline is `quick-blog → prepare-blog → story-gate → draft-blog → ship-blog → promote-blog` —
+   **six blog skills, verified by `ls`** (this spec previously said four; the review said eight;
+   both were wrong).
+
+### Stage 2 — the accumulating draft, only if stage 1 is not enough
+
+If the run file plus the feed turns out to under-serve the article, add the per-run draft — with
+the discipline the run file already has and this spec originally lacked:
+
+3. **Named, replaceable blocks, one owner per stage** — the same single-writer rule as the run
+   file, with literal end-markers. **"Append-only" was not a safety property**: `prepare.md` treats
+   re-runs as a designed path, so an append-only draft accumulates a *second* prepare section
+   carrying superseded points and a superseded predicted split, with nothing saying which wins. A
+   re-run replaces its own block and leaves every other block byte-identical.
+4. **Append only at founder-gated stages.** `positions` and `story-draft` have mechanical asserts
+   and no human gate, so for 2 of 5 stages the "when I say approved" trigger this spec is built on
+   does not exist. Either those two do not append, or the assembling step carries their review
+   explicitly — per quote, not per article.
+5. **A failed append is a warning, never a STOP.** Pipeline integrity must never depend on a
+   cosmetic artifact existing.
+
+## The prediction never enters. Any stage, any paraphrase.
+
+`run-pipeline.md:51` states the prediction "is written, **never shown to a later pass**." The
+assembling step is a later pass, and so is the founder reading a draft.
+
+Worse, the article's whole purpose is to be read by the room *before* they take positions.
+[decisions.md](../docs/decisions.md) 2026-08-13 [product] "The sealed-bid guarantee is load-bearing" is a standing founder ruling on exactly that: *"an anon-readable prediction is
+a defect, not a nicety … A reader who sees the prediction first is anchored by it, so their rating
+stops being an independent measurement … A falsified prediction is a result; a prediction the
+reader already saw is not a measurement at all."*
+
+Publishing the predicted split to the room does not weaken the calibration signal — **it removes
+it**, while every seal still verifies green. The original spec listed "the sealed prediction" as
+`prepare`'s contribution. Struck.
 
 ## Alternatives Considered
 
 - **Write the article after publishing, from the run file.** The status quo. Rejected by the
   founder as re-deriving context five stages already had.
-- **Have the assembling skill read the run file directly, no accumulated draft.** Weaker: the run
-  file is a machine contract with sealed blocks, and the reader-facing *reasoning* — why this fork,
-  why this point matters — is in the terminal output, not the run file.
+- **Have the assembling skill read the run file directly, no accumulated draft.** **Now the
+  recommended path** — the rejection above was based on a false claim about the run file's contents,
+  corrected in the Solution. Its sealed blocks are read-only to a reader; nothing stops assembly
+  reading the rest.
 - **One stage writes the whole draft at the end.** That is the status quo with extra steps.
 
 ## Risks / Non-Goals
@@ -82,10 +118,10 @@ different act from imputing a *position*, and the boundary needs stating before 
 | Risk | Label | Note |
 |---|---|---|
 | Appends bloat every run whether or not an article is wanted | ACCEPT | One text file per run in `.private/`; cost is disk, not attention |
-| A stage's append leaks sealed prediction content before it should be public | MITIGATE | The prediction seal is public *after* the event, not before; the assembling step gates on that, not the append |
-| Private or unapproved material reaches a public article | MITIGATE | Assembly routes through the existing privacy gate; the accumulated draft lives in `.private/` |
-| The article becomes a fifth writer of run-file state | MITIGATE | Separate file, never the run file — the single-writer-per-section rule stays intact |
-| Non-arguer facts blur into imputed positions | DEFER | Blocked on the founder decision above |
+| The predicted split reaches the room before they answer | MITIGATE | Prediction content never leaves `.private/points-runs/<slug>.md`, in any paraphrase. The *hash* being public is the design (it is committed before the points are shown); the **content** is the risk. `grep -rn "after the event"` returns no matches — the original mitigation named a policy that does not exist |
+| Private or critical material about named living people reaches a public article | MITIGATE | **Not the automated gate** — `audit-privacy.sh` matches only founder identifiers, a path and a canary, and `.claude/rules/pii.md` says outright that a green gate is not evidence. Worse, **no blog skill invokes it at all** (verified: only `create-letter-from-transcript` and `sifter-story` mention privacy), and `/ship-blog` publishes via the Ghost API without the repo being pushed. The control is a **named human gate**: founder reads and approves every named person and every quote before Ghost. `judge_dissent` and `positions_set_aside` go on an explicit never-append list — they hold critical characterizations of named living people and a record of who was rejected and why, written for internal QA |
+| A second progressive artifact with five writers and no owner | MITIGATE | The run file's own rule is untouched, but that is not evidence the new file is safe — it needs its own equivalent. Stage 2 item 3 supplies it |
+| Non-arguer facts blur into imputed positions | MITIGATE | The boundary is already settled law — `prepare.md:200`: *"You may quote what someone wrote or said and reason about what it commits them to, with the chain shown. You may not state what they believe, would answer, or would vote."* Two ways it still breaks: **placement is imputation** in a position-indexed artifact (filing a document under a position assigns its author a stance), and **a document has no Gate 0 and no transcript seal**, so it sits in the same typographic register as `grep -F`-verified quotes at strictly weaker provenance |
 
 **Non-Goals**
 - Do NOT write to the run file; this is a separate artifact.
@@ -95,19 +131,29 @@ different act from imputing a *position*, and the boundary needs stating before 
 
 ## Done-When
 
-- [ ] Each of the five disagreement stages appends its section to a per-run draft file
-- [ ] Re-running a stage appends without destroying an earlier stage's section
-- [ ] Founder decision recorded on non-arguer facts and their attribution
-- [ ] One full pipeline run produces a draft containing all five sections
-- [ ] The assembling step produces an article draft from that file plus the published embeds, and it passes the privacy gate
+**Stage 1**
+- [ ] `publish` writes the live embed URLs and the public feed link back to the run file
+- [ ] `/prepare-blog`, entered via `/quick-blog`, produces an article draft from the run file plus the published embeds — no new skill written
+- [ ] The draft contains **no prediction content**, verified by grep against the prediction block's own terms
+- [ ] Founder read-and-approved every named person and every quote before Ghost, recorded — not delegated to `audit-privacy.sh`
+- [ ] Founder decision recorded on what provenance record a non-arguer fact must carry
+
+**Stage 2 — only if stage 1 proves insufficient, and that insufficiency is written down first**
+- [ ] Each appending stage owns one named block with a literal end-marker; a re-run replaces its own block and leaves every other block byte-identical
+- [ ] `positions` and `story-draft` either do not append, or the assembling step carries their per-quote review
+- [ ] A failed append emits a warning and never halts the pipeline
 
 ## Open Questions
 
-1. Is assembly a new skill or an argument to an existing blog skill? Not resolved — depends on how
-   much of the existing blog pipeline applies.
-2. Does the article publish before the event (scene-setting) or after (record)? The founder
-   describes before; the sealed prediction argues for a second, after-the-fact piece. Both may be
-   right, and that is two artifacts, not one.
+1. ~~Is assembly a new skill?~~ **Resolved by reading the files: no.** It is `/prepare-blog`,
+   entered via `/quick-blog`. Six blog skills already exist.
+2. **Promoted into the Solution, because the prediction rule depends on it.** Before-the-event and
+   after-the-event are **two artifacts**: the scene-setter carries the fork, the people and the
+   points and *no prediction*; a second, after-the-fact piece may carry the prediction against what
+   the room actually did, which is the only context in which publishing it is a result rather than
+   an anchor.
+3. Does stage 1 actually under-serve the article? Unknown until one is written. Stage 2 is not
+   built until this is answered from a real attempt.
 
 ## Related
 
