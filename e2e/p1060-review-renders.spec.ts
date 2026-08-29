@@ -106,7 +106,15 @@ test.describe('P1060 reviewer renders', () => {
     // the default photographs three identical discs and certifies an avatar stack
     // nobody sees in production. Give each participant its own colour so the
     // reviewer is judging the real thing.
-    const COLOURS = ['#3B82F6', '#0EA5E9', '#6366F1', '#14B8A6', '#F43F5E', '#8B5CF6', '#64748B'];
+    // The app's OWN avatar palette (api.ts getRandomColor, duplicated in
+    // accept-agreement-page.tsx and agreement-email-confirmation-page.tsx), not a
+    // set invented here. An earlier version of this fixture picked pleasant hues off
+    // the top of its head — including indigo and violet — which is the same
+    // unrepresentativeness as the all-one-colour default it replaced, just harder to
+    // notice: a reviewer then judges avatars no real profile can have. Sampling the
+    // TEST DB's 1000 profiles returns exactly these five values and nothing else
+    // that the palette generates.
+    const COLOURS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
     await Promise.all(
       [p1, p2, member, ...overflow].map((u, i) =>
         supabaseAdmin.from('profiles').update({ avatar_color: COLOURS[i % COLOURS.length] }).eq('id', u.user.id),

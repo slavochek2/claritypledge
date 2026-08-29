@@ -266,3 +266,38 @@ so rounds 6 and 7 are the first to see the state the contract asks about.
 **Independence, stated plainly.** Round 6 is a **third** reviewer that has seen none of
 rounds 1–5. Round 7 is the reviewer that found the round-4 defect. Three reviewers
 were used across seven rounds; all three reported, 7 of 7 rounds delivered.
+
+## A16 — The reviewer's purple flag is real, but its subject is upstream and pre-existing
+
+Round 6 flagged, for a founder call rather than as a failure, that a per-person avatar
+hue read "closer to purple on close crop" — the one nominally-banned hue family
+appearing anywhere in the set. Chased rather than forwarded (gate 9).
+
+**Two things are true, and the second is the one that matters.**
+
+**1. That specific hue was the loop's fault, not the product's.** The indigo/violet
+came from this render fixture, which had been given a set of pleasant hues picked out
+of the air. That is the *same* unrepresentativeness as the all-one-colour `#4A90E2`
+default it replaced (A-render fix, round 1) — just harder to notice, because it looks
+plausible. A reviewer was judging avatar colours no real profile can have. Fixed: the
+fixture now uses the app's own palette.
+
+**2. The app's real avatar palette contains a banned colour, in three copies.**
+`["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"]` is hardcoded in
+`src/app/data/api.ts:628` (`getRandomColor`), `src/app/pages/accept-agreement-page.tsx:340`
+and `src/app/pages/agreement-email-confirmation-page.tsx:72` — three literal copies of
+one list, no shared constant. `#FFD700` is gold; [.claude/rules/src.md](../../../.claude/rules/src.md)
+says "NEVER: green action buttons, amber, orange, yellow, or purple in UI".
+
+Confirmed against data, not inferred: a read-only sample of 1000 profiles on the
+**test** DB returns exactly that palette's values — `#FFD700` ×9, `#002B5C` ×7,
+`#FF6B6B` ×6, `#4ECDC4` ×4, `#0044CC` ×4 — plus one `#A21CAF` (magenta) from some
+other path, and 966 `#4A90E2` from the test-user helper. `profiles.avatar_color` is
+plain `text` with no constraint (`20250101_initial_schema.sql:13`), and the only
+default is a read-time `?? '#3B82F6'` in `person-avatar.tsx`.
+
+**Not fixed here, deliberately.** It predates this spec, it is written at signup and
+agreement-acceptance, three call sites would need a shared constant, and rows already
+carry the value — so changing it is a data question as well as a code one. **P1060
+does make it more visible**: avatars now render on the `/org` directory cards and the
+org header, where they did not before. Founder's call.
