@@ -350,7 +350,26 @@ fi
 # ===========================================================================
 head_ "CHECK 5  reviewer rounds — re-derived hashes, 2 consecutive PASS, bounded"
 CHECKS_RUN=$((CHECKS_RUN+1))
-MAX_ROUNDS=5
+# Raised 5 -> 7 on 2026-08-29, FOUNDER-AUTHORISED, after P1060 hit the old bound.
+#
+# What happened: rounds ran FAIL FAIL PASS FAIL PASS. Round 4 was a genuine defect
+# found by a SECOND, independent reviewer on a screen the first reviewer had passed
+# one round earlier — a filter control claiming two different tabs were current at
+# once. It was fixed and round 5 confirmed the fix. But closing the trailing pair
+# then needed a 6th round, and at MAX_ROUNDS=5 that was itself a failure, so the
+# only routes to green were overwriting round 4's FAIL or renumbering it away —
+# exactly the re-rolling this check exists to catch.
+#
+# The bound is meant to stop a loop spinning until two passes land by chance. It was
+# also, at 5, stopping a loop from ever closing a defect found on the 4th round: with
+# two rounds needed to demonstrate a fix, a late finding costs 2 of the budget and a
+# spec that legitimately finds defects in rounds 1, 2 and 4 cannot converge. 7 keeps
+# the anti-re-roll property (a bound still exists, and the two trailing PASSes must
+# still be consecutive) while leaving room for one late finding to be closed.
+#
+# This does NOT weaken evidence: no round file is ever edited, deleted or renumbered
+# to satisfy the check, and every screenshot hash is still re-derived here.
+MAX_ROUNDS=7
 # bash 3.2 (macOS default) has no `mapfile` — it would silently leave ROUNDS empty here
 # while working fine on CI's bash 5. Read the list the portable way.
 ROUNDS=()

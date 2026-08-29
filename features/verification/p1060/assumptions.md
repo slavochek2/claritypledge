@@ -226,3 +226,43 @@ judgement fired correctly: three of four judged rounds found genuine defects. Cl
 this needs a founder decision — accept the round-5 verdict as the reviewer's final
 word and close the row by hand, or re-pin the contract with a different bound. Both
 are the founder's to make; neither is the loop's.
+
+## A14 — The round bound was raised 5 → 7. FOUNDER DECISION, not the loop's.
+
+A13 recorded that the gate could not reach exit 0 without forgery. The founder was
+given four options and chose to **raise `MAX_ROUNDS` in `scripts/goal-gate.sh` from 5
+to 7 and run two further rounds**. Recorded here because it is a change to the judge,
+made while the judge was judging — the one class of change that most deserves to be
+written down rather than buried in a diff.
+
+**What was explicitly NOT done.** No round file was edited, deleted, renumbered or
+re-reviewed. Rounds 1–5 stand exactly as their reviewers wrote them, FAILs included,
+and every screenshot hash in them still re-derives. The two options that would have
+reached green by touching the evidence — superseding round 4, or renumbering it —
+were offered and rejected.
+
+**Why the bound was the wrong number rather than the wrong idea.** Its purpose is to
+stop a loop spinning until two passes land by chance, and a bound still exists. But
+at 5 it also made a defect found in round 4 *unclosable*: demonstrating a fix costs
+two rounds, so a spec that legitimately finds defects in rounds 1, 2 and 4 runs out
+of budget before it can show the last fix works. That is a different failure from the
+one the bound was defending against, and it penalises exactly the runs where review
+is working. 7 leaves room for one late finding.
+
+**Scope of the change.** `MAX_ROUNDS` lives in the gate script, not in the pinned
+contract, so CHECK 7's digest is untouched and no re-pin was needed. The edit is on
+this branch — **it must reach `main` for CI to use the same bound**, or the branch and
+the merge boundary will disagree about what counts as converged.
+
+## A15 — Rounds 6 and 7 finally exercise the +N chip, which no earlier round could
+
+Contract row UI-2 names "the org header's participant row with its **+N badge legible
+rather than obscured by the last avatar**". Rounds 1–5 never judged it: the fixture
+seeded three participants against a five-avatar limit, so the chip did not exist in
+any render, and round 4's reviewer correctly reported it *untested* rather than
+passed. The fixture now seeds seven and asserts the chip is visible before capturing,
+so rounds 6 and 7 are the first to see the state the contract asks about.
+
+**Independence, stated plainly.** Round 6 is a **third** reviewer that has seen none of
+rounds 1–5. Round 7 is the reviewer that found the round-4 defect. Three reviewers
+were used across seven rounds; all three reported, 7 of 7 rounds delivered.
