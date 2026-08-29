@@ -117,6 +117,26 @@ every documented workflow of both tools was re-run through the new behaviour to 
 refusals (gate 7c) — six shapes, six hits, zero paid calls. **Where recovering pre-existing entries
 was needed, parameters were recovered by *reproducing the recorded key hash* from a candidate list,
 never guessed: 5 indexed, 18 left out to be redone once.**
+**The mirror-image defect, found by review the same day and fixed.** The rule above is about
+inputs wrongly IN the key. The same pass found one wrongly OUT of it: the cookie source was
+classified as separating — correctly, since cookies change WHICH bytes YouTube serves for
+member-only or age-gated content — and then the parser stored only a boolean. Two different
+accounts hashed to one key, so one account's captions could be served to the other. Confirmed by
+command: `chrome:ProfileA`, `chrome:ProfileB` and a cookie *file* all produced the identical key.
+**Classifying a parameter as key-relevant is half the job; the other half is putting its VALUE in
+the key, and nothing checks that the two agree.** A useful test: for each parameter marked
+separating, construct two invocations differing only in that parameter and assert the keys differ —
+the same assertion that caught the dropped output flag, applied to every row of the table rather
+than only the one that had already failed.
+
+**And: changing a cache key's SHAPE is a migration, not an edit.** Fixing that boolean invalidated
+all 16 existing entries at once — every stored result went cold, caught only because a
+previously-passing hit turned into a miss during the re-run. The key now carries an explicit
+version, and the rewrite ships as a named, dry-runnable migration that refuses what it cannot
+prove: `false` maps to "no cookie source" exactly, while a record claiming cookies *were* used is
+unmigratable (the source is unrecoverable), so its pointer is dropped and the work is redone once.
+The revision row is never deleted — a quote verified against those bytes stays checkable.
+
 **References:** [p1187](../features/p1187_transcript_reuse_is_unenforced.md) ·
 [epistemic.md](../.claude/rules/epistemic.md) gates 7, 7c
 
@@ -1031,6 +1051,17 @@ re-check `git diff --cached --name-only` content *after* the edit and before the
 trap appeared earlier the same session in the opposite direction: `cd X && python3 …` where the
 `cd` failed, so the edit silently never applied while the line after it ran anyway and produced a
 green-looking test result.
+
+**Third mechanism, 2026-08-29 (P1187), in-process rather than shell.** A `str.replace()` applied to
+source text no-oped because the anchor string had drifted under an earlier edit in the same session
+— and `replace()` returns the subject unchanged rather than raising, so the script printed its own
+success line and moved on. The defect it was meant to fix stayed live through two rounds of
+"proof" and surfaced only because a third proof printed the wrong message for the wrong reason.
+**Every anchored edit needs `assert old in s` before the write** — some edits that session had the
+guard and the one that mattered did not, which is the whole lesson: a guard applied to most call
+sites is not a guard. (Writing THIS entry, the assert fired on a stale anchor and left the file
+untouched, which is the mechanism working.) Same family as the two above: the check and the act
+were separable, so the act ran without the check.
 
 **Alternatives rejected:** Rely on `commit-to-main`'s own safety — it holds the main lock and
 refuses an index containing paths other than those named, but the path named *was* the right path;
