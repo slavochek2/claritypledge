@@ -5,6 +5,7 @@ import * as Sentry from "@sentry/react";
 import LogRocket from "logrocket";
 import "@/lib/mixpanel"; // Initialize Mixpanel + fire test event
 import { sentryBeforeSend, IGNORED_ERROR_PATTERNS } from "@/lib/sentry-filters";
+import { installNavTrace } from "@/lib/nav-trace";
 import App from "./App";
 import "./index.css";
 
@@ -71,6 +72,12 @@ function Main() {
     </React.StrictMode>
   );
 }
+
+// P1197: opt-in navigation trace (`?navtrace=1`). Must run BEFORE createRoot —
+// the unexplained redirect to /feed fires within the first seconds of boot, so a
+// trace installed after the app mounts arrives too late to record its origin.
+// No-ops and patches nothing when the flag is absent.
+installNavTrace();
 
 const root = createRoot(document.getElementById("root") as HTMLElement);
 root.render(<Main />);

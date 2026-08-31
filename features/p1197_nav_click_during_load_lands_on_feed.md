@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 88
 severity: medium
@@ -9,8 +9,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [navigation, routing, auth, instrumentation]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1197: Clicking a nav item while the app is still loading lands the user back on /feed
@@ -55,6 +55,28 @@ the un-clickable link was observed on `/login`, **not** on `/`, where clicks lan
 Prod was healthy while measured (all Supabase calls <200ms, DOMContentLoaded 138ms), so the slow-load
 window that the bug needs was not reproducible on demand either.
 
+### New suspect, found by the instrument on first contact (2026-08-31)
+
+Running the trace against a **production build** surfaced something no local scenario could reach:
+
+```
+[navtrace] 16133.6ms pushState → /login [sinceClick=0ms clicked=/login activation=true]
+    at window.history.pushState (index-DkHq0uwy.js:64:224)
+    at History.u [as pushState] (https://cdn.lgrckt-in.com/logger-1.min.js:1:353224)
+```
+
+**LogRocket monkeypatches `history.pushState` in production.** It initialises only under
+`import.meta.env.PROD` (`src/main.tsx:15`), so every one of the six local scenarios ran against a
+history API that LogRocket had never touched — the third-party patch was structurally absent from
+the entire investigation.
+
+Compounding it, the same session logged `LogRocket: Session quota exceeded … Disabling`. If
+LogRocket patches history when it initialises and stops when quota-disabled, then whether a
+third-party wrapper sits in the navigation path **varies between page loads** — which is the shape
+of an intermittent bug. This is a hypothesis, not a finding: it has not been tested, and the
+falsifier is cheap — load with `?navtrace=1` twice, once with LogRocket active and once
+quota-disabled, and compare the traces.
+
 ## Invariants
 
 - **A nav click that the user perceives as landing must either navigate or visibly do nothing —
@@ -63,6 +85,11 @@ window that the bug needs was not reproducible on demand either.
   the redirect itself.
 - **The instrument must not become a data collector.** Console-only, opt-in, no network egress, no
   identifiers written anywhere.
+- **Any prod diagnostic must carry signal that survives minification.** The build uses
+  `sourcemap: 'hidden'` (`vite.config.ts:96`) — maps are produced for Sentry but never served, so
+  every stack frame reaching the founder's console reads as `at ye (index-abc123.js:42:1337)`. A
+  diagnostic whose conclusion depends on reading a function name is useless in the only environment
+  where this bug exists. Record the fact directly instead of inferring it from a name.
 
 ## Reproduction Steps
 
@@ -124,6 +151,14 @@ Two constraints on the instrument:
 
 Once the trace names the source, file the actual fix as a follow-up layer on this spec (rewrite mode).
 
+**Built, 2026-08-31** — `src/lib/nav-trace.ts`, installed at `src/main.tsx` before `createRoot`.
+Beyond the stack, each line carries `[sinceClick=… clicked=… activation=…]`: how long ago the user
+last clicked, which link, and whether the browser considers a user activation live. That is the
+P1197 question stated directly — *did the click register, or did a redirect fire on its own* — and
+unlike a frame name it survives minification. `sinceClick=never` on the line that lands on `/feed`
+confirms the leading hypothesis; `clicked=/org/cm` on a line that lands on `/feed` refutes it and
+proves a real bounce.
+
 Also worth folding in, both independently confirmed and neither dependent on the investigation:
 
 - Remove the shipped debug logging at `src/app/pages/letters-page.tsx:61,64`
@@ -135,13 +170,13 @@ Also worth folding in, both independently confirmed and neither dependent on the
 
 ## Acceptance Criteria
 
-- [ ] Loading `claritypledge.com/?navtrace=1` in production prints a trace line for every URL change,
-      each with a timestamp and a stack trace naming the calling module
-- [ ] Without the flag, the trace prints nothing and patches nothing (verify `history.pushState` is
-      the native function when the flag is absent)
-- [ ] The trace captures URL changes that happen before the first paint (install precedes
-      `ReactDOM.createRoot`)
-- [ ] Reproducing the bug with the flag on identifies the code path that navigates to `/feed`, and
-      that finding is written into this spec's Root Cause
-- [ ] No `[AUTH-TRACE]` output remains in the production console on `/letters`
-- [ ] No console errors during the affected flow
+- [x] Loading `?navtrace=1` prints a trace line for every URL change, each with a timestamp and a
+      stack — verified against a **production build** (`vite preview`), not only dev
+- [x] Without the flag, the trace prints nothing and patches nothing — asserted on function
+      identity in `src/tests/p1197-nav-trace.test.ts`, and the assertion is mutation-verified
+- [x] The trace captures URL changes before first paint — installed at 54.8ms in the prod build,
+      and it recorded React Router's own init `replaceState` at 57.9ms
+- [ ] [post-deploy] Reproducing the bug with the flag on identifies the code path that navigates to
+      `/feed`, and that finding is written into this spec's Root Cause
+- [x] No `[AUTH-TRACE]` output remains — both lines removed; `grep -rn AUTH-TRACE src/ e2e/` is empty
+- [x] No console errors during the affected flow (prod build: zero errors; one unrelated LogRocket quota warning)

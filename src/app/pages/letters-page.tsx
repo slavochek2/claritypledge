@@ -58,10 +58,8 @@ export function LettersPage() {
 
   // Auth gate
   useEffect(() => {
-    console.log('[AUTH-TRACE] LettersPage guard evaluate', performance.now().toFixed(1), 'sessionChecked=', sessionChecked, 'isLoading=', isLoading, 'hasUser=', !!user);
     if (!sessionChecked || isLoading) return;
     if (!user) {
-      console.log('[AUTH-TRACE] LettersPage NAVIGATE TO /login', performance.now().toFixed(1));
       navigate('/login?redirect=/letters', { replace: true });
     }
   }, [user, isLoading, sessionChecked, navigate]);
