@@ -119,6 +119,15 @@ test.describe('P1194: event_private_info is readable only by the host and regist
     void error;
   });
 
+  test('an attendee who cancels their RSVP loses access again', async () => {
+    const client = await clientFor(attendeeEmail);
+    await supabaseAdmin.from('event_rsvps').delete().eq('event_id', eventId).eq('profile_id', attendeeId);
+    const { data } = await client.from('event_private_info').select('group_chat_url').eq('event_id', eventId);
+    expect(data ?? []).toHaveLength(0);
+    // restore for the remaining tests
+    await rsvpToEvent(eventId, attendeeId);
+  });
+
   test('deleting the private row clears the public flag', async () => {
     await supabaseAdmin.from('event_private_info').delete().eq('event_id', eventId);
     const { data } = await supabaseAdmin.from('events').select('has_group_chat').eq('id', eventId).single();

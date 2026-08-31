@@ -518,12 +518,6 @@ export const realEventsService: EventsService = {
     if (data.maxAttendees !== undefined) updateData.max_attendees = data.maxAttendees;
     if ('bannerUrl' in data) updateData.banner_url = data.bannerUrl ?? null;
 
-    // P1194: the group chat link is not a column on events — write it separately.
-    // RLS restricts the write to the host, mirroring the host_id filter below.
-    if (data.groupChatUrl !== undefined) {
-      await upsertGroupChatUrl(eventId, data.groupChatUrl);
-    }
-
     // Only allow update if user is the host (authorization check)
     const { error, data: updated } = await supabase
       .from('events')
@@ -541,6 +535,19 @@ export const realEventsService: EventsService = {
     if (!updated || updated.length === 0) {
       log('ERROR: updateEvent: User is not the host or event not found');
       return false;
+    }
+
+    // P1194: the group chat link is not a column on events — write it separately,
+    // and only after the host check above has passed. A failure here must NOT be
+    // swallowed: the host would be told "Event updated successfully" while the
+    // link they just typed never persisted, and would close the tab believing it
+    // had. Reporting failure is honest and the retry is idempotent.
+    if (data.groupChatUrl !== undefined) {
+      const wrote = await upsertGroupChatUrl(eventId, data.groupChatUrl);
+      if (!wrote) {
+        log('ERROR: updateEvent: event saved but group chat link did not persist');
+        return false;
+      }
     }
 
     // Fire-and-forget: send update emails — skip for banner-only changes

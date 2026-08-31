@@ -144,6 +144,17 @@ describe('P1194: the URL never reaches an unauthorized client', () => {
     expect(accessor).not.toMatch(/isUserRsvpd|host_id/);
   });
 
+  it('a failed group chat write is reported, never swallowed under a success toast', () => {
+    const update = SERVICE.slice(
+      SERVICE.indexOf('async updateEvent'),
+      SERVICE.indexOf('async cancelEvent')
+    );
+    // The boolean must be consumed. Discarding it tells the host "saved" for a
+    // link that never persisted.
+    expect(update).toMatch(/const wrote = await upsertGroupChatUrl/);
+    expect(update).toMatch(/if \(!wrote\)/);
+  });
+
   it('the event page only asks for the link once the viewer is host or registered', () => {
     expect(DETAIL).toMatch(/if \(!eventId \|\| \(!isRsvpd && !isHostOfEvent\)\)/);
   });
