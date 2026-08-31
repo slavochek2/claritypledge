@@ -269,7 +269,7 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: customer/perso
 
 **All skills live in `.claude/commands/slava/`** — visible in IDE, version controlled with project.
 
-**Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `disagreement/` (Disagreement Pipeline stages) · `client/` (post-session offers, subscriber management, outreach) · `think/` · `util/` · `events/` · `script/` (scriptify twins) · `archive/` (deprecated). Never create a skill without a namespace.
+**Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `disagreement/` (Disagreement Pipeline stages) · `understanding/` (comprehension chain: detect → reconstruct → create-letter) · `problem/` (problem board: submit → read → match) · `client/` (post-session offers, subscriber management, outreach) · `think/` · `util/` · `events/` · `script/` (scriptify twins) · `archive/` (deprecated). Never create a skill without a namespace.
 
 **Approval required** before creating, modifying, or deleting skills, or installing MCP servers. Always ask first: "I'd like to create [X] for [reason]. OK?"
 

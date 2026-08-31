@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: task
 rank: 0.063
 workstream: infrastructure
@@ -14,10 +14,8 @@ blocks:
   - p1182
 related:
   - p1185
-delivery_stage: challenge-prd
-pipeline_ran:
-  - create-spec
-  - challenge-prd
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -265,6 +263,58 @@ Steps 1–4 need nothing from P1181 or P1182: answering a letter is a shipped fl
 1. ~~Does the corpus scan need to read across all conversation stores, or is one enough for round one?~~ **Answered 2026-08-31:** across stores, with the read/skipped list printed. Chat history lives in several places and a single-store scan is indistinguishable from a complete one. See Stage 0.
 2. Whether the member's profile (a derived, approved summary of what they work on) is needed at submission time or only at matching time. Raised twice in design, still unresolved — **deferred to P1182**, which is where a profile would first have a consumer.
 3. Whether claim 1 (*"this is the right problem to be working on"*) should split into two — *is it a real problem* and *is it the one worth working on now*. Not assessed; watch whether round one's disagreements land on both halves at once.
+
+## Implementation notes — 2026-08-31, `/dev`
+
+**Shipped:** `.claude/commands/slava/problem/submit.md` — invoked as `/slava:problem:submit` (this
+spec's `/problem-submit` is the shorthand). Namespace `problem/` is new and is registered in both
+namespace lists (`CLAUDE.md`, `.claude/rules/skills.md`); `understanding/` was registered at the
+same time, having existed on disk undocumented — the same drift that would have made a future agent
+conclude no namespace fitted.
+
+**Founder direction, 2026-08-31: the paste fallback is the round-one path, and the credential path
+is NOT built.** The skill signs in as nobody, reads no `.env` file, and issues no programmatic
+write. Sender identity is the member's own browser session.
+
+**Consequence the spec did not anticipate: all three of Stage 6's "corrections" are satisfied by the
+paste path at zero cost, and `/slava:understanding:create-letter` is not touched.** (1) The compose
+UI takes as many points as the member adds, so the two-point limit was a property of that skill's
+write sequence, not of the product. (2) Sender identity is the member's session by construction.
+(3) The reverse-story marker is written by step 6b of that skill and by nothing else in the product,
+so a letter composed in the UI carries the **default** reading question by construction — verified
+by read-back at the skill's step 6f rather than assumed, because construction is not evidence.
+
+**One deviation from Stage 5, stated rather than absorbed.** Stage 5 required filing into TEST
+first, for two reasons: to read the letter in the product's reading flow, and so the programmatic
+prod write would not be its own first execution. With no programmatic write, the second reason is
+gone. The first is preserved in full and is non-negotiable — the skill routes it through
+`/letter/‹docId›/preview`, which composes *the same reading components as the reading page*
+(`src/app/pages/letter-preview-page.tsx:4`), so it is the recipient's flow rather than a summary of
+it. The skill offers both routes (prod private draft → preview → send, or the test-environment hop
+as written) and the member picks. **The Risks table's "off-machine write of unapproved content" does
+not arise on either route**: on the paste path the member only pastes content already approved at
+Stage 4, so the scoped promise reverts to the stronger form the earlier draft claimed.
+
+**One trap found in the product while writing the paste steps.** `point_config.lead_count` defaults
+to **1** when unset, so the first point renders *before* the story — the reader would take a
+position on claim 1 before reading the experience that explains it, and the anti-point's
+contradiction would never get staged. The member must explicitly **unmark the lead point** in the
+draft and then confirm story-first **in the preview**, not from the toggle's appearance. This is the
+easiest step in the run to get silently wrong and it is called out as such in the skill.
+
+**Done-When is a round-one protocol, not a build checklist.** Eleven of the fourteen criteria are
+observations of a real round (a corpus scanned, a letter sent, a score returned, a second
+participant running credential-free). Three are properties of the skill file and are readable in it
+now: the proposed window and narrowing pass, the read/skipped store list, and the
+confirm-against-the-anti-point step. **No box is ticked**, because ticking a criterion written as an
+observation on the strength of having implemented it is the failure mode this file spends four
+pages warning about. `status` stays `in-progress`; the founder's first run is what advances it.
+
+**Instrument verified, not assumed.** Stage 0's preferred scanner (`~/.agents/bin/hist`) was
+exercised this session: `--stores` reports four stores with per-store status, and
+`--files --since <date> --here "."` returned transcripts across two of them in ~12s. The fallback
+path (direct globbing, compressed stores treated as *unreachable* rather than *empty*) is written
+for members without that tool and has **not** been exercised.
 
 ## Related
 
