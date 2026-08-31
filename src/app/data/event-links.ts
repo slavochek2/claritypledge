@@ -74,8 +74,10 @@ export function stakePath(tag: string, eventSlug?: string | null): string {
  * ORDER (founder, 2026-08-31): "tonight should be the first link if the event
  * has it." The per-event tag is the reason this attendee is in this room right
  * now; the standing instruments are the same at every event and can sit below
- * it. The list is short enough that this is the whole hierarchy — no scrolling,
- * no scanning, the event-specific destination under the thumb first.
+ * it. The DESIGN assumes a short, hand-curated list — no scrolling, no
+ * scanning, the event-specific destination under the thumb first — but nothing
+ * in this module caps `extras.length`; the auto-hide probe in
+ * event-links-menu.tsx enforces a hard fan-out cap for exactly this reason.
  *
  * An extra that fails `isSafeTag` is DROPPED, not rendered and not thrown on —
  * a malformed row written at publish time must not take the room's menu down
@@ -86,10 +88,16 @@ export function buildLinksMenu(
   eventSlug?: string | null
 ): LinksMenuEntry[] {
   const entries: LinksMenuEntry[] = [];
+  const standardTags = new Set<string>(STANDARD_STAKE_TAGS);
 
   for (const extra of extras ?? []) {
     if (!extra || typeof extra !== 'object') continue;
     if (!isSafeTag(extra.tag)) continue;
+    // An operator-configured extra sharing a tag with a standard entry (e.g.
+    // `cmp7`) would otherwise render the same /stake/:tag destination twice —
+    // once as "this event", once as standard. The standard entry always wins;
+    // it renders unconditionally below regardless of what extras say.
+    if (standardTags.has(extra.tag)) continue;
     // `label ?? tag` — Resolved Decision 3: one column, one render path with a
     // fallback, nothing required of the operator at publish time.
     const label = typeof extra.label === 'string' && extra.label.trim() ? extra.label.trim() : extra.tag;
@@ -116,6 +124,10 @@ export function buildLinksMenu(
  * no button, no event context, a handable cut-down feed (Resolved Decision 2).
  */
 export function eventSlugFromLocation(pathname: string, search: string): string | null {
+  // Hardcodes the three room-shaped routes — must match App.tsx's own
+  // `/events/:slug/room|ready|meet` entries. A future 4th room route added
+  // there without a matching update here silently loses the Links button; no
+  // test ties the two lists together, so if you add one, add it in both.
   const room = pathname.match(/^\/events\/([^/]+)\/(?:room|ready|meet)\/?$/);
   if (room) return decodeURIComponent(room[1]);
   if (/^\/stake\/[^/]+\/?$/.test(pathname)) {

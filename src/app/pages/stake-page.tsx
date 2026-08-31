@@ -34,6 +34,7 @@ import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { isSafeTag } from '@/app/data/event-links';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType } from '@/app/types';
 
 const STAKE_LIMIT = 50;
@@ -57,8 +58,14 @@ export function StakePage() {
   const viewerUserId = session?.user?.id;
   const requestIdRef = useRef(0);
 
+  // The menu builder only ever hands out a tag that passed isSafeTag — but this
+  // route is a GLOBAL param, reachable by anyone typing an arbitrary string
+  // into /stake/:tag directly. That invariant has to be re-checked here, at the
+  // boundary that actually serves internet traffic, not assumed from the caller.
+  const tagIsValid = isSafeTag(tag);
+
   const fetchData = useCallback(async () => {
-    if (!tag) return;
+    if (!tag || !isSafeTag(tag)) return;
     const rid = ++requestIdRef.current;
     setLoading(true);
     setError(null);
@@ -136,9 +143,24 @@ export function StakePage() {
     else navigate(-1);
   }, [navigate, location.key]);
 
+  if (!tagIsValid) {
+    return (
+      <div className="min-h-screen bg-background pt-4 pb-8">
+        <SEO title="Stake — Clarity Pledge" description="Take a position." />
+        <div className="mx-auto w-full max-w-2xl px-4">
+          <FocusHeader onBack={handleBack} />
+          <div className="py-12 text-center" data-testid="stake-invalid-tag">
+            <h2 className="mb-2 text-lg font-medium text-foreground">Nothing here</h2>
+            <p className="text-muted-foreground">This link doesn't point at anything.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pt-4 pb-8">
-      <SEO title={`${tag ?? 'Stake'} — Clarity Pledge`} description={`Take a position on ${tag}.`} />
+      <SEO title={`${tag} — Clarity Pledge`} description={`Take a position on ${tag}.`} />
       <div className="mx-auto w-full max-w-2xl px-4">
         {/* No "Home" title, no search box, no tag cloud, no sort toggle, no
             Share a Story button — every one of those is removed on purpose.

@@ -71,4 +71,17 @@ describe('P1179 DW-3 — an entry can never carry an external destination', () =
     expect(stakePath('cmp7', 'a b&c=d')).toBe('/stake/cmp7?event=a%20b%26c%3Dd');
     expect(stakePath('cmp7')).toBe('/stake/cmp7');
   });
+
+  /**
+   * /finish code review (2026-08-31) — an event extra colliding with a
+   * standard tag rendered the same /stake/cmp7 destination TWICE, once under
+   * "This event" and once under the standard group. The standard entry always
+   * wins; the collision is dropped rather than deduped by label, since the tag
+   * IS the identity here.
+   */
+  it('an extra tag colliding with a standard stake tag is dropped, not duplicated', () => {
+    const entries = buildLinksMenu([{ tag: 'cmp7', label: 'Tonight' }], 'cm-1');
+    expect(entries.filter(e => e.to.startsWith('/stake/cmp7'))).toHaveLength(1);
+    expect(entries.map(e => e.label)).toEqual(['cmp7', 'cmp3', 'Transcribe', 'Start a Clarity Session']);
+  });
 });

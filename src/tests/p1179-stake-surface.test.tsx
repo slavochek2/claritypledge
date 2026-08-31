@@ -167,3 +167,27 @@ describe('P1179 — the stake surface has a Back button', () => {
     expect(await screen.findByTestId('the-feed')).toBeInTheDocument();
   });
 });
+
+/**
+ * /finish code review (2026-08-31) — buildLinksMenu's isSafeTag guard only
+ * runs inside the menu builder; /stake/:tag itself is a global route param
+ * reachable directly, unvalidated, by anyone. This asserts the guard is
+ * re-checked at the route boundary and the feed is never queried for a tag
+ * that would have been rejected as an entry.
+ */
+describe('P1179 — /stake/:tag re-validates the tag at the route boundary', () => {
+  it('an unsafe tag never reaches the feed services, and renders no feed content', async () => {
+    renderStake('/stake/..%2F..%2Fadmin');
+    expect(await screen.findByTestId('stake-invalid-tag')).toBeInTheDocument();
+    expect(getPoints).not.toHaveBeenCalled();
+    expect(getStories).not.toHaveBeenCalled();
+  });
+
+  it('a safe tag still reaches the feed as before — the guard has teeth', async () => {
+    getPoints.mockResolvedValue([point('p1', 'a')]);
+    getStories.mockResolvedValue([]);
+    renderStake('/stake/cmp7');
+    await waitFor(() => expect(getPoints).toHaveBeenCalled());
+    expect(screen.queryByTestId('stake-invalid-tag')).toBeNull();
+  });
+});

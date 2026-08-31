@@ -231,12 +231,23 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
    */
   useEffect(() => {
     let cancelled = false;
-    const tags = Array.from(new Set(
+    const allTags = Array.from(new Set(
       (extras ?? [])
         .map(e => (e && typeof e === 'object' ? e.tag : null))
         .filter((t): t is string => isSafeTag(t))
     ));
-    if (!eventSlug || tags.length === 0) { setLiveTags(new Set()); return; }
+    // The design assumes a short, hand-curated list (spec: "no scrolling, no
+    // scanning"). Nothing at the data layer enforces that, so cap the probe
+    // fan-out rather than firing an unbounded number of concurrent Supabase
+    // calls per room mount if an operator's `links` column grows past what the
+    // menu was designed to show. Tags past the cap fail OPEN (rendered, not
+    // probed) — same reasoning as a failed probe above: an unprobed tag must
+    // not silently vanish from the menu.
+    const PROBE_CAP = 8;
+    const tags = allTags.slice(0, PROBE_CAP);
+    const unprobed = allTags.slice(PROBE_CAP);
+    if (!eventSlug || allTags.length === 0) { setLiveTags(new Set()); return; }
+    if (tags.length === 0) { setLiveTags(new Set(unprobed)); return; }
     setLiveTags(null);
     Promise.all(tags.map(async tag => {
       try {
@@ -252,7 +263,7 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
         return tag;
       }
     })).then(resolved => {
-      if (!cancelled) setLiveTags(new Set(resolved.filter((t): t is string => t !== null)));
+      if (!cancelled) setLiveTags(new Set([...resolved.filter((t): t is string => t !== null), ...unprobed]));
     });
     return () => { cancelled = true; };
   }, [eventSlug, extras]);
