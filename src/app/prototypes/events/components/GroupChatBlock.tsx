@@ -27,8 +27,10 @@ export function GroupChatBlock({ url, showLockedState = false, variant = 'second
       >
         <Lock className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <p className="text-sm">
-          {/* [FOUNDER DECISION: exact string] */}
-          Register to join the group chat — where cancellations, weather calls, and rides get sorted.
+          {/* Founder-authored, 2026-08-31. */}
+          Register and you'll get an invitation to our private WhatsApp group — last-minute changes,
+          cancellations, and coordinating rides to the mountain. Many come by motorbike, so if you
+          need a lift, just ask.
         </p>
       </div>
     );
@@ -52,8 +54,9 @@ export function GroupChatBlock({ url, showLockedState = false, variant = 'second
         </a>
       </Button>
       <p className="text-xs text-muted-foreground mt-2 text-center">
-        {/* [FOUNDER DECISION: exact string] */}
-        Questions, cancellations, and getting there. No scooter? Ask in the group — someone usually has a spare seat.
+        {/* Founder-authored, 2026-08-31. */}
+        Last-minute changes, cancellations, and getting there. Many come by motorbike — if you need a
+        lift, ask in the group.
       </p>
     </div>
   );
