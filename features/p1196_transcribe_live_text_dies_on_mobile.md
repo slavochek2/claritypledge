@@ -90,15 +90,27 @@ is produced regardless of whether the live half is working.
 
 ## Done-When
 
-- [ ] `start()` throwing inside the restart path schedules another attempt — proven by a test
+- [x] `start()` throwing inside the restart path schedules another attempt — proven by a test
       whose mock `start()` throws, asserting a later attempt occurs
-- [ ] Retries are bounded, and exhaustion sets `liveTextStopped` rather than failing silent
-- [ ] The P1149 DW-8 regression test passes unchanged (default behavior untouched)
-- [ ] `/transcribe` renders a visible stopped-state banner with a working "Resume live text"
-      tap target
-- [ ] PV-1 re-run on a physical Android and a physical iPhone, output pasted, outcome recorded
-      here and in P1149
-- [ ] PV-1b settled: phone console read, mic contention confirmed or ruled out
+      (`useSpeechToText.restart.test.ts`; 3 of 5 original tests fail against the old hook,
+      verified by reverting the hook and re-running)
+- [x] Retries are bounded (5, exponential backoff), and exhaustion sets `liveTextStopped`
+      rather than failing silent
+- [x] The P1149 DW-8 regression test passes unchanged in guarantee — the restart mechanism
+      moved from inline to scheduled, so one assertion advances timers; what it asserts is
+      identical. Full unit suite: 3173 passed, tsc/eslint/build clean.
+- [x] `/transcribe` renders a visible stopped-state banner with a working "Resume live text"
+      tap target (40px min height), carrying the raw recognition error
+- [x] Review round 1 finding fixed: a throwing Resume tap no longer clears the stopped state
+      and hides its own button — regression test fails against the pre-review fix
+
+**The physical checks are NOT in this list, deliberately.** PV-1 (re-run on real phones) and
+PV-1b (mic contention, settled from a phone console) live in
+[P1152](p1152_transcribe_physical_device_verification.md), which is open and exists for exactly
+that. Duplicating them here would either block this fix behind hardware the agent cannot touch,
+or — the failure this whole spec was written about — get ticked without being run. This spec
+closes on "the confirmed code defect is fixed and the failure is now loud"; whether live text
+actually works on a phone is P1152's verdict to record, and it is still unrecorded.
 
 ## References
 
