@@ -4,6 +4,119 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-31 [technical]: A BEFORE INSERT trigger runs before the foreign key — so an authorization guard silently rebrands "no such row" as "no permission"
+
+**Context:** P1060 added a trigger requiring the host to be an organizer of the
+organization an event names. Correct rule, wrong blast radius: a `BEFORE INSERT`
+trigger fires *before* the FK is evaluated, so an event carrying a non-existent
+`org_id` hit the trigger first — the host is trivially not an organizer of a row
+that does not exist — and came back as `check_violation` (23514) instead of
+`foreign_key_violation` (23503).
+
+The caller is then told "you lack permission" for what is actually "no such
+organization". Two different bugs, one error.
+
+Nothing in review caught it. An existing integration test that had pinned 23503
+did, on the ship.
+
+**Decision:** An authorization trigger must **stand aside when the referenced row
+does not exist** and let the foreign key raise its own error. Existence is the
+FK's job; permission is the trigger's. Guard clause before the membership lookup.
+
+**Alternatives rejected:** Relaxing the test to accept either code — it would have
+locked in the worse error message permanently, and the test was right. Making the
+trigger `AFTER INSERT` (the row is written first; the FK ordering problem moves
+rather than resolves).
+
+**Consequences:** Generalises to every guard added to a table with FKs. When a new
+trigger and an existing constraint can both reject the same row, decide which one
+should *own* that rejection, and make the trigger defer. Also: two test fixtures
+had assumed any host could set `org_id` — true before the rule existed. Adding an
+authorization rule to a column invalidates every fixture that wrote that column
+without it; expect to update them, and do not read those failures as the rule
+being wrong.
+
+**References:** [20260831170000_p1060_org_trigger_defers_to_fk.sql](../supabase/migrations/20260831170000_p1060_org_trigger_defers_to_fk.sql)
+
+---
+
+## 2026-08-31 [process]: A digest that pins content must be computed on content — hashing a file in place made the pin fail during the ship it protects
+
+**Context:** `goal-gate.sh` CHECK 7 pins the Verification Contract's sha256 on main
+so the gate cannot read its judging criteria from the branch it is judging. Sound
+design. But `/ship` moves a closing spec into `features/done/<sprint>/` and rewrites
+its relative links to the new depth (`../docs/` → `../../../docs/`), and one such
+link sits **inside** the contract section. So the digest changed while the contract
+text did not, and the pin failed during the exact operation it exists to protect.
+
+Every P1060 ship attempt failed on it. The contract was byte-identical once link
+depth was collapsed — verified by diffing both sides through the same normaliser.
+
+**Decision:** `extract_contract()` collapses any run of `../` to a single `../`
+before hashing. The digest is now a function of the contract's CONTENT, not of
+where the file currently sits. **Verified the gate still FAILs on a changed link
+TARGET** (`../docs/decisions.md` → `../docs/OTHER.md` produced a different digest),
+so the pin keeps its meaning; only the depth prefix is collapsed.
+
+The tell that this was the right fix rather than a convenient one: **no re-pin was
+needed.** After normalisation the branch matched the digest already committed on
+main. A fix that had required re-pinning from the branch would have hollowed the
+check out — the pin exists precisely so the branch cannot move it.
+
+**Alternatives rejected:** Re-pinning `contract.sha256` from the branch (fast, and
+destroys the property the pin exists for). Excluding links from the contract
+section (changes what authors may write in it).
+
+**Consequences:** Any digest over a file that a tool relocates must normalise
+location-derived text first, or it is pinning the path as much as the content.
+Same class as the `features/done/` layout finding recorded separately today.
+
+**Still open — a check that cannot pass where it runs:** goal-gate CHECK 3 refuses
+to soft-reset outside a worktree (correct — main's index and HEAD are shared), but
+`/ship` invokes the gate from main during spec-close. Under `--tier all` that check
+can therefore never pass during a ship. It happens not to bite because pre-commit
+invokes `--tier ci`, which excludes it. A check that is structurally unreachable in
+the context that matters is worth either scoping or removing. Status: proposed.
+
+**References:** [goal-gate.sh](../scripts/goal-gate.sh)
+
+---
+
+## 2026-08-31 [process]: A ship that takes eight resumes is reporting a real cost — the shared main checkout has no quiet moment
+
+**Context:** Closing P1060 took eight `--resume` cycles. Only two were the feature's
+own fault (the trigger/FK error above, and a test reading the spec from a hardcoded
+`features/` path that the ship itself invalidates). The rest were contention on the
+shared main checkout: two manifest conflicts, a `decisions.md` conflict, an
+untracked leftover from a previous failed attempt blocking `git mv`, and — twice —
+a **co-tenant's file appearing in the index** between one step and the next
+(`features/p1180_...md` arrived mid-ship, unrequested).
+
+`commit_staged_exact` caught every one of those by refusing to commit when the
+staged set did not match the requested paths. That refusal is the only reason none
+of them landed.
+
+**Decision:** Keep `commit_staged_exact`'s exact-match refusal, and treat a resume
+count as a signal rather than noise. Two classes are worth separating in any
+post-ship review: defects the ship *found* (keep — that is the gate working) and
+contention the ship *suffered* (the shared checkout).
+
+**Consequences — a real gap, unresolved.** `git-ops.sh commit-to-main` stages with
+`git add -- <file>` from the working tree. When a co-tenant has uncommitted work in
+a file you must also edit — `docs/decisions.md` is the common case, and it held 195
+uncommitted lines from another session at the end of this one — there is **no
+sanctioned way to commit only your own additions.** The choices are: wait for the
+other session, sweep their work into your commit under your message (the incident
+logged 2026-08-20 and 2026-08-23), or hand-craft the blob with `git hash-object` +
+`git update-index --cacheinfo` and use a plain commit, which forfeits the lock that
+`commit-to-main` exists to hold. Status: proposed — a `--staged-as-is` mode for
+`commit-to-main`, or a decisions.md write path that appends without reading the
+working tree, would close it.
+
+**References:** [git-ops.sh](../scripts/git-ops.sh) · [git.md](../.claude/rules/git.md)
+
+---
+
 
 ## 2026-08-31 [process]: A decisive test run only until it produced the wanted shape — and the citation that supported it kept while the one that killed it was dropped
 
