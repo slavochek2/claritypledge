@@ -87,15 +87,26 @@ describe('P1149 DW-8: useSpeechToText default behavior (no options) is unchanged
 
 describe('P1149 DW-8: autoRestart: true is opt-in and additive only', () => {
   it('onend calls start() again only when autoRestart is explicitly true', () => {
-    const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: true }));
+    // P1196 changed the MECHANISM, not the guarantee: the restart is now scheduled on
+    // a timer rather than called inline from onend, because an inline call that throws
+    // (the normal case on phones) ended the loop permanently with no further onend to
+    // retry from. The assertion below therefore advances timers; what it asserts —
+    // autoRestart: true restarts, and nothing else does — is unchanged.
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: true }));
 
-    act(() => { result.current.startListening(); });
-    expect(lastInstance.start).toHaveBeenCalledTimes(1);
+      act(() => { result.current.startListening(); });
+      expect(lastInstance.start).toHaveBeenCalledTimes(1);
 
-    act(() => { lastInstance.onend?.(); });
+      act(() => { lastInstance.onend?.(); });
+      act(() => { vi.advanceTimersByTime(250); });
 
-    // onend fired once, and the auto-restart branch called start() a second time.
-    expect(lastInstance.start).toHaveBeenCalledTimes(2);
+      // onend fired once, and the auto-restart branch called start() a second time.
+      expect(lastInstance.start).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does NOT restart after an intentional stopListening() call', () => {

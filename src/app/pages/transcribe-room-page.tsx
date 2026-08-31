@@ -68,6 +68,8 @@ export function TranscribeRoomPage() {
     isSupported: speechSupported,
     startListening,
     stopListening,
+    liveTextStopped,
+    lastRecognitionError,
   } = useSpeechToText('en-US', { autoRestart: true });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -392,7 +394,7 @@ export function TranscribeRoomPage() {
             className={`flex items-center gap-1.5 mb-3 text-xs ${
               isListening
                 ? 'text-muted-foreground'
-                : 'py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500'
+                : 'flex-wrap py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500'
             }`}
             data-testid="transcribe-listening-indicator"
             role="status"
@@ -408,6 +410,30 @@ export function TranscribeRoomPage() {
                     with the one precedent that already exists for it. */}
                 <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shrink-0" aria-hidden="true" />
                 Listening — your words are going in
+              </>
+            ) : liveTextStopped ? (
+              <>
+                {/* P1196: the terminal state. Automatic restarts are exhausted — on iOS
+                    they cannot succeed at all, because Safari only lets recognition
+                    start from a user gesture. This tap IS that gesture, and it is the
+                    only thing that can bring live text back on a phone. Audio upload is
+                    unaffected either way, which the copy says so nobody stops the
+                    session believing the recording died with the live text. */}
+                <MicOff className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Live text stopped. Your audio is still recording.</span>
+                <button
+                  type="button"
+                  onClick={startListening}
+                  className="ml-auto min-h-[40px] px-3 rounded-lg border-2 border-red-500 bg-white text-red-800 font-semibold"
+                  data-testid="transcribe-resume-live-text"
+                >
+                  Resume live text
+                </button>
+                {lastRecognitionError && (
+                  <span className="w-full font-normal opacity-80" data-testid="transcribe-speech-error">
+                    ({lastRecognitionError})
+                  </span>
+                )}
               </>
             ) : (
               <>

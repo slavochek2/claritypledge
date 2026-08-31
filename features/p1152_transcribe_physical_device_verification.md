@@ -1,5 +1,5 @@
 ---
-status: all-done
+status: in-progress
 type: task
 rank: 66
 workstream: events
@@ -8,10 +8,18 @@ tags: [transcribe, verification, devices, gate]
 pipeline_ran: [create-spec]
 driver: heuristic
 drafted_by: opus
-completed_at: 2026-08-24
 ---
 
 # P1152: `/transcribe` — the physical verification a loop cannot do
+
+**Reopened 2026-08-31.** This spec was closed `all-done` on 2026-08-24 with all five
+Done-When boxes unchecked — the physical checks were never run and never recorded. Its own
+Risks section named exactly that: *"The checks get skipped because the loop went green. The
+whole hazard of carving them out."* PV-1 has now been run and **failed**: no words appear on
+mobile. The outcome is recorded in
+[P1149](done/2026-06-10/p1149_live_room_transcription_chat.md), and the one confirmed cause is
+fixed under [P1196](p1196_transcribe_live_text_dies_on_mobile.md). This spec stays open until
+PV-1 is re-run post-fix and PV-2 through PV-4 have recorded outcomes.
 
 **Status note (2026-08-24, founder decision):** P1149 shipped to prod ahead of this spec closing.
 The founder will run the physical checks below on real devices directly against prod and record
@@ -21,7 +29,7 @@ checks below still need to happen, just not as a merge gate.
 
 ## Problem
 
-**Situation:** [P1149](p1149_live_room_transcription_chat.md) specifies the `/transcribe` room.
+**Situation:** [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md) specifies the `/transcribe` room.
 Its `/goalify` triage on 2026-08-23 classified 12 done-when lines and refused to emit a
 contract: 4 of 12 (33%) were HUMAN-ONLY, over the 25% ceiling.
 
@@ -103,8 +111,8 @@ Best run at a real event rather than staged, since that is the condition it exis
 
 ## Done-When
 
-- [ ] PV-1 run on a physical Android and a physical iPhone, output pasted, outcome (pass /
-      partial / fail) written into P1149
+- [x] PV-1 run (2026-08-31) — outcome **fail**, written into P1149. Re-run required after
+      the P1196 fix, and PV-1b (mic contention) still to be settled from a phone console.
 - [ ] PV-2 run with two people on two devices, result recorded
 - [ ] PV-3 run with a real radio toggle, dropped state and recovery both observed
 - [ ] PV-4 run, all eight jobs completed, and whether it was staged or a real event recorded
@@ -126,6 +134,6 @@ rather than pre-merge.
 
 ## References
 
-- [P1149](p1149_live_room_transcription_chat.md) — the feature these checks verify
-- [visual-qa.md](../../../.claude/rules/visual-qa.md) — the multi-viewport rule these extend to
+- [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md) — the feature these checks verify
+- [visual-qa.md](../.claude/rules/visual-qa.md) — the multi-viewport rule these extend to
   physical hardware

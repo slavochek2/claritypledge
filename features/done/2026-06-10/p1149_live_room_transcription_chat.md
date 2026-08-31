@@ -13,6 +13,32 @@ completed_at: 2026-08-24
 
 # P1149: `/transcribe` — the live room transcription chat
 
+## PV-1 outcome — FAIL (2026-08-31)
+
+Recorded here as [P1152](../../p1152_transcribe_physical_device_verification.md) required. The
+founder ran Gate 0 on a physical phone against prod: **no words appear on mobile.** Gate
+outcome: **fail on phones**, the branch this spec pre-committed to escalating rather than
+working around.
+
+One cause is confirmed by reading the code, device-independent, and now fixed under
+[P1196](../../p1196_transcribe_live_text_dies_on_mobile.md): the auto-restart this spec
+specified was one-shot. `onend` called `start()` inline and swallowed the throw on the stated
+belief that "the next onend retries" — it cannot, because a throw means no session began and
+`onend` never fires again. On phones that throw is the normal path (iOS requires a user
+gesture; Android throws `InvalidStateError` on immediate restart), so the fix this spec
+ordered to keep live text alive was itself the thing that killed it, silently and with no
+visible state.
+
+A second candidate remains unsettled and needs a phone console: microphone contention between
+`MediaRecorder` and `SpeechRecognition`. This spec called dual capture "a proven pattern,
+already shipping in /chat" — but `/chat` is a laptop surface, so that proof never covered
+phones, where the mic is effectively exclusive. If confirmed, no browser-side fix reaches it
+and the product decision this spec already framed (laptops-open / server-side live half /
+phones read-only) is live. Tracked as PV-1b in P1196.
+
+The audio half is unaffected throughout: chunks upload and the corrected transcript is
+produced whether or not live text works.
+
 ## Run This
 
 Run from `~/Projects/public/claritypledge/.claude/worktrees/w5` — the claimed worktree for this
