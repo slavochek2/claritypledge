@@ -13,6 +13,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { getTestAuthContext } from './helpers/auth-context';
 import { createTestEvent, deleteTestEvent, rsvpToEvent } from './helpers/test-event';
 import { createTestUser } from './helpers/test-user';
+import { createTestPoint, createTestPosition, deleteTestPoint } from './helpers/test-point';
 import { supabaseAdmin } from './helpers/supabase-admin';
 
 const linksButton = (page: Page) =>
@@ -43,7 +44,7 @@ async function openMenu(page: Page) {
   const btn = linksButton(page);
   await expect(btn).toBeVisible({ timeout: 30000 });
   await btn.click();
-  await expect(page.getByTestId('event-links-sheet')).toBeVisible();
+  await expect(page.getByTestId('event-links-menu')).toBeVisible();
 }
 
 /**
@@ -87,6 +88,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
   let eventId: string;
   let slug: string;
   let auth: Awaited<ReturnType<typeof getTestAuthContext>>;
+  let seededPointId: string | undefined;
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(120_000);
@@ -94,10 +96,25 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     const event = await createTestEvent(host.id);
     eventId = event.id;
     slug = event.slug;
-    // One per-event extra, so the "This event" group is exercised on a real row.
+    // TWO per-event extras, so this file covers both sides of the auto-hide added
+    // 2026-08-31: `tonight` gets a real staked point and must appear; `hollow` gets
+    // nothing and must not. Seeding only the first would leave the hide untested
+    // here and the menu would look identical whether or not the feature worked.
     const { error: linkErr } = await supabaseAdmin.from('events')
-      .update({ links: [{ tag: 'tonight', label: 'Tonight' }] }).eq('id', eventId);
+      .update({ links: [{ tag: 'tonight', label: 'Tonight' }, { tag: 'hollow', label: 'Hollow' }] })
+      .eq('id', eventId);
     if (linkErr) throw new Error(`seeding events.links failed: ${linkErr.message}`);
+
+    // A POSITION is required, not just the point: getPublicPointsFeed ends in a
+    // `totalPositions > 0` filter (P543), so a point with no positions is invisible
+    // to the very query the menu probes with.
+    const seeded = await createTestPoint(host.id, {
+      statement: `P1179 nav seed ${Date.now()}`,
+      tags: ['tonight'],
+      visibility: 'public',
+    });
+    seededPointId = seeded.id;
+    await createTestPosition(seeded.id, host.id, 'agree');
 
     // ONE attendee for every test in this worker — see the note above.
     auth = await getTestAuthContext('host', browser);
@@ -106,6 +123,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
 
   test.afterAll(async () => {
     if (auth) await auth.cleanup();
+    if (seededPointId) await deleteTestPoint(seededPointId);
     if (eventId) await deleteTestEvent(eventId);
   });
 
@@ -150,12 +168,19 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     } finally { await page.close(); }
   });
 
-  test('the per-event extra appears and resolves to its tag', async () => {
+  test('the per-event extra appears and resolves to its tag — and the EMPTY one does not appear at all', async () => {
     const page = await auth.context.newPage();
     try {
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
+      // Five standard + Tonight. "Hollow" is configured on the same event and has
+      // nothing staked under it, so the menu drops it (founder, 2026-08-31: an
+      // entry that opens an empty surface is a dead end the host had to remember
+      // to avoid creating). Asserting the COUNT and the absence together is what
+      // makes this a two-sided test rather than a restatement of the seed.
       await expect(page.getByTestId('event-links-entry')).toHaveCount(6);
+      await expect(page.getByTestId('event-links-entry').filter({ hasText: 'Hollow' })).toHaveCount(0);
+
       await page.getByTestId('event-links-entry').filter({ hasText: 'Tonight' }).click();
       await expect(page).toHaveURL(new RegExp(`/stake/tonight\\?event=${slug}`), { timeout: 30000 });
     } finally { await page.close(); }

@@ -88,7 +88,7 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
     });
   }
 
-  test('AC-3: it opens a BOTTOM sheet, not a top-anchored dropdown, and every entry is >= 44px', async ({ browser }) => {
+  test('AC-3: at PHONE width it opens a BOTTOM sheet, not a top-anchored dropdown, and every entry is >= 44px', async ({ browser }) => {
     const { context, user, cleanup } = await getTestAuthContext('host', browser);
     try {
       await rsvpToEvent(eventId, user.user.id);
@@ -101,7 +101,7 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
       await assertViewport(page, 375);
       await btn.click();
 
-      const sheet = page.getByTestId('event-links-sheet');
+      const sheet = page.getByTestId('event-links-menu');
       await expect(sheet).toBeVisible();
 
       const viewport = page.viewportSize()!;
@@ -117,8 +117,12 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
       ).toBe(viewport.height);
 
       const sheetBox = (await sheet.boundingBox())!;
-      // Two more properties that separate a bottom sheet from the rejected
-      // top-anchored dropdown, neither of which "it is tall" would give you:
+      // Two more properties that separate a bottom sheet from the top-anchored
+      // dropdown, neither of which "it is tall" would give you. The dropdown is no
+      // longer "rejected" outright — since 2026-08-31 it is the DESKTOP shape (see
+      // the desktop test below) — but at 375px it is still the wrong one, for the
+      // reason it always was: a menu tapped repeatedly by someone standing and
+      // holding a phone one-handed has to sit in thumb reach.
       //   1. it spans the FULL viewport width (inset-x-0) — a dropdown is a narrow
       //      right-aligned panel under its trigger;
       //   2. its top edge is BELOW the trigger's own bottom — a dropdown hangs off
@@ -134,7 +138,7 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
       expect(sheetBox.width).toBeGreaterThanOrEqual(layoutWidth - 20);
 
       const btnBox = (await btn.boundingBox())!;
-      expect(sheetBox.y, 'the sheet hangs from the header — that is a dropdown')
+      expect(sheetBox.y, 'the sheet hangs from the header — that is the desktop shape on a phone')
         .toBeGreaterThan(btnBox.y + btnBox.height);
 
       const entries = page.getByTestId('event-links-entry');
@@ -144,6 +148,49 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
         const box = (await entries.nth(i).boundingBox())!;
         expect(box.height, `entry ${i} is ${box.height}px tall`).toBeGreaterThanOrEqual(44);
       }
+    } finally { await cleanup(); }
+  });
+
+  /**
+   * THE DESKTOP SHAPE. Founder, 2026-08-31, looking at the same control on a
+   * monitor: "it's really weird on desktop it just like slides up ... it should
+   * be like we have the use cases you know at the top and then I click".
+   *
+   * This asserts the two properties that make it a dropdown rather than a sheet,
+   * and they are the exact inverses of the phone assertions above — so a change
+   * that collapsed the two shapes back into one would fail here or there,
+   * whichever direction it collapsed in.
+   */
+  test('at desktop width it opens as a narrow panel anchored under the trigger', async ({ browser }) => {
+    const { context, user, cleanup } = await getTestAuthContext('host', browser);
+    try {
+      await rsvpToEvent(eventId, user.user.id);
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(`/events/${slug}/room`);
+
+      const btn = page.getByTestId('event-links-button').filter({ visible: true }).first();
+      await expect(btn).toBeVisible({ timeout: 15000 });
+      await btn.click();
+
+      const menu = page.getByTestId('event-links-menu');
+      await expect(menu).toBeVisible();
+      await expect(menu).toHaveAttribute('data-shape', 'dropdown');
+
+      const btnBox = (await btn.boundingBox())!;
+      const menuBox = (await menu.boundingBox())!;
+      const viewport = page.viewportSize()!;
+
+      // NOT full-bleed: a narrow panel, nothing like the sheet's full width.
+      expect(menuBox.width, 'a desktop dropdown must not span the viewport')
+        .toBeLessThan(viewport.width / 2);
+      // NOT bottom-anchored: it hangs off the trigger, so it starts in the top
+      // half of the page rather than settling against the bottom edge.
+      expect(menuBox.y, 'the panel is not anchored to the trigger')
+        .toBeLessThan(viewport.height / 2);
+      // And it is actually near the trigger, not merely somewhere above the fold.
+      expect(Math.abs(menuBox.y - (btnBox.y + btnBox.height)), 'panel is not under the trigger')
+        .toBeLessThan(40);
     } finally { await cleanup(); }
   });
 });

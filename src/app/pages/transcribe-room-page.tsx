@@ -10,7 +10,7 @@
  * from every participant renders in one shared list, in spoken order.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,7 @@ function formatTime(iso: string): string {
 
 export function TranscribeRoomPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { code: urlCode } = useParams<{ code?: string }>();
   const { user, isLoading: authLoading, sessionChecked } = useAuth();
 
@@ -155,9 +156,22 @@ export function TranscribeRoomPage() {
     }
   }, [speechSupported, startListening]);
 
-  const handleDecline = useCallback(() => {
-    navigate('/', { replace: true });
-  }, [navigate]);
+  /**
+   * The consent screen's escape hatch is a BACK button, not a "Leave" (founder,
+   * 2026-08-31: "leave makes no sense if I'm on transcribe and I just landed
+   * there because I typed /transcribe"). Nothing has been joined at this point,
+   * so there is nothing to leave — the user is being asked a question and wants
+   * to go back to wherever they were.
+   *
+   * `location.key === 'default'` is react-router's marker for the FIRST entry in
+   * this app's history — a typed URL, a bookmark, an external link. There is no
+   * in-app page behind it, so `history.back()` would leave the site entirely;
+   * those land on the home page instead. Everything else really does go back.
+   */
+  const handleBack = useCallback(() => {
+    if (location.key === 'default') navigate('/', { replace: true });
+    else navigate(-1);
+  }, [navigate, location.key]);
 
   const handleJoin = useCallback(async () => {
     if (!user || !consentGiven) return;
@@ -247,7 +261,7 @@ export function TranscribeRoomPage() {
         className="max-w-md mx-auto px-4 py-8 h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
         data-testid="transcribe-consent-screen"
       >
-        <FocusHeader onBack={handleDecline} label="Leave" aria-label="Leave" />
+        <FocusHeader onBack={handleBack} />
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Join the transcription room</h1>
         <p className="text-sm text-muted-foreground mb-6">
           Your spoken words will be transcribed live and shown to everyone in this room,

@@ -523,8 +523,10 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     Start a Clarity Session
                   </Link>
                 )}
-                {/* P1179: Links — sibling of the avatar, same slot at every width */}
-                <EventLinksButton />
+                {/* P1179: Links — sibling of the avatar, same slot at every width.
+                    Desktop gets the anchored dropdown, matching "Use cases"; the
+                    bottom sheet is the phone-in-a-room shape and stays below `lg`. */}
+                <EventLinksButton variant="dropdown" />
                 {/* Menu Trigger - P67: Avatar for verified users */}
                 <DropdownMenu modal={false} onOpenChange={(open) => {
                   if (open) {

@@ -522,9 +522,10 @@ export function LetterFlowContent({
         onProceed={handleTutorialProceed}
       />
 
-      {showFocusHeader && (
-        <FocusHeader onBack={() => window.history.back()} label="Leave letter" />
-      )}
+      {/* "Back", not "Leave letter" (founder, 2026-08-31): the handler is
+          history.back() — it has always BEEN a back button, and the label was
+          the only thing saying otherwise. Nothing is abandoned by pressing it. */}
+      {showFocusHeader && <FocusHeader onBack={() => window.history.back()} />}
 
       {/* P848: position:fixed (not sticky) because [data-letter-scroll]
           (overflow-y-auto from P777) is not always the actually scrolling

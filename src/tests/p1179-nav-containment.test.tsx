@@ -62,8 +62,20 @@ describe('P1179 DW-2 — the nav centre slot is untouched', () => {
   });
 
   it('the TRIGGER is mounted in BOTH right-hand groups, so it holds one position at every width', () => {
-    const mounts = NAV_SRC.match(/<EventLinksButton\s*\/>/g) ?? [];
+    // The two mounts are no longer identical: since 2026-08-31 the desktop group
+    // passes variant="dropdown" (the sheet stays the phone shape). The invariant
+    // being guarded is the PLACEMENT — one trigger per group — not the props, so
+    // the pattern matches any prop list rather than a bare self-closing tag.
+    const mounts = NAV_SRC.match(/<EventLinksButton\b[^>]*\/>/g) ?? [];
     expect(mounts).toHaveLength(2);
+  });
+
+  it('exactly one of the two mounts is the desktop dropdown', () => {
+    // Both on "sheet" would put the phone shape on a monitor (the defect founder
+    // reported); both on "dropdown" would put a top-anchored menu out of thumb
+    // reach on a phone, which is the case the control was built for.
+    const mounts = NAV_SRC.match(/<EventLinksButton\b[^>]*\/>/g) ?? [];
+    expect(mounts.filter(m => m.includes('variant="dropdown"'))).toHaveLength(1);
   });
 
   it('the PROVIDER is mounted exactly ONCE — two instances meant two states and two fetches', () => {
@@ -72,8 +84,13 @@ describe('P1179 DW-2 — the nav centre slot is untouched', () => {
   });
 
   it('the button is not hidden at a breakpoint — the one fix the invariant forbids', () => {
-    const idx = NAV_SRC.indexOf('<EventLinksButton />');
-    const around = NAV_SRC.slice(idx - 200, idx + 60);
-    expect(around).not.toMatch(/hidden\s+(sm|md|lg):/);
+    // Checked at BOTH mounts. Checking only the first would leave the other free
+    // to acquire a breakpoint hide — and the invariant is that the control is in
+    // the same place on every phone in the room, which one mount cannot carry.
+    for (const m of NAV_SRC.match(/<EventLinksButton\b[^>]*\/>/g) ?? []) {
+      const idx = NAV_SRC.indexOf(m);
+      const around = NAV_SRC.slice(idx - 200, idx + m.length);
+      expect(around, `breakpoint hide around ${m}`).not.toMatch(/hidden\s+(sm|md|lg):/);
+    }
   });
 });

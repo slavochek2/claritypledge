@@ -41,7 +41,31 @@ describe('P1179 UI-1 — built from the existing design system', () => {
     expect(heights.filter(h => !h.includes('44px'))).toEqual([]);
   });
 
-  it('is not a dropdown — the approved open shape is a bottom sheet', () => {
-    expect(SRC).not.toContain('DropdownMenu');
+  /**
+   * SUPERSEDED 2026-08-31. This assertion used to read `not.toContain('DropdownMenu')`
+   * — "the approved open shape is a bottom sheet", full stop. The founder revised
+   * that after seeing it on a monitor: "on desktop it just like slides up ... it
+   * should be like we have the use cases you know at the top and then I click".
+   *
+   * The contract is now a SPLIT, and both halves are load-bearing, so both are
+   * asserted. Deleting the test would have left the phone shape unguarded, which
+   * is the half with the actual design argument behind it (thumb reach, one hand,
+   * standing in a room).
+   */
+  it('opens as a bottom sheet on phones and an anchored dropdown on desktop', () => {
+    expect(SRC).toContain('Drawer');
+    expect(SRC).toContain('DropdownMenu');
+  });
+
+  it('reuses the nav\'s own dropdown primitive rather than a second menu system', () => {
+    // If this ever imports Popover instead, the desktop menu stops matching
+    // "Use cases" — which is the entire reason the shape was changed.
+    expect(SRC).toContain("@/components/ui/dropdown-menu");
+    expect(SRC).not.toContain('@/components/ui/popover');
+  });
+
+  it('anchors the desktop menu to the END, where the trigger actually sits', () => {
+    // align="start" would push a 64-wide panel off the right edge of the viewport.
+    expect(SRC).toMatch(/align="end"/);
   });
 });

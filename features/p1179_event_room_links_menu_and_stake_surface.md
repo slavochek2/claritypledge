@@ -244,7 +244,8 @@ renders against, and it is authoritative for three things:
 - **Placement** — the button beside the avatar in the nav's right-hand group ("B"), drawn at literal
   320px and 375px. Options A (centre slot) and C (swap by width) appear there **as rejected**; do not
   build from them.
-- **Open shape** — the bottom sheet, shown beside the rejected dropdown at 375px.
+- **Open shape** — the bottom sheet, shown beside the dropdown at 375px. (The dropdown was rejected
+  *at that width*; since 2026-08-31 it is the desktop shape — see Resolved Decisions.)
 - **Density and structure of the sheet** — grouped entries with the tag shown alongside the label,
   a separator before Transcribe, and the per-event extra under its own quiet "This event" heading.
 
@@ -259,11 +260,28 @@ Solution §1. Founder, verbatim: *"needs to follow our design please."*
   "Go to" and the event's own name were considered and rejected.
 - **Placement: the nav's right-hand group, as a sibling of the avatar.** Same position at every
   width. Decided 2026-08-28 — see Solution §1 for the two rejected alternatives.
-- **The menu opens as a bottom sheet**, not a dropdown. Decided 2026-08-28 after both were
-  prototyped side by side at 375px. Reason: it gets tapped repeatedly by standing people holding a
-  phone one-handed during a live event — the sheet puts every entry in thumb reach and gives each a
-  44px target, where a top-anchored dropdown is a stretch on a large phone. Accepted cost: the sheet
-  covers the page and needs a dismiss affordance.
+- **The menu opens as a bottom sheet on phones and an anchored dropdown on desktop.**
+  REVISED 2026-08-31 — this read "a bottom sheet, not a dropdown" until the founder saw it on a
+  monitor: *"it's really weird on desktop it just like slides up ... it should be like we have the
+  use cases you know at the top and then I click"*. The phone half is unchanged and keeps its
+  original 2026-08-28 reasoning: the menu gets tapped repeatedly by standing people holding a phone
+  one-handed during a live event, so the sheet puts every entry in thumb reach and gives each a 44px
+  target, where a top-anchored dropdown is a stretch on a large phone. Accepted cost: the sheet
+  covers the page and needs a dismiss affordance. On desktop none of that reasoning applies — there
+  is no thumb — and a full-width panel rising from the bottom of a large viewport for five links
+  reads as a phone control on a monitor. The desktop shape uses the nav's own dropdown primitive and
+  alignment so it reads as part of the nav rather than as a second menu system.
+- **A configured per-event link with nothing behind it is not rendered.** Added 2026-08-31, founder:
+  *"I don't think we need to include the link to tonight or whatever if ... we don't have points
+  with tags that ... need to appear in a given event."* He opened the menu during an event, tapped
+  "Tonight", and landed on an empty surface — the tag was configured, nothing had been staked under
+  it. The emptiness test is the stake surface's OWN query, so the menu and its destination cannot
+  disagree. Scoped to the "This event" group only: `cmp7`/`cmp3`/`cmp10` are the framework's
+  permanent surfaces, and a room where nobody has staked yet must not render a menu holding only
+  Transcribe and Start a Clarity Session, which reads as broken rather than as empty. Fails OPEN —
+  a probe that errors keeps the entry, because a failed probe is not evidence of emptiness.
+  A per-event auto-generated tag was considered and NOT built: nothing tags points to an event
+  today, so the generated entry would be exactly as empty as "Tonight" was.
 - **Built from the existing design system** — the shared `Button` and the room's existing navy/44px
   treatment (`meeting-terms-page.tsx:96`, `:145`). No new colour, radius or control height.
 - [FOUNDER DECISION: the five entry labels. "Transcribe" is the existing product name; `cmp7` /
@@ -277,7 +295,9 @@ Solution §1. Founder, verbatim: *"needs to follow our design please."*
       position, on `/events/:slug/room`, `/events/:slug/ready`, `/events/:slug/meet`, and on a stake page
 - [ ] The button is visible and tappable at **320px**, with nothing overlapping the logo or the
       avatar — the width at which the centre-slot approach fails
-- [ ] Tapping it opens a bottom sheet, not a dropdown, and every entry is at least 44px tall
+- [ ] At phone width, tapping it opens a bottom sheet, not a dropdown, and every entry is at least 44px tall
+- [ ] At desktop width, clicking it opens a narrow panel anchored under the trigger — not the sheet
+- [ ] A configured per-event link whose tag has no points and no stories is not shown at all
 - [ ] Opening it lists Transcribe, `cmp7`, `cmp3`, `cmp10` on an event with no extras configured
 - [ ] An event with one configured extra shows five entries; a second event created afterwards with
       none still shows exactly four
