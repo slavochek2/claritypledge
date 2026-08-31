@@ -28,7 +28,7 @@ export function GroupChatBlock({ url, showLockedState = false, variant = 'second
         <Lock className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <p className="text-sm">
           {/* Founder-authored, 2026-08-31. */}
-          Register and you'll get an invitation to our private WhatsApp group — last-minute changes,
+          Register and you'll get an invitation to our private WhatsApp group, right here — last-minute changes,
           cancellations, and coordinating rides to the mountain. Many come by motorbike, so if you
           need a lift, just ask.
         </p>
