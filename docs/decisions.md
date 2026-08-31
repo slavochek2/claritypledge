@@ -4,6 +4,132 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-31 [process]: A line-anchored grep cannot verify a quote in source code, because source code wraps
+
+**Context:** A benchmark run put four agents (two spec writers, a judge, and the session
+lead) on the same codebase. Four confident false claims were produced. Not one came from
+bad reasoning; every one came from a search method that could not see what it was asked
+about.
+
+The sharpest: a judge reported that a candidate spec had **fabricated** a codebase quote —
+*"An empty Members tab is a far better failure than a dead Events page."* It ran
+`grep -rn "far better failure"`, got nothing, and called it invented. The session lead then
+ran the identical command to "independently confirm" it, and reported the confirmation to
+the founder. The comment exists verbatim at `src/app/pages/org-page.tsx:96-98`. It is
+wrapped:
+
+```
+        // Swallowed on purpose — see the call site. An empty Members tab is a far
+        // better failure than a dead Events page.
+```
+
+No single line contains the phrase. The candidate was correct; two agents in sequence said
+it was not.
+
+**Decision:** Verifying that a phrase is ABSENT from source requires a whitespace-insensitive
+check, not `grep`. Read the file and normalise (`" ".join(src.split())`) before asserting a
+quote was invented. Reserve line-anchored grep for tokens that cannot wrap — identifiers,
+filenames, symbols.
+
+Two more from the same session, same shape:
+- **Wrong checkout.** Line numbers were "verified" against the main checkout while the code
+  under review lived on a worktree branch; the files differ. A correct citation was reported
+  as an off-by-N error. Always read the worktree the work is on, by absolute path — `cd` does
+  not persist between tool calls, which is how the wrong file gets read silently.
+- **A control that could not fail.** Three invalid control probes ran before a valid one: one
+  used an error class the gate deliberately ignores, one edited a string that no longer
+  existed (a silent no-op — the edit was never asserted to have applied), and one replaced
+  `INSERT INTO public.organization` with `..._MOVED`, which still CONTAINS the original
+  substring, so a `toContain` assertion kept passing. **Assert that a control edit actually
+  landed, and that the substitution genuinely removes what the check looks for.**
+
+**Alternatives rejected:** Trusting a second agent's agreement as corroboration. Both
+verifications here ran the same broken command, so the second added confidence without
+adding evidence — the failure mode epistemic gate 9 already names, reproduced by the agent
+enforcing it.
+
+**Consequences:** `.claude/rules/epistemic.md` gate 1 ("grep before asserting absence") is
+correct but under-specified — it does not say that the grep itself can be blind to wrapped
+content. Status: proposed — worth a sentence in gate 1.
+
+**Also recorded: a documented trap was repeated.** "tsc --noEmit compiles nothing here"
+(root `tsconfig.json` has `files: []`) is already in this log **three times** — 2026-05-31
+[process], 2026-06-24, and the P952 entry. It was hit again this session, and reported to the
+founder as "tsc clean" four times before a control probe exposed it. Three prior write-ups
+did not prevent the fourth occurrence; the thing that caught it was running a known-bad input
+through the same command. **Repetition in the log is not a control. A probe you have not
+watched fail is not a probe.** The real gate is `scripts/typecheck-gate.sh`.
+
+**References:** [org-page.tsx](../src/app/pages/org-page.tsx), [epistemic.md](../.claude/rules/epistemic.md), [typecheck-gate.sh](../scripts/typecheck-gate.sh)
+
+---
+
+## 2026-08-31 [technical]: A swallowed load error must render as absence, never as a zero
+
+**Context:** P1060 review. `org-page.tsx` deliberately swallows a failed roster fetch so a
+roster outage cannot take the Events page down with it — a good decision, documented in
+place. But `members` defaulted to `[]`, and `[]` is indistinguishable from a genuinely empty
+roster. The page therefore rendered **"0 members"** and **"Be the first to join"** to anyone
+looking at a failed request. The same shape on the directory: `getMemberCounts(...).catch(() => ({}))`
+then `?? 0` printed "0 members" on every card.
+
+The tell that this was a defect and not a judgement call: the correct pattern already existed
+**twelve lines away in the same file.** A failed participation fetch leaves `undefined`, and
+`OrgParticipantRow` renders nothing for `undefined`. One fetch modelled absence; its neighbour
+collapsed absence into a falsy value that the UI then stated as fact.
+
+**Decision:** A value that can fail to load is `T | undefined`, where `undefined` means NOT
+KNOWN and is rendered as absence. Never default it to `0`, `[]`, or `{}` — those are claims.
+Swallowing an error is about not cascading the failure, not about inventing a value to
+replace it. Applies to counts, rosters, and any aggregate a page states in words.
+
+**Alternatives rejected:** A loading/error/loaded enum (more states than the two the UI
+distinguishes). Rendering "0 members" with a retry affordance (still asserts zero). Not
+swallowing the error (re-introduces the cascade the original comment exists to prevent).
+
+**Consequences:** Both failure paths now have a test. Neither had one before — the e2e suite
+only ever exercised successful loads, so the bug was invisible to a green run. When adding a
+`.catch(() => <falsy>)`, add the failure-path test in the same change.
+
+**References:** [org-page.tsx](../src/app/pages/org-page.tsx), [org-participant-row.tsx](../src/app/components/organizations/org-participant-row.tsx)
+
+---
+
+## 2026-08-31 [technical]: Threading a URL parameter into a write requires its own authorization
+
+**Context:** P1060's org page linked to `/events/new?org=<slug>`, and nothing read the
+parameter — so a Done-When ("an event created from an org page carries that organization")
+was **false**, not merely untested. Wiring it up looked like plumbing. It was not: the events
+INSERT policy is `WITH CHECK (auth.uid() = host_id)` and says nothing about `org_id`. The
+moment the client could send `org_id`, any authenticated user could file an event into any
+organization by editing a slug in a URL. The org page's own `canHost` gate does not help — the
+parameter travels in a URL and the insert is a plain API call.
+
+**Decision:** Enforce in the database with a `BEFORE INSERT OR UPDATE` trigger requiring the
+host to be an organizer of the org claimed; `NULL org_id` returns immediately, so the
+standalone hosting funnel is untouched. `SECURITY DEFINER` with a pinned `search_path`.
+UPDATE is guarded too — re-pointing an existing event at an org is the same capability as
+creating one there.
+
+**Alternatives rejected:** Widening the events INSERT policy (rewrites a policy every other
+event path depends on, and an RLS refusal returns "0 rows" — indistinguishable from a
+no-match, so the client has nothing to show a human). Client-side check only (a UI gate is a
+suggestion). The client still refuses to carry an unauthorized org, so the common case is
+prevented rather than merely reported.
+
+**Consequences:** The integration test covers refuse / allow-organizer / allow-NULL /
+refuse-on-update. A suite containing only the refuse case would pass against a trigger that
+rejected everything — the allow cases are what prove no false positives.
+
+**Dormant, not fixed:** `events` rows are world-readable and `organization` rows are
+RLS-gated to public ones, so a private org's id would leak through its event's `org_id`. Not
+reachable today (both orgs are public; private orgs are a documented non-goal). Belongs with
+whichever spec adds gated visibility.
+
+**References:** [20260831150000_p1060_events_org_requires_organizer.sql](../supabase/migrations/20260831150000_p1060_events_org_requires_organizer.sql)
+
+---
+
 ---
 
 
