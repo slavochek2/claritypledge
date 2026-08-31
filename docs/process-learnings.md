@@ -30,6 +30,29 @@ an empty file is the healthy state.
 
 ---
 
+
+## /ship's direct-to-main path needs a stamp that only /dev and /fix write (due: month)
+
+`/ship` says "Run `/ship pN` anyway" when there is no feature branch, and `git-ops.sh` requires
+**two** things for that path: `status` in {qa, in-progress} **and** a `pN ready for QA` stamp commit
+on main. Verified 2026-08-31: `grep -rn "ready for QA"` across the build skills returns only
+`dev.md` and `fix.md` as writers.
+
+So work done genuinely inline — no `/dev`, no `/fix`, no branch — cannot close its own spec, and
+nothing says why. P1187 hit this: the stamp had to be hand-written before `/ship` would proceed.
+That took a minute and the gate was *right* to demand proof the work landed, which is why this is
+an inbox note and not a decision — but the next session will lose the same minute to the same
+surprise, and `/ship`'s own text implies the on-main path just works.
+
+Two candidate fixes, unassessed: `/ship` writes the stamp itself when the spec is at `qa` and the
+user confirms the work landed; or `/ship`'s docs simply say "inline work must write the stamp
+first" and show the one command. The second is smaller and does not weaken the gate.
+
+Falsifier: on a spec at `status: qa` on main with no branch and no `ready for QA` commit, run
+`./scripts/git-ops.sh ship pN` — it refuses on the code-presence gate.
+
+---
+
 ## The Codex-vs-Opus review bake-off is unresolved — n=1, and the control lens never reported
 
 due: month
