@@ -37,6 +37,201 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-08-31 [process]: A verification harness with no known-bad case is unproven, and "everything passed" is the trigger to check it
+
+**Context:** P1202's run needed 20 caption-sourced quotes checked against an independent
+transcription. The first comparison harness scored character-level similarity with a 0.85 threshold
+and reported **13 CONFIRMED**. It was blind: a deliberately planted control — *"the most dangerous
+is when the systems are **closed** weights, because there's basically **total** defense"* against a
+source saying *"**open** weights … **no** defense"* — scored **0.88 and passed**. A quote with its
+meaning reversed was reported as verified. Two further faults surfaced in the same harness: it
+pooled all four speakers' transcripts into one search space, so a quote could "match" a different
+speaker entirely; and it folded tool stderr into the transcript, so a failed download read as a
+content mismatch rather than as *unverified*.
+
+**Decision:** Any comparison harness in this repo ships with **both** a known-bad and a near-miss
+control, and prints their results **beside** the passes. A near-miss (one content word changed to
+invert meaning) is the load-bearing one — the never-present control passed trivially here while the
+inverted control did not. Where a metric is scalar, prefer a **word-level content diff** over a
+similarity score: `closed`↔`open` and `total`↔`no` are two substitutions that a character metric
+rounds away and a content diff cannot.
+
+**Alternatives rejected:** Raise the similarity threshold — rejected: the inverted control scored
+0.88 and a legitimate quote scored 0.96, so no threshold separates them. Trust the metric because it
+returned plenty of passes — rejected, and this is the trap: an all-pass result is *evidence the probe
+may be blind*, not evidence the input is clean (`~/.claude/CLAUDE.md` already carries the all-empty
+half of this rule; this session supplies the all-passing half).
+
+**Consequences:** P1202 Done-When now enumerates the three harnesses that exist and requires controls
+on each. The wider rule is `epistemic.md` gate 7 applied to comparison tools: a gate you have not
+watched **fail** is unproven, and a similarity score is a gate.
+
+**References:** [p1202](../features/p1202_disagreement_story_quality_and_pipeline_defects.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
+## 2026-08-31 [process]: An agent showing `idle` has not necessarily reported — and a drop-on-silence rule fires on that gap
+
+**Context:** P1202's run spawned 7 subagents across two batches. `ListAgents` showed every one as
+`idle` while none had delivered; the reports arrived **~6 minutes later**. Acting on the listing, the
+orchestrator announced *"0 of 7 subagents reported"* and — following `positions.md` Step 4c, which
+says a silent verification agent is a **DROP** — discarded **three correctly-verified quotes**. Both
+the count and the drop were retracted when the reports landed. An explicit `SendMessage` chase to
+three agents did not speed delivery. One idle payload even said `[result truncated — ask the agent
+via SendMessage]` while the full result then arrived unprompted.
+
+**Decision:** `idle` in an agent listing is a **scheduler state, not a delivery signal**, and no rule
+may treat it as evidence a report will not arrive. Any drop-on-silence rule must name an **explicit
+wait deadline** measured from spawn (minimum 10 minutes), and say in its own text that `idle` does
+not satisfy it.
+
+**Alternatives rejected:** Re-spawn on silence — rejected: `~/.claude/CLAUDE.md` already forbids
+widening a fan-out to compensate for unreliable reporting, and it would have produced eight agents
+for four quotes. Treat silence as a pass — rejected: that inverts `epistemic.md` gate 9b, which
+exists because a silent agent is indistinguishable from one that found nothing.
+
+**Consequences:** Gate 9b's ratio (`<received> of <spawned>`) remains right and is **not** sufficient
+on its own — the ratio was reported accurately and was still wrong, because the denominator was read
+too early. This matters more under P1202, which puts 8 agents per run on story writing: the same trap
+would silently drop a story rather than a quote.
+
+**References:** [p1202](../features/p1202_disagreement_story_quality_and_pipeline_defects.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 9b
+
+---
+
+## 2026-08-31 [process]: A routing rule never outranks a founder decision — and the agent that reaches for one is usually reaching for its own answer
+
+**Context:** In P1202 the founder chose a shared craft document (*"Yes makes sense. I agree with
+decision A"*). The drafting agent then reversed that decision **twice in writing**, citing
+`CHARTER.md`. Adversarial review found both halves of the justification false, and both errors ran
+in the direction of the agent's own preferred conclusion: (1) the extraction precedent was quoted
+**backwards** — the agent claimed extraction happens at the *third* consumer, while
+`decisions.md` actually reads *"when a **second** consumer appears, a model that lives inside a
+consumer is **already mis-homed**"*, which argues **for** extraction; (2) `CHARTER.md` itself says
+*"Routing is **advisory** … the founder decides … arguing placement IS the failure mode this charter
+retires."* The agent used a rule that says *the founder decides* to overturn a founder decision.
+
+**Decision:** A doc-routing rule is advisory input to a recommendation, never authority to reverse a
+stated founder decision. When a gate appears to contradict the founder, the agent **quotes the rule
+verbatim and asks** — it does not act on its own reading. And when an agent finds a rule that
+happens to license the conclusion it already preferred, that coincidence is the cue to **re-read the
+rule**, not to cite it.
+
+**Alternatives rejected:** Let the gate win because gates exist to catch errors — rejected: this gate
+explicitly disclaims that authority, and a gate the agent interprets alone is the agent's opinion
+wearing a rule's clothes. Record the reversal quietly and move on — rejected: the reversal reached
+the founder in chat but the spec artifact still claimed *"the founder settled every open call"*, so
+an implementer reading the spec alone would have read a gate-imposed reversal as a founder choice.
+
+**Consequences:** The reversal is retracted and the founder's decision stands. The rejected-alternative
+row is kept **visible** in P1202 rather than deleted, because the failure worth remembering is not the
+placement — it is the move. Related and measured the same session: of five substantive errors, four
+were caught by an independent reviewer or the founder and one by a planted control; **none** by the
+agent re-reading its own work.
+
+**References:** [p1202](../features/p1202_disagreement_story_quality_and_pipeline_defects.md) · [CHARTER.md](CHARTER.md) · `decisions.md` 2026-08-28 (arbiter-failure-model extraction)
+
+---
+
+## 2026-08-31 [technical]: The serverless functions run under a different module resolver than every test that covers them
+
+**Context:** P1201 — every link preview on the site (event, story, point, profile) returned HTTP
+500 for three days. `api/*.ts` is **transpiled, not bundled** by the host: each file becomes an ESM
+`.js` with its import specifiers emitted verbatim, and the repo's `package.json` declares
+`"type": "module"`. Node's ESM resolver requires an explicit file extension on a relative
+specifier. P1141 had added `import { getThumbnailUrl } from '../src/lib/video'` — the first
+relative *value*-import in `api/` reaching outside that directory (the other two functions carry
+only erased `import type`). The imported file **was** shipped inside the function bundle as
+`src/lib/video.js`; the specifier simply could not name it, so the module threw at load and the
+crash preceded the request handler entirely.
+
+That is why the symptom was uniform: all four routes, every slug, and a route-miss that touches no
+database, all failed identically. It is also why the filed root cause — a stale Supabase key from
+the 2026-08-28 rotation — was wrong.
+
+**Decision:** Relative value-imports in `api/*.ts` carry an explicit `.js` extension, and this is
+enforced by `src/tests/p1201-api-esm-imports.test.ts`, which asserts the **specifier text** rather
+than importability.
+
+Asserting the text is the whole point. Every resolver this project tests through — Vite, vitest,
+tsx, `tsc` — accepts the extensionless form, and production's does not. Importability is precisely
+the property the two resolvers disagree about, so a test that imports the module can never see the
+defect no matter how thorough it is. The gate carries a known-good/known-bad control pair, and its
+failure path was exercised before it was trusted: with the fix reverted it fails on `og.ts` alone
+while the other two `api/` files still pass.
+
+**Alternatives rejected:**
+- *Copy the thumbnail derivation into `api/og.ts`.* Removes the cross-directory import, and
+  reintroduces exactly the second drift-prone copy P1141 existed to delete. A `.js` specifier maps
+  onto the `.ts` source in TypeScript, so nothing had to be duplicated to fix this.
+- *Harden `handler()` against the failure.* Impossible by construction, and worth stating because
+  the spec proposed it: a module-load crash happens before the handler is entered, so no try/catch
+  inside a serverless function can degrade its own import failure. Robustness *within* a handler is
+  not a substitute for a gate on what the handler imports.
+- *A post-release smoke test on the live URLs.* Would have caught it, three days late and only
+  after every share link on the site was already broken. Worth adding separately; not a replacement
+  for a check that fails before merge.
+
+**Consequences:** The failure class generalizes past this one import — anything `api/` gains that
+resolves under the bundler but not under Node ESM lands the same way, silently, at module load,
+with a 500 on *every* request rather than a degraded one. It is also unusually invisible from the
+outside: direct browser visits and the SPA were unaffected the entire time, because only crawler
+user-agents are rewritten to this function. Nobody using the site could see it.
+
+Two smaller things fall out. `src/tests/p1141-og-video-thumbnail.test.ts:31` asserted the
+*literal* extensionless specifier string, so the test suite was actively defending the bug — the
+fix could not be made without editing a green test. Its real claim ("og.ts reads the app's own
+parser, not a second copy") is about the **module**; the extension was over-specification, and is
+now owned by the P1201 gate instead. And the credential-failure path the spec worried about turned
+out to be already correct and already tested (P1108's try/catch); a per-route 401 case was added to
+`p1108-fail-loud.test.ts` to name the "legacy API keys are disabled" shape explicitly.
+
+**References:** `api/og.ts:1` · `src/tests/p1201-api-esm-imports.test.ts` ·
+`src/tests/p1141-og-video-thumbnail.test.ts` · `src/tests/p1108-fail-loud.test.ts` ·
+`features/p1201_link_preview_function_crashes_since_key_rotation.md`
+
+## 2026-08-31 [process]: The cheapest disproof of a dependency hypothesis is the code path that does not use the dependency
+
+**Context:** P1201 was filed against a confidently-reasoned root cause: a Supabase key rotated on
+2026-08-28 had left the deployed environment holding a disabled key, so every `supabaseGet()` in
+`api/og.ts` was throwing. The spec was honest about it — labelled "Not verified this session" and
+proposed a cheapest disproof of comparing the deployed environment variable against `.env.prod`,
+which needed dashboard access the filing session lacked. The hypothesis was wrong, and the timeline
+that motivated it was coincidence: the real cause shipped four days earlier.
+
+The disproof that actually settled it cost one `curl` and no credentials. `/api/og?path=/nope` is a
+route-miss: it reaches no database, reads no key, and returns a static fallback card. It returned
+500 too. At that point the credential hypothesis was dead, because the failing path did not depend
+on credentials.
+
+**Decision:** When a hypothesis blames a dependency, prefer the disproof that exercises a code path
+**not using that dependency** over the one that inspects the dependency's value.
+
+It is strictly cheaper — no access, no secrets, no dashboard — and it is a stronger test. Reading
+the key back can only confirm the key is fine; it never tells you what else might be wrong.
+Watching an independent path fail *eliminates the entire class* in one observation.
+
+**Alternatives rejected:** *Go straight to the deployed runtime logs.* This is what produced the
+actual error (`ERR_MODULE_NOT_FOUND`), and it is a fine second step — but it needs provider access
+the filing session did not have, which is exactly why that spec stalled on an unverified guess. The
+route-miss probe needs nothing. Order them cheap-first: eliminate the class, then read the log for
+the cause.
+
+**Consequences:** Two corollaries worth carrying. First, a **uniform** failure rate is evidence
+about *where* the failure is, not just how bad it is: 100% across every slug, every route type, and
+a path with no data access says the fault is upstream of all per-request work. The filing session
+read 100% as severity and stopped; it is also a location signal. Second, this is `.claude/rules/`
+epistemic gate 2 (cheapest disproof) with the selection criterion made concrete — the gate asks for
+the smallest falsifying test but does not say which of several candidates is smallest, and
+"inspect the suspect" reads as the obvious answer while usually being the expensive one.
+
+Also worth recording plainly: the spec's Summary, Invariants, Affected Files and title all encoded
+the falsified cause. All four were rewritten rather than left to mislead the next reader; the title
+is kept only so the P-number stays findable, with a line at the top saying it is wrong.
+
+**References:** `features/p1201_link_preview_function_crashes_since_key_rotation.md` ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 2
+
 ## 2026-08-31 [process]: A line-anchored grep cannot verify a quote in source code, because source code wraps
 
 **Context:** A benchmark run put four agents (two spec writers, a judge, and the session
