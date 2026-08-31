@@ -159,7 +159,7 @@ export function RsvpConfirm() {
           {/* Actions */}
           <div className="space-y-3">
             {/* P1194: the group chat is the one action here that is time-sensitive — first. */}
-            <GroupChatBlock url={groupChatUrl} variant="primary" />
+            <GroupChatBlock url={groupChatUrl} />
 
             <div className="relative" ref={calendarMenuRef}>
               <Button
