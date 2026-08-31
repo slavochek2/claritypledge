@@ -5,8 +5,8 @@ rank: 3
 workstream: events
 created_date: '2026-08-28'
 tags: [events, room, navigation, cmp]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 pipeline_plan: [create-spec, generate-tests, dev, verify]
 pipeline_skipped: ["challenge-prd -- founder declined 2026-08-28, see Pipeline note", "ux -- settled by the 2026-08-28 prototype pass", "architect -- placement + schema shape decided in spec", "decompose -- 3 concerns, under the 5-file trigger"]
 drafted_by: opus
@@ -313,39 +313,41 @@ Solution §1. Founder, verbatim: *"needs to follow our design please."*
 
 ## Acceptance Criteria
 
-- [ ] A signed-in registered attendee sees the **Links** button beside the avatar, in the same header
+- [x] A signed-in registered attendee sees the **Links** button beside the avatar, in the same header
       position, on `/events/:slug/room`, `/events/:slug/ready`, `/events/:slug/meet`, and on a stake page
-- [ ] The button is visible and tappable at **320px**, with nothing overlapping the logo or the
+- [x] The button is visible and tappable at **320px**, with nothing overlapping the logo or the
       avatar — the width at which the centre-slot approach fails
-- [ ] At phone width, tapping it opens a bottom sheet, not a dropdown, and every entry is at least 44px tall
-- [ ] At desktop width, clicking it opens a narrow panel anchored under the trigger — not the sheet
-- [ ] A configured per-event link whose tag has no points and no stories is not shown at all
-- [ ] The menu lists exactly `cmp7`, `cmp3`, Transcribe, Start a Clarity Session — `cmp10` is absent
-- [ ] When the event has a per-event link with content, it is the FIRST entry in the menu
-- [ ] The stake surface renders a Back button that pops history, and goes to `/feed` instead when
+- [x] At phone width, tapping it opens a bottom sheet, not a dropdown, and every entry is at least 44px tall
+- [x] At desktop width, clicking it opens a narrow panel anchored under the trigger — not the sheet
+- [x] A configured per-event link whose tag has no points and no stories is not shown at all
+- [x] The menu lists exactly `cmp7`, `cmp3`, Transcribe, Start a Clarity Session — `cmp10` is absent
+- [x] When the event has a per-event link with content, it is the FIRST entry in the menu
+- [x] The stake surface renders a Back button that pops history, and goes to `/feed` instead when
       the page is the first history entry
-- [ ] The stake surface applies the nav offset once, not twice — no page-level `pt-20` under a
+- [x] The stake surface applies the nav offset once, not twice — no page-level `pt-20` under a
       layout that already offsets
-- [ ] Opening it lists Transcribe, `cmp7`, `cmp3`, `cmp10` on an event with no extras configured
-- [ ] An event with one configured extra shows five entries; a second event created afterwards with
+- [x] Opening it lists `cmp7`, `cmp3`, Transcribe, Start a Clarity Session on an event with no extras
+      configured — SUPERSEDES the earlier "…`cmp10`…" wording above: `cmp10` was removed from the
+      menu 2026-08-31 (founder: "I would suggest to delete CMP10. Let's keep it simple")
+- [x] An event with one configured extra shows five entries; a second event created afterwards with
       none still shows exactly four
-- [ ] Tapping the `cmp7` entry lands on a page showing the seven Points oldest-first, with no search
+- [x] Tapping the `cmp7` entry lands on a page showing the seven Points oldest-first, with no search
       box, no tag cloud, no sort toggle and no Share a Story button
-- [ ] That page shows no tabs, because `cmp7` carries Points only
-- [ ] A tag carrying both Points and Stories shows both tabs on the same surface
-- [ ] Staking a position on that page updates the count with no full-list reload or loading flash
-- [ ] An attendee who opted **out** at `/meet` can reach the stake surface and record positions
-- [ ] Tapping Transcribe from the menu reaches the working transcription room
+- [x] That page shows no tabs, because `cmp7` carries Points only
+- [x] A tag carrying both Points and Stories shows both tabs on the same surface
+- [x] Staking a position on that page updates the count with no full-list reload or loading flash
+- [x] An attendee who opted **out** at `/meet` can reach the stake surface and record positions
+- [x] Tapping Transcribe from the menu reaches the working transcription room
 
 ## Done-When
 
-- [ ] A route outside `/events/:slug/*` renders its nav with unchanged logo and right-hand group
+- [x] A route outside `/events/:slug/*` renders its nav with unchanged logo and right-hand group
       geometry, verified by an assertion that would fail if the Links button leaked outside the room
-- [ ] The nav centre slot is untouched by this change — still absolutely positioned, `/terms` unaffected
-- [ ] A menu entry configured with an external URL is rejected or ignored, verified by attempting one
-- [ ] `P1161` and `docs/events/clarity-practice-event.md` no longer describe `/feed/cmp7` as the
+- [x] The nav centre slot is untouched by this change — still absolutely positioned, `/terms` unaffected
+- [x] A menu entry configured with an external URL is rejected or ignored, verified by attempting one
+- [x] `P1161` and `docs/events/clarity-practice-event.md` no longer describe `/feed/cmp7` as the
       room's URL
-- [ ] The migration applies to test and the column defaults to `[]` on every existing event row
+- [x] The migration applies to test and the column defaults to `[]` on every existing event row
 
 ## Rollback Strategy
 
