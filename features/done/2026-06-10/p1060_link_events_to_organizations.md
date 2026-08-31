@@ -1,10 +1,9 @@
 ---
-status: today
+status: all-done
 type: story
 rank: 4
 created_date: '2026-08-13'
 tags: [organizations, events, schema, membership]
-delivery_stage: ship
 pipeline_ran: [create-spec, grill-me, generate-tests, inline, finish, ship]
 driver: heuristic
 uat_file: features/uat/p1060.md
@@ -13,6 +12,7 @@ test_files:
   - e2e/p1060-org-scoped-events.spec.ts
   - e2e/p1060-org-directory.spec.ts
   - e2e/a11y/p1060-accessibility.spec.ts
+completed_at: 2026-08-31
 ---
 
 # P1060: Events belong to an organization — and the second organization that needs it
@@ -34,11 +34,11 @@ the branch rather than a slot keeps this line correct if the work is ever moved.
 
 > **[WIDENED 2026-08-19 — founder decision.]** Filed 2026-08-13 as a schema placeholder (`events.org_id`, column + backfill, *"Do NOT change event visibility or access rules here"*). That Non-Goal is **retired, deliberately**, because the condition it was waiting for arrived: the founder wants a **second Clarity Organization for online events**. The column alone does not make two organizations usable — see Problem — so shipping it without the surfaces that read it leaves the visible defect in place on the day org #2 appears. The original narrow scope is preserved at the bottom under *Superseded scope*.
 >
-> **[FINALIZED 2026-08-28 — eleven founder decisions recorded below, visual reference approved, zero open. Ready for `/generate-tests` then `/goalify`.]** Two changes to the widened scope. **(a) The paid membership level and gated events are split out to [p1183](p1183_membership_levels_and_gated_events.md)** — different blast radius (it writes onto the terms-acceptance record, irreversible once anyone pays), nothing to attach to (zero paid members, no payment collection), and it was gating the four items that unblock org #2 this week. **(b) `/org` — a directory of all organizations — is added**, closing the follow-up that [decisions.md](../docs/decisions.md) 2026-07-23 [product] deferred by name (*"Deferred to followups: user-facing org creation, discovery index (`/org`)…"*). The condition that deferral was waiting for is the same one that widened this spec: a second organization.
+> **[FINALIZED 2026-08-28 — eleven founder decisions recorded below, visual reference approved, zero open. Ready for `/generate-tests` then `/goalify`.]** Two changes to the widened scope. **(a) The paid membership level and gated events are split out to [p1183](../../p1183_membership_levels_and_gated_events.md)** — different blast radius (it writes onto the terms-acceptance record, irreversible once anyone pays), nothing to attach to (zero paid members, no payment collection), and it was gating the four items that unblock org #2 this week. **(b) `/org` — a directory of all organizations — is added**, closing the follow-up that [decisions.md](../../../docs/decisions.md) 2026-07-23 [product] deferred by name (*"Deferred to followups: user-facing org creation, discovery index (`/org`)…"*). The condition that deferral was waiting for is the same one that widened this spec: a second organization.
 
 ## Problem
 
-**Situation:** `events` has `host_id → profiles` and no organization reference. [p1010](done/2026-06-10/p1010_clarity_organizations_community_container.md) shipped `organization` + `membership`, so multiple organizations are already structurally supported — the only missing edge is from an event to the org that holds it. `organization.has_events` is a *display toggle* for whether the Events tab renders (`org-page.tsx:285`), not a filter; the embedded list calls `eventsService.getUpcomingEvents()` / `getPastEvents()` with no org argument (`EventsList.tsx:41-43`).
+**Situation:** `events` has `host_id → profiles` and no organization reference. [p1010](p1010_clarity_organizations_community_container.md) shipped `organization` + `membership`, so multiple organizations are already structurally supported — the only missing edge is from an event to the org that holds it. `organization.has_events` is a *display toggle* for whether the Events tab renders (`org-page.tsx:285`), not a filter; the embedded list calls `eventsService.getUpcomingEvents()` / `getPastEvents()` with no org argument (`EventsList.tsx:41-43`).
 
 **Complication:** the founder is creating a second organization — **Clarity Practice Community · Online** — to host online events, alongside the existing **· Chiang Mai**. On the day it exists, both pages list the same events: Chiang Mai shows the online sessions, Online shows the Chiang Mai ones. The "Past" count visible on the org page today is not Chiang Mai's; it is every event on the platform. Two organizations is therefore *worse* than one until this edge exists.
 
@@ -60,13 +60,13 @@ the branch rather than a slot keeps this line correct if the work is ever moved.
 | D2 | What the backfill writes | **The 8 Chiang Mai events only; the 2 Ko Phangan events stay NULL** | Keeps the column honest, which is the entire point of adding it. Backfilling all ten would overstate that community's history permanently. Exact slug list in Solution item 2. |
 | D3 | Org #2 slug | **`online`** → `/org/online` | Pairs with the existing `/org/cm`; reads as the instance name. |
 | D4 | Who may host into an org | **Organizers of that org only, from the org page** | Standalone `/events/new` stays open to any logged-in user and creates an orgless event. Matches the founder's end-state (leader of · Online posts events under it) and stops the org page inviting strangers to host into a community they may not belong to. **Note:** `membership_insert` lets any authenticated user join a public org in one click, so "any member" would be close to "anyone" in practice — that is why the line is drawn at organizer. |
-| D5 | `/org` directory | **In this spec** | One route, one query, one list page. Closes the [decisions.md](../docs/decisions.md) 2026-07-23 deferral by name. Explicitly a listing, never a creation surface. |
+| D5 | `/org` directory | **In this spec** | One route, one query, one list page. Closes the [decisions.md](../../../docs/decisions.md) 2026-07-23 deferral by name. Explicitly a listing, never a creation surface. |
 | D6 | Empty Upcoming | **Fall through to Past, explicitly labelled** | · Online launches with **0 upcoming and 0 past** — the state that matters at launch. **Correction 2026-08-28:** an earlier draft justified this with *"· Chiang Mai has past events but none upcoming"*; that is false today — `getUpcomingEvents` filters `datetime >= grace AND status IN ('upcoming','cancelled')`, and Chiang Mai has **1 upcoming** (Social Hike, 2026-08-30) plus 7 past. The rule stands on · Online's empty state and on Chiang Mai's state after 30 Aug, not on a count that was wrong when written. |
 | D7 | · Online blurb | **Seed it NULL; add the copy later** | The founder does not yet know who · Online is for — *"their purpose is to attract different kinds of people… maybe we don't know yet."* A blurb guessed now would be a positioning claim made before the positioning exists. `organization.blurb` is nullable and `org-header.tsx:121` already guards it (`{org.blurb && …}`), so a NULL seed renders cleanly today with **no code change**; the directory card omits the line entirely rather than showing a placeholder. **This unblocks the seed migration.** An earlier draft recommended mirroring Chiang Mai's blurb — retracted, it was read off the stale p1010 migration seed; prod's live blurb is a voice-led hook replaced by `20260729220000_p1010_cm_about_copy.sql`. |
-| D8 | Membership levels + gated events | **Split to [p1183](p1183_membership_levels_and_gated_events.md)** | See the FINALIZED callout above. |
+| D8 | Membership levels + gated events | **Split to [p1183](../../p1183_membership_levels_and_gated_events.md)** | See the FINALIZED callout above. |
 | D9 | Show a **participant** count beside the member count | **Yes — count + avatar stack, both on the directory card and the org header** | Measured on prod 2026-08-28: · Chiang Mai has **1 member and 45 distinct people who have RSVP'd** to its events. The directory card as first designed said *"1 member"* — hiding 45 real people and making a live community read as dead. This is the single highest-value change to the surface being built. **No RLS work:** `event_rsvps` is already `SELECT USING (true)` (`20260118_create_events.sql:70`). |
-| D10 | What to call them | **`member` and `participant`** | *Member* = accepted the Clarity Organization Terms (a commitment; the membership row IS that record). *Participant* = has RSVP'd to one of its events (a fact). **"Guest" is unavailable** — [definitions.md](../docs/definitions.md) defines *Unverified Guest* as a specific auth type (anonymous auth, `is_verified: false`, `slug: null`, cannot author content) reached through `/live`. Reusing it here would collide with an identity class, not just a label. |
-| D11 | The participant **list** surface | **Split to [p1192](p1192_organization_participant_roster.md)** | The count is one query and makes the directory honest today. A browsable roster needs its own PII-gated accessor mirroring `get_organization_members` (per-row gating on verified+pledged, P877 style) and a fourth tab on the org page. Different size, different review; it does not block the directory. |
+| D10 | What to call them | **`member` and `participant`** | *Member* = accepted the Clarity Organization Terms (a commitment; the membership row IS that record). *Participant* = has RSVP'd to one of its events (a fact). **"Guest" is unavailable** — [definitions.md](../../../docs/definitions.md) defines *Unverified Guest* as a specific auth type (anonymous auth, `is_verified: false`, `slug: null`, cannot author content) reached through `/live`. Reusing it here would collide with an identity class, not just a label. |
+| D11 | The participant **list** surface | **Split to [p1192](../../p1192_organization_participant_roster.md)** | The count is one query and makes the directory honest today. A browsable roster needs its own PII-gated accessor mirroring `get_organization_members` (per-row gating on verified+pledged, P877 style) and a fourth tab on the org page. Different size, different review; it does not block the directory. |
 
 ## Solution
 
@@ -120,7 +120,7 @@ lands, and it is exactly what the org edge buys beyond scoping a list.
 - **Honest label — RESOLVED 2026-08-28: "45 have joined events".** We record RSVPs, not attendance.
   *"45 participants"* reads as *45 people came*; what we know is *45 people said they would*. For a
   product whose subject is calibrated claims, that gap is not papered over in its own directory.
-  *Participant* remains the roster noun in [p1192](p1192_organization_participant_roster.md). If
+  *Participant* remains the roster noun in [p1192](../../p1192_organization_participant_roster.md). If
   attendance is ever recorded separately, the stricter word becomes available.
 - **Zero-participant organizations** (· Online at launch) omit the row entirely rather than printing
   `0` — the same rule as the blurb and the past-event count.
@@ -137,11 +137,11 @@ Two of three layers are settled and used by this spec. The third moved to p1183 
 |---|---|---|---|
 | **Kind** | the container type; what the terms are called; what the schema calls it | **Clarity Organization** — unchanged, never marketed | settled |
 | **Instance** | the communities themselves | **Clarity Practice Community · Chiang Mai**, **Clarity Practice Community · Online** | **this spec** |
-| **Level** | what a member has inside an instance | free, and a paid level — name still open | **[p1183](p1183_membership_levels_and_gated_events.md)** |
+| **Level** | what a member has inside an instance | free, and a paid level — name still open | **[p1183](../../p1183_membership_levels_and_gated_events.md)** |
 
 The collision this resolved: `goals.md:15` and `lean-canvas.md:590` name the **€295/month paid rung** *"Clarity Practice Community"*, which is also the name of the free organizations. Applying the resolution to `lean-canvas.md` §Revenue runs through `/slava:maintain:docs-strategy-update` and belongs to p1183, since it is the *Level* row that renames the rung.
 
-**Consequence with no owner yet:** the paid rung's month-3 milestone is *"they are running it in their own Clarity Organization"* ([goals.md](../docs/goals.md)), but no create-org capability exists for anyone — p1010 made `/org/:slug` a lookup, never a creation surface, on purpose. The milestone currently requires the founder to hand-seed an organization per member. Fine for member one; **needs its own spec before member three.** The `/org` directory in item 5 does not change this: it lists, it does not create.
+**Consequence with no owner yet:** the paid rung's month-3 milestone is *"they are running it in their own Clarity Organization"* ([goals.md](../../../docs/goals.md)), but no create-org capability exists for anyone — p1010 made `/org/:slug` a lookup, never a creation surface, on purpose. The milestone currently requires the founder to hand-seed an organization per member. Fine for member one; **needs its own spec before member three.** The `/org` directory in item 5 does not change this: it lists, it does not create.
 
 ## UX Design
 
@@ -150,7 +150,7 @@ not re-ask for it.
 https://claude.ai/code/artifact/10cedd0b-ddac-42f6-8c45-4fa002319810
 
 This is the **named reference** for `/goalify`'s Phase 2 and the artifact the blind reviewer is given.
-Per [goalify](../.claude/commands/slava/build/goalify/SKILL.md) the reviewer receives renders plus this
+Per [goalify](../../../.claude/commands/slava/build/goalify/SKILL.md) the reviewer receives renders plus this
 reference and **not** the diff, the intent, or this spec's rationale. It draws six states at the
 fidelity a reviewer can judge:
 
@@ -158,7 +158,7 @@ fidelity a reviewer can judge:
 |---|---|---|
 | A | `/org`, signed out, desktop | The new surface's default and most common condition |
 | B | `/org`, signed in, member of · Chiang Mai | Proves the only signed-in delta is a membership badge |
-| C | `/org` at 320px | Narrow is the most common overflow surface ([visual-qa.md](../.claude/rules/visual-qa.md)) |
+| C | `/org` at 320px | Narrow is the most common overflow surface ([visual-qa.md](../../../.claude/rules/visual-qa.md)) |
 | D | `/org/cm` Events, Upcoming empty | D6's fall-through — the labelled heading is its whole visible substance |
 | E | `/org/online` Events, nothing at all | · Online's day-one state; the one an invited stranger most likely lands on |
 | F | Host-CTA visibility matrix | D4, including the **allowed** row (standalone `/events` unchanged) — gate 7c |
@@ -166,7 +166,7 @@ fidelity a reviewer can judge:
 Screens A, B and C additionally carry the avatar row and the two counts; E is the reference for the
 zero-participant case (**no row, no `0`**) and for a NULL blurb rendering as absence, not placeholder.
 
-**Fidelity verified 2026-08-28 — both checks per [decisions.md](../docs/decisions.md) 2026-08-21 [process].**
+**Fidelity verified 2026-08-28 — both checks per [decisions.md](../../../docs/decisions.md) 2026-08-21 [process].**
 Ran against the app at `localhost:5001/org/cm`. **Token diff: 12 divergences found, all corrected** —
 the reference had been built from `docs/design-system.md` prose rather than measured values, so its
 neutrals were blue-biased where the app's are zinc (`--foreground #09090b`, `--muted-foreground
@@ -193,7 +193,7 @@ drop the blurb placeholder now that D7 seeds NULL.
 
 **All open items signed off 2026-08-28** — the participant-count wording (*"45 have joined events"*),
 the initials tiles, and the one-line differentiator under each org name (*"The room brings the
-topic"* / *"The topic is set in advance"*, from [goals.md](../docs/goals.md)'s topic-source split).
+topic"* / *"The topic is set in advance"*, from [goals.md](../../../docs/goals.md)'s topic-source split).
 That last line is **load-bearing now that · Online carries no blurb**: it is the only text
 distinguishing two near-identical names, so treat it as product copy, not a caption.
 
@@ -208,9 +208,9 @@ re-pin.
 ### Risks
 
 - **MITIGATE — the backfill is a historical claim, and the naive version of it is wrong.** Measured above: 2 of 10 prod events are not Chiang Mai's, and a `location` substring match would misclassify 4 of the 8 that are. Mitigation: D2 — the explicit slug list in Solution item 2, a row-count assertion in the migration, and no substring matching. Run the backfill **before** seeding org #2, so every touched row is unambiguously Chiang Mai's.
-- **MITIGATE — a new public route with no prod health coverage.** [decisions.md](../docs/decisions.md) 2026-06-06 records the standing rule: *"a new public route joins `PROD_HEALTH_ROUTES` in the same diff that ships it"*, and notes that nothing mechanical enforces it. `/org` is a new public route. Mitigation: add it to `PROD_HEALTH_ROUTES` in this diff.
-- **MITIGATE — RLS drift.** An org edge invites org-scoped visibility rules the current events policies do not anticipate (`SELECT USING (true)`, `20260118_create_events.sql:41`). This spec deliberately does **not** change them: an org-scoped event stays world-readable and the scoping is a query filter, not a policy. Mitigation: confirm this explicitly in the review and say so in the migration comment — the *readable-by-all / joinable-by-some* split arrives with [p1183](p1183_membership_levels_and_gated_events.md), not here.
-- **MITIGATE — the D4 hosting change is a new refusal, and new refusals block work that was previously fine.** Hiding the org-page host CTA from non-organizers must not hide it from the standalone `/events` list, where any logged-in user may still host. Mitigation: [epistemic.md](../.claude/rules/epistemic.md) gate 7c — test the *allowed* path, not only the refused one: an organizer sees it on the org page, a non-organizer does not, and any logged-in user still sees it on `/events`.
+- **MITIGATE — a new public route with no prod health coverage.** [decisions.md](../../../docs/decisions.md) 2026-06-06 records the standing rule: *"a new public route joins `PROD_HEALTH_ROUTES` in the same diff that ships it"*, and notes that nothing mechanical enforces it. `/org` is a new public route. Mitigation: add it to `PROD_HEALTH_ROUTES` in this diff.
+- **MITIGATE — RLS drift.** An org edge invites org-scoped visibility rules the current events policies do not anticipate (`SELECT USING (true)`, `20260118_create_events.sql:41`). This spec deliberately does **not** change them: an org-scoped event stays world-readable and the scoping is a query filter, not a policy. Mitigation: confirm this explicitly in the review and say so in the migration comment — the *readable-by-all / joinable-by-some* split arrives with [p1183](../../p1183_membership_levels_and_gated_events.md), not here.
+- **MITIGATE — the D4 hosting change is a new refusal, and new refusals block work that was previously fine.** Hiding the org-page host CTA from non-organizers must not hide it from the standalone `/events` list, where any logged-in user may still host. Mitigation: [epistemic.md](../../../.claude/rules/epistemic.md) gate 7c — test the *allowed* path, not only the refused one: an organizer sees it on the org page, a non-organizer does not, and any logged-in user still sees it on `/events`.
 - **ACCEPT — the standalone `/events` list keeps showing everything.** That is its job.
 - **ACCEPT — the participant count measures RSVPs, not attendance.** Named in Solution item 8 with the wording recommendation; the mitigation is the label, not the metric. Recording real attendance is a separate capability nobody has asked for.
 - **ACCEPT — orgless events are invisible on every org page.** The 3 Ko Phangan events, and any future ad-hoc one, appear only on `/events`. Correct under D1; if those ever need a home it is a third organization, not a change here.
@@ -218,9 +218,9 @@ re-pin.
 ### Non-Goals
 
 - **Do NOT build payment collection, subscriptions, or billing.** No rung of the ladder is purchasable and none becomes purchasable here.
-- **Do NOT build membership levels or gated events.** Split to [p1183](p1183_membership_levels_and_gated_events.md).
+- **Do NOT build membership levels or gated events.** Split to [p1183](../../p1183_membership_levels_and_gated_events.md).
 - **Do NOT build a create-organization flow.** `/org` lists; it never creates. Named above as a gap with no owner.
-- **Do NOT build the browsable participant roster.** Count and avatar row only — the list, its gated accessor and its tab are [p1192](p1192_organization_participant_roster.md).
+- **Do NOT build the browsable participant roster.** Count and avatar row only — the list, its gated accessor and its tab are [p1192](../../p1192_organization_participant_roster.md).
 - **Do NOT add a search box to `/org`.** Two organizations. Revisit past roughly a dozen.
 - **Do NOT build a new all-events page.** `/events/*` already exists (`src/App.tsx:958`) and is the target of the directory's footer link; it stays unchanged (existing Non-Goal).
 - **Do NOT change the standalone `/events` route's behavior.**
@@ -228,8 +228,8 @@ re-pin.
 - **Do NOT backfill with a `location` substring match.** See D2.
 - **Do NOT invent the · Online blurb.** Seed it NULL (D7); render nothing where it would go. No placeholder string, in the migration or the UI.
 - **Do NOT read org copy from the p1010 migration seed.** It is stale — prod's Chiang Mai blurb was replaced by `20260729220000_p1010_cm_about_copy.sql`. Read live prod for current copy.
-- **Do NOT edit [p1010](done/2026-06-10/p1010_clarity_organizations_community_container.md) or [p1076](done/2026-06-10/p1076_org_invite_link.md).** Both `all-done`; shipped specs are records.
-- **Do NOT take the [p1110](p1110_org_invite_landing_and_cta_competition.md) fixes into this spec.** They ship independently and first.
+- **Do NOT edit [p1010](p1010_clarity_organizations_community_container.md) or [p1076](p1076_org_invite_link.md).** Both `all-done`; shipped specs are records.
+- **Do NOT take the [p1110](../../p1110_org_invite_landing_and_cta_competition.md) fixes into this spec.** They ship independently and first.
 
 ## Done-When
 
@@ -253,7 +253,7 @@ re-pin.
 
 ## Superseded scope (original filing, 2026-08-13)
 
-Filed as: add `org_id`, index it, backfill to the single existing org, review RLS — with Non-Goals *"Do NOT change event visibility or access rules here. Column and backfill only"* and *"Do NOT build the org-scoped position overview."* The second of those still stands (that is [p1055](p1055_norm_measurement_instrument.md) plus a view spec). The first is retired by the 2026-08-19 widening. Original rationale: *"Not urgent while one organization exists, which is why this is backlog and not week. It becomes blocking the moment a second one does."* — which is exactly what happened.
+Filed as: add `org_id`, index it, backfill to the single existing org, review RLS — with Non-Goals *"Do NOT change event visibility or access rules here. Column and backfill only"* and *"Do NOT build the org-scoped position overview."* The second of those still stands (that is [p1055](../../p1055_norm_measurement_instrument.md) plus a view spec). The first is retired by the 2026-08-19 widening. Original rationale: *"Not urgent while one organization exists, which is why this is backlog and not week. It becomes blocking the moment a second one does."* — which is exactly what happened.
 
 ## Test Coverage Strategy
 
@@ -397,7 +397,7 @@ than discovering it at the merge boundary.
 `PROD_HEALTH_ROUTES` (`e2e/helpers/prod-health.ts:30`) — added by `/generate-tests`, uncommitted on
 the main checkout at pin time and carried into the worktree. Its assertion in M6 therefore passes on
 arrival and has never been seen to fail. It is retained because the standing rule it enforces
-([decisions.md](../docs/decisions.md) 2026-06-06) has nothing else enforcing it, not because this run
+([decisions.md](../../../docs/decisions.md) 2026-06-06) has nothing else enforcing it, not because this run
 proved it.
 
 **No `it.fails` markers are pre-authorised for this spec.** P1114 committed red tests under that
@@ -408,4 +408,4 @@ pressure on `main` to relieve — a `p1060-*` test that is committed must be com
 
 ## References
 
-Origin: session 2026-08-13 while scoping [p1055](p1055_norm_measurement_instrument.md) — the founder's question *"show me all points that members or guests of a given Clarity organization engaged with"* has no path in the schema. Widened 2026-08-19 from a founder screenshot review of `/org/cm`; sibling fixes in [p1110](p1110_org_invite_landing_and_cta_competition.md). Finalized 2026-08-28 via `/grill-me` — eight decisions recorded, item 5 split to [p1183](p1183_membership_levels_and_gated_events.md), `/org` directory added. `/org` deferral being closed: [decisions.md](../docs/decisions.md) 2026-07-23 [product]. New-public-route health-coverage rule: [decisions.md](../docs/decisions.md) 2026-06-06. Ladder + naming context: [goals.md](../docs/goals.md), [lean-canvas.md](../docs/lean-canvas.md) §Revenue.
+Origin: session 2026-08-13 while scoping [p1055](../../p1055_norm_measurement_instrument.md) — the founder's question *"show me all points that members or guests of a given Clarity organization engaged with"* has no path in the schema. Widened 2026-08-19 from a founder screenshot review of `/org/cm`; sibling fixes in [p1110](../../p1110_org_invite_landing_and_cta_competition.md). Finalized 2026-08-28 via `/grill-me` — eight decisions recorded, item 5 split to [p1183](../../p1183_membership_levels_and_gated_events.md), `/org` directory added. `/org` deferral being closed: [decisions.md](../../../docs/decisions.md) 2026-07-23 [product]. New-public-route health-coverage rule: [decisions.md](../../../docs/decisions.md) 2026-06-06. Ladder + naming context: [goals.md](../../../docs/goals.md), [lean-canvas.md](../../../docs/lean-canvas.md) §Revenue.
