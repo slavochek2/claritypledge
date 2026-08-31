@@ -5,8 +5,8 @@ rank: 84
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [transcripts, caching, points-pipeline, correctness, storage]
-delivery_stage: finish
-pipeline_ran: [create-spec, dev, finish]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, finish, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
