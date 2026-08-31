@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 rank: 252
 tags:
@@ -344,6 +344,33 @@ admin/migration re-seed. That is the fallback if an organizer is locked out.
 - **A trigger on `membership` DELETE also fires on cascade deletes.** `org_id`
   and `user_id` are both `ON DELETE CASCADE` (lines 62-63) — deleting a profile
   or an organization will run this trigger. It must not block those.
+  *Handled via `pg_trigger_depth() > 1`; both directions are exercised in
+  `e2e/integration/p1193-last-organizer-guard.spec.ts`.*
+
+- **KNOWN, ACCEPTED BYPASS — account deletion (recorded 2026-08-31, not a
+  defect).** The cascade carve-out above is what makes the guard safe, and it is
+  also the one way around it. Checked against the policies rather than assumed:
+  - `organization` has **no DELETE policy at all**, so the org-cascade route is
+    unreachable from the client. Not a bypass.
+  - `profiles` **does**: `USING (email = auth.email())`
+    (`20250117_add_profile_delete_policy.sql`). So a sole organizer can delete
+    their own account, which cascades their membership away at trigger depth > 1
+    and leaves the group with zero organizers — the exact state this guard exists
+    to prevent.
+
+  **Deliberately not closed.** Blocking it would trap a person in the product
+  because they organize a group, which is a worse failure than an orphaned group
+  and a data-rights problem besides. Account deletion is also a far heavier,
+  more deliberate act than clicking Leave, which is the act the founder actually
+  asked to guard. Recovery is unchanged: the one-row admin re-seed P1010 names.
+  Recorded here so the next person finds it as a decision rather than a hole.
+
+- **The guard is not reachable via RLS in a private group, and does not need to
+  be.** The trigger is `SECURITY DEFINER` and no table in this schema sets
+  `FORCE ROW LEVEL SECURITY`, so the co-organizer existence check runs as the
+  owner and sees every membership row. Without that, a private group — where
+  `membership_select` shows a member only their own row — would report "no other
+  organizers" for everyone and block every organizer in it.
 
 ## Open questions the founder raised — verify, do not assume
 

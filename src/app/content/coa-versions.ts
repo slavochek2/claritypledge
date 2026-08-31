@@ -70,7 +70,7 @@ export type CoaVersion = keyof typeof COA_VERSIONS;
 //
 // P1193: 5 → 6. Per the header note above, this bump also required widening the
 // membership.terms_version CHECK constraint and moving its DEFAULT — see
-// supabase/migrations/20260831120000_p1193_coa_v6_terms_version.sql. Rolling this
+// supabase/migrations/20260831180000_p1193_coa_v6_terms_version.sql. Rolling this
 // constant back does NOT need the migration reverted: the constraint admits 4, 5
 // and 6, so an older value still writes cleanly.
 export const CURRENT_COA_VERSION: CoaVersion = 6;
