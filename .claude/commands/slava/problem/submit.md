@@ -102,7 +102,7 @@ H=~/.agents/bin/hist          # not on PATH by design
 "$H" --files --since YYYY-MM-DD --here "."     # narrowed to this project
 ```
 
-`--files` prints transcript **paths**, which is what Stage 1 fans out on.
+`--files` prints transcript **paths** — which is what makes Stage 1's optional fan-out possible.
 
 **Fallback when `hist` is absent** (another member's machine, a different harness): glob each store you can reach directly, and treat compressed or non-JSONL stores as **unreachable rather than empty** unless you can actually decode them. A `grep` that matches nothing in a compressed store is not evidence of absence.
 
@@ -124,6 +124,17 @@ A store that could not be reached is **reported**, never omitted. **If every sto
 ## Stage 1 — Detect the member's high-stakes items (INLINED — this skill does not call `/slava:understanding:detect`)
 
 `decisions.md` 2026-08-06 [process]: *"Composite skills do not call sub-skills… Elicitation procedure is not [shareable], and each skill inlines its own."* Eliciting from an archive — where you can grep but cannot ask — is a different procedure from eliciting from a live human, and one shared procedure makes both worse. **Definitions and acceptance contracts are borrowed; the procedure is inlined.** Consequence: this skill never modifies `/slava:understanding:detect`.
+
+### 1z. Reading the transcripts — fan out only if you can, and say which you did
+
+Transcripts are files, so **subagents can read them from the path** and return quotes that survive
+an exact `grep -F` anchor test against material never inlined into their prompts. Give each agent
+the *path*, never the contents. **A background subagent's final text may not reach the caller**, so
+have each one **write its candidates to a file and return that path**.
+
+Fan-out is **optional and is never a substitute for coverage**: read them yourself when you cannot
+spawn, and either way say which you did and that **recall is UNKNOWN**. A run that fanned out is not
+more complete than one that did not — it is only faster.
 
 ### 1a. Declare WHOSE STAKES — blocking gate, ≤8 lines, no table, no recommendation paragraph
 
@@ -190,6 +201,11 @@ A candidate qualifies only when **all three** hold:
 - **Name the interface, or you have not applied it.** *"There's probably a process for this"* is not an interface. And a **skipped item is still emitted, with its reason on it** — a wrongly-applied disqualifier that deletes the item is unreviewable; one that prints its reasoning is one line for the member to reject.
 
 **Print the passing candidates AND the failing ones with their reasons.** The member picks which to draft.
+
+**If nothing passes, stop here and say so** — print the candidates and why each one failed, log
+`exit:no-candidates`, and do not proceed to Stage 3. An empty filter on a real corpus is a finding
+about the window, the narrowing, or the instrument. It is never a reason to soften the filter, and a
+run that relaxes criterion 2 or 3 to produce an output has produced nothing worth reading.
 
 ---
 
@@ -363,6 +379,15 @@ There is no submission cap. Reading is done by an agent, so there is no attentio
 A large ceiling stays only to stop a runaway loop, never to ration.
 
 ---
+
+## Resuming an interrupted run
+
+A run drafts **one submission per approved problem** and each one is independent, so resume is by
+problem, not by stage. On re-entry: re-run Stage 0's store table (the corpus moves), then state which
+problems from the previous run were **sent**, which were **drafted but not sent**, and which were
+**picked but not drafted**. **Never re-send a problem already filed** — a second run files a second
+letter, silently, and the recipient's read is spent on the first one. When in doubt, ask the member
+to check their Published tab before you draft anything.
 
 ## Ledger
 
