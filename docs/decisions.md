@@ -7,6 +7,40 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+
+## 2026-08-31 [process]: A review that finds no files reports the same thing as a review that finds no problems
+
+**Context:** P1187's implementation lives in `pp/scripts/` and `~/.agents/bin/` — the spec says so
+in its own Rollback section. `/finish` classifies what to review by matching paths against this
+repo (`src/**`, `e2e/**`, `scripts/*.ts`, …), so it matched nothing and had nothing to dispatch.
+Pointed by hand at the real files, three lenses found **14 defects**, one of which served one
+account's cookie-gated captions to another. `grep -rln` for out-of-repo code paths across closed
+specs returns **27** — this is a standing shape here, not a one-off: pp scripts, `~/.agents/bin`
+tools, and global `~/.claude/commands` skills all get specs in this repo.
+
+**Decision:** Record the gap; **the honest reading is that this is the same failure as a silent
+subagent** ([epistemic.md](../.claude/rules/epistemic.md) gate 9b) — "nobody reported a problem"
+and "nobody looked" are indistinguishable to whoever reads the output. Gate 9b already binds the
+agent to count reports against agents spawned; the equivalent here is to count **files reviewed
+against files changed**, and to treat zero-matched as a loud condition rather than a quiet pass.
+*(Status: proposed — the mechanical fix is a warn in `/finish` when classification matches nothing
+while the spec names paths outside the repo; not built.)*
+
+**Alternatives rejected:** Teach the classifier every external path — the set is open (any tool on
+this machine can get a spec here), and a stale allowlist fails the same silent way. Require all
+code to live in this repo — the code genuinely belongs elsewhere; a public product repo is the
+wrong home for a personal `yt` wrapper. Rely on the agent noticing — that is what did happen, but
+only because the reviewer was told where to look; an agent trusting the skill's own report would
+have shipped 14 defects with a clean review recorded against them.
+
+**Consequences:** `.finish-reviewed` now carries an explicit `note` naming where the code actually
+lives, so the stamp does not read as a clean review of this repo. Distinct from the 2026-07-12
+entry about a migration-only branch failing gate 2.7: there the review ran under the correct type
+and the gate demanded a different one; here **no review ran at all** and nothing said so.
+**References:** [p1187](../features/done/2026-06-10/p1187_transcript_reuse_is_unenforced.md) ·
+[epistemic.md](../.claude/rules/epistemic.md) gate 9b
+
+---
 ## 2026-08-28 [process]: A model with three consumer skills needs a concept-model doc — the operational layer had drifted into a skill file, where no other skill could point at it
 
 **Context:** P1190 set out to wire the arbiter-failure criteria into `/slava:disagreement:prepare`,
@@ -128,6 +162,18 @@ the key, and nothing checks that the two agree.** A useful test: for each parame
 separating, construct two invocations differing only in that parameter and assert the keys differ —
 the same assertion that caught the dropped output flag, applied to every row of the table rather
 than only the one that had already failed.
+
+**Naming a source is not establishing its identity — the fix above was itself wrong, and a second
+adversarial round caught it.** Round one put the cookie SOURCE in the key instead of a boolean.
+Round two showed that still lies: `--cookies jar.txt` names a different file depending on the
+working directory, and the same path can be rewritten between runs, so the string labels something
+mutable. The key now carries the jar's **content hash** (which also collapses `jar.txt`,
+`./jar.txt` and an absolute path into one entry instead of three), and `--cookies-from-browser` is
+**refused outright** — a live profile mutates, and a bare browser name resolves to whichever
+profile was used last, so there is no identity to key on at any price. **The general form: when a
+key must cover an external mutable thing, key on its CONTENT, or refuse — never on the name it was
+reached by.** That a fix for this exact defect class was itself an instance of it, one round later,
+is the argument for the second adversarial pass rather than for trusting the first.
 
 **And: changing a cache key's SHAPE is a migration, not an edit.** Fixing that boolean invalidated
 all 16 existing entries at once — every stored result went cold, caught only because a
