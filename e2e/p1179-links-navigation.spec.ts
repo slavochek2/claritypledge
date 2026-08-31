@@ -173,12 +173,13 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     try {
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
-      // Five standard + Tonight. "Hollow" is configured on the same event and has
+      // Four standard + Tonight, and Tonight is FIRST (founder 2026-08-31). "Hollow" is configured on the same event and has
       // nothing staked under it, so the menu drops it (founder, 2026-08-31: an
       // entry that opens an empty surface is a dead end the host had to remember
       // to avoid creating). Asserting the COUNT and the absence together is what
       // makes this a two-sided test rather than a restatement of the seed.
-      await expect(page.getByTestId('event-links-entry')).toHaveCount(6);
+      await expect(page.getByTestId('event-links-entry')).toHaveCount(5);
+      await expect(page.getByTestId('event-links-entry').first()).toHaveText('Tonight');
       await expect(page.getByTestId('event-links-entry').filter({ hasText: 'Hollow' })).toHaveCount(0);
 
       await page.getByTestId('event-links-entry').filter({ hasText: 'Tonight' }).click();

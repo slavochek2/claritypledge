@@ -41,8 +41,8 @@ describe('P1179 DW-3 — an entry can never carry an external destination', () =
   it('DROPS a hostile extra rather than throwing — the room menu must not fail closed mid-event', () => {
     const extras = HOSTILE.map(tag => ({ tag }));
     const entries = buildLinksMenu(extras, 'cm-1');
-    // Exactly the five standard entries survive; every hostile extra is gone.
-    expect(entries).toHaveLength(5);
+    // Exactly the four standard entries survive; every hostile extra is gone.
+    expect(entries).toHaveLength(4);
     expect(entries.every(e => e.group !== 'event')).toBe(true);
   });
 
@@ -64,7 +64,7 @@ describe('P1179 DW-3 — an entry can never carry an external destination', () =
       [null, undefined, 'cmp7', 42, [], { label: 'no tag' }] as never,
       'cm-1'
     );
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(4);
   });
 
   it('stakePath encodes the event slug rather than concatenating it raw', () => {

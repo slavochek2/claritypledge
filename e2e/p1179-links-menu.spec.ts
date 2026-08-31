@@ -143,7 +143,7 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
 
       const entries = page.getByTestId('event-links-entry');
       const n = await entries.count();
-      expect(n).toBe(5);
+      expect(n).toBe(4);
       for (let i = 0; i < n; i++) {
         const box = (await entries.nth(i).boundingBox())!;
         expect(box.height, `entry ${i} is ${box.height}px tall`).toBeGreaterThanOrEqual(44);

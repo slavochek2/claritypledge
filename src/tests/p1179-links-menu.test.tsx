@@ -44,7 +44,12 @@ vi.mock('@/app/data/stories-service', () => ({
 }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 
-const APPROVED = ['cmp7', 'cmp3', 'cmp10', 'Transcribe', 'Start a Clarity Session'];
+/**
+ * The standard entries, IN ORDER. `cmp10` was removed from the menu 2026-08-31
+ * (founder: "I would suggest to delete CMP10. Let's keep it simple") — asserting
+ * the array verbatim is what keeps it from drifting back in.
+ */
+const APPROVED = ['cmp7', 'cmp3', 'Transcribe', 'Start a Clarity Session'];
 const UNAPPROVED = ['Seven dimensions', 'The triad', 'All ten'];
 
 function renderAt(path: string, variant?: 'sheet' | 'dropdown') {
@@ -100,7 +105,7 @@ describe('P1179 AC-4 — an event with no extras lists exactly the five standard
   it('every entry points at an internal path carrying the event', async () => {
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(4);
     // The separator the approved reference puts before Transcribe is present.
     expect(screen.getByTestId('event-links-separator')).toBeInTheDocument();
   });
@@ -109,12 +114,16 @@ describe('P1179 AC-4 — an event with no extras lists exactly the five standard
 describe('P1179 AC-5 — extras are additive and per-event', () => {
   beforeEach(() => { tagContent.current = { tonight: 3 }; probeThrows.current = false; });
 
-  it('one configured extra yields six entries, under its own "This event" heading', async () => {
+  it('one configured extra yields five entries, FIRST, under its own "This event" heading', async () => {
+    // Order is the assertion (founder 2026-08-31: "tonight should be the first
+    // link if the event has it") — the per-event tag is why this attendee is in
+    // this room, the standing instruments are the same at every event.
     eventRow.current = { links: [{ tag: 'tonight', label: 'Tonight' }] };
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries).toHaveLength(6);
-    expect(entries[5]).toHaveTextContent('Tonight');
+    expect(entries).toHaveLength(5);
+    expect(entries[0]).toHaveTextContent('Tonight');
+    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
     expect(screen.getByText('This event')).toBeInTheDocument();
   });
 
@@ -122,7 +131,7 @@ describe('P1179 AC-5 — extras are additive and per-event', () => {
     eventRow.current = { links: [{ tag: 'tonight' }] };
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries[5]).toHaveTextContent('tonight');
+    expect(entries[0]).toHaveTextContent('tonight');
   });
 
   it('a SECOND event with none still shows exactly five', async () => {
@@ -166,7 +175,7 @@ describe('P1179 — a configured event link with nothing behind it is not shown'
     tagContent.current = { tonight: 1 };
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual([...APPROVED, 'Tonight']);
+    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
   });
 
   it('hides only the empty one when several are configured', async () => {
@@ -174,7 +183,7 @@ describe('P1179 — a configured event link with nothing behind it is not shown'
     tagContent.current = { tonight: 2 };
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual([...APPROVED, 'Tonight']);
+    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
   });
 
   it('NEVER hides the three standard stake entries, however empty they are', async () => {
@@ -197,7 +206,7 @@ describe('P1179 — a configured event link with nothing behind it is not shown'
     probeThrows.current = true;
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual([...APPROVED, 'Tonight']);
+    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
   });
 });
 

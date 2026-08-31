@@ -27,6 +27,11 @@
  * right-hand groups and hides one with CSS), so each one owns the shape that
  * belongs to its breakpoint. Nothing measures the viewport at runtime.
  *
+ * ORDER: the event's own links come FIRST, then cmp7/cmp3, then the tools
+ * (founder 2026-08-31: "tonight should be the first link if the event has it").
+ * A separator closes the "This event" group as well as opening the tools one,
+ * so the heading's scope is visible rather than inferred.
+ *
  * DESIGN SYSTEM: this control introduces no colour, radius or height of its own.
  * The button and the sheet entries take ANSWER_BUTTON_CLASS — the room's
  * existing outlined-navy 44px treatment (meeting-terms-page.tsx:145, already
@@ -145,7 +150,7 @@ function EventLinksDropdown({
       >
         {ctx.entries.map((entry, i) => {
           const prev = ctx.entries[i - 1];
-          const separator = prev && prev.group !== entry.group && entry.group === 'tools';
+          const separator = prev && prev.group !== entry.group && (entry.group === 'tools' || prev.group === 'event');
           const heading = entry.group === 'event' && (!prev || prev.group !== 'event');
           return (
             <div key={`${entry.group}-${entry.label}-${i}`}>
@@ -213,7 +218,7 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
    * end; an empty one is a dead end that the operator has to remember to avoid
    * creating. This makes the menu enforce that instead of the operator.
    *
-   * SCOPED TO THE `event` GROUP ONLY. cmp7/cmp3/cmp10 are the framework's
+   * SCOPED TO THE `event` GROUP ONLY. cmp7/cmp3 are the framework's
    * permanent surfaces and are not hidden when empty: a room where nobody has
    * staked yet would otherwise render a menu with only Transcribe and Start a
    * Session, which reads as broken rather than as empty.
@@ -297,7 +302,7 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
               // The approved reference's separator falls before Transcribe —
               // i.e. at the stake→tools group change, drawn from the grouping
               // rather than from a row in the data.
-              const separator = prev && prev.group !== entry.group && entry.group === 'tools';
+              const separator = prev && prev.group !== entry.group && (entry.group === 'tools' || prev.group === 'event');
               const heading = entry.group === 'event' && (!prev || prev.group !== 'event');
               return (
                 <div key={`${entry.group}-${entry.label}-${i}`}>

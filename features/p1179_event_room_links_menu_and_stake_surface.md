@@ -276,12 +276,34 @@ Solution §1. Founder, verbatim: *"needs to follow our design please."*
   with tags that ... need to appear in a given event."* He opened the menu during an event, tapped
   "Tonight", and landed on an empty surface — the tag was configured, nothing had been staked under
   it. The emptiness test is the stake surface's OWN query, so the menu and its destination cannot
-  disagree. Scoped to the "This event" group only: `cmp7`/`cmp3`/`cmp10` are the framework's
+  disagree. Scoped to the "This event" group only: `cmp7`/`cmp3` are the framework's
   permanent surfaces, and a room where nobody has staked yet must not render a menu holding only
   Transcribe and Start a Clarity Session, which reads as broken rather than as empty. Fails OPEN —
   a probe that errors keeps the entry, because a failed probe is not evidence of emptiness.
   A per-event auto-generated tag was considered and NOT built: nothing tags points to an event
   today, so the generated entry would be exactly as empty as "Tonight" was.
+- **`cmp10` is out of the menu, and the event's own link goes FIRST.** Added 2026-08-31, founder:
+  *"I would suggest to delete CMP10. Let's keep it simple"*, and *"tonight should be the first link
+  if the event has it."* Four standard entries remain (`cmp7`, `cmp3`, Transcribe, Start a Clarity
+  Session). This is a MENU change only — `/stake/cmp10` still resolves and the tag keeps working for
+  anyone holding the link; what stops is the room offering a third instrument mid-event. The order
+  follows from the same reasoning as the auto-hide above: the per-event tag is why this attendee is
+  in this room tonight, the standing instruments are identical at every event, so the event's own
+  destination takes the first position. A separator now closes the "This event" group as well as
+  opening the tools group, so the heading's scope is visible rather than inferred.
+- **The stake surface carries a Back button.** Added 2026-08-31, founder: *"if I go to CMP7, I'm
+  there, but it doesn't have the back button to the previous page."* The Links button already
+  carries an attendee SIDEWAYS to the next destination without a back hop — that property is
+  unchanged. What was missing is the way out: someone who opened `cmp7` to look at it had no route
+  back to the room except browser chrome, which a phone in a live room half-hides. A first history
+  entry (typed URL, bookmark, shared link) has nothing behind it, so those arrivals go to `/feed`
+  rather than out of the app. **`/live` deliberately gets no Back**: it is a session with its own
+  end-session control, and a second exit beside it mid-session is the "Leave makes no sense"
+  confusion in reverse.
+- **The stake page's own nav offset is removed.** Added 2026-08-31 from a founder screenshot
+  (*"why so much whitespace? cut?"*). `ClarityLandingLayout`'s `<main>` already carries the fixed
+  nav's offset; the page also carried `pt-20`, so it was applied twice and the first card sat ~5rem
+  low at every width. A page inside that layout must not add its own nav offset.
 - **Built from the existing design system** — the shared `Button` and the room's existing navy/44px
   treatment (`meeting-terms-page.tsx:96`, `:145`). No new colour, radius or control height.
 - [FOUNDER DECISION: the five entry labels. "Transcribe" is the existing product name; `cmp7` /
@@ -298,6 +320,12 @@ Solution §1. Founder, verbatim: *"needs to follow our design please."*
 - [ ] At phone width, tapping it opens a bottom sheet, not a dropdown, and every entry is at least 44px tall
 - [ ] At desktop width, clicking it opens a narrow panel anchored under the trigger — not the sheet
 - [ ] A configured per-event link whose tag has no points and no stories is not shown at all
+- [ ] The menu lists exactly `cmp7`, `cmp3`, Transcribe, Start a Clarity Session — `cmp10` is absent
+- [ ] When the event has a per-event link with content, it is the FIRST entry in the menu
+- [ ] The stake surface renders a Back button that pops history, and goes to `/feed` instead when
+      the page is the first history entry
+- [ ] The stake surface applies the nav offset once, not twice — no page-level `pt-20` under a
+      layout that already offsets
 - [ ] Opening it lists Transcribe, `cmp7`, `cmp3`, `cmp10` on an event with no extras configured
 - [ ] An event with one configured extra shows five entries; a second event created afterwards with
       none still shows exactly four

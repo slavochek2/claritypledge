@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { StakePage } from '@/app/pages/stake-page';
 import type { PointWithUserPosition, StoryWithAuthor } from '@/app/types';
@@ -117,5 +118,52 @@ describe('P1179 AC-7 / AC-8 — a tab renders only if it has content', () => {
     getStories.mockResolvedValue([]);
     renderStake('/stake/tonight');
     expect(await screen.findByTestId('stake-empty')).toBeInTheDocument();
+  });
+});
+
+/**
+ * BACK (2026-08-31, founder): "if I go to CMP7, I'm there, but it doesn't have
+ * the back button to the previous page."
+ *
+ * Two arrivals, two correct behaviours. Coming FROM the room there is history to
+ * pop; arriving on a typed URL or a shared link there is not, and `navigate(-1)`
+ * there walks the attendee out of the app mid-event. `location.key === 'default'`
+ * is react-router's marker for that first-entry case.
+ */
+describe('P1179 — the stake surface has a Back button', () => {
+  beforeEach(() => {
+    getPoints.mockResolvedValue([point('p1', 'first')]);
+    getStories.mockResolvedValue([]);
+  });
+
+  it('renders one', async () => {
+    renderStake();
+    expect(await screen.findByRole('button', { name: /go back/i })).toBeInTheDocument();
+  });
+
+  it('pops history when there IS a previous entry', async () => {
+    render(
+      <MemoryRouter initialEntries={['/events/cm-1/room', '/stake/cmp7?event=cm-1']} initialIndex={1}>
+        <Routes>
+          <Route path="/events/:slug/room" element={<div data-testid="the-room" />} />
+          <Route path="/stake/:tag" element={<StakePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await userEvent.click(await screen.findByRole('button', { name: /go back/i }));
+    expect(await screen.findByTestId('the-room')).toBeInTheDocument();
+  });
+
+  it('goes to the feed instead when this is the FIRST history entry — never out of the app', async () => {
+    render(
+      <MemoryRouter initialEntries={['/stake/cmp7']}>
+        <Routes>
+          <Route path="/feed" element={<div data-testid="the-feed" />} />
+          <Route path="/stake/:tag" element={<StakePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await userEvent.click(await screen.findByRole('button', { name: /go back/i }));
+    expect(await screen.findByTestId('the-feed')).toBeInTheDocument();
   });
 });

@@ -25,7 +25,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
@@ -33,6 +33,7 @@ import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType } from '@/app/types';
 
 const STAKE_LIMIT = 50;
@@ -42,6 +43,8 @@ type StakeTab = 'points' | 'stories';
 export function StakePage() {
   const { tag } = useParams<{ tag: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { session } = useAuth();
   const eventSlug = searchParams.get('event');
 
@@ -112,13 +115,42 @@ export function StakePage() {
 
   const isEmpty = points.length === 0 && stories.length === 0;
 
+  /**
+   * BACK (founder, 2026-08-31): "if I go to CMP7, I'm there, but it doesn't have
+   * the back button to the previous page."
+   *
+   * The Links button already carries the attendee sideways to the next
+   * destination without a back hop — that property is unchanged and still
+   * tested. What was missing is the way OUT of the sideways move: someone who
+   * opened cmp7 to look at it had no route back to the room they came from
+   * except the browser chrome, which a phone in a live room half-hides.
+   *
+   * `location.key === 'default'` is react-router's marker for the FIRST history
+   * entry — a typed URL, a bookmark, a link from outside. There is nothing
+   * behind it, so `navigate(-1)` would leave the app entirely; those arrivals go
+   * to the feed instead, which is the nearest surface this page is a cut-down
+   * version of.
+   */
+  const handleBack = useCallback(() => {
+    if (location.key === 'default') navigate('/feed', { replace: true });
+    else navigate(-1);
+  }, [navigate, location.key]);
+
   return (
-    <div className="min-h-screen bg-background pt-20 pb-12">
+    <div className="min-h-screen bg-background pt-4 pb-8">
       <SEO title={`${tag ?? 'Stake'} — Clarity Pledge`} description={`Take a position on ${tag}.`} />
       <div className="mx-auto w-full max-w-2xl px-4">
         {/* No "Home" title, no search box, no tag cloud, no sort toggle, no
-            Share a Story button — every one of those is removed on purpose. */}
+            Share a Story button — every one of those is removed on purpose.
+
+            SPACING: no nav offset here. ClarityLandingLayout's <main> already
+            carries `pt-[calc(4rem+safe-area)] lg:pt-[calc(5rem+…)]` for the fixed
+            nav; this page also had `pt-20`, so the offset was applied TWICE and
+            the first card sat ~5rem below where it belonged, at every width
+            (founder screenshot 2026-08-31: "why so much whitespace? cut?"). */}
         <h1 className="sr-only">{tag}</h1>
+
+        <FocusHeader onBack={handleBack} />
 
         {showTabs && (
           <div className="mb-4 flex gap-2" role="tablist" data-testid="stake-tabs">

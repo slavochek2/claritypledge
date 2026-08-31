@@ -39,12 +39,18 @@ export function isSafeTag(tag: unknown): tag is string {
 }
 
 /**
- * The three standard stake destinations. Labels ARE the tags — founder decision
+ * The standard stake destinations. Labels ARE the tags — founder decision
  * (Resolved Decisions 1): "if I say go to the menu and then select the CMP7",
  * the spoken word and the rendered label are the same token. The prototype's
  * "Seven dimensions" / "The triad" / "All ten" are NOT approved copy.
+ *
+ * `cmp10` was REMOVED 2026-08-31 (founder: "I would suggest to delete CMP10.
+ * Let's keep it simple"). It is dropped from the MENU only — `/stake/cmp10`
+ * still resolves, because the route is global and the tag keeps working for
+ * anyone holding the link; what changed is that the room stops offering a third
+ * instrument nobody had asked for mid-event.
  */
-export const STANDARD_STAKE_TAGS = ['cmp7', 'cmp3', 'cmp10'] as const;
+export const STANDARD_STAKE_TAGS = ['cmp7', 'cmp3'] as const;
 
 /**
  * The two standard tool destinations. Both labels are existing product copy,
@@ -63,7 +69,13 @@ export function stakePath(tag: string, eventSlug?: string | null): string {
 }
 
 /**
- * Build the menu. Five standard entries always; extras append under "This event".
+ * Build the menu. Four standard entries always; the event's own extras go FIRST.
+ *
+ * ORDER (founder, 2026-08-31): "tonight should be the first link if the event
+ * has it." The per-event tag is the reason this attendee is in this room right
+ * now; the standing instruments are the same at every event and can sit below
+ * it. The list is short enough that this is the whole hierarchy — no scrolling,
+ * no scanning, the event-specific destination under the thumb first.
  *
  * An extra that fails `isSafeTag` is DROPPED, not rendered and not thrown on —
  * a malformed row written at publish time must not take the room's menu down
@@ -75,15 +87,6 @@ export function buildLinksMenu(
 ): LinksMenuEntry[] {
   const entries: LinksMenuEntry[] = [];
 
-  for (const tag of STANDARD_STAKE_TAGS) {
-    entries.push({ label: tag, to: stakePath(tag, eventSlug), group: 'stake' });
-  }
-  // The separator the approved reference puts before Transcribe falls between
-  // these two groups; the sheet draws it from the group change, not from data.
-  for (const tool of STANDARD_TOOL_ENTRIES) {
-    entries.push({ label: tool.label, to: tool.to, group: 'tools' });
-  }
-
   for (const extra of extras ?? []) {
     if (!extra || typeof extra !== 'object') continue;
     if (!isSafeTag(extra.tag)) continue;
@@ -91,6 +94,15 @@ export function buildLinksMenu(
     // fallback, nothing required of the operator at publish time.
     const label = typeof extra.label === 'string' && extra.label.trim() ? extra.label.trim() : extra.tag;
     entries.push({ label, to: stakePath(extra.tag, eventSlug), group: 'event' });
+  }
+
+  for (const tag of STANDARD_STAKE_TAGS) {
+    entries.push({ label: tag, to: stakePath(tag, eventSlug), group: 'stake' });
+  }
+  // The separator the approved reference puts before Transcribe falls between
+  // these two groups; the sheet draws it from the group change, not from data.
+  for (const tool of STANDARD_TOOL_ENTRIES) {
+    entries.push({ label: tool.label, to: tool.to, group: 'tools' });
   }
 
   return entries;
