@@ -207,6 +207,26 @@ read dominates.** A weak point spends the room's willingness to take a position 
 that willingness is spent **once** — the room does not re-enter the same question later in the evening
 because the first attempt was thin. Rank the surviving statements by it and state the currency per item.
 
+> **Naming a currency is not an estimate — Step B's other two halves are required too**
+> *(added 2026-08-28 after the first run under this gate produced currencies and magnitudes and
+> neither of the following, because this bullet inlined only the currency list).*
+>
+> **(a) Bound the exposure window, per statement.** Write *"the room would notice by ‹when›, so the
+> window is ‹span›"* and stop counting there. Unbounded, a loss estimate silently annualises an error
+> the room would catch immediately. If the room genuinely cannot notice, say **that** and let the
+> magnitude run — an unbounded window is a finding, not a default.
+> **(b) Size it over Step B's four lenses, named on the item, not held in your head:**
+> reversibility · blast radius · wrong-WHY likelihood · detection latency. They shape the magnitude;
+> they are not the output, and there is **no formula and no 0–100 score**.
+>
+> **Where this method lives, and a flag on it.** Its only home is
+> `/slava:understanding:detect` **Step B** — i.e. inside a skill file, which is the exact
+> homelessness P1190 fixed for the mode table (§0b: a skill cannot be another skill's source of
+> truth). It was not extracted in the same change because the loss model is not the arbiter-failure
+> model and a second extraction was out of that spec's scope. **Open:** whether the potential-loss
+> currencies, lenses and window rule get their own doc home. Until they do, read Step B directly and
+> do not paraphrase it here.
+
 **3. TAG — which mode fires, reported and never gating.** Name the mode, or `NONE`.
 
 > **The tag is expected to be a near-universal pass here, and that is a measured finding, not a bug**
