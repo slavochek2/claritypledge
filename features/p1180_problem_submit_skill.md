@@ -71,16 +71,30 @@ A skill that runs over the member's own corpus and produces one submission per a
 
 **Read the model from [`docs/arbiter-failure-model.md`](../docs/arbiter-failure-model.md)** — the four modes, their per-consumer firing conditions, the interface disqualifier and the falsifiers all live there since P1190 (2026-08-28), and `lean-canvas.md` explicitly refuses to restate them. *(An earlier draft cited `lean-canvas.md` 2026-08-24 — the model had left that home three days before this spec was written, so an implementing agent following the pointer would have found go-to-market prose and no firing conditions. Corrected 2026-08-31, both review arms.)*
 
-**Stage 3 — draft ONE STORY plus THREE CLAIMS. This replaces the four-slots-as-points design, and the reason is the reader's seat.**
+**Stage 3 — draft ONE STORY plus THREE CLAIMS. Settled 2026-08-31 by the reader test run in writing on all five candidates, by two agents that did not propose the shape — see `decisions.md` 2026-08-31 [product] "The reader test run on all five candidates". The count is what the earlier draft proposed; the membership is not.**
 
-Where the member is now, and where they want to get to, are **not contestable by a reader** — a stranger cannot disagree that someone is stuck where they say they are, or tell them what they should want. Founder's own test, verbatim: *"my friend is at point A. Who am I to say disagree?"* Under `docs/story-point-model.md` §"The agreement test", a statement only its author can arbitrate is a **story**, not a point. So the four parts split two and two:
+**The governing test is the arbiter, and there are exactly two of them.** A stranger reading this board can adjudicate from **(i) the world** — their own experience — or from **(ii) the submitted story**, and from nothing else. So:
+
+> **Every claim slot must be adjudicable from (i) or (ii) alone, and must name its own antecedent rather than pointing at another slot. A slot adjudicable only from the author's own mind is story.**
+
+This is `docs/story-point-model.md` §"Operational model" (Point-ness ≈ shared-arbiter availability) applied at write time, corroborated independently by `docs/definitions.md` §"referent locus" — a point has a **public referent** and "the original speaker is *dispensable* as arbiter"; a story has a **private referent** and "the speaker is the *irreducible* ground truth."
 
 | Part | Kind | Reader's job |
 |---|---|---|
-| Where they are · where they want to get to · what actually happened | **one story**, third person | *Did I understand this?* — scored, never voted on |
-| **Claim 1 — this is the right problem to be working on** | point + anti-point | take a position |
-| **Claim 2 — the obstacle is X** | point + anti-point | take a position |
-| **Claim 3 — knowing Y would get past it** (the hypothesis) | point + anti-point | take a position |
+| Where they are · where they want to get to · what actually happened · **whether this is the one to work on now** | **one story**, third person | *Did I understand this?* — scored, never voted on |
+| **Claim 1 — the frame:** what is actually blocking him is X, not Y | point + anti-point (**local**) | take a position |
+| **Claim 2 — the obstacle:** the general mechanism X names | point + anti-point (**portable**) | take a position |
+| **Claim 3 — the hypothesis:** knowing Y stands in for it | point + anti-point (**portable**) | take a position |
+
+**"This is the right problem to be working on" is dissolved, not kept — it was two claims.** *"This is a real problem"* is the same claim as `story-point-model.md` §"Worked examples" (3)'s *"he actually has it"*, and becomes claim 1. *"This is the one he should work on now"* is arbitrated by his goals, runway and opportunity cost — none in the shared record, which is **the exact property used to remove the other two slots**. It is a filing filter, not something a reader positions on, and it goes into the story.
+
+**Where the member is now, and where they want to get to, are story — but the earlier draft's reason was too strong.** The founder's test (*"my friend is at point A. Who am I to say disagree?"*) is right about *where he is*: its referent is private. It is **not** right about whether the account supports the diagnosis drawn from it — that referent is the written account, public the moment it is written, which is why claim 1 exists and why `story-point-model.md` §"Worked examples" (3) was correct to list *"he actually has it"* as extractable. The two records never conflicted; the earlier draft collided them and dropped the point instead of distinguishing it.
+
+**Portable vs local is a real asymmetry and P1182 must expect it.** Claims 2 and 3 are contestable by any member from their own corpus, across submissions. Claim 1 is contestable only by someone who read that story. Match supply differs per slot by construction.
+
+**Two submit-time rules.**
+1. **No slot may pronominalize another slot.** "…would get past *it*" has no referent once claim 2 is rejected; state the antecedent inline and claim 3 survives rejection of claim 2. Claims 1→2 and 1→3 are benign.
+2. **A slot the record cannot fill is blank, never generalized.** Generalizing claim 1 into a situation-type claim yields a *different* claim a reader can hold while still granting this author's case — the matcher would then route on something nobody contested. (Stage 3c already bans invention; this bans the subtler escape.)
 
 **The story leads.** A reader cannot take a position on *"the obstacle is X"* before knowing the situation. `/slava:understanding:create-letter` already orders a story-first letter for the same reason, and its note explains why: the points exist to be judged against the story.
 
@@ -132,39 +146,45 @@ Per the 2026-08-06 ruling, **definitions are exactly the reusable kind**. **Home
 
 It remains a **new construct**, so it is a strategy change: it goes through `/slava:maintain:docs-strategy-update` and its nine gates, not written directly and not by this spec. **Until that lands, this spec is the temporary home and says so.**
 
-### The three-way reconciliation the migration must carry
+### The five-way reconciliation the migration must carry
 
-Three records describe this construct and no two agree. The migration resolves them; this spec records the resolution so nobody silently picks one.
+**Five** records describe this construct, not three — the two added on 2026-08-31 are the ones that decide it, and neither was in the earlier table. The migration resolves them; this spec records the resolution so nobody silently picks one.
 
 | Record | What it says | Standing |
 |---|---|---|
-| `docs/story-point-model.md:195` §"Deliberately kept fused" | The A→B→obstacle bundle **is the story**; the extractable points are *"this is the right problem to solve"*, *"he actually has it"*, *"it is solvable"* | **Largely vindicated** — see below |
+| `docs/story-point-model.md` §"Worked examples" (3, "Deliberately kept fused") | The A→B→obstacle bundle **is the story**; the extractable points are *"this is the right problem to solve"*, *"he actually has it"*, *"it is solvable"* | **Largely vindicated** — see below |
 | `decisions.md` 2026-08-28 [product] ruling 2 | **Four slots**, each a separately-contestable claim with its anti-point, over one story | **Superseded in part**, 2026-08-31 |
 | This spec, Stage 3 | **One story + three claims**; A and B are story material | **Current** |
+| `decisions.md` 2026-08-06 [process] | `/problemify`'s Point A/B are **story material**; the extractable points are *"this is the right problem to solve"*, *"he has it"*, *"it is solvable"* | **Upheld** — and it was never cited by ruling 2, which contradicted it three weeks later |
+| `features/p1182_problem_read_matcher.md` §Solution | The reader agent names *"which **slot** it contests"*; Point-B divergence routes to verified comprehension | **Needs amending** — see below |
 
 **Ruling 2 asserted four contestable claims without checking whether a reader could take a position on each**, and the founder's reader-seat test (*"my friend is at point A. Who am I to say disagree?"*) is what reopened it. But the replacement is **not** settled, and three review findings say so — see the blocking decision below.
 
 **Overlap with the model doc is ONE of three, not a reinstatement.** *(Both review arms, 2026-08-31.)* The doc's extractable points are *"this is the right problem to solve"*, *"he actually has it"*, *"it is solvable"*. Stage 3 keeps the first, **drops the other two**, and adds *"the obstacle is X"* and *"knowing Y would get past it"*. An earlier draft of this section called the doc *"largely vindicated"* and the resolution *"the model doc's handling plus the hypothesis"* — that described a one-of-three overlap as a reinstatement, and it did so in the direction that flattered the judgment being checked. What ruling 2 genuinely contributes and keeps: **the hypothesis claim is new**, and none of the doc's three contain it.
 
-### ⛔ BLOCKING FOUNDER DECISION — the shape is NOT settled
+### ✅ RESOLVED 2026-08-31 — the reader test was run on all five candidates
 
-Two independent reviewers led with the same charge, and it holds: **the reader test was run hard on the two slots the agent wanted to remove, and never on the slot it wanted to keep.**
+Two independent reviewers led with the same charge and it held: **the reader test was run hard on the two slots the agent wanted to remove, and never on the slot it wanted to keep.** The test has now been run in writing on all five candidates — *where they are · where they want to be · the obstacle · the hypothesis · "this is the right problem to be working on"* — by two agents, neither of which proposed the shape, and cross-verified by command. Outcome recorded in `decisions.md` 2026-08-31 [product] "The reader test run on all five candidates"; Stage 3 above is rewritten to match.
 
-1. **Claim 1 was never tested.** *"This is the right problem to be working on"* appears to split — *is this a real problem* is evidence-arbitrated and contestable by anyone; *is this the one you should work on now* is arbitrated by the member's own goals, which is precisely why slots A and B were removed. If it splits, the shape is one story + **two** claims, and the *"problem matters, method is wrong"* case (claim 1 vs claim 3) collapses with it.
-2. **"He actually has it" falsifies Stage 3's premise, and was quoted past.** The model doc lists it as a **contestable point** — a reader positioning on whether someone really has the problem they describe. Stage 3 asserts *"a stranger cannot disagree that someone is stuck where they say they are."* Both cannot stand. If the doc is right, **"where they are" may belong back on the board as a claim.**
-3. **Claims 2 and 3 are independent in only one direction.** *Agree the barrier, contest the remedy* works. *Reject the barrier* dissolves claim 3's referent, so a matcher routing on claim 3 alone can route a reader into an argument whose premise they reject. The four-slot version had the same coupling; the invariant below overstates independence either way.
+**What the test changed.**
 
-**Do not implement Stage 3 until this is resolved with the reader test run in writing on all four candidates plus claim 1, by someone other than the agent that proposed the current shape.** Everything downstream inherits its legitimacy from that one test.
+1. **Claim 1 was never tested, and it does not survive as written.** It split exactly as suspected. *"This is a real problem"* survives as the frame claim; *"this is the one he should work on now"* is goal-arbitrated and fails on the same test used to remove slots A and B, so it could not be kept while they were removed. It moves into the story as a filing filter.
+2. **"He actually has it" and "where they are" are different sentences with different referents** — private for where he is, the written account for whether it supports the diagnosis. `story-point-model.md` and the reader test never conflicted; the earlier draft collided them. The point is restored as claim 1; **"where they are" does not return as a slot.**
+3. **The claims 2/3 coupling is a wording defect, not structural.** Naming the antecedent inline fixes it; the Invariants line that recorded it as inherent is corrected below.
 
-### Before implementation: the supersession must reach the log
+**One item was retracted under challenge and is recorded because the retraction is the instructive part.** One arm opened by deriving the sort from point type — third person ⟹ Mechanism ⟹ every claim impersonal. Applied strictly it deletes all three survivors, since each is about one named person. It was withdrawn: `story-point-model.md` §"The two axes" defines impersonality as speaker-**independence**, while §"Point types"'s "how something works for anyone" is subject-**generality**, and only the first is criterial. It read as decisive because it agreed with a shape already reached by other means — this spec's own defect, one layer up, caught before it reached a doc.
 
-*(Both review arms.)* `decisions.md` ruling 2 stands **unamended**, and the 2026-08-28 [process] entry still routes the four-slot construct onward. No entry records any supersession — verified, zero hits. The reversal currently exists **only inside this uncommitted spec, declared by the agent that proposed it**, supported by founder quotes that cannot be checked from the repo. This spec's own Invariants section records that an earlier draft cited a decision entry that appears nowhere in `docs/`. **Record the outcome of the blocking decision above in `decisions.md` before any implementation** — a spec may not silently overturn a ruling.
+### ✅ The supersession reached the log, 2026-08-31
+
+*(Both review arms flagged this.)* Ruling 2 stood **unamended**, and the reversal existed only inside this spec, declared by the agent that proposed it. Both are now fixed: `decisions.md` 2026-08-28 [product] ruling 2 carries an inline **SUPERSEDED IN PART** stamp, and the outcome is recorded as its own entry — `decisions.md` 2026-08-31 [product] "The reader test run on all five candidates". A spec may not silently overturn a ruling; this one no longer does.
+
+**Cite `decisions.md` by date-and-heading anchor, never by line.** The log is newest-first, so every append pushes earlier entries down. Ruling 2 moved from line 1434 to 1580 *during the session that resolved it*, when a co-tenant landed `cf7d701b` — both agents cited a number that was correct when read and stale when sent.
 
 ## Invariants
 
 - **The agent drafts; the human approves.** No submission is filed without explicit per-problem approval. Founder framing, verbatim: *"Agents propose, people improve and approve. And then similar on voting. Agents read and propose... and people approve."* Corroborated by `/problemify`'s own two-stage gate, which blocks diagnosis until the frame is confirmed, and by `/slava:understanding:create-letter`'s approval precondition. *(An earlier draft of this line cited `decisions.md` 2026-08-16 for a claim that appears nowhere in `docs/` — the citation was lifted from a chat transcript. Removed 2026-08-28.)*
 - **Whose problem it is is a declared field, never inferred silently.** The member's own, or their customer's seen through them. **When the protagonist is not the member, the story carries that person's description** — seen through the member, which is honest, because the member's observation of them *is* the member's lived experience. No separate container is needed and none may be invented. A reader who has their own experience of that kind of person does not contradict the story; their experience becomes the **reason behind a position on a claim**, which is the interaction this spec is built to produce.
-- **The three claims stay separately addressable — in one direction, not both.** Bundling forecloses the two cases this exists for: *agree the problem matters, contest the method* (claim 1 against claim 3), and *right barrier, wrong remedy* (claim 2 against claim 3). **But claim 3 is conditional on claim 2:** a reader who rejects *"the obstacle is X"* has no coherent position on *"knowing Y gets past it"* — the referent dissolved. A matcher routing on claim 3 alone can therefore route a reader into an argument whose premise they reject. The four-slot version had the identical coupling; stating independence without this caveat overstated it. *(Both review arms, 2026-08-31.)*
+- **The three claims stay separately addressable, and the coupling that broke this was a wording defect.** Bundling forecloses the two cases this exists for: *agree the problem matters, contest the method* (claim 1 against claim 3), and *right barrier, wrong remedy* (claim 2 against claim 3). An earlier draft recorded claim 3 as permanently conditional on claim 2 — *"a reader who rejects the obstacle has no coherent position on the hypothesis"* — and treated that as inherent to the shape. **It is not.** It followed from the pronoun in "knowing Y would get past *it*". Stage 3's submit-time rule — **no slot may pronominalize another slot** — removes it: with its antecedent stated inline, claim 3 is evaluable by a reader who thinks claim 2 is false. Pairs 1→2 and 1→3 were always benign. *(Corrected 2026-08-31 by the reader test; the earlier "in one direction, not both" wording overstated the coupling in the opposite direction from the review finding it was answering.)*
 - **The shape is fixed across every submission.** Not a style preference — P1182 matches on the slot, and a shape that varies per letter has no slot to match on.
 - **Confirmation happens against the anti-point, not against a yes/no.** Third person reads like a report and gets nodded at; the anti-point is what forces a choice.
 - **The exchange is bidirectional, and this is a mechanism rather than a scoping convenience.** Each participant both sends and receives in the same round. Reciprocity is the one part of the practitioner loop this design structurally improves on — it is what stops a read being a favour, and a favour is what caps that loop at ten people and zero strangers. A round in which one party only sends has not tested the thing. *(Recorded in the founder's scoping quote below as "from me to him and from him to me"; promoted here from incidental to required, 2026-08-31.)*
@@ -180,7 +200,7 @@ Two independent reviewers led with the same charge, and it holds: **the reader t
 | The hypothesis claim invites solution-mode and swamps the diagnosis | DEFER | Watch it in round one; if it dominates, constrain its length. |
 | The corpus scan silently covers one session store and reads as complete | MITIGATE | Stage 0 requires naming the stores read AND the stores skipped. An absence found in one store is never reported as an absence overall (`.claude/rules/epistemic.md` gate 1). |
 | The three corrections to the letter-writing path are made, and the run still returns a valid-looking number measuring the wrong question | MITIGATE | The reading question is asserted by read-back after the write, not self-reported. This is the exact failure that path's own history records. |
-| A fixed shape flattens a problem that genuinely does not fit it | ACCEPT | Named trade-off. The escape valve is routing, not bending the shape: a contestable "where they are" becomes a claim. |
+| A fixed shape flattens a problem that genuinely does not fit it | ACCEPT | Named trade-off. The escape valve is routing, not bending the shape — and Stage 3 now names where each part routes: adjudicable from the world or the story ⟹ claim, adjudicable only from the author's mind ⟹ story. |
 
 **Non-Goals**
 - Do NOT build any voting, upvoting, ranking or leaderboard. Killed on the merits — 2026-08-28 [product].
@@ -198,7 +218,7 @@ Two independent reviewers led with the same charge, and it holds: **the reader t
 - **A shared private git repo instead of a letter.** Proposed and superseded by the founder: a private letter uses shipped infrastructure and tests the real artifact rather than a proxy. *"why would we not do that? … we need to find out if it's good enough."*
 - **Three slots (no hypothesis).** Falsified by the founder's own example: engaged by the problem, disengaged by the proposed method — a reaction the three-slot model cannot address. The hypothesis survives that test and is retained as claim 3.
 - **First person, as `/problemify` uses.** Rejected for the public rendering; see the voice quote above. The anti-point takes over the confirmability job first person was doing.
-- **Four claims — where they are · where they want to be · obstacle · hypothesis, each contestable.** Held from 2026-08-28 to 2026-08-31, then rejected on the reader test: nobody can take a position on where someone else is or what they should want. Those two become the story. See §"The three-way reconciliation".
+- **Four claims — where they are · where they want to be · obstacle · hypothesis, each contestable.** Held from 2026-08-28 to 2026-08-31, then rejected on the reader test run on all five candidates: where someone is and what they want have **private referents**, so only they can arbitrate, and both become story. **The reason must be stated at that precision** — an earlier version of this line said "nobody can take a position on where someone else is", which is false as written and is what buried the *"he actually has it"* claim for three days. A reader can absolutely take a position on whether the account supports the diagnosis; that is claim 1. See §"The five-way reconciliation".
 - **Welding the obstacle and the hypothesis into one claim, against one combined anti-point.** Founder's own proposal, and the instinct behind it is right — an anti-point should read as a complete position a person would hold, not a fragment. Rejected because welding costs *"you named the right barrier, your remedy is wrong"*, a precise and common reaction. The coherence problem is solved instead by **writing every anti-point as a full rival position** (Stage 3), which is what the repo's existing construction rule already requires.
 - **The skill files letters through a new CLI or API so every participant can send end-to-end.** Rejected for round one: it is the largest unbuilt piece here, and the paste-into-compose fallback lets a credential-less participant run the identical skill today. Revisit once a round has run and the friction is measured rather than assumed.
 - **Reviewing the draft in the terminal before filing.** Rejected by the founder: reading it in the product, in the recipient's own flow, produces better feedback than reading text in a terminal — and it makes the production write the second execution of that path rather than the first.
@@ -248,7 +268,7 @@ Steps 1–4 need nothing from P1181 or P1182: answering a letter is a shipped fl
 
 ## Related
 
-- `docs/decisions.md` 2026-08-28 [product] — the five rulings this spec implements; **ruling 2 is superseded in part**, see §"The three-way reconciliation"
+- `docs/decisions.md` 2026-08-28 [product] — the five rulings this spec implements; **ruling 2 is superseded in part**, see §"The five-way reconciliation" and `decisions.md` 2026-08-31 [product] "The reader test run on all five candidates"
 - `docs/decisions.md` 2026-08-12 [product] — the counterparty-absence hypothesis this tests
 - `docs/decisions.md` 2026-08-24 [product] — the arbiter-failure criteria used as the filter
 - `docs/decisions.md` 2026-08-06 [process] — what is shareable between skills; why this inlines rather than orchestrates
