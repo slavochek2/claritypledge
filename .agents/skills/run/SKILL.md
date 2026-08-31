@@ -15,18 +15,42 @@ The end-to-end conductor for the event pipeline. It does not contain pipeline lo
 
 ---
 
-## The four human gates (and no more)
+## The human touches — five, and every one is a decision only he can make
 
-`/video-publish`'s principle is "only two gates, everything else autonomous." Events genuinely need more, because the platform browser-clicks cannot be automated (confirmed live in the session that produced this spec) — but the count is capped at four:
+Superseding the earlier four-gate contract. The count did not grow; it got honest and it got
+re-ordered. What changed on 2026-08-31 is that the per-platform stops collapsed into one
+sweep, and the chat copy review went away.
 
-1. **Kickoff** — which creation path, plus that path's founder-only inputs.
-2. **One combined copy review** — resolve *all* copy up front (the platform promo blurb + every language's group blurb) and show it on one screen before any send touches anything.
-3. **Per-platform browser gates** — *inherited from `promote-all`*, not added. This skill wraps `promote-all`'s existing per-platform stops and adds zero approval turns around them.
-4. **Group-send blast-radius confirmation** — already in `promote-groups` (type the exact count for 6+ groups). Unchanged.
+1. **Pick the trail** — from open Chrome tabs, not a chat list.
+2. **Pick the meeting cafe** — from open Google Maps tabs, same rule.
+3. **Approve the created event** — on the live event page, not as text in chat.
+4. **Publish the platforms** — one sweep, all tabs filled and open, he clicks Publish in each.
+5. **Confirm the group send** — one confirmation covering the Facebook groups and the chat groups.
 
-Everything else — resolving state, reading caches, sequencing stage invocations — happens with no ask.
+**Copy is no longer reviewed in chat.** Founder, 2026-08-31: *"no need to show me text, i can
+correct it on live event."* So the old combined copy review is gone as an approval turn. He
+reviews the description by looking at the published event page (touch 3) and the platform copy
+by looking at the filled forms (touch 4) — both are the real artifact rather than a paragraph
+describing it, so this is a stronger review, not a weaker one.
 
----
+**What is NOT a copy review and therefore still runs, silently, every time.** These are
+mechanical assertions, not requests for an opinion, and none of them costs a turn unless it
+fails:
+
+- the group-blurb **staleness check** (every language's text must contain this event's date and venue token),
+- the promo-blurb **freshness guard** (same idea, defined in the hike series doc),
+- the **link-liveness** check (the event URL resolves before anything links to it),
+- the **transport probe** (the messaging bridge is actually connected before a send is claimed),
+- the **auth preflight** (every platform confirmed logged in as the operator, in one pass, before any form is touched),
+- the **do_not_post enforcement** (a blocked group present in the send list refuses the run).
+
+A failure in any of these stops and asks — that is the point of them. Silence means they
+passed. Never suppress one because "the founder already approved the copy": he approved
+wording, and these check facts.
+
+**The blast-radius confirmation stays** and is folded into touch 5: he sees the group count
+and the platforms in one message and confirms once, rather than confirming Facebook groups and
+chat groups separately.
 
 ## The four stages
 
@@ -91,11 +115,19 @@ If invoked with a slug and `~/.private/event-state/<slug>.run.json` exists, read
 Ask, in one message:
 
 1. **Which creation path?**
+   - `select-hike` → `publish-run` — **the default for a hike with no trail chosen yet.** Runs `/slava:events:select-hike` first: it applies the never-again exclusions, opens trail and cafe candidates as Chrome tabs for the founder to pick from, collects the banner photo, and feeds all of it into `publish-run`. Adds no approval turn beyond the two choices the founder has to make anyway (which trail, which cafe).
    - `publish-event` — general-purpose, operator-safe, own account (form-driven)
-   - `publish-run` — trail run/hike/walk from an AllTrails link
+   - `publish-run` — trail run/hike/walk from an AllTrails link the founder already has
    - `re-create-event` — clone the most recent occurrence of a recurring series (founder-only DB automation; requires at least one prior event in the series)
 2. That path's own founder-only inputs (see the chosen skill's own Input section — do not re-derive them here).
 3. **Which stages are in scope for this run?** Default: all four (create, assets, promote platforms, promote groups). The operator may explicitly narrow this (e.g. "skip posters," "platforms only, I'll do groups by hand later").
+
+**Ask for the banner photo here if the path is not `select-hike`** (which asks for it itself, at
+step 6). One line: *"Photo for the banner? Path, or skip."* This is the founder's own request —
+*"next time i guess i can be asked automatically for a photo — or reminded, to upload one?"* — and
+asking at kickoff is what keeps it from becoming a mid-promotion detour: on 2026-08-31 the crop,
+upload, prod PATCH and two-viewport verification all happened *after* platform promotion had begun.
+A `skip` is final for the run; do not re-raise it later.
 
 Write the run record (schema above) **before invoking the chosen creation skill** — this is the "before any stage executes" requirement above.
 
@@ -109,34 +141,60 @@ On completion, extract the resulting `slug` (if not already known) and update th
 
 Invoke `slava:content:gen-poster` with the slug. This runs autonomously (self-review loop is internal to that skill) — no additional gate here.
 
-### 5. Gate 2 — Combined copy review (if `promote_platforms` and/or `promote_groups` are in scope)
+### 5. Resolve all copy — silently, no approval turn
 
-Resolve **all** copy that either downstream stage will need, in one pass, before either stage runs:
+Resolve everything both downstream stages need, in one pass, before either runs. **Do not show
+it and do not ask.** The founder reviews the description on the live event page (touch 3) and
+the platform copy in the filled forms (touch 4).
 
-1. Resolve the platform promo blurb exactly as `promote-all` step 3b would (series-doc `## Promo blurb` or generated fallback) — but do it **here**, not inside `promote-all`.
-2. Resolve every distinct-language group blurb exactly as `promote-groups` step 3 would (matched type entry, per-language sourcing, placeholder resolution, staleness token check) — but do it **here**, not inside `promote-groups`.
-3. Show both in one message: the platform blurb, and each language's group blurb (same copy-paste-ready format `promote-groups` step 5 uses).
-4. Wait for approval or edits. On edits, re-resolve and re-show before proceeding — never carry an unapproved edit forward.
+1. Resolve the platform promo blurb from the series doc's `## Promo blurb` block (for hikes,
+   `docs/events/series/social-hike.md`), or the generated fallback if the series has none.
+2. Resolve every distinct-language group blurb (matched type entry, per-language sourcing,
+   placeholder resolution).
+3. **Run the mechanical checks and stop only if one fails:** the promo-blurb freshness guard
+   (resolved text contains this event's date and cafe name), the group-blurb staleness check
+   (each language contains the date and venue token), and any unresolved `{placeholder}`.
 
-**This is the one gate that is not free.** `promote-all` step 3b already stops for its own blurb review, and `promote-groups` step 5 already stops for its own copy approval. Passing the approved text into each stage and having each stage **skip its own duplicate wording-approval stop** is a defect if missed, not a shortcut — see the "invoked by the events orchestrator" branch added to `promote-all.md` step 3b and to `promote-groups.md` step 5.
+A failure here is a real stop with a specific message — name the language, the missing token,
+and the file to fix. Passing is silent. Carry the resolved copy into stages 6 and 7 so neither
+re-resolves it.
 
-**What each stage still keeps, even when orchestrated:** `promote-all`'s per-platform browser stops (Gate 3) and `promote-groups`'s staleness check, transport probe, link-liveness check, and blast-radius group-count confirmation (Gate 4) all run unmodified. Only the *wording*-approval turns collapse into this one combined review — the safety checks that don't depend on wording (probe proving Beeper is live, staleness proving the text isn't stale, blast-radius proving the operator meant to send to N groups) are not wording approvals and are never suppressed.
-
-Count approval turns across a full run to confirm: exactly one combined *wording* review here, and none of `promote-all`'s step 3b stop, `promote-all`'s step 5 WhatsApp-blurb stop, or `promote-groups`'s step 5 copy-display also fires.
+**Why this is not a weakening.** The thing these guards protect against is saved copy that
+silently describes a past event — the July 5 failure, which had zero unresolved placeholders
+and would have passed a human skim. That risk is unchanged and still mechanically checked.
+What was removed is asking the founder to approve wording he has told us he would rather fix
+on the live page.
 
 ### 6. Stage: Promote platforms (if in scope)
 
-Before invoking, update the run record's `updated_at` to now (so the "from this session" freshness check the stage skills perform is satisfiable) and confirm `"promote_platforms"` is in `stages_in_scope`. Invoke `slava:events:promote-all` with the slug, the approved platform blurb from Gate 2, **and the run-record path `~/.private/event-state/<slug>.run.json`** — this is what lets `promote-all` verify (not just trust) that its skip-branches apply, per the "invoked by the orchestrator" checks added to its own step 3b and step 5. `promote-all`'s own per-platform stops (Gate 3, inherited) run as that skill already implements them — this orchestrator adds no wrapper around them.
+Before invoking, update the run record's `updated_at` to now (so the "from this session" freshness check the stage skills perform is satisfiable) and confirm `"promote_platforms"` is in `stages_in_scope`. Invoke `slava:events:promote-all` with the slug, the resolved platform blurb from step 5, **and the run-record path `~/.private/event-state/<slug>.run.json`** — this is what lets `promote-all` verify (not just trust) that its skip-branches apply, per the "invoked by the orchestrator" checks added to its own step 3b and step 5. `promote-all`'s own fan-out now fills every platform and collects the founder's Publish clicks in **one** Phase B sweep (touch 4) — this orchestrator adds no wrapper around it and no extra turn.
 
-**`promote-all`'s own step 5 (WhatsApp blurb suggestion) is skipped when `promote_groups` is also in scope for this run** — see the "invoked by the events orchestrator" branch added to `promote-all.md` step 5. That step exists in `promote-all` as a standalone fallback for operators who never run `promote-groups`; when this orchestrator's Stage 7 is about to run `promote-groups` anyway, `promote-all` step 5 asking for its own WhatsApp-blurb approval would be an extra, un-inherited approval turn re-covering ground Gate 2 already covered. If `promote_groups` was explicitly excluded from this run's scope, `promote-all` step 5 runs normally as the operator's only group-copy path for that run.
+**`promote-all`'s own step 5 (WhatsApp blurb suggestion) is skipped when `promote_groups` is also in scope for this run** — see the "invoked by the events orchestrator" branch added to `promote-all.md` step 5. That step exists in `promote-all` as a standalone fallback for operators who never run `promote-groups`; when this orchestrator's Stage 7 is about to run `promote-groups` anyway, `promote-all` step 5 asking for its own WhatsApp-blurb approval would be an extra turn re-covering ground Stage 7's combined confirmation already covers. If `promote_groups` was explicitly excluded from this run's scope, `promote-all` step 5 runs normally as the operator's only group-copy path for that run.
 
 On completion (all platforms `done` or `skipped`), update the run record.
 
 **Hard requirement if `promote_groups` is in scope: do not end this turn without either running Stage 7 or explicitly deferring it.** Stage 6 above skipped `promote-all`'s own step-5 WhatsApp-blurb fallback specifically because Stage 7 was promised to cover that copy — if this session stops after Stage 6 (interruption, compaction, the operator assuming "platforms done" means "done"), that promise is broken and the groups leg is never generated anywhere, which is the July 5 failure recreated through a designed skip rather than an oversight. Before ending this turn, either proceed to Stage 7 now, or say explicitly: "Groups stage is still pending — `promote-all`'s own WhatsApp-blurb step was skipped on the assumption Stage 7 runs. Resume with `/slava:events:run <slug>` to complete it, or it will stay silently unresolved." Never let this go unstated.
 
-### 7. Stage: Promote groups (if in scope)
+### 7. Stage: Promote groups — Facebook groups and chat groups, one confirmation
 
-Invoke `slava:events:promote-groups` with the slug and the run-record path `~/.private/event-state/<slug>.run.json` (same reason as Stage 6 — lets `promote-groups` verify, not trust, the "invoked by the orchestrator" skip in its own step 5). Its own probe, staleness check, and blast-radius confirmation (Gate 4, inherited) run unchanged.
+Founder, 2026-08-31: *"i see the confirmation to promote simultaneously on facebook groups and
+beeper and i confirm both and its done."* So this stage covers both surfaces and asks **once**.
+
+1. Resolve the Facebook group targets (`slava:events:promote-facebook`) and the chat-group
+   targets (`slava:events:promote-groups`) — including the `do_not_post` enforcement, which
+   refuses the run if a blocked chat ID is also listed as a target.
+2. Run `promote-groups`'s transport probe and link-liveness check. A dead bridge or a dead
+   link stops here; do not ask for confirmation on a send that cannot succeed.
+3. **One combined confirmation** listing both: the Facebook groups by name, the chat groups by
+   name and language, the total count, and any group excluded with its reason. This is the
+   blast-radius confirmation — for 6+ chat groups it still requires typing the exact count,
+   unchanged.
+4. On confirmation, send. Verify each send by **reading the message back out of the chat**,
+   not by a timestamp or an absent error — the messaging bridge's search index lags, so fall
+   back to reading the chat directly when a search comes back empty (measured 2026-08-31).
+
+Facebook groups posting keeps its own per-post human click where the platform requires it;
+that is a platform constraint, not an approval turn added here.
 
 On completion, update the run record.
 
@@ -177,12 +235,12 @@ Groups (promote-groups.json):
 - **Never publishes.** No stage of this orchestrator clicks Publish or Create — every such click is the user's, inherited from the stage skill that owns it.
 - **Writes only its own run record.** `<slug>.json` and `<slug>.groups.json` stay exactly as their owning skills define them — this skill never appends to or reshapes either.
 - **`promote-facebook` (groups) and `promote-facebook-personal` stay separate invocations** — nothing in this orchestrator merges them into one call.
-- **The combined copy review replaces two separate stops with one** — but it does so by having the downstream skills skip their own duplicate stop when the orchestrator supplies pre-approved text (see `promote-all.md` step 3b), not by bypassing their gates when run standalone.
+- **Copy resolution replaces the downstream wording stops** — by having the downstream skills skip only their *wording* stop when the orchestrator supplies resolved text (see `promote-all.md` step 3b), never by bypassing their fact checks, and never when run standalone.
 
 ---
 
 ## Honest ceiling
 
-- **Four gates are the floor, not a default that can be removed.** Kickoff and the combined copy review are meaning-judgments no tool makes; the per-platform and blast-radius gates exist because the underlying browser actions and group-fan-out risk cannot be automated safely. Removing any of them trades correctness for autonomy — out of scope.
+- **The five touches are the floor, not a default that can be trimmed further.** Trail and cafe are judgments no tool makes; the event approval, the platform sweep and the group confirmation exist because publishing and fanning out to groups are public, hard-to-retract actions. Removing any of them trades correctness for autonomy — out of scope. The mechanical checks listed in the touches section are not touches and are never removed.
 - **This skill sequences; it does not improve any stage.** A wrong-city Facebook default, a stale blurb, a missed auth wall are fixed in the owning stage skill, not here.
 - **A stage failure stops the chain.** On any non-zero exit or unresolved gate, report which stage failed and stop — do not limp forward. Re-run resumes from the failed stage forward, using each stage's own cache to avoid re-doing completed work; it never re-runs Gate 1's creation choice.

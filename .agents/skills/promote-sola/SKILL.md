@@ -79,6 +79,18 @@ Read with `find` (resilient when `read_page` is flaky). Behaviors observed:
 
 ### 4. Stop — user verifies and creates
 
+**If invoked with `batched: true` (the orchestrated fan-out — `promote-all` step 4 Phase A):**
+do everything above exactly as written, including every field verification, then **return
+instead of stopping here**. Leave this tab open with the form filled and nothing submitted.
+Report back: the tab number, `filled` or `failed`, and any warning the founder must act on
+(a truncated field, a missing cover photo, a control that is not programmable). `promote-all`
+Phase B collects those into one review sweep, and the founder clicks Publish there.
+
+This changes **where** the click is asked for, never **whether** it is his: this skill still
+does not click Publish or Create under any flag.
+
+
+
 Screenshot the form. Quote back the date/time read from the screen vs expected (same hard date-check discipline as `/promote-luma` — the time picker is click-driven and easy to leave wrong):
 
 > Form ready on Social Layer (group `<sola_group>`). Confirm before you submit:

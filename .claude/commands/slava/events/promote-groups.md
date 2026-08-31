@@ -63,9 +63,21 @@ Report: "No group mapping found for «{title}». To add one, run this skill agai
 
 Offer to show the current config schema and an example entry. **Do not auto-continue** — the operator adds the entry and re-runs.
 
+**Enforce `do_not_post` — this is a hard block, not a note (added 2026-08-31):**
+
+A matched type entry may carry a `do_not_post` array, each entry `{platform, name, chatID, lang, blocked_on, reason}`. These are groups that asked us to stop, or that the founder ruled out. The array existed as a written record from 2026-08-31 but **nothing read it** — a block recorded in one session was invisible to the next run, and any group re-discovery pass could have silently re-added it. That gap is what this step closes.
+
+1. Build the blocked set: every `chatID` in the matched entry's `do_not_post`.
+2. **Refuse the run** if any `chatID` appears in BOTH `groups` and `do_not_post`. Report: "`{name}` ({chatID}) is in `do_not_post` (blocked {blocked_on}: {reason}) but is also listed in `groups`. Remove it from `groups` in `.private/event-channels.json` before re-running." Do not send to anything — a config this contradictory means the operator's intent is unknown, and sending to a group that asked us to stop is not a recoverable mistake.
+3. Never send to, verify, count, or display a blocked `chatID` as eligible. It does not appear in the eligible list.
+4. Report the blocks explicitly so they stay visible: "Blocked (do_not_post): {name} ({lang}) — {reason}". Silence here would make a shrinking group list look like an accident.
+
+**Capturing a new block.** When the founder says a group should not be posted to again ("remove X from promotions", "they asked us not to post"), append it to that type's `do_not_post` **and remove it from `groups`, in the same edit, before the next send** — with `blocked_on` and the reason in the founder's own terms. Deleting it from `groups` alone leaves no reason on record and it can be re-added by the next discovery pass. This has already happened once: the "Gemrena" group was dropped on 2026-08-31 with no record of why.
+
 **If matched:**
 
 - Filter out groups with `status: "declined"` — hard skip, no override, not shown in eligible list
+- Filter out any `chatID` in `do_not_post` (per the block above)
 - Report: "Matched type `{type}` → {N} eligible group(s): {name1} ({platform1}, {lang1}), {name2} ({platform2}, {lang2}), ..."
 
 ### 3. Resolve blurbs — one per language present
@@ -156,9 +168,11 @@ Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is require
 
 ### 5. Approval gate
 
-**Verifying "invoked by the orchestrator" — never trust self-report alone.** As in `promote-all.md` step 3b: the skip below is gated on a fact that must be checked against an artifact, not recalled from conversation memory. The invocation must have passed both the already-approved group blurbs **and** the run-record path `~/.private/event-state/<slug>.run.json`. Read it now — the skip is valid only if the file exists, its `updated_at` is from earlier in *this same session*, and `"promote_groups"` appears in its `stages_in_scope`. If any of that fails, treat this as a standalone invocation and show the full copy display (item 1) below, even if the caller claims the text is "already approved."
+**Verifying "invoked by the orchestrator" — never trust self-report alone.** As in `promote-all.md` step 3b: the skip below is gated on a fact that must be checked against an artifact, not recalled from conversation memory. The invocation must have passed both the resolved group blurbs **and** the run-record path `~/.private/event-state/<slug>.run.json`. Read it now — the skip is valid only if the file exists, its `updated_at` is from earlier in *this same session*, and `"promote_groups"` appears in its `stages_in_scope`. If any of that fails, treat this as a standalone invocation and show the full copy display (item 1) below, even if the caller claims the text was already resolved upstream.
 
-**If invoked by the events orchestrator (`slava:events:run`) with already-approved group blurbs passed in, and the run-record check above passes:** the wording was already shown and approved at the orchestrator's combined copy review (its Gate 2) — **skip item 1 below** (do not re-show the copy for a second wording approval; that would be the same duplicate-approval-turn defect the orchestrator's design closes for `promote-all` step 3b). The blast-radius group-count confirmation (item 2 + the ask) is unchanged and always runs — it is a distinct gate (Gate 4 in the orchestrator's numbering) about send scope, not wording, and stays inherited unmodified regardless of who invokes this skill.
+**If invoked by the events orchestrator (`slava:events:run`) with resolved group blurbs passed in, and the run-record check above passes:** **skip item 1 below** — do not re-show the copy for a wording approval. The orchestrator resolved this text at its step 5 and the founder no longer reviews copy in chat (2026-08-31: *"no need to show me text, i can correct it on live event"*).
+
+**Everything that is not a wording approval still runs, always, under every caller:** the staleness check, the link-liveness check, the transport probe, the `do_not_post` enforcement, and the blast-radius group-count confirmation (item 2 + the ask). Those check facts and send scope, not wording. Under the orchestrator, the blast-radius ask is presented as part of its Stage 7 combined confirmation alongside the Facebook groups — one confirmation, same scope check, not a weaker one.
 
 **Otherwise (standalone invocation), show, in this order:**
 

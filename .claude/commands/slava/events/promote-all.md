@@ -40,13 +40,19 @@ Read `.private/event-operator.json` (repo-relative, gitignored — each operator
 If user passed a slug, use it. Otherwise query prod (anon key — events are public-read; RLS guards the data):
 
 ```bash
-# Public anon key — safe to publish (it ships in the site's JS bundle).
-# Rotated? Current value: VITE_SUPABASE_ANON_KEY in .env.prod.
-ANON_KEY="${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTgyNTQsImV4cCI6MjA4MDE3NDI1NH0.Z0Ap-VDprOzBRVEWF1wOXwVnNlCaqvv8i9JCCgiPsFY}"
+# Read the publishable key from .env.prod — never hardcode it here.
+# The legacy anon key that used to be inlined in this file was DISABLED on 2026-08-28
+# ("Legacy API keys are disabled"), which silently broke this step: the request returns a
+# JSON error object rather than a row array, and any code path that assumed a list got a
+# confusing type error instead of "your key is dead."
+KEY=$(grep -E '^VITE_SUPABASE_ANON_KEY=' .env.prod | cut -d= -f2- | tr -d '"'"'"'\'')
 curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?order=datetime.asc&status=eq.upcoming&limit=1" \
-  -H "apikey: $ANON_KEY" \
-  -H "Authorization: Bearer $ANON_KEY"
+  -H "apikey: $KEY" \
+  -H "Authorization: Bearer $KEY"
 ```
+
+**If the response is a JSON object with a `message` field rather than an array, the key is
+rejected — stop and report it.** Do not fall back to a hardcoded key.
 
 Extract `slug`, `title`, `description`.
 
@@ -78,6 +84,7 @@ Schema:
 | Title prefix | series_doc |
 |---|---|
 | `AI Running Club%` | `docs/events/series/ai-running-club.md` |
+| `Social Hike%` / `Clarity Hike%` | `docs/events/series/social-hike.md` |
 
 If no match, leave `series_doc` null — fall back to generated blurb in step 5.
 
@@ -122,9 +129,11 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 
 This is what makes every platform's description consistent — no per-platform drift.
 
-**Verifying "invoked by the orchestrator" — never trust self-report alone.** The skip below is gated on a fact that must be checked against an artifact, not recalled from conversation memory (a resumed or post-compaction session can misremember whether an earlier orchestrator run happened). Before honoring the skip: the invocation must have passed **both** the already-approved blurb text **and** the run-record path `~/.private/event-state/<slug>.run.json`. Read that file now — the skip is valid only if it exists, its `updated_at` is from earlier in *this same session* (not a stale prior run), and `"promote_platforms"` appears in its `stages_in_scope`. If the run-record path was not passed, or the file doesn't exist, or its `updated_at` predates this session's Gate 2 — treat this as a standalone invocation and fall through to the full resolution below, even if the caller claims the text is "already approved."
+**Verifying "invoked by the orchestrator" — never trust self-report alone.** The skip below is gated on a fact that must be checked against an artifact, not recalled from conversation memory (a resumed or post-compaction session can misremember whether an earlier orchestrator run happened). Before honoring the skip: the invocation must have passed **both** the resolved blurb text **and** the run-record path `~/.private/event-state/<slug>.run.json`. Read that file now — the skip is valid only if it exists, its `updated_at` is from earlier in *this same session* (not a stale prior run), and `"promote_platforms"` appears in its `stages_in_scope`. If the run-record path was not passed, or the file doesn't exist, or its `updated_at` predates this session's copy-resolution step (run.md step 5) — treat this as a standalone invocation and fall through to the full resolution below, even if the caller claims the text is "already approved."
 
-**If invoked by the events orchestrator (`slava:events:run`) with an already-approved blurb passed in, and the run-record check above passes:** use that text verbatim as the canonical promo blurb and **skip the rest of this step entirely, including its own approval stop below**. The orchestrator's combined copy review (its Gate 2) already resolved and approved this text — stopping again here would be a second approval turn for the same decision. This is the one required change for the orchestrator to wrap this skill without adding a duplicate stop.
+**If invoked by the events orchestrator (`slava:events:run`) with a resolved blurb passed in, and the run-record check above passes:** use that text verbatim as the canonical promo blurb and **skip the rest of this step entirely, including its own approval stop below**. The orchestrator's step 5 already resolved this text and ran its freshness guard against it; re-resolving would duplicate that work, and stopping to ask about wording would reintroduce the chat copy review the founder removed on 2026-08-31 (*"no need to show me text, i can correct it on live event"*). He reviews this copy in the filled form at the Phase B sweep instead.
+
+**The freshness guard is not skipped with it.** Even on the orchestrator path, assert the passed-in text contains this event's date and cafe name before using it. The guard is a fact check, not a wording approval, and a resolved-but-stale blurb is exactly the failure it exists to catch.
 
 **Otherwise (standalone invocation — no orchestrator, no pre-approved blurb), resolve it here as before:**
 
@@ -152,7 +161,65 @@ Pass this as the canonical promo blurb to every platform sub-skill in step 4, sa
 
 **Link discipline (both branches):** the claritypledge event page is the ONLY destination ever linked — and it appears **twice**: right after the hook AND as the closing Register CTA. "One link only" in the platform skills means one *destination*, not one occurrence.
 
-### 4. Fan out — sequential, in this order
+### 4. Fan out — fill every platform, publish none, then ONE review sweep
+
+**The founder reviews the filled tabs, not text in chat.** *"i dont need to go toodo dotday,
+then facebok, then luma. all three happen one after another and i just go and click post post
+post"* (2026-08-31). The old shape stopped after each platform and waited — five separate
+returns to the keyboard for one hike. This shape produces one.
+
+**Phase A — fill, in this order, without stopping.** todo.today → Facebook (personal) → Luma
+→ Eventbrite → Social Layer. Rationale unchanged: todo.today has the highest UI friction (tag
+picker, character truncation), so fail-fast there; Facebook needs visual cover-photo review;
+Luma is stable; Eventbrite is a multi-step wizard; Social Layer is last and skipped entirely
+when the series has no `sola_group`.
+
+For each platform in turn:
+1. Skip if not in the operator config's `platforms` list (step 0) — mark `"skipped (not in operator config)"`.
+2. Skip if `status.<platform> === "done"` in cache.
+3. Invoke the sub-skill via the Skill tool, passing the slug, the canonical promo blurb from step 3b, the `operator_name` from step 0, **and `batched: true`**.
+4. **Leave the platform's tab open and the form filled.** Do not close it, do not navigate away, and do not stop for that platform's own review.
+
+**`batched: true` is what each sub-skill reads to hold its own gate.** A sub-skill invoked
+this way fills and verifies its form exactly as it always did — including its write→wait→re-read
+confirmation of every field — and then **returns instead of asking**. It still never clicks
+Publish or Create. If a sub-skill has a step that genuinely cannot be batched (Luma's date
+picker does not accept programmatic input), it reports that in its return so Phase B can list
+it as an action for the founder, rather than blocking the fan-out.
+
+**A fill that fails does not stop the sweep.** Record it, move to the next platform, and list
+it in Phase B as needing attention. Finding out at the sweep that platform four failed costs a
+re-run of one platform; blocking the other three costs the whole batch.
+
+**Phase B — one review sweep.** Once every in-scope platform is filled, come back to the
+founder **once** with a numbered list of the open tabs:
+
+```
+Ready to publish — 3 tabs open, nothing posted yet:
+  1. todo.today  (tab 2) — filled, verified
+  2. Facebook    (tab 3) — filled, cover photo attached
+  3. Luma        (tab 4) — filled, ⚠ set the date manually (picker is not programmable)
+
+Click Publish / Create in each tab you approve. Reply `done` when finished,
+or name any tab you want changed first.
+```
+
+State any warnings inline in that list — a truncated description, a missing cover, a manual
+step. **This skill still publishes nothing.** *"Every Publish/Create click is the user's,
+never the skill's."* (`docs/decisions.md` 2026-05-12 [process]) That rule is unchanged here;
+what changed is that the click permission is collected once for all platforms instead of once
+per platform. The founder is looking at the real filled forms when he decides, which is a
+stronger review than a paragraph of chat text describing them.
+
+After `done`, verify each platform actually posted (read the live listing back — a click that
+produced no visible change is unproven, per `.claude/rules/browser.md`) and write the state
+cache. Report anything that did not land.
+
+<details>
+<summary>Superseded: the old per-platform stop-and-wait (kept for context)</summary>
+
+### 4-legacy. Fan out — sequential, in this order
+
 
 Order: **todo.today → Facebook (personal) → Luma → Eventbrite → Social Layer**. Rationale: todo.today has the highest UI friction (tag picker, character truncation), so fail-fast there. Facebook needs visual cover-photo review. Luma is a stable UI. Eventbrite is a multi-step wizard (tickets + publish are separate steps the user drives). Social Layer (sola.day) is last — it has a group prerequisite and is skipped entirely when the series has no `sola_group`. The WhatsApp blurb (step 5) always runs after the full fan-out.
 
@@ -171,9 +238,11 @@ For each platform:
    - `skip` → set `status.<platform> = "skipped"`, write cache, proceed
    - `abort` → exit cleanly, cache preserved for resume
 
+</details>
+
 ### 5. WhatsApp blurb (always last — after the full platform fan-out)
 
-**If invoked by the events orchestrator (`slava:events:run`) with `promote_groups` in scope for this run, verified the same way as step 3b above (read `~/.private/event-state/<slug>.run.json`, confirm `updated_at` is from this session and `"promote_groups"` is in `stages_in_scope`):** skip this step entirely. The orchestrator's combined copy review (its Gate 2) already resolved and approved the group copy, and its own Stage 7 will invoke `slava:events:promote-groups` to actually post it — stopping here to approve a WhatsApp blurb the orchestrator already gathered would be an extra, un-inherited approval turn duplicating that same review. (If `promote_groups` was explicitly excluded from this run's scope at Gate 1, or the run-record check fails, run this step as normal — the orchestrator made no verified promise to handle groups for that run.)
+**If invoked by the events orchestrator (`slava:events:run`) with `promote_groups` in scope for this run, verified the same way as step 3b above (read `~/.private/event-state/<slug>.run.json`, confirm `updated_at` is from this session and `"promote_groups"` is in `stages_in_scope`):** skip this step entirely. The orchestrator's step 5 already resolved the group copy, and its own Stage 7 posts it under one combined confirmation covering Facebook groups and chat groups — stopping here for a separate WhatsApp blurb would be an extra approval turn covering ground Stage 7 already covers. (If `promote_groups` was explicitly excluded from this run's scope at Gate 1, or the run-record check fails, run this step as normal — the orchestrator made no verified promise to handle groups for that run.)
 
 **Otherwise (standalone invocation, or orchestrated with groups out of scope), once all platforms are `done` or `skipped`:**
 

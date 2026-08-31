@@ -41,6 +41,26 @@ AllTrails URL, a prior event to clone):
 | Publish run | `/slava:events:publish-run` | An AllTrails link + date/time + optional post-run idea | Trail run, hike, or trail walk — anything with a specific trail. |
 | Re-create event | `/slava:events:re-create-event` | The most recent occurrence of a named recurring series (e.g. AI Running Club) already in prod | Weekly/recurring series publish. Requires at least one prior event in the series — the first event of any new series is still created manually via `scripts/create-event.ts`. |
 
+**Selection comes before creation.** `/slava:events:select-hike` picks the trail, the meeting
+cafe, and the banner photo, then hands them to `/slava:events:publish-run`. It opens every
+candidate — trails and cafes — as real Chrome tabs rather than describing them in chat, because a
+trail cannot be judged from a paragraph about it.
+
+### Exclusions — the never-again list
+
+A "don't offer that again" ruling has exactly two homes, and both are **read and enforced** by the
+skill that could otherwise violate them:
+
+| What | Where | Enforced by |
+|---|---|---|
+| Trails, venues, areas | `.private/event-exclusions.json` | `/slava:events:select-hike` step 1 — matches are dropped before any tab is opened |
+| Group chats we must not post to | `do_not_post[]` in `.private/event-channels.json` | `/slava:events:promote-groups` step 2 — a blocked chatID also present in `groups` refuses the whole run |
+
+Record the ruling the moment it is made, with the founder's own reason and the date. Prose in a doc
+does not count: this paragraph replaced a written-but-unread note about Wat Pha Lat, and the German
+WhatsApp group's block sat in the data for a day with no code reading it. A rule nothing enforces is
+a decision the founder gets to make twice.
+
 ---
 
 ## Event Types

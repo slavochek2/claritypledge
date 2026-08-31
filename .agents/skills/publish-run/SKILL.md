@@ -15,6 +15,15 @@ Publishes a Clarity trail event to claritypledge.com from an AllTrails link.
 
 If the user hasn't provided one, ask: "Paste the AllTrails trail link."
 
+**If the user has no link yet and wants help choosing, invoke `/slava:events:select-hike`
+instead of improvising a shortlist in chat.** That skill owns candidate search, the
+never-again exclusions, the meeting-cafe choice, and the banner-photo ask, and it opens
+every candidate in a Chrome tab rather than describing it. It hands back a link, a cafe,
+a date and a photo path — the exact inputs steps 2–5 need. Do not duplicate its logic here.
+
+If it ran, it already supplied the meeting cafe (step 4) and the photo (step 8b); take
+those values and skip re-asking for them.
+
 ### 2. Fetch trail data via Claude-in-Chrome
 
 Use `mcp__claude-in-chrome__tabs_context_mcp` (createIfEmpty: true) to get a tab, then navigate to the AllTrails URL. Use `mcp__claude-in-chrome__get_page_text` to extract:
@@ -81,10 +90,12 @@ reader is sitting, not a place. (The site-side version of this bug was fixed in
 
 ### 5. Ask the user 3 questions
 
-Ask all in one message:
+Ask all in one message, and **skip any part `select-hike` already resolved** — re-asking a
+question the founder answered ten minutes ago is the friction this pipeline exists to remove:
 1. **Date & time?** (e.g. "Sunday 21 Jun, 9:00 AM") — skip if already provided
 2. **WhatsApp group link?** (for coordination — paste invite link or skip; check prod DB for a recent event in the same city if the user says "same as last time")
 3. **Post-activity idea?** (optional — breakfast topic, discussion theme, or skip)
+4. **Banner photo?** — ask ONLY if `select-hike` did not run. A path uploads via step 8b; "skip" means the auto-generated banner stands and the photo is not raised again this run.
 
 ### 6. Compute duration
 
@@ -102,7 +113,35 @@ Ask all in one message:
 
 For short runs under 2 hr: use 150 min (run + breakfast).
 
-### 7. Generate description
+### 7. Generate description — clone the last one, don't start blank
+
+**Read two things first, before writing a word:**
+
+1. `docs/events/series/social-hike.md` — the series memory. Its **Description base** is the
+   shape to fill, and its rules section lists what survived founder edits (quotes with star
+   ratings, no entrance fee ever, warm-jacket clause only at altitude).
+2. **The most recent event in this series, from prod** — the actual last description, which
+   is the real reference for tone and for anything the founder improved by hand:
+
+```bash
+KEY=$(grep -E '^VITE_SUPABASE_ANON_KEY=' .env.prod | cut -d= -f2- | tr -d '"'"'"'\'')
+curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?title=ilike.Social*Hike*&select=slug,title,datetime,duration_minutes,location,description&order=datetime.desc&limit=1" \
+  -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+```
+
+Write the new description by **swapping the trail-specific facts** in that last one — trail
+name, park, distance, climb, walk time, highlights, quotes, cafe, meet time, date, weather —
+and keeping everything else. Do not regenerate from scratch.
+
+This is the whole point of the series file. Measured across the first two hikes: Aug 30 had
+no reviewer quotes; Sept 6 added a trail quote and a cafe quote with star ratings and review
+counts, at the founder's explicit request. Regenerating from a blank template would have
+silently dropped that improvement on run three. **If the previous description contains
+something the base does not explain, keep it and assume it was deliberate** — the founder
+edits these by hand.
+
+**If prod returns a JSON object with a `message` field instead of an array, the key is
+rejected** — say so and fall back to the series-doc base alone rather than guessing.
 
 **KISS. Hard ceiling: 150 words.** The founder cut the previous template from
 350 words to 113 on 2026-08-24 with the note "cut the bullshit". What he removed,
@@ -196,6 +235,29 @@ subprocess.run(["curl", "-s", "-X", "POST", url, "-H", ..., "-d", json.dumps(pay
 ```
 
 **Always use Python `json.dumps()` for the payload** — shell variable interpolation breaks multi-line descriptions.
+
+### 8b. Banner photo (only if one was supplied)
+
+The event page has **no custom-upload control** — its "New banner" UI offers Unsplash search
+and AI regenerate only (confirmed 2026-08-31). A supplied photo goes in through storage:
+
+```bash
+./scripts/event-photo-prep.sh "$SLUG" "<local photo path>"
+```
+
+Capture the `PUBLIC=` URL and PATCH the event row's `banner_url` to it (same prod-patch shape
+as `re-create-event` step 9).
+
+**Then verify the crop at desktop AND 375 px before any promotion runs.** Faces near the top
+of a wide crop get cut, and on 2026-08-31 this was only caught after the banner was live —
+adjust the crop offset and re-upload until every face is intact. Fixing it after five
+platforms already have the image means re-doing all five.
+
+Note `event-photo-prep.sh` skips the upload when an object already exists at that path
+(idempotent HEAD check) — when replacing a banner with a new crop, confirm the storage object's
+dimensions actually changed rather than trusting the script's success line.
+
+If no photo was supplied, skip this step entirely.
 
 ### 9. Open the event page
 
