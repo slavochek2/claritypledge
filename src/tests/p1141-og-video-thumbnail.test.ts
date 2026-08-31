@@ -28,7 +28,13 @@ describe('p1141 DW-5 — the crawler card', () => {
   });
 
   it('uses the app\'s own parser rather than a second, drift-prone copy', () => {
-    expect(OG).toContain("import { getThumbnailUrl } from '../src/lib/video';");
+    // The MODULE is what this asserts — that og.ts reads the app's own parser and
+    // does not carry a second copy. The specifier's file EXTENSION is not part of
+    // that claim, and pinning it here is what made P1201 unfixable without editing
+    // this line: Vercel emits api/*.ts specifiers verbatim into an ESM function, so
+    // the extensionless form 500s the deployed handler at module load. The
+    // extension is now owned by src/tests/p1201-api-esm-imports.test.ts.
+    expect(OG).toMatch(/import \{ getThumbnailUrl \} from '\.\.\/src\/lib\/video(\.js)?';/);
     // A hand-rolled id regex inside og.ts would be exactly the second place that
     // could disagree with the first.
     expect(OG).not.toMatch(/i\.ytimg\.com/);

@@ -80,6 +80,24 @@ describe('api/og.ts — fail-loud on a bad HTTP response (P1108 Decision 2)', ()
     });
   }
 
+  // P1201: a rotated/disabled Supabase API key answers 401 ("Legacy API keys are
+  // disabled"), the exact shape that took prod down on 2026-08-28. The credential
+  // failure must degrade to the subject-silent card on every route, never a 500 —
+  // so the NEXT key rotation cannot break every share link on the site.
+  for (const route of ROUTES) {
+    it(`${route.label} route: a 401 (revoked/rotated API key) degrades to the default card, never a 500`, async () => {
+      stubOgFetch({ ok: false, status: 401 });
+
+      const { default: handler } = await import('../../api/og');
+      const { res, getBody, getStatus } = ogRes();
+      await expect(handler(ogReq(route.path), res)).resolves.not.toThrow();
+
+      expect(getStatus()).toBe(200);
+      expect(getBody()).toContain('Preview temporarily unavailable');
+      expect(getBody()).toContain('/clarity-pledge-icon.png');
+    });
+  }
+
   it('a rejecting fetch (network timeout) produces the same subject-silent card — not an unhandled rejection', async () => {
     stubOgFetch({ reject: new Error('ETIMEDOUT') });
 

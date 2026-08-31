@@ -1,4 +1,4 @@
-import { getThumbnailUrl } from '../src/lib/video';
+import { getThumbnailUrl } from '../src/lib/video.js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Vercel Serverless Function — serves dynamic OG meta tags to bot crawlers.
