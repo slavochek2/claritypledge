@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: task
 rank: 84
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [transcripts, caching, points-pipeline, correctness, storage]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: finish
+pipeline_ran: [create-spec, dev, finish]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -345,6 +345,39 @@ ytaudio,agent-store-backfill.py}` (commit `f79c456`) and `~/.agents/bin/diarize`
       non-allowlisted `--print` field, `YT_STORE=off`, stdout stream, non-canonical `-o`,
       unclassified flag, non-YouTube host): **0 runs with none, 0 runs with more than one.**
       `diarize`'s refused-admission path also prints its line before exiting nonzero
+
+### Review rounds (2026-08-28/29, after implementation)
+
+`/finish` on this work found nothing in `cp` — **the code lives in `pp/scripts/` and
+`~/.agents/bin/`, so the path-based classifier is blind to it.** Pointed at the real files, three
+lenses on independent domains found **14 defects, all fixed and each re-proven by command**:
+
+| Lens | Domain named before spawning | Found |
+|---|---|---|
+| sonnet | reuse-decision correctness — can a wrong result be served, or a right one lost? | 6 |
+| sonnet | the process/argv boundary — quoting, arity, exec, exit codes | 5 (2 of them pre-existing) |
+| Codex gpt-5.6-sol, high | the FIXES from the first two rounds — new, unreviewed code | 6 |
+
+**Two rounds were needed on the same defect, and that is the finding worth keeping.** Round 1: the
+cookie source was collapsed to a boolean, so `chrome:ProfileA`, `chrome:ProfileB` and a cookie file
+all hashed to one key — one account's member-only captions could be served to another. Round 2
+showed the fix was still wrong: naming the source is not establishing its identity. `--cookies
+jar.txt` means a different file depending on the working directory. The key now carries the jar's
+**content hash**, and `--cookies-from-browser` is refused outright because a live profile has no
+stable identity. **This is the same defect as the one the whole spec was written about — a
+parameter classified as key-relevant whose value never reached the key — and it survived one
+adversarial round.**
+
+Also fixed: a stored record missing or malformed crashed instead of missing; `materialize` reported
+a HIT while delivering nothing; the v1→v2 migration aborted on an occupied pointer, which would
+have left every remaining entry cold forever; the audio wrapper indexed any artifact matching its
+glob without checking it was audio, and reported "produced no mp3" while deleting a usable file;
+an exit status was validated as digits, so `exit 256` replayed a **failure as success**. Two
+pre-existing issues were fixed while in the file: the token-bearing proxy config now clears on
+INT/TERM, and a bare `-` is read as yt-dlp's stdin-URL syntax rather than output streaming.
+
+Final state re-measured: captions, metadata, comments and diarize all HIT; **0 paid calls**; Gate E
+clean at **7 shapes, exactly one `[store]` line each, none silent**.
 
 ### What is NOT proven
 
