@@ -11,8 +11,8 @@ flow: dev
 drafted_by: opus
 exec_model: opus
 exec_effort: high
-delivery_stage: dev
-pipeline_ran: [dev]
+delivery_stage: verify
+pipeline_ran: [dev, verify]
 created_date: 2026-08-31
 ---
 
