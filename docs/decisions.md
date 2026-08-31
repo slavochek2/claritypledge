@@ -364,6 +364,52 @@ The revision row is never deleted — a quote verified against those bytes stays
 [epistemic.md](../.claude/rules/epistemic.md) gates 7, 7c
 
 ---
+## 2026-08-31 [process]: Both goal-gate round defects predicted on 2026-08-24 fired again on P1060 — one is fixed, one was a wrong number rather than a wrong idea
+
+**Context:** The 2026-08-24 entry below called goal-gate CHECK 5 mis-calibrated on two counts and filed a fix rather than routing around it. P1060 hit **both**, exactly as described. (1) Regenerating renders after a fix invalidated every hash an earlier round had recorded — the gate reported seven mismatches for round 1 having been superseded, which is "doing the right thing breaks the check" verbatim. (2) Rounds ran `FAIL FAIL PASS FAIL PASS`: a genuine round-4 defect, fixed, confirmed by round 5 — and the trailing pair was then `FAIL, PASS` with a sixth round breaching the ceiling of five. Both branches fail, as predicted.
+
+**Decision:** Fix the first, re-number the second. **(1) Each round photographs into its own `renders/round-N/` directory and nothing is ever overwritten** — a round's evidence becomes immutable by construction, so a later fix cannot corrupt an earlier verdict. Round 1's bytes were recovered from its own commit and its file's *paths* rewritten; **no hash was edited**, which is why every recorded hash still re-derives. **(2) `MAX_ROUNDS` raised 5 → 7, founder-authorised.** The ceiling's purpose — stop a loop spinning until two passes land by chance — is intact, and a bound still exists. At 5 it was *also* making a defect found in round 4 unclosable, because demonstrating a fix costs two rounds: a spec that legitimately finds defects in rounds 1, 2 and 4 runs out of budget before it can show the last fix works. That penalises exactly the runs where review is doing its job.
+
+**Alternatives rejected:** *Overwrite round 4's FAIL with a re-review of the fixed build* — the gate's own text calls this re-rolling and it is what CHECK 5 exists to catch. *Renumber or delete round 4* — deletes a real reviewer's real finding. Both were offered to the founder explicitly and both were rejected; recording that they were **offered and declined** matters more than recording that they were not done. *Add a founder override* — still rejected, and now with better reason: the 2026-08-24 entry deferred it pending calibration, and this was a calibration problem, so the calibration was the fix.
+
+**Consequences:** The two workarounds an agent reaches for under a blocking Stop hook are precisely the two the gate forbids, and an unattended loop will meet that wall alone. The honest exit is to stop and surface the decision, which is what happened here — but it cost a founder turn, and the decision (raise a bound in a shared script) is one only a human can make. **`MAX_ROUNDS` lives in the gate script, not the pinned contract**, so CHECK 7's digest was untouched and no re-pin was needed — but the change rides this feature branch and **must reach `main`**, or CI and the branch disagree about what counts as converged. The 2026-08-24 entry's P1141 case is unblocked by the same two changes.
+
+**References:** `scripts/goal-gate.sh` (CHECK 5, `MAX_ROUNDS`), `features/verification/p1060/assumptions.md` (A9, A13, A14), decisions.md 2026-08-24 [process] "goal-gate cannot go green"
+
+---
+
+## 2026-08-31 [process]: The second blind reviewer found what the first one passed — and three of four rounds judged renders that misrepresented production
+
+**Context:** P1060 ran seven blind-review rounds across three reviewers. Round 3 ran ten checks against the org Events screen and returned PASS. Round 4 — a **different** reviewer that had seen none of rounds 1–3 — failed that same screen on a defect round 3 had looked straight at: the Upcoming/Past control showed **Past** selected while the copy beneath it said *"Nothing coming up yet"*, so the page asserted two current tabs at once. It was found by cross-comparing three renders of one control against each other, and the reference names that exact state (*"the Upcoming pill stays selected and stays honest"*).
+
+**Separately, the renders themselves were wrong four times, always in the same direction — flattering.** Every fixture profile carries a hardcoded `#4A90E2`, so the avatar stack photographed three identical discs. `createTestEvent` never sets `banner_url`, so production event cards rendered with no banner treatment. The fixture seeded three participants against a five-avatar limit, so the `+N` overflow chip — named by a contract row — **never rendered in rounds 1–5** and a reviewer correctly reported it untested. And the repair for the first of these invented indigo/violet hues off the top of the agent's head, which is the same defect wearing better clothes: a reviewer then judges avatar colours no real profile can have.
+
+**Decision:** **Independence is the property that pays, not redundancy** — a second reviewer on a *fresh context* is worth more than a second pass by the same one, and this is the first measured instance in this repo of one catching what the other missed rather than merely agreeing. And: **a blind review is only as good as the fixture behind it — before handing renders to a reviewer, assert the state the contract names is actually present in them.** The render spec now asserts the `+N` chip is visible before capturing, and draws avatar colours from the app's own palette rather than from taste.
+
+**Alternatives rejected:** *Re-run the same reviewer for a second opinion* — it had already passed the screen; the value came from a context that had never seen it. *Trust the reviewer to notice a missing state* — round 4's reviewer did report the chip as untested rather than passed, which is the correct behaviour and still leaves the contract row unevidenced; the fixture is what has to change. *Fix the fixture colours by picking nicer ones* — that is what caused the second failure.
+
+**Consequences:** Three of four judged rounds found real defects, and every one of the three came after a round that had passed something. Budget for it: a review that never fails is not measuring anything. The counter-pressure is cost — five rounds dominated this run's turn count — so the trade is real, but the cheap half is fixture fidelity, not reviewer count. Generalises the 2026-08-21 rule (*"an inaccurate reference certifies the wrong screen"*) from the reference to the renders: **an inaccurate render certifies a screen the user never sees**, and it is the easier of the two to get wrong silently.
+
+**References:** `features/verification/p1060/review-round-{3,4}.md`, `features/verification/p1060/assumptions.md` (A3, A10, A15, A16), `e2e/p1060-review-renders.spec.ts`, decisions.md 2026-08-21 [process] (reference fidelity)
+
+---
+
+## 2026-08-31 [technical]: The avatar colour palette is hardcoded in three places and one of its five colours is a hue the design system bans
+
+**Context:** A blind reviewer flagged an avatar hue reading "closer to purple" and asked for a conscious decision. Chasing it rather than forwarding it (epistemic gate 9) split the flag in two. The specific hue was a **test-fixture** invention, not the product. But underneath sits a real one: the app's avatar palette is the literal list `["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"]`, written out **three separate times** — `src/app/data/api.ts` (`getRandomColor`, the signup path), `src/app/pages/accept-agreement-page.tsx` and `src/app/pages/agreement-email-confirmation-page.tsx` — with no shared constant. `#FFD700` is gold, and [src.md](../.claude/rules/src.md) says *"NEVER: green action buttons, amber, orange, yellow, or purple in UI."*
+
+Confirmed against data rather than inferred: a read-only sample of 1000 profiles on the **test** database returns exactly that palette's values — `#FFD700` ×9, `#002B5C` ×7, `#FF6B6B` ×6, `#4ECDC4` ×4, `#0044CC` ×4 — plus one `#A21CAF` from some other path. `profiles.avatar_color` is plain `text` with no constraint, and the only default is a read-time `?? '#3B82F6'`.
+
+**Decision:** Record, do not fix inside P1060. It predates the spec, it is written at signup and agreement-acceptance, three call sites would need collapsing to one constant, and rows already carry the banned value — so changing it is a data question as well as a code one, and belongs in its own spec.
+
+**Alternatives rejected:** *Fix the palette in this feature* — scope creep into the signup path from a spec about organizations, and it would leave existing rows inconsistent with new ones. *Treat the design rule as not applying to per-person avatars* — possibly the right answer, but it is a founder call about the design system, not one to make silently by leaving the code as-is.
+
+**Consequences:** P1060 did not create this but **does widen it**: avatars now render on the `/org` directory cards and the org header, where they did not before, so a banned hue has two more surfaces to appear on. The triplication is the part that will bite — a future fix that changes only `getRandomColor` will look complete and leave two paths still minting gold avatars. **Status: proposed** — needs a spec that collapses the three copies to one constant and decides what happens to existing rows.
+
+**References:** `src/app/data/api.ts` (`getRandomColor`), `src/app/pages/accept-agreement-page.tsx`, `src/app/pages/agreement-email-confirmation-page.tsx`, [src.md](../.claude/rules/src.md), `features/verification/p1060/assumptions.md` (A16)
+
+---
+
 ## 2026-08-28 [product]: An organization has *members* and *participants* — one member and forty-five people who turned up are both true, and the page showed only the smaller number
 
 **Context:** While designing the `/org` directory ([P1060](../features/p1060_link_events_to_organizations.md)), the card read *"1 member"* for · Chiang Mai. Measured against prod the same session: **1 member, and 45 distinct profiles with an RSVP** to its 8 events. Membership is the Clarity Organization Terms acceptance record, so it counts commitments; nobody but the founder has made one. The directory — the surface whose whole job is to make a stranger want to walk in — was rendering a live community as a dead one, using a number that was accurate and unrepresentative. The founder raised it unprompted (*"wouldn't it be great to have showed the number of participants"*); the data backed it harder than either of us expected.
