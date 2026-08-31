@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   installNavTrace,
   isNavTraceRequested,
+  redactUrl,
   __resetNavTraceForTests,
 } from '@/lib/nav-trace';
 
@@ -220,5 +221,85 @@ describe('recorded link targets carry no querystring', () => {
     expect(traceLines()[0]).toContain('clicked=/manifesto');
     expect(traceLines()[0]).not.toContain('section-4');
     a.remove();
+  });
+});
+
+/**
+ * Six in-app routes navigate with a live access token in the querystring
+ * (letter-reading-page.tsx:726, letters-section.tsx:171, three agreement routes).
+ * P488 strips those tokens from the address bar precisely because a token in a URL is
+ * a leak; printing one to the console would reintroduce it — and LogRocket and Sentry
+ * both capture console output, so "console-only" is not the same as "stays local".
+ *
+ * These exercise the DESTINATION paths, which no click-path test can reach.
+ */
+describe('no navigation destination leaks a querystring', () => {
+  // Deliberately low-entropy: a realistic-looking token trips the gitleaks gate.
+  const TOKEN = 'fake-token-value';
+
+  beforeEach(() => {
+    setUrl('?navtrace=1');
+    expect(installNavTrace()).toBe(true);
+    logSpy.mockClear();
+  });
+
+  it('redacts a token on pushState (the letter-reading-page shape)', () => {
+    window.history.pushState({}, '', `/letter/deliv-1?token=${TOKEN}`);
+    const [line] = traceLines();
+    expect(line).not.toContain(TOKEN);
+    expect(line).toContain('/letter/deliv-1');
+    // The marker must survive: a navigation WITH params differs from one without.
+    expect(line).toContain('?…');
+  });
+
+  it('redacts a token on replaceState (the agreement-accept shape)', () => {
+    window.history.replaceState({}, '', `/agreements/a-1/accept?token=${TOKEN}`);
+    expect(traceLines()[0]).not.toContain(TOKEN);
+    expect(traceLines()[0]).toContain('/agreements/a-1/accept');
+  });
+
+  it('redacts the querystring on popstate', () => {
+    nativeReplaceState.call(window.history, {}, '', `/letter/d?token=${TOKEN}`);
+    logSpy.mockClear();
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(traceLines()[0]).not.toContain(TOKEN);
+  });
+
+  it('records hashchange, and redacts the fragment', () => {
+    // hashchange had no coverage at all before this.
+    window.dispatchEvent(
+      new HashChangeEvent('hashchange', {
+        newURL: `https://x.test/manifesto?token=${TOKEN}#part-2`,
+        oldURL: 'https://x.test/manifesto',
+      }),
+    );
+    const [line] = traceLines();
+    expect(line).toContain('hashchange →');
+    expect(line).not.toContain(TOKEN);
+    expect(line).not.toContain('part-2');
+  });
+
+  it('keeps a bare path untouched — redaction must not damage the common case', () => {
+    window.history.pushState({}, '', '/org/cm');
+    expect(traceLines()[0]).toContain('pushState → /org/cm ');
+    expect(traceLines()[0]).not.toContain('?…');
+  });
+});
+
+describe('redactUrl', () => {
+  it('keeps the path, drops the values, marks their presence', () => {
+    expect(redactUrl('/a/b?x=1&y=2')).toBe('/a/b?…');
+    expect(redactUrl('/a/b#frag')).toBe('/a/b#…');
+    expect(redactUrl('/a/b?x=1#frag')).toBe('/a/b?…#…');
+    expect(redactUrl('/a/b')).toBe('/a/b');
+  });
+
+  it('handles empty and nullish input without throwing', () => {
+    expect(redactUrl(null)).toBe('(none)');
+    expect(redactUrl(undefined)).toBe('(none)');
+    expect(redactUrl('')).toBe('(none)');
+    // A query-only url must not fall through to the raw string.
+    expect(redactUrl('?onlyquery=1')).toBe('?…');
+    expect(redactUrl('?onlyquery=1')).not.toContain('onlyquery');
   });
 });

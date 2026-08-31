@@ -85,6 +85,15 @@ quota-disabled, and compare the traces.
   the redirect itself.
 - **The instrument must not become a data collector.** Console-only, opt-in, no network egress, no
   identifiers written anywhere.
+- **No URL this instrument prints may carry its querystring or hash.** Six in-app routes
+  navigate with a live access token in the query — `letter-reading-page.tsx:726`,
+  `letters-section.tsx:171`, and three agreement-accept routes. P488 already strips those from
+  the address bar because a token in a URL is a leak; printing one to the console reintroduces it.
+  "Console-only" is **not** containment: LogRocket and Sentry are both live on the page
+  (`main.tsx:15-60`) and both capture console output, so a printed value is one hop from leaving
+  the browser. Every logged URL goes through `redactUrl()` — destinations included, not only the
+  clicked link. Found by code review after a first fix covered only the click path.
+
 - **Any prod diagnostic must carry signal that survives minification.** The build uses
   `sourcemap: 'hidden'` (`vite.config.ts:96`) — maps are produced for Sentry but never served, so
   every stack frame reaching the founder's console reads as `at ye (index-abc123.js:42:1337)`. A
@@ -180,3 +189,5 @@ Also worth folding in, both independently confirmed and neither dependent on the
       `/feed`, and that finding is written into this spec's Root Cause
 - [x] No `[AUTH-TRACE]` output remains — both lines removed; `grep -rn AUTH-TRACE src/ e2e/` is empty
 - [x] No console errors during the affected flow (prod build: zero errors; one unrelated LogRocket quota warning)
+- [x] No trace line prints a URL querystring or hash — verified in a production build:
+      `pushState → /letter/deliv-1?…` with the token absent

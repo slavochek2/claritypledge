@@ -14,11 +14,18 @@
  *    no-ops in prod on purpose. P1197 does not reproduce locally — six constructed
  *    harness scenarios failed to trigger it — so a dev-only gate would make this
  *    instrument useless in the only environment where the bug exists. The safety
- *    argument is different in kind here: this writes to the console and nowhere else.
- *    No network egress, no storage. It cannot leak what it never sends. Recorded link
- *    targets are stripped of their querystring (`clickTarget`), so a `?redirect=` or
- *    `?token=` on a link cannot be read back off the console by a shoulder-surfer; a
- *    path segment that is itself an identifier (a session code) still appears, and is
+ *    argument is different in kind here: this instrument itself writes to the console
+ *    and nowhere else — no network egress, no storage.
+ *
+ *    That is NOT the same as saying whatever reaches the console stays there. LogRocket
+ *    and Sentry are both live on this page (`main.tsx:15-60`) and both capture console
+ *    output, so a value printed here can leave the browser through tooling this page
+ *    already loads. Every URL this module logs is therefore reduced to its path by
+ *    `redactUrl()` before printing — every one, not only the clicked link. Several
+ *    in-app routes carry live access tokens in their querystring, and P488 already
+ *    strips those from the address bar to prevent exactly this leak.
+ *
+ *    A path segment that is itself an identifier (a session code) still appears, and is
  *    already visible to whoever is looking at that screen.
  *
  * 2. **The flag is latched at install, not re-read per call.** `isDevRecordingActive()`
@@ -64,14 +71,35 @@ export function isNavTraceRequested(): boolean {
 let lastClick: { at: number; target: string } | null = null;
 
 /**
- * The path of a clicked link, without its querystring or hash.
+ * A URL reduced to its path, with the presence of a query or hash noted but never
+ * their contents.
  *
- * Which nav item was clicked is the whole diagnostic value; the params are not, and a
- * link can carry a redirect target or a token. Drop them.
+ * WHICH url was navigated to is the entire diagnostic value of this instrument. The
+ * params are not, and several in-app navigations carry live access tokens in them:
+ * `letter-reading-page.tsx:726` and `letters-section.tsx:171` navigate to
+ * `/letter/<id>?token=<per-recipient token>`, and three agreement routes navigate to
+ * `/agreements/<id>/accept?token=<invitation token>`. P488 already established that a
+ * token sitting in a URL is a leak worth code to prevent — `accept-agreement-page.tsx:153`
+ * strips it from the address bar for exactly that reason. Printing it to the console
+ * would reintroduce what that fix removed.
+ *
+ * `?…` is kept as a marker so the trace still shows that params were present — losing
+ * that would hide a real difference between two otherwise identical-looking navigations.
  */
+export function redactUrl(url: string | null | undefined): string {
+  if (!url) return '(none)';
+  const [path] = url.split(/[?#]/);
+  const marker =
+    (url.includes('?') ? '?…' : '') + (url.includes('#') ? '#…' : '');
+  // Never fall back to the raw url when the path is empty — that would print the very
+  // querystring this function exists to drop.
+  return path + marker || '(none)';
+}
+
+/** The clicked link's path, or a marker when the click was not on a link. */
 function clickTarget(href: string | null | undefined): string {
   if (!href) return '(non-link)';
-  return href.split(/[?#]/)[0] || href;
+  return redactUrl(href);
 }
 
 function gestureSummary(): string {
@@ -140,7 +168,7 @@ export function installNavTrace(): boolean {
     unused: string,
     url?: string | URL | null,
   ) {
-    log('pushState', String(url ?? '(same url)'));
+    log('pushState', url == null ? '(same url)' : redactUrl(String(url)));
     return nativePushState(data, unused, url);
   };
 
@@ -149,7 +177,7 @@ export function installNavTrace(): boolean {
     unused: string,
     url?: string | URL | null,
   ) {
-    log('replaceState', String(url ?? '(same url)'));
+    log('replaceState', url == null ? '(same url)' : redactUrl(String(url)));
     return nativeReplaceState(data, unused, url);
   };
 
@@ -168,11 +196,11 @@ export function installNavTrace(): boolean {
   );
 
   window.addEventListener('popstate', () => {
-    log('popstate', window.location.pathname + window.location.search);
+    log('popstate', redactUrl(window.location.pathname + window.location.search));
   });
 
   window.addEventListener('hashchange', (event) => {
-    log('hashchange', (event as HashChangeEvent).newURL);
+    log('hashchange', redactUrl((event as HashChangeEvent).newURL));
   });
 
   console.log(
