@@ -336,7 +336,11 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         onClick={() => analytics.track('org_events_nav_clicked', { source: 'desktop_top_nav' })}
       >
         <CalendarIcon className="w-5 h-5" />
-        <span className="text-xs mt-1 font-medium">Events</span>
+        {/* P1193: hardcoded rather than read from nav-links, because this desktop
+            top-nav link is hand-written (icon above label) while the menus map over
+            PUBLIC_NAV_GROUPS. Keep it in step with the "Groups" label there — the
+            p1193 source contract asserts no "Events" label survives in this folder. */}
+        <span className="text-xs mt-1 font-medium">Groups</span>
       </Link>
     </>
   );

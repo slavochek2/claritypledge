@@ -1,8 +1,8 @@
 /**
  * @file org-join-page.tsx
- * @description P1010: the join gate for a Clarity Organization (/org/:slug/join).
+ * @description P1010: the join gate for a Clarity Group (/groups/:slug/join).
  *
- * Joining IS accepting the Clarity Organization Terms — so the terms get their own
+ * Joining IS accepting the Clarity Group Terms — so the terms get their own
  * focus page (mirroring /agreements/new/create) rather than living on the About tab.
  * A member is created only after the accept action here; the membership row IS the
  * acceptance record. About stays what About should be: a description of the org.
@@ -34,7 +34,7 @@ export function OrgJoinPage() {
   const [accepting, setAccepting] = useState(false);
   const [membershipChecked, setMembershipChecked] = useState(false);
 
-  const orgPath = `/org/${slug}`;
+  const orgPath = `/groups/${slug}`;
   const orgId = org?.id ?? null;
   const userId = user?.id ?? null;
   // Derived, not effect-set: true the instant orgId+userId are both known, on the
@@ -65,7 +65,7 @@ export function OrgJoinPage() {
         else setOrg(loaded);
       } catch (err) {
         if (!cancelled) {
-          console.error("Failed to load organization", err);
+          console.error("Failed to load group", err);
           setNotFound(true);
         }
       } finally {
@@ -106,7 +106,7 @@ export function OrgJoinPage() {
     if (!user) {
       const joinPath = `${orgPath}/join${fromProfileId ? `?from=${fromProfileId}` : ""}`;
       // action=join-org is the explicit signal AuthCallbackPage requires before it
-      // will auto-join on a redirect — never on a bare /org redirect (spec Risk
+      // will auto-join on a redirect — never on a bare /groups redirect (spec Risk
       // mitigation: auto-join must not be an accidental side effect of navigation).
       // Targets /signup, not /login (P1076 session revision, 2026-08): a cold invite
       // recipient almost never has an existing account, so defaulting to the signup
@@ -129,7 +129,7 @@ export function OrgJoinPage() {
       toast.success(`You've joined ${org.name}`);
       navigate(orgPath, { replace: true, state: { justJoined: true } });
     } catch (err) {
-      console.error("Failed to accept the Clarity Organization Terms", err);
+      console.error("Failed to accept the Clarity Group Terms", err);
       toast.error("Couldn't complete your join. Please try again.");
       setAccepting(false);
     }
@@ -146,8 +146,8 @@ export function OrgJoinPage() {
   if (notFound || !org) {
     return (
       <div className="min-h-screen px-4 py-20 text-center">
-        <SEO title="Organization not found" description="This Clarity Organization does not exist." />
-        <h1 className="text-2xl font-bold">Organization not found</h1>
+        <SEO title="Group not found" description="This Clarity Group does not exist." />
+        <h1 className="text-2xl font-bold">Group not found</h1>
         <p className="mt-3 text-muted-foreground">Check the link and try again.</p>
       </div>
     );
@@ -160,8 +160,8 @@ export function OrgJoinPage() {
     <div className="min-h-screen px-4 pt-6 pb-16">
       <SEO
         title={`Join ${org.name}`}
-        description={`Accept the Clarity Organization Terms to join ${org.name}.`}
-        url={`/org/${org.slug}/join`}
+        description={`Accept the Clarity Group Terms to join ${org.name}.`}
+        url={`/groups/${org.slug}/join`}
       />
       <div className="mx-auto max-w-2xl space-y-6">
         <FocusHeader onBack={() => navigate(orgPath)} />
@@ -178,7 +178,7 @@ export function OrgJoinPage() {
         {/* Same certificate shell as the bilateral Clarity Partner Agreement
             (certificate-frame.tsx) — one visual language for every commitment. */}
         <CertificateFrame
-          ariaLabel="Clarity Organization Terms"
+          ariaLabel="Clarity Group Terms"
           title={coa.title}
           kicker="A commitment to every member"
           epigraph="We all crave being understood. Let's commit to listen."

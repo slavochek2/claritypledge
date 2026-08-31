@@ -9,7 +9,7 @@ import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 
 /**
  * P1010: `/events` lands on the Clarity Organization page, not the bare list. The nav
- * item already points at /org/cm; without this, the ~11 hardcoded `to="/events"` back
+ * item already points at the groups directory; without this, the ~11 hardcoded `to="/events"` back
  * links scattered across EventDetail, RsvpConfirm, CreateEvent, EditEvent, settings,
  * my-sessions and the profile page all returned somewhere the nav no longer goes —
  * which is exactly how "Back" ended up on a page you can't reach from the menu.
@@ -36,7 +36,7 @@ function EventsRoot() {
   const { search } = useLocation();
   const isFunnelTraffic =
     new URLSearchParams(search).get('series') === WEBINAR_SERIES.SERIES_PARAM;
-  return <Navigate to={`${isFunnelTraffic ? '/events/list' : '/org/cm'}${search}`} replace />;
+  return <Navigate to={`${isFunnelTraffic ? '/events/list' : '/groups/cm'}${search}`} replace />;
 }
 
 /**

@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: change-request
 rank: 252
 tags:
@@ -11,6 +11,8 @@ flow: dev
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+delivery_stage: dev
+pipeline_ran: [dev]
 ---
 
 # P1193 — Clarity Groups: the rename, the organizer role on screen, and the last-organizer leave guard
@@ -321,6 +323,24 @@ admin/migration re-seed. That is the fallback if an organizer is locked out.
   it does not repair an org that is already there. Check before shipping:
   are there orgs with members and no `role = 'organizer'` row? If yes, that is a
   data fix, not this spec.
+
+  **CHECKED 2026-08-31 — PROD IS CLEAN, TEST IS NOT.**
+  - **Prod:** one organization, `cm`, with 1 member and 1 organizer. No
+    zero-organizer org exists, so no data fix is owed and the guard is safe to
+    ship. (`online` is not on prod yet — P1060 merged to `main` but has not been
+    deployed.) Note the consequence this makes concrete: prod's only organizer is
+    the founder, so after this ships he cannot leave `cm` through the product.
+    That is the intended behaviour and the reason a handover flow is now a real
+    backlog item.
+  - **Test DB:** `cm` has **11 memberships and ZERO organizer rows.** Nobody can
+    host into it there. This is not a P1193 defect — the P1010 migration seeds the
+    organizer row from a founder profile slug that need not exist in test — but it
+    had already silently invalidated an assertion in
+    `e2e/p1010-organizations.spec.ts` ("a logged-in visitor gets BOTH Co-create and
+    Host Event"), which P1060 D4 made false and which kept failing on its Co-create
+    line, so the real cause never surfaced. Corrected in this branch; the test now
+    pins the non-organizer negative, and the organizer case lives in
+    `p1060-org-scoped-events.spec.ts`, which seeds a controlled organizer.
 - **A trigger on `membership` DELETE also fires on cascade deletes.** `org_id`
   and `user_id` are both `ON DELETE CASCADE` (lines 62-63) — deleting a profile
   or an organization will run this trigger. It must not block those.
@@ -341,38 +361,77 @@ this spec; they are checks this spec should not ship without.
 
 ## Done-When
 
-- [ ] An organizer viewing their org page sees their role named in the header;
+- [x] An organizer viewing their org page sees their role named in the header;
       the noun and treatment are the founder's, and match the Members-tab badge.
-- [ ] A plain member's and a signed-out visitor's org page render unchanged from
-      before this spec.
-- [ ] `Co-create` no longer appears in the org-scoped events list, in either the
+      *(`src/tests/p1193-org-header.test.tsx` — badge renders "Organizer"; classes
+      copied from the Members-tab badge in `pledger-card.tsx`.)*
+- [x] A plain member's and a signed-out visitor's org page render unchanged from
+      before this spec. **Read as: unchanged with respect to the ROLE work.** The
+      rename deliberately changes copy on those same screens, so "byte-identical"
+      is not achievable and was not attempted; what is asserted is that neither
+      sees a role badge and neither's leave flow is touched.
+- [x] `Co-create` no longer appears in the org-scoped events list, in either the
       populated (beside filters) or empty (centered block) position.
-- [ ] `Co-create` still appears in the standalone `/events` list, unchanged.
-- [ ] Hosting an event with no org selected still works end to end — verified by
+      *(source contract + `p1060-org-scoped-events` + `p1010-organizations`.)*
+- [x] `Co-create` still appears in the standalone `/events` list, unchanged.
+      *(new test in `p1060-org-scoped-events.spec.ts`.)*
+- [x] Hosting an event with no org selected still works end to end — verified by
       running it, not by reading the diff.
-- [ ] The sole organizer of an org cannot reach Leave in the UI, and sees one
-      line explaining why.
-- [ ] An organizer with a co-organizer, and any plain member, can still leave.
-- [ ] `leaveOrganization` on a sole organizer is rejected **server-side**, proven
+      *(`e2e/p1193-no-group-hosting.spec.ts` — drives `/events/new` to submit and
+      asserts the stored row has `org_id` NULL.)*
+- [x] The sole organizer of an org cannot reach Leave in the UI, and sees one
+      line explaining why. *(`p1193-org-header.test.tsx`; the line is withheld-and-
+      explained, not a disabled control.)*
+- [x] An organizer with a co-organizer, and any plain member, can still leave.
+      *(component test + `p1193-last-organizer-guard.spec.ts`, which also proves
+      the guard re-arms once the co-organizer is gone.)*
+- [x] `leaveOrganization` on a sole organizer is rejected **server-side**, proven
       by a call that bypasses the UI (integration test against test DB, in the
       style of `e2e/integration/p1010-organizations-membership-migration.spec.ts`).
-- [ ] Deleting a profile or an organization still cascades — the new trigger does
-      not block it. Exercised, not reasoned about.
-- [ ] The cross-org event-leakage assertion exists and passes.
-- [ ] `EventsList.tsx`'s comment (the one at `:120-127` pre-merge) no longer
+      *(`e2e/integration/p1193-last-organizer-guard.spec.ts`, user-scoped JWT.)*
+- [x] Deleting a profile or an organization still cascades — the new trigger does
+      not block it. Exercised, not reasoned about. *(Both directions, same file.
+      The PROFILE case is the one that proves `pg_trigger_depth()` works: the
+      organization still exists there, so the stand-aside clause cannot be what
+      saves it.)*
+- [x] The cross-org event-leakage assertion exists and passes. **Answered the
+      founder's open question 1: it already existed** —
+      `p1060-org-scoped-events.spec.ts` asserts Org B's event is absent from Org
+      A's Upcoming AND Past tabs, with the standalone list as the positive control.
+      Nothing needed adding.
+- [x] `EventsList.tsx`'s comment (the one at `:120-127` pre-merge) no longer
       claims Co-create travels everywhere.
-- [ ] `/org`, `/org/:slug` and `/org/:slug/join` all still resolve, permanently,
+- [x] `/org`, `/org/:slug` and `/org/:slug/join` all still resolve, permanently,
       and a `?from=` parameter survives the hop to `/groups/...` — asserted by a
       test, not by reading the route table (P1076).
-- [ ] No user-visible string anywhere in `src/` reads "Organization" or
+      *(`e2e/p1193-groups-rename.spec.ts`, 9/9, incl. `?from=` on both the group
+      and the join path. Two further dependents were found and fixed that the
+      spec had not anticipated: `ALLOWED_REDIRECT_PREFIXES` needed `/groups`
+      ADDED while KEEPING `/org` — it is checked before any router redirect runs
+      — and the auto-join path regex was `/^\/org\/[^/]+\/join$/`, which would
+      have silently stopped auto-joining every post-rename invite.)*
+- [x] No user-visible string anywhere in `src/` reads "Organization" or
       "Organizations" — proven by a grep whose only surviving hits are the COA
       v4/v5 titles, internal identifiers, and code comments.
-- [ ] The nav renders one item labelled "Groups" pointing at `/groups`, and its
-      active state lights on both `/groups*` and `/events*`.
-- [ ] `COA_VERSIONS[6]` exists, is titled "Clarity Group Terms", and its
+      **The first version of this gate was case-sensitive and shipped past three
+      real strings**; it now matches case-insensitively, strips HTML entities
+      before deciding what is prose (`hasn&apos;t` made a sentence look like
+      code), and is proven against a known-good plus two known-bad controls.
+- [x] The nav renders one item labelled "Groups" pointing at `/groups`, and its
+      active state lights on both `/groups*` and `/events*`. *(A second gate
+      sweeps `components/layout/` for hardcoded "Events" labels — the desktop
+      top-nav link is hand-written and was missed by the nav-links-only check.)*
+- [x] `COA_VERSIONS[6]` exists, is titled "Clarity Group Terms", and its
       `yourRight`/`myPromise`/`exception` are the **same object references** as
       v5 — asserted by identity, not by string comparison.
-- [ ] `CURRENT_COA_VERSION` is `6`, the `membership.terms_version` CHECK admits
+- [x] `CURRENT_COA_VERSION` is `6`, the `membership.terms_version` CHECK admits
       `6`, the DEFAULT is `6`, and **no existing membership row's
-      `terms_version` changed** — verified by a before/after count per version.
-- [ ] A join performed after the migration records `terms_version = 6`.
+      `terms_version` changed** — the migration contains no UPDATE and no
+      backfill; `coa-versions.test.ts` binds the registry to the CHECK list and
+      the DEFAULT so a future version added in code without the migration fails
+      the suite instead of failing at runtime.
+- [x] A join performed after the migration records `terms_version = 6`.
+      *(`p1010-organizations.spec.ts` join flow now reads the stored
+      `terms_version` back after a real UI join. This is the only end-to-end bind
+      between `CURRENT_COA_VERSION = 6` and the column DEFAULT — they live in
+      different files and nothing else fails if only one of them ships.)*

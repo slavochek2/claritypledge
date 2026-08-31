@@ -612,10 +612,17 @@ export function AuthCallbackPage() {
       // Gated on the explicit action param — never on a bare /org redirect, so
       // auto-join can never be a side effect of ordinary navigation (Risk mitigation).
       const [joinOrgPathPart, joinOrgQueryPart] = redirectPath ? redirectPath.split('?') : [undefined, undefined];
-      // Match the PATH only (/org/<slug>/join, nothing after) — matching against the
-      // raw redirectPath let a crafted redirect like /org/cm?x=/join slip through,
+      // Match the PATH only (/groups/<slug>/join, nothing after) — matching against the
+      // raw redirectPath let a crafted redirect like /groups/cm?x=/join slip through,
       // since '/join' appearing anywhere in the query string satisfied a substring check.
-      if (action === 'join-org' && joinOrgPathPart && /^\/org\/[^/]+\/join$/.test(joinOrgPathPart)) {
+      // P1193: BOTH path shapes must match. New links carry /groups/<slug>/join; the
+      // invite links already in circulation carry /org/<slug>/join, and this check runs
+      // on the redirect target before any router redirect can normalise it — so an
+      // /org-only regex would silently stop auto-joining everyone arriving on a shared
+      // link, with no error anywhere. `split('/')[2]` reads the slug from either shape.
+      // The anchors and the single [^/]+ segment are load-bearing: they are what stops
+      // a crafted `/groups/cm?x=/join` from being treated as a join path.
+      if (action === 'join-org' && joinOrgPathPart && /^\/(org|groups)\/[^/]+\/join$/.test(joinOrgPathPart)) {
         const orgSlug = joinOrgPathPart.split('/')[2];
         if (orgSlug) {
           if (import.meta.env.DEV) console.log('🏛️ Auto-join flow detected for org:', orgSlug);
@@ -638,7 +645,7 @@ export function AuthCallbackPage() {
               // justJoined only on a REAL join — an already-member visitor (idempotent
               // no-op path, joined: false) gets the plain org page, not a congratulation
               // for something that didn't happen (mirrors org-join-page's own guard).
-              navigate(`/org/${orgSlug}`, { replace: true, state: joined ? { justJoined: true } : undefined });
+              navigate(`/groups/${orgSlug}`, { replace: true, state: joined ? { justJoined: true } : undefined });
               return;
             } else {
               if (import.meta.env.DEV) console.log('⚠️ Org not found for auto-join:', orgSlug);
@@ -651,7 +658,15 @@ export function AuthCallbackPage() {
       }
 
       // Allowed redirect prefixes — used by set-position handler and generic redirect
-      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat', '/letter', '/org'];
+      // P1193: '/groups' is the renamed route; '/org' STAYS. Both are needed and for
+      // different reasons — dropping either silently breaks a live path.
+      //   '/groups' — where the join page lives now. Without it the P1076 auto-join
+      //               after OAuth fails the allowlist and the user lands nowhere.
+      //   '/org'    — already-shared invite links still arrive on the old path, and
+      //               this check runs on the redirect target BEFORE App.tsx's
+      //               OrgLegacyRedirect ever renders. Removing it would reject the
+      //               exact links the permanent redirect exists to keep alive.
+      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat', '/letter', '/org', '/groups'];
 
       // P502: Batch-restore anonymous positions from localStorage.
       // Runs BEFORE P458 single-position handler so all anon positions are saved

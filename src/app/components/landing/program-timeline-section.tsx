@@ -18,7 +18,7 @@ import { getNextBatchStartISO } from "@/app/content/webinar";
 const MONTH_ARC = [
   { when: "Month 1", heading: "Practise together every week, and learn why it works." },
   { when: "Month 2", heading: "Take it to a few people you actually work with." },
-  { when: "Month 3", heading: "Open your Clarity Organization and run your first events." },
+  { when: "Month 3", heading: "Open your Clarity Group and run your first events." },
   {
     when: "Month 4 and beyond",
     heading:

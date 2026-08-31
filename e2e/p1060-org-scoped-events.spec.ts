@@ -122,14 +122,14 @@ test.describe('P1060: org-scoped events, host CTA matrix, empty states, particip
     page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto(`/org/${orgA.slug}`);
+    await page.goto(`/groups/${orgA.slug}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('tab', { name: /events/i })).toBeVisible({ timeout: 10000 });
     expect(errors, `Console errors on /org/${orgA.slug}: ${errors.join(', ')}`).toEqual([]);
   });
 
   test('org Events tab lists only its own events (cross-org isolation)', async ({ page }) => {
-    await page.goto(`/org/${orgA.slug}`);
+    await page.goto(`/groups/${orgA.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /events/i }).click();
     await page.waitForLoadState('networkidle');
@@ -149,20 +149,25 @@ test.describe('P1060: org-scoped events, host CTA matrix, empty states, particip
     await expect(page.getByText('P1060 Org B Event — must never appear on Org A')).toBeVisible();
   });
 
-  test('D4 (1/3): an organizer of the org sees Host Event + Co-create on that org page', async ({ page }) => {
+  // P1193 REVERSED the Co-create half of this. D4's authorization property is
+  // untouched — an organizer still sees Host Event, a non-organizer still sees
+  // nothing — but Co-create is gone from the GROUP-scoped list: it routes to the
+  // page for FINDING a co-host, and an organizer can already host into their own
+  // group directly. The standalone list keeps it (see the two tests below).
+  test('D4 (1/3): an organizer of the group sees Host Event, and NOT Co-create (P1193)', async ({ page }) => {
     await setTestSession(page, organizerOfA.email);
-    await page.goto(`/org/${orgA.slug}`);
+    await page.goto(`/groups/${orgA.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /events/i }).click();
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('link', { name: /host event/i })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('link', { name: /co-create/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /co-create/i })).not.toBeVisible();
   });
 
   test('D4 (2/3): a non-organizer does NOT see Host Event / Co-create on that org page', async ({ page }) => {
     await setTestSession(page, nonMember.email);
-    await page.goto(`/org/${orgA.slug}`);
+    await page.goto(`/groups/${orgA.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /events/i }).click();
     await page.waitForLoadState('networkidle');
@@ -179,9 +184,22 @@ test.describe('P1060: org-scoped events, host CTA matrix, empty states, particip
     await expect(page.getByRole('link', { name: /host event/i })).toBeVisible({ timeout: 10000 });
   });
 
+  // P1193 gate 7c, the false-positive half: removing Co-create from the group list
+  // must not remove it from the standalone one. This is the no-group hosting funnel —
+  // the screen a first-time host who belongs to nothing lands on — and the spec names
+  // a regression here as the most expensive possible outcome of that change. The test
+  // above proves Host Event survived; this proves Co-create did too.
+  test('P1193: the standalone /events list still offers Co-create — the no-group funnel is untouched', async ({ page }) => {
+    await setTestSession(page, nonMember.email);
+    await page.goto('/events/list');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByRole('link', { name: /co-create/i })).toBeVisible({ timeout: 10000 });
+  });
+
   test('D4/Done-When bullet 9: the org-page Host Event link carries org context forward', async ({ page }) => {
     await setTestSession(page, organizerOfA.email);
-    await page.goto(`/org/${orgA.slug}`);
+    await page.goto(`/groups/${orgA.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /events/i }).click();
 
@@ -196,7 +214,7 @@ test.describe('P1060: org-scoped events, host CTA matrix, empty states, particip
   });
 
   test('D6: org with 0 upcoming falls through to Past under an explicit heading', async ({ page }) => {
-    await page.goto(`/org/${emptyUpcomingOrg.slug}`);
+    await page.goto(`/groups/${emptyUpcomingOrg.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /events/i }).click();
     await page.waitForLoadState('networkidle');
@@ -206,7 +224,7 @@ test.describe('P1060: org-scoped events, host CTA matrix, empty states, particip
   });
 
   test('D6: org with neither upcoming nor past shows one honest line, not the generic host-invite empty state', async ({ page }) => {
-    await page.goto(`/org/${zeroOrg.slug}`);
+    await page.goto(`/groups/${zeroOrg.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /events/i }).click();
     await page.waitForLoadState('networkidle');
@@ -216,7 +234,7 @@ test.describe('P1060: org-scoped events, host CTA matrix, empty states, particip
   });
 
   test('D9/D10: org header shows "N have joined events" with the reused avatar-row pattern', async ({ page }) => {
-    await page.goto(`/org/${orgA.slug}`);
+    await page.goto(`/groups/${orgA.slug}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('2 have joined events')).toBeVisible({ timeout: 10000 });
@@ -235,7 +253,7 @@ test.describe('P1060: org-scoped events, host CTA matrix, empty states, particip
   });
 
   test('D9: zero-participant org (no upcoming, no past, no RSVPs) omits the row entirely — no row, no "0"', async ({ page }) => {
-    await page.goto(`/org/${zeroOrg.slug}`);
+    await page.goto(`/groups/${zeroOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText(/have joined events/i)).not.toBeVisible();

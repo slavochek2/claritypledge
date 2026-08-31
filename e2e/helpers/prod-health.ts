@@ -27,7 +27,11 @@ import type { Page } from '@playwright/test';
 // gate loaded the route on prod — frame-src violations only surface live.
 // /coach added by P916: the coach landing moved off "/" to its own route — without it
 // here, the coach page (CTAs, agreement-certificate surface) has no prod health coverage.
-export const PROD_HEALTH_ROUTES = ['/', '/coach', '/live', '/feed', '/manifesto', '/events', '/cm', '/org'];
+// P1193: '/groups' replaces '/org' as the canonical directory route. '/org' is NOT
+// listed here — it is a redirect, not a page, so a health check that followed it would
+// pass on the strength of the destination and tell us nothing about either. The
+// redirect has its own coverage in e2e/p1193-groups-rename.spec.ts.
+export const PROD_HEALTH_ROUTES = ['/', '/coach', '/live', '/feed', '/manifesto', '/events', '/cm', '/groups'];
 
 // ── Stabilization poll ──────────────────────────────────────────────────────
 // Third-party SDKs (LogRocket, Mixpanel) init behind requestIdleCallback / a ~2s

@@ -11,11 +11,11 @@ import { WEBINAR_SERIES, filterWebinarSeries } from '@/app/data/webinar-series';
 type Tab = 'upcoming' | 'past';
 
 interface EventsListProps {
-  /** Rendered inside another page (e.g. the Clarity Organization Events tab):
+  /** Rendered inside another page (e.g. the Clarity Group Events tab):
    *  drops the page chrome — full-height background, page title, top padding —
    *  so the host page owns the heading and spacing. Behavior is identical. */
   embedded?: boolean;
-  /** P1060: scope the list to one Clarity Organization. Omitted → the standalone
+  /** P1060: scope the list to one Clarity Group. Omitted → the standalone
    *  /events list, which keeps showing EVERY event, org-scoped or not. That is its
    *  job (spec Non-Goals) and the ALLOWED path gate 7c exists to protect. */
   orgId?: string;
@@ -123,17 +123,34 @@ export function EventsList({
   //  - list is empty → INSIDE the centered empty block. With nothing to filter, a
   //    top-right action reads as page chrome instead of the one thing left to do —
   //    which is the treatment logged-out visitors already get via "Sign Up to Host".
-  // Co-create travels with it everywhere, embedded included: co-creating an event
-  // IS an org action, and pairing it with Host Event gives the org page both ways
-  // in — start one yourself, or start one with someone.
+  // P1193 REVERSES the previous rule here. That rule said Co-create accompanied Host
+  // Event on every surface, embedded ones included. It no longer does.
+  //
+  // /co-create is the P62 collaborate page — the way to FIND someone to build an
+  // event with. But `showActions` only renders these buttons in group context when
+  // `canHost` is true, i.e. to an ORGANIZER of that group, who can already schedule
+  // an event into it directly. The button was aimed at exactly the people with no
+  // use for it. A group page now shows Host Event alone (founder, 2026-08-31).
+  //
+  // The STANDALONE list keeps both, unchanged — that is the screen a first-time host
+  // who belongs to no group lands on, and Co-create is a real route in for them.
+  // Removing it there would break the no-group hosting funnel, which is the most
+  // expensive possible outcome of this change. Guarding on `isOrgScoped` here covers
+  // all three call sites at once: the top row beside the filters (shared by both
+  // lists), the group-scoped empty block, and the standalone empty block.
+  //
+  // Removed rather than deleted: showing Co-create to plain MEMBERS instead of
+  // organizers is a live inversion the founder considered and deferred, not rejected.
   const actionButtons = (
     <div className="flex gap-2">
+      {!isOrgScoped && (
       <Link to="/co-create">
         <Button variant="outline" className="gap-2">
           <Users className="w-4 h-4" />
           Co-create
         </Button>
       </Link>
+      )}
       {/* Org context carries the org forward so the created event can be assigned
           org_id; the standalone link is untouched. */}
       <Link to={orgSlug ? `/events/new?org=${encodeURIComponent(orgSlug)}` : '/events/new'}>
@@ -209,7 +226,7 @@ export function EventsList({
                 <div className="mb-6 rounded-lg border border-dashed border-border px-6 py-8 text-center">
                   <h3 className="text-base font-semibold">Nothing coming up yet</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Nothing is scheduled right now. Here is what this organization has hosted.
+                    Nothing is scheduled right now. Here is what this group has hosted.
                   </p>
                 </div>
                 <div className="mb-4 flex items-center gap-3">
@@ -242,7 +259,7 @@ export function EventsList({
               <>
                 <h3 className="text-lg font-semibold">The first event is being planned</h3>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                  This organization hasn&apos;t hosted an event yet. Join to hear when the
+                  This group hasn&apos;t hosted an event yet. Join to hear when the
                   first one is scheduled.
                 </p>
               </>

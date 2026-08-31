@@ -1,10 +1,10 @@
 /**
  * @file org-page.tsx
- * @description P1010: Clarity Organization page (/org/:slug). A Meetup-style
+ * @description P1010: Clarity Group page (/groups/:slug). A Meetup-style
  * container with About / Members / Events tabs and a persistent Join / Manage
- * membership CTA. Join routes to /org/:slug/join, where accepting the Clarity
- * Organization Terms creates the membership row (which IS the acceptance record).
- * About describes the organization; the terms live on the join page, not here.
+ * membership CTA. Join routes to /groups/:slug/join, where accepting the Clarity
+ * Group Terms creates the membership row (which IS the acceptance record).
+ * About describes the group; the terms live on the join page, not here.
  * Events reuses the production events list (/events/list) — NOT the /cm calendar.
  *
  * One hardcoded org exists (cm); an unknown slug renders a not-found state, never a
@@ -124,7 +124,7 @@ export function OrgPage() {
       setLoadError(false);
       // Must be cleared here, not left to loadRoster. Since the roster is no longer
       // awaited, `loading` clears while it is still in flight — and OrgPage does not
-      // remount when navigating between two /org/:slug pages (same route pattern), so
+      // remount when navigating between two /groups/:slug pages (same route pattern), so
       // without this the previous org's member count and roster render under the new
       // org's name. If the roster fetch then fails, the wrong roster stays for good.
       setMembers(undefined);
@@ -141,7 +141,7 @@ export function OrgPage() {
         setOrg(loadedOrg);
         setActiveTab(loadedOrg.hasEvents ? "events" : "about");
         // The roster is deliberately NOT awaited here. /events now redirects to
-        // /org/cm, so this page is the app's primary Events surface — and if the
+        // a group page, so this page is the app's primary Events surface — and if the
         // roster fetch shared this try/catch, a get_organization_members failure
         // would render the full-page "Something went wrong" state and take the
         // events list down with it. The roster only feeds the Members tab; it must
@@ -231,6 +231,19 @@ export function OrgPage() {
     }
   }, [org, reloadRoster]);
 
+  // P1193: the roster already carries every member's role, so the organizer count is
+  // a filter over state the page has loaded — no second query, no new service method.
+  //
+  // `members === undefined` propagates as null (UNKNOWN), NOT as 0. The distinction is
+  // the entire point: loadRoster swallows its error by design, so a failed fetch also
+  // produces no rows, and `(members ?? []).filter(...).length` would report a confident
+  // "0 organizers" about a group that may have three. OrgHeader refuses to offer Leave
+  // on null rather than guessing which way to resolve it.
+  const organizerCount = useMemo(
+    () => (members === undefined ? null : members.filter((m) => m.role === "organizer").length),
+    [members],
+  );
+
   const rosterItems = useMemo(
     () => (members ?? []).map((m) => ({
       id: m.profileId,
@@ -257,7 +270,7 @@ export function OrgPage() {
   if (loadError) {
     return (
       <div className="min-h-screen px-4 py-20 text-center">
-        <SEO title="Couldn't load organization" description="A temporary error occurred loading this page." />
+        <SEO title="Couldn't load group" description="A temporary error occurred loading this page." />
         <h1 className="text-2xl font-bold">Something went wrong</h1>
         <p className="mt-3 text-muted-foreground">
           We couldn't load this page. Please try again.
@@ -272,8 +285,8 @@ export function OrgPage() {
   if (notFound || !org) {
     return (
       <div className="min-h-screen px-4 py-20 text-center">
-        <SEO title="Organization not found" description="This Clarity Organization does not exist." />
-        <h1 className="text-2xl font-bold">Organization not found</h1>
+        <SEO title="Group not found" description="This Clarity Group does not exist." />
+        <h1 className="text-2xl font-bold">Group not found</h1>
         <p className="mt-3 text-muted-foreground">
           Check the link and try again.
         </p>
@@ -283,7 +296,7 @@ export function OrgPage() {
 
   return (
     <div className="min-h-screen px-4 py-8">
-      <SEO title={org.name} description={org.blurb ?? `The ${org.name} community on Clarity Pledge.`} url={`/org/${org.slug}`} />
+      <SEO title={org.name} description={org.blurb ?? `The ${org.name} community on Clarity Pledge.`} url={`/groups/${org.slug}`} />
       <div className="container mx-auto max-w-5xl space-y-8">
         {showJustJoinedBanner && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
@@ -303,6 +316,8 @@ export function OrgPage() {
           org={org}
           memberCount={members?.length ?? null}
           isMember={isMember}
+          myRole={myRole}
+          organizerCount={organizerCount}
           onJoin={handleJoin}
           onLeave={handleLeave}
           onShowMembers={() => setActiveTab("members")}
@@ -369,8 +384,8 @@ export function OrgPage() {
 }
 
 /**
- * About tab — what this organization IS. The Clarity Organization Terms are NOT
- * here: they are the join gate and live on /org/:slug/join (org-join-page.tsx).
+ * About tab — what this group IS. The Clarity Group Terms are NOT
+ * here: they are the join gate and live on /groups/:slug/join (org-join-page.tsx).
  * The persistent header CTA is the single route to membership from this page —
  * no second Join button here (P955: one primary action per view).
  */
@@ -387,15 +402,15 @@ function AboutSection({ org }: { org: Organization }) {
           ))
         ) : (
           <p className="text-base leading-relaxed text-muted-foreground">
-            {org.blurb ?? "A Clarity Organization."}
+            {org.blurb ?? "A Clarity Group."}
           </p>
         )}
       </div>
 
       <p className="text-base leading-relaxed">
-        This organization runs on the{" "}
-        <Link to={`/org/${org.slug}/join`} className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700">
-          Clarity Organization Terms
+        This group runs on the{" "}
+        <Link to={`/groups/${org.slug}/join`} className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700">
+          Clarity Group Terms
         </Link>
         {" "}— every member accepts them on joining.
       </p>

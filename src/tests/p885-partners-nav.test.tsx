@@ -148,10 +148,11 @@ beforeEach(() => {
 // ============================================================================
 
 describe('P885 — BottomNav Partners item', () => {
-  it('shows 5 items in order: Home, Letters, Partners, Events, My Profile', () => {
+  it('shows 5 items in order: Home, Letters, Partners, Groups, My Profile', () => {
     mockLoggedIn();
     renderBottomNav();
-    expect(bottomNavLabels()).toEqual(['Home', 'Letters', 'Partners', 'Events', 'My Profile']);
+    // P1193: the 4th item is "Groups" (→ /groups) since the Clarity Group rename.
+    expect(bottomNavLabels()).toEqual(['Home', 'Letters', 'Partners', 'Groups', 'My Profile']);
   });
 
   it('Partners links to /p/{slug}/partners', () => {

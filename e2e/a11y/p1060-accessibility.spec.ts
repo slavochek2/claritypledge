@@ -53,7 +53,7 @@ test.afterAll(async () => {
 
 test.describe('P1060 Accessibility — /org directory', () => {
   test('directory cards are reachable via Tab and activate via Enter', async ({ page }) => {
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
 
     const orgLink = page.getByRole('link', { name: org.name });
@@ -61,11 +61,11 @@ test.describe('P1060 Accessibility — /org directory', () => {
     await orgLink.focus();
     await expect(orgLink).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(new RegExp(`/org/${org.slug}$`), { timeout: 10000 });
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
   });
 
   test('the member-count control on the org header is a real button, not a styled span', async ({ page }) => {
-    await page.goto(`/org/${org.slug}`);
+    await page.goto(`/groups/${org.slug}`);
     await page.waitForLoadState('networkidle');
     // Anchored: /members?/i also matches the header's "Join as member" CTA, which
     // is a different control entirely. The assertion is about the COUNT control —
@@ -77,7 +77,7 @@ test.describe('P1060 Accessibility — /org directory', () => {
 
 test.describe('P1060 Accessibility — participant avatar row', () => {
   test('avatar row does not expose raw image alt-text noise; person avatars have an accessible name or are decorative', async ({ page }) => {
-    await page.goto(`/org/${org.slug}`);
+    await page.goto(`/groups/${org.slug}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('1 have joined events')).toBeVisible({ timeout: 10000 });
 

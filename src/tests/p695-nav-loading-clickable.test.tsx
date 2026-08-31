@@ -4,9 +4,9 @@
  *
  * Bug: `!sessionChecked || isLoading` gates ALL desktop nav links.
  * During the `sessionChecked=true, hasSession=true, isLoading=true` phase (100-500ms),
- * Feed/Docs/Events links are replaced by skeleton divs and cannot be clicked.
+ * Feed/Docs/Groups links are replaced by skeleton divs and cannot be clicked.
  *
- * Fix: split gate so static links (Feed, Docs, Events) render during profile loading.
+ * Fix: split gate so static links (Feed, Docs, Groups) render during profile loading.
  */
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
@@ -51,9 +51,12 @@ describe('P695: nav links clickable during profile loading', () => {
       expect(screen.getByRole('link', { name: /letters/i })).toBeInTheDocument();
     });
 
-    it('renders Events link — not a skeleton', () => {
+    // P1193: the link is labelled "Groups" now (the Clarity Group rename). The
+    // PROPERTY P695 pinned is unchanged — this static nav link renders as a real
+    // link during profile loading, not as a skeleton.
+    it('renders the Groups link — not a skeleton', () => {
       render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-      expect(screen.getByRole('link', { name: /events/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /groups/i })).toBeInTheDocument();
     });
 
     it('does NOT show My Profile link (profile data not loaded yet)', () => {
@@ -75,7 +78,7 @@ describe('P695: nav links clickable during profile loading', () => {
       });
     });
 
-    it('does NOT render Home/Docs/Events links — full skeleton shown', () => {
+    it('does NOT render Home/Docs/Groups links — full skeleton shown', () => {
       render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
       // Full skeleton phase: we don't know auth state yet, keep full skeleton
       expect(screen.queryByRole('link', { name: /home/i })).not.toBeInTheDocument();

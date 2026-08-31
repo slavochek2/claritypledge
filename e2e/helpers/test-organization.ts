@@ -84,9 +84,22 @@ export async function createTestMembership(
   return data;
 }
 
-/** Deletes a test org's membership rows, then the org row itself (FK-order convention). */
+/**
+ * Deletes a test org by deleting the ORG ROW ONLY and letting `membership.org_id`'s
+ * ON DELETE CASCADE take its memberships.
+ *
+ * P1193 — this used to delete the membership rows first, then the org, on an
+ * "FK-order convention". That stopped working the moment the last-organizer guard
+ * shipped: a direct `DELETE FROM membership` on a sole organizer's row is exactly
+ * what that trigger refuses, so teardown began failing for every fixture that seeds
+ * an organizer — which is most of them (p1060-org-scoped-events, p1060-review-renders,
+ * p1060-org-requires-organizer-migration, test-event.ts).
+ *
+ * Deleting the parent is both correct and cheaper: the FK was always going to cascade,
+ * the explicit pre-delete was never doing anything the database would not have done,
+ * and the cascade path is the one the guard deliberately stands aside for.
+ */
 export async function deleteTestOrganization(id: string): Promise<void> {
-  await supabaseAdmin.from('membership').delete().eq('org_id', id);
   await supabaseAdmin.from('organization').delete().eq('id', id);
 }
 

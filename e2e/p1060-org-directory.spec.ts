@@ -1,6 +1,6 @@
 /**
  * @file p1060-org-directory.spec.ts
- * @description E2E coverage for P1060's `/org` directory (Solution item 5,
+ * @description E2E coverage for P1060's `/groups` directory (Solution item 5,
  * D5). Lists every visibility='public' organization; links to each; readable
  * signed-out; never a creation surface (closing the p1010 Decision 7 gap by
  * name — decisions.md 2026-07-23).
@@ -10,7 +10,7 @@
  * /org/:slug and /org/:slug/join). Assumed:
  *   - Route: /org (bare, no slug)
  *   - Each org renders as role="link" with its name as accessible name,
- *     href="/org/<slug>"
+ *     href="/groups/<slug>"
  *   - No element with an accessible name matching /create.*organization/i
  *   - Participant/member counts render in the same verbatim pattern as the
  *     org header ("N have joined events" — Solution item 8; "N members" per
@@ -69,7 +69,7 @@ test.describe('P1060: /org directory', () => {
     page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: publicOrgWithBlurb.name })).toBeVisible({ timeout: 10000 });
     expect(errors, `Console errors on /org: ${errors.join(', ')}`).toEqual([]);
@@ -77,27 +77,27 @@ test.describe('P1060: /org directory', () => {
 
   test('mechanical check: /org is registered in PROD_HEALTH_ROUTES (Risk item, Done-When)', async () => {
     const { PROD_HEALTH_ROUTES } = await import('./helpers/prod-health');
-    expect(PROD_HEALTH_ROUTES, '/org must ship in the same diff that adds this public route').toContain('/org');
+    expect(PROD_HEALTH_ROUTES, '/groups must ship in the same diff that adds this public route').toContain('/groups');
   });
 
   test('lists every public organization and links to /org/:slug', async ({ page }) => {
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('link', { name: publicOrgWithBlurb.name }))
-      .toHaveAttribute('href', `/org/${publicOrgWithBlurb.slug}`);
+      .toHaveAttribute('href', `/groups/${publicOrgWithBlurb.slug}`);
     await expect(page.getByRole('link', { name: publicOrgNoBlurb.name }))
-      .toHaveAttribute('href', `/org/${publicOrgNoBlurb.slug}`);
+      .toHaveAttribute('href', `/groups/${publicOrgNoBlurb.slug}`);
   });
 
   test('a private organization never appears on the public directory', async ({ page }) => {
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(privateOrg.name)).not.toBeVisible();
   });
 
   test('directory card omits the blurb line entirely for a NULL blurb (D7), no placeholder string', async ({ page }) => {
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByText('A disposable directory-listing fixture with a blurb.')).toBeVisible({ timeout: 10000 });
@@ -109,20 +109,20 @@ test.describe('P1060: /org directory', () => {
   });
 
   test('no create-organization affordance appears, signed out or signed in', async ({ page }) => {
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: /create.*organization/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /create.*organization/i })).toHaveCount(0);
 
     await setTestSession(page, member.email);
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: /create.*organization/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /create.*organization/i })).toHaveCount(0);
   });
 
   test('signed-in member sees a membership indicator on their org\'s card; signed-out does not', async ({ page }) => {
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     // TIGHTENED BY /dev. The generated assertion was `card.getByText(/member/i)`,
     // which cannot express the claim: every card carries a member COUNT ("1 member"),
@@ -141,7 +141,7 @@ test.describe('P1060: /org directory', () => {
     await expect(cardFor(publicOrgWithBlurb.name).getByText(/^\d+ members?$/)).toBeVisible();
 
     await setTestSession(page, member.email);
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(cardFor(publicOrgWithBlurb.name).getByTestId('org-membership-badge'))
       .toBeVisible({ timeout: 10000 });
@@ -149,7 +149,7 @@ test.describe('P1060: /org directory', () => {
 
   test('renders without horizontal overflow at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 });
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
     expect(bodyWidth, 'no horizontal overflow at 320px').toBeLessThanOrEqual(321);

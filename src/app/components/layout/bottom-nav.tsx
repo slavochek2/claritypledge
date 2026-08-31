@@ -68,7 +68,12 @@ export function BottomNav() {
   // fighting for the same pixels. Every registered visitor is signed in (the room
   // requires it), so BottomNav always renders here unless excluded.
   const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r))
-    || /^\/org\/[^/]+\/join\/?$/.test(location.pathname)
+    // P1193: the join page moved to /groups/:slug/join. BOTH nouns are matched —
+    // /org* redirects before it renders, so only the /groups form is reachable today,
+    // but a pattern that silently stops matching is exactly how this focus treatment
+    // would be lost again on the next rename. Missed by the first sweep of this branch
+    // because it is a REGEX, not a quoted path string.
+    || /^\/(org|groups)\/[^/]+\/join\/?$/.test(location.pathname)
     || /^\/(meet|events\/[^/]+\/meet)\/?$/.test(location.pathname)
     || /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
   const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
@@ -102,7 +107,7 @@ export function BottomNav() {
       : []),
     {
       icon: CalendarIcon,
-      label: "Events",
+      label: "Groups",
       to: EVENTS_NAV_TO,
     },
     {

@@ -1,14 +1,15 @@
 /**
  * @file org-directory-page.tsx
- * @description P1060 D5: /org — a directory of every PUBLIC Clarity Organization.
+ * @description P1060 D5: /groups — a directory of every PUBLIC Clarity Group.
  * Closes by name the follow-up decisions.md 2026-07-23 [product] deferred
- * ("Deferred to followups: user-facing org creation, discovery index (/org)…").
+ * ("Deferred to followups: user-facing org creation, discovery index (/org)…" —
+ * that entry names the pre-P1193 path; the route is /groups now).
  * The condition that deferral waited for is the same one that widened P1060: a
- * second organization exists, and with no directory it is reachable only by
+ * second group exists, and with no directory it is reachable only by
  * knowing its URL.
  *
  * EXPLICITLY A LISTING, NEVER A CREATION SURFACE. p1010 Decision 7 stands: no
- * "create organization" affordance appears here, signed in or out. The
+ * "create group" affordance appears here, signed in or out. The
  * create-org gap is real, named in the spec, and owned by nobody yet — it does
  * not get quietly solved by this page.
  *
@@ -109,13 +110,13 @@ export function OrgDirectoryPage() {
   return (
     <div className="min-h-screen px-4 py-8">
       <SEO
-        title="Clarity Organizations"
+        title="Clarity Groups"
         description="Communities practising calibrated communication together."
-        url="/org"
+        url="/groups"
       />
       <div className="container mx-auto max-w-5xl space-y-8">
         <header className="min-w-0">
-          <h1 className="text-2xl font-bold sm:text-3xl">Clarity Organizations</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Clarity Groups</h1>
           <p className="mt-2 max-w-prose text-base text-muted-foreground">
             Communities practising calibrated communication together. Go into one to see
             its events and members.
@@ -124,10 +125,10 @@ export function OrgDirectoryPage() {
 
         {loadError ? (
           <p className="text-base text-muted-foreground">
-            We couldn't load the organizations. Please try again.
+            We couldn't load the groups. Please try again.
           </p>
         ) : orgs.length === 0 ? (
-          <p className="text-base text-muted-foreground">No organizations yet.</p>
+          <p className="text-base text-muted-foreground">No groups yet.</p>
         ) : (
           <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {orgs.map((org) => (
@@ -159,7 +160,7 @@ export function OrgDirectoryPage() {
   );
 }
 
-/** Initials tile for an organization. Founder-approved (2026-08-28, "the initials
+/** Initials tile for a group. Founder-approved (2026-08-28, "the initials
  *  tiles"). Two characters at most: a bare glyph reads as an avatar, three reads as
  *  a word. Decorative — the name beside it carries the accessible identity. */
 function OrgInitials({ name }: { name: string }) {
@@ -229,7 +230,7 @@ function OrgCard({
                 accessible name. One named link per card, keyboard-reachable, Enter
                 activates — the a11y contract. */}
             <Link
-              to={`/org/${org.slug}`}
+              to={`/groups/${org.slug}`}
               className="rounded text-lg font-semibold underline-offset-2 hover:text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               {org.name}
@@ -253,7 +254,7 @@ function OrgCard({
       </div>
 
       {/* D7: a NULL blurb renders as ABSENCE — no placeholder string, no
-          "A Clarity Organization." filler. The line is simply not there. */}
+          "A Clarity Group." filler. The line is simply not there. */}
       {org.blurb && <p className="text-sm text-muted-foreground">{org.blurb}</p>}
 
       <OrgParticipantRow participation={participation} />
@@ -281,11 +282,11 @@ function OrgCard({
           {badgeLabel}
         </span>
         {/* Matches the existing text-link idiom (font-medium text-blue-600 with an
-            offset underline) used elsewhere on org surfaces rather than inventing a
+            offset underline) used elsewhere on group surfaces rather than inventing a
             new affordance. aria-hidden on the arrow keeps the link's accessible
             name to the words. */}
         <Link
-          to={`/org/${org.slug}`}
+          to={`/groups/${org.slug}`}
           tabIndex={-1}
           aria-hidden="true"
           className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline"

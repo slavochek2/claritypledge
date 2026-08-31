@@ -213,27 +213,34 @@ describe('P1060 M1 — both differentiator lines render verbatim', () => {
   });
 });
 
-describe('P1060 M1 — /org is a registered route and never a creation surface', () => {
+// P1193 renamed the route /org → /groups (with /org* kept alive as a permanent
+// redirect — asserted in p1193-source-contract.test.ts). The PROPERTY P1060 pinned is
+// unchanged: the directory is a registered route, declared before the slug route, and
+// is never a creation surface.
+describe('P1060 M1 — /groups is a registered route and never a creation surface', () => {
   const app = read('src/App.tsx');
   const directory = read('src/app/pages/org-directory-page.tsx');
 
-  it('declares the bare /org route', () => {
-    expect(app).toMatch(/<Route path="\/org" /);
+  it('declares the bare /groups route', () => {
+    expect(app).toMatch(/<Route path="\/groups" /);
   });
 
-  it('declares /org BEFORE /org/:slug so the bare path is not captured as a slug', () => {
-    expect(app.indexOf('path="/org"')).toBeLessThan(app.indexOf('path="/org/:slug"'));
+  it('declares /groups BEFORE /groups/:slug so the bare path is not captured as a slug', () => {
+    expect(app.indexOf('path="/groups"')).toBeLessThan(app.indexOf('path="/groups/:slug"'));
   });
 
-  it('offers no create-organization affordance (p1010 Decision 7 stands)', () => {
-    expect(codeOnly(directory)).not.toMatch(/create.{0,20}organization/i);
-    expect(codeOnly(directory)).not.toMatch(/\/org\/new/);
+  it('offers no create-group affordance (p1010 Decision 7 stands)', () => {
+    expect(codeOnly(directory)).not.toMatch(/create.{0,20}(organization|group)/i);
+    expect(codeOnly(directory)).not.toMatch(/\/(org|groups)\/new/);
   });
 
   it('is registered in PROD_HEALTH_ROUTES in this same diff', () => {
     // decisions.md 2026-06-06: "a new public route joins PROD_HEALTH_ROUTES in the
     // same diff that ships it" — a standing rule with nothing else enforcing it.
-    expect(read('e2e/helpers/prod-health.ts')).toMatch(/PROD_HEALTH_ROUTES[\s\S]{0,200}'\/org'/);
+    // P1193: the route is '/groups' now. '/org' is deliberately NOT in the list —
+    // it is a redirect, so health-checking it would pass on the destination's merits
+    // and tell us nothing about either path.
+    expect(read('e2e/helpers/prod-health.ts')).toMatch(/PROD_HEALTH_ROUTES[\s\S]{0,200}'\/groups'/);
   });
 });
 

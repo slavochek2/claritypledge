@@ -1,9 +1,11 @@
 /**
  * @file org-header.tsx
- * @description P1010: Clarity Organization page header (LinkedIn-style: name,
+ * @description P1010: Clarity Group page header (LinkedIn-style: name,
  * location/member-count meta, one-line blurb) with the persistent top-right CTA.
  * The member/non-member CTA swap IS the visible membership boundary (UX Notes):
  * a stranger sees "Join", a member sees "Manage membership".
+ * P1193 adds the caller's own role beside the name, and takes Leave away from the
+ * sole organizer of a group.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDownIcon, Share2Icon, UsersIcon } from "lucide-react";
@@ -13,11 +15,12 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/app/components/shared/confirm-dialog";
 import { ShareDialog } from "@/app/components/shared/ShareDialog";
 import { OrgParticipantRow } from "./org-participant-row";
-import type { Organization, OrgParticipation } from "@/app/data/organizations-service.interface";
+import type { Organization, OrgParticipation, OrgRole } from "@/app/data/organizations-service.interface";
 
 interface OrgHeaderProps {
   org: Organization;
@@ -25,7 +28,17 @@ interface OrgHeaderProps {
    *  UNKNOWN. Renders as absence, never as "0 members". */
   memberCount: number | null;
   isMember: boolean;
-  /** Routes to the terms page (/org/:slug/join) — never joins in place. */
+  /** P1193: the signed-in caller's OWN role in this group; null when not a member.
+   *  The page has always known this (it is what `isMember` is derived from) and
+   *  passed only the boolean, so the person who runs the group was greeted with the
+   *  same "Manage membership" as someone who joined yesterday. */
+  myRole?: OrgRole | null;
+  /** P1193: how many organizer rows this group has, or null when the roster could
+   *  not be loaded — UNKNOWN, never zero. Only consulted for an organizer: it decides
+   *  whether leaving would strand the group with nobody who can schedule an event.
+   *  A plain member's leave flow never reads it. */
+  organizerCount?: number | null;
+  /** Routes to the terms page (/groups/:slug/join) — never joins in place. */
   onJoin: () => void;
   onLeave: () => void | Promise<void>;
   /** Switches the page to the Members tab. Omit to render the count as plain text. */
@@ -41,6 +54,8 @@ export function OrgHeader({
   org,
   memberCount,
   isMember,
+  myRole = null,
+  organizerCount = null,
   onJoin,
   onLeave,
   onShowMembers,
@@ -57,13 +72,13 @@ export function OrgHeader({
 
   // ?from= carries silent attribution only (P1076) — stripped or invalid, the link
   // joins identically. currentUserId is only actually used while isMember is true.
-  // Points at the org page, not straight at /join (P1076 session revision, 2026-08):
+  // Points at the group page, not straight at /join (P1076 session revision, 2026-08):
   // a cold invite recipient landing directly on the terms-only join page has no
   // context — no About, no Members, no sense of what they're joining. The org page
   // already has About/Members/Events tabs and its own Join CTA built for exactly
   // this; org-page.tsx forwards ?from= onto /join when that CTA is pressed.
   const inviteUrl = useMemo(() => {
-    const base = `${window.location.origin}/org/${org.slug}`;
+    const base = `${window.location.origin}/groups/${org.slug}`;
     return currentUserId ? `${base}?from=${currentUserId}` : base;
   }, [org.slug, currentUserId]);
 
@@ -102,6 +117,30 @@ export function OrgHeader({
       ? null
       : `${memberCount} ${memberCount === 1 ? "member" : "members"}`;
 
+  // P1193 — why the sole organizer may not leave, or null when they may.
+  //
+  // Scoped to organizers on purpose. A plain member can never strand the group, so
+  // their Leave flow is untouched in every state INCLUDING the degraded one: blocking
+  // them on an unknown organizer count would refuse an action that was never at risk.
+  //
+  // `organizerCount === null` is UNKNOWN, not zero — the roster load swallows its
+  // error by design (org-page loadRoster), and reading a failed fetch as "no other
+  // organizers" would block the wrong people while reading it as "0" would unblock
+  // the very person this guard exists for. Neither is safe, so an unknown count
+  // refuses and says so.
+  //
+  // This governs the BUTTON only. The authoritative guard is the BEFORE DELETE
+  // trigger (20260831190000_p1193_last_organizer_cannot_leave.sql) — the DELETE
+  // policy still permits any self-delete, so a UI-only version would be a suggestion.
+  const leaveBlockedReason: string | null =
+    myRole !== "organizer"
+      ? null
+      : organizerCount === null
+        ? "Can't check group organizers right now — reload and try again."
+        : organizerCount <= 1
+          ? "You're the only organizer of this group."
+          : null;
+
   // Single column, CTA under the identity block — NOT floated top-right. Top-right
   // put this button in the same corner band as the app-wide "Start a Clarity Session"
   // in the fixed nav, so two blue buttons competed for the same glance. Anchored
@@ -109,7 +148,25 @@ export function OrgHeader({
   return (
     <header className="flex flex-col items-start gap-4">
       <div className="min-w-0 w-full">
-        <h1 className="text-2xl sm:text-3xl font-bold break-words">{org.name}</h1>
+        {/* P1193: the role badge sits BESIDE the group name (founder, 2026-08-31),
+            not in the meta row and not folded into the CTA label. `items-baseline`
+            with a wrapping flex keeps it on the name's baseline on desktop and lets
+            it drop below on a narrow viewport instead of squeezing a long group name.
+            Classes match the Members-tab Organizer badge (pledger-card.tsx) exactly —
+            one badge, one treatment, so the two readings of the same fact cannot
+            drift apart. Green is NOT used: that is reserved for the directory's
+            membership badge (design-system.md — green means success only). */}
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <h1 className="text-2xl sm:text-3xl font-bold break-words">{org.name}</h1>
+          {myRole === "organizer" && (
+            <span
+              data-testid="org-role-badge"
+              className="flex-shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+            >
+              Organizer
+            </span>
+          )}
+        </div>
         {/* P1060 review (HIGH): an unknown count renders as ABSENCE — the whole row
             goes away, exactly as OrgParticipantRow does for absent participation.
             A wrong number is worse than no number: "0 members" on a group with 11
@@ -175,12 +232,29 @@ export function OrgHeader({
                 dropdown in the app, and this is the only one whose close is entangled
                 with a dialog opening in the same tick. */}
             <DropdownMenuContent align="start" className="data-[state=closed]:!animate-none">
-              <DropdownMenuItem
-                onSelect={() => setLeaveDialogOpen(true)}
-                className="text-destructive focus:text-destructive"
-              >
-                Leave
-              </DropdownMenuItem>
+              {/* P1193: the sole organizer gets the reason INSTEAD of the control, not
+                  a disabled control beside it. A rendered-then-disabled "Leave" is the
+                  dead-control pattern P955 bans, and it makes the reader hunt for why.
+                  The line is the whole content of the menu in that state. */}
+              {leaveBlockedReason ? (
+                /* DropdownMenuLabel, not a bare <p>: the content is role="menu", and
+                   a menu whose only child is undecorated text announces as a menu
+                   with no items. Radix's Label carries the right semantics for
+                   non-interactive copy inside one. */
+                <DropdownMenuLabel
+                  data-testid="org-leave-blocked"
+                  className="max-w-[16rem] whitespace-normal px-2 py-1.5 text-sm font-normal text-muted-foreground"
+                >
+                  {leaveBlockedReason}
+                </DropdownMenuLabel>
+              ) : (
+                <DropdownMenuItem
+                  onSelect={() => setLeaveDialogOpen(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Leave
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -202,7 +276,7 @@ export function OrgHeader({
       <ConfirmDialog
         open={leaveDialogOpen}
         onOpenChange={setLeaveDialogOpen}
-        title="Leave this organization?"
+        title="Leave this group?"
         description={`You'll be removed from the ${org.name} members list, and your acceptance of the terms will no longer be on record. You can join again at any time.`}
         confirmLabel="Leave"
         cancelLabel="Stay"

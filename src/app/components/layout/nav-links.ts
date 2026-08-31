@@ -38,23 +38,38 @@ export const AUDIENCE_LINKS = [
 ] as const;
 
 /**
- * P1010: the "Events" nav item points at the Clarity Organization page, not the bare
- * events list. /org/cm opens on its Events tab (has_events=true) and embeds the SAME
- * production list — so nothing is hidden, the events just arrive with their community
- * around them. `/events` redirects here too (see prototypes/events/index.tsx), so the
- * app's many hardcoded "back to events" links land in the same place as the menu.
- * `/events/list` stays live and unredirected — it is the webinar funnel's target.
+ * P1193: the nav item points at the Clarity Groups DIRECTORY, not at one hardcoded
+ * group and not at the bare events list.
+ *
+ * It used to be `/org/cm` — a one-group hack, documented as such from the day it
+ * shipped: with a single seeded organization, "Events" could point straight at it
+ * and nobody noticed the hardcoding. A second group (· Online, P1060) made that a
+ * lie in the menu, sending everyone into Chiang Mai regardless of what they belonged
+ * to. `/groups` is the honest target now that a directory exists.
+ *
+ * The label is "Groups", and the word "Events" leaves the public menu (founder,
+ * 2026-08-31). Events are reached THROUGH a group: each group page opens on its own
+ * Events tab, which embeds the same production list.
+ *
+ * `/events` itself still redirects to `/groups/cm` (prototypes/events/index.tsx) so
+ * the app's ~11 hardcoded `to="/events"` back-links keep landing somewhere real —
+ * that redirect carries its own one-group hardcoding, untouched by P1193 and worth
+ * revisiting separately. `/events/list` is the unredirected standalone list and the
+ * webinar funnel's target; it has no menu entry and never did.
  *
  * ONE constant because four call sites render this item (footer NAV_LINKS, the mobile
  * menu, the desktop dropdown, the bottom nav) — the exact duplication that left
  * /founder reachable from one menu and not the others (P987).
  */
-export const EVENTS_NAV_TO = "/org/cm";
+export const EVENTS_NAV_TO = "/groups";
 
 /**
- * Active-state matcher for the Events nav item. Covers the org page AND the events
- * routes, because a visitor who opens an event lands on /events/:slug — the tab must
- * stay lit there, not go dark the moment they click through.
+ * Active-state matcher for the Groups nav item. Covers the group routes AND the
+ * events routes, because a visitor who opens an event lands on /events/:slug — the
+ * tab must stay lit there, not go dark the moment they click through.
+ *
+ * `/org*` is deliberately absent: those paths redirect to `/groups*` before anything
+ * renders (App.tsx OrgLegacyRedirect), so no nav ever sees them.
  */
 export function isEventsNavActive(pathname: string): boolean {
   return (
@@ -90,7 +105,7 @@ export const PUBLIC_NAV_GROUPS = [
     label: "Product",
     items: [
       { to: "/pricing", label: "Pricing", Icon: TagIcon },
-      { to: EVENTS_NAV_TO, label: "Events", Icon: CalendarIcon },
+      { to: EVENTS_NAV_TO, label: "Groups", Icon: CalendarIcon },
       { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },
     ],
   },
@@ -105,9 +120,9 @@ export const PUBLIC_NAV_GROUPS = [
 ] as const;
 
 // Navigation links config - used by footer
-// Desktop nav bar shows Events + Blog as visible links; rest in dropdown menu
+// Desktop nav bar shows Groups + Blog as visible links; rest in dropdown menu
 export const NAV_LINKS = [
-  { to: EVENTS_NAV_TO, label: "Events" },
+  { to: EVENTS_NAV_TO, label: "Groups" },
   { to: "/pledgers", label: "Pledgers" },
   { to: "/manifesto", label: "Manifesto" },
   { to: "/co-create", label: "Co-create" },

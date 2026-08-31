@@ -67,7 +67,7 @@ function toEventWithHost(mock: MockEvent): EventWithHost {
 export const mockEventsService: EventsService = {
   // Wrap sync as async to match interface.
   // P1060: deliberately org-UNAWARE. The mock fixture has no org_id field, and the
-  // org-scoped surface (/org/:slug Events) only ever runs against the real service.
+  // org-scoped surface (/groups/:slug Events) only ever runs against the real service.
   // Omitting the parameter is signature-compatible; accepting-and-ignoring it would
   // silently return another org's events, which is the exact defect P1060 exists to fix.
   async getUpcomingEvents(): Promise<EventWithHost[]> {

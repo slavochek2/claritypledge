@@ -140,7 +140,7 @@ test.describe('P1060 reviewer renders', () => {
 
   test('A — /org signed out, desktop', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: org.name })).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: `${OUT}/A-org-signedout-desktop.png`, fullPage: true });
@@ -149,7 +149,7 @@ test.describe('P1060 reviewer renders', () => {
   test('B — /org signed in as a member', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await setTestSession(page, member.email);
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('org-membership-badge').first()).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: `${OUT}/B-org-signedin-member.png`, fullPage: true });
@@ -157,7 +157,7 @@ test.describe('P1060 reviewer renders', () => {
 
   test('C — /org at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: org.name })).toBeVisible({ timeout: 15000 });
     // The reference calls 320px the most common overflow surface — confirm the
@@ -168,7 +168,7 @@ test.describe('P1060 reviewer renders', () => {
 
   test('C2 — /org at 375px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 900 });
-    await page.goto('/org');
+    await page.goto('/groups');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('link', { name: org.name })).toBeVisible({ timeout: 15000 });
     expect(await page.evaluate(() => window.innerWidth)).toBe(375);
@@ -177,7 +177,7 @@ test.describe('P1060 reviewer renders', () => {
 
   test('D — org Events tab, Upcoming empty, falls through to Past', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto(`/org/${pastOnlyOrg.slug}`);
+    await page.goto(`/groups/${pastOnlyOrg.slug}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Clarity Run — Waterfall Loop')).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: `${OUT}/D-org-upcoming-empty-fallthrough.png`, fullPage: true });
@@ -185,7 +185,7 @@ test.describe('P1060 reviewer renders', () => {
 
   test('E — /org/online, nothing at all (the seeded day-one state)', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/org/online');
+    await page.goto('/groups/online');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: /Online/ })).toBeVisible({ timeout: 15000 });
     await page.screenshot({ path: `${OUT}/E-org-online-empty.png`, fullPage: true });
@@ -193,7 +193,7 @@ test.describe('P1060 reviewer renders', () => {
 
   test('F — org header with the participant row', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto(`/org/${org.slug}`);
+    await page.goto(`/groups/${org.slug}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(/have joined events/)).toBeVisible({ timeout: 15000 });
     // Prove the state the contract names is actually IN this render before it is

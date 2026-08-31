@@ -35,7 +35,7 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
 
   test('Join button is keyboard-reachable and has an accessible name', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/org/cm');
+    await page.goto('/groups/cm');
     await page.waitForLoadState('networkidle');
 
     const joinBtn = page.getByRole('button', { name: 'Join as member' });
@@ -46,7 +46,7 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
 
   test('Join button meets the 40px minimum touch target height', async ({ page }) => {
     await setTestSession(page, user.email);
-    await page.goto('/org/cm');
+    await page.goto('/groups/cm');
     await page.waitForLoadState('networkidle');
 
     const box = await page.getByRole('button', { name: 'Join as member' }).boundingBox();
@@ -54,7 +54,7 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
   });
 
   test('tab bar exposes role="tab" / aria-selected and is keyboard navigable', async ({ page }) => {
-    await page.goto('/org/cm');
+    await page.goto('/groups/cm');
     await page.waitForLoadState('networkidle');
 
     const membersTab = page.getByRole('tab', { name: /members/i });
@@ -70,7 +70,7 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
     await supabaseAdmin.from('membership').insert({ org_id: org!.id, user_id: user.user.id });
 
     await setTestSession(page, user.email);
-    await page.goto('/org/cm');
+    await page.goto('/groups/cm');
     await page.waitForLoadState('networkidle');
 
     const manageBtn = page.getByRole('button', { name: 'Manage membership' });
@@ -129,7 +129,7 @@ test.describe('P1010: Accessibility — /org/:slug CTA and tabs', () => {
     // gets no matter what, so it passed independently of the code under test and would
     // have stayed green with the isMember branch deleted, inverted, or hard-coded.
     await setTestSession(page, user.email);
-    await page.goto('/org/cm');
+    await page.goto('/groups/cm');
     await page.waitForLoadState('networkidle');
 
     // Non-member: the accessible name must literally say "Join" — never a color-only

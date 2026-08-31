@@ -144,10 +144,14 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('link', { name: 'Co-founder Program' })).not.toBeInTheDocument();
       });
 
-      it('shows Events, Blog, Pledgers, Manifesto, About in dropdown menu', async () => {
+      // P1193: the item is "Groups" (→ /groups), not "Events". The word Events left
+      // the public menu with the Clarity Organization → Clarity Group rename; events
+      // are reached through a group's own Events tab.
+      it('shows Groups, Blog, Pledgers, Manifesto, About in dropdown menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /events/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /groups/i })).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', { name: /^events$/i })).not.toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /blog/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /pledgers/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /manifesto/i })).toBeInTheDocument();

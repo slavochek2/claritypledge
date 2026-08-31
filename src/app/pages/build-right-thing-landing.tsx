@@ -335,7 +335,7 @@ export function BuildRightThingLanding() {
             single-party oath today without first recruiting a counterparty. The bilateral
             certificate stays on /coach, /founder and /hiring — those pages address pairs.
             Body is the shared VERIFIED_UNDERSTANDING_OATH via COA_VERSIONS, byte-identical
-            to /org/:slug/join — never fork the oath copy for marketing.
+            to /groups/:slug/join — never fork the oath copy for marketing.
             The join page's "Accept terms & join" button is deliberately NOT rendered here:
             a live action on a marketing page is a dead control (P955 gate).
             overflow-hidden clips the rotated TEMPLATE watermark on narrow viewports.
@@ -366,14 +366,14 @@ export function BuildRightThingLanding() {
               // above already opens with "Make it normal to...", and two stacked "Make" lines is
               // the same echo this heading was just rewritten to avoid.
               // NOT the COA intro ("...not legally binding...") — that line is pre-acceptance
-              // framing for /org/:slug/join, where the reader is about to accept. Nobody accepts
+              // framing for /groups/:slug/join, where the reader is about to accept. Nobody accepts
               // anything here; the TEMPLATE watermark and the absent Accept button already mark
               // this as a specimen.
               subtitle="Reveal gaps easily. Bridge them safely."
             />
             <div className="relative">
               <CertificateFrame
-                ariaLabel="Clarity Organization Terms"
+                ariaLabel="Clarity Group Terms"
                 title={COA_VERSIONS[CURRENT_COA_VERSION].title}
                 kicker="A commitment to every member"
                 epigraph="We all crave being understood. Let's commit to listen."

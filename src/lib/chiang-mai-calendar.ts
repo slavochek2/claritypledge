@@ -2,7 +2,7 @@
  * Single source of the Chiang Mai community Google Calendar embed (P906/P909).
  *
  * Extracted from chiang-mai-page.tsx (P1010) so both the standalone /cm page and
- * the /org/cm Events tab reference the SAME calendar ID + embed URL builder — no
+ * the /groups/cm Events tab reference the SAME calendar ID + embed URL builder — no
  * duplication of the calendar identity. Kept as a plain module (not a component
  * file) so importing these constants never degrades component HMR.
  */

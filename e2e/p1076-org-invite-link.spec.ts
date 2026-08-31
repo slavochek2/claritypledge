@@ -50,7 +50,7 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     page.on('pageerror', (err) => errors.push(err.message));
 
     await setTestSession(page, member.email);
-    await page.goto(`/org/${org.slug}`);
+    await page.goto(`/groups/${org.slug}`);
     await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('button', { name: 'Invite' })).toBeVisible({ timeout: 10000 });
@@ -60,7 +60,7 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
 
   test('Invite dialog: correct title, and the link carries ?from=<member id>', async ({ page }) => {
     await setTestSession(page, member.email);
-    await page.goto(`/org/${org.slug}`);
+    await page.goto(`/groups/${org.slug}`);
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: 'Invite' }).click();
@@ -70,8 +70,8 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     const linkText = await page.locator('pre.whitespace-pre-wrap').first().textContent();
     // Points at the org page, not straight at /join (P1076 session revision):
     // a cold invite recipient gets About/Members/Events context before the terms.
-    expect(linkText, 'invite link must point at the org page').toContain(`/org/${org.slug}?from=`);
-    expect(linkText, 'invite link must not point directly at the join page').not.toContain(`/org/${org.slug}/join`);
+    expect(linkText, 'invite link must point at the org page').toContain(`/groups/${org.slug}?from=`);
+    expect(linkText, 'invite link must not point directly at the join page').not.toContain(`/groups/${org.slug}/join`);
     expect(linkText, 'invite link must carry the sharer\'s attribution').toContain(`from=${member.user.id}`);
 
     // No embed section for an org share — Non-Goal: "Do NOT add an embed-code
@@ -81,7 +81,7 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
 
   test('Invite dialog usable at 320px, 375px, and desktop', async ({ page }) => {
     await setTestSession(page, member.email);
-    await page.goto(`/org/${org.slug}`);
+    await page.goto(`/groups/${org.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Invite' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -96,9 +96,9 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
   });
 
   test('signed out: opening the join page with ?from= and tapping Accept carries it through signup', async ({ page }) => {
-    await page.goto(`/org/${org.slug}/join?from=${member.user.id}`);
+    await page.goto(`/groups/${org.slug}/join?from=${member.user.id}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('Clarity Organization Terms')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Clarity Group Terms')).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Accept terms & join' }).click();
     // Targets /signup, not /login (P1076 session revision): a cold invite recipient
@@ -107,7 +107,7 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
 
     const redirectParam = decodeURIComponent(new URL(page.url()).searchParams.get('redirect') ?? '');
     expect(redirectParam, 'redirect must carry the join path with attribution').toBe(
-      `/org/${org.slug}/join?from=${member.user.id}`,
+      `/groups/${org.slug}/join?from=${member.user.id}`,
     );
     expect(
       new URL(page.url()).searchParams.get('action'),
@@ -118,7 +118,7 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
   test('invite link (org page, no /join) carries ?from= through the Join button onto /join', async ({ page }) => {
     // Reproduces what a cold invite recipient actually clicks: the org-header
     // invite URL, which now points at the org page itself, not /join directly.
-    await page.goto(`/org/${org.slug}?from=${member.user.id}`);
+    await page.goto(`/groups/${org.slug}?from=${member.user.id}`);
     await page.waitForLoadState('networkidle');
 
     // Context a direct /join landing never had: About content and the terms
@@ -127,14 +127,14 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Join as member' }).click();
-    await expect(page).toHaveURL(new RegExp(`/org/${org.slug}/join\\?from=${member.user.id}$`), { timeout: 10000 });
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}/join\\?from=${member.user.id}$`), { timeout: 10000 });
   });
 
   test('existing member opening the invite link lands on the org page, not the terms page', async ({ page }) => {
     await setTestSession(page, member.email);
-    await page.goto(`/org/${org.slug}/join`);
-    await expect(page).toHaveURL(new RegExp(`/org/${org.slug}$`), { timeout: 10000 });
-    // The About tab legitimately links to "Clarity Organization Terms" (org-page.tsx),
+    await page.goto(`/groups/${org.slug}/join`);
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
+    // The About tab legitimately links to "Clarity Group Terms" (org-page.tsx),
     // so that text is not a safe negative-assertion anchor here — the certificate's
     // Accept button is unambiguous: it only ever renders on the join page itself.
     await expect(page.getByRole('button', { name: 'Accept terms & join' })).not.toBeVisible();
@@ -145,12 +145,12 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     const visitor = await createTestUser({ name: 'P1076 Auto-Join Visitor', email: generateTestEmail() });
 
     try {
-      const joinPath = `/org/${org.slug}/join?from=${member.user.id}`;
+      const joinPath = `/groups/${org.slug}/join?from=${member.user.id}`;
       const callbackUrl = `${baseURL}/auth/callback?action=join-org&redirect=${encodeURIComponent(joinPath)}`;
       const magicLinkUrl = await generateMagicLinkUrl(visitor.email, callbackUrl);
 
       await page.goto(magicLinkUrl);
-      await page.waitForURL(new RegExp(`/org/${org.slug}$`), { timeout: 30000 });
+      await page.waitForURL(new RegExp(`/groups/${org.slug}$`), { timeout: 30000 });
 
       // Already a member — no second "Accept terms & join" tap, straight to the
       // member state and the post-join prompt (Done-When: "no second tap").
@@ -201,10 +201,10 @@ test.describe('P1076: Org invite link — post-join banner', () => {
     const joiner = await createTestUser({ name: 'P1076 Banner Join User' });
     try {
       await setTestSession(page, joiner.email);
-      await page.goto(`/org/${org.slug}/join`);
+      await page.goto(`/groups/${org.slug}/join`);
       await page.waitForLoadState('networkidle');
       await page.getByRole('button', { name: 'Accept terms & join' }).click();
-      await expect(page).toHaveURL(new RegExp(`/org/${org.slug}$`), { timeout: 10000 });
+      await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
 
       const banner = page.getByText('Welcome! Know someone who might want to join too?');
       await expect(banner).toBeVisible({ timeout: 10000 });
@@ -222,8 +222,8 @@ test.describe('P1076: Org invite link — post-join banner', () => {
     try {
       await supabaseAdmin.from('membership').insert({ org_id: org.id, user_id: alreadyMember.user.id });
       await setTestSession(page, alreadyMember.email);
-      await page.goto(`/org/${org.slug}/join`);
-      await expect(page).toHaveURL(new RegExp(`/org/${org.slug}$`), { timeout: 10000 });
+      await page.goto(`/groups/${org.slug}/join`);
+      await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
 
       // The join-page's already-member guard redirects without justJoined state —
       // distinct from a real join (Done-When: "not an error", not a re-celebration).

@@ -193,8 +193,14 @@ test.describe('P1076: ALLOWED_REDIRECT_PREFIXES — /org must be present', () =>
     const prefixList = match![1];
     expect(
       prefixList,
-      'ALLOWED_REDIRECT_PREFIXES must include /org — required for P1076 auto-join redirect to work',
+      'ALLOWED_REDIRECT_PREFIXES must include /org — already-shared invite links still arrive on it, and this allowlist is checked BEFORE any router redirect can normalise the path',
     ).toContain('/org');
+    // P1193: the renamed route. Without it, every auto-join from a link minted after
+    // the rename fails the allowlist and drops the user on /feed.
+    expect(
+      prefixList,
+      'ALLOWED_REDIRECT_PREFIXES must include /groups — required for P1076 auto-join after the P1193 rename',
+    ).toContain('/groups');
   });
 
   // Code-review finding (2026-08-13): the first version of this gate checked
@@ -212,7 +218,7 @@ test.describe('P1076: ALLOWED_REDIRECT_PREFIXES — /org must be present', () =>
 
     // Capture the pattern body only (between the / delimiters) — constructed via
     // `new RegExp(...)`, not eval, so this never executes source text as code.
-    const match = source.match(/\/(\^\\\/org\\\/.*?\$)\//);
+    const match = source.match(/\/(\^\\\/\(org\|groups\)\\\/.*?\$)\//);
     expect(match, 'the org join-path regex was not found in AuthCallbackPage.tsx — did the pattern change?').not.toBeNull();
     const orgJoinPathRegex = new RegExp(match![1]);
     const matchesRealJoinPath = (redirectPath: string) => orgJoinPathRegex.test(redirectPath.split('?')[0]);
@@ -224,5 +230,19 @@ test.describe('P1076: ALLOWED_REDIRECT_PREFIXES — /org must be present', () =>
     ).toBe(false);
     expect(matchesRealJoinPath('/org/cm/joinery'), 'a path merely starting with /join must NOT match').toBe(false);
     expect(matchesRealJoinPath('/org/cm/join/extra'), 'a path with trailing segments must NOT match').toBe(false);
+
+    // P1193: the renamed path must match, and must inherit the SAME bypass rejections
+    // rather than a looser second branch. Widening a security-relevant regex is exactly
+    // where a new alternative gets added without the anchors that made the old one safe.
+    expect(matchesRealJoinPath('/groups/cm/join'), 'the renamed join path must match').toBe(true);
+    expect(
+      matchesRealJoinPath('/groups/cm?x=/join'),
+      'the query-string bypass must be rejected on the renamed path too',
+    ).toBe(false);
+    expect(matchesRealJoinPath('/groups/cm/joinery'), 'a path merely starting with /join must NOT match').toBe(false);
+    expect(matchesRealJoinPath('/groups/cm/join/extra'), 'a path with trailing segments must NOT match').toBe(false);
+    // Neither the old nor the new noun may be spelled as a free-for-all.
+    expect(matchesRealJoinPath('/orgs/cm/join'), 'an unlisted noun must NOT match').toBe(false);
+    expect(matchesRealJoinPath('/group/cm/join'), 'an unlisted noun must NOT match').toBe(false);
   });
 });

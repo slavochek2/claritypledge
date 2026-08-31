@@ -138,6 +138,26 @@ function ChatRedirect() {
   return <Navigate to={qs ? `/create?${qs}` : '/create'} replace />;
 }
 
+/**
+ * P1193: /org* → /groups*, permanently. The Clarity Organization → Clarity Group
+ * rename moved the route; this keeps every already-shared link alive.
+ *
+ * NOT optional and NOT time-limited. Invite links carrying `?from=` attribution
+ * (P1076) have been handed out, so the query string has to survive the hop or the
+ * attribution is silently dropped at exactly the moment it is being collected.
+ * The hash rides along too — cheap, and a dropped `#members` deep link is the same
+ * class of quiet breakage.
+ *
+ * Splatted rather than one route per shape (`/org`, `/org/:slug`, `/org/:slug/join`)
+ * so a future `/groups/:slug/<anything>` inherits the redirect for free instead of
+ * 404ing for the people still on the old link.
+ */
+function OrgLegacyRedirect() {
+  const location = useLocation();
+  const rest = location.pathname.replace(/^\/org/, "");
+  return <Navigate to={`/groups${rest}${location.search}${location.hash}`} replace />;
+}
+
 /** P660: Redirect /d/:docId → /letters/drafts/:docId */
 function DocDetailRedirect() {
   const { docId } = useParams();
@@ -967,14 +987,18 @@ export default function ClarityPledgeApp() {
         {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}
         <Route path="/cm" element={<ClarityLandingLayout chromeFree><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
 
-        {/* P1060 D5: /org — the public directory of all organizations. Declared
-            BEFORE /org/:slug so the bare path is never captured as a slug. A
-            listing only; p1010 Decision 7 (no create-org surface) stands. */}
-        <Route path="/org" element={<ClarityLandingLayout><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
-        {/* P1010: Clarity Organizations — /org/:slug (seeded orgs: cm, online) */}
-        <Route path="/org/:slug" element={<ClarityLandingLayout><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
-        {/* Join gate — accepting the Clarity Organization Terms IS the join (focus page). */}
-        <Route path="/org/:slug/join" element={<ClarityLandingLayout><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1060 D5: /groups — the public directory of all Clarity Groups. Declared
+            BEFORE /groups/:slug so the bare path is never captured as a slug. A
+            listing only; p1010 Decision 7 (no create-group surface) stands. */}
+        <Route path="/groups" element={<ClarityLandingLayout><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1010: Clarity Groups — /groups/:slug (seeded groups: cm, online) */}
+        <Route path="/groups/:slug" element={<ClarityLandingLayout><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* Join gate — accepting the Clarity Group Terms IS the join (focus page). */}
+        <Route path="/groups/:slug/join" element={<ClarityLandingLayout><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1193: the pre-rename paths, kept alive permanently. See OrgLegacyRedirect —
+            shared invite links carry ?from= attribution and must not lose it. */}
+        <Route path="/org" element={<OrgLegacyRedirect />} />
+        <Route path="/org/*" element={<OrgLegacyRedirect />} />
 
         {/* Catch-all: 404 for unknown routes */}
         <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />

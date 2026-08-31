@@ -44,11 +44,33 @@ export const COA_VERSIONS = {
     myPromise: VERIFIED_UNDERSTANDING_OATH[5].myPromise,
     exception: VERIFIED_UNDERSTANDING_OATH[5].exception,
   },
+  // P1193 — the Clarity Organization → Clarity Group rename. THE ONLY DIFFERENCE
+  // FROM 5 IS `title`. The oath body is carried across by the SAME references, not
+  // retyped: v5 and v6 are the identical commitment under a new product noun.
+  //
+  // A new version rather than an edit to 5, and this is the whole point of the file:
+  // `membership.terms_version` records what each member actually accepted. Retitling
+  // 5 in place would rewrite the name of a document people are on record as having
+  // agreed to — versions 4 and 5 therefore keep "Clarity Organization Terms" forever,
+  // and nothing backfills existing rows onto 6.
+  6: {
+    title: "Clarity Group Terms",
+    intro: COA_INTRO,
+    yourRight: VERIFIED_UNDERSTANDING_OATH[5].yourRight,
+    myPromise: VERIFIED_UNDERSTANDING_OATH[5].myPromise,
+    exception: VERIFIED_UNDERSTANDING_OATH[5].exception,
+  },
 } as const;
 
 export type CoaVersion = keyof typeof COA_VERSIONS;
 
-// Sole rollback lever — flip back to 4 to revert wording. Mirrors
-// CURRENT_AGREEMENT_VERSION. Kept here (not src/lib/constants.ts) to match where
-// CURRENT_AGREEMENT_VERSION lives.
-export const CURRENT_COA_VERSION: CoaVersion = 5;
+// Sole rollback lever — flip back to 5 to revert to the pre-rename title, or to 4
+// to revert the P928 wording as well. Mirrors CURRENT_AGREEMENT_VERSION. Kept here
+// (not src/lib/constants.ts) to match where CURRENT_AGREEMENT_VERSION lives.
+//
+// P1193: 5 → 6. Per the header note above, this bump also required widening the
+// membership.terms_version CHECK constraint and moving its DEFAULT — see
+// supabase/migrations/20260831120000_p1193_coa_v6_terms_version.sql. Rolling this
+// constant back does NOT need the migration reverted: the constraint admits 4, 5
+// and 6, so an older value still writes cleanly.
+export const CURRENT_COA_VERSION: CoaVersion = 6;
