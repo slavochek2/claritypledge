@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 0.063
 workstream: infrastructure
@@ -14,13 +14,13 @@ blocks:
   - p1182
 related:
   - p1185
-delivery_stage: dev
 pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
 locked_at: '2026-08-28T10:08:55.323Z'
+completed_at: 2026-08-31
 ---
 
 # P1180: `/problem-submit` — draft a problem as one story plus three contestable claims, and file it as a private letter
@@ -67,7 +67,7 @@ A skill that runs over the member's own corpus and produces one submission per a
 
 **Stage 2 — filter.** A candidate qualifies only when it carries a real stake **and** trips at least one arbiter-failure mode (fuzzy intent · delayed feedback · concentrated stakes · explanatory divergence) **and** does not trip the interface disqualifier. Duration-still-open is a tiebreaker, never the gate — a two-day-old problem you just bet the year on is the most valuable thing here.
 
-**Read the model from [`docs/arbiter-failure-model.md`](../docs/arbiter-failure-model.md)** — the four modes, their per-consumer firing conditions, the interface disqualifier and the falsifiers all live there since P1190 (2026-08-28), and `lean-canvas.md` explicitly refuses to restate them. *(An earlier draft cited `lean-canvas.md` 2026-08-24 — the model had left that home three days before this spec was written, so an implementing agent following the pointer would have found go-to-market prose and no firing conditions. Corrected 2026-08-31, both review arms.)*
+**Read the model from [`docs/arbiter-failure-model.md`](../../../docs/arbiter-failure-model.md)** — the four modes, their per-consumer firing conditions, the interface disqualifier and the falsifiers all live there since P1190 (2026-08-28), and `lean-canvas.md` explicitly refuses to restate them. *(An earlier draft cited `lean-canvas.md` 2026-08-24 — the model had left that home three days before this spec was written, so an implementing agent following the pointer would have found go-to-market prose and no firing conditions. Corrected 2026-08-31, both review arms.)*
 
 **Stage 3 — draft ONE STORY plus THREE CLAIMS. Settled 2026-08-31 by the reader test run in writing on all five candidates, by two agents that did not propose the shape — see `decisions.md` 2026-08-31 [product] "The reader test run on all five candidates". The count is what the earlier draft proposed; the membership is not.**
 
