@@ -1,22 +1,22 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 5
 workstream: events
 created_date: '2026-08-31'
 tags: [transcribe, mobile, speech, p1149, p1152]
 pipeline_ran: [create-bug, inline, finish, ship]
-delivery_stage: ship
 driver: founder
 drafted_by: opus
+completed_at: 2026-08-31
 ---
 
 # P1196: `/transcribe` live text dies on mobile — the auto-restart loop is one-shot
 
 ## Problem
 
-**Situation:** [P1152](p1152_transcribe_physical_device_verification.md) held
-four physical checks for [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md).
+**Situation:** [P1152](../../p1152_transcribe_physical_device_verification.md) held
+four physical checks for [P1149](p1149_live_room_transcription_chat.md).
 PV-1 asked: does live text survive on phones? P1152 was closed `all-done` on 2026-08-24 with
 all five Done-When boxes unchecked — the check was never run and never recorded.
 
@@ -107,7 +107,7 @@ is produced regardless of whether the live half is working.
 
 **The physical checks are NOT in this list, deliberately.** PV-1 (re-run on real phones) and
 PV-1b (mic contention, settled from a phone console) live in
-[P1152](p1152_transcribe_physical_device_verification.md), which is open and exists for exactly
+[P1152](../../p1152_transcribe_physical_device_verification.md), which is open and exists for exactly
 that. Duplicating them here would either block this fix behind hardware the agent cannot touch,
 or — the failure this whole spec was written about — get ticked without being run. This spec
 closes on "the confirmed code defect is fixed and the failure is now loud"; whether live text
@@ -115,6 +115,6 @@ actually works on a phone is P1152's verdict to record, and it is still unrecord
 
 ## References
 
-- [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md) — the feature
-- [P1152](p1152_transcribe_physical_device_verification.md) — the physical
+- [P1149](p1149_live_room_transcription_chat.md) — the feature
+- [P1152](../../p1152_transcribe_physical_device_verification.md) — the physical
   checks; reopened by this spec, PV-1 recorded as fail

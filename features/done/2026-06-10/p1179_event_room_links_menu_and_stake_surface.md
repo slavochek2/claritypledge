@@ -1,11 +1,10 @@
 ---
-status: today
+status: all-done
 type: story
 rank: 3
 workstream: events
 created_date: '2026-08-28'
 tags: [events, room, navigation, cmp]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 pipeline_plan: [create-spec, generate-tests, dev, verify]
 pipeline_skipped: ["challenge-prd -- founder declined 2026-08-28, see Pipeline note", "ux -- settled by the 2026-08-28 prototype pass", "architect -- placement + schema shape decided in spec", "decompose -- 3 concerns, under the 5-file trigger"]
@@ -13,6 +12,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-08-31
 ---
 
 # P1179: The event room "Links" menu and the locked stake surface
@@ -47,11 +47,11 @@ ALWAYS-ASK and none of them are pre-approvable.
 
 **Situation:** The event room ships as three routes — `/events/:slug/room`, `/ready`, `/meet`
 (`src/App.tsx:954-956`). The instrument it exists to run is ten Points tagged `cmp10` plus `cmp7`
-or `cmp3` ([P1055](p1055_norm_measurement_instrument.md)), reachable today only at
+or `cmp3` ([P1055](../../p1055_norm_measurement_instrument.md)), reachable today only at
 `/feed?tag=cmp7&sort=oldest`. `/transcribe` shipped separately
-([P1149](done/2026-06-10/p1149_live_room_transcription_chat.md)) and is reachable only by its own URL.
+([P1149](p1149_live_room_transcription_chat.md)) and is reachable only by its own URL.
 
-**Complication:** [P1161](p1161_first_physical_event_chiang_mai.md)'s run-of-show sends the room to a
+**Complication:** [P1161](../p1161_first_physical_event_chiang_mai.md)'s run-of-show sends the room to a
 different destination at blocks 5, 7 and 8, and the host does not know in advance which. Today that
 means saying a URL out loud to a room of strangers. Founder, verbatim:
 
@@ -92,7 +92,7 @@ recorded below. What remains is entry copy.
   `SimpleNavigation` renders a permanent `id="nav-center-slot"` (`simple-navigation.tsx:178`, `:407`)
   whose absolute positioning is load-bearing, not styling — it takes no part in the nav row's flex
   layout, so the ~30 routes that portal nothing cannot have their logo or right-hand group shifted. A
-  `flex-1` slot was explicitly rejected ([decisions.md](../docs/decisions.md) 2026-07-01). The Links
+  `flex-1` slot was explicitly rejected ([decisions.md](../../../docs/decisions.md) 2026-07-01). The Links
   button lands in the right-hand group instead; the slot must be left exactly as it is.
 - **The nav's right-hand group renders on every route. Any change to it is scoped to the room.**
   Adding a sibling to that group is the one part of this work with reach beyond the event, and it must
@@ -102,12 +102,12 @@ recorded below. What remains is entry copy.
   redirects)") — a per-event, operator-writable destination list is exactly the shape that turns
   into an open redirect if the constraint is dropped.
 - **Ordering on the stake surface is oldest-first, sorted at the database.** The instrument's
-  ordering is load-bearing and must not be reordered ([P1055](p1055_norm_measurement_instrument.md));
+  ordering is load-bearing and must not be reordered ([P1055](../../p1055_norm_measurement_instrument.md));
   the sort happens at DB level, never as a client-side array reversal
-  ([decisions.md](../docs/decisions.md) 2026-03-13, `:20353`).
+  ([decisions.md](../../../docs/decisions.md) 2026-03-13, `:20353`).
 - **A position click must not trigger a list refetch.** `onPositionChange={fetchData}` was
   deliberately removed from the feed because optimistic state in the card already adjusts counts and
-  the refetch caused a loading flash on every click ([decisions.md](../docs/decisions.md), `:20377`).
+  the refetch caused a loading flash on every click ([decisions.md](../../../docs/decisions.md), `:20377`).
   The stake surface must not reintroduce it.
 
 ## Solution
@@ -190,7 +190,7 @@ Both services already accept a tag — `getPublicStoriesFeed(limit, offset, tag?
 loud, and `/meet`'s roster already shows who has answered.
 
 Because exactly one tag is always active here, this hits the server-side filtered path that
-[P1075](done/2026-06-10/p1075_feed_tag_filter_client_side_only.md) wired up, not the client-side
+[P1075](p1075_feed_tag_filter_client_side_only.md) wired up, not the client-side
 fallback that only handles multi-tag URLs.
 
 ### 4. Who can stake
@@ -365,7 +365,7 @@ Drop it only if the approach is abandoned outright.
 ## Pipeline note — `/challenge-prd` was deliberately skipped
 
 Recommended on 2026-08-28 and **declined by the founder**. Recorded because the reason it was
-recommended still stands: `/challenge-prd` on the neighbouring [P1161](p1161_first_physical_event_chiang_mai.md)
+recommended still stands: `/challenge-prd` on the neighbouring [P1161](../p1161_first_physical_event_chiang_mai.md)
 returned 6 BLOCK / 7 WARN, and *"five of six BLOCKs were the same defect — a real file cited for a
 conclusion it does not support."* This spec cites roughly a dozen files, and its citations were
 verified by the same agent that wrote them.
@@ -377,11 +377,11 @@ file citations here as unaudited.
 
 ## Related
 
-- [P1161](p1161_first_physical_event_chiang_mai.md) — the driver. Unblocks run-of-show blocks 5, 7, 8.
-- [P1055](p1055_norm_measurement_instrument.md) — the instrument and its ordering requirement.
-- [P1114](done/2026-06-10/p1114_event_room_presence_and_cmp_opt_in.md) — the room routes and opt-in this builds on.
-- [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md) — `/transcribe`, one menu entry.
-- [P1075](done/2026-06-10/p1075_feed_tag_filter_client_side_only.md) — the server-side single-tag path.
+- [P1161](../p1161_first_physical_event_chiang_mai.md) — the driver. Unblocks run-of-show blocks 5, 7, 8.
+- [P1055](../../p1055_norm_measurement_instrument.md) — the instrument and its ordering requirement.
+- [P1114](p1114_event_room_presence_and_cmp_opt_in.md) — the room routes and opt-in this builds on.
+- [P1149](p1149_live_room_transcription_chat.md) — `/transcribe`, one menu entry.
+- [P1075](p1075_feed_tag_filter_client_side_only.md) — the server-side single-tag path.
 - `decisions.md` 2026-07-01 (nav centre slot), 2026-03-13 (DB-level sort).
 
 ## Resolved Decisions
