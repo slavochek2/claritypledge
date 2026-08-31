@@ -32,11 +32,25 @@ const codeOnly = (src: string) =>
 
 const MIGRATION = (() => {
   const dir = resolve(root, 'supabase/migrations');
-  const hits = readdirSync(dir).filter((f) => f.includes('p1060'));
-  // Exactly one: two P1060 migrations would mean the backfill and the seed can be
-  // applied out of order, and the order is load-bearing (backfill BEFORE org #2).
-  expect(hits.length, `expected exactly 1 p1060 migration, found: ${hits.join(', ')}`).toBe(1);
-  return readFileSync(resolve(dir, hits[0]), 'utf8');
+  const p1060 = readdirSync(dir).filter((f) => f.includes('p1060'));
+  // The invariant is about the BACKFILL AND SEED specifically: if those two could
+  // land in separate migrations they could apply out of order, and the order is
+  // load-bearing (backfill BEFORE org #2). So the assertion is "exactly one file
+  // carries the backfill", NOT "exactly one file mentions p1060" — the latter was a
+  // proxy that also banned unrelated P1060 migrations. A second migration that adds,
+  // say, a trigger touches neither the backfill nor the seed and cannot reorder them.
+  const hits = p1060.filter((f) => /_p1060_events_org_id\.sql$/.test(f));
+  expect(
+    hits.length,
+    `expected exactly 1 p1060 backfill/seed migration, found: ${hits.join(', ') || '(none)'} (all p1060 files: ${p1060.join(', ')})`,
+  ).toBe(1);
+  const contents = readFileSync(resolve(dir, hits[0]), 'utf8');
+  // Belt and braces: the one file we selected must actually carry BOTH halves, so a
+  // future split into two files fails here rather than silently passing the count.
+  expect(contents, 'the backfill migration must also carry the org #2 seed').toContain(
+    "INSERT INTO public.organization",
+  );
+  return contents;
 })();
 
 /** The 8 Chiang Mai slugs, verbatim from the spec's Solution item 2. */

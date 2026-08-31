@@ -21,7 +21,9 @@ import type { Organization, OrgParticipation } from "@/app/data/organizations-se
 
 interface OrgHeaderProps {
   org: Organization;
-  memberCount: number;
+  /** P1060 review (HIGH): null = the roster could not be loaded, so the count is
+   *  UNKNOWN. Renders as absence, never as "0 members". */
+  memberCount: number | null;
   isMember: boolean;
   /** Routes to the terms page (/org/:slug/join) — never joins in place. */
   onJoin: () => void;
@@ -95,7 +97,10 @@ export function OrgHeader({
     }
   }, [onLeave]);
 
-  const memberLabel = `${memberCount} ${memberCount === 1 ? "member" : "members"}`;
+  const memberLabel =
+    memberCount === null
+      ? null
+      : `${memberCount} ${memberCount === 1 ? "member" : "members"}`;
 
   // Single column, CTA under the identity block — NOT floated top-right. Top-right
   // put this button in the same corner band as the app-wide "Start a Clarity Session"
@@ -105,6 +110,11 @@ export function OrgHeader({
     <header className="flex flex-col items-start gap-4">
       <div className="min-w-0 w-full">
         <h1 className="text-2xl sm:text-3xl font-bold break-words">{org.name}</h1>
+        {/* P1060 review (HIGH): an unknown count renders as ABSENCE — the whole row
+            goes away, exactly as OrgParticipantRow does for absent participation.
+            A wrong number is worse than no number: "0 members" on a group with 11
+            is a claim the page has no basis for. */}
+        {memberLabel !== null && (
         <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
           <UsersIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
           {/* The count already reads as a summary of the Members tab, so it links
@@ -122,6 +132,7 @@ export function OrgHeader({
             <span>{memberLabel}</span>
           )}
         </p>
+        )}
         {/* P1060 D9: the participant row sits beside the member count, not inside it —
             they are different claims. Member = accepted the terms. Participant = has
             RSVP'd to one of this org's events. · Chiang Mai reads 1 member and 45 who

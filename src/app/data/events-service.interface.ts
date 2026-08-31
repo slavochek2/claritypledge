@@ -64,6 +64,13 @@ export interface CreateEventInput {
   timezone: string;
   location: string;
   maxAttendees?: number;
+  /**
+   * P1060: the organization this event belongs to, or null/undefined for a
+   * standalone event. Setting it requires the host to be an ORGANIZER of that org —
+   * enforced in the database by the events_org_requires_organizer trigger, not by
+   * the caller. Omitting it is always allowed and is the standalone-hosting funnel.
+   */
+  orgId?: string | null;
 }
 
 export interface UpdateEventInput extends Partial<CreateEventInput> {

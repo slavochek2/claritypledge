@@ -375,6 +375,10 @@ export const realEventsService: EventsService = {
         location: data.location,
         host_id: user.id,
         max_attendees: data.maxAttendees ?? null,
+        // P1060: explicit null, never omitted — an absent key and a null both store
+        // NULL, but writing it makes the standalone case visible at the call site.
+        // The DB trigger rejects a non-null org_id the host does not organize.
+        org_id: data.orgId ?? null,
       })
       .select(`
         *,

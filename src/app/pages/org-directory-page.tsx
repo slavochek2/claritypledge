@@ -51,7 +51,10 @@ export function OrgDirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [orgs, setOrgs] = useState<Organization[]>([]);
-  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
+  // P1060 review (HIGH): a failed getMemberCounts must not print "0 members" on
+  // every card. `null` = the whole fetch failed (unknown); a missing key inside a
+  // successful fetch still means a genuine zero.
+  const [memberCounts, setMemberCounts] = useState<Record<string, number> | null>({});
   const [participation, setParticipation] = useState<Record<string, OrgParticipation>>({});
   const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
   const [eventSummaries, setEventSummaries] = useState<Record<string, OrgEventSummary>>({});
@@ -71,7 +74,7 @@ export function OrgDirectoryPage() {
         // never take the directory down with it. Each degrades to absent — which is
         // also the honest rendering (no row, no "0").
         const [counts, part, mine, summaries] = await Promise.all([
-          organizationsService.getMemberCounts(ids).catch(() => ({})),
+          organizationsService.getMemberCounts(ids).catch(() => null),
           organizationsService.getParticipation(ids).catch(() => ({})),
           organizationsService.getMyMembershipOrgIds().catch(() => [] as string[]),
           organizationsService.getEventSummaries(ids).catch(() => ({})),
@@ -131,7 +134,7 @@ export function OrgDirectoryPage() {
               <li key={org.id}>
                 <OrgCard
                   org={org}
-                  memberCount={memberCounts[org.id] ?? 0}
+                  memberCount={memberCounts === null ? null : (memberCounts[org.id] ?? 0)}
                   participation={participation[org.id]}
                   eventSummary={eventSummaries[org.id]}
                   isMine={myOrgIds.has(org.id)}
@@ -185,7 +188,8 @@ function OrgCard({
   isMine,
 }: {
   org: Organization;
-  memberCount: number;
+  /** null = counts could not be loaded; render no count rather than a false 0. */
+  memberCount: number | null;
   participation?: OrgParticipation;
   eventSummary?: OrgEventSummary;
   isMine: boolean;
@@ -257,10 +261,13 @@ function OrgCard({
       {/* Meta row. The member count carries the same person glyph the org header
           gives it — one fact, one rendering, on both surfaces. */}
       <p className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
-          <UsersIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {memberCount} {memberCount === 1 ? "member" : "members"}
-        </span>
+        {/* P1060 review (HIGH): unknown count renders as absence, not as "0 members". */}
+        {memberCount !== null && (
+          <span className="inline-flex items-center gap-1.5">
+            <UsersIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {memberCount} {memberCount === 1 ? "member" : "members"}
+          </span>
+        )}
         {pastCount > 0 && (
           <span className="inline-flex items-center gap-1.5">
             <CalendarDaysIcon className="h-4 w-4 shrink-0" aria-hidden="true" />

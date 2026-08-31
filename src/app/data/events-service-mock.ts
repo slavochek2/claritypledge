@@ -106,6 +106,10 @@ export const mockEventsService: EventsService = {
     // Use timestamp + random suffix for unique IDs (avoids collisions in parallel tests)
     const uniqueId = `evt-new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+    // P1060: the mock stays org-UNAWARE on the write path too, matching the read-path
+    // decision above. MockEvent has no org_id field and nothing in the mock reads one,
+    // so storing it would be dead weight that makes the mock look org-capable when it
+    // is not. Org association is a real-service concern, enforced in the database.
     const newEvent: MockEvent = {
       id: uniqueId,
       slug: `${slug}-${new Date().toISOString().split('T')[0]}-${Math.random().toString(36).slice(2, 6)}`,

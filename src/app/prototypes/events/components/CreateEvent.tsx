@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe } from 'lucide-react';
 import { LocationHint } from './LocationHint';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
+import { organizationsService } from '@/app/data/organizations-service';
+import type { Organization } from '@/app/data/organizations-service.interface';
 import { DURATIONS, TIMEZONES } from '../utils';
 
 export function CreateEvent() {
@@ -32,6 +34,51 @@ export function CreateEvent() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  /**
+   * P1060: `/events/new?org=<slug>` — the org page's Host Event link carries the
+   * organization forward so the created event belongs to it. Before this, the
+   * parameter was appended and never read, so hosting from a group page filed an
+   * unaffiliated event.
+   *
+   * The slug is URL-supplied and therefore untrusted. It is resolved to an id here
+   * ONLY to render the context line and to send a real id; the authorization decision
+   * is NOT made here. The database trigger (events_org_requires_organizer) is what
+   * refuses an event whose org the host does not organize. This state is a
+   * convenience, never a permission.
+   *
+   * `undefined` = not yet resolved. `null` = no org, or a slug that resolved to
+   * nothing, or the caller is not an organizer of it — all three collapse to "create
+   * a standalone event", which is always allowed.
+   */
+  const [searchParams] = useSearchParams();
+  const orgSlugParam = searchParams.get('org');
+  const [hostingOrg, setHostingOrg] = useState<Organization | null | undefined>(
+    orgSlugParam ? undefined : null,
+  );
+
+  useEffect(() => {
+    if (!orgSlugParam) { setHostingOrg(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const org = await organizationsService.getOrganizationBySlug(orgSlugParam);
+        if (cancelled) return;
+        if (!org) { setHostingOrg(null); return; }
+        // Only claim the org if this user actually organizes it. A non-organizer who
+        // edits the URL gets a plain standalone event rather than a submit the
+        // database will reject — the failure is prevented, not merely reported.
+        const membership = await organizationsService.getMyMembership(org.id);
+        setHostingOrg(membership?.role === 'organizer' ? org : null);
+      } catch (err) {
+        // Never block event creation on this lookup: falling back to a standalone
+        // event is the safe, always-permitted outcome.
+        console.error('Failed to resolve hosting organization', err);
+        if (!cancelled) setHostingOrg(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [orgSlugParam]);
 
   // Show loading while checking auth
   if (isLoading) {
@@ -100,6 +147,8 @@ export function CreateEvent() {
       durationMinutes,
       timezone,
       location,
+      // null unless the caller is a verified organizer of a real org (see above).
+      orgId: hostingOrg?.id ?? null,
     });
 
     setIsSubmitting(false);
@@ -109,7 +158,11 @@ export function CreateEvent() {
       navigate(`/events/${newEvent.slug}?created=true`);
     } else {
       // Handle error (shouldn't happen with mock, but good practice)
-      setErrors({ submit: 'Failed to create event. Please try again.' });
+      setErrors({
+        submit: hostingOrg
+          ? `Failed to create event in ${hostingOrg.name}. Please try again.`
+          : 'Failed to create event. Please try again.',
+      });
     }
   };
 
@@ -132,6 +185,14 @@ export function CreateEvent() {
             Back to Events
           </Link>
           <h1 className="text-2xl font-bold">Host an Event</h1>
+          {/* P1060: hosting into a group is invisible otherwise — the only signal was a
+              query parameter. A host who cannot see the destination cannot notice it is
+              wrong. Renders only once the org is resolved AND the caller organizes it. */}
+          {hostingOrg && (
+            <p data-testid="create-event-org-context" className="mt-1 text-sm text-muted-foreground">
+              in <span className="font-medium text-foreground">{hostingOrg.name}</span>
+            </p>
+          )}
         </div>
         <div className="space-y-6">
           {/* Event Name */}

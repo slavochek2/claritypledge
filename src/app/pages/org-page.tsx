@@ -48,7 +48,12 @@ export function OrgPage() {
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [org, setOrg] = useState<Organization | null>(null);
-  const [members, setMembers] = useState<OrgMember[]>([]);
+  // P1060 review (HIGH): `undefined` means NOT YET KNOWN — either still loading or
+  // the load failed. `[]` means the roster really is empty. Keeping these distinct is
+  // the whole fix: the roster load swallows its error by design (see loadRoster), so
+  // defaulting to `[]` published a confident "0 members" every time the fetch failed.
+  // `participation` already models absence this way; the roster now matches it.
+  const [members, setMembers] = useState<OrgMember[] | undefined>(undefined);
   const [myRole, setMyRole] = useState<OrgRole | null>(null);
   // P1060 D9: distinct RSVP'd profiles across this org's events. Undefined until
   // loaded and absent for a zero-participant org — both render as no row at all.
@@ -94,9 +99,12 @@ export function OrgPage() {
         const roster = await organizationsService.getMembers(orgSlugToLoad);
         if (!cancelled) setMembers(roster);
       } catch (err) {
-        // Swallowed on purpose — see the call site. An empty Members tab is a far
-        // better failure than a dead Events page.
+        // Still swallowed on purpose — see the call site. An empty Members tab is a
+        // far better failure than a dead Events page. But it must stay UNKNOWN, not
+        // become a zero: leaving `members` undefined is what keeps the count and the
+        // "Be the first to join" copy from asserting something we never learned.
         console.error("Failed to load roster", err);
+        if (!cancelled) setMembers(undefined);
       }
     }
 
@@ -119,7 +127,7 @@ export function OrgPage() {
       // remount when navigating between two /org/:slug pages (same route pattern), so
       // without this the previous org's member count and roster render under the new
       // org's name. If the roster fetch then fails, the wrong roster stays for good.
-      setMembers([]);
+      setMembers(undefined);
       setParticipation(undefined);
       try {
         const loadedOrg = await organizationsService.getOrganizationBySlug(slug);
@@ -183,7 +191,10 @@ export function OrgPage() {
     try {
       setMembers(await organizationsService.getMembers(orgSlug));
     } catch (err) {
+      // Same rule as the initial load: a failed refetch must not silently downgrade a
+      // known roster to "0 members". Drop back to unknown and let the UI say so.
       console.error("Failed to reload roster", err);
+      setMembers(undefined);
     }
   }, [orgSlug]);
 
@@ -221,7 +232,7 @@ export function OrgPage() {
   }, [org, reloadRoster]);
 
   const rosterItems = useMemo(
-    () => members.map((m) => ({
+    () => (members ?? []).map((m) => ({
       id: m.profileId,
       slug: m.slug ?? "",
       name: m.name,
@@ -290,7 +301,7 @@ export function OrgPage() {
 
         <OrgHeader
           org={org}
-          memberCount={members.length}
+          memberCount={members?.length ?? null}
           isMember={isMember}
           onJoin={handleJoin}
           onLeave={handleLeave}
@@ -332,7 +343,14 @@ export function OrgPage() {
           )}
 
           <TabsContent value="members" className="pt-4">
-            {rosterItems.length > 0 ? (
+            {members === undefined ? (
+              /* P1060 review (HIGH): unknown roster is NOT an empty roster. Saying
+                 "Be the first to join" to someone looking at a failed fetch invents a
+                 fact about the group. */
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Couldn't load members. Reload to try again.
+              </p>
+            ) : rosterItems.length > 0 ? (
               // variant="member": these are MEMBERS, not pledgers. Cards open the
               // person's profile (a member may have no pledge certificate to open)
               // and only ring the ones who actually pledged.

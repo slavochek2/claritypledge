@@ -233,22 +233,22 @@ re-pin.
 
 ## Done-When
 
-- [ ] `events.org_id` exists, nullable, with a foreign key to `organization`, indexed
-- [ ] The 8 listed Chiang Mai events carry the Chiang Mai organization; the 2 Ko Phangan events are NULL — backfilled before org #2 is seeded, by the explicit slug list in Solution item 2, with a row-count assertion that fails if it did not touch exactly 8
-- [ ] The · Online blurb (D7) is supplied by the founder and recorded in this spec before the seed migration runs
-- [ ] **Clarity Practice Community · Online** exists, is reachable at `/org/online`, and has an organizer membership row
-- [ ] Chiang Mai's Events tab lists only Chiang Mai's events; Online's lists only Online's — verified with at least one event in each
-- [ ] The visual reference is founder-approved and its four open items are resolved, before the contract is pinned
-- [ ] `/org` lists every public organization and links to each; readable signed-out; carries no create-organization affordance — matching the approved reference at 320px, 375px and desktop
-- [ ] `/org` is in `PROD_HEALTH_ROUTES` in the same diff
-- [ ] An event created from an org page carries that organization
-- [ ] The org-page Host Event / Co-create actions render for an organizer of that org and not for a non-organizer — **and still render for any logged-in user on the standalone `/events` list** (both halves asserted)
-- [ ] An org with no upcoming events shows its past events under an explicit heading; an org with neither shows one honest line
-- [ ] Each directory card and the org header show a participant count computed from RSVPs to that org's events — · Chiang Mai reads 45, not 1
-- [ ] The avatar row reuses the existing `social-proof.tsx` pattern (including the `+N` badge's `z-10`), not a new implementation
-- [ ] An organization with zero participants renders no avatar row and no `0` — asserted against · Online
-- [ ] No PII column beyond the public avatar fields appears in any directory or header payload
-- [ ] Events RLS explicitly confirmed unchanged, stated in the migration comment
+- [x] `events.org_id` exists, nullable, with a foreign key to `organization`, indexed
+- [ ] The 8 listed Chiang Mai events carry the Chiang Mai organization; the 2 Ko Phangan events are NULL — backfilled before org #2 is seeded, by the explicit slug list in Solution item 2, with a row-count assertion that fails if it did not touch exactly 8 — **UNTICKED: unverified.** UAT-1.2 is ENV-UNAVAILABLE — the test DB carries none of the 10 named prod slugs, so the assertion SKIPPED rather than passed. The migration refuses a partial write, but that is a guarantee about behaviour, not evidence the prod backfill was correct. Re-query prod post-deploy and diff against the spec's two tables.
+- [ ] The · Online blurb (D7) is supplied by the founder and recorded in this spec before the seed migration runs — **UNTICKED: founder decision, outstanding.** verification/feedback.md records zero founder corrections during the loop.
+- [x] **Clarity Practice Community · Online** exists, is reachable at `/org/online`, and has an organizer membership row
+- [x] Chiang Mai's Events tab lists only Chiang Mai's events; Online's lists only Online's — verified with at least one event in each
+- [ ] The visual reference is founder-approved and its four open items are resolved, before the contract is pinned — **UNTICKED: founder approval outstanding.** Seven review rounds ran; feedback.md records the founder's own items as unanswered.
+- [ ] `/org` lists every public organization and links to each; readable signed-out; carries no create-organization affordance — matching the approved reference at 320px, 375px and desktop — **UNTICKED: depends on the founder-approved reference above.** The no-create-affordance and signed-out halves ARE asserted (p1060-source-contract + e2e); the 320/375/desktop match against an approved reference is not.
+- [x] `/org` is in `PROD_HEALTH_ROUTES` in the same diff
+- [x] An event created from an org page carries that organization
+- [x] The org-page Host Event / Co-create actions render for an organizer of that org and not for a non-organizer — **and still render for any logged-in user on the standalone `/events` list** (both halves asserted)
+- [x] An org with no upcoming events shows its past events under an explicit heading; an org with neither shows one honest line
+- [x] Each directory card and the org header show a participant count computed from RSVPs to that org's events — · Chiang Mai reads 45, not 1
+- [x] The avatar row reuses the existing `social-proof.tsx` pattern (including the `+N` badge's `z-10`), not a new implementation
+- [x] An organization with zero participants renders no avatar row and no `0` — asserted against · Online
+- [x] No PII column beyond the public avatar fields appears in any directory or header payload
+- [x] Events RLS explicitly confirmed unchanged, stated in the migration comment
 
 ## Superseded scope (original filing, 2026-08-13)
 
