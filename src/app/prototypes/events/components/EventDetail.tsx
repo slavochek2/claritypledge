@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
+import { GroupChatBlock } from './GroupChatBlock';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
@@ -53,6 +54,9 @@ export function EventDetail() {
   const [loading, setLoading] = useState(true);
   const [isRsvpd, setIsRsvpd] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  // P1194: fetched separately from the event — the service returns null for anyone
+  // who is not the host or registered, so this state never holds a value we hide.
+  const [groupChatUrl, setGroupChatUrl] = useState<string | null>(null);
 
   // Fetch event and RSVP status
   useEffect(() => {
@@ -83,6 +87,25 @@ export function EventDetail() {
     }
     fetchEvent();
   }, [slug, isLoggedIn, user?.id]);
+
+  // P1194: group chat link. Separate effect (not folded into fetchEvent) so it
+  // re-runs when RSVP state changes — a visitor who registers and comes back
+  // from the confirm page must see the link without a hard reload.
+  const eventId = event?.id;
+  const isHostOfEvent = isLoggedIn && !!user && !!event && event.hostId === user.id;
+  useEffect(() => {
+    if (!eventId || (!isRsvpd && !isHostOfEvent)) {
+      setGroupChatUrl(null);
+      return;
+    }
+    let cancelled = false;
+    eventsService.getEventGroupChatUrl(eventId)
+      .then(url => { if (!cancelled) setGroupChatUrl(url); })
+      .catch(error => {
+        console.error('[EventDetail] Failed to fetch group chat link:', error);
+      });
+    return () => { cancelled = true; };
+  }, [eventId, isRsvpd, isHostOfEvent]);
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -607,6 +630,17 @@ export function EventDetail() {
                 className="prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                 dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
               />
+
+              {/* P1194: the group chat, after the description and before the RSVP
+                  confirmation — a button rather than a link buried in the body copy. */}
+              {!isPast && !isCancelled && (
+                <div className="mb-6">
+                <GroupChatBlock
+                  url={groupChatUrl}
+                  showLockedState={!!event.hasGroupChat && !isRsvpd && !isHostOfEvent}
+                />
+                </div>
+              )}
 
               {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}
               {!isHost && !isCancelled && isRsvpd && (

@@ -12,6 +12,12 @@ export interface EventsService {
   getEventBySlug(slug: string): Promise<EventWithHost | null>;
   getEventAttendees(eventId: string): Promise<EventAttendee[]>;
   isUserRsvpd(eventId: string, profileId: string): Promise<boolean>;
+  /**
+   * P1194: the event's group chat link. Returns null for anyone who is neither
+   * the host nor a registered attendee — the gate is RLS on event_private_info,
+   * not a caller-side check, so an unauthorized caller never receives the URL.
+   */
+  getEventGroupChatUrl(eventId: string): Promise<string | null>;
   isEventFull(event: EventWithHost): boolean;
   getSpotsRemaining(event: EventWithHost): number | null;
 
@@ -71,6 +77,8 @@ export interface CreateEventInput {
    * the caller. Omitting it is always allowed and is the standalone-hosting funnel.
    */
   orgId?: string | null;
+  /** P1194: optional group chat invite, stored privately and shown only to registered attendees. */
+  groupChatUrl?: string | null;
 }
 
 export interface UpdateEventInput extends Partial<CreateEventInput> {

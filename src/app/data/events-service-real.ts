@@ -41,6 +41,7 @@ interface DbEventWithHost {
   banner_url: string | null;
   /** P1179: JSONB [{tag, label?}] — extra Links-menu entries, [] on every row by default. */
   links: { tag: string; label?: string }[] | null;
+  has_group_chat?: boolean | null;
   host: {
     id: string;
     full_name: string | null;
@@ -65,6 +66,40 @@ interface DbRsvpWithProfile {
     has_pledged: boolean | null;
     ears_count: number | null;
   } | null;
+}
+
+/**
+ * P1194: write the group chat link into the RLS-gated side table.
+ *
+ * An empty string means "the host cleared the field" — the row is deleted
+ * rather than left holding an empty value, so `getEventGroupChatUrl` has one
+ * shape for "no group chat" instead of two. Returns false on failure; callers
+ * decide whether that is fatal (it is not, for create — the event already exists).
+ */
+async function upsertGroupChatUrl(eventId: string, url: string | null | undefined): Promise<boolean> {
+  const value = (url ?? '').trim();
+
+  if (!value) {
+    const { error } = await supabase
+      .from('event_private_info')
+      .delete()
+      .eq('event_id', eventId);
+    if (error) {
+      logDbError('upsertGroupChatUrl:delete', error);
+      return false;
+    }
+    return true;
+  }
+
+  const { error } = await supabase
+    .from('event_private_info')
+    .upsert({ event_id: eventId, group_chat_url: value, updated_at: new Date().toISOString() }, { onConflict: 'event_id' });
+
+  if (error) {
+    logDbError('upsertGroupChatUrl:upsert', error);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -97,6 +132,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     // migration lands (or a select that omits it) must still render the five
     // standard entries rather than crash the room's menu.
     links: Array.isArray(row.links) ? row.links : [],
+    hasGroupChat: row.has_group_chat ?? false, // P1194
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,
@@ -341,6 +377,27 @@ export const realEventsService: EventsService = {
     return !!data;
   },
 
+  async getEventGroupChatUrl(eventId: string): Promise<string | null> {
+    log(' getEventGroupChatUrl:', eventId);
+
+    // No caller-side authorization check here on purpose. RLS on
+    // event_private_info returns zero rows to anyone who is neither the host
+    // nor an RSVP'd attendee, so an unauthorized caller gets null from the
+    // database rather than a value this code declined to render (P1194).
+    const { data, error } = await supabase
+      .from('event_private_info')
+      .select('group_chat_url')
+      .eq('event_id', eventId)
+      .maybeSingle();
+
+    if (error) {
+      logDbError('getEventGroupChatUrl', error);
+      return null;
+    }
+
+    return data?.group_chat_url ?? null;
+  },
+
   isEventFull(event: EventWithHost): boolean {
     if (!event.maxAttendees) return false;
     return (event.attendeeCount ?? 0) >= event.maxAttendees;
@@ -402,6 +459,12 @@ export const realEventsService: EventsService = {
 
     const event = mapEventFromDb(created as DbEventWithHost);
 
+    // P1194: private details live in their own RLS-gated table, so this is a
+    // second write. A failure here must not lose the event that already exists.
+    if (data.groupChatUrl !== undefined) {
+      await upsertGroupChatUrl(event.id, data.groupChatUrl);
+    }
+
     // Fire-and-forget: generate banner in background so user navigates immediately
     void (async () => {
       let bannerUrl: string | null = null;
@@ -454,6 +517,12 @@ export const realEventsService: EventsService = {
     if (data.location !== undefined) updateData.location = data.location;
     if (data.maxAttendees !== undefined) updateData.max_attendees = data.maxAttendees;
     if ('bannerUrl' in data) updateData.banner_url = data.bannerUrl ?? null;
+
+    // P1194: the group chat link is not a column on events — write it separately.
+    // RLS restricts the write to the host, mirroring the host_id filter below.
+    if (data.groupChatUrl !== undefined) {
+      await upsertGroupChatUrl(eventId, data.groupChatUrl);
+    }
 
     // Only allow update if user is the host (authorization check)
     const { error, data: updated } = await supabase

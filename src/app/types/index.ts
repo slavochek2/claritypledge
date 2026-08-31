@@ -903,6 +903,8 @@ export interface Event {
   bannerUrl?: string;
   /** P1179: optional extra Links-menu entries. Tags only, never paths — see event-links.ts. */
   links?: EventLinkEntry[];
+  /** P1194: whether a group chat link exists. The existence is public; the URL is not. */
+  hasGroupChat?: boolean;
 }
 
 /**
@@ -961,6 +963,7 @@ export interface DbEvent {
   banner_url?: string | null;
   /** P1179: JSONB array, defaults to [] on every row. */
   links?: EventLinkEntry[] | null;
+  has_group_chat?: boolean;
 }
 
 export interface DbEventRsvp {

@@ -15,6 +15,22 @@ import {
   type MockEvent,
 } from '@/app/prototypes/events/_archive/mock-data';
 
+// P1194: the mock stand-in for event_private_info. A Map rather than a field on
+// MockEvent so the archived mock-data shape stays untouched, and so "no row" and
+// "empty value" collapse to the same absence the real service produces.
+const mockGroupChatUrls = new Map<string, string>();
+
+function setMockGroupChatUrl(eventId: string, url: string | null | undefined): void {
+  const value = (url ?? '').trim();
+  if (value) mockGroupChatUrls.set(eventId, value);
+  else mockGroupChatUrls.delete(eventId);
+}
+
+/** Mirrors the events.has_group_chat trigger: existence is public, the URL is not. */
+export function mockHasGroupChat(eventId: string): boolean {
+  return mockGroupChatUrls.has(eventId);
+}
+
 // Transform MockEvent to EventWithHost (same shape, just type alignment)
 function toEventWithHost(mock: MockEvent): EventWithHost {
   return {
@@ -26,6 +42,7 @@ function toEventWithHost(mock: MockEvent): EventWithHost {
     durationMinutes: mock.durationMinutes,
     timezone: mock.timezone,
     location: mock.location,
+    hasGroupChat: mockGroupChatUrls.has(mock.id), // P1194
     hostId: mock.hostId,
     hostName: mock.hostName,
     hostSlug: mock.hostSlug,
@@ -96,6 +113,17 @@ export const mockEventsService: EventsService = {
     return mockGetSpots(mockEvent);
   },
 
+  // P1194: private, registration-gated details. Keyed by event id, mirroring the
+  // event_private_info table the real service reads through RLS.
+  async getEventGroupChatUrl(eventId: string): Promise<string | null> {
+    const event = mockEvents.find(e => e.id === eventId);
+    if (!event) return null;
+    const isHost = event.hostId === mockCurrentUser.id;
+    const isRsvpd = (event.attendees ?? []).some(a => a.profileId === mockCurrentUser.id);
+    if (!isHost && !isRsvpd) return null;
+    return mockGroupChatUrls.get(eventId) ?? null;
+  },
+
   async createEvent(data: CreateEventInput): Promise<EventWithHost | null> {
     // Mock implementation - create temporary event
     const slug = data.title
@@ -131,6 +159,7 @@ export const mockEventsService: EventsService = {
     };
 
     mockEvents.push(newEvent);
+    setMockGroupChatUrl(uniqueId, data.groupChatUrl);
     return toEventWithHost(newEvent);
   },
 
@@ -145,6 +174,7 @@ export const mockEventsService: EventsService = {
     if (data.timezone) event.timezone = data.timezone;
     if (data.location) event.location = data.location;
     if (data.maxAttendees !== undefined) event.maxAttendees = data.maxAttendees;
+    if (data.groupChatUrl !== undefined) setMockGroupChatUrl(eventId, data.groupChatUrl);
 
     return true;
   },

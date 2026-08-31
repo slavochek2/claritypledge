@@ -7,6 +7,7 @@ import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
 import { formatDate, formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url } from '../utils';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
+import { GroupChatBlock } from './GroupChatBlock';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
@@ -16,6 +17,7 @@ export function RsvpConfirm() {
   const [event, setEvent] = useState<EventWithHost | null>(null);
   const [loading, setLoading] = useState(true);
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
+  const [groupChatUrl, setGroupChatUrl] = useState<string | null>(null);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
 
   // Fetch event data
@@ -28,6 +30,17 @@ export function RsvpConfirm() {
       const eventData = await eventsService.getEventBySlug(slug);
       setEvent(eventData);
       setLoading(false);
+
+      // P1194: the moment someone registers is when the group chat matters most.
+      // The caller is registered by definition here, but the gate is still the
+      // service's — null comes back if the RSVP did not actually land.
+      if (eventData?.hasGroupChat) {
+        try {
+          setGroupChatUrl(await eventsService.getEventGroupChatUrl(eventData.id));
+        } catch (error) {
+          console.error('[RsvpConfirm] Failed to fetch group chat link:', error);
+        }
+      }
     }
     fetchEvent();
   }, [slug]);
@@ -35,13 +48,16 @@ export function RsvpConfirm() {
   // Auto-redirect to event page after confirmation (only if event exists)
   useEffect(() => {
     if (!event) return; // Don't redirect if event not loaded or doesn't exist
+    // P1194: don't pull the page out from under someone reading a group chat
+    // invite they have not tapped yet.
+    if (groupChatUrl) return;
 
     const timer = setTimeout(() => {
       navigate(`/events/${slug}`);
     }, AUTO_REDIRECT_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [navigate, slug, event]);
+  }, [navigate, slug, event, groupChatUrl]);
 
   // Close calendar menu when clicking outside
   useEffect(() => {
@@ -142,6 +158,9 @@ export function RsvpConfirm() {
 
           {/* Actions */}
           <div className="space-y-3">
+            {/* P1194: the group chat is the one action here that is time-sensitive — first. */}
+            <GroupChatBlock url={groupChatUrl} variant="primary" />
+
             <div className="relative" ref={calendarMenuRef}>
               <Button
                 onClick={() => setCalendarMenuOpen(!calendarMenuOpen)}
@@ -224,10 +243,12 @@ export function RsvpConfirm() {
             </Link>
           </div>
 
-          {/* Auto-redirect notice */}
-          <p className="text-xs text-muted-foreground mt-6">
-            Redirecting to event page in a few seconds...
-          </p>
+          {/* Auto-redirect notice — suppressed when a group chat invite is on screen (P1194) */}
+          {!groupChatUrl && (
+            <p className="text-xs text-muted-foreground mt-6">
+              Redirecting to event page in a few seconds...
+            </p>
+          )}
         </div>
 
         {/* Back to events link */}

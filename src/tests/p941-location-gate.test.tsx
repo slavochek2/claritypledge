@@ -32,6 +32,9 @@ vi.mock('@/app/data/events-service', () => ({
     getEventBySlug: (...args: unknown[]) => mockGetEventBySlug(...args),
     isUserRsvpd: (...args: unknown[]) => mockIsUserRsvpd(...args),
     isEventFull: () => false,
+    // P1194: EventDetail asks for the group chat link once the viewer is host or
+    // RSVP'd. These fixtures carry no group chat — null is the honest answer.
+    getEventGroupChatUrl: vi.fn().mockResolvedValue(null),
     rsvpToEvent: vi.fn(),
     cancelRsvp: vi.fn(),
     cancelEvent: vi.fn(),

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin,
+  MessagesSquare, FileText, Globe } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LocationHint } from './LocationHint';
+import { validateGroupChatUrl } from '../group-chat-utils';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +29,7 @@ export function EditEvent() {
   const [timezone, setTimezone] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(120);
   const [location, setLocation] = useState('');
+  const [groupChatUrl, setGroupChatUrl] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -51,6 +54,15 @@ export function EditEvent() {
         setDurationMinutes(eventData.durationMinutes);
         setLocation(eventData.location);
         setDescription(eventData.description);
+        // P1194: the group chat link lives in the RLS-gated side table, not on the
+        // event row. The host passes that gate, so this returns their own value.
+        if (eventData.hasGroupChat) {
+          try {
+            setGroupChatUrl(await eventsService.getEventGroupChatUrl(eventData.id) ?? '');
+          } catch (error) {
+            console.error('[EditEvent] Failed to load group chat link:', error);
+          }
+        }
       }
       setIsLoading(false);
     }
@@ -129,6 +141,10 @@ export function EditEvent() {
     if (!location.trim() || location.length < 3) {
       newErrors.location = 'Please enter a location';
     }
+    const groupChatError = validateGroupChatUrl(groupChatUrl);
+    if (groupChatError) {
+      newErrors.groupChatUrl = groupChatError;
+    }
     if (!description.trim() || description.length < 20) {
       newErrors.description = 'Description must be at least 20 characters';
     }
@@ -154,6 +170,7 @@ export function EditEvent() {
       durationMinutes,
       timezone,
       location,
+      groupChatUrl: groupChatUrl.trim(),
     });
 
     setIsSubmitting(false);
@@ -286,6 +303,27 @@ export function EditEvent() {
             {errors.location
               ? <p className="text-sm text-red-500 mt-1">{errors.location}</p>
               : <LocationHint value={location} />
+            }
+          </div>
+
+          {/* Group chat — P1194: private to registered attendees */}
+          <div>
+            <Label htmlFor="groupChatUrl" className="flex items-center gap-2 mb-2">
+              <MessagesSquare className="w-4 h-4" />
+              Group chat link
+            </Label>
+            <Input
+              id="groupChatUrl"
+              value={groupChatUrl}
+              onChange={e => setGroupChatUrl(e.target.value)}
+              placeholder="e.g., https://chat.whatsapp.com/..."
+              className={errors.groupChatUrl ? 'border-red-500' : ''}
+            />
+            {errors.groupChatUrl
+              ? <p className="text-sm text-red-500 mt-1">{errors.groupChatUrl}</p>
+              : <p className="text-xs text-muted-foreground mt-1">
+                  Optional. Shown as a button to people who have registered — and to nobody else.
+                </p>
             }
           </div>
 
