@@ -227,20 +227,37 @@ Delete the skill file. Letters already filed are ordinary private letters and ne
 
 ## Done-When
 
-- [ ] The first run **proposes** a window (last month by default) and a narrowing pass, rather than asking an open question
-- [ ] The scan **names the session stores it read and the ones it skipped**; a store it could not reach is reported, never silently omitted
-- [ ] Running the skill on the founder's own corpus produces at least one candidate that passes the stake + arbiter-failure filter, with the failing candidates and their reasons shown
-- [ ] Each drafted submission carries **one story, three claims, three anti-points**, and a declared whose-problem — verified by reading the output
-- [ ] **Every anti-point reads as a complete rival position, not a negation** — spot-checked against the drafted set, not asserted
-- [ ] The confirmation step presents each claim beside its anti-point and requires a choice; a bare "looks good" does not advance it
-- [ ] The draft is filed into **test** first and reviewed in the product's reading flow, as the recipient will see it — **founder's direction only; participant 2 is explicitly exempt** and reviews in the terminal before pasting, because the fallback path has no test-database access. The asymmetry is accepted, not hidden: their run does not get the review discipline Stage 5 calls non-negotiable. *(Both review arms, 2026-08-31.)*
-- [ ] **A slot the corpus cannot fill is reported blank with its reason, and the submission still files** — verified by running against a corpus with no hypothesis present. No criterion in this spec may be met by inventing one.
-- [ ] On approval it is published to **prod as a private letter from the member**, not from the agent — sender identity confirmed by read-back
-- [ ] **The reading question on the filed letter is the default one**, confirmed by reading the stored value back after the write, not by self-report
-- [ ] The recipient answers it, and the sender receives their comprehension score
-- [ ] **Both directions run in the same round** — each participant sends one and receives one (see the reciprocity invariant)
-- [ ] **The second participant runs the identical skill without being given any credentials**, using the paste-into-compose fallback
-- [ ] **The round-one question is answered in writing:** did the reader produce a disagreement the sender judged worth having, and could the sender say which of the three claims it landed on?
+**Four boxes, and the other eleven are somewhere else on purpose.** Per `decisions.md` 2026-08-31
+[process] *"A Done-When box that only the world can tick is a hypothesis falsifier"*, the eleven
+criteria below that require a real round — a letter sent, a score returned, a second participant
+running the skill, a disagreement judged worth having — are **not acceptance criteria**. They are
+registered as **`hypotheses.md` H-AbsentCounterparty** with the falsifier, and are reproduced verbatim
+under §"Round-one criteria" so nothing is lost. The fourth box below is the guard that ruling requires:
+the relocation leaves a mechanical box behind, so `ship-gates.sh` gate 2.5 still has something to check
+and the move leaves a trace rather than a hole.
+
+- [x] The skill **proposes** a window (last month by default) and a narrowing pass, rather than asking an open question — `problem/submit.md` Stage 0a/0b
+- [x] The skill **names the session stores it read and the ones it skipped**; a store it could not reach is reported, never silently omitted — Stage 0c, with a hard stop when every store is skipped
+- [x] The confirmation step presents each claim beside its anti-point and requires a choice; a bare "looks good" does not advance it — Stage 4
+- [x] The round-one criteria are registered in `hypotheses.md` as **H-AbsentCounterparty**, with a falsifier and a novel prediction recorded before the test
+
+### Round-one criteria — moved to `hypotheses.md` H-AbsentCounterparty, kept here as the record
+
+Unticked by construction: none of these can be ticked by an agent at a keyboard. They are what the
+round-one protocol below produces, and their verdict belongs to the hypothesis, not to this spec's
+completion.
+
+- Running the skill on the founder's own corpus produces at least one candidate that passes the stake + arbiter-failure filter, with the failing candidates and their reasons shown
+- Each drafted submission carries **one story, three claims, three anti-points**, and a declared whose-problem — verified by reading the output
+- **Every anti-point reads as a complete rival position, not a negation** — spot-checked against the drafted set, not asserted
+- The draft is reviewed **in the product's reading flow, as the recipient will see it**, before it is sent — **founder's direction only; participant 2 is explicitly exempt** and reviews in the terminal before pasting, because the fallback path has no test-database access. The asymmetry is accepted, not hidden. *(Amended 2026-08-31: the spec said "filed into test first"; on the paste path there is no programmatic write, so the reading-flow requirement is preserved and the environment hop is the member's choice — see §"Implementation notes".)*
+- **A slot the corpus cannot fill is reported blank with its reason, and the submission still files** — verified by running against a corpus with no hypothesis present. No criterion in this spec may be met by inventing one.
+- On approval it is published to **prod as a private letter from the member**, not from the agent — sender identity confirmed by read-back
+- **The reading question on the filed letter is the default one**, confirmed by reading the stored value back after the write, not by self-report
+- The recipient answers it, and the sender receives their comprehension score
+- **Both directions run in the same round** — each participant sends one and receives one (see the reciprocity invariant)
+- **The second participant runs the identical skill without being given any credentials**, using the paste-into-compose fallback
+- **The round-one question is answered in writing:** did the reader produce a disagreement the sender judged worth having, and could the sender say which of the three claims it landed on?
 
 > **A nod is a failure, not a pass.** The previous version of the last criterion asked whether the letter contained what the sender would otherwise have explained — a completeness test, which a mirror passes. Replaced 2026-08-31; the target is understanding **and** friction, and only the second half is in doubt.
 
