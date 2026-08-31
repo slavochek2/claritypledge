@@ -4,8 +4,8 @@ type: story
 rank: 4
 created_date: '2026-08-13'
 tags: [organizations, events, schema, membership]
-delivery_stage: generate-tests
-pipeline_ran: [create-spec, grill-me, generate-tests]
+delivery_stage: ship
+pipeline_ran: [create-spec, grill-me, generate-tests, inline, finish, ship]
 driver: heuristic
 uat_file: features/uat/p1060.md
 test_files:
