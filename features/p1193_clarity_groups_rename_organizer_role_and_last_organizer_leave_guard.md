@@ -13,6 +13,7 @@ exec_model: opus
 exec_effort: high
 delivery_stage: dev
 pipeline_ran: [dev]
+created_date: 2026-08-31
 ---
 
 # P1193 — Clarity Groups: the rename, the organizer role on screen, and the last-organizer leave guard
