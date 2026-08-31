@@ -44,7 +44,7 @@ import type {
  */
 const ORG_DIFFERENTIATOR: Record<string, string> = {
   cm: "The room brings the topic",
-  online: "The topic is set in advance",
+  online: "Practise with people outside your own field",
 };
 
 export function OrgDirectoryPage() {

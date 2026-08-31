@@ -181,12 +181,18 @@ describe('P1060 M1 — both differentiator lines render verbatim', () => {
 
   it('carries the founder-approved line for each seeded organization', () => {
     expect(directory).toContain('The room brings the topic');
-    expect(directory).toContain('The topic is set in advance');
+    // Founder-approved 2026-08-31, REPLACING "The topic is set in advance". That
+    // line was rejected for describing one event format rather than a community —
+    // and because · Chiang Mai's own About already says "in person and online", so
+    // the medium never distinguished the two groups. This test intentionally pins
+    // the exact string: it is founder copy, and a silent edit to it is the thing
+    // being guarded against. Changing it requires a founder decision, not a patch.
+    expect(directory).toContain('Practise with people outside your own field');
   });
 
   it('keys them to the two seeded slugs', () => {
     expect(directory).toMatch(/cm:\s*"The room brings the topic"/);
-    expect(directory).toMatch(/online:\s*"The topic is set in advance"/);
+    expect(directory).toMatch(/online:\s*"Practise with people outside your own field"/);
   });
 });
 
