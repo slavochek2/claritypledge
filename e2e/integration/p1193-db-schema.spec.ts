@@ -128,6 +128,51 @@ test.describe('P1194: event_private_info is readable only by the host and regist
     await rsvpToEvent(eventId, attendeeId);
   });
 
+  test('a host can create and delete their own private row through RLS, a stranger cannot', async () => {
+    // The seeded row above was written with service-role, which bypasses RLS — so
+    // without this test the INSERT and DELETE policies had zero live coverage.
+    const hostClient = await clientFor(hostEmail);
+    const strangerClient = await clientFor(strangerEmail);
+
+    const second = await createTestEvent(hostId, new Date(Date.now() + 8 * 24 * 3600 * 1000), {
+      title: 'P1194 write-policy probe',
+      location: 'Somewhere else',
+    });
+
+    try {
+      const { error: strangerInsert } = await strangerClient
+        .from('event_private_info')
+        .insert({ event_id: second.id, group_chat_url: 'https://chat.whatsapp.com/nope' });
+      expect(strangerInsert, 'a non-host INSERT must be refused').not.toBeNull();
+
+      const { error: hostInsert } = await hostClient
+        .from('event_private_info')
+        .insert({ event_id: second.id, group_chat_url: GROUP_CHAT_URL });
+      expect(hostInsert, 'the host INSERT must be allowed').toBeNull();
+
+      await strangerClient.from('event_private_info').delete().eq('event_id', second.id);
+      const { data: survived } = await supabaseAdmin
+        .from('event_private_info').select('event_id').eq('event_id', second.id);
+      expect(survived, 'a non-host DELETE must remove nothing').toHaveLength(1);
+
+      await hostClient.from('event_private_info').delete().eq('event_id', second.id);
+      const { data: gone } = await supabaseAdmin
+        .from('event_private_info').select('event_id').eq('event_id', second.id);
+      expect(gone, 'the host DELETE must be allowed').toHaveLength(0);
+    } finally {
+      await deleteTestEvent(second.id);
+    }
+  });
+
+  test('a whitespace-only link does not count as having a group chat', async () => {
+    await supabaseAdmin.from('event_private_info').update({ group_chat_url: '   ' }).eq('event_id', eventId);
+    const { data: blank } = await supabaseAdmin.from('events').select('has_group_chat').eq('id', eventId).single();
+    expect(blank?.has_group_chat).toBe(false);
+    await supabaseAdmin.from('event_private_info').update({ group_chat_url: GROUP_CHAT_URL }).eq('event_id', eventId);
+    const { data: restored } = await supabaseAdmin.from('events').select('has_group_chat').eq('id', eventId).single();
+    expect(restored?.has_group_chat).toBe(true);
+  });
+
   test('deleting the private row clears the public flag', async () => {
     await supabaseAdmin.from('event_private_info').delete().eq('event_id', eventId);
     const { data } = await supabaseAdmin.from('events').select('has_group_chat').eq('id', eventId).single();

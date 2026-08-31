@@ -460,9 +460,16 @@ export const realEventsService: EventsService = {
     const event = mapEventFromDb(created as DbEventWithHost);
 
     // P1194: private details live in their own RLS-gated table, so this is a
-    // second write. A failure here must not lose the event that already exists.
+    // second write. The event itself already exists and must not be thrown away —
+    // but the host typed a link and has to learn it did not save, so the failure
+    // rides back on the event rather than being swallowed (updateEvent returns
+    // false for the same reason; here there is a created event to hand back).
     if (data.groupChatUrl !== undefined) {
-      await upsertGroupChatUrl(event.id, data.groupChatUrl);
+      const wrote = await upsertGroupChatUrl(event.id, data.groupChatUrl);
+      if (!wrote) {
+        log('ERROR: createEvent: event created but group chat link did not persist');
+        event.groupChatWriteFailed = true;
+      }
     }
 
     // Fire-and-forget: generate banner in background so user navigates immediately

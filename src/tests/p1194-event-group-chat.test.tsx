@@ -145,14 +145,38 @@ describe('P1194: the URL never reaches an unauthorized client', () => {
   });
 
   it('a failed group chat write is reported, never swallowed under a success toast', () => {
-    const update = SERVICE.slice(
-      SERVICE.indexOf('async updateEvent'),
-      SERVICE.indexOf('async cancelEvent')
+    // BOTH call sites, not just updateEvent. The first version of this test sliced
+    // only the update path and so could not see createEvent discarding the same
+    // boolean — the identical defect, one function away.
+    const callSites = [...SERVICE.matchAll(/upsertGroupChatUrl\(/g)];
+    // One definition + two call sites.
+    expect(callSites.length).toBeGreaterThanOrEqual(3);
+    for (const hit of callSites) {
+      const line = SERVICE.slice(SERVICE.lastIndexOf('\n', hit.index!) + 1, hit.index!);
+      // Either the definition itself, or a call whose result is bound to something.
+      expect(line).toMatch(/function |const wrote = await /);
+    }
+    expect(SERVICE).toMatch(/groupChatWriteFailed = true/);
+  });
+
+  it('the edit form does not turn a failed READ into a delete', () => {
+    const edit = R('src/app/prototypes/events/components/EditEvent.tsx');
+    // A null read on an event that HAS a link means "unknown", not "cleared".
+    expect(edit).toMatch(/setGroupChatLoadFailed\(true\)/);
+    // And an unknown value must be omitted from the payload, never sent as ''.
+    expect(edit).toMatch(/groupChatLoadFailed && !groupChatUrl\.trim\(\) \? \{\}/);
+  });
+
+  it('the mock service matches attendees on the field the mock actually stores', () => {
+    const mock = R('src/app/data/events-service-mock.ts');
+    const accessor = mock.slice(
+      mock.indexOf('async getEventGroupChatUrl'),
+      mock.indexOf('async createEvent')
     );
-    // The boolean must be consumed. Discarding it tells the host "saved" for a
-    // link that never persisted.
-    expect(update).toMatch(/const wrote = await upsertGroupChatUrl/);
-    expect(update).toMatch(/if \(!wrote\)/);
+    // MockEvent attendees carry `id`. Matching on `profileId` silently made every
+    // RSVP'd non-host see the locked state forever.
+    expect(accessor).toMatch(/a\.id === mockCurrentUser\.id/);
+    expect(accessor).not.toMatch(/a\.profileId/);
   });
 
   it('the event page only asks for the link once the viewer is host or registered', () => {

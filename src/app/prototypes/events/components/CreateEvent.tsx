@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { ArrowLeft, Calendar, Clock, MapPin,
   MessagesSquare, FileText, Globe } from 'lucide-react';
 import { LocationHint } from './LocationHint';
@@ -162,6 +163,11 @@ export function CreateEvent() {
     setIsSubmitting(false);
 
     if (newEvent) {
+      // P1194: the event saved but its group chat link did not. Say so — navigating
+      // to a success page would tell the host the link is live when it is absent.
+      if (newEvent.groupChatWriteFailed) {
+        toast.error("Event created, but the group chat link didn't save. Add it again from Edit event.");
+      }
       // Navigate to the new event
       navigate(`/events/${newEvent.slug}?created=true`);
     } else {

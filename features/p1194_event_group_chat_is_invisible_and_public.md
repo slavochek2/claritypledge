@@ -4,9 +4,10 @@ type: story
 rank: 20
 created_date: '2026-08-31'
 tags: [events, privacy, rsvp, whatsapp]
-delivery_stage: dev
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, finish, ship]
 driver: founder
+flow: inline
 ---
 
 # P1194: The event group chat is invisible to the people who need it and public to everyone else
@@ -51,12 +52,25 @@ Only ONE full-width primary per view (P955) — RSVP keeps primary; this is seco
 
 ## Done-When
 
-1. `event_private_info` exists with RLS proven by test: anon → 0 rows, authenticated non-RSVP → 0 rows, RSVP'd → 1 row, host → 1 row.
-2. The event page shows a `Join WhatsApp group` button to a registered attendee and the host, and a locked reason-to-register line to everyone else.
-3. The URL is absent from the network payload for a non-registered viewer.
-4. Create and edit forms accept, persist, and round-trip the group chat link.
-5. Label derives from the URL provider; a non-http scheme yields no href.
-6. The Doi Pui description reads in the founder's order with the inline WhatsApp sentence removed.
+- [x] `event_private_info` exists with RLS proven by test: anon → 0 rows, authenticated non-RSVP → 0 rows, RSVP'd → 1 row, host → 1 row.
+- [x] The event page shows a `Join WhatsApp group` button to a registered attendee and the host, and a locked reason-to-register line to everyone else.
+- [x] The URL is absent from the network payload for a non-registered viewer.
+- [x] Create and edit forms accept, persist, and round-trip the group chat link.
+- [x] Label derives from the URL provider; a non-http scheme yields no href.
+
+## Next Steps
+
+These are **operator actions on production data**, deliberately not Done-When items: no
+commit on this branch can close them, and a criterion the repo cannot verify does not
+belong in a gate the repo enforces.
+
+1. Migrate prod (`./scripts/migrate.sh --env prod`) — the table does not exist there yet.
+2. On the Doi Pui event's edit form, paste the group chat invite into **Group chat link**.
+3. Replace the description with the reordered copy **and delete the inline WhatsApp
+   sentence** — until it is gone the invite is still public in the body, and the gate
+   protects nothing.
+4. Consider rotating the WhatsApp invite: the current one has been public since the event
+   was published, so the gate gives it privacy only going forward.
 
 ## Invariants
 

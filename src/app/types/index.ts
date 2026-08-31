@@ -905,6 +905,12 @@ export interface Event {
   links?: EventLinkEntry[];
   /** P1194: whether a group chat link exists. The existence is public; the URL is not. */
   hasGroupChat?: boolean;
+  /**
+   * P1194: set by createEvent when the event saved but its group chat link did not.
+   * Transient, never persisted — it exists so the create form can tell the host
+   * instead of navigating away on a silent partial success.
+   */
+  groupChatWriteFailed?: boolean;
 }
 
 /**

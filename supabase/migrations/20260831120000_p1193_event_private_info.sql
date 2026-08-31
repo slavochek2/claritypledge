@@ -18,7 +18,7 @@
 -- is a render branch over a value that still ships to the browser; this table
 -- returns zero rows to anyone who is not the host or an RSVP'd attendee.
 
-CREATE TABLE public.event_private_info (
+CREATE TABLE IF NOT EXISTS public.event_private_info (
   event_id UUID PRIMARY KEY REFERENCES public.events(id) ON DELETE CASCADE,
   group_chat_url TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -32,6 +32,7 @@ ALTER TABLE public.event_private_info ENABLE ROW LEVEL SECURITY;
 -- Read: host or someone holding an RSVP for this event.
 CREATE POLICY "Private info visible to host and registered attendees"
   ON public.event_private_info FOR SELECT
+  TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.events e
@@ -51,6 +52,7 @@ CREATE POLICY "Private info visible to host and registered attendees"
 -- repoint a row at an event they do not own.
 CREATE POLICY "Hosts can create private info for their events"
   ON public.event_private_info FOR INSERT
+  TO authenticated
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.events e
@@ -61,6 +63,7 @@ CREATE POLICY "Hosts can create private info for their events"
 
 CREATE POLICY "Hosts can update private info for their events"
   ON public.event_private_info FOR UPDATE
+  TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.events e
@@ -78,6 +81,7 @@ CREATE POLICY "Hosts can update private info for their events"
 
 CREATE POLICY "Hosts can delete private info for their events"
   ON public.event_private_info FOR DELETE
+  TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.events e
@@ -86,7 +90,11 @@ CREATE POLICY "Hosts can delete private info for their events"
     )
   );
 
--- The RSVP lookup in the SELECT policy runs per row read.
+-- The RSVP lookup in the SELECT policy runs per row read. event_rsvps already has
+-- single-column indexes on profile_id and event_id (20260118_create_events.sql); this
+-- composite is a deliberate third index serving the policy's exact (profile_id, event_id)
+-- predicate as an index-only scan. The cost is a little extra write work per RSVP, paid
+-- to keep a per-row-read policy cheap.
 CREATE INDEX IF NOT EXISTS idx_event_rsvps_profile_event
   ON public.event_rsvps(profile_id, event_id);
 
@@ -115,29 +123,54 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  target_event UUID := COALESCE(NEW.event_id, OLD.event_id);
+  -- Both sides of the change, not COALESCE(NEW, OLD). An UPDATE that moves the row
+  -- from one event to another (a host owning two events can do this — the UPDATE
+  -- policy checks ownership of both, not that event_id is unchanged) would otherwise
+  -- leave the VACATED event's flag stuck TRUE, promising a group chat no longer there.
+  --
+  -- Built by TG_OP rather than by reading NEW and OLD unconditionally: in PL/pgSQL,
+  -- NEW is unassigned during DELETE and OLD during INSERT, and touching the wrong one
+  -- raises "record is not assigned yet" at runtime.
+  target_events UUID[];
 BEGIN
+  IF TG_OP = 'INSERT' THEN
+    target_events := ARRAY[NEW.event_id];
+  ELSIF TG_OP = 'DELETE' THEN
+    target_events := ARRAY[OLD.event_id];
+  ELSE
+    target_events := ARRAY[NEW.event_id, OLD.event_id];
+  END IF;
+
   UPDATE public.events e
   SET has_group_chat = EXISTS (
     SELECT 1 FROM public.event_private_info p
-    WHERE p.event_id = target_event
+    WHERE p.event_id = e.id
       AND p.group_chat_url IS NOT NULL
       AND length(btrim(p.group_chat_url)) > 0
   )
-  WHERE e.id = target_event;
+  WHERE e.id = ANY(target_events);
 
   RETURN NULL; -- AFTER trigger
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_sync_event_has_group_chat ON public.event_private_info;
 CREATE TRIGGER trg_sync_event_has_group_chat
   AFTER INSERT OR UPDATE OR DELETE ON public.event_private_info
   FOR EACH ROW EXECUTE FUNCTION public.sync_event_has_group_chat();
 
 -- Backfill for any rows created before the trigger existed (none expected on a
 -- fresh install; harmless and makes re-running against a partially-migrated DB safe).
+-- WHERE clause is load-bearing: without it this rewrites every row of a live table
+-- for zero change, since ADD COLUMN ... DEFAULT FALSE already set them all.
 UPDATE public.events e
 SET has_group_chat = EXISTS (
+  SELECT 1 FROM public.event_private_info p
+  WHERE p.event_id = e.id
+    AND p.group_chat_url IS NOT NULL
+    AND length(btrim(p.group_chat_url)) > 0
+)
+WHERE e.has_group_chat IS DISTINCT FROM EXISTS (
   SELECT 1 FROM public.event_private_info p
   WHERE p.event_id = e.id
     AND p.group_chat_url IS NOT NULL

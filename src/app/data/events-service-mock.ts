@@ -119,7 +119,9 @@ export const mockEventsService: EventsService = {
     const event = mockEvents.find(e => e.id === eventId);
     if (!event) return null;
     const isHost = event.hostId === mockCurrentUser.id;
-    const isRsvpd = (event.attendees ?? []).some(a => a.profileId === mockCurrentUser.id);
+    // MockEvent attendees carry `id`, not `profileId` (see _archive/mock-data.ts).
+    // Getting this wrong made every RSVP'd non-host see the locked state forever.
+    const isRsvpd = (event.attendees ?? []).some(a => a.id === mockCurrentUser.id);
     if (!isHost && !isRsvpd) return null;
     return mockGroupChatUrls.get(eventId) ?? null;
   },

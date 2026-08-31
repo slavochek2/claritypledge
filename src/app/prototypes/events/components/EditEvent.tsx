@@ -30,6 +30,9 @@ export function EditEvent() {
   const [durationMinutes, setDurationMinutes] = useState(120);
   const [location, setLocation] = useState('');
   const [groupChatUrl, setGroupChatUrl] = useState('');
+  // P1194: true when the existing link could not be READ. An empty field then means
+  // "unknown", not "the host cleared it" — and the two must not submit the same value.
+  const [groupChatLoadFailed, setGroupChatLoadFailed] = useState(false);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -58,9 +61,15 @@ export function EditEvent() {
         // event row. The host passes that gate, so this returns their own value.
         if (eventData.hasGroupChat) {
           try {
-            setGroupChatUrl(await eventsService.getEventGroupChatUrl(eventData.id) ?? '');
+            const existing = await eventsService.getEventGroupChatUrl(eventData.id);
+            // The event says a link exists; null here means the read failed or was
+            // refused. Treating that as an empty field would submit '' on save, which
+            // upsertGroupChatUrl reads as "host cleared it" and DELETES the real link.
+            if (existing === null) setGroupChatLoadFailed(true);
+            else setGroupChatUrl(existing);
           } catch (error) {
             console.error('[EditEvent] Failed to load group chat link:', error);
+            setGroupChatLoadFailed(true);
           }
         }
       }
@@ -170,7 +179,9 @@ export function EditEvent() {
       durationMinutes,
       timezone,
       location,
-      groupChatUrl: groupChatUrl.trim(),
+      // Omitted, not empty, when the read failed — an undefined field is left alone
+      // by updateEvent; an empty string would delete the stored link.
+      ...(groupChatLoadFailed && !groupChatUrl.trim() ? {} : { groupChatUrl: groupChatUrl.trim() }),
     });
 
     setIsSubmitting(false);
@@ -321,9 +332,14 @@ export function EditEvent() {
             />
             {errors.groupChatUrl
               ? <p className="text-sm text-red-500 mt-1">{errors.groupChatUrl}</p>
-              : <p className="text-xs text-muted-foreground mt-1">
-                  Optional. Shown as a button to people who have registered — and to nobody else.
-                </p>
+              : groupChatLoadFailed
+                ? <p className="text-xs text-amber-600 mt-1">
+                    This event has a group chat link, but it could not be loaded. Leave the field
+                    blank to keep the existing link, or type a new one to replace it.
+                  </p>
+                : <p className="text-xs text-muted-foreground mt-1">
+                    Optional. Shown as a button to people who have registered — and to nobody else.
+                  </p>
             }
           </div>
 

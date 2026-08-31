@@ -137,6 +137,42 @@ Ephemeral, no-auth submissions backing the always-visible distribution on `/read
 
 **Migration:** `supabase/migrations/20260816120000_p1083_ready_submissions.sql`
 
+### event_private_info (P1194 — registration-gated event details)
+
+Event details visible only to the host and people holding an RSVP. Currently one field, the
+group chat invite link.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| event_id | uuid | Primary key, FK → `events(id)` `ON DELETE CASCADE` |
+| group_chat_url | text | WhatsApp/Telegram/Signal/Discord invite; `NULL` or empty ⇒ no group chat |
+| updated_at | timestamptz | Last write |
+
+**Why a side table and not a column on `events`:** `events` is `SELECT USING (true)` and every read
+in `events-service-real.ts` runs `select('*', …)`. Protecting a column there would need a
+column-level `REVOKE`, and a `REVOKE` makes `SELECT *` fail outright for `anon` — taking the whole
+events page down. A separate table with its own RLS leaves every existing query untouched.
+
+**RLS** (all policies `TO authenticated`):
+- SELECT: host of the event **OR** holder of an `event_rsvps` row for it. Not `USING (true)`.
+- INSERT / UPDATE / DELETE: host only. UPDATE carries a matching `WITH CHECK` so a host cannot
+  repoint a row at an event they do not own.
+
+**`events.has_group_chat`** — a public boolean on `events`, maintained by the
+`sync_event_has_group_chat()` trigger (`SECURITY DEFINER`, `SET search_path = ''`). The *existence*
+of a group chat is public; the URL is not. Without it the UI could not decide whether to show a
+"register to join" prompt without leaking whether a link exists. Never written by a client. The
+trigger syncs **both** `NEW.event_id` and `OLD.event_id` on UPDATE — a row moved between two events
+owned by the same host would otherwise leave the vacated event's flag stuck `TRUE`.
+
+**Client access:** `eventsService.getEventGroupChatUrl(eventId)` only — it returns `null` from the
+database for an unauthorized caller rather than fetching-then-hiding. Never join this table onto a
+publicly-readable `events` query.
+
+**Migration:** `supabase/migrations/20260831120000_p1193_event_private_info.sql` (filename carries
+the pre-renumber P-number; see its header)
+**Integration test:** `e2e/integration/p1193-db-schema.spec.ts` (10 cases, live RLS)
+
 ### agent_accounts (P1104 — machine readings of public figures)
 
 A registry, not a flag. An **agent account** is a persistent machine reading of a real public
