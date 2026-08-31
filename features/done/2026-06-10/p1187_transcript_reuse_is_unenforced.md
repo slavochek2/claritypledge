@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 84
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [transcripts, caching, points-pipeline, correctness, storage]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, finish, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-08-31
 ---
 
 # P1187 — Expensive work is redone because reuse is a convention, not a mechanism: one artifact ledger every tool consults
@@ -24,7 +24,7 @@ driver: anomaly
 
 **Situation.** This pipeline repeatedly performs work that is slow, paid, or rate-limited: caption
 fetches, audio downloads, speaker-labelled transcription, and (planned) model-run verification of
-those transcripts. [P1140](done/2026-06-10/p1140_transcript_retention_for_quote_reverification.md)
+those transcripts. [P1140](p1140_transcript_retention_for_quote_reverification.md)
 built a store for one of these so a published quote stays re-verifiable against the **exact bytes**
 it was checked against.
 
