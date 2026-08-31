@@ -4,6 +4,122 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-08-31 [process]: A Done-When box that only the world can tick is a hypothesis falsifier — and relocating one must leave a box behind
+
+**Context:** P1180 shipped its deliverable (`/slava:problem:submit`) and could not close. Its Done-When
+holds 14 boxes; **11 are observations of a real round** — a letter sent, a comprehension score
+returned, a second participant running the skill credential-free, *"did the reader produce a
+disagreement the sender judged worth having."* Nothing an agent does at a keyboard ticks those. The
+spec therefore reads `in-progress` on the board while the code is done and committed, and the board
+cannot tell that state from work still in flight.
+
+**This is not new, and the two prior records are what make the general rule safe to state.** (i) The
+P1152/P1196 entry below already made the carve-out for one case: physical-verification rows were
+deliberately kept **out** of P1196's Done-When and left in the spec that owns the verdict, because
+duplicating them would either block a fixed defect behind hardware or get them ticked without being
+run — and it named the general shape in its own Consequences (*"a spec whose deliverable is a human
+running something has no mechanical completion signal, so every automatic closure path is wrong for
+it by default"*). (ii) **A classifier for exactly this already exists and is mechanical:**
+`goalify/SKILL.md` Phase 0 sorts every `Done-When` / `Acceptance Criteria` line into **MECHANICAL /
+COMPARABLE / HUMAN-ONLY** and refuses to emit above 25% HUMAN-ONLY.
+
+**Decision — reuse the existing classifier, do not invent a fourth test.** A Done-When line that
+Phase 0 would call **HUMAN-ONLY *and* is not performable by the founder on the day the code lands**
+(it needs a counterparty, a cohort, an elapsed round) is not an acceptance criterion. It is a
+**hypothesis falsifier** and belongs in `hypotheses.md`, whose Status column can read `Active` for
+months without lying about anything. MECHANICAL and COMPARABLE lines stay. This generalizes (i) from
+"physical hardware" to "any arbiter outside this process."
+
+**The guard, and it is the load-bearing half.** Gate 2.5 (P1169, below) exists **because P1141
+shipped with three acceptance criteria unticked**. A rule that permits relocation is a sanctioned
+route to unticked-by-relocation — the same failure wearing a permit. So: **when lines move out, they
+are replaced by ONE mechanical box** — *"the round-one criteria are registered in `hypotheses.md` as
+H-‹name› with a falsifier."* Gate 2.5 still has something to check, the relocation leaves a trace a
+reader can follow instead of a hole they cannot see, and the spec closes on what it actually
+delivered.
+
+**Alternatives rejected:** *(a) A new `field-test` status on the board.* Adds a state to every spec
+to describe a property of a few, and `status:` is explicitly not read by any gate since P1169 —
+putting meaning back into it re-creates the label-vs-artifact problem that entry fixed. *(b) Split
+P1180 into a build spec and an experiment spec.* Works, but files a spec for something that is not
+work — the experiment is a bet, and `hypotheses.md` is where bets already live (CHARTER rule 4).
+*(c) Leave it stuck.* The stuck-ness is honest, which is the strongest argument against changing
+anything — but it is honest about the wrong thing: it reports the *build* as unfinished when the
+build is done, and a board that cannot say "delivered, unvalidated" will accumulate specs nobody can
+read the state of.
+
+**Consequences:** P1180 keeps 3 boxes and hands 11 to `hypotheses.md` via
+`/slava:maintain:docs-strategy-update` (this entry does not write that doc). Every research-programme
+spec will hit this; the classifier is already written, so the change is a routing rule, not a new
+mechanism. **Not yet exercised:** the guard has not been run against gate 2.5 — the cheapest disproof
+is to relocate without registering and confirm 2.5 still fails closed (`.claude/rules/epistemic.md`
+gate 7 — a gate not seen to fail is unproven). (Status: proposed)
+
+**References:** [p1180](../features/p1180_problem_submit_skill.md) · `scripts/ship-gates.sh` gate 2.5
+· `.claude/commands/slava/build/goalify/SKILL.md` Phase 0 · 2026-08-28 [process] "`/goalify` refuses a
+spec that is more than a quarter taste" (the classifier) · the P1152/P1196 physical-verification entry
+below (the carve-out this generalizes) · 2026-08-27 [process] gate 2.5 (the failure the guard protects)
+· [CHARTER.md](CHARTER.md) rule 4
+
+---
+
+## 2026-08-31 [technical]: Composing a letter by hand satisfies three "corrections" for free — and puts the claim before the story unless you stop it
+
+**Context:** P1180 §Stage 6 listed three corrections needed to file a problem letter through the path
+`/slava:understanding:create-letter` implements: it writes exactly two points (this needs six), it
+authenticates as a provisioned agent (this must be the member), and it unconditionally stamps the
+reverse-story marker (this needs the **default** reading question). The spec then corrected itself on
+the second — sender identity is not a correction but *"the largest unbuilt piece in the spec,"*
+requiring the member's production session in an agent's hands. Founder direction, 2026-08-31: **use
+the paste-into-compose fallback for round one; do not build the credential path.**
+
+**Decision — the paste path is the round-one filing mechanism, and it dissolves all three.** (1) The
+compose UI takes as many points as the member adds, so the two-point limit was a property of that
+skill's write sequence, never of the product. (2) The member is authenticated as themselves in their
+own browser — that *is* the sender-identity mechanism, and no credential is handled anywhere. (3) The
+reverse-story marker is written by **step 6b of that one skill and by nothing else in the product**,
+so a hand-composed letter carries the default question *by construction*. `/slava:understanding:create-letter`
+is not modified. A second consequence the spec's Risks table can now be corrected on: the member only
+pastes content already approved at the confirmation step, so the *"off-machine write of unapproved
+content"* exposure does not arise on this path at all.
+
+**Construction is not evidence, and the skill does not treat it as such.** Correction 3 is verified by
+**reading the filed letter back** — the failure it guards is a run in which every gate passes and the
+number measures the opposite thing, which is the exact failure that path's own file was written to
+prevent.
+
+**The trap this surfaced, and it is a product fact, not a skill fact.** `point_config.lead_count`
+defaults to **1** when unset (`letter-reading-utils.ts`), so the **first point renders before the
+story**. A reader would then take a position on the claim before reading the experience that explains
+it, and the anti-point's contradiction never gets staged. The programmatic path sets `lead_count: 0`
+explicitly and is safe; **a hand-composed letter is not** — the composer must unmark the lead point
+and then confirm story-first **in the preview**, not from the toggle's appearance. Distinct from the
+2026-08-06 note below, which is about `lead_count: 0` foreclosing a position-flip measurement; this is
+about the default silently inverting the intended reading order for anyone composing in the UI.
+
+**Alternatives rejected:** *(a) Build the credential path now.* Founder direction, and the spec's own
+reasoning: it moves who the recorded positions belong to, and the existing file's constraints exist
+specifically to stop it being improvised. Revisit once a round has run and the friction is measured.
+*(b) File into the test database first, as §Stage 5 specifies.* Half-rejected: test-first had two
+reasons — read the letter in the product, and stop the prod write being its own first execution. With
+no programmatic write the second is gone; the first is preserved via `/letter/‹docId›/preview`, which
+composes *the same reading components as the reading page*. Both routes stay available.
+
+**Consequences:** `/slava:problem:submit` ships needing no `.env` file, no service-role key and no
+agent identity — which is also what lets a second participant run the identical skill in round one
+without being handed anything. The credential path becomes worth building only when the paste friction
+is measured rather than assumed; **that is the moment the `create-letter` overlap stops being
+theoretical** ([skill-families.md](skill-families.md) §"Overlaps that are deliberate"). **Unverified:**
+no letter has been composed through this path yet — the lead-point step and the read-back are written,
+not exercised. (Status: proposed)
+
+**References:** [p1180](../features/p1180_problem_submit_skill.md) §"Implementation notes" ·
+`.claude/commands/slava/problem/submit.md` Stage 6 · `.claude/commands/slava/understanding/create-letter.md`
+step 6b · `src/app/utils/letter-reading-utils.ts` · `src/app/utils/lead-toggle.ts` ·
+[skill-families.md](skill-families.md)
+
+---
+
 ## 2026-08-31 [product]: The reader test run on all five candidates — the shape survives, its justification does not, and the kept claim was the one that had to go
 
 **Context:** P1180's Stage 3 proposed "one story + three claims" over `decisions.md` 2026-08-28 [product] ruling 2's four separately-contestable slots, justified by a **reader test** — *can a stranger take a position on this sentence?* The sibling entry today records the defect: the test was run on the two slots removed and never on the claim kept. This entry is the test, run in writing on all five candidates by two agents, neither of which proposed the shape, and cross-verified by command.
