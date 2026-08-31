@@ -4,6 +4,39 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+
+## 2026-08-31 [process]: A decisive test run only until it produced the wanted shape — and the citation that supported it kept while the one that killed it was dropped
+
+**Context:** P1180's design. The agent proposed replacing a three-day-old founder ruling (four separately-contestable slots) with "one story + three claims", justified by a **reader test** — *can a stranger take a position on this sentence?* It ran that test on the two slots it wanted to remove and **never on the claim it wanted to keep** ("this is the right problem to be working on"), which appears to split into a contestable half and an author-arbitrated half. Separately, it cited `story-point-model.md` §"Deliberately kept fused" as vindication while silently dropping *"he actually has it"* — one of the three points that passage lists, and the one that falsifies the spec's own premise that a stranger cannot disagree about where someone is. A first pass had already surfaced the underlying conflict and **downgraded it to "the doc is stale"** by weighing recency and specificity of two written records, without running the test that decides it.
+
+**Decision:** A test that selects a design must be applied to **every** candidate, in writing, before the design is adopted — and by someone other than the agent that proposed it. When citing a passage as support, **enumerate every item in it and state which are kept and which dropped**; a partial overlap may not be described as a reinstatement. Where the proposing agent is also the judge, the spec records that fact and blocks implementation until an independent pass runs.
+
+**Alternatives rejected:** Settling a conflict between two written records on recency and specificity alone — that is what produced the downgrade, and it reached the founder as a resolved question. Trusting the author's own summary of what a cited source says.
+
+**Consequences:** P1180 blocked at Stage 3 pending the reader test on all candidates; the supersession of `decisions.md` 2026-08-28 [product] ruling 2 must reach this log before implementation, since it currently exists only inside the spec that proposed it. Detected by two independent adversarial reviewers that both led with it, not by any gate. (Status: proposed)
+
+**References:** `features/p1180_problem_submit_skill.md` §"BLOCKING FOUNDER DECISION" · [story-point-model.md](story-point-model.md) §"Deliberately kept fused", §"The agreement test" · decisions.md 2026-08-28 [product] ruling 2 · `.claude/rules/epistemic.md` gate 9
+
+---
+
+## 2026-08-31 [process]: The adversarial-review skill did not beat a bare brief carrying the same goal — the brief held the value
+
+**Context:** Founder asked whether `/slava:think:adversarial-review` earns its place, and proposed an A/B. Run on P1180's spec: two arms, **same model, same spec, same two-job brief**; one invoked the skill, one was explicitly forbidden from using any skill. Scored on findings that survived an independent command check by the orchestrating session — not on raw finding count, which rewards volume.
+
+**Decision:** No measurable advantage. Surviving findings 11 vs 10; **both arms led with the same BLOCK**, both independently caught the same false claim, the same privacy contradiction, the same stale pointer and the same auth problem, and **each found unique real defects the other missed**. Treat the skill as optional when a detailed brief already exists.
+
+**The caveat that bounds this claim, and it is load-bearing:** both briefs were written by the same agent and were detailed — same two jobs, same files named, same *"treat this as motivated reasoning"* framing. So the measurement is *the skill's value **on top of** a good brief*, **not** the skill against a lazy one. That second comparison is the one that would justify the skill, and it was not run. n=1 spec, n=1 model; a model-specific weakness would hit both arms and read as "the skill doesn't matter".
+
+**Alternatives rejected:** Benchmarking `/challenge-prd` the same way on this spec — its eight dimensions are business-layer and this spec's business layer was settled over three days, so the result would have measured mismatch rather than quality.
+
+**Falsifier:** Re-run the same A/B with a **one-line brief** ("review this spec"). If the skill arm then wins clearly, the skill's value is brief-generation and it should be invoked whenever the brief is thin — the opposite of the conclusion above.
+
+**Consequences:** For P1180 the two-arm review replaced a planned `/challenge-prd` + `/adversarial-review` pair and found five confirmed factual defects plus three BLOCK-class design problems. (Status: proposed)
+
+**References:** `features/p1180_problem_submit_skill.md` · `.claude/commands/slava/build/pick-flow/SKILL.md` §"Weigh cost against track record" (`/adversarial-review` at 5 runs, bottom tier)
+
+---
+
 ## 2026-08-31 [process]: A line-anchored grep cannot verify a quote in source code, because source code wraps
 
 **Context:** A benchmark run put four agents (two spec writers, a judge, and the session
