@@ -16,7 +16,7 @@
  * of the 8 rows).
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
 const root = resolve(__dirname, '../..');
@@ -27,6 +27,23 @@ const read = (p: string) => readFileSync(resolve(root, p), 'utf8');
  * is about what the page RENDERS, not about the prose explaining why it renders
  * nothing — and this file's own doc comment says the words out loud on purpose.
  */
+
+/**
+ * The spec lives at features/<name> while open and features/done/<sprint>/<name>
+ * once shipped. Tests that read it must survive the move — otherwise they fail
+ * exactly when /ship closes the spec.
+ */
+const readSpecEitherLocation = (name: string): string => {
+  const open = resolve(root, 'features', name);
+  if (existsSync(open)) return readFileSync(open, 'utf8');
+  const doneDir = resolve(root, 'features/done');
+  for (const sprint of readdirSync(doneDir)) {
+    const candidate = resolve(doneDir, sprint, name);
+    if (existsSync(candidate)) return readFileSync(candidate, 'utf8');
+  }
+  throw new Error(`spec ${name} not found in features/ or features/done/*/`);
+};
+
 const codeOnly = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
@@ -225,7 +242,11 @@ describe('P1060 M1 — the approved visual reference is unchanged', () => {
     // Frozen at pin time. A republished reference silently changes what the
     // reviewer judges against, mid-run, with nothing to detect it — so the URL
     // itself is pinned here rather than only in prose.
-    const spec = read('features/p1060_link_events_to_organizations.md');
+    // Resolve from EITHER location: /ship moves the spec into
+    // features/done/<sprint>/ as part of closing it, so a path hardcoded to
+    // features/ fails during the very ship it is meant to guard. The assertion
+    // (the pinned artifact URL is still recorded) is unchanged — only the lookup.
+    const spec = readSpecEitherLocation('p1060_link_events_to_organizations.md');
     expect(spec).toContain(
       'https://claude.ai/code/artifact/10cedd0b-ddac-42f6-8c45-4fa002319810',
     );

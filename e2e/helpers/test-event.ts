@@ -54,6 +54,35 @@ export async function createTestEvent(
 
   console.log(`[TEST HELPER] Creating test event: ${title}`);
 
+  // P1060: the database now enforces that setting org_id requires the host to be an
+  // ORGANIZER of that organization (events_org_requires_organizer). Fixtures that
+  // build an org-scoped event are asserting something about org SCOPING, not about
+  // authorization, so grant the role here rather than making every caller do it —
+  // otherwise this helper fails for a reason none of those tests are about.
+  //
+  // This does NOT weaken coverage of the rule: the refuse path is tested directly and
+  // deliberately in e2e/integration/p1060-org-requires-organizer-migration.spec.ts,
+  // which does NOT use this helper. Seeded via service role because the client-facing
+  // insert policy pins role='member' (p1010 blocks self-elevation).
+  if (options.orgId) {
+    const { data: existing } = await supabaseAdmin
+      .from('membership')
+      .select('id, role')
+      .eq('org_id', options.orgId)
+      .eq('user_id', hostId)
+      .maybeSingle();
+    if (!existing) {
+      await supabaseAdmin
+        .from('membership')
+        .insert({ org_id: options.orgId, user_id: hostId, role: 'organizer' });
+    } else if (existing.role !== 'organizer') {
+      await supabaseAdmin
+        .from('membership')
+        .update({ role: 'organizer' })
+        .eq('id', existing.id);
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('events')
     .insert({

@@ -57,6 +57,18 @@ test.describe('P1060: events.org_id migration + · Online seed', () => {
   test.beforeAll(async () => {
     const host = await createTestUser({ name: 'P1060-int Host' });
     hostId = host.user.id;
+    // P1060 D4 is now enforced in the database (events_org_requires_organizer):
+    // setting org_id requires the host to be an ORGANIZER of that org. Two tests
+    // below deliberately insert an org-scoped event, so the host needs that role.
+    // Seeded directly (service role) because the client-facing insert policy forces
+    // role='member' — self-elevation is exactly what p1010 blocks.
+    const { data: cmForRole } = await supabaseAdmin
+      .from('organization').select('id').eq('slug', 'cm').maybeSingle();
+    if (cmForRole) {
+      await supabaseAdmin.from('membership').insert({
+        org_id: cmForRole.id, user_id: hostId, role: 'organizer',
+      });
+    }
   });
 
   test.afterAll(async () => {
@@ -213,7 +225,7 @@ test.describe('P1060: events.org_id migration + · Online seed', () => {
   });
 
   // ── 4. Org #2 seed (D3, D7, Done-When bullets 3-4) ───────────────────────
-  test('seeded org /org/online exists, public, has_events, blurb NULL (D7), organizer membership', async () => {
+  test('seeded org /org/online exists, public, has_events, carries founder copy, organizer membership', async () => {
     const { data: org, error } = await supabaseAdmin
       .from('organization')
       .select('id, slug, name, blurb, visibility, has_events')
@@ -223,9 +235,15 @@ test.describe('P1060: events.org_id migration + · Online seed', () => {
     expect(org, 'seed migration must insert the "online" org').toBeTruthy();
     expect(org!.visibility).toBe('public');
     expect(org!.has_events).toBe(true);
-    // D7: blurb seeded NULL, not a placeholder string. This is the literal
-    // assertion the Non-Goal "Do NOT invent the · Online blurb" resolves to.
-    expect(org!.blurb, 'D7: blurb must be NULL, never a guessed placeholder').toBeNull();
+    // D7 originally asserted blurb IS NULL — the Non-Goal was "do NOT invent the
+    // · Online blurb", and NULL was the honest state while no founder copy existed.
+    // The founder supplied it on 2026-08-31 (20260831160000_p1060_online_org_copy.sql),
+    // so the condition the Non-Goal waited on has been met. What must still hold is
+    // the thing D7 actually protected: never a guessed placeholder. Asserting the
+    // real string keeps that guarantee — a regression to "A Clarity Organization."
+    // or back to NULL now fails here.
+    expect(org!.blurb, 'D7: blurb must be the founder-approved line, never a placeholder')
+      .toBe('Calibrated communication practice with people outside your own field — no local group needed.');
 
     const { data: membership, error: memErr } = await supabaseAdmin
       .from('membership')

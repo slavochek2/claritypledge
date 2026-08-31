@@ -101,11 +101,24 @@ VDIR="features/verification/${PN}"
 # Contract extraction + the ONE digest implementation
 # ---------------------------------------------------------------------------
 extract_contract() {  # stdout: the '## Verification Contract' body, normalized
+  # RELATIVE-LINK DEPTH IS NORMALIZED before hashing. `/ship` moves a closing spec
+  # from features/<name>.md into features/done/<sprint>/<name>.md and rewrites every
+  # relative doc link to match the new depth (../docs/ -> ../../../docs/). That
+  # rewrite lands INSIDE the Verification Contract section, so without this the pin
+  # fails during the very ship it exists to protect — the contract text is identical,
+  # only its distance from repo root changed. Collapsing any run of "../" to a single
+  # "../" makes the digest a function of the contract's CONTENT, not of where the file
+  # currently sits.
+  #
+  # This does NOT weaken the pin: changing a link's TARGET (../docs/decisions.md ->
+  # ../docs/other.md), or any other character in the section, still changes the digest.
+  # Only the depth prefix is collapsed. Verified by running a real content change
+  # through the gate and confirming it still FAILs (see the P1060 ship, 2026-08-31).
   awk '
     /^## Verification Contract[[:space:]]*$/ { inc=1; next }
     inc && /^## / { inc=0 }
     inc { print }
-  ' "$SPEC" | sed 's/[[:space:]]*$//' | $GREP -v '^$' || true
+  ' "$SPEC" | sed 's/[[:space:]]*$//' | sed -E 's|(\.\./)+|../|g' | $GREP -v '^$' || true
 }
 contract_hash() { extract_contract | sha256_stdin; }
 
