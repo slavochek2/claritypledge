@@ -8,6 +8,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-08-31 [process]: A dead worktree session's STAGED files block the next ship, and no slot-cleanup command looks at the index
+
+**Context:** `/ship p1196` failed four consecutive times on the shared main checkout.
+`git-ops.sh status` showed all four slots ORPHAN — every session dead. Two of them had left files
+**staged** in the shared index (a `git mv` rename of `p1179` into `done/`, and an added `p1194`),
+so `commit_staged_exact` correctly refused the ship's seed commit: *"staged set does not match the
+requested paths"*. Clearing it took three manual `git reset HEAD --` calls on paths belonging to
+other sessions.
+
+The slot-cleanup commands do not help, verified by reading rather than assumed: `cmd_gc` inspects
+and deletes stale branches, `cmd_abandon` removes a lockfile and worktree ("branch preserved"),
+`cmd_reconcile` cross-checks slot dirs against `git worktree list` and ship-journal state. Across
+all three, zero references to `git diff --cached` or the index. The nearest existing mechanism is
+`pre-flight.sh` check 3, a deliberately non-blocking info echo, not wired to slot state.
+
+**Decision:** Recorded as a known blocker with a manual remedy: when a ship's seed commit fails on
+`commit_staged_exact`, run `git-ops.sh status` first — ORPHAN slots plus staged residue is the
+likely cause, and the fix is `git reset HEAD --` on the bystander paths (index-only; their files
+stay on disk, per git.md).
+
+**Alternatives rejected:** Making `commit_staged_exact` tolerant of extra staged paths — it exists
+precisely to prevent a co-tenant's work riding into someone else's commit, which this repo's log
+records happening repeatedly. Loosening it trades a noisy failure for a silent corruption.
+
+**Consequences:** The index is shared state that outlives the session that dirtied it, while every
+cleanup command is scoped to things that *belong* to a slot — lockfile, worktree, branch. Nothing
+owns the residue. The cheap mechanization is a check in `cmd_reconcile` (or the
+`commit_staged_exact` failure message) that names ORPHAN-slot staged paths and points at the
+reset. (Status: proposed — not specced. Critic verdict: root cause SURVIVES, EV HIGH; I confirmed
+the zero-index-reference claim by reading the three functions.)
+
+**References:** [git-ops.sh](../scripts/git-ops.sh) (`commit_staged_exact`, `cmd_gc`,
+`cmd_abandon`, `cmd_reconcile`), [git.md](../.claude/rules/git.md)
+
+
+
 ## 2026-08-31 [technical]: A self-healing loop must not depend on the event its own failure suppresses
 
 **Context:** `/transcribe` showed no words on any phone while every test and every desktop check
