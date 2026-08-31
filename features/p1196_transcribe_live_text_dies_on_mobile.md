@@ -5,7 +5,8 @@ rank: 5
 workstream: events
 created_date: '2026-08-31'
 tags: [transcribe, mobile, speech, p1149, p1152]
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, inline, finish, ship]
+delivery_stage: ship
 driver: founder
 drafted_by: opus
 ---
