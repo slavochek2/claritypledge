@@ -8,6 +8,147 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-08-31 [technical]: A self-healing loop must not depend on the event its own failure suppresses
+
+**Context:** `/transcribe` showed no words on any phone while every test and every desktop check
+stayed green. P1149 had anticipated the hazard exactly — mobile recognizers drop, so it added an
+`autoRestart` option to `useSpeechToText` — and the restart it added was the thing that broke.
+`onend` called `recognition.start()` inline and swallowed the throw, commented *"the next onend
+retries."* It cannot: `onend` fires at the end of a recognition **session**, so a throw means no
+session began and no further `onend` will ever fire. One throw ends the loop permanently, with
+`isListening: false`, no error state, and nothing on screen. On phones that throw is the normal
+path, not an edge — iOS Safari requires a user gesture for `start()` and a call from inside
+`onend` is not one; Android Chrome throws `InvalidStateError` on an immediate restart. Desktop
+never throws, so the defect was invisible in every environment it was tested in.
+
+**Decision:** Restarts are scheduled off a timer with exponential backoff, bounded at 5 attempts,
+and the next attempt is re-armed by the **catch**, not by the next event. Exhaustion sets a
+`liveTextStopped` state rendering a banner plus a "Resume live text" tap — a real user gesture,
+which on iOS is the only thing that can restart recognition at all. `lastRecognitionError` is
+surfaced verbatim so the failure can be read off a phone console.
+
+**Alternatives rejected:** Retrying inline with a longer delay — same dependency on an event that
+will not arrive. Moving the live half server-side — a real option and still open, but a product
+decision P1149 already framed, not a bug fix.
+
+**Consequences:** The reusable part is the rule: **a retry whose only trigger is an event that its
+own failure prevents is not a retry.** Ask of any self-healing path, "what fires the next attempt
+if this one throws?" — if the answer is the same event, the loop is one-shot. The review round
+found the identical shape a second time in the same file: `startListening` cleared the stopped
+state optimistically then swallowed its own throw, so a failed Resume tap hid the very button
+needed to try again. Two instances, one file, one mental model. This does **not** establish that
+live text works on phones — a second hypothesis (mic contention between `MediaRecorder` and
+`SpeechRecognition`, which P1149 called "a proven pattern, already shipping in /chat" from a
+laptop-only surface) is untested and needs a phone console.
+(Status: proposed until PV-1 is re-run on hardware.)
+
+**References:** [p1196](../features/done/2026-06-10/p1196_transcribe_live_text_dies_on_mobile.md),
+[p1152](../features/p1152_transcribe_physical_device_verification.md),
+[p1149](../features/done/2026-06-10/p1149_live_room_transcription_chat.md),
+[useSpeechToText.ts](../src/hooks/useSpeechToText.ts)
+
+
+
+## 2026-08-31 [process]: `ship` auto-closed a physical-verification spec — recurrence of 2026-08-27, this time it landed
+
+**Context:** The 2026-08-27 entry in this file recorded `detect_cospecs` closing live specs merely
+because a branch commit touched their files, and noted it was caught only because that ship
+happened to fail first for an unrelated reason. It recurred today and was **not** caught by any
+mechanism: shipping P1196 auto-closed P1152, whose entire purpose is four physical checks a person
+with hardware must run. Its recorded PV-1 outcome is `fail` and PV-2..PV-4 have no outcome at all.
+Reopened by hand immediately after the merge.
+
+P1152 had already been closed once the same way — `all-done` on 2026-08-24 with all five Done-When
+boxes unchecked — which is why a mobile defect sat in prod for a week. Its own Risks section had
+named the hazard in advance: *"The checks get skipped because the loop went green. The whole hazard
+of carving them out."*
+
+**Decision:** Physical-verification rows were deliberately kept **out** of P1196's Done-When and
+left in P1152, not duplicated. Duplicating them would either block a fixed code defect behind
+hardware the agent cannot touch, or get them ticked without being run. P1196 closes on "the
+confirmed code defect is fixed and the failure is now loud"; whether live text works on a phone
+stays P1152's verdict to record.
+
+**Alternatives rejected:** Ticking the physical boxes on the strength of unit tests — the exact
+failure being recorded here. Blocking the ship until hardware was available — leaves a confirmed
+defect unfixed in prod for no gain.
+
+**Consequences:** A spec whose deliverable is *a human running something* has no mechanical
+completion signal, so every automatic closure path is wrong for it by default: gate 2.5 reads
+ticked boxes, `detect_cospecs` reads touched files. Neither distinguishes "verified" from
+"unverifiable by this process." Until `detect_cospecs` can be told to skip a spec, shipping a
+branch that touches a verification spec needs a manual reopen in the same session — as its own
+commit, so the closure and the correction are both in the log.
+(Status: proposed — a `no-autoclose:` frontmatter flag read by `detect_cospecs` is the obvious
+mechanization, not yet specced.)
+
+**References:** [p1152](../features/p1152_transcribe_physical_device_verification.md),
+[p1196](../features/done/2026-06-10/p1196_transcribe_live_text_dies_on_mobile.md),
+2026-08-27 entry in this file (same mechanism, caught pre-merge)
+
+
+
+## 2026-08-31 [process]: `git-ops.sh ship`'s journal is a snapshot at init — a commit added to the branch mid-ship is invisible to `--resume`
+
+**Context:** P1179 was mid-`/ship`: `ship_init_journal` had already recorded 8 commits and cherry-picked
+them onto main, but the spec-close commit failed on `goal-gate.sh` CHECK 5 (a blind-reviewer round
+requirement, unrelated to the ship mechanism itself — see the CHECK 5 entries below). Fixing CHECK 5
+meant capturing screenshots and running blind-review rounds, which produced a NEW commit on the
+feature branch (`61151d50`, screenshots + review-round files) after the journal already existed.
+Running `git-ops.sh ship p1179 --resume` did not pick it up — the spec-close step still failed with
+"contract has 2 COMPARABLE row(s) but review-round-*.md is empty", because those files were never
+cherry-picked. `ship_init_journal` (`scripts/git-ops.sh:1408`) builds the commit list ONCE, from
+`git log main..branch` at the moment ship first runs; `--resume` only replays the frozen list in
+`.claude/worktrees/.ship-journal/<pn>.json`, and has no step that re-diffs the branch for commits
+added since.
+
+**Decision:** Cherry-picked the new commit onto main by hand (`git cherry-pick 61151d50`), then
+patched the journal's `commits` array with a matching entry (`source_sha`/`landed_sha`/`landed_at`)
+before re-running `--resume`, so the spec-close step found the files it needed. This is a manual
+workaround, not a fix to the tool.
+
+**Consequences:** Any workflow that can produce a NEW branch commit after `/ship` has already started
+— fixing a gate failure discovered mid-ship being the concrete case here, but a code-review fix
+requested during the ship gate sequence is the same shape — will hit this same gap. **Follow-up not
+done here:** `git-ops.sh ship --resume` should re-diff `main..branch` for any `source_sha` not
+already in the journal and append it (preserving order), rather than silently ignoring branch growth.
+Until then, the manual recipe above (cherry-pick + hand-patch the journal JSON) is the escape hatch —
+note it does NOT go through the journal's own atomic-write helper (`ship_pending_source_shas`/
+`ship_mark_landed`), so a mistake here is unguarded by the tool's own consistency checks.
+
+**References:** `scripts/git-ops.sh:1399` (`ship_init_journal`), `:1533` (`ship_pending_source_shas`) ·
+`features/done/2026-06-10/p1179_event_room_links_menu_and_stake_surface.md` · CHECK 5 entries below
+(2026-08-27, P1141).
+
+---
+
+## 2026-08-31 [technical]: The spec-move link rewrite assumes one `features/done/` layout — it has two
+
+**Context:** P1179's spec closed into `features/done/2026-06-10/` (a dated subfolder) and links to
+`P1161`, which was ALSO closed this session but landed at `features/done/p1161_....md` — flat, no
+dated subfolder. The move-time relative-link rewrite (2026-08-17, P1094 below — "exact path math,"
+computed from the two real paths) produced `../../p1161_....md` for a link inside the dated-subfolder
+file, which resolves to `features/p1161_....md` — one level too shallow, since the actual target is
+one level up from `features/done/`, not two. `validate-doc-links.cjs`'s doc-link ratchet caught it
+(3 dead links) at the spec-close commit.
+
+**Decision:** Fixed by hand for this one file — three `../../p1161...` → `../p1161...` edits — before
+re-attempting the ship. Not fixed in the rewrite tool itself.
+
+**Consequences:** `features/done/` has held two coexisting layouts (flat `pN_*.md`, and dated
+`YYYY-MM-DD/pN_*.md`) since at least P1094; the move rewrite's "exact path math" is only exact when
+BOTH the moving file's new location and the link target's actual location are known, and it computes
+the target's location by assuming the dated-subfolder depth uniformly. **Follow-up not done here:**
+the rewrite should resolve each link target's REAL path via `find`/glob (the way `eventSlugFromLocation`-
+style lookups in this codebase are expected to, per this session's own code review) rather than
+assuming a fixed depth — any spec-close that links to a flat `features/done/` file will reproduce this.
+
+**References:** `scripts/git-ops.sh` (spec-close git-mv + link rewrite) ·
+`features/done/2026-06-10/p1179_event_room_links_menu_and_stake_surface.md` · 2026-08-17 [technical]
+entry below (P1094, "exact path math") · `scripts/validate-doc-links.cjs`.
+
+---
+
 ## 2026-08-31 [process]: A review that finds no files reports the same thing as a review that finds no problems
 
 **Context:** P1187's implementation lives in `pp/scripts/` and `~/.agents/bin/` — the spec says so
