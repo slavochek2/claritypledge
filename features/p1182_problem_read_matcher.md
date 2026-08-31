@@ -32,9 +32,30 @@ driver: heuristic
 
 **Sketched, not specified.** The agent reads the corpus with its own member's context and returns, per candidate: which **slot** it contests, what the contesting position is, and the **basis** — what the member did that entitles them to it. The human approves, and the approved contest becomes a letter answer.
 
-**Match on the slot, not the problem** (2026-08-28 [product]). Divergence on the obstacle and on the hypothesis are the high-value cases; divergence on Point B is a values disagreement and routes to verified comprehension rather than argument.
+**Match on the slot, not the problem** (2026-08-28 [product]). Divergence on the obstacle and on the hypothesis are the high-value cases.
+
+> **AMENDED 2026-08-31 — the slots this spec was written against no longer exist as written.** `decisions.md`
+> 2026-08-31 [product] *"The reader test run on all five candidates"* superseded ruling 2 in part, and P1180
+> shipped the replacement shape. Three consequences land here and none of them are cosmetic:
+>
+> 1. **The slots are now three, not four:** claim 1 (the frame — *what is actually blocking him is X, not Y*),
+>    claim 2 (the obstacle), claim 3 (the hypothesis). *Where they are* and *where they want to get to* are
+>    **story material**, not contestable slots.
+> 2. **"Divergence on Point B routes to verified comprehension" no longer has a Point B to route from.**
+>    Once B is story, there is no per-slot comprehension object: the min-gate scores **one whole story**
+>    (`story-point-model.md` §What "verify" means here). B-divergence must surface as a **comprehension flag
+>    on the story**, and for there to be anything to flag, **the submit side must state the want as an explicit
+>    sentence** inside the story. That is a requirement on P1180's output, and it is not in P1180's Done-When —
+>    surface it before this spec is worked.
+> 3. **Match supply is asymmetric across slots by construction, and this spec assumes it is not.** Claims 2 and 3
+>    are **portable** — contestable by any member from their own corpus, across submissions. Claim 1 is **local** —
+>    contestable only by someone who has read *that* story. A matcher that ranks candidates without carrying the
+>    `local` / `portable` label will systematically under-supply claim 1 and read that as low interest rather than
+>    as a property of the slot. P1180's output carries the label; use it.
 
 Full requirements depend on P1180's output and P1181's visibility model.
+
+> **Unspecified: how the agent reads the board.** This spec says the agent reads the corpus and never says through what. A likely requirement is an **agent-readable read surface** — a per-submission machine-readable representation an agent fetches with the member's own credential, rather than each agent being handed raw corpus access. Noted 2026-08-29 after reading the Tikkun PRD (kubi-dev/tikkun, PRD-only, no implementation), which specs exactly this: read-only markdown endpoints per problem plus a per-user bearer token. It is a candidate answer to the DEFER'd scaling/privacy risk below, not a decision — cost it before adopting.
 
 ## Risks / Non-Goals
 
