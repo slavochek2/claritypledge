@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: task
 rank: 1000059
 workstream: infrastructure
@@ -15,6 +15,21 @@ driver: anomaly
 
 # P1208: The pipeline shipped five points and the founder agreed with all of them
 
+
+> ## REJECTED 2026-09-01 — SUPERSEDED BY [P1210](../p1210_disagreement_pipeline_objective_and_point_unit.md)
+>
+> **Closed by founder decision, not implemented.** Rewritten rather than revised: two adversarial rounds
+> corrected sentences in this document while its four-workstream frame — the part that was wrong —
+> survived both, because a revision only edits what someone points at. The successor states the
+> pipeline's objective for the first time, changes the unit of a point to a contradiction sentence plus
+> the two people on its ends, and lets cast size follow the point target.
+>
+> **Kept for its evidence and its dead ends**, both carried into P1210's Problem and
+> *Alternatives Considered*. **Do not implement anything below.**
+>
+> **Known defect in this file:** it pairs named real people with agent-derived position values in a
+> public repo, which `positions.md` Step 4d and `prepare.md` Stage 5 both forbid. Recorded as P1210
+> Open Question 3.
 
 > ## STATUS: NOT READY TO IMPLEMENT — two adversarial rounds, second verdict REJECT
 >
