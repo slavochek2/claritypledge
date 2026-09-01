@@ -155,17 +155,20 @@ Consequence: the "Open →" affordance must become **non-interactive** — it is
 `tabIndex={-1}`/`aria-hidden`, so drop the `<Link>` wrapper and render it as a span. A
 nested interactive element inside a stretched link is invalid.
 
-- `[FOUNDER DECISION: keep or remove the "Open →" affordance]` — the approved artifact
-  keeps it as a wayfinding marker; the deferred Non-Goals list said remove it. Those
-  conflict. Default if unanswered: **keep it**, since the artifact is the approved
-  reference and it becomes purely decorative once the card is clickable.
+- **Founder-decided 2026-09-01: keep the "Open →" affordance.** Matches the approved
+  artifact; purely decorative once the card is clickable. Founder also confirmed
+  clicking anywhere on the card (not just the "Open →" text) opens the group — this
+  is already what the stretched-link pattern in §2 delivers, and the hover/focus
+  treatment should visibly animate similar to the selection state on the pledgers
+  page, so it reads as clickable before the user commits.
 
 ### 3. Hover treatment
 
 The card is now clickable, so it must look clickable. Subtle border/shadow emphasis on
 hover and a visible focus ring on the card when the inner link has focus.
-`[FOUNDER DECISION: hover intensity]` — default: match whatever the pledger cards
-already do, rather than inventing a new one.
+**Founder-decided 2026-09-01: match the pledger cards' existing hover/selection
+treatment** — reuse that animation rather than inventing a new one, so a group card
+reads as clickable the same way a pledger card does.
 
 ### 4. Green "You're a member" badge → neutral
 
@@ -176,10 +179,29 @@ Founder-decided 2026-09-01.
 
 ### 5. Drop the card subtitle
 
-The fourth deferred item. `[FOUNDER DECISION: which line]` — the card carries both a
-differentiator line under the name and a blurb. The Non-Goals entry says "subtitle";
-the artifact treats the differentiator as load-bearing (*"Each card says why you would
-pick this one"*). Confirm which is meant before removing either. **Do not guess.**
+**Founder-decided 2026-09-01: drop the differentiator line ("the subtitle"), keep the
+blurb.** The differentiator (`ORG_DIFFERENTIATOR` map, `org-directory-page.tsx:45-48`)
+is removed along with its rendering block (`:237-239`) and the now-dead
+`differentiator` variable (`:197`). The blurb (`org.blurb`, DB column) stays, and since
+it becomes the only distinguishing text once the differentiator is gone, its copy is
+rewritten (founder explicitly authorized the agent to draft it) to fold in what the
+differentiator used to carry:
+
+- `cm` (`Clarity Practice Community · Chiang Mai`) — current: *"In every conversation
+  there's a hidden number: how well you both know you understood each other. Nobody
+  asks. We ask."* → new: *"Meet in person in Chiang Mai. In every conversation there's
+  a hidden number: how well you both know you understood each other. Nobody asks. We
+  ask — and the room brings the topic."*
+- `online` (`Clarity Practice Community · Online`) — current: *"Calibrated
+  communication practice with people outside your own field — no local group
+  needed."* → new copy folding in the same idea, tightened: *"Calibrated
+  communication practice online, with people outside your own field — wherever you
+  are, no local group needed."*
+
+Applied as a data `UPDATE` on the `organization.blurb` column for these two rows
+(test DB now, prod after the P1060/P1193 deploy prerequisite) — **not a migration**,
+no schema change. Confirm with the user (environment + exact text) before running the
+UPDATE, per `.claude/rules/db-access.md`.
 
 ### 6. Back link from a group to the directory — P1193 scope miss
 
@@ -270,6 +292,5 @@ its own icon), `navigation-menu-items.tsx`.
 
 ## Next Steps
 
-Run `/dev features/p1204_clarity_groups_directory_card_polish_and_card_as_link.md` —
-scope is explicit and the changes are targeted, but resolve the three
-`[FOUNDER DECISION]` markers first.
+All three `[FOUNDER DECISION]` markers resolved 2026-09-01 (see §2, §3, §5 above). Run
+`/dev features/p1204_clarity_groups_directory_card_polish_and_card_as_link.md`.
