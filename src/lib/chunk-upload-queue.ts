@@ -114,7 +114,8 @@ export class ChunkUploadQueue {
       const keys = await store.getAllChunkKeys();
       if (keys.length === 0) return;
 
-      console.log(`[UploadQueue] Found ${keys.length} orphaned chunks`);
+      // eslint-disable-next-line no-console -- P566 orphan-recovery diagnostic; dev-only (P1200)
+      if (import.meta.env.DEV) console.log(`[UploadQueue] Found ${keys.length} orphaned chunks`);
       const now = Date.now();
 
       for (const key of keys) {
@@ -123,11 +124,13 @@ export class ChunkUploadQueue {
 
         const age = now - chunk.metadata.createdAt;
         if (age > maxAgeMs) {
-          console.log(`[UploadQueue] Deleting expired orphan: ${key} (age: ${Math.round(age / 1000)}s)`);
+          // eslint-disable-next-line no-console -- P566 orphan-recovery diagnostic; dev-only (P1200)
+          if (import.meta.env.DEV) console.log(`[UploadQueue] Deleting expired orphan: ${key} (age: ${Math.round(age / 1000)}s)`);
           await store.deleteChunk(key);
         } else {
           try {
-            console.log(`[UploadQueue] Uploading orphan: ${key}`);
+            // eslint-disable-next-line no-console -- P566 orphan-recovery diagnostic; dev-only (P1200)
+            if (import.meta.env.DEV) console.log(`[UploadQueue] Uploading orphan: ${key}`);
             await uploadFn(key, chunk.blob, chunk.metadata);
             await store.deleteChunk(key);
             analytics.track('audio_chunk_recovered', {

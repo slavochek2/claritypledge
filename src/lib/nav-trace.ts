@@ -139,6 +139,7 @@ function callerStack(): string {
 
 function log(kind: string, to: string, extra?: string): void {
   const at = performance.now().toFixed(1);
+  // eslint-disable-next-line no-console -- P1200: intentionally prod-active, opt-in via ?navtrace=1 (see file header: NOT DEV-gated on purpose), test-asserted (p1197-nav-trace.test.ts)
   console.log(
     `${PREFIX} ${at}ms ${kind} → ${to} ${gestureSummary()}${extra ? ` ${extra}` : ''}\n${callerStack()}`,
   );
@@ -203,6 +204,7 @@ export function installNavTrace(): boolean {
     log('hashchange', redactUrl((event as HashChangeEvent).newURL));
   });
 
+  // eslint-disable-next-line no-console -- P1200: intentionally prod-active, opt-in via ?navtrace=1 (see file header: NOT DEV-gated on purpose), test-asserted (p1197-nav-trace.test.ts)
   console.log(
     `${PREFIX} installed at ${performance.now().toFixed(1)}ms — initial URL ${window.location.pathname}${window.location.search}`,
   );

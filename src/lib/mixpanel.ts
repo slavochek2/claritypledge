@@ -132,7 +132,8 @@ export const analytics = {
    */
   registerMLCollector: (collector: SessionEventsCollector) => {
     mlCollector = collector;
-    console.log('[Analytics] ML collector registered - all events will be captured');
+    // eslint-disable-next-line no-console -- test-asserted diagnostic (mixpanel-ml-collector.test.ts); gated so it never runs in prod (P1200)
+    if (import.meta.env.DEV) console.log('[Analytics] ML collector registered - all events will be captured');
   },
 
   /**
@@ -140,7 +141,8 @@ export const analytics = {
    */
   unregisterMLCollector: () => {
     mlCollector = null;
-    console.log('[Analytics] ML collector unregistered');
+    // eslint-disable-next-line no-console -- test-asserted diagnostic (mixpanel-ml-collector.test.ts); gated so it never runs in prod (P1200)
+    if (import.meta.env.DEV) console.log('[Analytics] ML collector unregistered');
   },
 
   track: (event: string, properties?: Record<string, unknown>) => {

@@ -166,7 +166,8 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
       // error. Left uncleared, a transient throw that self-healed minutes ago stayed
       // on screen as the stated cause of a later, unrelated outage.
       setLastRecognitionError(null);
-      console.info('[speech] recognition started');
+      // eslint-disable-next-line no-console -- operational lifecycle diagnostic for the P1196/P1213 auto-restart logic; dev-only (P1200)
+      if (import.meta.env.DEV) console.info('[speech] recognition started');
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
@@ -272,7 +273,8 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
         setLastRecognitionError(`no-audio (session ended after ${durationMs}ms with no words)`);
       }
 
-      console.info(
+      // eslint-disable-next-line no-console -- operational lifecycle diagnostic for the P1196/P1213 auto-restart logic; dev-only (P1200)
+      if (import.meta.env.DEV) console.info(
         `[speech] recognition ended after ${durationMs}ms ` +
         `(started=${started}, heard=${sessionGotResultRef.current}, ` +
         `productive=${productive}, ` +

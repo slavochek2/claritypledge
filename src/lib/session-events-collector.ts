@@ -74,7 +74,8 @@ export class SessionEventsCollector {
   start(): void {
     this.startTime = Date.now();
     this.events = [];
-    console.log('[EventsCollector] Started collecting at', new Date(this.startTime).toISOString());
+    // eslint-disable-next-line no-console -- test-asserted diagnostic (session-events-collector.test.ts); gated so it never runs in prod (P1200)
+    if (import.meta.env.DEV) console.log('[EventsCollector] Started collecting at', new Date(this.startTime).toISOString());
   }
 
   /**
@@ -95,7 +96,8 @@ export class SessionEventsCollector {
     };
 
     this.events.push(event);
-    console.log('[EventsCollector] Captured event:', type, 'at', event.timestamp, 'ms');
+    // eslint-disable-next-line no-console -- test-asserted diagnostic (session-events-collector.test.ts); gated so it never runs in prod (P1200)
+    if (import.meta.env.DEV) console.log('[EventsCollector] Captured event:', type, 'at', event.timestamp, 'ms');
   }
 
   /**
@@ -143,6 +145,7 @@ export class SessionEventsCollector {
   reset(): void {
     this.events = [];
     this.startTime = 0;
-    console.log('[EventsCollector] Reset');
+    // eslint-disable-next-line no-console -- test-asserted diagnostic (session-events-collector.test.ts); gated so it never runs in prod (P1200)
+    if (import.meta.env.DEV) console.log('[EventsCollector] Reset');
   }
 }

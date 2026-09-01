@@ -192,7 +192,6 @@ export async function isIndexedDBAvailable(): Promise<boolean> {
 export async function createChunkStore(): Promise<ChunkStore> {
   const available = await isIndexedDBAvailable();
   if (available) {
-    console.log('[ChunkStore] Using IndexedDB store');
     return new IndexedDBChunkStore();
   }
   console.warn('[ChunkStore] IndexedDB unavailable, using in-memory fallback');

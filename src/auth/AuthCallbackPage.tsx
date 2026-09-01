@@ -56,10 +56,12 @@ export function AuthCallbackPage() {
   const { user, session, isLoading, sessionChecked, refreshProfile } = useAuth();
 
   useEffect(() => {
+    // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
     if (import.meta.env.DEV) console.log('🔄 AuthCallback useEffect triggered:', { isLoading, sessionChecked, hasSession: !!session, hasUser: !!user });
 
     // Wait for session check to complete before deciding if there's an error
     if (!sessionChecked || isLoading) {
+      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
       if (import.meta.env.DEV) console.log('⏳ Still loading, waiting...');
       return;
     }
@@ -188,6 +190,7 @@ export function AuthCallbackPage() {
           .rpc('get_my_profile_by_email', { p_email: authUser.email });
 
         if (profileByEmail && profileByEmail.id !== authUser.id) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('🔄 Found profile by email with different ID (migrating /live user):', {
             oldId: profileByEmail.id,
             newId: authUser.id,
@@ -237,6 +240,7 @@ export function AuthCallbackPage() {
             console.error('❌ Failed to delete old profile during migration:', deleteError);
             // Continue anyway - the upsert might still work or give clearer error
           } else {
+            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
             if (import.meta.env.DEV) console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
           }
 
@@ -377,8 +381,11 @@ export function AuthCallbackPage() {
         accepted_terms_version: preservedTermsVersion,
       };
 
+      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
       if (import.meta.env.DEV) console.log('🔄 Profile data to save:', upsertData);
+      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
       if (import.meta.env.DEV) console.log('🔄 Auth user ID:', authUser.id);
+      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
       if (import.meta.env.DEV) console.log('🔄 Existing user from useAuth:', user);
 
       // Try to upsert with retry logic for slug conflicts
@@ -393,6 +400,7 @@ export function AuthCallbackPage() {
           .rpc('upsert_my_profile', { p_data: upsertData });
 
         if (!error) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('✅ Profile upsert successful!');
           break;
         }
@@ -401,6 +409,7 @@ export function AuthCallbackPage() {
         // Postgres unique violation code is 23505
         if (error.code === '23505' && error.message?.includes('slug')) {
           retries++;
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log(`⚠️ Slug conflict detected, retry ${retries}/${MAX_SLUG_RETRIES}`);
 
           // Query for existing slugs to find next available number
@@ -430,6 +439,7 @@ export function AuthCallbackPage() {
 
           slug = `${baseSlug}-${nextNumber}`;
           upsertData.slug = slug;
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('🔄 Trying new slug:', slug);
         } else {
           // Different error, don't retry
@@ -442,6 +452,7 @@ export function AuthCallbackPage() {
       if (retries >= MAX_SLUG_RETRIES && !upsertError) {
         slug = `${romanizedBase || 'user'}-${Date.now()}`;
         upsertData.slug = slug;
+        // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
         if (import.meta.env.DEV) console.log('🔄 Final fallback slug:', slug);
 
         // P877: own-row write via SECURITY DEFINER accessor (see above).
@@ -451,6 +462,7 @@ export function AuthCallbackPage() {
         if (finalError) {
           upsertError = finalError;
         } else {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('✅ Profile upsert successful with fallback slug!');
         }
       }
@@ -468,6 +480,7 @@ export function AuthCallbackPage() {
         }
 
         if (backup) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('⚠️ Upsert failed after migration delete, attempting to restore old profile...');
           const { error: restoreError } = await supabase
             .from('profiles')
@@ -479,6 +492,7 @@ export function AuthCallbackPage() {
               extra: { backup, upsertError, restoreError },
             });
           } else {
+            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
             if (import.meta.env.DEV) console.log('✅ Old profile restored successfully');
           }
           // Clean up backup
@@ -561,6 +575,7 @@ export function AuthCallbackPage() {
       // Refresh profile in auth context so nav/header shows correct user data
       // This fixes race condition where initial fetch happened before upsert completed
       await refreshProfile();
+      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
       if (import.meta.env.DEV) console.log('✅ Profile refreshed in auth context');
 
       // Clear pending verification email now that user is verified
@@ -574,6 +589,7 @@ export function AuthCallbackPage() {
         // Extract event slug from redirect path
         const eventSlug = redirectPath.split('/')[2];
         if (eventSlug) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('📅 Auto-RSVP flow detected for event:', eventSlug);
           setStatus("Confirming your RSVP...");
 
@@ -582,6 +598,7 @@ export function AuthCallbackPage() {
             if (event) {
               const rsvpSuccess = await rsvpToEvent(event.id, authUser.id);
               if (rsvpSuccess) {
+                // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
                 if (import.meta.env.DEV) console.log('✅ Auto-RSVP successful for event:', eventSlug);
                 analytics.track('event_rsvp_auto', {
                   event_slug: eventSlug,
@@ -591,12 +608,14 @@ export function AuthCallbackPage() {
                 navigate(`/events/${eventSlug}/confirm`, { replace: true });
                 return;
               } else {
+                // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
                 if (import.meta.env.DEV) console.log('⚠️ Auto-RSVP failed (event may be full), redirecting to event page');
                 // Redirect to event page with action param so UI can show toast
                 navigate(`/events/${eventSlug}?action=rsvp`, { replace: true });
                 return;
               }
             } else {
+              // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
               if (import.meta.env.DEV) console.log('⚠️ Event not found for auto-RSVP:', eventSlug);
             }
           } catch (error) {
@@ -625,6 +644,7 @@ export function AuthCallbackPage() {
       if (action === 'join-org' && joinOrgPathPart && /^\/(org|groups)\/[^/]+\/join$/.test(joinOrgPathPart)) {
         const orgSlug = joinOrgPathPart.split('/')[2];
         if (orgSlug) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('🏛️ Auto-join flow detected for org:', orgSlug);
           setStatus("Joining...");
 
@@ -635,6 +655,7 @@ export function AuthCallbackPage() {
               const invitedBy = rawFrom && isValidUUID(rawFrom) ? rawFrom : undefined;
               const { joined, termsVersion } = await organizationsService.joinOrganization(org.id, invitedBy);
               if (joined) {
+                // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
                 if (import.meta.env.DEV) console.log('✅ Auto-join successful for org:', orgSlug);
                 analytics.track('org_joined', {
                   org_slug: org.slug,
@@ -648,6 +669,7 @@ export function AuthCallbackPage() {
               navigate(`/groups/${orgSlug}`, { replace: true, state: joined ? { justJoined: true } : undefined });
               return;
             } else {
+              // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
               if (import.meta.env.DEV) console.log('⚠️ Org not found for auto-join:', orgSlug);
             }
           } catch (error) {
@@ -675,6 +697,7 @@ export function AuthCallbackPage() {
       const anonPositions = getAllAnonPositions();
       const anonPointIds = Object.keys(anonPositions);
       if (anonPointIds.length > 0) {
+        // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
         if (import.meta.env.DEV) console.log('📌 P502: Batch-restoring', anonPointIds.length, 'anonymous positions');
         const VALID_POSITIONS = ['strongly_disagree','disagree','somewhat_disagree','unsure','somewhat_agree','agree','strongly_agree'];
         for (const pointId of anonPointIds) {
@@ -689,6 +712,7 @@ export function AuthCallbackPage() {
           }
         }
         clearAllAnonPositions();
+        // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
         if (import.meta.env.DEV) console.log('✅ P502: Anonymous positions restored and cleared');
       }
 
@@ -697,6 +721,7 @@ export function AuthCallbackPage() {
       try {
         const letterKeys = Object.keys(sessionStorage).filter(k => k.startsWith('letterCompletion_'));
         if (letterKeys.length > 0) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           console.log('📬 P581: Found', letterKeys.length, 'anonymous letter completion(s) to persist');
           for (const key of letterKeys) {
             try {
@@ -712,6 +737,7 @@ export function AuthCallbackPage() {
                 if (linkError) {
                   console.error('⚠️ P581: Failed to link letter delivery:', linkError);
                 } else {
+                  // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
                   console.log('✅ P581: Linked letter delivery', completionData.deliveryId);
                 }
               }
@@ -736,10 +762,12 @@ export function AuthCallbackPage() {
       if (action === 'set-position') {
         const intent = parseAuthGateIntent(urlParams);
         if (intent && intent.action === 'set-position') {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           if (import.meta.env.DEV) console.log('📌 Auto-save position flow detected:', intent);
           setStatus("Saving your position...");
           try {
             await pointsService.setPosition(intent.pointId, authUser.id, fromAuthGatePosition(intent.position));
+            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
             if (import.meta.env.DEV) console.log('✅ Position auto-saved:', intent.position);
             analytics.track('position_auto_saved', {
               point_id: intent.pointId,

@@ -96,8 +96,6 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     const chunkBlob = new Blob(audioChunksRef.current, { type: mimeTypeRef.current });
     const chunkNum = currentChunkRef.current;
 
-    console.log(`[AudioRecorder] Flushing chunk ${chunkNum}, size: ${chunkBlob.size} bytes, isLast: ${isLastChunk}`);
-
     // Clear chunks immediately to avoid double-upload
     audioChunksRef.current = [];
     currentChunkRef.current++;
@@ -179,7 +177,6 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
 
       // If in chunked mode, set up periodic flushes
       if (isChunkedMode) {
-        console.log(`[AudioRecorder] Chunked mode enabled, interval: ${chunkIntervalMs}ms`);
         chunkIntervalRef.current = setInterval(() => {
           flushAndUploadChunk(false);
         }, chunkIntervalMs);
@@ -187,16 +184,12 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
 
       // Set up max duration auto-stop (default 90 minutes)
       if (maxDurationMs > 0) {
-        console.log(`[AudioRecorder] Max duration: ${maxDurationMs / 60000} minutes`);
         maxDurationTimeoutRef.current = setTimeout(() => {
-          console.log('[AudioRecorder] Max duration reached, auto-stopping');
           if (stopRecordingRef.current) {
             stopRecordingRef.current();
           }
         }, maxDurationMs);
       }
-
-      console.log('[AudioRecorder] Recording started with mime type:', mimeType);
     } catch (err) {
       console.error('[AudioRecorder] Failed to start recording:', err);
 
@@ -240,8 +233,6 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
         // In chunked mode, flush remaining data as final chunk
         if (isChunkedMode && audioChunksRef.current.length > 0) {
           flushAndUploadChunk(true);
-          console.log('[AudioRecorder] Recording stopped (chunked mode). Final chunk dispatched.');
-
           // Clean up
           audioChunksRef.current = [];
           mediaRecorderRef.current = null;
@@ -261,8 +252,6 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
         const audioBlob = new Blob(audioChunksRef.current, {
           type: mediaRecorder.mimeType,
         });
-
-        console.log('[AudioRecorder] Recording stopped. Size:', audioBlob.size, 'bytes');
 
         // Clean up
         audioChunksRef.current = [];
