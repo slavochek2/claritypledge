@@ -399,3 +399,84 @@ different mechanisms and are distinguishable: a revoked UPDATE *grant* returns `
 denied`, while RLS row-invisibility returns no error and an empty set. Measured directly against
 test before writing the assertion. Pinning `error === null` pins the mechanism, so the test can no
 longer pass on a database where this migration never ran but something else blocks the write.
+
+---
+
+# Phase 4 — F9: agreement hijack. New, and the most severe finding in the audit.
+
+**Found while fixing F0a, not by the Phase 1 sweep.** Reproduced on test, fixed, RED→GREEN pair
+in `e2e/integration/p1207-agreements-exposure.spec.ts`.
+
+## F9 — any authenticated user could take over any pending agreement · REPRODUCED · was LIVE on prod
+
+The `clarity_agreements` UPDATE policy read:
+
+```
+USING      (creator=auth.uid() OR partner=auth.uid() OR (status='pending' AND invitation_token IS NOT NULL))
+WITH CHECK (creator=auth.uid() OR partner=auth.uid())
+```
+
+The third `USING` branch admits **any** caller to **any** pending row. The `WITH CHECK` reads
+like it compensates — it does not, because the attacker satisfies it by **writing themselves in**.
+
+Measured, not reasoned. A test user who was neither party and held no token ran one PostgREST
+update against another user's agreement and the service-role read-back showed:
+
+```
+partner_profile_id: "a234114c-…"   ← the attacker
+status:             "active"
+```
+
+The real invitee is then permanently locked out. **This needs no token and no expiry-timing
+luck, which makes it strictly worse than F0b** — F0b required harvesting a live token on a
+public+pending+unexpired row, and prod had none. F9 required only a pending agreement's id.
+
+The branch was also **vestigial**. `accept_agreement()` is `SECURITY DEFINER`, checks
+`auth.uid() = p_partner_id`, and matches `invitation_token` itself — it bypasses RLS entirely, so
+the accept flow never used this branch. It admitted attackers and nothing else.
+
+**Phase 1 read this policy and did not flag it.** The sweep classified SELECT exposure and
+unconditional `qual=true` predicates; a *partially* scoped `USING` whose third branch is
+unconditional did not match either shape. Reading a policy is not the same as reasoning about
+what its branches admit in combination with its `WITH CHECK`.
+
+## F0a / F0b — fixed, but not the approved way
+
+The approved plan was a column revoke. **It cannot work here**, and this is a general fact about
+PostgREST worth recording: *PostgREST needs the SELECT privilege to FILTER on a column*, so
+revoking `partner_email` breaks `getIncomingInvitations` (`.ilike('partner_email', email)`) and
+`hasActiveAgreementWith` (`.eq('partner_email', …)`) outright — and `getIncomingInvitations`
+issues `select('*')`, which fails wholesale when any column is ungranted.
+
+Fixed at the **policy** layer instead. The SELECT policy's first branch was a bare
+`(visibility = 'public')` sitting ahead of three correctly-built "caller is a party" branches.
+RLS is row-level and cannot withhold a column, so that one branch handed the entire row — real
+address and capability token — to anyone. Removing it leaves only party branches, and a party may
+see the whole row. No column surgery, no broken flow, all three findings closed at once.
+
+Public viewing is preserved by **projection**: `get_public_agreement` and
+`get_public_agreements_for_profile`, both `SECURITY DEFINER`, `STABLE`, returning an **explicit
+column list** rather than `SETOF clarity_agreements`. The explicit list is deliberate — a `SETOF`
+return puts every future column into the public projection by default, which is the shape that
+produced this defect in the first place. This mirrors `get_agreement_by_token`, added earlier as
+the "H2 fix" for the same class: *"the old SELECT policy exposed all pending agreements to anon."*
+
+The client change ships in the same commit, so the migration never lands ahead of it.
+
+## Evidence
+
+```
+before fix: 4 failed  — partner_email returned a real address; invitation_token returned;
+                        select(*) leaked both; the hijack wrote partner_profile_id + status='active'
+after fix:  4 passed
+```
+
+Regression: `npm test` 3445 passed / 0 failed; agreement + privilege-floor integration specs
+18 passed / 0 failed.
+
+## A tooling trap found on the way
+
+`npx tsc --noEmit -p tsconfig.json` **checks nothing** in this repo and exits 0 — the root
+tsconfig is `"files": []` with project references. It returned a clean exit on a file containing
+an undefined identifier. The real check is `-p tsconfig.app.json`. Anyone using the root form as
+a typecheck gate is reading a green light that was never wired to anything.

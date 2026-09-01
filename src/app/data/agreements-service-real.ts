@@ -72,6 +72,42 @@ function toAgreementVersion(raw: string | null | undefined): AgreementVersion {
   return 'legacy';
 }
 
+/** Shared tail of every agreement list read (P1207): presentation-layer expiry, one batched
+ *  profile fetch, stable status ordering, then mapping. Extracted when getAgreementsForProfile
+ *  grew a second source — the public-projection RPC — so both paths finish identically instead
+ *  of drifting apart. */
+async function finishAgreementRows(rows: DbAgreementRow[]): Promise<ClarityAgreement[]> {
+  if (rows.length === 0) return [];
+
+  // C2: check-at-read expiry — presentation layer only, no DB write
+  const now = new Date();
+  rows.forEach(row => {
+    if (row.status === 'pending' && new Date(row.invitation_expires_at) < now) {
+      row.status = 'expired';
+    }
+  });
+
+  // Batch-fetch all party profiles — no N+1
+  const allProfileIds = Array.from(
+    new Set(
+      rows.flatMap(r =>
+        [r.creator_profile_id, r.partner_profile_id].filter(Boolean) as string[]
+      )
+    )
+  );
+  const profileMap = await fetchProfilesById(allProfileIds);
+
+  // Sort: active first, then pending, then terminated
+  const statusOrder: Record<string, number> = { active: 0, pending: 1, terminated: 2 };
+  rows.sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
+
+  return rows.map(row => {
+    const creator = profileMap[row.creator_profile_id] ?? null;
+    const partner = row.partner_profile_id ? (profileMap[row.partner_profile_id] ?? null) : null;
+    return mapDbRowToAgreement(row, creator, partner);
+  });
+}
+
 function mapDbRowToAgreement(
   row: DbAgreementRow,
   creator: AgreementParty | null,
@@ -246,23 +282,35 @@ export const realAgreementsService: AgreementsService = {
       .eq('id', id)
       .maybeSingle();
 
-    if (error || !data) {
-      log('getAgreement not found or error:', error);
-      return null;
+    // P1207 F0a/F0b: the SELECT policy is now party-scoped, so the read above returns nothing
+    // for a visitor viewing a PUBLIC agreement. That case is served by a SECURITY DEFINER
+    // projection which omits partner_email and invitation_token — the address and the
+    // capability that the old unconditional `visibility = 'public'` policy branch handed out.
+    const partyRow = (data ?? null) as DbAgreementRow | null;
+    let row: DbAgreementRow;
+    if (partyRow) {
+      row = partyRow;
+    } else {
+      const { data: pub, error: pubError } = await supabase
+        .rpc('get_public_agreement', { p_id: id });
+      const publicRow = ((pub ?? []) as DbAgreementRow[])[0];
+      if (!publicRow) {
+        log('getAgreement not found or error:', error ?? pubError);
+        return null;
+      }
+      row = publicRow;
     }
 
-    const row = data as DbAgreementRow;
-
-    // Lazy expiry: if pending and past expiry date, mark expired
+    // Lazy expiry. P1207 F9: the UPDATE policy is now party-scoped, so this write is a no-op
+    // for a non-party rather than an error. The presentation-layer status is corrected either
+    // way, matching what getAgreementsForProfile already does at C2 below.
     if (row.status === 'pending' && new Date(row.invitation_expires_at) < new Date()) {
       const { error: updateError } = await supabase
         .from('clarity_agreements')
         .update({ status: 'expired' })
         .eq('id', id);
-
-      if (!updateError) {
-        row.status = 'expired';
-      }
+      if (updateError) log('getAgreement: lazy-expiry write skipped (not a party):', updateError.message);
+      row.status = 'expired';
     }
 
     // Batch-fetch both party profiles in one query
@@ -310,64 +358,61 @@ export const realAgreementsService: AgreementsService = {
 
     const isOwner = viewerProfileId === profileId;
 
-    let query = supabase
-      .from('clarity_agreements')
-      .select('*')
-      .or(`creator_profile_id.eq.${profileId},partner_profile_id.eq.${profileId}`);
+    // P1207 F0a/F0b: the table's SELECT policy is party-scoped, so a direct read returns only
+    // agreements the VIEWER is party to. The public half of this page — "these are the public
+    // agreements this profile has" — comes from a SECURITY DEFINER projection that omits
+    // partner_email and invitation_token. Anonymous viewers use it exclusively.
+    const publicRowsPromise = supabase
+      .rpc('get_public_agreements_for_profile', { p_profile_id: profileId });
 
-    if (!isOwner) {
-      if (viewerProfileId) {
-        // Visitor who may be party: include public active OR any agreement they are party to
-        query = query.or(
-          `and(status.eq.active,visibility.eq.public),creator_profile_id.eq.${viewerProfileId},partner_profile_id.eq.${viewerProfileId}`
-        );
-      } else {
-        // Anonymous: only public active agreements
-        query = query.eq('status', 'active').eq('visibility', 'public');
+    if (!viewerProfileId) {
+      const { data: pub, error: pubError } = await publicRowsPromise;
+      if (pubError) {
+        logDbError('getAgreementsForProfile(public)', pubError);
+        return [];
       }
-    } else {
-      // Owner: active, pending, terminated (not declined, not expired — those are noise)
-      query = query.in('status', ['active', 'pending', 'terminated']);
+      return finishAgreementRows((pub ?? []) as DbAgreementRow[]);
     }
 
-    const { data, error } = await query;
+    const query = supabase
+      .from('clarity_agreements')
+      .select('*')
+      .or(`creator_profile_id.eq.${profileId},partner_profile_id.eq.${profileId}`)
+      .in(
+        'status',
+        isOwner
+          // Owner: active, pending, terminated (not declined, not expired — those are noise)
+          ? ['active', 'pending', 'terminated']
+          : ['active', 'pending', 'terminated'],
+      );
 
-    if (error || !data) {
+    const [{ data, error }, { data: pub, error: pubError }] = await Promise.all([
+      query,
+      publicRowsPromise,
+    ]);
+
+    if (error && pubError) {
       logDbError('getAgreementsForProfile', error);
       return [];
     }
+    if (error) logDbError('getAgreementsForProfile(party)', error);
+    if (pubError) logDbError('getAgreementsForProfile(public)', pubError);
 
-    const rows = data as DbAgreementRow[];
+    // Union by id. A row the viewer is party to wins over its public projection, because it
+    // carries the full record; the projection is the fallback for agreements they cannot read.
+    const byId = new Map<string, DbAgreementRow>();
+    for (const r of ((pub ?? []) as DbAgreementRow[])) byId.set(r.id, r);
+    for (const r of ((data ?? []) as DbAgreementRow[])) byId.set(r.id, r);
+    const rows = isOwner
+      ? [...byId.values()]
+      // A non-owner viewer sees this profile's PUBLIC agreements plus any they are party to.
+      : [...byId.values()].filter(
+          r => (r.status === 'active' && r.visibility === 'public')
+            || r.creator_profile_id === viewerProfileId
+            || r.partner_profile_id === viewerProfileId
+        );
 
-    if (rows.length === 0) return [];
-
-    // C2: check-at-read expiry — presentation layer only, no DB write
-    const now = new Date();
-    rows.forEach(row => {
-      if (row.status === 'pending' && new Date(row.invitation_expires_at) < now) {
-        row.status = 'expired';
-      }
-    });
-
-    // Batch-fetch all party profiles — no N+1
-    const allProfileIds = Array.from(
-      new Set(
-        rows.flatMap(r =>
-          [r.creator_profile_id, r.partner_profile_id].filter(Boolean) as string[]
-        )
-      )
-    );
-    const profileMap = await fetchProfilesById(allProfileIds);
-
-    // Sort: active first, then pending, then terminated
-    const statusOrder: Record<string, number> = { active: 0, pending: 1, terminated: 2 };
-    rows.sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
-
-    return rows.map(row => {
-      const creator = profileMap[row.creator_profile_id] ?? null;
-      const partner = row.partner_profile_id ? (profileMap[row.partner_profile_id] ?? null) : null;
-      return mapDbRowToAgreement(row, creator, partner);
-    });
+    return finishAgreementRows(rows);
   },
 
   async searchProfiles(query: string): Promise<ProfileSearchResult[]> {
