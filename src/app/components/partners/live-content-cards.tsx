@@ -229,9 +229,6 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
       data-testid={`live-point-card-${point.id}`}
     >
       <p className="text-sm font-medium text-foreground line-clamp-2 break-words">{linkifyText(displayStatement)}</p>
-      {point.context && (
-        <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words">{linkifyText(point.context)}</p>
-      )}
       {/* P491: Tag pills (display-only in live context) */}
       {point.tags && point.tags.length > 0 && (
         <TagPills tags={point.tags} context="live" className="mt-2" />
@@ -341,7 +338,7 @@ export function ContentPicker({
     if (!searchQuery.trim()) return points;
     const q = searchQuery.toLowerCase();
     return points.filter(p =>
-      p.statement.toLowerCase().includes(q) || (p.context?.toLowerCase().includes(q))
+      p.statement.toLowerCase().includes(q)
     );
   }, [points, searchQuery]);
 
@@ -560,9 +557,6 @@ export function PointCardPreview({ point }: PointCardPreviewProps) {
       data-testid="point-card-preview"
     >
       <p className="text-sm font-semibold text-foreground">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
-      {point.context && (
-        <p className="text-xs text-muted-foreground mt-2">{linkifyText(point.context)}</p>
-      )}
     </div>
   );
 }
@@ -594,9 +588,6 @@ export function SelectedContentDisplay({ story, point }: SelectedContentDisplayP
       {point && (
         <div className="bg-muted border border-border rounded-lg p-4">
           <p className="text-sm font-semibold text-foreground">{linkifyText(stripHashtags(point.statement, point.tags))}</p>
-          {point.context && (
-            <p className="text-xs text-muted-foreground mt-1">{linkifyText(point.context)}</p>
-          )}
         </div>
       )}
     </div>

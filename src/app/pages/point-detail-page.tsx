@@ -542,11 +542,6 @@ export function PointDetailPage() {
                 <TagPills tags={point.tags ?? []} systemTags={point.systemTags ?? []} context="detail" className="mb-3" />
               )}
 
-              {/* Context (if present) */}
-              {point.context && (
-                <p className="text-sm text-muted-foreground mb-3 italic break-words">{point.context}</p>
-              )}
-
               {/* Position buttons (interactive) */}
               <PositionButtons
                 userPosition={user ? userPosition : anonPosition}

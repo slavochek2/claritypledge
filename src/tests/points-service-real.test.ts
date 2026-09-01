@@ -48,7 +48,6 @@ describe('realPointsService', () => {
             data: {
               id: 'point-1',
               statement: 'AI will replace most jobs',
-              context: 'In the next 10 years',
               first_validator_id: 'user-1',
               created_at: '2026-02-01T00:00:00Z',
               updated_at: '2026-02-01T00:00:00Z',
@@ -59,13 +58,14 @@ describe('realPointsService', () => {
         }),
       });
 
-      const result = await realPointsService.createPoint('AI will replace most jobs', 'In the next 10 years', ['ai', 'work']);
+      // P1095: createPoint no longer takes a context argument — tags moved to position 2.
+      const result = await realPointsService.createPoint('AI will replace most jobs', ['ai', 'work']);
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe('point-1');
       expect(result?.statement).toBe('AI will replace most jobs');
       expect(result?.firstValidatorId).toBe('user-1');
-      expect(result?.context).toBe('In the next 10 years');
+      expect(result?.tags).toEqual(['ai', 'work']);
     });
 
     it('returns null when not authenticated', async () => {
@@ -86,7 +86,6 @@ describe('realPointsService', () => {
       const mockDbPoint = {
         id: 'point-1',
         statement: 'Test statement',
-        context: null,
         first_validator_id: 'user-1',
         created_at: '2026-02-01T00:00:00Z',
         updated_at: '2026-02-01T00:00:00Z',
@@ -133,7 +132,6 @@ describe('realPointsService', () => {
         {
           id: 'point-1',
           statement: 'Statement 1',
-          context: null,
           first_validator_id: 'user-1',
           created_at: '2026-02-01T00:00:00Z',
           updated_at: '2026-02-01T00:00:00Z',
@@ -409,7 +407,6 @@ describe('realPointsService', () => {
         {
           id: 'point-99',
           statement: 'Point created by someone else',
-          context: null,
           first_validator_id: CREATOR_ID,
           created_at: '2026-02-01T00:00:00Z',
           updated_at: '2026-02-01T00:00:00Z',
@@ -497,7 +494,6 @@ describe('realPointsService', () => {
         {
           id: 'point-A',
           statement: 'Subject took a position on this',
-          context: null,
           first_validator_id: 'some-creator',
           created_at: '2026-02-01T00:00:00Z',
           updated_at: '2026-02-01T00:00:00Z',
@@ -576,7 +572,6 @@ describe('realPointsService', () => {
         {
           id: 'point-B',
           statement: 'My position on this',
-          context: null,
           first_validator_id: 'other-creator',
           created_at: '2026-02-01T00:00:00Z',
           updated_at: '2026-02-01T00:00:00Z',
@@ -669,7 +664,6 @@ describe('realPointsService', () => {
                   {
                     id: 'point-X',
                     statement: 'Another user created this X',
-                    context: null,
                     first_validator_id: 'other-user-1',
                     created_at: '2026-02-01T00:00:00Z',
                     updated_at: '2026-02-01T00:00:00Z',
@@ -685,7 +679,6 @@ describe('realPointsService', () => {
                   {
                     id: 'point-Y',
                     statement: 'Another user created this Y',
-                    context: null,
                     first_validator_id: 'other-user-2',
                     created_at: '2026-02-01T00:00:00Z',
                     updated_at: '2026-02-01T00:00:00Z',
@@ -795,7 +788,6 @@ describe('realPointsService', () => {
       const pointRows = positionRows.map((p, i) => ({
         id: p.point_id,
         statement: `Point ${i}`,
-        context: null,
         first_validator_id: 'other-creator',
         created_at: '2026-02-01T00:00:00Z',
         updated_at: '2026-02-01T00:00:00Z',

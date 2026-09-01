@@ -42,7 +42,6 @@ const mockPoints: PointWithCreator[] = [
   {
     id: 'point-1',
     statement: 'Most workplace conflicts stem from misunderstanding, not malice',
-    context: 'Reflecting on 15 years of team leadership',
     firstValidatorId: 'mock-user-2',
     createdAt: '2024-01-13T08:00:00Z',
     updatedAt: '2024-01-13T08:00:00Z',
@@ -55,7 +54,6 @@ const mockPoints: PointWithCreator[] = [
   {
     id: 'point-2',
     statement: "Admitting confusion is a sign of strength, not weakness",
-    context: 'From my journey learning to say "I don\'t understand"',
     firstValidatorId: 'mock-user-1',
     createdAt: '2024-01-11T10:00:00Z',
     updatedAt: '2024-01-11T10:00:00Z',
@@ -115,7 +113,6 @@ const mockPositions: PointPositionWithUser[] = [
 export const mockPointsService: PointsService = {
   async createPoint(
     statement: string,
-    context?: string,
     tags: string[] = [],
     visibility?: ContentVisibility
   ): Promise<Point | null> {
@@ -123,7 +120,6 @@ export const mockPointsService: PointsService = {
     return {
       id: `point-${Date.now()}`,
       statement,
-      context,
       firstValidatorId: 'mock-user-1',
       createdAt: now,
       updatedAt: now,

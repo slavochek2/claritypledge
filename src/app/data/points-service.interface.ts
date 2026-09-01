@@ -26,7 +26,6 @@ export interface PointsService {
    */
   createPoint(
     statement: string,
-    context?: string,
     tags?: string[],
     visibility?: ContentVisibility
   ): Promise<Point | null>;
@@ -246,7 +245,6 @@ export interface PointsService {
 
 export interface CreatePointInput {
   statement: string;
-  context?: string;
   tags?: string[];
   visibility?: ContentVisibility;
 }

@@ -39,22 +39,17 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
 
   // P594: Expand/collapse for truncated text
   const statementRef = useRef<HTMLParagraphElement>(null);
-  const contextRef = useRef<HTMLParagraphElement>(null);
   const [statementExpanded, setStatementExpanded] = useState(false);
-  const [contextExpanded, setContextExpanded] = useState(false);
   const [statementOverflows, setStatementOverflows] = useState(false);
-  const [contextOverflows, setContextOverflows] = useState(false);
 
   const checkOverflows = useCallback(() => {
     const stEl = statementRef.current;
     if (stEl) setStatementOverflows(stEl.scrollHeight > stEl.clientHeight + 1);
-    const ctxEl = contextRef.current;
-    if (ctxEl) setContextOverflows(ctxEl.scrollHeight > ctxEl.clientHeight + 1);
   }, []);
 
   useEffect(() => {
     checkOverflows();
-  }, [checkOverflows, point.statement, point.context]);
+  }, [checkOverflows, point.statement]);
 
   // Optimistic position state
   const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
@@ -187,33 +182,6 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
               >
                 show less
               </button>
-            )}
-
-            {point.context && (
-              <>
-                <p
-                  ref={contextRef}
-                  className={`text-xs text-muted-foreground mt-1 break-words ${contextExpanded ? '' : 'line-clamp-3'}`}
-                >
-                  {linkifyText(point.context)}
-                </p>
-                {contextOverflows && !contextExpanded && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setContextExpanded(true); }}
-                    className="text-xs text-blue-600 font-medium mt-0.5"
-                  >
-                    show more
-                  </button>
-                )}
-                {contextExpanded && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setContextExpanded(false); }}
-                    className="text-xs text-muted-foreground mt-0.5"
-                  >
-                    show less
-                  </button>
-                )}
-              </>
             )}
 
             {/* Tag pills */}

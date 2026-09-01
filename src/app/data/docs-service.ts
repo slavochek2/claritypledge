@@ -152,7 +152,6 @@ function mapPointSummaries(
     .map((sp) => ({
       id: sp.point.id,
       statement: sp.point.statement,
-      context: sp.point.context ?? undefined,
       tags: [...(sp.point.tags || []), ...((sp.point as { system_tags?: string[] }).system_tags || [])],
       systemTags: (sp.point as { system_tags?: string[] }).system_tags || [],
       visibility: (sp.point.visibility ?? 'public') as ContentVisibility,

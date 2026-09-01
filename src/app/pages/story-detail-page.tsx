@@ -131,7 +131,6 @@ function AddPointForm({
       const summary: PointSummary = {
         id: orphanPoint.id,
         statement: orphanPoint.statement,
-        context: orphanPoint.context,
         tags: orphanPoint.tags,
         visibility: orphanPoint.visibility,
       };
@@ -166,7 +165,7 @@ function AddPointForm({
     setIsAdding(true);
     try {
       // Create point — P607: inherit story visibility
-      const point = await pointsService.createPoint(trimmed, undefined, extractHashtags(trimmed), docVisibility);
+      const point = await pointsService.createPoint(trimmed, extractHashtags(trimmed), docVisibility);
       if (!point) {
         toast.error('Failed to create point. Please try again.');
         setIsAdding(false);
@@ -185,7 +184,6 @@ function AddPointForm({
       const summary: PointSummary = {
         id: point.id,
         statement: point.statement,
-        context: point.context,
         tags: point.tags,
         visibility: point.visibility,
       };

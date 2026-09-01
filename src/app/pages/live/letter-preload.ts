@@ -38,7 +38,6 @@ export function toLiveStoryData(storyData: StoryWithPoints): LiveStoryData {
     points: storyData.points.map(p => ({
       id: p.id,
       statement: p.statement,
-      context: p.context,
       tags: p.tags,
       systemTags: p.systemTags,
       positionCounts: p.positionCounts,

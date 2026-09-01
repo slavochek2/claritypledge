@@ -135,7 +135,6 @@ function mapPointSummaryFromDb(row: DbStoryPointWithPoint): PointSummary | null 
   return {
     id: row.point.id,
     statement: row.point.statement,
-    context: row.point.context ?? undefined,
     tags: [...(row.point.tags || []), ...((row.point as { system_tags?: string[] }).system_tags || [])],
     systemTags: (row.point as { system_tags?: string[] }).system_tags || [],
     visibility: row.point.visibility ?? 'public',

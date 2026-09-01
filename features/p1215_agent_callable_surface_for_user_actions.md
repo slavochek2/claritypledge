@@ -223,7 +223,45 @@ quietly restore them.
       ownership, outcome, denials — and shown answering "what did this agent reach" on a real run
 - [ ] Expiry friction reported **with a denominator**
 - [ ] Criterion 3 satisfied against a representative action, with the commit range shown
-- [ ] P1207 Criterion 1 answered **Yes for both roles**, in writing, before any of the above
+- [ ] P1207 Criterion 1 answered **Yes for both roles**, and **the verdict quoted verbatim in
+      this file** with its date and settling commit. **Enforced from this side deliberately
+      (2026-09-03):** P1207 also carries a row to push the verdict across, but that row was
+      added to main's copy while the live work sits on `feature/p1207-adversarial-permission-audit`
+      in w1, whose copy does not have it — so the push side may be lost at ship. The pull side
+      is this row. A finished P1207 with nothing quoted here does not satisfy it, and the
+      absence of a quote is never evidence the verdict was Yes
+
+> **P1207 Criterion 1 — verdict carried across 2026-09-03. The answer is NO. This gate does not
+> open.** Quoted verbatim from `.private/docs/security-log.md`, "Decision Criterion 1 — answered":
+>
+> > **No.** The agent API is not safe to build on this surface as it stands. D-1 is live and
+> > reachable by anyone holding a key that ships in the browser bundle. F0a leaks real personal
+> > data from production today. F7/F8 leak private per-user scores and session identifiers from
+> > production, and were invisible to every test-based probe. F0b is a token-to-session chain
+> > prevented only by expiry timing. F6 is a privilege RLS cannot govern on 49 production tables.
+>
+> **Settled by:** P1207, closed 2026-09-03. Audit ran 2026-09-01→03 over both roles as the
+> 2026-09-01 amendment required (class A `anon` **and** class B `authenticated` cross-row), so the
+> amendment this row depends on was honoured, not reverted. Seven distinct reachability defects
+> confirmed against live catalogs, six reachable in production at audit time. Public method record:
+> `docs/audits/p1207-phase1-findings.md`; per-finding dispositions and full detail in the private
+> security log.
+>
+> **What would change this to Yes.** Every finding needs a disposition of `closed` **applied to
+> production**, not to test. As of this writing every P1207 fix is on test only, and three findings
+> (F0a, F0b, F9 — all on `clarity_agreements`) are not fixed here at all: they were ceded to P1222
+> and P1230. Both of those shipped to main on 2026-09-03 and both reclassified their own prod apply
+> as a post-ship founder procedure, so **three specs now queue behind one gated step** and none of
+> the three merges remediated production. Re-running the audit is not required; re-verifying the
+> same findings against prod is.
+>
+> **A merged spec is not a closed vulnerability, and this row is where that distinction gets lost.**
+> P1207, P1222 and P1230 will all read `all-done` while every finding they name is still live in
+> production. Do not open this gate on three green spec statuses.
+>
+> **Do not read a later green `/day` privilege-floor run as this gate opening.** That check covers
+> F6's privilege class only. It is silent on F0a/F0b/F9, and it will alarm at 1210 violations until
+> the P1207 prod apply happens regardless.
 - [ ] `/architect` has produced the authorization architecture — AS, audience, exchange, callback,
       user binding, scope enforcement, `auth.uid()` derivation — and it has been adversarially
       reviewed **[REV] build blocker**

@@ -560,7 +560,6 @@ export type LiveStoryData = Pick<StoryWithAuthor,
   points: Array<{
     id: string;
     statement: string;
-    context?: string;
     tags: string[];
     systemTags?: string[]; // P686: for badge certification check
     positionCounts?: Record<string, number>;
@@ -896,8 +895,7 @@ export interface Event {
   durationMinutes: number;
   timezone: string;
   location: string;
-  /** null once the host deleted their account (P520) — the event is community data and survives */
-  hostId: string | null;
+  hostId: string;
   maxAttendees?: number;
   createdAt: string;
   status: EventStatus;
@@ -963,7 +961,7 @@ export interface DbEvent {
   duration_minutes: number;
   timezone: string;
   location: string;
-  host_id: string | null;
+  host_id: string;
   max_attendees?: number;
   created_at: string;
   status: EventStatus;
@@ -1175,9 +1173,7 @@ export interface DbStoryVersion {
 export interface Point {
   id: string;
   statement: string;
-  context?: string;
-  /** null once the creator deleted their account (P520) — points are community data and survive */
-  firstValidatorId: string | null;
+  firstValidatorId: string;
   createdAt: string;
   updatedAt: string;
   tags: string[];
@@ -1191,7 +1187,6 @@ export interface Point {
 export interface PointSummary {
   id: string;
   statement: string;
-  context?: string;
   tags: string[];
   systemTags: string[]; // P630: System tags (st-group, version, category)
   positionCounts?: Record<string, number>;
@@ -1224,8 +1219,7 @@ export interface PointWithUserPosition extends PointWithCounts {
 export interface DbPoint {
   id: string;
   statement: string;
-  context?: string;
-  first_validator_id: string | null;
+  first_validator_id: string;
   created_at: string;
   updated_at: string;
   tags: string[];
