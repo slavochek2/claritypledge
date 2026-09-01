@@ -6,6 +6,108 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-01 [technical]: A liveness heuristic keyed on an optional event hands the failure back its own escape hatch
+
+**Context:** P1196 bounded `/transcribe`'s restart loop at 5 attempts and shipped a visible stopped
+state. On a Galaxy S22 against prod it still looped "Reconnecting microphone…" forever and the
+stopped banner never appeared. Cause: `onstart` reset the attempt counter to 0. P1196 had bounded a
+`start()` that **throws** — no session, no counter reset. Android's shape is a `start()` that
+**succeeds**: `onstart` fires, the session is real, and it then dies at once with no audio. Every
+cycle refilled the budget, so the bound was unreachable and the room dead-ended in a state whose
+only recovery control renders solely in the state it could never reach. Measured with a mocked
+recognizer: **241 restart attempts in 60 simulated seconds against a bound of 6.**
+
+**Decision:** Judge a session by its **outcome** at `onend`, never by the fact that it began. The
+budget resets only for a *productive* session — one that produced a **final** result, or stayed
+open ≥1500ms (a normal silence timeout). Instant wordless churn consumes the budget exactly as a
+throw does. Exhaustion now also sets a synthetic `no-audio` error carrying the session duration,
+because the churn path fires no `onerror` and throws nothing, so nothing else ever names it.
+
+**Alternatives rejected:** Raising the attempt cap — the loop was unbounded, not short. Emulating
+Android to reproduce — device emulation swaps user-agent, viewport and touch, not the speech engine
+or the OS mic arbitration, so it could not have reproduced this; a unit-level mock did, in minutes.
+
+**Consequences:** The first cut of this fix **re-introduced the bug it was written to fix, through
+three separate doors**, and each door was the same mistake: inferring health from a signal that the
+failure itself suppresses or forges. (1) `onstart` is not guaranteed to fire — on permission denial
+the browser goes straight to `onerror` + `onend`, leaving the start timestamp at its initial `0`, so
+`Date.now() - 0` read as a ~1.7e12ms "productive" session. (2) "any result" counted **interim** text,
+which never leaves the browser (DW-4) and never enters `transcript` — a session that emitted a
+stray interim and died kept the budget alive while the room stayed empty. (3) The verbatim error
+that made the failure diagnosable was never cleared between sessions, so a transient throw that had
+already self-healed stayed on screen as the stated cause of a later, unrelated outage. **The rule:
+before a signal is allowed to reset a safety budget, ask what emits it and whether the failure under
+test can emit it too, or suppress it.** Doors 1 and 2 were found by re-reading the fix; door 3 by an
+independent hostile reviewer, and it falsified a reassurance already given to the founder in this
+session ("the banner will show you the error string" — on the primary failure it would have rendered
+blank). This still does **not** establish that live text works on phones: H1 (mic contention with
+`MediaRecorder`) vs H2 (Android ignoring `continuous`) remains P1152's verdict, now readable from
+the banner instead of a USB console.
+(Status: proposed until PV-1 is re-run on hardware.)
+
+**References:** [p1213](../features/p1213_transcribe_reconnect_loop_never_terminates.md),
+[p1196](../features/done/2026-06-10/p1196_transcribe_live_text_dies_on_mobile.md),
+[p1152](../features/p1152_transcribe_physical_device_verification.md),
+[useSpeechToText.ts](../src/hooks/useSpeechToText.ts)
+
+---
+
+## 2026-09-01 [process]: An external reviewer that returns nothing is not a review — and exit 0 is not a report
+
+**Context:** The founder asked for a codex adversarial review of the P1213 diff. Two runs, both
+exit 0, neither produced a finding. Run 1 read the prompt from argv and then blocked on stdin
+(`Reading additional input from stdin...`); run 2, with stdin closed and effort raised, loaded the
+adversarial-review skill, printed one framing paragraph, and stopped. Both logs also show a codex
+config problem independent of the review: `~/.agents/skills/youtube-upload/SKILL.md` fails YAML
+parsing at line 3, and the run exceeds its skills context budget, silently dropping 97 skill
+descriptions.
+
+**Decision:** One retry with the defect corrected (stdin closed), then the review is done inline or
+by a native reviewer — never a third attempt, and never a silent substitution of "it ran" for "it
+reported". The exit code of a reviewer process says nothing about whether a review exists; the
+finding count does.
+
+**Alternatives rejected:** Reporting the fix as reviewed because a reviewer was invoked — this is
+epistemic.md gate 9b (count the reports against the agents spawned) applied to an external tool,
+where the temptation is stronger because the process exits clean.
+
+**Consequences:** The review that actually found the on-screen-diagnosis defect was a single native
+reviewer, 1 of 1 reported. The codex skills-budget overflow is worth fixing separately: a reviewer
+silently missing 97 skill descriptions is a degraded reviewer even when it does respond.
+
+**References:** [p1213](../features/p1213_transcribe_reconnect_loop_never_terminates.md),
+[epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
+## 2026-09-01 [process]: The shared main checkout can revert your working tree mid-edit — apply, test and commit in one invocation
+
+**Context:** While fixing the review findings on the shared main checkout, uncommitted edits to two
+files were silently reverted to `HEAD` **twice**, minutes apart, while a co-tenant session landed
+two commits of its own. The first loss was noticed only when a patch script's anchor failed to
+match; the second when `git status` reported both files clean seconds after `tsc` had passed on
+them. Nothing errored either time — the edits simply were not there any more.
+
+**Decision:** On the shared main checkout, treat any uncommitted working-tree edit as volatile.
+Write the patch as a re-runnable script in the scratchpad **before** applying it, then apply, test
+and commit in a single invocation so the window between write and commit is seconds rather than
+minutes. `git.md` already forbids the *outbound* hazard (staging a co-tenant's files); this is the
+same shared-checkout property pointing inbound, and it was not written down.
+
+**Alternatives rejected:** A worktree — correct for a feature branch, but this work was already
+committed to main and mid-review. Re-typing the edits from memory — the reason the recipe goes to
+the scratchpad first is that reconstruction is where content silently drifts.
+
+**Consequences:** Nothing was lost: the first commit was intact and the patch was re-appliable
+verbatim. Had the recipe lived only in the conversation and a compaction intervened, it would have
+been reconstruction from memory — the unrecoverable case `git.md` names for `git restore`, reached
+here without anyone running a destructive command at all.
+
+**References:** [git.md](../.claude/rules/git.md),
+[p1213](../features/p1213_transcribe_reconnect_loop_never_terminates.md)
+
+---
+
 ## 2026-09-01 [process]: A citation can be misread in the direction that removes a safety marker — check who the pronoun points at
 
 **Context:** P1212 was drafted to fix six defects the founder annotated on the first real agent-story run. One was *"lets make positions blue!"* — the agent position chip renders grey. The spec cited `docs/decisions.md` 2026-08-19 as authorising colour: *"the card-level rule does not collide with them at all, because they still have a coloured stance badge and story pill."* Read that way, the grey chip is a defect and the ruling says fix it. **"Them" refers to real humans whose profile photo is black and white** — named two sentences earlier as the case that broke the avatar-level rule. The coloured stance badge is what *humans* have and machines do not; it is the discriminator that made draining the agent's chip safe, not permission to colour it. `p1104:72` states the rule plainly — *"Every card belonging to one of these accounts renders with its colour drained — stance badge, story pill, chrome — with the avatar exempt"* — and `src/index.css:244-254` reaffirms it five days later. Shipping the misread would have deleted the strongest disclosure marker from public readings of four real people who never consented, and failed a passing pixel-measurement test (`e2e/p1104-agent-marker.spec.ts:199-206`).

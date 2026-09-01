@@ -6,7 +6,7 @@ workstream: events
 created_date: '2026-09-01'
 tags: [transcribe, mobile, speech, p1196, p1149, p1152]
 delivery_stage: dev
-pipeline_ran: [create-bug, inline]
+pipeline_ran: [create-bug, inline, adversarial-review, kdd]
 drafted_by: opus
 driver: founder
 ---
@@ -76,9 +76,35 @@ Judge a session by its outcome in `onend`, not by the fact that it started:
       proven by a test that fails against the pre-fix hook (241 attempts vs. a bound of 6)
 - [x] A session that produced a result, or that stayed open >= 1500ms, resets the budget —
       two separate regression tests
-- [x] Full unit suite green: 3481 passed / 19 skipped, 304 files; tsc, eslint and build clean
+- [x] A session that never fired `onstart` (permission denial) cannot reset the budget, and an
+      interim-only session cannot either — both reproduce the original unbounded loop (241 attempts
+      vs. a bound of 6) against the first cut of this fix
+- [x] Exhausting on silent churn sets a `no-audio` error carrying the session duration, and a new
+      session clears the previous session's error rather than misattributing it
+- [x] Full unit suite green: 3485 passed / 19 skipped, 304 files; tsc, eslint and build clean
 - [ ] **PV-1 re-run on the S22 with this deployed:** the "Live text stopped" banner appears
       within ~8s and its error string is recorded here — settles H1 vs H2 (founder, on device)
+
+## Adversarial Review
+
+Run after the first commit (`25b9cb3e`). Codex was asked first and produced no findings across two
+runs (see decisions.md 2026-09-01 [process]); the review that landed was one native hostile
+reviewer, **1 of 1 reported**, plus a self-review that found two of the three defects.
+
+| # | Finding | Status |
+|---|---------|--------|
+| 1 | `onstart` is not guaranteed to fire; on permission denial the start timestamp stays `0`, so `Date.now() - 0` reads as productive and the budget resets forever | **Fixed** (`sessionActiveRef`), test |
+| 2 | "any result" counted interim text, which never reaches the room — budget stayed alive while the chat stayed empty | **Fixed** (final only), test |
+| 3 | The churn path fires no `onerror` and throws nothing, so the stopped banner rendered with no error — or a stale one from a hiccup that had self-healed, misattributing the outage | **Fixed** (`no-audio` marker + clear on `onstart`), 2 tests |
+| 4 | `PRODUCTIVE_SESSION_MS` is wall-clock (`Date.now()`), so phone backgrounding / screen lock can inflate a dead session past 1500ms and credit it as healthy | **Accepted, not fixed** — see below |
+
+**Why #4 is accepted:** the harm is bounded and self-correcting. Only the *first* post-unlock
+session can carry a spurious duration; the budget resets once, and the next churn cycle exhausts
+normally. Worst case is one extra cycle (~8s) before the banner appears — never an unbounded loop,
+which is what this spec exists to prevent. Closing it needs visibility tracking across the session's
+whole lifetime; that is a real change to the hook's surface and is not worth taking on a fix whose
+own defect rate this session was three-for-three. Revisit if PV-1 shows the banner arriving late
+after a screen lock.
 
 ## References
 
