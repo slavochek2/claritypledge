@@ -5,8 +5,8 @@ rank: 91
 workstream: infrastructure
 created_date: '2026-08-31'
 tags: [disagreement, skills, content, quality]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -70,13 +70,34 @@ founder-chosen. See Alternatives Considered.
 ## Invariants
 
 - **A story MUST NOT state, name or imply the arguer's position on any point.** The position lives
-  in the `point_positions` link. A story naming it cannot be linked to a second point, breaks any
+  in the `point_positions` link.
+  **[FOUNDER DECISION: SETTLED 2026-08-31 — "imply" is DROPPED; the rule is "must not NAME", tested by
+  the staleness question. The invariant line above is superseded by that wording.]** Measured on
+  the first run under the new rules, 2026-08-31: a point is built *so that* arguers land at opposite
+  ends, quotes are chosen to *ground* each position, and the story is then required to reconstruct the
+  reasoning between those quotes. A story that does that well always lets a reader infer the stance.
+  The blind checker, enforcing "imply" literally, failed 3 of 4 stories — and passed the one whose
+  positions were weakest-grounded (`derived`/`stretch`). **Quality and passing ran in opposite
+  directions.** The founder's own words name a narrower failure: a story that goes **stale when a
+  position value changes**. Implementation applies a stopgap staleness test (*would this sentence
+  become false if the position moved one step or flipped sign?*) — **ratified by the founder on
+  2026-08-31, so it is no longer an implementer's stopgap.** See `story-draft.md` PS-1. **Two sub-questions also settled by an
+  implementer and needing ratification:** PS-1 governs the agent's prose and NOT the subject's own
+  verbatim quotes (the broad reading is self-contradictory — `positions.md` selects quotes *because*
+  they ground the point); and the checker must be told which reading it enforces. A story naming it cannot be linked to a second point, breaks any
   future anti-point pairing, and silently goes stale when a position changes. This is also a
   category error against `docs/story-point-model.md`, which defines a Story as something that can
   only be *comprehended* — never agreed or disagreed with.
 - **Every factual claim about the world in story prose MUST be attributed to the speaker or trace to
-  a verified quote.** Not *"Argentina decided X"* but *"Harari says Argentina has announced X."* The
-  claim then stays true regardless of what Argentina actually did.
+  a verified quote.** Not *"Argentina decided X"* but *"Harari says Argentina has announced X."*
+  **NARROWED 2026-08-31 during implementation — §4c flagged this and the narrowing was never applied
+  to the invariant text.** The earlier wording claimed the attributed claim *"stays true regardless of
+  what Argentina actually did."* That is false: attribution relocates responsibility for a claim, it
+  does not repair one that misstates the speaker. *"Harari says X"* is safe only where X preserves
+  the source along four axes — **modality, chronology, causal direction, scope**. The Argentina
+  sentence fails on modality, and prefixing it with *"Harari says"* would have made it a false
+  statement about Harari instead of a false statement about Argentina. Implemented as PS-2 in
+  `story-draft.md`.
 - **The agent that checks a story MUST NOT be the agent that wrote it.** Independence from the
   author is the property the session's evidence actually supports, and it is the invariant.
   **The checker DOES receive the transcript** (founder decision, 2026-08-31). An earlier draft made
@@ -91,7 +112,11 @@ founder-chosen. See Alternatives Considered.
 
 ### 1. Story rules — where they live
 
-**Not a new document, and not a new skill.** `docs/CHARTER.md` rule 10 routes *how one step runs* to
+**A new shared document, and not a new skill.** *(Corrected 2026-08-31. This paragraph opened "Not a
+new document" in the pre-retraction draft and was left standing when the Alternatives row was
+retracted — the table row two paragraphs below already said the opposite. `CHARTER.md:47` makes
+routing advisory and the founder's call final; the founder chose the shared doc.)*
+`docs/CHARTER.md` rule 10 routes *how one step runs* to
 that step's own SKILL file, and rule 2's exception admits a concept-model doc only for a model with
 an evolving operational layer. The charter's own precedent (`arbiter-failure-model.md`, extracted
 2026-08-28) extracted a shared doc **when a third consumer appeared** — story craft has exactly one
@@ -195,7 +220,7 @@ first draft. Four findings were verified against source and change the work:
 
 - **The cast-collapse fix below is a MISDIAGNOSIS as originally written.** The first draft claimed
   `positions` is the first stage that reads what anyone said, and proposed adding a quote-pull to
-  `select`. False: `select.md:614-647` **already** gives its isolated judge every candidate
+  `select`. False: `select.md`'s Phase 3 judge step **already** gives its isolated judge every candidate
   transcript, **already** requires the same-side trap checked *pairwise across all N*, and **already**
   carries a negative control (a known same-side pair the judge must fire on). Gate 2 **already**
   shows a supporting quote per arguer. **The check exists, ran, and returned a false clean verdict.**
@@ -243,8 +268,12 @@ first draft. Four findings were verified against source and change the work:
   generated.**
 - **Predicted room split and arguer split are never compared.** Both numbers already exist. On this
   run all four arguers agreed on P2 while the sealed prediction says 20% room agreement — the most
-  interesting point in the set, which the run reported as a consensus risk. **Fix in `prepare.md`:
-  print the gap.**
+  interesting point in the set, which the run reported as a consensus risk. ~~**Fix in
+  `prepare.md`: print the gap.**~~ **CORRECTED 2026-08-31 — this bullet was not updated when §4c
+  established that `prepare` seals the prediction before positions exist and may not read a run file
+  carrying them.** The comparison is only possible downstream of `positions`. **Fix: `positions.md`
+  Step 5a prints the gap**, reading the already-sealed block and never reopening it; `prepare.md`
+  carries a pointer so nobody re-adds it there and breaks the isolation.
 - **A silent subagent is indistinguishable from one that found nothing, and the pipeline has no
   report count.** All seven subagents in this run showed `idle` in the agent listing while their
   reports had not been delivered; they arrived ~6 minutes later. Acting on the listing, the
@@ -282,11 +311,16 @@ first draft. Four findings were verified against source and change the work:
 | Two agents per arguer (8 for a four-arguer run) is a large fan-out | ACCEPT | Founder explicitly traded token cost for quality twice in-session; the isolation is structural, not redundancy |
 | The blind checker cannot catch a *plausible* invention that happens to be true | ACCEPT | It catches unattributed world-claims, which is the measured failure. A checker cannot verify the world |
 | Craft rules written into the skill will need extracting later | ACCEPT | Extraction trigger recorded in the skill; a move is cheaper than un-drifting two copies |
-| `select.md` quote-pull adds cost to a stage that already gates twice | MITIGATE | 1–2 quotes per arguer, not a full extraction pass |
+| ~~`select.md` quote-pull adds cost to a stage that already gates twice~~ | **VOID** | The quote-pull was withdrawn as a misdiagnosis (§4c, §5). No such cost is added. Row kept so the retraction is traceable |
+| ~~The same-vote check's 2-shared-point floor misses a genuinely collapsed pair sharing one point~~ | **CLOSED 2026-09-01** | No longer accepted. Adversarial review constructed the case: two arguers whose single shared point is the ONLY position either holds never visibly disagree anywhere, and "low confidence" hid the strongest version of the shape behind the weakest label. `positions.md` Step 4d now **flags** that case and keeps `LOW CONFIDENCE` only where both arguers hold other positions too |
+| The 1,500-char ceiling collides with the in-text quote block, which the detail page renders twice | MITIGATE | Measured: 478–899 chars per story. Mitigated by a one-quote-per-linked-point text budget; the duplication itself is a P1141-era defect filed for the founder, out of scope here |
 
 **Non-Goals**
 
-- Do NOT create a new skill. Do NOT create a new document.
+- Do NOT create a new skill. ~~Do NOT create a new document.~~ **RETRACTED 2026-08-31** — same
+  pre-retraction residue as the §1 opener; `docs/story-craft.md` is the chosen approach. Kept visible
+  rather than deleted, because the failure mode was an agent using a routing rule to overturn a
+  founder decision.
 - Do NOT restate the story/point model — `story-draft.md` points at `docs/story-point-model.md`.
 - Do NOT weaken or bypass any existing publish precondition, including the audio-at-timecode check.
 - Do NOT change the `stories.content` 10,000-character DB constraint; the 1,500 target is a build-time
@@ -297,19 +331,19 @@ first draft. Four findings were verified against source and change the work:
 
 ## Done-When
 
-- [ ] `story-draft.md` carries the craft section, the three-tier accuracy rule, and the extraction trigger note
-- [ ] `story-draft.md` carries the writer/blind-checker shape, including what the checker must NOT receive
-- [ ] A story regenerated under the new rules is ≤1,500 characters including quotes, verified by character count
-- [ ] The checker is run against **four** seeded bad cases and flags all four — gate proven by watching it fail, not pass. One per distortion class, because the session's known-bad case exercises only the crudest: (1) *invented fact* — "Argentina has decided an AI can hold a bank account"; (2) *modality shift* — an announced intention rendered as a completed fact; (3) *causal inversion* — "X because Y" where the source says Y because X; (4) *scope creep* — a claim about one country rendered as a claim about all
-- [ ] The checker is run against **one known-GOOD story and passes it** — a gate with no false-positive case has an unmeasured false-positive rate
-- [ ] `select.md` pulls quotes per arguer and reports whether any two arguers land the same way, before Gate 2
-- [ ] `prepare.md` prints the predicted-room-split vs arguer-split gap
-- [ ] `select.md` re-runs its spectrum assessment on the surviving arguers whenever a position is UNFILLED, and prints the reduced spectrum to the founder at Gate 2 as a named finding. Failing to print is the defect; an unfilled position is never a silent narrowing
-- [ ] The **three** comparison harnesses that exist — quote-vs-transcript, caption-vs-audio, and the new story-vs-source checker — each print a known-bad AND a near-miss control result beside their passes. *(Enumerated, because "any harness in the pipeline" named no finite set and could not be completed.)*
-- [ ] A blind reader test is run on one old and one rewritten story in separate agents, neither told a comparison exists, and the rewritten one wins on "did you keep reading past the first sentence"
-- [ ] `positions.md` Step 4c's drop-on-silence rule names an explicit wait deadline (minimum 10 minutes from spawn) and states that an agent listing's `idle` status is NOT a delivery signal. *(Scoped to the one rule that actually discards work.)*
-- [ ] The `/create-spec` benchmark is filed with its own P-number, or Open Question 2 is closed with a written reason. *(Filing that separate spec is NOT part of this spec's completion — only recording the decision is.)*
-- [ ] All four `ai-power-remedies` stories regenerated under the improved skill
+- [x] `story-draft.md` carries the craft section (as a pointer to `docs/story-craft.md`; the craft rules are not restated in the skill), the three-tier accuracy rule, and the extraction trigger note
+- [x] `story-draft.md` carries the writer/checker shape, including what the checker must NOT receive
+- [x] A story regenerated under the new rules is ≤1,500 characters including quotes, verified by character count — **all four**: 1484 / 1492 / 1408 / 1390, counted mechanically. Required a new rule (one quote per linked point in the text) because the quote block scales with quote count and would otherwise leave the arguer with the most quotes the least prose
+- [x] **DONE — 4 of 4 flagged, each named for its correct class**, and the near-miss (modality shift, no new proper noun) was among them. The checker is run against **four** seeded bad cases and flags all four — gate proven by watching it fail, not pass. One per distortion class, because the session's known-bad case exercises only the crudest: (1) *invented fact* — "Argentina has decided an AI can hold a bank account"; (2) *modality shift* — an announced intention rendered as a completed fact; (3) *causal inversion* — "X because Y" where the source says Y because X; (4) *scope creep* — a claim about one country rendered as a claim about all
+- [x] **DONE — PASS.** Caveat recorded: one known-good case measures the false-positive rate at n=1, and in production the checker then produced what looks like a false positive of a class the control did not cover (see the PS-1 founder decision). One good control is a floor, not a measurement. The checker is run against **one known-GOOD story and passes it** — a gate with no false-positive case has an unmeasured false-positive rate
+- [x] ~~`select.md` pulls quotes per arguer and reports whether any two arguers land the same way, before Gate 2~~ **REPLACED.** Diagnosis established before any rule was written: **explanation (a) holds.** `select`'s judge tests same-*position*; the collapsed pair held demonstrably different positions ("Release the weights openly" / "Accelerate — restriction is itself the harm") and voted alike, so no faithful execution of that check could have caught it — (b) alone cannot explain the miss. Delivered instead: `positions.md` **Step 4d**, a mechanical same-*vote* check over all C(N,2) pairs run once positions exist, printing the full matrix; and `select.md`'s judge now **states its own limit** in output and points at Step 4d
+- [x] ~~`prepare.md` prints the predicted-room-split vs arguer-split gap~~ **RELOCATED** — `prepare` seals before positions exist (§4c). Delivered as `positions.md` **Step 5a**, with a pointer in `prepare.md` Stage 7 so it is not re-added there
+- [x] `select.md` re-runs its spectrum assessment on the surviving arguers whenever a position is UNFILLED, and prints the reduced spectrum to the founder at Gate 2 as a named finding. Failing to print is the defect; an unfilled position is never a silent narrowing
+- [x] The **three** comparison harnesses that exist — quote-vs-transcript, caption-vs-audio, and the new story-vs-source checker — each print a known-bad AND a near-miss control result beside their passes. *(Enumerated, because "any harness in the pipeline" named no finite set and could not be completed.)*
+- [x] **DONE, to the corrected §4b design** (one evaluator, both versions of all four stories, randomised, unlabelled, opening sentences alone, with anchors). **Anchors ranked correctly** — deliberately-good #1 of 10, deliberately-bad #10 of 10 — so the run counts. **Rewrite won outright on 3 of 4** (LeCun, Bengio, Andreessen: NO→YES); Harari tied YES/YES on the binary but the rewrite outranked the original 3rd vs 6th. **Every rewritten opening ranked above every original.** A blind reader test is run on one old and one rewritten story, neither told a comparison exists, and the rewritten one wins on "did you keep reading past the first sentence"
+- [x] `positions.md` Step 4c's drop-on-silence rule names an explicit wait deadline (minimum 10 minutes from spawn) and states that an agent listing's `idle` status is NOT a delivery signal. *(Scoped to the one rule that actually discards work.)*
+- [x] **Decision recorded, spec NOT filed.** Written to `docs/process-learnings.md` (`due: month`) with the settled design and the contaminated-control reason, so it sits in the task inbox rather than in anyone's memory. It still needs a P-number and is flagged to pair with the existing `/change-request` Kanban item. Recording the decision is what this line asks for; filing was explicitly out of scope. The `/create-spec` benchmark is filed with its own P-number, or Open Question 2 is closed with a written reason
+- [x] **All four regenerated** over three rounds (write → check → fix → re-check → one residual hedge fixed), and every mechanical gate re-asserted on the final set: 1496 / 1496 / 1493 / 1390 chars, 14/14 quotes verbatim against both the run file and the transcript, 14 unique (author, point) links, label present, no trailing `Source:` line. Both seals re-verified before and after the append. **Not cleared for publish**: five LeCun quotes remain audio-UNVERIFIED (pre-existing, bot-walled), and the position-disclosure rule is an open founder decision. All four `ai-power-remedies` stories regenerated under the improved skill
 
 ## Open Questions
 
@@ -341,8 +375,14 @@ State at the time of filing, all verified in-session:
   `https://www.youtube.com/watch?v=MWMe7yjPYpE`) or by approving a residential proxy top-up. Never
   auto-purchase.
 
-**To resume:** re-run `/slava:disagreement:story-draft ai-power-remedies` under the improved skill.
-It re-verifies both seals, replaces the `## Story Drafts` section, and hands off to
+**Already done — do NOT re-run `story-draft` to "resume".** The four stories were regenerated under
+the improved rules on 2026-08-31, revised against an independent accuracy checker, re-checked against
+the settled position rule on 2026-09-01, and the `## Story Drafts` section in the run file is that
+output. *(This paragraph described the work as still pending; it was written before the run and not
+updated, and an operator following it literally would discard four checked stories and redo them.)*
+**Resume at the audio gate instead:** the five unverified quotes are the only thing outstanding.
+Re-run `story-draft` only if a story actually needs to change — it re-verifies both seals, replaces
+the `## Story Drafts` section, and hands off to
 `/slava:disagreement:publish` — dry-run, then TEST, then PROD as separate deliberate invocations.
 The five points ship unchanged; the sealed prediction is the only scoreable artifact and choosing
 points after seeing positions would destroy it.

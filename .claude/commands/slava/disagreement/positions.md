@@ -1,8 +1,8 @@
 ---
 name: positions
-description: "Select verbatim quotes from approved transcripts, verify quote existence with grep -F against cleaned transcripts, resolve exact second timecodes from raw .vtt, confirm the speaker per quote on multi-speaker sources, and set Likert positions (-3..+3) with inference-strength labels for each arguer on each synthesized point. Terminal output only; writes nothing to the product."
-when_to_use: "Stage 3 of the points pipeline. Run after /slava:disagreement:prepare has extracted synthesized points. Selects quotes BEFORE setting positions, resolves timecodes from raw .vtt, and appends the Quotes & Positions section to the run file."
-version: 1.2.0
+description: "Select verbatim quotes from approved transcripts, verify quote existence with grep -F against cleaned transcripts, resolve exact second timecodes from raw .vtt, confirm the speaker per quote on multi-speaker sources, set Likert positions (-3..+3) with inference-strength labels for each arguer on each synthesized point, run the mechanical same-vote collapse check across every arguer pair, and print the predicted-room-split vs arguer-split gap. Terminal output only; writes nothing to the product."
+when_to_use: "Stage 3 of the points pipeline. Run after /slava:disagreement:prepare has extracted synthesized points. Selects quotes BEFORE setting positions, resolves timecodes from raw .vtt, runs the same-vote collapse check and the room-vs-arguer split comparison once positions exist, and appends the Quotes & Positions section to the run file."
+version: 1.3.0
 ---
 
 # /slava:disagreement:positions
@@ -56,7 +56,69 @@ done < quotes.txt
 
 **Paste all grep exit codes in the output.** Any quote with exit code != 0 must be corrected or replaced before proceeding.
 
-> **Verification is a STEP with an artifact, not a promise.** `grep -F` proves a quote is in the transcript; the audio check below proves the caption robot heard it right; **neither proves the right person said it** — that is the attribution-basis label's job. Prose saying "checked" is the sentence that lets the check silently not happen. Also check the surviving quotes against the audio at their timecodes and record **who ran it and when** — `/slava:disagreement:publish` requires both artifacts as a hard precondition.
+> **Verification is a STEP with an artifact, not a promise.** `grep -F` proves a quote is in the transcript; the audio check below proves the caption robot heard it right; **neither proves the right person said it** — that is the attribution-basis label's job. Prose saying "checked" is the sentence that lets the check silently not happen. Also check the surviving quotes against the audio at their timecodes and record **who ran it and when**.
+
+> **Do this HERE, and act on it HERE — do not carry an unverified quote forward for `publish` to
+> reject.** This line used to end *"`/slava:disagreement:publish` requires both artifacts as a hard
+> precondition"*, which made the audio check **advisory at the stage that does the work and blocking
+> at the stage where nothing can be done about it.** That is how a run reaches the filing gate with
+> dead quotes.
+>
+> **A quote that fails the audio check, or that cannot be checked, is REPLACED at this stage** — pick
+> another from the transcript, exactly as Step 4c already does for an unconfirmable speaker. A long
+> source has dozens of candidates; the whole reason this is cheap here is that the alternative still
+> exists.
+>
+> **The replacement must meet the SAME point-grounding and inference-strength bar as the quote it
+> replaces — audibility is not a ranking axis.** The failure this creates if left unsaid: the one
+> quote that directly grounds a `close` position sits under crosstalk or distorted audio, a vaguer
+> passage elsewhere gestures at the point and records cleanly, and the run swaps the strong evidence
+> for the weak one **while keeping the strong position**. The artifact then reads as better-verified
+> and is actually less faithful. **If no replacement holds the position at its recorded strength:
+> downgrade the inference-strength label to what the surviving quote really supports, or leave the
+> position unfilled and re-run the same-vote and spectrum checks on what remains.** Never keep a
+> position whose grounding quote was swapped for a weaker one.
+>
+> **READ `audio_in_store` from the run file BEFORE selecting a single quote, and print what you
+> read.** `yes` ⟹ the audio is cached on this machine; the audio check below reads it and cannot be
+> blocked by a wall. `NO` ⟹ emit the state **`human-audio-check-required`** for that arguer, carry it
+> into the run file, and select quotes knowing none of them can clear a machine check.
+> **A missing field is not `yes`** — it means `/slava:disagreement:select` never fetched the audio;
+> say so and treat the source as unverified rather than assuming the best.
+>
+> **Re-confirm the bytes rather than trusting the label**: `ls ~/.local/share/yt-store/<video-id>/`.
+> A `yes` written at Gate 2 is a claim about a file, and a file is cheap to look at.
+>
+> **The one case this stage cannot fix is a source whose audio is not in the store** — no quote from
+> it can be machine-verified, and picking a different quote does not help. That must have been caught
+> when `/slava:disagreement:select` tried to fetch the audio, and approved by the founder at Gate 2.
+> **If you arrive here with such a source and no recorded acknowledgement, say so as a finding**: an upstream gate did not run, and
+> every quote from that source is now a human-listening obligation nobody agreed to.
+
+### Step 2a — Every comparison harness ships with a known-bad AND a near-miss control
+
+**A harness that has only ever been shown passes is not a harness; it is a formatter.** This applies
+to **both** comparisons in this stage — quote-vs-transcript (`grep -F`) and caption-vs-audio — and to
+the story-vs-source checker in `/slava:disagreement:story-draft`, which states its own version.
+
+Run the controls through the **identical** code path as the real comparisons and **print their
+results beside the passes**, never in a separate "we also tested" paragraph:
+
+| Control | Quote-vs-transcript (`grep -F`) | Caption-vs-audio |
+|---|---|---|
+| **known-bad** | a sentence never in this transcript ⟹ must return 0 | a quote from a different video entirely ⟹ must return a large content diff |
+| **near-miss** | the real quote with **one word changed** ⟹ must return 0, proving the match is exact and not fuzzy | the real quote **semantically inverted** (`open`→`closed`, `no`→`total`) ⟹ must be REJECTED |
+| **known-good** | the real quote ⟹ must return ≥1 | the real quote ⟹ must CONFIRM |
+
+**Why the near-miss and not just a known-bad.** The `ai-power-remedies` caption-vs-audio harness v1
+used character-level similarity at a 0.85 threshold. Its **inverted** control — *"closed weights …
+total defense"* against *"open weights … no defense"* — scored **0.88** and was reported CONFIRMED.
+A crude known-bad (random text) passes that harness's control set while the harness is blind to the
+one distortion that matters. It was caught only because the inverted control had been planted.
+
+**If any control returns the wrong verdict, the harness's results in this run carry no weight.** Say
+so and replace the method — do not adjust the threshold until the control passes, which is fitting
+the harness to the control.
 
 ---
 
@@ -194,9 +256,37 @@ Ask it exactly this:
 answers match is how you'd manufacture the agreement this step exists to test. Drop the quote and
 pick another — a run needs a handful of quotes and a long-form source has dozens.
 
-**Report the ratio, per `epistemic.md` gate 9b:** `<checks returned> of <quotes sent>`. A subagent
+**Report the ratio, per `epistemic.md` gate 9b:** `<checks returned> of <quotes sent>`, and report
+`VERIFICATION NEVER RAN` drops separately from `unconfirmed speaker` drops — a run where three quotes
+died in infrastructure reads very differently from one where three speakers could not be confirmed. A subagent
 that returns nothing is indistinguishable from one that found nothing, so a silent 4c is a **DROP**,
 not a pass.
+
+> **"Silent" means a stated deadline has expired — never that an agent looked finished.**
+> **`idle` in an agent listing is NOT a delivery signal; it is the absence of one.** In the
+> `ai-power-remedies` run all seven subagents showed `idle` while their reports had not been
+> delivered; the reports arrived about six minutes later. Reading the listing as evidence, the
+> orchestrator announced *"0 of 7 subagents reported"* and, following this very rule, **discarded
+> three correctly-verified quotes.** Both the count and the drop had to be retracted.
+>
+> Before this rule may drop anything:
+> 1. **State the deadline in the output at spawn time** — *"4c deadline: 10 minutes from <ISO>"*.
+>    **Minimum 10 minutes.** A deadline invented after the wait is not a deadline.
+> 2. **Wait it out.** No status, listing, spinner, or `idle` marker shortens it.
+> 3. **Check the artifact, not the agent** — a subagent's final text can be lost silently, so each 4c
+>    agent writes its verdict to a file and returns the path. **An unwritten path reads exactly like
+>    "found nothing."** Read the file before concluding anything about the agent.
+> 4. **Then RETRY ONCE with a fresh agent** before dropping anything. A dead agent is an
+>    infrastructure failure, not evidence about a speaker, and the two must not produce the same
+>    outcome. **Dropping a quote because a process died silently mutates the evidence set** — the
+>    quote may be perfectly attributable and nobody ever looked.
+> 5. **Only if the retry also returns nothing** is the check silent, and only then is the quote
+>    dropped. Print the elapsed wait, that a retry was run, and label the drop
+>    `VERIFICATION NEVER RAN` — **never** `unconfirmed speaker`, which asserts a negative finding
+>    that nothing produced. The two look identical in a run file and mean opposite things.
+>
+> This is `epistemic.md` gate 9b's other half: the gate makes you *count* the reports; it does not
+> say that an agent appearing finished is not one of them.
 
 **Where none of the three lands, the quote is DROPPED, not filed** — and the drop is printed with its
 reason, not silently omitted. A quote assigned to the wrong speaker is worse than no quote. Print a
@@ -212,7 +302,113 @@ stops the whole run on it. Dropping it here is what keeps the rest of the run fi
 
 ---
 
+### Step 4d — The same-vote collapse check (mechanical, runs on every pair)
+
+**Run this once every arguer has a position on every point they hold one on. It needs no judgement,
+and it catches a collapse shape that no earlier stage structurally can** — see the note at the end of
+this step for what `select` catches and what it cannot.
+
+For every unordered pair of arguers `(i, j)`:
+
+1. Take `S` = the set of points where **both** hold a position.
+2. **`|S| = 0` ⟹ `NO OVERLAP — UNCOMPARABLE`.** Two arguers who share no point are not shown
+   disagreeing anywhere. That is a finding about the *set*, not about the pair; print it.
+3. **`|S| = 1` splits in two, and the split is the whole point.**
+   - **If EITHER arguer holds positions on other points as well** ⟹ `SINGLE-POINT — LOW CONFIDENCE`.
+     One matching point is coin-flip noise as a statistic; print the shared sign, do not auto-flag.
+   - **If that one shared point is ALL that EITHER of them has** ⟹ **FLAG it as a collapse.** Two
+     arguers who agree on the only point where either appears **never visibly disagree anywhere in the
+     run**, and the founder must decide about them exactly as for any other collapsed pair. Calling
+     that "low confidence" hides the strongest version of the shape behind the weakest label — the
+     disappearance-by-non-overlap case the whole check exists to surface. *(Corrected 2026-09-01:
+     the first version deferred this to `LOW CONFIDENCE` and let it pass Gate 2 with no decision.)*
+4. Compare **signs** across `S`, where sign is `−`, `0`, `+`. **If the sign matches on every point in
+   `S` AND at least one shared point is non-zero, the pair is FLAGGED as a same-vote collapse.**
+   **The non-zero condition is load-bearing:** two arguers sitting at `0` on every shared point are
+   not one voice, they are two silences — one because the evidence is balanced, one because the point
+   is outside their source. Flagging that pair as collapsed reports an artifact of coverage as an
+   artifact of casting. An **all-zero** pair prints `NO SIGNAL — both neutral throughout`, which is
+   its own finding and a different one.
+5. **A flag at `±1` on every shared point is a weaker claim than a flag at `±3`, and the output must
+   say so.** Two people leaning the same way on two minor points, while diverging sharply on points
+   they do not share, is not the collapse this check exists to catch. Print the magnitudes; do not
+   let the sign matrix alone carry the verdict to the founder.
+4. Print the mean absolute difference in position value alongside, so *"same direction, different
+   force"* is visible as distinct from *"identical voice"*.
+
+**Print the full matrix — every pair, flagged or not.** A check that prints only its hits is
+indistinguishable from a check that did not run:
+
+```
+Same-vote collapse check — all C(N,2) pairs:
+  <A> / <B>   shared: P2,P3,P4   signs: +,+ | +,+ | +,+   mean|Δ|: 0.67   ** COLLAPSED **
+  <A> / <C>   shared: P2,P3      signs: +,− | +,+         mean|Δ|: 3.50   distinct
+  <B> / <D>   shared: P1         signs: +,+                SINGLE-POINT — LOW CONFIDENCE (both hold others)
+  <E> / <F>   shared: P1 (only positions either holds)        ** COLLAPSED — never disagree anywhere **
+  <C> / <D>   shared: P1,P5      signs: 0,0 | 0,0          NO SIGNAL — both neutral throughout
+  <A> / <D>   shared: (none)                               NO OVERLAP — UNCOMPARABLE
+```
+
+**A FLAGGED pair is a finding reported to the founder, never an auto-drop** — the founder chooses
+whether the run proceeds, loses an arguer, or is re-cast.
+
+> **Why this check exists, and why it is HERE rather than in `/slava:disagreement:select`.**
+> `select`'s Phase 3 judge already runs a same-side trap, pairwise across all N, with every candidate
+> transcript and a negative control. On `ai-power-remedies` **it ran and returned a clean false
+> verdict** — *"No other pair collapses"* — while two arguers were voting identically. Adding a
+> weaker copy of that check upstream would have reproduced the miss, which is why the first proposed
+> fix was withdrawn.
+>
+> **The reason it missed is that it tests a different property.** `select`'s judge asks whether two
+> arguers *occupy the same position*. The two arguers in question were approved for **genuinely
+> different positions** — one an openness position, one an acceleration position — and the judge
+> called them distinct, **correctly, on the question it was asked**. They then landed on the **same
+> side of all three points where both held a position**, at close magnitudes. **A same-position check
+> cannot catch a same-vote pair, however carefully it is run** — the sealed dissent's own wording is
+> position-reasoning throughout, and a faithful re-execution of it returns the same clean verdict.
+>
+> *(Names and position values deliberately omitted: an agent-derived Likert value is a machine's
+> guess at how a named real person would vote, this repo is public, and `/slava:disagreement:prepare`
+> forbids stating what any named person "would answer, or would vote". The run file in `.private/`
+> holds the specifics.)*
+>
+> **A same-vote check is only possible after positions exist**, which is this stage. That is the
+> whole reason it lives here. `select` keeps its judge unchanged and now states its limit.
+>
+> **Two checks, two shapes.** `select`'s transcript-level
+> spectrum and same-side analysis catch some collapsed casts *before* points are built, which is
+> strictly better — nothing has been generated yet. This check catches a shape that one structurally
+> cannot. Two checks, two shapes; neither is a superset.
+
 ## Step 5: Append to Run File
+
+### Step 5a — Print the predicted-room-split vs arguer-split gap
+
+Both numbers already exist and nothing has ever put them side by side. `/slava:disagreement:prepare`
+sealed a predicted **room** agreement share per point; this stage has just produced the **arguers'**
+actual positions. **Print the comparison, per point:**
+
+```
+Room prediction vs arguer split:
+  P<n>  predicted room agreement: <NN>%   arguers: <+3,+2,+2,+1>  agree <a>/<n>  (<NN>%)   gap: <±NN> pts
+```
+
+**Read the gap in both directions, and say which each point is:**
+
+- **Predicted-low, arguers-agree** — expert unanimity against predicted room dissent. **A room cannot
+  pre-sort itself by tribe on such a point**, which makes it the most valuable statement in the set.
+- **Predicted-high, arguers-split** — the reverse, and the point flagged as a consensus risk is the
+  one that actually divides.
+
+On `ai-power-remedies` the sealed prediction gave P2 20% room agreement while **all four arguers
+agreed** (+3, +2, +2, +1), and gave P3 70% ("highest consensus risk") while the arguers split 2-vs-1.
+The run reported P2 as a consensus risk. Both extremes were backwards and nothing printed it.
+
+> **This comparison must NOT move upstream into `/slava:disagreement:prepare`.** That stage seals the
+> prediction **before** positions exist and is explicitly forbidden from reading a run file already
+> carrying them — doing so would leak positions into the sealed pass and destroy the isolation the
+> seal exists to guarantee. Here the seal is already taken and re-verified; this step only **reads**
+> the sealed block and **never reopens or re-hashes it.**
 
 **Before appending, re-verify both seals** — approvals (`.points-run-seals/<slug>.approvals.sha256`) and prediction (`.points-run-seals/<slug>.sha256`) — by re-extracting each named block and re-hashing. **A mismatch is a STOP.** Then append `## Quotes & Positions` to `.private/points-runs/<slug>.md` conforming to `docs/points-process.md`, using the emitting shape `/slava:disagreement:publish` was built to read:
 
@@ -221,6 +417,7 @@ arguer: <Display Name> | subject_key: <from the run file's approvals block> | so
 
 quote: <verbatim text> | seconds: <integer start second> | basis: <single-speaker | speaker-labelled | turn-verified> | point: Pn
 position: Pn = <position_type> [close|derived|stretch]
+audio_status: <verified | human-audio-check-required>   # from `audio_in_store`; carried so the filing gate inherits it rather than rediscovering it
 
 video_url: <canonical watch URL>   # https://www.youtube.com/watch?v=... or https://youtu.be/...
 duration_seconds: <integer>

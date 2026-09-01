@@ -960,3 +960,43 @@ migrate prod.
 <!-- Resolved 2026-08-28: "Spec dependency fields are five undefined spellings" — promoted to a
      tracked spec rather than left as month-debt; see features/p1186_spec_dependency_vocabulary.md (filed same day). -->
 
+
+---
+
+## Benchmark `/create-spec` against an unskilled baseline (due: month)
+
+**Deferred from P1202 Done-When, recorded rather than left in anyone's memory. Still needs a
+P-number** — verified 2026-08-31 that no such spec exists in `features/`.
+
+The design is already settled and should not be re-derived: two fresh agents that have never seen the
+originating conversation, both handed the same context package, one given the skill and one not, with
+scoring criteria **pre-registered by a third party before either spec exists**.
+
+**Why it was separated from P1202 rather than run inside it: contaminated control.** The agent that
+would have run the unskilled arm had read the pipeline's skill files all session and would have
+reproduced the skill's sections from memory — the null result would have been false.
+
+Pairs with the existing Kanban item on `/change-request` creation; file them together or as one spec.
+
+---
+
+## The story quote block renders twice on the detail page (due: month)
+
+Found during P1202, **not fixed there** — the fix touches a shipped publish precondition, which that
+spec's Non-Goals forbid.
+
+`story.content` carries `Supporting quotes from {Full Name}` plus the quotes as prose, and
+`StoryVideoQuotes` then renders **the same heading and the same quotes again** from `video_quotes`,
+with jump links. P1141's own design table places the quote block *"Below the argument"* and its
+component comment records that *"quotes inline in the prose"* was built and **rejected** — so the
+in-text copy contradicts a decision already made. But `/slava:disagreement:publish` requires the label
+string verbatim *in the story text*, so the duplication cannot be removed from the drafting end alone.
+
+**Why it is worth a spec:** it costs 478–899 characters of a 1,500-character story — a third of the
+budget — spent on a same-page duplicate with worse affordances than the copy below it. Measured on
+`ai-power-remedies` run B. P1202 mitigated it (one quote per linked point in the text) rather than
+fixing it.
+
+**The decision the founder owns:** does the label alone stay in the text (gate satisfied, quotes live
+only in `video_quotes`), or does the publish gate move to assert the label on the rendered page
+instead of on `content`?

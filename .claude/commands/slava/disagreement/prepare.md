@@ -2,7 +2,7 @@
 name: prepare
 description: "Read one or more sources — the N ∈ 2..6 opposed arguers selected by /slava:disagreement:select, or sources supplied directly — and extract the disagreement: synthesized Points aimed at a named ROOM (claims neither speaker made, constructed so each speaker's own quotes commit them to opposite ends), each point's inference chains, and a sealed prediction of how the room splits. Terminal output only; writes nothing to the product. Quote selection, positions and story drafts live downstream in /slava:disagreement:positions and /slava:disagreement:story-draft."
 when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select has proved the topic contested and approved a source set (N ∈ 2..6). When recorded material should yield claims a ROOM would split on — the room may be an event audience or the two people who had the conversation. Works with NO voiced disagreement (podcasts, friendly interviews): the split then lives in the audience. THE DISTINCTION FROM /slava:understanding:reconstruct: that skill is about YOU — your experience, your story, you rating whether it captured your meaning. This one is about a DISAGREEMENT, prepared for a room, where no one's interiority is authored and every story is quotes only."
-version: 0.8.0
+version: 0.8.1
 ---
 
 # /slava:disagreement:prepare
@@ -329,6 +329,12 @@ Never merge a strong half and a weak half into one confident number.
 > Without that commit, say in the output that the prediction is **unsealed** — self-reported ordering, not evidence. Every prediction made before 2026-08-17 is unsealed by this standard, including both runs on record.
 
 > **The seal is over a NAMED BLOCK, never over the whole run file.** *(Changed 2026-08-25, P1156 — the one deliberate rule change in this stage; everything else moved intact.)* The run file is progressively written by four skills: `/slava:disagreement:positions` and `/slava:disagreement:story-draft` append AFTER this seal is taken, and any later write would change a whole-file hash — the seal would not fail loudly, it would silently stop matching. The named block contains only what the predicting pass is allowed to see: statements, room, predictions, bases. **Never the inference chains with position values, never the agent positions** — Stage 7's isolation guarantee would be sealed alongside its own violation. Every downstream skill re-extracts this block, re-verifies the seal, and STOPs on mismatch.
+
+> **The predicted split is compared against the arguers' actual positions in
+> `/slava:disagreement:positions` Step 5a — NOT here, and never here.** This stage seals the
+> prediction *before* positions exist and may not read a run file already carrying them (see the
+> re-run rule in Inputs); pulling the comparison upstream would leak positions into the sealed pass
+> and destroy the isolation this seal exists to guarantee. Pointer only — do not restate Step 5a.
 
 > **Per-run file only.** No index, no cross-run query, nothing reading across `.private/points-runs/` — that is the persistent decision store frozen by `docs/decisions.md` 2026-07-14 [product].
 >

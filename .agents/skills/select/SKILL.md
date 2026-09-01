@@ -2,7 +2,7 @@
 name: select
 description: "Given a topic, establish that a disagreement exists BEFORE any search (Phase 0), then select N ∈ 2..6 arguers on distinct positions — solo talks, or one-way interviews admitted on measured evidence: enumerate the fork and its named advocates, propose credible people per position, gate for founder approval, rank each person's solo videos by argument quality, run an isolated judge step to argue why the set does not work, gate for set approval, and write the sealed run file for /slava:disagreement:prepare. A consensus topic STOPS at Phase 0 without searching. Terminal output only; writes nothing to the product."
 when_to_use: "Start of the points pipeline. Run once per topic before /slava:disagreement:prepare. Takes a topic string and a named room, first proves the topic is CONTESTED at all (Phase 0 — a consensus topic stops here, with the shared premise named and no search performed), then selects and proves N ∈ 2..6 opposing sources exist and meet Gate 0 — one voice, or one voice plus a verified questioner. The selector proves creation and extraction will succeed; it never creates accounts or writes to the database."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # /slava:disagreement:select
@@ -595,19 +595,62 @@ make the set look complete.**
 
 **Report fetch failures explicitly** — never return a thinner list with no explanation.
 
-**Print the funnel — once per position, then a total line:**
-```
-Funnel summary (position <n>: "<position statement>" — <approved person>):
-- Candidates found: <N>
-- Dropped by title screen (Gate 0 Step 1): <N>
-- Dropped by transcript opening (Gate 0 Step 2): <N>
-- Multi-speaker, measured at Step 2b: <N>  (admitted turn-verified: <N> | rejected two-way: <N> | rejected unmeasurable, no markers: <N>)
-- Dropped by audience floor (<2k views / <50 comments): <N>
-- Finalists evaluated with full transcript: <N>
-- Surviving candidates: <N>
+### Fetch the audio at selection — do not "probe" it
 
-Run total: positions carried <N> | positions filled <N> | positions UNFILLED <N> (named below)
+**Fetch each finalist's audio into the machine-global store, at selection, before Gate 2.** Not a
+lightweight probe: the actual bytes, cached where the later audio-at-timecode check will read them.
+
+```bash
+yt -f bestaudio --no-playlist -o "<scratch>/<video-id>.%(ext)s" "<url>"; echo "exit=$?"
 ```
+
+Record per source: `audio_in_store: yes | NO — exit <n>`, the timestamp, and the route `yt` reported.
+
+> **Three things were measured on 2026-09-01 and each one killed a cheaper design. They are written
+> here so the cheaper designs are not re-proposed.**
+>
+> **1. A windowed probe returns a FALSE WALL.** `yt -f bestaudio --download-sections "*900-910"`
+> against a source whose audio had been fetched successfully the previous day returned
+> `Server returned 403 Forbidden` / `ffmpeg exited with code 8`. The ranged path is fetched by ffmpeg
+> against the media URL and is refused independently of whether the ordinary path works. **A
+> three-window probe would have marked every source WALLED and rejected the entire cast.**
+>
+> **2. `--simulate` returns a FALSE YES.** The same source simulated at `exit=0`, printing format and
+> filesize. Simulation proves a format is *listed*; it moves no bytes and cannot see a wall. It is a
+> false-yes generator and must never be used as the verdict.
+>
+> **3. Reachability is NOT a property of the source.** That same source **direct-walled the very next
+> day** (*"YouTube walled the direct request — falling back to residential proxies"*) and succeeded
+> only via the proxy ladder. So a `reachable: yes` recorded at Gate 2 predicts nothing about the same
+> source an hour later, and an earlier version of this section that recorded exactly that would have
+> been recording a snapshot of the weather.
+>
+> **That is why the field is `audio_in_store`, not `audio_reachable`.** *"The bytes are on this
+> machine"* is a durable, re-checkable fact and is precisely what the downstream check needs.
+> *"The source was reachable at 14:02"* is neither.
+
+**What each verdict commits you to:**
+
+| Verdict | Meaning | Gate 2 |
+|---|---|---|
+| `yes` | bytes are in the store; the later audio check **cannot** be blocked by a wall | proceed silently |
+| `NO — exit 7` | every route walled **and** free proxy quota spent | **escalate to the founder — never retry in a loop and never purchase a top-up.** Standing rule |
+| `NO — exit <other>` | fetch failed for another reason | report it; a retry later may succeed, but nothing may be *counted on* |
+
+**Cost, stated rather than buried.** This moves a real audio download from late to early — roughly
+tens of megabytes per source, against a free residential-proxy allowance of about 1 GB a month. **It
+is not extra work**: the same bytes are required later by the audio-at-timecode check, `yt`'s store is
+content-addressed and permanent, so the later stage reads the cache and fetches nothing. **The only
+thing that changes is when you find out**, and that is the entire point:
+
+- **here** — swap the video. Free.
+- **at filing** — the arguer's positions empty and the cast changes. *Measured on `ai-power-remedies`:
+  20 quotes, 5 positions and 4 stories were built on a source whose audio nobody had tried to fetch.*
+
+**A `NO` is NOT an automatic rejection.** It is a finding the founder rules on — see the separate
+acknowledgement at Gate 2. A speaker who is the right voice for a position is worth two minutes of
+human listening; a machine should not silently drop them over an infrastructure condition that
+changes daily.
 
 ---
 
@@ -639,12 +682,50 @@ It evaluates:
   `5VSxrEH1-Rk` (`docs/decisions.md` 2026-08-25 [product], *"YouTube search matches words, not
   stances"*) — two videos that look cleanly opposed by title and view count and are **the same
   side**. A judge step that does not fire on that pair is not running.
+
+  > **State this check's limit in the output, every run. It is narrower than it reads.**
+  > This tests whether two arguers occupy the **same position**. It cannot catch two arguers who
+  > occupy **genuinely different positions and then vote the same way on every point** — because the
+  > points do not exist yet at this stage, and neither do the positions on them.
+  >
+  > **Measured, not hypothetical.** On `ai-power-remedies` this judge ran with all five transcripts
+  > and returned *"No other pair collapses."* Two of the approved arguers held demonstrably different
+  > positions — one an openness position, one an acceleration position — so the verdict was **correct
+  > on the question asked**. They then landed on the same side of every point where both held a
+  > position. Running this check harder, or with more prose, would not have caught it. *(Names and
+  > position values omitted deliberately — see the note in `positions.md` Step 4d; this repo is
+  > public and an agent-derived Likert value is a machine's guess at how a named person would vote.)*
+  >
+  > **The catch is `/slava:disagreement:positions` Step 4d**, a mechanical same-**vote** check that
+  > runs once positions exist. Do not duplicate it here; a same-position check run before positions
+  > exist is not a weaker version of it, it is a different question. Print the sentence:
+  > *"Same-side check covers same-POSITION pairs only; same-VOTE collapse is checked in
+  > /slava:disagreement:positions Step 4d, after positions exist."*
 - **Does each source argue the position it was admitted for?** A silent re-shuffle of who occupies
   what leaves N sources and fewer than N positions.
 - Is the disagreement genuine and load-bearing, or purely semantic?
 - Does any transcript rely on unevidenced assertions?
 - **Is the spectrum actually a spectrum**, or N points clustered at two poles with the middle
   unoccupied? Say which; it is the founder's call, not a rejection.
+- **If any carried position went UNFILLED, run the spectrum assessment a SECOND time — on the
+  survivors only — and report both.** The first assessment describes a set that does not exist.
+  **An unfilled position is never a silent narrowing of the spectrum**, and failing to print the
+  reduced shape is itself the defect.
+
+  On `ai-power-remedies`, the halt-development position went unfilled. It was the only voice opposing
+  **both** camps — against continuing to build under governance, and against building faster — and
+  the sealed dissent had itself named a *"build/halt axis"* that this position was the entire other
+  end of. With it gone the spread was one axis and four arguers, and
+  **no stage re-checked**. The run went on to generate points against a spectrum that had lost a
+  dimension.
+
+  Print both, explicitly:
+
+  ```
+  Spectrum as carried  (<N> positions): <shape>
+  Positions UNFILLED:  <n> — <position statement(s)>
+  Spectrum as FILLED   (<M> positions): <shape>   axes lost: <named, or none>
+  ```
 
 ---
 
@@ -659,13 +740,35 @@ Present the proposed set to the founder:
    **and its verbatim caveat** alongside), and the core claim with a short supporting quote.
 2. **Position coverage:** state N carried and N filled, and **name every carried position that
    produced no admissible source**. An unfilled position is a finding presented to the founder, never
-   a silent narrowing of the spectrum.
+   a silent narrowing of the spectrum. **Print each source's `audio_in_store` verdict here too** —
+   a `NO` source is approved with the founder acknowledging its quotes will need human listening
+   before they can publish, which is a cost accepted at approval time rather than discovered at
+   filing time. **Where any position is unfilled, print the Phase 3
+   survivors-only spectrum re-assessment here as a named finding** — the founder is approving the set
+   that actually exists, and the axes it has lost are part of what they are approving.
 3. **Runners-up:** 1–2 runner-up videos per position with their stats and why they ranked lower, plus
    that position's Gate 1 `alternates` (people, not just videos) if any remain unused.
 4. **Judge Dissent:** Print the judge step's counter-argument in full.
 
 **Halt for founder approval.** The founder approves the **set**, including its size: proceeding with
 fewer positions than were carried is an explicit choice made here, not an outcome of the search.
+
+> **A `WALLED` or `PARTIAL` source needs its OWN acknowledgement — a set-level "approved" does not
+> cover it.** Gate 2 prints statistics, identity evidence, coverage, runners-up and the judge dissent;
+> one reachability line inside that is approved by a founder saying "yes" to the whole block, and the
+> run file would then claim they accepted a human-listening obligation they were never actually
+> asked about. **Ask separately, naming each affected source and what it commits them to:**
+>
+> ```
+> SEPARATE ACKNOWLEDGEMENT REQUIRED — audio not in store
+>   <person> — <url> — NO (exit <n>)
+>   Consequence: every quote from this source needs a HUMAN to listen before it can publish,
+>   to TEST as well as PROD. No machine check can clear it.
+>   Approve this source on those terms? (yes / swap it / drop the position)
+> ```
+>
+> Record the answer verbatim in the run file next to `audio_in_store`. **Silence is refusal**, and a
+> set-level approval with this question unanswered is not an approval of that source.
 
 ---
 

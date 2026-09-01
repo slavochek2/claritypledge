@@ -91,6 +91,7 @@ The points pipeline turns public video into a published disagreement a room can 
 
 ### Step 1: `/slava:disagreement:select`
 - **Goal:** First establish that the topic is **contested at all**; then find **N ∈ 2..6** credible, influential people occupying distinct positions on it, and identify videos where each makes their case — a solo talk, or a one-way interview that clears Gate 0's measurement (`turn-verified`).
+- **Audio is FETCHED into the store, not probed:** every finalist's audio is downloaded before Gate 2, so the later audio-at-timecode check reads a cache and a wall is discovered while swapping the source is still free. *(A windowed probe was measured to return a false WALL and `--simulate` a false yes — see `select.md`.)* A failed fetch is printed as a named finding and requires a **separate founder acknowledgement**, recorded verbatim — a set-level approval does not cover it, because the commitment it creates (a human must listen before those quotes can publish, to TEST as well as PROD) is not visible inside a batch approval.
 - **Phase 0 (contestedness) — runs before ANY search:** names the fork, enumerates the positions along it, and requires a **named advocate with evidence** for each. Verdict `CONTESTED` or `CONSENSUS`. **`CONTESTED` requires a written contradiction, not a count of positions:** for at least one pair of positions there must be a sentence with a truth value that one advocate's own words assert and another's own words deny. Emphasis, vocabulary, tone and silence are not denial. No such sentence ⟹ `CONSENSUS`, however many positions were enumerated. **`CONSENSUS` is a successful terminal outcome:** the shared premise is reported, no video search is performed, and no run file is written. One remedy-level reframe may be *offered* (never taken unilaterally — the topic is a founder input); a second `CONSENSUS` is the answer.
 - **Gates:**
   - **Gate 1:** Founder approves the **Phase 0 spectrum and one person per position**. Phase 0 has no separate gate — Gate 1 already sits before any search, which is the spend Phase 0 protects. Identity key resolved, agent existence checked, **portrait status recorded — never rejected on**. Three values: `cleared` / `none` / `UNKNOWN LICENCE`. `none` is a valid approvable outcome routed to the initials-only provisioning branch; only `UNKNOWN LICENCE` halts. Non-approved candidates are carried into the run file as that position's `alternates`, not discarded. Optionally one or more positions are **seeded** by the founder (a person and/or a video URL), in which case only the un-seeded positions are proposed.
@@ -108,16 +109,21 @@ The points pipeline turns public video into a published disagreement a room can 
 ### Step 3: `/slava:disagreement:positions`
 - **Goal:** Ground each arguer's position in verified quotes and resolve accurate timecodes.
 - **Ordering:** Quotes first, then position.
-- **Verification:** `grep -F` against the cleaned transcript (exit codes pasted). Timecode `seconds:` resolved strictly from the RAW `.vtt` file in `~/.local/share/yt-store/`.
+- **Verification:** `grep -F` against the cleaned transcript (exit codes pasted). Timecode `seconds:` resolved strictly from the RAW `.vtt` file in `~/.local/share/yt-store/`. Every comparison harness in the stage runs a known-bad **and** a near-miss control and prints their verdicts beside the passes (Step 2a).
 - **Inference Strength:** Sets `close`, `derived`, or `stretch` label per position.
+- **Cast integrity:** Step 4d runs the mechanical same-**vote** collapse check across every arguer pair, once positions exist — the check `select`'s same-**position** judge structurally cannot perform. A pair whose single shared point is the only position either holds is flagged, not filed as low-confidence.
+- **`audio_in_store` is READ here, not just written upstream:** `positions` reads it before selecting quotes, re-confirms the bytes exist in the store, and emits `human-audio-check-required` where they do not. A quote that fails or cannot clear the audio check is **replaced at this stage** — at the same point-grounding and inference-strength bar, never a weaker quote kept at a stronger position — rather than carried to the filing gate where no cheap remedy exists.
+- **Calibration:** Step 5a prints the sealed predicted-room-split against the arguers' actual split, per point. It reads the sealed block and never reopens it; the comparison may not move upstream into `prepare`.
 - **Writes:** Appends `## Quotes & Positions` section to the run file.
 
 ### Step 4: `/slava:disagreement:story-draft`
 - **Goal:** Author the narrative machine-reading story for each arguer.
+- **Shape:** One isolated **writer** per arguer (that arguer's material only — nothing about the others, nothing from the orchestrating session), and a **separate checker** per story that did not write it. The checker receives the story text, the quote list, the transcript and the point statements; findings return to the writer, never to the checker to rewrite. Five control checkers per run prove the gate before its verdicts are trusted.
+- **Craft:** Length, opening sentence, banned metadiscourse, sentence style and the blind reader test live in [`story-craft.md`](story-craft.md). Person-safety — position, the three-tier accuracy rule, full-name — lives in the skill file.
 - **Constraints:**
   - One story per distinct experience.
   - Assert unique `(author_id, point_id)` at build time (no duplicate story links for one author on one point).
-  - Body length <= 10,000 characters.
+  - Body length <= 10,000 characters (DB constraint) and **<= 1,500 characters (the binding build-time ceiling, quotes included)**.
   - P1141 voice rules: Full name/surname only (no bare pronouns), no position imputation, exact section header `Supporting quotes from {Full Name}`, no trailing `Source:` line.
 - **Writes:** Appends `## Story Drafts` section to the run file.
 
@@ -184,6 +190,9 @@ arguers:                              # REPEATABLE, 2..6 entries, one per distin
     alternates: ["<Gate 1 runner-up name>"]   # carried, not discarded; may be empty
     video_url: "https://www.youtube.com/watch?v=..."
     video_id: "<id>"
+    audio_in_store: "<yes | NO — exit <n>>"      # select FETCHED the audio into ~/.local/share/yt-store/. ABSENT means it never tried — NOT `yes`
+    audio_fetch: { at: "<ISO>", route: "<direct|proxy-CC>", exit: <int> }
+    audio_ack: "<founder's verbatim answer to the separate acknowledgement, when NO>"
     video_title: "<title>"
     uploader: "<uploader>"
     duration_seconds: <int>
@@ -222,6 +231,11 @@ P2: "<statement>" | predicted agreement: <int>% | basis — …
 <!-- end-prediction-block -->
 
 ## Quotes & Positions
+
+> Each arguer block additionally carries `audio_status: <verified | human-audio-check-required>`,
+> emitted by `positions` from the upstream `audio_in_store` verdict. A source whose audio is not in
+> the store can never clear a machine check, and that fact must travel with the quotes rather than be
+> rediscovered at the filing gate.
 Line-oriented emitting shape — `/slava:disagreement:publish` was built to read exactly these lines:
 
 ### Arguer 1: <Full Name> — position 1: <position statement>
@@ -285,7 +299,13 @@ content: |
 7. **No Trailing `Source:` Line:**
    Story drafts must not include a trailing `Source:` line.
 8. **Character & Constraint Safety:**
-   `stories.content <= 10000` chars; `(author_id, point_id)` unique across emitted story points.
+   `stories.content <= 10000` chars; `(author_id, point_id)` unique across emitted story points. The **binding** build-time ceiling is 1,500 characters including the quote block — [`story-craft.md`](story-craft.md) §1 owns the number and its falsifier.
+8b. **A story never states, names or implies the arguer's position:**
+   The position lives in the `point_positions` link. A story that names it is a Point wearing a Story's name, cannot be linked to a second point, and goes stale silently on any position revision. Rule and reasoning: `/slava:disagreement:story-draft` §Person safety.
+8c. **No agent checks its own story, and no comparison harness is trusted without controls:**
+   Independence from the author is the invariant (`story-draft` PS-3). Every harness in the pipeline — quote-vs-transcript, caption-vs-audio, story-vs-source — prints a known-bad **and** a near-miss control result beside its passes; a control returning the wrong verdict voids that harness's results for the run.
+8d. **`idle` is not a delivery signal:**
+   No stage may treat an agent listing's status as evidence a report will not arrive. Any drop-on-silence rule fires only on an explicit deadline the stage stated at spawn time (minimum 10 minutes), and only after checking the artifact rather than the agent.
 9. **Contestedness precedes search, and consensus is a RESULT:**
    `/slava:disagreement:select` Phase 0 establishes that a disagreement exists before any `yt` call. A topic whose advocates all argue the same proposition returns `CONSENSUS`, prints the shared premise, and **STOPS with no search performed and no run file written** — a successful, informative outcome, never a failure to route around by widening the search or relaxing the recency/audience floors. Reframing to remedy level is *offered once* and requires founder approval of the new topic string; a second `CONSENSUS` verdict is the answer. **That cap is enforced by a log, not by honour:** every `CONSENSUS` appends one line to `.private/points-runs/consensus-log.md` (`<ISO> | <topic> | reframe_of: <prior|none> | shared premise: <sentence>`), Phase 0 reads it before enumerating anything, and a fork already reached through two `reframe_of` hops is a **STOP** in any invocation by any route. A log line is not a run file, so this holds the no-run-file rule intact. The log is `.private/` and therefore machine-local — an accepted limit. **Where the log is absent the counter does not exist**, and Phase 0 must print `Consensus log: NOT PRESENT — reframe count unverifiable on this machine`: the `Reframed from:` lineage line is then a **disclosure, not coverage** (prose the agent prints about its own history), and must never be presented as the check.
 10. **N arguers, N ∈ 2..6, one per distinct position (default 4):**
