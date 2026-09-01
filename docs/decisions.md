@@ -82,6 +82,33 @@ applied (repo convention, prevents the collision class) but it is **not** a fix 
 
 **References:** [docs/technical/e2e-triage-2026-09-01.md](technical/e2e-triage-2026-09-01.md)
 
+## 2026-09-01 [process]: A test file belonging to a dead spec can still be the coverage for a live component — check the component, not just the spec
+
+**Context:** The E2E retirement pass keys its delete/keep decision on the spec's frontmatter: if the
+spec is `rejected` or carries `superseded_by:`, the test file is a retirement candidate. Applied to
+`e2e/p526-point-image.spec.ts` — a **CONFIRMED** dead file, feature decomposed into P591 — that rule
+would delete four tests covering the image lightbox. But `src/app/components/shared/image-lightbox.tsx`
+is very much alive: `story-image.tsx` and `profile-page-v2.tsx` both use it, and the same triage
+independently filed a real accessibility defect against it. The dead feature and the live component
+were shipped in one spec, so they share one test file.
+
+**Decision:** Before deleting a retirement-candidate file, grep `src/` for each distinct component the
+file exercises, not only the feature the spec names. If a component survives, confirm another spec
+still covers it before deleting — otherwise extract those blocks rather than delete the file. In the
+p526 case coverage does survive (`p591-story-supporting-images.spec.ts` also exercises the lightbox),
+but that was luck, not a check.
+
+**Alternatives rejected:** (a) Delete per-file on spec status alone — the rule that produced the
+candidate list is a good *filter* and a bad *verdict*; it cannot see that one spec shipped two things.
+(b) Keep every mixed file as STALE — retires almost nothing, since large specs usually touch some
+still-live shared component.
+
+**Consequences:** The retirement pass needs a third outcome beyond DEAD/STALE: **SPLIT** — the feature
+tests go, specific blocks stay. Silent coverage loss here is invisible by construction: deleting the
+only test for a live component makes the suite greener, so nothing downstream flags it.
+
+**References:** `.private/p1043-sweep/RETIREMENT-CANDIDATES.md` · [e2e-triage-2026-09-01.md](technical/e2e-triage-2026-09-01.md) · [p1043 spec](../features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md)
+
 ## 2026-09-01 [technical]: A Playwright run reuses whatever dev server is already up — and its `webServer.env` block is then never applied
 
 **Context:** An unattended overnight E2E run was built to redirect the app at an ephemeral local
