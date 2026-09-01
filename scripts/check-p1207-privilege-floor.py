@@ -192,6 +192,12 @@ def main():
                 continue  # absent half = not granted by this policy
             if IDENTITY.search(pred):
                 continue  # consults the caller; scoping correctness is out of scope here
+            # KNOWN BOUND, stated rather than discovered later: a predicate that delegates the
+            # identity check to a helper — story_explain_backs uses
+            # `_is_delivery_receiver(delivery_id)` — has no literal auth.* and would be flagged
+            # here. That is a false positive this check would produce if it were ever widened
+            # beyond clarity_idea_votes, whose policies use no such helper. Widening the table
+            # list requires teaching this to resolve helper bodies first.
             shape = "literally true" if OBVIOUSLY_TRUE.match(pred) else "no auth.* reference"
             violations.append(
                 f"F1 policy: clarity_idea_votes {p['cmd']} \"{p['policyname']}\" "

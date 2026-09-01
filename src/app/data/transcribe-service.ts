@@ -88,10 +88,20 @@ function mapMessage(row: DbMessage): TranscribeMessage {
 
 /** 6-char alphanumeric room code, same character set as clarity_sessions' generateRoomCode. */
 function generateTranscribeRoomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I, O, 0, 1
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I, O, 0, 1 — 32 chars
+  // P1207 F2 / P1059: crypto.getRandomValues, NOT Math.random. This code is the join
+  // credential for a transcription room, and Math.random is not cryptographically secure —
+  // V8's xorshift128+ state can be recovered from a handful of observed outputs, so an attacker
+  // who creates a few rooms of their own can predict the codes issued around them. Closing code
+  // ENUMERATION (the RLS half of F2) while leaving codes PREDICTABLE would be half a fix.
+  //
+  // 32 is a power of two and 256 is a multiple of it, so masking a byte with 0x1f is uniform —
+  // no modulo bias, and no rejection loop needed.
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
   let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (const byte of bytes) {
+    code += chars.charAt(byte & 0x1f);
   }
   return code;
 }

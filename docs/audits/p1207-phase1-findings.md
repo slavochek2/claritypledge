@@ -545,3 +545,73 @@ and passed over, because its `USING` was *partially* scoped and only the third b
 **The lesson for the next audit: classify by who the predicate admits, not by what the column
 looks like.** A column-sensitivity sweep produced a 4:3 false-positive ratio here. A
 branch-admission review found the critical one.
+
+---
+
+# Phase 6 — backlog verdicts, and a gap the F2 fix left open
+
+Done-When required each of P1044, P1045, P1054, P1059, P1100 marked **closed / still-open /
+superseded**. Phase 1's backlog lens truncated and only P1044 got a verdict. Each is now decided
+**against the artifact**, not against the agent's report.
+
+| Spec | Verdict | Evidence |
+|---|---|---|
+| P1044 — RLS-scope gate bypassable | **STILL-OPEN** | Reproduced as F5, and then reproduced *again* in my own new canary (Phase 3). `check-rls-scope.py` is unchanged. |
+| P1045 — unauthenticated write surfaces | **STILL-OPEN**, list refined | Live sweep below. |
+| P1054 — objects live but in no migration | **STILL-OPEN**, confirmed | `point_references` and `worktree_status` exist live with no migration file (Phase 1 coverage section). Independent confirmation. |
+| P1059 — search_path pins, CSPRNG codes | **PARTIALLY CLOSED here** | The CSPRNG half is fixed for room codes; see below. Every function this audit added pins `SET search_path = public`. The rest of P1059 is untouched. |
+| P1100 — letter verification insertable directly | **STILL-OPEN** | `story_verifications` INSERT `with_check` is `auth.uid() IS NOT NULL AND (auth.uid() = speaker_id OR auth.uid() = listener_id)`. That binds **identity** but not **provenance** — nothing requires a letter to exist, so a caller can still insert a verification naming themselves as speaker with an arbitrary listener and arbitrary ratings. Exactly P1100's claim. |
+
+## P1045 — the live evidence
+
+Permissive write policies (`INSERT`/`UPDATE`/`DELETE`/`ALL`) whose predicate never references
+`auth.*`, on prod. Predicate `false` = a deliberate block, `service_role` = out of scope. What
+remains reachable by a public or authenticated caller:
+
+| Table | cmd | roles | predicate |
+|---|---|---|---|
+| `clarity_live_invites` | UPDATE | `{public}` | `(closed_at IS NOT NULL)` |
+| `ready_submissions` | INSERT | `{anon,authenticated}` | `true` |
+| `ml_training_sessions` | INSERT | `{authenticated}` | `true` |
+| `transcribe_rooms` | INSERT | `{authenticated}` | `true` |
+| `clarity_idea_votes` | UPDATE | `{public}` | `true` — fixed on test by this audit, still live on prod |
+
+`ready_submissions` and `transcribe_rooms` inserts are plausibly by design (a public readiness
+poll; any user may open a room). `clarity_live_invites` and `ml_training_sessions` are not
+obviously either way and are P1045's remaining work — **intent decisions, not defects**, which is
+what P1045's own title says ("decide intent, then close or document").
+
+**Probe bound, stated up front:** the sweep is a regex for `auth.*` in the predicate, so a policy
+that delegates its identity check to a helper reads as unscoped. `story_explain_backs` does
+exactly this via `_is_delivery_receiver(delivery_id)` and is a false positive, excluded above by
+inspection rather than by the regex. The same bound is now documented inside the canary.
+
+## The F2 fix was half a fix — found by taking P1059 seriously
+
+P1059 lists "CSPRNG codes" as backlog. Checking it against the artifact:
+
+```js
+code += chars.charAt(Math.floor(Math.random() * chars.length));   // transcribe-service.ts:94
+```
+
+**`Math.random()` is not cryptographically secure.** V8's xorshift128+ internal state is
+recoverable from a handful of observed outputs, so an attacker who creates a few rooms of their
+own can predict the codes issued around them. Phase 5 closed code **enumeration** through RLS and
+left codes **predictable** — and since F2's entire premise is "the code is the credential", that
+is half a fix. A credential that cannot be listed but can be computed is still not a secret.
+
+Fixed with `crypto.getRandomValues`. The alphabet is 32 characters and 256 is an exact multiple
+of 32, so masking a byte with `0x1f` is uniform **by construction** — no modulo bias, no
+rejection loop.
+
+Verified with the right statistic, and with a control, after a first attempt used a
+max-minus-min spread threshold that flagged correct code as biased (5.26% spread at ~6250 per
+bucket is ordinary sampling noise — the threshold was wrong, not the code):
+
+```
+chi-square, df=31, critical value at p=0.001 = 61.10
+  n=200000  chi2=49.1   UNIFORM
+  n=200000  chi2=35.5   UNIFORM
+  n=200000  chi2=40.7   UNIFORM
+  CONTROL (byte % 30, deliberately biased)  chi2=14212.3   BIASED — the probe discriminates
+```
