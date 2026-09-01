@@ -117,16 +117,37 @@ only bought a snapshot.
 Pre-registered, before the audit runs.
 
 1. **Is the agent API safe to build on this surface?** → Yes if Phase 3 confirms zero
-   unintended reaches on any table carrying user-authored content or personal data **for
-   BOTH roles**: `anon`, and `authenticated` reading another user's rows. AND every finding
-   of either class from Phase 1 is either closed or has a written accepted-risk entry. Any
-   single open unintended read of user content, by either role, = No.
+   **open** unintended reaches across all four reach classes, where every Phase 1 finding
+   carries one of the three dispositions in criterion 1b. Any finding still open and
+   undisposed = No.
 
-   **The `authenticated` half is not optional and was added after adversarial review
-   (2026-09-01).** The first draft of this criterion scoped it to `anon` alone. An agent
-   acting for a user runs as `authenticated` — so an anon-only audit can return Yes while
-   leaving the precise threat the agent API introduces entirely unexamined, and P1215's
-   phase gate would validly pass on it. Narrowing this back to `anon` re-opens that hole.
+   **The four reach classes — all blocking** (founder decision 2026-09-01, Open Question 1;
+   the spec as filed scoped this to `anon` only):
+
+   | # | Class | The question | Why it blocks |
+   |---|---|---|---|
+   | A | `anon` reach | Can a logged-out stranger read this? | The public anon key is in the browser bundle |
+   | B | `authenticated` cross-row | Can user A read user B's rows? | **The agent API's own role.** An agent calling the API holds a valid user JWT — it is never `anon`. Scoping the bar to A would harden the one role the new threat model does not use |
+   | C | Column-level | Row policy correct, but does `SELECT *` hand over a column it shouldn't? | Invariant: *row visibility is not column visibility* |
+   | D | Delivery surface | Does Realtime / Storage deliver what REST correctly withholds? | Invariant: *REST is not every delivery surface*; a policy verified over `.from()` says nothing about the WebSocket |
+
+   **Narrowing this bar back to `anon` alone re-opens the hole it exists to close** — an
+   agent acting for a user runs as `authenticated`, so an anon-only audit can return Yes
+   while leaving the precise threat the agent API introduces unexamined. Relaxing it is a
+   deliberate founder call, not a default.
+
+1b. **How does a finding close?** → Exactly one of three dispositions, recorded per finding.
+   The spec as filed offered this escape hatch to class A only; extending it to all four is
+   what makes an all-blocking bar terminable rather than a run that can never close.
+
+   - **closed** — canary observed RED before and GREEN after, exit codes pasted.
+   - **accepted-risk** — written entry, founder-signed, stating why the reach is tolerable.
+   - **unverified-fixed** — the fix landed but no harness exists to prove it; the entry
+     **must name the missing harness**. This is the honest outcome for class D today: there
+     is no test that subscribes to a channel as user B and asserts what arrives. Reporting a
+     class-D fix as `closed` without that harness is a false completion claim.
+
+   A finding with no disposition is open, and one open finding answers criterion 1 **No**.
 2. **Does a finding count?** → A finding requires a **reproduced reach**: the query, run
    against test with a real role token, returning data that role should not see. A policy
    that "looks wrong" without a reproduction is a lead, not a finding.
@@ -161,30 +182,57 @@ Pre-registered, before the audit runs.
 
 ## Done-When
 
-- [ ] Reachability matrix exists covering every table in `pg_tables`, each cell citing the
-      query run and the source it was derived from
+- [ ] Reachability matrix exists covering every table in `pg_tables` **× all four reach
+      classes (A anon, B authenticated cross-row, C column-level, D delivery surface)**, each
+      cell citing the query run and the source it was derived from
 - [ ] Known-bad control and known-good control both run through the identical probe and
       score differently — pasted output, not a claim
 - [ ] Every Phase 1 finding is reproduced (query + role + observed rows) or downgraded to a lead
+- [ ] Every finding carries exactly one disposition — closed / accepted-risk /
+      unverified-fixed — and every `unverified-fixed` entry names the harness that is missing
 - [ ] Each fix carries a canary observed RED before and GREEN after — exit codes pasted
 - [ ] Each of P1044, P1045, P1054, P1059, P1100 is marked closed / still-open / superseded,
       with the command that settled it
 - [ ] At least one review pass ran through `codex`, and `<reports received> of <spawned>` is
       stated with any uncovered lens named
-- [ ] A standing recurring control is proposed, demonstrated failing on an injected widening,
-      and demonstrated passing the repo's own documented migration workflow
+- [ ] A standing recurring control is proposed **as a pre-commit check**, demonstrated
+      failing on an injected widening (gate 7), demonstrated passing the repo's own
+      documented migration workflow unchanged (gate 7c), and stating in its own output that
+      its verdict is bounded by the migration files rather than by live prod
 - [ ] Decision Criteria 1 answered Yes or No in writing, with the evidence behind it
 - [ ] Nothing was run against prod that wrote
 
 ## Open Questions
 
-1. ~~`[FOUNDER DECISION: what closes this audit?]`~~ **Answered 2026-09-01 by adversarial
-   review, not by preference:** the bar covers both `anon` and cross-user `authenticated`.
-   Scoping to `anon` alone made the criterion unable to fail on the threat it exists to
-   gate. Relaxing it back is a deliberate founder call, not a default.
-2. Should the standing control run per-commit (pre-commit, fast, narrow) or per-day (in
-   `/day`, slower, live-DB)? Both existing drift checks chose per-day; a per-commit check
-   catches the widening before it lands.
+**Both resolved 2026-09-01 by founder decision, before the run. Recorded here rather than
+deleted — the reasoning is what a later reader needs.**
+
+1. ~~What closes this audit?~~ → **RESOLVED: all four reach classes block (A/B/C/D above),
+   with the three-way disposition in criterion 1b making that terminable.** The spec as
+   filed proposed class A only; the agent recommended A+B and argued C/D should be
+   enumerated-but-non-blocking on scope-cost grounds. The founder rejected that: parallel
+   fan-out makes breadth close to free in wall-clock, so scope-cost is authoring effort
+   dressed as a criterion — which this repo's Quality Over Build Speed rule bans in
+   build-option recommendations. The surviving objection was **terminability**, not cost:
+   class D has no harness, so under criterion 2 a class-D finding could be found and fixed
+   but never *proven* closed, blocking the agent API on an unmeasurable rather than on a
+   vulnerability. Resolved by generalising the accepted-risk hatch into the three
+   dispositions, not by lowering the bar.
+
+2. ~~Per-commit or per-day standing control?~~ → **RESOLVED: per-commit (pre-commit).**
+   Catches a widening before it lands, rather than up to a day after. It **supplements and
+   does not replace** the existing per-day live-DB drift checks (`rls-drift-check.py`,
+   `function-grant-drift-check.py`) — see Non-Goals: those three live checks are not a
+   refactor target inside this audit. Consequence to hold: a pre-commit check is
+   necessarily **file-based**, so per the first Invariant its verdict is bounded by what the
+   migrations say, not by what production does. It must state that bound in its own output;
+   the live-DB legs remain the per-day checks' job.
+
+3. **Open — to answer during Phase 1, not before.** Classes C and D need probes that do not
+   exist yet (grant introspection; a live subscription client asserting per-user delivery).
+   Phase 1 therefore partly *builds the instrument it measures with*. Whether that harness
+   is throwaway or becomes the seed of the class-D standing control is a Phase 3 call, made
+   with the harness in hand rather than guessed at now.
 
 ## Related
 
