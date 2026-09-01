@@ -591,4 +591,49 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh extension invariants (A-K) hold"
+# -----------------------------------------------------------------------------
+# L. commit-to-main stages NOTHING when any requested path is invalid (2026-09-01).
+#    The old single loop staged as it went and aborted on the first bad path,
+#    leaving its partial work in the shared index. The caller then fixes the one
+#    filename, re-runs, and commits their paths PLUS the leftovers. A real spec
+#    close hit this and produced a commit recording only that spec's deletion.
+# -----------------------------------------------------------------------------
+
+( cd "$SCRATCH/main" && git checkout -q main )
+echo "good" > "$SCRATCH/main/l_good.txt"
+L_PRE="$( cd "$SCRATCH/main" && git diff --cached --name-only --no-renames | sort )"
+
+set +e
+L_OUT=$( cd "$SCRATCH/main" && bash "$GIT_OPS" commit-to-main \
+  --message "L: should not commit" \
+  --files l_good.txt l_does_not_exist.txt 2>&1 )
+L_EXIT=$?
+set -e
+echo "$L_OUT" >> "$SAFETY_LOG"
+
+if [[ $L_EXIT -eq 0 ]]; then
+  echo "$L_OUT" >&2
+  fail "L: commit-to-main accepted a nonexistent path — expected refusal"
+fi
+
+L_POST="$( cd "$SCRATCH/main" && git diff --cached --name-only --no-renames | sort )"
+if [[ "$L_PRE" != "$L_POST" ]]; then
+  echo "$L_OUT" >&2
+  echo "  index before: ${L_PRE:-<empty>}" >&2
+  echo "  index after:  ${L_POST:-<empty>}" >&2
+  ( cd "$SCRATCH/main" && git reset -q HEAD -- l_good.txt 2>/dev/null || true )
+  rm -f "$SCRATCH/main/l_good.txt"
+  fail "L: a rejected call left paths staged in the shared index"
+fi
+
+# The valid path must be genuinely stageable, or the test proves nothing: a path
+# that could never have been staged would pass this assertion trivially.
+( cd "$SCRATCH/main" && git add -- l_good.txt )
+if [[ -z "$( cd "$SCRATCH/main" && git diff --cached --name-only -- l_good.txt )" ]]; then
+  fail "L: control failed — l_good.txt is not stageable, so the assertion above is vacuous"
+fi
+( cd "$SCRATCH/main" && git reset -q HEAD -- l_good.txt )
+rm -f "$SCRATCH/main/l_good.txt"
+pass "L: a rejected commit-to-main leaves the index untouched"
+
+echo "PASS: all git-ops.sh extension invariants (A-L) hold"

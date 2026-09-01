@@ -1105,22 +1105,54 @@ cmd_commit_to_main() {
   # accept paths already staged as deletions, and reject anything else — a path
   # that is neither on disk nor staged-deleted is a typo, and silently skipping it
   # would turn a mistyped filename into a no-op commit.
+  # VALIDATE EVERY PATH BEFORE STAGING ANY OF THEM. The previous single loop staged
+  # as it went and aborted on the first bad path, leaving the paths it had already
+  # added sitting in the shared index. The caller then fixes the one filename and
+  # re-runs, and the set being committed is no longer the set they typed -- it is
+  # theirs PLUS the leftovers. Reproduced 2026-09-01; a spec close hit it and the
+  # retry produced a commit that recorded a spec's deletion and nothing else.
+  # Cleaning up on the error path was the obvious alternative and is worse: it would
+  # unstage paths the caller had deliberately staged before the call. Checking
+  # everything before touching anything has no such edge.
   ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
       if [[ -e "$f" ]]; then
-        git add -- "$f"
+        : # stageable below
       elif [[ -n "$(git diff --cached --name-only --diff-filter=D -- "$f")" ]]; then
         : # deleted half of a staged rename; already in the index
       else
         echo "commit-to-main: path not found and not staged as a deletion: $f" >&2
+        echo "commit-to-main: nothing was staged -- the index is exactly as you left it" >&2
         exit 1
       fi
-    done ) >&2
+    done ) >&2 || exit 1
+
+  # `|| exit 1` above is load-bearing: this subshell's status was previously ignored,
+  # so a rejected path fell through to commit_staged_exact instead of stopping here.
+  ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
+      [[ -e "$f" ]] && git add -- "$f"
+    done ) >&2 || exit 1
 
   # commit_staged_exact: plain commit (not pathspec), guarded — see its own
   # comment for why that's safe here (acquire_main_lock, held above).
   commit_staged_exact "$message" "${files[@]}" >&2 || exit 1
 
-  echo "git-ops commit-to-main: committed ${#files[@]} file(s) to main" >&2
+  # Report what the commit ACTUALLY recorded, not how many paths were requested. The
+  # 2026-09-01 incident printed a confident "committed 3 file(s)" over a commit holding
+  # one deletion; main.lock serializes git-ops CALLERS only, so a co-tenant running raw
+  # git on the shared checkout is not held off by it at all. Cause unresolved.
+  #
+  # THE WARNING BELOW CANNOT FIRE TODAY, and that is stated rather than left to look
+  # like a live safety net: commit_staged_exact refuses unless the staged set equals the
+  # requested paths exactly, so by the time control reaches here the counts always
+  # agree. Verified by trying to make it fire three ways (partial co-tenant commit,
+  # directory pathspec, rename) -- the exact-match guard rejected each first. It is a
+  # TRIPWIRE for a future change that weakens that guard, not a detector for the
+  # incident above. The unconditional line, by contrast, is plain fact and always runs.
+  _landed="$( cd "$REPO_ROOT" && git show --stat --no-renames --format= HEAD | sed '$d' | wc -l | tr -d ' ' )"
+  echo "git-ops commit-to-main: requested ${#files[@]} path(s); the commit records ${_landed} file(s)" >&2
+  if [[ "$_landed" != "${#files[@]}" ]]; then
+    echo "git-ops commit-to-main: WARNING -- requested and recorded counts differ. Inspect 'git show --stat --no-renames HEAD' before continuing; a concurrent session may have altered the shared index." >&2
+  fi
   # P919 D4: this commit is main-bound and subject to the privacy-scan required check
   # once the ruleset is live — route it through a staging branch before main. Release
   # the lock FIRST (mirror cmd_ship) so the guidance prints lock-free; the rev-parse
