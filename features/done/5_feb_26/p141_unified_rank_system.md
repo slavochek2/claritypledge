@@ -251,7 +251,7 @@ npm run test:e2e -- kanban-rank-ordering.spec.ts
 - [x] **Migration script created:** `scripts/migrate-to-rank.cjs`
 - [x] **Dry-run tested** (no errors)
 - [x] **Migration executed** (21 features converted: 19 automatic + 2 manual)
-- [x] **Post-migration validation script created:** `scripts/post-migration-validation.sh`
+- [x] **Post-migration validation script created:** `scripts/archive/migrations/20260212-post-migration-validation.sh`
 
 **Automated Validation (MUST PASS):**
 - [x] **Validation completed** (manual grep verification):
@@ -276,7 +276,7 @@ npm run test:e2e -- kanban-rank-ordering.spec.ts
 **Evidence Required:**
 ```bash
 # Provide full output from validation script
-./scripts/post-migration-validation.sh
+./scripts/archive/migrations/20260212-post-migration-validation.sh
 
 # Run E2E tests
 npm run test:e2e -- kanban-migration-validation.spec.ts
@@ -410,18 +410,18 @@ npm run test:e2e -- kanban-status-folders.spec.ts
 
 ### Migration Script
 
-**File:** `scripts/migrate-to-rank.js` (Node.js with js-yaml)
+**File:** `scripts/archive/migrate-to-rank.cjs` (Node.js with js-yaml)
 
 **Usage:**
 ```bash
 # Preview changes (REQUIRED before executing)
-node scripts/migrate-to-rank.js --dry-run
+node scripts/archive/migrate-to-rank.cjs --dry-run
 
 # Execute migration
-node scripts/migrate-to-rank.js
+node scripts/archive/migrate-to-rank.cjs
 
 # Verbose output
-node scripts/migrate-to-rank.js --verbose
+node scripts/archive/migrate-to-rank.cjs --verbose
 ```
 
 **Key features:**
@@ -469,7 +469,7 @@ node scripts/migrate-to-rank.js --verbose
 
 - [ ] **Test in dry-run mode**
   ```bash
-  node scripts/migrate-to-rank.js --dry-run | head -50
+  node scripts/archive/migrate-to-rank.cjs --dry-run | head -50
   ```
 
 - [ ] **Commit current state** (clean rollback point)
@@ -482,16 +482,16 @@ node scripts/migrate-to-rank.js --verbose
 
 **Agent must follow this sequence:**
 
-1. **Run migration:** `node scripts/migrate-to-rank.js`
+1. **Run migration:** `node scripts/archive/migrate-to-rank.cjs`
 2. **Verify no errors:** Check script output for error messages
-3. **Run post-migration validation:** `./scripts/post-migration-validation.sh`
+3. **Run post-migration validation:** `./scripts/archive/migrations/20260212-post-migration-validation.sh`
 4. **Visual spot-check:** Open kanban (`npm run kanban`), verify ordering looks correct
 5. **Git commit:** Atomic commit with detailed message
 6. **Test in kanban:** Create feature, drag-and-drop, filter by status
 
 ### Post-Migration Validation Script
 
-**File:** `scripts/post-migration-validation.sh`
+**File:** `scripts/archive/migrations/20260212-post-migration-validation.sh`
 
 **Agent must create this script:**
 
@@ -858,7 +858,7 @@ test.describe('Status Folder Auto-Move', () => {
 
 - [ ] **Migration validation script passing:**
   ```bash
-  ./scripts/post-migration-validation.sh
+  ./scripts/archive/migrations/20260212-post-migration-validation.sh
   # Expected: ✅ All validation checks passed!
   ```
 
@@ -866,8 +866,8 @@ test.describe('Status Folder Auto-Move', () => {
 
 ### Scripts
 
-- [ ] **Migration script created:** `scripts/migrate-to-rank.js`
-- [ ] **Validation script created:** `scripts/post-migration-validation.sh`
+- [ ] **Migration script created:** `scripts/archive/migrate-to-rank.cjs`
+- [ ] **Validation script created:** `scripts/archive/migrations/20260212-post-migration-validation.sh`
 - [ ] Both scripts tested and working
 
 ### Verification Evidence
@@ -876,7 +876,7 @@ test.describe('Status Folder Auto-Move', () => {
 - [ ] **Screenshot:** Drag-and-drop in action (before/after showing rank change)
 - [ ] **Screenshot:** CardDialog showing rank field (no priority dropdown)
 - [ ] **Test output:** Full `npm run test:e2e` output pasted in commit message or PR
-- [ ] **Validation output:** `./scripts/post-migration-validation.sh` output pasted in commit
+- [ ] **Validation output:** `./scripts/archive/migrations/20260212-post-migration-validation.sh` output pasted in commit
 
 ### Documentation
 
@@ -982,10 +982,10 @@ git status
 7. **`.claude/commands/slava/build/quick-feature.md`**
    - Phase 3: Replace priority prompt with rank prompt
 
-8. **`scripts/migrate-to-rank.js`** (NEW)
+8. **`scripts/archive/migrate-to-rank.cjs`** (NEW)
    - Phase 3: Migration script
 
-9. **`scripts/post-migration-validation.sh`** (NEW)
+9. **`scripts/archive/migrations/20260212-post-migration-validation.sh`** (NEW)
    - Phase 3: Validation script
 
 10. **E2E test files** (NEW, 5 files)

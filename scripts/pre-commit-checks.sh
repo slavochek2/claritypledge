@@ -1035,64 +1035,97 @@ echo ""
 # ungated (a `.claire/` typo dir tracked since April, four 0-ref docs, 3 copies
 # of one 224KB font). Allowlists are derived from HEAD, not hardcoded, so the
 # gate has no false positives on the tree as committed (epistemic.md gate 7c)
-# and flags exactly what is NEW. Override for a deliberate change:
-#   P1221_ALLOW_NEW_ROOT=1   (new top-level entry)
-#   P1221_ALLOW_ORPHAN_DOC=1 (new docs/ page linked in a later commit)
-#   P1221_ALLOW_LARGE=1      (asset >500KB that genuinely belongs in the repo)
+# and flags exactly what is NEW. Rename-aware (a `git mv` into a new root dir or
+# of a large file is still an arrival at the destination path), NUL-safe (paths
+# with spaces), and fail-closed (a git probe that errors counts as a violation,
+# never as an empty inventory). Overrides are PATH-SPECIFIC and always printed:
+#   P1221_ALLOW_NEW_ROOT=dir1:dir2       (new top-level entries, by name)
+#   P1221_ALLOW_ORPHAN_DOC=docs/a.md:... (page linked in a later commit)
+#   P1221_ALLOW_LARGE=public/x.png:...   (asset >500KB that must ship in-repo)
 echo ">>> Checking repo structure (new root entries / orphan docs / large files)..."
-STAGED_ADDED=$(git diff --cached --name-only --diff-filter=A 2>/dev/null || true)
-HEAD_ROOT_ENTRIES=$(git ls-tree --name-only HEAD 2>/dev/null || true)
-NEW_ROOT_ENTRIES=""
-for f in $STAGED_ADDED; do
-    top="${f%%/*}"
-    if ! echo "$HEAD_ROOT_ENTRIES" | grep -qxF "$top"; then
-        NEW_ROOT_ENTRIES="$NEW_ROOT_ENTRIES$top"$'\n'
-    fi
-done
-NEW_ROOT_ENTRIES=$(echo "$NEW_ROOT_ENTRIES" | sort -u | grep -v '^$' || true)
-if [ -n "$NEW_ROOT_ENTRIES" ] && [ "${P1221_ALLOW_NEW_ROOT:-}" != "1" ]; then
-    echo -e "${RED}✗ New top-level entry not in the tree at HEAD:${NC}"
-    echo "$NEW_ROOT_ENTRIES" | sed 's/^/  /'
-    echo -e "${RED}  Every root entry is a location agents will imitate. Put it under an existing dir${NC}"
-    echo -e "${RED}  (docs/technical/file-locations.md) or, if it is deliberate, P1221_ALLOW_NEW_ROOT=1.${NC}"
+p1221_allowed() {  # $1 = colon-separated allowlist, $2 = candidate
+    case ":$1:" in *":$2:"*) return 0;; esac; return 1
+}
+P1221_PROBE_FAILED=0
+# NUL-separated list goes through a temp file: $(...) silently drops NUL bytes.
+P1221_ARRIVALS_FILE=$(mktemp)
+git diff --cached -z --name-only --diff-filter=ACMR > "$P1221_ARRIVALS_FILE" 2>/dev/null || P1221_PROBE_FAILED=1
+HEAD_ROOT_ENTRIES=$(git ls-tree --name-only HEAD 2>/dev/null) || P1221_PROBE_FAILED=1
+if [ "$P1221_PROBE_FAILED" = "1" ]; then
+    echo -e "${RED}✗ Repo-structure gate: git probe failed (diff --cached / ls-tree HEAD) — failing closed${NC}"
     ERRORS=$((ERRORS + 1))
-fi
-
-ORPHAN_DOCS=""
-for f in $(echo "$STAGED_ADDED" | grep -E '^docs/.*\.md$' || true); do
-    base=$(basename "$f")
-    # Inbound reference anywhere in the STAGED tree other than the file itself.
-    if ! git grep --cached -q -F "$base" -- ":(exclude)$f" 2>/dev/null; then
-        ORPHAN_DOCS="$ORPHAN_DOCS$f"$'\n'
+else
+    NEW_ROOT_ENTRIES=""; ORPHAN_DOCS=""; LARGE_STAGED=""; WAIVED=""
+    while IFS= read -r -d '' f; do
+        [ -z "$f" ] && continue
+        top="${f%%/*}"
+        if ! printf '%s\n' "$HEAD_ROOT_ENTRIES" | grep -qxF -- "$top"; then
+            if p1221_allowed "${P1221_ALLOW_NEW_ROOT:-}" "$top"; then
+                WAIVED="${WAIVED}  new root entry: $top (P1221_ALLOW_NEW_ROOT)"$'\n'
+            else
+                NEW_ROOT_ENTRIES="${NEW_ROOT_ENTRIES}  $top"$'\n'
+            fi
+        fi
+        case "$f" in
+            docs/*.md)
+                # Only NEW arrivals (A or R destination) need an inbound reference; an
+                # edited page (M) already has whatever links it has.
+                if git diff --cached -z --name-only --diff-filter=AR 2>/dev/null | grep -qzxF -- "$f"; then
+                    base=$(basename "$f")
+                    if ! git grep --cached -q -F -e "$base" -e "${base// /%20}" -- ":(exclude)$f" 2>/dev/null; then
+                        if p1221_allowed "${P1221_ALLOW_ORPHAN_DOC:-}" "$f"; then
+                            WAIVED="${WAIVED}  orphan doc: $f (P1221_ALLOW_ORPHAN_DOC)"$'\n'
+                        else
+                            ORPHAN_DOCS="${ORPHAN_DOCS}  $f"$'\n'
+                        fi
+                    fi
+                fi;;
+        esac
+        if [ "$f" != "package-lock.json" ]; then
+            if ! sz=$(git cat-file -s ":$f" 2>/dev/null); then
+                echo -e "${RED}✗ Repo-structure gate: could not size staged blob for $f — failing closed${NC}"
+                ERRORS=$((ERRORS + 1)); continue
+            fi
+            if [ "$sz" -gt 512000 ]; then
+                if p1221_allowed "${P1221_ALLOW_LARGE:-}" "$f"; then
+                    WAIVED="${WAIVED}  large file: $f ($((sz / 1024))KB, P1221_ALLOW_LARGE)"$'\n'
+                else
+                    LARGE_STAGED="${LARGE_STAGED}  $f ($((sz / 1024))KB)"$'\n'
+                fi
+            fi
+        fi
+    done < "$P1221_ARRIVALS_FILE"
+    NEW_ROOT_ENTRIES=$(printf '%s' "$NEW_ROOT_ENTRIES" | sort -u)
+    if [ -n "$NEW_ROOT_ENTRIES" ]; then
+        echo -e "${RED}✗ New top-level entry not in the tree at HEAD:${NC}"
+        echo "$NEW_ROOT_ENTRIES"
+        echo -e "${RED}  Every root entry is a location agents will imitate. Put it under an existing dir${NC}"
+        echo -e "${RED}  (docs/technical/file-locations.md) or, if deliberate, P1221_ALLOW_NEW_ROOT=<name>.${NC}"
+        ERRORS=$((ERRORS + 1))
     fi
-done
-ORPHAN_DOCS=$(echo "$ORPHAN_DOCS" | grep -v '^$' || true)
-if [ -n "$ORPHAN_DOCS" ] && [ "${P1221_ALLOW_ORPHAN_DOC:-}" != "1" ]; then
-    echo -e "${RED}✗ New docs/ page with no inbound reference in the staged tree:${NC}"
-    echo "$ORPHAN_DOCS" | sed 's/^/  /'
-    echo -e "${RED}  Link it from CHARTER.md, CLAUDE.md, a rule, a skill or the doc that routes to it${NC}"
-    echo -e "${RED}  (docs/CHARTER.md: one fact, one home) — or P1221_ALLOW_ORPHAN_DOC=1 if the link lands next.${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
-
-LARGE_STAGED=""
-for f in $(git diff --cached --name-only --diff-filter=AM 2>/dev/null | grep -vxF 'package-lock.json' || true); do
-    sz=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
-    if [ "$sz" -gt 512000 ]; then
-        LARGE_STAGED="$LARGE_STAGED$f ($((sz / 1024))KB)"$'\n'
+    if [ -n "$ORPHAN_DOCS" ]; then
+        echo -e "${RED}✗ New docs/ page with no inbound reference in the staged tree:${NC}"
+        printf '%s' "$ORPHAN_DOCS"
+        echo -e "${RED}  Link it from CHARTER.md, CLAUDE.md, a rule, a skill or the doc that routes to it${NC}"
+        echo -e "${RED}  (docs/CHARTER.md: one fact, one home) — or P1221_ALLOW_ORPHAN_DOC=<path> if the link lands next.${NC}"
+        ERRORS=$((ERRORS + 1))
     fi
-done
-LARGE_STAGED=$(echo "$LARGE_STAGED" | grep -v '^$' || true)
-if [ -n "$LARGE_STAGED" ] && [ "${P1221_ALLOW_LARGE:-}" != "1" ]; then
-    echo -e "${RED}✗ Staged file over 500KB:${NC}"
-    echo "$LARGE_STAGED" | sed 's/^/  /'
-    echo -e "${RED}  Compress it, host it externally, or P1221_ALLOW_LARGE=1 if it must ship in the repo.${NC}"
-    ERRORS=$((ERRORS + 1))
+    if [ -n "$LARGE_STAGED" ]; then
+        echo -e "${RED}✗ Staged file over 500KB:${NC}"
+        printf '%s' "$LARGE_STAGED"
+        echo -e "${RED}  Compress it, host it externally, or P1221_ALLOW_LARGE=<path> if it must ship in the repo.${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+    if [ -n "$WAIVED" ]; then
+        echo -e "${YELLOW}⚠ Repo-structure gate waived by explicit override:${NC}"
+        printf '%s' "$WAIVED"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+    if [ -z "$NEW_ROOT_ENTRIES" ] && [ -z "$ORPHAN_DOCS" ] && [ -z "$LARGE_STAGED" ] && [ -z "$WAIVED" ]; then
+        echo -e "${GREEN}✓ Repo structure: no new root entries, orphan docs, or large files${NC}"
+    fi
 fi
-
-if [ -z "$NEW_ROOT_ENTRIES" ] && [ -z "$ORPHAN_DOCS" ] && [ -z "$LARGE_STAGED" ]; then
-    echo -e "${GREEN}✓ Repo structure: no new root entries, orphan docs, or large files${NC}"
-fi
+rm -f "${P1221_ARRIVALS_FILE:-}"
 echo ""
 
 # 14.9. Client-breaking migration annotation gate (P887 — prevents P886-class

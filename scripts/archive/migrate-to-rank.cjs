@@ -7,9 +7,9 @@
  * (priority + sort_order) to the unified rank system.
  *
  * Usage:
- *   node scripts/migrate-to-rank.js --dry-run    # Preview changes
- *   node scripts/migrate-to-rank.js              # Execute migration
- *   node scripts/migrate-to-rank.js --verbose    # Show detailed output
+ *   node scripts/archive/migrate-to-rank.cjs --dry-run    # Preview changes
+ *   node scripts/archive/migrate-to-rank.cjs              # Execute migration
+ *   node scripts/archive/migrate-to-rank.cjs --verbose    # Show detailed output
  *
  * Safety features:
  *   - Dry-run mode (no file writes)

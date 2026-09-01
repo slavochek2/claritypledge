@@ -5,12 +5,12 @@
  * Output contract: No '>', '<', '|' in status lines (shell-safety rule).
  *
  * Usage:
- *   node scripts/copy-prod-to-test.mjs --step=uuids    # Print + fingerprint UUIDs
- *   node scripts/copy-prod-to-test.mjs --step=backup   # pg_dump test DB (full data)
- *   node scripts/copy-prod-to-test.mjs --step=export   # Show prod counts (read-only)
- *   node scripts/copy-prod-to-test.mjs --step=copy     # Disable triggers, wipe, insert, re-enable, backfill
- *   node scripts/copy-prod-to-test.mjs --step=inspect  # 3-bucket inspector + write wiring SQL
- *   node scripts/copy-prod-to-test.mjs --step=wire-prod --confirm  # Apply wiring SQL to PROD
+ *   node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=uuids    # Print + fingerprint UUIDs
+ *   node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=backup   # pg_dump test DB (full data)
+ *   node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=export   # Show prod counts (read-only)
+ *   node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=copy     # Disable triggers, wipe, insert, re-enable, backfill
+ *   node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=inspect  # 3-bucket inspector + write wiring SQL
+ *   node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=wire-prod --confirm  # Apply wiring SQL to PROD
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs';
@@ -656,7 +656,7 @@ async function stepInspect() {
   writeFileSync(sqlPath, sqlContent);
   log(`\nWiring SQL written: ${sqlPath}`);
   log('Review this file, then run:');
-  log('  node scripts/copy-prod-to-test.mjs --step=wire-prod --confirm');
+  log('  node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=wire-prod --confirm');
 }
 
 // ============================================================================
@@ -703,7 +703,7 @@ const step = stepArg ? stepArg.slice('--step='.length) : null;
 const hasConfirm = args.includes('--confirm');
 
 if (!step) {
-  console.error('Usage: node scripts/copy-prod-to-test.mjs --step=<step>');
+  console.error('Usage: node scripts/archive/migrations/20260425-copy-prod-to-test.mjs --step=<step>');
   console.error('Steps: uuids, backup, export, copy, inspect, wire-prod');
   process.exit(1);
 }

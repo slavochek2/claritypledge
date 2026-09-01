@@ -440,7 +440,7 @@ for write paths: exactly 7 `.update()` + 1 `.insert()` on `clarity_sessions`, al
 `src/app/data/api.ts`; no `.upsert()`, no `.delete()`, no raw REST `PATCH`, nothing in
 `supabase/functions/`. The one dynamic `from(table: string)`
 (`src/app/data/points-service-real.ts:936`) is a read-only type declaration exposing only
-`select`. `scripts/copy-prod-to-test.mjs` uses `SERVICE_ROLE_KEY` and is exempt from both
+`select`. `scripts/archive/migrations/20260425-copy-prod-to-test.mjs` uses `SERVICE_ROLE_KEY` and is exempt from both
 the grants and the trigger. Every column written by those 7 sites is in the 18-column
 allowlist.
 

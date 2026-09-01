@@ -5,8 +5,8 @@
  * "Clarity Experiment #N" format, preserving chronological order.
  *
  * Usage:
- *   npx tsx scripts/number-webinar-titles.ts            # dry run
- *   npx tsx scripts/number-webinar-titles.ts --confirm  # updates prod
+ *   npx tsx scripts/archive/migrations/20260622-number-webinar-titles.ts            # dry run
+ *   npx tsx scripts/archive/migrations/20260622-number-webinar-titles.ts --confirm  # updates prod
  *
  * Reads PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local.
  */

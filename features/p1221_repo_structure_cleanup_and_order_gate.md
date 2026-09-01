@@ -26,7 +26,7 @@ Blast radius: low — `git mv` of five scripts, one placeholder deleted, 29 mech
 ## Solution
 
 1. Moves mandated by file-locations.md (done on this branch): `pre-/post-migration-validation.sh` (P141), `copy-prod-to-test.mjs` (P800), `number-webinar-titles.ts` → `scripts/archive/migrations/YYYYMMDD-*`; `test-edge-fn.mjs` (0 refs) → `scripts/archive/`; `.claire/` removed (0 refs, content `// placeholder`); `fix-doc-links.cjs --apply` on 19 cold files (done/archive/uat/two skills) — active specs and `docs/decisions.md` left to their owners.
-2. Gate (done): pre-commit checks 14b–14d — new top-level entry not in HEAD, new `docs/**.md` with no inbound reference in the staged tree, any staged file >500KB (`package-lock.json` excluded). Allowlists derive from HEAD; overrides `P1221_ALLOW_NEW_ROOT|ORPHAN_DOC|LARGE=1`.
+2. Gate (done): pre-commit checks 14b–14d — new top-level entry not in HEAD, new `docs/**.md` with no inbound reference in the staged tree, any staged file >500KB (`package-lock.json` excluded). Rename-aware (`--diff-filter=ACMR`), NUL-safe, fail-closed on git probe errors; allowlists derive from HEAD; path-specific overrides `P1221_ALLOW_NEW_ROOT|ORPHAN_DOC|LARGE=<name:name>` are always printed as a warning.
 
 ## Phase A verdicts (2026-09-01)
 
@@ -54,7 +54,7 @@ Blast radius: low — `git mv` of five scripts, one placeholder deleted, 29 mech
 5. `cloud-functions/gcs-signed-url/` — still the source of the deployed GCP function behind `supabase/functions/gcs-signed-url`; keep at root, or move under `services/`?
 6. Scripts: archive `resend-feedback.sh` (markdown-linked from decisions.md), `probe-gcs-upload*.mjs` (cited by `src/tests/p812-reproduce.test.ts`), `setup-verify-*.ts` (`.gitleaks.toml` allowlist), `browse-sessions.sh` (personal, → `~/.agents/bin`?), `setup-cloud-*.sh`? Wire `test-browser-evidence-hooks.sh` / `test-multi-harness-routing.sh` into pre-commit or archive them?
 7. Fonts: dedupe `inter-latin.woff2` (3×224KB) — decks must self-host under CSP, so a single `/fonts/` path needs each deck's HTML updated.
-8. Apply the remaining 137 repairable links in active specs + `docs/decisions.md`/`goals.md` once no co-tenant session holds them.
+8. Apply the remaining 137 repairable links in active specs + `docs/decisions.md`/`goals.md` once no co-tenant session holds them; also `docs/decisions.md` line citing `scripts/copy-prod-to-test.mjs` (P800 entry, 2026-04-25) → now `scripts/archive/migrations/20260425-copy-prod-to-test.mjs`.
 9. Stale facts in file-locations.md: claims `sweep-done.sh` runs on pre-commit (it does not), names a `/done` skill that does not exist, lists 7 of 35 technical docs.
 
 ## Done-When

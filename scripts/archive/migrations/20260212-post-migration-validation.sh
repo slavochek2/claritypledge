@@ -7,7 +7,7 @@
 # completed successfully with no data loss or ordering changes.
 #
 # Usage:
-#   ./scripts/post-migration-validation.sh
+#   ./scripts/archive/migrations/20260212-post-migration-validation.sh
 #
 # Prerequisites:
 #   - Pre-migration snapshot must exist at /tmp/pre-migration-snapshot.json
@@ -302,7 +302,7 @@ else
   echo ""
   echo "Some checks did not pass. Review the errors above and:"
   echo "  1. Check for features that weren't migrated correctly"
-  echo "  2. Re-run migration if needed: node scripts/migrate-to-rank.js"
+  echo "  2. Re-run migration if needed: node scripts/archive/migrate-to-rank.cjs"
   echo "  3. Restore from backup if necessary: cp -r features.backup.* features/"
   exit 1
 fi

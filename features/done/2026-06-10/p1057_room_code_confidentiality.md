@@ -488,7 +488,7 @@ polls via `.from()`. Do not treat this as closed on inference.
 |---|---|---|
 | `supabase/functions/**` (17 functions) | **zero** references to `clarity_sessions` | `grep -rn "clarity_sessions" supabase/functions/` → no output |
 | `services/transcribe/pipeline.py:44` | docstring only (`session_id: Supabase clarity_sessions.id UUID`) | `grep -n "clarity_sessions" services/transcribe/pipeline.py` |
-| `scripts/copy-prod-to-test.mjs:382` | `UPDATE clarity_sessions SET source_story_id = NULL` — write, no `code` | — |
+| `scripts/archive/migrations/20260425-copy-prod-to-test.mjs:382` | `UPDATE clarity_sessions SET source_story_id = NULL` — write, no `code` | — |
 | `scripts/progress-refresh.sh:29` | `count clarity_sessions` → `?select=id` with **`VITE_SUPABASE_ANON_KEY`** (`:16`). `id` stays granted | SAFE |
 | `.claude/commands/slava/maintain/analyze-transcripts.md:47` | curls `select=id,code,…` but with **`$PROD_SERVICE`** (service_role) | SAFE |
 
@@ -1230,7 +1230,7 @@ Decision 4 makes the compiler enforce the splice).
 #### Not modified — verified in scope and clear
 
 `supabase/functions/**` (zero `clarity_sessions` references), `services/transcribe/pipeline.py`
-(docstring only), `scripts/copy-prod-to-test.mjs` (write), `scripts/progress-refresh.sh`
+(docstring only), `scripts/archive/migrations/20260425-copy-prod-to-test.mjs` (write), `scripts/progress-refresh.sh`
 (anon key but `select=id`), `.claude/commands/slava/maintain/analyze-transcripts.md` (service_role),
 `sessions-service.ts` (explicit select, `code` absent), and all 62 `e2e/` files that read
 `clarity_sessions` (every `code` projection is `supabaseAdmin`).
