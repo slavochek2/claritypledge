@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 rank: 252
 tags:
@@ -11,9 +11,9 @@ flow: dev
 drafted_by: opus
 exec_model: opus
 exec_effort: high
-delivery_stage: verify
 pipeline_ran: [dev, verify]
 created_date: 2026-08-31
+completed_at: 2026-09-01
 ---
 
 # P1193 — Clarity Groups: the rename, the organizer role on screen, and the last-organizer leave guard
