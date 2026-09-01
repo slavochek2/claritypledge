@@ -4,6 +4,64 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-01 [technical]: A Playwright run reuses whatever dev server is already up — and its `webServer.env` block is then never applied
+
+**Context:** An unattended overnight E2E run was built to redirect the app at an ephemeral local
+Supabase by exporting `VITE_SUPABASE_URL` into the shell. A control test confirmed Vite's `loadEnv`
+lets a shell export beat `.env.test.local`, which looked like proof the redirect worked. It was not.
+`playwright.config.ts:163` sets `reuseExistingServer: !process.env.CI` and the runner never set `CI`,
+so Playwright reused a dev server that had been running since **five days earlier** — and
+`webServerPlugin` returns *before* the `env: {...}` merge, so the whole block at
+`playwright.config.ts:165-178` was inert. The export was real; nothing consumed it.
+
+**Decision:** Any run that depends on a specific app-side env must either set `CI=1` (so Playwright
+owns the server) or start the dev server itself with the intended env and verify it. The rate-limit
+control probe **cannot** catch this class — it talks to Supabase directly and never traverses the
+browser, so it passes while the browser is pointed somewhere else entirely.
+
+**Alternatives rejected:** (a) Trust the `loadEnv` control test — it proves the mechanism, not that the
+mechanism ran; the server was never launched. (b) Let each batch start its own server — correct but pays
+a ~2-minute boot 38 times.
+
+**Consequences:** A stale dev server is a silent result-invalidator: the report would have asserted
+"ran on a local unthrottled stack" while the browser used a five-day-old bundle and env. Check the age
+of whatever holds the port before trusting a long run. Also measured this night, against a documented
+fear: the hosted auth ceiling produced **34 rate-limited failures out of 4,141 tests (0.8%)**, not the
+hundreds the P1043 handoff projected — the throttle is real but was heavily overweighted as a blocker.
+
+**References:** `playwright.config.ts:160-178` · `.private/p1043-sweep/nightly/MORNING-PROMPT.md`
+
+## 2026-09-01 [process]: Grep decisions.md before investigating infrastructure that looks broken — and adversarially review anything that will run unattended for eight hours
+
+**Context:** Two things happened in one session. **First**, roughly an hour went into empirically
+re-deriving that the migration chain cannot build a database from empty — running `supabase start`
+repeatedly, characterising each error class. All of it was already recorded in decisions.md 2026-08-20,
+in more detail (five defect classes, not the four found). Worse, two actions taken along the way are
+ones that entry explicitly rejects: temporarily renaming the version-colliding files, and considering a
+schema-dump seed (rejected there because this repo is public and the dump would publish P1054's
+out-of-band objects). **Second**, a hostile review of the unattended runner *before* starting it found
+four fatal defects, and probing for a fifth found the script never called `supabase start` at all.
+
+**Decision:** Treat "infrastructure that looks deliberately odd" as a decisions.md lookup first,
+empirical investigation second — CLAUDE.md's Before-Starting-Work step 5 already says this and it was
+skipped. And run an adversarial review on any artifact that will execute unattended for hours before
+the first launch, not after.
+
+**Alternatives rejected:** (a) Skip the review to start the run sooner — the review cost ~15 minutes and
+caught defects that each independently wasted the whole night, including one where a crashed batch wrote
+a *valid* 2,820-byte report that counted as a pass and would be skipped forever on `--resume`.
+(b) Trust the reviewer's findings directly — all four were re-verified by command before being fixed,
+per epistemic gate 9; the fifth and largest was found outside the review entirely.
+
+**Consequences:** Reviewer accounting for the session: **1 of 1 spawned reported**, delivered in two
+parts, the second only after an explicit chase — a single lens, no second lens commissioned. Two runner
+defects remain unfixed and are documented rather than patched, because editing a bash script while it
+executes can corrupt the running process: `verdict: "complete"` ignores both `CLASSIFY_RC` and
+`BATCHES_FAILED_TO_START`, and `CI` is still unset. Fix both before the next run.
+
+**References:** [decisions.md](decisions.md) 2026-08-20 "The migration chain cannot build a database from
+empty" · `.private/p1043-sweep/nightly/MORNING-PROMPT.md` · [epistemic.md](../.claude/rules/epistemic.md) gates 7, 9, 9b
+
 ## 2026-08-31 [process]: A Done-When box that only the world can tick is a hypothesis falsifier — and relocating one must leave a box behind
 
 **Context:** P1180 shipped its deliverable (`/slava:problem:submit`) and could not close. Its Done-When
