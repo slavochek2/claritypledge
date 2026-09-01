@@ -24,6 +24,7 @@ import {
   PARTNER_COMMITMENT_TEXT,
 } from "@/app/components/partners/partner-commitment-card";
 import { DemoLevelView } from "@/app/components/partners/demo-level-view";
+import { useAuth } from "@/auth";
 import {
   createInitialDemoState,
   getRolesForLevel,
@@ -34,6 +35,8 @@ import { CheckCircle2, PartyPopper } from "lucide-react";
 type ViewState = "start" | "invitation" | "waiting-creator" | "demo" | "complete";
 
 export function ClarityDemoPage() {
+  // P1097: creator id is required to learn the server-minted room code.
+  const { user } = useAuth();
   const [view, setView] = useState<ViewState>("start");
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -118,7 +121,10 @@ export function ClarityDemoPage() {
     setError(null);
 
     try {
-      const newSession = await createClaritySession(name.trim(), inviteNote.trim() || undefined);
+      // P1097: the creator's own id is required to learn the server-minted code (and this
+      // call previously passed the invite note in the profile-id slot — the P1038 audit
+      // noted that as a pre-existing arg-order bug).
+      const newSession = await createClaritySession(name.trim(), user?.id, false, inviteNote.trim() || undefined);
       setSession(newSession);
       setIsCreator(true);
       setView("waiting-creator");

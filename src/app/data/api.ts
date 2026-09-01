@@ -888,17 +888,11 @@ export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Pr
 // CLARITY PARTNERS API (P19 MVP)
 // ============================================================================
 
-/**
- * Generates a 6-character alphanumeric room code.
- */
-function generateRoomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars: I, O, 0, 1
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
+// P1097: the room code is no longer minted here. It is a bearer capability (P1053), and a
+// client-side Math.random() draw is the wrong class of generator for one. The database
+// mints it on INSERT (BEFORE INSERT trigger → mint_clarity_room_code(), CSPRNG over the
+// same 32-char alphabet) and the client cannot supply one — Migration B revokes INSERT on
+// the column. createClaritySession learns the minted code via get_room_code_for_invite.
 
 /**
  * Maps database session to frontend ClaritySession type.
@@ -981,7 +975,10 @@ export interface LetterSessionOpts {
  * @param isPrivate - When true, session skips audio/events upload for ML training
  * @param creatorNote - Optional note explaining why the partner is being invited
  * @param letterOpts - P703: Letter-sourced session opts (pre-loaded /live)
- * @returns The created session
+ * @returns The created session, with its server-minted code (P1097)
+ *
+ * P1097: `creatorProfileId` must be the CURRENT user's id for the code to be returned —
+ * the minted code is revealed through the creator-bound get_room_code_for_invite RPC.
  */
 export async function createClaritySession(
   creatorName: string,
@@ -990,8 +987,9 @@ export async function createClaritySession(
   creatorNote?: string,
   letterOpts?: LetterSessionOpts
 ): Promise<ClaritySession> {
-  // Generate unique room code (retry if collision)
-  let code = generateRoomCode();
+  // P1097: no `code` in the payload. The server mints it; the retry loop stays for the
+  // narrow concurrent case where two inserts draw the same free code in the same instant
+  // and the UNIQUE constraint rejects the second — re-running the insert re-draws.
   let attempts = 0;
   const maxAttempts = 5;
 
@@ -1006,7 +1004,6 @@ export async function createClaritySession(
     const { data, error } = await supabase
       .from('clarity_sessions')
       .insert({
-        code,
         creator_name: creatorName,
         creator_note: creatorNote,
         creator_profile_id: creatorProfileId ?? null,
@@ -1019,22 +1016,37 @@ export async function createClaritySession(
       // P1057: was a bare `.select()` — which is `select=*`, and INSERT … RETURNING *
       // requires SELECT on every returned column. After the gate that 42501s and throws
       // below (the retry loop only catches 23505), taking all three creator entry points
-      // down. The creator never needs to READ the code back: it was minted locally at
-      // :904 and /live/:code carries it thereafter.
+      // down. `code` is not in this list and cannot be: the column is SELECT-revoked.
       .select(CLARITY_SESSION_COLUMNS)
       .single();
 
     if (!error && data) {
-      // Splice the locally-minted code back on. Omitting this ships green and navigates
-      // the creator to /live/undefined — nothing throws.
+      const sessionId = (data as { id: string }).id;
+      // P1097: learn the server-minted code. get_room_code_for_invite (P1057) returns it
+      // only to the row's creator_profile_id (or an open invitee) — NULL otherwise, which
+      // is why every production caller passes the current user's own id as
+      // creatorProfileId. A NULL here is a contract violation, not a soft miss: without
+      // the code the creator would be navigated to /live/undefined, silently.
+      const { data: mintedCode, error: codeError } = await supabase.rpc('get_room_code_for_invite', {
+        p_session_id: sessionId,
+      });
+      if (codeError || typeof mintedCode !== 'string' || mintedCode.length === 0) {
+        console.error('Session created but its code could not be retrieved:', codeError?.message);
+        throw new Error(
+          codeError?.message ||
+            'Session created but its code could not be retrieved — createClaritySession needs the creator profile id'
+        );
+      }
+      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
+      if (import.meta.env.DEV) console.log('✅ Created clarity session:', mintedCode);
+      // Splice the code onto the row (the row itself cannot carry it — see mapSessionFromDb).
       // The cast is required because CLARITY_SESSION_COLUMNS is a runtime string, so
       // PostgREST cannot infer the row shape from it (this client has no generated types).
-      return mapSessionFromDb(data as unknown as DbClaritySession, code);
+      return mapSessionFromDb(data as unknown as DbClaritySession, mintedCode);
     }
 
-    // If unique constraint violation, try new code
+    // Unique violation: a concurrent insert won the same draw. Re-run; the server re-draws.
     if (error?.code === '23505') {
-      code = generateRoomCode();
       attempts++;
       continue;
     }
