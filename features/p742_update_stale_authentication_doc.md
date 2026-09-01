@@ -40,7 +40,11 @@ Small — one doc file, ~50 lines rewritten against current code. Read-only veri
 
 ## Done-When
 
-- [ ] `docs/technical/authentication.md:128-176` matches current code (verified by grep against `src/`)
-- [ ] "Three user types" table reflects post-P396 reality
-- [ ] Other P396-era staleness in the same file audited
-- [ ] Dated verification note added at top
+- [x] `docs/technical/authentication.md:128-176` matches current code (verified by grep against `src/`)
+- [x] "Three user types" table reflects post-P396 reality
+- [x] Other P396-era staleness in the same file audited
+- [x] Dated verification note added at top
+
+## Evidence (2026-09-01, overnight docs-hygiene lane)
+
+Full rewrite verified against current code; per-paragraph proof in the session's `p742-diff-notes` (23 corrected, 14 kept, 3 marked unverifiable: Brevo DNS/SMTP, dashboard redirect URLs, WebView storage). `grep -rn getOrCreateGuestUser src` → 0. Follow-ups found (out of scope): dead `source=live` migration branch, stale `is_verified` comments in the live page, unreachable `/me` verify branch, `useVerificationGate` remnant, `handle_new_user` fact duplicated in database.md.
