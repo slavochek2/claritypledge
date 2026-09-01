@@ -117,9 +117,16 @@ only bought a snapshot.
 Pre-registered, before the audit runs.
 
 1. **Is the agent API safe to build on this surface?** → Yes if Phase 3 confirms zero
-   unintended reaches for `anon` on any table carrying user-authored content or personal
-   data, AND every finding of that class from Phase 1 is either closed or has a written
-   accepted-risk entry. Any single open unintended `anon` read of user content = No.
+   unintended reaches on any table carrying user-authored content or personal data **for
+   BOTH roles**: `anon`, and `authenticated` reading another user's rows. AND every finding
+   of either class from Phase 1 is either closed or has a written accepted-risk entry. Any
+   single open unintended read of user content, by either role, = No.
+
+   **The `authenticated` half is not optional and was added after adversarial review
+   (2026-09-01).** The first draft of this criterion scoped it to `anon` alone. An agent
+   acting for a user runs as `authenticated` — so an anon-only audit can return Yes while
+   leaving the precise threat the agent API introduces entirely unexamined, and P1215's
+   phase gate would validly pass on it. Narrowing this back to `anon` re-opens that hole.
 2. **Does a finding count?** → A finding requires a **reproduced reach**: the query, run
    against test with a real role token, returning data that role should not see. A policy
    that "looks wrong" without a reproduction is a lead, not a finding.
@@ -171,10 +178,10 @@ Pre-registered, before the audit runs.
 
 ## Open Questions
 
-1. `[FOUNDER DECISION: what closes this audit?]` Criterion 1 above sets the bar at zero
-   unintended `anon` reads of user content. Is that the right bar, or does shipping the
-   agent API require a stricter one — e.g. zero unintended reaches for `authenticated`
-   across other users' rows as well?
+1. ~~`[FOUNDER DECISION: what closes this audit?]`~~ **Answered 2026-09-01 by adversarial
+   review, not by preference:** the bar covers both `anon` and cross-user `authenticated`.
+   Scoping to `anon` alone made the criterion unable to fail on the threat it exists to
+   gate. Relaxing it back is a deliberate founder call, not a default.
 2. Should the standing control run per-commit (pre-commit, fast, narrow) or per-day (in
    `/day`, slower, live-DB)? Both existing drift checks chose per-day; a per-commit check
    catches the widening before it lands.
