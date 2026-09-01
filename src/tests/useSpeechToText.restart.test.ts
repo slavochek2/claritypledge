@@ -31,6 +31,12 @@ let lastInstance: MockRecognition;
 /** How many more start() calls should throw before one is allowed to succeed. */
 let throwsRemaining = 0;
 let startCalls = 0;
+/**
+ * P1213: the Android S22 shape. start() SUCCEEDS — onstart fires, the session is
+ * real — and then the session ends at once having produced no result. Nothing
+ * throws, so none of the throw-based machinery above sees anything wrong.
+ */
+let endsImmediately = false;
 
 function MockCtor(): MockRecognition {
   const instance: MockRecognition = {
@@ -51,6 +57,7 @@ function MockCtor(): MockRecognition {
         throw err;
       }
       instance.onstart?.();
+      if (endsImmediately) instance.onend?.();
     }),
     stop: vi.fn(() => instance.onend?.()),
     abort: vi.fn(),
@@ -63,6 +70,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   throwsRemaining = 0;
   startCalls = 0;
+  endsImmediately = false;
   vi.stubGlobal('SpeechRecognition', MockCtor);
 });
 
@@ -184,6 +192,71 @@ describe('P1196: a throwing start() must not end the restart loop', () => {
     act(() => { vi.advanceTimersByTime(60_000); });
 
     expect(startCalls).toBe(1);
+    expect(result.current.liveTextStopped).toBe(false);
+  });
+});
+
+describe('P1213: a session that starts and dies at once must exhaust the budget too', () => {
+  it('does not loop forever when every session ends immediately with no result', () => {
+    // The prod symptom on a Galaxy S22 (2026-09-01): "Reconnecting microphone..."
+    // cycling forever, and the "Live text stopped" banner — the only surface that
+    // carries the raw recognition error — never appearing.
+    //
+    // Why P1196 did not cover this: onstart reset restartAttemptsRef to 0. A session
+    // that STARTS and then dies resets the budget on every cycle, so
+    // RESTART_MAX_ATTEMPTS is never reached. The bounded-retry guarantee only ever
+    // bound a start() that THROWS; a start/end churn loop ran unbounded and the room
+    // dead-ended in a state with no user recovery.
+    const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: true }));
+
+    endsImmediately = true;
+    act(() => { result.current.startListening(); });
+    act(() => { vi.advanceTimersByTime(60_000); });
+
+    // 1 manual start + 5 bounded attempts. Pre-fix this spun without limit.
+    expect(startCalls).toBe(6);
+    expect(result.current.liveTextStopped).toBe(true);
+    expect(result.current.isListening).toBe(false);
+  });
+
+  it('a session that produced a result resets the budget', () => {
+    const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: true }));
+
+    act(() => { result.current.startListening(); });
+
+    // Four dead sessions in a row — one short of exhaustion.
+    endsImmediately = true;
+    act(() => { vi.advanceTimersByTime(60_000); });
+    endsImmediately = false;
+
+    // A real utterance lands, then that session ends normally. Live text is working,
+    // so the next drop must get a full budget rather than the leftover of the last one.
+    act(() => { result.current.startListening(); });
+    act(() => {
+      lastInstance.onresult?.({
+        resultIndex: 0,
+        results: [Object.assign([{ transcript: 'one two three' }], { isFinal: true })],
+      });
+    });
+    act(() => { lastInstance.onend?.(); });
+    act(() => { vi.advanceTimersByTime(60_000); });
+
+    expect(result.current.transcript).toBe('one two three');
+    expect(result.current.liveTextStopped).toBe(false);
+    expect(result.current.isListening).toBe(true);
+  });
+
+  it('a session that stayed open long enough resets the budget even with no words', () => {
+    // Somebody sat quiet for a while and the recognizer timed out. That is a healthy
+    // session, not a failing one — it must not consume the budget reserved for churn.
+    const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: true }));
+
+    act(() => { result.current.startListening(); });
+    act(() => { vi.advanceTimersByTime(30_000); });
+    act(() => { lastInstance.onend?.(); });
+    act(() => { vi.advanceTimersByTime(250); });
+
+    expect(result.current.isListening).toBe(true);
     expect(result.current.liveTextStopped).toBe(false);
   });
 });

@@ -91,6 +91,14 @@ export interface UseSpeechToTextOptions {
  */
 const RESTART_MAX_ATTEMPTS = 5;
 const RESTART_BASE_DELAY_MS = 250;
+/**
+ * P1213: how long a session must survive to count as healthy when it produced no
+ * words. Below this, a start/end pair is churn — the recognizer is being handed a
+ * mic it cannot use — and must consume the restart budget like a throw does.
+ * Above it, somebody was simply quiet and the recognizer timed out, which is a
+ * normal drop that earns a full budget for the next one.
+ */
+const PRODUCTIVE_SESSION_MS = 1500;
 
 export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTextOptions): UseSpeechToTextReturn {
   const [transcript, setTranscript] = useState('');
@@ -110,6 +118,9 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
   const [lastRecognitionError, setLastRecognitionError] = useState<string | null>(null);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartAttemptsRef = useRef(0);
+  // P1213: whether the session that is ending did any real work. See onend.
+  const sessionStartedAtRef = useRef(0);
+  const sessionGotResultRef = useRef(false);
 
   const clearRestartTimer = useCallback(() => {
     if (restartTimerRef.current !== null) {
@@ -134,8 +145,14 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
     recognition.lang = lang;
 
     recognition.onstart = () => {
-      // A session actually began — the restart budget resets for the next drop.
-      restartAttemptsRef.current = 0;
+      // P1213: a session BEGINNING is not evidence the loop is healthy, so the budget
+      // is no longer reset here. On Android the failing shape is a session that starts
+      // cleanly and dies at once with no audio; resetting on onstart made that loop
+      // unbounded, liveTextStopped unreachable, and the room's only recovery control
+      // — which renders solely in the stopped state — impossible to show. The reset
+      // moved to onend, where the session's actual outcome is known.
+      sessionStartedAtRef.current = Date.now();
+      sessionGotResultRef.current = false;
       setIsListening(true);
       setError(null);
       setLiveTextStopped(false);
@@ -153,6 +170,12 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
         } else {
           interim += result[0].transcript;
         }
+      }
+
+      if (finalTranscript || interim) {
+        // P1213: proof the session is really hearing the mic, whichever kind of
+        // result it was. This is what earns the restart budget back in onend.
+        sessionGotResultRef.current = true;
       }
 
       if (finalTranscript) {
@@ -216,7 +239,20 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
     recognition.onend = () => {
       setIsListening(false);
       setInterimTranscript('');
-      console.info('[speech] recognition ended');
+
+      // P1213: judge the session that just ended. A productive one (it heard words,
+      // or it stayed open long enough to be a normal silence timeout) resets the
+      // budget. An instant, wordless one is churn and leaves the budget alone, so
+      // RESTART_MAX_ATTEMPTS is actually reachable and the failure surfaces.
+      const durationMs = Date.now() - sessionStartedAtRef.current;
+      const productive = sessionGotResultRef.current || durationMs >= PRODUCTIVE_SESSION_MS;
+      if (productive) restartAttemptsRef.current = 0;
+
+      console.info(
+        `[speech] recognition ended after ${durationMs}ms ` +
+        `(heard=${sessionGotResultRef.current}, productive=${productive}, ` +
+        `attempts=${restartAttemptsRef.current})`,
+      );
       scheduleRestart();
     };
 
