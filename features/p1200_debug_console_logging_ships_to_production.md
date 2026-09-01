@@ -90,34 +90,59 @@ incl. both session-code lines), `src/app/pages/clarity-demo-page.tsx` (1),
 cleaned up minimally (unused destructure removed; the empty-block `if/else` in
 `clarity-live-page.tsx` inverted to a single guard clause). No other behavior changed.
 
-**Lint gate — added and proven to fire (epistemic gate 7):** `eslint.config.js` now has
-`no-console: ['error', { allow: ['error', 'warn'] }]` scoped to `files: ['src/app/**/*.{ts,tsx}']`,
-plus `'no-console': 'off'` for `**/*.test.{ts,tsx}` / `**/tests/**/*.{ts,tsx}`. Scoped to
-`src/app/` rather than all of `src/**` — widening to `src/**` surfaces ~63 pre-existing ungated
-`console.log` sites in `src/auth/AuthCallbackPage.tsx`, `src/hooks/`, and `src/lib/` that are
-outside this spec's Affected Files list; fixing those was out of scope, and leaving the wider rule
-in would fail the build on unrelated code. Flagging for a possible follow-up spec.
+**Lint gate — added, then widened, and proven to fire twice (epistemic gate 7):**
+`eslint.config.js` has `no-console: ['error', { allow: ['error', 'warn'] }]`, plus
+`'no-console': 'off'` for `**/*.test.{ts,tsx}` / `**/tests/**/*.{ts,tsx}`. Initially scoped to
+`src/app/**` only (widening to `src/**` surfaced ~63 pre-existing ungated `console.log`/`console.info`
+sites in `src/auth/AuthCallbackPage.tsx`, `src/hooks/`, and `src/lib/`, outside this spec's original
+Affected Files list). Founder approved widening in the same P-number as a separate commit — now
+scoped to `files: ['src/**/*.{ts,tsx}']` (test files still exempt).
 
-Failure-path proof: appended `console.log('[TEST-P1200-CANARY] should fail lint');` to
-`clarity-demo-page.tsx`, ran `npx eslint src/app/pages/clarity-demo-page.tsx` →
+**Widening cleanup — per-site policy applied to all ~63 sites**, read in full before touching:
+- **Deleted** (single-use, no test/operational dependency, no established file convention):
+  `use-audio-recorder.ts` (7 sites — flush/mode/duration/start/stop status logs); `chunk-store.ts`
+  (1 site — happy-path "using IndexedDB" confirmation; the fallback `console.warn` stays).
+- **DEV-gated + `eslint-disable-next-line` with rationale** (operational value, not test-asserted):
+  `chunk-upload-queue.ts` (3 sites — rare orphaned-chunk crash-recovery path, P566);
+  `useSpeechToText.ts` (2 `console.info` sites — P1196/P1213 auto-restart lifecycle, extensively
+  documented in-file); `AuthCallbackPage.tsx` (2 previously-ungated P581 sites, matched to the
+  file's own established DEV-gate convention; its ~26 pre-existing DEV-gated sites also received
+  the disable directive, since the AST-based rule can't see a runtime `if (import.meta.env.DEV)`
+  guard).
+- **DEV-gated (not deleted) because a test asserts the exact call** — `import.meta.env.DEV` is
+  `true` under vitest (verified: printed `IMPORT_META_ENV_DEV= true MODE= test` in a throwaway
+  test), so gating changes nothing at test time: `session-events-collector.ts` (3 sites —
+  `session-events-collector.test.ts` asserts `toHaveBeenCalledWith` on each); `mixpanel.ts`
+  (2 sites — `mixpanel-ml-collector.test.ts` asserts the same).
+- **Left ungated, annotated only** — `nav-trace.ts` (2 sites): the file's own header doc states
+  these are deliberately prod-active, opt-in via `?navtrace=1`, because the P1197 bug they
+  diagnose does not reproduce in dev (six constructed harness scenarios failed to trigger it); a
+  DEV gate would defeat the instrument's purpose. `p1197-nav-trace.test.ts` also asserts on these
+  calls, unaffected since behavior is unchanged.
+
+Failure-path proof, run twice: (1) appended `console.log('[TEST-P1200-CANARY] should fail lint');`
+to `clarity-demo-page.tsx`, ran `npx eslint src/app/pages/clarity-demo-page.tsx` →
 `562:1  error  Unexpected console statement. Only these console methods are allowed: error, warn  no-console`,
-exit code 1. Canary line removed immediately after; `npx eslint` on the same file then exits 0.
+exit code 1; removed, re-ran → exit 0. (2) After widening, appended
+`console.log('[TEST-P1200-WIDEN-CANARY] should fail lint');` to `src/lib/chunk-store.ts`, ran
+`npx eslint src/lib/chunk-store.ts` → same `no-console` error, exit code 1; removed, re-ran → exit 0.
 
-**Full test/lint/typecheck run (all pass):**
+**Full test/lint/typecheck run — before AND after widening (both pass):**
 - `npx tsc --noEmit -p .` → exit 0, no output.
 - `npx eslint src` and `npm run lint` (project-wide) → exit 0, no errors.
-- `npx vitest run` → `304 passed | 2 skipped (306)` test files, `3485 passed | 19 skipped (3504)` tests.
-- `./scripts/pre-commit-checks.sh` (staged) → exit 0, 2 non-blocking warnings: (1) `console.log
-  found` — expected, lists the 17 justified DEV-gated survivors; (2) `/live runtime file changed
-  but no E2E test` — `clarity-live-page.tsx` was touched only for log deletion + a logic-preserving
-  guard-clause simplification (no new `/live` behavior), so no new E2E was added.
+- `npx vitest run` → `304 passed | 2 skipped (306)` test files, `3485 passed | 19 skipped (3504)`
+  tests — unchanged after widening, including the 3 files with console-spy assertions
+  (`session-events-collector.test.ts`, `mixpanel-ml-collector.test.ts`, `p1197-nav-trace.test.ts`).
+- `./scripts/pre-commit-checks.sh` (staged) → exit 0 both times. First commit: 2 non-blocking
+  warnings — expected `console.log found` (the justified survivors) and `/live runtime file
+  changed but no E2E test` (`clarity-live-page.tsx` only had logs deleted + a behavior-preserving
+  guard-clause simplification, no new `/live` behavior). Second commit: 1 non-blocking warning —
+  the expected `console.log found` listing all DEV-gated/intentional survivors across the widened
+  scope.
 
 **Commits:**
 - `e96c9d69` — `fix(p1200): remove ungated debug console.log from src/app; add no-console lint gate`
+- `f1846cd6` — `docs(p1200): evidence`
+- `3551114c` — `fix(p1200): widen no-console gate to src/**; clean src/auth, src/hooks, src/lib`
 
-**Not done / flagged for the team lead:** ~63 ungated `console.log` sites outside `src/app/`
-(`src/auth/AuthCallbackPage.tsx`, `src/hooks/use-audio-recorder.ts`, `src/hooks/useSpeechToText.ts`,
-`src/lib/chunk-store.ts`, `src/lib/chunk-upload-queue.ts`, `src/lib/mixpanel.ts`,
-`src/lib/nav-trace.ts`, `src/lib/session-events-collector.ts`) were discovered while widening the
-lint rule to `src/**`, but were never in this spec's Affected Files list — left untouched and the
-lint gate scoped to exclude them. Recommend a follow-up P-number if these should be cleaned up too.
+**Not done:** none — the widening closes the item previously flagged here as a follow-up.
