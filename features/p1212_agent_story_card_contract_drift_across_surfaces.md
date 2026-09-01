@@ -6,7 +6,10 @@ workstream: C2
 created_date: '2026-09-01'
 tags: [stories, agents, feed, profile]
 delivery_stage: create-spec
+flow: dev
+pipeline_plan: [create-spec, generate-tests, dev, verify]
 pipeline_ran: [create-spec]
+pipeline_skipped: ["decompose -- 5 sections but they collide on the same three files (agent-byline/machine-chip/agent-story-footer); children would conflict, not parallelise", "ux -- byline form and pill question both answered 2026-09-01, no open design question left to write as a sentence", "spec-review -- spec is same-day, not stale", "architect -- no schema, RLS or data-model change; render-path and string changes only"]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -68,7 +71,9 @@ positions, agent provisioning, or the disagreement pipeline's drafting stages.
 **The four affected pages are already publicly readable, unauthenticated, today — this is not a
 prod-only concern.** Verified 2026-09-01: the `stories` read policy is
 `USING (visibility = 'public' OR author_id = auth.uid())`
-(`20260325120000_p586_visibility_privacy_foundation.sql:236`) — **no environment term** — and this
+(`20260325120000_p586_visibility_privacy_foundation.sql:198-202`, policy *"Stories readable by
+visibility"*; the first draft cited `:236`, which is the `story_points` policy — same predicate,
+wrong policy) — **no environment term** — and this
 pipeline always writes `visibility = 'public'`. `publish.md:42` records that narrowing a gate to
 prod-only on environmental grounds was attempted and **REVERTED** on 2026-08-31: *"'Test' is not
 private, and that is the whole answer."* The duplicated quotes, the missing disclosure on the letter
@@ -79,8 +84,17 @@ settled by the founder 2026-09-01 — **option A**.
 
 ## Invariants
 
-- **A story MUST NOT state, name or imply the arguer's position on any point** (P1202). Restated
-  because this spec edits the surfaces that display both.
+- **A story's TEXT must not NAME the arguer's position on any point** (P1202). Restated because this
+  spec edits the surfaces that display both.
+  **Corrected 2026-09-01 after adversarial review — the first draft restated this invariant in its
+  SUPERSEDED form** (*"state, name or imply"*). `features/done/2026-06-10/p1202_…md:74-76` records
+  the founder decision of **2026-08-31: "imply" is DROPPED; the rule is 'must not NAME', tested by
+  the staleness question"* — because enforcing "imply" literally failed 3 of 4 stories and passed the
+  one with the weakest-grounded positions. **The invariant governs story PROSE only. The position
+  itself lives in the `point_positions` link and is MEANT to render** — `PositionBadge` beside the
+  byline is where P1202 puts it, and §3 of this spec exists to make that badge *more* legible, not
+  less. A reviewer reading the superseded wording concluded the §5 expander must suppress agent
+  position badges; that conclusion is wrong and the wording is what produced it.
 - **The machine marker must survive every surface and every size.** P1104 measured that a
   non-circular silhouette carries it where a portrait cannot. Do not round agent avatars, and do not
   remove the silhouette treatment to unify card styling.
@@ -101,7 +115,7 @@ currently spent on a same-page duplicate with worse affordances than the copy be
 Rejected: moving the publish gate to assert the label on the rendered page. Same end state, but it
 changes a gate that currently protects the quote label, for no gain the founder asked for.
 
-#### §1 is BLOCKED on the concurrent session — found by adversarial review, 2026-09-01
+#### §1 was blocked on a concurrent session — UNBLOCKED, verified 2026-09-01
 
 **The file that puts quotes into `content` is `story-draft.md`, which this spec's Non-Goals forbid
 touching.** `story-draft.md:444-449` carries the rule *"Quote budget: at most ONE quote per linked
@@ -111,8 +125,12 @@ for the founder, NOT fixed here.** `publish.md:280`'s row-shape table likewise s
 
 As originally drafted this spec named no file that would implement §1, while forbidding the only one
 that could. An implementer following it literally changes nothing and AC-1 fails on the first re-filed
-story. **§1 therefore cannot ship until the concurrent session releases `story-draft.md`** — this
-spec's other four sections are unaffected and can proceed.
+story. **Re-verified 2026-09-01 before implementation** (`git worktree list`; `git status --short --
+.claude/commands/slava/disagreement/story-draft.md`): the file has **no uncommitted edits on main**,
+and the only other worktree (`w1`) is on `feature/p1207-adversarial-permission-audit`, whose 20-file
+diff does not touch it. **The blocker is discharged — §1 may proceed.** Re-run those two commands at
+implementation time; this is exactly the class of fact that expires (`.claude/rules/git.md`,
+"Volatile state decays").
 
 **Two edits §1 requires when unblocked:** remove the quote-budget rule from `story-draft.md:444-449`,
 and correct `publish.md:280`'s row-shape table plus the `:529` label-check comment in the same change,
@@ -148,12 +166,54 @@ founder using *"mirror agent"*, *"claimed agents"*, *"claim your agent"* through
 `operator: ClarityPledge`. LeCun did not make this account. The operator currently appears only in
 the footer.
 
-[FOUNDER DECISION: exact byline form. Recommended `AGENT · Yann LeCun`, machine marker carried by the
-avatar silhouette, operator surfaced adjacent rather than only in the footer. Alternative
-`AGENT · on Yann LeCun` if the subject/author relation still reads ambiguously at 320px. Ruled out
-already: "summary of" and "summarizing" (contradicts P1202 — a story is connective tissue, not a
-summary), "reading of" (the thing being removed), "reporting" (claims an editorial standard we do not
-hold).]
+#### Both halves of the recommendation below were already tried and rejected IN CODE — found 2026-09-01
+
+**This is the §3 failure repeated in §2 and it was not caught the first time.** §3 was corrected
+because its citation was inverted. §2's recommendation was never checked against the component it
+edits. `agent-byline.tsx` records two rejections, and the recommendation below is both of them at once:
+
+> *"4. NOT `Agent · {Name}`. "Agent" reads in English as **representative of**, which is the one
+> implication an account bearing a real person's name must never carry."* — `agent-byline.tsx:65-67`
+
+> *"And `reading of` is not trimmable, at any size. Dropped, the marker lands on the PERSON —
+> `[Machine] Daniel Bar-Tal` reads as *Daniel Bar-Tal, who is a machine* rather than as an account
+> that reads him. That misread is worst on the profile header, the one surface whose whole job is
+> identity and the one most likely to be mistaken for the subject's own account."*
+> — `agent-byline.tsx:71-76`
+
+Neither rejection was surfaced in the evidence block below. **This does not settle the founder call
+— "machine" genuinely is not a word readers use, and that complaint stands.** It changes what the
+call is *between*: not "is `AGENT · Name` good?" but "does the founder overrule two recorded design
+findings, and if so which replacement survives the *representative-of* and *marker-lands-on-the-person*
+misreads?" `AGENT · on Yann LeCun` — already listed below as the 320px alternative — is the only
+candidate in this spec that survives both, because the preposition restores the account→subject
+relation that `·` deletes.
+
+Whatever form is chosen must be measured, not argued: `agent-byline.tsx:60-73` documents a truncation
+fix at 320px measured to the pixel (chip right=308 vs card right=289).
+
+[FOUNDER DECISION: exact byline form — **STILL OPEN**. Delegated to the agent 2026-09-01
+(*"lets implement as you think it should"*), the agent took `AGENT · {Full Name}`, and the
+delegation was **returned the same turn**: the section immediately above shows that form is *both*
+recorded rejections in `agent-byline.tsx` at once, verified by reading `:65-76` directly. Taking a
+delegated call is not licence to take a **falsified** one.
+
+What is actually being decided, restated: does the founder overrule two recorded design findings —
+"Agent" reading as *representative of*, and a dropped connective landing the marker on the PERSON —
+and if so, which replacement survives both misreads? `AGENT · on Yann LeCun` is the only candidate
+named in this spec that survives both, because the preposition restores the account→subject relation
+that a bare `·` deletes; it has not been measured at 320px.
+
+Two sub-questions, **decidable now and not blocking the above**:
+- **The marker stays a bordered pill**, not plain text — `index.css:250-254` counts the pill as one
+  of three non-colour WCAG 1.4.1 channels, and on the feed story card it is the *only* non-avatar
+  channel present. Renaming a channel must not delete it. (Agent recommendation; reversible.)
+- **The operator (`ClarityPledge`) stays in the footer** — Open Question 1. A third party on the card
+  line is what `agent-byline.tsx:60-73`'s measured 320px truncation fix exists to warn about.
+  (Agent recommendation; reversible.)
+
+Ruled out already: "summary of" / "summarizing" (contradicts P1202), "reading of" (the thing being
+removed), "reporting" (claims an editorial standard we do not hold).]
 
 Only the name navigates to the profile; the chip is a status marker and is not part of the link
 (P1141, unchanged).
@@ -171,8 +231,9 @@ the *only* non-avatar marker present. `e2e/p1104-agent-marker.spec.ts:544-549` a
 channels. Deleting the pill in the course of removing the word would remove the primary disclosure on
 the surface with the weakest remaining signal.
 
-The `[FOUNDER DECISION]` above must therefore also state whether the marker stays a **bordered pill**
-or becomes plain text — the 1.4.1 argument depends on which.
+**Recommended above and not contested: bordered pill, unchanged.** Whatever token replaces `Machine`
+at `machine-chip.tsx:33`, every border, padding and aria treatment stays exactly as shipped. The
+*token* is blocked on the founder call; the *pill* is not.
 
 ### 3. Agent position chips stay drained — legibility solved without touching the marker
 
@@ -271,9 +332,70 @@ on any surface where the quotes are absent.
 **§1 MUST NOT ship before this component renders `story-video-quotes.tsx`.** Ordering, not a
 follow-up.
 
+#### The ordering constraint above is NOT SUFFICIENT — second adversarial review, 2026-09-01
+
+**This spec contradicts itself.** §4 already establishes that **five of six surfaces render no quote
+block at all** and are readable today *only* because the quote bodies sit inline in `story.content`.
+The blocking order then protects **one** of those five. The other four break the moment §1 ships:
+
+| Surface | Renders `content` (and so the label) | Renders `video_quotes` | After §1 |
+|---|---|---|---|
+| Feed story card | `feed-story-card.tsx:140` | ❌ — reads only `.durationSeconds` at `:142` | label, no quotes |
+| Point detail / linked story | `story-card-with-links.tsx:314` | ❌ | label, no quotes |
+| Profile (`StoryCardFull`) | `profile-page-v2.tsx:1216` | ❌ | label, no quotes |
+| Live / sealed letter | `live-story-card-expanded.tsx` | ❌ (already blocked above) | label, no quotes |
+| Story detail | `StoryCardDetail.tsx:345` | ✅ `:372` — the ONLY call site | correct |
+
+**Corrected blocking precondition:** §1 ships only after **every surface that renders `story.content`
+either renders `video_quotes` or suppresses the label.** Naming one component was an under-scope, and
+the evidence for that was already inside §4 of this spec before the sentence was written.
+
 Disclosure severity independent of §1: this surface shows a machine-authored reading of a real named
 person as a plain bold name with no chip, no footer and no link to `/machines`, in the context where
 the reader has the least surrounding signal — no site chrome, no profile to click through.
+
+#### The §4b fix RESURRECTS the duplication on every letter sealed before §1 — found 2026-09-01
+
+The seal RPC freezes **both halves**. `20260823120100_p1141_seal_rpc_video_fields.sql:102,105` writes
+`'storyText', COALESCE(sv.content, '')` **and** `'videoQuotes', COALESCE(s.video_quotes, …)` into
+`point_config`; the mapper restores both independently (`letter-snapshot-mapper.ts:182,185`).
+
+So a letter sealed **today** carries the quote bodies twice: inline inside frozen `storyText`, and
+again in frozen `videoQuotes`. The moment `live-story-card-expanded.tsx` renders
+`story-video-quotes.tsx` — the fix §4b requires — **every pre-§1 sealed letter shows its quotes
+twice**, which is the precise defect §1 exists to delete. Snapshots are immutable, so re-filing the
+story does not repair an already-sealed letter, and old and new letters diverge permanently.
+
+This falsifies the Acceptance Criterion *"a letter sealed before the change renders identically after
+it"* — §4b **guarantees** it will not, by design. That AC is replaced below.
+
+**Smallest fix:** the letter surface renders the `video_quotes` block only when the frozen `storyText`
+does not already contain the quote bodies — test the first quote's text against `storyText` at render
+— **or** the seal RPC writes a `quotesInContent: false` marker from the §1 cutover onward and the
+renderer branches on it. Decide which before §4b is implemented; both are testable against a snapshot
+fixture without sealing a real letter.
+
+#### The snapshot stores NO story-author identity — latent, not reachable today
+
+Verified: the seal RPC's `point_config` carries `storyText`, `imageUrl`, `videoUrl`, `videoQuotes`
+and per-point data — and **no story author id, name or agent flag**
+(`20260823120100_p1141_seal_rpc_video_fields.sql:101-138`). The byline is therefore *derived*, and it
+is derived to the **letter sender**: `letter-flow-content.tsx:398-403` passes `senderName` into the
+mapper, and `story-walk.tsx:95-96` states the assumption in a comment — *"Author of the story = sender
+(sender wrote the stories)."*
+
+If an agent story could enter another person's letter, the recipient would see machine-authored prose
+bylined with a **human's** name — false attribution on the highest-risk surface. **It cannot today:**
+`20260326100454_p551_clarity_docs.sql:92-105` restricts `doc_stories` INSERT to
+`stories.author_id = auth.uid()`, so a sender can only attach their own stories.
+
+Two things follow. RLS is the *only* barrier — a service-role write (which the disagreement pipeline
+uses) bypasses it entirely. And adding `AgentByline` to this surface per §4b **must not** derive
+agent-ness from the mapped `authorName`, because that name is the sender's: it needs the story's own
+author identity, which the snapshot does not carry. **§4b's byline work therefore has a schema
+dependency the spec did not name.** Scope decision for the founder: add author id + agent flag to the
+snapshot contract now, or restrict §4b on this surface to quotes + media and file the byline
+separately.
 
 ### 4c. Three more components carry the contract strings
 
@@ -287,10 +409,66 @@ Solution §2 named only `agent-byline.tsx`. Verified by command, the rename also
   name, bypassing `stripAgentPrefix`. Client-rendered, so many crawlers will not execute it; in
   scope for correctness, not urgency.
 
-**No byline string is stored anywhere** — verified: the snapshot mapper copies `videoUrl` and
-`videoQuotes` into the sealed blob (`letter-snapshot-mapper.ts:184-185`) but passes `authorName`
-through live at render time. So the rename propagates to already-sealed letters automatically and
-does **not** collide with the Non-Goal on stored data.
+~~**No byline string is stored anywhere**~~ — **FALSE, corrected 2026-09-01 after adversarial
+review.** The narrow claim is right (the snapshot mapper copies `videoUrl` and `videoQuotes` into the
+sealed blob at `letter-snapshot-mapper.ts:184-185` but takes `authorName` from its caller at `:142`,
+`:193`). The general sentence is wrong, and it is wrong about the thing §2 changes:
+
+**`Agent · ` IS a stored byline marker, enforced by the database.** `profiles.name` holds
+`Agent · {Subject}`; `20260819120000_p1104_agent_accounts.sql:206-209` **reserves that prefix** at
+`upsert_my_profile` (*"display name may not use the reserved 'Agent ·' marker prefix"*), and
+`20260819140000_p1104_harden_agent_prefix_guard.sql` hardens the reservation against ZWSP and
+Cyrillic-homoglyph bypass. `stripAgentPrefix` removes it **at render**, deliberately, so it never
+becomes the visible byline — `agent-byline.tsx:66-69`: *"The STORED name keeps its `Agent ·` marker —
+the database enforces it, and it is what reaches off-platform surfaces and aria-labels, which is why
+`stripAgentPrefix` is applied here at render rather than at the source."*
+
+Three consequences §2 must address:
+
+1. Six a11y assertions depend on the STORED form reaching aria-labels
+   (`e2e/a11y/p1104-agent-marker-accessibility.spec.ts:92,109,121,130,141,157` — each
+   `.toContain('Agent ·')`). §2 changes visible text only, so these should pass unchanged; the Risk
+   table's claim that this file needs updating **over-states** the work.
+2. Any surface that forgets `stripAgentPrefix` leaks the raw stored marker — which is exactly the
+   defect §4d below documents as still live.
+3. The stored marker is a **reserved namespace an impersonator cannot claim**. Making it the visible
+   byline collapses a distinction the DB spends two migrations enforcing.
+
+### 4d. A SEVENTH surface — the nested linked-story card. Found 2026-09-01, second review
+
+§4 claimed six surfaces and claimed the census was built by reading data flow rather than by grepping
+a component name. **The census is still incomplete.** `LinkedStoryCard`
+(`StoryCardDetail.tsx:826-866`) is a private compact card rendered inside a `QuotedPoint`'s
+linked-stories expander (`StoryCardDetail.tsx:745-751`), publicly reachable by expanding a point
+beneath any story. It is the surface **§5 is about to make more reachable**, on three more pages.
+
+What it has: `agent-card-drained`, `data-agent-row="true"`, the square agent silhouette, and
+`EarBadge` correctly suppressed (`:846-860`). So it is **not undisclosed** — it carries the P1104
+channels.
+
+What it lacks, verified by reading the component:
+
+- **`:861` renders raw `{story.authorName}`** — no `stripAgentPrefix`, no `AgentByline`. This leaks
+  the stored `Agent · {Name}`, which is the exact defect `agent-byline.tsx:39-41` records as fixed on
+  every other surface: *"the feed said `Machine reading of X` while the profile header and every
+  stance row said `Agent · X`, the raw stored name. Same account, two identities, decided by which
+  file a reader happened to be looking at."* One file was missed.
+- No `MachineChip`, no `AgentStoryFooter`, no media, no quotes.
+
+**§2's rename does not reach this file** — it renders no byline component at all — so shipping §2
+alone *widens* the two-identities drift rather than closing it.
+
+**Searched and cleared** (stated so the next reviewer does not re-derive them):
+
+- `live-content-cards.tsx` — `LiveStoryCard` / `ContentPicker` / `StoryCardPreview` /
+  `SelectedContentDisplay` render `story.content` + `authorName` + `StoryImage` with no agent
+  handling, but have **zero importers** outside the file (only `PointCardPreview` is imported, by
+  `live-mode-view.tsx:41`). Dead code — a latent surface, not a live one. Wiring any of it back
+  reintroduces the gap.
+- `letter-position-story-dialog.tsx:160-190` — renders raw `authorName`, `story.content` and a
+  **round** `GravatarAvatar` with no agent handling, reached live from `story-walk.tsx:199` and
+  `letter-flow-content.tsx:1130`. Not agent-reachable today: `getLetterPositionStories(deliveryId,
+  userId, senderId)` scopes it to the letter's sender and receiver. Latent, same class.
 
 ### 5. Point↔story expander parity
 
@@ -317,13 +495,19 @@ Make the expander with counts present on all four, both directions.
 | The new byline form regresses name truncation at 320px | MITIGATE | `agent-byline.tsx:60-73` documents a measured truncation fix for the current layout, caught by two blind reviewers. The replacement form needs the same measurement before it ships |
 | Any legibility fix on the drained chip erodes the machine marker | MITIGATE | Hue is forbidden. Measure every candidate at 20px/40px/320px against the P1104 negative control before adopting |
 | The drained-card CSS `filter` breaks positioned descendants (P1104 shipped finding) | MITIGATE | Any new element added inside a drained container must be checked for `position: fixed` / portal descendants |
-| **§1 cannot be implemented without editing `story-draft.md`, which the concurrent session holds** | DEFER | Unblocked when that session releases the file. §§2–5 proceed independently. Do NOT ship §1 before then |
+| §1 requires editing `story-draft.md`, previously held by a concurrent session | RESOLVED | Verified free 2026-09-01 (no uncommitted edits; `w1` is on p1207 and does not touch it). Re-check at implementation time |
 | The publish gate passes on label-present + zero-quotes | MITIGATE | Add the `jsonb_array_length > 0` assertion; hole pre-exists §1 but §1 makes it visible |
+| **§1's blocking order named ONE surface while §4 documents FIVE that render no quotes** | MITIGATE | **Corrected §4b.** Feed, point-linked story and profile each render `content` (and so the label) and never `video_quotes`. §1 ships only when every `content`-rendering surface renders quotes or suppresses the label |
+| **§4b's fix makes pre-§1 sealed letters render quotes TWICE** | MITIGATE | Seal RPC freezes `storyText` AND `videoQuotes` (`…p1141_seal_rpc_video_fields.sql:102,105`). Legacy branch required before §4b ships; snapshots are immutable so re-filing cannot repair one |
+| **The letter snapshot stores no story-author identity — the byline is derived to the SENDER** | ACCEPT (latent) | Not reachable today: `doc_stories` INSERT requires `stories.author_id = auth.uid()` (`p551_clarity_docs.sql:92-105`). But §4b cannot add `AgentByline` there from the mapped name, and service-role writes bypass the RLS that closes it |
+| **`LinkedStoryCard` leaks the raw stored `Agent · ` name and §2 does not reach it** | MITIGATE | `StoryCardDetail.tsx:861` renders `{story.authorName}` with no `stripAgentPrefix`. §5 makes this card MORE reachable, so §5 must not ship before §4d |
+| **§2 recommends a byline form rejected in-code, twice** | MITIGATE | `agent-byline.tsx:65-67` rejects `Agent · {Name}`; `:71-76` rejects dropping "reading of". Founder decision must be taken against those findings, not around them |
+| The first draft restated P1202's invariant in its superseded form | MITIGATE | Fixed in Invariants. "imply" was dropped by founder decision 2026-08-31; a reviewer following the old wording concluded §5 must delete agent position badges — the opposite of §3 |
 | `publish.md` row-shape table contradicts §1 after the change | MITIGATE | Correct `:280` and the `:529` comment in the same change as the `story-draft.md` edit |
 
 **Non-Goals**
 - Do NOT change story prose rules, length ceiling or accuracy tiers — **P1202 owns them**, shipped 2026-09-01.
-- Do NOT touch `docs/story-craft.md`. `story-draft.md` is held by a concurrent session and is **required** by §1 — see the blocking note in §1; §§2–5 must not wait on it.
+- Do NOT touch `docs/story-craft.md`. `story-draft.md` **is in scope** and is required by §1 — the concurrent-session hold was verified discharged 2026-09-01 (see §1). `publish.md` is in scope for the same reason.
 - Do NOT regenerate or redesign agent avatars. Verified 2026-09-01: `portrait: none` is deliberate per founder ruling 2026-08-26; initials-on-slate is the portrait channel for subjects with no rights-cleared photograph, and `/gen-agent-avatar`'s step-0 rights check correctly refused. **UNVERIFIED, stated rather than implied:** the 20px/40px distinguishability measurement behind P1104 was run on portrait-vs-photograph pairs. `provision-agent.md` Step 2b skips the size gate entirely (*"There is nothing to gate at 40px"*), so the initials-on-slate branch all four live agents use has **never been measured** against a real member's initials-on-colour circle. The square-vs-circle argument is content-independent and plausibly generalises; it is an inference, not a measurement.
 - Do NOT change the feed or profile default tab order — decided 2026-09-01 to leave unchanged pending a real reader test.
 - Do NOT colour agent stance chips, story pills or card chrome. The drained card is the machine marker (P1104:72, founder decision 2026-08-19) and the avatar is the only exempt element.
@@ -331,10 +515,12 @@ Make the expander with counts present on all four, both directions.
 
 ## Acceptance Criteria
 
-- [ ] On a story with quotes, the `Supporting quotes from {Name}` heading and its quotes appear **exactly once** on every surface that renders them
+- [ ] On a story with quotes, the `Supporting quotes from {Name}` heading and its quotes appear **exactly once** on **every surface that renders the heading** — not "every surface that renders them", which the first draft used and which a surface rendering zero quotes satisfies vacuously
 - [ ] No surface renders the label with zero quotes beneath it — publish refuses to file such a story
 - [ ] Every timecode shown seeks the player in place; no timecode is displayed where clicking does nothing
-- [ ] The byline reads the approved form on all six surfaces, with no occurrence of "MACHINE" or "reading of" in `agent-byline.tsx`, `machine-chip.tsx` or `agent-story-footer.tsx`. The `/machines` explainer page is exempt — its prose defines the term
+- [ ] The byline reads the approved form on all **seven** surfaces (the six in §4 plus `LinkedStoryCard`, §4d), with no occurrence of "MACHINE" or "reading of" in `agent-byline.tsx`, `machine-chip.tsx` or `agent-story-footer.tsx`. The `/machines` explainer page is exempt — its prose defines the term
+- [ ] `LinkedStoryCard` renders the agent name through `AgentByline`/`stripAgentPrefix`, not raw `story.authorName` — no surface leaks the stored `Agent · ` prefix (§4d)
+- [ ] A repo-wide check passes: no component renders `story.authorName` for an agent account without going through `stripAgentPrefix` or `AgentByline`
 - [ ] An agent row's position chip is legible as Agree vs Disagree vs Unsure **without hue** — measured at 20px, 40px and 320px
 - [ ] `e2e/p1104-agent-marker.spec.ts` still passes unmodified on the drained-chrome saturation assertion
 - [ ] The machine marker pill is present on every story surface after the rename — the feed story card has no other non-avatar channel
@@ -343,7 +529,10 @@ Make the expander with counts present on all four, both directions.
 - [ ] A letter containing an agent story renders its video, its quotes, its byline, its machine chip and its footer — verified at desktop / 375 / 320
 - [ ] `agent-story-footer`'s "except the quotes" sentence never appears on a surface where no quotes render
 - [ ] A point card shows a story-count expander on feed, profile and point detail; a story card shows a linked-point expander on feed and profile
-- [ ] A letter sealed before the change renders identically after it
+- [ ] ~~A letter sealed before the change renders identically after it~~ — **falsified by §4b, replaced 2026-09-01.** §4b deliberately adds video, quotes, byline, chip and footer to that surface, so identical rendering is not the goal and never was achievable. Replaced by the two below
+- [ ] A letter sealed **before** §1 renders its quotes **exactly once** — the frozen inline copy in `storyText` and the frozen `videoQuotes` copy must not both render (§4b legacy branch)
+- [ ] No letter loses content it rendered before the change: every quote, timecode and image visible in a pre-change sealed letter is still visible after
+- [ ] No surface derives an agent byline from a name the snapshot does not own — the letter surface's `authorName` is the **sender's** (§4b, `story-walk.tsx:95-96`)
 
 ## Done-When
 
@@ -351,6 +540,9 @@ Make the expander with counts present on all four, both directions.
 - [ ] A test asserts `live-story-card-expanded.tsx` renders quotes — failing before the fix, passing after
 - [ ] The publish precondition asserting the quote label still passes against a re-filed story
 - [ ] No surface renders `StoryMedia` conditionally on a code path the profile does not reach
+- [ ] A test asserts `LinkedStoryCard` renders the stripped subject name, never the raw stored `Agent · ` prefix — failing before the fix, passing after (§4d)
+- [ ] A snapshot-fixture test asserts a pre-§1 sealed letter renders its quote block once, not twice (§4b legacy branch) — failing before the fix, passing after
+- [ ] A test asserts every surface that renders the quote LABEL also renders the quote bodies — parameterised over the surface list, so adding a surface without quotes fails
 
 ## Open Questions
 
