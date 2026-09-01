@@ -1,4 +1,17 @@
 /**
+ * P1217 RETIREMENT NOTE (2026-09-01): P674 is status: rejected — the "simplify /live to
+ * free mode only" change was never made. Two describes asserted the ABSENCE of things the
+ * rejection therefore kept, so they can never pass and guard nothing:
+ *   - "No Mode Switcher (P672 closed)" — "Guided mode" / "Open mode" are rendered at
+ *     live-mode-view.tsx:1206 and :1531-1537, with ModeSwitcherState live since P638.
+ *   - "In-Session History Removed" — sessionHistory is a live field
+ *     (src/app/types/index.ts:747, SessionHistoryItem at :575) and P813 extended it.
+ * Both were deleted. Everything above them exercises the live /live state machine
+ * (full round, escape hatches, race conditions) and stays, as does
+ * e2e/integration/p674-live-state-machine.spec.ts — patch_live_state appears in 9
+ * migrations and live_state in 18.
+ */
+/**
  * @file p674-linear-flow.spec.ts
  * @description E2E two-party tests for P674: Simplified /live — Single Linear Flow
  *
@@ -458,64 +471,5 @@ test.describe('P674: Race Condition Scenarios (Done-When)', () => {
     const finalState = finalData?.live_state as Record<string, unknown>;
     expect(finalState.ratingASubmitted).toBe(true);
     expect(finalState.ratingBSubmitted).toBe(true);
-  });
-});
-
-test.describe('P674: No Mode Switcher (P672 closed)', () => {
-  test.describe.configure({ timeout: 60000 });
-
-  let session: TwoPartySession;
-
-  test.afterEach(async () => {
-    if (session) await session.cleanup();
-  });
-
-  test('idle screen does not show Guided/Open mode toggle', async ({ browser }) => {
-    session = await createTwoPartySession(browser, {
-      hostName: 'Alice',
-      guestName: 'Bob',
-    });
-
-    // Wait for page to load
-    await expect(session.host.page.locator('body')).toBeVisible({ timeout: 10000 });
-
-    // Mode toggle should NOT be present
-    // TODO: These assertions validate after P674 removes the mode toggle
-    await expect(session.host.page.getByText('Guided mode')).not.toBeVisible({ timeout: 3000 });
-    await expect(session.host.page.getByText('Open mode')).not.toBeVisible({ timeout: 3000 });
-  });
-});
-
-test.describe('P674: In-Session History Removed', () => {
-  test.describe.configure({ timeout: 60000 });
-
-  let session: TwoPartySession;
-
-  test.afterEach(async () => {
-    if (session) await session.cleanup();
-  });
-
-  test('idle screen does not show session history cards', async ({ browser }) => {
-    session = await createTwoPartySession(browser, {
-      hostName: 'Alice',
-      guestName: 'Bob',
-    });
-
-    // Advance to idle with a completed round in history
-    await advanceSessionState(session.sessionCode, {
-      phase: 'idle',
-      sessionHistory: [{ round: 1, speakerIsCreator: true, ratingA: 7, ratingB: 5 }],
-    });
-
-    // Wait for idle screen
-    await waitForUIUpdate(
-      session.host.page,
-      session.host.page.getByRole('button', { name: /Speak|Did.*understand/i }),
-      15000,
-    );
-
-    // Session history cards should NOT appear inline
-    // TODO: Update selector based on actual history card component
-    await expect(session.host.page.locator('[data-testid="session-history-list"]')).not.toBeVisible({ timeout: 3000 });
   });
 });

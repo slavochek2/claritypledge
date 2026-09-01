@@ -8,6 +8,16 @@
  * - Ear badge has accessible text (title or aria-label)
  * - Position badges have text content (not color-only)
  * - Filter tabs are keyboard accessible
+ *
+ * P1217 RETIREMENT NOTE (2026-09-01): P542 (changes: p411) collapsed the story card
+ * behind a chevron — "all position holders render as compact rows by default". The
+ * 'story card in position breakdown is keyboard reachable' test required the story text
+ * to be visible without expanding anything, so it was deleted. Its successor is
+ * e2e/a11y/p542-accessibility.spec.ts 'Tab order: chevron row -> expanded story card ->
+ * share -> next row'. The filter-tab and compact-row tests kept here are duplicated by
+ * that same file ('filter tabs remain keyboard accessible', 'compact row (no story)
+ * remains keyboard-activatable for profile navigation'); the position-badge text check
+ * is not, which is why this file is split rather than deleted.
  */
 
 import { test, expect } from '@playwright/test';
@@ -92,29 +102,6 @@ test.describe('P411 Accessibility — Position Breakdown', () => {
 
     // Should navigate to the user's profile
     await expect(page).not.toHaveURL(`/point/${pointId}`, { timeout: 5000 });
-  });
-
-  test('story card in position breakdown is keyboard reachable', async ({ page }) => {
-    await page.goto(`/point/${pointId}`);
-    await page.waitForLoadState('networkidle');
-
-    await expect(
-      page.getByText(/Open offices significantly reduced/i)
-    ).toBeVisible({ timeout: 10000 });
-
-    // The story card area should be interactive and reachable via keyboard
-    // It renders as a clickable container
-    const storyContainer = page
-      .locator('[role="button"]')
-      .filter({ hasText: /Open offices significantly reduced/i })
-      .or(
-        page.locator('a').filter({ hasText: /Open offices significantly reduced/i })
-      )
-      .first();
-
-    await expect(storyContainer).toBeAttached({ timeout: 5000 });
-    await storyContainer.focus();
-    await expect(storyContainer).toBeFocused();
   });
 
   test('position badge has non-empty text content (not color-only)', async ({ page }) => {
