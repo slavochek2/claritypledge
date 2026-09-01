@@ -330,6 +330,10 @@ export async function submitRating(
     source: 'letter',
     verified: false,
     session_id: null,
+    // P1150: the INSERT policy requires the caller's own delivery on this letter — it is what
+    // binds the row to a real (sender → story → recipient) relation and what P1067's dedup
+    // index keys on. This path had never sent it.
+    delivery_id: deliveryId,
   });
 
   if (error) {
@@ -1145,6 +1149,7 @@ export async function submitLetterResponseAuthenticated(
       source: 'letter',
       verified: false,
       session_id: null,
+      delivery_id: deliveryId, // P1150: required by the INSERT policy; keys P1067's dedup index
     }));
 
     const { error: ratingsError } = await supabase

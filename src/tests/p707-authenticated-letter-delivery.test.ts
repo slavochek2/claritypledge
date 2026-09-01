@@ -207,13 +207,17 @@ describe('P707: submitLetterResponseAuthenticated', () => {
       story_id: string;
       speaker_id: string;
       listener_id: string;
+      delivery_id: string;
     }>;
 
     expect(insertArgs).toHaveLength(2);
     expect(insertArgs[0].story_id).toBe('story-1');
     expect(insertArgs[0].speaker_id).toBe(SENDER_ID);
     expect(insertArgs[0].listener_id).toBe(RECIPIENT_ID);
+    // P1150: every row carries the delivery the RPC just created — the INSERT policy requires it.
+    expect(insertArgs[0].delivery_id).toBe(DELIVERY_ID);
     expect(insertArgs[1].story_id).toBe('story-2');
+    expect(insertArgs[1].delivery_id).toBe(DELIVERY_ID);
   });
 
   // ---------------------------------------------------------------------------
