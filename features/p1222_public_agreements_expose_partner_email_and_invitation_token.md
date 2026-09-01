@@ -118,13 +118,19 @@ to not select the columns — the anon key is the client.
 
 ## Acceptance Criteria
 
-- [ ] `e2e/integration/p1222-public-agreement-pii.spec.ts` — the two defect tests fail against the
-      prod-shaped policy and pass after Migration B; the four control tests pass before and after
+- [x] `e2e/integration/p1222-public-agreement-pii.spec.ts` — 6/6 on TEST before and after Migration B
+      (`ce02c269`, `6844d9bc`). Caveat: the two defect tests are green pre-B on test only because
+      test already carried the parties-only policy out-of-band; the red state is the prod `GET` in
+      Reproduction step 1 (three rows, 2026-09-01, private log)
 - [ ] Anonymous `/agreements/:id` for a public agreement still renders (RPC path), and a profile's
-      partners list still shows public active agreements to visitors
-- [ ] A party's agreement page still shows the invitation link / partner email where it did before
-- [ ] `grep -rn "get_public_agreement" src/app` shows the two RPCs called from the service
-- [ ] Full vitest + build + `pre-commit-checks.sh` green on the branch
-- [ ] `.private/docs/security-log.md` carries the exact predicate and the prod row count
-- [ ] **Founder step:** Migration A applied to prod, client deployed, Migration B applied to prod —
-      then the reproduction `GET` in step 1 returns `[]`
+      partners list still shows public active agreements to visitors — **service-level verified only**
+      (the RPC controls in the integration test); no browser render check yet → `/verify`
+- [ ] A party's agreement page still shows the invitation link / partner email where it did before —
+      party table read verified in the integration test; browser check pending → `/verify`
+- [x] `grep -rn "get_public_agreement" src/app` → `agreements-service-real.ts` calls both RPCs
+- [x] Full vitest + build + `pre-commit-checks.sh` green on the branch (pre-commit on `ce02c269`:
+      TypeScript ✓ ESLint ✓ Build ✓ Tests ✓; `6844d9bc`: all checks passed)
+- [x] `.private/docs/security-log.md` carries the exact predicate and the prod row count
+      (§ 2026-09-01 "P1222 built in w17")
+- [ ] **Founder step:** Migration A (`20260901233000`) applied to prod, client deployed, Migration B
+      (`20260901234000`) applied to prod — then the reproduction `GET` in step 1 returns `[]`
