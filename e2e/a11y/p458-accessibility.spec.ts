@@ -11,8 +11,14 @@
  *   2. Signup context banner is announced by screen readers
  *      — requires role="alert" or aria-live="polite" on the banner
  *
- *   3. Keyboard navigation: Tab to position button → Enter triggers redirect
- *      — anon user can complete the flow without a mouse
+ *   3. Keyboard navigation: Tab reaches the position buttons
+ *      — anon user can operate them without a mouse
+ *
+ *   P1217 RETIREMENT NOTE (2026-09-01): the "Enter triggers redirect to /signup" test was
+ *   deleted. P502 (`predecessor: p458`) replaced the anon click-to-/signup redirect with
+ *   optimistic selection plus an inline CTA (anon-position-cta.tsx); nothing redirects any
+ *   more. Everything else in this file asserts live behaviour — the signup context banner
+ *   (signup-page.tsx:331-337) and the broken-ARIA / nested-button checks on point detail.
  *
  *   4. Position buttons are keyboard-focusable (tabIndex not -1)
  *
@@ -138,33 +144,6 @@ test.describe('P458 Accessibility — position buttons for anonymous users', () 
       foundPositionButton,
       'Expected to reach a position button via Tab navigation — position buttons must be in the tab order'
     ).toBe(true);
-  });
-
-  test('pressing Enter on a focused position button triggers redirect to /signup (anon)', async ({ page }) => {
-    await page.goto(`/point/${point.id}`);
-    await page.waitForLoadState('networkidle');
-
-    // Tab to the Agree button
-    let reachedAgree = false;
-    for (let i = 0; i < 15; i++) {
-      await page.keyboard.press('Tab');
-      const focused = page.locator(':focus');
-      const text = await focused.textContent().catch(() => '');
-      if (/^agree$/i.test(text?.trim() ?? '')) {
-        reachedAgree = true;
-        break;
-      }
-    }
-
-    if (!reachedAgree) {
-      test.skip(true, 'Could not Tab to Agree button — skipping Enter-key redirect test');
-      return;
-    }
-
-    // Press Enter — must trigger the redirect
-    await page.keyboard.press('Enter');
-    await page.waitForURL(/\/signup/, { timeout: 10000 });
-    expect(page.url()).toContain('/signup');
   });
 });
 

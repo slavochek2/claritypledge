@@ -1,25 +1,33 @@
 /**
  * @file p458-anon-position-auth-gate.spec.ts
- * @description E2E tests for P458: Anonymous User Auth Gate with Context Preservation
+ * @description E2E tests for the parts of P458 (Anonymous User Auth Gate) that survived P502.
  *
  * Covers:
  *   - Anon user on point detail page sees position buttons (not hidden)
- *   - Anon user clicks "Agree" → redirected to /signup with correct params
  *   - Signup page shows context banner with point title and position
  *   - After login (existing user), position is auto-saved and user lands on the point
  *   - Logged-in user can take position without any redirect (normal flow unaffected)
- *   - "Tell your story" CTA visible to anon users on point page
- *   - Scope B: clicking "Tell your story" as anon → redirects with action=start-story
+ *   - Position buttons visible to anon on profile point cards (PointCardWithLinks)
+ *
+ * P1217 RETIREMENT NOTE (2026-09-01): P502 (`predecessor: p458`) replaced the anon
+ * click-to-/signup redirect with optimistic UI plus an inline CTA
+ * (src/app/components/shared/anon-position-cta.tsx), so the "Anon position click ->
+ * redirect to /signup" and embed "opens new tab" describes were deleted, as was the
+ * "anon click on point card redirects to /signup" test. P494 removed the anon-facing
+ * "Tell your story" CTA outright (src/tests/p494-tell-story-visibility.test.tsx asserts
+ * it must NOT render for anonymous users), so Scope B was deleted.
+ *
+ * What is kept and why: P502's own spec requires "existing P458 auth-gate URL
+ * infrastructure as fallback (magic links, deep links)". signup-page.tsx:331-337 still
+ * renders the set-position context banner, AuthCallbackPage.tsx:736 still handles
+ * action=set-position, and this file is the only e2e coverage of that banner.
  *
  * Auth pattern: createTestUser + setTestSession for logged-in tests.
  * Anonymous tests: no setTestSession (no localStorage injection).
  * Cleanup order: delete positions BEFORE users (via deleteTestPoint cascade).
  *
- * NOTE: Tests that depend on the full signup flow (new account creation) and
- * AuthCallbackPage auto-save behavior are marked TODO where they require a
- * real implementation to verify (magic link round-trip through email is not
- * feasible in E2E tests without email interception). The auth callback behavior
- * is tested separately in e2e/integration/p458-auth-callback-position.spec.ts.
+ * The auth callback behavior is tested separately in
+ * e2e/integration/p458-auth-callback-position.spec.ts.
  */
 
 import { test, expect } from '@playwright/test';
@@ -128,157 +136,6 @@ test.describe('P458 — Anon user on point detail page', () => {
         consoleErrors,
         `Console errors on anon /point/${f.point.id}: ${consoleErrors.join('\n')}`
       ).toHaveLength(0);
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Surface: Point detail page — Anon click redirects to /signup with context
-// ---------------------------------------------------------------------------
-
-test.describe('P458 — Anon position click → redirect to /signup', () => {
-  test.describe.configure({ timeout: 60000 });
-
-  test('clicking Agree as anonymous user redirects to /signup (not silent fail)', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      // Locate and click the Agree button
-      const agreeBtn = page.getByRole('button', { name: /^agree$/i })
-        .or(page.locator('[data-position="agree"]'))
-        .or(page.getByText(/^Agree$/));
-
-      await agreeBtn.first().click();
-
-      // Must redirect to /signup — not stay on the same page or go to /events
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-      expect(page.url()).toContain('/signup');
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('signup URL includes action=set-position after anon Agree click', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      const agreeBtn = page.getByRole('button', { name: /^agree$/i })
-        .or(page.locator('[data-position="agree"]'))
-        .or(page.getByText(/^Agree$/));
-
-      await agreeBtn.first().click();
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-
-      const url = page.url();
-      expect(url).toContain('action=set-position');
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('signup URL includes pointId after anon Agree click', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      const agreeBtn = page.getByRole('button', { name: /^agree$/i })
-        .or(page.locator('[data-position="agree"]'))
-        .or(page.getByText(/^Agree$/));
-
-      await agreeBtn.first().click();
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-
-      const url = page.url();
-      expect(url).toContain(`pointId=${f.point.id}`);
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('signup URL includes position=agree after anon Agree click', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      const agreeBtn = page.getByRole('button', { name: /^agree$/i })
-        .or(page.locator('[data-position="agree"]'))
-        .or(page.getByText(/^Agree$/));
-
-      await agreeBtn.first().click();
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-
-      const url = page.url();
-      expect(url).toContain('position=agree');
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('signup URL includes redirect=/point/{id} after anon Agree click', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      const agreeBtn = page.getByRole('button', { name: /^agree$/i })
-        .or(page.locator('[data-position="agree"]'))
-        .or(page.getByText(/^Agree$/));
-
-      await agreeBtn.first().click();
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-
-      const url = page.url();
-      // redirect param should point back to the point
-      expect(url).toContain(`redirect=`);
-      expect(decodeURIComponent(url)).toContain(`/point/${f.point.id}`);
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('clicking Disagree as anonymous user redirects to /signup with position=disagree', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      const disagreeBtn = page.getByRole('button', { name: /^disagree$/i })
-        .or(page.locator('[data-position="disagree"]'))
-        .or(page.getByText(/^Disagree$/));
-
-      await disagreeBtn.first().click();
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-
-      expect(page.url()).toContain('position=disagree');
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('clicking Neutral as anonymous user redirects to /signup with position=neutral', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      // The "neutral" position button is labeled "Unsure" in the UI (internal enum name).
-      // URL param is still 'neutral' per the auth-gate spec contract.
-      const neutralBtn = page.getByRole('button', { name: /unsure/i })
-        .or(page.locator('[data-position="neutral"]'))
-        .or(page.getByRole('button', { name: /neutral/i }));
-
-      await neutralBtn.first().click();
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-
-      expect(page.url()).toContain('position=neutral');
     } finally {
       await cleanupFixtures(f);
     }
@@ -396,114 +253,6 @@ test.describe('P458 — Logged-in user can take position without redirect', () =
 });
 
 // ---------------------------------------------------------------------------
-// Scope B — "Tell your story" CTA
-// ---------------------------------------------------------------------------
-
-test.describe('P458 Scope B — Tell your story CTA for anon users', () => {
-  test.describe.configure({ timeout: 60000 });
-
-  test('"Tell your story" CTA is visible to anonymous users on point page', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      // Anonymous browse
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      // The "Tell your story" CTA should be visible to anon users
-      // (Before P458: only visible after taking a position, which was impossible for anon)
-      const storyCTA = page.getByText(/tell your story/i)
-        .or(page.getByRole('link', { name: /tell your story/i }))
-        .or(page.getByRole('button', { name: /tell your story/i }));
-
-      await expect(storyCTA.first()).toBeVisible({ timeout: 10000 });
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('clicking "Tell your story" as anon redirects to /signup with action=start-story', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      const storyCTA = page.getByText(/tell your story/i)
-        .or(page.getByRole('link', { name: /tell your story/i }))
-        .or(page.getByRole('button', { name: /tell your story/i }));
-
-      await storyCTA.first().click();
-
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-      expect(page.url()).toContain('action=start-story');
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('clicking "Tell your story" as anon includes pointId in signup redirect', async ({ page }) => {
-    const f = await buildFixtures();
-    try {
-      await page.goto(`/point/${f.point.id}`);
-      await page.waitForLoadState('networkidle');
-
-      const storyCTA = page.getByText(/tell your story/i)
-        .or(page.getByRole('link', { name: /tell your story/i }))
-        .or(page.getByRole('button', { name: /tell your story/i }));
-
-      await storyCTA.first().click();
-
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-      expect(page.url()).toContain(`pointId=${f.point.id}`);
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Embed surface — position button opens new tab
-// ---------------------------------------------------------------------------
-
-test.describe('P458 — Embed surface: position button opens new tab', () => {
-  test.describe.configure({ timeout: 60000 });
-
-  test('clicking position button in embed mode opens new tab to claritypledge.com/point/:id', async ({ page, context }) => {
-    const f = await buildFixtures();
-    try {
-      // Load the point page in embed mode
-      await page.goto(`/point/${f.point.id}?embed=true`);
-      await page.waitForLoadState('networkidle');
-
-      // Listen for new pages (tabs) opened in the context
-      const [newPage] = await Promise.all([
-        context.waitForEvent('page', { timeout: 10000 }),
-        page.getByRole('button', { name: /^agree$/i })
-          .or(page.locator('[data-position="agree"]'))
-          .or(page.getByText(/^Agree$/))
-          .first()
-          .click(),
-      ]).catch(() => [null]);
-
-      if (newPage) {
-        await newPage.waitForLoadState('domcontentloaded');
-        // The new tab should navigate to /point/:id (possibly with intent params)
-        expect(newPage.url()).toContain(`/point/${f.point.id}`);
-        await newPage.close();
-      } else {
-        // If new tab didn't open, verify redirect happened on the current page instead
-        // (fallback behavior acceptable if embed detection not yet implemented)
-        const currentUrl = page.url();
-        const isOnPointPage = currentUrl.includes(`/point/${f.point.id}`);
-        const isOnSignupPage = currentUrl.includes('/signup');
-        expect(isOnPointPage || isOnSignupPage).toBe(true);
-      }
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
 // After login — position auto-saved (integration with AuthCallbackPage)
 // ---------------------------------------------------------------------------
 
@@ -568,33 +317,6 @@ test.describe('P458 — PointCardWithLinks: position buttons visible to anon', (
         .or(page.getByText(/^Agree$/));
 
       await expect(agreeBtn.first()).toBeVisible({ timeout: 10000 });
-    } finally {
-      await cleanupFixtures(f);
-    }
-  });
-
-  test('anon click on position button in point card redirects to /signup', async ({ page }) => {
-    const f = await buildFixtures();
-    // Profile page shows points where the user has taken a position — create one so the card appears
-    await createTestPosition(f.point.id, f.user.user.id, 'agree');
-    try {
-      await page.goto(`/p/${f.user.slug}`);
-      await page.waitForLoadState('networkidle');
-
-      const pointsTab = page.getByRole('tab', { name: /points/i });
-      if (await pointsTab.isVisible()) {
-        await pointsTab.click();
-        await page.waitForTimeout(500);
-      }
-
-      const agreeBtn = page.getByRole('button', { name: /^agree$/i })
-        .or(page.locator('[data-position="agree"]'))
-        .or(page.getByText(/^Agree$/));
-
-      await agreeBtn.first().click();
-      await page.waitForURL(/\/signup/, { timeout: 10000 });
-      expect(page.url()).toContain('/signup');
-      expect(page.url()).toContain('action=set-position');
     } finally {
       await cleanupFixtures(f);
     }
