@@ -801,24 +801,14 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 
 ## This file's Due Board is NOT the end of /day — return to the dispatcher
 
-Seven dispatcher steps in `~/.claude/commands/day.md` still have not run when you reach the
-end of this file: Step 2 (GCP credits + AI keys), Step 3 (Agent VM), Step 4 (assemble +
-print the HEALTH block from this file's rows plus the dispatcher's own), Step 8 (CM Events
-refresh — unconditional, always invoked), Step 8.5 (personal triage surface), Step 9 (save
-to memory), and Step 11 (write the completion marker — dispatcher-owned; per the contract
-table above, do not read or write it from here). Do not stop after this file's Due Board.
+Steps 2, 3, 4, 8, 8b, 8.5, 9 and 11 of `~/.claude/commands/day.md` have not run when you
+reach the end of this file. Do not stop here, and do not write anything that reads like a
+final `/day` summary — this file's Due Board is the midpoint of `/day`, not the end.
 
-**This is the single highest-probability failure mode of the whole `/day` skill, and it has
-already happened.** This file's own content is what is freshest in view right as it ends,
-its Due Board reads as a natural stopping point, and nothing before this note forced a
-return. Measured 2026-09-01: an agent ran this file in full, produced a polished final
-`/day` summary covering health, reflection, goals and branches, and never touched Steps 2,
-3, 4 (as the dispatcher's own block), 8, 8.5, 9, or 11 — the dispatcher's completion marker
-sat stale as the only evidence anything was skipped, discovered only when the founder asked
-directly why the calendar hadn't refreshed.
-
-A mechanical, script-based check for this (matching the pattern `day-gates.sh` already uses
-for the calendar) is tracked separately — see the spec referenced from `day.md`'s Step 1.
-Until that exists: treat finishing this file's Due Board as the midpoint of `/day`, not the
-end, and continue the dispatcher's remaining steps in this same conversation before writing
-anything that reads like a final summary.
+**The dispatcher checks this mechanically (P1205), so this note is a pointer, not the
+mechanism.** Its Step 1 runs `day-gates.sh --mode=subday-return` the moment this file
+returns and prints what is still owed; its Step 11 closes the pass with `--mode=finish`,
+which records what the pass actually achieved judged on the calendar push receipt; and its
+Step 0d fails the *next* `/day` pass outright if this one never recorded that completion.
+All three live in the dispatcher's own script, which is why nothing here reads a
+home-directory marker — the contract table at the top still holds.

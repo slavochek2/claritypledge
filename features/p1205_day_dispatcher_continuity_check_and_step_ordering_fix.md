@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000056
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [day, skills, process, monitoring]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev, finish]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
@@ -132,26 +132,78 @@ what remains out of scope.
 
 ## Done-When
 
-- [ ] `day-gates.sh` has a new mode that detects a non-executed dispatcher back half, verified by
+- [x] `day-gates.sh` has a new mode that detects a non-executed dispatcher back half, verified by
       simulating the actual failure (not just a happy-path run) and confirming a non-zero/loud
       signal
-- [ ] `day.md` calls the new mode at the sub-day return point and relays its output verbatim,
+      — three modes added: `--mode=subday-return` (Step 1), `--mode=finish` (Step 11), and D6
+      grading inside `--mode=start` (Step 0d). Failure paths simulated in `day-gates.test.sh`
+      section 12: `next start catches a pass that never finished: exit 1`, `a forged marker does
+      not buy a clean grade: exit 1`, `finish fails when the receipt never moved: exit 1`,
+      `subday-return names a skipped Step 0d: exit 1`, `an unwritable snapshot fails the pass:
+      exit 1`. Suite: **119 passed, 0 failed, exit 0** (70/0 before this change).
+- [x] `day.md` calls the new mode at the sub-day return point and relays its output verbatim,
       matching the existing rule for the calendar gate's output
-- [ ] `day-cp.md`'s prose reminder is trimmed to a one-line pointer at the script check (no longer
-      a standalone multi-paragraph mechanism), once the script mode is verified working
-- [ ] `day.md`'s duplicate `### 8.` headers are deduped and the Due Board block runs before Step 1
-- [ ] Every `Step 8` / `Step N` cross-reference in `day.md` re-checked after renumbering
-- [ ] A live `/day` run (or a faithful simulation) confirms `$DUE_VERDICT` is populated when Step 1
-      needs it
-- [ ] The P1031 tension (Risk row 2) is explicitly resolved one way or the other, not left implicit
+      — Step 1, immediately after the sub-day returns; verdicts print under their own
+      `── DISPATCHER VERDICT ──` header so they can never be read as the calendar's.
+- [x] `day-cp.md`'s prose reminder is trimmed to a one-line pointer at the script check
+      — 23 lines of incident narrative replaced by a short pointer naming all three script calls.
+      Still reads no home-directory state, so the contract table stands.
+- [x] `day.md`'s duplicate `### 8.` headers are deduped and the Due Board block runs before Step 1
+      — Due Board moved to `### 0f`; exactly one `### 8.` remains. A stray duplicated
+      ```` ```bash ```` fence and a doubled `---` seam were repaired in transit.
+- [x] Every `Step 8` / `Step N` cross-reference in `day.md` re-checked after renumbering
+      — all 37 enumerated with `grep -n -o`; every `Step 8` means CM Events. The one reference to
+      the old Due Board now reads `(Step 0f)`. `day-cp.md`'s references checked too.
+- [x] A live `/day` run (or a faithful simulation) confirms `$DUE_VERDICT` is populated when Step 1
+      needs it — the 0f block executed read-only in its new position:
+      `DUE_VERDICT populated? [PP-WEEKLY: never run]`, non-empty before Step 1 consumes it.
+- [x] The P1031 tension (Risk row 2) is explicitly resolved one way or the other
+      — resolved: P1031 does not reach a run-scoped gate. See Open Question 1.
+- [x] **The fabricability constraint the Appetite cross-referenced is resolved** (added after
+      adversarial review — the spec pointed at an "Invariants" section that was never written, and
+      the first implementation shipped past it). Completion is graded on the calendar **push
+      receipt**, written by `pipeline.py` and already cross-examined by D2/D3 — not on the
+      completion marker, which is one agent-written `date` command. Proven both ways: before the
+      fix a forged marker returned `previous pass completed`, exit 0; after, the same forgery
+      returns `PREVIOUS PASS INCOMPLETE`, exit 1.
+
+## Adversarial review — findings and disposition
+
+One reviewer, 1 of 1 reported, all seven attack areas covered, 20 scenarios plus the suite.
+
+| # | Finding | Disposition |
+|---|---|---|
+| H1 | Blind to a pass that skips Step 0d as well | **Not fixable in-band** — a gate only runs if the agent runs it. Mitigated by a NOTE when the newest snapshot is over 36h old; the real fix is filed as **P1206**. |
+| H2 | Marker is agent-written, so one `date` command launders a skipped back half | **Fixed** — completion graded on the push receipt. |
+| H3 | False positive on the abandon path `day.md` itself mandates (unanswered Step 0e prompt) | **Fixed** — verdict no longer assumes a report existed; 2h in-flight grace added. |
+| H4 | FAIL line asserted "every dispatcher step was skipped", which the marker cannot evidence | **Fixed** — claim bounded to what the artifact shows. |
+| M1 | `DISPATCH_VERDICT` bypassed `_safe_echo`; file content could smuggle `<`/`>`/`|` into a relayed report | **Fixed** at source (sanitized on read). |
+| M2 | `_safe_echo`'s exit 3 aborted the run over marker *content*, printing a calendar verdict having checked nothing | **Fixed** by the same change. |
+| M3 | Two concurrent `/day` passes graded each other as failures | **Fixed** — `pass_id` plus a 2h in-flight window. |
+| M4 | A skipped Step 0d was diagnosed as two things that did not happen | **Fixed** — named directly via a snapshot-staleness branch. |
+| L1 | Header claimed the script writes only the seen-stamp | **Fixed.** |
+| L2 | A directory-shaped state file left one temp file per run | **Fixed**, with a regression test. |
+| L3 | Doubled `---` at the Due Board's new seam | **Fixed.** |
+| L4 | `[D0]` missing-beeper-dir prints `CALENDAR: STALE` in start mode | **Out of scope** — pre-existing, not introduced by P1205. |
 
 ## Open Questions
 
-1. Does the P1031 stopgap justification (credential/keychain-bound, CI can't reach it) actually
-   extend to the sub-day-return check, which has no such dependency — or should this specific
-   check move to a cron-based job instead of living in `day-gates.sh`? Not assessed; founder call.
+1. **RESOLVED — no founder call needed; P1031 does not reach this check.**
+   `.claude/rules/skills.md` rejects *scheduled, recurring detection* inside a skill because
+   detection latency then becomes "whenever the founder opens a session" — the failure it was
+   written to fix. That has no purchase here: the thing under test **is** the session. This is a
+   run-scoped gate keyed to one `/day` pass, structurally the same as `ship-gates.sh`, not a health
+   probe on a clock. A cron job cannot know a `/day` pass started, which one stopped, or what its
+   baseline was. No exception is being taken, so the 2026-08-13 credential-based stopgap
+   justification is not needed either. Recorded in `day-gates.sh`'s header so it is not
+   re-litigated.
+   **Note the boundary:** P1031 *does* reach P1206, which needs a check that fires whether or not a
+   `/day` pass happened. That is scheduled detection, and it belongs outside a skill.
 
 ## References
+
+- `features/p1206_*` — the residual hole this spec could not close (H1), with the two
+  candidate mechanisms and the reason each is or is not safe to build first.
 
 - `docs/decisions.md` 2026-09-01 [process]: "`/day`'s sub-day dispatch had no mechanical check
   forcing a return to the dispatcher..."

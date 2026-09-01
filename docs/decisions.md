@@ -4,6 +4,46 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-01 [process]: A self-written stamp is not evidence — `/day`'s continuity gate had to be re-grounded on a third-party artifact (P1205)
+
+**Context:** Third attempt at one failure. `/day` dispatches a per-project sub-day and must then resume its own steps; twice (2026-08-28, 2026-09-01) an agent ran the sub-day, wrote a polished final summary, and dropped every remaining step including the calendar refresh. Two prose-only fixes failed, the second one reverted after review found it told a file in a **public** repo to read home-directory state, contradicting that file's own contract table. P1205 built a script gate instead: Step 0d snapshots the pass, Step 1 reports what the back half owes, the next pass's Step 0d grades the previous one.
+
+**Decision:** Completion is graded on the **calendar push receipt** — written by `pipeline.py`, already cross-examined by the gate's own D2/D3 — never on the completion marker. The marker is one agent-written `date` command, so the first cut of this gate graded a pass clean when it had dropped Steps 2-9 and run only Step 11. Proven both directions: before the change a forged marker returned `previous pass completed`, exit 0; after, the same forgery returns `PREVIOUS PASS INCOMPLETE`, exit 1. Marker writing stays unconditional — gating it would truncate every other section's reflection window to 6am today.
+
+**Alternatives rejected:** grading on the marker alone (fabricable, and the 2026-08-13 ruling had already said receipts "need a non-fabricable field derived from the response, **to be resolved before building**"); gating the marker write on success (contradicts the settled Step 10 decision); a cron job (cannot know a `/day` pass started, which one stopped, or what its baseline was).
+
+**Consequences:** The spec's own Appetite cross-referenced an "Invariants" section for exactly this decision — **and that section was never written**. The implementation proceeded past a constraint the spec said to settle first, and only an adversarial review caught it. When a spec points at a section that does not exist, that is a blocking gap, not a formatting slip: the missing section is usually the hard decision the author deferred. `/challenge-prd` and `/create-spec` should treat a dangling internal cross-reference as a BLOCK.
+
+## 2026-09-01 [process]: Adding a gate to a skill costs a P1031 ruling — and "run-scoped" vs "scheduled" is the line that decides it (P1205/P1206)
+
+**Context:** `.claude/rules/skills.md` (P1031) says automated detection belongs in scheduled CI, never inside a skill, because detection latency otherwise becomes "whenever the founder opens a session." P1205 needed a check inside `/day` and had to answer that rule. The 2026-08-13 entry had taken a *stopgap* exception on credential grounds; P1205 could not, because its check reads only a local marker.
+
+**Decision:** P1031 does not reach a **run-scoped** gate — one keyed to a single pass of the thing under test, structurally like `ship-gates.sh`. There is no detection latency to relocate, because the session *is* the subject. No exception was taken and none was needed. It **does** reach the successor check (P1206), which must fire whether or not a `/day` pass happened; that is scheduled detection and belongs outside a skill.
+
+**Alternatives rejected:** claiming the 2026-08-13 credential stopgap extends to this (it does not — no keychain dependency); asking the founder to arbitrate (the rule's own text settles it).
+
+**Consequences:** The test for P1031 is not "is this a check?" but "is it keyed to a run, or to a clock?" Recorded in `day-gates.sh`'s header so it is not re-litigated. Both P1205 and P1206 cite it from opposite sides, which is the useful pair.
+
+## 2026-09-01 [process]: A gate you cannot skip is not the same as a gate that cannot be skipped — `/day`'s residual hole is structural (P1206)
+
+**Context:** After P1205, adversarial review reproduced a pass that skips **Step 0d as well**: no snapshot exists, so the next pass grades the previous *completed* pass and reports clean, exit 0. The reviewer's verdict — *"it makes it discoverable one pass later, conditional on the dropping agent having run 0d."*
+
+**Decision:** Accept that no in-band gate closes this, and say so in `day.md` rather than implying coverage the gate does not have. A gate only runs if the agent runs it, and the failure under investigation *is* an agent choosing to stop. Mitigated as far as a gate can reach: Step 0d prints a NOTE when its newest snapshot is over 36h old. The real fix — a mechanism outside the agent's control — is filed as P1206 and deliberately **not** built in the same session.
+
+**Alternatives rejected:** shipping the gate while describing it as closing the failure (the honesty cost is the whole point of the gate); bolting a Stop hook on in the same pass (2026-08-19 records a Stop-hook edit that silently disabled an existing safety gate).
+
+**Consequences:** Three P1205 findings were about the gate **over-claiming**, not under-detecting — a FAIL line asserting "every dispatcher step was skipped" when the marker evidences only that Step 11 did not run. For a gate whose purpose is to stop a system reporting success it did not achieve, claiming past its own artifact is the same defect one level up. Bound every gate line to what its artifact actually shows.
+
+## 2026-09-01 [process]: Two reviewers, two different classes of defect — and the spec review rejected the spec outright
+
+**Context:** P1205's implementation got a hostile Claude review (20 scenarios, 7 attack areas, 1 of 1 reported); the follow-up spec P1206 got an adversarial codex review before any implementation. Both were run because a prose fix for this exact failure had already been shipped and reverted once.
+
+**Decision:** Keep both, because they caught different things. The implementation review found runtime defects — a forgeable stamp, an output-contract hole where file *content* could smuggle a redirect token into a report relayed verbatim, concurrent passes grading each other as failures. The spec review found **reasoning** defects: a recommended option structurally incapable of meeting the Done-When criterion demanded of it, a circular liveness requirement ("a checker that has stopped cannot report that it stopped"), and an invalid `driver` value that would have silently excluded the task from programme-health reporting. Verdict: REJECT. The spec was rewritten against it before commit.
+
+**Alternatives rejected:** reviewing only the code (the spec's contradiction would have surfaced mid-build, after the wrong option was chosen); trusting either reviewer's claims unverified — all findings from both were re-run by command before being accepted, and the `driver` claim was checked against `.claude/rules/features.md` rather than taken on the reviewer's word.
+
+**Consequences:** A spec that recommends the safe option while writing down the ambitious option's success criteria reads as decisive and is not. The rewritten P1206 withdraws its recommendation entirely and asks first whether anything should be built at all. Reviewing a spec *before* implementation is cheap and caught a class the code review structurally could not.
+
 ## 2026-09-01 [process]: Gate 2.7's `.finish-reviewed` regex is key-order-sensitive, not just space-sensitive — a second defect beyond P1203
 
 **Context:** Shipping two stale worktrees (w1/P1197, w3/P1194) that had sat unmerged since 2026-08-31. P1197's `.finish-reviewed` code-review entry (4 issues found, 3 fixed, including a HIGH token-leak fix already shipped in commit `849020fe`) had already failed gate 2.7 once for the P1203 space-in-JSON reason and was re-stamped in compact form per the `/finish` skill's own template — `{"type":"code","pn":"$PN","branch":"$BRANCH",...}` — and still failed gate 2.7. `ship-gates.sh`'s matching regex is `"type": ?"code", ?"branch": ?"..."`, which requires `branch` to appear immediately after `type`; the skill's own template puts `pn` between them. Any entry written by copying that template's key order fails the gate it's supposed to satisfy, independent of the P1203 spacing fix.
