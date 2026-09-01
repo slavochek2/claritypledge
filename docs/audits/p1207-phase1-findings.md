@@ -353,3 +353,49 @@ independent evidence for the F8 retraction above: it exists because the grant is
 | F5 / P1044 `check-rls-scope.py` bypassable | Untouched, STILL-OPEN |
 | D-2 signed-URL session authorization | Untouched, not reproduced |
 | D-3 migration ledger says applied, DB disagrees | Untouched; now has a failing test as a live marker |
+
+## Phase 3 — adversarial review of the Phase 2 commit
+
+An independent reviewer (codex, `--sandbox read-only`) was pointed at the four artifacts of
+commit `9ca4c73a` and explicitly told **not** to read this document or the commit message, so it
+read the code rather than checking my reasoning. Five defects were reported. Each was re-run as a
+command before being accepted or rejected — a reviewer's claim is not evidence until it is.
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Grants held via the `PUBLIC` role survive the revoke | **REFUTED as live** | `table_privileges` where grantee not in the four known roles → `[]`. No table grants anything to `PUBLIC`. Still a blind spot in the canary; now checked. |
+| Column-level `REFERENCES` survives a table-level `REVOKE` | **REFUTED as live** | Postgres tracks them separately, so the mechanism is real, but `column_privileges` for the four privileges → 0 rows post-migration. Still a blind spot; now checked. |
+| The canary's unconditional-predicate regex is defeatable | **CONFIRMED** | `true AND true`, `NOT false`, `2 > 1` all passed an allowlist that matched only bare `true`. |
+| `with_check` is fetched and never examined; `cmd='ALL'` is not checked | **CONFIRMED** | Both true on read. A `FOR ALL` policy applies to UPDATE, and permissive policies are OR-ed. |
+| The integration spec would pass on a database where the migration never ran | **CONFIRMED** | `expect(data).toEqual([])` passed for any reason the write was blocked. |
+
+**The regex finding is the important one, and it is P1044 reproduced in a fresh artifact.** F5
+records that `check-rls-scope.py` is bypassable by exactly this class of predicate. I then wrote a
+new control with the same defect, in the same session, in the file whose purpose was to be the
+standing control. Enumerating the ways a predicate can spell "true" is unwinnable.
+
+**Fixed by inverting the test.** Rather than recognising unsafe predicates, the canary now
+requires a safe one: any PERMISSIVE `UPDATE` or `ALL` policy on `clarity_idea_votes` whose `qual`
+or `with_check` never references `auth.uid()/email()/jwt()/role()` is flagged, whatever it is
+spelled like. A predicate that cannot consult the caller cannot distinguish callers. The canary
+also now reads `column_privileges`, `PUBLIC` table grants, and the empty-grantee form a `PUBLIC`
+entry takes in a default ACL.
+
+**The detector is control-tested offline, and the control ships with it** —
+`check-p1207-privilege-floor.py --self-test`, no network or token required:
+
+```
+self-test ok: 11 known-bad predicates flagged, 4 known-good predicates passed,
+PUBLIC ACL entry detected — the detector discriminates
+```
+
+The 11 known-bad are every evasion the reviewer supplied plus the annotation-smuggling and cast
+forms P1044 documents. The 4 known-good are real identity-scoped predicates from this schema, and
+they exist to measure the false-positive rate — a fixture containing only inputs the gate should
+reject leaves that rate unmeasured.
+
+**Spec fix.** `error === null` is now asserted alongside the empty result set. The two are
+different mechanisms and are distinguishable: a revoked UPDATE *grant* returns `42501 permission
+denied`, while RLS row-invisibility returns no error and an empty set. Measured directly against
+test before writing the assertion. Pinning `error === null` pins the mechanism, so the test can no
+longer pass on a database where this migration never ran but something else blocks the write.

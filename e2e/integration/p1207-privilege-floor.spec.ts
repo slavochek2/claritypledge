@@ -93,6 +93,16 @@ test.describe('P1207: clarity_idea_votes UPDATE is default-denied after the poli
       .update({ vote: 'disagree' })
       .eq('id', seededId!)
       .select();
+
+    // The error being NULL is load-bearing, not incidental, and an adversarial review of the
+    // first version of this file is why it is asserted. `expect(data).toEqual([])` alone passes
+    // for two different reasons: RLS admitting no row (what this migration does), or the UPDATE
+    // *grant* having been revoked (which would be a different change entirely). Those two are
+    // distinguishable — a missing grant returns 42501 "permission denied", while RLS
+    // row-invisibility returns no error and an empty set. Pinning error===null therefore pins
+    // the mechanism, so this test cannot pass on a database where the migration never ran but
+    // something else happens to block the write.
+    expect(write.error, `denial must be RLS row-invisibility, not a revoked grant; got ${JSON.stringify(write.error)}`).toBeNull();
     expect(write.data ?? [], 'anon must not be able to update any vote row').toEqual([]);
 
     // CONTROL 2 — and the row is genuinely unchanged. PostgREST can return an empty array for
