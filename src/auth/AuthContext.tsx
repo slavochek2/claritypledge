@@ -24,7 +24,8 @@ interface AuthState {
   isLoading: boolean;
   /** True once initial session check completes (before profile fetch) */
   sessionChecked: boolean;
-  signOut: () => Promise<void>;
+  /** P520: pass `{ scope: 'local' }` after account erasure — the server session no longer exists */
+  signOut: (options?: { scope?: 'global' | 'local' }) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -185,7 +186,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [userId, fetchProfileForUser]);
 
   // P537: useCallback keeps signOut reference stable across renders
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (options: { scope?: 'global' | 'local' } = {}) => {
     // Fix B: Clean up active live session before signing out
     const sessionId = sessionStorage.getItem('clarity_live_session_id');
     const isCreator = sessionStorage.getItem('clarity_live_is_creator') === 'true';
@@ -203,7 +204,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Session cleanup is best-effort — proceed with sign-out regardless
       }
     }
-    await apiSignOut();
+    await apiSignOut(options);
     // Clear localStorage session info so the banner doesn't show stale data after sign-out
     clearActiveSessionFromStorage();
     // Reset analytics to clear user identity (prevents events attributed to wrong user)

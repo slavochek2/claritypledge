@@ -6,9 +6,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
-import { updateProfile, setMyPledge } from "@/app/data/api";
+import { updateProfile, setMyPledge, eraseMyAccount } from "@/app/data/api";
 import { toast } from "sonner";
-import { ArrowLeftIcon, Loader2Icon, CheckIcon, ShieldOffIcon } from "lucide-react";
+import { ArrowLeftIcon, Loader2Icon, CheckIcon, ShieldOffIcon, Trash2Icon } from "lucide-react";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { usePwaInstall } from "@/hooks/use-pwa-install";
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { user, session, isLoading: authLoading, refreshProfile } = useAuth();
+  const { user, session, isLoading: authLoading, refreshProfile, signOut } = useAuth();
   const { isDesktop } = usePwaInstall();
 
   // Form state
@@ -32,6 +32,11 @@ export function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  // P520: account deletion
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; linkedinUrl?: string }>({});
   const hasTrackedPageView = useRef(false);
 
@@ -155,6 +160,32 @@ export function SettingsPage() {
     toast.success("Profile updated successfully!");
     setHasChanges(false);
     setIsSaving(false);
+  };
+
+  // P520: typed-name confirmation, then one RPC, then a LOCAL sign-out (the server
+  // session is already gone) and out. The confirm button is never rendered disabled —
+  // a mismatch is a state the user can see and fix, not a dead control (P955).
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    if (deleteConfirmName.trim() !== user.name.trim()) {
+      setDeleteError("Type your name exactly as shown to confirm.");
+      return;
+    }
+    setDeleteError(null);
+    setIsDeleting(true);
+
+    const { error } = await eraseMyAccount();
+    if (error) {
+      // The RPC is one transaction: an error means nothing was erased.
+      toast.error("Couldn't delete your account — nothing was changed. Please try again.");
+      setIsDeleting(false);
+      return;
+    }
+
+    analytics.track('account_deleted');
+    await signOut({ scope: 'local' });
+    toast.success("Your account has been deleted.");
+    navigate("/");
   };
 
   // Show loading state while checking auth
@@ -414,6 +445,94 @@ export function SettingsPage() {
             <Link to="/sign-pledge" className="text-primary hover:underline">
               Take the Clarity Pledge
             </Link>
+          </div>
+        )}
+      </div>
+
+      {/* P520: Account deletion */}
+      <div className="mt-12 pt-8 border-t border-border">
+        <h2 className="text-sm font-medium mb-3 text-muted-foreground">Account</h2>
+
+        {!showDeleteConfirm ? (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-sm text-muted-foreground hover:text-destructive transition-colors"
+          >
+            Delete my account
+          </button>
+        ) : (
+          <div className="rounded-lg border border-destructive/40 p-4 space-y-4">
+            <p className="text-sm font-medium">Delete your account?</p>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p>This happens immediately and can&apos;t be undone.</p>
+              <p>
+                <span className="font-medium text-foreground">Erased:</span> your profile, your
+                stories and positions, endorsements you received, event registrations, letters
+                you sent, and your login. Your name is removed from sessions and agreements you
+                shared with others.
+              </p>
+              <p>
+                <span className="font-medium text-foreground">Kept, without your name:</span> points
+                you created and events you hosted stay for the people who use them, shown as
+                &ldquo;Deleted user&rdquo;.
+              </p>
+              <p>You can sign up again later with the same email.</p>
+            </div>
+
+            <div>
+              <label htmlFor="delete-confirm-name" className="block text-sm font-medium mb-2">
+                Type your name to confirm:{" "}
+                <span className="font-normal text-muted-foreground">{user?.name}</span>
+              </label>
+              <input
+                id="delete-confirm-name"
+                type="text"
+                value={deleteConfirmName}
+                onChange={(e) => {
+                  setDeleteConfirmName(e.target.value);
+                  if (deleteError) setDeleteError(null);
+                }}
+                autoComplete="off"
+                aria-describedby={deleteError ? "delete-confirm-error" : undefined}
+                aria-invalid={deleteError ? "true" : undefined}
+                className={`w-full px-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
+                  deleteError ? "border-red-500" : "border-input"
+                }`}
+                placeholder={user?.name}
+              />
+              {deleteError && (
+                <p id="delete-confirm-error" className="text-sm text-red-500 mt-1" role="alert">
+                  {deleteError}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="destructive"
+                className="min-h-10"
+                disabled={isDeleting}
+                onClick={handleDeleteAccount}
+              >
+                {isDeleting ? (
+                  <><Loader2Icon className="w-4 h-4 animate-spin" /> Deleting...</>
+                ) : (
+                  <><Trash2Icon className="w-4 h-4" /> Delete my account</>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                className="min-h-10"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteConfirmName("");
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
       </div>

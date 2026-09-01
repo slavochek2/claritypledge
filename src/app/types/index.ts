@@ -896,7 +896,8 @@ export interface Event {
   durationMinutes: number;
   timezone: string;
   location: string;
-  hostId: string;
+  /** null once the host deleted their account (P520) — the event is community data and survives */
+  hostId: string | null;
   maxAttendees?: number;
   createdAt: string;
   status: EventStatus;
@@ -962,7 +963,7 @@ export interface DbEvent {
   duration_minutes: number;
   timezone: string;
   location: string;
-  host_id: string;
+  host_id: string | null;
   max_attendees?: number;
   created_at: string;
   status: EventStatus;
@@ -1175,7 +1176,8 @@ export interface Point {
   id: string;
   statement: string;
   context?: string;
-  firstValidatorId: string;
+  /** null once the creator deleted their account (P520) — points are community data and survive */
+  firstValidatorId: string | null;
   createdAt: string;
   updatedAt: string;
   tags: string[];
@@ -1223,7 +1225,7 @@ export interface DbPoint {
   id: string;
   statement: string;
   context?: string;
-  first_validator_id: string;
+  first_validator_id: string | null;
   created_at: string;
   updated_at: string;
   tags: string[];

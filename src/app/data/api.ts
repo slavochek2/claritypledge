@@ -528,8 +528,29 @@ export async function getCurrentUser(): Promise<Profile | null> {
  * Signs the current user out of the application.
  * @returns {Promise<void>}
  */
-export async function signOut() {
-  await supabase.auth.signOut();
+export async function signOut(options: { scope?: 'global' | 'local' } = {}) {
+  await supabase.auth.signOut(options.scope ? { scope: options.scope } : undefined);
+}
+
+/**
+ * P520: erase the calling user's account — own content deleted, community data
+ * (points, events) orphaned, counterparties' rows anonymised, then the auth.users row.
+ *
+ * The RPC has NO target parameter: it acts only on auth.uid(). After it resolves the
+ * server session is already gone, so the caller must sign out with scope 'local' — a
+ * global sign-out would round-trip to GoTrue for a user that no longer exists.
+ *
+ * @returns the RPC's per-step row counts (e.g. `stories_deleted`, `points_orphaned`),
+ *   or an error. A non-null error means NOTHING was erased — the function is one
+ *   transaction.
+ */
+export async function eraseMyAccount(): Promise<{ counts: Record<string, unknown> | null; error: Error | null }> {
+  const { data, error } = await supabase.rpc('erase_my_account');
+  if (error) {
+    console.error('Error in erase_my_account:', error.message);
+    return { counts: null, error: new Error(error.message) };
+  }
+  return { counts: (data as Record<string, unknown> | null) ?? null, error: null };
 }
 
 /**
