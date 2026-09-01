@@ -4,6 +4,24 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-01 [technical]: The observer must be invoked by something the observed cannot skip — and its oracle must be an artifact the observed cannot write (P1206)
+
+**Context:** P1205 gave `/day` a continuity gate graded on a third-party artifact, closing the fabricable-marker hole. One shape survived: a pass that skips the gate's *own* first step leaves no snapshot, so the next pass grades the *previous* pass and reports all-clear, exit 0. A gate only runs if the agent runs it, and the failure under investigation is an agent choosing to stop. Founder had asked twice for this to "run for sure."
+
+**Decision:** A **Stop hook the harness invokes** (`day-pass-guard.py`), keyed on an oracle the dispatcher cannot write: the `/day` invocation record the harness itself puts in the session transcript. Rejected the scheduled-job alternative — it detects *inactivity*, which a legitimate 1-5 day gap produces identically, so probably no threshold both catches a real drop and stays quiet across a normal week. **The oracle was verified against a real transcript before any code was written**, because if no independent oracle existed the hook would have reduced to reading the very snapshot whose absence is the bug — passing generic tests while preserving the blind spot exactly.
+
+**Two general lessons, both earned the expensive way:**
+
+**1. A detector keyed on a substring of its own subject matter fires on discussion of itself.** The first cut grepped the transcript for the invocation token. Talking about the token, grepping for it, or writing a test fixture containing it all write it into the transcript — inside assistant tool_use blocks. Confirmed live: **5 spurious matches in this repo's own session**, silent only because the grace window happened to suppress them. The fix is structural parsing (record type, origin, role, exact shape), not a tighter pattern. Any detector whose signal is text it might itself emit needs this check *before* install.
+
+**2. A grace window placed on the only guaranteed observation is the same as no detector.** The window was 10 minutes; the incident is an agent dropping the pass within ~3 minutes and producing exactly one Stop — precisely when the guard declined to judge. The reasoning that produced it was visible and wrong: noise was traded against detection without noticing the trade removed the primary case. The correct key is not elapsed time but *whether the registering step has run* — state, not a timer.
+
+**Alternatives rejected:** a launchd inactivity job (above); an eval suite (measures how often the routine is dropped, catches no live incident — complementary, not a substitute, and premature against a single observed failure).
+
+**Consequences:** `day-gates.sh` gained D7, which checks the hook is installed, executable and registered under `Stop` — parsed structurally after a substring check was shown to pass wrong-event and same-basename-impostor registrations. D6 and D7 watch each other because a deleted hook cannot report its own absence. **Two shapes remain undetected and are written into `day.md` rather than buried:** a session that dies without producing a Stop, and a genuine pass registering within 2h that masks a dropped one. Hardening the existing 119-case suite exposed a separate class — **15 of its cases had silently become machine-dependent**, passing or failing on whether the new hook happened to be installed; a suite that reads unstubbed global state is not hermetic no matter how green it is.
+
+**Process note:** the adversarial review returned 3 BLOCK + 6 WARN on work that had already passed a 14-case suite of the author's own design, including one defect (the impersonation grep) that was *live in the session that wrote it*. The author's tests encoded the author's model of the failure; the review attacked the model. **A re-review of the fixed version timed out with no output and is not counted as a second report** — 1 of 1 received, and each fix is instead backed by a test that fails without it (epistemic gate 9b).
+
 ## 2026-09-01 [process]: A self-written stamp is not evidence — `/day`'s continuity gate had to be re-grounded on a third-party artifact (P1205)
 
 **Context:** Third attempt at one failure. `/day` dispatches a per-project sub-day and must then resume its own steps; twice (2026-08-28, 2026-09-01) an agent ran the sub-day, wrote a polished final summary, and dropped every remaining step including the calendar refresh. Two prose-only fixes failed, the second one reverted after review found it told a file in a **public** repo to read home-directory state, contradicting that file's own contract table. P1205 built a script gate instead: Step 0d snapshots the pass, Step 1 reports what the back half owes, the next pass's Step 0d grades the previous one.
