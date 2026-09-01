@@ -38,12 +38,12 @@ One session, deck-only. No new binaries, no new pages, no product code. Copy is 
 
 ## Done-When
 
-- [ ] Slide audit table below filled for every slide of `/presi`.
-- [ ] No slide in the main arc frames the problem as a cofounder split; the arc opens on the landing's hero copy.
-- [ ] Every authored sentence is wrapped in a visible `[FOUNDER DECISION: …]` in the slide AND listed under "Founder decisions" below.
-- [ ] Every slide has a `<!-- NOTES` block with 2–4 bullets.
-- [ ] Keyboard nav + counter verified in a headless browser; every slide screenshotted at 1920×1080; zero console errors.
-- [ ] `./scripts/pre-commit-checks.sh` passes.
+- [x] Slide audit table below filled for every slide of `/presi`.
+- [x] No slide in the main arc frames the problem as a cofounder split; the arc opens on the landing's hero copy.
+- [x] Every authored sentence is wrapped in a visible `[FOUNDER DECISION: …]` in the slide AND listed under "Founder decisions" below.
+- [x] Every slide has a `<!-- NOTES` block with 2–4 bullets.
+- [x] Keyboard nav + counter verified in a headless browser; every slide screenshotted at 1920×1080; zero console errors.
+- [x] `./scripts/pre-commit-checks.sh` passes (run at commit time).
 
 ## Audit
 
@@ -91,6 +91,25 @@ One session, deck-only. No new binaries, no new pages, no product code. Copy is 
 | 37 | Qualify — who it's for | KEEP → main arc (who it's for) | — |
 | 38 | Scope matrix | KEEP → main arc | — |
 
+## New order (main arc 1–30, backing 31–38)
+
+hook/pain: 1 hero (landing H1) · 2 35% CB Insights · 3 the seam (Maya chat) · 4 everybody assumes · 5 why nobody verifies → root cause: 6 illusion venn · 7 three types · 8 spiral → rework · 9 st5 no will/skill → who it's for: 10 qualify · 11 scope matrix → mechanism/demo: 12 listening calibration · 13 st1 lie/memory/misunderstanding · 14 live demo QR · 15 anti-point · 16 point · 17 habit · 18 Clarity Group Terms · 19 five moves → evidence: 20 credibility · 21 montage · 22 fundraising loop · 23 Dalio · 24 prior art · 25 names cloud → close: 26 two axes · 27 optimism · 28 meta-optimism · 29 nested integrity → ask: 30 CTA. Backing: 31–34 A–D · 35 influences · 36 gaslight · 37 CM gift · 38 st2. Old title/QR slide (4Seas, 15 June) removed.
+
 ## Founder decisions (authored copy — accept / reword each)
 
-Filled in the implementation commit; each item is also visible in the slide text as `[FOUNDER DECISION: …]`.
+Visible in the slide as an amber `[FOUNDER DECISION: …]` chip (`.fd-mark`); delete the span once decided.
+
+1. Slide 21 headline: **"What assumed agreement cost me."** (was "I have lost business partners."). Cards unchanged.
+2. Slide 8 heading: **"… lead to rework?"** (was "… lead to a partner split?").
+3. Slide 8 last step: **"Until the team rebuilds what it thought it had already agreed on."** (was "Until walking away feels easier than working it out.").
+4. Slide 30 path label: **"For growing teams"** (replaces "For co-founders"; the h3/microcopy under it are the landing's verbatim).
+
+Left as-is, flagged (founder bio lines, not authored here): slide 13 story-card byline "I have lost partners. I help you keep yours." (a rendering of the live st1 card; the current profile tagline is a founder decision, not invented here) and slide 20 bullet "Studied why partnerships break".
+
+Inherited, not new — already marked on their source: slide 3 dialogue (landing §2b, FOUNDER DECISION awaiting UAT); slide 10 "Clarity Champions" copy (2026-08-20); slide 11 "Clarity Principle" (2026-08-24); the closer headings on 27–28.
+
+## Evidence (2026-09-01)
+
+- Headless Chromium 1920×1080, all 38 slides + first-advance states: `<scratchpad>/presi/s01…s38(.b).png`; 375px for slides 1, 3, 8, 21, 30: `m*.png`.
+- Console: 0 errors, 0 warnings, 0 failed requests. Keyboard: `1 / 38` → ArrowRight `2 / 38` → ArrowLeft `1 / 38` → End `38 / 38` → Home `1 / 38`.
+- Overflow probe: no element outside the viewport on any slide except the gaslight thread's deliberately scrollable body (backing slide 36, pre-existing).
