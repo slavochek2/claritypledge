@@ -40,10 +40,14 @@ export interface PledgerGridItem {
 export function PledgerGrid({
   items,
   variant = "pledger",
+  totalCount,
 }: {
   items: PledgerGridItem[];
   variant?: "pledger" | "member";
+  /** P1229: total across all pages when `items` is only the loaded page(s). Defaults to items.length. */
+  totalCount?: number;
 }) {
+  const total = totalCount ?? items.length;
   const [currentIndex, setCurrentIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -142,10 +146,10 @@ export function PledgerGrid({
       </nav>
 
       {/* Mobile: Show more indicator if profiles exceed limit */}
-      {items.length > MAX_MOBILE_CAROUSEL && (
+      {total > MAX_MOBILE_CAROUSEL && (
         <div className="md:hidden text-center mt-4">
           <p className="text-sm text-muted-foreground">
-            Showing {MAX_MOBILE_CAROUSEL} of {items.length} pledgers
+            Showing {Math.min(MAX_MOBILE_CAROUSEL, items.length)} of {total} pledgers
             <br />
             <span className="text-xs">View on desktop to see all profiles</span>
           </p>

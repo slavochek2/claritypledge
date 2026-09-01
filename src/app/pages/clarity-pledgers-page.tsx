@@ -5,8 +5,9 @@
  * It fetches the profiles from the database and displays them in a grid,
  * allowing visitors to see who has taken the pledge and view their profiles.
  */
-import { useEffect, useState, useRef } from "react";
-import { getVerifiedProfiles, type Profile } from "@/app/data/api";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { getVerifiedProfilesPage, PLEDGERS_PAGE_SIZE, type Profile } from "@/app/data/api";
+import { Button } from "@/components/ui/button";
 import { SEO } from "@/app/components/seo";
 import { UsersIcon } from "lucide-react";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
@@ -16,20 +17,24 @@ import { DualCTA } from "@/app/components/landing/dual-cta";
 
 export function ClarityPledgersPage() {
   const [verifiedProfiles, setVerifiedProfiles] = useState<Profile[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const hasTrackedPageView = useRef(false);
 
+  // P1229: one page at a time (PLEDGERS_PAGE_SIZE); "Show more" appends the next page.
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
-        const profiles = await getVerifiedProfiles();
+        const { profiles, total } = await getVerifiedProfilesPage(0);
         setVerifiedProfiles(profiles);
+        setTotalCount(total);
 
         // Track page view once profiles are loaded
         if (!hasTrackedPageView.current) {
           hasTrackedPageView.current = true;
           analytics.track('pledgers_page_viewed', {
-            pledger_count: profiles.length,
+            pledger_count: total,
           });
         }
       } catch (error) {
@@ -41,6 +46,26 @@ export function ClarityPledgersPage() {
 
     fetchProfiles();
   }, []);
+
+  const hasMore = verifiedProfiles.length < totalCount;
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const { profiles, total } = await getVerifiedProfilesPage(verifiedProfiles.length);
+      // Dedupe on id: a pledger verified between two page loads shifts the offsets.
+      setVerifiedProfiles((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...profiles.filter((p) => !seen.has(p.id))];
+      });
+      setTotalCount(total);
+    } catch (error) {
+      console.error("Failed to fetch more verified profiles", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, verifiedProfiles.length]);
 
   return (
     <div className="min-h-screen py-12 px-4">
@@ -64,18 +89,37 @@ export function ClarityPledgersPage() {
             <ClarityLoader size="lg" />
           </div>
         ) : verifiedProfiles.length > 0 ? (
-          <PledgerGrid
-            items={verifiedProfiles.map((profile) => ({
-              id: profile.id,
-              slug: profile.slug,
-              name: profile.name,
-              role: profile.role,
-              reason: profile.reason,
-              signedAt: profile.signedAt,
-              avatarColor: profile.avatarColor,
-              avatarUrl: profile.avatarUrl,
-            }))}
-          />
+          <>
+            <PledgerGrid
+              totalCount={totalCount}
+              items={verifiedProfiles.map((profile) => ({
+                id: profile.id,
+                slug: profile.slug,
+                name: profile.name,
+                role: profile.role,
+                reason: profile.reason,
+                signedAt: profile.signedAt,
+                avatarColor: profile.avatarColor,
+                avatarUrl: profile.avatarUrl,
+              }))}
+            />
+            {/* P1229: desktop pagination. Mobile keeps its 20-card carousel cap. */}
+            {hasMore && (
+              <div className="hidden md:flex flex-col items-center gap-2 mt-8">
+                <p className="text-sm text-muted-foreground">
+                  Showing {verifiedProfiles.length} of {totalCount} pledgers
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  aria-label={`Show ${Math.min(PLEDGERS_PAGE_SIZE, totalCount - verifiedProfiles.length)} more pledgers`}
+                >
+                  {loadingMore ? "Loading…" : "Show more"}
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">

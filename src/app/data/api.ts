@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
@@ -224,7 +225,9 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
     }
 
     // Fetch witness and reciprocation counts in parallel
-    const profileIds = combined.map(p => p.id);
+    // P1229: bounded by MAX_FEATURED_PROFILES * 3 rows above; the guard makes that
+    // invariant explicit (throws in dev/tests if a refactor widens it).
+    const profileIds = boundedInList(combined.map(p => p.id), 'getFeaturedProfiles.witnesses');
 
     const [witnessResult, reciprocationsResult] = await Promise.all([
       supabase.from('witnesses').select('profile_id').in('profile_id', profileIds),
@@ -281,61 +284,47 @@ export async function getVerifiedProfileCount(): Promise<number> {
   }
 }
 
+/** P1229: rows per page on /pledgers — below MAX_IN_LIST by construction. */
+export const PLEDGERS_PAGE_SIZE = 30;
+
+export interface VerifiedProfilesPage {
+  profiles: Profile[];
+  /** Total verified+pledged, non-test profiles (for "Showing X of Y" / "Show more"). */
+  total: number;
+}
+
 /**
- * Fetches all profiles that have been marked as verified.
- * This is used to populate the "Pledgers" page, showcasing all users who have completed the pledge process.
- * The function also fetches and attaches all witnesses for each profile.
- * Profiles with reasons are shown first, then those without.
- * @returns A promise that resolves to an array of verified profile objects.
+ * Fetches ONE page of verified+pledged profiles for the /pledgers page.
+ *
+ * P1229 (was getVerifiedProfiles): the previous version fetched the whole set
+ * (get_featured_profiles with p_limit NULL, ~5.2k rows in prod) and then asked for
+ * `witnesses?profile_id=in.(<every id>)` — a URL the gateway refuses, so the witness
+ * data never loaded and every row was rendered into one grid. The page never displayed
+ * witnesses (PledgerGrid passes showStats={false}), so that query is gone; the ordering
+ * (reason first, then newest) now lives in the RPC so pages are stable across "Show more".
+ * @param offset - number of rows to skip (multiples of PLEDGERS_PAGE_SIZE)
  */
-export async function getVerifiedProfiles(): Promise<Profile[]> {
+export async function getVerifiedProfilesPage(offset = 0): Promise<VerifiedProfilesPage> {
   try {
-    // P877: same SECURITY DEFINER accessor as getFeaturedProfiles, with no limit —
-    // returns the full verified+pledged, non-test set (linkedin_url/reason public by
-    // design for this set; never email). Replaces the direct select('*').
-    const { data: profiles, error: profilesError } = await supabase
-      .rpc('get_featured_profiles', { p_limit: null }) as
-        { data: DbProfile[] | null; error: { message: string } | null };
+    const { data, error } = await supabase
+      .rpc('get_pledgers_page', { p_limit: PLEDGERS_PAGE_SIZE, p_offset: offset }) as
+        { data: { total: number; profiles: DbProfile[] } | null; error: { message: string } | null };
 
-    if (profilesError) {
-      console.error('Error fetching verified profiles:', profilesError.message);
-      return [];
+    if (error) {
+      console.error('Error fetching verified profiles page:', error.message);
+      return { profiles: [], total: 0 };
     }
 
-    if (!profiles || profiles.length === 0) {
-      return [];
-    }
-
-    // Sort profiles: those with meaningful reasons first, then others
-    const withReasons = profiles.filter(p => p.reason && p.reason.trim().length > 0);
-    const withoutReasons = profiles.filter(p => !p.reason || p.reason.trim().length === 0);
-    const sortedProfiles = [...withReasons, ...withoutReasons];
-
-    // Fetch witnesses for all profiles
-    const profileIds = sortedProfiles.map(p => p.id);
-    const { data: allWitnesses, error: witnessesError } = await supabase
-      .from('witnesses')
-      .select('*')
-      .in('profile_id', profileIds);
-
-    if (witnessesError) {
-      console.warn('Error fetching witnesses (non-fatal):', witnessesError.message);
-    }
-
-    // Attach witnesses to their profiles
-    const profilesWithWitnesses = sortedProfiles.map(profile => ({
-      ...profile,
-      witnesses: (allWitnesses || []).filter(w => w.profile_id === profile.id)
-    }));
-
-    // Map to Profile objects and filter out any with null slugs (defensive)
+    const rows = data?.profiles ?? [];
     // Verified + pledged users should always have slugs, but filter as safety
-    return profilesWithWitnesses
+    const profiles = rows
       .map(p => mapProfileFromDb(p))
       .filter((p): p is Profile & { slug: string } => p.slug !== null);
+
+    return { profiles, total: data?.total ?? profiles.length };
   } catch (err) {
-    console.error('Unexpected error in getVerifiedProfiles:', err);
-    return [];
+    console.error('Unexpected error in getVerifiedProfilesPage:', err);
+    return { profiles: [], total: 0 };
   }
 }
 

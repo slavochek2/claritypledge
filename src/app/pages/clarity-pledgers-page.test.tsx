@@ -19,12 +19,17 @@ vi.mock('@/lib/mixpanel', () => ({
 
 // Mock API
 vi.mock('@/app/data/api', () => ({
-  getVerifiedProfiles: vi.fn(),
+  getVerifiedProfilesPage: vi.fn(),
+  PLEDGERS_PAGE_SIZE: 30,
 }));
 
 // Import the mocked functions
 import { analytics } from '@/lib/mixpanel';
-import { getVerifiedProfiles } from '@/app/data/api';
+import { getVerifiedProfilesPage } from '@/app/data/api';
+
+// P1229: the page fetches one page + total; these tests give it everything in page one.
+const mockPage = (profiles: Profile[]) =>
+  vi.mocked(getVerifiedProfilesPage).mockResolvedValue({ profiles, total: profiles.length });
 
 // Wrapper to provide router and tooltip context
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -58,7 +63,7 @@ describe('ClarityPledgersPage', () => {
   describe('Loading state', () => {
     it('shows loading spinner while fetching profiles', async () => {
       // Mock API to never resolve (simulate loading state)
-      vi.mocked(getVerifiedProfiles).mockReturnValue(new Promise(() => {}));
+      vi.mocked(getVerifiedProfilesPage).mockReturnValue(new Promise(() => {}));
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -69,7 +74,7 @@ describe('ClarityPledgersPage', () => {
 
   describe('Empty state', () => {
     it('shows empty state when no profiles exist', async () => {
-      vi.mocked(getVerifiedProfiles).mockResolvedValue([]);
+      mockPage([]);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -86,12 +91,12 @@ describe('ClarityPledgersPage', () => {
   describe('Data fetching', () => {
     it('fetches verified profiles on mount', async () => {
       const mockProfiles = [createMockProfile(1), createMockProfile(2)];
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       render(<ClarityPledgersPage />, { wrapper });
 
       await waitFor(() => {
-        expect(getVerifiedProfiles).toHaveBeenCalledTimes(1);
+        expect(getVerifiedProfilesPage).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -103,7 +108,7 @@ describe('ClarityPledgersPage', () => {
         createMockProfile(2),
         createMockProfile(3),
       ];
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -117,7 +122,7 @@ describe('ClarityPledgersPage', () => {
     });
 
     it('does not fire analytics when profiles are empty', async () => {
-      vi.mocked(getVerifiedProfiles).mockResolvedValue([]);
+      mockPage([]);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -138,7 +143,7 @@ describe('ClarityPledgersPage', () => {
       const mockProfiles = Array.from({ length: 30 }, (_, i) =>
         createMockProfile(i + 1)
       );
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -157,7 +162,7 @@ describe('ClarityPledgersPage', () => {
       const mockProfiles = Array.from({ length: 15 }, (_, i) =>
         createMockProfile(i + 1)
       );
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       const { container } = render(<ClarityPledgersPage />, { wrapper });
 
@@ -174,7 +179,7 @@ describe('ClarityPledgersPage', () => {
       const mockProfiles = Array.from({ length: 25 }, (_, i) =>
         createMockProfile(i + 1)
       );
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -187,7 +192,7 @@ describe('ClarityPledgersPage', () => {
       const mockProfiles = Array.from({ length: 15 }, (_, i) =>
         createMockProfile(i + 1)
       );
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -204,7 +209,7 @@ describe('ClarityPledgersPage', () => {
       const mockProfiles = Array.from({ length: 30 }, (_, i) =>
         createMockProfile(i + 1)
       );
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       const { container } = render(<ClarityPledgersPage />, { wrapper });
 
@@ -227,7 +232,7 @@ describe('ClarityPledgersPage', () => {
   describe('CTA section', () => {
     it('"Ready to Commit" CTA section appears after loading', async () => {
       const mockProfiles = [createMockProfile(1)];
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -241,7 +246,7 @@ describe('ClarityPledgersPage', () => {
     });
 
     it('CTA section does not appear while loading', () => {
-      vi.mocked(getVerifiedProfiles).mockReturnValue(new Promise(() => {}));
+      vi.mocked(getVerifiedProfilesPage).mockReturnValue(new Promise(() => {}));
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -251,7 +256,7 @@ describe('ClarityPledgersPage', () => {
 
   describe('Page header', () => {
     it('renders page title', async () => {
-      vi.mocked(getVerifiedProfiles).mockResolvedValue([]);
+      mockPage([]);
 
       render(<ClarityPledgersPage />, { wrapper });
 
@@ -264,7 +269,7 @@ describe('ClarityPledgersPage', () => {
       const mockProfiles = Array.from({ length: 5 }, (_, i) =>
         createMockProfile(i + 1)
       );
-      vi.mocked(getVerifiedProfiles).mockResolvedValue(mockProfiles);
+      mockPage(mockProfiles);
 
       const { container } = render(<ClarityPledgersPage />, { wrapper });
 
