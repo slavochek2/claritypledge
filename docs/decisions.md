@@ -6,6 +6,105 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-01 [technical]: Hiding a value behind registration is a table, not a render branch — and the flag that says one exists must be separate from the value
+
+**Context:** P1194. An event's WhatsApp invite lived inside `events.description`, and `events` is
+`SELECT USING (true)` — so the invite shipped to any unauthenticated fetch of the row. The obvious
+reuse was `locationGated` in `EventDetail`, which hides an online event's meeting link until RSVP.
+That gate is **cosmetic**: the URL still reaches the browser and a render branch declines to draw
+it. Reusing it would have hidden the link from the people who needed it while leaving it readable
+by exactly the people it was being hidden from.
+
+**Decision:** a side table, `event_private_info`, with its own RLS — SELECT for the host or a
+profile holding an `event_rsvps` row, writes host-only. The client fetches it through a dedicated
+accessor with **no caller-side authorization branch at all**: an unauthorized caller gets `null`
+from the database, not a value the code chose to withhold.
+
+**Alternatives rejected:** a column on `events` — it cannot be protected without a column-level
+`REVOKE`, and a `REVOKE` makes `SELECT *` fail outright for `anon`, taking the whole events page
+down with it (every read in `events-service-real.ts` is a `select('*', …)`). The cosmetic
+render-branch pattern — see above.
+
+**The second half is the part that is easy to miss.** Once the value is genuinely unreachable, the
+UI can no longer tell whether a group chat *exists*, and a "register to join the group chat"
+prompt shown unconditionally promises one to every event that has none. The **existence** is not
+the secret; the URL is. So `events.has_group_chat` is a public boolean on the public table,
+maintained by trigger — never written by a client, because the client write path is two statements
+and any failure between them leaves the flag lying.
+
+**Consequences:** the pattern generalises to any detail that should be visible only to registered
+attendees (exact meeting point, door code): add a column to `event_private_info`, not to `events`.
+`locationGated` is untouched and still cosmetic — a known gap, deliberately out of P1194's scope.
+The invite this shipped for had been public since the event was published, so the gate gives it
+privacy only going forward; rotating a leaked invite is an operator decision the mechanism cannot
+make.
+
+**References:** [database.md](technical/database.md) §event_private_info ·
+`supabase/migrations/20260831120000_p1193_event_private_info.sql` ·
+`e2e/integration/p1193-db-schema.spec.ts`
+
+---
+
+## 2026-09-01 [process]: A defect found in one function is a defect class — test it at the class, or the twin one function away survives the fix
+
+**Context:** P1194. An adversarial review found that `updateEvent` discarded the boolean returned by
+its second (private-table) write and then reported success from the first write alone — the host
+was told "Event updated successfully" for a link that never persisted. The fix was applied, and a
+regression test was written that sliced the service file **from `async updateEvent` to
+`async cancelEvent`** and asserted the return value was bound there.
+
+The `/finish` code review then found `createEvent` doing the identical thing, one function away.
+The test could not have caught it: its slice structurally excluded the other call site. A test
+scoped to the location of the bug proves the location was fixed and says nothing about the defect.
+
+**Decision:** when a defect is "an API's result is ignored", the regression test enumerates **every
+call site of that API** and asserts each one binds the result — not the one function where it was
+noticed. Rewritten as a `matchAll` over `upsertGroupChatUrl(` that checks the preceding text of
+each hit.
+
+**Consequences:** generalises past this repo's return-value case to any "this call must be handled"
+rule — enumerate the callers. It also puts a number on review-stage value: the adversarial pass
+found the first instance, `/finish` found the twin, and neither found the other's. Two of the three
+HIGH findings in that review were invisible to the tests written for the first one. **Reviewing
+after fixing is not redundant with the fix.**
+
+**Alternatives rejected:** trusting the adversarial pass as sufficient — it explicitly reported
+"no leak paths found" in the categories it swept, and was right about those; it simply never looked
+at the sibling function.
+
+**References:** `src/tests/p1194-event-group-chat.test.tsx` · `src/app/data/events-service-real.ts`
+
+---
+
+## 2026-09-01 [technical]: A form that cannot represent the stored value must not submit that field — "unknown" and "cleared" are different, and both look like an empty box
+
+**Context:** P1194 surfaced this twice in one form, in two unrelated fields, and the second one is
+a live pre-existing bug older than the feature.
+
+1. **The read that becomes a delete.** `EditEvent` loads the group chat link through the gated
+   accessor. On a failed read it logged to the console and left the field at `''` — visually
+   identical to "this event has no link". Saving then submitted `''`, which the write path reads
+   as *the host cleared it* and **deletes the stored row**. A read failure silently destroying the
+   value it failed to read.
+2. **The select that cannot hold the value.** The Duration dropdown offers 30/60/90/120/180/240/
+   1440 minutes. The live hike is **270**. With no matching option the select fell back to its
+   first — **30 minutes** — and saving would have republished a 4½-hour hike as a half-hour event.
+   Any duration off the preset list is silently destroyed by any save of any other field.
+
+**Decision:** a field whose current value is unknown or unrepresentable is **omitted from the
+payload**, not sent as empty. The update path already leaves `undefined` fields alone, so omission
+is a no-op and empty is a delete — the distinction is one spread operator. Where the value is
+unknown, the form says so (an amber line: leave blank to keep the existing link).
+
+**Consequences:** the same shape exists anywhere a form field is loaded by a second request or
+constrained to an enum — check before adding one. The Duration case is **not fixed** and will keep
+corrupting non-preset durations on every event edit; `/publish-run` can create them and the edit
+form cannot preserve them. **Status: proposed** — needs its own spec.
+
+**References:** `src/app/prototypes/events/components/EditEvent.tsx`
+
+---
+
 ## 2026-09-01 [product]: The Disagreement Pipeline had no stated objective, so every stage optimised the nearest proxy — and its unit of work was the wrong size
 
 **Context:** `ai-power-remedies` run B filed 4 arguers, 5 points, 14 positions. The founder answered
