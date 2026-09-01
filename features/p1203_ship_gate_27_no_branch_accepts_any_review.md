@@ -5,8 +5,8 @@ rank: 92
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [tooling, ship, process, gates]
-delivery_stage: dev
-pipeline_ran: [create-spec, inline]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
