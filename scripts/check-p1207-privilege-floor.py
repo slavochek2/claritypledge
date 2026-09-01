@@ -10,7 +10,7 @@ Usage: scripts/check-p1207-privilege-floor.py [test|prod]   (default: test)
        scripts/check-p1207-privilege-floor.py --self-test   (offline, no token)
 Exit 0 = floor holds. Exit 1 = a violation is listed on stdout.
 """
-import json, os, re, sys, urllib.request, urllib.error
+import json, os, re, subprocess, sys, urllib.request, urllib.error
 
 BANNED = ("TRUNCATE", "REFERENCES", "TRIGGER", "MAINTAIN")
 # pg ACL letters for the same four privileges, as they appear in pg_default_acl.
@@ -90,10 +90,31 @@ def main():
         return self_test()
     which = (sys.argv[1] if len(sys.argv) > 1 else "test").lower()
     env_file = ".env.prod" if which == "prod" else ".env.local"
-    env = load_env(env_file)
-    if not env:
-        root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        env = load_env(os.path.join(root, env_file))
+
+    # Env files are gitignored, so they exist ONLY in the main checkout — never in a worktree.
+    # And unlike deploy-functions.sh, we cannot resolve the main repo by following a symlink
+    # from __file__: worktree scripts/ is a NATIVE checkout here (3d7a010e), so __file__ points
+    # inside the worktree. Resolve the main checkout the way /day already does, via
+    # --git-common-dir, which works identically from w0 or any worktree.
+    # Found by running the prod invocation /day itself uses — the test path had always worked.
+    candidates = [env_file]
+    try:
+        common = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True, text=True, timeout=10, check=True).stdout.strip()
+        if common:
+            candidates.append(os.path.join(os.path.dirname(common), env_file))
+    except Exception:
+        pass  # fall through to the plain relative path; the error below stays accurate
+    candidates.append(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), env_file))
+
+    env = {}
+    for cand in candidates:
+        env = load_env(cand)
+        if env.get("SUPABASE_ACCESS_TOKEN") and env.get("VITE_SUPABASE_URL"):
+            env_file = cand
+            break
     token = env.get("SUPABASE_ACCESS_TOKEN")
     url = env.get("VITE_SUPABASE_URL", "")
     ref = url.replace("https://", "").split(".")[0]

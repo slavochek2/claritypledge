@@ -615,3 +615,65 @@ chi-square, df=31, critical value at p=0.001 = 61.10
   n=200000  chi2=40.7   UNIFORM
   CONTROL (byte % 30, deliberately biased)  chi2=14212.3   BIASED — the probe discriminates
 ```
+
+---
+
+# Phase 7 — the standing control, and why it is not a pre-commit check
+
+Done-When asks for the control "as a pre-commit check". **It is deliberately not one, and that is
+a deviation the founder accepted rather than one I hid.** The live check needs network and a
+Supabase management token. A commit gate that fails when you are offline is a gate people learn to
+route around, and the documented way around it in this repo is `--no-verify`, which also disables
+the privacy gate. Trading a working privacy gate for a privilege check is a bad trade.
+
+**What runs where instead:**
+
+| Surface | What runs | Needs |
+|---|---|---|
+| `/day` (daily) | `check-p1207-privilege-floor.py prod` + `--self-test` | network + token, both already local |
+| Any time, offline | `check-p1207-privilege-floor.py --self-test` | nothing |
+
+Wired into `day-cp.md` beside the two checks that were structurally blind to F6: the RLS drift
+check reads `pg_policies`, the function-grant check reads EXECUTE on `pg_proc`, and **neither
+reads table/column privileges or `pg_default_acl`**. That is precisely why `anon` held `TRUNCATE`
+on 50 production tables while both checks reported clean. It follows their existing three-way
+exit contract (0 clean / 1 alarm / ≥2 did-not-run) so "did not run" can never read as "clean".
+
+The self-test runs alongside the live check every day, and the guidance says to treat a self-test
+failure as **louder** than a live failure — because an adversarial review defeated the first
+version of this detector with `true AND true`, and the live run looked identical before and after.
+
+## Gate 7c caught a real defect here
+
+Running the tool's own documented invocation — `prod`, the way `/day` calls it, from a worktree —
+failed outright:
+
+```
+ERROR: need SUPABASE_ACCESS_TOKEN and VITE_SUPABASE_URL in .env.prod
+```
+
+Env files are gitignored, so they exist **only in the main checkout**. And the usual escape
+(`deploy-functions.sh` resolves the main repo by following a symlink from `$0`) does not work
+here: worktree `scripts/` is a **native checkout** since `3d7a010e`, so `__file__` points inside
+the worktree. Fixed by resolving the main checkout via `git rev-parse --git-common-dir`, the same
+mechanism `day-cp.md` already uses for the drift baseline.
+
+Every one of my own runs had been `test`, which reads `.env.local` and had always worked. **The
+gate was proven to fire (7) and never run through the workflow that would actually invoke it
+(7c).** All three invocation sites are now exercised:
+
+```
+worktree, test  -> exit 0    ok (test/gfjctyxqlwexxwsmkakq)
+worktree, prod  -> exit 1    FAIL (prod/…): 1210 privilege-floor violation(s)
+main checkout   -> exit 0    ok (test/gfjctyxqlwexxwsmkakq)
+--self-test     -> exit 0    11 known-bad flagged, 4 known-good passed
+```
+
+**Prod's 1210 vs test's 315 is not noise and is worth reading.** Test was fixed by migration;
+prod was not. The extra ~900 are **column-level** `REFERENCES` grants — a category the first
+version of this canary did not check at all, added only because the adversarial review flagged
+it. The finding it was refuted on ("no column-level residue today") was true of test and false of
+prod. A blind spot that looks empty in one environment is not empty.
+
+**Expect `/day` to alarm on the privilege floor until P1207 ships to prod.** That is correct
+behaviour, not a bug to silence.

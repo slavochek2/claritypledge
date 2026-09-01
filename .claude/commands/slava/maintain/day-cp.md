@@ -532,6 +532,24 @@ if [ "$FGD_RC" -ge 2 ]; then
   echo "FUNCTION-GRANT-CHECK-DID-NOT-RUN (exit $FGD_RC) — do NOT report clean"
 fi
 echo "function_grant_exit=$FGD_RC"
+echo "=== PRIVILEGE FLOOR (P1207) ==="
+# Third catalog, third blind spot closed. The RLS check reads pg_policies and the function-grant
+# check reads EXECUTE on pg_proc; NEITHER reads table/column privileges or pg_default_acl, so
+# both were structurally blind to P1207's F6 — anon and authenticated holding TRUNCATE on 50
+# prod tables, a privilege RLS does not govern at all.
+# Same main-checkout pinning and the same three-way exit contract as the two checks above.
+# Runs against prod here: test is fixed by migration, prod only after a ship.
+python3 "$RLS_MAIN_ROOT/scripts/check-p1207-privilege-floor.py" prod 2>&1
+PF_RC=$?
+if [ "$PF_RC" -ge 2 ]; then
+  echo "PRIVILEGE-FLOOR-CHECK-DID-NOT-RUN (exit $PF_RC) — do NOT report clean"
+fi
+echo "privilege_floor_exit=$PF_RC"
+# Offline control pass. Costs nothing and answers the question the live run cannot: is the
+# detector still able to TELL the difference? An adversarial review defeated the first version
+# of this detector with `true AND true`, so a green live run is not evidence the check works.
+python3 "$RLS_MAIN_ROOT/scripts/check-p1207-privilege-floor.py" --self-test 2>&1
+echo "privilege_floor_selftest_exit=$?"
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
@@ -543,6 +561,13 @@ Read the one line it prints:
 - `RLS drift: N known-open` — the recorded backlog, unchanged. Report `✓ RLS drift: N known-open (no change)`. **Do not re-litigate these daily** — they are tracked in `.private/docs/security-log.md` and each needs its own spec. Mentioning them every morning is how this signal gets tuned out.
 - `RLS DRIFT: N NEW ...` (capitalised) — **a policy has appeared on a live database that was not there when the backlog was recorded.** This is the alarm. Surface the named table/policy prominently, treat it as potential live exposure, and offer to investigate now. An out-of-band policy means someone or something wrote directly to a live database outside the migration path.
 - `N resolved since baseline` — findings that are now gone. Offer `python3 scripts/rls-drift-check.py --update-baseline` to re-record.
+
+**Privilege floor** (`=== PRIVILEGE FLOOR (P1207) ===`): the third catalog. The RLS check reads `pg_policies`; the function-grant check reads EXECUTE on `pg_proc`. Neither reads **table/column privileges or `pg_default_acl`**, so both were structurally blind to P1207's F6 — `anon` and `authenticated` holding `TRUNCATE` on 50 production tables, a privilege **row-level security does not govern at all**. Read two lines:
+
+- `ok (prod/…)` with `privilege_floor_exit=0` — the floor holds. Report `✓ Privilege floor: clean`.
+- `FAIL (prod/…): N privilege-floor violation(s)` — a banned privilege is back, or a write policy stopped consulting caller identity. Surface it like a NEW RLS drift: it means a `GRANT` or a policy landed outside the migration path.
+- `note:` lines about a `supabase_admin`-owned default ACL are **expected and not actionable** — that entry is outside this repo's control and is printed rather than hidden so it cannot be mistaken for coverage. Do not re-litigate it daily.
+- `privilege_floor_selftest_exit=0` — the detector still discriminates (11 known-bad predicates flagged, 4 known-good passed). **A non-zero self-test means the live green above is worthless**, whatever it said: an adversarial review defeated the first version of this detector with `true AND true`, and a passing live run looked identical before and after. Treat a self-test failure as louder than a live failure.
 - `RLS-DRIFT-CHECK-DID-NOT-RUN (exit N)` — the check **did not run** (missing credentials, API error, malformed allowlist, unreadable baseline). Flag `⚠ RLS drift: NOT checked this run` and never render it as clean. Exit 2 is deliberately distinct from exit 1 for exactly this reason.
 
 **Read `rls_drift_exit=N`, which is always printed — do not infer the outcome from the prose alone.** `0` clean · `1` NEW drift, treat as the alarm above · `2` did not run. If that line is absent from the output entirely, the wave did not complete and the RLS check is unverified — say so rather than omitting the row.
