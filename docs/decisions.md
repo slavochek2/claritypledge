@@ -4,6 +4,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-01 [process]: Three hostile review rounds, and in two the blocking finding was a fix already reported complete
+
+**Context:** P1202 rewrote the disagreement pipeline's story stage (craft rules, writer/checker isolation, five defect fixes). Three Codex adversarial rounds were run before shipping. **All three returned DO NOT SHIP**, and the pattern across them is the finding worth keeping.
+
+**Decision:** Record the failure shape rather than only the fixes. **Round 1's blocker:** an audio-verification gate was scoped to prod-only on the reasoning that "test is where the founder reviews, so test must be private". That inference was never checked and is false — stories publish `visibility='public'`, the RLS policy carries no environment term, and the pipeline hands back an anonymously readable feed URL. **Round 2's blocker:** the round-1 routing fix corrected one checklist tick-box and left two unconditional prod-ref instructions in the part an agent actually executes — a fix reported as complete that had only been applied at the site the reviewer cited. **Round 3's blocker:** a probe command written with invented flags, caught not by the reviewer but by running it — which additionally measured that a windowed audio probe returns a **false WALL** (403) and `--simulate` a **false yes**, and that reachability is not a property of a source at all (the same source direct-walled the next day).
+
+**Alternatives rejected:** Trusting the self-review (it produced the two "already fixed" claims). Running one round instead of three (rounds 2 and 3 each found a CRITICAL the previous round's fixes introduced or missed). Treating the reviewer as authority — its round-3 blocker had already been found by executing the command, and its round-2 claim about where a check runs was itself wrong.
+
+**Consequences:** Two rules now carry the shape. **When a shared rule changes, grep for its siblings before reporting the fix** — the round-2 blocker existed because a checklist line was corrected while two instruction lines said the opposite. **Before writing any command into a skill, run it** — three of this session's most expensive findings (the false WALL, the false yes, the invented flags) were only reachable by execution, and none of the three reviews found them. A verification blocker that had stalled the run for days also dissolved when a folder was finally listed: a complete independent transcript of the bot-walled source had been cached since 2026-08-28. **A blocker must name the artifact that would clear it, and that artifact must be looked for before the blocker is reported.**
+
+**References:** [p1202](../features/done/2026-06-10/p1202_disagreement_story_quality_and_pipeline_defects.md) · `.git/.finish-reviewed` (three rounds, 18 findings)
+
+---
+
+## 2026-09-01 [product]: The pipeline shipped five points and the founder agreed with all of them — and "cast, not topic" is a hypothesis, not a diagnosis
+
+**Context:** `ai-power-remedies` run B filed to test — 4 stories, 5 points, 14 positions. The founder answered the points and agreed with every one. The measurement agrees with him: **only one arguer ever disagrees with anything.** Two of five points have no opposition at all, and the point four experts agree on unanimously was predicted at 20% room agreement.
+
+**Decision:** File P1208, and **downgrade the causal claim to competing hypotheses.** The first draft asserted "the topic is contested, the cast collapsed" from two points showing genuine opposition. Adversarial review falsified the inference: those statements were **invented by `prepare`**, whose Stage 4 explicitly constructs claims so each source's quotes commit them to opposite ends, so an apparent split can be construction-induced. The draft quoted `positions.md`'s *"an agent-derived split is a HYPOTHESIS, never a finding"* and then committed exactly that error two paragraphs later.
+
+**Alternatives rejected:** Gating on "a point no arguer opposes is not a point" — it would reject the pipeline's own stated best case (expert unanimity against predicted room dissent, which is precisely what prevents a room pre-sorting by tribe), passes weak `stretch`-driven splits, and is unstable at the small `n` where three of five points sat. Shipped instead as a **diagnostic signal that changes nothing**, promotable to a gate only once room responses exist to calibrate against. Also rejected: a provisional same-vote check inside `prepare` — endogenous, since `prepare` writes the statements, picks who gets inference chains, infers the signs, and rebuilds on failure.
+
+**Consequences:** The structural hole is named: **`prepare` builds points against an unmeasured guess and nothing re-checks them after `positions` measures reality.** The founder proposed closing it with a `prepare`↔`positions` loop; recorded with its trap — a loop that iterates *until polarized* optimises for apparent split and will converge, which is indistinguishable from success and is exactly what a consensus topic would look like. The loop is defensible only if it fits statements to sources rather than to a split, and only if **"these people do not disagree" is a reachable terminal state.** Four founder decisions remain open in P1208, including whether to re-run AI safety with a repaired cast or retire the topic. (Status: proposed)
+
+**References:** [p1208](../features/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md) · [p1190](../features/p1190_arbiter_filter_into_disagreement_pipeline.md) · [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md)
+
+---
+
 ## 2026-09-01 [technical]: The observer must be invoked by something the observed cannot skip — and its oracle must be an artifact the observed cannot write (P1206)
 
 **Context:** P1205 gave `/day` a continuity gate graded on a third-party artifact, closing the fabricable-marker hole. One shape survived: a pass that skips the gate's *own* first step leaves no snapshot, so the next pass grades the *previous* pass and reports all-clear, exit 0. A gate only runs if the agent runs it, and the failure under investigation is an agent choosing to stop. Founder had asked twice for this to "run for sure."
