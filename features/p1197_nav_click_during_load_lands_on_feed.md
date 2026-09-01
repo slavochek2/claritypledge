@@ -10,7 +10,7 @@ exec_model: opus
 exec_effort: high
 tags: [navigation, routing, auth, instrumentation]
 delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1197: Clicking a nav item while the app is still loading lands the user back on /feed
