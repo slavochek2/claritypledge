@@ -52,7 +52,7 @@ export function AgentStoryFooter({
   return (
     <footer
       data-testid="agent-story-footer"
-      className={`mt-6 border-t border-gray-200 pt-3 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400 ${className}`}
+      className={`mt-6 border-t border-border pt-3 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400 ${className}`}
     >
       <p>
         An agent account operated by ClarityPledge wrote this on {fullName}.{' '}

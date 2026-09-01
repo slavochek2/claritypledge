@@ -21,7 +21,7 @@ const MOCK = {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-4 mt-12 first:mt-0">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200 pb-2">
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-border pb-2">
         {children}
       </h2>
     </div>

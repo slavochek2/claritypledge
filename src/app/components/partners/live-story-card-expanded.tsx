@@ -154,7 +154,7 @@ export function LiveStoryCardExpanded({
       // pre-§1 snapshot whose frozen prose already prints at least one of its quotes.
       {...(quotesAlreadyInContent ? { 'data-legacy-quotes-inline': 'true' } : {})}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
-      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm shrink-0 overflow-hidden ${className ?? ''}`}
+      className={`rounded-lg border-l-4 border-l-blue-500 border border-border bg-white shadow-sm shrink-0 overflow-hidden ${className ?? ''}`}
     >
       {/* Main content */}
       <div className="p-4">
@@ -439,7 +439,7 @@ export function PointRow({
       )}
 
       {/* Point content — full text, always visible */}
-      <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-2">
+      <div className="p-3 rounded-lg border border-border bg-gray-50 space-y-2">
         <div className="flex items-start gap-2">
           <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
             <Pin size={12} className="rotate-45" />
@@ -462,7 +462,7 @@ export function PointRow({
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}
         {!letterMode && !readOnly && isGuest && userPosition && (
-          <div className="border-t border-gray-200 pt-2">
+          <div className="border-t border-border pt-2">
             <p className="text-xs text-gray-500">
               Position shared live — sign up to save it
             </p>

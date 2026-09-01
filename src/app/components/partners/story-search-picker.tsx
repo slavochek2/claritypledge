@@ -55,7 +55,7 @@ export function StorySearchPicker({ stories, onSelectStory, disabled = false, on
           disabled={disabled}
           placeholder="Search your stories…"
           aria-label="Search your stories."
-          className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100 disabled:opacity-50"
+          className="w-full pl-9 pr-3 py-2.5 text-sm border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100 disabled:opacity-50"
         />
       </div>
 
@@ -75,7 +75,7 @@ export function StorySearchPicker({ stories, onSelectStory, disabled = false, on
                 type="button"
                 disabled={disabled}
                 onClick={() => handleSelect(story)}
-                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 text-sm transition-all disabled:opacity-50"
+                className="w-full text-left px-4 py-3 rounded-xl border border-border hover:border-gray-300 text-sm transition-all disabled:opacity-50"
               >
                 <span className="block truncate text-foreground">{preview}</span>
                 {pointCount > 0 && (

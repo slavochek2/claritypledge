@@ -9,7 +9,7 @@
  * can show the SAME statement styling without re-implementing it (DRY).
  *
  * Visual Spec:
- * - Statement block: rounded-lg border border-gray-200 bg-gray-50 p-4, blue pin icon
+ * - Statement block: rounded-lg border border-border bg-gray-50 p-4, blue pin icon
  * - Statement text prominent (text-lg) — the focal element of the engage screen
  * - Framing question: text-sm text-[#1A1A1A]/50 text-center uppercase tracking-wide
  * - No shadow, no border-l accent, no color fill on the statement text (priming-safe)
@@ -31,7 +31,7 @@ export function StatementPointCard({
   className?: string;
 }) {
   return (
-    <div className={`rounded-lg border border-gray-200 bg-gray-50 p-4 ${className}`}>
+    <div className={`rounded-lg border border-border bg-gray-50 p-4 ${className}`}>
       <div className="flex items-start gap-3">
         <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
           <Pin size={12} className="rotate-45" />

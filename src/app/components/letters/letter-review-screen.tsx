@@ -73,7 +73,7 @@ export function LetterReviewScreen({
       </div>
 
       {/* Prediction summary */}
-      <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+      <div className="rounded-xl border border-border bg-white divide-y divide-gray-100">
         {stories.map((docStory) => (
           <div key={docStory.story_id} className="px-4 py-3 flex items-center justify-between">
             <p className="text-sm text-foreground line-clamp-1 flex-1 mr-4">

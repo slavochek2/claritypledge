@@ -248,8 +248,8 @@ export function PointCardWithLinks({
   const bgTint = isPrivate ? 'bg-amber-50/50' : 'bg-white';
 
   const cardClassName = isDetailView
-    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden`
-    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
+    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden`
+    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
 
   // Quote pattern: reserved for the other person's position. Hidden when viewer === profile owner
   // (the viewer's own stance is already expressed by the highlighted position button inside the point).
@@ -317,7 +317,7 @@ export function PointCardWithLinks({
             </div>
 
             {/* Quoted Point box */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <div className="bg-gray-50 border border-border rounded-lg p-3">
               {/* Two-column layout matching StoryCard structure */}
               <div className="flex items-start gap-3">
                 {/* Pin icon column - matches StoryCard avatar width */}
@@ -370,7 +370,7 @@ export function PointCardWithLinks({
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
                 role="presentation"
-                className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-4 sm:pl-[44px]"
+                className="flex items-center justify-between mt-3 pt-3 border-t border-border pl-4 sm:pl-[44px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Collapsible trigger (if has linked stories) or 0-stories CTA */}
@@ -739,7 +739,7 @@ export function QuotedStory({
           onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
         }
       }}
-      className={`group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
+      className={`group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
     >
       {/* Author info at top */}

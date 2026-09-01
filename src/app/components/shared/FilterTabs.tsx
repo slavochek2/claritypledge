@@ -30,7 +30,7 @@ export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsP
   return (
     <div>
       <p className="px-4 pt-3 pb-1 text-xs text-gray-500">Filter by position:</p>
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-border">
         <FilterTab
           label="Disagree"
           count={counts.disagree}

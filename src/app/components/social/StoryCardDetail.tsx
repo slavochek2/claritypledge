@@ -734,7 +734,7 @@ function QuotedPoint({
         {!hideLinkedStories && linkedStories.length > 0 && (
           <div
             role="presentation"
-            className="mt-2 pt-2 border-t border-gray-200 pl-[44px]"
+            className="mt-2 pt-2 border-t border-border pl-[44px]"
             onClick={e => e.stopPropagation()}
           >
             <button
@@ -770,7 +770,7 @@ function QuotedPoint({
           return (
             <div
               role="presentation"
-              className="mt-2 pt-2 border-t border-gray-200 pl-[44px] pr-1"
+              className="mt-2 pt-2 border-t border-border pl-[44px] pr-1"
               onClick={e => e.stopPropagation()}
             >
               {viewerStoryCount === 0 ? (

@@ -565,7 +565,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
                 className={`text-left p-5 rounded-xl border-2 transition-all ${
                   selectedMode === 'one-to-one'
                     ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-200'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    : 'border-border hover:border-gray-300 bg-white'
                 }`}
               >
                 <Mail className={`h-8 w-8 mb-3 ${selectedMode === 'one-to-one' ? 'text-blue-500' : 'text-gray-400'}`} />
@@ -582,7 +582,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
                 className={`text-left p-5 rounded-xl border-2 transition-all ${
                   selectedMode === 'one-to-many'
                     ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-200'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    : 'border-border hover:border-gray-300 bg-white'
                 }`}
               >
                 <Link2 className={`h-8 w-8 mb-3 ${selectedMode === 'one-to-many' ? 'text-blue-500' : 'text-gray-400'}`} />

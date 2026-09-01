@@ -87,7 +87,7 @@ export function TreePage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
           Production Pages
         </h2>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-border divide-y divide-gray-100 mb-6">
           {productionPages.map((route) => (
             <Link
               key={route.path}
@@ -111,7 +111,7 @@ export function TreePage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
           Dev Tools
         </h2>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-border divide-y divide-gray-100 mb-6">
           {devPages.map((route) => (
             <Link
               key={route.path}
@@ -135,7 +135,7 @@ export function TreePage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
           404 Page Variants
         </h2>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-border divide-y divide-gray-100 mb-6">
           {notFoundVariants.map((route) => (
             <Link
               key={route.path}

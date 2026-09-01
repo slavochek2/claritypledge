@@ -137,7 +137,7 @@ export function ShareDialog({
               </div>
               <button
                 onClick={handleCopyLink}
-                className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-gray-200 transition-colors ${
+                className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-border transition-colors ${
                   linkCopied
                     ? 'bg-green-100 text-green-700'
                     : 'bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
@@ -173,7 +173,7 @@ export function ShareDialog({
                 </div>
                 <button
                   onClick={handleCopyEmbed}
-                  className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-gray-200 transition-colors ${
+                  className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-border transition-colors ${
                     embedCopied
                       ? 'bg-green-100 text-green-700'
                       : 'bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-700'

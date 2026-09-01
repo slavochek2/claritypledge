@@ -22,7 +22,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
   return (
     <Link
       to={`${linkPrefix}/${event.slug}`}
-      className={`group block rounded-xl overflow-hidden bg-card transition-all duration-200 border-l-4 border border-gray-200 ${
+      className={`group block rounded-xl overflow-hidden bg-card transition-all duration-200 border-l-4 border border-border ${
         isCancelled
           ? 'opacity-60 hover:opacity-80 border-l-gray-400'
           : 'hover:shadow-lg hover:border-blue-300 border-l-blue-500'
@@ -47,7 +47,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
           {userIsHost && (
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${
               isCancelled
-                ? 'bg-gray-100 text-gray-600 border border-gray-200'
+                ? 'bg-gray-100 text-gray-600 border border-border'
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
               <Crown className="w-3 h-3" />
@@ -57,7 +57,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
           {isUserGoing && !userIsHost && (
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${
               isCancelled
-                ? 'bg-gray-100 text-gray-600 border border-gray-200'
+                ? 'bg-gray-100 text-gray-600 border border-border'
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
               <CheckCircle2 className="w-3 h-3" />

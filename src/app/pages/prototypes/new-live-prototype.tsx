@@ -174,7 +174,7 @@ function AppHeader({ onEnd }: { onEnd?: () => void }) {
 
 function StoryCard({ story }: { story: MockStory }) {
   return (
-    <div className="bg-white rounded-lg border-l-4 border-l-blue-500 border border-gray-200 shadow-sm p-4">
+    <div className="bg-white rounded-lg border-l-4 border-l-blue-500 border border-border shadow-sm p-4">
       <div className="flex items-center gap-2.5 mb-2">
         <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
           <span className="text-gray-500 text-sm font-bold">{story.owner === 'me' ? 'V' : 'A'}</span>
@@ -241,7 +241,7 @@ function JoinStep({ onJoin }: { onJoin: () => void }) {
         </div>
         <div className="flex gap-2">
           <input type="text" placeholder="Enter code" value={code} onChange={e => setCode(e.target.value.toUpperCase())}
-            className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-center text-lg tracking-widest" maxLength={4} />
+            className="flex-1 px-4 py-3 border border-border rounded-xl text-center text-lg tracking-widest" maxLength={4} />
           <button onClick={onJoin} disabled={code.length < 4} className="px-6 py-3 bg-gray-900 text-white rounded-xl disabled:opacity-30 transition-opacity">Join</button>
         </div>
       </div>
@@ -323,10 +323,10 @@ function RoleClaimStep({
           ) : (
             <div className="space-y-2">
               <input type="text" placeholder="Search stories..." value={storySearch} onChange={e => setStorySearch(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" autoFocus />
+                className="w-full px-4 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" autoFocus />
               {filteredStories.map(story => (
                 <button key={story.id} onClick={() => { setSelectedStory(story); setShowStories(false); setStorySearch(''); }}
-                  className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 text-sm transition-all">
+                  className="w-full text-left px-4 py-3 rounded-xl border border-border hover:border-gray-300 text-sm transition-all">
                   <span className="font-medium">{story.title}</span>
                   <span className="text-gray-400 ml-2 text-xs">{story.owner === 'me' ? '(yours)' : `(${PARTNER_NAME}'s)`}</span>
                 </button>
@@ -613,14 +613,14 @@ function SummaryStep({ myFinal, theirFinal, story, onDone, onRestart }: {
         <div className="bg-gray-50 rounded-xl p-6 space-y-3 mb-8">
           {story && <div className="text-sm text-gray-500"><span className="text-gray-400">Story:</span> {story.title}</div>}
           <div className="text-sm text-gray-500"><span className="text-gray-400">With:</span> {PARTNER_NAME}</div>
-          <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+          <div className="flex justify-between text-sm pt-2 border-t border-border">
             <span className="text-gray-400">Your final</span><span className="font-medium">{myFinal ?? '–'}/10</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">{PARTNER_NAME}&apos;s final</span><span className="font-medium">{theirFinal ?? '–'}/10</span>
           </div>
           {myFinal !== null && theirFinal !== null && (
-            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+            <div className="flex justify-between text-sm pt-2 border-t border-border">
               <span className="text-gray-400">Final gap</span>
               <span className={`font-medium ${Math.abs(myFinal - theirFinal) <= 1 ? 'text-green-600' : 'text-amber-600'}`}>
                 {Math.abs(myFinal - theirFinal)}

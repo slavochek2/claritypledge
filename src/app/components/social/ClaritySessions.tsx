@@ -73,7 +73,7 @@ export function ClaritySessions({
   const sessionRoute = getSessionRoute || defaultSessionRoute;
 
   return (
-    <div className="bg-white border border-gray-200 mx-2 mt-3 rounded-lg">
+    <div className="bg-white border border-border mx-2 mt-3 rounded-lg">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -140,7 +140,7 @@ export function ClaritySessions({
  */
 export function ClaritySessionsEmpty() {
   return (
-    <div className="bg-white border border-gray-200 mx-2 mt-3 rounded-lg">
+    <div className="bg-white border border-border mx-2 mt-3 rounded-lg">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
         <Radio size={16} className="text-gray-500" />
         <span className="font-medium text-gray-900">Clarity Sessions</span>

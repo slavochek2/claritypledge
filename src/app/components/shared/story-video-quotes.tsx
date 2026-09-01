@@ -100,7 +100,7 @@ export function StoryVideoQuotes({
                   {timecode}
                 </a>
               )}
-              <blockquote className="min-w-0 flex-1 border-l-4 border-gray-200 pl-3 text-sm italic text-gray-700 dark:border-gray-700 dark:text-gray-300">
+              <blockquote className="min-w-0 flex-1 border-l-4 border-border pl-3 text-sm italic text-gray-700 dark:border-gray-700 dark:text-gray-300">
                 {quote.text}
               </blockquote>
             </li>

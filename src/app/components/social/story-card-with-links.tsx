@@ -188,7 +188,7 @@ export function StoryCardWithLinks({
         <div
           role="button"
           tabIndex={0}
-          className="relative bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          className="relative bg-gray-50 border border-border rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           onClick={handleCardClick}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -241,8 +241,8 @@ export function StoryCardWithLinks({
   const storyBgTint = isPrivateStory ? 'bg-amber-50/50' : 'bg-white';
   const storyHoverBorder = isPrivateStory ? 'hover:border-amber-300' : 'hover:border-blue-300';
   const cardClassName = isDetailView
-    ? `relative ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-gray-200 overflow-hidden`
-    : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-gray-200 overflow-hidden cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`;
+    ? `relative ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border overflow-hidden`
+    : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border overflow-hidden cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`;
 
   return (
     /*
@@ -709,7 +709,7 @@ function QuotedPoint({
             onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
           }
         }}
-        className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
       >
         {/* Two-column layout matching PointCard structure */}
         <div className="flex items-start gap-3">
@@ -749,7 +749,7 @@ function QuotedPoint({
           return (
             <div
               role="presentation"
-              className="mt-2 pt-2 border-t border-gray-200 pl-[44px] pr-1"
+              className="mt-2 pt-2 border-t border-border pl-[44px] pr-1"
               onClick={e => e.stopPropagation()}
             >
               {viewerStoryCount === 0 ? (

@@ -329,7 +329,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     <div className={`relative w-full ${isLg ? '' : 'sm:w-auto'}${disabled ? ' opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
       <div
         ref={dropdownRef}
-        className={`relative inline-flex w-full max-w-full rounded-lg border border-gray-200 bg-white ${isLg ? '' : 'sm:w-auto'}`}
+        className={`relative inline-flex w-full max-w-full rounded-lg border border-border bg-white ${isLg ? '' : 'sm:w-auto'}`}
       >
         {BUTTON_ORDER.map((group, index) => {
           const config = BUTTON_GROUPS[group];
@@ -354,7 +354,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
               : 'w-full h-full flex items-center justify-center gap-1 px-1.5 sm:px-3 py-2 min-h-[40px] sm:min-h-[44px] text-[11px] sm:text-xs font-medium transition-colors leading-none whitespace-nowrap',
             index === 0 ? 'rounded-l-lg' : '',
             index === BUTTON_ORDER.length - 1 ? 'rounded-r-lg' : '',
-            index > 0 ? 'border-l border-gray-200' : '',
+            index > 0 ? 'border-l border-border' : '',
             isActive ? config.activeClass : config.inactiveClass,
           ].filter(Boolean).join(' ');
 
@@ -427,7 +427,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
         <div
           ref={portalDropdownRef}
           {...(isControlled ? { inert: true, 'aria-hidden': 'true' as const } : {})}
-          className="fixed z-[9999] bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
+          className="fixed z-[9999] bg-white rounded-lg border border-border shadow-lg py-1 min-w-[170px]"
           style={{
             top: dropdownPos.top,
             left: dropdownPos.left,

@@ -113,7 +113,7 @@ function ProposedPositionButtons({ userPosition, counts, onSelect, containerWidt
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
-      <div className="flex w-full rounded-lg border border-gray-200 bg-white">
+      <div className="flex w-full rounded-lg border border-border bg-white">
         {GROUP_ORDER.map((group, index) => {
           const config = GROUP_CONFIG[group];
           const Icon = config.icon;
@@ -133,7 +133,7 @@ function ProposedPositionButtons({ userPosition, counts, onSelect, containerWidt
                   'text-[11px] sm:text-xs font-medium transition-colors leading-none',
                   index === 0 ? 'rounded-l-lg' : '',
                   index === GROUP_ORDER.length - 1 ? 'rounded-r-lg' : '',
-                  index > 0 ? 'border-l border-gray-200' : '',
+                  index > 0 ? 'border-l border-border' : '',
                   isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50',
                 ].join(' ')}
                 style={{ minHeight: 40 }}
@@ -153,7 +153,7 @@ function ProposedPositionButtons({ userPosition, counts, onSelect, containerWidt
               {/* Auto-dropdown for intensity */}
               {isOpen && config.intensities.length > 1 && (
                 <div
-                  className="absolute top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
+                  className="absolute top-full mt-1 z-50 bg-white rounded-lg border border-border shadow-lg py-1 min-w-[170px]"
                   style={{
                     // Position: prefer centering, but clamp to not overflow right
                     left: '50%',
@@ -228,7 +228,7 @@ function V3PositionButtons({ userPosition, counts, onSelect, onClear, containerW
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
-      <div className="flex w-full rounded-lg border border-gray-200 bg-white">
+      <div className="flex w-full rounded-lg border border-border bg-white">
         {GROUP_ORDER.map((group, index) => {
           const config = GROUP_CONFIG[group];
           const Icon = config.icon;
@@ -247,7 +247,7 @@ function V3PositionButtons({ userPosition, counts, onSelect, onClear, containerW
                   'text-[11px] sm:text-xs font-medium transition-colors leading-none',
                   index === 0 ? 'rounded-l-lg' : '',
                   index === GROUP_ORDER.length - 1 && !hasChevron ? 'rounded-r-lg' : '',
-                  index > 0 ? 'border-l border-gray-200' : '',
+                  index > 0 ? 'border-l border-border' : '',
                   isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50',
                 ].join(' ')}
               >
@@ -267,7 +267,7 @@ function V3PositionButtons({ userPosition, counts, onSelect, onClear, containerW
                   className={[
                     'flex-shrink-0 px-1.5 flex items-center justify-center border-l',
                     index === GROUP_ORDER.length - 1 ? 'rounded-r-lg' : '',
-                    isActive ? 'bg-blue-600 text-white border-blue-500 hover:bg-blue-700' : 'text-gray-400 border-gray-200 hover:bg-gray-50',
+                    isActive ? 'bg-blue-600 text-white border-blue-500 hover:bg-blue-700' : 'text-gray-400 border-border hover:bg-gray-50',
                   ].join(' ')}
                 >
                   <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
@@ -275,7 +275,7 @@ function V3PositionButtons({ userPosition, counts, onSelect, onClear, containerW
               )}
               {openDropdown === group && hasChevron && (
                 <div
-                  className="absolute top-full right-0 mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[170px]"
+                  className="absolute top-full right-0 mt-1 z-50 bg-white rounded-lg border border-border shadow-lg py-1 min-w-[170px]"
                 >
                   {config.intensities.map(({ value, label }) => {
                     const isSelected = userPosition.group === group && userPosition.intensity === value;
@@ -343,7 +343,7 @@ function V4PositionButtons({ userPosition, counts, onSelect, onClear, containerW
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
-      <div className="flex w-full rounded-lg border border-gray-200 bg-white">
+      <div className="flex w-full rounded-lg border border-border bg-white">
         {GROUP_ORDER.map((group, index) => {
           const config = GROUP_CONFIG[group];
           const Icon = config.icon;
@@ -363,7 +363,7 @@ function V4PositionButtons({ userPosition, counts, onSelect, onClear, containerW
                   'text-[11px] sm:text-xs font-medium transition-colors leading-none',
                   index === 0 ? 'rounded-l-lg' : '',
                   index === GROUP_ORDER.length - 1 ? 'rounded-r-lg' : '',
-                  index > 0 ? 'border-l border-gray-200' : '',
+                  index > 0 ? 'border-l border-border' : '',
                   isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50',
                 ].join(' ')}
               >
@@ -378,7 +378,7 @@ function V4PositionButtons({ userPosition, counts, onSelect, onClear, containerW
               </button>
               {isOpen && isActive && (
                 <div
-                  className="absolute top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg py-1 min-w-[180px]"
+                  className="absolute top-full mt-1 z-50 bg-white rounded-lg border border-border shadow-lg py-1 min-w-[180px]"
                   style={{ left: '50%', transform: 'translateX(-50%)' }}
                 >
                   {config.intensities.map(({ value, label }) => {
@@ -472,7 +472,7 @@ function ModelScenario({ title, description, initialCounts, pointText }: {
   }, [posC.group]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+    <div className="bg-white rounded-xl border border-border p-4 sm:p-6">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         <p className="text-xs text-gray-500 mt-0.5">{description}</p>
@@ -514,7 +514,7 @@ function CurrentPositionButtons({ userPosition, counts, onSelect, containerWidth
   const truncate = containerWidth >= 200 && containerWidth < 280;
 
   return (
-    <div className="flex w-full rounded-lg border border-gray-200 bg-white">
+    <div className="flex w-full rounded-lg border border-border bg-white">
       {GROUP_ORDER.map((group, index) => {
         const Icon = icons[group];
         const isActive = userPosition.group === group;
@@ -527,7 +527,7 @@ function CurrentPositionButtons({ userPosition, counts, onSelect, containerWidth
             key={group}
             className={[
               'flex-1 min-w-0 flex items-center transition-colors',
-              index > 0 ? 'border-l border-gray-200' : '',
+              index > 0 ? 'border-l border-border' : '',
               isActive ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50',
             ].join(' ')}
             style={{ minHeight: 36 }}
@@ -605,7 +605,7 @@ function Scenario({ title, description, initialCounts, initialPosition, pointTex
   }, [posV2.group]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+    <div className="bg-white rounded-xl border border-border p-4 sm:p-6">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         <p className="text-xs text-gray-500 mt-0.5">{description}</p>
@@ -616,7 +616,7 @@ function Scenario({ title, description, initialCounts, initialPosition, pointTex
             key={v.label}
             onClick={() => setVpIdx(i)}
             className={`text-[10px] sm:text-xs px-2 py-1 rounded-full border transition-colors ${
-              i === vpIdx ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+              i === vpIdx ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-border hover:border-gray-400'
             }`}
           >
             {v.label} ({v.width}px)
@@ -686,7 +686,7 @@ function ContextMockup({ label, surface, width, compact, narrow, counts, pointTe
       </div>
       <div className="text-[10px] text-gray-400 mb-1">{surface}</div>
       <div
-        className="border border-gray-200 rounded-lg bg-white overflow-visible"
+        className="border border-border rounded-lg bg-white overflow-visible"
         style={{ maxWidth: width }}
       >
         <div className="p-3">
@@ -718,7 +718,7 @@ function ContextMockup({ label, surface, width, compact, narrow, counts, pointTe
 export function PositionButtonsPrototype() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white border-b border-border sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <a href="/tree" className="text-gray-400 hover:text-gray-600 transition-colors">
             <ArrowLeft className="h-5 w-5" />
@@ -852,7 +852,7 @@ export function PositionButtonsPrototype() {
         </div>
 
         {/* Live test */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="bg-white rounded-xl border border-border p-4 sm:p-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Live test (your viewport)</h3>
           <p className="text-xs text-gray-500 mb-4">Resize browser to see real responsive behavior.</p>
           <LiveTest />
