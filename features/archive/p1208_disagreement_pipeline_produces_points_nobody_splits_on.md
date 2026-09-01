@@ -27,16 +27,25 @@ driver: anomaly
 > **Kept for its evidence and its dead ends**, both carried into P1210's Problem and
 > *Alternatives Considered*. **Do not implement anything below.**
 >
-> **Known defect in this file:** it pairs named real people with agent-derived position values in a
-> public repo, which `positions.md` Step 4d and `prepare.md` Stage 5 both forbid. Recorded as P1210
-> Open Question 3.
+> **REDACTED 2026-09-01 (P1210 Open Question 3, founder decision).** This file paired named real
+> people with agent-derived position values in a public repo, which `positions.md` Step 4d and
+> `prepare.md` Stage 5 both forbid and which P1210 carries as an Invariant. Every arguer is now
+> `A1`–`A5`. **The anonymization is whole-file, not matrix-only, deliberately:** redacting the
+> `+3 / −3` table alone would have left the mapping recoverable from the prose two lines below it,
+> which is false assurance rather than redaction. The arguer↔label mapping is not recorded
+> anywhere in this repo; it lives only in the run file under `.private/`, which is gitignored.
+>
+> **What is NOT redacted, and why:** P1210 and `docs/decisions.md` still name these people where the
+> claim is a quote-grounded public position or a source metric. That is not what the invariant
+> forbids — the forbidden object is the pipeline's own derived position *value* (the signed scale,
+> the `strongly_agree` label), which is an agent's inference about a person who never saw it.
 
 > ## STATUS: NOT READY TO IMPLEMENT — two adversarial rounds, second verdict REJECT
 >
 > **Round 1 (9 findings, 2 CRITICAL) — applied.** Round 2 on the revised spec: **REJECT FOR
 > IMPLEMENTATION**, on grounds that are corrections to *this document's claims*, not to the pipeline:
 >
-> - **The cast-spans-fork check passes the run it was written to catch** (LeCun and Bengio do span
+> - **The cast-spans-fork check passes the run it was written to catch** (A1 and A2 do span
 >   the open-weights fork), while the Done-When demanded it fail. **The identical error the split gate
 >   made earlier in this same spec** — an algorithm specified, a verdict demanded that it does not
 >   produce, twice in one document by the same author.
@@ -58,14 +67,14 @@ driver: anomaly
 **Complication:** He agreed with everything. The measurement says he was right to:
 
 ```
-P1  n=2  Bengio 0 · Harari +2                       ** NO OPPOSITION **
-P2  n=4  LeCun +3 · Bengio +2 · Andreessen +2 · Harari +1   ** UNANIMOUS AGREE **
-P3  n=3  LeCun +2 · Bengio −2 · Andreessen +2       2 v 1
-P4  n=3  LeCun +2 · Bengio −1 · Andreessen +3       2 v 1
-P5  n=2  LeCun +3 · Bengio −3                       1 v 1
+P1  n=2  A2 0 · A4 +2                       ** NO OPPOSITION **
+P2  n=4  A1 +3 · A2 +2 · A3 +2 · A4 +1   ** UNANIMOUS AGREE **
+P3  n=3  A1 +2 · A2 −2 · A3 +2       2 v 1
+P4  n=3  A1 +2 · A2 −1 · A3 +3       2 v 1
+P5  n=2  A1 +3 · A2 −3                       1 v 1
 ```
 
-**Only one arguer ever disagrees with anything.** Remove Bengio and there is no disagreement anywhere
+**Only one arguer ever disagrees with anything.** Remove A2 and there is no disagreement anywhere
 in the run. Two of five points have no opposition at all, and P2 — the point four experts agree on
 unanimously — was predicted at **20% room agreement**.
 
@@ -87,8 +96,8 @@ gate would have caught it?
 adversarial review. The first draft asserted "the topic is sound, the cast failed" from P5's +3/−3 and
 P3's −2/+2 — and that inference does not hold. Those statements were **invented by `prepare`**, whose
 Stage 4 explicitly constructs claims so that each source's quotes commit them to opposite ends. An
-apparent split can therefore be construction-induced. P3 is the clear case: LeCun never addresses its
-regulation comparison at all, and Bengio opposes it on safety grounds rather than on concentration.
+apparent split can therefore be construction-induced. P3 is the clear case: A1 never addresses its
+regulation comparison at all, and A2 opposes it on safety grounds rather than on concentration.
 The first draft quoted `positions.md`'s "an agent-derived split is a HYPOTHESIS, never a finding" and
 then committed exactly that error two paragraphs later.)*
 
@@ -101,12 +110,12 @@ then committed exactly that error two paragraphs later.)*
 
 ### Discriminating evidence run 2026-09-01 — H2's UNIVERSAL form is refuted; H2 itself is not
 
-**On P5, LeCun is `strongly_agree [close]` and Bengio is `strongly_disagree [close]`.** Both carry the
+**On P5, A1 is `strongly_agree [close]` and A2 is `strongly_disagree [close]`.** Both carry the
 `close` label, which `positions.md` defines as *"the speaker argued this directly; the generalization
 barely moves."* That is the strongest evidence class the pipeline produces, at maximum magnitude, in
 direct opposition. **A `close` position is not an agent's inference — it is the speaker's own
 argument**, so P5's split cannot be dismissed as construction-induced the way P3's can (P3 is
-`derived` on both agreeing sides, and LeCun never addresses its regulation comparison at all).
+`derived` on both agreeing sides, and A1 never addresses its regulation comparison at all).
 
 **Consequence, stated narrowly — the first version of this paragraph overclaimed and was corrected
 the same day.** What P5 establishes: **at least one** genuine, directly-argued opposition exists
@@ -166,7 +175,7 @@ remedy for H1 only.
 What is NOT in doubt: two of five voices were absent from the measurement.
 
 1. **Position 3 (halt development) went UNFILLED.** It was the only voice opposing *both* camps.
-2. **LeCun and Andreessen collapsed** — same sign on every point where both hold a position.
+2. **A1 and A3 collapsed** — same sign on every point where both hold a position.
 3. Four arguers became roughly two-and-a-half voices, all but one leaning the same way.
 
 **Both defects are already detected by checks added on 2026-08-31 (P1202) — and both checks run too
@@ -277,7 +286,7 @@ and **nothing reads it again after selection.**
 
 **[UNSPECIFIED — do not implement until this is decided.]** *(Adversarial review, 2026-09-01: as
 written this check **passes the very run it was designed to catch.** The surviving cast still contains
-LeCun and Bengio, who genuinely span the open-weights contradiction — so under an existential reading
+A1 and A2, who genuinely span the open-weights contradiction — so under an existential reading
 ("does someone hold each side?") this run PASSES, while the Done-When demanded it FAIL. **That is the
 identical error the split gate made earlier in this same spec** — an algorithm specified, then a
 verdict demanded that the algorithm does not produce. Twice in one document.)*
@@ -393,7 +402,7 @@ that would test it.** That is the item worth a spec of its own; the rest are its
 |---|---|
 | **Scrap AI safety, pick another topic** | **Rejected.** The topic is contested — P5 is a clean +3/−3 and P3 a real −2/+2. Scrapping it would discard a working topic and hide the actual defect, which is casting. The next topic would fail the same way |
 | Loosen what counts as polarizing so the existing points pass | Rejected. That is fitting the measure to the result. The founder clicked agree on all five; no threshold change alters that |
-| Re-run `prepare` on the existing four arguers | Rejected on its own: with LeCun/Andreessen collapsed and position 3 empty, the same cast yields the same non-split. **Fix the cast first** |
+| Re-run `prepare` on the existing four arguers | Rejected on its own: with A1/A3 collapsed and position 3 empty, the same cast yields the same non-split. **Fix the cast first** |
 | Build a "polarization score" and rank points by it | Rejected. P1190 already establishes that ranking points by split-hardness is the wrong optimisation target — a point must *matter*, not merely divide. A binary "does anyone oppose this" gate is the missing check; a score is a second wrong target |
 | Drop the sealed-prediction discipline so points can be revised freely after positions | Rejected. The seal is the only thing that makes a run scoreable. The tension is real and belongs in Open Question 1, not in a unilateral removal |
 
@@ -445,7 +454,7 @@ that would test it.** That is the item worth a spec of its own; the rest are its
    already ruled not publishable (above); this is only about the topic.** The P5 `close`/`close`
    opposition means the fork is real, so retiring AI safety discards a working topic — but H3
    (defective statements) is still live, so a re-run needs new points as well as a repaired cast. A re-run needs a genuine fifth voice for the halt position and
-   a replacement for whichever of LeCun/Andreessen is dropped. **[FOUNDER DECISION]**
+   a replacement for whichever of A1/A3 is dropped. **[FOUNDER DECISION]**
 4. **Should an unfilled carried position BLOCK point construction, or continue to inform at Gate 2?**
    The machinery already exists and works; the founder approved the narrowed cast on this run. Making
    it block is a policy reversal. **[FOUNDER DECISION]**

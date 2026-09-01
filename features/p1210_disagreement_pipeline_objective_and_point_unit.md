@@ -19,6 +19,31 @@ driver: anomaly
 rather than revised (founder decision 2026-09-01 — see *Alternatives Considered*). P1208's evidence and
 rejected options are carried forward here; its four-workstream frame is not.
 
+## Run This
+
+Type this from anywhere in the repo — the main checkout is fine. Nothing to `cd` into, nothing to
+rebase; the worktree is already claimed for this spec and already carries the pinned contract.
+
+    /goal "Work in the worktree on branch feature/p1210-objective-and-point-unit. Then: ./scripts/goal-gate.sh p1210 exits 0, output pasted. Stop after 30 turns."
+
+`/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke it for
+them. The condition names an exit code on purpose: the loop's evaluator reads the transcript and
+runs nothing, so the only trustworthy condition is one naming an artifact the agent cannot author.
+
+**Why the worktree clause is not decoration.** `goal-gate.sh` CHECK 3 hard-refuses to run on the
+shared main checkout — *"refusing to soft-reset outside a worktree — main's index and HEAD are
+shared"* — so a loop started there cannot reach exit 0 no matter what it builds. Naming the branch
+rather than a slot keeps this line correct if the work is ever moved.
+
+**What the loop is walking into, so it does not have to discover it from red gates.** Four artifacts
+below `features/verification/p1210/` and `features/uat/p1210.md` already exist as seeds and are
+deliberately unsatisfied: the scorecard's rows carry no results, and `feedback.md` carries zeroes.
+Filling them is work, not housekeeping — CHECK 4 and CHECK 6 read them.
+
+**Honest limit of the finish line.** The loop still stops on the agent's *paste* of the exit code;
+nothing here changes that. What the gate buys is that forgery and decay are caught at the merge
+boundary by CI. Expect a walk-back that is usually-but-not-always green.
+
 ## Problem
 
 **Situation:** `ai-power-remedies` run B completed end-to-end and filed to test — 4 arguers, 5 points,
@@ -558,13 +583,18 @@ instances of it. Restored here, with the reason each existed.**
    run under §§2–7 (new cast selection, new points bound to contradiction sentences), not a repair of
    run B. Run B stays not-publishable and stays filed as evidence. **This run is the acceptance test
    for this spec** — the Done-When checks against run B are the regression half; this is the forward half.
-2. **Keep the two-artifact seal model, or accept that a revised run is unscoreable?** No longer an open
-   design question — §11 restores P1208's model as the **default**, so this asks only whether to keep it.
-   Under §4 points are approved earlier, which makes it cheaper than it was. **[FOUNDER DECISION]**
-3. **P1208 is public and pairs named real people with agent-derived position values**, which
-   `positions.md` and `prepare.md` both forbid and which this spec lists as an Invariant. It moves to
-   `features/archive/` (still public) and it is already committed. Redact it, leave it, or something
-   else? **[FOUNDER DECISION]** — flagged rather than acted on.
+2. ~~**Keep the two-artifact seal model, or accept that a revised run is unscoreable?**~~ **ANSWERED
+   2026-09-01: KEEP.** §11's model stands as the default and §4's earlier point approval makes it
+   cheaper than when P1208 proposed it. **DW-19 is therefore a live contract row, not a strike** — the
+   loop implements the seal model, and the AI safety re-run unblocks when it lands.
+3. ~~**P1208 is public and pairs named real people with agent-derived position values.**~~
+   **ANSWERED 2026-09-01: REDACTED, and the redaction is done** — every arguer in
+   `features/archive/p1208_*.md` is now `A1`–`A5`, with the mapping held only in the gitignored run
+   file. **Whole-file, not matrix-only:** anonymizing the `+3 / −3` table alone leaves the mapping
+   recoverable from the prose beside it, which is false assurance rather than redaction. Names
+   survive in this spec and in `decisions.md` where the claim is a quote-grounded public position or
+   a source metric — the invariant forbids the pipeline's own derived position *value*, not the
+   person's own argument.
 4. Is a 2-arguer point ever worth filing? Three of five points in this run had fewer than four arguers
    holding a position. Untested.
 
@@ -578,3 +608,86 @@ instances of it. Restored here, with the reason each existed.**
 - `docs/events/clarity-practice-event.md` — the run-of-show, edited by §8
 - `docs/points-process.md` — the canonical contract, edited by §1
 - `docs/process-learnings.md` — the story quote block renders twice on the detail page; folded into §7
+
+## Resolved Decisions
+
+Answered by the founder on 2026-09-01 during `/goalify`. Append-only; `## Problem`, `## Solution`,
+`## Appetite` and `## Risks / Non-Goals` are untouched.
+
+| # | Question | Answer | Consequence |
+|---|---|---|---|
+| RD-1 | Keep the two-artifact seal model, or drop it? (Open Question 2) | **KEEP** | DW-19 is a live contract row. The AI safety re-run stays blocked until the seal model lands |
+| RD-2 | The archived P1208 pairs named people with derived position values (Open Question 3) | **REDACT** | Done in this same commit — arguers are `A1`–`A5`, whole-file. Not a loop task |
+| RD-3 | How is reviewer independence held for a spec that renders nothing? | **Mechanical gate, blind prose review at `/ship`** | Zero COMPARABLE rows. VC-17 carries the review; it is HUMAN-ONLY and the gate does not decide it |
+| RD-4 | The event's per-point budget for block 6 | **36 min total, 12 per point over 3 points** | Written into the event doc in this same commit. Objective condition 7 becomes evaluable |
+
+**RD-3 is the one with a cost, so state it plainly.** `goal-gate.sh` CHECK 5 hard-fails a reviewer
+round that judged zero screenshots (*"an empty round is not a round"*), so a COMPARABLE row on a
+prose spec is unsatisfiable without fabricating images. Classifying every checkable row MECHANICAL
+keeps the gate honest, but it means **the gate enforces no independent reader of the skill prose.**
+That property is held at `/ship` by a reviewer given the changed skill files and this spec's
+controls — never the diff, never the rationale — and it is recorded outside the gate so the loop
+cannot self-certify it.
+
+## Verification Contract
+
+Seventeen rows: **16 MECHANICAL, 1 HUMAN-ONLY (5.8%)**, zero COMPARABLE. Under goalify's 25%
+refusal threshold, which `goal-gate.sh` CHECK 1 recomputes rather than trusting this sentence.
+
+**Four parser and runner facts this table is built on, each measured this session — not inherited.**
+
+1. **`vitest -t` on a filter that matches nothing exits 0.** Measured: `npx vitest run src/tests
+   --reporter=dot -t "zzz-no-such-test-zzz"` → 3406 tests skipped, **exit 0**. So a `-t`-filtered row
+   is a green that asserted nothing the moment the file exists with any test in it. Every row below
+   therefore runs a **whole file**. P1108's contract records the same finding independently; this run
+   reproduced it rather than citing it.
+2. **A missing test file exits 1.** Measured against `src/tests/p1210-does-not-exist.test.ts` → exit
+   1. That is what makes row absence a real red, and it is the whole of Phase 4's evidence below.
+3. **No command contains a pipe.** `contract_rows()` splits each row with `awk -F'|'` and reads the
+   command from field 4 — a `|` inside a command silently shifts the fields and runs the wrong string.
+4. **`contract_hash()` hashes only this section's body.** The loop may append new sections to this
+   spec without breaking the pin; it may not touch a character between this heading and the next `##`.
+
+**Run B is gitignored, so no row may read it directly.** `.private/points-runs/ai-power-remedies.run-B.md`
+does not exist in CI, and every row below is CI-tier (only Playwright and `e2e/` rows are local). The
+regression rows therefore assert against a committed **structurally identical redacted fixture** —
+same three contradiction sentences, same five points, same four arguers, same `positions_unfilled`
+field, arguers as `A1`–`A5` — and additionally assert against the real run file **when it is present**,
+skipping that half when it is not. The checker is a pure function over a run file; the fixture
+preserves every field the checker reads. **This is the invariant this spec asserts, applied to its own
+test data:** a public file must not pair a named real person with an agent-derived position value.
+
+**Every row's test must resolve this spec by glob (`features/**/p1210_*.md`), never by literal path** —
+`/ship` moves the file into `features/done/{sprint}/` in the same commit the gate validates.
+
+| line | class | decided by | artifact |
+|---|---|---|---|
+| DW-1 points-process states the objective and the ten-condition table, each row mapped to a stage output that exists | MECHANICAL | `npx vitest run src/tests/p1210-objective-table.test.ts` | src/tests/p1210-objective-table.test.ts |
+| DW-2 a point names its pair, contradiction sentence and axis; quote-grounded assert AND deny FILES, either side missing REFUSES | MECHANICAL | `npx vitest run src/tests/p1210-point-unit.test.ts` | src/tests/p1210-point-unit.test.ts |
+| DW-3 redundancy check three-fixture control set — two distinct axes pass, verbatim repeat fails, reworded repeat fails | MECHANICAL | `npx vitest run src/tests/p1210-redundancy-control.test.ts` | src/tests/p1210-redundancy-control.test.ts |
+| DW-4 + DW-5 run B regression — 2 of 3 sentences unspanned, 4 of 5 points untraced, P1 P2 P4 on pairs with no written contradiction, and the unfilled count derived from cast entries fires its disagreement assert | MECHANICAL | `npx vitest run src/tests/p1210-run-b-regression.test.ts` | src/tests/p1210-run-b-regression.test.ts + src/tests/fixtures/p1210/run-b-redacted.md |
+| DW-6 one gate for cast and points — a new downstream axis stops, a sharpening of an approved axis passes | MECHANICAL | `npx vitest run src/tests/p1210-single-gate.test.ts` | src/tests/p1210-single-gate.test.ts |
+| DW-7 counterpart hypothesized from person one transcript with 2–3 candidates printed before any search, and a search-first attempt refused | MECHANICAL | `npx vitest run src/tests/p1210-counterpart-order.test.ts` | src/tests/p1210-counterpart-order.test.ts |
+| DW-8 a run short of target adds an arguer only against a named new contradiction sentence, and reports filed-of-target when it stops short | MECHANICAL | `npx vitest run src/tests/p1210-point-target.test.ts` | src/tests/p1210-point-target.test.ts |
+| DW-9 + DW-10 one story per person per point, single-point scope judged by a checker that is not the writer with a known-bad two-point story in the batch, and no timestamps in story prose | MECHANICAL | `npx vitest run src/tests/p1210-story-scope.test.ts` | src/tests/p1210-story-scope.test.ts |
+| DW-11 the event run-of-show carries the pre-read model, per-point staking and the stakeable-statement rule | MECHANICAL | `npx vitest run src/tests/p1210-event-contract.test.ts` | src/tests/p1210-event-contract.test.ts |
+| DW-12 + DW-13 + DW-18 no store is inspected with ls, a blocker names its clearing artifact across all four stores, a staged ledger-orphan is FOUND and does not stop the run, and a genuinely absent artifact still blocks | MECHANICAL | `npx vitest run src/tests/p1210-cache-blocker.test.ts` | src/tests/p1210-cache-blocker.test.ts |
+| DW-14 the same-vote three-way gate is still present and re-cast is described as a new run | MECHANICAL | `npx vitest run src/tests/p1210-same-vote-gate.test.ts` | src/tests/p1210-same-vote-gate.test.ts |
+| DW-15 prepare asks about audience size only below the run file's recorded floor, checked with a source above and a source below | MECHANICAL | `npx vitest run src/tests/p1210-audience-floor.test.ts` | src/tests/p1210-audience-floor.test.ts |
+| DW-16 event tag and filing identity in publish Stage 0, story fan-out approval in the orchestrator input block, no mid-stage input turn on the way to publish | MECHANICAL | `npx vitest run src/tests/p1210-input-turns.test.ts` | src/tests/p1210-input-turns.test.ts |
+| DW-17 cast-level controls reported every run — a star cast is FLAGGED, a balanced cast is not, and their printed values differ | MECHANICAL | `npx vitest run src/tests/p1210-cast-controls.test.ts` | src/tests/p1210-cast-controls.test.ts |
+| DW-19 the two-artifact seal model is implemented (RD-1 KEEP, so this row may not be struck) | MECHANICAL | `npx vitest run src/tests/p1210-seal-model.test.ts` | src/tests/p1210-seal-model.test.ts |
+| DW-20 every new refusal passes the pipeline's own documented happy path and has been watched to FAIL on a staged bad input | MECHANICAL | `npx vitest run src/tests/p1210-refusal-suite.test.ts` | src/tests/p1210-refusal-suite.test.ts |
+| VC-17 blind prose review of the changed skill files against this spec's controls, by a reader given neither the diff nor the rationale (RD-3) | HUMAN-ONLY | founder, AT /ship | — |
+
+**Every MECHANICAL row above carries paired controls, and that is deliberate.** A row that only
+asserts the good case is a formatter. The Done-When lines already name the must-fail fixture for
+each; DW-20 is the sweep, and it explicitly does **not** substitute for them — a generic end-of-run
+check is what let earlier versions of this work ship gates whose false-positive rate was never
+measured (`epistemic.md` 7c).
+
+**Phase 4 — red-first, run 2026-09-01 before the branch existed.** All 16 MECHANICAL commands were
+executed against the current tree. Every one exited **1** on a missing file. That is a real red for
+row absence and nothing more: it does **not** prove any individual assertion inside a file can fail.
+That property is DW-20's job and the loop's, per `epistemic.md` gate 7 — a check never watched to
+fail is not a check.

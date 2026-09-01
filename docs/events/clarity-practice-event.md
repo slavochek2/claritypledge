@@ -94,7 +94,7 @@ person nobody talks to.
 
 ## Run-of-show
 
-Sequence is settled; timings are `[FOUNDER DECISION]`.
+Sequence is settled. Timings are `[FOUNDER DECISION]` **except block 6, decided 2026-09-01** (36 min total, 12 per point) — see that row.
 
 | # | Block | What happens |
 |---|---|---|
@@ -104,7 +104,7 @@ Sequence is settled; timings are `[FOUNDER DECISION]`.
 | 4 | **Understanding question** | Each answers how much they understood. |
 | 5 | **Stake `cmp7`** | Seven dimensions. They build a model before arguing. |
 | 5b | **Host frames the two positions** | **~3 min, per point.** Each side's position in that side's own terms, neutrally, without arguing either. **Added 2026-08-27.** |
-| 6 | **Argue — fishbowl, looping over the topical points** | 2–4 speak, everyone votes. Those opted in have a job: **challenge each other to give the number.** **Amended 2026-09-01:** the block is a LOOP over ~3 topical points — per point: host reads the one-sentence statement → **everyone stakes that point** → 5b framing → argue → **re-stake that point** → next. `[FOUNDER DECISION: total budget for block 6, and the per-point sub-budget. Nothing below is schedulable until this number exists.]` See *Where the pipeline's points enter*. |
+| 6 | **Argue — fishbowl, looping over the topical points** | 2–4 speak, everyone votes. Those opted in have a job: **challenge each other to give the number.** **Amended 2026-09-01:** the block is a LOOP over ~3 topical points — per point: host reads the one-sentence statement → **everyone stakes that point** → 5b framing → argue → **re-stake that point** → next. **Budget, decided 2026-09-01: 36 min total, 12 min per point across 3 points** — per point: 1 min stake · 3 min framing (5b) · 6 min argue · 2 min re-stake. This leaves ~54 min for the other nine blocks. 12 was chosen over 15 because half the evening on one block squeezes the comprehension blocks and the close; over 10 because four minutes of argument is a round of statements with no exchange, and the exchange is what the block is for. **This number makes objective condition 7 evaluable** — a point that cannot be staked, framed and argued inside 12 min does not fit the evening. See *Where the pipeline's points enter*. |
 | 7 | **Re-stake `cmp7`** | Any dimension that moved. Once, after block 6 — **not** per point. |
 | 8 | **Stake `cmp3`** | The triad, scoped to their real counterpart, who is absent. |
 | 9 | **Reveal** | The P1/P2 gap, and the movement. |
