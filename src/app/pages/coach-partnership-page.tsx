@@ -683,8 +683,10 @@ export function CoachPartnershipPage() {
         <div className="container mx-auto max-w-3xl">
           <SectionHeader title="Role model a partnership that survives disagreement." />
           {/* TEMPLATE stamp — same overlay as /partner-template: without it the
-              Einstein/Teresa certificate reads as a real signed agreement */}
-          <div className="relative">
+              Einstein/Teresa certificate reads as a real signed agreement.
+              P1229 D3: overflow-x-clip — the stamp's pre-landing scale(2.7) state and its
+              880px nowrap span otherwise widen the layout viewport to 627px on phones. */}
+          <div className="relative overflow-x-clip">
             <AgreementCertificate
               variant="pending"
               agreementVersion={CURRENT_AGREEMENT_VERSION}

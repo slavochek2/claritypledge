@@ -52,8 +52,10 @@ export function PartnerTemplatePage() {
 
       {/* Certificate with TEMPLATE stamp — reflects the current oath version
           (CURRENT_AGREEMENT_VERSION) so the public template matches what a new
-          agreement will say. */}
-      <div className="relative">
+          agreement will say. P1229 D3: overflow-x-clip keeps the stamp's 880px
+          nowrap span (and its scale(2.7) pre-landing state) from widening the
+          layout viewport on phones — same clip `/` and `/hiring` already have. */}
+      <div className="relative overflow-x-clip">
         <AgreementCertificate
           variant="active"
           agreementVersion={CURRENT_AGREEMENT_VERSION}
