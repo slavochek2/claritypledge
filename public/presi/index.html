@@ -109,7 +109,7 @@
   .cards.five .card{flex:1 1 170px;max-width:250px}
   .cards.five .card.step{padding:clamp(1.1rem,2.2vw,1.5rem) .95rem}
   .cards.five .card.step h3{font-size:clamp(1.05rem,1.8vw,1.4rem)}
-  .cards.five .card.step p{font-size:clamp(.95rem,1.35vw,1.28rem)}
+  .cards.five .card.step p{font-size:clamp(1rem,1.3vw,1.5rem)}
   .cards.five .step-n{width:40px;height:40px;font-size:1.05rem;margin-bottom:.7rem}
   .cards.five .step-ic{margin-bottom:.7rem}
   .cards.five .step-ic svg{width:40px;height:40px}
@@ -147,7 +147,7 @@
   .ritual-say{font-style:italic;color:var(--fg)}
   /* reason cards (left aligned) */
   .card.reason{text-align:left;padding:1.7rem 1.6rem}
-  .card.reason h3{font-size:clamp(1.25rem,2.2vw,1.7rem);font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em}
+  .card.reason h3{min-height:2.4em;font-size:clamp(1.25rem,2.2vw,1.7rem);font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em}
   .card.reason p{font-size:clamp(1.1rem,1.65vw,1.55rem);color:var(--muted-fg);line-height:1.5}
 
   /* WhatsApp mockup */
@@ -431,13 +431,14 @@
   .wa-big .deleted .d-txt{font-size:inherit;margin-top:.35rem}
   .wa-big .wa-sys{font-size:clamp(.95rem,1.35vw,1.25rem);padding:.45rem 1rem;max-width:94%}
   .wa-big .thought{width:min(92vw,900px);margin-top:1.2rem}
+  .wa-big .thought .tail{display:none}
   .wa-big .thought .q{font-size:clamp(1.1rem,1.5vw,1.45rem)}
   .wa-big .thought .a{font-size:clamp(1.05rem,1.45vw,1.4rem)}
   .wa-big .wa-name{font-size:1.15rem}.wa-big .wa-seen{font-size:.85rem}
   .pt-clause{display:inline-block;margin-top:.35rem;font-weight:500}
   .pt-clause b{display:inline-block;width:1.4em;color:var(--blue);font-weight:800}
   .cert-wrap-big{width:min(94vw,960px)}
-  .cert-big .cert-clause p.cert-key{font-size:clamp(1.25rem,2.3vw,2rem);line-height:1.35;text-align:left;padding:.75em 1em}
+  .cert-big .cert-clause p.cert-key{font-size:clamp(1.2rem,2.1vw,1.85rem);line-height:1.35;text-align:left;padding:.65em 1em;font-variant-numeric:lining-nums}
   .cert-big .cert-head h3{font-size:clamp(1.3rem,2.6vw,1.9rem)}
   .cta-btn{display:inline-block;margin-top:1.8rem;padding:.55em 1.1em;background:var(--blue);color:#fff;border-radius:18px;
     font-weight:800;font-size:clamp(1.5rem,2.9vw,2.5rem);letter-spacing:-.015em;text-decoration:none;box-shadow:0 10px 30px rgba(59,130,246,.25)}
@@ -847,7 +848,7 @@
       <div class="card step">
         <div class="step-n">3</div>
         <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>
-        <h3>Surface high-stakes decisions</h3>
+        <h3>Surface <span style="white-space:nowrap">high-stakes</span> decisions</h3>
         <p>Agents flag the high-stakes matters requiring alignment with your team.</p>
       </div>
       <div class="card step">
@@ -989,6 +990,7 @@
       <div class="cert cert-big">
         <div class="cert-head"><h3>Clarity Group Terms</h3></div>
         <div class="cert-clause"><p class="cert-key">I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you).</p></div>
+        <div class="cert-clause"><p class="cert-key">If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed.</p></div>
         <div class="cert-clause"><p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p></div>
       </div>
     </div>
@@ -1021,7 +1023,7 @@
       - Five steps auto-cycle; let it run one full turn while you talk.
     -->
     <div class="kicker">Listening calibration in action</div>
-    <h2 style="font-size:clamp(1.3rem,3vw,2.05rem);max-width:26ch;margin-bottom:.2rem">How I raised <span class="accent">€398,000</span> without product-market fit.</h2>
+    <h2 style="font-size:clamp(1.3rem,3vw,2.05rem);max-width:26ch;margin-bottom:.2rem">The <span class="accent">fundraising</span> loop</h2>
     <div id="calibration-loop" style="position:relative;width:100%;max-width:min(68vh,660px);margin:1rem auto 0;aspect-ratio:1/1;background:#ffffff;border:1px solid hsl(240 5.9% 90%);box-shadow:0 10px 40px rgba(0,0,0,.06);border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;user-select:none;-webkit-user-select:none;">
 <style>
   #calibration-loop * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1229,7 +1231,7 @@
       - Same diagram, turned on itself: the obstacle is ego, fear, laziness; the knowledge is the Min principle.
       - Clarity of the problem statement is achievable given the will and skill to reveal the gaps.
     -->
-    <div class="kicker">The principle of meta-optimism</div>
+    <div class="kicker">The principle of optimism, applied</div>
     <!-- FOUNDER DECISION: heading wording -->
     <h2 style="font-size:clamp(1.35rem,3.2vw,2.4rem);margin-bottom:.2rem">How to gain <span class="accent">clarity</span> over the problem definition?</h2>
     <div class="fd">
@@ -1251,7 +1253,7 @@
         <!-- knowledge: the route around the obstacle -->
         <path d="M95,92 C135,248 545,248 585,92" fill="none" stroke="#3b82f6" stroke-width="3" marker-end="url(#karrow2)"/>
         <text x="340" y="165" text-anchor="middle" fill="#3b82f6" font-size="17" font-weight="800">knowledge</text>
-        <text x="340" y="184" text-anchor="middle" fill="#71717a" font-size="11.5" font-style="italic">Verified understanding of the Min Principle</text>
+        <text x="340" y="184" text-anchor="middle" fill="#71717a" font-size="11.5" font-style="italic">Verified understanding of the lower-number rule</text>
         <!-- obstacle block in the middle -->
         <rect x="268" y="58" width="144" height="68" rx="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
         <text x="340" y="84" text-anchor="middle" fill="#ef4444" font-size="14" font-weight="800" letter-spacing=".03em">OBSTACLE</text>
