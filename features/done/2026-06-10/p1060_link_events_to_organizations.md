@@ -13,6 +13,7 @@ test_files:
   - e2e/p1060-org-directory.spec.ts
   - e2e/a11y/p1060-accessibility.spec.ts
 completed_at: 2026-08-31
+superseded_by: p1204
 ---
 
 # P1060: Events belong to an organization — and the second organization that needs it
