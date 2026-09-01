@@ -35,12 +35,16 @@ interface DbAgreementRow {
   display_id: string | null;
   creator_profile_id: string;
   partner_profile_id: string | null;
-  partner_email: string;
+  // P1222: partner_email and invitation_token are party-only columns. Public reads
+  // go through the column-scoped RPCs (get_public_agreement /
+  // get_public_agreements_for_profile), which never return them — so both are
+  // optional on the row type and map to '' when absent.
+  partner_email?: string;
   partner_display_name: string | null;  // P466
   terms_text: string;
   status: string;
   visibility: string;
-  invitation_token: string;
+  invitation_token?: string;
   invitation_expires_at: string;
   created_at: string;
   partner_signed_at: string | null;
@@ -82,12 +86,12 @@ function mapDbRowToAgreement(
     displayId: row.display_id ?? '',
     creatorProfileId: row.creator_profile_id,
     partnerProfileId: row.partner_profile_id ?? null,
-    partnerEmail: row.partner_email,
+    partnerEmail: row.partner_email ?? '',
     partnerDisplayName: row.partner_display_name ?? null,
     termsText: row.terms_text,
     status: row.status as AgreementStatus,
     visibility: row.visibility as AgreementVisibility,
-    invitationToken: row.invitation_token,
+    invitationToken: row.invitation_token ?? '',
     invitationExpiresAt: row.invitation_expires_at,
     createdAt: row.created_at,
     partnerSignedAt: row.partner_signed_at ?? null,
@@ -240,28 +244,56 @@ export const realAgreementsService: AgreementsService = {
   async getAgreement(id: string): Promise<ClarityAgreement | null> {
     log('getAgreement:', id);
 
+    // P1222: the table policy is parties-only. A party (creator/partner, or the
+    // pending invitee by email) gets the full row here; anyone else gets nothing
+    // and falls through to the column-scoped public RPC, which returns the row
+    // only when visibility='public' and never returns partner_email or
+    // invitation_token.
     const { data, error } = await supabase
       .from('clarity_agreements')
       .select('*')
       .eq('id', id)
       .maybeSingle();
 
-    if (error || !data) {
-      log('getAgreement not found or error:', error);
-      return null;
+    let row: DbAgreementRow | null = null;
+    let isPartyRead = false;
+
+    if (error) {
+      log('getAgreement table read error:', error);
+    } else if (data) {
+      row = data as DbAgreementRow;
+      isPartyRead = true;
     }
 
-    const row = data as DbAgreementRow;
+    if (!row) {
+      const { data: publicRows, error: rpcError } = await supabase
+        .rpc('get_public_agreement', { p_id: id });
+      if (rpcError) {
+        log('getAgreement public RPC error:', rpcError);
+      }
+      const publicRow = (publicRows as DbAgreementRow[] | null)?.[0] ?? null;
+      if (!publicRow) {
+        log('getAgreement not found:', id);
+        return null;
+      }
+      row = publicRow;
+    }
 
-    // Lazy expiry: if pending and past expiry date, mark expired
+    // Lazy expiry: if pending and past expiry date, mark expired.
+    // Only a party can write this (UPDATE policy); a public reader just sees
+    // the computed status.
     if (row.status === 'pending' && new Date(row.invitation_expires_at) < new Date()) {
-      const { error: updateError } = await supabase
-        .from('clarity_agreements')
-        .update({ status: 'expired' })
-        .eq('id', id);
-
-      if (!updateError) {
+      if (!isPartyRead) {
         row.status = 'expired';
+      } else {
+        const { error: updateError } = await supabase
+          .from('clarity_agreements')
+          .update({ status: 'expired' })
+          .eq('id', id);
+
+        if (!updateError) {
+          row.status = 'expired';
+        }
       }
     }
 
@@ -310,34 +342,52 @@ export const realAgreementsService: AgreementsService = {
 
     const isOwner = viewerProfileId === profileId;
 
-    let query = supabase
-      .from('clarity_agreements')
-      .select('*')
-      .or(`creator_profile_id.eq.${profileId},partner_profile_id.eq.${profileId}`);
+    let rows: DbAgreementRow[];
 
-    if (!isOwner) {
-      if (viewerProfileId) {
-        // Visitor who may be party: include public active OR any agreement they are party to
-        query = query.or(
-          `and(status.eq.active,visibility.eq.public),creator_profile_id.eq.${viewerProfileId},partner_profile_id.eq.${viewerProfileId}`
-        );
-      } else {
-        // Anonymous: only public active agreements
-        query = query.eq('status', 'active').eq('visibility', 'public');
+    if (isOwner) {
+      // Owner: active, pending, terminated (not declined, not expired — those are noise).
+      // The owner is a party to every row here, so the table read is complete.
+      const { data, error } = await supabase
+        .from('clarity_agreements')
+        .select('*')
+        .or(`creator_profile_id.eq.${profileId},partner_profile_id.eq.${profileId}`)
+        .in('status', ['active', 'pending', 'terminated']);
+
+      if (error || !data) {
+        logDbError('getAgreementsForProfile', error);
+        return [];
       }
+      rows = data as DbAgreementRow[];
     } else {
-      // Owner: active, pending, terminated (not declined, not expired — those are noise)
-      query = query.in('status', ['active', 'pending', 'terminated']);
+      // P1222: visitors (anonymous or signed-in non-owner) read the public active
+      // agreements through the column-scoped RPC — the table policy is parties-only,
+      // so a direct select would return nothing for them. A signed-in visitor who is
+      // party to some of this profile's agreements still sees those via the table
+      // (RLS filters to their own rows); the two sets are unioned by id.
+      const { data: publicData, error: rpcError } = await supabase
+        .rpc('get_public_agreements_for_profile', { p_profile_id: profileId });
+
+      if (rpcError) {
+        logDbError('getAgreementsForProfile.public', rpcError);
+      }
+      const byId = new Map<string, DbAgreementRow>();
+      for (const r of (publicData as DbAgreementRow[] | null) ?? []) byId.set(r.id, r);
+
+      if (viewerProfileId) {
+        const { data: partyData, error: partyError } = await supabase
+          .from('clarity_agreements')
+          .select('*')
+          .or(`creator_profile_id.eq.${profileId},partner_profile_id.eq.${profileId}`)
+          .or(`creator_profile_id.eq.${viewerProfileId},partner_profile_id.eq.${viewerProfileId}`);
+
+        if (partyError) {
+          logDbError('getAgreementsForProfile.party', partyError);
+        }
+        for (const r of (partyData as DbAgreementRow[] | null) ?? []) byId.set(r.id, r);
+      }
+
+      rows = Array.from(byId.values());
     }
-
-    const { data, error } = await query;
-
-    if (error || !data) {
-      logDbError('getAgreementsForProfile', error);
-      return [];
-    }
-
-    const rows = data as DbAgreementRow[];
 
     if (rows.length === 0) return [];
 
