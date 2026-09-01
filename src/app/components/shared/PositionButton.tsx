@@ -363,6 +363,9 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
               onClick={() => handleGroupClick(group)}
               aria-pressed={isActive}
               aria-expanded={isActive ? isOpen : undefined}
+              // P1227: below ICON_ONLY_THRESHOLD the label span is not rendered, so the
+              // button had no accessible name (axe/Lighthouse button-name on /story).
+              aria-label={iconOnly ? buttonLabel : undefined}
               className={buttonClass}
               data-testid={`${group}-group`}
             >

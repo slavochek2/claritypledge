@@ -1377,6 +1377,7 @@ function StoryCardFull({
               navigate(`/p/${story.authorSlug || author.id}`);
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
+            aria-label={`View ${author.name}'s profile`}
           >
             <GravatarAvatar
               name={author.name}

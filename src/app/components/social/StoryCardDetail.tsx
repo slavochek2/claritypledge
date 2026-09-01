@@ -298,6 +298,7 @@ export function StoryCardDetail({
               navigate(profileRoute(story.authorSlug));
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
+            aria-label={`View ${story.authorName}'s profile`}
           >
             <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} avatarColor={story.authorAvatarColor} size="sm" isPledger={story.authorHasPledged ?? false} isAgent={isAgent} identityPending={identityPending} />
           </button>

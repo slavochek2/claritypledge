@@ -352,7 +352,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
       >
         <div className="container mx-auto px-4 lg:px-8">
           <div className="flex items-center h-16 lg:h-20">
-            <Link to="/" state={{ fromLogo: true }} className="hover:opacity-80 transition-opacity shrink-0">
+            <Link to="/" state={{ fromLogo: true }} className="hover:opacity-80 transition-opacity shrink-0" aria-label="ClarityPledge">
               <ClarityLogo size="sm" iconOnly className="lg:hidden" />
               <ClarityLogo size="sm" className="hidden lg:inline-flex" />
             </Link>
@@ -385,6 +385,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             to="/"
             state={{ fromLogo: true }}
             className="hover:opacity-80 transition-opacity shrink-0"
+            // P1227: the wordmark is display:none below lg, so the mobile link had no name.
+            aria-label="ClarityPledge"
             onClick={(e) => {
               if (location.pathname === "/") {
                 e.preventDefault();

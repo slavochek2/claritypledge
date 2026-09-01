@@ -28,12 +28,12 @@ export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: Vi
   if (showLabel) {
     return (
       <MobileTooltip content={description}>
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${labelClassName}`}
-          aria-label={`Visibility: ${label} — ${description}`}
-        >
+        {/* P1227: aria-label is prohibited on a generic span (axe aria-prohibited-attr);
+            the visible label is the name, the description stays as visually-hidden text. */}
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${labelClassName}`}>
           <Icon size={size} aria-hidden="true" />
           {label}
+          <span className="sr-only"> — {description}</span>
         </span>
       </MobileTooltip>
     );
@@ -41,8 +41,12 @@ export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: Vi
 
   return (
     <MobileTooltip content={description}>
-      <span className="text-muted-foreground inline-flex items-center min-w-[24px] min-h-[24px] justify-center">
-        <Icon size={size} aria-label={`${label}: ${description}`} />
+      <span
+        role="img"
+        aria-label={`${label}: ${description}`}
+        className="text-muted-foreground inline-flex items-center min-w-[24px] min-h-[24px] justify-center"
+      >
+        <Icon size={size} aria-hidden="true" />
       </span>
     </MobileTooltip>
   );
@@ -62,10 +66,11 @@ export function CardVisibilityCornerBadge({ visibility }: { visibility?: StoryVi
     <div className="absolute top-2 right-2 z-10">
       <MobileTooltip content={tooltip}>
         <span
+          role="img"
           className={`inline-flex items-center ${colorClassName}`}
           aria-label={tooltip}
         >
-          <Icon size={14} />
+          <Icon size={14} aria-hidden="true" />
         </span>
       </MobileTooltip>
     </div>
@@ -83,10 +88,11 @@ export function InlineVisibilityIcon({ visibility }: { visibility?: StoryVisibil
   return (
     <MobileTooltip content={tooltip}>
       <span
+        role="img"
         className={`inline-flex items-center ${colorClassName}`}
         aria-label={tooltip}
       >
-        <Icon size={14} />
+        <Icon size={14} aria-hidden="true" />
       </span>
     </MobileTooltip>
   );
