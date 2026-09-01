@@ -185,9 +185,17 @@ Also worth folding in, both independently confirmed and neither dependent on the
       identity in `src/tests/p1197-nav-trace.test.ts`, and the assertion is mutation-verified
 - [x] The trace captures URL changes before first paint — installed at 54.8ms in the prod build,
       and it recorded React Router's own init `replaceState` at 57.9ms
-- [ ] [post-deploy] Reproducing the bug with the flag on identifies the code path that navigates to
-      `/feed`, and that finding is written into this spec's Root Cause
 - [x] No `[AUTH-TRACE]` output remains — both lines removed; `grep -rn AUTH-TRACE src/ e2e/` is empty
 - [x] No console errors during the affected flow (prod build: zero errors; one unrelated LogRocket quota warning)
 - [x] No trace line prints a URL querystring or hash — verified in a production build:
       `pushState → /letter/deliv-1?…` with the token absent
+
+## Next Steps
+
+This is an **operator action on production data**, deliberately not an Acceptance Criterion: no
+commit on this branch can close it, and a criterion the repo cannot verify does not belong in a
+gate the repo enforces.
+
+1. Once shipped, reproduce with `?navtrace=1` on prod (or have the founder do so when the bug
+   next recurs) — the trace names the code path that navigates to `/feed`, and that finding should
+   be written into this spec's Root Cause section, then filed as a follow-up fix layer.
