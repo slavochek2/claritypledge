@@ -722,7 +722,7 @@ export function AuthCallbackPage() {
         const letterKeys = Object.keys(sessionStorage).filter(k => k.startsWith('letterCompletion_'));
         if (letterKeys.length > 0) {
           // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-          console.log('📬 P581: Found', letterKeys.length, 'anonymous letter completion(s) to persist');
+          if (import.meta.env.DEV) console.log('📬 P581: Found', letterKeys.length, 'anonymous letter completion(s) to persist');
           for (const key of letterKeys) {
             try {
               const completionData = JSON.parse(sessionStorage.getItem(key) ?? '{}');
@@ -738,7 +738,7 @@ export function AuthCallbackPage() {
                   console.error('⚠️ P581: Failed to link letter delivery:', linkError);
                 } else {
                   // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-                  console.log('✅ P581: Linked letter delivery', completionData.deliveryId);
+                  if (import.meta.env.DEV) console.log('✅ P581: Linked letter delivery', completionData.deliveryId);
                 }
               }
               sessionStorage.removeItem(key);
