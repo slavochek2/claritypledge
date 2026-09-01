@@ -104,6 +104,35 @@ whole stage-verify-commit sequence atomic regardless of cause.
 - [ ] `docs/decisions.md` records the cause, or records plainly that it was not found and
       what the mitigation is instead
 
+## Second reproduction — 2026-09-01, 0 files against 4 paths, and an over-record on the retry
+
+A `/push`-fix session hit this twice in ten minutes on the shared main checkout, in **both
+directions**, which narrows the cause.
+
+**Under-record.** `commit-to-main --files scripts/git-ops.sh .claude/commands/slava/build/push.md
+docs/decisions.md` printed `requested 3 path(s); the commit records 0 file(s)` plus the WARNING,
+exited 0, and produced `faf79d78` — an **entirely empty commit** carrying a detailed, confident
+message about work it does not contain. The index at call time had been built with
+`git apply --cached` (a partial-hunk stage, used to keep a co-tenant's in-flight hunks in the same
+file out of the commit) plus two plain `git add`s. So the empty result is not "nothing was staged":
+`git diff --cached --name-only` listed all three paths immediately before the call.
+
+**Over-record.** The retry, `ba4d6f00`, recorded `4 of 4` — but swept in **two hunks belonging to a
+concurrent session** that were uncommitted in `scripts/git-ops.sh`, despite the index having been
+built to exclude exactly those hunks. Their work is preserved (committed, not lost), but under
+another session's message — the failure `.claude/rules/git.md` describes at "a bystander-checked
+plain commit is still not safe on the shared checkout".
+
+**What this adds to Open Question 2:** the two observations together suggest `commit-to-main` is
+not committing the *index it was handed* — it appears to re-derive content from the paths and the
+working tree. That is consistent with an empty commit when the index holds partial hunks the
+working tree has moved past, AND with a full-file commit that ignores partial staging. A verify-
+after-write check would have caught both, loudly, in a session that instead reported success twice.
+
+**Evidence:** `faf79d78` (empty, `git diff --stat faf79d78^ faf79d78` → no output), `ba4d6f00`
+(4 files, includes the foreign `cmd_commit_to_main` advisory + `cmd_ship` die-message hunks),
+`docs/decisions.md` 2026-09-01 "The second `push-on` was never one bug".
+
 ## Open Questions
 
 1. Is `main.lock` intended to bind raw-git users at all? If it cannot, is a git hook the
