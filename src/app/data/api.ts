@@ -1004,7 +1004,6 @@ export async function createClaritySession(
       .single();
 
     if (!error && data) {
-      console.log('✅ Created clarity session:', code);
       // Splice the locally-minted code back on. Omitting this ships green and navigates
       // the creator to /live/undefined — nothing throws.
       // The cast is required because CLARITY_SESSION_COLUMNS is a runtime string, so
@@ -1058,7 +1057,6 @@ export async function joinClaritySession(
     | undefined;
 
   if (fetchError || !existing) {
-    console.log('Session not found:', normalizedCode);
     return null;
   }
 
@@ -1068,7 +1066,6 @@ export async function joinClaritySession(
   // caller can detect the ended state and route to SessionEndedScreen instead.
   const existingLiveState = existing.live_state as Record<string, unknown> | null;
   if (existingLiveState?.sessionEnded === true || existingLiveState?.joinerEnded === true) {
-    console.log('Session already ended — not joining:', normalizedCode);
     return mapSessionFromDb(existing, normalizedCode);
   }
 
@@ -1118,7 +1115,6 @@ export async function joinClaritySession(
     return null;
   }
 
-  console.log('✅ Joined clarity session');
   return mapSessionFromDb(claimed, normalizedCode);
 }
 
@@ -1174,7 +1170,6 @@ export async function updateClaritySessionLiveState(
   sessionId: string,
   liveState: Record<string, unknown>
 ): Promise<void> {
-  console.log('[Live API] Updating live state for session:', sessionId, liveState);
 
   const { error } = await supabase
     .from('clarity_sessions')
@@ -1191,7 +1186,6 @@ export async function updateClaritySessionLiveState(
     }
     throw new Error(error.message);
   }
-  console.log('[Live API] Live state updated successfully');
 }
 
 /**
@@ -1212,7 +1206,6 @@ export async function patchClaritySessionLiveState(
   sessionId: string,
   patch: Record<string, unknown>
 ): Promise<void> {
-  console.log('[Live API] Patching live state for session:', sessionId, patch);
 
   const { error } = await supabase.rpc('patch_live_state', {
     p_session_id: sessionId,
@@ -1225,7 +1218,6 @@ export async function patchClaritySessionLiveState(
     try { Sentry.captureException(new Error(`[Live API] patchLiveState: ${error.message}`), { extra: { code: error.code, details: error.details, sessionId } }); } catch { /* */ }
     throw new Error(error.message);
   }
-  console.log('[Live API] Live state patched successfully');
 }
 
 /**
@@ -1332,7 +1324,6 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
  * @param sessionId - The session UUID
  */
 export async function clearSessionJoiner(sessionId: string): Promise<void> {
-  console.log('[Live] Clearing joiner from session:', sessionId);
 
   // P1053: one RPC replaces the read-modify-write above.
   //
@@ -1361,7 +1352,6 @@ export async function clearSessionJoiner(sessionId: string): Promise<void> {
  * @param sessionId - The session UUID
  */
 export async function endClaritySession(sessionId: string): Promise<void> {
-  console.log('[Live] Ending session:', sessionId);
 
   // First get current live_state to merge with
   const { data: current } = await supabase
@@ -1541,7 +1531,6 @@ export async function updateDemoFlowState(
     throw new Error(error.message);
   }
 
-  console.log('✅ Updated demo flow state:', demoState);
 }
 
 /**
@@ -1579,7 +1568,6 @@ export async function saveDemoRound(round: Omit<DemoRound, 'id' | 'createdAt'>):
     throw new Error(error.message);
   }
 
-  console.log('✅ Saved demo round:', data);
   return mapDemoRoundFromDb(data);
 }
 
@@ -1628,7 +1616,6 @@ export async function saveClarityIdea(
     throw new Error(error.message);
   }
 
-  console.log('✅ Saved clarity idea:', data);
   return mapClarityIdeaFromDb(data);
 }
 
@@ -1781,7 +1768,6 @@ export async function sendChatMessage(
     throw new Error(error.message);
   }
 
-  console.log('✅ Sent chat message:', data);
   return mapChatMessageFromDb(data);
 }
 
@@ -1826,7 +1812,6 @@ export function subscribeToChatMessages(
         filter: `session_id=eq.${sessionId}`,
       },
       (payload) => {
-        console.log('📨 New chat message:', payload);
         if (payload.new) {
           onNewMessage(mapChatMessageFromDb(payload.new as DbChatMessage));
         }
@@ -1883,7 +1868,6 @@ export async function createVerification(
     throw new Error(error.message);
   }
 
-  console.log(`✅ Created verification (round ${roundNumber}):`, data);
   return mapVerificationFromDb(data);
 }
 
@@ -2003,7 +1987,6 @@ export async function rateVerification(
     throw new Error(error.message);
   }
 
-  console.log('✅ Rated verification:', data);
   return mapVerificationFromDb(data);
 }
 
@@ -2029,7 +2012,6 @@ export async function setVerificationPosition(
     throw new Error(error.message);
   }
 
-  console.log('✅ Set position:', data);
   return mapVerificationFromDb(data);
 }
 
@@ -2084,7 +2066,6 @@ export async function requestExplanation(
     throw new Error(error.message);
   }
 
-  console.log('✅ Requested explanation for message:', messageId);
   return mapChatMessageFromDb(data);
 }
 
@@ -2126,7 +2107,6 @@ export async function cancelExplanationRequest(
     throw new Error(error.message);
   }
 
-  console.log('✅ Canceled explanation request for message:', messageId);
   return mapChatMessageFromDb(data);
 }
 
@@ -2152,7 +2132,6 @@ export function subscribeToChatMessageUpdates(
         filter: `session_id=eq.${sessionId}`,
       },
       (payload) => {
-        console.log('📡 Chat message updated:', payload);
         if (payload.new) {
           onUpdate(mapChatMessageFromDb(payload.new as DbChatMessage));
         }
@@ -2188,7 +2167,6 @@ export function subscribeToVerifications(
         table: 'clarity_verifications',
       },
       async (payload) => {
-        console.log('📡 Verification update:', payload);
         if (payload.new && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
           const v = mapVerificationFromDb(payload.new as DbVerification);
           // Check if this verification belongs to this session
@@ -2524,7 +2502,6 @@ export async function createFeedIdea(
     throw new Error(error.message);
   }
 
-  console.log('✅ Created feed idea:', data);
   return {
     ...mapFeedIdeaFromDb(data),
     agreeCount: 0,
@@ -2585,7 +2562,6 @@ export async function voteOnIdea(
       throw new Error(error.message);
     }
 
-    console.log('✅ Updated vote:', data);
     return mapIdeaVoteFromDb(data);
   }
 
@@ -2606,7 +2582,6 @@ export async function voteOnIdea(
     throw new Error(error.message);
   }
 
-  console.log('✅ Created vote:', data);
   return mapIdeaVoteFromDb(data);
 }
 
@@ -2714,7 +2689,6 @@ export async function addIdeaComment(
     throw new Error(error.message);
   }
 
-  console.log('✅ Added comment:', data);
   return mapIdeaCommentFromDb(data);
 }
 
@@ -2779,7 +2753,6 @@ export function subscribeToFeed(
           filter: 'visibility=eq.public',
         },
         (payload) => {
-          console.log('📡 New feed idea:', payload);
           if (payload.new) {
             const idea = mapFeedIdeaFromDb(payload.new as DbFeedIdea);
             onNewIdea({
@@ -2808,7 +2781,6 @@ export function subscribeToFeed(
           table: 'clarity_idea_votes',
         },
         (payload) => {
-          console.log('📡 Vote change:', payload);
           const ideaId = (payload.new as DbIdeaVote)?.idea_id || (payload.old as DbIdeaVote)?.idea_id;
           if (ideaId) {
             onVoteChange(ideaId);
@@ -2864,7 +2836,6 @@ function mapLiveTurnFromDb(db: DbLiveTurn): LiveTurn {
 export async function saveLiveTurn(
   turn: Omit<LiveTurn, 'id' | 'createdAt'>
 ): Promise<LiveTurn> {
-  console.log('[Live API] Saving live turn:', turn);
 
   const { data, error } = await supabase
     .from('clarity_live_turns')
@@ -2895,7 +2866,6 @@ export async function saveLiveTurn(
     throw new Error(error.message);
   }
 
-  console.log('[Live API] Saved live turn:', data);
   return mapLiveTurnFromDb(data);
 }
 
@@ -2940,7 +2910,6 @@ export function subscribeToLiveTurns(
         filter: `session_id=eq.${sessionId}`,
       },
       (payload) => {
-        console.log('📡 New live turn:', payload);
         if (payload.new) {
           onNewTurn(mapLiveTurnFromDb(payload.new as DbLiveTurn));
         }
@@ -2949,7 +2918,6 @@ export function subscribeToLiveTurns(
     .subscribe();
 
   return () => {
-    console.log('📡 Unsubscribing from live turns:', sessionId);
     supabase.removeChannel(channel);
   };
 }
@@ -3001,7 +2969,6 @@ async function withRetry<T>(
         const backoffMs = baseDelayMs * Math.pow(2, attempt - 1); // 1s, 2s, 4s
         const jitterMs = Math.random() * 500; // 0-500ms jitter to avoid thundering herd
         const delayMs = Math.max(retryAfterMs, backoffMs) + jitterMs;
-        console.log(`[ML Upload] ${operation} attempt ${attempt} failed${isRateLimited ? ' (rate limited)' : ''}, retrying in ${Math.round(delayMs)}ms...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
@@ -3156,17 +3123,14 @@ export async function uploadAudioChunk(
   const chunkFileName = `${devPrefix}${sanitizedName}_chunk_${paddedChunkNum}.webm`;
   const contentType = chunkBlob.type || 'audio/webm';
 
-  console.log(`[ML Upload] Uploading chunk ${chunkNumber} for ${sanitizedName}, size: ${chunkBlob.size}, isLast: ${isLastChunk}`);
-
   try {
-    const { uploadUrl, filePath } = await getSignedUploadUrl(
+    const { uploadUrl } = await getSignedUploadUrl(
       sessionCode,
       chunkFileName,
       contentType
     );
 
     await uploadToGCS(uploadUrl, chunkBlob, contentType);
-    console.log(`[ML Upload] Chunk ${chunkNumber} uploaded: ${filePath}`);
 
     // If this is the last chunk, record in DB for tracking
     if (isLastChunk) {
@@ -3224,16 +3188,13 @@ export async function uploadSingleChunk(
   const chunkFileName = `${devPrefix}${sanitizedName}_chunk_${paddedChunkNum}.webm`;
   const contentType = chunkBlob.type || 'audio/webm';
 
-  console.log(`[ML Upload] uploadSingleChunk ${chunkNumber} for ${sanitizedName}, size: ${chunkBlob.size}`);
-
-  const { uploadUrl, filePath } = await getSignedUploadUrl(
+  const { uploadUrl } = await getSignedUploadUrl(
     sessionCode,
     chunkFileName,
     contentType
   );
 
   await uploadToGCS(uploadUrl, chunkBlob, contentType);
-  console.log(`[ML Upload] Chunk ${chunkNumber} uploaded: ${filePath}`);
 }
 
 /**
@@ -3318,12 +3279,9 @@ export async function uploadRoomAudioChunk(
   const chunkFileName = `${devPrefix}chunk_${paddedChunkNum}.webm`;
   const contentType = chunkBlob.type || 'audio/webm';
 
-  console.log(`[ML Upload] Room chunk ${chunkNumber} for ${gcsPathPrefix}, size: ${chunkBlob.size}, isLast: ${isLastChunk}`);
-
   try {
-    const { uploadUrl, filePath } = await getSignedUploadUrl(gcsPathPrefix, chunkFileName, contentType);
+    const { uploadUrl } = await getSignedUploadUrl(gcsPathPrefix, chunkFileName, contentType);
     await uploadToGCS(uploadUrl, chunkBlob, contentType);
-    console.log(`[ML Upload] Room chunk ${chunkNumber} uploaded: ${filePath}`);
 
     if (isLastChunk) {
       const totalChunks = chunkNumber + 1;
@@ -3406,13 +3364,10 @@ export async function uploadEventsSnapshot(
     uploader, // For Mixpanel correlation (userId, email, name)
   };
 
-  console.log(`[ML Upload] Uploading events snapshot ${chunkNumber} for ${sanitizedName}: ${events.length} events`);
-
   try {
     const { uploadUrl } = await getSignedUploadUrl(sessionCode, fileName, 'application/json');
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     await uploadToGCS(uploadUrl, blob, 'application/json');
-    console.log(`[ML Upload] Events snapshot ${chunkNumber} uploaded: ${events.length} events`);
   } catch (err) {
     console.error(`[ML Upload] Events snapshot ${chunkNumber} upload failed:`, err);
     // Capture to Sentry for monitoring ML data loss
@@ -3456,11 +3411,8 @@ export async function uploadSessionRecording(
 
   // Skip upload entirely when there's no meaningful data (0 events + no audio)
   if (events.length === 0 && audioBlob.size === 0) {
-    console.log('[ML Upload] Skipping upload — no events and no audio for session:', sessionCode);
     return;
   }
-
-  console.log('[ML Upload] Starting GCS upload for session:', sessionCode, 'user:', sanitizedName);
 
   try {
     let audioPath = '';
@@ -3472,7 +3424,6 @@ export async function uploadSessionRecording(
       const audioFileName = `${devPrefix}${sanitizedName}.webm`;
       const audioContentType = audioBlob.type || 'audio/webm';
 
-      console.log('[ML Upload] Getting signed URL for audio...');
       const { uploadUrl: audioUrl, filePath } = await getSignedUploadUrl(
         sessionCode,
         audioFileName,
@@ -3480,11 +3431,7 @@ export async function uploadSessionRecording(
       );
       audioPath = filePath;
 
-      console.log('[ML Upload] Uploading audio to GCS...');
       await uploadToGCS(audioUrl, audioBlob, audioContentType);
-      console.log('[ML Upload] Audio uploaded successfully:', audioPath);
-    } else {
-      console.log('[ML Upload] Skipping audio upload (empty blob - using chunked mode)');
     }
 
     // 2. Upload events.json to GCS (always upload - GCS handles dedup via overwrite)
@@ -3503,16 +3450,13 @@ export async function uploadSessionRecording(
       type: 'application/json',
     });
 
-    console.log('[ML Upload] Getting signed URL for events...');
-    const { uploadUrl: eventsUrl, filePath: eventsPath } = await getSignedUploadUrl(
+    const { uploadUrl: eventsUrl } = await getSignedUploadUrl(
       sessionCode,
       `${devPrefix}events.json`,
       'application/json'
     );
 
-    console.log('[ML Upload] Uploading events to GCS...');
     await uploadToGCS(eventsUrl, eventsBlob, 'application/json');
-    console.log('[ML Upload] Events uploaded successfully:', eventsPath);
 
     // 3. Create DB record for tracking (only if we uploaded audio, skip for events-only upload)
     if (audioPath) {
@@ -3530,12 +3474,9 @@ export async function uploadSessionRecording(
 
       if (dbError) {
         console.warn('[ML Upload] DB record failed (non-fatal):', dbError.message);
-      } else {
-        console.log('[ML Upload] DB record created for:', sessionCode, userName);
       }
     }
 
-    console.log('[ML Upload] Upload complete for session:', sessionCode);
   } catch (err) {
     console.error('[ML Upload] Upload failed:', err);
     // Capture to Sentry for monitoring ML data loss
@@ -3618,7 +3559,6 @@ export async function recordTermsAcceptance(userId: string): Promise<void> {
     // Don't throw - profile was updated, audit is secondary
   }
 
-  console.log('Terms acceptance recorded:', { userId, version: CURRENT_TERMS_VERSION });
 }
 
 /**
@@ -3655,7 +3595,6 @@ export async function recordSessionConsent(
     throw new Error('Failed to record consent');
   }
 
-  console.log('Session consent recorded:', { sessionId, userId });
 }
 
 /**
@@ -3686,7 +3625,6 @@ export async function verifySessionConsent(
 
   return true;
 }
-
 
 /**
  * Hash IP address for audit trail (with timeout).
@@ -3767,7 +3705,6 @@ function mapEventWithHostFromDb(
  * Includes host profile data for display
  */
 export async function getUpcomingEvents(): Promise<EventWithHost[]> {
-  console.log('[Events API] Fetching upcoming events...');
 
   const { data, error } = await supabase
     .from('events')
@@ -3783,7 +3720,6 @@ export async function getUpcomingEvents(): Promise<EventWithHost[]> {
     return [];
   }
 
-  console.log(`[Events API] Found ${data?.length || 0} upcoming events`);
   return (data || []).map(mapEventWithHostFromDb);
 }
 
@@ -3792,7 +3728,6 @@ export async function getUpcomingEvents(): Promise<EventWithHost[]> {
  * Sorted newest first
  */
 export async function getPastEvents(): Promise<EventWithHost[]> {
-  console.log('[Events API] Fetching past events...');
 
   const { data, error } = await supabase
     .from('events')
@@ -3808,7 +3743,6 @@ export async function getPastEvents(): Promise<EventWithHost[]> {
     return [];
   }
 
-  console.log(`[Events API] Found ${data?.length || 0} past events`);
   return (data || []).map(mapEventWithHostFromDb);
 }
 
@@ -3817,7 +3751,6 @@ export async function getPastEvents(): Promise<EventWithHost[]> {
  * Returns null if not found
  */
 export async function getEventBySlug(slug: string): Promise<EventWithHost | null> {
-  console.log('[Events API] Fetching event by slug:', slug);
 
   const { data, error } = await supabase
     .from('events')
@@ -3830,7 +3763,6 @@ export async function getEventBySlug(slug: string): Promise<EventWithHost | null
 
   if (error) {
     if (error.code === 'PGRST116') {
-      console.log('[Events API] Event not found:', slug);
       return null;
     }
     console.error('[Events API] Error fetching event:', error);
@@ -3845,7 +3777,6 @@ export async function getEventBySlug(slug: string): Promise<EventWithHost | null
  * Returns profile data for display
  */
 export async function getEventAttendees(eventId: string): Promise<EventAttendee[]> {
-  console.log('[Events API] Fetching attendees for event:', eventId);
 
   const { data, error } = await supabase
     .from('event_rsvps')
@@ -3942,7 +3873,6 @@ interface CreateEventInput {
  * Retries with timestamp suffix on slug conflict
  */
 export async function createEvent(input: CreateEventInput): Promise<Event | null> {
-  console.log('[Events API] Creating event:', input.title);
 
   let slug = generateEventSlug(input.title);
   let retries = 0;
@@ -3971,14 +3901,12 @@ export async function createEvent(input: CreateEventInput): Promise<Event | null
       if (error.code === '23505') {
         retries++;
         slug = `${generateEventSlug(input.title)}-${Date.now()}`;
-        console.log('[Events API] Slug conflict, retrying with:', slug);
         continue;
       }
       console.error('[Events API] Error creating event:', error);
       return null;
     }
 
-    console.log('[Events API] Event created:', data.id);
     return mapEventFromDb(data);
   }
 
@@ -3992,12 +3920,10 @@ export async function createEvent(input: CreateEventInput): Promise<Event | null
  * Returns false if event is full or already RSVP'd
  */
 export async function rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
-  console.log('[Events API] RSVP to event:', eventId, 'by:', profileId);
 
   // Check if already RSVP'd
   const alreadyRsvpd = await isUserRsvpd(eventId, profileId);
   if (alreadyRsvpd) {
-    console.log('[Events API] User already RSVP\'d');
     return true;
   }
 
@@ -4014,14 +3940,12 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
   }
 
   if (event.status !== 'upcoming') {
-    console.log('[Events API] Cannot RSVP to non-upcoming event');
     return false;
   }
 
   if (event.max_attendees) {
     const currentCount = await getEventAttendeeCount(eventId);
     if (currentCount >= event.max_attendees) {
-      console.log('[Events API] Event is full');
       return false;
     }
   }
@@ -4039,7 +3963,6 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
     return false;
   }
 
-  console.log('[Events API] RSVP successful');
   return true;
 }
 
@@ -4047,7 +3970,6 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
  * Cancels a user's RSVP to an event
  */
 export async function cancelRsvp(eventId: string, profileId: string): Promise<boolean> {
-  console.log('[Events API] Cancel RSVP for event:', eventId, 'by:', profileId);
 
   const { error } = await supabase
     .from('event_rsvps')
@@ -4060,7 +3982,6 @@ export async function cancelRsvp(eventId: string, profileId: string): Promise<bo
     return false;
   }
 
-  console.log('[Events API] RSVP canceled');
   return true;
 }
 
@@ -4078,7 +3999,6 @@ interface UpdateEventInput {
  * Updates an event (host only - RLS enforced + explicit ownership check)
  */
 export async function updateEvent(eventId: string, input: UpdateEventInput): Promise<Event | null> {
-  console.log('[Events API] Updating event:', eventId);
 
   // Defense-in-depth: verify caller is the event host
   const { data: { user } } = await supabase.auth.getUser();
@@ -4124,7 +4044,6 @@ export async function updateEvent(eventId: string, input: UpdateEventInput): Pro
     return null;
   }
 
-  console.log('[Events API] Event updated');
   return mapEventFromDb(data);
 }
 
@@ -4133,7 +4052,6 @@ export async function updateEvent(eventId: string, input: UpdateEventInput): Pro
  * Host only - RLS enforced + explicit ownership check
  */
 export async function cancelEvent(eventId: string): Promise<boolean> {
-  console.log('[Events API] Canceling event:', eventId);
 
   // Defense-in-depth: verify caller is the event host
   const { data: { user } } = await supabase.auth.getUser();
@@ -4168,7 +4086,6 @@ export async function cancelEvent(eventId: string): Promise<boolean> {
     return false;
   }
 
-  console.log('[Events API] Event canceled');
   return true;
 }
 

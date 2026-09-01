@@ -66,7 +66,6 @@ export function ClarityDemoPage() {
     }, 10000);
 
     const unsubscribe = subscribeToClaritySession(session.id, session.code, (updatedSession) => {
-      console.log("Session updated:", updatedSession);
       lastUpdate = Date.now();
       setConnectionError(null); // Clear error on successful update
       setSession(updatedSession);

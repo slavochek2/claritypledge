@@ -449,6 +449,7 @@ export function PointDetailPage() {
               height = Math.max(height, dropdownBottom);
             }
             height += 4;
+            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
             if (import.meta.env.DEV) console.log('[embed-resize]', height);
             window.parent.postMessage({ type: 'claritypledge-embed-resize', height }, '*');
           };

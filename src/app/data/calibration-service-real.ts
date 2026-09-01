@@ -23,6 +23,7 @@ export { REQUIRED_SESSIONS } from './calibration-service.interface';
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
 const log = (...args: unknown[]) =>
+  // eslint-disable-next-line no-console -- gated by DEBUG (import.meta.env.DEV); dev-only diagnostic (P1200)
   DEBUG && console.log('[calibration-service-real]', ...args);
 
 // Database row type for verifications with joined profiles

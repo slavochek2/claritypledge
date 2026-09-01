@@ -24,6 +24,7 @@ import { generateAIBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
+// eslint-disable-next-line no-console -- gated by DEBUG (import.meta.env.DEV); dev-only diagnostic (P1200)
 const log = (...args: unknown[]) => DEBUG && console.log('[stories-service-real]', ...args);
 
 // Database row type with joined author profile

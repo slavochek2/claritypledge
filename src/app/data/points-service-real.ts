@@ -22,6 +22,7 @@ import { earCountOf } from './ear-count';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
+// eslint-disable-next-line no-console -- gated by DEBUG (import.meta.env.DEV); dev-only diagnostic (P1200)
 const log = (...args: unknown[]) => DEBUG && console.log('[points-service-real]', ...args);
 
 // All position types for counting

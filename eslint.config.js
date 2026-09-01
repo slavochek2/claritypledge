@@ -74,12 +74,30 @@ export default tseslint.config(
       }],
     },
   },
-  // Test files - allow 'any' and non-null assertions for mocking/assertions
+  // P1200: production console must stay quiet. console.error/warn remain
+  // allowed (they route to Sentry / surface real problems); ungated
+  // console.log is a lint error under src/. Test files are excluded below —
+  // they run under vitest, never ship, and this codebase already logs
+  // intentionally in a couple of them.
+  // Scoped to src/app/ (not all of src/) because that is the audited scope of
+  // P1200 — src/auth/, src/hooks/, and src/lib/ have their own pre-existing
+  // ungated console.log sites that were never part of this fix's Affected
+  // Files list. Widening this to src/** would fail the build on ~63
+  // unrelated violations. See P1200 Evidence section.
+  {
+    files: ['src/app/**/*.{ts,tsx}'],
+    rules: {
+      'no-console': ['error', { allow: ['error', 'warn'] }],
+    },
+  },
+  // Test files - allow 'any' and non-null assertions for mocking/assertions,
+  // and allow console.log (P1200) since these never ship to production.
   {
     files: ['**/*.test.{ts,tsx}', '**/tests/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      'no-console': 'off',
     },
   },
   // E2e test files — relaxed rules for Playwright patterns

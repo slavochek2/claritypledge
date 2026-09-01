@@ -866,17 +866,11 @@ export function ClarityLivePage() {
       // P28.2: Only record in prod by default. P809: non-prod can opt-in via
       // `?dev-recording=1` URL flag for local reproduction of upload bugs.
       // Prod path is untouched — the flag is no-op there.
-      if (!import.meta.env.PROD) {
-        if (isDevRecordingActive()) {
-          console.log('[P28.1] DEV RECORDING ACTIVE — uploading with _dev_ prefix');
-        } else {
-          console.log('[P28.1] Skipping recording in dev mode (mic permission granted)');
-          return;
-        }
+      if (!import.meta.env.PROD && !isDevRecordingActive()) {
+        return;
       }
 
       // Permission granted - start recording
-      console.log('[P28.1] Session is live, starting recording and events collection');
       // Set refs for chunk upload callback (avoids stale closures)
       sessionCodeForChunks.current = session.code;
       userNameForChunks.current = name;
@@ -930,11 +924,9 @@ export function ClarityLivePage() {
     // Only request if not already granted or in progress
     // Gate A (P160): skip mic request for private sessions — no recording needed
     if (view === 'waiting' && isCreator && micStatus === 'unknown' && !isPrivate) {
-      console.log('[Mic] Proactively requesting mic permission for host in waiting view');
       requestMicPermission().then((granted) => {
         if (!granted) {
           // Show retry dialog if permission denied
-          console.log('[Mic] Permission denied in waiting view, showing retry dialog');
           setShowMicDialog(true);
         }
       });
@@ -1249,6 +1241,7 @@ export function ClarityLivePage() {
           const incoming = updatedSession.liveState as Record<string, unknown>;
           const prevPhase = confirmedLiveStateRef.current.ratingPhase;
           const nextPhase = mergedState.ratingPhase;
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           console.log(
             `[Realtime] ${new Date().toISOString()} Event ${stateRegression ? 'REJECTED (regression)' : updateInFlightRef.current ? 'MERGED (inFlight)' : 'applied'}:`,
             `phase=${prevPhase}→${nextPhase}`,
@@ -1445,6 +1438,7 @@ export function ClarityLivePage() {
 
         if (!hasLiveState || !hasJoiner) {
           if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
             console.log(`[Drift Poll] SKIPPED: hasLiveState=${hasLiveState}, hasJoiner=${hasJoiner}`);
           }
           return;
@@ -1490,6 +1484,7 @@ export function ClarityLivePage() {
         const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift || livePositionsCreatorDrift || livePositionsJoinerDrift || ratingInitiatedByDrift || freeSliderCreatorDrift || freeSliderJoinerDrift;
 
         if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           console.log(`[Drift Poll] server.ratingInitiatedBy=${serverState.ratingInitiatedBy}, local.ratingInitiatedBy=${localState.ratingInitiatedBy}, drift=${ratingInitiatedByDrift}, serverHasUpdate=${serverHasUpdate}`);
         }
 
@@ -1587,6 +1582,7 @@ export function ClarityLivePage() {
         // slider values with stale data captured before the write started.
         confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...updates } as LiveSessionState;
         if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
           console.log(`[LiveUpdate] Write succeeded: ${Object.keys(updates).join(', ')}`);
         }
       } catch (err) {
@@ -1728,6 +1724,7 @@ export function ClarityLivePage() {
     const currentState = confirmedLiveStateRef.current;
     if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
       if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
         console.log(`[Guard] handleStartCheck: ref.ratingPhase=${currentState.ratingPhase}, ref.checkerName=${!!currentState.checkerName}, action=rejected`);
       }
       return;
@@ -2222,6 +2219,7 @@ export function ClarityLivePage() {
 
       if (import.meta.env.DEV) {
         const cs = confirmedLiveStateRef.current;
+        // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
         console.log(
           `[RatingSubmit] ${new Date().toISOString()}`,
           `rating=${rating}`,
@@ -2509,6 +2507,7 @@ export function ClarityLivePage() {
   useEffect(() => {
     const bothAcknowledged = isBothAcknowledged(liveState);
     if (import.meta.env.DEV && bothAcknowledged && liveState.ratingPhase !== 'idle') {
+      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
       console.log(
         `[ReactiveReset] ${new Date().toISOString()}`,
         `bothAck=true phase=${liveState.ratingPhase} guard=${reactiveResetFiredRef.current}`,
@@ -2888,7 +2887,6 @@ export function ClarityLivePage() {
       // Step 1: Check mic permission BEFORE writing to database
       // This ensures we don't tell the creator we "joined" if we can't actually participate
       // Note: We check permission directly, NOT via gateMicAndGoLive which also changes view
-      console.log('[Join] Checking mic permission before joining session...');
 
       // P490: Allow /verify browser automation to skip the native mic permission dialog
       // (Chrome's getUserMedia dialog is not dismissible by automation tools)
@@ -2903,7 +2901,6 @@ export function ClarityLivePage() {
       if (!hasMicPermission) {
         // Mic permission denied - don't write to database, don't join
         // Store join info for retry, then show the mic dialog
-        console.log('[Join] Mic permission denied, aborting join');
         pendingJoinRef.current = { code, joinName };
         setShowMicDialog(true);
         analytics.track('live_session_join_blocked', {
@@ -2914,7 +2911,6 @@ export function ClarityLivePage() {
       }
 
       // Step 2: Mic granted - now safe to join the session
-      console.log('[Join] Mic granted, joining session...');
       const joinedSession = await joinClaritySession(code, joinName, user?.id);
       if (!joinedSession) {
         setError('Session not found or already full');
@@ -2957,7 +2953,6 @@ export function ClarityLivePage() {
       });
 
       // Step 3: Now transition to live view (mic is granted, session is joined)
-      console.log('[Join] Session joined, transitioning to live view');
       setView('live');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join session');
@@ -3428,7 +3423,6 @@ export function ClarityLivePage() {
   // This function stops recording, drains the upload queue, and uploads events.json
   const stopAndUploadRecording = useCallback(async () => {
     if (!session || !eventsCollectorRef.current.isStarted()) {
-      console.log('[P28.1] No recording to stop');
       return;
     }
 
@@ -3487,8 +3481,6 @@ export function ClarityLivePage() {
           ? { supabaseUserId: currentUser.id, email: currentUser.email, name }
           : { name },
       };
-
-      console.log('[P28.1] Uploading events.json for session:', session.code, 'events:', events.length);
 
       // Use uploadSessionRecording with an empty blob to just upload events
       // The function handles this gracefully and uploads events.json
@@ -3602,7 +3594,6 @@ export function ClarityLivePage() {
     if (session && !session.isPrivate && session.id && session.code) {
       try {
         await createTranscriptionJob(session.code, session.id);
-        console.log('[P495] Transcription job created for session:', session.code);
       } catch (err) {
         console.error('[P495] Failed to create transcription job:', err);
       }
@@ -3705,7 +3696,6 @@ export function ClarityLivePage() {
       // If we have pending join info (from failed join attempt), complete the join
       const pendingJoin = pendingJoinRef.current;
       if (pendingJoin?.joinName) {
-        console.log('[MicRetry] Mic granted, completing pending join...');
         pendingJoinRef.current = null;
         // Complete the join now that mic is granted
         // Since completeJoin checks mic first, and we just granted it, this will succeed
@@ -3768,28 +3758,23 @@ export function ClarityLivePage() {
 
     // Gate D (P160): private sessions bypass mic check entirely
     if (isPrivate || skipMicCheck) {
-      console.log('[B48] Private session or skipMicCheck — skipping mic check, transitioning to live');
       setView('live');
       return true;
     }
 
     // If already granted from a previous check, go straight to live
     if (micStatus === 'granted') {
-      console.log('[B48] Mic already granted, transitioning to live');
       setView('live');
       return true;
     }
 
     // Request permission before allowing transition
-    console.log('[B48] Requesting mic permission before live transition...');
     const hasPermission = await requestMicPermission();
 
     if (hasPermission) {
-      console.log('[B48] Mic permission granted, transitioning to live');
       setView('live');
       return true;
     } else {
-      console.log('[B48] Mic permission denied, showing dialog (blocking live transition)');
       setShowMicDialog(true);
       return false;
     }
@@ -3799,7 +3784,6 @@ export function ClarityLivePage() {
   // This decouples the async mic permission check from synchronous state updates
   useEffect(() => {
     if (pendingLiveTransition) {
-      console.log('[B48] Processing pending live transition...');
       gateMicAndGoLive().finally(() => {
         setPendingLiveTransition(false);
       });
@@ -3829,7 +3813,6 @@ export function ClarityLivePage() {
   // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
   useEffect(() => {
     if ((partnerLeft || sessionEnded) && isRecording) {
-      console.log('[P28.2] Partner left, auto-stopping recording');
       stopAndUploadRecording();
     }
   }, [partnerLeft, sessionEnded, isRecording, stopAndUploadRecording]);

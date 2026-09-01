@@ -372,7 +372,6 @@ export function ClarityChatPage() {
     // is the explicit no-code fallback the required parameter demands — this route is behind a
     // redirect to /create, so it is defensive rather than load-bearing.
     const unsubscribe = subscribeToClaritySession(session.id, session.code ?? '', (updatedSession) => {
-      console.log('Session updated:', updatedSession);
       setSession(updatedSession);
 
       // When joiner joins, move to chat view

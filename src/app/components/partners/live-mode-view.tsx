@@ -1294,6 +1294,7 @@ function IdleScreen({
   // isListenerDuringLocalRating stays true for the whole rating phase (used to disable Speak button).
   const isListenerBeforeSpeakerSubmits = isListenerDuringLocalRating && !liveState.checkerSubmitted;
   if (import.meta.env.DEV && (liveState.ratingInitiatedBy || liveState.ratingInitiatedByIsCreator !== undefined)) {
+    // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
     console.log(`[P646] isListenerDuringLocalRating=${isListenerDuringLocalRating}, ratingInitiatedByIsCreator=${liveState.ratingInitiatedByIsCreator}, isCreator=${isCreator}, ratingInitiatedBy=${liveState.ratingInitiatedBy}`);
   }
 
