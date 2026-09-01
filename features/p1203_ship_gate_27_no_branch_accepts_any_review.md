@@ -152,6 +152,17 @@ shared between skills and a script, with no single source and no test* (`decisio
 reject.** The feature-branch arm was re-tested on a live branch and is unchanged; a stamp written
 before this change still satisfies it.
 
+**Independent review, 2026-09-01 (`/finish`, standalone — this implementation had shipped to `main`
+before its own review ran).** Code/skills/specs reviewers found 4 HIGH issues, all fixed: gate 2.7b
+had zero staleness signal on the no-branch path (this spec's own Risk row 2 said the gate should fail
+on an amended/rebased review; it couldn't, at all, on this path — fixed with a `sha`-ancestor check,
+warn-only per Non-Goals); `finish/SKILL.md` overclaimed that `sha` is read by gate 2.7/2.7b's match
+logic (it isn't — corrected); this section's own Done-When #3 and the `## Related` P920 line
+misdescribed what was actually built (both corrected). Residual, accepted as out of scope: `pn` is
+self-declared, same trust model as gate 2.5 — this spec narrows the "zero entries required" hole, it
+doesn't eliminate self-attestation. Real stamps written: `.finish-reviewed` carries `type: code`,
+`type: skills`, `type: specs` entries naming `p1203`.
+
 ## Alternatives Considered
 
 - **Require `"branch":"main"` on the no-branch path.** Rejected — every entry on this path carries it.
