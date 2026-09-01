@@ -99,11 +99,47 @@ external caller.
 Reference implementation: P1178 (`INTERNAL_FN_SECRET` on `send-agreement-emails`), which pairs a
 shared secret with an action allowlist and a state check so a leaked secret has bounded reach.
 
+## Root cause correction (2026-09-01)
+
+**The caller does not exist.** A dedicated secaudit lane (repo + full git history, `.private/`,
+`pp/`, and the deployed gcloud Cloud Run/Scheduler jobs) found zero senders of the `x-service-key`
+header anywhere. `grep -rn "x-service-key" supabase/functions/ src/ scripts/` only ever matched the
+check itself (`generate-banner/index.ts:449-450`, pre-fix). P803's dead-code sweep independently
+confirmed the same fact from a different angle: point banners were removed by **P519** (2026-03-14,
+`docs/decisions.md`), and no client code anywhere constructs a `generate-banner` request with
+`entityType: 'point'` — `banner-utils.ts`'s `generateAIBanner()` is only ever called with `'event'`
+and `'story'` literals (`events-service-real.ts:482`, `stories-service-real.ts:215`), and the two
+`useBanner()` call sites (`EventDetail.tsx`, `profile-page-v2.tsx`) pass `'event'` and `'profile'`.
+
+**This changes the Fix Approach from "rotate to a dedicated secret" (steps 2-3) to "delete the dead
+path."** There is no caller to migrate onto a new secret, and no accept-path test to write for a
+path that no longer exists. Fixed by deleting the `entityType === 'point'` branch entirely (former
+`index.ts:413-457`), the `SUPABASE_SERVICE_ROLE_KEY`-as-shared-secret comparison it contained, the
+now-unreachable `fetchPointData()` and `buildPointPrompt()` helpers, and `'point'` from both
+`EntityType` (server) and `BannerEntityType` (`src/app/prototypes/events/banner-utils.ts`, client).
+`SUPABASE_SERVICE_ROLE_KEY` remains in the file only for its two DB-client constructions (rate
+limiting, event/story/profile data fetch) — never compared against a request header.
+
+**Deploy-pending test note.** The rewritten e2e test (`edge-fn-authz-regression.spec.ts`) asserts
+the corrected source behavior — `entityType: 'point'` is now rejected by `validateInput()` before
+auth, "entityType must be one of: event, story, profile" (400) — but the **test Supabase project
+still runs the pre-fix deployed function**, so a live run currently returns 403 (the old
+service-key-absent guard) until `generate-banner` is redeployed. This is a deploy step, not a code
+defect — same shape as a migration file that needs `migrate.sh` before the schema exists on test.
+Deploying was out of scope for this worktree (code + tests + commit only, no push/ship/deploy).
+
 ## Acceptance Criteria
 
-- [ ] The caller that sends `x-service-key` is identified and named in this spec
-- [ ] Point-banner generation succeeds using the new dedicated secret, proven by a test that exercises
-      the accept path (not only the 403)
-- [ ] `grep -rn "SUPABASE_SERVICE_ROLE_KEY" supabase/functions/generate-banner/index.ts` shows the key
-      used only for its DB client, never for caller authorization
-- [ ] The existing "rejects user request without x-service-key header (403)" test still passes
+- [x] The caller that sends `x-service-key` is identified and named in this spec — **it does not
+      exist**; see Root cause correction above
+- [x] Point-banner generation succeeds using the new dedicated secret, proven by a test that exercises
+      the accept path (not only the 403) — **superseded**: there is no accept path to prove: the
+      point-banner service path is deleted, not rotated onto a new secret
+- [x] `grep -rn "SUPABASE_SERVICE_ROLE_KEY" supabase/functions/generate-banner/index.ts` shows the key
+      used only for its DB client, never for caller authorization — verified: 2 remaining matches,
+      both `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)`, zero header comparisons
+- [ ] The existing "rejects user request without x-service-key header (403)" test still passes —
+      **rewritten** (the guard it tested no longer exists); the replacement test
+      (`point: is not a client entity type (400)`) currently fails against the **test** Supabase
+      project with `403` because that project has not been redeployed with this fix — see
+      "Deploy-pending test note" above. Will pass once `generate-banner` is redeployed to test.

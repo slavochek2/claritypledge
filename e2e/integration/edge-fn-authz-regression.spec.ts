@@ -609,20 +609,24 @@ test.describe('Edge-fn authz regression — generate-banner entity ownership gua
     expect(body.error).toBe('Profile not found or not your profile');
   });
 
-  test('point: rejects user request without x-service-key header (403)', async () => {
+  test('point: is not a client entity type (400)', async () => {
+    // P1189: point banners were removed by P519 (2026-03-14) and the point-only
+    // service-key branch (formerly index.ts ~413-457) was deleted under P1189 —
+    // no caller anywhere in this repo, its history, .private, pp, or the deployed
+    // gcloud Cloud Run/Scheduler jobs ever sent x-service-key. 'point' is no
+    // longer in VALID_ENTITY_TYPES, so validateInput now rejects it before auth
+    // is even checked.
     const token = await getAccessToken(outsider.email);
 
-    // callFn sends no x-service-key header. Guard fires before any DB lookup or JWT
-    // validation — entityId just needs to pass UUID input validation; point need not exist.
     const { status, body } = await callFn('generate-banner', token, {
       entityType: 'point',
       entityId: 'aaaaaaaa-0000-0000-0000-000000000000',
     });
 
-    // Guard: serviceKeyHeader absent → 403 "Point banners can only be generated server-side"
-    // (index.ts ~449-456 — fires before JWT auth and rate limiting)
-    expect(status, 'User request for point banner must be rejected with 403').toBe(403);
-    expect(body.error).toBe('Point banners can only be generated server-side');
+    // Guard: validateInput() → entityType not in VALID_ENTITY_TYPES → 400
+    // (index.ts ~59-62 — fires before JWT auth, before any DB lookup)
+    expect(status, "'point' must be rejected as an invalid entityType").toBe(400);
+    expect(body.error).toBe('entityType must be one of: event, story, profile');
   });
 });
 

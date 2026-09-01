@@ -23,7 +23,7 @@ export function extractBannerKeywords(title: string): string {
     .trim();
 }
 
-export type BannerEntityType = 'event' | 'story' | 'point' | 'profile';
+export type BannerEntityType = 'event' | 'story' | 'profile';
 
 /**
  * Generates an AI banner via the generate-banner edge function.
