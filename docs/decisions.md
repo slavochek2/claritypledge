@@ -1973,6 +1973,21 @@ recurs often enough to justify `/ship` offering to write the stamp itself when i
 commit carrying the P-number — a fix that would have to prove the work landed on some other
 evidence, which is the whole difficulty. **(Status: proposed)**
 
+**Recurrence 2026-09-01 (P1205), inline-on-main again.** `git-ops.sh ship p1205` refused a
+hand-written `git-ops.sh commit-to-main` subject ("P1205: ground /day's dispatcher-continuity
+gate…"). That is the fourth-plus emitter to hit this one literal string. Two things this instance
+adds, neither of which changes the ruling above. **First, the recovery taken was the wrong one:**
+`git commit --amend` on the *shared main checkout*, chosen because HEAD was still this session's
+own unpushed commit — but a co-tenant had landed p1207 seconds earlier, so the safe recovery was a
+second stamp commit, not a history rewrite on a checkout other sessions share. **Second, the
+tempting fix is worse than the bug:** auto-stamping from `cmd_commit_to_main` reintroduces exactly
+the false-positive population the stamp-grep exists to eliminate (`git-ops.sh` ~L2205, and the
+rejected-alternative directly above), trading a loud one-command-recoverable refusal for a silent
+false close of work that never landed. The cheap, risk-free move is instead to make the die message
+at the refusal point name the recipe — a stamp commit — rather than say "Resolve manually" and
+stop. **(Status: proposed — not implemented; `git-ops.sh` is shared and was out of scope for
+P1205.)**
+
 **References:** `2026-08-21 [process]` on the four literal-string defects · `2026-06-10 [process]`
 on the P920 closure gate and why the stamp-grep beat a bare pN match ·
 `features/done/2026-06-10/p1185_align_detect_arbiter_filter_and_provenance.md`
