@@ -73,7 +73,6 @@ test.describe('P396: clarity_sessions RLS — verified-only INSERT', () => {
       const { data, error } = await anonClient
         .from('clarity_sessions')
         .insert({
-          code: `P396-ANON-${Date.now()}`,
           creator_name: 'Anonymous Intruder',
         })
         .select('id')
@@ -111,7 +110,6 @@ test.describe('P396: clarity_sessions RLS — verified-only INSERT', () => {
       const { data, error } = await unverifiedClient
         .from('clarity_sessions')
         .insert({
-          code: `P396-UNVER-${Date.now()}`,
           creator_name: 'Unverified User',
           creator_profile_id: unverifiedUserId,
         })
@@ -144,17 +142,17 @@ test.describe('P396: clarity_sessions RLS — verified-only INSERT', () => {
 
     await supabaseAdmin.auth.signOut();
 
-    const code = `P396-VER-${Date.now()}`;
     let sessionId: string | undefined;
     try {
       const { data, error } = await verifiedClient
         .from('clarity_sessions')
         .insert({
-          code,
+          // P1097: the client neither sends nor reads back `code` — INSERT on the column is
+          // revoked for client roles and SELECT was revoked by P1057; the server mints it.
           creator_name: 'Verified Host',
           creator_profile_id: verifiedUserId,
         })
-        .select('id, code')
+        .select('id')
         .single();
 
       sessionId = data?.id;
@@ -163,7 +161,7 @@ test.describe('P396: clarity_sessions RLS — verified-only INSERT', () => {
         error,
         `Verified user should be able to create a session: ${error?.message}`
       ).toBeNull();
-      expect(data?.code).toBe(code);
+      expect(data?.id).toBeTruthy();
     } finally {
       await cleanupSession(sessionId);
     }

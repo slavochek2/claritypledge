@@ -34,11 +34,9 @@ function makeUserClient(accessToken: string) {
   });
 }
 
-function makeRoomCode() {
-  // 6-char code matching the app's own generateRoomCode() shape closely enough
-  // for the unique constraint — collisions are vanishingly unlikely in test runs.
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
+// P1097: no `code` in any client insert below — the column is INSERT-revoked for client
+// roles (a client naming it gets 42501 before RLS runs, which would make these canaries pass
+// for the wrong reason). The server mints it on INSERT.
 
 test.describe('P1038: clarity_sessions INSERT — creator_profile_id impersonation', () => {
   let attacker: TestUser;
@@ -69,7 +67,6 @@ test.describe('P1038: clarity_sessions INSERT — creator_profile_id impersonati
     const { data, error } = await attackerClient
       .from('clarity_sessions')
       .insert({
-        code: makeRoomCode(),
         creator_name: 'P1038 canary',
         creator_profile_id: victim.user.id, // forged — not the caller's own id
         state: {},
@@ -98,7 +95,6 @@ test.describe('P1038: clarity_sessions INSERT — creator_profile_id impersonati
     const { data, error } = await attackerClient
       .from('clarity_sessions')
       .insert({
-        code: makeRoomCode(),
         creator_name: 'P1038 canary — legitimate',
         creator_profile_id: attacker.user.id,
         state: {},
@@ -123,7 +119,6 @@ test.describe('P1038: clarity_sessions INSERT — creator_profile_id impersonati
     const { data, error } = await attackerClient
       .from('clarity_sessions')
       .insert({
-        code: makeRoomCode(),
         creator_name: 'P1038 canary — null creator',
         state: {},
       })

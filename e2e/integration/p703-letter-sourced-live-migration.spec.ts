@@ -335,7 +335,7 @@ test.describe('P703 RLS canary (c) — non-author cannot INSERT session with for
       const { data, error } = await impostorClient
         .from('clarity_sessions')
         .insert({
-          code: `P703C-${Date.now()}`,
+          // P1097: no client-supplied code — the column is INSERT-revoked; the server mints it.
           creator_name: 'Impostor',
           creator_profile_id: impostor.user.id,
           source_letter_id: letterId,
