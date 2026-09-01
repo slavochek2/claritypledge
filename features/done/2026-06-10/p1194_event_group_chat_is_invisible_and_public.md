@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 20
 created_date: '2026-08-31'
 tags: [events, privacy, rsvp, whatsapp]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, finish, ship]
 driver: founder
 flow: inline
+completed_at: 2026-09-01
 ---
 
 # P1194: The event group chat is invisible to the people who need it and public to everyone else
