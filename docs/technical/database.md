@@ -49,6 +49,7 @@ Both maintained by database triggers. Calibration averages computed on-read via 
 
 | Column | Type | Description |
 |--------|------|-------------|
+| code | text | 6-symbol room code, UNIQUE. **Minted server-side** (P1097): a BEFORE INSERT trigger fills it from `mint_clarity_room_code()` (CSPRNG, alphabet `A-Z` minus `I O` + `2-9`); INSERT on the column is revoked for anon/authenticated (they get 42501 if they send one) and SELECT was revoked by P1057 — the creator reads it back via `get_room_code_for_invite`. service_role may still insert an explicit code (fixtures). |
 | creator_profile_id | uuid | FK to profiles (set when authenticated user creates) |
 | joiner_profile_id | uuid | FK to profiles (set when authenticated user joins) |
 | live_state | jsonb | Shared real-time session state (see below) |
