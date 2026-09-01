@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-01 [process]: Catching a failure class in one section is why nobody checks the next one — the same document repeated it two sections later
+
+**Context:** A second adversarial review of P1212, after the first had already corrected §3 for citing a decisions.md sentence in the direction that removed a safety marker (entry below, same date). §2 of the same document recommends replacing the byline `[MACHINE] reading of {Name}` with `AGENT · {Name}`. The component being edited documents both halves of that as tried and rejected: `agent-byline.tsx:65-67` — *"NOT `Agent · {Name}`. 'Agent' reads in English as **representative of**, which is the one implication an account bearing a real person's name must never carry"* — and `:71-76` — *"`reading of` is not trimmable, at any size. Dropped, the marker lands on the PERSON."* Neither appeared in §2's evidence block, which cited transcripts and decisions.md at length. The first review corrected §3's citation and did not re-examine §2, because §2's problem was not a bad citation: it was **no citation of the file being changed at all**.
+
+**Decision:** Before recommending any change to a component, **read that component's own header comment and reject-notes first** — the artifact under the knife outranks every doc about it. And treat a corrected section as *raising* suspicion of its siblings, not lowering it: a document that produced one instance of a failure class was written under the conditions that produce it. Re-run the check across every section, not just the one that failed.
+
+**Alternatives rejected:** Trusting the first adversarial review's coverage — it found §3 and stopped. Adding a rule about citation quality — the second failure had no citation to grade, so a citation rule cannot reach it.
+
+**Consequences:** The founder decision on byline wording is now taken against the two recorded rejections rather than around them; `AGENT · on Yann LeCun` is the only candidate in the spec that survives both, because the preposition restores the account→subject relation the `·` deletes. **Two further instances of the same not-reading-the-artifact shape surfaced in the same pass:** §4c asserted *"no byline string is stored anywhere"* while `Agent · ` is stored in `profiles.name` and enforced by two migrations (`p1104_agent_accounts.sql:206-209` plus a homoglyph-hardening follow-up); and §1's blocking precondition named one component to fix while §4 of the same document already listed five surfaces with the same gap. The evidence that falsified each claim was inside the spec or one file-read away.
+
+**References:** [features/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/p1212_agent_story_card_contract_drift_across_surfaces.md), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
+## 2026-09-01 [process]: A restated invariant is a copy frozen at restatement time — and a reviewer's wrong conclusion is how you find out it went stale
+
+**Context:** P1212's Invariants section restated P1202's rule as *"A story MUST NOT state, name or imply the arguer's position on any point."* That wording was **superseded on 2026-08-31** — `p1202:74-76` records the founder dropping "imply", because enforcing it literally failed 3 of 4 stories and passed the one whose positions were weakest-grounded: quality and passing ran in opposite directions. The restatement was made the next day and copied the pre-amendment text. An external adversarial reviewer, reading the spec faithfully, then reported as a HIGH finding that §5's expander *"directly violates the no-position invariant"* because a `PositionBadge` renders beside the agent byline (`StoryCardDetail.tsx:680`). That finding is wrong — the position lives in the `point_positions` link and is *meant* to render; §3 of the same spec exists to make it **more** legible. But the reviewer reasoned correctly from the text it was given.
+
+**Decision:** When restating an invariant that another spec owns, **quote it with its amendment history or link it instead of copying it** — a restatement inherits the source's wording at one instant and never tracks the amendment. Cheapest check: grep the owning spec for a `[FOUNDER DECISION: SETTLED` marker in the same block before copying the line.
+
+**Alternatives rejected:** Banning restatement outright — P1212 restates it for a real reason (it edits the surfaces that display both story and position), and a bare link would have been skipped. Treating the reviewer's finding as correct — it would have suppressed the agent stance badge, deleting a disclosure channel and contradicting the same spec's §3.
+
+**Consequences:** Invariant corrected in place with the supersession quoted and the wrong conclusion recorded beside it, so the next reader sees why the wording matters. **Generalises the review-reading rule:** a hostile reviewer's *false positive* is evidence about your text, not only about the reviewer. When a faithful reading of a document yields a conclusion its author rejects, the document is what is broken. Verify the finding by command before promoting it (epistemic gate 9) — and when it fails to verify, ask what wording produced it before discarding it.
+
+**References:** [features/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/p1212_agent_story_card_contract_drift_across_surfaces.md), [features/done/2026-06-10/p1202_disagreement_story_quality_and_pipeline_defects.md](../features/done/2026-06-10/p1202_disagreement_story_quality_and_pipeline_defects.md)
+
+---
+
 ## 2026-09-01 [technical]: A liveness heuristic keyed on an optional event hands the failure back its own escape hatch
 
 **Context:** P1196 bounded `/transcribe`'s restart loop at 5 attempts and shipped a visible stopped
