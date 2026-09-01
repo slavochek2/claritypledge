@@ -27,6 +27,7 @@ import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge, replayLetterPositions } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
+import { isSafeRedirectPath } from "./redirect-allowlist";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import * as Sentry from "@sentry/react";
@@ -688,7 +689,8 @@ export function AuthCallbackPage() {
       //               this check runs on the redirect target BEFORE App.tsx's
       //               OrgLegacyRedirect ever renders. Removing it would reject the
       //               exact links the permanent redirect exists to keep alive.
-      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live', '/agreements', '/create', '/point/', '/chat', '/letter', '/org', '/groups'];
+      // The list itself lives in ./redirect-allowlist.ts (ALLOWED_REDIRECT_PREFIXES) so the
+      // shape check (P1223: `/` root, no `//`, no backslash) is unit-testable in isolation.
 
       // P502: Batch-restore anonymous positions from localStorage.
       // Runs BEFORE P458 single-position handler so all anon positions are saved
@@ -777,10 +779,7 @@ export function AuthCallbackPage() {
             analytics.track('auth_gate_completed', { context: 'set-position', redirect_path: intent.redirect });
             // Validate redirect against allowlist before navigating
             const intentRedirect = intent.redirect;
-            const isValidIntentRedirect = intentRedirect.startsWith('/')
-              && !intentRedirect.startsWith('//')
-              && ALLOWED_REDIRECT_PREFIXES.some(p => intentRedirect === p || intentRedirect.startsWith(p + '/') || intentRedirect.startsWith(p + '?'));
-            navigate(isValidIntentRedirect ? intentRedirect : `/point/${intent.pointId}`, { replace: true });
+            navigate(isSafeRedirectPath(intentRedirect) ? intentRedirect : `/point/${intent.pointId}`, { replace: true });
             return;
           } catch (error) {
             console.error('❌ Position auto-save failed:', error);
@@ -803,11 +802,7 @@ export function AuthCallbackPage() {
 
       // Redirect after auth: validate redirect against allowed prefixes
       setStatus("Redirecting...");
-      const isValidRedirect = redirectPath
-        && redirectPath.startsWith('/')
-        && !redirectPath.startsWith('//')
-        && ALLOWED_REDIRECT_PREFIXES.some(prefix => redirectPath === prefix || redirectPath.startsWith(prefix + '/') || redirectPath.startsWith(prefix + '?'));
-      const finalRedirect = isValidRedirect ? redirectPath : '/feed';
+      const finalRedirect = isSafeRedirectPath(redirectPath) ? redirectPath : '/feed';
       navigate(finalRedirect, { replace: true });
     };
 

@@ -73,7 +73,9 @@ describe('P1193 — /org* keeps working, permanently', () => {
   it('the auth redirect allowlist keeps /org AND gains /groups', () => {
     // This check runs on the redirect target BEFORE any router redirect renders, so
     // /org cannot be dropped from it just because App.tsx redirects that path.
-    const auth = read('src/auth/AuthCallbackPage.tsx');
+    // P1223 moved the list from AuthCallbackPage.tsx into its own module so the shape
+    // check is unit-testable; the contract (both prefixes present) is unchanged.
+    const auth = read('src/auth/redirect-allowlist.ts');
     const list = auth.match(/ALLOWED_REDIRECT_PREFIXES\s*=\s*\[([^\]]+)\]/)?.[1];
     expect(list, 'ALLOWED_REDIRECT_PREFIXES not found').toBeTruthy();
     expect(list).toContain("'/org'");
