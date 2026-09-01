@@ -533,4 +533,101 @@ describe("SettingsPage", () => {
       });
     });
   });
+
+  // P520: self-serve account deletion
+  describe("Account Deletion (P520)", () => {
+    const openDeletePanel = async () => {
+      const user = userEvent.setup();
+      renderSettingsPage();
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Delete my account" })).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole("button", { name: "Delete my account" }));
+      return user;
+    };
+
+    it("opens a confirmation panel that names what is erased and what is kept", async () => {
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
+      );
+
+      await openDeletePanel();
+
+      expect(screen.getByText("Delete your account?")).toBeInTheDocument();
+      expect(screen.getByText(/Erased:/)).toBeInTheDocument();
+      expect(screen.getByText(/Kept, without your name:/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Type your name to confirm/)).toBeInTheDocument();
+      // No guilt language, no feedback demand.
+      expect(screen.queryByText(/sorry to see you go|why are you leaving|feedback/i)).not.toBeInTheDocument();
+      // The confirm button is live from the start — never a disabled decoration (P955).
+      expect(screen.getByRole("button", { name: /Delete my account/ })).toBeEnabled();
+    });
+
+    it("refuses to delete when the typed name does not match, and calls nothing", async () => {
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
+      );
+      vi.mocked(api.eraseMyAccount).mockResolvedValue({ counts: {}, error: null });
+
+      const user = await openDeletePanel();
+      await user.type(screen.getByLabelText(/Type your name to confirm/), "Someone Else");
+      await user.click(screen.getByRole("button", { name: /Delete my account/ }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Type your name exactly as shown to confirm.");
+      expect(api.eraseMyAccount).not.toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it("erases, signs out locally, and leaves when the typed name matches", async () => {
+      const signOut = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(auth, "useAuth").mockReturnValue({
+        ...createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id }),
+        signOut,
+      });
+      vi.mocked(api.eraseMyAccount).mockResolvedValue({
+        counts: { auth_user_deleted: true }, error: null,
+      });
+
+      const user = await openDeletePanel();
+      await user.type(screen.getByLabelText(/Type your name to confirm/), mockProfile.name);
+      await user.click(screen.getByRole("button", { name: /Delete my account/ }));
+
+      await waitFor(() => {
+        expect(api.eraseMyAccount).toHaveBeenCalledTimes(1);
+        expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+        expect(mockNavigate).toHaveBeenCalledWith("/");
+      });
+      // Order matters: the RPC first, then the local sign-out, then the redirect.
+      const erased = vi.mocked(api.eraseMyAccount).mock.invocationCallOrder[0];
+      const signedOut = signOut.mock.invocationCallOrder[0];
+      const navigated = mockNavigate.mock.invocationCallOrder[0];
+      expect(erased).toBeLessThan(signedOut);
+      expect(signedOut).toBeLessThan(navigated);
+    });
+
+    it("keeps the session and the panel when the RPC fails — nothing was erased", async () => {
+      const signOut = vi.fn();
+      vi.spyOn(auth, "useAuth").mockReturnValue({
+        ...createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id }),
+        signOut,
+      });
+      vi.mocked(api.eraseMyAccount).mockResolvedValue({
+        counts: null, error: new Error("boom"),
+      });
+      const { toast } = await import("sonner");
+
+      const user = await openDeletePanel();
+      await user.type(screen.getByLabelText(/Type your name to confirm/), mockProfile.name);
+      await user.click(screen.getByRole("button", { name: /Delete my account/ }));
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith(
+          "Couldn't delete your account — nothing was changed. Please try again."
+        );
+      });
+      expect(signOut).not.toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: /Delete my account/ })).toBeEnabled();
+    });
+  });
 });
