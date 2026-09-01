@@ -42,16 +42,31 @@ annotation is true and was the right call: an old client is unaffected by a new 
 question, **"can this frontend land before the migration?"**, and for P1060 the answer was no. The
 new client does not merely tolerate `events.org_id`; it *requires* it.
 
-Nothing in the pipeline holds the pair together:
+**Both existing checks are branch-shaped, and this work had no branch.**
 
-- `/ship` merges the frontend and never inspects whether the branch's migrations are on prod.
-- `/push` pushes source and knows nothing about the prod database.
-- `migrate.sh` is correct but **operator-triggered** — it only refuses things when someone runs it.
-  Nobody ran it, so nothing refused anything.
-- `prod-smoke-test.mjs` runs only *after* a prod migrate — precisely the path not taken — and its
-  eight assertions cover auth, profiles, a story roundtrip and the PII column gate. **None of them
-  reads a column the deployed client reads**, so it would have passed against the broken prod
-  anyway.
+`check-deploy-manifest.sh --env prod` already computes exactly the missing signal
+(`MIGRATION_MISSING`), and it is already wired into two places. Neither could fire here:
+
+- **`/ship` step 3.6** runs it as a hard gate, and its guidance is explicitly correct about this
+  hazard — *"push stays held, so there is no code-without-schema window."* But P1193 and P1204 were
+  implemented as **linear commits directly on main** (`1fd0e73f`, closed by `7a071c6c` and
+  `90388422 chore: close p1204 (direct-to-main)`). There was no branch and no merge, so `/ship`
+  never ran, so step 3.6 never ran.
+- **`/finish`'s non-blocking drift warning** (`finish/SKILL.md:175-186`) is guarded by
+  `git diff --name-only main..HEAD | grep -qE '^supabase/(migrations|functions)/'`. On main,
+  `main..HEAD` is **empty by definition**, so the condition is false no matter what the work
+  touched. The check does not merely get skipped — it is unreachable.
+
+`/push`, which is the path this work actually took, has no prod-schema step at all.
+
+**So the gap is not "no gate exists". It is that every gate is attached to the feature-branch
+lifecycle, while `/dev` explicitly supports landing work on main** (`dev.md:93`, `dev.md:140`).
+Direct-to-main is a supported route with none of the merge-time protections, and nothing announces
+that trade.
+
+The `requires-frontend` asymmetry described above is real and still worth closing, but it is the
+second-order cause. Even a perfectly symmetric marker would have been checked by `migrate.sh` —
+which nobody ran — and by `/ship` — which never executed.
 
 ## Reproduction Steps
 
@@ -95,10 +110,14 @@ cost a diagnosis session rather than a glance.
 - `scripts/check-migration-client-safety.sh` — enforces the `client-safe` / `requires-frontend`
   annotation at authoring time, in the migration→client direction only
 - `scripts/prod-smoke-test.mjs` — the post-migrate check; no assertion touches a client-read column
-- `.claude/commands/slava/build/ship.md` — merges the frontend, no prod-schema precondition
-- `.claude/commands/slava/build/push.md` — pushes source, no prod-schema precondition
-- `supabase/deploy-manifest.json` — already records what is deployed where; `check-deploy-manifest.sh
-  --env prod` already computes `MIGRATION_MISSING`, and **nothing on the ship/push path calls it**
+- `.claude/commands/slava/build/ship.md:63` — step 3.6, the hard manifest gate. Correct, and
+  unreachable for work that never branches
+- `.claude/commands/slava/build/finish/SKILL.md:175-186` — the drift warning, guarded by a
+  `main..HEAD` diff that is empty on main
+- `.claude/commands/slava/build/push.md` — the path this work took; no prod-schema step at all
+- `.claude/commands/slava/build/dev.md:93,140` — where direct-to-main is sanctioned
+- `scripts/check-deploy-manifest.sh` — already computes `MIGRATION_MISSING`; the signal exists and
+  has two callers, both branch-shaped
 
 ## Severity
 
@@ -111,10 +130,12 @@ corrupted, nothing was mis-recorded, and recovery was a single `migrate.sh --env
 The cheapest honest fix reuses machinery that already exists rather than adding a second
 annotation for humans to forget. Three candidates, in preference order:
 
-1. **Make the existing drift check a gate.** `check-deploy-manifest.sh --env prod` already reports
-   `MIGRATION_MISSING`. Call it from `/ship` (or the pre-push hook) and fail — or warn with a
-   named list — when the branch being shipped contains migrations prod does not have. This changes
-   no authoring habit and adds no marker. **Caveat that must be handled:** per
+1. **Give the direct-to-main route the check the branch route already has.** The signal exists and
+   `/ship` already gates on it; the work is to reach it from a path with no branch. Two placements,
+   either of which covers this incident: the **pre-push hook** (which sees every route, including
+   `/push`), or `/finish` with its `main..HEAD` guard replaced by one that works on main — the
+   pushed-but-unmigrated set, not a branch diff. Prefer the pre-push hook: it is the single
+   choke point every route passes through, and it needs no per-skill edits. **Caveat that must be handled:** per
    [decisions.md](../docs/decisions.md) 2026-08-25, `--env prod` reads the manifest from
    `origin/main` by design (P820), so an unpushed stamp reads as missing — a false positive that
    has already misled one session into recommending a prod migrate that applied nothing. The gate
@@ -123,7 +144,8 @@ annotation for humans to forget. Three candidates, in preference order:
    assertions covering what the deployed client actually reads. Catches the state directly rather
    than inferring it from the manifest, and would catch drift arriving by any route. Weakness: it
    runs *after* a prod migrate, so it must also be wired to run post-deploy to help here.
-3. **A `requires-migration` marker on the frontend side.** Symmetric with `requires-frontend` and
+3. **A `requires-migration` marker on the frontend side.** *(Weakest — it would not have caught
+   this incident: the marker would have been read by `migrate.sh`, which nobody ran.)* Symmetric with `requires-frontend` and
    therefore tempting — but it inherits P1106's exact defect (an authoring-time sha that `/ship`'s
    cherry-pick invalidates), and it asks a human to remember the thing they just demonstrably did
    not remember. **Recommend against** unless 1 and 2 both prove unworkable.
@@ -151,7 +173,9 @@ for changes that genuinely are safe in either order, and re-creates the P1106 st
 - [ ] The signal does not fire merely because a manifest stamp is unpushed (the P820/2026-08-25
       false positive is explicitly exercised as a test case)
 - [ ] The failure path has been observed failing, with the non-zero exit code pasted into the spec
-- [ ] The P1060 scenario replayed against the gate reproduces the block
+- [ ] The P1060 scenario replayed against the gate reproduces the block — **specifically via the
+      direct-to-main route** (commit on main, `/push`), not only via `/ship`
+- [ ] The gate is reachable from a session that never created a feature branch
 
 ## Related
 
