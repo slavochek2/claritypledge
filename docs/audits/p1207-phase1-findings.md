@@ -209,3 +209,147 @@ prevented only by expiry timing. F6 is a privilege RLS cannot govern on 49 produ
 
 Every fix is a **narrowing**, which the Invariants require be reported rather than auto-applied.
 None were applied. Nothing was written to any database in either environment; no exploit was run.
+
+---
+
+# Phase 2 — corrections to Phase 1, and what was actually fixed
+
+Written 2026-09-01, after taking each approved fix to the code it would change. **Three of the
+four approved fixes did not survive that contact.** Recorded here in full, because a security
+audit that only records the findings it liked is the failure mode the spec's Invariants exist to
+prevent.
+
+## F8 — RETRACTED. Not a defect; a deliberate, shipped design.
+
+Phase 1 read `event_room_members.comprehension_rating` as the overlooked sibling of
+`readiness_value`, which was deliberately revoked from `anon` on 2026-08-21. That reading is
+wrong, and three independent artifacts say so:
+
+1. `20260821170000_p1114_room_readiness_distribution.sql:43` names `comprehension_rating`
+   **explicitly** in the re-issued column grant. It was kept in the same statement that removed
+   `readiness_value` — a deliberate inclusion, not an omission.
+2. `EventRoomMeet.tsx:160-175` renders `member.comprehensionRating` beside the member's name.
+   Revoking it would have broken a shipped, visible feature.
+3. `e2e/integration/p1114-db-schema.spec.ts:155-158` asserts the column **must** be anon-readable,
+   with a comment saying so.
+
+The two columns are opposite by design, and the migration's own header says it: the roster is
+public **by name** (a facilitator reads it off a projected screen); readiness is an **anonymous**
+distribution. Those two contracts cannot share one row, which is why one column left the grant and
+the other stayed. Phase 1 classified on data sensitivity and missed the design contract.
+
+This is the Invariant working as written — *"a privilege narrowing is presumed intentional and is
+reported, never auto-applied."* The same presumption has to run in the other direction: a
+**grant** that a migration names explicitly is intentional too.
+
+## F1 — CONFIRMED live, but reclassified: a documented accepted risk, now superseded.
+
+The policy is exactly as Phase 1 measured (`roles={public} qual=true with_check=true`,
+re-verified on prod 2026-09-01). What Phase 1 missed is that
+`20260211_tighten_idea_feed_rls.sql:26-38` created it **deliberately**, with a written rationale
+and a `COMMENT ON POLICY` recording the limitation in the database itself. It was a knowing
+trade-off, correctly documented in place — not an oversight.
+
+It is still fixed, on different grounds. P1139 established that the whole idea-feed family is dead
+code and dropped its INSERT policies on that basis; re-verified here rather than taken from
+P1139's claim (whole-repo grep: `voteOnIdea`, `getIdeaVoters`, `getVoteHistory` have zero callers
+outside their own definitions). The app-layer enforcement the 2026-02-11 comment relied on no
+longer exists, so the accepted risk is superseded rather than contradicted. Fixed by
+`20260901100100_p1207_drop_idea_votes_update_policy.sql`.
+
+**Phase 1's claim about F1 stands and is the audit's strongest result:** prod, test and the files
+all agree on this policy, so every drift check — all three of which compare those three sources
+against each other — is structurally blind to it. A wrong-from-the-start policy is not drift.
+
+## F7 / F0 — reclassified: the same root cause as F6, not separate column-grant defects.
+
+Phase 1 described F7 as a *"prod-only column grant"*. The prod catalog says otherwise:
+`clarity_verifications` and `clarity_agreements` carry no column-level carve-out at all. Both hold
+the blanket table-level `GRANT ALL` from the default-privileges line — every column, both roles.
+What is prod-only is the **absence of a REVOKE that test received**, which is D-3's ledger
+divergence, not a distinct grant.
+
+`clarity_verifications` SELECT is additionally governed by a policy reading
+`"Verifications are viewable by everyone" cmd=SELECT roles={public} qual=true`. `session_id` is
+reachable because that policy admits the row, so a column revoke would not be the fix; changing
+what "viewable by everyone" means is, and that is a product decision.
+
+**F0a and F0b are NOT fixed, and were not attempted.** Both need a design decision that was not in
+the approved scope:
+
+- `partner_email` cannot simply be revoked. `agreements-service-real.ts:429` filters on it
+  (`.eq('partner_email', ...)`) and `:619` (`.ilike('partner_email', email)`) — PostgREST needs the
+  SELECT privilege to filter on a column, so revoking it from `authenticated` breaks the incoming-
+  invitation flow outright. Revoking from `anon` alone closes the anonymous leak but leaves the
+  authenticated-stranger leak, because the exposure is the RLS policy's unconditional
+  `visibility = 'public'` branch, and Postgres RLS is row-level — it cannot withhold a column.
+- `invitation_token` has the same shape. `getIncomingInvitations` issues `select('*')`, which
+  PostgREST expands to every column and fails wholesale if one is revoked.
+
+The real fix for both is to route these reads through a `SECURITY DEFINER` RPC that returns the
+public projection without the capability column — the pattern this repo already uses for
+`get_room_readiness_distribution`. That is a build, not a revoke, and it needs the founder.
+
+**F0a remains live in production.** Real email addresses on public agreements are readable by
+anonymous visitors today.
+
+## F6 — FIXED, and it was larger than Phase 1 measured.
+
+Re-measured on prod 2026-09-01: `TRUNCATE` and `TRIGGER` at **50** tables each per role and
+`REFERENCES` at 50 — not the 49 Phase 1 recorded. `MAINTAIN` is 0 on existing tables, confirming
+Phase 1's control, **but** the live `pg_default_acl` entry is `arwdDxtm`: the `m` is granted to
+every future table. Phase 1's control was right about today and would have gone stale on the next
+`CREATE TABLE`. The fix revokes `MAINTAIN` from the default as well.
+
+**A bound the fix cannot reach, stated rather than papered over.** There are two default-ACL
+entries for tables in `public`: one owned by `postgres` and one owned by `supabase_admin`. Our
+migrations run as `postgres` and can only alter the first. The `supabase_admin` entry still grants
+all four privileges, so a table created by that role would still inherit them. Tables this repo
+creates use the `postgres` entry, so the fix is sufficient for our schema — but it is not a
+schema-wide guarantee, and the canary prints this as a `note:` on every run rather than hiding it
+behind a green exit code.
+
+## The standing control
+
+`scripts/check-p1207-privilege-floor.py [test|prod]` — read-only, SELECT only. Asserts the F6
+privilege floor (table grants **and** the postgres-owned default ACL) and that
+`clarity_idea_votes` has no unconditional UPDATE policy. Exercised both directions per gate 7:
+
+```
+before migrations, test:  exit 1  — "FAIL: 315 privilege-floor violation(s)"
+after  migrations, test:  exit 0  — "ok: no TRUNCATE/REFERENCES/TRIGGER/MAINTAIN to anon or
+                                     authenticated in schema public; clarity_idea_votes UPDATE
+                                     is not unconditional"
+```
+
+It is deliberately **not** wired into `pre-commit-checks.sh`: it requires network and a management
+token, and a commit gate that fails when offline is a gate people learn to bypass. It is a
+per-environment check, run against prod after the prod apply.
+
+## Regression evidence
+
+- `npm test` — 3445 passed, 19 skipped, 302 files. No failures.
+- Integration specs on the affected tables — 24 passed, 1 failed.
+
+**The one failure is pre-existing and is finding D-3, not a regression.**
+`p1114-db-schema.spec.ts:158` asserts `comprehension_rating` is anon-readable; test refuses it
+(`42501 permission denied`). Phase 1 measured that exact divergence on test **before** any
+migration was written, and the post-migration column-grant set is byte-identical to that
+measurement — `readiness_value` granted, `comprehension_rating` absent, inverted from the files.
+Neither migration contains the word `SELECT`, so neither could have caused it. The failing test is
+independent evidence for the F8 retraction above: it exists because the grant is deliberate.
+
+## Still open after Phase 2
+
+| Finding | State |
+|---|---|
+| D-1 open email relay | Fixed in source; **still deployed to prod** until the function is deleted from the platform |
+| F0a real emails readable by anon | **LIVE.** Needs the RPC-projection build above |
+| F0b invitation token → session chain | **LIVE**, blocked only by expiry timing |
+| F6 TRUNCATE class | Fixed on test; **prod apply still pending** |
+| F1 unconditional vote UPDATE | Fixed on test; **prod apply still pending** |
+| F7 `clarity_verifications.session_id` | Policy-level, needs a product decision |
+| F2–F4 | Untouched |
+| F5 / P1044 `check-rls-scope.py` bypassable | Untouched, STILL-OPEN |
+| D-2 signed-URL session authorization | Untouched, not reproduced |
+| D-3 migration ledger says applied, DB disagrees | Untouched; now has a failing test as a live marker |

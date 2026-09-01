@@ -1,0 +1,37 @@
+-- Migration: P1207 F1 — drop the unconditional UPDATE policy on clarity_idea_votes
+-- Created: 2026-09-01
+-- Spec: features/p1207_adversarial_permission_audit_before_agent_api.md
+-- Audit: docs/audits/p1207-phase1-findings.md (finding F1)
+--
+-- Live on prod 2026-09-01:
+--   policyname "Voters can update their own votes"  cmd=UPDATE  roles={public}
+--   qual=true  with_check=true
+-- The name asserts ownership; the predicate enforces none. {public} includes anon, which
+-- holds the UPDATE grant, so any anonymous caller can rewrite every existing vote row —
+-- vote, voter_name and voter_session_id alike.
+--
+-- NOT AN OVERSIGHT, AND THAT IS THE POINT. 20260211_tighten_idea_feed_rls.sql:26-38 created
+-- this policy deliberately, with a written rationale ("PostgREST cannot pass session context
+-- to RLS for anonymous users") and a COMMENT ON POLICY recording the limitation. It was a
+-- knowing accepted risk, correctly documented in place. Prod, test and the migration files
+-- all agree on it — nothing drifted, so all three existing drift checks compare the three
+-- sources against each other and see a match. A wrong-from-the-start policy is invisible to
+-- every one of them. This finding is why P1207 audits reachability rather than drift.
+--
+-- WHAT CHANGED SINCE THAT DECISION: P1139 (20260821150000) established that the whole
+-- idea-feed family is dead code and dropped its four INSERT policies on that basis.
+-- Re-verified before writing this migration, not taken from P1139's claim — whole-repo grep
+-- for voteOnIdea, getIdeaVoters and getVoteHistory returns only their own definitions in
+-- src/app/data/api.ts plus a comment in e2e/integration/p1139-reproduce.spec.ts. Zero
+-- callers. So the app-layer enforcement the 2026-02-11 comment relied on is not merely weak;
+-- there is no app layer left to enforce it. The accepted risk is superseded, not contradicted.
+--
+-- SAME FIX SHAPE AS P1139: dropping a PERMISSIVE policy leaves RLS with zero matching
+-- policies for UPDATE on this table, which is a default-deny. The table-level UPDATE grant
+-- anon/authenticated hold becomes moot with no policy to admit any row. No REVOKE needed.
+-- After this, clarity_idea_votes has SELECT only — no INSERT (dropped by P1139), no UPDATE,
+-- no DELETE policy.
+--
+-- client-safe: zero callers, verified above.
+
+DROP POLICY IF EXISTS "Voters can update their own votes" ON public.clarity_idea_votes;
