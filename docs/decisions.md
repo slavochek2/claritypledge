@@ -577,6 +577,49 @@ step 6b · `src/app/utils/letter-reading-utils.ts` · `src/app/utils/lead-toggle
 
 ---
 
+## 2026-09-01 [process]: A stretched-link click test needs `force: true` on its decorative overlay target — and that is not the same "masking a real issue" the force-click ban exists for
+
+**Context:** P1204's `/verify` wrote a Playwright test asserting "clicking anywhere on a
+card opens the group" for the stretched-link pattern (a named `<Link>` with an
+`after:absolute after:inset-0` pseudo-element covering the card; a decorative
+`aria-hidden` "Open →" span sits visually on top of it). A `card.getByText('Open').click()`
+timed out with Playwright's actionability check reporting the `<a>`'s `::after`
+pseudo-element — not the span — as the element that actually receives pointer events
+there, and refusing to deliver the click to the span it resolved. A first attempt using
+raw `page.mouse.click(x, y)` coordinates also failed, for an unrelated reason: it does
+not auto-scroll, and the target card was below the fold.
+
+**Decision:** For a stretched-link pattern, assert the click on the topmost
+element deliberately, not on the locator that happens to match the visible text:
+`scrollIntoViewIfNeeded()` then `.click({ force: true })` on the decorative element.
+The `force: true` here is not masking a bug — the span is intentionally
+`aria-hidden`/non-interactive by design (the a11y contract this pattern exists to
+protect), so its own actionability check is expected to fail; forcing the click
+reproduces what a real pointer click does (lands on the topmost paint layer, the
+overlay `<a>`), which is the thing under test.
+
+**Alternatives rejected:** (1) Trust the raw `page.mouse.click` failure as a real
+"dead click zone" bug — this read plausible on the first run and would have produced a
+false regression report; ruled out only by isolating the test and confirming the timeout
+was a scroll artifact, then confirming via `document.elementFromPoint` that the anchor's
+pseudo-element, not the span, is topmost at that coordinate. (2) Blanket "never use
+`force: true`" — the 2026-04-10 [technical] entry ("E2E test isolation must respect
+unique constraints added by migrations") rejected `force: true` for a *different*
+failure shape: there, it bypassed a `disabled` attribute that was correctly blocking a
+click on invalid input, masking a validation bug under test. Here there is no guard
+being bypassed — the aria-hidden span was never the click target, only the visible text
+inside it; forcing the click through to it is how you reach the overlay that actually is
+the target.
+
+**Consequences:** Any future test on a stretched-link card must click the decorative
+element with `scrollIntoViewIfNeeded()` + `force: true`, not assert on the raw
+coordinate or the inert locator alone — a raw-coordinate click can fail purely from
+scroll position and read as a product defect. Kept as `e2e/p1204-verify.spec.ts` UAT-2.
+**References:** [e2e/p1204-verify.spec.ts](../e2e/p1204-verify.spec.ts),
+[p1204_clarity_groups_directory_card_polish_and_card_as_link.md](../features/p1204_clarity_groups_directory_card_polish_and_card_as_link.md)
+
+---
+
 ## 2026-08-31 [technical]: A BEFORE INSERT trigger runs before the foreign key — so an authorization guard silently rebrands "no such row" as "no permission"
 
 **Context:** P1060 added a trigger requiring the host to be an organizer of the
