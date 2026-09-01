@@ -755,7 +755,9 @@ Before any code path deletes a profile (`auth.users` DELETE, admin tool, GDPR er
 | `story_verifications` | `speaker_id` | NO ACTION | `20260204_stories_points_calibration.sql:121` |
 | `story_verifications` | `listener_id` | NO ACTION | `20260204_stories_points_calibration.sql:122` |
 
-CASCADE/SET NULL children (e.g., `events.host_id`, `event_rsvps.profile_id`, `event_practice_rooms.creator_id`, `event_sub_rooms.initiator_id`/`target_id`, `stories.author_id`, `points.first_validator_id`, `point_ratings.user_id`, `point_user_status.user_id`, `badge_points.user_id`/`verified_by`, `witnesses.profile_id`, `clarity_agreements.terminated_by` SET NULL) handle themselves and do not block.
+CASCADE/SET NULL children (e.g., `event_rsvps.profile_id`, `event_practice_rooms.creator_id`, `event_sub_rooms.initiator_id`/`target_id`, `stories.author_id`, `point_ratings.user_id`, `point_user_status.user_id`, `badge_points.user_id`, `witnesses.profile_id`; SET NULL since P520: `points.first_validator_id`, `events.host_id`, `badge_points.verified_by`, plus the older `clarity_agreements.terminated_by`) handle themselves and do not block.
+
+**Self-serve erasure (P520):** `erase_my_account()` — `SECURITY DEFINER`, `EXECUTE` granted to `authenticated` only, **no target parameter** (acts on `auth.uid()`) — is the one sanctioned path that walks this whole table in one transaction and then deletes the `auth.users` row itself. Its header (`supabase/migrations/20260901213000_p520_erase_my_account.sql`) is the authoritative erase-vs-anonymise table; when a new profile FK lands, add the table to that function or the erasure raises for the next user who has a row there — `e2e/integration/p520-account-deletion.spec.ts` is the canary. The three P520 FK rewrites were added `NOT VALID` because the test project already held orphaned `points.first_validator_id` values (the prior constraint was not enforcing); `ON DELETE` actions still apply.
 
 **Pre-flight pattern (re-derive each run — snapshot drifts):**
 ```bash
