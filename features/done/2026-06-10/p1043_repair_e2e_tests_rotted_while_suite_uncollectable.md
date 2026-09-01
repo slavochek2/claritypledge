@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: bug
 rank: 206
 severity: medium
@@ -7,6 +7,7 @@ date_reported: '2026-08-10'
 created_date: '2026-08-10'
 tags: [testing, playwright, e2e, coverage-rot]
 pipeline_ran: [create-bug]
+completed_at: 2026-09-01
 ---
 
 # P1043: Repair E2E tests that rotted while the full suite was uncollectable
@@ -69,7 +70,7 @@ browser-level verification of P1034's UI acceptance criteria.
 
 The sweep stalled on Supabase auth rate limiting for three runs. **The published diagnosis was wrong
 in both directions and is corrected here.** Full reasoning and the superseded entry:
-[docs/decisions.md](../docs/decisions.md) 2026-08-13.
+[docs/decisions.md](../../../docs/decisions.md) 2026-08-13.
 
 **Measured, not inferred** (`.private/p1043-sweep/probe-signin-limit.cjs`, `probe-signin-refill.cjs`):
 the ceiling on `/auth/v1/token` for the hosted test project is **1800/hour, bursting to ~30** —
@@ -175,10 +176,10 @@ aria-label={`Rate ${option.value}`}   // src/app/components/partners/shared.tsx:
 `grep -rn "Rate 10" src/` returns nothing, so the classifier is behaving as designed; the string
 never appears as a literal anywhere in the source. **Do not repair this file off the `a_rot`
 bucket.** Its real defect is already diagnosed in
-[P808](p808_p804_path_d_test_setup_broken.md): the Path D setup writes `ratingPhase: 'results'`
+[P808](../../p808_p804_path_d_test_setup_broken.md): the Path D setup writes `ratingPhase: 'results'`
 (`spec.ts:575`) where the explain-back rating UI requires `'explain-back'` — a one-line test-setup
 fix, not an assertion rewrite. Treating it as rot would rewrite a **correct** assertion to match
-**broken** behaviour, which [.claude/rules/tests.md](../.claude/rules/tests.md) forbids.
+**broken** behaviour, which [.claude/rules/tests.md](../../../.claude/rules/tests.md) forbids.
 
 **Generalise before working the bucket:** any `a_rot` row whose expected copy could be assembled
 from a template literal, an i18n key, or a variable needs an individual read before repair. The
@@ -293,10 +294,10 @@ commit or migration that moved the goalposts.
 ## Scope superseded by P1085 (2026-08-14)
 
 **Do not work this spec toward all-green.** The criteria below were written before
-[decisions.md](../docs/decisions.md) 2026-08-11 established that the defect is *"no automated
+[decisions.md](../../../docs/decisions.md) 2026-08-11 established that the defect is *"no automated
 consumer"* and chose a different direction: a small trusted core wired into CI, not 2800 tests
 triaged to green. That direction had no P-number for three days and the file-by-file repair
-continued against it. It is now [P1085](p1085_trusted_e2e_core_in_ci.md).
+continued against it. It is now [P1085](../../p1085_trusted_e2e_core_in_ci.md).
 
 **This spec's remaining repair budget is whatever P1085's Research Question 3 hands back** — the
 critical paths with no green test today. Run 6 measured **159 of 409 files already fully green (868
@@ -311,7 +312,7 @@ the core** — the rest may never need an answer.
 
 Run `20260831-232031`. **4,141 tests / 2,206 passed / 311 skipped / 1,624 failed**, 38 batches,
 0 with global errors, 0 unusable reports, classifier clean. Full triage:
-[docs/technical/e2e-triage-2026-09-01.md](../docs/technical/e2e-triage-2026-09-01.md) — that file is
+[docs/technical/e2e-triage-2026-09-01.md](../../../docs/technical/e2e-triage-2026-09-01.md) — that file is
 authoritative; this section records only what changes THIS spec.
 
 **The dominant finding reframes the repair budget.** 536 of the 1,624 failures (33%) come from 56
