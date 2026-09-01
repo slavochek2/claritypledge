@@ -1143,8 +1143,14 @@ cmd_commit_to_main() {
 
   # `|| exit 1` above is load-bearing: this subshell's status was previously ignored,
   # so a rejected path fell through to commit_staged_exact instead of stopping here.
+  # `if`, not `[[ ... ]] && git add`: under `set -e` the && form makes the whole loop
+  # body return 1 on the last already-staged-deletion path, so the subshell exits 1 and
+  # the `|| exit 1` below aborts a commit whose paths the validation loop above had just
+  # accepted. That made commit-to-main structurally unable to commit a pure deletion
+  # (or the old half of a rename) — the exact case the validation loop was written for.
+  # Found 2026-09-01 by P1217's first test-retirement batch; see decisions.md.
   ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
-      [[ -e "$f" ]] && git add -- "$f"
+      if [[ -e "$f" ]]; then git add -- "$f"; fi
     done ) >&2 || exit 1
 
   # commit_staged_exact: plain commit (not pathspec), guarded — see its own
