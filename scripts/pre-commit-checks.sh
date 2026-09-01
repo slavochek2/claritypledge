@@ -1206,6 +1206,24 @@ else
 fi
 echo ""
 
+# 14b. Edge function caller gate (P1207 / D-1)
+# deploy-functions.sh auto-discovers every directory under supabase/functions/,
+# so a function nobody calls is still deployed and still publicly reachable.
+# verify_jwt does not close that: the public anon key is a valid JWT and ships
+# in the browser bundle. Runs whenever an edge function file is staged.
+echo ">>> Checking edge functions for a caller gate (P1207)..."
+if echo "$STAGED_FILES" | grep -q '^supabase/functions/'; then
+    if python3 ./scripts/check-edge-function-auth.py; then
+        echo -e "${GREEN}✓ Edge function caller gates OK${NC}"
+    else
+        echo -e "${RED}✗ Edge function with no caller gate (see above)${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${GREEN}✓ No edge function files staged${NC}"
+fi
+echo ""
+
 # 15. Migration commit gate (P270 — prevents P160-class bugs)
 # When a migration SQL file is staged, verifies it was applied to test DB via
 # deploy-manifest.json (updated by ./scripts/migrate.sh after successful push).
