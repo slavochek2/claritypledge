@@ -56,7 +56,7 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 | **Stories** (author's content) | Delete (CASCADE) | Author's personal content |
 | **Story versions** | Delete (CASCADE) | Tied to author's stories |
 | **Story verifications** | Delete (CASCADE) | Tied to author's stories |
-| **Points** | **Orphan** (`SET NULL` on `first_validator_id`) | Community data — other users have positions on these. Deleting would destroy their contributions. Point shows "deleted user" as creator. |
+| **Points** | **Orphan** (`SET NULL` on `first_validator_id`) | Community data — other users have positions on these. Deleting would destroy their contributions. Point shows "Unknown" as creator (existing client fallback for a null creator join). |
 | **Point positions** (as user) | Delete (CASCADE via `user_id`) | User's own positions |
 | **Witnesses** | Delete (CASCADE) | Endorsements of the deleted user |
 | **Agreements** | Terminate silently (`status: terminated`), then delete rows | Partner sees "terminated" on next visit. No email notification. Agreement record doesn't survive (FK would block deletion). |
@@ -64,7 +64,24 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 | **Event RSVPs** (as attendee) | Delete (CASCADE) | User's own RSVPs |
 | **terms_acceptances** | Delete explicitly (no FK constraint) | Contains user_id, IP hash, user agent — PII |
 | **session_consents** | Delete explicitly (no FK constraint) | Contains user_id — PII |
-| **auth.users** record | Delete via service-role edge function | Required for email re-registration |
+| **auth.users** record | Delete inside the same `SECURITY DEFINER` RPC (owner = migration role) | Required for email re-registration. No edge function: one transaction, one hop, no service-role key in a runtime — see Technical Notes. |
+
+**Tables the table above is silent on** — each resolved by the rule *own content → delete; rows a counterparty depends on → anonymise (profile FK → NULL, name/email → "Deleted user")*, implemented in `supabase/migrations/20260901213000_p520_erase_my_account.sql`:
+
+| Data type | On deletion | `[FOUNDER DECISION]` |
+|-----------|------------|------|
+| **Witnesses I gave** to others (`witness_profile_id`, carries my name) | Anonymise: FK → NULL, name → "Deleted user", LinkedIn → NULL. The endorsement still counts for them. | [FOUNDER DECISION: keep the endorsement count vs. remove the endorsement entirely] |
+| **Story verifications** (both sides) | Delete; counterparties' `ears_count` / `verification_session_count` / `understood_count` recomputed from what remains (triggers only increment). | Follows the spec's CASCADE row; the recompute is decisions.md 2026-06-01 |
+| **Letters I sent** + my docs | Delete (deliveries, snapshots, predictions, receivers' responses cascade). A letter is the author's content, like a story. | [FOUNDER DECISION: receivers lose access to letters I sent them — alternative is a nullable `sender_id` tombstone, which would need every letter-reading RPC to tolerate a null sender] |
+| **Letters delivered to me** by others | Anonymise the delivery (profile/email/name → tombstone) and delete my point responses; the sender keeps their letter and their predictions. | — |
+| **My explain-back recordings** on others' letters | Delete rows (my voice = my data). The GCS audio object is NOT removed — see "Not done". | [FOUNDER DECISION: GCS object lifecycle] |
+| **Shared live sessions** | Session stays for the counterparty; my profile refs → NULL, my display names → "Deleted user" in `clarity_sessions`, chat, turns, demo rounds, ideas, and `live_state`. A session nobody else joined is deleted outright. | — |
+| **Session transcripts / transcription jobs** of sessions I was in | Delete — they hold my verbatim speech. The counterparty loses that transcript too. | [FOUNDER DECISION: erase vs. keep the counterparty's copy] |
+| **Agreements where I am partner** | Terminate (`status = terminated`, `terminated_at`), partner → tombstone; the creator sees "terminated" (spec user story). Agreements I created are deleted (creator FK is NOT NULL). | — |
+| **Badges I certified** (`badge_points.verified_by`) | SET NULL (FK changed) — the holder keeps their badge. | [FOUNDER DECISION: previously CASCADE, which would have revoked other people's badges] |
+| **Event room memberships** (`event_room_members`) | Profile → NULL, display name → tombstone; the room's answers survive. | — |
+| **Email send log** | `profile_id` → NULL (no email column in the table). | — |
+| **Org memberships, RSVPs, invites, practice/sub rooms, transcribe-room membership + messages, rate limits, voice profile, pending letter responses** | CASCADE with the profile / auth row. If I was a group's only organizer the group is left without one (P1193 explicitly prefers that to stranding the profile). | — |
 
 **Migration required:** Change `points.first_validator_id` from `ON DELETE CASCADE` to `ON DELETE SET NULL`. Change `events.host_id` from `ON DELETE CASCADE` to `ON DELETE SET NULL`.
 
@@ -109,24 +126,35 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 
 ## Acceptance Criteria
 
-- [ ] Settings page shows "Delete my account" option in a danger zone section
-- [ ] Confirmation dialog lists what will be deleted and what will be orphaned (points, events)
-- [ ] User must type their name to confirm deletion
-- [ ] Deletion removes: profile, stories, story versions, positions, witnesses, RSVPs, terms_acceptances, session_consents, auth.users record
-- [ ] Deletion orphans: points (first_validator_id → NULL), events (host_id → NULL)
-- [ ] Active agreements are terminated (status: terminated) before profile deletion
-- [ ] Deleted user's profile slug shows "This profile no longer exists" (not 404, not broken page)
-- [ ] Deleted user can re-register with the same email
-- [ ] No guilt language in the flow
-- [ ] Featured profiles / pledgers page correctly excludes deleted users (already handled by existing queries)
+- [x] Settings page shows "Delete my account" option in a danger zone section — `settings-page.tsx` "Account" section; screenshots `01-closed-{375,1440}.png`
+- [x] Confirmation dialog lists what will be deleted and what will be orphaned (points, events) — "Erased:" / "Kept, without your name:" copy; unit test "opens a confirmation panel…"; screenshots `02-open-*.png`
+- [x] User must type their name to confirm deletion — unit tests "refuses to delete when the typed name does not match" + "erases … when the typed name matches"; screenshot `03-mismatch-*.png`
+- [x] Deletion removes: profile, stories, story versions, positions, witnesses, RSVPs, terms_acceptances, session_consents, auth.users record — integration test (a), 12 per-table zero-count assertions + `admin.getUserById → null`
+- [x] Deletion orphans: points (first_validator_id → NULL), events (host_id → NULL) — integration test (b): both rows load through the app's own joins with a null actor
+- [x] Active agreements are terminated (status: terminated) before profile deletion — integration test (b): partner-side agreement `status = terminated`, `terminated_at` set, partner tombstoned
+- [ ] Deleted user's profile slug shows "This profile no longer exists" (not 404, not broken page) — existing "Profile Not Found" page renders (graceful, not 404); exact copy is a `[FOUNDER DECISION]`, see Technical Notes
+- [x] Deleted user can re-register with the same email — integration test (a): `admin.createUser` with the erased email succeeds
+- [x] No guilt language in the flow — copy reviewed by the independent visual-QA pass ("neutral/factual, no reason-for-leaving prompt"); unit test asserts no "sorry to see you go / feedback" text
+- [x] Featured profiles / pledgers page correctly excludes deleted users (already handled by existing queries) — the `profiles` row is gone, so there is nothing to exclude; no query change needed
+
+**Also verified (integration test, test project):** (c) a different signed-in user cannot reach the leaver — the RPC has no target parameter and PostgREST rejects an invented one (`PGRST202`); (d) anon gets `42501`; the RPC's returned counts match the seeded fixture exactly (`stories_deleted: 2, points_orphaned: 1, events_orphaned: 1, agreements_deleted: 1, agreements_anonymised: 1, sessions_anonymised: 1, positions_deleted: 2, verifications_deleted: 3`).
+
+**Not done / open:**
+- GCS objects behind `story_explain_backs.audio_storage_path` and any transcription audio are not deleted — the RPC cannot reach GCS. `[FOUNDER DECISION: lifecycle rule vs. a cleanup job keyed on the orphaned paths]`
+- `profiles.avatar_url` points at a Google-hosted image, nothing is stored; `banner_url` (P504) may point at a generated asset — not deleted.
+- Mixpanel / Sentry identities are reset client-side (`analytics.reset()`); server-side analytics profiles are not purged.
+- P524 pledge withdrawal was already shipped (the `Pledge` section above the new one) — nothing to do here.
+- Worktree slot `w10` maps to dev port 6000, which Chromium refuses as an unsafe port (`ERR_UNSAFE_PORT`); screenshots were captured with `--explicitly-allowed-ports=6000`. Worth a note in `worktree-setup.md`.
 
 ---
 
 ## Technical Notes (for /architect)
 
-- **Edge function required:** Supabase doesn't allow client-side `auth.users` deletion. Need a `delete-account` edge function using service role key that: (1) terminates agreements, (2) cleans up non-FK'd tables, (3) deletes profile (triggers CASCADE), (4) deletes auth.users record.
-- **Migration:** `ALTER TABLE points ALTER COLUMN first_validator_id SET ON DELETE SET NULL` (and same for `events.host_id`). Points/events with NULL creator show "[Deleted user]" in UI.
-- **PII tables without FK:** `terms_acceptances`, `session_consents` need explicit `DELETE FROM ... WHERE user_id = $1` in the edge function.
+- ~~**Edge function required:** Supabase doesn't allow client-side `auth.users` deletion.~~ **Superseded in /dev:** client-side deletion is indeed impossible, but a `SECURITY DEFINER` function owned by the migration role can `DELETE FROM auth.users` — verified on the test project (`e2e/integration/p520-account-deletion.spec.ts` asserts `admin.getUserById → null` and same-email re-registration). `public.erase_my_account()` does steps (1)–(4) in ONE transaction: an error anywhere erases nothing. Recommended over an edge function on correctness (atomic) and runtime complexity (no second hop, no service-role key in Deno).
+- **Migration:** `20260901213000_p520_erase_my_account.sql` — `points.first_validator_id`, `events.host_id`, `badge_points.verified_by` → nullable + `ON DELETE SET NULL` (constraint names kept: the client embeds `points_first_validator_id_fkey` in PostgREST joins). Added `NOT VALID` because the test DB already held orphaned `first_validator_id` values — the prior FK was not enforcing. Null creator/host renders as the existing client fallback "Unknown" (`mapPointFromDb`, `mapEventWithHostFromDb`).
+- **PII tables without FK:** `terms_acceptances`, `session_consents` — explicit `DELETE ... WHERE user_id = auth.uid()` inside the RPC.
+- **Client:** `eraseMyAccount()` in `src/app/data/api.ts`; `SettingsPage` "Account" section; `signOut({ scope: 'local' })` after success (a global sign-out would round-trip to GoTrue for a user that no longer exists).
+- **No profile-page change:** an erased slug already renders the existing graceful "Profile Not Found" page (`profile-page-v2.tsx:665`), not a 404 or a broken page. The AC's exact wording "This profile no longer exists" is copy — `[FOUNDER DECISION: keep "Profile Not Found" or change the copy (it is shared with never-existed slugs)]`.
 
 ---
 
