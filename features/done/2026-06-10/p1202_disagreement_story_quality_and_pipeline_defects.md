@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 91
 workstream: infrastructure
 created_date: '2026-08-31'
 tags: [disagreement, skills, content, quality]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-01
 ---
 
 # P1202: The pipeline's stories are unreadable, and the run that proved it exposed five other defects
