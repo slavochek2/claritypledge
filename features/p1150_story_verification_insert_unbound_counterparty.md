@@ -150,6 +150,36 @@ Branch `feature/p1150-story-verification-counterparty`, commit `533e2596`. Migra
   UI click-through of a rating insert is **not** independently proven by those suites; the
   REST-exact control above is the evidence for the client path.
 
+### Part B — Codex review (FIX FIRST), 2026-09-01
+
+Commits `cf1bf095` (both client writers now send `delivery_id`; `submitRating` had always held it
+and never sent it) and `67d4eb9e` (migration
+`20260901220000_p1150_b_bind_delivery_and_caller.sql`, `requires-frontend: cf1bf095`, applied to
+**test**). Two defects in part A, both verified by the lead before the fix:
+
+- the admissibility helper accepted the listener as an argument and was callable by any signed-in
+  user, so it could be used as a yes/no probe about **other** users' letter relations — it now
+  takes no listener argument and answers only about the caller;
+- a missing `delivery_id` was accepted, and the P1067 dedup index is partial on
+  `delivery_id IS NOT NULL`, so a legitimate recipient could file unlimited ratings per story and
+  move the sender's counter each time — `delivery_id` is now required and must be the caller's own
+  delivery on that letter, which puts every client rating under the P1067 unique index.
+
+Also: `listener_rating` must be non-null; helper runs with an empty `search_path` and qualified
+names; EXECUTE only for `authenticated`.
+
+Evidence (`e2e/integration/p1150-story-verification-counterparty.spec.ts`, now 14 tests,
+`--retries=0`, test DB): **before part B: 3 failed / 11 passed** — a delivery-less rating landed,
+the helper answered an attacker's probe about the reader, a null-rating row landed; the two
+other new cases (another recipient's delivery; duplicate through the same delivery, with counters
+asserted unchanged) were already refused and stay as regression guards. **After: 14/14.** One
+control's `ears_count` expectation was order-dependent (the new duplicate test inserts on the same
+story first) and is now asserted against the P940 definition. Unit: `p707` batch-writer test now
+also asserts `delivery_id`; full vitest 3485 passed / 19 skipped; tsc + eslint clean; pre-commit
+green on both commits (one hook run hit an unrelated 5s timeout in
+`navigation-acceptance-full.test.tsx` under load from a concurrent session's checks; the retry was
+clean and the same suite passes in isolation).
+
 ## Non-Goals
 
 - **Do NOT change the ear metric or calibration semantics.** P940 redefined the ear metric
