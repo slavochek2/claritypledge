@@ -1,16 +1,22 @@
 ---
-status: week
+status: today
 type: task
-rank: 78
+rank: 0.188
 workstream: infrastructure
 created_date: '2026-08-28'
-tags: [testing, ci, canaries, gates]
+tags:
+  - testing
+  - ci
+  - canaries
+  - gates
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+locked_at: '2026-08-28T05:39:53.149Z'
 ---
 
 # P1175: The shell canaries have no automated runner — they only fire when someone remembers

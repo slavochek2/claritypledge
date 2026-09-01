@@ -31,11 +31,11 @@ Check all of them before building anything. A run where every gate passes and th
 |---|---|---|
 | **P1104's TABLE is live on the target ref, READABLE BY ANON** | `agent_accounts` responds to a select **with the anon key**, not the service role | Service role bypasses RLS and column grants. The client reads `.select('profile_id, operator_name')` with the **anon** key (`agent-accounts-service.ts:46`), which needs `GRANT SELECT (profile_id, operator_name) … TO anon` to have landed. A service-role probe returns rows while the browser gets 403 — and on a failed fetch `isAgent` is `false` while pending, so the card renders **undrained, round, unmarked**. Probe with the credential the browser uses. |
 | **The filing identity is a HUMAN account** | an explicit `profile_id`, asserted `NOT EXISTS (SELECT 1 FROM agent_accounts WHERE profile_id = <it>)` | `first_validator_id` renders as the point's creator on the feed card and detail page (`points-service-real.ts:262,323,352,525,680,775`). Take it as an explicit id — never resolve it from an env var. **Do not reach for `OPS_EMAIL`:** the only prod identity this repo resolves from it is `bootstrap-align-agent.mjs:69`, the machine `Clarity Agent` account, which would file every point under a machine. |
-| **P1104's CLIENT is DEPLOYED to the target host** | the command below, `>= 1` | See the warning under this table. This is the assert that was prose in the first draft, and prose is what let `/slava:understanding:create-letter` reach a green run measuring the wrong thing. |
+| **P1104's CLIENT is DEPLOYED to the target host** | the command below, `>= 1` — **or `N/A` when the target is a local dev server**, which serves the working tree and so cannot be stale against it. State which case applies; never skip it silently. | See the warning under this table. This is the assert that was prose in the first draft, and prose is what let `/slava:understanding:create-letter` reach a green run measuring the wrong thing. |
 | **An `agent_accounts` row for every arguer** | exact match on `subject_key` | Reuse is the account model (P1096). A miss halts or offers `/provision-agent` inline — never a create inside this skill. See below. |
 | **The arguers resolve to DISTINCT agents** | compare the resolved `profile_id`s | Two arguers on one agent (the same person speaking in both sources, or a duplicated `subject_key`) collides on `story_points_author_point_unique UNIQUE (author_id, point_id)` and again on `point_positions UNIQUE(point_id, user_id)`. Atomically that aborts everything, which is safe — but catch it at resolve time rather than by transaction failure, and note that one agent cannot hold two positions on one point anyway, so there is no artifact to salvage. |
 | **Speaker attribution was checked, not assumed** | named per quote, with the basis | Right words, wrong mouth is a **different failure** from mis-transcription and neither check below catches it. See the warning after the deploy check. |
-| **Every story body is under 1,500 characters** | `char_length` per story, before the write, **against 1,500 — not 10,000** | The binding ceiling is a build-time rule in `/slava:disagreement:story-draft` (see `docs/story-craft.md` §1), and until 2026-08-31 nothing re-asserted it here. **That left a real bypass:** the `## Story Drafts` section is not covered by either seal, so a story regenerated or hand-edited to 4,000 characters after `story-draft` ran kept every required label and quote and sailed through on the 10,000 check. Assert the real ceiling at the boundary that writes. Over 1,500 ⟹ back to `story-draft`, never a trim performed here — this skill does not author. |
+| **Every story body is under 1,500 characters of AUTHORED content** | `char_length` per story **minus the appended `#<event-tag>` and its separator**, before the write, **against 1,500 — not 10,000** | The binding ceiling is a build-time rule in `/slava:disagreement:story-draft` (see `docs/story-craft.md` §1), and until 2026-08-31 nothing re-asserted it here. **That left a real bypass:** the `## Story Drafts` section is not covered by either seal, so a story regenerated or hand-edited to 4,000 characters after `story-draft` ran kept every required label and quote and sailed through on the 10,000 check. Assert the real ceiling at the boundary that writes. Over 1,500 ⟹ back to `story-draft`, never a trim performed here — this skill does not author. |
 | **Every story body is under 10,000 characters** | `char_length` per story, before the write | `stories.content` carries `CHECK (char_length(content) <= 10000)` (P427). Summary + quotes + inference chains approach it. The transaction aborts on violation, which is safe — but a length check at build time tells you which story to shorten, instead of a Postgres error that tells you only that one of them was too long. |
 | **Each agent's avatar renders — OR is deliberately absent** | **Branch on `profiles.avatar_url` read back from the target ref.** `NULL` ⟹ take the *deliberate absence* path below (no probe, no stop). Non-`NULL` ⟹ probe **that** URL — never a path you reconstructed — and assert `200` **and** `content-type: image/*`. | A missing avatar drops the portrait channel to the initials fallback (`gravatar-avatar.tsx:134`) silently. **Against storage, never assert "not 404"** (P1135 decision (d)) — *measured 2026-08-21 with a control:* a missing object in the `agent-avatars` bucket returns `HTTP/2 400`, `content-type: application/json`, body carrying `"code":"NoSuchKey"`; only the JSON says 404, the status **line** is 400. An existing object returns `HTTP/2 200`, `content-type: image/*`. Assert the positive (`200` + `image/*`) only — a "not 404" check passes on every missing avatar on this host. |
 | **Quote verification artifacts exist** | the per-quote `grep -F` exit codes against the cleaned transcript, **and** the audio-at-timecode check with who ran it and when | Prose saying "checked before filing" is the sentence that lets the check not happen. |
@@ -170,6 +170,32 @@ This skill can check that the seal **file exists and is committed**. It **cannot
 
 **State this in the output every run.** A precondition that is presented as stronger than it is corrupts the calibration it exists to protect.
 
+## Stage 0 — Pre-flight: report EVERYTHING this run needs, before doing any of it
+
+**Run this first and print it as one block.** Every check below already existed somewhere in this
+file as a STOP; what did not exist was a place that runs them *together and up front*. The failure
+that produces: an operator says "publish" and the run surfaces one blocker, then the next, then the
+next — each one a separate stop, each discovered after work that assumed the previous one passed.
+*(Measured 2026-09-01: a run reached the resolve step before anyone learned that none of the four
+agent accounts existed, in either environment, and that there is no test website to view the result
+on. Both facts were knowable in the first thirty seconds.)*
+
+```
+PRE-FLIGHT — <slug> → <test|prod> (ref <project ref>)
+  credentials     : <present by name, per the environment row>
+  seals           : approvals <MATCH|MISMATCH>  prediction <MATCH|MISMATCH>
+  quotes          : <n>/<n> grep-verified · <n>/<n> audio-verified
+  story lengths   : <all <=1500 | the offenders>
+  agent accounts  : <e> existing, <p> MISSING -> provisioning required for: <names>
+  client deployed : <bundle grep result, or N/A for a local dev host>
+  where you view it: <URL>
+  THIS RUN WILL CREATE <p> PERMANENT PUBLIC IDENTITIES.
+```
+
+**Provisioning is part of publishing, not an exception to it.** A run whose subjects have no accounts
+is the *normal* first run for any new topic — every arguer is new the first time. Treat it as
+Stage 1.5 below, not as a halt with an offer attached.
+
 ## Stage 1 — Resolve
 
 - **Name the target — `test` or `prod` — BEFORE resolving anything**, then take the **Target ref** from that row of the environment table (constraint 2): `.env.local` for test, `.env.prod` for prod. Print the target name and the ref together.
@@ -186,6 +212,24 @@ SELECT
 ```
 
 > **Scope the counts to THIS run, and record the ids.** These predicates match anything a co-tenant session writes under the same tag or the same agents while your run is open, so a concurrent run makes a *correct* run report a wrong delta — and that breaks the gate exercise below, whose whole instrument is the delta. Capture the returned row **ids** at read-back and compare id sets, not only cardinalities.
+
+## Stage 1.5 — Provision the missing agents (normal path, not an exception)
+
+Every arguer without an `agent_accounts` row on the target ref is provisioned **here**, by invoking
+`/slava:content:provision-agent` — never by logic written into this file. The constraints in
+"On a missing agent" below are binding and unchanged: the total is disclosed before the first
+creation, **one confirmation per account with the permanence warning verbatim, never batched**,
+provisioning completes before the payload is built, and every subject is re-resolved from the
+database by `subject_key` afterwards.
+
+**What that means in practice, stated so nobody reads it as a blocker:** a four-arguer first run has
+**four creation gates and then one publish gate.** That is the designed shape. It is not the pipeline
+failing; a pipeline that created four public identities on one blanket "yes" would be the failure.
+
+**On test, the portrait branch is usually the deliberate-absence one** — initials-only, `avatar_color
+'#39424B'`, and its registry line. Founder ruling 2026-08-26: *nobody is rejected for lacking a
+photograph*. Rights-clearing four portraits to look at rows in a disposable database is cost with no
+buyer; clear them when the subject reaches prod.
 
 ## Stage 2 — Build the payload
 
@@ -287,11 +331,27 @@ The bullet list below is an **aid, never the thing approved.** The file is `{"qu
 
 **Print `jq -r '.body.query' "$RUN_DIR/request-envelope.json"` verbatim, and run a shape assert before the gate — paste both exit codes:**
 
+**Strip the dollar-quoted literals FIRST, then assert on the skeleton.** The danger is a statement
+*outside* the quoted content; the literals are a named person's own words and will contain ordinary
+English that collides with SQL keywords.
+
 ```bash
 Q=$(jq -r '.body.query' "$RUN_DIR/request-envelope.json")
-printf '%s' "$Q" | grep -icE '\b(update|delete|drop|alter|grant|revoke|truncate|copy|pg_[a-z_]+)\b'   # MUST be 0
-printf '%s' "$Q" | grep -coE 'insert into (stories|points|story_points|point_positions)\b'            # MUST equal the row-group count
+SKEL=$(printf '%s' "$Q" | perl -0pe 's/\$cpTAG\$.*?\$cpTAG\$/<LITERAL>/gs')   # your actual tag
+printf '%s' "$SKEL" | grep -icE '\b(update|delete|drop|alter|grant|revoke|truncate|copy|pg_[a-z_]+)\b'  # MUST be 0
+printf '%s' "$SKEL" | grep -coE 'INSERT INTO (stories|points|story_points|point_positions)\b'           # MUST equal the row-group count
 ```
+
+**Print the SKELETON at the gate as well as the raw SQL.** Elided of literals it is a few thousand
+characters instead of fifteen thousand, and an injected statement is visible at a glance where it is
+invisible in the full string.
+
+> **Measured 2026-09-01, first real filing:** the un-stripped assert returned **2** on a correct
+> payload. Both hits were the word *"grant"* inside a verbatim quote — *"whether we grant legal
+> personhood to AIs"*. **A speaker saying "grant", "update", "drop" or "copy" would have hard-stopped
+> every run quoting them**, and the natural response to a gate that cries wolf on correct work is to
+> stop believing it. Stripping the literals keeps the protection exactly — an injected statement lives
+> outside them by construction — and removes the false positive.
 
 A whitelist-and-count check is what makes a hash of an opaque SQL string mean anything.
 
@@ -382,7 +442,12 @@ assignment survives** — see the warning under assert 6, which is what catches 
    > points; one position per arguer per point; all authors registered agents; exact counts — while
    > each person's verbatim quotes are published under *another* person's machine identity. The attribution section earlier in this file binds quote→speaker **inside the transcript**; nothing revisited speaker→`author_id`, which is where the binding actually lands. The ids are opaque UUIDs the operator cannot eyeball at the gate, so this is reachable without malice.
 
-7. **Every point has a `story_points` row to each story**, counted — **and the count MUST equal `points × N`, stated before the query is run.** A count with no expected value is not an assert: at N = 2 a missing link is eyeballable, at N = 6 it is not, and an agent reporting "counted 5" passes on 5-of-6. An evidence link silently missing is published-and-wrong, and no other assert looks at that table.
+7. **Every point has a `story_points` row to each story**, counted — **and the count MUST equal the number of `(story, point)` links the payload actually contains,
+   stated before the query is run.** *(Corrected 2026-09-01: this read `points × N`, which assumes
+   every arguer holds a position on every point. Sparse coverage is normal — an arguer whose source
+   never addresses a point has no chain there, and this run filed 14 links where `points × N` would
+   have predicted 20. The formula would have failed a correct run, and "expected 20, got 14" invites
+   an agent to go manufacture six links.)* A count with no expected value is not an assert: at N = 2 a missing link is eyeballable, at N = 6 it is not, and an agent reporting "counted 5" passes on 5-of-6. An evidence link silently missing is published-and-wrong, and no other assert looks at that table.
 8. **Every agent author's `profiles.name` still carries the reserved marker.** It is the one marker channel that survives a registry read failure (the name renders even when `isAgent` is false), and nothing else in this file checks it.
 
 **On any failed assert:** print the failure, print what was written, state plainly what is public right now, and **do not print the feed URL as though the run succeeded.**
@@ -393,7 +458,19 @@ assignment survives** — see the warning under assert 6, which is what catches 
 https://claritypledge.com/feed?tag=<event-tag>&sort=oldest&version=latest
 ```
 
-(On test, the same path against the test host.) Open it and confirm the points and the stories both appear under the tag.
+**On test there is no website — view it on a local dev server.** `test.claritypledge.com` does not
+resolve and never has (checked 2026-09-01, HTTP 000). The test *database* exists; nothing renders it
+remotely. So a test run is viewed by running the app locally against the test database:
+
+```bash
+npm run dev      # .env.local already points VITE_SUPABASE_URL at the test ref
+# then open  http://localhost:5173/feed?tag=<event-tag>&sort=oldest&version=latest
+```
+
+**Say this at Stage 0, not here.** Until 2026-09-01 this line read *"On test, the same path against
+the test host"*, which described a host that does not exist — and an operator was told three times
+across one session that they could review a run on a test site. Open it and confirm the points and
+the stories both appear under the tag.
 
 > **The points appear in the feed BECAUSE the agents hold positions on them.** All three feed paths end in `.filter(point => point.totalPositions > 0)` (`points-service-real.ts:406,723,842`, P543) — a point with zero positions is not in the feed at all. This is a load-bearing dependency, not a coincidence, and it is why agent positions count in the aggregate tally (P1130 decision (b)).
 >
@@ -440,14 +517,14 @@ The instrument is the before/after counts from stage 1.
 - [ ] **The gate was a real gate.** An explicit affirmative on the founder's own turn; silence treated as refusal. No flag bypassed it.
 - [ ] **The file sent by curl is the file that was hashed and printed** — `request-envelope.json`, re-hashed at the write boundary, both hashes pasted. Nothing was rebuilt after the gate.
 - [ ] **The URL came out of the envelope**, not from a shell variable, and the `env` field matched what the gate announced.
-- [ ] **The raw SQL was printed verbatim** and the two shape asserts returned 0 and the expected count, both pasted.
+- [ ] **The raw SQL was printed verbatim, AND the literal-stripped skeleton alongside it**, and the two shape asserts — run on the SKELETON, not the raw string — returned 0 and the expected count, both pasted.
 - [ ] **The predicted tag set was computed before the write** and equalled `{<event-tag>}`.
 - [ ] **The filing identity was asserted NOT to be an agent account.**
 - [ ] **The envelope was written to the scratchpad or `.private/`**, never the repo root.
 - [ ] **Every interpolated text field was dollar-quoted with a collision-checked tag**, and the check was actually run against the content rather than assumed.
 - [ ] **The JSON body was built with an encoder** and sent with `--data-binary @file`.
 - [ ] **Every quote carries an audio-at-timecode artifact** — the confirming result, who ran it, and when — **and this box is ticked for `test` runs exactly as for `prod`.** An unconfirmed quote is a STOP in both environments (see the preconditions). *(Added 2026-09-01: the preconditions required this and the checklist did not, so an operator using the checklist as the completion oracle could tick every box on a run where the audio check was skipped or merely described — the precondition-in-prose-but-absent-from-the-artifact failure this file exists to prevent.)*
-- [ ] **Every story body is `<= 1,500` characters**, verified from the read-back — not the 10,000 DB constraint, which is a different and much weaker check. Over ⟹ re-run disagreement:story-draft; never trim here.
+- [ ] **Every story body is `<= 1,500` characters of authored content** (total minus the appended `#<event-tag>` and its separator), verified from the read-back — not the 10,000 DB constraint, which is a different and much weaker check. Over ⟹ re-run disagreement:story-draft; never trim here.
 - [ ] **Every story carries `#<event-tag>` in its text**, verified from the read-back `tags` array, not from the text you wrote.
 - [ ] **Every story with a video carries `Supporting quotes from {Full Name}` verbatim in its text**, verified from the read-back, not from the text you wrote. A mechanical backstop mirroring the hashtag check above — this skill does NOT author the rule. The voice rules and the label live in `/slava:disagreement:story-draft` and nowhere else; wrong text ⟹ re-run disagreement:story-draft.
 - [ ] **No story ends with a trailing `Source:` line**, verified from the read-back. Same shape as the check above and for the same reason — this skill does not author the rule, it only catches a violation before filing. Grep the read-back text for a line matching `^Source:`; a hit means re-run disagreement:story-draft. The rule lives in `/slava:disagreement:story-draft` (voice rules) and nowhere else: the embedded player and the per-quote timecode links already carry the source, and under P1141's link narrowing a label like "the full talk" asserts no destination, so the sentence renders as ordinary prose that looks like a link and is not one.

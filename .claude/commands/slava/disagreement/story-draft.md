@@ -439,6 +439,7 @@ duration_seconds: <integer>
 
 - **No trailing `Source:` line in the story body.** The filed story renders with the video embedded directly above the text and every quote carrying its own timecode link into that video, so a closing "Source: the full talk" sentence repeats what two surfaces already say. Put the source in the `video_url` field, where it belongs.
 - **Respect the `stories.content` 10,000-character limit at build time**, not by Postgres error (`CHECK (char_length(content) <= 10000)`). Count the characters of each story draft before writing the section and paste the counts.
+- **The ceiling covers what YOU write — prose plus the quote block. It excludes the `#<event-tag>` the filer appends**, which is metadata and not yours. Do not leave headroom for it and do not add it yourself.
 - **The 1,500-character ceiling is the one that binds** — the DB limit is a constraint, the ceiling is the brief. It lives in `docs/story-craft.md` §1 with its measurement and its falsifier; it is named here only because this is the file that counts the characters. **Paste both numbers per story** (`content_chars` against 1,500, not against 10,000). A story over the ceiling is not filed; it goes back to its writer.
 - **Quote budget: at most ONE quote per linked point inside the story text.** The ceiling counts the
   quote block, so an arguer with seven quotes would get 600 characters of prose to connect five points

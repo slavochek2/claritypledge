@@ -34,8 +34,16 @@ that point; do not copy.
 
 ## 1. The ceiling
 
-**A pipeline story is at most 1,500 characters — everything the `content` field holds, quotes
-included.** Not a target to approach: a ceiling that forces the choice about what the story is *for*.
+**A pipeline story is at most 1,500 characters of AUTHORED content — the prose and the quote block.**
+**The event hashtag the filer appends is EXCLUDED from the count** (it is filer-written metadata, not
+something the writer chose), and so is anything else a downstream stage appends. The database's own
+10,000-character check covers the assembled total.
+
+*(Clarified 2026-09-01, on the first real filing. The ceiling was written as "everything the `content`
+field holds", but `/slava:disagreement:publish` MUST append `#<event-tag>` to the body — the tag
+trigger reads it out of the text. Three stories drafted at 1,493–1,496 became 1,505–1,508 the moment
+the filer did its job, so the drafting stage and the filing stage were measuring different strings and
+a correct story failed at the gate. Nothing about the intended length changed; the accounting did.)* Not a target to approach: a ceiling that forces the choice about what the story is *for*.
 
 The existing 10,000-character database limit is a constraint, not a brief. The four drafts that
 prompted this file ran 2,416–3,604.

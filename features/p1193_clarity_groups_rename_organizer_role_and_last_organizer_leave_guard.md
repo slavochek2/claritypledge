@@ -17,18 +17,24 @@ exec_effort: high
 
 ## Why this is a change request, and what it is a change to
 
-P1060 (`features/p1060_link_events_to_organizations.md`) is **in flight on
-`feature/p1060-events-org` (worktree `w2`), not merged and not in production.**
-Per the Change-Request Processing Contract, the codebase state a CR is measured
-against is what is on `main` — but the surfaces this spec changes only exist on
-that branch. So:
+**SUPERSEDED BY EVENTS, 2026-08-31.** When this spec was drafted, P1060 was in
+flight on `feature/p1060-events-org` in worktree `w2`, and this spec instructed
+the implementer to build on that branch rather than off `main`.
 
-> **Implement this on `feature/p1060-events-org`, in `w2`, not in a fresh
-> worktree off `main`.** If P1060 ships before this is picked up, re-read the
-> merged files first; the line numbers below will have moved.
+**P1060 has since shipped.** It merged as `fdefa5cd` ("chore: close p1060") and
+its spec now sits at
+`features/done/2026-06-10/p1060_link_events_to_organizations.md`. Neither
+`feature/p1060-events-org` nor worktree `w2` still exists. Therefore:
 
-Filing action still owed by whoever creates this spec in `features/` on w0: set
-`superseded_by: p1193` on `features/p1060_link_events_to_organizations.md`.
+> **Implement this in a fresh worktree off `main`, via `git-ops.sh claim 1193`.**
+> Every `file:line` reference below was written against the pre-merge branch and
+> is **stale** — re-derive each one by grep against `main` before acting on it.
+> The named files and symbols are still correct; only the line numbers moved.
+> One path has also moved: `org-header.tsx` is at
+> `src/app/components/organizations/org-header.tsx`, not `src/app/components/`.
+
+The `superseded_by: p1193` filing action this spec originally owed against the
+P1060 spec is **moot** — P1060 is closed, not superseded.
 
 ## Problem
 
@@ -93,6 +99,8 @@ migration seeded them by hand (lines 176+), and there is no org-creation surface
 | Co-create on group pages | **Remove from the org-scoped list.** Group list shows `Host Event` alone. Standalone list keeps both, untouched. Reversible. |
 | Degraded roster path | **Block leaving and say why.** If the roster failed to load the organizer count is unknown; the Leave control is unavailable with a retry line. The server trigger remains the authoritative guard, so this only governs the button's appearance, never correctness. |
 | The blocking line | "You're the only organizer of this group." Degraded variant: "Can't check group organizers right now — reload and try again." |
+| Nav item after the rename | **One item, labelled "Groups", pointing at `/groups`** (2026-08-31). The word "Events" leaves the public menu; events are reached through a group. Active-state matcher covers `/groups*` and `/events*`. The standalone `/events` list stays live and unchanged — it simply has no nav entry, exactly as `/events/list` already does not. |
+| COA terms title | **Add COA version 6 titled "Clarity Group Terms", bump `CURRENT_COA_VERSION` to 6, and migrate `membership.terms_version`'s CHECK/DEFAULT to allow 6** (2026-08-31). Founder was shown that this costs a prod schema migration for a title-only change and chose it anyway, so vocabulary stays consistent. Versions 4 and 5 keep their existing title untouched — prior acceptances stay pinned to what their holders actually accepted. The oath body is a shared constant (`VERIFIED_UNDERSTANDING_OATH[5]`) and is **copied by reference into v6, not reworded**: v6 differs from v5 in `title` alone. |
 
 ## Scope change 2026-08-31 — the Groups rename is folded IN, not filed separately
 
@@ -135,8 +143,27 @@ VERSIONED legal record. Existing membership rows store `terms_version` pointing
 at what their holder actually accepted. **Do not edit an existing version's title
 in place** — that would retroactively change the text people are recorded as
 having agreed to. Add a NEW version entry titled "Clarity Group Terms" and let
-prior acceptances keep pointing at the old one. If this turns out to require a
-founder call on the terms text itself, stop and ask rather than editing.
+prior acceptances keep pointing at the old one.
+
+**RESOLVED 2026-08-31 — the founder chose the version bump, informed of its
+cost.** The terms *text* does not change: the only occurrence of "Organization"
+in the record is the `title` field; `yourRight` / `myPromise` / `exception` are
+shared references into `VERIFIED_UNDERSTANDING_OATH[5]` and are carried into v6
+**by the same reference, unmodified**. So v6 differs from v5 in `title` alone,
+and the "stop and ask about the terms text" branch does not fire.
+
+What it does cost, and what the original draft did not know: per the file's own
+header comment, bumping `CURRENT_COA_VERSION` **also requires the
+`membership.terms_version` CHECK constraint and DEFAULT to allow the new value**
+(set by the P1010 migration). So this carve-out carries a **second migration**
+beyond the leave-guard trigger:
+
+- add `6` to the `terms_version` CHECK constraint on `public.membership`
+- move the column DEFAULT from `5` to `6`
+- **do not backfill** — every existing row keeps the version it accepted
+
+Both migrations ship in this spec. The trigger migration and the terms_version
+migration are independent; author them as separate files.
 
 ## Solution
 
@@ -332,5 +359,20 @@ this spec; they are checks this spec should not ship without.
 - [ ] Deleting a profile or an organization still cascades — the new trigger does
       not block it. Exercised, not reasoned about.
 - [ ] The cross-org event-leakage assertion exists and passes.
-- [ ] `EventsList.tsx:120-127`'s comment no longer claims Co-create travels
-      everywhere.
+- [ ] `EventsList.tsx`'s comment (the one at `:120-127` pre-merge) no longer
+      claims Co-create travels everywhere.
+- [ ] `/org`, `/org/:slug` and `/org/:slug/join` all still resolve, permanently,
+      and a `?from=` parameter survives the hop to `/groups/...` — asserted by a
+      test, not by reading the route table (P1076).
+- [ ] No user-visible string anywhere in `src/` reads "Organization" or
+      "Organizations" — proven by a grep whose only surviving hits are the COA
+      v4/v5 titles, internal identifiers, and code comments.
+- [ ] The nav renders one item labelled "Groups" pointing at `/groups`, and its
+      active state lights on both `/groups*` and `/events*`.
+- [ ] `COA_VERSIONS[6]` exists, is titled "Clarity Group Terms", and its
+      `yourRight`/`myPromise`/`exception` are the **same object references** as
+      v5 — asserted by identity, not by string comparison.
+- [ ] `CURRENT_COA_VERSION` is `6`, the `membership.terms_version` CHECK admits
+      `6`, the DEFAULT is `6`, and **no existing membership row's
+      `terms_version` changed** — verified by a before/after count per version.
+- [ ] A join performed after the migration records `terms_version = 6`.
