@@ -300,10 +300,14 @@ export function OrgPage() {
       <div className="container mx-auto max-w-5xl space-y-8">
         {/* P1204: P1193's own rename scope named this and never built it. Small
             inline link, not FocusHeader — this stays a Browse page (BottomNav
-            visible, like /p/:slug), not a Focus page (docs/ux-patterns.md). */}
+            visible, like /p/:slug), not a Focus page (docs/ux-patterns.md).
+            Grey, not blue: matches the dominant back-link idiom elsewhere in
+            the app (FocusHeader, agreement/badge/story back links all use
+            text-muted-foreground) — blue is reserved for "you can click
+            this to act", and a back link is navigation, not an action. */}
         <Link
           to="/groups"
-          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
           Back to groups

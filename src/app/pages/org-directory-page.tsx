@@ -246,7 +246,7 @@ function OrgCard({
             non-reachable; dropping the <Link> wrapper makes that literal. */}
         <span
           aria-hidden="true"
-          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 underline-offset-2 group-hover:underline"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground"
         >
           Open
           <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />

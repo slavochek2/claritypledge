@@ -111,8 +111,12 @@ export function PledgerCard({
             <h3 className="w-full text-lg font-bold line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {name}
             </h3>
+            {/* P1204: neutral, not blue — a role label ("Organizer"), not an
+                action. Blue is reserved for things you can click; matches the
+                membership badge on the group directory card
+                (org-directory-page.tsx). */}
             {badge && (
-              <span className="flex-shrink-0 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 rounded-full px-2 py-0.5">
+              <span className="flex-shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted rounded-full px-2 py-0.5">
                 {badge}
               </span>
             )}
