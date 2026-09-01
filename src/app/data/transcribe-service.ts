@@ -134,16 +134,20 @@ export async function createRoom(profileId: string, displayName: string, eventId
   return { room, member };
 }
 
-/** Looks up an existing room by its code. Returns null if not found. */
+/** Looks up an existing room by its code. Returns null if not found.
+ *
+ *  P1207 F2: goes through a SECURITY DEFINER RPC rather than selecting the table. `code` is a
+ *  join credential, not an identifier — the table's SELECT policy used to be USING (true) for
+ *  every authenticated user, which let anyone enumerate every live room's code and walk into
+ *  any transcription session. The table read is now member-scoped, and a code must be
+ *  PRESENTED (exact match) instead of listed. */
 export async function getRoomByCode(code: string): Promise<TranscribeRoom | null> {
   const { data, error } = await supabase
-    .from('transcribe_rooms')
-    .select('id, code, event_id, created_at, ended_at')
-    .eq('code', code.toUpperCase())
-    .maybeSingle();
+    .rpc('get_transcribe_room_by_code', { p_code: code.toUpperCase() });
 
   if (error) throw new Error(error.message);
-  return data ? mapRoom(data as unknown as DbRoom) : null;
+  const row = ((data ?? []) as unknown as DbRoom[])[0];
+  return row ? mapRoom(row) : null;
 }
 
 /**

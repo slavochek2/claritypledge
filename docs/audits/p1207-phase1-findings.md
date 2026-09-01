@@ -480,3 +480,68 @@ Regression: `npm test` 3445 passed / 0 failed; agreement + privilege-floor integ
 tsconfig is `"files": []` with project references. It returned a clean exit on a file containing
 an undefined identifier. The real check is `-p tsconfig.app.json`. Anyone using the root form as
 a typecheck gate is reading a green light that was never wired to anything.
+
+---
+
+# Phase 5 — F2 fixed; F3 and F4 retracted
+
+## F2 — room-code enumeration · REPRODUCED · was LIVE on prod · FIXED
+
+`transcribe_rooms` SELECT was `TO authenticated USING (true)`. `code` is not an identifier, it is
+a **credential**: `transcribe-service.ts:137 getRoomByCode()` resolves a room from its code and
+that is the entire join path. So any signed-in user could list every live room's code and walk
+into any transcription session, including sessions attached to an event they were never invited
+to. Transcripts are the product's most sensitive content.
+
+Reproduced with a signed-in stranger holding no membership:
+
+```
+before: a non-member read the room -> [{"id":"dec4f700-…","code":"P1250492"}]
+        bulk sweep                 -> 9 live room codes harvested
+after:  4 passed — non-member reads nothing, sweep returns nothing,
+        a PRESENTED code still resolves to exactly one room,
+        partial/wrong codes resolve to nothing (no prefix oracle)
+```
+
+**Fix shape, third instance of the same pattern in this audit:** a credential must be
+*presented*, never *listed*. Table SELECT is scoped to rooms the caller is a member of;
+`get_transcribe_room_by_code()` (`SECURITY DEFINER`, exact equality only — no `LIKE`, no prefix,
+no paging) trades a known code for its room. P1149's UPDATE policy and column guard are untouched
+and still pass.
+
+## F3 — RETRACTED. `witnesses.witness_linkedin_url` is deliberately public.
+
+`witness-list.tsx:55-57` renders it as a public link on the profile page. A witness vouches
+publicly and their LinkedIn is the identity evidence — that is the feature. Phase 1 flagged it as
+the parallel of `profiles.linkedin_url`, which P877 revoked. **Same column name, opposite
+contract:** one is a member's own contact detail, the other is a public attestation.
+
+## F4 — RETRACTED. `story_verifications` SELECT is properly scoped.
+
+Phase 1 said anon reads both party uuids and their private ratings. The live policy is a CASE:
+
+```
+WHEN source='letter' THEN (speaker_id = auth.uid() OR listener_id = auth.uid())
+ELSE EXISTS (SELECT 1 FROM stories WHERE stories.id = story_verifications.story_id
+             AND (stories.visibility='public' OR stories.author_id = auth.uid()))
+```
+
+Letter verifications are party-only. Story verifications inherit the story's own visibility,
+which is the policy's stated intent and its name. Not unconditional.
+
+## The methodological finding this audit should be remembered for
+
+**Four of Phase 1's findings — F3, F4, F7 and F8 — share one error: a sensitive-*looking* column
+is publicly readable, therefore it is a leak.** Each was classified on the data's apparent
+sensitivity without checking whether the product deliberately publishes it. In every case the
+answer was in the repo: a rendering component, an explicit column list in a migration, an
+assertion in an existing test, or the policy's own CASE.
+
+The three real findings had the opposite shape. F2, F9 and F0a/F0b are all **a credential or a
+third party's data reachable by someone the system never intended to be a party** — not a
+sensitive-looking column, but an *unscoped branch*. F9 in particular sat in a policy Phase 1 read
+and passed over, because its `USING` was *partially* scoped and only the third branch was open.
+
+**The lesson for the next audit: classify by who the predicate admits, not by what the column
+looks like.** A column-sensitivity sweep produced a 4:3 false-positive ratio here. A
+branch-admission review found the critical one.
