@@ -307,6 +307,69 @@ Also parked pending founder AC decisions, per the 2026-08-14 copy-rot/flow-rot e
 (16 p581, 8 p551, 3 p683, ~34 in the fixture-fixed specs). Answer these **only for tests that enter
 the core** — the rest may never need an answer.
 
+## Run 7 — first completed run against the hosted test project (2026-09-01)
+
+Run `20260831-232031`. **4,141 tests / 2,206 passed / 311 skipped / 1,624 failed**, 38 batches,
+0 with global errors, 0 unusable reports, classifier clean. Full triage:
+[docs/technical/e2e-triage-2026-09-01.md](../docs/technical/e2e-triage-2026-09-01.md) — that file is
+authoritative; this section records only what changes THIS spec.
+
+**The dominant finding reframes the repair budget.** 536 of the 1,624 failures (33%) come from 56
+spec files whose feature spec carries `status: rejected` or `superseded_by:`. Measured by mapping
+every one of the 244 failing files to its P-number and reading that spec's frontmatter. Four were
+independently confirmed by reproducing the failure and tracing the superseding commit — p526
+(rejected, decomposed into P591), p523 (rejected, superseded by story-first), p476 (superseded by
+P527 direct-sign), p456 (`superseded_by: p465`, then P822/P560/P733). The remaining 52 carry a
+strong prior, not proof, and each needs the same per-file check.
+
+These files are not "pending repair" and never were. They test features that were deliberately
+killed. **Retiring them is a scope decision for the founder, not a test edit** — the standing rule
+("never edit a test to make it pass") has no verdict for a test whose spec was rejected, because
+the rule protects specs and a rejected spec is not one.
+
+**A single mechanical cause accounts for up to 155 further failures.** The P852 intensity-tutorial
+modal is hard-mandatory, first-run, and gated purely on `localStorage`
+(`letter_intensity_preview_seen_at_v2`). `grep -rl` over all of `e2e/` finds **no spec file that
+seeds or dismisses it** — including `p852-verify.spec.ts`, the verification spec for the feature
+that introduced it. 19 letter-flow files carry 155 failures behind it. One shared helper fixes all
+of them.
+
+### Genuine product defects found (AC: "Every genuine product regression found is filed")
+
+Each was re-verified in source by the orchestrator before being recorded here, per epistemic gate 9.
+**Not yet filed with P-numbers** — filing changes the board and is left to the founder.
+
+1. **Nested interactive controls, point card** — `src/app/components/social/point-card-with-links.tsx:272`
+   sets `role="button" tabIndex={0}` with no `aria-label`; the CTA `<button aria-label=...>` (line 109)
+   is a descendant, so the wrapper inherits its accessible name. Real ARIA violation. The test that
+   exists to catch it (`e2e/a11y/p465-accessibility.spec.ts:288`) never fired — that file navigates to
+   `/${slug}` at all 11 `goto` sites while the route is `/p/:id` (`src/App.tsx:412`).
+2. **Lightbox accessible name overridden** — `src/app/components/shared/image-lightbox.tsx:42`
+   `aria-label` loses to a sibling `DialogPrimitive.Title`, because `aria-labelledby` wins.
+
+### Not regressions — ACs that shipped as done and were never built
+
+This class is worse than rot and the suite was already reporting it:
+
+3. **P591 UAT-7 / UAT-19** — "Add image" in the plain view state. `StoryCardDetail.tsx:343` gates the
+   whole media block on already having media, so there is nowhere for it to render; the only such
+   button sits behind `isEditMode`.
+4. **P491 AC (`features/done/22_mar_26/p491_hashtag_feed.md:670`)** — "Arrow keys navigate between
+   tabs (Left/Right)". `src/app/pages/feed-page.tsx:350-379` renders `role="tablist"` with plain
+   `onClick` buttons; `grep -c "onKeyDown\|ArrowRight\|ArrowLeft"` over the file returns **0**. The
+   spec explicitly rejected a tabs library because these requirements were "simple enough to
+   implement inline."
+
+Both features are `all-done`. Neither AC was built. Both had a passing-looking pipeline.
+
+### Correction to a load-bearing repo record
+
+`supabase/migrations/.duplicate-version-allowlist` names three "live P1042 defects" that are all now
+false — `stories.title` is absent on test (`42703`), and both P1114 tables exist on **prod**. Verified
+by read-only REST with known-good/known-bad controls. It also cites `20260819160000`; the real files
+are `20260819161000` and `20260819171000`. Correcting that file is not done here — it is a separate,
+deliberate edit.
+
 ## Acceptance Criteria
 
 > Re-scope pending P1085 RQ3. `p486` (criterion 3) is already satisfied — run 6 recorded it

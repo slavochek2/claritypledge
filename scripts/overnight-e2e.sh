@@ -144,6 +144,10 @@ cleanup() {
     log "!!! Restore by hand:  mv '$CONFIG_BAK' '$CONFIG'   (or: git checkout -- supabase/config.toml)"
     VERDICT="error"; NOTE="config.toml restore FAILED — file left patched"
   fi
+  if [ -n "${DEV_PID:-}" ] && kill -0 "$DEV_PID" 2>/dev/null; then
+    kill "$DEV_PID" 2>/dev/null
+    log "stopped runner-owned dev server (pid $DEV_PID)"
+  fi
   if [ "${HOLD_LOCK:-0}" -eq 1 ]; then rm -rf "$LOCKDIR"; fi
   if [ "$rc" -ne 0 ] && [ "$VERDICT" = "incomplete" ]; then
     VERDICT="error"
@@ -294,6 +298,71 @@ else
 fi
 write_status
 
+# ------------------------------------------------- dev server (runner-owned)
+# playwright.config.ts sets `reuseExistingServer: !process.env.CI` and this runner
+# does NOT set CI. Playwright therefore reuses whatever already listens on $PORT and
+# NEVER applies its own `env:` block — webServerPlugin returns before the env merge.
+# Consequence measured 2026-08-31: a Phase A local unlock exported VITE_SUPABASE_URL
+# into this shell, the browser kept talking to a 5-day-old dev server pointed at the
+# hosted project, and the report still claimed "Ran on a local unthrottled stack".
+# The rate-limit control probe cannot catch this — it talks to Supabase directly and
+# never goes through the browser.
+#
+# Setting CI=1 would fix the reuse but also silently change workers (3 -> 2) and
+# retries (1 -> 2), i.e. change what the run measures. So the runner starts the
+# server itself, with the env this run actually resolved. Playwright then reuses
+# THIS server, whose env is correct by construction.
+DEV_PORT=5001
+DEV_PID=""
+DEV_LOG="$RUN_DIR/dev-server.log"
+
+dev_up() { curl -sf -o /dev/null --max-time 3 "http://localhost:$DEV_PORT/" 2>/dev/null; }
+
+start_dev_server() {
+  if dev_up; then
+    # Something is already serving. We cannot know its env, and a wrong-env server
+    # is exactly the failure this block exists to prevent — so refuse rather than
+    # silently inherit it.
+    log "ABORT: port $DEV_PORT is already served by a process this runner did not start."
+    log "       Its env is unknown, and Playwright would reuse it. Stop it first:"
+    log "       lsof -ti:$DEV_PORT | xargs kill"
+    VERDICT="error"; NOTE="port $DEV_PORT occupied by a foreign dev server"
+    write_status
+    exit 3
+  fi
+  log "starting dev server on $DEV_PORT (VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-<from .env>})"
+  VITE_USE_REAL_API=true VITE_USE_REAL_EVENTS_API=true \
+    npm run dev -- --port "$DEV_PORT" > "$DEV_LOG" 2>&1 &
+  DEV_PID=$!
+  local waited=0
+  until dev_up; do
+    if ! kill -0 "$DEV_PID" 2>/dev/null; then
+      log "ABORT: dev server died during startup — see $DEV_LOG"
+      VERDICT="error"; NOTE="dev server failed to start"; write_status; exit 3
+    fi
+    waited=$(( waited + 2 )); sleep 2
+    if [ "$waited" -ge 120 ]; then
+      log "ABORT: dev server did not answer on $DEV_PORT within 120s — see $DEV_LOG"
+      VERDICT="error"; NOTE="dev server startup timeout"; write_status; exit 3
+    fi
+  done
+  log "dev server up (pid $DEV_PID) after ${waited}s"
+}
+
+# Defect 3: if the server dies mid-night, every later batch fails at webServer level
+# and the whole tail of the run reads as product failures. Check between batches.
+ensure_dev_server() {
+  if dev_up; then return 0; fi
+  log "WARNING: dev server on $DEV_PORT is not answering — restarting it"
+  [ -n "$DEV_PID" ] && kill "$DEV_PID" 2>/dev/null
+  DEV_PID=""
+  DEV_RESTARTS=$(( ${DEV_RESTARTS:-0} + 1 ))
+  start_dev_server
+}
+DEV_RESTARTS=0
+
+start_dev_server
+
 # ---------------------------------------------------------------- Phase B
 PHASE="B-suite"; write_status
 log "--- Phase B: full suite, batches of $BATCH_SIZE ---"
@@ -310,6 +379,7 @@ for batch in "$RUN_DIR"/batches/b-*; do
   out="$RUN_DIR/$name.json"
 
   check_pause
+  ensure_dev_server
   if ! window_open; then
     log "WINDOW CLOSED — stopping at batch $name. Partial results kept."
     CUTOFF="true"; NOTE="cut off by window at $name"
@@ -438,6 +508,7 @@ REPORT="$RUN_DIR/MORNING-REPORT.md"
   [ -f "$RUN_DIR/migration-apply-seconds.txt" ] && \
     echo "- Migrations from empty: **$(cat "$RUN_DIR/migration-apply-seconds.txt")s** (P1085 Research Q1 deliverable)"
   echo "- Batches: $BATCHES_RUN ran / $BATCHES_SKIPPED skipped / $BATCHES_FAILED_TO_START produced no report"
+  echo "- Dev server: runner-owned on port $DEV_PORT, ${DEV_RESTARTS:-0} restart(s) during the run"
   echo
   echo '## Results'
   echo '```'
@@ -460,6 +531,18 @@ REPORT="$RUN_DIR/MORNING-REPORT.md"
   [ "$CUTOFF" = "true" ] && echo "- **PARTIAL** — the window closed mid-run. Counts cover only the batches that ran."
 } > "$REPORT"
 
-if [ "$CUTOFF" = "true" ]; then VERDICT="partial"; else VERDICT="complete"; fi
+# A verdict is a claim about the whole night, so every way the night can be
+# incomplete has to reach it. Before 2026-09-01 this keyed only off $CUTOFF, so
+# "complete" could sit next to a report whose results block said "no
+# classified.json" — the classifier's exit code and the count of batches that
+# produced no usable report were both logged and then never consulted.
+if [ "$CUTOFF" = "true" ] \
+   || [ "${CLASSIFY_RC:-0}" -ne 0 ] \
+   || [ "$BATCHES_FAILED_TO_START" -gt 0 ]; then
+  VERDICT="partial"
+  [ -z "$NOTE" ] && NOTE="partial: cutoff=$CUTOFF classify_rc=${CLASSIFY_RC:-0} unusable_batches=$BATCHES_FAILED_TO_START"
+else
+  VERDICT="complete"
+fi
 write_status
 log "report: $REPORT"
