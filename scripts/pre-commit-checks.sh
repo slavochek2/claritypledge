@@ -1029,6 +1029,72 @@ else
 fi
 echo ""
 
+# 14b–14d. Repo-structure order gate (P1221). Check 14 only sees *.md/*.json/images
+# in the root; nothing caught a new top-level directory, a docs/ page nothing
+# links to, or a multi-MB asset. The 2026-09-01 inventory found all three
+# ungated (a `.claire/` typo dir tracked since April, four 0-ref docs, 3 copies
+# of one 224KB font). Allowlists are derived from HEAD, not hardcoded, so the
+# gate has no false positives on the tree as committed (epistemic.md gate 7c)
+# and flags exactly what is NEW. Override for a deliberate change:
+#   P1221_ALLOW_NEW_ROOT=1   (new top-level entry)
+#   P1221_ALLOW_ORPHAN_DOC=1 (new docs/ page linked in a later commit)
+#   P1221_ALLOW_LARGE=1      (asset >500KB that genuinely belongs in the repo)
+echo ">>> Checking repo structure (new root entries / orphan docs / large files)..."
+STAGED_ADDED=$(git diff --cached --name-only --diff-filter=A 2>/dev/null || true)
+HEAD_ROOT_ENTRIES=$(git ls-tree --name-only HEAD 2>/dev/null || true)
+NEW_ROOT_ENTRIES=""
+for f in $STAGED_ADDED; do
+    top="${f%%/*}"
+    if ! echo "$HEAD_ROOT_ENTRIES" | grep -qxF "$top"; then
+        NEW_ROOT_ENTRIES="$NEW_ROOT_ENTRIES$top"$'\n'
+    fi
+done
+NEW_ROOT_ENTRIES=$(echo "$NEW_ROOT_ENTRIES" | sort -u | grep -v '^$' || true)
+if [ -n "$NEW_ROOT_ENTRIES" ] && [ "${P1221_ALLOW_NEW_ROOT:-}" != "1" ]; then
+    echo -e "${RED}✗ New top-level entry not in the tree at HEAD:${NC}"
+    echo "$NEW_ROOT_ENTRIES" | sed 's/^/  /'
+    echo -e "${RED}  Every root entry is a location agents will imitate. Put it under an existing dir${NC}"
+    echo -e "${RED}  (docs/technical/file-locations.md) or, if it is deliberate, P1221_ALLOW_NEW_ROOT=1.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+
+ORPHAN_DOCS=""
+for f in $(echo "$STAGED_ADDED" | grep -E '^docs/.*\.md$' || true); do
+    base=$(basename "$f")
+    # Inbound reference anywhere in the STAGED tree other than the file itself.
+    if ! git grep --cached -q -F "$base" -- ":(exclude)$f" 2>/dev/null; then
+        ORPHAN_DOCS="$ORPHAN_DOCS$f"$'\n'
+    fi
+done
+ORPHAN_DOCS=$(echo "$ORPHAN_DOCS" | grep -v '^$' || true)
+if [ -n "$ORPHAN_DOCS" ] && [ "${P1221_ALLOW_ORPHAN_DOC:-}" != "1" ]; then
+    echo -e "${RED}✗ New docs/ page with no inbound reference in the staged tree:${NC}"
+    echo "$ORPHAN_DOCS" | sed 's/^/  /'
+    echo -e "${RED}  Link it from CHARTER.md, CLAUDE.md, a rule, a skill or the doc that routes to it${NC}"
+    echo -e "${RED}  (docs/CHARTER.md: one fact, one home) — or P1221_ALLOW_ORPHAN_DOC=1 if the link lands next.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+
+LARGE_STAGED=""
+for f in $(git diff --cached --name-only --diff-filter=AM 2>/dev/null | grep -vxF 'package-lock.json' || true); do
+    sz=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
+    if [ "$sz" -gt 512000 ]; then
+        LARGE_STAGED="$LARGE_STAGED$f ($((sz / 1024))KB)"$'\n'
+    fi
+done
+LARGE_STAGED=$(echo "$LARGE_STAGED" | grep -v '^$' || true)
+if [ -n "$LARGE_STAGED" ] && [ "${P1221_ALLOW_LARGE:-}" != "1" ]; then
+    echo -e "${RED}✗ Staged file over 500KB:${NC}"
+    echo "$LARGE_STAGED" | sed 's/^/  /'
+    echo -e "${RED}  Compress it, host it externally, or P1221_ALLOW_LARGE=1 if it must ship in the repo.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+
+if [ -z "$NEW_ROOT_ENTRIES" ] && [ -z "$ORPHAN_DOCS" ] && [ -z "$LARGE_STAGED" ]; then
+    echo -e "${GREEN}✓ Repo structure: no new root entries, orphan docs, or large files${NC}"
+fi
+echo ""
+
 # 14.9. Client-breaking migration annotation gate (P887 — prevents P886-class
 # outages at authoring time). A newly staged migration containing client-breaking
 # SQL shapes (REVOKE from anon/authenticated, DROP POLICY, DROP COLUMN, column
