@@ -1075,6 +1075,21 @@ cmd_commit_to_main() {
     echo "usage: git-ops commit-to-main --message <msg> --files <f1> [f2 ...]" >&2; exit 2
   fi
 
+  # Advisory only — NEVER refuses, never rewrites the subject. It fires at the moment
+  # the omission is made, rather than at ship time when the recovery means touching the
+  # shared main checkout. Non-refusing is the point: a guard with no false-positive cost
+  # cannot do to a legitimate workflow what a fail-closed check would (epistemic.md 7c).
+  if [[ "$message" =~ [Pp][0-9]{3,4} ]] && [[ "$message" != *"ready for QA"* ]]; then
+    local _pn_seen="${BASH_REMATCH[0]}"
+    # Only speak up if NO stamp exists for this pN yet. Without this the note fires on
+    # every routine spec-edit or docs commit that merely mentions a P-number — which is
+    # most of them — and a note that is always on is a note nobody reads. Same grep the
+    # ship gate itself uses, so the advisory and the refusal can never disagree.
+    if ! ( cd "$REPO_ROOT" 2>/dev/null && git log main -i --grep="\\b${_pn_seen}\\b" --grep="ready for QA" --all-match --format='%H' 2>/dev/null | grep -q . ); then
+      echo "note: subject carries ${_pn_seen} and no 'ready for QA' stamp commit exists for it yet — if ${_pn_seen} is a spec implemented inline on main, 'git-ops.sh ship ${_pn_seen}' will refuse to close it until one does." >&2
+    fi
+  fi
+
   require_main_repo
 
   # P787: refuse if HEAD is not main, or an operation is in progress. A co-tenant
@@ -2254,7 +2269,19 @@ PY
         [[ -n "$_stamp_ok" ]] && break
       done < <( cd "$REPO_ROOT" && git log main -i --grep="\\b${pn}\\b" --grep="ready for QA" --all-match --format='%H' 2>/dev/null || true )
       if [[ -z "$_stamp_ok" ]]; then
-        die "ship: spec $pn is on main but no qualifying '$pn ready for QA' stamp commit found (a non-revert commit whose SUBJECT carries '$pn' and 'ready for QA') — its implementation may be on an unmerged or deleted branch, reverted, or incomplete. Resolve manually."
+        # The recovery is named here on purpose. This refusal has now fired on four
+        # separate emitters (P920 design, P1185 inline-on-main, P1205), and each time
+        # the recipe had to be re-derived from the error. On 2026-09-01 that produced
+        # a `git commit --amend` on the SHARED main checkout — a history rewrite where
+        # a second stamp commit was the safe move. Naming the safe path removes the
+        # need to invent one. Do NOT "fix" this by auto-stamping in commit-to-main:
+        # a bare pN match was explicitly rejected when P920 was designed, because spec
+        # edits and cross-references carry pN tokens too, so auto-stamping trades a
+        # loud recoverable refusal for a SILENT false close of work that never landed.
+        die "ship: spec $pn is on main but no qualifying '$pn ready for QA' stamp commit found (a non-revert commit whose SUBJECT carries '$pn' and 'ready for QA') — its implementation may be on an unmerged or deleted branch, reverted, or incomplete.
+  If the implementation IS on main under a non-stamp subject, record it with a stamp commit — do not amend history on the shared checkout:
+    ./scripts/git-ops.sh commit-to-main --message \"chore: $pn ready for QA — <title>\" --files <a file you actually changed>
+  Then re-run: ./scripts/git-ops.sh ship $pn"
       fi
 
       # --- Closure (Decisions C + D). Acquire the main lock exactly once HERE
@@ -3366,10 +3393,28 @@ cmd_ship_to_prod() {
 #   D1: The final git push origin main ALWAYS prompts a TTY y/N.
 #   D2: Detect-and-stop on uncovered watched-path commits; never writes the stamp.
 #
-# Usage: git-ops.sh push-docs
+# Usage: git-ops.sh push-docs [--resume]
+#
+# --resume: a previous run already pushed the staging branch and then aborted
+#   (typically the push-on flag lapsing during the CI poll). Deletes that leftover
+#   branch and re-pushes it, so GitHub fires a fresh `push` event and a fresh
+#   full-range audit-privacy run. Needed because re-pushing the same SHA onto an
+#   existing ref is a no-op that creates no run at all, so a plain re-run polls
+#   until MAX_WAIT and dies. It does NOT reuse the old green run: audit-privacy
+#   scans a RANGE derived from the event (privacy-scan.yml:47-59), so a green
+#   verdict on this SHA is not a verdict on this content.
 # ─────────────────────────────────────────────────────────────────────────────
 cmd_push_docs() {
   require_main_repo
+
+  local resume=0
+  while (( $# )); do
+    case "$1" in
+      --resume) resume=1 ;;
+      *) die "push-docs: unknown argument '$1' (accepts --resume)" ;;
+    esac
+    shift
+  done
 
   # Must be on main
   local current_branch
@@ -3457,6 +3502,32 @@ cmd_push_docs() {
   local short_sha
   short_sha="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
   local staging_branch="staging/doc-${short_sha}"
+  if (( resume )); then
+    # Delete the leftover staging branch so the re-push below CREATES the ref again.
+    # This is the whole mechanism: pushing the same SHA onto an existing branch is a
+    # no-op ref update, GitHub fires no `push` event, and no new audit-privacy run is
+    # ever created — so a plain re-run polls for a fresh run that cannot exist and
+    # dies at MAX_WAIT. Re-creating the ref sends BEFORE=0000, which privacy-scan.yml
+    # (:52-56) turns into a FULL `origin/main..AFTER` scan.
+    #
+    # We deliberately do NOT reuse the existing green check-run. audit-privacy is a
+    # function of (content, event, base) — not of tree content — because the range is
+    # computed from the event payload (privacy-scan.yml:47-59) and the workflow runs
+    # on `pull_request` too. So a green run on this exact SHA may have scanned an
+    # empty or narrow diff, and accepting it by head_sha alone would promote content
+    # nothing ever scanned. The freshness guard in the poll below is what binds the
+    # verdict to OUR full-range push; it stays enforced on every path.
+    local remote_staging_sha
+    remote_staging_sha="$(git -C "$REPO_ROOT" ls-remote origin "refs/heads/${staging_branch}" 2>/dev/null | awk '{print $1}')"
+    if [[ -z "$remote_staging_sha" ]]; then
+      die "push-docs --resume: no staging branch ${staging_branch} on origin — drop --resume to start a normal run."
+    fi
+    echo "push-docs [3/6]: --resume — deleting stale ${staging_branch} to force a fresh full-range scan..." >&2
+    if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" 2>&1; then
+      die "push-docs --resume: could not delete ${staging_branch} — resolve by hand, then re-run without --resume."
+    fi
+  fi
+
   echo "push-docs [3/6]: pushing to staging branch ${staging_branch}..." >&2
 
   if ! git -C "$REPO_ROOT" push origin "main:refs/heads/${staging_branch}" --force-with-lease="${staging_branch}" 2>&1; then

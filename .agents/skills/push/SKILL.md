@@ -2,7 +2,7 @@
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 4.0.0
+version: 5.0.0
 ---
 
 # /push
@@ -49,7 +49,7 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 
 *(History: the pre-2026-08-05 `push-enable` alias backgrounded its cleanup without disowning it, so the expiry died with the terminal — observed live, a "30-minute" flag still granting pushes 3h23m later. Fixed twice over: `push-on` uses zsh `&!` so the cleanup survives its parent shell, **and** the consumers no longer trust the file's mere existence. A revocation that depends on a background job surviving is one that silently fails open.)*
 
-`PUSH_DOCS_ASSUME_YES=1` is unrelated to all of the above. A `VAR=1 cmd` prefix **is** inherited by every child process including `git push` and the hooks — but no hook reads this variable. It gates exactly one branch, `git-ops.sh:2924`.
+`PUSH_DOCS_ASSUME_YES=1` is unrelated to all of the above. A `VAR=1 cmd` prefix **is** inherited by every child process including `git push` and the hooks — but no hook reads this variable. It gates exactly one branch — the `PUSH_DOCS_ASSUME_YES` test in `cmd_push_docs`'s promote step.
 
 > **History — read this before you assert anything about the gates.** v1.0.0 promised "no confirmation prompt" (ignored the TTY gate). v2.0.0 claimed the flag "does not enable an agent push" (inverted the waiver). v3.0.0 claimed `PUSH_DOCS_ASSUME_YES` "is never exported into the git push" (false — it is inherited; the conclusion was right, the mechanism invented) and that Layer 2 is "always enforced" (it skips non-main refs). v3.1.0 then shipped a recovery check (`--is-ancestor <sha> origin/main`) that **can never return true in the abort case it was written for**, so orphaned staging branches would have read "unsafe to delete" forever. **Four versions, four sets of false claims — including two consecutive attempts to fix the problem — every one produced by inferring from an observed symptom instead of reading the source.** Cite `file:line` you have actually opened, or don't make the claim. The only thing that has ever caught these is a hostile reviewer told to assume a false claim exists.
 
@@ -104,7 +104,7 @@ Respect the git firewall (`.claude/rules/git.md`): **explicit paths only, never 
 
 ### 3. Write the privacy stamp (only if a watched path changed)
 
-`push-docs` only blocks on commits that touch **watched paths** — default at `git-ops.sh:61`, overridden by `scripts/privacy-watched-paths.sh` when present (`:62-64`), which is the source of truth: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`, `supabase/migrations/`. A push whose range touches **none** of these (e.g. `src/`-only) needs no stamp — skip this step.
+`push-docs` only blocks on commits that touch **watched paths** — `WATCHED_PATHS` default near the top of `git-ops.sh`, overridden by `scripts/privacy-watched-paths.sh` when present, which is the source of truth: `docs/`, `features/`, `.claude/commands/`, `CLAUDE.md`, `README.md`, `content/articles/`, `content/sifter/`, `supabase/migrations/`. A push whose range touches **none** of these (e.g. `src/`-only) needs no stamp — skip this step.
 
 Check the push range: `git diff --name-only origin/main..HEAD`.
 
@@ -114,22 +114,64 @@ Check the push range: `git diff --name-only origin/main..HEAD`.
   - Clean → stamp written, continue.
   - **HARD flag found** → STOP. Surface the finding; do not stamp, do not push.
 
-### 4. Check the flag BEFORE running the staging hop
+### 4. Check the flag BEFORE running the staging hop — ONE ask, with a number
+
+**Do not reach this step until steps 1-3 are DONE.** Committing and the privacy review need no
+flag — nothing in them is a push. Asking for `push-on` before them spends the grant on local work
+and guarantees a second ask. (2026-09-01: a `/push` that started with ~55 min of flag ran 34 min of
+commit + privacy review over 168 commits, then died at the promote step with the flag lapsed.)
+
+**Check `main.lock` BEFORE you ask for the flag.** `push-docs` acquires the lock (`acquire_main_lock` in
+`cmd_push_docs`) before the staging push and holds it until exit — across the whole CI poll
+(`while (( waited < MAX_WAIT ))`, `MAX_WAIT=600`), so a
+co-tenant `/push` or `/ship` can own it for ten minutes while your own wait times out after 120s
+(`GIT_OPS_MAIN_LOCK_TIMEOUT:-120`) and dies having pushed nothing. If you ask for `push-on` first,
+that dead 2-minute wait is spent out of the user's grant — and it is spent again on every retry.
 
 ```bash
-zsh -ic push-status 2>/dev/null || \
-  { _e=$(head -1 ~/.push-enabled 2>/dev/null); \
-    _s=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$_e" +%s 2>/dev/null); \
-    [[ -n "$_s" ]] && (( $(date -u +%s) < _s )) && echo ACTIVE || echo INACTIVE; }
+ls -l .claude/worktrees/main.lock 2>/dev/null || echo "main.lock: FREE"
 ```
 
-**INACTIVE → stop here and ask first.** Do not run `push-docs` yet: it would push a staging branch, burn a full CI run, then die at the TTY read and orphan that branch permanently (see the leak below). Ask for the one word:
+`git-ops.sh reconcile` does **not** answer this — it classifies per-worktree-slot `.lock` files and
+never looks at `main.lock`, so it prints nothing whether the lock is free or held by a live
+co-tenant, and "no output" reads as free either way. (Verified 2026-09-01: empty output, exit 1,
+with a live holder. A probe that returns the same verdict for both states is blind — global
+CLAUDE.md, control-probe rule.) `acquire_main_lock` is the only thing that reports a holder, and it
+takes the lock to do it.
 
-> N commit(s) ready. To let me finish the push, run `push-on`. I can't set it myself — it's your authorization, not mine.
+- **Lock held by a LIVE session** → do **not** ask for the flag yet. Report the holder and that a
+  co-tenant push is in flight, and wait for it to clear. Their run ends with a push to main, so
+  re-check your own ahead/behind afterwards — their commits may already include yours.
+- **Lock free** → continue to the budget check below.
 
-**PRESENT but older than ~30 min → treat as stale, confirm before proceeding.** The expiry is a backgrounded subshell (`~/.zshrc:455`) that dies with its terminal, so an old flag may be a leftover rather than a live grant. Pushing on a stale flag means pushing on authorization the user thinks already lapsed.
+(2026-09-01, the session next door: window granted, burned by a 2-minute lock wait plus CI polling,
+flag lapsed, second `push-on` needed. Same *symptom* as the case above, different *cause* — the
+20-minute budget cannot help when the time goes to a lock that was never yours to take.)
 
-**FRESH → proceed. You complete the push yourself.** Start promptly: if the window lapses mid-run you land in the recovery case below.
+**One grant must cover BOTH pushes.** `push-docs` pushes twice — the staging branch, then `main` —
+separated by a CI poll budgeted at up to 600s (plus up to 120s of lock wait even when the pre-check
+above was clean, since a co-tenant can take the lock between your check and your run). So the question is never "is the flag set" but
+**"are there enough minutes left for staging push + CI + promote"**. Budget **20 minutes**.
+
+```bash
+_e=$(head -1 ~/.push-enabled 2>/dev/null)
+_s=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$_e" +%s 2>/dev/null || date -u -d "$_e" +%s 2>/dev/null)
+if [[ -n "$_s" ]]; then echo "remaining_min=$(( (_s - $(date -u +%s)) / 60 ))"; else echo "remaining_min=none"; fi
+```
+
+- **`remaining_min` >= 20** → proceed to step 5 immediately. Do not do any other work first.
+- **`none`, <= 0, or < 20** → **stop and ask ONCE, naming the number** — never a bare "run push-on",
+  which grants the 30 min default and lands you back here mid-CI:
+
+  > N commit(s) committed and privacy-stamped, ready to push. Run **`push-on 60`** and I'll take it
+  > from there — staging hop, CI, and the promote to main, no further input. I can't set the flag
+  > myself; it's your authorization, not mine.
+
+  `push-on` caps at 120 min (`PUSH_MAX_TTL_MIN`, `~/.zshrc`), so 60 is accepted as-is.
+
+**Never ask a second time in one `/push`.** If the grant lapses mid-run anyway, that is the
+`--resume` case in step 5 — CI is already green on this SHA and is not re-run; you still need one
+fresh grant, but say that plainly.
 
 ### 5. Run the staging hop
 
@@ -139,16 +181,34 @@ PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs
 
 Deterministic: privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → `audit-privacy` CI poll → push to main → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag FRESH the pre-push waiver handles the rest, and it runs unattended end to end.
 
-**The staging branch name is computed from live HEAD** (`git-ops.sh:2814`) and cleanup runs **only after a successful main push** (`:2949-2955`). So every aborted run **leaks one remote branch permanently** — the script prints the delete command on the `n` path but *not* on a hook failure.
+**The staging branch name is computed from live HEAD** (`staging_branch="staging/doc-${short_sha}"` in `cmd_push_docs`) and cleanup runs **only after a successful main push** (`push-docs [6/6]` block, after the `git`-push-to-main step). So every aborted run **leaks one remote branch permanently** — the script prints the delete command on the `n` path but *not* on a hook failure.
 
-**Recovery if the run aborts after the staging push (the flag-expired case):**
+**Recovery if the run aborts after the staging push (the flag-expired case) — use `--resume`:**
 
 ```bash
-git ls-remote origin 'staging/*'                    # audit the leak
-git push origin --delete staging/doc-<sha>          # cleanup — itself needs the flag
+./scripts/git-ops.sh push-docs --resume     # after a fresh push-on
 ```
 
-**Note the deadlock:** `git push origin --delete` *is* a `git push`, so if the abort was caused by the flag expiring, the cleanup is blocked by that same expiry. Do not loop on it. Report the orphaned branch name and ask the user to re-run `push-on`, then retry both the push and the cleanup.
+`--resume` **deletes the leftover staging branch and re-pushes it**, so GitHub fires a fresh `push`
+event and a fresh full-range `audit-privacy` run. That is the actual deadlock: re-pushing the same
+SHA onto an existing ref is a no-op update, no event fires, no run is ever created, and a plain
+re-run therefore polls until `MAX_WAIT` and dies — which is what forced a second `push-on`. It
+refuses if no such staging branch exists.
+
+**It does NOT reuse the green run that already passed on that SHA, and neither should you.**
+`audit-privacy` scans a **range computed from the event** (`privacy-scan.yml`, "Compute scan range"
+— `pull_request` → `base..head`, a re-push → `before..after`, a new ref → full `origin/main..after`),
+and the workflow runs on `pull_request` as well as `push`. So a green check-run on your exact SHA
+may have scanned an empty or narrow diff, and accepting it by `head_sha` alone would promote
+content nothing ever scanned — past the P919 required check, which that run satisfies. The poll's
+freshness guard is what binds the verdict to *our* full-range push; it stays enforced on every
+path, `--resume` included. (This exact relaxation was written, reviewed, and removed on
+2026-09-01.)
+
+The staging branch is cleaned up by the successful `--resume` run itself. If you must delete one by
+hand, note the deadlock: `git push origin --delete` *is* a push, so a flag-expiry abort blocks
+its own cleanup. Do not loop on it — report the branch name and fold it into the same single
+`push-on` ask.
 
 **Check containment against LOCAL `main`, not `origin/main`.** An aborted run means the main push never happened, so the staging tip is a *descendant* of `origin/main`, never an ancestor — `--is-ancestor <sha> origin/main` returns 1 in exactly the situation you're trying to clean up, and reads as "unsafe to delete" forever:
 
@@ -156,13 +216,13 @@ git push origin --delete staging/doc-<sha>          # cleanup — itself needs t
 git merge-base --is-ancestor <sha> HEAD && echo "contained in local main — safe to delete"
 ```
 
-A `staging/doc-*` branch is only ever a copy of local `main` at push time, so once it is contained in your local history, deleting it loses nothing. (After a *successful* push the branch is already gone — `git-ops.sh:2949-2955` — so any surviving `staging/*` is by definition from an abort.)
+A `staging/doc-*` branch is only ever a copy of local `main` at push time, so once it is contained in your local history, deleting it loses nothing. (After a *successful* push the branch is already gone — the `push-docs [6/6]` cleanup block — so any surviving `staging/*` is by definition from an abort.)
 
 **Real blockers (surface, don't auto-resolve):** `audit-privacy` CI **red** (content is not publishable — never `--force`), privacy coverage gap, staging push rejected (behind origin), `gh` not authenticated.
 
-**What stays protected:** the server-side `audit-privacy` check on main is the real boundary (P919 — *documented*; the branch-protection API returns 403 to the local `gh` token, so "required" is not verifiable from here. Do not restate it as confirmed). Layer 1's PII scan runs on every ref regardless of the flag. `PUSH_DOCS_ASSUME_YES` applies to `push-docs` ONLY — never `ship-to-prod`, which requires a TTY unconditionally (`git-ops.sh:2683-2684`) and never consumes the flag's waiver (`:2469`).
+**What stays protected:** the server-side `audit-privacy` check on main is the real boundary (P919 — *documented*; the branch-protection API returns 403 to the local `gh` token, so "required" is not verifiable from here. Do not restate it as confirmed). Layer 1's PII scan runs on every ref regardless of the flag. `PUSH_DOCS_ASSUME_YES` applies to `push-docs` ONLY — never `ship-to-prod`, whose `Confirm prod push? (y/N)` + `exec < /dev/tty` in `cmd_ship_to_prod` has no `ASSUME_YES` escape at all.
 
-**Never hand the user `! <command>` as a workaround.** Claude Code's `!` bash mode is **not** a TTY: `push-docs` dies at its `[[ -t 0 ]]` guard (`git-ops.sh:2931`), and the pre-push hook's `/dev/tty` read fails the same way. If the flag is unavailable, the fallback is the user running it in a **real terminal** — not `!`.
+**Never hand the user `! <command>` as a workaround.** Claude Code's `!` bash mode is **not** a TTY: `push-docs` dies at the `[[ -t 0 ]]` guard in its promote step, and the pre-push hook's `/dev/tty` read fails the same way. If the flag is unavailable, the fallback is the user running it in a **real terminal** — not `!`.
 
 Verify and report: `git rev-list --left-right --count origin/main...HEAD` → expect `0	0`.
 
@@ -179,5 +239,6 @@ Verify and report: `git rev-list --left-right --count origin/main...HEAD` → ex
 | "PR or disable the check?" → wait | `push-docs` owns the staging hop |
 | agent rediscovers the protocol each time | one documented delegation |
 | agent guesses at what blocks it and asserts the guess | flag semantics read from source and cited (step 4) |
+| two `push-on` asks per push (one burned on local work, one on the CI poll) | one ask, after the local work, sized to cover both pushes (step 4) + `--resume` when it still lapses (step 5) |
 
 **Honest contract:** with `~/.push-enabled` set, `/push` runs end to end and pushes to main. Without it, `/push` does everything up to the push and asks the user for one word — `push-on` — never a push procedure, and never `!`.
