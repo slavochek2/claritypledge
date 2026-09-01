@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000056
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [day, skills, process, monitoring]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev, finish]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-01
 ---
 
 # P1205: `/day`'s sub-day dispatch has no mechanical continuity check, and `day.md` has a live step-ordering bug
