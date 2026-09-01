@@ -21,6 +21,13 @@ test.describe('Point Position Persistence', () => {
     console.log('[TEST SETUP] Run: supabase/migrations/20260209_fix_position_history_rls.sql');
   });
 
+  // Unique per run. A fixed literal here left 110 identical rows on the shared test
+  // project: cleanup in afterEach is declared but does not always complete (a timed-out
+  // test can lose its teardown budget), and every leftover row then matches this file's
+  // own `hasText` locators. Uniqueness makes the tests correct whether or not cleanup
+  // runs, and matches what the rest of the suite already does (e.g. p1104's fixtures).
+  const POINT_STATEMENT = `E2E Test Point: Remote work increases productivity ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
   test.beforeEach(async () => {
     // Create test user
     testUser = await createTestUser({ name: 'Position Tester' });
@@ -29,7 +36,7 @@ test.describe('Point Position Persistence', () => {
     const { data: pointData, error: pointError } = await supabaseAdmin
       .from('points')
       .insert({
-        statement: 'E2E Test Point: Remote work increases productivity',
+        statement: POINT_STATEMENT,
         context: 'Testing position persistence',
         first_validator_id: testUser.user.id,
         tags: ['test'],
@@ -71,7 +78,7 @@ test.describe('Point Position Persistence', () => {
     await expect(page).toHaveURL(`/point/${testPointId}`);
 
     // Verify point is loaded
-    await expect(page.getByText('E2E Test Point: Remote work increases productivity')).toBeVisible();
+    await expect(page.getByText(POINT_STATEMENT)).toBeVisible();
 
     // Click "Agree" position button
     const agreeButton = page.getByRole('button', { name: /agree/i }).first();
@@ -101,11 +108,11 @@ test.describe('Point Position Persistence', () => {
     await pointsTab.click();
 
     // Verify the point appears on profile
-    await expect(page.getByText('E2E Test Point: Remote work increases productivity')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(POINT_STATEMENT)).toBeVisible({ timeout: 10000 });
 
     // Verify position badge is shown (user took position "agree")
     // The PositionBadge component displays "Agrees" in a blue badge
-    const pointCard = page.locator('.border-l-4', { hasText: 'E2E Test Point: Remote work increases productivity' });
+    const pointCard = page.locator('.border-l-4', { hasText: POINT_STATEMENT });
     await expect(pointCard).toBeVisible();
 
     // Check for the actual position badge text (PositionBadge shows "Agrees" for agree position)
@@ -135,7 +142,7 @@ test.describe('Point Position Persistence', () => {
     await page.getByRole('tab', { name: /points/i }).click();
 
     // Verify point still appears (with updated position)
-    await expect(page.getByText('E2E Test Point: Remote work increases productivity')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(POINT_STATEMENT)).toBeVisible({ timeout: 10000 });
   });
 
   test('should remove position when toggled off', async ({ page }) => {
@@ -153,7 +160,7 @@ test.describe('Point Position Persistence', () => {
     // Verify position was saved by checking profile
     await page.goto(`/p/${testUser.slug}`);
     await page.getByRole('tab', { name: /points/i }).click();
-    await expect(page.getByText('E2E Test Point: Remote work increases productivity')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(POINT_STATEMENT)).toBeVisible({ timeout: 10000 });
 
     // Go back and remove position (toggle off)
     await page.goto(`/point/${testPointId}`);
@@ -207,10 +214,10 @@ test.describe('Point Position Persistence', () => {
     await page.getByRole('tab', { name: /points/i }).click();
 
     // Verify point appears with initial position
-    await expect(page.getByText('E2E Test Point: Remote work increases productivity')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(POINT_STATEMENT)).toBeVisible({ timeout: 10000 });
 
     // Verify the initial position badge shows "Agrees"
-    const initialPointCard = page.locator('.border-l-4', { hasText: 'E2E Test Point: Remote work increases productivity' });
+    const initialPointCard = page.locator('.border-l-4', { hasText: POINT_STATEMENT });
     await expect(initialPointCard.getByText(/Agrees/)).toBeVisible({ timeout: 5000 });
 
     // Click a different position button on the profile page
@@ -230,7 +237,7 @@ test.describe('Point Position Persistence', () => {
     await page.getByRole('tab', { name: /points/i }).click();
 
     // Verify position still shows as "Disagrees" after page reload
-    const reloadedPointCard = page.locator('.border-l-4', { hasText: 'E2E Test Point: Remote work increases productivity' });
+    const reloadedPointCard = page.locator('.border-l-4', { hasText: POINT_STATEMENT });
     await expect(reloadedPointCard.getByText(/Disagrees/)).toBeVisible();
   });
 });

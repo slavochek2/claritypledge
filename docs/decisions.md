@@ -53,6 +53,84 @@ it and can re-introduce the same blind spot.
 
 **References:** [docs/technical/e2e-triage-2026-09-01.md](technical/e2e-triage-2026-09-01.md)
 
+## 2026-09-01 [technical]: A row count proves rows exist — it never proves what they break
+
+**Context:** A read-only count found **110** points on the test project sharing one hardcoded
+fixture statement, and 2,107 of 3,481 points test-shaped overall. The same file's tests were failing
+with a strict-mode violation in one test and 0 matches in another — a pattern that looked
+irreconcilable except by contamination. That causal story was written up, committed, and merged.
+
+**It was wrong, and the disproof was making the fix.** Giving the fixture a unique name per run and
+re-running produced the *same* strict-mode violation on a point guaranteed unique — two elements
+inside one card (a `Disagrees` badge and a separate `unsure-group`). An over-broad locator, not
+contamination. Counts before/after the change: 3 failed / 2 passed, unchanged.
+
+**Decision:** A count is evidence of population, never of causation. Before attributing a failure to
+data state, change exactly one variable and re-run. Correlation between "lots of junk rows" and
+"tests fail on that data" is strong, cheap to believe, and was wrong here.
+
+**Alternatives rejected:** Reading teardown code more carefully — it was read, and produced a
+*second* wrong claim ("afterEach never deletes the point"; it does, explicitly).
+
+**Consequences:** Two mechanisms falsified (FK blocking the delete — the point FKs are
+`ON DELETE CASCADE`; cleanup never written — it is). One untested hypothesis remains: a timed-out
+test losing its teardown budget. What *is* now proven, by controlled before/after rather than a
+snapshot: **the leak is ongoing** — one 5-test run left exactly 5 surviving rows, with the delete
+issued and its result unchecked. No failure in the 2026-09-01 run is currently attributed to test-data
+pollution; the earlier attribution is withdrawn in the triage doc. Fixture uniqueness was still
+applied (repo convention, prevents the collision class) but it is **not** a fix for those tests.
+
+**References:** [docs/technical/e2e-triage-2026-09-01.md](technical/e2e-triage-2026-09-01.md)
+
+## 2026-09-01 [process]: `git-ops.sh ship pN` closes pN — so landing partial work under a live bug's number silently marks it done
+
+**Context:** The overnight-run triage was a partial contribution to P1043 (a live bug spec with
+~600 failures still undiagnosed). Landing it used `git-ops.sh ship p1043`, the documented merge path
+for a `feature/pN-*` branch. It cherry-picked correctly — and then appended a `chore: close p1043`
+commit that set `status: all-done`, stamped `completed_at`, and moved the spec into
+`features/done/2026-06-10/`. Nothing warned; the ship output read as success.
+
+**Decision:** Treat "which P-number do I branch under?" as a **closure decision, not a label**.
+Before shipping under pN, ask whether pN is finished. If it is not, either ship under a new
+P-number for the sub-piece, or expect to reopen pN in the same session.
+
+**Alternatives rejected:** Not using `ship` (it is the only path that serializes against a
+concurrent ship, and hand-merging on the shared main checkout is the documented worse option).
+Leaving the spec closed and "reopening later" (a closed spec leaves the kanban board, so later
+never arrives).
+
+**Consequences:** Reopening is a `git mv` back out of `done/` plus a frontmatter revert — and the
+relative links break in both directions, because the file moves between two directory depths and
+`ship` rewrites them on the way in. The doc-link gate catches that, which is the only reason the
+reversal was clean. `Status: proposed` — a guard in `ship` that refuses (or prompts) when the target
+spec's own Done-When boxes are unticked would remove the decision entirely; not built.
+
+**References:** [features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md](../features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md)
+
+## 2026-09-01 [process]: A supersession sweep has to walk the chain from both ends — `superseded_by:` and `predecessor:`
+
+**Context:** Classifying 1,624 E2E failures, a sweep read each failing spec's own frontmatter for
+`status: rejected` and `superseded_by:` and reported **536 failures** from dead specs. That number
+was published to the founder. It was wrong: a supersession can be recorded **only on the successor's
+side** — `p502` carries `predecessor: p458` while P458's own spec still reads `status: all-done`
+with no marker at all. The sweep was structurally blind to it and silently classified 44 failures
+across 5 files as "live spec". Correct figure: **580**.
+
+**Decision:** Any "is this spec still live?" check must union three signals — the spec's own
+`status:`, its own `superseded_by:`, and **any other spec naming it in `predecessor:`**. One-sided
+reads are false-negative machines, and the failure is invisible: the sweep returns a plausible
+number rather than an error.
+
+**Alternatives rejected:** Requiring authors to backfill `superseded_by:` on the predecessor
+(depends on discipline at the moment of supersession, which is exactly when nobody does it).
+
+**Consequences:** The gap was found by a triage subagent, not by the sweep or by its author. That
+is the shape to notice: the sweep's own result looked reasonable, so nothing about it invited a
+check. `Status: proposed` — no shared helper exists for "is pN superseded"; each caller re-implements
+it and can re-introduce the same blind spot.
+
+**References:** [docs/technical/e2e-triage-2026-09-01.md](technical/e2e-triage-2026-09-01.md)
+
 ## 2026-09-01 [technical]: `ON DELETE CASCADE` is a declaration, not evidence — count the rows before believing cleanup works
 
 **Context:** `e2e/point-position-persistence.spec.ts` creates a fixture point whose
