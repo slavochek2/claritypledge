@@ -677,3 +677,74 @@ prod. A blind spot that looks empty in one environment is not empty.
 
 **Expect `/day` to alarm on the privilege floor until P1207 ships to prod.** That is correct
 behaviour, not a bug to silence.
+
+---
+
+# Phase 8 — the six vacuous tables, and F10: private session transcripts were world-readable
+
+Phase 1 could not classify six tables because they were empty on test, and stated plainly that a
+clean anon result on an empty table proves nothing. They were seeded and probed. **Four of the six
+turned out to be anon-enumerable with full content.**
+
+| Table | anon can enumerate | sentinel content visible |
+|---|---|---|
+| `clarity_demo_rounds` | yes | yes — incl. `paraphrase_text`, `speaker_rating`, `calibration_gap` |
+| `clarity_ideas` | yes | yes |
+| `clarity_live_turns` | yes | yes — incl. `transcript`, `self_rating`, `other_rating` |
+| `clarity_verifications` | yes | yes (this is F7, now measured rather than inferred) |
+| `event_private_info` | no | no — P1193 scoped it correctly |
+| `user_voice_profiles` | no | no |
+
+Control on both runs: `profiles.email` → `42501`. The probe can see a refusal, so the four
+positives are real and the two negatives are not the probe failing.
+
+**The "empty table" caveat was not bookkeeping.** Every one of these four would have been reported
+clean by an unseeded sweep, and one of them is F10 below.
+
+## F10 — a directed session's transcript was readable by anyone · REPRODUCED · was LIVE on prod
+
+`clarity_sessions` gates correctly:
+
+```
+qual = (target_listener_id IS NULL)
+       OR (auth.uid() = target_listener_id OR auth.uid() = creator_profile_id)
+```
+
+An **open** session is public by design — that is the anonymous `/live` flow, where participants
+join by code and hold no account. A **directed** session is private to its two parties.
+
+The three child tables did not inherit that. Each carried a bare `qual = true`
+("Demo rounds are viewable by everyone", "Ideas…", "Live turns…"). So the parent hid a private
+session's row while its **content** stayed world-readable:
+
+```
+anon reads the directed session's parent row  ->  0 rows   (correctly gated)
+anon reads that session's live turns          ->  1 row
+   [{"transcript":"SENTINEL private transcript","self_rating":9}]
+```
+
+No id and no credential are needed — an unfiltered select returns them. Transcripts and private
+self-ratings are the most sensitive content this product holds.
+
+**Fix:** each child's predicate becomes "the parent is visible to me", via
+`can_read_clarity_session(session_id)` — a `SECURITY DEFINER STABLE` function that **re-uses** the
+parent's rule instead of restating it, so parent and children cannot drift apart again. That
+drift is precisely how this happened.
+
+**The anonymous `/live` flow is unchanged and that is asserted, not assumed.** The spec's first
+test is the open-session control: an open session's transcript must still be readable by anon. A
+suite that only checked the private case would pass just as happily against a database where all
+reads had been broken.
+
+```
+before: 2 failed — private transcript returned by id AND by unfiltered sweep
+after:  4 passed — private hidden both ways; open session still readable
+```
+
+## The same shape, a fifth time
+
+F2, F9, F0a/F0b, F10 — every real finding in this audit is **an unscoped branch admitting someone
+who is not a party**, never a sensitive-looking column. F10 adds a variant worth naming on its
+own: **a correctly-scoped parent with unscoped children.** The gate existed, was well written, and
+simply was not applied one level down. Grepping for `qual = true` finds it; reading the parent
+policy and concluding "sessions are protected" does not.
