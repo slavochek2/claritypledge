@@ -3,7 +3,7 @@
  * @description Unit tests for P504: Generalized banner generation utility
  *
  * Tests:
- * - Entity type routing (event, story, point, profile)
+ * - Entity type routing (event, story, profile)
  * - Prompt construction per entity type
  * - Input validation (truncation, control char stripping)
  * - Error handling for invalid entity types
@@ -38,7 +38,7 @@ function truncateText(text: string, maxLength: number): string {
  * This mirrors the logic that will exist in the generalized edge function.
  */
 function buildPromptContext(params: {
-  entityType: 'event' | 'story' | 'point' | 'profile';
+  entityType: 'event' | 'story' | 'profile';
   title?: string;
   content?: string;
   statement?: string;
@@ -62,10 +62,6 @@ function buildPromptContext(params: {
       const text = title || content;
       return `Generate a banner image for a personal story. Title/content: "${text}".`;
     }
-    case 'point': {
-      const statement = truncateText(stripControlChars(params.statement || ''), 200);
-      return `Generate a banner image for an opinion statement: "${statement}".`;
-    }
     case 'profile': {
       const name = truncateText(stripControlChars(params.name || 'ClarityPledge member'), 100);
       const role = truncateText(stripControlChars(params.role || ''), 100);
@@ -85,7 +81,7 @@ function buildPromptContext(params: {
 function validateRequestBody(body: Record<string, unknown>): { valid: boolean; error?: string } {
   const { entityType, entityId } = body;
 
-  if (!entityType || !['event', 'story', 'point', 'profile'].includes(entityType as string)) {
+  if (!entityType || !['event', 'story', 'profile'].includes(entityType as string)) {
     return { valid: false, error: `Invalid entityType: ${entityType}` };
   }
 
@@ -134,15 +130,6 @@ describe('generateBanner — prompt construction', () => {
         content: 'A story about trust',
       });
       expect(prompt).toContain('A story about trust');
-    });
-
-    it('builds point prompt with statement', () => {
-      const prompt = buildPromptContext({
-        entityType: 'point',
-        statement: 'Trust is earned through consistent actions',
-      });
-      expect(prompt).toContain('opinion statement');
-      expect(prompt).toContain('Trust is earned through consistent actions');
     });
 
     it('builds profile prompt with name and role', () => {
@@ -209,17 +196,6 @@ describe('generateBanner — prompt construction', () => {
       expect(match![0].length).toBe(200);
     });
 
-    it('truncates point statement to 200 characters', () => {
-      const longStatement = 'B'.repeat(300);
-      const prompt = buildPromptContext({
-        entityType: 'point',
-        statement: longStatement,
-      });
-      const match = prompt.match(/B+/);
-      expect(match).toBeTruthy();
-      expect(match![0].length).toBe(200);
-    });
-
     it('truncates profile name to 100 characters', () => {
       const longName = 'C'.repeat(150);
       const prompt = buildPromptContext({
@@ -256,14 +232,6 @@ describe('generateBanner — prompt construction', () => {
       expect(prompt).not.toMatch(/[\x00-\x1F]/);
     });
 
-    it('strips control characters from point statement', () => {
-      const prompt = buildPromptContext({
-        entityType: 'point',
-        statement: 'Trust\x07is\x08earned',
-      });
-      expect(prompt).toContain('Trustisearned');
-    });
-
     it('strips control characters from profile name', () => {
       const prompt = buildPromptContext({
         entityType: 'profile',
@@ -296,14 +264,6 @@ describe('generateBanner — request body validation', () => {
     const result = validateRequestBody({
       entityType: 'story',
       entityId: '550e8400-e29b-41d4-a716-446655440001',
-    });
-    expect(result.valid).toBe(true);
-  });
-
-  it('accepts valid point request', () => {
-    const result = validateRequestBody({
-      entityType: 'point',
-      entityId: '550e8400-e29b-41d4-a716-446655440002',
     });
     expect(result.valid).toBe(true);
   });
@@ -352,9 +312,18 @@ describe('generateBanner — request body validation', () => {
 
   it('rejects numeric entityId', () => {
     const result = validateRequestBody({
-      entityType: 'point',
+      entityType: 'event',
       entityId: 12345,
     });
     expect(result.valid).toBe(false);
+  });
+
+  it("rejects 'point' as an entityType (P1189: point banners were removed)", () => {
+    const result = validateRequestBody({
+      entityType: 'point',
+      entityId: '550e8400-e29b-41d4-a716-446655440002',
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('entityType');
   });
 });
