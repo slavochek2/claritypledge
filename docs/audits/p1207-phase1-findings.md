@@ -748,3 +748,88 @@ who is not a party**, never a sensitive-looking column. F10 adds a variant worth
 own: **a correctly-scoped parent with unscoped children.** The gate existed, was well written, and
 simply was not applied one level down. Grepping for `qual = true` finds it; reading the parent
 policy and concluding "sessions are protected" does not.
+
+---
+
+# Phase 9 — the 103-failure scare, resolved
+
+A full parallel `e2e/integration` run reported **103 failed / 939 passed / 5 flaky**. That number
+was left formally unresolved in the F10 commit rather than explained away. It is now resolved.
+
+## What was actually run
+
+The parallel run cannot answer the question, because `docs/technical/e2e-testing-guide.md:105`
+documents that these specs race each other under `fullyParallel` — a table-wide delete or an
+exact-count assertion in one file races any other file touching the same table. So the run was
+repeated **serially** (`--workers=1`) over the 41 integration specs that touch a table this
+branch changed: `clarity_agreements`, `transcribe_rooms`, `clarity_live_turns`, `clarity_ideas`,
+`clarity_demo_rounds`, `clarity_idea_votes`, `clarity_sessions`, `clarity_verifications`.
+
+```
+41 specs, --workers=1:  10 failed, 2 flaky, 4 skipped, 275 passed (16.8m)
+```
+
+`verify-prod-agreements.spec.ts` was deliberately excluded — it targets production.
+
+## Verdict: 0 of the 10 are attributable to this branch
+
+Established by diffing the live catalogs, not by reasoning about the diff.
+
+**1. Policy diff, test vs prod — the only differences are the six tables this branch edited.**
+
+```
+removed on test:  clarity_agreements "…visibility and parties"      (mine)
+                  clarity_demo_rounds/ideas/live_turns "…everyone"   (mine)
+                  clarity_idea_votes "Voters can update their own"   (mine)
+                  transcribe_rooms "authenticated users can read"    (mine)
+                  profiles "Service role can insert profiles"        (pre-existing divergence)
+added on test:    the five replacements                             (mine)
+                  event_room_members / point_references /
+                  worktree_status                                    (pre-existing, test-only)
+changed:          clarity_agreements "Parties can update"           (mine)
+                  8 × "Test data: service_role bypass for X"        (pre-existing fixtures)
+```
+
+**`clarity_sessions` policies are byte-identical between test and prod.** So every failure naming
+that table — p396, p703, p674 — cannot come from a policy this branch changed.
+
+**2. Grant diff on `clarity_sessions`** — the only privilege test lost is `REFERENCES`, which is
+required to create a foreign key and is never consulted for `INSERT`, `SELECT` or `UPDATE`.
+Column-level `SELECT`/`INSERT`/`UPDATE` grants are identical to prod. A direct probe confirms the
+refusal is `new row violates row-level security policy`, an RLS decision, not
+`permission denied`, a grant decision.
+
+**3. Every RPC the failing tests assert exists, exists on test** — `update_last_activity`,
+`complete_clarity_session`, `patch_live_state`, `get_letter_overview`, `release_joiner_seat`,
+`claim_joiner_seat`. This branch drops no function.
+
+**4. Four failures are structurally unreachable from this branch:** `p511` and `p769` assert *an
+RPC exists*; `p858` asserts *columns exist*; `p686` is `badge_points`, a table never touched.
+
+**5. Three failures are reproduce canaries for a known-open finding.** `p1058-release-seat-
+authorization.spec.ts` says so in its own header — *"P1058 Phase 1 — reproduce or close F4"* — and
+fails with `F4 REPRODUCED` / `EVASION CONFIRMED`. It is **designed to fail until P1058 is fixed.**
+
+**6. None of the four P1207 specs appears in the failure list.**
+
+## What this leaves open, honestly
+
+The remaining failures (`p396`, `p703`, `p674`, `p671`, and the two flaky) are **pre-existing and
+unexplained by this audit**. Their causes were not investigated — out of P1207's scope — and no
+claim is made that they are benign, only that they are not caused by this branch. `e2e/integration`
+is **not run in CI** (only `csp-smoke` and `prod-health-smoke` are), so the suite has no enforced
+green baseline and nobody has been keeping it at zero.
+
+**A true before/after control was not available and that bound is stated rather than hidden.**
+Checking out the pre-P1207 commit restores the old *code* but not the old *schema* — the
+migrations are already applied to test, and rolling them back to measure would destroy the state
+under investigation (gate 2b). The catalog diff above is the substitute: it establishes what this
+branch changed, exhaustively, and shows the failing tests depend on none of it.
+
+## A finding this surfaced, filed not fixed
+
+`p1058`'s F4 turns on the `clarity_sessions` SELECT policy publishing the id of every
+non-addressed session to anon. **F10 scoped the session's children; the parent still publishes
+those ids**, which is deliberate for the anonymous `/live` flow but is what makes P1058's seat
+eviction reachable. That is P1058's scope, already filed, and is listed here so the connection is
+not lost: the same parent policy that F10 inherited from is load-bearing for another open finding.
