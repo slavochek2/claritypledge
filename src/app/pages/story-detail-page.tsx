@@ -233,7 +233,7 @@ function AddPointForm({
             type="button"
             onClick={handleRetryLink}
             disabled={isAdding}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+            className="bg-blue-500 hover:bg-blue-600 text-white min-h-11"
           >
             {isAdding ? (
               <>
@@ -300,7 +300,7 @@ function AddPointForm({
                       type="button"
                       onClick={handleAdd}
                       disabled={!canSubmit || !!orphanPoint}
-                      className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                      className="bg-blue-500 hover:bg-blue-600 text-white min-h-11"
                     >
                       {isAdding ? (
                         <>
@@ -1354,7 +1354,7 @@ export function StoryDetailPage() {
                 onClick={handleEditStart}
                 aria-label="Edit story"
                 disabled={isDeleting}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors disabled:opacity-50"
+                className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors disabled:opacity-50"
               >
                 <Pencil className="w-4 h-4" />
               </button>
@@ -1364,7 +1364,7 @@ export function StoryDetailPage() {
                 onClick={() => setDeleteDialogOpen(true)}
                 aria-label="Delete story"
                 disabled={isDeleting}
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-muted rounded-full transition-colors disabled:opacity-50"
+                className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-muted rounded-full transition-colors disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

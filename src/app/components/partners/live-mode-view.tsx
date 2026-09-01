@@ -1402,7 +1402,7 @@ function IdleScreen({
                 <Button
                   variant="outline"
                   onClick={() => setShowStoryPicker(true)}
-                  className="mx-auto text-sm min-h-[44px]"
+                  className="mx-auto text-sm min-h-11"
                 >
                   + Select your story
                 </Button>
@@ -1505,7 +1505,7 @@ function IdleScreen({
           {liveState.selectedStoryId && !waitingForPartnerToContinue && (
             <button
               onClick={onClearStory}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] px-4"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors min-h-11 px-4"
               type="button"
             >
               Speak freely
@@ -2403,7 +2403,7 @@ function WaitingIndicator({ message, onSkip, skipLabel = "Speak freely", showBac
         <p className="text-sm text-muted-foreground">{message}</p>
       </div>
       {onSkip && (
-        <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground min-h-[44px]">
+        <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground min-h-11">
           {skipLabel}
         </Button>
       )}
@@ -2889,7 +2889,7 @@ function UnderstandingScreen({
                   onSkip={onSkip}
                   skipLabel="Skip without waiting"
                 />
-                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+                <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-11">
                   Cancel request
                 </Button>
               </>
@@ -2969,7 +2969,7 @@ function UnderstandingScreen({
                 onSkip={onSkip}
                 skipLabel="Skip without waiting"
               />
-              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-11">
                 Cancel request
               </Button>
             </>
@@ -2982,7 +2982,7 @@ function UnderstandingScreen({
               >
                 I'm done with active listening
               </Button>
-              <Button variant="ghost" size="sm" onClick={onSharePerspective} className="text-muted-foreground mx-auto min-h-[44px]">
+              <Button variant="ghost" size="sm" onClick={onSharePerspective} className="text-muted-foreground mx-auto min-h-11">
                 Speak freely
               </Button>
             </>
@@ -3056,7 +3056,7 @@ function UnderstandingScreen({
           {selectedStory && onClearStory && (
             <button
               onClick={onClearStory}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-[44px] px-4"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1 min-h-11 px-4"
               type="button"
             >
               Speak freely
@@ -3238,7 +3238,7 @@ function UnderstandingScreen({
                 onSkip={onSkip}
                 skipLabel="Skip without waiting"
               />
-              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-11">
                 Cancel request
               </Button>
             </>
@@ -3252,7 +3252,7 @@ function UnderstandingScreen({
               >
                 Explain back what I heard
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-11" onClick={onSharePerspective}>
                 Speak freely
               </Button>
             </>
@@ -3378,7 +3378,7 @@ function UnderstandingScreen({
                 onSkip={onSkip}
                 skipLabel="Skip without waiting"
               />
-              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-11">
                 Cancel request
               </Button>
             </>
@@ -3392,7 +3392,7 @@ function UnderstandingScreen({
               >
                 Explain back what I heard
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-11" onClick={onSharePerspective}>
                 Speak freely
               </Button>
             </>
@@ -3506,7 +3506,7 @@ function UnderstandingScreen({
             >
               I'm done clarifying
             </Button>
-            <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto min-h-[44px]">
+            <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto min-h-11">
               Speak freely
             </Button>
           </ActionArea>
@@ -3521,7 +3521,7 @@ function UnderstandingScreen({
               onSkip={onSkip}
               skipLabel="Skip without waiting"
             />
-            <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+            <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-11">
               Cancel request
             </Button>
           </ActionArea>
@@ -3661,7 +3661,7 @@ function UnderstandingScreen({
               >
                 Share what's missing
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSkip}>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-11" onClick={onSkip}>
                 Speak freely
               </Button>
             </>
@@ -3684,7 +3684,7 @@ function UnderstandingScreen({
                 onSkip={onSkip}
                 skipLabel="Skip without waiting"
               />
-              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-[44px]">
+              <Button variant="ghost" size="sm" onClick={onCancelNegotiation} className="text-muted-foreground min-h-11">
                 Cancel request
               </Button>
             </>
@@ -3703,7 +3703,7 @@ function UnderstandingScreen({
               >
                 Explain back what I heard
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-[44px]" onClick={onSharePerspective}>
+              <Button variant="ghost" size="sm" className="text-muted-foreground min-h-11" onClick={onSharePerspective}>
                 Speak freely
               </Button>
             </>

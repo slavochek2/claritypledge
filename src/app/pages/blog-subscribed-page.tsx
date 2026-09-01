@@ -34,7 +34,7 @@ export function BlogSubscribedPage() {
             Already a member? We sent a sign-in link instead.
           </p>
 
-          <Button asChild className="min-h-[44px] px-8 text-base bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30">
+          <Button asChild className="min-h-11 px-8 text-base bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30">
             <a href="https://claritypledge.com/manifesto">
               <BookOpenIcon className="h-5 w-5" />
               Read the Manifesto

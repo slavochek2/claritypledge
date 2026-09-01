@@ -495,7 +495,7 @@ export function StoryCardDetail({
                     ? window.open(storyRoute(story.id), '_blank', 'noopener,noreferrer')
                     : navigate(storyRoute(story.id))
                   }
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
+                  className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
                   aria-label="Open story"
                 >
                   <ExternalLink size={16} />
@@ -813,7 +813,7 @@ function QuotedPoint({
             <MobileTooltip content="Unlink point from story">
               <button
                 onClick={(e) => { e.stopPropagation(); onUnlink(point.id, point.statement); }}
-                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                className="min-w-10 min-h-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 aria-label="Unlink point from story"
               >
                 <Unlink2 size={14} />

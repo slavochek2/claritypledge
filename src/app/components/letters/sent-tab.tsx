@@ -114,7 +114,7 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
         <Link
           to={`/p/${delivery.receiver_slug}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-foreground hover:underline truncate max-w-[24ch] sm:max-w-[40ch] min-h-[40px] inline-flex items-center"
+          className="text-foreground hover:underline truncate max-w-[24ch] sm:max-w-[40ch] min-h-10 inline-flex items-center"
           title={displayName}
         >
           {displayName}
@@ -136,7 +136,7 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
             e.stopPropagation();
             handleClick();
           }}
-          className="hidden sm:inline-flex ml-auto bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+          className="hidden sm:inline-flex ml-auto bg-blue-500 hover:bg-blue-600 text-white min-h-11"
         >
           <Eye className="w-4 h-4 mr-1" />
           Results
@@ -275,7 +275,7 @@ function LetterCard({
                   e.stopPropagation();
                   navigate(`/letter/${letter.id}/overview`);
                 }}
-                className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-11"
               >
                 Open overview
               </Button>
@@ -285,7 +285,7 @@ function LetterCard({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 min-h-[44px]"
+                    className="h-9 w-9 min-h-11"
                     aria-label={`Actions for ${letter.doc_title}`}
                   >
                     <MoreHorizontal className="w-4 h-4" />

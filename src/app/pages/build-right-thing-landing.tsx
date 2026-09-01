@@ -205,7 +205,7 @@ export function BuildRightThingLanding() {
                 or{" "}
                 <Link
                   to="/sign-pledge"
-                  className="inline-flex items-center min-h-[40px] text-blue-500 hover:text-blue-600 underline underline-offset-4"
+                  className="inline-flex items-center min-h-10 text-blue-500 hover:text-blue-600 underline underline-offset-4"
                 >
                   Take the Pledge
                 </Link>

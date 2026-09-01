@@ -44,7 +44,7 @@ export function RatingButtons({ selectedValue, onSelect, disabled, fullWidth }: 
           aria-disabled={disabled ? 'true' : undefined}
           tabIndex={disabled ? -1 : undefined}
           className={`
-            flex-1 min-w-0 min-h-[44px] py-2.5 rounded-md text-xs font-medium transition-all
+            flex-1 min-w-0 min-h-11 py-2.5 rounded-md text-xs font-medium transition-all
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             ${
               selectedValue === option.value

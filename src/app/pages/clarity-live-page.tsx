@@ -4139,7 +4139,7 @@ export function ClarityLivePage() {
                         aria-checked={!isPrivate}
                         aria-label={isPrivate ? 'Private session — recording disabled' : 'Record session for AI Insights'}
                         onClick={() => setIsPrivate((prev) => !prev)}
-                        className={`flex items-center gap-3 w-full min-h-[44px] px-3 py-2 rounded-lg border text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+                        className={`flex items-center gap-3 w-full min-h-11 px-3 py-2 rounded-lg border text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
                           isPrivate
                             ? 'bg-muted border-border'
                             : 'bg-blue-50 border-blue-200'

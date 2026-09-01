@@ -452,7 +452,7 @@ export function SessionHistoryList({ history, className = '', onItemClick }: Ses
                 type="button"
                 onClick={() => onItemClick(i)}
                 aria-label={`View round summary: ${item.title}`}
-                className="group w-full flex items-center gap-2 text-sm min-h-[44px] px-1 rounded-md hover:bg-muted/50 active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                className="group w-full flex items-center gap-2 text-sm min-h-11 px-1 rounded-md hover:bg-muted/50 active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
               >
                 <CheckCircle2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 {iconForType(item.type)}
@@ -463,7 +463,7 @@ export function SessionHistoryList({ history, className = '', onItemClick }: Ses
           }
 
           return (
-            <div key={i} className="flex items-center gap-2 text-sm min-h-[44px] px-1 opacity-80">
+            <div key={i} className="flex items-center gap-2 text-sm min-h-11 px-1 opacity-80">
               <CheckCircle2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               {iconForType(item.type)}
               <span className="text-muted-foreground line-clamp-1 flex-1">{item.title}</span>

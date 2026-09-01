@@ -168,11 +168,11 @@ export function DesignAuditPage() {
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Agreement Page CTAs</p>
             <div className="flex flex-wrap gap-3 items-center">
-              <Button className="min-h-[44px] px-8">Review &amp; Sign</Button>
-              <Button variant="outline" className="min-h-[44px] px-6 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
+              <Button className="min-h-11 px-8">Review &amp; Sign</Button>
+              <Button variant="outline" className="min-h-11 px-6 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
                 Terminate Agreement
               </Button>
-              <Button variant="outline" className="min-h-[44px]">Resend Invitation</Button>
+              <Button variant="outline" className="min-h-11">Resend Invitation</Button>
               <span className="text-[#0044CC] hover:underline font-medium text-sm cursor-pointer">
                 Ready to practice? Start a /live session &rarr;
               </span>
@@ -182,8 +182,8 @@ export function DesignAuditPage() {
           <div className="border-t pt-4">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Pledge Page CTAs</p>
             <div className="flex flex-wrap gap-3 items-center">
-              <Button className="min-h-[44px] px-8 bg-[#0044CC] hover:bg-[#0033AA]">Accept This Pledge</Button>
-              <Button variant="outline" className="min-h-[44px]">Share</Button>
+              <Button className="min-h-11 px-8 bg-[#0044CC] hover:bg-[#0033AA]">Accept This Pledge</Button>
+              <Button variant="outline" className="min-h-11">Share</Button>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-[#0A66C2] bg-[#0A66C2]/10 rounded cursor-pointer">
                 LinkedIn
               </span>

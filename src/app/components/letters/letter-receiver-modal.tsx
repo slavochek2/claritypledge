@@ -234,7 +234,7 @@ function RecipientRow({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute -top-2 -right-2 min-w-[44px] min-h-[44px] z-10"
+          className="absolute -top-2 -right-2 min-w-11 min-h-11 z-10"
           aria-label={`Remove recipient ${index + 1}`}
           onClick={() => onRemove(recipient.id)}
           type="button"

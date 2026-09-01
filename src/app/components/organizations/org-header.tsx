@@ -210,14 +210,14 @@ export function OrgHeader({
               membership" stays outline as it always has. */}
           <Button
             onClick={() => setInviteDialogOpen(true)}
-            className="min-h-[44px] w-full gap-2 bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
+            className="min-h-11 w-full gap-2 bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
           >
             <Share2Icon className="h-4 w-4" aria-hidden="true" />
             Invite
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="min-h-[44px] w-full gap-2 sm:w-auto">
+              <Button variant="outline" className="min-h-11 w-full gap-2 sm:w-auto">
                 Manage membership
                 {/* A real icon, not a "▾" text character — the glyph rendered at text
                     weight (near-invisible) and leaked into the button's accessible name. */}
@@ -262,7 +262,7 @@ export function OrgHeader({
         <Button
           ref={joinButtonRef}
           onClick={onJoin}
-          className="min-h-[44px] w-full bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
+          className="min-h-11 w-full bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
         >
           Join as member
         </Button>

@@ -81,7 +81,7 @@ export function LetterSealConfirmation({
               </span>
               <button
                 onClick={handleCopyLink}
-                className="flex-shrink-0 p-2 rounded-lg hover:bg-muted transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="flex-shrink-0 p-2 rounded-lg hover:bg-muted transition-colors min-w-11 min-h-11 flex items-center justify-center"
                 aria-label="Copy link to clipboard"
               >
                 {copied

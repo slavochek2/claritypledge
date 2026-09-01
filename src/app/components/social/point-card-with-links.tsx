@@ -459,7 +459,7 @@ export function PointCardWithLinks({
                       <MobileTooltip content="Open point">
                         <button
                           onClick={() => embedNavigate(`/point/${point.id}`)}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                          className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                           aria-label="Open point"
                         >
                           <ExternalLink size={16} />
@@ -625,7 +625,7 @@ export function PointCardWithLinks({
                 <MobileTooltip content="Open point">
                   <button
                     onClick={() => embedNavigate(`/point/${point.id}`)}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                     aria-label="Open point"
                   >
                     <ExternalLink size={16} />

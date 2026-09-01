@@ -61,7 +61,7 @@ export function VisibilityAndSave({
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => onVisibilityChange(opt.value)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm min-h-[44px] transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm min-h-11 transition-colors ${
                     isSelected
                       ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
                       : 'border-border text-muted-foreground hover:bg-muted'

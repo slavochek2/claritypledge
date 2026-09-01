@@ -285,7 +285,7 @@ export function FreeModeView({
         </div>
         <button
           onClick={onSpeakFreely}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-8 mx-auto block min-h-[44px]"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-8 mx-auto block min-h-11"
         >
           Speak freely
         </button>

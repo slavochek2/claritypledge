@@ -619,7 +619,7 @@ export function LetterFlowContent({
                   is a brand-blue pill to read as an intentional affordance,
                   not gray chrome. */}
               <div
-                className="flex items-center justify-center gap-2 mt-3 min-h-[40px] text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
+                className="flex items-center justify-center gap-2 mt-3 min-h-10 text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
                 style={{ opacity: selectedPosition !== null ? 1 : 0 }}
                 inert={selectedPosition === null}
               >
@@ -627,7 +627,7 @@ export function LetterFlowContent({
                   type="button"
                   onClick={handleIntensityReplay}
                   disabled={selectedPosition === null}
-                  className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default"
+                  className="min-w-10 min-h-10 flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default"
                   aria-label="Show the intensity tutorial again"
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
@@ -801,7 +801,7 @@ export function LetterFlowContent({
                   // "cant select again" strand). isSubmitting alone guards double-submit.
                   disabled={isSubmitting}
                   submitLabel="Continue"
-                  ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-[56px] mt-3"
+                  ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-14 mt-3"
                 />
               </FixedBottomBar>
             )}
@@ -1007,7 +1007,7 @@ export function LetterFlowContent({
                   is a brand-blue pill to read as an intentional affordance,
                   not gray chrome. */}
               <div
-                className="flex items-center justify-center gap-2 mt-3 min-h-[40px] text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
+                className="flex items-center justify-center gap-2 mt-3 min-h-10 text-[12px] text-[#1A1A1A]/55 transition-opacity duration-200"
                 style={{ opacity: selectedPosition !== null ? 1 : 0 }}
                 inert={selectedPosition === null}
               >
@@ -1015,7 +1015,7 @@ export function LetterFlowContent({
                   type="button"
                   onClick={handleIntensityReplay}
                   disabled={selectedPosition === null}
-                  className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default"
+                  className="min-w-10 min-h-10 flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default"
                   aria-label="Show the intensity tutorial again"
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />

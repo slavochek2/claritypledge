@@ -40,7 +40,7 @@ export function AgreementsMetadataLine({
   // Non-owner with 0 partners → show static text (like LinkedIn hidden connections)
   if (displayCount === 0 && !isOwner) {
     return (
-      <span className="flex items-center gap-1 text-sm font-semibold text-muted-foreground min-h-[44px]">
+      <span className="flex items-center gap-1 text-sm font-semibold text-muted-foreground min-h-11">
         <Users className="h-4 w-4" aria-hidden="true" />
         0 {partnersLabel}
       </span>
@@ -50,7 +50,7 @@ export function AgreementsMetadataLine({
   return (
     <Link
       to={`/p/${slug}/partners`}
-      className="flex items-center gap-1 text-sm font-semibold text-blue-500 hover:text-blue-600 hover:underline transition-colors min-h-[44px]"
+      className="flex items-center gap-1 text-sm font-semibold text-blue-500 hover:text-blue-600 hover:underline transition-colors min-h-11"
     >
       <Users className="h-4 w-4" aria-hidden="true" />
       {displayCount} {partnersLabel}

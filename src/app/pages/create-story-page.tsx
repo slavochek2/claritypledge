@@ -293,7 +293,7 @@ export function CreateStoryPage() {
       <Button
         variant="ghost"
         onClick={() => isDocContext ? navigate(backPath) : navigate(-1)}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
         aria-label={isDocContext ? `Back to ${docTitle}` : 'Go back'}
       >
         <ArrowLeft size={16} />
@@ -415,7 +415,7 @@ export function CreateStoryPage() {
           <Button
             type="submit"
             disabled={isSaving || pointLoading || docLoading}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+            className="bg-blue-500 hover:bg-blue-600 text-white min-h-11"
           >
             {isSaving ? (
               <>

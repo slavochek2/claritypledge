@@ -66,7 +66,7 @@ export function LetterParticipantRow({
         <Link
           to={`/p/${slug}`}
           onClick={(e) => e.stopPropagation()}
-          className={`${nameClass} min-h-[40px] inline-flex items-center hover:underline`}
+          className={`${nameClass} min-h-10 inline-flex items-center hover:underline`}
           title={displayName}
         >
           {displayName}

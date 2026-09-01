@@ -85,7 +85,7 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className="text-muted-foreground min-h-[44px]"
+            className="text-muted-foreground min-h-11"
           >
             {skipLabel}
           </Button>

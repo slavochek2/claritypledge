@@ -350,8 +350,8 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
 
           const buttonClass = [
             isLg
-              ? 'w-full h-full flex items-center justify-center gap-1.5 px-3 py-2 min-h-[56px] text-sm sm:text-base font-medium transition-colors leading-none whitespace-nowrap'
-              : 'w-full h-full flex items-center justify-center gap-1 px-1.5 sm:px-3 py-2 min-h-[40px] sm:min-h-[44px] text-[11px] sm:text-xs font-medium transition-colors leading-none whitespace-nowrap',
+              ? 'w-full h-full flex items-center justify-center gap-1.5 px-3 py-2 min-h-14 text-sm sm:text-base font-medium transition-colors leading-none whitespace-nowrap'
+              : 'w-full h-full flex items-center justify-center gap-1 px-1.5 sm:px-3 py-2 min-h-10 sm:min-h-11 text-[11px] sm:text-xs font-medium transition-colors leading-none whitespace-nowrap',
             index === 0 ? 'rounded-l-lg' : '',
             index === BUTTON_ORDER.length - 1 ? 'rounded-r-lg' : '',
             index > 0 ? 'border-l border-border' : '',

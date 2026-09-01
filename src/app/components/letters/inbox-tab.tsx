@@ -213,7 +213,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
             <div className="flex-shrink-0">
               <Button
                 size="sm"
-                className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                className="bg-blue-500 hover:bg-blue-600 text-white min-h-11"
                 onClick={() => navigate(`/live/${openInvite.code}`)}
               >
                 Join
@@ -275,7 +275,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
               <div className="flex-shrink-0">
                 <Button
                   size="sm"
-                  className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                  className="bg-blue-500 hover:bg-blue-600 text-white min-h-11"
                   disabled={isMarking}
                   onClick={() => handleAction(item)}
                 >
@@ -312,7 +312,7 @@ function ActorName({ name, slug }: { name: string; slug?: string | null }) {
   // P725: registered actors link to /p/:slug; null slug → plain text.
   // Defensive: RPC type is string|null even though DB enforces NOT NULL (P736).
   // Guards against deleted-actor rows, system actors, and future RPC changes.
-  // `inline-flex min-h-[40px]` gives the 40px touch target required by AC.
+  // `inline-flex min-h-10` gives the 40px touch target required by AC.
   if (!slug) {
     return <span className="font-medium max-w-[24ch] sm:max-w-[40ch] truncate inline-block align-middle">{name}</span>;
   }
@@ -321,7 +321,7 @@ function ActorName({ name, slug }: { name: string; slug?: string | null }) {
       to={`/p/${slug}`}
       onClick={(e) => e.stopPropagation()}
       title={name}
-      className="font-medium hover:underline inline-flex items-center min-h-[40px] max-w-[24ch] sm:max-w-[40ch] truncate"
+      className="font-medium hover:underline inline-flex items-center min-h-10 max-w-[24ch] sm:max-w-[40ch] truncate"
     >
       {name}
     </Link>

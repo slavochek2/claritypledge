@@ -88,7 +88,7 @@ export function LetterSealConfirmCard({
       <Button
         onClick={onSend}
         disabled={sealing}
-        className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px]"
+        className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-14"
       >
         {sealing ? 'Sending…' : 'Send letter →'}
       </Button>

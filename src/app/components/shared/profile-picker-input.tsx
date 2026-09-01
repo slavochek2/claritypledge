@@ -119,7 +119,7 @@ export function ProfilePickerInput({
     return (
       <div
         data-testid="profile-picker-chip"
-        className="flex items-center gap-2 rounded-md border border-input bg-blue-50/50 px-3 py-2 min-h-[44px]"
+        className="flex items-center gap-2 rounded-md border border-input bg-blue-50/50 px-3 py-2 min-h-11"
       >
         <GravatarAvatar
           name={selected.name}
@@ -201,7 +201,7 @@ export function ProfilePickerInput({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSelect(result)}
               onMouseEnter={() => setActiveIndex(index)}
-              className={`flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 ${
+              className={`flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 ${
                 index === activeIndex ? 'bg-accent' : ''
               }`}
             >

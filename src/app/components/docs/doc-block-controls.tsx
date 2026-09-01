@@ -52,7 +52,7 @@ export function DocBlockControls(props: DocBlockControlsProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center cursor-grab"
+            className="min-w-11 min-h-11 flex items-center justify-center cursor-grab"
             aria-label="Drag to reorder"
             aria-roledescription="draggable"
             {...props.dragAttributes}
@@ -63,7 +63,7 @@ export function DocBlockControls(props: DocBlockControlsProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="min-w-11 min-h-11 flex items-center justify-center"
             aria-label="Remove from this doc"
             onClick={(e) => { e.stopPropagation(); props.onRemove(); }}
           >

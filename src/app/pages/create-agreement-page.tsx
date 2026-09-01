@@ -312,7 +312,7 @@ export function CreateAgreementPage() {
       <Button
         variant="ghost"
         onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
         aria-label="Go back"
       >
         <ArrowLeft size={16} />
@@ -399,7 +399,7 @@ export function CreateAgreementPage() {
                           role="radio"
                           aria-checked={isSelected}
                           onClick={() => setVisibility(opt.value)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors min-h-[44px] ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors min-h-11 ${
                             isSelected
                               ? 'border-blue-500 bg-blue-50 text-blue-700'
                               : 'border-input bg-background text-muted-foreground hover:bg-accent'

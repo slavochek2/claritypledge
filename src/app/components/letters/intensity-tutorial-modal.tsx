@@ -131,7 +131,7 @@ export function IntensityTutorialModal({ open, onProceed }: IntensityTutorialMod
         </DialogHeader>
 
         {/* P852 Round-H rev4.3: pictogram slot reserves real dropdown clearance.
-           Measured: Agree segment min-h-[56px] (PositionButton.tsx:353) + 4px gap
+           Measured: Agree segment min-h-14 (PositionButton.tsx:353) + 4px gap
            (PositionButton.tsx:248) + 3 rows × minHeight 40 (PositionButton.tsx:439)
            + 8px py-1 wrapper padding ≈ 196px below the segment top. items-start +
            pt-8 keeps the demo near the top so the dropdown extends DOWN into the

@@ -21,7 +21,7 @@ export function FocusHeader({ onBack, label, 'aria-label': ariaLabel }: FocusHea
     <Button
       variant="ghost"
       onClick={onBack}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
+      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
       aria-label={ariaLabel ?? 'Go back'}
     >
       <ArrowLeft size={16} />

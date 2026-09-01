@@ -694,7 +694,7 @@ export function LetterReadingPage() {
         </p>
         <Link
           to="/"
-          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md mt-2 min-h-[40px]"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md mt-2 min-h-10"
         >
           Back to home
         </Link>
@@ -714,7 +714,7 @@ export function LetterReadingPage() {
         <div className="flex gap-3 mt-2">
           <Link
             to="/"
-            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-border hover:bg-gray-50 transition-colors rounded-md min-h-[40px]"
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-border hover:bg-gray-50 transition-colors rounded-md min-h-10"
           >
             Go home
           </Link>
@@ -726,7 +726,7 @@ export function LetterReadingPage() {
                 navigate(`/letter/${deliveryId}?token=${token}`);
               }
             }}
-            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] transition-colors rounded-md min-h-[40px]"
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] transition-colors rounded-md min-h-10"
           >
             Sign out
           </button>
@@ -768,7 +768,7 @@ export function LetterReadingPage() {
         <div className="flex gap-3 mt-2">
           <Link
             to="/letters"
-            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-border hover:bg-gray-50 transition-colors rounded-md min-h-[40px]"
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium border border-border hover:bg-gray-50 transition-colors rounded-md min-h-10"
           >
             Go to my letters
           </Link>
@@ -776,7 +776,7 @@ export function LetterReadingPage() {
             <button
               type="button"
               onClick={() => setPageState(previewState)}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md min-h-[40px]"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md min-h-10"
             >
               Preview
             </button>
@@ -1226,7 +1226,7 @@ function LetterReadingFlow({
       </p>
       <Link
         to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-        className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] rounded-md min-h-[44px]"
+        className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] rounded-md min-h-11"
       >
         Sign in to continue
       </Link>

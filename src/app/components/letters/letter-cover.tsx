@@ -109,7 +109,7 @@ export function LetterCover({
         onClick={handleOpen}
         aria-disabled={isDisabled}
         aria-describedby={HINT_ID}
-        className={`w-full max-w-sm bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-[56px] gap-2 ${
+        className={`w-full max-w-sm bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-14 gap-2 ${
           isDisabled ? 'opacity-60 cursor-not-allowed hover:bg-[#0044CC]' : ''
         }`}
         aria-busy={isAuthenticating}

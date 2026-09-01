@@ -291,7 +291,7 @@ export function TranscribeRoomPage() {
           type="button"
           onClick={() => setConsentGiven((prev) => !prev)}
           aria-pressed={consentGiven}
-          className={`w-full flex items-center gap-3 rounded-lg border px-4 py-3 mb-6 min-h-[44px] text-left transition-colors ${
+          className={`w-full flex items-center gap-3 rounded-lg border px-4 py-3 mb-6 min-h-11 text-left transition-colors ${
             consentGiven
               ? 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
               : 'border-border text-muted-foreground hover:bg-muted'
@@ -313,7 +313,7 @@ export function TranscribeRoomPage() {
         <Button
           onClick={() => void handleJoin()}
           disabled={!consentGiven || view === 'joining'}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white min-h-11"
           data-testid="transcribe-join-button"
         >
           {view === 'joining' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -349,7 +349,7 @@ export function TranscribeRoomPage() {
         <Button
           onClick={() => navigate('/sessions')}
           variant="outline"
-          className="min-h-[44px] border-blue-300 text-blue-700 hover:bg-blue-50"
+          className="min-h-11 border-blue-300 text-blue-700 hover:bg-blue-50"
         >
           Go to my sessions
         </Button>
@@ -440,7 +440,7 @@ export function TranscribeRoomPage() {
                 <button
                   type="button"
                   onClick={startListening}
-                  className="ml-auto min-h-[40px] px-3 rounded-lg border-2 border-red-500 bg-white text-red-800 font-semibold"
+                  className="ml-auto min-h-10 px-3 rounded-lg border-2 border-red-500 bg-white text-red-800 font-semibold"
                   data-testid="transcribe-resume-live-text"
                 >
                   Resume live text

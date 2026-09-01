@@ -94,7 +94,7 @@ export const UNDERSTANDING_QUESTION =
 // Exported: P1077's /ready reuses this exact treatment for its own Continue button —
 // one visual language for the commitment surfaces that lead into a clarity meeting.
 export const PRIMARY_BUTTON_CLASS =
-  "min-h-[44px] py-4 text-base font-semibold border-2 border-[#002B5C] bg-[#002B5C] text-white hover:border-[#001f45] hover:bg-[#001f45]";
+  "min-h-11 py-4 text-base font-semibold border-2 border-[#002B5C] bg-[#002B5C] text-white hover:border-[#001f45] hover:bg-[#001f45]";
 
 /**
  * The fade that tells the reader the principle CONTINUES above the bar rather than
@@ -143,7 +143,7 @@ const SCROLL_CUE_THRESHOLD_PX = 8;
  * same identical decision, same identical page.
  */
 export const ANSWER_BUTTON_CLASS =
-  "min-h-[44px] py-4 text-base font-semibold border-2 border-[#002B5C] bg-transparent text-[#002B5C] hover:bg-[#002B5C]/10 dark:border-blue-400 dark:text-blue-400";
+  "min-h-11 py-4 text-base font-semibold border-2 border-[#002B5C] bg-transparent text-[#002B5C] hover:bg-[#002B5C]/10 dark:border-blue-400 dark:text-blue-400";
 
 /**
  * Founder decision: the page opens on "Reveal the gap" — the middle rung. Which rung
@@ -631,7 +631,7 @@ export function LevelTrack({
                 className={cn(
                   // Compact but still a real target: the whole column is the tap
                   // area, not the 16px dot.
-                  "flex-1 flex flex-col items-center gap-1 pt-0.5 pb-0.5 min-h-[40px]",
+                  "flex-1 flex flex-col items-center gap-1 pt-0.5 pb-0.5 min-h-10",
                   locked ? "cursor-not-allowed" : "cursor-pointer",
                 )}
               >

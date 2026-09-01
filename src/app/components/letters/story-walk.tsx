@@ -153,7 +153,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         return (
           <Link
             to={`/explain-back/${eb.id}`}
-            className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+            className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-11"
           >
             View your explanation →
           </Link>
@@ -163,7 +163,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         return (
           <Button
             variant="default"
-            className="min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white text-sm"
+            className="min-h-11 bg-blue-500 hover:bg-blue-600 text-white text-sm"
             onClick={() => setCaptureOpen(true)}
           >
             Explain back what you understood
@@ -179,7 +179,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         <Link
           to={`/explain-back/${eb.id}`}
           data-unread={unread ? 'true' : 'false'}
-          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline min-h-[44px]"
+          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline min-h-11"
         >
           {unread && <span className="w-2 h-2 rounded-full bg-blue-500" aria-hidden="true" />}
           View {eb.recorderName ?? receiverName ?? 'their'} explanation →
@@ -197,7 +197,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         <button
           type="button"
           onClick={() => setPositionDialogState({ mode: 'view', story })}
-          className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+          className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-11"
         >
           {story.isOwn ? 'View my story →' : `View ${story.authorName}'s story →`}
         </button>
@@ -209,7 +209,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         <button
           type="button"
           onClick={() => setPositionDialogState({ mode: 'add', pointId, position: viewerPos ?? undefined })}
-          className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-[44px]"
+          className="inline-flex items-center text-sm text-blue-600 hover:underline min-h-11"
         >
           {viewerPos ? explainWhyLabel(viewerPos) : 'Add a story'}
         </button>
@@ -298,7 +298,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               {current.snapshot.story_id && (
                 <Link
                   to={`/story/${current.snapshot.story_id}`}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                  className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                   aria-label="Open story"
                 >
                   <ExternalLink size={16} />
@@ -344,8 +344,8 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               variant={hasPrimaryCta ? 'ghost' : 'default'}
               onClick={() => navigate('prev')}
               className={hasPrimaryCta
-                ? 'min-h-[44px] text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                : 'min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white'}
+                ? 'min-h-11 text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                : 'min-h-11 bg-blue-500 hover:bg-blue-600 text-white'}
               aria-label="Previous story"
             >
               ← Previous Story
@@ -356,8 +356,8 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               variant={hasPrimaryCta ? 'ghost' : 'default'}
               onClick={() => navigate('next')}
               className={hasPrimaryCta
-                ? 'min-h-[44px] text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                : 'min-h-[44px] bg-blue-500 hover:bg-blue-600 text-white'}
+                ? 'min-h-11 text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                : 'min-h-11 bg-blue-500 hover:bg-blue-600 text-white'}
               aria-label="Next story"
             >
               Next Story →

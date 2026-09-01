@@ -219,7 +219,7 @@ function CountMoney({ target }: { target: number }) {
  * equal specificity, so Tailwind's emit order — not the class order in the
  * string — picks the winner. `border-transparent` in the base silently erased
  * the dashed outline that way. Mutually exclusive tones cannot collide. */
-const PILL = "inline-flex min-h-[44px] select-none items-center rounded-md border border-solid px-1.5 align-middle font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+const PILL = "inline-flex min-h-11 select-none items-center rounded-md border border-solid px-1.5 align-middle font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 const PILL_YOURS = "border-transparent bg-blue-500/10 text-blue-600 hover:bg-blue-500/20";
 const PILL_THEIRS = "border-dashed border-blue-500/50 text-foreground hover:bg-blue-500/10";
 const PILL_ACTIVE = "border-transparent bg-blue-500 text-white";

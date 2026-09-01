@@ -146,7 +146,7 @@ export function LetterReviewScreen({
           onClick={onSeal}
           disabled={sealing}
           size="lg"
-          className="bg-blue-500 hover:bg-blue-600 text-white w-full max-w-sm mx-auto rounded-full font-bold min-h-[56px]"
+          className="bg-blue-500 hover:bg-blue-600 text-white w-full max-w-sm mx-auto rounded-full font-bold min-h-14"
         >
           {sealing ? (
             'Sealing...'

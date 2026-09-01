@@ -36,7 +36,7 @@ export function PositionSelector({
             disabled={disabled}
             className={[
               'flex flex-1 items-center justify-center gap-1.5 px-3 py-2 rounded-lg border',
-              'min-h-[44px] text-sm font-medium transition-colors',
+              'min-h-11 text-sm font-medium transition-colors',
               isActive
                 ? 'bg-blue-600 text-white border-blue-600'
                 : 'bg-white text-gray-700 border-gray-300 hover:border-blue-600',

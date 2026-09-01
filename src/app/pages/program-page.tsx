@@ -289,12 +289,12 @@ export function ProgramPage() {
               <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
               <p className="text-muted-foreground">
                 or{" "}
-                {/* inline-flex + min-h-[40px] gives the tap target the 40px the visual-QA
+                {/* inline-flex + min-h-10 gives the tap target the 40px the visual-QA
                     checklist requires (it measured 20px). Stays a text link, not a button —
                     P955's single-full-width-primary rule depends on it staying subordinate. */}
                 <Link
                   to="/sign-pledge"
-                  className="inline-flex items-center min-h-[40px] text-blue-500 hover:text-blue-600 underline underline-offset-4"
+                  className="inline-flex items-center min-h-10 text-blue-500 hover:text-blue-600 underline underline-offset-4"
                 >
                   Take the Pledge
                 </Link>

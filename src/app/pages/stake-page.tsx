@@ -183,7 +183,7 @@ export function StakePage() {
                 aria-selected={activeTab === t}
                 data-testid={`stake-tab-${t}`}
                 onClick={() => setActiveTab(t)}
-                className={`min-h-[44px] px-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`min-h-11 px-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === t
                     ? 'border-[#002B5C] text-[#002B5C] dark:border-blue-400 dark:text-blue-400'
                     : 'border-transparent text-muted-foreground'
@@ -202,7 +202,7 @@ export function StakePage() {
             <p className="mb-4 text-muted-foreground">{error}</p>
             <button
               onClick={() => void fetchData()}
-              className="min-h-[44px] font-medium text-blue-600 transition-colors hover:text-blue-700"
+              className="min-h-11 font-medium text-blue-600 transition-colors hover:text-blue-700"
             >
               Retry
             </button>

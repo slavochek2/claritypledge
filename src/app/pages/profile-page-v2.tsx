@@ -1625,7 +1625,7 @@ function StoryCardFull({
               <MobileTooltip content="Edit story">
                 <button
                   onClick={(e) => { e.stopPropagation(); handleEditStart(); }}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
                   aria-label="Edit story"
                 >
                   <Pencil size={16} />
@@ -1647,7 +1647,7 @@ function StoryCardFull({
                     }
                   }}
                   disabled={isDeleting}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-muted rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-muted rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Delete story"
                 >
                   <Trash2 size={16} />
@@ -1664,7 +1664,7 @@ function StoryCardFull({
           <MobileTooltip content="Open story">
             <button
               onClick={() => navigate(detailRoutes.story(story.id))}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+              className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
               aria-label="Open story"
             >
               <ExternalLink size={16} />
@@ -1851,7 +1851,7 @@ function PointCardFull({
               <MobileTooltip content="Open point">
                 <button
                   onClick={() => navigate(detailRoutes.point(point.id, profileOwner.id))}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                  className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
                   aria-label="Open point"
                 >
                   <ExternalLink size={16} />

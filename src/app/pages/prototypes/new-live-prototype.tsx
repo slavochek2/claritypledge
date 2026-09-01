@@ -297,7 +297,7 @@ function RoleClaimStep({
               )}
               <button
                 onClick={() => { setSelectedStory(undefined); }}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto block min-h-[44px]"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto block min-h-11"
               >
                 Speak freely
               </button>
@@ -313,10 +313,10 @@ function RoleClaimStep({
         </div>
 
         {/* Story selection */}
-        <div className="mt-4 min-h-[44px]">
+        <div className="mt-4 min-h-11">
           {!showStories ? (
             !selectedStory ? (
-              <button onClick={() => setShowStories(true)} className="text-sm text-blue-500 hover:text-blue-700 mx-auto block min-h-[44px]">
+              <button onClick={() => setShowStories(true)} className="text-sm text-blue-500 hover:text-blue-700 mx-auto block min-h-11">
                 Select your story
               </button>
             ) : null
@@ -520,7 +520,7 @@ function SliderSession({
               <button onClick={handleSealedSubmit} className="w-full mt-5 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
                 Submit
               </button>
-              <button onClick={onSpeakFreely} className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-6 mx-auto block min-h-[44px]">
+              <button onClick={onSpeakFreely} className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-6 mx-auto block min-h-11">
                 Speak freely
               </button>
             </>
@@ -581,7 +581,7 @@ function SliderSession({
               <div className="px-2">
                 <SliderTrack value={myValue} onChange={setMyValue} label="" />
               </div>
-              <button onClick={onSpeakFreely} className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-8 mx-auto block min-h-[44px]">
+              <button onClick={onSpeakFreely} className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-8 mx-auto block min-h-11">
                 Speak freely
               </button>
             </>

@@ -92,7 +92,7 @@ export function AgreementEmailConfirmationPage() {
     <main className="container mx-auto px-4 py-8 max-w-2xl">
       <button
         onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 -ml-1 min-h-[44px] px-1"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 -ml-1 min-h-11 px-1"
         aria-label="Go back to agreement"
       >
         <ArrowLeft size={16} />

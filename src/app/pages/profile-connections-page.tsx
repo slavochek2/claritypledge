@@ -47,7 +47,7 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
           <p className="text-sm text-muted-foreground mb-4">
             No partners yet. Invite someone to get started.
           </p>
-          <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
+          <Button asChild className="min-h-11 bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
             <Link to="/agreements/new">Invite a new partner</Link>
           </Button>
         </>
@@ -169,7 +169,7 @@ export function ProfileConnectionsPage() {
           {isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
         </h1>
         {isOwner && hasAny && (
-          <Button asChild className="min-h-[44px] bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
+          <Button asChild className="min-h-11 bg-[#0044CC] hover:bg-[#0044CC]/90 text-white">
             <Link to="/agreements/new">Invite a new partner</Link>
           </Button>
         )}
@@ -190,7 +190,7 @@ export function ProfileConnectionsPage() {
                     <li key={agreement.id}>
                       <Link
                         to={`/agreements/${agreement.id}/accept?token=${encodeURIComponent(agreement.invitationToken)}`}
-                        className="flex items-center gap-3 px-4 py-3 min-h-[56px] rounded-lg hover:bg-muted/50 active:bg-muted transition-colors block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        className="flex items-center gap-3 px-4 py-3 min-h-14 rounded-lg hover:bg-muted/50 active:bg-muted transition-colors block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         aria-label={`Invitation from ${agreement.creator?.name ?? 'someone'}`}
                       >
                         <div className="flex-1 min-w-0">

@@ -93,7 +93,7 @@ export function StorySearchPicker({ stories, onSelectStory, disabled = false, on
       <button
         type="button"
         onClick={() => { setQuery(''); onCancel?.(); }}
-        className="text-xs text-gray-400 hover:text-gray-600 mx-auto block mt-3 min-h-[44px] transition-colors"
+        className="text-xs text-gray-400 hover:text-gray-600 mx-auto block mt-3 min-h-11 transition-colors"
       >
         Cancel
       </button>

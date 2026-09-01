@@ -201,7 +201,7 @@ export function AgreementRow({ agreement, currentProfileId, resendable, cancelab
 
   const rowContent = (
     <div
-      className={`flex items-center gap-3 px-4 py-3 min-h-[56px] rounded-lg transition-colors ${isPending ? '' : 'hover:bg-muted/50 active:bg-muted'} ${isTerminated ? 'opacity-50' : ''}`}
+      className={`flex items-center gap-3 px-4 py-3 min-h-14 rounded-lg transition-colors ${isPending ? '' : 'hover:bg-muted/50 active:bg-muted'} ${isTerminated ? 'opacity-50' : ''}`}
     >
       {/* Partner name + sub-label */}
       <div className="flex-1 min-w-0">

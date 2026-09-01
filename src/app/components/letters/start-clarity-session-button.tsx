@@ -132,7 +132,7 @@ export function StartClaritySessionButton({
         <div className="flex flex-col items-center gap-2">
           <Button
             onClick={() => navigate(`/live/${openInvite.code}`)}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px] gap-2"
+            className="bg-blue-500 hover:bg-blue-600 text-white min-h-11 gap-2"
             data-testid="return-to-session-btn"
           >
             <Video className="w-4 h-4" />
@@ -149,7 +149,7 @@ export function StartClaritySessionButton({
       <div className="flex items-center gap-3">
         <Button
           onClick={() => navigate(`/live/${openInvite.code}`)}
-          className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px] gap-2"
+          className="bg-blue-500 hover:bg-blue-600 text-white min-h-11 gap-2"
           data-testid="return-to-session-btn"
         >
           <Video className="w-4 h-4" />
@@ -193,7 +193,7 @@ export function StartClaritySessionButton({
       <Button
         onClick={() => void handleStart()}
         disabled={creating}
-        className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px] gap-2"
+        className="bg-blue-500 hover:bg-blue-600 text-white min-h-11 gap-2"
         data-testid="start-clarity-session-btn"
       >
         <Video className="w-4 h-4" />

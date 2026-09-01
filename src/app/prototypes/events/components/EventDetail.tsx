@@ -399,12 +399,12 @@ export function EventDetail() {
             fresh account went straight to the principle page and never saw the
             slider). */}
         <div className="mb-6 flex w-full items-center justify-start gap-6 overflow-x-auto border-b border-border">
-          <span className="inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 border-blue-500 px-1 pb-3 text-base font-medium text-foreground">
+          <span className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-blue-500 px-1 pb-3 text-base font-medium text-foreground">
             Details
           </span>
           <Link
             to={`/events/${slug}/room`}
-            className="inline-flex min-h-[44px] items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Join now
           </Link>

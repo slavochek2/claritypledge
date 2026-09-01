@@ -167,7 +167,7 @@ export function LetterPredictionWalk({
           question={promptText}
           onSelect={handlePredictAndAdvance}
           submitLabel={ctaLabel}
-          ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-[56px] mt-3"
+          ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-14 mt-3"
         />
       </FixedBottomBar>
 

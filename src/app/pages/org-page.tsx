@@ -33,7 +33,7 @@ type OrgTab = "about" | "members" | "events";
 
 /** Underline tab styling — page-level navigation (see TabsList comment below). */
 const ORG_TAB_CLASS =
-  "min-h-[44px] rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base " +
+  "min-h-11 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base " +
   "data-[state=active]:border-blue-500 data-[state=active]:bg-transparent " +
   "data-[state=active]:text-foreground data-[state=active]:shadow-none";
 
@@ -275,7 +275,7 @@ export function OrgPage() {
         <p className="mt-3 text-muted-foreground">
           We couldn't load this page. Please try again.
         </p>
-        <Button className="mt-6 min-h-[44px]" onClick={() => setReloadKey((k) => k + 1)}>
+        <Button className="mt-6 min-h-11" onClick={() => setReloadKey((k) => k + 1)}>
           Retry
         </Button>
       </div>
