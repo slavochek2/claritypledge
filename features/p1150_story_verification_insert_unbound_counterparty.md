@@ -53,7 +53,9 @@ empirically on test via the real unauthenticated REST path — not a policy-cata
    naming a *different* user as the counterparty, against a story that user did not author.
 3. Observe whether the row is accepted, and whether the counterparty's public profile counters move.
 
-**Reproduction rate:** unknown — see `/reproduce`.
+**Reproduction rate:** 5/5 on **test**, 2026-09-01, through the real REST path as an ordinary
+verified test user (integration spec below, run before the fix): the forged row landed and the
+named counterparty's `verification_session_count` moved 0 → 1. Confirmed.
 
 ## Expected Behavior
 
@@ -62,8 +64,8 @@ attribute a rating to someone who did not give it.
 
 ## Actual Behavior
 
-*(To be confirmed by `/reproduce`.)* Expected from reading the policy: the row is accepted and the
-named counterparty's counters move.
+Confirmed 2026-09-01 on test: the row is accepted and the named counterparty's public counter moves
+(`verification_session_count` 0 → 1 for a user who never took part). Details in the private log.
 
 ## Affected Files
 
@@ -97,15 +99,56 @@ and the one asymmetry that makes the obvious fix wrong.
 
 ## Acceptance Criteria
 
-- [ ] A user cannot write a verification row naming a third party as counterparty on a story that
+- [x] A user cannot write a verification row naming a third party as counterparty on a story that
       third party did not author
-- [ ] A user cannot cause another user's public profile counters to change through this path
-- [ ] Letter-screening ratings still submit and still record correctly — the asymmetric caller is
+- [x] A user cannot cause another user's public profile counters to change through this path
+- [x] Letter-screening ratings still submit and still record correctly — the asymmetric caller is
       the regression risk, verify it explicitly
-- [ ] Live-session ratings still submit and still record correctly
-- [ ] The gap is demonstrated failing before the fix and passing after, through the real REST path —
+- [x] Live-session ratings still submit and still record correctly — **vacuous, and recorded as
+      such:** there is no live-session client write path into this table (see Evidence); the
+      only client writers are the two letter-screening paths, both covered
+- [x] The gap is demonstrated failing before the fix and passing after, through the real REST path —
       not a policy-catalogue read
-- [ ] Regression test passes: `e2e/integration/p1150-*.spec.ts`
+- [x] Regression test passes: `e2e/integration/p1150-*.spec.ts`
+
+## Evidence
+
+Branch `feature/p1150-story-verification-counterparty`, commit `533e2596`. Migration
+`supabase/migrations/20260901210000_p1150_bind_story_verification_counterparty.sql` applied to the
+**test** project 2026-09-01. Not shipped; not on prod.
+
+- **Callers enumerated** (grep `story_verifications` across `src/` — three files, one inserter):
+  `src/app/data/letters-service.ts` `submitRating` (:320) and `submitLetterResponseAuthenticated`
+  (:1138-1150). Both: caller = listener, speaker = the letter's sender, `speaker_rating: 0`,
+  `source: 'letter'`, `verified: false`, `session_id: null`; `version_id` from the snapshot or
+  omitted; `delivery_id` omitted. Every other writer (`submit_rating_by_token`,
+  `persist_anonymous_completion`, e2e fixtures) is SECURITY DEFINER / service_role and is not
+  governed by RLS. **No client live-session write path exists** — `api.ts` writes
+  `clarity_verifications` (the chat table), not this one. Letter stories are always the sender's
+  own (`doc_stories` INSERT policy requires `stories.author_id = auth.uid()`, P551), so binding
+  the speaker to the letter also binds it to the story author.
+- **Fix shape:** the INSERT policy now admits exactly that shape — caller is the listener and not
+  the speaker, letter-sourced/unverified/no session, placeholder speaker rating, and the
+  (speaker, story, caller) triple must be a real letter relation (sender → snapshot story →
+  delivery to the caller), resolved by a SECURITY DEFINER helper in the P581 pattern. A policy
+  predicate, not a definer writer: the client keeps writing directly, RLS stays the single
+  authorization point, the lookups are PK/index hits on the small letter tables.
+- **Before / after, real REST path** (`e2e/integration/p1150-story-verification-counterparty.spec.ts`,
+  `--retries=0`): before the migration **5 gap tests failed, 3 controls passed** (forged row id
+  recorded in the run log, counters moved 0 → 1); after: **8/8 pass**. Gap tests: third-party
+  speaker on their own story with a 10; letter-shaped forgery with no letter; stranger rating a
+  letter they hold no delivery of; receiver attributing a non-placeholder speaker rating;
+  receiver marking a letter rating verified. Controls: the exact `submitRating` payload as the
+  receiver (row lands, `listener_rating` recorded, `accuracy_achieved` false, reader ears +1 /
+  sessions +1, sender sessions +1); the exact batch payload of `submitLetterResponseAuthenticated`;
+  a service_role write (definer/fixture path) unaffected.
+- **Suite health:** `npx tsc --noEmit` clean; `eslint src` clean; vitest 3485 passed / 19 skipped;
+  `pre-commit-checks.sh` all green. Browser letter-reading suites (`p581-letter-reading`,
+  `p642-letter-reading-flow`, `p581-letter-completion`): 15 passed / 9 failed, every failure a
+  pre-insert UI locator miss (e.g. the rating CTA now reads "Continue", the suite expects
+  "Submit"; cover-page copy) — zero RLS / 42501 / `story_verifications` errors in the log, so the
+  UI click-through of a rating insert is **not** independently proven by those suites; the
+  REST-exact control above is the evidence for the client path.
 
 ## Non-Goals
 
