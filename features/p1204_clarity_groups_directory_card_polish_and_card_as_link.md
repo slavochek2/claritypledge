@@ -12,8 +12,8 @@ tags:
   - p1193
   - organizations
 created_date: 2026-09-01
-delivery_stage: verify
-pipeline_ran: [change-request, dev, verify]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, verify, ship]
 ---
 
 # P1204: Clarity Groups — the deferred card decisions, the card-as-link deviation, and two P1193 scope misses
