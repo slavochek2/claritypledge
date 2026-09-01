@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: change-request
 drafted_by: opus
 exec_model: sonnet
@@ -12,8 +12,8 @@ tags:
   - p1193
   - organizations
 created_date: 2026-09-01
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P1204: Clarity Groups — the deferred card decisions, the card-as-link deviation, and two P1193 scope misses
@@ -264,18 +264,18 @@ its own icon), `navigation-menu-items.tsx`.
 
 ## Acceptance Criteria
 
-- [ ] No event-status badge renders on any directory card, in any of its three states
-- [ ] Clicking anywhere on a card opens that group
-- [ ] The card exposes exactly ONE named link to a screen reader, as it does today, and
+- [x] No event-status badge renders on any directory card, in any of its three states
+- [x] Clicking anywhere on a card opens that group
+- [x] The card exposes exactly ONE named link to a screen reader, as it does today, and
       Enter still activates it from the keyboard — verified with the a11y suite, not by eye
-- [ ] Cards show a visible hover state and a visible focus ring
-- [ ] The membership badge is not green; green remains reserved for success states
-- [ ] A group page offers a way back to the directory
-- [ ] The nav icon is not a calendar and does not duplicate Partners' or My Profile's icon
-- [ ] Members render as a count, not as avatars; "Browse all events" is still at the bottom
-- [ ] Surfaces NOT in scope are visually unchanged
-- [ ] All existing P1060, P1193 and P1010 tests still pass
-- [ ] **Regression check:** with participant data present, the avatar row still renders
+- [x] Cards show a visible hover state and a visible focus ring
+- [x] The membership badge is not green; green remains reserved for success states
+- [x] A group page offers a way back to the directory
+- [x] The nav icon is not a calendar and does not duplicate Partners' or My Profile's icon
+- [x] Members render as a count, not as avatars; "Browse all events" is still at the bottom
+- [x] Surfaces NOT in scope are visually unchanged
+- [x] All existing P1060, P1193 and P1010 tests still pass
+- [x] **Regression check:** with participant data present, the avatar row still renders
       (seed it — the empty state is what hid this for three weeks)
 
 ## Prerequisite — not an acceptance criterion

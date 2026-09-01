@@ -193,23 +193,15 @@ describe('P1060 M1 — DW-13: the avatar row REUSES the social-proof pattern', (
   });
 });
 
-describe('P1060 M1 — both differentiator lines render verbatim', () => {
+describe('P1204 — the per-slug differentiator constant is gone, not just unrendered', () => {
   const directory = read('src/app/pages/org-directory-page.tsx');
 
-  it('carries the founder-approved line for each seeded organization', () => {
-    expect(directory).toContain('The room brings the topic');
-    // Founder-approved 2026-08-31, REPLACING "The topic is set in advance". That
-    // line was rejected for describing one event format rather than a community —
-    // and because · Chiang Mai's own About already says "in person and online", so
-    // the medium never distinguished the two groups. This test intentionally pins
-    // the exact string: it is founder copy, and a silent edit to it is the thing
-    // being guarded against. Changing it requires a founder decision, not a patch.
-    expect(directory).toContain('Practise with people outside your own field');
-  });
-
-  it('keys them to the two seeded slugs', () => {
-    expect(directory).toMatch(/cm:\s*"The room brings the topic"/);
-    expect(directory).toMatch(/online:\s*"Practise with people outside your own field"/);
+  it('carries no ORG_DIFFERENTIATOR map or differentiator variable', () => {
+    // P1204 §5: the differentiator ("the subtitle") was dropped and the blurb
+    // kept as the card's sole distinguishing text — founder-decided, not a
+    // rendering tweak. A reintroduced constant would silently resurrect it.
+    expect(directory).not.toContain('ORG_DIFFERENTIATOR');
+    expect(directory).not.toContain('differentiator');
   });
 });
 

@@ -29,25 +29,6 @@ import type {
   OrgParticipation,
 } from "@/app/data/organizations-service.interface";
 
-/**
- * The one-line differentiator under each org name. Founder-approved copy
- * (2026-08-28), from goals.md's topic-source split.
- *
- * A per-slug CONSTANT, not a schema column — deliberately. The spec's Solution
- * section names no column for it, and adding one would make founder copy for two
- * seeded organizations look like a general capability the create-org flow (which
- * does not exist) would have to fill. When a third organization is seeded by
- * hand, its line is added here by hand, in the same commit.
- *
- * Load-bearing now that · Online carries no blurb (D7): with two near-identical
- * names, this is the only text distinguishing them. Treat it as product copy,
- * not a caption.
- */
-const ORG_DIFFERENTIATOR: Record<string, string> = {
-  cm: "The room brings the topic",
-  online: "Practise with people outside your own field",
-};
-
 export function OrgDirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -195,58 +176,38 @@ function OrgCard({
   eventSummary?: OrgEventSummary;
   isMine: boolean;
 }) {
-  const differentiator = ORG_DIFFERENTIATOR[org.slug];
   const pastCount = eventSummary?.pastCount ?? 0;
-  const nextEventAt = eventSummary?.nextEventAt ?? null;
-
-  // The footer badge answers the one question a directory is asked: is anything
-  // happening here. An org with nothing scheduled says so rather than going blank —
-  // a missing badge reads as a broken card, not as an empty calendar.
-  const badgeLabel = nextEventAt
-    ? `Next event ${new Date(nextEventAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
-    : pastCount > 0
-      ? "Nothing scheduled"
-      : "First event coming";
-  // The one state that must stand out gets the only colour on the row. A visitor
-  // scanning this grid is asking one question — which of these has something
-  // happening soon — and rendering all three states in the same neutral grey
-  // answers it nowhere. Blue is the actions/attention token; the two nothing-yet
-  // states stay neutral, because "nothing scheduled" is not an invitation.
-  const badgeClass = nextEventAt
-    ? "bg-blue-50 text-blue-700"
-    : "bg-muted text-muted-foreground";
 
   return (
     <div
       data-testid="org-card"
-      className="flex h-full flex-col gap-3 rounded-lg border border-border bg-card p-5"
+      className="group relative flex h-full flex-col gap-3 rounded-lg border border-border bg-card p-5 transition-all duration-200 hover:shadow-lg hover:border-blue-500/50 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2"
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <OrgInitials name={org.name} />
           <div className="min-w-0">
-            {/* The whole card is NOT the link: the card carries counts and avatars,
-                and wrapping them in an anchor makes every avatar part of the link's
-                accessible name. One named link per card, keyboard-reachable, Enter
-                activates — the a11y contract. */}
+            {/* Stretched-link pattern: this named Link stays the ONE accessible
+                link (keyboard-reachable, Enter activates) — the a11y contract the
+                comment it replaces was protecting. The ::after pseudo-element
+                below covers the whole card for pointer users, without dragging
+                avatars/counts into the link's accessible name. */}
             <Link
               to={`/groups/${org.slug}`}
-              className="rounded text-lg font-semibold underline-offset-2 hover:text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="rounded text-lg font-semibold underline-offset-2 after:absolute after:inset-0 after:content-[''] hover:text-blue-600 hover:underline focus-visible:outline-none"
             >
               {org.name}
             </Link>
-            {differentiator && (
-              <p className="mt-1 text-sm text-muted-foreground">{differentiator}</p>
-            )}
           </div>
         </div>
-        {/* The ONLY signed-in delta (UX reference Screen B). green-600 is reserved
-            for the membership badge and nothing else. Carries its own text, never
-            color alone (WCAG 1.4.1). */}
+        {/* The ONLY signed-in delta (UX reference Screen B). Membership is a
+            status, not a success — green is reserved for success states only
+            (design-system.md), so this uses the neutral/muted token instead.
+            Carries its own text, never color alone (WCAG 1.4.1). */}
         {isMine && (
           <span
             data-testid="org-membership-badge"
-            className="shrink-0 rounded-full border border-green-600/30 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700"
+            className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
           >
             You're a member
           </span>
@@ -277,23 +238,19 @@ function OrgCard({
         )}
       </p>
 
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${badgeClass}`}>
-          {badgeLabel}
-        </span>
-        {/* Matches the existing text-link idiom (font-medium text-blue-600 with an
-            offset underline) used elsewhere on group surfaces rather than inventing a
-            new affordance. aria-hidden on the arrow keeps the link's accessible
-            name to the words. */}
-        <Link
-          to={`/groups/${org.slug}`}
-          tabIndex={-1}
+      <div className="flex items-center justify-end gap-3 border-t border-border pt-3">
+        {/* P1204: purely decorative wayfinding now that the card itself is the
+            click target (stretched link above) — an interactive element here
+            would be a second, nested interactive target inside the stretched
+            link, which is invalid. tabIndex/aria-hidden already made it
+            non-reachable; dropping the <Link> wrapper makes that literal. */}
+        <span
           aria-hidden="true"
-          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline"
+          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 underline-offset-2 group-hover:underline"
         >
           Open
           <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        </span>
       </div>
     </div>
   );

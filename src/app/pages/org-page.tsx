@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { XIcon } from "lucide-react";
+import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
@@ -298,6 +298,17 @@ export function OrgPage() {
     <div className="min-h-screen px-4 py-8">
       <SEO title={org.name} description={org.blurb ?? `The ${org.name} community on Clarity Pledge.`} url={`/groups/${org.slug}`} />
       <div className="container mx-auto max-w-5xl space-y-8">
+        {/* P1204: P1193's own rename scope named this and never built it. Small
+            inline link, not FocusHeader — this stays a Browse page (BottomNav
+            visible, like /p/:slug), not a Focus page (docs/ux-patterns.md). */}
+        <Link
+          to="/groups"
+          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 underline-offset-2 hover:text-blue-700 hover:underline"
+        >
+          <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
+          Back to groups
+        </Link>
+
         {showJustJoinedBanner && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
             <span>Welcome! Know someone who might want to join too?</span>

@@ -3,7 +3,7 @@ import {
   UsersIcon,
   TargetIcon,
   TagIcon,
-  CalendarIcon,
+  LandmarkIcon,
   AwardIcon,
   ScrollTextIcon,
   BookOpenIcon,
@@ -105,7 +105,7 @@ export const PUBLIC_NAV_GROUPS = [
     label: "Product",
     items: [
       { to: "/pricing", label: "Pricing", Icon: TagIcon },
-      { to: EVENTS_NAV_TO, label: "Groups", Icon: CalendarIcon },
+      { to: EVENTS_NAV_TO, label: "Groups", Icon: LandmarkIcon },
       { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },
     ],
   },

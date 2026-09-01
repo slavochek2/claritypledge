@@ -6,7 +6,7 @@
  * Uses design system tokens only.
  */
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { CalendarIcon, UserIcon, MailIcon, HomeIcon, UsersIcon } from "lucide-react";
+import { LandmarkIcon, UserIcon, MailIcon, HomeIcon, UsersIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
@@ -16,7 +16,7 @@ import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerI
 import { EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
 
 interface NavItem {
-  icon: typeof CalendarIcon;
+  icon: typeof HomeIcon;
   label: string;
   to?: string;
   disabled?: boolean;
@@ -106,7 +106,7 @@ export function BottomNav() {
         }]
       : []),
     {
-      icon: CalendarIcon,
+      icon: LandmarkIcon,
       label: "Groups",
       to: EVENTS_NAV_TO,
     },

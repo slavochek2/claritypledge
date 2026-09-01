@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, LandmarkIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 // P1179: the room's Links button. Renders as a sibling of the avatar in BOTH
@@ -335,7 +335,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         }`}
         onClick={() => analytics.track('org_events_nav_clicked', { source: 'desktop_top_nav' })}
       >
-        <CalendarIcon className="w-5 h-5" />
+        <LandmarkIcon className="w-5 h-5" />
         {/* P1193: hardcoded rather than read from nav-links, because this desktop
             top-nav link is hand-written (icon above label) while the menus map over
             PUBLIC_NAV_GROUPS. Keep it in step with the "Groups" label there — the
