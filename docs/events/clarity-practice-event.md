@@ -103,9 +103,9 @@ Sequence is settled; timings are `[FOUNDER DECISION]`.
 | 3 | **`/meet`** | The principle is shown. Each person **opts in or out** — this is the champion filter, and it happens here, not in the targeting. Opting out is legitimate; those who opt out **observe** those who opted in. |
 | 4 | **Understanding question** | Each answers how much they understood. |
 | 5 | **Stake `cmp7`** | Seven dimensions. They build a model before arguing. |
-| 5b | **Host frames the two positions** | **~3 min.** The host states each side's position in that side's own terms, neutrally, without arguing either. **Added 2026-08-27.** |
-| 6 | **Argue — fishbowl** | 2–4 speak, everyone votes. The proposed process is the object. Those opted in have a job: **challenge each other to give the number.** |
-| 7 | **Re-stake** | Any dimension that moved. |
+| 5b | **Host frames the two positions** | **~3 min, per point.** Each side's position in that side's own terms, neutrally, without arguing either. **Added 2026-08-27.** |
+| 6 | **Argue — fishbowl, looping over the topical points** | 2–4 speak, everyone votes. Those opted in have a job: **challenge each other to give the number.** **Amended 2026-09-01:** the block is a LOOP over ~3 topical points — per point: host reads the one-sentence statement → **everyone stakes that point** → 5b framing → argue → **re-stake that point** → next. `[FOUNDER DECISION: total budget for block 6, and the per-point sub-budget. Nothing below is schedulable until this number exists.]` See *Where the pipeline's points enter*. |
+| 7 | **Re-stake `cmp7`** | Any dimension that moved. Once, after block 6 — **not** per point. |
 | 8 | **Stake `cmp3`** | The triad, scoped to their real counterpart, who is absent. |
 | 9 | **Reveal** | The P1/P2 gap, and the movement. |
 | 10 | **The offer** | One spoken CTA. |
@@ -116,6 +116,70 @@ Points can't be edited). Correct as-is: the argument narrows, the instrument sta
 
 Fishbowl not breakouts, and what the event must demonstrate (*these two people did not mean the same
 thing*): [decisions.md](../decisions.md) 2026-08-10.
+
+### Where the pipeline's points enter — the contract the Disagreement Pipeline builds against
+
+**Written 2026-09-01.** The pipeline had been building against an inferred contract; an adversarial
+review found the inference did not follow from this file, so the contract is stated here and the
+pipeline derives from it rather than guessing. Everything in this subsection is a founder decision
+from that session unless marked otherwise; timings remain `[FOUNDER DECISION]` like the rest of the
+run-of-show.
+
+**What enters.** The topical Points produced by `/slava:disagreement:run-pipeline` — public, published
+in advance, linked from the listing. They are **distinct from the instrument**: `cmp7` and `cmp3` are
+the ten immutable comprehension Points and are untouched by any of this.
+
+**How many.** The pipeline files **as many ranked points as the topic honestly yields, planning for
+5–7**; the host runs **about 3** on the night and holds the rest as backup. *(Corrected 2026-09-01:
+an earlier draft mandated 5–7, which contradicted the pipeline spec's rule that a topic yielding 3
+files 3. **The planning figure is not a floor** — a run that files fewer reports `<filed> of <planned>`
+and the host runs what exists.)* Founder, verbatim: *"I actually think we can file as many as we want... but
+they need to be prioritized and I start with the first 3. And then if one is not really resonating, we
+can switch to the next one."* Filing more than the evening uses is deliberate — it buys the host a
+choice mid-event, not a longer agenda.
+
+**One at a time, and each point gets its own stake and re-stake.** Founder: *"I actually plan to go one
+by one — read the stories, set your positions, discuss, next one."* The reason the stake brackets each
+point individually rather than all points up front: a re-stake only means something if it brackets one
+specific argument. Stake everything first and the movement is one aggregate number attributable to
+nothing.
+
+**The point statement must be stakeable on its own, read aloud in one sentence.** The story explains
+*why* a person holds a position; it must never be needed to understand *what* the position is. This is
+what stops the room splitting into prepared and unprepared halves — nobody observes for not having done
+the reading.
+
+**Stories are pre-read. The host does not read a story aloud in place of framing it.** *(Corrected
+2026-09-01 — an earlier draft said "never read aloud" and then permitted it one sentence later, leaving
+the rule undefined.)* The normative rule: **block 5b's ~3 min is the framing, and it is the host's own
+neutral statement of each position, not a recital.** The host may quote a story's sentence *inside* that
+framing; what is excluded is substituting story-reading for framing, which is the 10–15 unbudgeted
+minutes block 5b exists to avoid. The listing links each arguer's profile, where their stories carry
+their position on each point.
+
+**The accurate boundary for the instrument** *(corrected 2026-09-01)*: the instrument's Points are
+themselves already public — what block 5b's trade-off protects is that **the instrument is never linked
+or requested as pre-work**, while topic material is. The earlier phrasing "the instrument is not
+published" overstated it.
+
+**What the ~3 min of framing contains:** each side's position in that side's own terms, neutrally,
+sourced from the published quotes. Not the story, not the reasoning chain — the position.
+
+> **The p1055 question is ALREADY DECIDED — this amendment inherits it, it does not create it.**
+> `p1055` says the seven dimensions are *"what the room argues about in step 3"*, which is why they are
+> staked first. [p1161](../../features/done/p1161_first_physical_event_chiang_mai.md) §*Which reading of
+> "what the room argues" this spec takes* surfaced that conflict against `goals.md` and this file's own
+> *"never argues our own method"*, and **took the external-topic reading by founder decision**: the room
+> argues the topic; the dimensions are staked before it so there is a prior to move. Adding a per-point
+> topical loop is that decision made explicit, not a new departure from it. **The unrepaired half is
+> p1055's causal rationale**, which the same p1161 section already records:
+>
+> **Carried forward, not solved:** [p1161](../../features/done/p1161_first_physical_event_chiang_mai.md)
+> records that *"the mechanism by which arguing an external topic moves a dimension like 'I would expect
+> less rework' is not established anywhere"*, and that step 7's `cmp7` re-stake is **exploratory** on
+> this first run. That caveat is unchanged by this amendment. **The per-point re-stake added above is a
+> different measurement** — movement on the topical point itself, which needs no such mechanism — and
+> must not be reported as evidence about the instrument.
 
 ### Block 5b — why the host frames, and why it does not move anything
 
@@ -231,7 +295,7 @@ That's normal. It's also invisible from the inside, which is the whole problem.
 
 **How it runs**
 
-- You take a position on where you stand, before anything is discussed.
+- You take a position on each claim we argue, before that claim is discussed — and again after. `[FOUNDER DECISION: rewrite this bullet and the "one specific claim" line above for the ~3-claim loop; the copy still describes the single-claim shape and is attendee-facing.]`
 - You decide, on the spot, whether you'll accept one rule for the session — you may not push a
   disagreement until the other person confirms you've grasped what they actually meant. Declining is a
   real option, and the people who decline get to watch what happens to the ones who didn't.
