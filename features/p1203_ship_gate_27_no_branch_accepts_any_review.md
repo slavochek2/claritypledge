@@ -114,7 +114,7 @@ Writers to update: `/finish`, `/dev` step 9.5a, `/fix`.
 
 - [x] `/finish`, `/dev` 9.5a and `/fix` write the **stamp-time HEAD SHA** into every new `.finish-reviewed` entry
 - [x] `/finish` no longer skips the `code` review on the strength of an unrelated stamp that merely shares `branch: main` — demonstrated by running it on `main` with a fresh co-tenant stamp present and confirming the review runs
-- [x] On the no-branch path, gate 2.7 requires a stamp whose SHA falls in the commit range attributed to this spec — by a mechanism designed for it, **not** P920's `ready for QA` subject lookup — implemented as a `pn` field on the stamp, see Implementation notes
+- [x] On the no-branch path, gate 2.7 requires a stamp naming this spec — implemented as a `pn` field on the stamp, **not** the SHA/commit-range mechanism this section originally specified (that design was abandoned as unneeded, and **not** P920's `ready for QA` subject lookup either — see Implementation notes)
 - [x] **The gate is seen to FAIL** on the no-branch path with only unrelated stamps present — exit code pasted, not asserted (`.claude/rules/epistemic.md` gate 7)
 - [x] **The gate is seen to PASS** on the same path with a matching stamp present — the control run, on the identical probe
 - [x] The feature-branch arm still passes unchanged, verified against a real branch
@@ -168,7 +168,7 @@ Revert the `ship-gates.sh` change; the extra stamp field is additive and inert t
 
 - `features/p1040_ship_gates_accept_matching_review_type.md` — same gate, different axis (review *type* vs review *identity*); coupled, see Alternatives.
 - `features/done/2026-06-10/p1002_finish_reviewed_shared_stamp.md` — added the `branch` discriminator this spec extends.
-- `features/done/2026-06-10/p920_git_ops_ship_close_spec_on_main_no_branch.md` — the `pN` commit lookup this reuses.
+- `features/done/2026-06-10/p920_git_ops_ship_close_spec_on_main_no_branch.md` — established the direct-to-main close path this spec's gate covers. **Not reused**: this spec's Solution explicitly rejects reusing P920's `pN` + `ready for QA` commit-message lookup (see Alternatives Considered), and what shipped (a `pn` field on the stamp) doesn't reuse it either — the two mechanisms are unrelated beyond both keying on the P-number.
 - `docs/decisions.md` 2026-08-27 [process] (P1169) — gate 2.5's markers are self-declared; *"the checkbox count and gate 2.7"* are what make it real.
 - `docs/decisions.md` 2026-08-28 [process] — a literal string shared between skills and a script needs a single source or a test; *"the argument for the mechanical gate over another written rule."*
 - `docs/decisions.md` 2026-08-10 [process] — gate 2.7's type problem and its recorded workaround (P1040's origin).

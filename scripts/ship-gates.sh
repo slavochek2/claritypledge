@@ -285,6 +285,28 @@ if [[ -n "$matching_entries" && -n "$feature_branch" ]]; then
   else
     echo "[GATE 2.7b] PASS: .finish-reviewed entry for ${feature_branch} is current"
   fi
+elif [[ -n "$matching_entries" ]]; then
+  # P1203 follow-up: the no-branch arm had NO staleness signal at all — this
+  # block ran only when feature_branch was set, so a stamp whose reviewed
+  # code was later amended or rebased still hard-passed gate 2.7 with zero
+  # warning, contradicting this spec's own Risk row 2 ("the gate should fail
+  # then"). There is no "latest commit on branch" concept here (we're
+  # already on main), so staleness is judged by comparing the entry's own
+  # "sha" against current HEAD instead of by timestamp. Warn-only, same as
+  # the branch arm above (Non-Goals: gate 2.7b never blocks).
+  current_head="$(cd "$REPO_ROOT" && git rev-parse HEAD)"
+  latest_entry="$(printf '%s\n' "$matching_entries" | tail -1)"
+  entry_sha="$(printf '%s' "$latest_entry" | $GREP -oE '"sha": ?"[^"]*"' | sed -E 's/"sha": ?"//; s/"$//')"
+
+  if [[ -z "$entry_sha" ]]; then
+    echo "[GATE 2.7b] SKIP: matching entry predates P1203's \"sha\" field"
+  elif [[ "$entry_sha" == "$current_head" ]]; then
+    echo "[GATE 2.7b] PASS: .finish-reviewed entry for ${pn} matches current HEAD"
+  elif (cd "$REPO_ROOT" && git merge-base --is-ancestor "$entry_sha" "$current_head") 2>/dev/null; then
+    echo "[GATE 2.7b] WARN: .finish-reviewed entry for ${pn} is older than HEAD — more commits landed since the review, consider re-running /finish"
+  else
+    echo "[GATE 2.7b] WARN: .finish-reviewed entry for ${pn} references a sha not in this history (amended/rebased?), consider re-running /finish"
+  fi
 fi
 
 # ── Gate 3.5: pre-deploy checklist ──────────────────────────────────────────

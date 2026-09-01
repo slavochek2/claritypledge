@@ -207,7 +207,7 @@ echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",
 
 **Write the JSON compactly — no space after the colons.** The ship gate now tolerates `"type": "code"` as well, but three writers and one reader sharing an unspecified literal is what produced the defect: a real review of `feature/p1197-navtrace` (4 issues found, 3 fixed) failed gate 2.7 for months purely because its entry was written with spaces. Match this template exactly.
 
-JSON-lines format — one line per review type, each carrying the `pn` it reviewed (P1203), the `sha` that was HEAD at review time, and the `branch` it was reviewed on (the file is shared across every worktree, so this lets gate 2.7/2.7b distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). Append (don't overwrite) so partial runs are preserved.
+JSON-lines format — one line per review type, each carrying the `pn` it reviewed (P1203), the `sha` that was HEAD at review time, and the `branch` it was reviewed on (the file is shared across every worktree, so `branch` lets gate 2.7 distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). **`sha` is not read by gate 2.7's matching logic at all** — gate 2.7 matches on `branch` (feature-branch arm) or `pn` (no-branch arm) only. `sha` is consumed by two separate freshness checks: this skill's own Step 3 skip-detection (`sha == HEAD`), and gate 2.7b's warn-only staleness check, which on the no-branch path compares the entry's `sha` against current `HEAD` via `git merge-base --is-ancestor` (added alongside this note — the no-branch arm previously had no staleness signal at all). Append (don't overwrite) so partial runs are preserved.
 
 ---
 
