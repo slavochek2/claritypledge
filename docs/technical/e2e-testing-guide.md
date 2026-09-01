@@ -460,7 +460,7 @@ test('authenticated user can access /live', async ({ browser }) => {
 - `getTestAuthContext()` — tests that need a full authenticated browser (page navigation, visual assertions)
 - `setTestSession()` — tests that already have a page and just need to inject auth
 - `createTestUser()` — tests that only need DB-level user setup (no browser)
-- `createAuthClientForUser(email)` — tests that need to call a Supabase RPC as a specific authenticated user (non-browser). See `e2e/p523-point-creation-responses.spec.ts` lines 401–416 for the full implementation (signs in with `test-password-12345`, returns a client with the JWT set in headers).
+- `createAuthClientForUser(email)` — tests that need to call a Supabase RPC as a specific authenticated user (non-browser). See `e2e/p731-inbox-letter-arrival.spec.ts` lines 27–43 for the full implementation (signs in with `test-password-12345`, returns a client with the JWT set in headers).
 
 **Keep `accepted_terms_version` in sync with `CURRENT_TERMS_VERSION`.**
 `createTestUser()` sets `accepted_terms_version` on the test profile so the "Updated Terms" modal is skipped in E2E tests. This value is hardcoded in `e2e/helpers/test-user.ts` — when `CURRENT_TERMS_VERSION` in `src/lib/constants.ts` is bumped, the test helper must be updated to match, or every authenticated test will see a blocking terms modal. Symptom: test navigates to a page after `setTestSession()` but all assertions fail because the terms modal covers the content.
