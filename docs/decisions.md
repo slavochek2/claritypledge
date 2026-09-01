@@ -4,6 +4,34 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+---
+
+## 2026-09-01 [process]: A citation can be misread in the direction that removes a safety marker — check who the pronoun points at
+
+**Context:** P1212 was drafted to fix six defects the founder annotated on the first real agent-story run. One was *"lets make positions blue!"* — the agent position chip renders grey. The spec cited `docs/decisions.md` 2026-08-19 as authorising colour: *"the card-level rule does not collide with them at all, because they still have a coloured stance badge and story pill."* Read that way, the grey chip is a defect and the ruling says fix it. **"Them" refers to real humans whose profile photo is black and white** — named two sentences earlier as the case that broke the avatar-level rule. The coloured stance badge is what *humans* have and machines do not; it is the discriminator that made draining the agent's chip safe, not permission to colour it. `p1104:72` states the rule plainly — *"Every card belonging to one of these accounts renders with its colour drained — stance badge, story pill, chrome — with the avatar exempt"* — and `src/index.css:244-254` reaffirms it five days later. Shipping the misread would have deleted the strongest disclosure marker from public readings of four real people who never consented, and failed a passing pixel-measurement test (`e2e/p1104-agent-marker.spec.ts:199-206`).
+
+**Decision:** When a decisions.md sentence is cited as authorising a change, **resolve every pronoun and demonstrative in it against the entry's own earlier sentences before relying on it** — and prefer the later artifact when two exist. The tell is a citation whose quoted fragment supports the change while the surrounding paragraph is about something else. A one-sentence quote is not a citation; the unit is the paragraph.
+
+**Alternatives rejected:** Trusting the adversarial reviewer to catch it — it did, independently and correctly, but the misread was already in a filed spec by then and would have been in code had the review been skipped. Review is the backstop, not the check.
+
+**Consequences:** Two verification failures in one session, same class, both caught by re-running a claim rather than by any gate. The second: a six-row surface matrix was published with a "quotes" column filled by **inference**, marking two surfaces as rendering quotes; `grep -rn "<StoryVideoQuotes" src/` returns exactly one production call site. That inference was written in the same message that corrected a subagent for an incomplete grep. **Generalises past this feature:** epistemic.md gate 9 binds the consumer of a *subagent's* claim; nothing binds the consumer of *their own* inference written into a table beside verified rows. A table mixing checked and inferred cells reads as uniformly checked. Mark the unchecked ones or do not ship the column.
+
+**References:** [features/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/p1212_agent_story_card_contract_drift_across_surfaces.md), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
+## 2026-09-01 [technical]: A spec that scopes out a file to avoid a concurrent session can forbid the only file that implements its own solution
+
+**Context:** P1212's §1 removes duplicated quotes from story text, keeping only the label. A concurrent session held `story-draft.md` and `docs/story-craft.md` open, so both were written into Non-Goals — *"a concurrent session has them open"* — which read as prudent scoping. Adversarial review then found that `story-draft.md:444-449` **is** the rule that puts quotes into story text (*"Quote budget: at most ONE quote per linked point inside the story text"*), and that the file already documents the duplication as a known defect filed for the founder. The spec forbade editing the only artifact that could make its own Solution true. An implementer following it literally changes nothing, and the acceptance criterion fails on the first re-filed story — silently, because the publish gate greps for the label string and never checks whether quotes left the text.
+
+**Decision:** Before writing any file into Non-Goals for concurrency reasons, **grep it for the behaviour the Solution changes.** A concurrency exclusion is a scheduling decision and must not silently become a scope decision. Where the excluded file turns out to be load-bearing, split the spec: the sections that do not need it proceed, the section that does is marked blocked with the specific edit named, not deferred vaguely.
+
+**Alternatives rejected:** Editing the file anyway and resolving the collision at merge — rejected; the co-tenant's in-flight edits are exactly what the exclusion protects. Waiting for the whole spec — rejected; four of five sections have no dependency on it.
+
+**Consequences:** P1212 §1 is `DEFER`, §§2–5 proceed. Two edits are named for when the file frees: remove the quote-budget rule, and correct `publish.md:280`'s row-shape table in the same change or the next agent reproduces the duplication. **A related pre-existing hole was found and is not created by this work:** the publish gate asserts the quote *label* is present and its quote-count check is universally quantified over a possibly-empty array, so a story whose quotes were all dropped upstream publishes a heading with nothing beneath it. P1212 adds the count assertion.
+
+**References:** [features/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/p1212_agent_story_card_contract_drift_across_surfaces.md), [docs/process-learnings.md](process-learnings.md)
+
 ## 2026-09-01 [process]: Every deploy-safety gate was attached to the feature branch, and `/dev` sanctions landing work on main
 
 **Context:** The Clarity Groups frontend (P1193/P1204, built on P1060's `events.org_id`) was live on prod while **nine migrations sat unapplied**, from `20260828120000_p1179_event_links` through `20260831190000_p1193_last_organizer_cannot_leave`. Every org-scoped query returned `column events.org_id does not exist`, so `/groups`, `/groups/cm` and `/groups/online` showed **zero events and zero participants to every visitor** — a community holding 11 events and 49 distinct RSVP'd participants reading as dead, and the second organisation not existing at all. Found by the founder looking at the live page.

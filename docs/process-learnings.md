@@ -997,9 +997,13 @@ budget — spent on a same-page duplicate with worse affordances than the copy b
 `ai-power-remedies` run B. P1202 mitigated it (one quote per linked point in the text) rather than
 fixing it.
 
-**The decision the founder owns:** does the label alone stay in the text (gate satisfied, quotes live
-only in `video_quotes`), or does the publish gate move to assert the label on the rendered page
-instead of on `content`?
+**FILED as P1212 and DECIDED, 2026-09-01.** The founder chose **option A**: the label alone stays in
+the text, quotes live only in `video_quotes`. Two things adversarial review then added — (a) `<StoryVideoQuotes>`
+has exactly ONE call site (`StoryCardDetail.tsx:372`), so five of six surfaces would show the label with
+nothing beneath it, and the live/letter surface `live-story-card-expanded.tsx` renders no quotes at all;
+(b) the fix requires editing `story-draft.md:444-449`, held by a concurrent session, so it is blocked
+rather than ready. Superseded by `features/p1212_agent_story_card_contract_drift_across_surfaces.md` §1;
+close this entry when P1212 §1 ships.
 
 ---
 
@@ -1017,5 +1021,19 @@ to every visitor. Found by the founder looking at the live page.
 
 Full report, three candidate fixes and the false-positive trap any manifest-based gate must handle:
 **p1211**. Close this entry when that spec closes.
+
+---
+
+## `next-rank.sh` still ratchets — every agent-filed spec sorts below every hand-ordered one
+
+**Date:** 2026-09-01
+**Status:** proposed
+**due:** week
+
+`./scripts/next-rank.sh week` returned `1000062` for P1212 while hand-ordered specs in the same
+column sit at 1–11, so the new card lands at the bottom regardless of priority. The script's own
+header describes exactly this failure and says it was fixed by scoping per-column — it still scans
+open specs sitting in the 1,000,000 band, so `max+1` reproduces the ratchet. Done when a fresh
+`/create-spec` in a populated column returns a rank in the same scale as the hand-ordered entries.
 
 ---
