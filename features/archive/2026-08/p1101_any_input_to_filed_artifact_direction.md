@@ -20,7 +20,7 @@ driver: heuristic
 
 # P1101: Any input → filed artifact — direction note
 
-> **REJECTED / ABSORBED 2026-08-19 — superseded by [P1096](../../p1096_public_multisource_point_pipeline.md).**
+> **REJECTED / ABSORBED 2026-08-19 — superseded by [P1096](../../done/2026-06-10/p1096_public_multisource_point_pipeline.md).**
 > Filed 2026-08-18 as a direction note. Within a day, every part of it had a better home:
 >
 > - **The architecture conclusion** (*holism at the output boundary — one filing contract, N extraction adapters*) is now **P1096 open question 7**: *"What builds and owns `/points-publish`?"* — created 2026-08-19, and the reason `points-prepare` v0.4.0 names a pairing skill that does not exist.
@@ -28,7 +28,7 @@ driver: heuristic
 > - **B2 (a trigger cannot name a room)** is already a rule inside `points-prepare`, added after the 2026-08-17 run that asserted its own room.
 > - **B3 (the doc claimed the mirror agent was live)** was the one finding nothing else covered. **Fixed 2026-08-19** in `definitions.md`; rationale in [decisions.md](../../../docs/decisions.md) 2026-08-19 [product] "The mirror agent is a design, not a shipped surface". It did not need a spec.
 > - **The "missing own-notes adapter" was wrong.** `/slava:content:sifter-story` Mode 1 opens with *"Paste your brain dump — messy thoughts, any length."* The adapter exists; what it cannot do is publish — which is open question 7 again, not a separate gap.
-> - **The three founder decisions** (autonomy, third-party access, provenance) are answered or owned elsewhere: P1096 Q5/Q6 settled operator-confirms-before-creation and test-before-prod on 2026-08-19; provenance is [P1104](../../p1104_agents_must_be_visually_distinguishable.md). Third-party MCP access has prior art — [P143](../p143_mcp_server.md) was rejected 2026-02-12 as *"overengineered… not testing any documented hypothesis."*
+> - **The three founder decisions** (autonomy, third-party access, provenance) are answered or owned elsewhere: P1096 Q5/Q6 settled operator-confirms-before-creation and test-before-prod on 2026-08-19; provenance is [P1104](../../done/2026-06-10/p1104_agents_must_be_visually_distinguishable.md). Third-party MCP access has prior art — [P143](../p143_mcp_server.md) was rejected 2026-02-12 as *"overengineered… not testing any documented hypothesis."*
 >
 > **Kept for one reason:** the five-input map below records which reader handles which input, and the reasoning behind the output-boundary split. Do not re-derive it; do not re-open it as a build.
 
@@ -228,7 +228,7 @@ a reason, and a filing contract sketched — at which point this spec is re-type
 - [P1089](../../p1089_audience_scoped_point_list.md) — audience-scoped point list (hard blocker, parked on purpose)
 - [P593](../../p593_post_session_clarity_pipeline.md) — post-session clarity pipeline (HELD; sifter extraction + `draft` visibility + mirror-agent letter)
 - [P572](../../p572_ai_point_extraction.md) — AI point extraction from stories (backlog)
-- [P1088](../../p1088_video_selector_for_point_extraction.md) — choosing which conversation to extract from
+- [P1088](../p1088_video_selector_for_point_extraction.md) — choosing which conversation to extract from
 - [story-point-model.md](../../../docs/story-point-model.md) — §counterparty condition, §Considered and excluded, §How consumers use this
 - [decisions.md](../../../docs/decisions.md) 2026-08-06 [process] — "Story/point primitives are reusable as definitions and acceptance criteria — never as procedure"
 - [definitions.md](../../../docs/definitions.md) §Mirror Agent, §Stories vs Points, §Personal AI Calibration

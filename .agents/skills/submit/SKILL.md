@@ -26,7 +26,7 @@ Turn one problem the member is actually working on into a letter a stranger can 
 
 A practitioner with ten trusted people can get his thinking broken on demand. That does not transfer: it runs on a favour, on trust nobody can inspect, and on hand routing. This skill tests whether a **written** problem — shaped so each part is separately agreeable or contestable — can establish enough understanding in a stranger, fast and without a conversation, that their disagreement is worth having. **Comprehension alone is a failure.** A reader who gets it exactly right and disagrees with nothing has produced a mirror, and a mirror is the thing this replaces. The target is understanding **and** friction.
 
-Full reasoning, alternatives and the round-one protocol: [`features/p1180_problem_submit_skill.md`](../../../../features/p1180_problem_submit_skill.md).
+Full reasoning, alternatives and the round-one protocol: [`features/p1180_problem_submit_skill.md`](../../../../features/done/2026-06-10/p1180_problem_submit_skill.md).
 
 ---
 
@@ -436,7 +436,7 @@ And one to `.private/logs/skill-costs.log`:
 
 ## Related
 
-- [`features/p1180_problem_submit_skill.md`](../../../../features/p1180_problem_submit_skill.md) — the spec; **temporary home of the one-story-plus-three-claims shape** until the `story-point-model.md` migration lands.
+- [`features/p1180_problem_submit_skill.md`](../../../../features/done/2026-06-10/p1180_problem_submit_skill.md) — the spec; **temporary home of the one-story-plus-three-claims shape** until the `story-point-model.md` migration lands.
 - [`docs/arbiter-failure-model.md`](../../../../docs/arbiter-failure-model.md) — Stage 2's filter, private-corpus column.
 - [`docs/story-point-model.md`](../../../../docs/story-point-model.md) — story, point, anti-point, referent locus.
 - [`docs/decisions.md`](../../../../docs/decisions.md) 2026-08-31 [product] *"The reader test run on all five candidates"* — the settled shape. 2026-08-28 [product] — the five rulings, ruling 2 superseded in part. 2026-08-06 [process] — why this inlines rather than orchestrates.

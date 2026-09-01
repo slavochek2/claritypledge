@@ -21,7 +21,7 @@ outcome: **fail on phones**, the branch this spec pre-committed to escalating ra
 working around.
 
 One cause is confirmed by reading the code, device-independent, and now fixed under
-[P1196](../../p1196_transcribe_live_text_dies_on_mobile.md): the auto-restart this spec
+[P1196](./p1196_transcribe_live_text_dies_on_mobile.md): the auto-restart this spec
 specified was one-shot. `onend` called `start()` inline and swallowed the throw on the stated
 belief that "the next onend retries" — it cannot, because a throw means no session began and
 `onend` never fires again. On phones that throw is the normal path (iOS requires a user
@@ -284,7 +284,7 @@ signal on its own.
 founder will run P1152's physical checks against prod directly and record the outcome there.
 P1152 is `status: blocked`, not closed — see that spec for what's still outstanding.
 
-All 12 rows below are `pass` per [features/uat/p1149.md](../../uat/p1149.md)'s Test Execution Log —
+All 12 rows below are `pass` per [features/uat/p1149.md](./uat/p1149.md)'s Test Execution Log —
 checked off against that recorded evidence, not re-asserted here.
 
 - [x] DW-1 `/transcribe` is reachable only when signed in; signed-out visitors are redirected

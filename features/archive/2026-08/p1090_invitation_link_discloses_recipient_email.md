@@ -30,7 +30,7 @@ loggable body. P1090's non-goal (do not add an identity requirement to this read
 caveat (a green run on this suite file is evidence only for this file) were carried too.
 
 Do not implement this spec. The work lives in
-[P1071](../../p1071_letter_reading_rpc_returns_recipient_email.md).
+[P1071](../../done/2026-06-10/p1071_letter_reading_rpc_returns_recipient_email.md).
 
 ## Problem
 

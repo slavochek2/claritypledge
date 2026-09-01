@@ -12,7 +12,7 @@ driver: anomaly
 
 # P1140: Retain fetched transcripts so published quotes stay re-verifiable
 
-Child concern of [P1096](../../p1096_public_multisource_point_pipeline.md). That spec makes quote
+Child concern of [P1096](./p1096_public_multisource_point_pipeline.md). That spec makes quote
 verification the non-negotiable gate; this one makes the artifact that gate runs against survive
 the session.
 

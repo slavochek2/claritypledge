@@ -71,7 +71,7 @@ Founder decision 2026-08-13, after the battery was proposed for event #1:
 - **Do NOT run this battery at an event** — see above and [p1055](../../p1055_norm_measurement_instrument.md)'s non-goals.
 - **Do NOT report the psychological-safety Point as a psychological-safety measurement.**
 - **Do NOT treat aggregate agreement as evidence the principle works.** It is evidence people believe it does.
-- **Do NOT build the org-scoped view here** — needs [p1060](../../p1060_link_events_to_organizations.md).
+- **Do NOT build the org-scoped view here** — needs [p1060](../../done/2026-06-10/p1060_link_events_to_organizations.md).
 
 ## Done-When
 
@@ -83,4 +83,4 @@ Founder decision 2026-08-13, after the battery was proposed for event #1:
 
 ## References
 
-Origin: session 2026-08-13, scoping [p1055](../../p1055_norm_measurement_instrument.md). Model: [story-point-model.md](../../../docs/story-point-model.md). Related: [p1055](../../p1055_norm_measurement_instrument.md) (event instrument, shares the topic tag) · [p1056](../../p1056_install_norm_battery_and_safety_scale.md) (Edmondson, installs) · [p1060](../../p1060_link_events_to_organizations.md) (org-scoped view).
+Origin: session 2026-08-13, scoping [p1055](../../p1055_norm_measurement_instrument.md). Model: [story-point-model.md](../../../docs/story-point-model.md). Related: [p1055](../../p1055_norm_measurement_instrument.md) (event instrument, shares the topic tag) · [p1056](../../p1056_install_norm_battery_and_safety_scale.md) (Edmondson, installs) · [p1060](../../done/2026-06-10/p1060_link_events_to_organizations.md) (org-scoped view).

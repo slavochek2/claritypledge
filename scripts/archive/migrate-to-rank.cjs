@@ -307,7 +307,7 @@ function main() {
   } else {
     console.log('\n✅ Migration complete!');
     console.log('   Next steps:');
-    console.log('   1. Run validation: ./scripts/post-migration-validation.sh');
+    console.log('   1. Run validation: ./scripts/archive/migrations/20260212-post-migration-validation.sh');
     console.log('   2. Verify in kanban: npm run kanban');
     console.log('   3. Commit changes: git add features/ && git commit');
   }

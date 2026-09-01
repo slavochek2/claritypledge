@@ -406,7 +406,7 @@ intent.
   [decisions.md](../../../docs/decisions.md) 2026-08-12 records them as a carrier mechanic, not a
   filter.
 - Do **NOT** link events to organizations here — that is
-  [p1060](../../p1060_link_events_to_organizations.md).
+  [p1060](./p1060_link_events_to_organizations.md).
 - Do **NOT** show opt-outs on the roster, in any form, including a count.
 
 ### Governing prior decision — do not contradict
@@ -562,7 +562,7 @@ them verbatim. Any string NOT listed here is still `[FOUNDER DECISION]` and must
   opt-in that its flow step 1 assumes
 - [p1083](p1083_ready_live_distribution_reveal.md) — general `/ready`
   distribution, shipped 2026-08-16; deliberately untouched
-- [p1060](../../p1060_link_events_to_organizations.md) — events belong to an organization; the
+- [p1060](./p1060_link_events_to_organizations.md) — events belong to an organization; the
   reach count this spec's data eventually feeds
 - [decisions.md](../../../docs/decisions.md) 2026-08-12 — universal invocation
 - [clarity-practice-event.md](../../../docs/events/clarity-practice-event.md):95 — run-of-show

@@ -400,7 +400,7 @@ p1055 predicted** — and it has been found in a private window rather than in t
 - [p1055](../p1055_norm_measurement_instrument.md) — the CMP instrument, and D7's origin
 - [p1156](2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md) — pipeline + contract
 - [p1160](2026-06-10/p1160_events_pipeline_orchestrator_and_process_doc.md) — event publish + promote (in-progress)
-- [p1060](../p1060_link_events_to_organizations.md) — events belong to an org, membership levels
+- [p1060](./2026-06-10/p1060_link_events_to_organizations.md) — events belong to an org, membership levels
 - `docs/events/clarity-practice-event.md` · `docs/events/clarity-forum.md` · `docs/points-process.md`
 - [decisions.md](../../docs/decisions.md) 2026-08-19 (frozen generator palette; greying rejected),
   2026-08-21 (initials fallback, publish-precondition conflict, attribution blocker)

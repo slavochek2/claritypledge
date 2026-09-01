@@ -172,12 +172,12 @@ close the `decisions.md` 2026-08-23/2026-08-25 incident class. Filed rather than
 scope — needs real design, not a quick patch, and Non-Goals already rejects "have the stamp script
 commit its own change" as worse than the status quo):
 
-- **[P1173](../../p1173_migrate_manifest_stamp_stage_unsafe_under_concurrency.md)** — the `git add` at
+- **[P1173](./p1173_migrate_manifest_stamp_stage_unsafe_under_concurrency.md)** — the `git add` at
   `migrate.sh:493` stages whatever's currently on disk with no freshness check vs `HEAD`; two
   reviewers independently reproduced a co-tenant's dangling edit riding along into this run's
   stamp. Also: swallowed `index.lock` failures (false "Staged..." message), and a lost-update race
   between two concurrent stamp writes (no lock anywhere in `stamp-deploy-manifest.sh`).
-- **[P1174](../../p1174_migrate_pending_migrations_toctou_bypasses_ack_gate.md)** — unrelated to the
+- **[P1174](./p1174_migrate_pending_migrations_toctou_bypasses_ack_gate.md)** — unrelated to the
   stamp mechanism: `PENDING_FILES` (the ack list, P887) and the apply loop independently re-glob
   `supabase/migrations/*.sql`; a file landing between the ack prompt and the apply loop is applied
   to prod without ack or without the `requires-frontend` (P886) coupling check. Also a malformed-

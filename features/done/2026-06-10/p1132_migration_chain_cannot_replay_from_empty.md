@@ -176,7 +176,7 @@ dance; nothing is destructive and no filename moves.
       (`20260211_tighten_idea_feed_rls.sql:27`). Of the 7 policies the annotation actually
       suppressed in `20251218_p19_3_idea_feed.sql`, 3 were deliberately **dropped** by that
       same later migration (not kept as intentionally public), and the other 4 are the live,
-      unpatched, high-severity subject of [P1139](../../p1139_idea_feed_insert_policies_unconditional.md)
+      unpatched, high-severity subject of [P1139](./p1139_idea_feed_insert_policies_unconditional.md)
       — filed by a peer session and explicit that this exact determination requires
       `/reproduce`, not a citation. `05f0dd87` was reverted (`git reset` to `3890dffa`); the
       false annotations were stripped from the working tree. A second, lower-severity finding

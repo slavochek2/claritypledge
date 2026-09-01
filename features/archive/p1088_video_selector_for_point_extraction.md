@@ -17,7 +17,7 @@ pipeline_ran:
 
 # P1088: Video selector — find conversations whose audience is already split
 
-> **REJECTED 2026-08-25 — superseded by [P1156](../p1156_points_pipeline_selector_and_chain_contract.md).**
+> **REJECTED 2026-08-25 — superseded by [P1156](../done/2026-06-10/p1156_points_pipeline_selector_and_chain_contract.md).**
 > Not abandoned: this spec's content was current when it was rejected. Five rounds of in-place editing
 > left it reading as archaeology rather than as a build instruction, so the whole goal — selector, the
 > three-way split of `/points-prepare`, the two new steps, and the pipeline contract doc — was restated

@@ -17,7 +17,7 @@ completed_at: 2026-08-21
 
 Removes **one of at least two** blockers on the prod half of
 `features/p1096_public_multisource_point_pipeline.md` stage 3 — see **The other prod blocker**.
-Supersedes one decision inside [P1130](../../p1130_points_publish_filer.md) — see **Relationship to P1130**.
+Supersedes one decision inside [P1130](./p1130_points_publish_filer.md) — see **Relationship to P1130**.
 
 ## Problem
 
@@ -174,7 +174,7 @@ door — but it is the difference between a bucket that serves avatars and a buc
 whatever a compromised or mistaken writer hands it.
 
 > **Follow p504's guard style, NOT `event-banners`'.** `20260309000000_create_event_banners_bucket.sql`
-> uses bare `CREATE POLICY`, which is exactly the class [P1132](../../p1132_migration_chain_cannot_replay_from_empty.md)
+> uses bare `CREATE POLICY`, which is exactly the class [P1132](./p1132_migration_chain_cannot_replay_from_empty.md)
 > measured as breaking a replay from empty (12 of 236 files throw). p504 wraps each policy in a
 > `DO $$ … IF NOT EXISTS (SELECT 1 FROM pg_policies …) … END $$` guard.
 >
@@ -484,7 +484,7 @@ Both resolved 2026-08-21, in the `/dev` session that implemented this spec.
 
 ## References
 
-- [p1130](../../p1130_points_publish_filer.md) — the filer and provisioner this changes; two of its
+- [p1130](./p1130_points_publish_filer.md) — the filer and provisioner this changes; two of its
   decisions superseded, the rest stand
 - `features/done/2026-06-10/p1104_agents_must_be_visually_distinguishable.md` — the marker, the
   registry, the waived cold read
@@ -496,7 +496,7 @@ Both resolved 2026-08-21, in the `/dev` session that implemented this spec.
   follow (bare `CREATE POLICY`)
 - `supabase/functions/generate-event-banner/index.ts:195-247` — upload key convention, `upsert: false`,
   old-object cleanup
-- [p1132](../../p1132_migration_chain_cannot_replay_from_empty.md) — why unguarded policies matter
+- [p1132](./p1132_migration_chain_cannot_replay_from_empty.md) — why unguarded policies matter
 - [p1054](../../p1054_out_of_band_objects_absent_from_migrations.md) — why the bucket must exist as a
   migration and not a dashboard click
 - `scripts/check-migration-client-safety.sh:27` — the breaking-shape regex the guard style avoids

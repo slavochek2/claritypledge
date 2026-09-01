@@ -74,7 +74,7 @@ Gather all of these **before** Stage 1, in one message. Then go quiet until `sel
 
 **This skill never chains a prod run onto a test run**, regardless of how clean the test run was.
 Filing to test and filing to production are two separate deliberate acts
-([p1161](../../../../features/p1161_first_physical_event_chiang_mai.md) invariant: *"Filing to test
+([p1161](../../../../features/done/p1161_first_physical_event_chiang_mai.md) invariant: *"Filing to test
 and filing to production are two separate deliberate invocations. Never one."*).
 
 After a `test` run completes, **stop** and print the tag feed URL for review. The prod run is the

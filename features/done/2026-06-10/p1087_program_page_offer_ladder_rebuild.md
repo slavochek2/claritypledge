@@ -181,7 +181,7 @@ Non-members attend the **free events**, or come as one-time paid spectators. The
 - Do **NOT** edit the ladischenski repo from this spec.
 - Do **NOT** update strategy docs here — the workshop rung folding into Custom Offers, the install leaving the public surface, and the batch cadence go through `/slava:maintain:docs-strategy-update` separately.
 - Do **NOT** add a qualifying call gate in front of the membership CTA — self-serve is the confirmed mechanism (see Naming). `/intro` stays reserved for Custom Offers only.
-- Do **NOT** build the `/org/cm` → `/program` reverse link (locked events pointing back to buy) — that lives with the locked-events-on-org-page mechanic, [P1060](../../p1060_link_events_to_organizations.md)'s territory. This spec only adds the one outbound link, `/program` → `/org/cm`.
+- Do **NOT** build the `/org/cm` → `/program` reverse link (locked events pointing back to buy) — that lives with the locked-events-on-org-page mechanic, [P1060](./p1060_link_events_to_organizations.md)'s territory. This spec only adds the one outbound link, `/program` → `/org/cm`.
 
 ## Done-When
 
