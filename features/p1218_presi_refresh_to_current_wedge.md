@@ -91,25 +91,37 @@ One session, deck-only. No new binaries, no new pages, no product code. Copy is 
 | 37 | Qualify — who it's for | KEEP → main arc (who it's for) | — |
 | 38 | Scope matrix | KEEP → main arc | — |
 
-## New order (main arc 1–30, backing 31–38)
+## New order — round 2 after the independent critic (main arc 1–23, backing 24–39)
 
-hook/pain: 1 hero (landing H1) · 2 35% CB Insights · 3 the seam (Maya chat) · 4 everybody assumes · 5 why nobody verifies → root cause: 6 illusion venn · 7 three types · 8 spiral → rework · 9 st5 no will/skill → who it's for: 10 qualify · 11 scope matrix → mechanism/demo: 12 listening calibration · 13 st1 lie/memory/misunderstanding · 14 live demo QR · 15 anti-point · 16 point · 17 habit · 18 Clarity Group Terms · 19 five moves → evidence: 20 credibility · 21 montage · 22 fundraising loop · 23 Dalio · 24 prior art · 25 names cloud → close: 26 two axes · 27 optimism · 28 meta-optimism · 29 nested integrity → ask: 30 CTA. Backing: 31–34 A–D · 35 influences · 36 gaslight · 37 CM gift · 38 st2. Old title/QR slide (4Seas, 15 June) removed.
+hook/pain: 1 hero (landing H1) · 2 35% CB Insights + bridge line · 3 the seam (Maya chat, scaled for projection) · 4 what assumed agreement cost me · 5 everybody assumes · 6 why nobody verifies → root cause: 7 three types · 8 spiral → rework → who it's for: 9 qualify → mechanism/demo: 10 five moves (named before they are demonstrated) · 11 listening calibration · 12 live demo QR · 13 anti-point · 14 point (three clauses) · 15 habit · 16 Clarity Group Terms (two load-bearing lines) → evidence: 17 credibility · 18 fundraising loop · 19 prior art → close: 20 two axes · 21 meta-optimism · 22 nested integrity → ask: 23 one CTA. Backing 24–39: A–D · influences · gaslight · CM gift · st2 · illusion venn · st5 · scope matrix · st1 card · Dalio · names cloud · optimism · full Clarity Group Terms.
 
-## Founder decisions (authored copy — accept / reword each)
+Critic moves applied: s21→after s03; s06, s09, s11, s13, s23, s25, s27 → backing; s19 before s12. Declined: none of the reorder moves. Declined elsewhere: (a) title-anchor normalisation across slides — the deck centres each slide's content block with flex, so the title sits where the graphic's height puts it; a two-anchor rule would need per-slide layout work for a low-severity item and is left for a design pass; (b) s09's baked-in typos — it is a JPEG, cannot be edited here; parked in backing with the note.
 
-Visible in the slide as an amber `[FOUNDER DECISION: …]` chip (`.fd-mark`); delete the span once decided.
+## Founder decisions — confirm before presenting (no chips on the slides; each also sits in that slide's NOTES)
 
-1. Slide 21 headline: **"What assumed agreement cost me."** (was "I have lost business partners."). Cards unchanged.
+Round 1 (authored copy, now rendered as proposed wording):
+1. Slide 4 headline: **"What assumed agreement cost me."** (was "I have lost business partners."). Cards unchanged.
 2. Slide 8 heading: **"… lead to rework?"** (was "… lead to a partner split?").
 3. Slide 8 last step: **"Until the team rebuilds what it thought it had already agreed on."** (was "Until walking away feels easier than working it out.").
-4. Slide 30 path label: **"For growing teams"** (replaces "For co-founders"; the h3/microcopy under it are the landing's verbatim).
+4. Slide 23 path label "For growing teams" — **resolved by removal**: the ask is one action with no audience labels; leaders/coaches paths are a footer line.
 
-Left as-is, flagged (founder bio lines, not authored here): slide 13 story-card byline "I have lost partners. I help you keep yours." (a rendering of the live st1 card; the current profile tagline is a founder decision, not invented here) and slide 20 bullet "Studied why partnerships break".
+Round 2 (authored on the critic's findings):
+5. Slide 2 bridge line: **"Building got 10x cheaper. Checking you meant the same thing didn't."** — pays off the hero's "10x" (the critic found the AI promise never returned) and turns the market-need stat toward internal misunderstanding.
+6. Slide 9 card 1 body cut to **"Months lost. Work thrown away."** — "A relationship that frayed." dropped as cofounder residue (the 2026-08-20 draft copy). Number badges dropped. "Clarity Champions" naming still open from 2026-08-20.
+7. Slide 14 lead line **"'You don't understand me' can mean three things:"** condenses the point's first sentence; the three clauses are verbatim; full point text in NOTES.
+8. Slide 15 title **"Make it a habit"** (was the badge text) + setup line **"A bracelet is the reminder: on in the morning, counted in the evening."**
+9. Slide 6 card bodies cut to one verbatim sentence each (substrings of the landing copy; citations moved to NOTES) — cut, not authored, but confirm the cut.
+10. Slide 17 credibility: the bullet **"Studied why partnerships break — wrote about what I learned"** is removed from the slide (line kept verbatim in NOTES, never rewritten); the essay is still linked from slide 18.
 
-Inherited, not new — already marked on their source: slide 3 dialogue (landing §2b, FOUNDER DECISION awaiting UAT); slide 10 "Clarity Champions" copy (2026-08-20); slide 11 "Clarity Principle" (2026-08-24); the closer headings on 27–28.
+Inherited, not new — already marked on their source: slide 3 dialogue (landing §2b, FOUNDER DECISION awaiting UAT); slide 9 "Clarity Champions" (2026-08-20); backing scope matrix "Clarity Principle" (2026-08-24); the closer headings on 21 and backing optimism.
 
-## Evidence (2026-09-01)
+## Evidence (2026-09-01, round 1)
 
 - Headless Chromium 1920×1080, all 38 slides + first-advance states: `<scratchpad>/presi/s01…s38(.b).png`; 375px for slides 1, 3, 8, 21, 30: `m*.png`.
 - Console: 0 errors, 0 warnings, 0 failed requests. Keyboard: `1 / 38` → ArrowRight `2 / 38` → ArrowLeft `1 / 38` → End `38 / 38` → Home `1 / 38`.
 - Overflow probe: no element outside the viewport on any slide except the gaslight thread's deliberately scrollable body (backing slide 36, pre-existing).
+
+## Evidence (round 2)
+
+- Independent critic pass (visual-QA + presentation-coach, no code seen): verdict FIX-THEN-PRESENT; top-5 applied — chips out, arc 30→23, legibility floor (24px body / ≤40 words on the flagged slides), one ask, cofounder residue out of the main arc.
+- Headless Chromium 1920×1080 all 39 slides + first-advance states, and 375px for all 39: `<scratchpad>/presi/round2/`. Console errors, keyboard and 375px overflow: recorded in the round-2 report.

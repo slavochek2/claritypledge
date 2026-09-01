@@ -108,8 +108,8 @@
   .cards.five{max-width:85rem;gap:clamp(.55rem,1.2vw,.95rem);margin-top:1.8rem}
   .cards.five .card{flex:1 1 170px;max-width:250px}
   .cards.five .card.step{padding:clamp(1.1rem,2.2vw,1.5rem) .95rem}
-  .cards.five .card.step h3{font-size:clamp(.95rem,1.65vw,1.18rem)}
-  .cards.five .card.step p{font-size:clamp(.74rem,1.3vw,.9rem)}
+  .cards.five .card.step h3{font-size:clamp(1.05rem,1.8vw,1.4rem)}
+  .cards.five .card.step p{font-size:clamp(.95rem,1.35vw,1.28rem)}
   .cards.five .step-n{width:40px;height:40px;font-size:1.05rem;margin-bottom:.7rem}
   .cards.five .step-ic{margin-bottom:.7rem}
   .cards.five .step-ic svg{width:40px;height:40px}
@@ -124,7 +124,7 @@
   .step-ic{margin-bottom:1rem}
   .step-ic svg{width:48px;height:48px;color:var(--blue)}
   .card.step h3{font-size:clamp(1.05rem,2vw,1.4rem);font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em;line-height:1.18}
-  .card.step p{font-size:clamp(.82rem,1.5vw,1rem);color:var(--muted-fg);line-height:1.45}
+  .card.step p{font-size:clamp(1.05rem,1.6vw,1.4rem);color:var(--muted-fg);line-height:1.45}
   /* slide 13 — the spiral: a numbered cascade that reveals 1→5 (see spiral() in JS) */
   .spiral{display:flex;flex-direction:column;gap:clamp(.75rem,2.1vw,1.35rem);max-width:min(60rem,92vw);width:100%;text-align:left}
   .spiral-step{display:flex;align-items:baseline;gap:.7rem}
@@ -139,16 +139,16 @@
   .ritual-nest{margin-left:clamp(1.1rem,2.8vw,1.8rem);padding-left:clamp(.7rem,1.4vw,1rem);border-left:2px solid hsl(240 5% 88%);display:flex;flex-direction:column;gap:clamp(.55rem,1.6vw,.9rem)}
   .ritual-ic{width:clamp(1.4rem,3vw,1.85rem);height:clamp(1.4rem,3vw,1.85rem);flex:0 0 auto;color:var(--blue);margin-top:.08rem}
   .ritual-ic.miss{color:var(--red)}
-  .ritual-h{font-size:clamp(1rem,2vw,1.4rem);font-weight:500;letter-spacing:-.01em;line-height:1.3;margin:0}
-  .ritual-nest .ritual-h{font-size:clamp(.92rem,1.8vw,1.28rem)}
-  .ritual-nest .ritual-nest .ritual-h{font-size:clamp(.88rem,1.65vw,1.18rem)}
+  .ritual-h{font-size:clamp(1.2rem,2.1vw,1.7rem);font-weight:500;letter-spacing:-.01em;line-height:1.3;margin:0}
+  .ritual-nest .ritual-h{font-size:clamp(1.15rem,1.95vw,1.55rem)}
+  .ritual-nest .ritual-nest .ritual-h{font-size:clamp(1.1rem,1.8vw,1.45rem)}
   .ritual-lab{font-weight:700;color:var(--blue)}
   .ritual-lab.miss{color:var(--red)}
   .ritual-say{font-style:italic;color:var(--fg)}
   /* reason cards (left aligned) */
   .card.reason{text-align:left;padding:1.7rem 1.6rem}
-  .card.reason h3{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em}
-  .card.reason p{font-size:clamp(.85rem,1.5vw,1rem);color:var(--muted-fg);line-height:1.5}
+  .card.reason h3{font-size:clamp(1.25rem,2.2vw,1.7rem);font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em}
+  .card.reason p{font-size:clamp(1.1rem,1.65vw,1.55rem);color:var(--muted-fg);line-height:1.5}
 
   /* WhatsApp mockup */
   .wa{width:min(92vw,440px);margin:1.2rem auto 0;border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.07);text-align:left}
@@ -291,7 +291,7 @@
   :root{--ax:rgba(113,113,122,.5)}
   /* 3 columns: [row ticks][plot][y-axis name]. Each axis NAME sits at that axis's
      arrow end and outranks the tick labels; ticks are uniform and quiet. */
-  .mx-frame{width:100%;max-width:min(92vw,880px);margin:2.6rem auto 0;
+  .mx-frame{width:100%;max-width:min(92vw,1180px);margin:2.6rem auto 0;
     display:grid;grid-template-columns:auto 1fr auto;column-gap:.55rem}
   .mx-plot{grid-row:2;grid-column:2;border-left:2px solid var(--ax);border-bottom:2px solid var(--ax);
     padding:0 0 .6rem .7rem;position:relative}
@@ -306,11 +306,11 @@
     padding-left:.7rem;margin-top:.4rem}
   /* tick labels — identical treatment on both axes, deliberately quiet */
   .mx-ch,.mx-rh{display:flex;align-items:center;justify-content:center;text-align:center;
-    font-weight:600;font-size:clamp(.6rem,1.15vw,.78rem);letter-spacing:.07em;text-transform:uppercase;
+    font-weight:600;font-size:clamp(.85rem,1.3vw,1.2rem);letter-spacing:.06em;text-transform:uppercase;
     line-height:1.25;color:var(--muted-fg);padding:.35rem .3rem}
   .mx-rh{justify-content:flex-end;text-align:right}
   /* axis names — the prominent pair, each parked at its own arrowhead */
-  .mx-lab{font-weight:800;font-size:clamp(.9rem,1.9vw,1.3rem);letter-spacing:-.02em;color:var(--fg)}
+  .mx-lab{font-weight:800;font-size:clamp(1.1rem,2.2vw,1.7rem);letter-spacing:-.02em;color:var(--fg)}
   .mx-lab-y{grid-row:1;grid-column:2;justify-self:start;margin-bottom:.85rem} /* over the ↑ */
   .mx-lab-x{grid-row:2;grid-column:3;align-self:end;margin:0 0 -.28rem .85rem} /* beside the → */
   .dark{--ax:rgba(255,255,255,.24)}
@@ -374,7 +374,6 @@
   .ring{border:2px solid var(--blue-tint-bd);border-radius:26px;
     padding:clamp(1rem,3.4vh,2.4rem) clamp(1.1rem,3.2vw,2.6rem);
     background:rgba(59,130,246,.035);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
-  .ring-2,.ring-3{opacity:0;transform:scale(.9)}
   .nest.r2 .ring-2{opacity:1;transform:none}
   .nest.r3 .ring-3{opacity:1;transform:none}
   .ring-3{border-color:var(--blue);background:var(--blue-tint)}
@@ -383,7 +382,7 @@
     font-size:clamp(.95rem,2vw,1.45rem);line-height:1.1}
   .ring-3 .ring-t{color:var(--blue-700)}
   .ring-d{margin-top:.4rem;color:var(--muted-fg);font-weight:500;line-height:1.4;
-    font-size:clamp(.74rem,1.4vw,.98rem);max-width:40ch;margin-left:auto;margin-right:auto}
+    font-size:clamp(.95rem,1.5vw,1.3rem);max-width:40ch;margin-left:auto;margin-right:auto}
   .ring-d .accent{font-weight:700}
 
   /* Clarity Partner Agreement certificate (cp /partner-template, Einstein × Teresa) */
@@ -424,8 +423,30 @@
     text-transform:uppercase;letter-spacing:.2em;color:rgba(0,43,92,.10);white-space:nowrap}
 
   /* nav + progress */
-  /* P1218 review marker: authored (not quoted) copy the founder must accept or reword. Block under the line it annotates; fixed size so it never inherits an h2. Delete the span once decided. */
-  .fd-mark{display:block;width:max-content;max-width:min(60ch,90vw);margin:.4rem auto 0;font-size:clamp(.62rem,1vw,.8rem);font-weight:600;letter-spacing:.02em;color:#b45309;background:#fffbeb;border:1px dashed #f59e0b;border-radius:6px;padding:.15em .55em;line-height:1.3;text-align:left;white-space:normal;font-family:var(--sans)}
+  /* P1218 round 2 — legibility floor for projection (≈24px body at 1920) + the single-ask CTA */
+  .wa-big .wa{width:min(92vw,900px);margin-top:1rem}
+  .wa-big .bub{font-size:clamp(1.05rem,1.7vw,1.65rem);padding:.7rem 1rem;line-height:1.35;max-width:84%}
+  .wa-big .bub .t{font-size:.8rem}
+  .wa-big .deleted .d-lbl{font-size:1rem}
+  .wa-big .deleted .d-txt{font-size:inherit;margin-top:.35rem}
+  .wa-big .wa-sys{font-size:clamp(.95rem,1.35vw,1.25rem);padding:.45rem 1rem;max-width:94%}
+  .wa-big .thought{width:min(92vw,900px);margin-top:1.2rem}
+  .wa-big .thought .q{font-size:clamp(1.1rem,1.5vw,1.45rem)}
+  .wa-big .thought .a{font-size:clamp(1.05rem,1.45vw,1.4rem)}
+  .wa-big .wa-name{font-size:1.15rem}.wa-big .wa-seen{font-size:.85rem}
+  .pt-clause{display:inline-block;margin-top:.35rem;font-weight:500}
+  .pt-clause b{display:inline-block;width:1.4em;color:var(--blue);font-weight:800}
+  .cert-wrap-big{width:min(94vw,960px)}
+  .cert-big .cert-clause p.cert-key{font-size:clamp(1.25rem,2.3vw,2rem);line-height:1.35;text-align:left;padding:.75em 1em}
+  .cert-big .cert-head h3{font-size:clamp(1.3rem,2.6vw,1.9rem)}
+  .cta-btn{display:inline-block;margin-top:1.8rem;padding:.55em 1.1em;background:var(--blue);color:#fff;border-radius:18px;
+    font-weight:800;font-size:clamp(1.5rem,2.9vw,2.5rem);letter-spacing:-.015em;text-decoration:none;box-shadow:0 10px 30px rgba(59,130,246,.25)}
+  .cta-btn:hover{background:var(--blue-600)}
+  .cta-alt{margin-top:2rem;font-size:clamp(.9rem,1.35vw,1.15rem);color:var(--muted-fg);max-width:60ch;line-height:1.5}
+  .cta-alt a{color:var(--blue);text-decoration:none;font-weight:600}
+  .mx-cell{font-size:clamp(1rem,1.5vw,1.35rem)}
+  @media(max-width:760px){.oss-note{margin-bottom:2.6rem}.wa-big .thought{margin-bottom:2.6rem}}
+  .ring-2,.ring-3{opacity:.22;transform:scale(.96)}
   .nav{position:absolute;bottom:2vh;right:2.2vw;font-size:.75rem;color:var(--muted-fg);z-index:20;font-variant-numeric:tabular-nums}
   .dark .nav{color:rgba(255,255,255,.55)}
   .progress{position:fixed;top:0;left:0;height:4px;background:var(--blue);transition:width .35s ease;z-index:30}
@@ -507,7 +528,7 @@
   .cards.four{max-width:84rem;gap:clamp(.6rem,1.4vw,1.1rem);align-items:stretch}
   .cards.four .card{flex:1 1 180px;max-width:280px;padding:clamp(1.2rem,2.6vw,1.7rem) 1.2rem;display:flex;flex-direction:column;position:relative}
   .mont-who{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.13em;color:var(--muted-fg);margin-bottom:.55rem}
-  .mont-what{font-size:clamp(.84rem,1.45vw,1rem);font-weight:500;color:var(--muted-fg);line-height:1.3;margin-bottom:.7rem}
+  .mont-what{font-size:clamp(1.05rem,1.6vw,1.35rem);font-weight:500;color:var(--muted-fg);line-height:1.3;margin-bottom:.7rem}
   .mont-cost{font-size:clamp(.92rem,1.6vw,1.14rem);font-weight:700;line-height:1.3;color:#1a1a1a;margin-top:auto}
   .mont-cost .danger{color:var(--red)}
   .mont-stamp{margin-top:auto;align-self:flex-start;font-weight:800;text-transform:uppercase;
@@ -516,7 +537,7 @@
     transform:rotate(-6deg);opacity:.82}
   .lc-gauge{width:min(92vw,640px);margin:1.9rem auto 0;display:flex;flex-direction:column;gap:1.05rem;text-align:left}
   .lc-row{display:flex;flex-direction:column;gap:.4rem}
-  .lc-label{font-size:clamp(.82rem,1.5vw,1.04rem);color:var(--fg);font-weight:500}
+  .lc-label{font-size:clamp(1.1rem,1.7vw,1.5rem);color:var(--fg);font-weight:500}
   .lc-label b{font-weight:800}
   .lc-track{position:relative;height:40px;border-radius:11px;background:var(--muted);overflow:hidden;border:1px solid var(--border)}
   .lc-fill{height:100%;width:var(--v);border-radius:11px;display:flex;align-items:center;justify-content:flex-end;padding-right:.75rem}
@@ -593,23 +614,25 @@
   <!-- 4 · THE STAKES — CB Insights: "no market need" is the #1 startup-failure reason, ~35% of post-mortems (landing ref 1; the landing renders it as "1 in 3"). -->
   <section class="slide soft">
     <!-- NOTES
+      - FOUNDER DECISION (unconfirmed, authored): bridge line "Building got 10x cheaper. Checking you meant the same thing didn't." — pays off the hero's 10x and turns the market stat toward internal misunderstanding.
       - CB Insights post-mortems: "no market need" is the #1 stated reason (~35%).
       - Bridge: some of that is a market nobody had the signal on. A lot of it is a team that never verified it agreed.
       - Claim = calibration, not accuracy: we do not make you right about the customer; we remove false confidence.
     -->
     <div class="bignum" data-target="35">35%</div>
     <h2 style="margin-top:1.4rem;font-size:clamp(1.3rem,3.2vw,2.2rem);max-width:18ch">of failed startups built something the market never wanted<sup><a href="#">1</a></sup></h2>
+    <p class="lead" style="margin-top:1.1rem;max-width:40ch">Building got 10x cheaper. Checking you meant the same thing didn't.</p>
     <div class="refs">[1] CB Insights — The Top Reasons Startups Fail (no market need: the #1 reason, cited in 35% of post-mortems)</div>
   </section>
 
   <!-- 2 · THE SEAM — the landing's HardTruthChat (variant="they-withheld", build-right-thing-landing.tsx §2b): a teammate held a doubt about the DIRECTION, didn't send it, and built on the guess. Dialogue quoted from the landing, where it is marked FOUNDER DECISION (drafted from spec guidance, awaiting UAT). GENERIC/ANONYMIZED — not a real person. Reuses the deck's deleted-message chat grammar (chat() in the motion layer types the truth, strikes it, collapses it). -->
-  <section class="slide">
+  <section class="slide wa-big">
     <!-- NOTES
       - Let the typed message land, then the strike-through: the doubt existed and was deleted.
       - Ask the room: who has been Maya? Who has been the sender?
       - Point: the gap was there before work began. Everything after was rework waiting to happen.
     -->
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.8rem);margin-bottom:.4rem">What your team member <span class="accent">didn't say</span>.</h2>
+    <h2 style="margin-bottom:.2rem">What your team member <span class="accent">didn't say</span>.</h2>
     <div class="wa">
       <div class="wa-head">
         <span class="wa-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></span>
@@ -635,6 +658,33 @@
     </div>
   </section>
 
+  <!-- 3 · WHAT MISCALIBRATION COSTS (montage — just boxes, short) -->
+  <section class="slide soft">
+    <!-- NOTES
+      - FOUNDER DECISION (unconfirmed): headline "What assumed agreement cost me." (was "I have lost business partners."). Cards unchanged.
+      - Three real cases, months lost each. Each was an agreement both sides believed was shared.
+      - Say the stamps as they thud: nine months, seven months, a friend.
+    -->
+    <h2 style="max-width:22ch">What <span class="danger">assumed</span> agreement<br>cost me.</h2>
+    <div class="cards four">
+      <div class="card">
+        <div class="mont-who">Business co-founder</div>
+        <div class="mont-what">Silently believed we could change the agreed equity split later on.</div>
+        <div class="mont-stamp">9 months lost</div>
+      </div>
+      <div class="card">
+        <div class="mont-who">Technical co-founder</div>
+        <div class="mont-what">Disagreed that 5 customer rejections were enough.</div>
+        <div class="mont-stamp">7 months lost</div>
+      </div>
+      <div class="card">
+        <div class="mont-who">An advisor</div>
+        <div class="mont-what">Wanted to raise their compensation before the agreed time.</div>
+        <div class="mont-stamp">A friend lost</div>
+      </div>
+    </div>
+  </section>
+
   <!-- 5 · EVERYBODY ASSUMES -->
   <section class="slide">
     <!-- NOTES
@@ -653,62 +703,16 @@
   <!-- 7 · WHY ALMOST NOBODY VERIFIES -->
   <section class="slide soft">
     <!-- NOTES
+      - Sources (spoken, not shown): Newton 1990 tapper–listener (tappers expect 50% to name the song; 2.5% do) · Camerer, Loewenstein & Weber 1989 curse of knowledge · Schegloff, Jefferson & Sacks 1977 repair.
       - Three reasons, escalating: perception (transparency), cognition (curse of knowledge), social (marked move).
       - The third is the one we can change: make checking understanding the pre-agreed norm, not a marked move.
     -->
     <h2>Why almost nobody <span class="accent">verifies</span> understanding</h2>
     <div class="cards">
-      <div class="card reason"><h3>Illusion of transparency</h3><p>We think our meaning is far more obvious than it is. Tap a song's rhythm: tappers expect 50% to name it; 2.5% do.<sup><a href="#">1</a></sup></p></div>
-      <div class="card reason"><h3>Curse of knowledge</h3><p>Once you know something, you can't un-know it — which makes it hard to feel what the other person is missing.<sup><a href="#">2</a></sup></p></div>
-      <div class="card reason"><h3>The social norm</h3><p>Conversation lets people fix their own meaning. Stepping in to check what someone understood is a marked move — so we delay it, soften it, or skip it.<sup><a href="#">3</a></sup></p></div>
+      <div class="card reason"><h3>Illusion of transparency</h3><p>We think our meaning is far more obvious than it is.</p></div>
+      <div class="card reason"><h3>Curse of knowledge</h3><p>Once you know something, you can't un-know it.</p></div>
+      <div class="card reason"><h3>The social norm</h3><p>Stepping in to check what someone understood is a marked move.</p></div>
     </div>
-    <div class="refs">[1] Newton (1990), Stanford — the tapper–listener study · [2] Camerer, Loewenstein &amp; Weber (1989), J. Political Economy · [3] Schegloff, Jefferson &amp; Sacks (1977), Language</div>
-  </section>
-
-  <!-- 6 · ILLUSION OF SHARED UNDERSTANDING — animated venn (cp MisunderstandingVenn) -->
-  <section class="slide">
-    <!-- NOTES
-      - ADVANCE ONCE to flip the venn: the fog condenses into a small verified overlap; the red dot moves in.
-      - Vocabulary: assumed vs verified shared understanding. Everything else in the deck hangs on this pair.
-    -->
-    <div class="kicker">The root cause</div>
-    <h2 style="font-size:clamp(1.25rem,2.9vw,2.2rem);margin-bottom:.1rem">The illusion of <span class="accent">shared understanding</span></h2>
-    <svg id="mv" viewBox="0 0 640 384" role="img" aria-label="Two circles barely overlapping: your private understanding and their private understanding. A blue fog over both is the assumed shared understanding; a red dot far out is where their understanding actually sits. On verification the fog condenses into a small crisp overlap and the dot moves inside and turns blue.">
-      <defs>
-        <clipPath id="mv-leftclip"><circle cx="195" cy="160" r="140"/></clipPath>
-        <clipPath id="mv-union"><circle cx="195" cy="160" r="140"/><circle cx="445" cy="160" r="140"/></clipPath>
-        <mask id="mv-outr"><rect width="640" height="384" fill="#fff"/><circle cx="445" cy="160" r="141.5" fill="#000"/></mask>
-        <mask id="mv-outl"><rect width="640" height="384" fill="#fff"/><circle cx="195" cy="160" r="141.5" fill="#000"/></mask>
-        <mask id="mv-inr"><rect width="640" height="384" fill="#000"/><circle cx="445" cy="160" r="141.5" fill="#fff"/></mask>
-        <mask id="mv-inl"><rect width="640" height="384" fill="#000"/><circle cx="195" cy="160" r="141.5" fill="#fff"/></mask>
-        <radialGradient id="mv-fog"><stop offset="0%" stop-color="#3b82f6" stop-opacity=".28"/><stop offset="50%" stop-color="#3b82f6" stop-opacity=".14"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>
-      </defs>
-      <ellipse class="fog" cx="320" cy="160" rx="235" ry="150" fill="url(#mv-fog)" clip-path="url(#mv-union)"/>
-      <circle class="core" cx="445" cy="160" r="140" fill="rgba(59,130,246,.25)" clip-path="url(#mv-leftclip)"/>
-      <circle cx="195" cy="160" r="140" fill="none" stroke="rgba(113,113,122,.5)" stroke-width="2" mask="url(#mv-outr)"/>
-      <circle cx="445" cy="160" r="140" fill="none" stroke="#3b82f6" stroke-width="2" mask="url(#mv-outl)"/>
-      <g class="innerarcs">
-        <circle cx="195" cy="160" r="140" fill="none" stroke="rgba(113,113,122,.5)" stroke-width="2" mask="url(#mv-inr)"/>
-        <circle cx="445" cy="160" r="140" fill="none" stroke="#3b82f6" stroke-width="2" mask="url(#mv-inl)"/>
-      </g>
-      <text x="180" y="150" text-anchor="middle" fill="#0a0a0b" font-size="20" font-weight="600">Your private<tspan x="180" dy="26">understanding</tspan></text>
-      <text x="460" y="150" text-anchor="middle" fill="#0a0a0b" font-size="20" font-weight="600">Their private<tspan x="460" dy="26">understanding</tspan></text>
-      <g class="ghost">
-        <circle cx="348" cy="180" r="6.5" fill="none" stroke="#60a5fa" stroke-width="1.75" stroke-dasharray="3 3"/>
-        <path d="M 356 186 Q 450 224 545 194" fill="none" stroke="rgba(113,113,122,.5)" stroke-width="1.25" stroke-dasharray="4 4"/>
-        <text x="338" y="208" text-anchor="end" font-size="13.5" font-style="italic" fill="#60a5fa">they think it's shared</text>
-        <text x="560" y="222" text-anchor="end" font-size="13.5" font-style="italic" fill="#ef4444">it's actually private</text>
-      </g>
-      <circle class="ping" cx="552" cy="192" r="6" fill="none" stroke="#ef4444" stroke-width="2"/>
-      <circle class="dot" cx="552" cy="192" r="6"/>
-      <g class="capP">
-        <text x="320" y="362" text-anchor="middle" fill="#ef4444" font-size="17" font-style="italic">They wrongly believe they understand your intended meaning</text>
-        <line class="strike" x1="78" y1="356" x2="562" y2="356" stroke="#3b82f6" stroke-width="1.75" stroke-dasharray="484"/>
-      </g>
-      <g class="capV">
-        <text x="320" y="362" text-anchor="middle" fill="#3b82f6" font-size="17" font-style="italic">You both know they understand your intended meaning</text>
-      </g>
-    </svg>
   </section>
 
   <!-- 4d · st3 story — make the gap visible with a 0–10 number -->
@@ -717,10 +721,10 @@
       - Four layers fade in: your private, their private, assumed shared, verified.
       - The green ellipse is small on purpose; verified understanding is always narrower than assumed.
     -->
-    <h2 style="font-size:clamp(1.05rem,2.4vw,1.7rem);margin-bottom:.2rem">Three <span class="accent">types</span> of cognitive understanding</h2>
+    <h2 style="margin-bottom:.4rem">Three <span class="accent">types</span> of cognitive understanding</h2>
     <!-- st3's "picture" is the live 3-levels diagram: its four layers fade in on
          entry (FX levels(), keyed on .lv) — the redrawn cp diagram, standalone (no story card) -->
-    <div class="st1-wrap" style="--cap:74vh;background:#fff;padding:.7rem 1rem;box-sizing:border-box">
+    <div class="st1-wrap" style="--cap:64vh;background:#fff;padding:.7rem 1rem;box-sizing:border-box">
         <svg viewBox="0 0 640 372" role="img" style="display:block;width:100%;height:auto" aria-label="Three nested levels of cognitive understanding. Two overlapping circles: Your Private Understanding (you understand, they don't) and Their Private Understanding (they understand, you don't). Their overlap is Assumed Shared Understanding (you assume they understand what you mean). Inside it, a green core is Verified Understanding (you both verified they understand what you mean).">
           <defs>
             <clipPath id="cu-left"><circle cx="240" cy="185" r="170"/></clipPath>
@@ -752,29 +756,18 @@
   <!-- 9c · SPIRAL — how the illusion of understanding leads to rework (numbered; staggered reveal via spiral() in JS) -->
   <section class="slide">
     <!-- NOTES
+      - FOUNDER DECISION (unconfirmed): heading says "lead to rework?" (was "a partner split?"); last step "Until the team rebuilds what it thought it had already agreed on." (was "Until walking away feels easier than working it out.").
       - Steps reveal one by one; read each arrow as "therefore".
       - Step 3 is the rework step: wasted work, missed goals. Step 5 is the team version, not the split version.
       - Chronic pain rarely opens a budget; ask for the dated event: the pivot two people describe differently.
     -->
-    <h2 style="font-size:clamp(1.15rem,2.7vw,2rem);max-width:26ch;margin-bottom:clamp(1.1rem,3vw,1.9rem)">How does the <span class="accent">illusion of understanding</span> lead to rework? <span class="fd-mark">[FOUNDER DECISION: "rework" replaces "a partner split"]</span></h2>
+    <h2 style="font-size:clamp(1.15rem,2.7vw,2rem);max-width:26ch;margin-bottom:clamp(1.1rem,3vw,1.9rem)">How does the <span class="accent">illusion of understanding</span> lead to rework?</h2>
     <div class="spiral">
       <div class="spiral-step"><span class="spiral-n">1</span><p class="spiral-line">No <span class="accent">will</span> or <span class="accent">skill</span> to reveal a gap <span class="spiral-arr">→</span> it stays hidden.</p></div>
       <div class="spiral-step"><span class="spiral-n">2</span><p class="spiral-line">Misunderstandings grow <span class="spiral-arr">→</span> <span class="accent">staying honest</span> gets harder.</p></div>
       <div class="spiral-step"><span class="spiral-n">3</span><p class="spiral-line">Honest feedback dries up <span class="spiral-arr">→</span> <span class="accent">mistakes compound</span>: wasted work, bad vibes, missed goals.</p></div>
       <div class="spiral-step"><span class="spiral-n">4</span><p class="spiral-line">The damage lands <span class="spiral-arr">→</span> <span class="accent">mistrust and despair</span> set in.</p></div>
-      <div class="spiral-step end"><span class="spiral-n">5</span><p class="spiral-end">Until the team rebuilds what it thought it had already agreed on. <span class="fd-mark">[FOUNDER DECISION: closing line; was "Until walking away feels easier than working it out."]</span></p></div>
-    </div>
-  </section>
-
-  <!-- 4e · st5 story — "I thought I was a strong communicator" (no error signal for misunderstanding) -->
-  <section class="slide">
-    <!-- NOTES
-      - If you do not verify: unverified understanding + hidden misunderstanding.
-      - If you do: verified understanding + visible misunderstanding. Visible is the win, not "no misunderstanding".
-    -->
-    <h2 style="font-size:clamp(1.05rem,2.4vw,1.7rem);margin-bottom:.2rem">What happens if you have no will or skill to <span class="accent">verify understanding?</span></h2>
-    <div class="st1-wrap" style="--cap:64vh;aspect-ratio:1200/766">
-      <img src="st5-understand.jpg" alt="What happens without verification — Unverified understanding and Hidden misunderstanding (if you don't verify) versus Verified understanding and Visible misunderstanding (if you do).">
+      <div class="spiral-step end"><span class="spiral-n">5</span><p class="spiral-end">Until the team rebuilds what it thought it had already agreed on.</p></div>
     </div>
   </section>
 
@@ -801,6 +794,7 @@
        Copy is [FOUNDER DECISION] — drafted 2026-08-20, not yet approved. -->
   <section class="slide">
     <!-- NOTES
+      - FOUNDER DECISION (unconfirmed): card 1 body cut to "Months lost. Work thrown away." — "A relationship that frayed." dropped as cofounder-era residue (this copy was itself a 2026-08-20 draft). "Clarity Champions" naming still open.
       - Three cards, said as a filter, not printed as one: cost you can name, you like depth, you say the hard part.
       - Card 3 is load-bearing: "I don't understand" and "I don't agree", in the room, not after.
       - Do not read an exclusion line; the filter lives in how these are said.
@@ -809,295 +803,19 @@
     <h2>Who the <span class="accent">Clarity Champions</span> program is for</h2>
     <div class="cards">
       <div class="card step">
-        <div class="step-n">1</div>
         <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"/></svg></div>
         <h3>You can name the cost</h3>
-        <p>Months lost. Work thrown away. A relationship that frayed.</p>
+        <p>Months lost. Work thrown away.</p>
       </div>
       <div class="card step">
-        <div class="step-n">2</div>
         <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.2.9 1.9v.3h5.4v-.3c0-.7.3-1.4.9-1.9A6 6 0 0 0 12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.6 19h4.8M10.5 21h3"/></svg></div>
         <h3>You like thinking deeply</h3>
         <p>Depth is the part you enjoy, not the part you endure.</p>
       </div>
       <div class="card step">
-        <div class="step-n">3</div>
         <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4M12 14.5h.01"/></svg></div>
         <h3>You say the hard part</h3>
         <p>&ldquo;I don't understand.&rdquo; &ldquo;I don't agree.&rdquo; &mdash; in the room, not after.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- SCOPE MATRIX · WHICH SITUATIONS NEED THIS - last slide, and the only concession
-       in the deck. Every other slide argues the problem is universal ("the default in
-       conversation", "every other room"); a deck with no boundary reads as a pitch.
-       REUSES the .mx-* matrix from the decisions slide verbatim - same axis grammar
-       (dimension name ON the axis line, categorical ticks beside the plot), so this
-       reads as a callback rather than a new device at the very end. It also inherits
-       .mx-frame[data-flip]: the four situations land neutral, and the FIRST advance
-       lights the one that is ours. Do not remove data-flip - the reveal is the beat.
-       AXES:
-         y  explanatory divergence   same (bottom) -> different (top) IDEA OF HOW IT WORKS.
-            NOT "reasons" (founder correction 2026-08-24): reasons read as motives or
-            intentions, and two people can share a motive while holding incompatible
-            causal chains - which is the case this whole axis exists to name.
-         x  room for interpretation  written down (left) -> left to each of us (right)
-            THIS AXIS IS SPECIFIABILITY, AND IT IS *NOT* OBSERVABILITY. An earlier
-            revision of this comment claimed one subsumed the other; that was wrong,
-            and the counterexample is our own flagship case. Two co-founders in the
-            same room every day have HIGH observability - each sees everything the
-            other does - and the instrument is still needed, because "equal partners"
-            was never pinnable in advance, so watching tells you nothing about whether
-            what you saw counted. Collapse the two and this deck argues its own best
-            case into the harmless half.
-            They fail at different MOMENTS: specifiability fails BEFORE (no standard
-            can be written), observability fails AFTER (a standard exists, nobody can
-            see compliance). Low observability WITH a clear standard - "do not dump
-            waste in the river" - is the monitoring-and-sanctions case, a different
-            product. That is why observability is not on this slide: it does not
-            discriminate our case, it discriminates whether sanctions would work.
-            It stays a separate condition in docs/decisions.md 2026-08-24, mapped to
-            *delayed feedback* in the arbiter-failure criteria - keep it separate there.
-            Named for the DEFICIT so it increases rightward and the axis arrow stops
-            lying (founder call). Not "ambiguity": that implies the wording was sloppy
-            and invites "so write a better contract" - which is the RIGHT answer for
-            the left column and no answer at all for things no wording can pin down.
-       Ours is TOP-RIGHT - founder call 2026-08-24, reversed from the first build.
-       The axis is named AMBIGUITY, not specificity (2nd founder call, same day):
-       under "specificity" the ours-corner sat at the LOW end while the axis arrow
-       pointed the other way, so high on the slide meant low in the head. Naming the
-       deficit makes both increase rightward and the arrow stops lying. If anyone
-       proposes renaming it back, that is the reason not to.
-       EXAMPLES - every cell is WHO + WHAT, same form in all four. Mixed forms (two
-       bare quotes, two scenes) was the defect that made the set unreadable: a bare
-       quote has no people in it, so the reader cannot place it on either axis.
-       Each cell must therefore name a relationship AND the thing standing between
-       them. Check a candidate against BOTH axes before using it - "strangers at a
-       red light" was placed top-left and was simply wrong: both drivers hold the
-       SAME idea of how a traffic light works, so it belonged in the bottom row.
-       Interests are not causal models. Buyer and seller want opposite prices and
-       still share one idea of what buying IS, which is why they sit bottom-left.
-       Rejected for the ours-corner: "be a good husband/wife" (a correct member of
-       this quadrant - nothing specified, causal models wildly apart - but it pulls
-       the room toward the PARKED therapy market at the exact moment the deck is
-       asking about the program) and "we'll figure it out as we go" (a statement
-       ABOUT vagueness rather than a situation; no actors, unplaceable).
-       Category labels ("cross-team collaboration", "complex projects") were rejected
-       outright: every other cell is a scene you can picture, and a category among
-       scenes reads as the odd one out.
-       "Clarity Principle" is the founder's wording from the same call and is NOT a
-       term used elsewhere in the repo - reconcile against Clarity Pledge / Clarity
-       Champions before this deck is presented.
-       Copy is [FOUNDER DECISION] - drafted 2026-08-24, not yet approved.
-       Reasoning: docs/definitions.md "When the Protocol Applies" (c) + lean-canvas
-       arbiter-failure criteria; docs/decisions.md 2026-08-24 [product]. -->
-  <style>
-    /* SCOPED to this slide only - slide 29 shares .mx-* and must not move.
-       This slide's row labels ("different idea of how it works") are far longer than
-       slide 29's ("Good"/"Bad"), so on a phone the auto-sized rail ate the plot and
-       broke the cell copy mid-phrase. Cap the rail and step the label down instead. */
-    @media(max-width:480px){
-      .mx-scope{grid-template-columns:64px 1fr}
-      .mx-scope .mx-rh{font-size:.53rem;letter-spacing:.05em;line-height:1.3;padding:.4rem .15rem}
-      .mx-scope .mx-cell{padding:.6rem .4rem}
-    }
-  </style>
-  <section class="slide soft">
-    <!-- NOTES
-      - Four situations land neutral; ADVANCE ONCE to light ours (top-right).
-      - Where a price, rule, standard or precedent exists, use it. We are for what no wording can pin down.
-      - Naming ("Clarity Principle") is still a founder decision; say "the clarity commitment" if unsure.
-    -->
-    <div class="kicker">Which situations need the Clarity Principle?</div>
-    <div class="mx-frame mx-scope" data-flip>
-      <span class="mx-lab mx-lab-y">explanatory divergence</span>
-      <div class="mx-rows">
-        <div class="mx-rh">Different idea of<br>how it works</div>
-        <div class="mx-rh">Same idea of<br>how it works</div>
-      </div>
-      <div class="mx-plot">
-        <div class="mx">
-          <div class="mx-cell">Landlord &amp; tenant:<br>the lease</div>
-          <div class="mx-cell hot">Two co-founders:<br>&ldquo;equal partners&rdquo;</div>
-          <div class="mx-cell">Buyer &amp; seller:<br>the price tag</div>
-          <div class="mx-cell">Friends:<br>&ldquo;let's travel together&rdquo;</div>
-        </div>
-      </div>
-      <div class="mx-ticks">
-        <div class="mx-ch">Written down</div>
-        <div class="mx-ch">Left to each of us</div>
-      </div>
-      <span class="mx-lab mx-lab-x">room for interpretation</span>
-    </div>
-    <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
-  </section>
-
-  <!-- 9 · LISTENING CALIBRATION — the skill, defined -->
-  <section class="slide soft">
-    <!-- NOTES
-      - The two gauges: how well you believe you understood vs how well they believe you did after you explain back.
-      - The gap between 8 and 5 is the instrument's output. The lower number is the verified one (Min principle).
-    -->
-    <div class="kicker">The skill, defined</div>
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem);margin-bottom:.2rem">Listening <span class="accent">calibration</span></h2>
-    <div class="lc-gauge">
-      <div class="lc-row">
-        <div class="lc-label">How well <b>you believe</b> you understood their intended meaning</div>
-        <div class="lc-track"><div class="lc-fill you" style="--v:80%"><span class="lc-val">8 / 10</span></div></div>
-      </div>
-      <div class="lc-row">
-        <div class="lc-label">How well <b>they believe</b> you understood, <b>after you explain back</b></div>
-        <div class="lc-track"><div class="lc-fill them" style="--v:50%"><span class="lc-val">5 / 10</span></div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 4b copy · st1 story — "a lie, memory issue or misunderstanding?" — repeated here to re-set up the Differentiate beat -->
-  <section class="slide">
-    <!-- NOTES
-      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
-      - Cognitive understanding is the only one we measure; the other two are not the target.
-    -->
-    <h2 style="margin-bottom:.2rem">A lie, memory issue or <span class="accent">misunderstanding?</span></h2>
-    <div class="st1-card">
-      <div class="st1-head">
-        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
-        <div>
-          <div class="st1-nameline">
-            <span class="st1-name">Vyacheslav Ladischenski</span>
-            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
-          </div>
-          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
-        </div>
-      </div>
-      <div class="st1-wrap">
-        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
-        <span class="st1-pulse" style="left:61%;top:49%"></span>
-        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9 · LIVE DEMO — QR → claritypledge.com/story/st1 -->
-  <section class="slide dark">
-    <!-- NOTES
-      - Live demo: scan, read the letter, score the two points on the next slides.
-      - Do the anti-point first (many agree with it), then the point. The room disagreeing with itself is the demo.
-    -->
-    <div class="badge">Live demo</div>
-    <h2 style="color:#fafafa;margin-bottom:.4rem">Differentiate disagreement<br><span class="accent">from misunderstanding.</span></h2>
-    <div class="qr-wrap">
-      <img class="qr" alt="QR code to claritypledge.com/letter/st1" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAewAAAHsAQMAAAAq5AwjAAAABlBMVEUKCgv///+Z8yMbAAACgElEQVR42u2dQW5DIQxErV6A+9+SG9AoAXvsROqiUlWj95VF88XboMEZG0Nt/eaZBg4ODg7+/3HzZ6zHZ78Ze8jjz8ew/X6kwWt+2a8ecPC/x+2l5C3vp6R9ObzUnpbGSIPRPHhfzbuen0o+ap97wI7z84xx8aN58P6a31F9ip8xi4Ww0Dz4hZr3gO9LQL+iefAL/bxYmjA2In78PHh7zee6zQ8f6jbg/TWvj6exXqtJTn6UUiczD95V86VuE+XKE9hTATMSW2YevKu3KR7eTmXeKzZqfmRRMPPgvTWvjt3r8/H3qdsQ58HvqNtEbJeFoIXKVMAkzoP3r9tEZT7nrdpyo78FaB68e5yPZgNtOTDTJhx9j+bBe/v5lXZao+tStqWOhxd7j+bB+8b5o2QN7xHPSwFnLDQPfofmP+06WarSa3kHzYO31XyxMeFe3MxLj2WMxM+Dt9Z82XUVk1PEn80PMw/eNoedKT/9kLqWk1P0VYJ39/O566a0H6TU1TSTZebBu3obPRXofiZCuqmH1x8CZh68p+bfegxS/6SejZ2pDxPNgzfWfNljFXufmg3k8BRxHry3t3kz9qUVIbfZ+GJh5sG71m1K0cbyXR/RkLPoqwS3m3qJ9UiInpCKxHaU4yTMPHhbzecUNV7qKrC0V4vmwVtrfn/JfTXV0vszqNuAt89hy70HZmkfVu/uy83GzDx42xz2BHCt0pQDg3rFDd4G/IIc9t3DR25r9fo+cljwG/y83Dkcm63uf2b183gb8Hs0nxPbWr1JnZbMPPglmvdIrgpPLfR4G/CL/Hw1Njm86xJA8+A31G3EupfN2bRda9RtwBtrnn8/Bw4ODn4v/g31wjage7+8lAAAAABJRU5ErkJggg==">
-      <div class="url"><span class="accent">claritypledge.com/letter/st1</span></div>
-    </div>
-  </section>
-
-  <!-- 9a · ANTI-POINT — st1 #misunderstanding belief, rendered as the live StatementPointCard -->
-  <section class="slide">
-    <!-- NOTES
-      - Ask for hands: agree / unsure / disagree. Most rooms split.
-      - This statement conflates agreement and empathy with understanding; that is the trap.
-    -->
-    <div class="pt-card">
-      <div class="pt-row">
-        <span class="pt-pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg></span>
-        <p class="pt-stmt">Understanding means the other person sees it your way &mdash; they either feel what you feel or they agree with you. If they do neither, they haven&rsquo;t really understood you.</p>
-      </div>
-    </div>
-    <div class="pb-row">
-      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Disagree</div>
-      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Unsure</div>
-      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Agree</div>
-    </div>
-  </section>
-
-  <!-- 9b · POINT — st1 #understanding belief, rendered as the live StatementPointCard -->
-  <section class="slide">
-    <!-- NOTES
-      - Ask again. Watch the shift from the previous card.
-      - Understood-and-rejected is allowed: verification is decoupled from validation.
-    -->
-    <div class="pt-card">
-      <div class="pt-row">
-        <span class="pt-pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg></span>
-        <p class="pt-stmt">When someone says &ldquo;you don&rsquo;t understand me,&rdquo; they could mean at least three different things. They might mean I don&rsquo;t feel what they feel. They might mean I don&rsquo;t agree with them. Or they might mean they don&rsquo;t know whether I actually know what they mean. These are three separate requests. Satisfying one doesn&rsquo;t necessarily satisfy the others. The word &ldquo;understand&rdquo; never tells me which kind of understanding is being asked for.</p>
-      </div>
-    </div>
-    <div class="pb-row">
-      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Disagree</div>
-      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Unsure</div>
-      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Agree</div>
-    </div>
-  </section>
-
-  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
-  <section class="slide soft">
-    <!-- NOTES
-      - The whole practice reduces to one sentence: "I believe I understand you at N out of 10."
-      - Bracelet is a slip-tracker, not a reward. Evening count is the metric.
-    -->
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="23 4 23 10 17 10"/><polyline stroke-linecap="round" stroke-linejoin="round" points="1 20 1 14 7 14"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      Make it a habit
-    </div>
-    <div class="ritual">
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
-      </div>
-      <div class="ritual-nest">
-        <div class="ritual-step">
-          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
-          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
-        </div>
-        <div class="ritual-nest">
-          <div class="ritual-step">
-            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
-          </div>
-          <div class="ritual-step">
-            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
-            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
-          </div>
-        </div>
-      </div>
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9 · THE ARTIFACT — Clarity Group Terms (COA v6, src/app/content/coa-versions.ts), the org-scope artifact the landing shows in §7b. Heading + subtitle + kicker + epigraph quoted from the landing (FOUNDER-APPROVED there). Oath body = VERIFIED_UNDERSTANDING_OATH v5, byte-identical to /groups/:slug/join. -->
-  <section class="slide soft" style="padding-top:4vh;padding-bottom:4vh">
-    <!-- NOTES
-      - Read "Your right" and "My promise" aloud; the exception makes it honest, not absolute.
-      - Org-scope terms: one person can commit today without recruiting a counterparty.
-      - Same oath text as the join page; never fork it for a talk.
-    -->
-    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.2rem">Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
-    <p class="lead" style="margin:.1rem 0 .4rem;font-size:clamp(.9rem,1.6vw,1.1rem)">Reveal gaps easily. Bridge them safely.</p>
-    <div class="cert-wrap">
-      <div class="cert">
-        <div class="cert-head">
-          <h3>Clarity Group Terms</h3>
-        </div>
-        <p class="cert-intro"><b>A commitment to every member</b> &mdash; <i>We all crave being understood. Let's commit to listen.</i></p>
-        <div class="cert-clause">
-          <h4>Your right</h4>
-          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intended meaning behind what you say.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>My promise</h4>
-          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
-          <p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
-          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>The exception</h4>
-          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
-        </div>
       </div>
     </div>
   </section>
@@ -1147,9 +865,139 @@
     </div>
   </section>
 
+  <!-- 9 · LISTENING CALIBRATION — the skill, defined -->
+  <section class="slide soft">
+    <!-- NOTES
+      - The two gauges: how well you believe you understood vs how well they believe you did after you explain back.
+      - The gap between 8 and 5 is the instrument's output. The lower number is the verified one (Min principle).
+    -->
+    <div class="kicker">The skill, defined</div>
+    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem);margin-bottom:.2rem">Listening <span class="accent">calibration</span></h2>
+    <div class="lc-gauge">
+      <div class="lc-row">
+        <div class="lc-label">How well <b>you believe</b> you understood their intended meaning</div>
+        <div class="lc-track"><div class="lc-fill you" style="--v:80%"><span class="lc-val">8 / 10</span></div></div>
+      </div>
+      <div class="lc-row">
+        <div class="lc-label">How well <b>they believe</b> you understood, <b>after you explain back</b></div>
+        <div class="lc-track"><div class="lc-fill them" style="--v:50%"><span class="lc-val">5 / 10</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · LIVE DEMO — QR → claritypledge.com/story/st1 -->
+  <section class="slide dark">
+    <!-- NOTES
+      - Live demo: scan, read the letter, score the two points on the next slides.
+      - Do the anti-point first (many agree with it), then the point. The room disagreeing with itself is the demo.
+    -->
+    <div class="badge">Live demo</div>
+    <h2 style="color:#fafafa;margin-bottom:.4rem">Differentiate disagreement<br><span class="accent">from misunderstanding.</span></h2>
+    <div class="qr-wrap">
+      <img class="qr" alt="QR code to claritypledge.com/letter/st1" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAewAAAHsAQMAAAAq5AwjAAAABlBMVEUKCgv///+Z8yMbAAACgElEQVR42u2dQW5DIQxErV6A+9+SG9AoAXvsROqiUlWj95VF88XboMEZG0Nt/eaZBg4ODg7+/3HzZ6zHZ78Ze8jjz8ew/X6kwWt+2a8ecPC/x+2l5C3vp6R9ObzUnpbGSIPRPHhfzbuen0o+ap97wI7z84xx8aN58P6a31F9ip8xi4Ww0Dz4hZr3gO9LQL+iefAL/bxYmjA2In78PHh7zee6zQ8f6jbg/TWvj6exXqtJTn6UUiczD95V86VuE+XKE9hTATMSW2YevKu3KR7eTmXeKzZqfmRRMPPgvTWvjt3r8/H3qdsQ58HvqNtEbJeFoIXKVMAkzoP3r9tEZT7nrdpyo78FaB68e5yPZgNtOTDTJhx9j+bBe/v5lXZao+tStqWOhxd7j+bB+8b5o2QN7xHPSwFnLDQPfofmP+06WarSa3kHzYO31XyxMeFe3MxLj2WMxM+Dt9Z82XUVk1PEn80PMw/eNoedKT/9kLqWk1P0VYJ39/O566a0H6TU1TSTZebBu3obPRXofiZCuqmH1x8CZh68p+bfegxS/6SejZ2pDxPNgzfWfNljFXufmg3k8BRxHry3t3kz9qUVIbfZ+GJh5sG71m1K0cbyXR/RkLPoqwS3m3qJ9UiInpCKxHaU4yTMPHhbzecUNV7qKrC0V4vmwVtrfn/JfTXV0vszqNuAt89hy70HZmkfVu/uy83GzDx42xz2BHCt0pQDg3rFDd4G/IIc9t3DR25r9fo+cljwG/y83Dkcm63uf2b183gb8Hs0nxPbWr1JnZbMPPglmvdIrgpPLfR4G/CL/Hw1Njm86xJA8+A31G3EupfN2bRda9RtwBtrnn8/Bw4ODn4v/g31wjage7+8lAAAAABJRU5ErkJggg==">
+      <div class="url"><span class="accent">claritypledge.com/letter/st1</span></div>
+    </div>
+  </section>
+
+  <!-- 9a · ANTI-POINT — st1 #misunderstanding belief, rendered as the live StatementPointCard -->
+  <section class="slide">
+    <!-- NOTES
+      - Ask for hands: agree / unsure / disagree. Most rooms split.
+      - This statement conflates agreement and empathy with understanding; that is the trap.
+    -->
+    <div class="pt-card">
+      <div class="pt-row">
+        <span class="pt-pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg></span>
+        <p class="pt-stmt">Understanding means the other person sees it your way &mdash; they either feel what you feel or they agree with you. If they do neither, they haven&rsquo;t really understood you.</p>
+      </div>
+    </div>
+    <div class="pb-row">
+      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Disagree</div>
+      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Unsure</div>
+      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Agree</div>
+    </div>
+  </section>
+
+  <!-- 9b · POINT — st1 #understanding belief, rendered as the live StatementPointCard -->
+  <section class="slide">
+    <!-- NOTES
+      - Full point text (read or paraphrase): "When someone says 'you don't understand me,' they could mean at least three different things. They might mean I don't feel what they feel. They might mean I don't agree with them. Or they might mean they don't know whether I actually know what they mean. These are three separate requests. Satisfying one doesn't necessarily satisfy the others. The word 'understand' never tells me which kind of understanding is being asked for."
+      - FOUNDER DECISION (unconfirmed): on-slide lead line "'You don't understand me' can mean three things:" condenses the first sentence; the three clauses are verbatim.
+      - Ask again. Watch the shift from the previous card.
+      - Understood-and-rejected is allowed: verification is decoupled from validation.
+    -->
+    <div class="pt-card">
+      <div class="pt-row">
+        <span class="pt-pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg></span>
+        <p class="pt-stmt">&ldquo;You don&rsquo;t understand me&rdquo; can mean three things:<br><span class="pt-clause"><b>1</b> I don&rsquo;t feel what they feel.</span><br><span class="pt-clause"><b>2</b> I don&rsquo;t agree with them.</span><br><span class="pt-clause"><b>3</b> They don&rsquo;t know whether I actually know what they mean.</span></p>
+      </div>
+    </div>
+    <div class="pb-row">
+      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Disagree</div>
+      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Unsure</div>
+      <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Agree</div>
+    </div>
+  </section>
+
+  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
+  <section class="slide soft">
+    <!-- NOTES
+      - FOUNDER DECISION (unconfirmed, authored): title "Make it a habit" (was the badge text) + setup line "A bracelet is the reminder: on in the morning, counted in the evening."
+      - The whole practice reduces to one sentence: "I believe I understand you at N out of 10."
+      - Bracelet is a slip-tracker, not a reward. Evening count is the metric.
+    -->
+    <h2 style="margin-bottom:.3rem">Make it a <span class="accent">habit</span></h2>
+    <p class="lead" style="margin:0 0 1.2rem">A bracelet is the reminder: on in the morning, counted in the evening.</p>
+    <div class="ritual">
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
+      </div>
+      <div class="ritual-nest">
+        <div class="ritual-step">
+          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
+        </div>
+        <div class="ritual-nest">
+          <div class="ritual-step">
+            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
+          </div>
+          <div class="ritual-step">
+            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
+          </div>
+        </div>
+      </div>
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
+  <section class="slide soft">
+    <!-- NOTES
+      - Read both lines aloud. The number is the move; the lower-of-two is what makes it honest.
+      - Org-scope terms: one person can commit today without recruiting a counterparty.
+      - Full terms (your right / my promise / the exception) are in backing; same text as the join page.
+    -->
+    <h2>Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
+    <p class="lead" style="margin:.4rem 0 0">Reveal gaps easily. Bridge them safely.</p>
+    <div class="cert-wrap cert-wrap-big">
+      <div class="cert cert-big">
+        <div class="cert-head"><h3>Clarity Group Terms</h3></div>
+        <div class="cert-clause"><p class="cert-key">I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you).</p></div>
+        <div class="cert-clause"><p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p></div>
+      </div>
+    </div>
+  </section>
+
   <!-- 2 · CREDIBILITY — paid for the lesson (ladischenski.com About, two-column) -->
   <section class="slide soft">
     <!-- NOTES
+      - Bullet removed from the slide (founder bio line, kept verbatim here, not rewritten): "Studied why partnerships break — wrote about what I learned" → blog.claritypledge.com/two-skills-next-generation-founders/ (the fundraising-loop slide still links the essay).
       - Credibility in one breath: raised, built, closed. The lesson was paid for.
       - Link is the two-skills essay; do not read the list, name it.
     -->
@@ -1159,36 +1007,9 @@
         <div class="kicker">Built by someone who paid for the lesson</div>
         <h2 class="cred-h2">I've raised <span class="accent moneyup" data-target="398">€398k</span>, built B2B SaaS for 6&nbsp;years, and had to close it all down.</h2>
         <ul class="checklist">
-          <li><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><a href="https://blog.claritypledge.com/two-skills-next-generation-founders/" target="_blank" rel="noopener">Studied why partnerships break — wrote about what I learned</a></li>
           <li><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5101322" target="_blank" rel="noopener">Published a 60-page research paper on trust-building</a></li>
           <li><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><a href="https://claritypledge.com/manifesto" target="_blank" rel="noopener">Launched ClarityPledge — a platform to practice verified understanding</a></li>
         </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- 3 · WHAT MISCALIBRATION COSTS (montage — just boxes, short) -->
-  <section class="slide soft">
-    <!-- NOTES
-      - Three real cases, months lost each. Each was an agreement both sides believed was shared.
-      - Say the stamps as they thud: nine months, seven months, a friend.
-    -->
-    <h2 style="max-width:22ch">What <span class="danger">assumed</span> agreement cost me. <span class="fd-mark">[FOUNDER DECISION: headline; was "I have lost business partners."]</span></h2>
-    <div class="cards four">
-      <div class="card">
-        <div class="mont-who">Business co-founder</div>
-        <div class="mont-what">Silently believed we could change the agreed equity split later on.</div>
-        <div class="mont-stamp">9 months lost</div>
-      </div>
-      <div class="card">
-        <div class="mont-who">Technical co-founder</div>
-        <div class="mont-what">Disagreed that 5 customer rejections were enough.</div>
-        <div class="mont-stamp">7 months lost</div>
-      </div>
-      <div class="card">
-        <div class="mont-who">An advisor</div>
-        <div class="mont-what">Wanted to raise their compensation before the agreed time.</div>
-        <div class="mont-stamp">A friend lost</div>
       </div>
     </div>
   </section>
@@ -1201,7 +1022,7 @@
     -->
     <div class="kicker">Listening calibration in action</div>
     <h2 style="font-size:clamp(1.3rem,3vw,2.05rem);max-width:26ch;margin-bottom:.2rem">How I raised <span class="accent">€398,000</span> without product-market fit.</h2>
-    <div id="calibration-loop" style="position:relative;width:100%;max-width:min(58vh,500px);margin:1rem auto 0;aspect-ratio:1/1;background:#ffffff;border:1px solid hsl(240 5.9% 90%);box-shadow:0 10px 40px rgba(0,0,0,.06);border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;user-select:none;-webkit-user-select:none;">
+    <div id="calibration-loop" style="position:relative;width:100%;max-width:min(68vh,660px);margin:1rem auto 0;aspect-ratio:1/1;background:#ffffff;border:1px solid hsl(240 5.9% 90%);box-shadow:0 10px 40px rgba(0,0,0,.06);border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;user-select:none;-webkit-user-select:none;">
 <style>
   #calibration-loop * { box-sizing: border-box; margin: 0; padding: 0; }
   .cl-center {
@@ -1221,8 +1042,8 @@
     width: clamp(28px, 6vw, 40px); height: clamp(28px, 6vw, 40px);
     border-radius: 50%; display: flex; align-items: center; justify-content: center;
     font-size: clamp(12px, 2.5vw, 16px); font-weight: 700;
-    background: #f1f5f9; color: #94a3b8;
-    border: 2px solid #e2e8f0;
+    background: #fff; color: #475569;
+    border: 2px solid #94a3b8;
     transition: all 0.5s ease;
   }
   .cl-step.active .cl-step-num {
@@ -1231,9 +1052,9 @@
     box-shadow: 0 0 20px rgba(59,130,246,0.25), 0 0 40px rgba(59,130,246,0.10);
   }
   .cl-step-label {
-    margin-top: 6px; font-size: clamp(9px, 2.2vw, 13px); font-weight: 500;
-    color: #64748b; line-height: 1.3;
-    max-width: clamp(80px, 20vw, 130px);
+    margin-top: 6px; font-size: clamp(14px, 1.3vw, 24px); font-weight: 600;
+    color: #334155; line-height: 1.25;
+    max-width: clamp(110px, 15vw, 260px);
     transition: color 0.5s ease;
   }
   .cl-step.active .cl-step-label { color: #0f172a; font-weight: 600; }
@@ -1339,25 +1160,7 @@
 })();
 </script>
 </div>
-    <div style="margin-top:1.3rem;font-size:clamp(.72rem,1.2vw,.92rem);color:var(--muted-fg)">The full essay: <a href="https://blog.claritypledge.com/two-skills-next-generation-founders/" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">blog.claritypledge.com/two-skills-next-generation-founders</a></div>
-  </section>
-
-  <!-- WHERE IT STARTED — Ray Dalio (ported from /presi2; placed before the illusion slide) -->
-  <section class="slide">
-    <!-- NOTES
-      - Origin story, 30 seconds: cold email, "please pass them to others".
-      - Dalio's line is the bridge to the closing principle slides: document mistakes, build principles.
-    -->
-    <div class="cred">
-      <div class="cred-photo shot">
-        <img src="dalio-exchange.png" alt="Cold email to Ray Dalio and his reply: Please pass them to others.">
-      </div>
-      <div class="cred-text">
-        <div class="kicker" style="text-transform:none;letter-spacing:.01em;font-size:clamp(.8rem,1.45vw,1rem);max-width:56ch;line-height:1.5;margin-bottom:1.1rem;color:var(--muted-fg);font-weight:600">I cold-emailed Ray Dalio.<br>He replied: <span class="accent">"Please pass [the principles] to others."</span></div>
-        <h2 class="cred-h2" style="margin-bottom:1rem">What is Dalio's <span class="accent">secret to success?</span></h2>
-        <p class="lead" style="margin-top:0;font-style:italic;font-weight:500;color:#1e293b;max-width:42ch">"Document your mistakes and create principles that protect you from repeating them."</p>
-      </div>
-    </div>
+    <div style="margin-top:1.3rem;font-size:clamp(1rem,1.4vw,1.25rem);color:var(--muted-fg)">The full essay: <a href="https://blog.claritypledge.com/two-skills-next-generation-founders/" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:600">blog.claritypledge.com/two-skills-next-generation-founders</a></div>
   </section>
 
   <!-- CLOSER · PRIOR ART — the same move under three installation regimes.
@@ -1389,23 +1192,6 @@
     </div>
   </section>
 
-  <section class="slide dark cloud-slide">
-    <!-- NOTES
-      - Names the room already knows; we are not inventing a category.
-      - Difference: a number, decoupled from agreement, pre-committed.
-    -->
-    <div class="kicker" style="color:#60a5fa;max-width:48ch;margin-bottom:clamp(1.4rem,4vh,2.8rem)">Names this method already goes by, in other fields</div>
-    <div class="cloud">
-      <span class="cw xl"><span class="cw-i">Teach-back</span></span>
-      <span class="cw l"><span class="cw-i">Closed-loop communication</span></span>
-      <span class="cw xl"><span class="cw-i">Active listening</span></span>
-      <span class="cw m"><span class="cw-i">Mirroring</span></span>
-      <span class="cw l"><span class="cw-i">Ideological Turing test</span></span>
-      <span class="cw m"><span class="cw-i">Steelmanning</span></span>
-      <span class="cw l"><span class="cw-i">Devil's advocate</span></span>
-    </div>
-  </section>
-
   <!-- CLOSE 3 · THE TWO AXES — decision quality and decision alignment are orthogonal.
        Everything the market builds is the rows. We are the columns. -->
   <section class="slide soft">
@@ -1434,47 +1220,6 @@
       </div>
       <span class="mx-lab mx-lab-x">understanding</span>
     </div>
-  </section>
-
-  <!-- CLOSE 1 · TRANSFORM (high level) — unsolvable problem → solvable challenge.
-       Constructor frame: the obstacle is cleared by knowledge. Flips on advance (pure CSS, like the venn). -->
-  <section class="slide">
-    <!-- NOTES
-      - ADVANCE ONCE: the arc labelled knowledge routes around the obstacle.
-      - Deutsch: if no law forbids B, what stands between you and it is knowledge you have not found yet.
-    -->
-    <div class="kicker">The principle of optimism</div>
-    <!-- FOUNDER DECISION: heading wording -->
-    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem);margin-bottom:.2rem">How to turn problems into <span class="accent">challenges?</span></h2>
-    <div class="fd">
-      <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle. A blue arrow labelled knowledge curves around the obstacle from A to B — the route that gets you across.">
-        <defs>
-          <marker id="karrow1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/>
-          </marker>
-        </defs>
-        <!-- endpoint labels, above the line so the arc owns the lower half -->
-        <text x="95" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point A</text>
-        <text x="95" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you have an</text>
-        <text x="95" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">unsolvable problem</text>
-        <text x="585" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point B</text>
-        <text x="585" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you have a</text>
-        <text x="585" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">solvable challenge</text>
-        <!-- blocked straight path -->
-        <line x1="95" y1="92" x2="585" y2="92" stroke="rgba(113,113,122,.4)" stroke-width="3" stroke-linecap="round"/>
-        <!-- knowledge: the route around the obstacle -->
-        <path d="M95,92 C135,248 545,248 585,92" fill="none" stroke="#3b82f6" stroke-width="3" marker-end="url(#karrow1)"/>
-        <text x="340" y="190" text-anchor="middle" fill="#3b82f6" font-size="17" font-weight="800">knowledge</text>
-        <!-- obstacle block in the middle -->
-        <rect x="282" y="63" width="116" height="58" rx="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
-        <text x="340" y="98" text-anchor="middle" fill="#ef4444" font-size="15" font-weight="800" letter-spacing=".03em">OBSTACLE</text>
-        <!-- endpoints -->
-        <circle cx="95" cy="92" r="9" fill="rgba(113,113,122,.55)"/>
-        <circle cx="585" cy="92" r="9" fill="#3b82f6"/>
-      </svg>
-    </div>
-    <!-- FOUNDER DECISION: constructor-theory footnote (keep / cut / reword) -->
-    <div class="note">&ldquo;If no law of nature forbids Point B, the only thing between you and it is knowledge you haven't found yet.&rdquo;<br><span style="font-style:normal;font-weight:600;opacity:.75">David Deutsch &middot; The Beginning of Infinity</span></div>
   </section>
 
   <!-- CLOSE 2 · TRANSFORM (applied to the meta-problem) — same diagram turned on itself.
@@ -1550,44 +1295,28 @@
     <div class="note">It all reduces to one honest move, made in the moment. That is where the practice starts.</div>
   </section>
 
-  <!-- 10 · CTA — Let's collaborate! Featured path = the landing's single primary action ("Book a free alignment audit" → /intro, microcopy "Starts with a 15-min call."). The co-founder cohort path is retired with the wedge. -->
+  <!-- 10 · THE ASK — one action: the landing's single primary CTA ("Book a free alignment audit." → /intro, microcopy "Starts with a 15-min call."), URL as a button ≥32px. The other two paths are a footer line. Round 2 (critic): the three-card "Let's collaborate!" is gone. -->
   <section class="slide grid-bg">
     <!-- NOTES
+      - FOUNDER DECISION (resolved by removal): the "For growing teams" path label no longer exists — one ask, no audience labels. Leaders/coaches paths survive as a footer line only.
       - One ask: book the free alignment audit. It starts with a 15-minute call.
       - The other two paths exist; mention them only if the room asks.
     -->
-    <h2 style="font-size:clamp(1.7rem,4vw,3.2rem)">Let's <span class="accent">collaborate!</span></h2>
-    <div class="paths">
-      <div class="path">
-        <span class="who"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> For leaders &amp; executives</span>
-        <h3>Certify your team.</h3>
-        <p>Earn the Clarity Badge for verified understanding.</p>
-        <a class="path-link" href="https://ladischenski.com" target="_blank" rel="noopener">ladischenski.com →</a>
-      </div>
-      <div class="path feat">
-        <span class="who"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-2.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.5-4.5"/></svg> For growing teams</span>
-        <h3>Book a free alignment audit.</h3>
-        <p>Starts with a 15-min call.</p>
-        <span class="fd-mark" style="margin:.2rem 0 .4rem;width:auto;max-width:100%">[FOUNDER DECISION: path label &ldquo;For growing teams&rdquo;]</span>
-        <a class="path-link" href="https://claritypledge.com/intro" target="_blank" rel="noopener">claritypledge.com/intro →</a>
-      </div>
-      <div class="path">
-        <span class="who"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0-15a3 3 0 00-3 3v4a3 3 0 006 0V6a3 3 0 00-3-3z"/></svg> For coaches &amp; consultants</span>
-        <h3>Stop losing customers.</h3>
-        <p>Make the hard truth safe to share.</p>
-        <a class="path-link" href="https://claritypledge.com/coach" target="_blank" rel="noopener">claritypledge.com/coach →</a>
-      </div>
-    </div>
+    <h2>Book a free <span class="accent">alignment audit.</span></h2>
+    <p class="lead" style="margin-top:.8rem">Starts with a 15-min call.</p>
+    <a class="cta-btn" href="https://claritypledge.com/intro" target="_blank" rel="noopener">claritypledge.com/intro &rarr;</a>
+    <p class="cta-alt">Leaders &amp; executives: <a href="https://ladischenski.com" target="_blank" rel="noopener">ladischenski.com</a> &middot; Coaches &amp; consultants: <a href="https://claritypledge.com/coach" target="_blank" rel="noopener">claritypledge.com/coach</a></p>
     <p class="oss-note">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 4.7 18 5 18 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
-      ClarityPledge is open source ·
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.9 1.2 1.9 1.2 3.2 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+      ClarityPledge is open source &middot;
       <a href="https://github.com/slavochek2/claritypledge" target="_blank" rel="noopener">github.com/slavochek2/claritypledge</a>
     </p>
   </section>
 
   <!-- ══════ BACKING SLIDES — BACKUP / Q&A ONLY ══════
-       These sit AFTER the CTA on purpose (P1218: the arc now ends on the ask).
-       These are reached only by continuing past it, to answer a challenge from the floor. Do not treat as the arc.
+       These sit AFTER the CTA on purpose (P1218: the arc ends on the ask; round 2 cut the
+       arc to 23 and parked the venn, st5, scope matrix, st1 card, Dalio, names cloud,
+       optimism closer and the full terms here). These are reached only by continuing past it, to answer a challenge from the floor. Do not treat as the arc.
        Four slides that back claims the deck already makes but never supports:
          A · the feedback loop → backs the 5-step decay cascade (there is a reverse gear)
          B · the marked move  → closes slide 10's reason 3 (why it has to be pre-agreed)
@@ -1886,10 +1615,315 @@
     </div>
   </section>
 
+  <!-- 6 · ILLUSION OF SHARED UNDERSTANDING — animated venn (cp MisunderstandingVenn) -->
+  <section class="slide">
+    <!-- NOTES
+      - BACKING (round 2): moved out of the main arc — the three-types diagram contains this venn; two Venns in a row read as a repeat.
+      - ADVANCE ONCE to flip the venn: the fog condenses into a small verified overlap; the red dot moves in.
+      - Vocabulary: assumed vs verified shared understanding. Everything else in the deck hangs on this pair.
+    -->
+    <div class="kicker">The root cause</div>
+    <h2 style="font-size:clamp(1.25rem,2.9vw,2.2rem);margin-bottom:.1rem">The illusion of <span class="accent">shared understanding</span></h2>
+    <svg id="mv" viewBox="0 0 640 384" role="img" aria-label="Two circles barely overlapping: your private understanding and their private understanding. A blue fog over both is the assumed shared understanding; a red dot far out is where their understanding actually sits. On verification the fog condenses into a small crisp overlap and the dot moves inside and turns blue.">
+      <defs>
+        <clipPath id="mv-leftclip"><circle cx="195" cy="160" r="140"/></clipPath>
+        <clipPath id="mv-union"><circle cx="195" cy="160" r="140"/><circle cx="445" cy="160" r="140"/></clipPath>
+        <mask id="mv-outr"><rect width="640" height="384" fill="#fff"/><circle cx="445" cy="160" r="141.5" fill="#000"/></mask>
+        <mask id="mv-outl"><rect width="640" height="384" fill="#fff"/><circle cx="195" cy="160" r="141.5" fill="#000"/></mask>
+        <mask id="mv-inr"><rect width="640" height="384" fill="#000"/><circle cx="445" cy="160" r="141.5" fill="#fff"/></mask>
+        <mask id="mv-inl"><rect width="640" height="384" fill="#000"/><circle cx="195" cy="160" r="141.5" fill="#fff"/></mask>
+        <radialGradient id="mv-fog"><stop offset="0%" stop-color="#3b82f6" stop-opacity=".28"/><stop offset="50%" stop-color="#3b82f6" stop-opacity=".14"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>
+      </defs>
+      <ellipse class="fog" cx="320" cy="160" rx="235" ry="150" fill="url(#mv-fog)" clip-path="url(#mv-union)"/>
+      <circle class="core" cx="445" cy="160" r="140" fill="rgba(59,130,246,.25)" clip-path="url(#mv-leftclip)"/>
+      <circle cx="195" cy="160" r="140" fill="none" stroke="rgba(113,113,122,.5)" stroke-width="2" mask="url(#mv-outr)"/>
+      <circle cx="445" cy="160" r="140" fill="none" stroke="#3b82f6" stroke-width="2" mask="url(#mv-outl)"/>
+      <g class="innerarcs">
+        <circle cx="195" cy="160" r="140" fill="none" stroke="rgba(113,113,122,.5)" stroke-width="2" mask="url(#mv-inr)"/>
+        <circle cx="445" cy="160" r="140" fill="none" stroke="#3b82f6" stroke-width="2" mask="url(#mv-inl)"/>
+      </g>
+      <text x="180" y="150" text-anchor="middle" fill="#0a0a0b" font-size="20" font-weight="600">Your private<tspan x="180" dy="26">understanding</tspan></text>
+      <text x="460" y="150" text-anchor="middle" fill="#0a0a0b" font-size="20" font-weight="600">Their private<tspan x="460" dy="26">understanding</tspan></text>
+      <g class="ghost">
+        <circle cx="348" cy="180" r="6.5" fill="none" stroke="#60a5fa" stroke-width="1.75" stroke-dasharray="3 3"/>
+        <path d="M 356 186 Q 450 224 545 194" fill="none" stroke="rgba(113,113,122,.5)" stroke-width="1.25" stroke-dasharray="4 4"/>
+        <text x="338" y="208" text-anchor="end" font-size="13.5" font-style="italic" fill="#60a5fa">they think it's shared</text>
+        <text x="560" y="222" text-anchor="end" font-size="13.5" font-style="italic" fill="#ef4444">it's actually private</text>
+      </g>
+      <circle class="ping" cx="552" cy="192" r="6" fill="none" stroke="#ef4444" stroke-width="2"/>
+      <circle class="dot" cx="552" cy="192" r="6"/>
+      <g class="capP">
+        <text x="320" y="362" text-anchor="middle" fill="#ef4444" font-size="17" font-style="italic">They wrongly believe they understand your intended meaning</text>
+        <line class="strike" x1="78" y1="356" x2="562" y2="356" stroke="#3b82f6" stroke-width="1.75" stroke-dasharray="484"/>
+      </g>
+      <g class="capV">
+        <text x="320" y="362" text-anchor="middle" fill="#3b82f6" font-size="17" font-style="italic">You both know they understand your intended meaning</text>
+      </g>
+    </svg>
+  </section>
+
+  <!-- 4e · st5 story — "I thought I was a strong communicator" (no error signal for misunderstanding) -->
+  <section class="slide">
+    <!-- NOTES
+      - BACKING (round 2): moved out of the main arc — restates step 1 of the spiral + the three-types taxonomy; raster (typos baked in: "dont" ×3 — cannot be edited without a re-render).
+      - If you do not verify: unverified understanding + hidden misunderstanding.
+      - If you do: verified understanding + visible misunderstanding. Visible is the win, not "no misunderstanding".
+    -->
+    <h2 style="font-size:clamp(1.05rem,2.4vw,1.7rem);margin-bottom:.2rem">What happens if you have no will or skill to <span class="accent">verify understanding?</span></h2>
+    <div class="st1-wrap" style="--cap:64vh;aspect-ratio:1200/766">
+      <img src="st5-understand.jpg" alt="What happens without verification — Unverified understanding and Hidden misunderstanding (if you don't verify) versus Verified understanding and Visible misunderstanding (if you do).">
+    </div>
+  </section>
+
+  <!-- SCOPE MATRIX · WHICH SITUATIONS NEED THIS - last slide, and the only concession
+       in the deck. Every other slide argues the problem is universal ("the default in
+       conversation", "every other room"); a deck with no boundary reads as a pitch.
+       REUSES the .mx-* matrix from the decisions slide verbatim - same axis grammar
+       (dimension name ON the axis line, categorical ticks beside the plot), so this
+       reads as a callback rather than a new device at the very end. It also inherits
+       .mx-frame[data-flip]: the four situations land neutral, and the FIRST advance
+       lights the one that is ours. Do not remove data-flip - the reveal is the beat.
+       AXES:
+         y  explanatory divergence   same (bottom) -> different (top) IDEA OF HOW IT WORKS.
+            NOT "reasons" (founder correction 2026-08-24): reasons read as motives or
+            intentions, and two people can share a motive while holding incompatible
+            causal chains - which is the case this whole axis exists to name.
+         x  room for interpretation  written down (left) -> left to each of us (right)
+            THIS AXIS IS SPECIFIABILITY, AND IT IS *NOT* OBSERVABILITY. An earlier
+            revision of this comment claimed one subsumed the other; that was wrong,
+            and the counterexample is our own flagship case. Two co-founders in the
+            same room every day have HIGH observability - each sees everything the
+            other does - and the instrument is still needed, because "equal partners"
+            was never pinnable in advance, so watching tells you nothing about whether
+            what you saw counted. Collapse the two and this deck argues its own best
+            case into the harmless half.
+            They fail at different MOMENTS: specifiability fails BEFORE (no standard
+            can be written), observability fails AFTER (a standard exists, nobody can
+            see compliance). Low observability WITH a clear standard - "do not dump
+            waste in the river" - is the monitoring-and-sanctions case, a different
+            product. That is why observability is not on this slide: it does not
+            discriminate our case, it discriminates whether sanctions would work.
+            It stays a separate condition in docs/decisions.md 2026-08-24, mapped to
+            *delayed feedback* in the arbiter-failure criteria - keep it separate there.
+            Named for the DEFICIT so it increases rightward and the axis arrow stops
+            lying (founder call). Not "ambiguity": that implies the wording was sloppy
+            and invites "so write a better contract" - which is the RIGHT answer for
+            the left column and no answer at all for things no wording can pin down.
+       Ours is TOP-RIGHT - founder call 2026-08-24, reversed from the first build.
+       The axis is named AMBIGUITY, not specificity (2nd founder call, same day):
+       under "specificity" the ours-corner sat at the LOW end while the axis arrow
+       pointed the other way, so high on the slide meant low in the head. Naming the
+       deficit makes both increase rightward and the arrow stops lying. If anyone
+       proposes renaming it back, that is the reason not to.
+       EXAMPLES - every cell is WHO + WHAT, same form in all four. Mixed forms (two
+       bare quotes, two scenes) was the defect that made the set unreadable: a bare
+       quote has no people in it, so the reader cannot place it on either axis.
+       Each cell must therefore name a relationship AND the thing standing between
+       them. Check a candidate against BOTH axes before using it - "strangers at a
+       red light" was placed top-left and was simply wrong: both drivers hold the
+       SAME idea of how a traffic light works, so it belonged in the bottom row.
+       Interests are not causal models. Buyer and seller want opposite prices and
+       still share one idea of what buying IS, which is why they sit bottom-left.
+       Rejected for the ours-corner: "be a good husband/wife" (a correct member of
+       this quadrant - nothing specified, causal models wildly apart - but it pulls
+       the room toward the PARKED therapy market at the exact moment the deck is
+       asking about the program) and "we'll figure it out as we go" (a statement
+       ABOUT vagueness rather than a situation; no actors, unplaceable).
+       Category labels ("cross-team collaboration", "complex projects") were rejected
+       outright: every other cell is a scene you can picture, and a category among
+       scenes reads as the odd one out.
+       "Clarity Principle" is the founder's wording from the same call and is NOT a
+       term used elsewhere in the repo - reconcile against Clarity Pledge / Clarity
+       Champions before this deck is presented.
+       Copy is [FOUNDER DECISION] - drafted 2026-08-24, not yet approved.
+       Reasoning: docs/definitions.md "When the Protocol Applies" (c) + lean-canvas
+       arbiter-failure criteria; docs/decisions.md 2026-08-24 [product]. -->
+  <style>
+    /* SCOPED to this slide only - slide 29 shares .mx-* and must not move.
+       This slide's row labels ("different idea of how it works") are far longer than
+       slide 29's ("Good"/"Bad"), so on a phone the auto-sized rail ate the plot and
+       broke the cell copy mid-phrase. Cap the rail and step the label down instead. */
+    @media(max-width:480px){
+      .mx-scope{grid-template-columns:64px 1fr}
+      .mx-scope .mx-rh{font-size:.53rem;letter-spacing:.05em;line-height:1.3;padding:.4rem .15rem}
+      .mx-scope .mx-cell{padding:.6rem .4rem}
+    }
+  </style>
+  <section class="slide soft">
+    <!-- NOTES
+      - BACKING (round 2): moved out of the main arc — scoping model with non-wedge examples and "Two co-founders"; not a qualifier.
+      - Four situations land neutral; ADVANCE ONCE to light ours (top-right).
+      - Where a price, rule, standard or precedent exists, use it. We are for what no wording can pin down.
+      - Naming ("Clarity Principle") is still a founder decision; say "the clarity commitment" if unsure.
+    -->
+    <div class="kicker">Which situations need the Clarity Principle?</div>
+    <div class="mx-frame mx-scope" data-flip>
+      <span class="mx-lab mx-lab-y">explanatory divergence</span>
+      <div class="mx-rows">
+        <div class="mx-rh">Different idea of<br>how it works</div>
+        <div class="mx-rh">Same idea of<br>how it works</div>
+      </div>
+      <div class="mx-plot">
+        <div class="mx">
+          <div class="mx-cell">Landlord &amp; tenant:<br>the lease</div>
+          <div class="mx-cell hot">Two co-founders:<br>&ldquo;equal partners&rdquo;</div>
+          <div class="mx-cell">Buyer &amp; seller:<br>the price tag</div>
+          <div class="mx-cell">Friends:<br>&ldquo;let's travel together&rdquo;</div>
+        </div>
+      </div>
+      <div class="mx-ticks">
+        <div class="mx-ch">Written down</div>
+        <div class="mx-ch">Left to each of us</div>
+      </div>
+      <span class="mx-lab mx-lab-x">room for interpretation</span>
+    </div>
+    <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
+  </section>
+
+  <!-- 4b copy · st1 story — "a lie, memory issue or misunderstanding?" — repeated here to re-set up the Differentiate beat -->
+  <section class="slide">
+    <!-- NOTES
+      - BACKING (round 2): moved out of the main arc — the two point cards already carry "three meanings"; card shows the cofounder-era byline.
+      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
+      - Cognitive understanding is the only one we measure; the other two are not the target.
+    -->
+    <h2 style="margin-bottom:.2rem">A lie, memory issue or <span class="accent">misunderstanding?</span></h2>
+    <div class="st1-card">
+      <div class="st1-head">
+        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
+        <div>
+          <div class="st1-nameline">
+            <span class="st1-name">Vyacheslav Ladischenski</span>
+            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
+          </div>
+          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
+        </div>
+      </div>
+      <div class="st1-wrap">
+        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
+        <span class="st1-pulse" style="left:61%;top:49%"></span>
+        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHERE IT STARTED — Ray Dalio (ported from /presi2; placed before the illusion slide) -->
+  <section class="slide">
+    <!-- NOTES
+      - BACKING (round 2): moved out of the main arc — reads as a name-drop, not evidence; screenshot unreadable from a distance.
+      - Origin story, 30 seconds: cold email, "please pass them to others".
+      - Dalio's line is the bridge to the closing principle slides: document mistakes, build principles.
+    -->
+    <div class="cred">
+      <div class="cred-photo shot">
+        <img src="dalio-exchange.png" alt="Cold email to Ray Dalio and his reply: Please pass them to others.">
+      </div>
+      <div class="cred-text">
+        <div class="kicker" style="text-transform:none;letter-spacing:.01em;font-size:clamp(.8rem,1.45vw,1rem);max-width:56ch;line-height:1.5;margin-bottom:1.1rem;color:var(--muted-fg);font-weight:600">I cold-emailed Ray Dalio.<br>He replied: <span class="accent">"Please pass [the principles] to others."</span></div>
+        <h2 class="cred-h2" style="margin-bottom:1rem">What is Dalio's <span class="accent">secret to success?</span></h2>
+        <p class="lead" style="margin-top:0;font-style:italic;font-weight:500;color:#1e293b;max-width:42ch">"Document your mistakes and create principles that protect you from repeating them."</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide dark cloud-slide">
+    <!-- NOTES
+      - BACKING (round 2): moved out of the main arc — duplicates the prior-art slide.
+      - Names the room already knows; we are not inventing a category.
+      - Difference: a number, decoupled from agreement, pre-committed.
+    -->
+    <div class="kicker" style="color:#60a5fa;max-width:48ch;margin-bottom:clamp(1.4rem,4vh,2.8rem)">Names this method already goes by, in other fields</div>
+    <div class="cloud">
+      <span class="cw xl"><span class="cw-i">Teach-back</span></span>
+      <span class="cw l"><span class="cw-i">Closed-loop communication</span></span>
+      <span class="cw xl"><span class="cw-i">Active listening</span></span>
+      <span class="cw m"><span class="cw-i">Mirroring</span></span>
+      <span class="cw l"><span class="cw-i">Ideological Turing test</span></span>
+      <span class="cw m"><span class="cw-i">Steelmanning</span></span>
+      <span class="cw l"><span class="cw-i">Devil's advocate</span></span>
+    </div>
+  </section>
+
+  <!-- CLOSE 1 · TRANSFORM (high level) — unsolvable problem → solvable challenge.
+       Constructor frame: the obstacle is cleared by knowledge. Flips on advance (pure CSS, like the venn). -->
+  <section class="slide">
+    <!-- NOTES
+      - BACKING (round 2): moved out of the main arc — same diagram as meta-optimism, which is the one applied to the topic.
+      - ADVANCE ONCE: the arc labelled knowledge routes around the obstacle.
+      - Deutsch: if no law forbids B, what stands between you and it is knowledge you have not found yet.
+    -->
+    <div class="kicker">The principle of optimism</div>
+    <!-- FOUNDER DECISION: heading wording -->
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem);margin-bottom:.2rem">How to turn problems into <span class="accent">challenges?</span></h2>
+    <div class="fd">
+      <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle. A blue arrow labelled knowledge curves around the obstacle from A to B — the route that gets you across.">
+        <defs>
+          <marker id="karrow1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/>
+          </marker>
+        </defs>
+        <!-- endpoint labels, above the line so the arc owns the lower half -->
+        <text x="95" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point A</text>
+        <text x="95" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you have an</text>
+        <text x="95" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">unsolvable problem</text>
+        <text x="585" y="40" text-anchor="middle" fill="#0a0a0b" font-size="14" font-weight="700">Point B</text>
+        <text x="585" y="58" text-anchor="middle" fill="#71717a" font-size="11.5">you have a</text>
+        <text x="585" y="73" text-anchor="middle" fill="#71717a" font-size="11.5">solvable challenge</text>
+        <!-- blocked straight path -->
+        <line x1="95" y1="92" x2="585" y2="92" stroke="rgba(113,113,122,.4)" stroke-width="3" stroke-linecap="round"/>
+        <!-- knowledge: the route around the obstacle -->
+        <path d="M95,92 C135,248 545,248 585,92" fill="none" stroke="#3b82f6" stroke-width="3" marker-end="url(#karrow1)"/>
+        <text x="340" y="190" text-anchor="middle" fill="#3b82f6" font-size="17" font-weight="800">knowledge</text>
+        <!-- obstacle block in the middle -->
+        <rect x="282" y="63" width="116" height="58" rx="13" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+        <text x="340" y="98" text-anchor="middle" fill="#ef4444" font-size="15" font-weight="800" letter-spacing=".03em">OBSTACLE</text>
+        <!-- endpoints -->
+        <circle cx="95" cy="92" r="9" fill="rgba(113,113,122,.55)"/>
+        <circle cx="585" cy="92" r="9" fill="#3b82f6"/>
+      </svg>
+    </div>
+    <!-- FOUNDER DECISION: constructor-theory footnote (keep / cut / reword) -->
+    <div class="note">&ldquo;If no law of nature forbids Point B, the only thing between you and it is knowledge you haven't found yet.&rdquo;<br><span style="font-style:normal;font-weight:600;opacity:.75">David Deutsch &middot; The Beginning of Infinity</span></div>
+  </section>
+
+  <!-- BACKING · THE FULL ARTIFACT — Clarity Group Terms (COA v6, src/app/content/coa-versions.ts), the org-scope artifact the landing shows in §7b. Heading + subtitle + kicker + epigraph quoted from the landing (FOUNDER-APPROVED there). Oath body = VERIFIED_UNDERSTANDING_OATH v5, byte-identical to /groups/:slug/join. -->
+  <section class="slide soft" style="padding-top:4vh;padding-bottom:4vh">
+    <!-- NOTES
+      - BACKING (round 2): the full terms; the main arc shows only the two load-bearing lines.
+      - Read "Your right" and "My promise" aloud; the exception makes it honest, not absolute.
+      - Org-scope terms: one person can commit today without recruiting a counterparty.
+      - Same oath text as the join page; never fork it for a talk.
+    -->
+    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.2rem">Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
+    <p class="lead" style="margin:.1rem 0 .4rem;font-size:clamp(.9rem,1.6vw,1.1rem)">Reveal gaps easily. Bridge them safely.</p>
+    <div class="cert-wrap">
+      <div class="cert">
+        <div class="cert-head">
+          <h3>Clarity Group Terms</h3>
+        </div>
+        <p class="cert-intro"><b>A commitment to every member</b> &mdash; <i>We all crave being understood. Let's commit to listen.</i></p>
+        <div class="cert-clause">
+          <h4>Your right</h4>
+          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intended meaning behind what you say.</p>
+        </div>
+        <div class="cert-clause">
+          <h4>My promise</h4>
+          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
+          <p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
+          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p>
+        </div>
+        <div class="cert-clause">
+          <h4>The exception</h4>
+          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <div class="progress" id="progress"></div>
-<div class="nav" id="nav">1 / 38</div>
+<div class="nav" id="nav">1 / 39</div>
 
 <script>
   const slides=[...document.querySelectorAll('.slide')];
