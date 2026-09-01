@@ -620,8 +620,18 @@ After both gate checks pass:
    FOUND=3; FIXED=2  # ← replace these integers with the actual counts before running
    GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-   echo "{\"type\":\"code\",\"branch\":\"$BRANCH\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> "$GIT_COMMON_DIR/.finish-reviewed"
+   PN="p{N}"            # ← the spec being reviewed; "-" only when there genuinely is none
+   SHA="$(git rev-parse HEAD)"
+   echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> "$GIT_COMMON_DIR/.finish-reviewed"
    ```
+
+   **P1203 — the stamp must name the spec it reviewed.** On a feature branch the `branch` field
+   identifies the work. On `main` it identifies nothing: every entry carries `main`, so before P1203
+   the ship gate's no-branch arm accepted any historical review, and `/finish`'s own skip check could
+   be satisfied by a co-tenant's unrelated review minutes old — meaning the review might never run.
+   Direct-to-main is routine, not exceptional (skill files must be committed on `main`). So every
+   entry now carries **`pn`** (the spec reviewed, or `-` when there is none) and **`sha`** (HEAD at
+   review time). Write both; the gate's no-branch arm requires `pn`.
    The stamp resolves to the same file whether written from a worktree or the main repo, so it can never disagree with what `/ship` gate 2.7 reads. The `branch` field lets the gate distinguish this branch's review from a concurrent worktree's review of an unrelated feature (P1002). This stamp satisfies `/ship` gate 2.7.
 2. Update frontmatter: `status: qa` (keep `delivery_stage: fix` — do not clear it). **If the spec was moved (e.g., to a subfolder) in this session, Edit its frontmatter at the new location AFTER the `git mv` is staged — never Edit before staging the rename, or the frontmatter change lands in a separate commit.**
 3. Commit: `chore: pN ready for QA — {title}`

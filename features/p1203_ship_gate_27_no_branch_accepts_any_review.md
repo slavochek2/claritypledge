@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: task
 rank: 92
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [tooling, ship, process, gates]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -112,13 +112,45 @@ Writers to update: `/finish`, `/dev` step 9.5a, `/fix`.
 
 ## Done-When
 
-- [ ] `/finish`, `/dev` 9.5a and `/fix` write the **stamp-time HEAD SHA** into every new `.finish-reviewed` entry
-- [ ] `/finish` no longer skips the `code` review on the strength of an unrelated stamp that merely shares `branch: main` — demonstrated by running it on `main` with a fresh co-tenant stamp present and confirming the review runs
-- [ ] On the no-branch path, gate 2.7 requires a stamp whose SHA falls in the commit range attributed to this spec — by a mechanism designed for it, **not** P920's `ready for QA` subject lookup
-- [ ] **The gate is seen to FAIL** on the no-branch path with only unrelated stamps present — exit code pasted, not asserted (`.claude/rules/epistemic.md` gate 7)
-- [ ] **The gate is seen to PASS** on the same path with a matching stamp present — the control run, on the identical probe
-- [ ] The feature-branch arm still passes unchanged, verified against a real branch
-- [ ] A stamp written before this change still satisfies the branch path
+- [x] `/finish`, `/dev` 9.5a and `/fix` write the **stamp-time HEAD SHA** into every new `.finish-reviewed` entry
+- [x] `/finish` no longer skips the `code` review on the strength of an unrelated stamp that merely shares `branch: main` — demonstrated by running it on `main` with a fresh co-tenant stamp present and confirming the review runs
+- [x] On the no-branch path, gate 2.7 requires a stamp whose SHA falls in the commit range attributed to this spec — by a mechanism designed for it, **not** P920's `ready for QA` subject lookup — implemented as a `pn` field on the stamp, see Implementation notes
+- [x] **The gate is seen to FAIL** on the no-branch path with only unrelated stamps present — exit code pasted, not asserted (`.claude/rules/epistemic.md` gate 7)
+- [x] **The gate is seen to PASS** on the same path with a matching stamp present — the control run, on the identical probe
+- [x] The feature-branch arm still passes unchanged, verified against a real branch
+- [x] A stamp written before this change still satisfies the branch path
+
+## Implementation notes — 2026-09-01, inline
+
+**The attribution design the spec called its "real work" turned out not to be needed.** The spec
+assumed identity had to be a commit *range*, which needs a start point nothing records. It does not:
+the stamp can simply **name the spec it reviewed**. `/finish`, `/dev` 9.5a and `/fix` all know the
+P-number at write time, so every entry now carries `pn` (and `sha`, HEAD at review time). Gate 2.7's
+no-branch arm requires `pn`; `/finish`'s skip check keys on `sha == HEAD`. No range, no `/architect`
+pass. Recorded because the spec was wrong in the expensive direction — it deferred work that did not
+exist.
+
+**Evidence, both directions (`.claude/rules/epistemic.md` gate 7).**
+
+```
+FAILURE  [GATE 2.7] FAIL: .finish-reviewed has no code review entry naming p1203
+CONTROL  [GATE 2.7] PASS: code review artifact present (1 matching entry)
+```
+
+The control stamp was a hand-written fixture and was **deleted immediately after**; p1203 currently
+FAILs its own gate, correctly, because no real review of it has run.
+
+**A second, pre-existing defect found while testing the first — the opposite failure.** Both arms
+grepped the compact JSON form `"type":"code"`, so any entry written with a space after the colon was
+invisible. A genuine review of `feature/p1197-navtrace` — **4 issues found, 3 fixed**, 2026-08-31 —
+had not satisfied gate 2.7 for that reason alone. Both arms now tolerate the space, and that branch
+went FAIL → PASS. Same root cause as the first defect and already named in the log: *a literal string
+shared between skills and a script, with no single source and no test* (`decisions.md` 2026-08-28
+[process]).
+
+**Gate 7c — the new refusal was run against existing workflows, not only against inputs it should
+reject.** The feature-branch arm was re-tested on a live branch and is unchanged; a stamp written
+before this change still satisfies it.
 
 ## Alternatives Considered
 

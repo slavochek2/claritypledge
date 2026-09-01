@@ -209,6 +209,25 @@ fi
 # different files depending on cwd (P1002). Because the file is now truly
 # shared, entries carry a "branch" discriminator so a review recorded for one
 # feature branch can't satisfy this gate for another (P1002 follow-up).
+#
+# P1203: the no-branch arm used to accept ANY code entry, which made it
+# unfailable — and direct-to-main is routine, not exceptional, because skill
+# files must be committed on main (.claude/rules/skills.md). On main the
+# "branch" discriminator discriminates nothing (every entry carries main), and
+# neither does recency (a co-tenant reviews unrelated work every few minutes).
+# Only the identity of the reviewed ARTIFACT separates "this was reviewed" from
+# "something was reviewed", so the no-branch arm keys on the spec's P-number.
+# Entries written before P1203 carry no "pn" and therefore do not satisfy it:
+# that is fail-closed and intended — the remedy is to run /finish.
+#
+# P1203, second defect found while testing the first: both arms grepped the
+# COMPACT JSON form ("type":"code") and so silently missed any entry written
+# with a space after the colon ("type": "code"). A real review of
+# feature/p1197-navtrace — 4 issues found, 3 fixed — did not satisfy this gate
+# for that reason. A false NEGATIVE, the opposite of the bug above, from the
+# same cause: a literal string shared between three skills and this script with
+# no single source and no test (decisions.md 2026-08-28 [process]). Both arms
+# now tolerate the optional space.
 
 git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --path-format=absolute --git-common-dir)"
 finish_file="${git_common_dir}/.finish-reviewed"
@@ -216,15 +235,20 @@ finish_file="${git_common_dir}/.finish-reviewed"
 matching_entries=""
 if [[ -f "$finish_file" ]]; then
   if [[ -n "$feature_branch" ]]; then
-    matching_entries="$($GREP "\"type\":\"code\",\"branch\":\"${feature_branch}\"" "$finish_file" 2>/dev/null || true)"
+    matching_entries="$($GREP -E "\"type\": ?\"code\", ?\"branch\": ?\"${feature_branch}\"" "$finish_file" 2>/dev/null || true)"
   else
-    # No feature branch context (spec-only / already-merged path) — any code entry counts.
-    matching_entries="$($GREP '"type":"code"' "$finish_file" 2>/dev/null || true)"
+    # No feature branch context (direct-to-main / already-merged path). Require
+    # the entry to name THIS spec — see the P1203 note above.
+    matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"pn\": ?\"${pn}\"" || true)"
   fi
 fi
 
 if [[ -z "$matching_entries" ]]; then
-  echo "[GATE 2.7] FAIL: .finish-reviewed has no code review entry for ${feature_branch:-this spec} — run /finish before shipping"
+  if [[ -n "$feature_branch" ]]; then
+    echo "[GATE 2.7] FAIL: .finish-reviewed has no code review entry for ${feature_branch} — run /finish before shipping"
+  else
+    echo "[GATE 2.7] FAIL: .finish-reviewed has no code review entry naming ${pn} — run /finish before shipping (P1203: on the direct-to-main path a review must name the spec it reviewed; entries predating P1203 carry no \"pn\" and do not count)"
+  fi
   fail=1
 else
   entry_count="$(printf '%s\n' "$matching_entries" | $GREP -c . || echo 0)"

@@ -201,8 +201,18 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    FOUND=3; FIXED=2  # ← replace these integers with the actual counts before running
    GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-   echo "{\"type\":\"code\",\"branch\":\"$BRANCH\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> "$GIT_COMMON_DIR/.finish-reviewed"
+   PN="p{N}"            # ← the spec being reviewed; "-" only when there genuinely is none
+   SHA="$(git rev-parse HEAD)"
+   echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":$FOUND,\"issues_fixed\":$FIXED}" >> "$GIT_COMMON_DIR/.finish-reviewed"
    ```
+
+   **P1203 — the stamp must name the spec it reviewed.** On a feature branch the `branch` field
+   identifies the work. On `main` it identifies nothing: every entry carries `main`, so before P1203
+   the ship gate's no-branch arm accepted any historical review, and `/finish`'s own skip check could
+   be satisfied by a co-tenant's unrelated review minutes old — meaning the review might never run.
+   Direct-to-main is routine, not exceptional (skill files must be committed on `main`). So every
+   entry now carries **`pn`** (the spec reviewed, or `-` when there is none) and **`sha`** (HEAD at
+   review time). Write both; the gate's no-branch arm requires `pn`.
    The stamp resolves to the same file whether written from a worktree or the main repo, so it can never disagree with what `/ship` gate 2.7 reads. The `branch` field lets the gate distinguish this branch's review from a concurrent worktree's review of an unrelated feature (P1002).
 9.6. **Proto route cleanup** — If spec frontmatter has `view_locked`, the `/view` skill added a preview route and a static import to `src/App.tsx`. After integration (when the view component is wired into real containers), remove: (1) the `import {FeatureName}Demo from './components/_proto/{feature}-view.demo'` line, (2) the `{import.meta.env.DEV && <Route path="/tree/{feature}" .../>}` route entry. Also remove `view_locked` from spec frontmatter — it served its purpose. Skip if `view_locked` is absent.
 9.7. **Pre-deploy checklist** — If spec has a `## Pre-deploy Checklist` section, execute each item on the target environment now. Verify edge functions are deployed, secrets are set, and migrations are applied — don't defer to `/ship`. Report what was provisioned.

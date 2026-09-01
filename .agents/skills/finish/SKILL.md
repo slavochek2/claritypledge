@@ -75,12 +75,21 @@ For each review type, check for existing artifacts. Skip reviews that already co
 |---|---|
 | `uat` | `features/uat/p{N}.md` exists with passing marks in Test Execution Log |
 | `privacy` | `.claude/.privacy-reviewed` OR `$(git rev-parse --git-common-dir)/.privacy-reviewed` stamp exists AND its SHA covers all watched-path commits since `git rev-list --count origin/main..HEAD -- WATCHED_PATHS` returns 0 uncovered commits |
-| `code` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"code","branch":"<current branch>",...}` entry newer than last commit |
+| `code` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"code",...}` entry whose **`sha` equals the current `HEAD`** — see the P1203 note below |
 | `skills` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"skills","branch":"<current branch>",...}` entry newer than last commit |
 | `rules` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"rules","branch":"<current branch>",...}` entry newer than last commit |
 | `migrations` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"migrations","branch":"<current branch>",...}` entry newer than last commit |
 | `docs` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"docs","branch":"<current branch>",...}` entry newer than last commit |
 | `specs` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"specs","branch":"<current branch>",...}` entry newer than last commit |
+
+> **P1203 — why `code` keys on `sha` and not on branch + recency.** On `main` the branch matches every
+> entry, so "an entry for this branch, newer than the last commit" is satisfied by a **co-tenant's
+> review of entirely unrelated work** from minutes ago — and `/finish` would then skip the code review
+> altogether. Direct-to-main is routine, not exceptional. Keying on the reviewed `sha` is exact in both
+> directions: same `HEAD` ⟹ the same tree was reviewed, so skipping is correct; `HEAD` moved ⟹ the
+> review is stale and must re-run. Entries predating P1203 carry no `sha`, so they never match and the
+> review simply runs — the safe direction. Apply the same reasoning before extending this to the other
+> review types; they are not fixed here because only `code` gates a ship.
 
 Report what was skipped: "Skipping uat — UAT scorecard p621.md exists (5/5 passing)."
 
@@ -191,10 +200,14 @@ After review completes, write the shared stamp at `<git-common-dir>/.finish-revi
 ```bash
 GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-echo "{\"type\":\"code\",\"branch\":\"$BRANCH\",\"timestamp\":\"2026-04-03T14:00:00Z\",\"issues_found\":2,\"issues_fixed\":2}" >> "$GIT_COMMON_DIR/.finish-reviewed"
+SHA="$(git rev-parse HEAD)"
+PN="p{N}"   # the spec reviewed; "-" only when there genuinely is none
+echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":2,\"issues_fixed\":2}" >> "$GIT_COMMON_DIR/.finish-reviewed"
 ```
 
-JSON-lines format — one line per review type, each carrying the `branch` it was reviewed on (the file is shared across every worktree, so this lets gate 2.7/2.7b distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). Append (don't overwrite) so partial runs are preserved.
+**Write the JSON compactly — no space after the colons.** The ship gate now tolerates `"type": "code"` as well, but three writers and one reader sharing an unspecified literal is what produced the defect: a real review of `feature/p1197-navtrace` (4 issues found, 3 fixed) failed gate 2.7 for months purely because its entry was written with spaces. Match this template exactly.
+
+JSON-lines format — one line per review type, each carrying the `pn` it reviewed (P1203), the `sha` that was HEAD at review time, and the `branch` it was reviewed on (the file is shared across every worktree, so this lets gate 2.7/2.7b distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). Append (don't overwrite) so partial runs are preserved.
 
 ---
 
