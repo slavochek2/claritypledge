@@ -7,11 +7,11 @@ import { Link } from "react-router-dom";
 import { ScrollTextIcon } from "lucide-react";
 import { COPY } from "@/app/content/copy";
 import { SEO } from "@/app/components/seo";
-import { renderMarkdownTrusted } from "@/lib/markdown";
+import { renderMarkdownLegal } from "@/lib/markdown";
 import tosContent from "@/app/content/tos.md?raw";
 
 // Content is from a committed .md file in the repo — trusted, no XSS risk
-const tosHtml = renderMarkdownTrusted(tosContent);
+const tosHtml = renderMarkdownLegal(tosContent);
 
 export function TermsOfServicePage() {
   return (

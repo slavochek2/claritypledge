@@ -169,6 +169,26 @@ const safeMd = new Marked({
 /** For trusted content (committed content like ToS) */
 const trustedMd = new Marked(trustedLinkRenderer);
 
+/**
+ * P1219: For the legal documents (ToS, Privacy Policy). They are committed files, but the
+ * pages render them via dangerouslySetInnerHTML, so "no raw HTML" must be a property the
+ * renderer enforces rather than one the markdown happens to satisfy today. Raw HTML tokens
+ * (block or inline) are escaped to visible, inert text; images are dropped; links go
+ * through the same protocol allowlist as user content.
+ */
+const legalMd = new Marked({
+  renderer: {
+    html({ text }) { return escapeHtml(text); },
+    image() { return ''; },
+    link({ href, tokens }) {
+      const body = this.parser.parseInline(tokens);
+      const safe = sanitizeHref(href);
+      if (!safe) return body;
+      return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${body}</a>`;
+    },
+  },
+});
+
 /** For the manifesto article: KaTeX, heading IDs, paragraph anchors, CTA markers */
 const articleMd = new Marked(katexExtension(), articleRenderer);
 
@@ -186,6 +206,12 @@ export function renderMarkdownSafe(content: string): string {
 export function renderMarkdownTrusted(content: string): string {
   if (!content) return '';
   return trustedMd.parse(content) as string;
+}
+
+/** Render a legal document (ToS / Privacy Policy): raw HTML escaped, links protocol-checked */
+export function renderMarkdownLegal(content: string): string {
+  if (!content) return '';
+  return legalMd.parse(content) as string;
 }
 
 /**

@@ -8,11 +8,11 @@ import { Link } from "react-router-dom";
 import { ShieldCheckIcon } from "lucide-react";
 import { COPY } from "@/app/content/copy";
 import { SEO } from "@/app/components/seo";
-import { renderMarkdownTrusted } from "@/lib/markdown";
+import { renderMarkdownLegal } from "@/lib/markdown";
 import privacyContent from "@/app/content/privacy.md?raw";
 
 // Content is from a committed .md file in the repo — trusted, no XSS risk
-const privacyHtml = renderMarkdownTrusted(privacyContent);
+const privacyHtml = renderMarkdownLegal(privacyContent);
 
 export function PrivacyPolicyPage() {
   return (
