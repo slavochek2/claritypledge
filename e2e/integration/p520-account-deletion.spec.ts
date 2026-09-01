@@ -41,6 +41,20 @@ import { createEarCountData } from '../helpers/test-calibration';
 
 const TOMBSTONE = 'Deleted user';
 
+/** A client that presents a fixed (possibly stale) access token — what a still-open tab holds. */
+function bearerClient(accessToken: string): SupabaseClient {
+  return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+async function signInTokens(email: string): Promise<{ access_token: string; refresh_token: string }> {
+  const { data, error } = await anonClient().auth.signInWithPassword({ email, password: TEST_PASSWORD });
+  if (error || !data.session) throw new Error(`sign-in failed for ${email}: ${error?.message}`);
+  return { access_token: data.session.access_token, refresh_token: data.session.refresh_token };
+}
+
 function anonClient(): SupabaseClient {
   return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -95,7 +109,9 @@ test.describe('P520: erase_my_account', () => {
   let agreementByStayerId: string; // leaver is partner — terminated + anonymised
   let agreementByLeaverId: string; // leaver is creator — deleted
   let sessionId: string;       // leaver created, stayer joined — anonymised
+  let sessionCode: string;
   let sessionCleanup: () => Promise<void>;
+  let staleTokens: { access_token: string; refresh_token: string }; // what an open tab still holds
 
   test.beforeAll(async () => {
     leaver = await createTestUser({ name: 'Leaver Person' });
@@ -144,11 +160,31 @@ test.describe('P520: erase_my_account', () => {
       hostName: leaver.name, guestProfileId: stayer.user.id,
     });
     sessionId = s.sessionId;
+    sessionCode = s.sessionCode;
     sessionCleanup = s.cleanup;
-    const { error: chatErr } = await supabaseAdmin.from('clarity_chat_messages').insert({
-      session_id: sessionId, author_name: leaver.name, content: 'hello from the leaver',
-    });
+    const { error: chatErr } = await supabaseAdmin.from('clarity_chat_messages').insert([
+      { session_id: sessionId, author_name: leaver.name, content: 'hello from the leaver' },
+      { session_id: sessionId, author_name: stayer.name, content: 'hello from the stayer' },
+    ]);
     if (chatErr) throw new Error(`chat seed failed: ${chatErr.message}`);
+    // live_state carrying the leaver's name in every shape the type allows.
+    const { error: lsErr } = await supabaseAdmin.from('clarity_sessions').update({
+      live_state: {
+        checksCount: 1, currentSpeaker: leaver.name, currentListener: stayer.name,
+        checkerName: leaver.name, talkTime: { [leaver.name]: 12, [stayer.name]: 30 },
+        roleSelections: { [leaver.name]: 'speaker', [stayer.name]: 'listener' },
+      },
+    }).eq('id', sessionId);
+    if (lsErr) throw new Error(`live_state seed failed: ${lsErr.message}`);
+    // ML training capture keyed only by (session code, display name).
+    const { error: mlErr } = await supabaseAdmin.from('ml_training_sessions').insert([
+      { session_code: sessionCode, user_name: leaver.name, audio_path: 'gs://p520-test/leaver.webm' },
+      { session_code: sessionCode, user_name: stayer.name, audio_path: 'gs://p520-test/stayer.webm' },
+    ]);
+    if (mlErr) throw new Error(`ml seed failed: ${mlErr.message}`);
+
+    // The token pair a still-open tab would hold after the user clicks Delete.
+    staleTokens = await signInTokens(leaver.email);
 
     // FK-less PII tables.
     const { error: tErr } = await supabaseAdmin.from('terms_acceptances').insert({
@@ -169,6 +205,8 @@ test.describe('P520: erase_my_account', () => {
     await sessionCleanup?.();
     await supabaseAdmin.from('terms_acceptances').delete().eq('user_id', leaver.user.id);
     await supabaseAdmin.from('session_consents').delete().eq('user_id', leaver.user.id);
+    await supabaseAdmin.from('ml_training_sessions').delete().eq('session_code', sessionCode);
+    await supabaseAdmin.from('erased_subjects').delete().eq('user_id', leaver.user.id);
     await deleteTestPoint(stayerPointId);
     await deleteTestEvent(stayerEventId);
     await deleteTestUser(stayer.user.id);
@@ -342,9 +380,13 @@ test.describe('P520: erase_my_account', () => {
       creator_profile_id: null, creator_name: TOMBSTONE,
       joiner_profile_id: stayer.user.id, joiner_name: stayer.name,
     });
+    // Name-only rows: the leaver's own rows are gone, the stayer's untouched (names differ).
     const { data: msgs } = await supabaseAdmin
       .from('clarity_chat_messages').select('author_name').eq('session_id', sessionId);
-    expect(msgs!.map((m) => m.author_name)).toEqual([TOMBSTONE]);
+    expect(msgs!.map((m) => m.author_name)).toEqual([stayer.name]);
+    const { data: ml } = await supabaseAdmin
+      .from('ml_training_sessions').select('user_name').eq('session_code', sessionCode);
+    expect(ml!.map((r) => r.user_name)).toEqual([stayer.name]);
 
     // The stayer's cached counters were recomputed from what remains — the seed helper
     // had pinned them to 1/1, and every verification the stayer had involved the leaver.
@@ -356,5 +398,188 @@ test.describe('P520: erase_my_account', () => {
     const { data: stayerStories } = await supabaseAdmin
       .from('stories').select('understood_count').eq('author_id', stayer.user.id);
     for (const s of stayerStories!) expect(s.understood_count).toBe(0);
+  });
+
+  test('live_state was scrubbed by key; the session is cancelled; the audit row exists', async () => {
+    const { data: sess } = await supabaseAdmin
+      .from('clarity_sessions').select('status, live_state').eq('id', sessionId).single();
+    expect(sess!.status).toBe('cancelled');
+    expect(sess!.live_state).toEqual({
+      checksCount: 1, currentSpeaker: TOMBSTONE, currentListener: stayer.name,
+      checkerName: TOMBSTONE, talkTime: { [TOMBSTONE]: 12, [stayer.name]: 30 },
+      roleSelections: { [TOMBSTONE]: 'speaker', [stayer.name]: 'listener' },
+    });
+    expect(JSON.stringify(sess!.live_state)).not.toContain(leaver.name);
+
+    const { data: audit } = await supabaseAdmin
+      .from('erased_subjects').select('user_id, same_name_sessions').eq('user_id', leaver.user.id).single();
+    expect(audit).toMatchObject({ user_id: leaver.user.id, same_name_sessions: [] });
+  });
+
+  test('stale JWT: no new tokens, no writes through the uid-only tables, no live_state patch', async () => {
+    // (i) the refresh token died with auth.users — no NEW access token can be minted
+    const { error: refreshErr } = await anonClient().auth.refreshSession({ refresh_token: staleTokens.refresh_token });
+    expect(refreshErr, 'refresh must fail after erasure').not.toBeNull();
+
+    const stale = bearerClient(staleTokens.access_token);
+
+    // (ii) FK-less table: the profile-existence guard refuses the insert
+    const { error: termsErr } = await stale.from('terms_acceptances')
+      .insert({ user_id: leaver.user.id, terms_version: 'v1.3-stale' });
+    expect(termsErr).not.toBeNull();
+    expect(termsErr!.code).toBe('42501');
+    expect(await countWhere('terms_acceptances', 'user_id', leaver.user.id)).toBe(0);
+
+    // (iii) FK'd table: refused (RLS or FK — either way nothing lands)
+    const { error: storyErr } = await stale.from('stories')
+      .insert({ author_id: leaver.user.id, content: 'ghost story', visibility: 'public' });
+    expect(storyErr).not.toBeNull();
+    expect(await countWhere('stories', 'author_id', leaver.user.id)).toBe(0);
+
+    // (iv) patch_live_state: the session is cancelled and the caller is nobody's id → no row touched
+    const { error: patchErr } = await stale.rpc('patch_live_state', {
+      p_session_id: sessionId, p_patch: { currentSpeaker: leaver.name },
+    });
+    expect(patchErr).toBeNull(); // the RPC is void; refusal is a zero-row update
+    const { data: after } = await supabaseAdmin.from('clarity_sessions').select('live_state').eq('id', sessionId).single();
+    expect(after!.live_state.currentSpeaker).toBe(TOMBSTONE);
+
+    // (v) documented residual: the stale token can still READ for its lifetime (≤1h)
+    const { error: readErr } = await stale.from('points').select('id').limit(1);
+    expect(readErr).toBeNull();
+  });
+
+  test('race: the counterparty can no longer write into the cancelled session', async () => {
+    const other = await userClient(stayer.email);
+    const turn = { speaker_name: TOMBSTONE, listener_name: stayer.name, actor_name: stayer.name, role: 'listener', transcript: 'late turn' };
+
+    // Control (gate 7): the identical insert into a LIVE session of the stayer's is accepted,
+    // so the refusal below is the cancelled predicate and not a malformed row.
+    const live = await createTestSessionInDB(stayer.user.id, 'Guest', { hostName: stayer.name });
+    try {
+      const { error: okErr } = await other.from('clarity_live_turns').insert({ ...turn, session_id: live.sessionId });
+      expect(okErr, `control insert failed: ${okErr?.message}`).toBeNull();
+    } finally {
+      await live.cleanup();
+    }
+
+    const { error: turnErr } = await other.from('clarity_live_turns').insert({ ...turn, session_id: sessionId });
+    expect(turnErr, 'live turn insert into a cancelled session must be refused').not.toBeNull();
+    expect(turnErr!.code).toBe('42501');
+
+    // Plain UPDATE of live_state (the column clients may write, P1047): on a cancelled
+    // session the policy's USING no longer matches → zero rows, value unchanged.
+    const ghost = { checksCount: 99, currentSpeaker: leaver.name };
+    const live2 = await createTestSessionInDB(stayer.user.id, 'Guest', { hostName: stayer.name });
+    try {
+      const { data: okRows, error: okErr } = await other.from('clarity_sessions')
+        .update({ live_state: ghost }).eq('id', live2.sessionId).select('id');
+      expect(okErr, `control update failed: ${okErr?.message}`).toBeNull();
+      expect(okRows).toHaveLength(1);
+    } finally {
+      await live2.cleanup();
+    }
+    const { data: rows, error: updErr } = await other.from('clarity_sessions')
+      .update({ live_state: ghost }).eq('id', sessionId).select('id');
+    expect(updErr).toBeNull();
+    expect(rows).toHaveLength(0);
+    const { data: sess } = await supabaseAdmin.from('clarity_sessions').select('live_state').eq('id', sessionId).single();
+    expect(sess!.live_state.currentSpeaker).toBe(TOMBSTONE);
+  });
+});
+
+test.describe('P520: same-name counterparty — the other person\'s rows are untouched', () => {
+  test.describe.configure({ mode: 'serial' });
+  const NAME = 'Twin Person';
+  let twinLeaver: TestUser;
+  let twinStayer: TestUser;
+  let sid: string;
+  let cleanup: () => Promise<void>;
+
+  test.beforeAll(async () => {
+    twinLeaver = await createTestUser({ name: NAME });
+    twinStayer = await createTestUser({ name: NAME });
+    const s = await createTestSessionInDB(twinLeaver.user.id, NAME, { hostName: NAME, guestProfileId: twinStayer.user.id });
+    sid = s.sessionId; cleanup = s.cleanup;
+    const { error } = await supabaseAdmin.from('clarity_chat_messages').insert([
+      { session_id: sid, author_name: NAME, content: 'from the leaver' },
+      { session_id: sid, author_name: NAME, content: 'from the stayer' },
+    ]);
+    if (error) throw new Error(`chat seed failed: ${error.message}`);
+  });
+
+  test.afterAll(async () => {
+    await cleanup?.();
+    await supabaseAdmin.from('erased_subjects').delete().eq('user_id', twinLeaver.user.id);
+    await deleteTestUser(twinStayer.user.id);
+    await deleteTestUser(twinLeaver.user.id);
+  });
+
+  test('ambiguous name-only rows are left alone and the session is recorded for the founder', async () => {
+    const me = await userClient(twinLeaver.email);
+    const { data, error } = await me.rpc('erase_my_account');
+    expect(error, error?.message).toBeNull();
+    expect(data.same_name_sessions).toEqual([sid]);
+
+    // Both chat rows survive — neither can be attributed.
+    expect(await countWhere('clarity_chat_messages', 'session_id', sid)).toBe(2);
+    // The id-bearing columns are still cleared.
+    const { data: sess } = await supabaseAdmin
+      .from('clarity_sessions').select('creator_profile_id, creator_name, joiner_profile_id, joiner_name, status').eq('id', sid).single();
+    expect(sess).toMatchObject({
+      creator_profile_id: null, creator_name: TOMBSTONE,
+      joiner_profile_id: twinStayer.user.id, joiner_name: NAME, status: 'cancelled',
+    });
+    const { data: audit } = await supabaseAdmin
+      .from('erased_subjects').select('same_name_sessions').eq('user_id', twinLeaver.user.id).single();
+    expect(audit!.same_name_sessions).toEqual([sid]);
+    expect(await countWhere('profiles', 'id', twinStayer.user.id)).toBe(1);
+  });
+});
+
+test.describe('P520: live_state scrub survives hostile display names', () => {
+  test.describe.configure({ mode: 'serial' });
+  // quote, backslash, LIKE wildcards, non-ASCII — every character the old textual replace tripped on
+  const NAME = 'O"Bri\\en 100% _x Ñandú';
+  let hostile: TestUser;
+  let partner: TestUser;
+  let sid: string;
+  let cleanup: () => Promise<void>;
+
+  test.beforeAll(async () => {
+    hostile = await createTestUser({ name: NAME });
+    partner = await createTestUser({ name: 'Plain Partner' });
+    const s = await createTestSessionInDB(hostile.user.id, partner.name, { hostName: NAME, guestProfileId: partner.user.id });
+    sid = s.sessionId; cleanup = s.cleanup;
+    const { error } = await supabaseAdmin.from('clarity_sessions').update({
+      live_state: {
+        checksCount: 0, currentSpeaker: NAME, proverName: NAME, skippedBy: partner.name,
+        sliderRatings: { [NAME]: 7, [partner.name]: 9 },
+        selectedStoryData: { authorName: NAME, authorSlug: hostile.slug, authorAvatarUrl: 'https://x/a.png', id: 'story-x' },
+      },
+    }).eq('id', sid);
+    if (error) throw new Error(`live_state seed failed: ${error.message}`);
+  });
+
+  test.afterAll(async () => {
+    await cleanup?.();
+    await supabaseAdmin.from('erased_subjects').delete().eq('user_id', hostile.user.id);
+    await deleteTestUser(partner.user.id);
+    await deleteTestUser(hostile.user.id);
+  });
+
+  test('every name-bearing key is tombstoned, the partner\'s untouched, JSON intact', async () => {
+    const me = await userClient(hostile.email);
+    const { error } = await me.rpc('erase_my_account');
+    expect(error, error?.message).toBeNull();
+
+    const { data: sess } = await supabaseAdmin.from('clarity_sessions').select('live_state, creator_name').eq('id', sid).single();
+    expect(sess!.creator_name).toBe(TOMBSTONE);
+    expect(sess!.live_state).toEqual({
+      checksCount: 0, currentSpeaker: TOMBSTONE, proverName: TOMBSTONE, skippedBy: partner.name,
+      sliderRatings: { [TOMBSTONE]: 7, [partner.name]: 9 },
+      selectedStoryData: { authorName: TOMBSTONE, authorSlug: null, authorAvatarUrl: null, id: 'story-x' },
+    });
+    expect(JSON.stringify(sess!.live_state)).not.toContain('Bri');
   });
 });
