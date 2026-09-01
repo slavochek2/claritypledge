@@ -1000,3 +1000,22 @@ fixing it.
 **The decision the founder owns:** does the label alone stay in the text (gate satisfied, quotes live
 only in `video_quotes`), or does the publish gate move to assert the label on the rendered page
 instead of on `content`?
+
+---
+
+## Nothing blocks a frontend that ships ahead of its own migration
+
+**Date:** 2026-09-01
+**Status:** filed as [p1211](../features/p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md)
+**due:** week
+
+`migrate.sh` gate 2 holds a *migration* back until its coupled frontend is on `origin/main`
+(`-- requires-frontend`). Nothing holds a *frontend* back until its migration is on prod. P1060/P1193
+shipped that way on 2026-09-01: nine migrations pending, every org-scoped query answered
+`column events.org_id does not exist`, and the group pages showed zero events and zero participants
+to every visitor. Found by the founder looking at the live page.
+
+Full report, three candidate fixes and the false-positive trap any manifest-based gate must handle:
+**p1211**. Close this entry when that spec closes.
+
+---
