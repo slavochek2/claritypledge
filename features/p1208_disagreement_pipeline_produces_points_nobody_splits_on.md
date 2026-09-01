@@ -15,6 +15,26 @@ driver: anomaly
 
 # P1208: The pipeline shipped five points and the founder agreed with all of them
 
+
+> ## STATUS: NOT READY TO IMPLEMENT — two adversarial rounds, second verdict REJECT
+>
+> **Round 1 (9 findings, 2 CRITICAL) — applied.** Round 2 on the revised spec: **REJECT FOR
+> IMPLEMENTATION**, on grounds that are corrections to *this document's claims*, not to the pipeline:
+>
+> - **The cast-spans-fork check passes the run it was written to catch** (LeCun and Bengio do span
+>   the open-weights fork), while the Done-When demanded it fail. **The identical error the split gate
+>   made earlier in this same spec** — an algorithm specified, a verdict demanded that it does not
+>   produce, twice in one document by the same author.
+> - **"H2 refuted" overclaimed.** One `close`/`close` pair on one statement with two positioned
+>   arguers refutes *"nothing here is contested"*, not *"this topic is contested"*.
+> - The proposed check **overlaps existing Phase 3 obligations** rather than being wholly absent.
+> - Round-1 fixes did not land at every site, and the document still bundles two independent changes.
+>
+> **Both rounds' corrections are applied above.** What remains is not editing — it is the design work
+> the review says is undone: specifying the cast-spans-fork rule with controls, and splitting the
+> friction catalogue out. **Take this to a fresh session**; it was written at the end of a long one,
+> and the recurring defect in it is the one that long sessions produce.
+
 ## Problem
 
 **Situation:** `ai-power-remedies` run B completed end-to-end and filed to test — 4 stories, 5 points,
@@ -60,11 +80,64 @@ then committed exactly that error two paragraphs later.)*
 | Hypothesis | What it would mean |
 |---|---|
 | **H1 — contested topic, collapsed cast** | Repair the cast and re-run. The original draft's assumption |
-| **H2 — near-consensus topic made to look contested by point construction** | The topic goes; no casting fix helps. **Prior evidence supports taking this seriously:** the original AI-power-concentration topic measured as CONSENSUS and had to be reframed to remedies (`p1171`) |
+| **H2 — narrowly contested topic made to look broadly contested** | **NARROWED, not refuted, 2026-09-01.** P5's `close`/`close` opposition kills the universal form (*"nothing is contested"*); the weaker form — contested on one axis, converged on the rest — survives and fits the data better than H1 alone |
 | **H3 — contested topic, defective statements** | The points are wrong, not the people |
 | **H4 — position-assignment artifacts** | The measurement is wrong |
 
-**No crossed comparison has been run, so none of these is established.** What would discriminate:
+### Discriminating evidence run 2026-09-01 — H2's UNIVERSAL form is refuted; H2 itself is not
+
+**On P5, LeCun is `strongly_agree [close]` and Bengio is `strongly_disagree [close]`.** Both carry the
+`close` label, which `positions.md` defines as *"the speaker argued this directly; the generalization
+barely moves."* That is the strongest evidence class the pipeline produces, at maximum magnitude, in
+direct opposition. **A `close` position is not an agent's inference — it is the speaker's own
+argument**, so P5's split cannot be dismissed as construction-induced the way P3's can (P3 is
+`derived` on both agreeing sides, and LeCun never addresses its regulation comparison at all).
+
+**Consequence, stated narrowly — the first version of this paragraph overclaimed and was corrected
+the same day.** What P5 establishes: **at least one** genuine, directly-argued opposition exists
+between **two** of the four arguers, on **one** constructed statement. That refutes the *strongest
+universal* form of H2 — *"nothing here is contested"*. It does **not** establish that the topic is
+broadly contested, and it cannot: P5 has only **two positioned arguers**, and one opposed pair on one
+statement is compatible with a topic that is contested on a narrow axis and converged everywhere else
+— which would still produce exactly the run we got.
+
+**H2 survives in its weaker and more plausible form:** *the topic is contested on the open-weights
+axis and near-converged on the others, and point construction made the converged axes look
+contested.* That is fully consistent with P1/P2 having no opposition at all.
+
+**Still live: H1 (collapsed cast) and H3 (defective statements)**, and they are not exclusive. The
+run produced one real opposition and four points that mostly failed to find one — consistent with a
+real fork whose poles were half-missing (position 3 unfilled, two arguers voting alike) *and* with
+statements that failed to locate the fork they were built for.
+
+**Still unrun, and still the only thing that settles it: room responses.**
+
+### The early-rejection check ALREADY EXISTS, and it is not where this failed
+
+*(Recorded because the natural fix — "make the pipeline reject converging topics at the start" — is
+already built, and re-adding it would leave the actual gap untouched.)*
+
+`select` **Phase 0** establishes contestedness **before any search runs**. It returns `CONTESTED` or
+`CONSENSUS`, and a `CONSENSUS` verdict **STOPS the run with no search performed and no run file
+written**. It refuses to return `CONTESTED` unless an actual contradiction sentence can be written
+for at least one pair. It has fired correctly on this very subject area: the original *"does AI
+concentrate or distribute power"* topic measured as **CONSENSUS** and had to be reframed to remedies
+(`p1171`).
+
+`select` **Phase 3** then tests whether the *selected sources* carry the fork Phase 0 found — the
+skill states the distinction explicitly: *"a topic can be genuinely contested and still yield four
+videos that all argue the same thing."*
+
+**So both checks exist, and both passed.** Phase 0 was right (P5 proves the fork is real). Phase 3
+returned a clean verdict on a cast where one pole was empty and two arguers voted alike.
+
+**The missing check is neither of those. It is: does the ASSEMBLED CAST still span the fork Phase 0
+found?** Phase 0 validates the topic. Phase 3 asks whether sources argue their claimed positions.
+Nothing asks whether the surviving set still has a voice at each end of the specific contradiction
+sentence Phase 0 wrote down. On this run it did not — and the contradiction sentence Phase 0 wrote
+is sitting in the run file, unused after selection.
+
+**What would discriminate the remaining hypotheses:**
 
 1. Reconstruct alternative points from the same cast, blinded to the existing points.
 2. Apply the existing points to a repaired cast.
@@ -94,6 +167,18 @@ against the measurement.
 
 `positions.md` states the epistemics correctly and then nothing acts on them: *"An agent-derived split
 is a HYPOTHESIS, never a finding — and this is the most important sentence in this file."*
+
+## Founder ruling, 2026-09-01: this run is NOT publishable
+
+> *"I guess this run overall is not publishable. We cannot go ahead with this content."*
+
+**Binding.** The four stories and five points filed to the **test** database stay there as the
+evidence this spec rests on (Non-Goals forbids deleting them). **Nothing from `ai-power-remedies`
+run B goes to prod**, and no event uses it. Two of five points have no opposition among the arguers,
+so the artifact does not do the job the pipeline exists to do, whatever else is true about the topic.
+
+**This is a decision about the artifact, not yet about the topic** — see Open Question 2, which the
+P5 evidence now reframes: the fork is real, so retiring AI safety would discard a working topic.
 
 ## Appetite
 
@@ -166,6 +251,43 @@ The same-vote collapse check and the unfilled-position spectrum re-check both ex
   and Gate 2 already presents the lost axes and requires founder approval of the narrowed set.)* The
   machinery works and the founder approved the narrowed cast. The question is whether an unfilled
   position should **block** rather than **inform** — a founder decision, recorded as Open Question 4.
+
+### B1. The missing check: does the assembled cast still span the fork?
+
+**This is the gap, and it is not "reject converging topics earlier" — that already exists.**
+
+Phase 0 writes down a **contradiction sentence**: the specific proposition one advocate asserts and
+another denies. That sentence is the evidence the topic is contested, it is recorded in the run file,
+and **nothing reads it again after selection.**
+
+**[UNSPECIFIED — do not implement until this is decided.]** *(Adversarial review, 2026-09-01: as
+written this check **passes the very run it was designed to catch.** The surviving cast still contains
+LeCun and Bengio, who genuinely span the open-weights contradiction — so under an existential reading
+("does someone hold each side?") this run PASSES, while the Done-When demanded it FAIL. **That is the
+identical error the split gate made earlier in this same spec** — an algorithm specified, then a
+verdict demanded that the algorithm does not produce. Twice in one document.)*
+
+**What must be decided before this is buildable:** must the cast span **every** admission-bearing
+contradiction, a **named required subset**, or clear a **coverage threshold**? Each gives a different
+verdict on this run, and the review constructed cases where the existential reading passes a collapsed
+cast and the universal reading fails a good one. **Add per-contradiction output and controls before
+prescribing any verdict.**
+
+**Also note the overlap:** this is not wholly absent from the pipeline — `select` Phase 3 already
+carries obligations in this area. Establish what Phase 3 does and does not cover before adding a
+second check beside it.
+
+**The original intent, kept because the gap is real even though the check is not yet specified:**
+before Gate 2 closes, assert the surviving set still has a voice on BOTH sides of Phase 0's own
+contradiction sentence. Not "are these people different" — the specific fork the topic was admitted
+on. A set that cannot answer both halves of its own founding contradiction has lost the disagreement
+it was assembled to carry, whatever its position statements say.
+
+On this run: position 3 (halt) was unfilled and two arguers voted alike, so the cast could not span
+its own fork — while Phase 3 returned a clean verdict, because it asks a different question (*does
+each source argue the position it was admitted for?*).
+
+**Cheap, mechanical, and it uses an artifact the pipeline already produces and then discards.**
 
 ### B2. The founder's proposal: a `prepare` ↔ `positions` loop
 
@@ -285,6 +407,8 @@ that would test it.** That is the item worth a spec of its own; the rest are its
 - [ ] The four competing hypotheses are recorded and at least one discriminating comparison from the Problem section is run, with its result written down — **before** any cast remedy is implemented
 - [ ] `prepare` emits its provisional values explicitly labelled non-gating, or an independent topic-level stance check exists that `prepare` does not author
 - [ ] Story prose contains no timestamps; the supporting-evidence block is the only place they appear, verified on a regenerated story
+- [ ] The cast-spans-fork rule is **specified** — every contradiction / a named subset / a coverage threshold — with per-contradiction output and both controls (a case it must pass, a case it must fail). **Do NOT prescribe this run's verdict in advance**; the first draft demanded FAIL on a run its own algorithm passes
+- [ ] What `select` Phase 3 already covers in this area is established in writing before a second check is added beside it
 - [ ] Open Questions 1–4 each have a recorded founder answer
 - [ ] Workstream D is filed as its own spec, or closed with a written reason
 
@@ -302,8 +426,10 @@ that would test it.** That is the item worth a spec of its own; the rest are its
    No seal is rewritten, no failed point is silently changed, and the room sees an explicitly versioned
    set. **[FOUNDER DECISION: adopt the two-artifact model, or keep one-shot sealing and accept that a
    revised run is unscoreable?]**
-2. **Do we re-run `ai-power-remedies` with a repaired cast, or retire the run?** The evidence says the
-   topic is sound and the cast is not. A re-run needs a genuine fifth voice for the halt position and
+2. **Re-run `ai-power-remedies` with a repaired cast, or retire the topic?** **The run itself is
+   already ruled not publishable (above); this is only about the topic.** The P5 `close`/`close`
+   opposition means the fork is real, so retiring AI safety discards a working topic — but H3
+   (defective statements) is still live, so a re-run needs new points as well as a repaired cast. A re-run needs a genuine fifth voice for the halt position and
    a replacement for whichever of LeCun/Andreessen is dropped. **[FOUNDER DECISION]**
 4. **Should an unfilled carried position BLOCK point construction, or continue to inform at Gate 2?**
    The machinery already exists and works; the founder approved the narrowed cast on this run. Making
