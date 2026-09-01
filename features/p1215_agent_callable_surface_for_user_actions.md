@@ -49,7 +49,7 @@ were not.**
 | P143 rejection ground | Status |
 |---|---|
 | "Overengineered — saves 2 min/week" | **Cleared.** P143's scope was event CRUD for founder convenience. This is user-facing reach into a product users cannot access from where they work. Different problem — though note the demand evidence is still absent (Open Question 1). |
-| "auth architecture fundamentally broken" | **[REV] NOT cleared — narrowed only.** Short lifetime removes the *token store*. It does not supply an authorization architecture. Unspecified and required: the authorization server, token audience, token exchange, connector callback, user binding, scope enforcement, and **how Supabase RLS receives the correct `auth.uid()`**. The failure this leaves open is concrete: an implementation falls back to a service-role backend that trusts a user ID asserted by the connector, and one confused-deputy request bypasses RLS entirely. Must be designed in `/architect` before any build. |
+| "auth architecture fundamentally broken" | **[REV] LARGELY cleared, one part still open.** Short lifetime removes the token store; delegating the authorization server to Supabase Auth removes the six-RFC build (see Verified protocol facts). **Still genuinely open and a build blocker:** user binding and confused-deputy protection — specifically how Supabase RLS receives the correct `auth.uid()` without any path where a backend trusts a user ID asserted by the connector. One forged request there bypasses RLS entirely. `/architect` owns it. |
 | "UX too technical for target users" | **[REV] NOT cleared.** "A connect button" is a mockup, not an integration. Unverified: hosted-agent support, callback registration, consent presentation, account selection, re-auth behaviour, failure recovery, and **disconnect**. A user who cannot tell which account they connected or how to revoke it is not better off than one pasting a token. |
 | "no hypothesis connection" | **NOT cleared.** `docs/hypotheses.md` has no active hypothesis this tests (grepped 2026-09-01). See Open Question 1. This is the ground P143 actually died on. |
 
@@ -110,12 +110,29 @@ claims are corrected here; three of four were wrong.
 |---|---|
 | Standardized "click approve" authorization, nothing to build | **FALSE.** OAuth 2.1 framework, optional, HTTP transports only. The operator MUST provide an OAuth 2.1 authorization server (or delegate), protected-resource metadata (RFC 9728), AS metadata (RFC 8414/OIDC discovery), issuer validation (RFC 9207), resource indicators (RFC 8707), scope challenges (RFC 6750). Dynamic Client Registration is deprecated in favour of Client ID Metadata Documents. |
 | Short-lived removes the credential store | **PARTIALLY TRUE.** Refresh tokens are optional — spec: *"MUST NOT assume refresh tokens will be issued."* Expiry-then-reconnect with no refresh token is achievable, and then there is genuinely nothing to store. But it is **our implementation choice**, not a protocol guarantee, and it must be stated as a requirement or an implementer will add refresh tokens by default. |
-| New tools callable with no client-side update | **TRUE.** `notifications/tools/list_changed` plus client re-listing via `tools/list`; responses carry a `ttlMs` cache hint. The "nothing to version on the user's side" argument survives. |
+| New tools callable with no client-side update | **MOSTLY TRUE, weaker than claimed.** `notifications/tools/list_changed` plus client re-listing via `tools/list`; `ttlMs` is an advisory cache hint. But the notification is a **SHOULD**, not a MUST, and is best-effort — a client that ignores it, or whose cache TTL has not expired, will not see a new tool until it polls, which is client logic and not protocol. The "nothing to version on the user's side" argument holds in practice but is **client-dependent, not guaranteed**. |
 | Protocol enforces per-tool scope separation | **FALSE.** Entirely server-side. There is no protocol-layer mechanism restricting a client to a subset of tools. Every capability boundary in this spec is ours to enforce and ours to get wrong. |
 
-**Outstanding:** whether the six authorization MUSTs can be delegated to Supabase Auth or an
-off-the-shelf provider, and what is genuinely left to self-build, is still being checked. Treat
-the build cost as **unknown**, not small.
+**[REV] Answered 2026-09-01 — the authorization work is delegable, and this materially
+downgrades the P143 "auth architecture" ground above.** The MCP authorization spec permits the
+authorization server to be a separate entity from the resource server. Delegating to Supabase
+Auth leaves the MCP server responsible for three things, not six RFCs:
+
+1. A protected-resource metadata endpoint (RFC 9728) — a static JSON document.
+2. Bearer-token validation per request — signature, audience and expiry against the provider's
+   published JWKS.
+3. Scope-to-tool mapping **in our own application logic**, because MCP never defines what a
+   scope means.
+
+Item 3 is the one that matters and it is not boilerplate: it is the *entire* capability boundary
+this spec depends on, and the protocol gives us nothing to lean on. **UNVERIFIED:** this is a
+protocol-and-docs reading, not something built against Supabase Auth this session. `/architect`
+confirms it before the P143 ground is marked cleared.
+
+**Prompt injection from tool results: no named mitigation exists in MCP guidance.** The docs
+acknowledge the surface — tool results are untrusted input — and prescribe only that clients
+SHOULD validate results before passing them to the model. There is no standard defence to adopt.
+This corroborates the first invariant: the residual is real and is ours to bound, not to solve.
 
 ## Solution / Approach
 
@@ -219,8 +236,10 @@ quietly restore them.
    with a falsifier (epistemic gate 8), or state explicitly that this is infrastructure built
    ahead of its hypothesis. **[REV]** Review also notes there is no evidence any target user
    wants to reach this product through an agent — that evidence, or its absence, belongs here.
-2. Can the six authorization MUSTs be delegated to Supabase Auth or an existing provider?
-   Outstanding; the build cost is unknown until answered.
+2. ~~Can the authorization MUSTs be delegated?~~ **Answered — yes, see Verified protocol facts.**
+   Remaining sub-question for `/architect`: does Supabase Auth actually issue tokens with the
+   audience and scope claims this needs, without a refresh token? Verify against Supabase, not
+   against the MCP spec.
 3. Does any existing surface assume a browser reader in a way a tool call breaks — session-keyed
    rate limits, CSRF assumptions, anon-key-scoped reads? Not assessed.
 
