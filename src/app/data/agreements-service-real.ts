@@ -66,6 +66,14 @@ function mapDbRowToAgreementParty(row: DbProfile): AgreementParty {
   };
 }
 
+// P1222: PostgREST reports a function absent from its schema cache as PGRST202.
+// The two P1222 readers ship in client-safe migrations that must be on prod
+// BEFORE this client; the callers below fall back to the pre-P1222 table read
+// for exactly that release window and nothing else.
+function isRpcMissing(error: { code?: string } | null | undefined): boolean {
+  return error?.code === 'PGRST202';
+}
+
 // P857: map the DB TEXT column to the typed union. Unknown/future values fall
 // back to 'legacy' (the DB CHECK should reject them; this guards the read path
 // too). Expand this whenever a new version is added to AGREEMENT_VERSIONS + the
@@ -367,11 +375,23 @@ export const realAgreementsService: AgreementsService = {
       const { data: publicData, error: rpcError } = await supabase
         .rpc('get_public_agreements_for_profile', { p_profile_id: profileId });
 
-      if (rpcError) {
-        logDbError('getAgreementsForProfile.public', rpcError);
-      }
       const byId = new Map<string, DbAgreementRow>();
-      for (const r of (publicData as DbAgreementRow[] | null) ?? []) byId.set(r.id, r);
+
+      if (rpcError && isRpcMissing(rpcError)) {
+        // Release window: reader not yet on this database — the pre-P1222 table
+        // read still returns public active rows until the policy migration lands.
+        const { data: legacy, error: legacyError } = await supabase
+          .from('clarity_agreements')
+          .select('*')
+          .or(`creator_profile_id.eq.${profileId},partner_profile_id.eq.${profileId}`)
+          .eq('status', 'active')
+          .eq('visibility', 'public');
+        if (legacyError) logDbError('getAgreementsForProfile.legacy', legacyError);
+        for (const r of (legacy as DbAgreementRow[] | null) ?? []) byId.set(r.id, r);
+      } else {
+        if (rpcError) logDbError('getAgreementsForProfile.public', rpcError);
+        for (const r of (publicData as DbAgreementRow[] | null) ?? []) byId.set(r.id, r);
+      }
 
       if (viewerProfileId) {
         const { data: partyData, error: partyError } = await supabase
@@ -662,19 +682,36 @@ export const realAgreementsService: AgreementsService = {
       ? `partner_profile_id.is.null,partner_profile_id.eq.${safeProfileId}`
       : 'partner_profile_id.is.null';
 
-    const { data, error } = await supabase
-      .from('clarity_agreements')
-      .select('*')
-      .eq('status', 'pending')
-      .or(profileFilter)
-      .ilike('partner_email', email);
+    // P1222: pending invitations come from get_my_pending_invitations(), which
+    // requires the caller's auth email to be CONFIRMED (auth.users.email_confirmed_at)
+    // — a JWT email claim alone is not possession of the inbox. The table read
+    // below is the release-window fallback only: it is what a client deployed
+    // before migration 20260901235000 has, and it stops returning rows once the
+    // policy's email-claim branch is dropped (20260901236000).
+    let rows: DbAgreementRow[];
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_pending_invitations');
 
-    if (error || !data) {
-      logDbError('getIncomingInvitations', error);
+    if (rpcError && isRpcMissing(rpcError)) {
+      const { data, error } = await supabase
+        .from('clarity_agreements')
+        .select('*')
+        .eq('status', 'pending')
+        .or(profileFilter)
+        .ilike('partner_email', email);
+
+      if (error || !data) {
+        logDbError('getIncomingInvitations', error);
+        return [];
+      }
+      rows = data as DbAgreementRow[];
+    } else if (rpcError) {
+      logDbError('getIncomingInvitations', rpcError);
       return [];
+    } else {
+      // The RPC already scopes to partner_profile_id IS NULL OR = auth.uid().
+      rows = (rpcData as DbAgreementRow[] | null) ?? [];
     }
 
-    const rows = data as DbAgreementRow[];
     if (rows.length === 0) return [];
 
     // Filter out expired invitations (check-at-read, no DB write)

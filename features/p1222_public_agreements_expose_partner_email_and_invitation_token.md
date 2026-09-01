@@ -116,6 +116,41 @@ Same shape as P877/P886, sequenced so no deployed client breaks:
 incident). Also rejected: keeping the visibility branch in the policy and trusting the client
 to not select the columns — the anon key is the client.
 
+## Release order (prod) — the only sequence that never blanks a public page
+
+1. Apply `20260901233000` and `20260901235000` (both `client-safe`, additive: the readers +
+   `get_my_pending_invitations`). Neither carries `requires-frontend`; neither depends on B/C.
+2. Deploy the client (`ce02c269` + the codex follow-up commit). During the window between 1 and
+   2 the old client keeps reading the table (still public) — nothing changes for it. If step 2
+   somehow lands before step 1, the new client falls back to the table read on `PGRST202`
+   (reader absent) for `getAgreementsForProfile` / `getIncomingInvitations`, and
+   `getAgreement` reads the table first anyway.
+3. Apply `20260901234000` then `20260901236000` (both `requires-frontend`; `migrate.sh` refuses
+   them until the client commit is an ancestor of `origin/main`). After this the table returns
+   rows to parties only and the email-claim branch is gone.
+
+Verify: anon `GET /rest/v1/clarity_agreements?visibility=eq.public&select=partner_email,invitation_token`
+→ `[]`; anon `GET /rest/v1/rpc/get_public_agreement?p_id=<public id>` → the row without the
+party-only columns.
+
+## Codex review follow-up (applied)
+
+- **Email claim ≠ possession.** The parties-only policy kept a `status='pending' AND
+  lower(partner_email) = lower(auth.email())` branch. Dropped in `20260901236000`; pending
+  invitations now come from `get_my_pending_invitations()`, which requires
+  `auth.users.email_confirmed_at IS NOT NULL` for the caller and returns the invitation token to
+  that confirmed caller only (the in-app "Review & Sign" link is built from it; the token was
+  mailed to that address). Test: an `email_confirm:false` user reads nothing via table or RPC; a
+  confirmed invitee reads via the RPC and not via the table.
+- **Release sequencing.** See above; `PGRST202` fallbacks added to the client.
+- **`terminated_by`** removed from both public readers (`20260901235000`).
+- **Manifest.** `supabase/deploy-manifest.json` on the branch now lists every P1222 migration
+  applied to test; the stamp script refuses to run inside a worktree, so the list was edited by
+  hand to match the test ledger.
+- **Red state.** The test suite's last describe recreates the P422 policy inside one Management
+  API transaction, reads the public row as `anon`, asserts email + token are returned, and rolls
+  back — the only way to observe the prod-shaped defect on a test project that never carried it.
+
 ## Acceptance Criteria
 
 - [x] `e2e/integration/p1222-public-agreement-pii.spec.ts` — 6/6 on TEST before and after Migration B
