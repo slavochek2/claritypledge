@@ -70,17 +70,34 @@ describe('P866 redactUrl — strips secrets before any public surface', () => {
 });
 
 describe('P866 isAllowlisted — narrow substring match', () => {
+  // P1216: these assertions use an explicit synthetic allowlist rather than the
+  // production one. They previously matched against PROD_HEALTH_ALLOWLIST.consolePatterns
+  // using its LogRocket entry as the fixture, which coupled a test of the MECHANISM to
+  // the CONTENTS of a curated list -- so removing a vendor (a legitimate content change)
+  // broke a test that was never about that vendor. The production list's own invariant
+  // is asserted separately below, and holds however many entries it has.
+  const SYNTHETIC = ['known-benign-marker'];
+
   it('returns true when the text contains a listed pattern', () => {
-    expect(isAllowlisted('LR-SDK session recording blocked', PROD_HEALTH_ALLOWLIST.consolePatterns)).toBe(true);
+    expect(isAllowlisted('prefix known-benign-marker suffix', SYNTHETIC)).toBe(true);
     expect(
       isAllowlisted('https://x.supabase.co/rest/v1/rpc/foo', PROD_HEALTH_ALLOWLIST.urlPatterns),
     ).toBe(true);
   });
 
   it('returns false for a novel error not in the allowlist (fails by default)', () => {
-    expect(isAllowlisted('Uncaught TypeError: cannot read foo', PROD_HEALTH_ALLOWLIST.consolePatterns)).toBe(false);
+    expect(isAllowlisted('Uncaught TypeError: cannot read foo', SYNTHETIC)).toBe(false);
     expect(
       isAllowlisted('https://claritypledge.com/api/unknown-500', PROD_HEALTH_ALLOWLIST.urlPatterns),
+    ).toBe(false);
+  });
+
+  it('an empty allowlist allows nothing (P866 fail-by-default holds at the boundary)', () => {
+    // consolePatterns is empty after P1216. An empty curated list must mean "nothing is
+    // known-benign", never "everything passes" -- the inversion P866 was built to avoid.
+    expect(isAllowlisted('anything at all', [])).toBe(false);
+    expect(
+      isAllowlisted('Uncaught TypeError: cannot read foo', PROD_HEALTH_ALLOWLIST.consolePatterns),
     ).toBe(false);
   });
 });

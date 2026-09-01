@@ -86,7 +86,6 @@ describe('P805: CSP connect-src directive allows storage.googleapis.com', () => 
       'wss://*.supabase.co',
       'https://api-eu.mixpanel.com',
       'https://*.sentry.io',
-      'https://*.lr-in-prod.com',
       'https://api.web3forms.com',
       'https://api.unsplash.com',
     ];

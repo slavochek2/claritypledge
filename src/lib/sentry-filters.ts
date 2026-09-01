@@ -18,12 +18,12 @@ const SW_FRAME_PATTERNS = [/\/registerSW\.js/i, /serviceWorker\.register/i];
  * importable from a test.
  *
  * These are intentionally broad: the errors originate from third-party code
- * (Supabase SDK, LogRocket, browser extensions, injected in-app-browser SDKs),
+ * (Supabase SDK, browser extensions, injected in-app-browser SDKs),
  * not from our app. If you see false positives, prefer a frame-based
  * beforeSend filter over loosening a pattern here.
  */
 export const IGNORED_ERROR_PATTERNS: RegExp[] = [
-  // IndexedDB errors from Supabase/LogRocket SDKs (Safari private mode, disk quota, iOS)
+  // IndexedDB errors from the Supabase SDK (Safari private mode, disk quota, iOS)
   // These are storage fallback errors in third-party SDKs, not bugs in our code
   /indexedDB\.open/i,
   /Internal error opening backing store/i,

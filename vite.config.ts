@@ -80,7 +80,6 @@ export default defineConfig({
       'sonner',
       'tailwind-merge',
       'vaul',
-      'logrocket',
       'katex',
     ],
     holdUntilCrawlEnd: true, // Wait for full crawl — prevents 504 if a dep is missing from include list
@@ -278,9 +277,9 @@ export default defineConfig({
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
             handler: 'NetworkOnly',
           },
-          // Third-party scripts (Sentry, LogRocket, Mixpanel) - Network only
+          // Third-party scripts (Sentry, Mixpanel) - Network only
           {
-            urlPattern: /^https:\/\/(cdn\.mxpnl\.com|api-eu\.mixpanel\.com|cdn\.logrocket\.io|.*\.sentry\.io)\/.*/,
+            urlPattern: /^https:\/\/(cdn\.mxpnl\.com|api-eu\.mixpanel\.com|.*\.sentry\.io)\/.*/,
             handler: 'NetworkOnly',
           },
         ],

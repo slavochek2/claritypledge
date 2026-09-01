@@ -34,7 +34,7 @@ import type { Page } from '@playwright/test';
 export const PROD_HEALTH_ROUTES = ['/', '/coach', '/live', '/feed', '/manifesto', '/events', '/cm', '/groups'];
 
 // ── Stabilization poll ──────────────────────────────────────────────────────
-// Third-party SDKs (LogRocket, Mixpanel) init behind requestIdleCallback / a ~2s
+// Third-party SDKs (Mixpanel, Sentry) init behind requestIdleCallback / a ~2s
 // setTimeout (see src/main.tsx), so an error/violation can fire well after
 // networkidle. Rather than race a blind sleep, poll the captured-count until it
 // STOPS growing. MIN floor guarantees the SDKs had time to init + fire before we
@@ -97,12 +97,12 @@ export const PROD_HEALTH_ALLOWLIST: {
   urlPatterns: string[];
 } = {
   // Console error-text substrings that are known-benign vendor noise.
-  consolePatterns: [
-    // LogRocket SDK chatter (e.g. "LR-SDK ... session recording blocked"): the
-    // recorder being suppressed/blocked for a session is not an app error.
-    'LR-SDK',
-    'LogRocket',
-  ],
+  // P1216: the LogRocket entries ('LR-SDK', 'LogRocket') were removed with the
+  // vendor. They allow-listed nothing reachable any more, and 'LogRocket' is a
+  // broad substring — leaving it would suppress any future console error that
+  // happened to contain the word, weakening a gate whose whole design is that a
+  // novel error fails by default.
+  consolePatterns: [],
   // HTTP response-URL substrings whose >=400 responses are known-benign.
   urlPatterns: [
     // Supabase API is cross-origin; public-route pages make anon Supabase calls

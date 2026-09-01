@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000065
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [observability, csp, analytics, dependencies]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -106,13 +106,57 @@ assumed: Mixpanel replay landed since, and covers more than LogRocket did.
 
 ## Done-When
 
-- [ ] `grep -ri logrocket src/ vercel.json package.json vite.config.ts` returns no hits
-- [ ] `npm run build` succeeds and the built bundle contains no LogRocket code
-- [ ] The p865 canary still passes and still asserts `'wasm-unsafe-eval'` on both `script-src` and `worker-src`
-- [ ] `npm run smoke:csp` against the deployed site reports zero CSP violations after the header change
-- [ ] A HEIC photo upload succeeds post-deploy (the guard this canary exists for)
-- [ ] A Mixpanel replay recorded after the deploy plays back with events attached
-- [ ] Privacy policy no longer names LogRocket
+- [x] No live LogRocket integration remains in `src/`, `vercel.json`, `package.json`, `vite.config.ts`
+      — **criterion amended during `/dev`.** As originally written ("grep returns no hits") this was
+      unsatisfiable without deleting comments that explain the P805/P863/P865/P869 incidents, which
+      are the reason the surviving canaries exist. Historical references in comments are intended
+      and were kept; the check is that no import, dependency, CSP host or init call remains.
+- [x] `npm run build` succeeds and the built bundle contains no LogRocket code
+      — verified against `dist/assets/*.js` with a positive control (`mxpnl` present) proving the
+      grep was not blind
+- [x] The p865 canary still passes and still asserts `'wasm-unsafe-eval'` on both `script-src` and
+      `worker-src` — and its failure paths were exercised (re-added host / removed wasm keyword /
+      broken worker-src parity all produce exit 1)
+- [x] Privacy policy no longer names LogRocket, **and session replay is still disclosed** (see below)
+- [ ] `[post-deploy]` `npm run smoke:csp` against the deployed site reports zero CSP violations
+- [ ] `[post-deploy]` A HEIC photo upload succeeds (the guard the canary exists for)
+- [ ] `[post-deploy]` A Mixpanel replay recorded after the deploy plays back with events attached
+
+## Implementation Notes (`/dev`)
+
+**The spec named one canary; there were four.** LogRocket CSP hosts were asserted in
+`p805-csp-connect-src-gcs`, `p863-reproduce`, `p865-csp-logrocket-hosts` and (via the console
+allowlist) `p866-prod-health-redaction`. Only the first was found by grep at spec time — the other
+three surfaced by running the suite. Each carried the host inside a *"these entries must be
+preserved"* list, where it read as a prior-fix regression guard rather than a vendor reference.
+Editing tests is normally forbidden; this is the narrow case where the requirement changed by
+decision rather than the implementation being wrong, so it is called out here rather than left in
+a diff. Every non-LogRocket entry in every list is untouched.
+
+**`p866` got a different fix.** Its assertion exercised `isAllowlisted()` using whatever sat in the
+production allowlist, with the LogRocket entry as the fixture — coupling a test of the *mechanism*
+to the *contents* of a curated list. It now uses an explicit synthetic allowlist, plus a new
+assertion that an empty allowlist allows nothing (the fail-by-default inversion P866 exists to
+prevent, now covered at the boundary the removal created).
+
+**Two dead artifacts removed rather than left green.** The `p553` assertion "LogRocket is not
+initialized before first paint" would have passed vacuously forever once `window.LogRocket` stopped
+existing, and the `PROD_HEALTH_ALLOWLIST` console entries (`'LR-SDK'`, `'LogRocket'`) allow-listed
+nothing reachable — while `'LogRocket'` is a broad substring that would have suppressed any future
+console error containing the word.
+
+**Privacy policy — the removal had a consequence the spec understated.** The LogRocket entries were
+doing double duty as the site's *session-replay disclosure*. Mixpanel was disclosed only as product
+analytics ("tracks events like page views, feature interactions, and user journeys") while recording
+100% of sessions. Deleting the LogRocket lines would have left the recording undisclosed — strictly
+worse than before. Session replay is now attributed to Mixpanel in all four places (legal basis,
+sub-processor list, SCC transfer list, retention).
+
+**[FOUNDER DECISION: Mixpanel session-replay retention period.]** The old text stated LogRocket
+retained replays for 30 days. Mixpanel's replay retention is plan-dependent and was NOT verified,
+so no number was invented — the retention entry now reads "Retained per Mixpanel's data retention
+policy." If a specific figure should appear on a public privacy page, confirm it with Mixpanel and
+replace that line.
 
 ## Related
 

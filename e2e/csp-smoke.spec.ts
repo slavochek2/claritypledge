@@ -1,17 +1,17 @@
 /**
  * CSP deploy smoke (P865) — cross-route, cross-feature.
  *
- * Catches the recurring class of bug where a third-party SDK (LogRocket,
+ * Catches the recurring class of bug where a third-party SDK (Mixpanel,
  * Mixpanel, Sentry) loads a resource from a host that is NOT in our CSP
  * allowlist, so the browser blocks it in production. This is invisible to
  * every static check we run on push:
  *   - The CSP lives in vercel.json response headers, not app code, and the
  *     local Vite dev server never applies it — so localhost smoke sees no CSP.
- *   - Which host the SDK picks is decided at runtime (LogRocket rotates CDN
+ *   - Which host the SDK picks is decided at runtime (a vendor may rotate CDN
  *     hosts to evade ad-blockers), so a build cannot know it.
  * The ONLY reliable catch is loading the DEPLOYED page in a real browser and
  * failing on CSP violations. That is what this spec does. History: P805
- * (connect-src GCS), P863 (worker-src + recorder fetch), P865 (LogRocket CDN
+ * (connect-src GCS), P863 (worker-src + recorder fetch), P865 (a rotating vendor CDN
  * host rotation) — three instances of the same gap.
  *
  * Runs against a deployed URL (prod by default — that is where the headers
@@ -19,7 +19,7 @@
  *   npm run smoke:csp                         # → https://claritypledge.com
  *   CSP_SMOKE_URL=https://<preview> npm run smoke:csp
  *
- * The canary (src/tests/p865-csp-logrocket-hosts.test.ts) locks the hosts we
+ * The canary (src/tests/p865-csp-directives.test.ts) locks the hosts we
  * already know about; this gate discovers hosts we do not.
  */
 import { test, expect } from '@playwright/test';
@@ -34,7 +34,7 @@ const BASE_URL = (process.env.CSP_SMOKE_URL || 'https://claritypledge.com').repl
 // The securitypolicyviolation listener (registered below) captures any block regardless
 // of console wording — the P838-recommended approach over console-scraping. The
 // stabilization poll (pollUntilStable, shared from prod-health.ts) waits out late-init
-// SDKs (LogRocket/Mixpanel behind requestIdleCallback) so a late CSP block isn't missed.
+// SDKs (Mixpanel/Sentry behind requestIdleCallback) so a late CSP block isn't missed.
 const CSP_VIOLATION_RE = /violates the following Content Security Policy|Content Security Policy directive|Refused to (?:load|connect|create)/i;
 
 test.describe('CSP deploy smoke', () => {

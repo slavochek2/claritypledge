@@ -2,7 +2,6 @@ import React from "react";
 import * as ReactDOM from "react-dom";
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
-import LogRocket from "logrocket";
 import "@/lib/mixpanel"; // Initialize Mixpanel + fire test event
 import { sentryBeforeSend, IGNORED_ERROR_PATTERNS } from "@/lib/sentry-filters";
 import { installNavTrace } from "@/lib/nav-trace";
@@ -11,16 +10,6 @@ import "./index.css";
 
 // Initialize Sentry for error tracking (production only)
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
-
-// P553: Defer LogRocket init until after first paint to avoid blocking render
-if (import.meta.env.PROD) {
-  const initLogRocket = () => LogRocket.init("alblur/claritypledge");
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(initLogRocket);
-  } else {
-    setTimeout(initLogRocket, 2000);
-  }
-}
 
 if (sentryDsn && import.meta.env.PROD) {
   Sentry.init({

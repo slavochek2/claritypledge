@@ -4,7 +4,7 @@
  *
  * Tests verify:
  * 1. Lazy-loaded routes render without blank pages (no bad lazy boundaries)
- * 2. Analytics (LogRocket/Mixpanel) are not in the critical evaluation path
+ * 2. Analytics (Mixpanel) are not in the critical evaluation path
  * 3. Preconnect hints exist in HTML head
  * 4. Service worker registration script is deferred
  * 5. Cache headers for hashed assets (vercel.json config)
@@ -64,33 +64,12 @@ test.describe('P553 — Route lazy-loading', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. Analytics deferred loading: LogRocket/Mixpanel not in initial JS evaluation
+// 2. Analytics deferred loading: Mixpanel not in initial JS evaluation
+// (P1216: the LogRocket assertion was removed with the vendor — it could only
+//  have passed vacuously once window.LogRocket no longer exists.)
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('P553 — Analytics deferred loading', () => {
-  test('LogRocket is not initialized before first paint', async ({ page }) => {
-    // Intercept before any JS runs: inject a marker that checks window._lr_loaded / LogRocket
-    // at DOMContentLoaded time (before requestIdleCallback would fire)
-    await page.addInitScript(() => {
-      // Capture state at DOMContentLoaded — before idle callbacks
-      document.addEventListener('DOMContentLoaded', () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).__p553_logrocket_at_domready = !!(window as any).LogRocket?._isInitialized
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          || !!(window as any)._lr_loaded;
-      });
-    });
-
-    await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const logrocketAtDomReady = await page.evaluate(() => (window as any).__p553_logrocket_at_domready);
-    // After P553 implementation, LogRocket should NOT be initialized at DOMContentLoaded
-    // This test documents the DESIRED state. If it fails, LogRocket is still eager.
-    expect(logrocketAtDomReady, 'LogRocket was initialized before DOMContentLoaded — should be deferred').toBe(false);
-  });
-
   test('Mixpanel snippet in index.html does not block rendering', async ({ page }) => {
     // The Mixpanel snippet uses async script loading (k.async = true in the snippet).
     // Verify the external Mixpanel library script tag has async attribute.

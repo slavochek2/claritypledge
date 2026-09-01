@@ -75,8 +75,8 @@ export function PrivacyPolicyPage() {
               <li><strong className="text-foreground">Consent (Art. 6(1)(a) and Art. 9(2)(a))</strong> — For voice recording and ML training.
                 You will be asked for explicit consent via a separate dialog before any recording starts.
                 This consent is separate from accepting these Terms of Service.</li>
-              <li><strong className="text-foreground">Legitimate interest (Art. 6(1)(f))</strong> — For error tracking (Sentry), analytics (Mixpanel),
-                session replay (LogRocket), and service improvement, where our business interests do not
+              <li><strong className="text-foreground">Legitimate interest (Art. 6(1)(f))</strong> — For error tracking (Sentry), analytics and
+                session replay (Mixpanel), and service improvement, where our business interests do not
                 override your fundamental rights and freedoms. You can object to this processing at any time.</li>
             </ul>
           </section>
@@ -186,8 +186,7 @@ export function PrivacyPolicyPage() {
               <li><strong className="text-foreground">Supabase</strong> — Authentication, database hosting, and real-time session sync</li>
               <li><strong className="text-foreground">Vercel</strong> — Website hosting</li>
               <li><strong className="text-foreground">Sentry</strong> — Error tracking and performance monitoring. Collects stack traces and masked session replays when errors occur. Text is masked and media blocked. No personal data sent by default.</li>
-              <li><strong className="text-foreground">Mixpanel</strong> — Product analytics to understand feature usage. Tracks events like page views, feature interactions, and user journeys. Data retained per Mixpanel's policy.</li>
-              <li><strong className="text-foreground">LogRocket</strong> — Session replay for debugging user issues. Records screen interactions (clicks, navigation) with text masking enabled. Production only.</li>
+              <li><strong className="text-foreground">Mixpanel</strong> — Product analytics and session replay. Tracks events like page views, feature interactions, and user journeys, and records screen interactions (clicks, scrolling, navigation) with text masking enabled. Production only. Data retained per Mixpanel's policy.</li>
               <li><strong className="text-foreground">Google Cloud Storage</strong> — Secure storage for audio recordings from Live Meetings. Files encrypted at rest.</li>
               <li><strong className="text-foreground">Web3Forms</strong> — Processes contact form submissions on our About page. Receives only the information you submit.</li>
               <li><strong className="text-foreground">Google Fonts</strong> — Serves typography. Standard font requests, no tracking.</li>
@@ -216,9 +215,8 @@ export function PrivacyPolicyPage() {
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-6">
               <li>Google Cloud Storage (audio recordings) — Uses SCCs, data stored in EU regions where possible</li>
-              <li>Mixpanel (analytics) — Uses SCCs for data transfer</li>
+              <li>Mixpanel (analytics and session replay) — Uses SCCs for data transfer</li>
               <li>Sentry (error tracking) — Uses SCCs for data transfer</li>
-              <li>LogRocket (session replay) — Uses SCCs for data transfer</li>
             </ul>
           </section>
 
@@ -289,7 +287,7 @@ export function PrivacyPolicyPage() {
               <li><strong className="text-foreground">Error logs (Sentry)</strong> — Retained for 90 days, then automatically deleted.</li>
               <li><strong className="text-foreground">Analytics data (Mixpanel)</strong> — Aggregated and anonymized data retained for up to 5 years
                 for trend analysis.</li>
-              <li><strong className="text-foreground">Session replays (LogRocket)</strong> — Retained for 30 days, then automatically deleted.</li>
+              <li><strong className="text-foreground">Session replays (Mixpanel)</strong> — Retained per Mixpanel's data retention policy.</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-4">
               You can request early deletion of your data at any time by contacting{" "}

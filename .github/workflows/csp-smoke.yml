@@ -1,15 +1,15 @@
 name: CSP smoke (prod)
 
 # Loads the deployed strict-CSP routes in a real browser and fails on any CSP
-# violation. Catches the recurring class where a third-party SDK (LogRocket,
+# violation. Catches the recurring class where a third-party SDK (Mixpanel,
 # Mixpanel, Sentry) loads from a host missing from the vercel.json allowlist —
 # invisible to every static check because the CSP lives in response headers and
-# the blocked host is decided at runtime (LogRocket rotates CDN hosts).
+# the blocked host is decided at runtime (a vendor may rotate CDN hosts).
 #
-# Scheduled because LogRocket rotates hosts INDEPENDENTLY of our deploys: prod
+# Scheduled because a CDN-hosted vendor can change hosts INDEPENDENTLY of our deploys: prod
 # can break with no commit from us. The cron run is the active periodic catch;
 # the CSP report-uri → Sentry sink (api/csp-report.ts) is the passive real-user
-# backstop. See src/tests/p865-csp-logrocket-hosts.test.ts for the static canary.
+# backstop. See src/tests/p865-csp-directives.test.ts for the static canary.
 
 on:
   schedule:

@@ -27,6 +27,11 @@
  * which guards the storage.googleapis.com connect-src entry from the same
  * Report-Only → enforce audit gap.
  */
+// P1216 (2026-09): LogRocket was removed entirely (Mixpanel Session Replay + Sentry
+// replay-on-error cover the ground). Its host was dropped from the three
+// "preserved entries" lists below; every other origin is unchanged, and the
+// blob:-worker invariant this file exists for is still live -- the Mixpanel
+// recorder creates blob: workers.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -85,7 +90,7 @@ describe('P863: CSP allows session-replay workers + Mixpanel recorder fetch', ()
     ).toBeTruthy();
   });
 
-  it('worker-src allows blob: (LogRocket + Mixpanel session recorders create blob: workers)', () => {
+  it('worker-src allows blob: (the Mixpanel session recorder creates blob: workers)', () => {
     const csp = getEnforcingCspForRoute(config, '/(.*)');
     const workerSrc = extractDirective(csp!, 'worker-src');
     expect(workerSrc).toBeTruthy();
@@ -117,7 +122,6 @@ describe('P863: CSP allows session-replay workers + Mixpanel recorder fetch', ()
 
     for (const origin of [
       'https://cdn.mxpnl.com',
-      'https://cdn.lr-in-prod.com',
       'https://js.sentry-cdn.com',
     ]) {
       expect(
@@ -151,7 +155,6 @@ describe('P863: CSP allows session-replay workers + Mixpanel recorder fetch', ()
       'https://storage.googleapis.com',
       'https://api-eu.mixpanel.com',
       'https://*.sentry.io',
-      'https://*.lr-in-prod.com',
       'https://api.web3forms.com',
       'https://api.unsplash.com',
     ];
@@ -169,7 +172,6 @@ describe('P863: CSP allows session-replay workers + Mixpanel recorder fetch', ()
       "'self'",
       "'unsafe-inline'",
       'https://cdn.mxpnl.com',
-      'https://cdn.lr-in-prod.com',
       'https://js.sentry-cdn.com',
     ];
     for (const entry of required) {
