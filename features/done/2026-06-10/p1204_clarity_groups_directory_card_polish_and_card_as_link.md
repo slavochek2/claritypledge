@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: sonnet
@@ -12,13 +12,13 @@ tags:
   - p1193
   - organizations
 created_date: 2026-09-01
-delivery_stage: ship
 pipeline_ran: [change-request, dev, verify, ship]
+completed_at: 2026-09-01
 ---
 
 # P1204: Clarity Groups — the deferred card decisions, the card-as-link deviation, and two P1193 scope misses
 
-> **Redesign of:** [P1060: Events belong to an organization](done/2026-06-10/p1060_link_events_to_organizations.md)
+> **Redesign of:** [P1060: Events belong to an organization](p1060_link_events_to_organizations.md)
 > **What was wrong:** Four founder decisions taken in session were recorded in P1193's
 > Non-Goals as "deferred BY CHOICE" and never filed anywhere the board reads, so the
 > founder re-raised all four a day later believing they had been dropped. Separately,
