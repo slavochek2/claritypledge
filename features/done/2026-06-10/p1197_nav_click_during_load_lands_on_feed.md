@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 88
 severity: medium
@@ -9,8 +9,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [navigation, routing, auth, instrumentation]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-09-01
 ---
 
 # P1197: Clicking a nav item while the app is still loading lands the user back on /feed
