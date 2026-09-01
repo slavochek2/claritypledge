@@ -6,6 +6,157 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-01 [product]: The Disagreement Pipeline had no stated objective, so every stage optimised the nearest proxy — and its unit of work was the wrong size
+
+**Context:** `ai-power-remedies` run B filed 4 arguers, 5 points, 14 positions. The founder answered
+every point and agreed with all five; two had no opposition among the arguers at all. The canonical
+contract describes what the pipeline *does* (*"turns public video into a published disagreement a room
+can take positions on"*) and never says what makes a run good. Founder, verbatim: *"do you know what
+we're optimizing for... because then we can reflect on all the skills in our pipeline and see where
+degradation happens."* With no target stated, `prepare` optimised for **apparent polarization**.
+
+**The measured mechanism.** `select` Phase 0 wrote **three** contradiction sentences to carry the
+`CONTESTED` verdict; one carried position went unfilled, so **two of the three lost a pole before any
+point was written**. Nothing re-checked, because **nothing downstream ever reads them** — `grep -in
+"contradiction\|phase_0\|fork"` across `prepare.md`, `positions.md`, `story-draft.md` and `publish.md`
+returns **zero matches in all four**. The pipeline performs its most expensive epistemic work, writes
+the result into the run file, and discards it at the stage boundary.
+
+**Decision:** File P1210. (a) **State the objective** — hand the host, per point, two positions framable
+from published quotes in the time the event contract allows, on something the room does not already
+agree about, such that the per-point re-stake can move — with a ten-row condition table naming which
+stage owns each condition. (b) **Change the unit:** a point is built between a **pair that carries a
+written contradiction**, its own axis must show quote-grounded assert-and-deny, and a
+transcript-discovered axis passes the same test as a predicted one. (c) **Points drive cast size**, not
+the reverse — 5–7 planned, filed at the topic's honest yield, a person added only against a new
+contradiction, with cast-level concentration reported. (d) **One story per (person, point)** — the
+1,496-character digests spanning four unrelated arguments were the symptom; the unit was the cause.
+(e) The **event run-of-show now states where topical points enter**, because the objective was being
+inferred from a document that never said.
+
+**Alternatives rejected:** *A point as a `(sentence, A, B)` triple with the sentence as permanent
+identity* — adversarial review showed it **rejects the strongest split in the reference run** (which
+traces to no pre-written sentence) and **admits points whose sources never argue them**. *Gating on
+"a point no arguer opposes is not a point"* — already rejected 2026-09-01 and not re-proposed. *A loop
+that iterates until polarized* — resolved instead by constraining the **repair**: an unopposed point may
+be dropped or returned to the founder, never reworded until it splits. *Fixed heterogeneity axes* —
+tested against the pair that actually collapsed and **passed them on all four axes**; the contradiction
+sentence is the measurement, demographics are a proxy for it.
+
+**Consequences:** Three kinds of thing were being called "opposition" and two sections prescribed
+opposite verdicts on the same input. Now named separately: **source-fidelity** (do the sources assert
+and deny? — **blocking**, and always was), **predicted-opposition** (the agent's Likert reading —
+**never auto-blocking**, may halt for the founder, may not become an automatic gate until a room has
+answered), **observed-room** (unavailable pre-event). **The supporting evidence is weak and labelled as
+such:** n=5, one run, one author, pairs assigned retrospectively — in this run the three points whose
+pair carried a written contradiction showed more opposition than the two whose pair did not. That is a
+reason to look at the pair before construction, **not a predictor**. Only the AI-safety re-run settles
+it. (Status: proposed)
+
+**References:** `features/p1210_disagreement_pipeline_objective_and_point_unit.md` ·
+`docs/events/clarity-practice-event.md` §Where the pipeline's points enter ·
+`.private/points-runs/ai-power-remedies.run-B.md`
+
+---
+
+## 2026-09-01 [process]: Rewrite a spec when the FRAME changed; revise it when only facts changed
+
+**Context:** P1208 went through two adversarial rounds. Both fixed sentences; neither touched the
+four-workstream skeleton, which was the part that was wrong. A revision inherits structure by default
+because you only edit what someone points at. The document became ~40% archaeology about its own
+errors, and a reader could not separate a live claim from a retracted one without reading both versions.
+Founder: *"instead of revising the spec, maybe we reject the spec and write it again completely new...
+then we don't need to cut and add and change."*
+
+**Decision:** **Rewrite when the frame changed — a different objective, unit, or set of workstreams.
+Revise when only facts changed — a wrong number, a stale path, one false section.** P1208 was rejected
+and rewritten as P1210 under this rule. When P1210 itself was later rejected by review, the same rule
+was applied *against* the instinct to rewrite again: the frame had survived, only claims were
+overstated, so it was revised.
+
+**Alternatives rejected:** *Encode it as a rule file now* — n=1, and a `/change-request` skill already
+covers the adjacent case (a shipped design that was wrong). Recorded here to prove itself first.
+
+**Consequences:** The one real cost of rewriting is losing the predecessor's **dead ends**, so the
+rewrite must carry its rejected alternatives forward explicitly — P1210's *Alternatives Considered*
+holds ten, sourced to P1208. **Measured caveat:** adversarial review of the rewrite found four
+safeguards the predecessor had and the rewrite dropped. Regression is the specific risk of rewriting,
+and the mitigation is to review the rewrite *against the predecessor*, not on its own.
+(Status: proposed)
+
+**References:** `features/p1210_...md` §Alternatives Considered ·
+`features/archive/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md`
+
+---
+
+## 2026-09-01 [process]: Changing a claim without grepping its restatements is how a correction pass introduces more defects than it fixes
+
+**Context:** Three adversarial rounds on one spec. Round 1: REJECT, 8 changes. Round 2: REJECT, 11
+changes — **and two of round 2's four start-blockers were introduced by round 1's own fixes.** A third
+pass, scoped narrowly to *did the fixes introduce contradictions*, found **11 new contradictions, 6
+blocking**. Of those 11, **8 were stale restatements**: a claim changed in one place while the old
+number or phrasing survived in two others — a table relabelled "ten rows" while a checklist still
+required "all nine"; a filing rule corrected in two sections and left stale in the opening paragraph.
+
+**Decision:** **When a claim changes, grep every restatement of it before declaring the fix done** —
+the number, the phrase, and any file that repeats it. Sweep the *live* text, excluding correction notes
+(which legitimately quote the retracted wording). The sweep took ~90 seconds and would have caught 8 of
+11.
+
+**Alternatives rejected:** *Keep running full adversarial rounds until one returns ACCEPT* — that is
+fitting the process to the verdict, the same move the spec under review explicitly rejects
+(*"loosen what counts as polarizing so the existing points pass"*). **The stopping rule adopted instead:
+the named blockers are closed and no correction introduced a new contradiction** — not "a reviewer
+accepted it." *Strip the spec's correction history* — considered and dropped: measured at 3% of lines,
+so archaeology was not the problem; the missing sweep was.
+
+**Consequences:** A narrow verification pass — *did these N changes land, and did they introduce
+contradictions* — is materially cheaper than a full review and targets the failure mode a full review
+does not name. Use it after any large correction pass. Generalises past specs to any edited artifact.
+(Status: proposed)
+
+**References:** three review rounds, `~/.agents/bin/codex-review` ·
+`features/p1210_disagreement_pipeline_objective_and_point_unit.md`
+
+---
+
+## 2026-09-01 [technical]: The media cache has a ledger and it is blind to 5 of 19 artifacts — and a ledger query cannot find a ledger orphan
+
+**Context:** Both complete pipeline runs terminated at a verification blocker. In the second, the
+artifact that would have cleared it had been cached for three days; the founder was offered a paid
+top-up and a human-listening session, both needless. Reconciling `~/.local/share/diarize-store` against
+the ledger at `~/.local/share/agent-store/index.db`: **19 artifacts on disk, 14 in the ledger, 5
+orphans across 4 of 7 sources** — and the source that blocked the run has **1 file on disk, 0 ledger
+rows**. The store's own README had predicted it by count (*"the five transcripts rescued by hand"*).
+
+**Three compounding defects.** (1) The pipeline **inspects a directory instead of asking the tool** —
+it names `ls` on one of four stores, and the unblocking file was in a different one that appears once
+in the whole pipeline, in an unrelated section; the store README states the designed interface
+outright (*"the reuse check lives inside the tool"*). (2) **Hand-placed bytes bypass the ledger write**
+and nothing detects the divergence. (3) The rule that prevents this — *"a blocker must name the
+artifact that would clear it, and that artifact must be looked for before the blocker is reported"* —
+exists in this log and in **0 of the 6 pipeline skill files**.
+
+**Decision:** Cache reuse **asks the owning tool** and reads its verdict; it never lists a store.
+Blocker handling is a **separate operation**: walk the store bytes and **diff against the ledger** —
+which is how the five orphans were found.
+
+**Alternatives rejected:** *"Search all four stores by ledger query"* — **this was written first and is
+circular**: a ledger query cannot find an artifact whose defining property is having no ledger row, so
+the rule reproduced the exact miss it was added to prevent. Caught by adversarial review, not by
+writing it.
+
+**Consequences:** A written rule that never reaches an executable file is not installed — grep the
+consumers before treating a logged rule as in force. **The generalisation:** when an index and the
+bytes it indexes can diverge, an index-only probe returns a false negative that looks like a fact; the
+reconciliation must read the bytes. The external reconcile-and-report command is global tooling and
+remains a named follow-up. (Status: proposed)
+
+**References:** `~/.local/share/agent-store/index.db` · `~/.local/share/diarize-store/README.md` ·
+`features/p1210_...md` §10
+
+---
+
 ## 2026-09-01 [technical]: A liveness heuristic keyed on an optional event hands the failure back its own escape hatch
 
 **Context:** P1196 bounded `/transcribe`'s restart loop at 5 attempts and shipped a visible stopped
@@ -206,6 +357,8 @@ here without anyone running a destructive command at all.
 **Alternatives rejected:** Gating on "a point no arguer opposes is not a point" — it would reject the pipeline's own stated best case (expert unanimity against predicted room dissent, which is precisely what prevents a room pre-sorting by tribe), passes weak `stretch`-driven splits, and is unstable at the small `n` where three of five points sat. Shipped instead as a **diagnostic signal that changes nothing**, promotable to a gate only once room responses exist to calibrate against. Also rejected: a provisional same-vote check inside `prepare` — endogenous, since `prepare` writes the statements, picks who gets inference chains, infers the signs, and rebuilds on failure.
 
 **Consequences:** The structural hole is named: **`prepare` builds points against an unmeasured guess and nothing re-checks them after `positions` measures reality.** The founder proposed closing it with a `prepare`↔`positions` loop; recorded with its trap — a loop that iterates *until polarized* optimises for apparent split and will converge, which is indistinguishable from success and is exactly what a consensus topic would look like. The loop is defensible only if it fits statements to sources rather than to a split, and only if **"these people do not disagree" is a reachable terminal state.** Four founder decisions remain open in P1208, including whether to re-run AI safety with a repaired cast or retire the topic. (Status: proposed)
+
+> **UPDATE 2026-09-01 — P1208 was REJECTED and superseded by P1210** (see the entry above, same date). Two adversarial rounds fixed sentences while its four-workstream frame — the wrong part — survived both. Its evidence and its ten rejected alternatives are carried into P1210; **the open question above is answered: the AI-safety topic is re-run under the new pipeline, as a fresh run rather than a repair.** P1208 is at `features/archive/`.
 
 **References:** [p1208](../features/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md) · [p1190](../features/p1190_arbiter_filter_into_disagreement_pipeline.md) · [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md)
 

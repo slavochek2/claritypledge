@@ -51,14 +51,22 @@ from a topical argument to a dimension is *"not established anywhere"*. The obje
 got P1208 rejected.
 
 **Fixed at the source.** `docs/events/clarity-practice-event.md` §*Where the pipeline's points enter*
-now states the contract explicitly (written 2026-09-01, founder decisions): 5–7 ranked points filed, ~3
-run on the night, **one at a time, each with its own stake and re-stake**, a one-sentence stakeable
-statement read aloud, stories pre-read never read aloud, and ~3 min of framing per point in each side's
-own terms from published quotes. **This spec derives from that section and restates none of it.**
+now states the contract explicitly (written 2026-09-01, founder decisions): points **planned at 5–7 and
+filed at whatever the topic yields**, ~3 run on the night, **one at a time, each with its own stake and
+re-stake**, a one-sentence stakeable statement read aloud, stories pre-read, and ~3 min of framing per
+point in each side's own terms from published quotes. **This spec restates none of that section.**
 
 > **The pipeline's objective: hand the host, per point, two positions framable from published quotes in
 > the time the contract allows, on something the room does not already agree about, such that the
 > per-point re-stake can move.**
+
+**Provenance of that sentence, stated precisely.** Its first half — *two positions, framable, from
+quotes, per point, in the contract's time* — **is** entailed by the event contract. Its second half —
+*something the room does not already agree about*, and *such that the re-stake can move* — is **this
+spec's own bet about what makes the contract's shape work**, not an entailment. The contract asks for
+two framable positions; it does not require the room to divide or to move. **Both halves are stated as
+the objective because a pipeline needs a target; only the first is derived.** §1 copies this paragraph
+into the contract doc along with the objective, so the provenance travels with it.
 
 **Ten** necessary conditions follow — **not six; the first version omitted three whose failure still
 kills an event, mis-assigned the first, and then miscounted the result.** *(Corrected 2026-09-01: the
@@ -117,10 +125,11 @@ P3 traces.** Stated honestly (position values omitted — see *Invariants*; the 
 | Point | Traces to a sentence? | Pair it is built between | That pair has a written contradiction? | Opposition measured |
 |---|---|---|---|---|
 | P3 | **Yes — sentence (a)**, plus a comparison to regulation | LeCun ↔ Bengio | yes, (a) | real; one side directly argued |
+| | *(P3 has a largest-difference tie; the rule's tie-break is stated below and must be re-applied at implementation — this row records the analyst's reading, not the rule's output)* | | | |
 | P5 | **No** — a different proposition | LeCun ↔ Bengio | yes, (a) | strongest in the run; **both** sides directly argued |
 | P4 | **No** | Andreessen ↔ Bengio | **no** — (b) paired Andreessen with the **uncast** arguer | weak: one directly argued vs one inferred |
 | P1 | **No** | Harari ↔ Bengio | **no** — flagged in the run file as likely same-side | **none** |
-| P2 | **No** | no opposed pair | **no** | **none** — every arguer agreed |
+| P2 | **No** | canonical pair derived by the rule below (4 positioned arguers, all same sign) | **no** | **none** — every arguer agreed; the derived pair is same-sign, which is the finding |
 
 **What this supports, stated at the strength the data carries.** The sentence-level claim is **refuted**:
 4 of 5 points do not trace to a sentence, and one of those is the strongest split in the run. What holds is
@@ -139,13 +148,16 @@ sentence, so binding a point to a pre-written sentence would have rejected P5, t
 several arguer positions per point, never a construction pair, so "the pair this point was built
 between" was an analyst judgement. **Rule, applied uniformly and stated before the check runs:** a
 legacy point's canonical pair is the two positioned arguers with the largest absolute difference in
-signed position; ties break toward the pair with the stronger inference-strength labels; a point with
-fewer than two positioned arguers has **no** canonical pair and is scored `UNPAIRABLE`, never assigned
-one. **If applying this rule to run B contradicts the table above, the TABLE is wrong.**
+signed position; ties break toward the pair with the stronger inference-strength labels, and **a tie surviving both
+steps is scored `AMBIGUOUS-PAIR` and reported — never resolved by picking one**; a point with fewer
+than two positioned arguers is scored `UNPAIRABLE`. **A pair is always DERIVED where two positioned
+arguers exist — including when they agree; "no opposed pair" is a RESULT, not an absence of a pair.**
+**If applying this rule to run B contradicts the table above, the TABLE is wrong** — the table is the
+analyst's reading and the rule is the oracle.
 
 **Control that rules out the obvious rival account:** the sole dissenting arguer held a position on all
 five points, so "only one arguer ever disagrees" does not explain it — on P1 that arguer was neutral and
-on P2 they agreed. The **axis** predicts the outcome; cast alone does not.
+on P2 they agreed. The **axis** tracked the outcome in this run; cast alone did not. Tracked, not predicted — see the correction above.
 
 **The mechanism, stated plainly:** `prepare` is free to synthesize a point on any axis. Phase 0's
 expensive contestedness evidence constrains nothing downstream. Two of five points were invented on
@@ -233,7 +245,7 @@ no other section may use the bare word "opposition".)*
 | Predicate | What it asserts | Owner | Consequence — and it is not negotiable per row |
 |---|---|---|---|
 | **SOURCE-FIDELITY** — *does this axis exist in the material?* | One arguer's own quotes assert the proposition; the other's own quotes deny it | `positions`, from verified quotes | **BLOCKING.** No assert-and-deny in the sources ⟹ the point is not filed. This is a claim about what two people said, not about who is right, so it needs no room data |
-| **PREDICTED-OPPOSITION** — *do the agent-derived signed positions land on opposite ends?* | An agent's Likert reading of each arguer | `positions` Step 4 | **NEVER BLOCKING — reported only.** This is the hypothesis `positions.md` calls *"never a finding"*. It may not drop a point, and it may not be promoted to a gate until a room has answered |
+| **PREDICTED-OPPOSITION** — *do the agent-derived signed positions land on opposite ends?* | An agent's Likert reading of each arguer | `positions` Step 4 | **NEVER AUTO-BLOCKING.** Precisely: **it may never cause the pipeline to drop a point or stop a run on its own verdict**, and it may not be promoted to an automatic gate until a room has answered. **It MAY halt for the founder** — the same-vote check does exactly that, and that is not a contradiction: a founder-facing halt hands a human the decision, whereas an auto-block takes it. *(Disambiguated 2026-09-01: an earlier wording said "NEVER BLOCKING", which read as forbidding the same-vote halt that §9 deliberately keeps.)* |
 | **OBSERVED-ROOM** — *did the room actually divide?* | The first stake at the event | the event | Not available pre-event. The only thing that could ever calibrate the row above |
 
 **So §11's "not a gate until room data" binds PREDICTED-OPPOSITION only.** Source-fidelity blocks, and
@@ -499,7 +511,7 @@ instances of it. Restored here, with the reason each existed.**
 | Each added arguer costs provisioning, stories and per-quote verification, never amortised | ACCEPT | It is why the founder rejected ten arguers on 2026-08-27, and why §3 adds a person only against a named new contradiction |
 | A point framed between two arguers the room has not met needs an in-room introduction | ACCEPT | ~30s per point; the headline pair carries most of them |
 | Per-point stories are too thin to comprehend | ACCEPT | Reversible in one stage edit; a room member positions on one point at a time |
-| The objective's conditions 5 and 6 are unmeasurable until an event runs | ACCEPT | Stated as unmeasured rather than proxied. **Do not substitute arguer split for room split** |
+| The objective's conditions **8 and 9** (room divides; something moves) are unmeasurable until an event runs — and condition 7 is unevaluable until the event's time budget is decided | ACCEPT | Stated as unmeasured rather than proxied. **Do not substitute arguer split for room split** |
 | A cast finding discovered *after* Gate 2 has no gate to land on — this run's post-seal correction named the collapse before points were built and the run proceeded | MITIGATE | Add a re-approval path: a post-seal cast finding halts before `prepare` runs |
 | The diarize ledger is blind to 5 of 19 cached artifacts, including the one that blocked run B | MITIGATE | §10 rule 2 (look across all four stores before blocking) holds regardless. The reconciliation fix is global tooling and is explicitly NOT a dependency of this spec |
 | ~~Automating the same-vote choice removes a founder decision point~~ | **VOID** | **The automation was WITHDRAWN — §9.** Its premise (that §2 makes collapse structurally impossible) is false and deleted. This row is kept struck rather than removed so the reversal is visible; the same-vote gate stays founder-facing |
@@ -517,7 +529,7 @@ instances of it. Restored here, with the reason each existed.**
 
 ## Done-When
 
-- [ ] `docs/points-process.md` states the objective and the **ten**-condition table (1a, 1b, 2–9 — checked by row identity, not by count), each condition mapped to a named stage output that a run actually emits — verified by pointing at that output for all nine, not by confirming the prose was copied
+- [ ] `docs/points-process.md` states the objective and the **ten**-condition table (1a, 1b, 2–9 — checked by row identity, not by count), each condition mapped to a named stage output that a run actually emits — verified by pointing at that output for every row (1a, 1b, 2–9), not by confirming the prose was copied
 - [ ] Every point names its pair, the pair's contradiction sentence, and its own axis with the assert/deny evidence for that axis. **Both controls:** a point whose axis has quote-grounded assert AND deny must FILE; one missing either side must be REFUSED. Both verdicts printed
 - [ ] Redundancy check runs its three-fixture control set — two distinct axes (must pass), one proposition twice verbatim (must fail), one proposition reworded (must fail) — with all three verdicts printed. A near-miss that passes means the check is a formatter and its results carry no weight
 - [ ] Re-running the new checks against run B reproduces the corrected table in Problem: **2 of 3 sentences unspanned**; **4 of 5 points trace to no sentence** (P4 and P5 included, not only P1 and P2); and **P1, P2 and P4 sit on pairs carrying no written contradiction**. **The expected verdict is whatever the specified rule produces — if the run disagrees with this line, the LINE is wrong until the rule is shown to be**

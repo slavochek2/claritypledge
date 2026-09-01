@@ -185,7 +185,7 @@ sourced from the published quotes. Not the story, not the reasoning chain — th
 
 **It replaces reading the prepared stories aloud in the room.** Reading three stories and staking six
 topic positions is 10–15 unbudgeted minutes in a schedule that already holds ten blocks. The
-resolution: **topic material can be pre-published; the instrument cannot.** People are interested in
+resolution: **topic material can be pre-published; the instrument is never linked or requested as pre-work.** *(Wording corrected 2026-09-01 — this read "the instrument cannot" be pre-published, which is false: the instrument's Points are already public. The boundary is pre-work, not publication.)* People are interested in
 the topic, so the disagreement can be published in advance and linked from the listing as *"here's what
 we'll argue"* — promotion, zero obligation, **no staking asked for before the night**. The instrument
 is different: *"the cmp and cmp7 and cmp3 etc.. this is genuinely part of the event."*
@@ -210,8 +210,11 @@ infrastructure so people can vote and then we can create it on any topic very, v
 didn't. We need to run it."*
 
 **This is a seeding exception, not a redefinition.** The forum's open-forum origin stands as the target
-state; event #1 is how a room comes to exist that can exercise it. **Block 6's closing shortlist is the
-bridge** — a paper vote on the next event's topic, which is the room beginning to bring it.
+state; event #1 is how a room comes to exist that can exercise it. **The closing shortlist is the
+bridge** — a paper vote on the next event's topic, which is the room beginning to bring it. It sits in
+the **Close, after the CTA** (`p1161` §The sequence, step 6), **not** inside block 6, which since
+2026-09-01 is the topical argument loop. *(Corrected 2026-09-01: this read "Block 6's closing
+shortlist", which placed it in the wrong block.)*
 
 Block 6's challenge is rewarded with a **rotating bell** — whoever asks rings it, and passes it on
 when they miss. Mechanic, who rings it when you are absent, and why nothing is counted in the app:
