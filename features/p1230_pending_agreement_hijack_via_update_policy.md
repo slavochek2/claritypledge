@@ -116,13 +116,15 @@ path and gives no error message naming the rule; the trigger is explicit. Either
 
 ## Acceptance Criteria
 
-- [ ] `e2e/integration/p1230-pending-agreement-hijack.spec.ts`: 3 failed / 6 passed on TEST before
-      the migration, 9 passed after (the stranger-hijack test is green before on test only because
-      of the out-of-band policy — it is red against the prod predicate)
-- [ ] Controls pass: creator cancels, creator resends, partner terminates, invitee accepts via RPC,
+- [x] `e2e/integration/p1230-pending-agreement-hijack.spec.ts`: 3 failed / 6 passed on TEST before
+      the migration (anon silent 0-row update; creator reassigned `partner_profile_id`; partner
+      reassigned `creator_profile_id`), 9 passed after (`d011deda`). The stranger-hijack test is
+      green before on test only because of the out-of-band policy — red against the prod predicate
+- [x] Controls pass: creator cancels, creator resends, partner terminates, invitee accepts via RPC,
       party lazily expires
-- [ ] `anon` UPDATE on the table returns 42501 (grant), not a silent 0-row update
-- [ ] Migration's `DO` block passes on TEST; `pre-commit-checks.sh` green
-- [ ] `.private/docs/security-log.md` carries the exact predicate
+- [x] `anon` UPDATE on the table returns 42501 (grant), not a silent 0-row update
+- [x] Migration's `DO` block passed on TEST; `pre-commit-checks.sh` green on `d011deda`
+      (TypeScript ✓ ESLint ✓ Build ✓ Tests ✓, client-safety + RLS scoping + migration-applied gates)
+- [x] `.private/docs/security-log.md` carries the exact predicate (§ 2026-09-01 "P1230 built in w21")
 - [ ] **Founder step:** migration applied to prod; then a stranger PATCH of `partner_profile_id`
       on a pending fixture returns 0 rows / 42501 on prod
