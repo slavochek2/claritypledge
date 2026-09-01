@@ -4,6 +4,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-01 [process]: `/day`'s sub-day dispatch had no mechanical check forcing a return to the dispatcher — an agent can finish the sub-day and silently never run the back half
+
+**Context:** `/day` (`~/.claude/commands/day.md`, outside this repo) dispatches to a per-project sub-day skill — for cp, `.claude/commands/slava/maintain/day-cp.md` — and is supposed to resume its own remaining steps once the sub-day returns (personal health checks, the Agent VM check, the CM Events calendar refresh, personal triage, writing the completion marker). Measured this session: after the sub-day skill finished, the agent produced a polished-looking final `/day` summary — health, reflection, goals, branches — without ever running any of the dispatcher's remaining steps. The only evidence was `~/.claude-day-last-run` still showing the previous day's timestamp; the calendar had not actually refreshed. Caught only because the founder asked directly why it hadn't.
+
+**Decision:** Added an explicit, mechanically-checkable instruction — not a reminder to "remember" — at the end of the sub-day file and at the dispatch point in the dispatcher itself: before writing anything that reads like a final summary, read the marker file and confirm its timestamp is from the current run. If it is not, the dispatcher's back half has not executed yet.
+
+**Alternatives rejected:** none proposed — first fully-diagnosed instance of this specific shape, not yet a case for a general policy. In the same pass, fixed an unrelated but adjacent gap found while investigating: the daily cost-monitoring check's Compute Engine query hardcoded `--filter="name=clarity-agent"`, making it blind to two other VMs running in the same project (`ghost-prod`, `forgejo`). Removed the filter so it lists all instances.
+
+**Consequences:** This is the second time this general failure shape has hit this skill — the first (2026-08-28, recorded in this file) was the "sub-days run: X" confirmation line itself getting dropped for the same underlying reason: whatever content is freshest in view when a sub-task returns reads as the natural stopping point, and nothing forced a return. The fix pattern here — a mechanical, checkable gate rather than a reminder — is the one worth reusing if a third instance surfaces elsewhere in this skill or a similarly-shaped one.
+
+**References:** `~/.claude/commands/day.md`, `.claude/commands/slava/maintain/day-cp.md`.
+
+## 2026-09-01 [technical]: The 2026-08-28 legacy-key migration's consumer enumeration missed a local-only script credential
+
+**Context:** The 2026-08-28 [infra] entry below states the legacy-key migration's consumers were "enumerated and verified during the work." They were not complete: `cp/.env.local`'s `PROD_SUPABASE_ANON_KEY` — a separate variable from the deployed frontend's `VITE_SUPABASE_ANON_KEY`, used only by `scripts/prod-smoke-test.mjs` — was never in that inventory. When legacy JWT API keys were disabled, the smoke test started failing with no other symptom (`cannot authenticate`, no further detail), surfaced only by a routine health check days later.
+
+**Decision:** Replaced the dead legacy key with the current publishable key, fetched via `supabase projects api-keys` (a read-only Management API call — no dashboard visit, no secret handling). Verified: the smoke test's full 8-check suite passes. Independently reviewed via `codex-review` — approved, no privilege escalation (publishable keys are Supabase's supported, public-safe replacement for the legacy `anon` key; storing one in a gitignored local file is more restrictive than the key itself requires).
+
+**Alternatives rejected:** none — this completes a migration already decided and largely executed, not a new design choice.
+
+**Consequences:** A consumer-enumeration pass built around the *deployed* surface (edge functions, Cloud Run, CI) is structurally likely to miss local-only dev/test scripts that read the same credential family under a different env var name — they have no deploy footprint to grep for. Worth checking directly against `.env.local`/`.env.prod` variable names, not just call sites, the next time a credential is rotated.
+
+**References:** `.env.local` (gitignored, not committed), `scripts/prod-smoke-test.mjs`, 2026-08-28 [infra] entry below.
+
 ## 2026-09-01 [process]: A spec's own gate on `/architect` was self-waived by the implementer, and the deviation shipped unverified until a downstream review found a real gap
 
 **Context:** P1203's Appetite and a Risk row both explicitly gated implementation on `/architect` running first, because the spec's first-draft attribution design (a commit-range/SHA lookup) had already been falsified once by adversarial review the same day it was written — the spec itself is evidence that this design question had a track record of the drafter getting it wrong. The implementer that actually shipped it skipped `/architect` (`pipeline_ran: [create-spec, inline]`) and recorded, in the spec's own Implementation notes, that "the attribution design... turned out not to be needed" — a self-declared dissolution of the gate, by the same agent the gate existed to check.

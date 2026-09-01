@@ -102,7 +102,7 @@ echo "=== CLOUD ==="
 if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | grep -q .; then
   echo "GCLOUD_NOT_AUTHENTICATED"
 else
-  gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)" 2>/dev/null || echo "gcloud unavailable"
+  gcloud compute instances list --format="value(name,status,zone)" 2>/dev/null || echo "gcloud unavailable"
 fi
 echo -n "ghost_status="
 curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
@@ -798,3 +798,28 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
   paths, no home-directory state files, no personal accounts or balances. If a new morning
   check is personal, it belongs in `~/.claude/commands/day.md` instead. `pre-commit-checks.sh`
   enforces the path half of this mechanically (pp p48); the judgement half is yours.
+
+## This file's Due Board is NOT the end of /day — return to the dispatcher
+
+Six dispatcher steps in `~/.claude/commands/day.md` still have not run when you reach the
+end of this file: Step 2 (GCP credits + AI keys), Step 3 (Agent VM), Step 4 (assemble +
+print the HEALTH block from this file's rows plus the dispatcher's own), Step 8 (CM Events
+refresh — unconditional, always invoked), Step 8.5 (personal triage surface), and Step 11
+(write `~/.claude-day-last-run`). Do not stop after this file's Due Board.
+
+**This is the single highest-probability failure mode of the whole `/day` skill, and it has
+already happened.** This file's own content is what is freshest in view right as it ends,
+its Due Board reads as a natural stopping point, and nothing before this note forced a
+return. Measured 2026-09-01: an agent ran this file in full, produced a polished final
+`/day` summary covering health, reflection, goals and branches, and never touched Steps 2,
+3, 4 (as the dispatcher's own block), 8, 8.5, or 11 — `~/.claude-day-last-run` sat stale
+with yesterday's timestamp as the only evidence anything was skipped, discovered only when
+the founder asked directly why the calendar hadn't refreshed.
+
+**Before writing anything that reads like a final `/day` summary, run:**
+```bash
+cat ~/.claude-day-last-run
+```
+If that timestamp is not from the current run (Step 11 writes it last, unconditionally),
+the dispatcher's back half has not executed yet — go run it now, in this same conversation,
+before concluding anything.
