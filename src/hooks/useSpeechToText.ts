@@ -119,6 +119,11 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartAttemptsRef = useRef(0);
   // P1213: whether the session that is ending did any real work. See onend.
+  // Adversarial review (P1213): onstart is NOT guaranteed to fire. On permission
+  // denial the browser goes straight to onerror + onend, leaving sessionStartedAtRef
+  // at its initial 0 — and `Date.now() - 0` is a ~1.7e12ms "session" that read as
+  // productive and reset the budget forever, restoring the very bug this fix closes.
+  const sessionActiveRef = useRef(false);
   const sessionStartedAtRef = useRef(0);
   const sessionGotResultRef = useRef(false);
 
@@ -151,11 +156,16 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
       // unbounded, liveTextStopped unreachable, and the room's only recovery control
       // — which renders solely in the stopped state — impossible to show. The reset
       // moved to onend, where the session's actual outcome is known.
+      sessionActiveRef.current = true;
       sessionStartedAtRef.current = Date.now();
       sessionGotResultRef.current = false;
       setIsListening(true);
       setError(null);
       setLiveTextStopped(false);
+      // Adversarial review (P1213): a new session invalidates the previous session's
+      // error. Left uncleared, a transient throw that self-healed minutes ago stayed
+      // on screen as the stated cause of a later, unrelated outage.
+      setLastRecognitionError(null);
       console.info('[speech] recognition started');
     };
 
@@ -172,9 +182,12 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
         }
       }
 
-      if (finalTranscript || interim) {
-        // P1213: proof the session is really hearing the mic, whichever kind of
-        // result it was. This is what earns the restart budget back in onend.
+      if (finalTranscript) {
+        // P1213, tightened by adversarial review: FINAL only. Interim text never
+        // leaves the browser (DW-4) and never enters `transcript`, so a session that
+        // emitted a stray interim and died put nothing on anyone's screen. Counting
+        // it as productive kept the budget alive while the room stayed empty — the
+        // churn this fix exists to end.
         sessionGotResultRef.current = true;
       }
 
@@ -244,13 +257,25 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
       // or it stayed open long enough to be a normal silence timeout) resets the
       // budget. An instant, wordless one is churn and leaves the budget alone, so
       // RESTART_MAX_ATTEMPTS is actually reachable and the failure surfaces.
-      const durationMs = Date.now() - sessionStartedAtRef.current;
-      const productive = sessionGotResultRef.current || durationMs >= PRODUCTIVE_SESSION_MS;
+      const started = sessionActiveRef.current;
+      sessionActiveRef.current = false;
+      const durationMs = started ? Date.now() - sessionStartedAtRef.current : 0;
+      const productive =
+        started && (sessionGotResultRef.current || durationMs >= PRODUCTIVE_SESSION_MS);
       if (productive) restartAttemptsRef.current = 0;
+
+      // Adversarial review (P1213): the churn case fires NO onerror and throws
+      // nothing, so nothing else ever names it. Without this the stopped-state banner
+      // rendered with no error at all — on the one failure this whole fix exists to
+      // make diagnosable on-device. Name it, and carry the evidence.
+      if (started && !productive) {
+        setLastRecognitionError(`no-audio (session ended after ${durationMs}ms with no words)`);
+      }
 
       console.info(
         `[speech] recognition ended after ${durationMs}ms ` +
-        `(heard=${sessionGotResultRef.current}, productive=${productive}, ` +
+        `(started=${started}, heard=${sessionGotResultRef.current}, ` +
+        `productive=${productive}, ` +
         `attempts=${restartAttemptsRef.current})`,
       );
       scheduleRestart();
