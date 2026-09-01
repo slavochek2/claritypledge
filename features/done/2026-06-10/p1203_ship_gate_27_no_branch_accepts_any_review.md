@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 92
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [tooling, ship, process, gates]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-09-01
 ---
 
 # P1203: Gate 2.7's no-branch arm accepts anyone's review, so direct-to-main work ships unreviewed
