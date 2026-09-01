@@ -22,9 +22,9 @@ import {
   ACCEPTED_TERMS_VERSIONS as CLIENT_ACCEPTED,
 } from '@/lib/constants';
 
-const SERVER_ACCEPTED_request_letter_response_signin = ['v1.3'] as const;
-const SERVER_ACCEPTED_create_and_open_letter = ['v1.3'] as const;
-const SERVER_ACCEPTED_create_and_sign = ['v1.3'] as const;
+const SERVER_ACCEPTED_request_letter_response_signin = ['v1.3', 'v1.4'] as const;
+const SERVER_ACCEPTED_create_and_open_letter = ['v1.3', 'v1.4'] as const;
+const SERVER_ACCEPTED_create_and_sign = ['v1.3', 'v1.4'] as const;
 
 const SERVER_ALLOWLISTS = [
   ['request-letter-response-signin', SERVER_ACCEPTED_request_letter_response_signin],

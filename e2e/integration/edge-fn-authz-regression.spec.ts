@@ -481,7 +481,7 @@ test.describe('Edge-fn authz regression — create-and-sign already-processed gu
       agreementId,
       token: invitationToken,
       partnerName: 'AuthzReg Partner',
-      termsVersion: 'v1.3', // must be in ACCEPTED_TERMS_VERSIONS or a 400 fires first
+      termsVersion: 'v1.4', // must be in ACCEPTED_TERMS_VERSIONS or a 400 fires first
     });
 
     // Guard: agreement.status !== 'pending' → 409 ALREADY_PROCESSED. This is the

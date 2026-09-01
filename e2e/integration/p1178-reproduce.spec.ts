@@ -43,7 +43,7 @@ const MAILGUN_REGION = process.env.MAILGUN_REGION ?? 'eu';
 const ACCEPTED_SUBJECT_SUFFIX = 'co-signed your Clarity Partner Agreement';
 
 /** Terms version create-and-sign accepts (index.ts ACCEPTED_TERMS_VERSIONS). */
-const TERMS_VERSION = 'v1.3';
+const TERMS_VERSION = 'v1.4';
 
 function fnUrl(name: string): string {
   return `${SUPABASE_URL}/functions/v1/${name}`;

@@ -147,7 +147,7 @@ test.describe('Canary P880: authenticated user cannot self-promote is_verified /
       name: victim.name,
       slug: victim.slug,
       avatar_color: '#4A90E2',
-      accepted_terms_version: 'v1.3',
+      accepted_terms_version: 'v1.4',
       is_verified: true,
       has_pledged: true,
     });

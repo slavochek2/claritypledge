@@ -218,7 +218,7 @@ export async function createTestUser(options: {
     // Defaults that upsert_my_profile applied server-side; set explicitly to keep the
     // row identical to the pre-P1043 baseline.
     pledge_version: 2,
-    accepted_terms_version: 'v1.3', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
+    accepted_terms_version: 'v1.4', // Skip terms dialog in E2E tests (keep in sync with CURRENT_TERMS_VERSION)
     banner_generation_attempted: false,
     // The verified + pledged baseline createTestUser has always produced. Previously
     // reached via mark_self_verified() then set_my_pledge(); both required the user's JWT.
