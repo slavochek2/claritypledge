@@ -2,7 +2,7 @@
 name: promote-groups
 description: "Post an event blurb into the mapped WhatsApp/Telegram group chats via Beeper"
 when_to_use: "After the event is published, to share into recurring group chats. Reads group mapping from .private/event-channels.json"
-version: 1.6.0
+version: 1.7.0
 ---
 
 # Promote Event into Group Chats
@@ -229,11 +229,37 @@ For each eligible group (in config order):
 
 **a. Verify — positive confirmation only (fail-closed):**
 
-Call Beeper `get_chat` on the chatID. The send proceeds **only if ALL of the following hold**:
+Call Beeper `get_chat` on the chatID. **The loaded `get_chat` tool returns rendered markdown, not
+JSON** — measured live from 27+ real transcript samples (2026-09-03), consistently shaped:
+
+```
+## <chat title> (chatID: <id>)
+Chat on <Platform label> (<platform-key>) with <participants>. It has N unread messages.
+**Type**: group
+**Last Activity**: <ISO8601>
+
+# Using this information
+...
+```
+
+There is no `isGroup` boolean and no `chat.network` field on this tool — do not assert on either.
+Parse the markdown instead. The send proceeds **only if ALL of the following hold**:
 - The call returned a non-error result (no error, no timeout, no empty response)
-- `isGroup === true`
-- `chat.network` equals `group.platform` (exact match — `whatsapp` ≠ `telegram`)
-- The live display name equals `group.verified_name` after **both** are Unicode-normalized to NFC, lowercased, and trimmed. (NFC normalization is mandatory — emoji/flag names like `🇨🇭🇩🇪🇦🇹Chiang Mai🇨🇭🇩🇪🇦🇹` and `Español Mai? 🌯🌮` can arrive in a different normalization form than the config literal, which would fail an unnormalized `===` and silently drop the group on every run.)
+- The `**Type**:` line reads exactly `group` (not `single`)
+- The `Chat on <Platform label> (<platform-key>)` line has a parenthetical platform key
+  immediately after the label, and that key — lowercased — equals `group.platform` (exact match —
+  `whatsapp` ≠ `telegram`). Native Beeper/Matrix chats render as `Chat on Beeper (Matrix)`, which
+  fails this check against `whatsapp`/`telegram` targets by design — that's a correct fail-closed
+  outcome, not a bug. If the `Chat on ...` line has no parenthetical key at all, treat the platform
+  check as failed (never assume a match from an absent key).
+- The chat title — everything between `## ` and ` (chatID:` on the first line — equals
+  `group.verified_name` after **both** are Unicode-normalized to NFC, lowercased, and trimmed.
+  (NFC normalization is mandatory — emoji/flag names like `🇨🇭🇩🇪🇦🇹Chiang Mai🇨🇭🇩🇪🇦🇹` and
+  `Español Mai? 🌯🌮` can arrive in a different normalization form than the config literal, which
+  would fail an unnormalized `===` and silently drop the group on every run.) A chat with no set
+  name renders its title as a synthesized participant list (e.g. `Bella, Charlotte, Derk & 6
+  others`) instead of a real name — that will not equal any real `verified_name` and correctly
+  fails closed.
 
 If **any** check fails or the result is ambiguous:
 - Skip this group. Flag as `verify_unavailable` (call failed/empty/timeout) or `verify_needed` (call succeeded but assertion failed).
