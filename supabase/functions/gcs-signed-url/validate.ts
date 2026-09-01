@@ -2,7 +2,7 @@
  * P1223 (G6): pure input validation for gcs-signed-url. No Deno / network — unit-testable.
  *
  * The client (src/app/data/api.ts getSignedUploadUrl) sends one of two `sessionCode` shapes:
- *   1. a bare clarity_sessions code            — `ABC234`            (uploadAudioChunk & co.)
+ *   1. a bare clarity_sessions code            — `ABC234`            (uploadSingleChunk & co.)
  *   2. a room-scoped prefix (P1149 A3)          — `rooms/ABC234/alex-<memberId uuid>`
  *      built by buildRoomAudioPathSegments(); the `<who>` part is the sanitised display
  *      name (`[a-z0-9-]`, possibly empty) joined with the transcribe_room_members.id.
@@ -45,3 +45,43 @@ export function isValidFileName(fileName: unknown): fileName is string {
 export function isValidContentType(contentType: unknown): contentType is string {
   return typeof contentType === 'string' && CONTENT_TYPE_RE.test(contentType);
 }
+
+/**
+ * Extension ↔ content-type binding (Codex review, P1223): `.json` may only be declared as
+ * `application/json` and `.webm` only as a permitted `audio/*`. Without this a caller can
+ * store an `audio/*`-typed blob under `events.json` (or JSON under a `.webm` key) and the
+ * downstream reader trusts whichever of the two it looks at first.
+ */
+export function isConsistentFileType(fileName: string, contentType: string): boolean {
+  if (fileName.endsWith('.json')) return contentType === 'application/json';
+  if (fileName.endsWith('.webm')) return contentType.startsWith('audio/');
+  return false;
+}
+
+// Object names the /live client produces under `sessions/<code>/` (api.ts: uploadSingleChunk,
+// uploadAudioChunk, uploadEventsSnapshot, uploadSessionRecording), with the optional P809
+// `_dev_` prefix. `events.json` carries no participant segment — it is the session-level
+// events file that EITHER participant may (over)write.
+const DEV_PREFIX = '_dev_';
+const SESSION_OWNED_RE = /^(.+?)(?:_chunk_\d{3}\.webm|\.webm|_events_\d{3}\.json)$/;
+const SESSION_SHARED_RE = /^events\.json$/;
+
+export type SessionObject =
+  | { kind: 'owned'; owner: string }
+  | { kind: 'shared' };
+
+/**
+ * Splits a /live object name into its owner segment. `null` = not a shape the /live client
+ * produces (even if it passes FILE_NAME_RE), and is rejected.
+ */
+export function parseSessionObject(fileName: string): SessionObject | null {
+  const bare = fileName.startsWith(DEV_PREFIX) ? fileName.slice(DEV_PREFIX.length) : fileName;
+  if (SESSION_SHARED_RE.test(bare)) return { kind: 'shared' };
+  const m = SESSION_OWNED_RE.exec(bare);
+  if (!m || !m[1]) return null;
+  return { kind: 'owned', owner: m[1] };
+}
+
+// Under `rooms/<code>/<who>-<memberId>/` the client (uploadRoomAudioChunk) only ever writes
+// `chunk_NNN.webm` — the member identity already lives in the prefix, so no name segment.
+export const ROOM_FILE_NAME_RE = /^(?:_dev_)?chunk_\d{3}\.webm$/;

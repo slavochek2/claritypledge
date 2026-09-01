@@ -2928,6 +2928,9 @@ export function subscribeToLiveTurns(
 
 import type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
 import { devRecordingFilenamePrefix } from '@/lib/dev-recording';
+// P1223: shared with the gcs-signed-url edge function — the server re-derives this name to
+// decide whether a requested object belongs to the caller, so the two sanitisers must be one.
+import { sanitizeParticipantName } from '../../../supabase/functions/_shared/participant-name.ts';
 
 // Re-export types for convenience
 export type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
@@ -3111,11 +3114,7 @@ export async function uploadAudioChunk(
   isLastChunk: boolean,
 ): Promise<void> {
   // Sanitize username for filename
-  const sanitizedName = userName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const sanitizedName = sanitizeParticipantName(userName);
 
   // Zero-pad chunk number (e.g., 001, 002, ...)
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
@@ -3177,11 +3176,7 @@ export async function uploadSingleChunk(
   chunkBlob: Blob,
   chunkNumber: number,
 ): Promise<void> {
-  const sanitizedName = userName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const sanitizedName = sanitizeParticipantName(userName);
 
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
   const devPrefix = devRecordingFilenamePrefix(); // P809
@@ -3207,11 +3202,7 @@ export async function recordChunkUploadComplete(
   chunkCount: number,
   durationMs: number,
 ): Promise<void> {
-  const sanitizedName = userName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const sanitizedName = sanitizeParticipantName(userName);
 
   const devPrefix = devRecordingFilenamePrefix(); // P809
   const { error: dbError } = await supabase.from('ml_training_sessions').insert({
@@ -3246,11 +3237,7 @@ export function buildRoomAudioPathSegments(
   participantName: string,
   memberId: string,
 ): { gcsPathPrefix: string; sanitizedParticipant: string } {
-  const sanitizedParticipant = participantName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const sanitizedParticipant = sanitizeParticipantName(participantName);
   // memberId disambiguates same/similar display names in one room — the sanitized name
   // alone collided (two "Alex"es, or differently-cased names sanitizing identically),
   // silently overwriting each other's uploaded chunks.
@@ -3342,11 +3329,7 @@ export async function uploadEventsSnapshot(
   const sessionStartedAt = collector.getStartTime();
 
   // Sanitize username for filename (same pattern as audio chunks)
-  const sanitizedName = userName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const sanitizedName = sanitizeParticipantName(userName);
 
   // Zero-pad chunk number to match audio chunks (e.g., 000, 001, 002)
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
@@ -3403,11 +3386,7 @@ export async function uploadSessionRecording(
   metadata: SessionMetadata,
 ): Promise<void> {
   // Sanitize username for filename (replace spaces and special chars)
-  const sanitizedName = userName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const sanitizedName = sanitizeParticipantName(userName);
 
   // Skip upload entirely when there's no meaningful data (0 events + no audio)
   if (events.length === 0 && audioBlob.size === 0) {

@@ -11,9 +11,11 @@ const GCS_CLOUD_FUNCTION_URL = Deno.env.get('GCS_CLOUD_FUNCTION_URL')
 
 // ── Entry point ──────────────────────────────────────────────────────────────
 // P1223 (G6): the JWT check alone let any signed-in user mint an upload URL under ANY
-// session's or room's GCS prefix. The handler now resolves the named prefix with the
-// service client and requires the caller to be a participant (clarity_sessions) or the
-// named member (transcribe_room_members) before forwarding. See handler.ts / validate.ts.
+// session's or room's GCS prefix, and a participant could mint one for the OTHER
+// participant's object names. The handler now resolves the named prefix with the service
+// client, requires the caller to be a participant (clarity_sessions) or the named member
+// (transcribe_room_members), and requires the object name to carry the caller's own
+// sanitised name before forwarding. See handler.ts / validate.ts.
 
 Deno.serve((req: Request) =>
   handleGcsSignedUrl(req, {
@@ -26,18 +28,31 @@ Deno.serve((req: Request) =>
       return error || !user ? null : user.id;
     },
 
-    getSessionParticipants: async (code) => {
+    getSession: async (code) => {
       const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data, error } = await serviceClient
         .from('clarity_sessions')
-        .select('creator_profile_id, joiner_profile_id')
+        .select('creator_profile_id, joiner_profile_id, creator_name, joiner_name')
         .eq('code', code)
         .maybeSingle();
       if (error || !data) return null;
       return {
         creatorProfileId: data.creator_profile_id ?? null,
         joinerProfileId: data.joiner_profile_id ?? null,
+        creatorName: data.creator_name ?? null,
+        joinerName: data.joiner_name ?? null,
       };
+    },
+
+    getProfileName: async (userId) => {
+      const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data, error } = await serviceClient
+        .from('profiles')
+        .select('name')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error || !data) return null;
+      return data.name ?? null;
     },
 
     getRoomMembership: async (memberId) => {
