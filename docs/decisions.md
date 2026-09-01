@@ -4,6 +4,82 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-01 [process]: `git-ops.sh ship pN` closes pN — so landing partial work under a live bug's number silently marks it done
+
+**Context:** The overnight-run triage was a partial contribution to P1043 (a live bug spec with
+~600 failures still undiagnosed). Landing it used `git-ops.sh ship p1043`, the documented merge path
+for a `feature/pN-*` branch. It cherry-picked correctly — and then appended a `chore: close p1043`
+commit that set `status: all-done`, stamped `completed_at`, and moved the spec into
+`features/done/2026-06-10/`. Nothing warned; the ship output read as success.
+
+**Decision:** Treat "which P-number do I branch under?" as a **closure decision, not a label**.
+Before shipping under pN, ask whether pN is finished. If it is not, either ship under a new
+P-number for the sub-piece, or expect to reopen pN in the same session.
+
+**Alternatives rejected:** Not using `ship` (it is the only path that serializes against a
+concurrent ship, and hand-merging on the shared main checkout is the documented worse option).
+Leaving the spec closed and "reopening later" (a closed spec leaves the kanban board, so later
+never arrives).
+
+**Consequences:** Reopening is a `git mv` back out of `done/` plus a frontmatter revert — and the
+relative links break in both directions, because the file moves between two directory depths and
+`ship` rewrites them on the way in. The doc-link gate catches that, which is the only reason the
+reversal was clean. `Status: proposed` — a guard in `ship` that refuses (or prompts) when the target
+spec's own Done-When boxes are unticked would remove the decision entirely; not built.
+
+**References:** [features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md](../features/p1043_repair_e2e_tests_rotted_while_suite_uncollectable.md)
+
+## 2026-09-01 [process]: A supersession sweep has to walk the chain from both ends — `superseded_by:` and `predecessor:`
+
+**Context:** Classifying 1,624 E2E failures, a sweep read each failing spec's own frontmatter for
+`status: rejected` and `superseded_by:` and reported **536 failures** from dead specs. That number
+was published to the founder. It was wrong: a supersession can be recorded **only on the successor's
+side** — `p502` carries `predecessor: p458` while P458's own spec still reads `status: all-done`
+with no marker at all. The sweep was structurally blind to it and silently classified 44 failures
+across 5 files as "live spec". Correct figure: **580**.
+
+**Decision:** Any "is this spec still live?" check must union three signals — the spec's own
+`status:`, its own `superseded_by:`, and **any other spec naming it in `predecessor:`**. One-sided
+reads are false-negative machines, and the failure is invisible: the sweep returns a plausible
+number rather than an error.
+
+**Alternatives rejected:** Requiring authors to backfill `superseded_by:` on the predecessor
+(depends on discipline at the moment of supersession, which is exactly when nobody does it).
+
+**Consequences:** The gap was found by a triage subagent, not by the sweep or by its author. That
+is the shape to notice: the sweep's own result looked reasonable, so nothing about it invited a
+check. `Status: proposed` — no shared helper exists for "is pN superseded"; each caller re-implements
+it and can re-introduce the same blind spot.
+
+**References:** [docs/technical/e2e-triage-2026-09-01.md](technical/e2e-triage-2026-09-01.md)
+
+## 2026-09-01 [technical]: `ON DELETE CASCADE` is a declaration, not evidence — count the rows before believing cleanup works
+
+**Context:** `e2e/point-position-persistence.spec.ts` creates a fixture point whose
+`first_validator_id` FK is `ON DELETE CASCADE`, and its `afterEach` deletes the test user. By
+declaration, the point goes with the user. A read-only count against the test project found **110
+rows** carrying that fixture's exact statement. Widened: **3,481 points on the test project, 2,107
+(61%) with test-shaped statements**; 5,268 profiles. A control statement that cannot exist returned 0,
+so the counts discriminate.
+
+**Decision:** Never treat a declared cleanup mechanism — FK cascade, `afterEach`, teardown helper —
+as evidence that rows are gone. Count them. The declaration and the outcome are independent facts,
+and only one of them is observable.
+
+**Alternatives rejected:** Reading the teardown code more carefully (it looks correct; the cascade
+*is* declared, which is precisely why reading it produces false confidence).
+
+**Consequences:** A suite running against a database that is 61% fixture debris is not measuring
+what it believes. Every assertion locating an element by fixture text is exposed — and so is every
+`.first()` added to paper over an earlier collision. This also explains a failure shape a per-file
+pass could not: the same locator failing with **2+ matches** in one test and **0 matches** in
+another, irreconcilable under any rendering theory, exactly what an arbitrary subset of 110
+identically-worded rows produces. Second-order: fixture text must be unique per run
+(`${Date.now()}`), which the repo does elsewhere and this file did not. Truncating the shared test
+project is destructive and remains a founder decision.
+
+**References:** [docs/technical/e2e-triage-2026-09-01.md](technical/e2e-triage-2026-09-01.md)
+
 ## 2026-09-01 [technical]: A Playwright run reuses whatever dev server is already up — and its `webServer.env` block is then never applied
 
 **Context:** An unattended overnight E2E run was built to redirect the app at an ephemeral local
