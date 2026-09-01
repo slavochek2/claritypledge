@@ -4,6 +4,75 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-01 [process]: An agent may not defer a founder decision into Non-Goals — that section is where decisions go to die
+
+**Context:** The founder gave four directory-card decisions in session (drop the subtitle, drop the "First event coming" badge, remove the decorative `Open` link, restyle the green "You're a member" badge). P1193's spec recorded them and deferred them in the same sentence: *"Directory copy and visual polish, still deferred BY CHOICE even though the founder decided each in session…"*. One day later he re-raised all four unprompted, believing they had been dropped — *"i feel like i gave this feedback before not sure why it was not implemented?"*. He was right, and the receipt was in his own spec.
+
+**Decision:** A decision the founder made stays in scope until the **founder** defers it. An agent may propose deferral and must get an explicit yes. When a founder decision genuinely cannot fit the current spec, it becomes **its own spec file immediately**, quoting his words — never a Non-Goals bullet. Filed as P1204.
+
+**The tell:** the phrase *"deferred BY CHOICE even though the founder decided …"*. That sentence documents the violation while committing it. Any spec containing "the founder decided X" adjacent to "deferred" is the pattern.
+
+**Alternatives rejected:** (a) *Leave it in Non-Goals but link it from the board* — Non-Goals is prose; nothing parses it, and the link would rot. (b) *Trust the agent to remember* — three sessions of evidence say it does not. (c) *Forbid all scope-cutting* — worse than the disease: a spec that cannot scope down becomes unshippable. The rule constrains **who** defers, not **whether** deferral is allowed, which is the distinction that keeps it from misfiring.
+
+**A second instance, same root, different surface:** the founder-approved visual reference (artifact `10cedd0b`) states *"The card is the link, so there is no button on it"*. The shipped card contradicts it in a comment: *"The whole card is NOT the link"* — changed by an implementer on accessibility grounds, never brought back. The a11y reasoning was **correct**; what was wrong was resolving a conflict with an approved design silently. **Deviating from a founder-approved reference is a founder decision, not an engineering one.**
+
+**Consequences:** Enforcement rule for `.claude/rules/features.md` is **Status: proposed**, not written — it requires the `/slava:maintain:claude-md` gate first, and its own adversarial review with one brief: *"name the legitimate scope-cuts this rule would now forbid."* A new refusal's real risk is false positives (epistemic gate 7c), and that question gets lost if appended to a product review.
+
+**References:** [features/p1204_clarity_groups_directory_card_polish_and_card_as_link.md](../features/p1204_clarity_groups_directory_card_polish_and_card_as_link.md)
+
+---
+
+## 2026-09-01 [technical]: "Not implemented" and "no data" look identical on screen — seed before rebuilding
+
+**Context:** The founder annotated the participant avatar row **"implement!"** on the design artifact, and said flatly *"they're not implemented look at the last two screenshots"*. It was fully implemented — on the directory card AND the group header — and had been since P1060. It rendered nothing because the approved design specifies that a group with zero participants prints nothing, never a zero, and Chiang Mai had zero.
+
+**Why zero:** `events.org_id` **does not exist on the production database**. P1060 was merged to `main` and never deployed. Prod holds 56 distinct RSVP'd people and one organization, and no event can be attached to a group. Three weeks of "it's done" / "I don't see it" both being true.
+
+**Decision:** When a founder reports a feature missing and the code says otherwise, **do not argue and do not rebuild — seed the data and screenshot it.** Seeding 7 participants into the test DB rendered the row immediately (`P P T P SJ +2 · 7 have joined events`). That is a two-minute disproof that settles the disagreement with evidence instead of assertion.
+
+**Alternatives rejected:** (a) *Assert "it's implemented" from a grep* — this was tried first and correctly rejected by the founder, because a grep proves a component is mounted, never that it renders. (b) *Rebuild it* — would have produced a second identical empty row and confirmed the wrong diagnosis.
+
+**Consequences:** A merged-but-undeployed spec makes every downstream feature that depends on its schema look broken, with no error anywhere. Deploy state belongs in the diagnosis checklist for any "this doesn't work" report, above the code. Empty-state-by-design plus absent data is the specific blind spot: both correct, jointly indistinguishable from a bug.
+
+**References:** `~/Screenshots/2026-08-31/p1193/p1193-avatars-proof.png`
+
+---
+
+## 2026-09-01 [process]: A rename sweep matches FORMS, not meanings — regexes, HTML entities and letter case each hid a real defect
+
+**Context:** P1193 renamed a product noun and a route across ~30 files. A sweep over quoted path strings (`'/org…'`, `` `/org…` ``) was run, then a gate was written to prove no user-visible occurrence of the old noun survived. Both were wrong in ways a green run could not show.
+
+**Three defect classes, each found by a different accident:**
+- **Regex forms.** `\/org\/` appears in no quoted-string sweep. Three real defects hid there: an OAuth redirect allowlist, an auto-join path matcher (every post-rename invite would have silently stopped auto-joining), and a bottom-nav focus rule (the nav would have reappeared over a page's own action on mobile). None produce an error.
+- **Letter case.** The absence gate matched `\bOrganizations?\b` — capital O only — and shipped past three real strings sitting mid-sentence. One was caught **only by looking at a screenshot**.
+- **HTML entities.** After the case fix, the gate classified `This organization hasn&apos;t hosted…` as *code*, because its prose-detector treated `;` as a code signal and `&apos;` ends in one. The gate stayed green on a string it was written to catch.
+
+**Decision:** A gate asserting absence is unproven until a **known-bad control** has been run through it and observed to fail — and re-run after every "fix" to the gate itself. The case fix was verified only because a known-bad control was re-run through the *fixed* gate and it still passed. Without that second control run, a false pass would have been reported as evidence.
+
+**Alternatives rejected:** *Trusting the green run* — it was green three separate times while wrong.
+
+**Consequences:** For any rename, enumerate the **forms** the token can take (quoted string, template literal, regex-escaped, entity-bearing prose, differing case) before claiming a sweep is complete. Two mechanical gates now exist for the regex-form and hardcoded-label classes; both were verified against known-good and known-bad controls.
+
+**References:** `src/tests/p1193-source-contract.test.ts`
+
+---
+
+## 2026-09-01 [technical]: A guard on a cascade-deleted table needs `pg_trigger_depth()`, and the profile-cascade case is the only real proof
+
+**Context:** P1193 blocks the sole organizer of a group from leaving. RLS was the wrong layer: `membership_delete` returning zero rows is already the contract for "you had already left", so a tightened policy is indistinguishable from a no-op and the caller never learns why. A `BEFORE DELETE` trigger that RAISEs is the only form that can explain itself.
+
+**Decision:** Discriminate a genuine cascade from a direct client delete with `pg_trigger_depth() > 1` — a foreign key's cascade runs nested inside the FK's own internal trigger, a client `DELETE` runs at depth 1. Both `org_id` and `user_id` are `ON DELETE CASCADE`, so without the carve-out the guard makes organizations undeletable and strands any profile whose owner organizes a group.
+
+**The test that actually proves it:** deleting a **profile**, not an organization. In the org-cascade case the organization row is already gone, so a "stand aside if the org no longer exists" clause could be what saves it; only in the profile case does the organization survive throughout, isolating the depth discriminator as the sole reason the delete succeeds.
+
+**Also required:** `SECURITY DEFINER`. No table here sets `FORCE ROW LEVEL SECURITY`, so the co-organizer count is read as the owner. Without it, a **private** group — where a member sees only their own membership row — would report "no other organizers" for everyone and block every organizer in it.
+
+**Accepted, recorded, not closed:** `profiles` carries a DELETE policy, so a sole organizer can still orphan a group by deleting their own account, cascading at depth > 1. Deliberately not blocked — trapping someone in the product because they organize a group is worse than an orphaned group, and is a data-rights problem besides. `organization` has no DELETE policy, so that cascade route is unreachable from a client.
+
+**References:** `supabase/migrations/20260831190000_p1193_last_organizer_cannot_leave.sql`
+
+---
+
 ## 2026-09-01 [process]: `git-ops.sh ship pN` closes pN — so landing partial work under a live bug's number silently marks it done
 
 **Context:** The overnight-run triage was a partial contribution to P1043 (a live bug spec with
