@@ -481,6 +481,34 @@ The link between a point and its stories renders three different ways:
 
 Make the expander with counts present on all four, both directions.
 
+#### Built 2026-09-03 — and the table above was stale in one row
+
+Verified against the code before building: the **profile story card already had** the
+reverse-direction expander (`profile-page-v2.tsx:1555-1563`, `pointsExpanded`). The real
+gaps were exactly two, both on the feed. Point detail and the profile point card were
+already correct.
+
+The feed point card renders the **same `QuotedStory`** the profile point card renders,
+rather than its own excerpt — a second excerpt renderer would be a ninth surface with its
+own label handling, agent treatment and truncation rule, which is the drift this spec
+exists to close, reintroduced by the section meant to close it.
+
+**Two defects found in `QuotedStory` while wiring it, both browser-verified:**
+
+1. It rendered story text through `stripHashtags` alone, so the profile point card's story
+   expander printed the quote label with no block beneath it — **§1's defect on an EIGHTH
+   surface.** The census in `p1212-quote-label-parity.test.tsx` missed it because the
+   census lists files and this component is module-private to a *point*-card file.
+2. It rendered the **stored** author name, leaking the reserved `Agent · ` prefix (measured
+   4× on the feed) — **§4d's defect in the component §4d did not reach.** The risk table's
+   *"§5 makes this card MORE reachable, so §5 must not ship before §4d"* binds here: §5 is
+   what puts this component on the feed.
+
+Both are pinned by **render** tests, not census rows. A census row was tried first and was
+decorative — reverting the fix left the suite green, because the `suppresses label` grep
+matched the surviving *import* rather than its use. That is §1's own failure mode one layer
+up, and it is why §5's tests render components instead of grepping them.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
@@ -528,7 +556,7 @@ Make the expander with counts present on all four, both directions.
 - [ ] Opening an agent's profile shows the story's video, playable, at desktop / 375 / 320
 - [ ] A letter containing an agent story renders its video, its quotes, its byline, its machine chip and its footer — verified at desktop / 375 / 320
 - [ ] `agent-story-footer`'s "except the quotes" sentence never appears on a surface where no quotes render
-- [ ] A point card shows a story-count expander on feed, profile and point detail; a story card shows a linked-point expander on feed and profile
+- [x] A point card shows a story-count expander on feed, profile and point detail; a story card shows a linked-point expander on feed and profile (§5, 2026-09-03 — the two feed surfaces were the gap; profile and point detail already had it, and the profile story card already had the reverse direction)
 - [ ] ~~A letter sealed before the change renders identically after it~~ — **falsified by §4b, replaced 2026-09-01.** §4b deliberately adds video, quotes, byline, chip and footer to that surface, so identical rendering is not the goal and never was achievable. Replaced by the two below
 - [x] A letter sealed **before** §1 renders its quotes **exactly once** — the frozen inline copy in `storyText` and the frozen `videoQuotes` copy must not both render (§4b legacy branch)
 - [x] No letter loses content it rendered before the change: every quote, timecode and image visible in a pre-change sealed letter is still visible after
