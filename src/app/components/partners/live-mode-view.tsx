@@ -2329,7 +2329,7 @@ function ActionArea({ icon, title, subtitle, children, className = '', sticky = 
   if (sticky) {
     return (
       <section
-        className={`flex-shrink-0 w-full bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)] ${className}`}
+        className={`flex-shrink-0 w-full bg-background/95 backdrop-blur-md border-t border-border shadow-sheet pb-[env(safe-area-inset-bottom)] ${className}`}
         data-testid="action-area"
       >
         <div className="flex flex-col items-center gap-2 w-full max-w-sm mx-auto px-4 py-3">

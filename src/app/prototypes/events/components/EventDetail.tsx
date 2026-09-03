@@ -719,7 +719,7 @@ export function EventDetail() {
         <div
           role="region"
           aria-label="Event registration"
-          className={`lg:hidden fixed left-0 right-0 z-50 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-4 py-3 ${
+          className={`lg:hidden fixed left-0 right-0 z-50 bg-background border-t border-border shadow-sheet px-4 py-3 ${
             showUserMenu
               ? 'bottom-16'
               : 'bottom-0 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]'

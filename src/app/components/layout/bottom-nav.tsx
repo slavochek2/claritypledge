@@ -129,7 +129,7 @@ export function BottomNav() {
   return (
     <nav
       data-nav="bottom"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-sheet pb-[env(safe-area-inset-bottom)]"
       aria-label="Mobile navigation"
     >
       <div className="flex items-center justify-around h-16">

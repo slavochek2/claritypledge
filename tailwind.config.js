@@ -87,6 +87,9 @@ export default {
                 "foreground": "hsl(var(--card-foreground))"
             }
         },
+        "boxShadow": {
+            "sheet": "0 -4px 12px rgba(0,0,0,0.08)"
+        },
         "borderRadius": {
             "sm": "calc(var(--radius) - 6px)",
             "DEFAULT": "var(--radius - 4px)",
