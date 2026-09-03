@@ -6,6 +6,41 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [product]: The founder's bet that ClarityPledge cannot succeed without agent read/write is recorded here UNTESTED — it is the load-bearing premise of P1215 and appears in no hypothesis
+
+**Context:** P1215 (agent-callable surface) rests entirely on a conviction stated 2026-09-01:
+
+> "if it ever to be successful, it will need to support agents creating and reading stuff. I'm
+> sure about that... I think it can be reused even if what we're building now is not really, I
+> don't know, it doesn't serve the business function we expect that to serve."
+
+Its predecessor **P143 was rejected 2026-02-12 partly for "no hypothesis connection"**, and a grep
+of `hypotheses.md` (2026-09-01, re-checked 2026-09-03) finds nothing covering it. `H-AgentEpistemics`
+is a *different* bet — selling epistemic-verification infrastructure to AI builders — not the claim
+that this product's own success requires an agent-callable surface. Adversarial review added the
+sharper form: there is no evidence any target user wants to reach this product through an agent.
+
+**Decision:** Record it now, `UNTESTED`, rather than wait for validation — the axis that would defer
+this was retired 2026-07-03, and epistemic gate 8 makes recording under uncertainty non-optional.
+**Falsifier:** offer an agent-callable read surface to the users who most plausibly want it, and if
+none connects an agent within a defined window, the claim that success *requires* it is not
+supported — the product's constraint is elsewhere. Note the asymmetry that makes this cheap to get
+wrong: the bet is about a *necessary condition for success*, which cannot be corroborated by usage
+and can only ever be falsified by its absence.
+
+**Alternatives rejected:** *Build first and attach a hypothesis later* — that is what P143 did, and
+the missing connection is what killed it. *Leave it implicit in the spec* — a premise living only
+inside the artifact it justifies is unfalsifiable by construction.
+
+**Consequences:** `hypotheses.md` needs the entry with a novel prediction and corroboration status;
+per the strategy-doc gate `/kdd` does not write that file — **hand off to
+`/slava:maintain:docs-strategy-update`**. Until it lands, P1215 is explicitly infrastructure ahead
+of its hypothesis and says so in its own Open Questions.
+
+**References:** [features/p1215_agent_callable_surface_for_user_actions.md](../features/p1215_agent_callable_surface_for_user_actions.md) · `features/archive/p143_mcp_server.md` · [hypotheses.md](hypotheses.md) H-AgentEpistemics (a different bet) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 8
+
+---
+
 
 ## 2026-09-03 [process]: The /dev A/B was defeated by its own scoreboard — the seven canaries were skipped, and green when un-skipped for the wrong reason
 
@@ -26,11 +61,23 @@ green. Arm A scored itself zero under the pre-registered rule and said so in its
 
 **Decision:** The comparison is void and is not re-run on this spec. Arm A cannot be scored against
 an oracle it had to repair to make meaningful, and arm B cannot be scored against the repaired
-version it never saw. **Arm B is adopted as P1212's implementation** on coverage, not on the
-benchmark: six surfaces plus a shared `story-quotes.ts` helper, the snapshot mapper, a seal-RPC
-migration and 37 passing tests (9 canaries + 28 new behavioural), against arm A's four surfaces
-with the byline left on the open founder decision. Arm B additionally found a latent hole neither
-arm was looking for — `/slava:disagreement:publish`'s label check and its per-quote checks are
+version it never saw.
+
+**CORRECTED SAME DAY — this entry first said "arm B is adopted", and that was wrong.** The call was
+made from an hour-old snapshot in which arm A had four surfaces and had stopped. Arm A had not
+stopped: it committed three more times, reached the same six surfaces, and added a UAT file, two
+further test files and the canary hardening — none of which arm B has. Re-checked 17:04 with six
+files still dirty and its slot lock live. This is [git.md](../.claude/rules/git.md) *"volatile state
+decays — re-check before telling the user NOT to act"*, committed by the agent that had just cited
+that rule class three times in the same session; the founder caught it by asking *"how do we know
+it's a winner? The other session didn't even complete."*
+
+**The arms are complementary, not duplicate, and neither is discarded.** Arm B holds the seal-RPC
+migration (§4b, applied to test, integration-tested) and the skill-layer §1 fix
+(`disagreement/publish.md` + `story-draft.md`); arm A holds the UAT, the legacy-quote-duplication
+suite, the hardened canaries and a wider render-path change. The merge is deferred until arm A
+terminates — comparing a finished branch against a running one is what produced the wrong call.
+Arm B additionally found a latent hole neither arm was looking for — `/slava:disagreement:publish`'s label check and its per-quote checks are
 **both vacuously satisfiable by a story with an empty quote set**, so an arguer whose every
 candidate quote was dropped published a heading with nothing beneath it.
 
@@ -39,6 +86,11 @@ hardening, so the arms would face different jobs. Scoring on raw test output —
 the vacuity finding disqualifies. Scoring arm A zero and stopping there — the pre-registered rule
 worked exactly as designed and the arm reported against itself; treating that as a loss would
 punish the only reason we know the oracle was broken.
+
+**A fourth failure, of the same family, inside the write-up itself.** The benchmark's arms were
+compared on a stale read; the entry recording the benchmark then asserted that comparison as
+settled. The instrument problem and the reporting problem are the same problem — a measurement
+taken once and not re-taken before it was acted on.
 
 **Consequences:** **Three benchmarks in this repo have now been defeated by the instrument rather
 than by the thing measured** (2026-08-31 review A/B: brief-generation confounded with skill;
