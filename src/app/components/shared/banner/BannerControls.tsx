@@ -146,7 +146,7 @@ function PillBannerControls({
               onChange={(e) => setKeywords(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isLoading}
-              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-50 w-40"
+              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-2 py-1 text-xs outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:opacity-50 w-40"
             />
             <button
               onClick={() => onSearch(keywords)}
@@ -314,7 +314,7 @@ function MinimalBannerControls({
               onChange={(e) => setKeywords(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               disabled={isLoading}
-              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-50 w-[180px] md:w-[200px]"
+              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-3 py-1.5 text-xs outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:opacity-50 w-[180px] md:w-[200px]"
             />
             <button
               onClick={() => {

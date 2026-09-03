@@ -61,7 +61,7 @@ export function ImageLightbox({
             className="max-h-[calc(100vh-48px)] max-w-[calc(100vw-48px)] object-contain"
           />
 
-          <DialogPrimitive.Close className="fixed right-4 top-4 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black/50">
+          <DialogPrimitive.Close className="fixed right-4 top-4 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/50">
             <X className="h-5 w-5" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>

@@ -349,7 +349,7 @@ export function SliderTrack({
         className={`relative w-full ${expandedHitArea ? '-my-4 py-4' : ''} ${
           readonly
             ? ''
-            : `cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-full`
+            : `cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-full`
         }`}
         style={{ touchAction: 'none' }}
       >

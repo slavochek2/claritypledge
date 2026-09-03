@@ -96,7 +96,7 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
           }}>
         <DropdownMenuTrigger asChild>
           <button
-            className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
+            className="flex items-center justify-center hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md p-2"
             aria-label="Menu"
             data-testid="menu-trigger"
           >

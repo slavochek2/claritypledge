@@ -544,7 +544,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 }}>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
+                      className="flex items-center justify-center hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md p-2"
                       aria-label="Menu"
                     >
                       <GravatarAvatar
@@ -595,7 +595,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 }}>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
+                      className="flex items-center justify-center hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md p-2"
                       aria-label="Menu"
                     >
                       <MenuIcon className="w-5 h-5" />

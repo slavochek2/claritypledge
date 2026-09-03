@@ -55,7 +55,7 @@ export function StorySearchPicker({ stories, onSelectStory, disabled = false, on
           disabled={disabled}
           placeholder="Search your stories…"
           aria-label="Search your stories."
-          className="w-full pl-9 pr-3 py-2.5 text-sm border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100 disabled:opacity-50"
+          className="w-full pl-9 pr-3 py-2.5 text-sm border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus:border-blue-300 focus-visible:ring-1 focus-visible:ring-blue-100 disabled:opacity-50"
         />
       </div>
 

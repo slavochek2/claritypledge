@@ -246,7 +246,7 @@ export function SettingsPage() {
             onChange={(e) => setName(e.target.value)}
             aria-describedby={errors.name ? "name-error" : undefined}
             aria-invalid={errors.name ? "true" : undefined}
-            className={`w-full px-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
+            className={`w-full px-4 py-3 rounded-lg border bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               errors.name ? "border-red-500" : "border-input"
             }`}
             placeholder="Your full name"
@@ -269,7 +269,7 @@ export function SettingsPage() {
             type="text"
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="e.g., Product Manager at Acme Inc"
           />
         </div>
@@ -285,7 +285,7 @@ export function SettingsPage() {
             onChange={(e) => setBio(e.target.value)}
             maxLength={160}
             rows={3}
-            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm"
+            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none text-sm"
             placeholder="A short description about you..."
             aria-describedby="bio-counter"
           />
@@ -316,7 +316,7 @@ export function SettingsPage() {
             onChange={(e) => setLinkedinUrl(e.target.value)}
             aria-describedby={errors.linkedinUrl ? "linkedin-error" : undefined}
             aria-invalid={errors.linkedinUrl ? "true" : undefined}
-            className={`w-full px-4 py-3 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-ring ${
+            className={`w-full px-4 py-3 rounded-lg border bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               errors.linkedinUrl ? "border-red-500" : "border-input"
             }`}
             placeholder="https://linkedin.com/in/yourprofile"
@@ -343,7 +343,7 @@ export function SettingsPage() {
             }}
             maxLength={280}
             rows={4}
-            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
             placeholder="Share why clear communication matters to you..."
           />
           <div className="flex justify-end mt-1">
