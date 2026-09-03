@@ -61,7 +61,7 @@ Do NOT push, ship, or merge. Do NOT touch `/meet` copy. Do NOT fabricate entity 
 - [x] `tos.md` and `privacy.md` updated; every processor in the inventory below appears in the policy
 - [x] `## Changes` table below lists section / old / new / reason / confidence for every edit
 - [x] Adversarial review run; each finding accepted (applied) or rejected (reason recorded) here
-- [ ] Screenshots at 375 and 1440 for both routes — **not taken**; `pre-commit-checks.sh`, tsc, eslint, vitest pass (see Evidence)
+- [x] Both routes checked at 375 and 1440 (see Evidence for what was verified); `pre-commit-checks.sh`, tsc, eslint, vitest pass
 - [x] Founder decisions listed below are answered — every `[FOUNDER DECISION]` / `[PENDING]`
       bracket is gone from both documents; each was resolved by describing what the code does
       (see "Marker resolution" below). The remaining items are legal-advice questions, not
@@ -252,14 +252,30 @@ allowlists accept `['v1.3','v1.4']` for rollout safety. `TermsAcceptanceGate` wr
 (`src/App.tsx:309`), so **every existing user is asked to re-accept on their next sign-in** once
 the new bundle is deployed.
 
-**Gates.** `npx tsc --noEmit` → exit 0. `npx eslint` → see commit run. `npx vitest run`
-(p1219-legal-markdown-strict, p839-parity-terms-version, consent-api) → 22 passed / 3 files.
-`./scripts/pre-commit-checks.sh` → run before the commit.
+**Gates.** `npx tsc --noEmit` → exit 0. `npx eslint` on the touched TS files → exit 0.
+`npx vitest run` (full suite) → 305 files / 3492 tests passed, 2 files + 19 tests skipped.
+`./scripts/pre-commit-checks.sh` → all checks passed.
 
-**Not done: Stage 8 visual review.** No screenshots were taken at 375 or 1440 for
-`/terms-of-service` or `/privacy-policy`. Both routes render committed markdown through
-`renderMarkdownLegal`, and this pass changed prose only — no new markdown constructs — but that
-is reasoning, not a render check. Run `/verify` or load both routes before publishing.
+**One flake to know about, unrelated to this change.** The first `pre-commit-checks.sh` run
+blocked on an *unhandled rejection*, not a failed test: all 3492 tests passed, but a debounce
+`setTimeout` in `src/app/components/letters/letter-receiver-modal.tsx:154` fired after the JSDOM
+environment for `src/tests/p728-add-recipient-duplicate-error.test.tsx` had torn down
+(`ReferenceError: window is not defined`). That file is untouched by this branch; run in
+isolation it passes 3/3 with no unhandled error, and the full-suite run before it and the
+pre-commit run after it were both clean. Reported rather than papered over: the modal should
+clear `debounceRef` on unmount.
+
+**Stage 8 visual review — run.** Both routes loaded from the w12 dev server in Chrome DevTools
+MCP at 1440x900 and at an emulated 375x812 (`window.innerWidth` read back as 375 and 1440
+respectively — `resize_page` alone silently floors at 500, so the narrow pass used `emulate`).
+Checked on both routes at both widths: zero `FOUNDER DECISION` / `PENDING` strings in the
+rendered text; no raw HTML in the DOM; header date reads "Last updated: September 3, 2026";
+`document.documentElement.scrollWidth === window.innerWidth` at 375 (no horizontal page
+scroll); all section headings present and in order. The 18-row processor table is wider than
+the 375 column (412px vs 343px) and scrolls inside its own `overflow-x-auto` wrapper rather
+than pushing the page — the intended pattern. Inline code renders as `<code>` (5 elements), not
+literal backticks. Screenshots were reviewed and then deleted rather than left as untracked
+binaries in the worktree.
 
 ## Pre-deploy Checklist
 
@@ -269,4 +285,4 @@ is reasoning, not a render check. Run `/verify` or load both routes before publi
 - [ ] Redeploy the web app (version constant is baked into the bundle); all users will be asked to re-accept
 - [ ] Set `LEGAL_LAST_UPDATED` to the actual publication day
 - [x] Every `[FOUNDER DECISION ...]` / `[PENDING ...]` bracket resolved and removed from `privacy.md` / `tos.md`
-- [ ] Load `/terms-of-service` and `/privacy-policy` at 375 and 1440 (Stage 8 was not run — see Evidence)
+- [x] Both routes loaded at 375 and 1440 (Stage 8 — see Evidence); re-check after P520/P1216 land
