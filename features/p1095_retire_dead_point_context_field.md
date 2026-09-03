@@ -4,8 +4,8 @@ type: task
 rank: 95
 created_date: '2026-08-17'
 tags: [tech-debt, points, schema]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 ---
 
 # P1095: Retire the dead `points.context` field
