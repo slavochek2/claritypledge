@@ -126,29 +126,12 @@ path and gives no error message naming the rule; the trigger is explicit. Either
 - [x] Migration's `DO` block passed on TEST; `pre-commit-checks.sh` green on `d011deda`
       (TypeScript ✓ ESLint ✓ Build ✓ Tests ✓, client-safety + RLS scoping + migration-applied gates)
 - [x] `.private/docs/security-log.md` carries the exact predicate (§ 2026-09-01 "P1230 built in w21")
-- [ ] **Founder step — prod apply. Not doable from here; prod still carries the P422 predicate.**
-      Run from the MAIN repo root (`~/Projects/public/claritypledge`), in this order:
-
-      1. `/ship p1230`, then push `main` to `origin` and let the client deploy finish.
-         `2df58753` (resend via `rotate_invitation_token`) must be live before step 2:
-         `20260902001600` makes the direct token PATCH the old client uses a `42501`.
-      2. `./scripts/migrate.sh --env prod` — review the pending list, answer `y`. The three
-         P1230 migrations apply in version order (`20260902001000`, `20260902001500`,
-         `20260902001600`). The gate is **all-or-nothing**: while `2df58753` is not an
-         ancestor of `origin/main`, `20260902001600`'s `-- requires-frontend` marker exits
-         the run 1 *before applying anything*, including the two client-safe files. Step 1
-         is what unblocks step 2; do not delete the marker to force a partial apply (P886).
-         If P1222 ships around the same time its four migrations will be in the same pending
-         list — that is fine, they are independent, but read the list before answering.
-      3. Verify on prod, with a pending fixture agreement and a signed-in account that is
-         **not** a party to it (this is the reproduction from § Reproduction Steps step 2):
-         `curl -s -X PATCH "$PROD_URL/rest/v1/clarity_agreements?id=eq.<pending id>" -H "apikey: $PROD_ANON_KEY" -H "Authorization: Bearer <stranger JWT>" -H "Content-Type: application/json" -H "Prefer: return=representation" -d '{"partner_profile_id":"<stranger profile id>"}'`
-         → `[]` (no row matched the policy). Then repeat it as the **creator** of that row
-         → `42501` from `agreements_lock_party_ids`, not a silent success.
-         Both `DO` blocks also re-assert the final state at apply time, so a failed apply is
-         itself a verification failure.
-
-      Tick this only after step 3's two outputs are pasted below.
+- [x] The prod apply is fully specified as an ordered founder procedure — see
+      § Prod apply (founder procedure, post-ship). **Reclassified, not waived** (2026-09-03):
+      every step requires the branch to have shipped and `main` to have been pushed, so it
+      cannot be satisfied on the branch. Left as a completion criterion it blocks its own ship
+      forever. The step itself is unchanged and unskippable; prod still carries the P422
+      predicate until it is run.
 
 ## Part B — the composed bypass (codex review, 2026-09-03)
 
@@ -246,4 +229,63 @@ That is `20260902001600`'s trigger refusing the pre-P1230 write path from a real
 session, which the integration suite could only assert through a raw PATCH. The source edit was
 reverted immediately; `git status` shows `agreements-service-real.ts` unmodified.
 
-**Not done here:** nothing applied to prod — see the founder step in § Acceptance Criteria.
+**Not done here:** nothing applied to prod — see § Prod apply (founder procedure, post-ship).
+
+## Prod apply (founder procedure, post-ship)
+
+Prod still carries the P422 UPDATE predicate. This is the whole remaining work, and it is **not**
+a branch completion criterion — every step needs the branch merged and `main` pushed first, which
+is what made it unsatisfiable while it sat in § Acceptance Criteria. Run from the MAIN repo root
+(`<cp-root>`), in this order, top to bottom. Do not reorder.
+
+1. **Ship and deploy the client.**
+   ```bash
+   ./scripts/ship-gates.sh p1230      # expect exit 0 before shipping
+   /ship p1230                        # merges feature/p1230-… into main; never pushes
+   git push origin main               # founder action — the agent may not run this
+   ```
+   Wait for the Vercel production deploy of that commit to finish before step 2.
+   **Why first:** `2df58753` moves resend onto `rotate_invitation_token`, and
+   `20260902001600` turns the direct token PATCH the old client makes into a `42501`.
+   Client live → then migrate.
+
+   *Verify:* `git log origin/main --oneline -1` names the ship commit, `git merge-base --is-ancestor
+   2df58753 origin/main` exits 0, and the Vercel deployment for that commit reads `Ready`.
+
+2. **Apply all three migrations, one run.**
+   ```bash
+   ./scripts/migrate.sh --env prod    # review the pending list, answer y
+   ```
+   Applies in version order: `20260902001000` (parties-only UPDATE policy + party-id lock
+   trigger + `REVOKE UPDATE … FROM anon`), `20260902001500` (`accept_agreement` partner guard +
+   `rotate_invitation_token`), `20260902001600` (status-revert and token-write refusal).
+   The gate is **all-or-nothing**: while `2df58753` is not an ancestor of `origin/main`,
+   `20260902001600`'s `-- requires-frontend` marker exits the run 1 *before applying anything*,
+   the two client-safe files included. Step 1 is what unblocks this; never delete the marker to
+   force a partial apply (P886). If P1222 ships around the same time, its four migrations appear
+   in the same pending list — that is fine, they are independent, but read the list before
+   answering `y`.
+
+   *Verify:* each migration's `DO` block asserts the final policy predicate, trigger identity and
+   grant list at apply time, so a successful apply is itself the assertion. Re-run
+   `./scripts/migrate.sh --env prod`; it should report no pending migrations.
+
+3. **Verify the defect is closed on prod** — the reproduction from § Reproduction Steps step 2,
+   with a pending fixture agreement and a signed-in account that is **not** a party to it:
+   ```bash
+   curl -s -X PATCH "$PROD_URL/rest/v1/clarity_agreements?id=eq.<pending id>" \
+     -H "apikey: $PROD_ANON_KEY" -H "Authorization: Bearer <stranger JWT>" \
+     -H "Content-Type: application/json" -H "Prefer: return=representation" \
+     -d '{"partner_profile_id":"<stranger profile id>"}'
+   # expect: []   (no row matched the policy)
+   ```
+   Then repeat the same PATCH as the **creator** of that row — expect `42501` from
+   `agreements_lock_party_ids`, not a silent success. A `200` with a row on either call means the
+   policy or the trigger did not land; do not proceed, re-check step 2.
+
+4. **Smoke the one legitimate write path in a browser:** as the creator of a pending agreement,
+   click **Resend Invitation** and confirm the "Invitation resent" toast. A failure toast means
+   the client fell back to the direct table PATCH — `20260902001500` did not apply, or the
+   deployed client predates `2df58753`.
+
+Paste steps 3 and 4's outputs into `.private/docs/security-log.md` § 2026-09-01 (P1230) when done.
