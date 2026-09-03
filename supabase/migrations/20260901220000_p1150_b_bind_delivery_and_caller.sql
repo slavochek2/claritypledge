@@ -8,7 +8,7 @@
 --   EXECUTE to authenticated only (service_role bypasses RLS and never needs it).
 --   Policy: adds `delivery_id IS NOT NULL` and `listener_rating IS NOT NULL`.
 --
--- requires-frontend: cf1bf095
+-- requires-frontend: 915065c7
 --   Deployed clients before that commit (letters-service.ts submitRating / submitLetterResponseAuthenticated)
 --   do NOT send delivery_id, so this policy would refuse every letter rating until
 --   the frontend that sends it is live. The marker is repointed to the commit that adds it once

@@ -1,6 +1,6 @@
 -- P1097 (Migration B): the client can no longer supply a room code.
 --
--- requires-frontend: a265fbe1
+-- requires-frontend: a8b6c43f
 --   "fix(p1097): mint room codes server-side from CSPRNG (Migration A + frontend); client no
 --   longer sends a code". Until that bundle is deployed, the live client still sends `code` on
 --   INSERT and this REVOKE would 42501 every room creation. migrate.sh holds this file back
