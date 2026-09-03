@@ -5,6 +5,8 @@
 # tool, pass with each sanctioned prefix (claude-in-chrome, chrome-devtools,
 # playwright), and the verify-before-stop curl-in-Bash path.
 # Usage: bash scripts/test-browser-evidence-hooks.sh
+# Gated by scripts/pre-commit-checks.sh section 4.7e (P1221): runs automatically
+# whenever either hook above, or this file, is staged.
 # Exit 0 = all pass, non-zero = first failure.
 set -euo pipefail
 

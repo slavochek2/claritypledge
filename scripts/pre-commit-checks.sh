@@ -363,6 +363,37 @@ else
 fi
 echo ""
 
+# 4.7e. Browser-evidence hook canary (P1221) — runs when either hook that shares the
+# browser-tool evidence allowlist is staged, or the canary itself. The suite was written
+# for P1116-era work and then wired into nothing: it passed 11/11 on demand and zero times
+# on its own, which reads as coverage that does not exist (epistemic.md gate 7). It pins
+# BOTH sides of the allowlist — a completion claim with no browser tool BLOCKS, and each
+# sanctioned prefix (claude-in-chrome, chrome-devtools, playwright) plus the curl-in-Bash
+# path PASSES — so neither hook can regress into a rubber stamp or into a tax on work that
+# did verify. Hermetic: only the two hooks, python3 and a mktemp dir.
+# Deliberately NOT $STAGED_FILES (built with --diff-filter=d, which excludes deletions):
+# `git rm` on a hook would otherwise make the trigger see nothing and pass green with the
+# gate silently removed. Same reasoning as 4.7f below.
+# _transcript_lib.py is in the trigger because BROWSER_TOOL_PREFIXES — the allowlist both
+# hooks import — is defined there, not in either hook. Watching only the two hooks would
+# have missed the one edit that actually widens or narrows the allowlist; the failure-path
+# proof for this section was written against exactly that file.
+BROWSER_EVIDENCE_ALL_STAGED=$(git diff --cached --name-only 2>/dev/null || echo "")
+BROWSER_EVIDENCE_STAGED=$(echo "$BROWSER_EVIDENCE_ALL_STAGED" | grep -E '^(\.claude/hooks/(verify-screenshot-before-reedit|verify-before-stop|_transcript_lib)\.py|scripts/test-browser-evidence-hooks\.sh)$' || true)
+if [ -n "$BROWSER_EVIDENCE_STAGED" ]; then
+    if [ -f "scripts/test-browser-evidence-hooks.sh" ]; then
+        if ! run_quiet "Browser-evidence hook canary (P1221)" bash scripts/test-browser-evidence-hooks.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Browser-evidence hook canary... ${RED}✗ scripts/test-browser-evidence-hooks.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Browser-evidence hook canary skipped (no browser-evidence hook staged)"
+fi
+echo ""
+
 # 4.7f. P1116 mechanization canaries — run when a hook, the validator, or one of their
 # canaries is staged. Each pins behaviour on BOTH sides: the footgun BLOCKS and the
 # near-miss/mention PASSES. Without the second half a guard silently becomes a tax on
