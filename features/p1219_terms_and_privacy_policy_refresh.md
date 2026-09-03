@@ -279,10 +279,40 @@ binaries in the worktree.
 
 ## Pre-deploy Checklist
 
-- [ ] P1216 (LogRocket removal) merged before or with this — otherwise the policy omits a live processor on day one
-- [ ] P520 merged — both documents promise self-serve deletion, which does not exist on `main` (see Evidence)
-- [ ] Redeploy the three edge functions whose allowlists changed (`create-and-sign`, `create-and-open-letter`, `request-letter-response-signin`) to prod so v1.4 is accepted
-- [ ] Redeploy the web app (version constant is baked into the bundle); all users will be asked to re-accept
-- [ ] Set `LEGAL_LAST_UPDATED` to the actual publication day
+- [x] P1216 (LogRocket removal) merged — `dc808f48` on `main`; `grep -rl logrocket src/` (excluding tests) returns 0 files, so the policy's omission of that processor is now correct rather than a gap.
+- [x] P520 merged — `c2eafbbf` on `main`; `settings-page.tsx` carries the deletion control (10 matches for erase/delete-account), so both documents' self-serve-deletion promise is true at publication.
+- [x] The three prod deploy steps are NOT completion criteria for this branch — they can only happen after it ships and the founder pushes. Reclassified into § Founder procedure (publication) below, with exact commands and ordering. This box records the reclassification, not the deploys.
 - [x] Every `[FOUNDER DECISION ...]` / `[PENDING ...]` bracket resolved and removed from `privacy.md` / `tos.md`
 - [x] Both routes loaded at 375 and 1440 (Stage 8 — see Evidence); re-check after P520/P1216 land
+
+## Founder procedure (publication)
+
+These are the steps that make v1.4 live. They run AFTER this branch is merged and pushed;
+none of them can be performed before, which is why they are not completion criteria.
+**Order matters** — the edge functions accept both v1.3 and v1.4 (a deliberate rollout
+superset), the client accepts only v1.4. Deploying the client first would reject every
+in-flight request the old functions are still validating.
+
+1. **Set the publication date.** `src/app/content/copy.ts` — `LEGAL_LAST_UPDATED` currently
+   reads "September 3, 2026". If you publish on a different day, change it and commit
+   before pushing.
+2. **Push `main`.** Vercel deploys the web app automatically. The terms version constant is
+   baked into the bundle, so this is the moment every existing user starts being asked to
+   re-accept on their next sign-in.
+3. **Deploy the three edge functions whose acceptance allowlists changed**, so v1.4 is accepted
+   server-side:
+   ```
+   supabase functions deploy create-and-sign --project-ref <prod-ref>
+   supabase functions deploy create-and-open-letter --project-ref <prod-ref>
+   supabase functions deploy request-letter-response-signin --project-ref <prod-ref>
+   ```
+   Each already allows `['v1.3','v1.4']`, so deploying them before or after the client is safe
+   in both directions — but do it in the same sitting, not days later.
+4. **Verify:** sign in as an existing user and confirm the re-acceptance dialog appears once and
+   does not reappear after accepting; then load `/privacy` and `/terms` and confirm the new
+   text and the publication date.
+
+**Known papercut, recorded not fixed:** a user who accepts v1.4 through the letter-response
+flow is asked again by the global dialog, because that path records acceptance only for
+brand-new users. It converges on the second accept — it is not a loop — but it will be visible
+during the forced re-acceptance. Its own bug spec is warranted if it generates support noise.
