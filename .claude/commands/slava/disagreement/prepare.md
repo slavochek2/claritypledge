@@ -5,6 +5,55 @@ when_to_use: "Stage 2 of the points pipeline, after /slava:disagreement:select h
 version: 0.8.1
 ---
 
+## The approved axis is sharpenable, never extendable (P1210 §4)
+
+After `select`'s single cast-and-points gate, this stage may **sharpen** the wording of an approved axis, and may **drop** a point the evidence kills.
+It **may not add a new axis**.
+A genuinely new fork returns to the founder as a small re-approval — found while reading transcripts, it never ships silently. That is the unbounded slip this pipeline was rewritten to close: points used to be invented
+after the gate, unconstrained, and two of run B's five were invented on axes nobody was ever shown to
+disagree about.
+
+*Scope: an instruction to the agent running this stage. `scripts/points/rule-present.mjs one-gate`
+verifies only that the rule is stated here and in `select.md`; no test can observe an agent obeying
+it (P1210 §12).*
+
+**Redundancy — two points whose contradiction sentences are the same proposition are one point:**
+
+```sh
+node scripts/points/redundancy.mjs <statements.json>
+```
+
+The deterministic half decides (verbatim repeat FAILS, distinct propositions PASS). A **reworded
+near-miss is PRINTED and left undecided** — exact-string identity cannot decide it, and tuning a
+similarity threshold until three fixtures pass is fitting the measure to the result. The founder
+judges that verdict.
+
+**Audience floor — re-assert against the recorded number; ask only below it:**
+
+```sh
+node scripts/points/audience-floor.mjs <source.json>
+```
+
+A source that already cleared `select`'s numeric floor at Gate 2 is **not re-asked** here (P1210 §9).
+`ASK` names which metric failed.
+
+**Condition 7 — the point must fit the evening's time.** The per-point budget is **12 min per point**
+(36 min over 3 points, `docs/events/clarity-practice-event.md`, RD-4 2026-09-03). A point that cannot
+be staked, framed and argued inside 12 min per point does not fit the evening and is not filed.
+Objective condition 7 is evaluable because of that number; before it was decided, this condition had
+no test and said so.
+
+**Point target — a planning figure, never an optimisation target:**
+
+```sh
+node scripts/points/report-target.mjs <filed> <planned>
+```
+
+Plan 5–7, **file what the topic honestly yields**, and report `<filed> of <planned>` when short. An
+arguer is added only against a **named new contradiction sentence** — never to reach a number, and
+never by relaxing Gate 0, the recency floor or the audience floor.
+
+
 # /slava:disagreement:prepare
 
 **Announce at start:** "Running /slava:disagreement:prepare. Terminal output only — nothing is filed."
@@ -45,7 +94,7 @@ Stated here in full rather than inherited from a sibling skill: a safety propert
 Use `yt` — a drop-in wrapper taking identical arguments to `yt-dlp`.
 It tries the direct connection first and only falls back if YouTube walls you.
 It also caches: the same (video, sub-langs, sub-format) request is fetched at most once per
-machine, into `~/.local/share/yt-store/` — so the raw track a quote was checked against survives
+machine, into the yt-store (store paths: `docs/points-process.md` §0.6 — never restated here) — so the raw track a quote was checked against survives
 the session and a later run can re-verify it without a re-fetch (P1140). `YT_STORE=off` bypasses
 it if a genuine re-fetch is ever needed; nothing in the store is ever overwritten.
 
@@ -70,7 +119,7 @@ Clean the raw `.vtt` with `vtt-clean <path>` — a deterministic program, not an
 it handles inline karaoke tags, rolling auto-caption cue dedup (naive joining garbles the text —
 `vtt-clean` doesn't), apostrophe/quote normalization, and coarse `[MM:SS]` timecodes every ~30s so
 quotes stay locatable. The raw track is retained by `yt`'s store (see above); write the cleaned
-text beside it, e.g. `vtt-clean ~/.local/share/yt-store/<id>/en.vtt -o ~/.local/share/yt-store/<id>/en.clean.txt`
+text beside it, e.g. `vtt-clean "$YT_STORE"/<id>/en.vtt -o "$YT_STORE"/<id>/en.clean.txt`
 — never to the repo, and never *only* to the session scratchpad, since that is exactly the
 artifact the 2026-08-21 incident showed does not survive.
 
@@ -100,8 +149,8 @@ transcript content — safe for a public repo):
 ```bash
 printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: %s\n' \
   "<video-id>" "<lang>" \
-  "$(shasum -a 256 ~/.local/share/yt-store/<id>/<lang>.vtt | cut -d' ' -f1)" \
-  "$(shasum -a 256 ~/.local/share/yt-store/<id>/<lang>.clean.txt | cut -d' ' -f1)" \
+  "$(shasum -a 256 "$YT_STORE"/<id>/<lang>.vtt | cut -d' ' -f1)" \
+  "$(shasum -a 256 "$YT_STORE"/<id>/<lang>.clean.txt | cut -d' ' -f1)" \
   "$(vtt-clean --version)" >> .points-run-seals/<slug>.transcripts.sha256
 ```
 

@@ -45,12 +45,12 @@ For each arguer and for each synthesized point in the run file:
 
 ## Step 2: Quote Verification (grep -F)
 
-Verify every candidate quote against the cleaned transcript (`~/.local/share/yt-store/<id>/<lang>.clean.txt`):
+Verify every candidate quote against the cleaned transcript (`$YT_STORE/<id>/<lang>.clean.txt` — §0.6):
 
 ```bash
 while IFS= read -r q; do
   printf '%s :: ' "$q"
-  grep -cF "$q" ~/.local/share/yt-store/<video-id>/<lang>.clean.txt || echo 0
+  grep -cF "$q" "$YT_STORE"/<video-id>/<lang>.clean.txt || echo 0
 done < quotes.txt
 ```
 
@@ -86,7 +86,14 @@ done < quotes.txt
 > **A missing field is not `yes`** — it means `/slava:disagreement:select` never fetched the audio;
 > say so and treat the source as unverified rather than assuming the best.
 >
-> **Re-confirm the bytes rather than trusting the label**: `ls ~/.local/share/yt-store/<video-id>/`.
+> **Re-confirm the bytes rather than trusting the label — by ASKING THE OWNING TOOL, never by
+> listing a directory.** The store's reuse check lives inside the tool; the pipeline's own
+> directory inspection is what blocked run B for three days against an artifact that was on disk
+> the whole time. Where a blocker is about to be reported, name the artifact that would clear it
+> and walk the bytes against the ledger — `node scripts/points/store-reconcile.mjs --store-root
+> "$DIARIZE_STORE" --ledger "$AGENT_LEDGER" --require "<video-id>/<window>.json"` — because a
+> ledger query cannot find an artifact whose defining property is having no ledger row.
+> Store paths are named once in `docs/points-process.md` §0.6 and nowhere else.
 > A `yes` written at Gate 2 is a claim about a file, and a file is cheap to look at.
 >
 > **The one case this stage cannot fix is a source whose audio is not in the store** — no quote from
@@ -126,7 +133,7 @@ the harness to the control.
 
 Resolve the start time in integer seconds for each verified quote.
 
-> **CRITICAL INVARIANT — the trap, stated so nobody walks into it.** Read strictly from the **RAW `.vtt`** file (`~/.local/share/yt-store/<video-id>/<lang>.vtt`), **NEVER from the cleaned transcript**. `vtt-clean` emits a coarse `[MM:SS]` marker only every ~30 seconds, and the cleaned transcript is what `/slava:disagreement:prepare` Stage 1 produces — so it is what an implementer will naturally read. A jump built from it lands up to half a minute off and reads as a broken feature rather than as the wrong input file. A WebVTT cue carries an exact start and end time; resolve each quote against the retained raw track (P1140 — permanent, content-hash-gated, never overwritten) so precise times survive the session.
+> **CRITICAL INVARIANT — the trap, stated so nobody walks into it.** Read strictly from the **RAW `.vtt`** file (`$YT_STORE/<video-id>/<lang>.vtt` — §0.6), **NEVER from the cleaned transcript**. `vtt-clean` emits a coarse `[MM:SS]` marker only every ~30 seconds, and the cleaned transcript is what `/slava:disagreement:prepare` Stage 1 produces — so it is what an implementer will naturally read. A jump built from it lands up to half a minute off and reads as a broken feature rather than as the wrong input file. A WebVTT cue carries an exact start and end time; resolve each quote against the retained raw track (P1140 — permanent, content-hash-gated, never overwritten) so precise times survive the session.
 
 Extract the cue timestamp:
 - Parse `HH:MM:SS.mmm --> HH:MM:SS.mmm`
@@ -302,6 +309,32 @@ stops the whole run on it. Dropping it here is what keeps the rest of the run fi
 
 ---
 
+### Step 4c-2 — The code predicates this stage runs (P1210 §12)
+
+**These are code with an exit code, not prose to recite.** A check whose execution depends on a
+reader choosing to perform it is the mechanism that produced run B — five points shipped with two
+carrying no opposition, and the checks that would have caught it existed as sentences in files that
+ran too late or not at all.
+
+```sh
+# SOURCE-FIDELITY, the blocking predicate: this axis must carry a quote-grounded
+# assert AND deny from the pair's own material, or the point is not filed.
+node scripts/points/admissibility.mjs <point.json>
+
+# The unfilled count is DERIVED from the cast entries and asserted against the
+# run file's own positions_unfilled field. On run B the two disagree — the header
+# said [] while position 3 carried status: UNFILLED — and the assert must fire.
+node scripts/points/unfilled.mjs <derived-run-fixture.md>
+
+# Canonical pairs, unspanned contradiction sentences, and untraced points.
+node scripts/points/run-scoring.mjs <derived-run-fixture.md>
+```
+
+**PREDICTED-OPPOSITION is reported by `admissibility.mjs` and never used for its verdict.** Three
+different things get called "opposition" and they have different consequences: SOURCE-FIDELITY (what
+two people said) blocks; PREDICTED-OPPOSITION (an agent's Likert reading) never auto-blocks;
+OBSERVED-ROOM (whether the room divided) does not exist before the event.
+
 ### Step 4d — The same-vote collapse check (mechanical, runs on every pair)
 
 **Run this once every arguer has a position on every point they hold one on. It needs no judgement,
@@ -350,7 +383,21 @@ Same-vote collapse check — all C(N,2) pairs:
 ```
 
 **A FLAGGED pair is a finding reported to the founder, never an auto-drop** — the founder chooses
-whether the run proceeds, loses an arguer, or is re-cast.
+whether the run proceeds, loses an arguer, or is re-cast. **The three-way choice STAYS** (P1210 §9,
+withdrawn the same day it was approved): automating it away was written as depending on §2's claim
+that collapse becomes structurally impossible, and **that claim is false** — two arguers who each
+entered through a contradiction with a third person can still vote alike across the set. Removing the
+choice would delete the only check that catches that shape.
+
+**Say what "re-cast" costs, because offering it as a third button understates it.** Choosing re-cast
+means **fresh Gates 1–2, a fresh seal, and therefore a new run** — not an adjustment inside this one.
+Nothing is re-sealed in place and no point set survives the choice.
+
+> **This gate is founder-facing on purpose, and that is not a contradiction of the rule that
+> PREDICTED-OPPOSITION never auto-blocks.** A founder-facing halt hands a human the decision; an
+> auto-block takes it. The agent-derived signed positions may halt for the founder and may never, on
+> their own verdict, drop a point or stop a run — and they may not be promoted to an automatic gate
+> until a room has answered (P1210 §2, §11).
 
 > **Why this check exists, and why it is HERE rather than in `/slava:disagreement:select`.**
 > `select`'s Phase 3 judge already runs a same-side trap, pairwise across all N, with every candidate

@@ -24,6 +24,96 @@ invocations; the conductor stops after a test run and prints the feed URL.
 
 ---
 
+## 0.5 The objective, and the ten conditions that have to hold
+
+**This section is the pipeline's target. Every stage points here; none restates it** (P1210 §1 —
+this file was the one place in the pipeline with no objective in it, so each stage optimised for
+the nearest proxy it could see, and `prepare`'s nearest proxy was apparent polarization).
+
+> **The pipeline's objective: hand the host, per point, two positions framable from published quotes
+> in the time the contract allows, on something the room does not already agree about, such that the
+> per-point re-stake can move.**
+
+**Provenance of that sentence, stated precisely, because half of it is derived and half is a bet.**
+Its first half — *two positions, framable, from quotes, per point, in the contract's time* — **is**
+entailed by the event contract in [`events/clarity-practice-event.md`](events/clarity-practice-event.md)
+§*Where the pipeline's points enter*. Its second half — *something the room does not already agree
+about*, and *such that the re-stake can move* — is **a bet about what makes the contract's shape
+work**, not an entailment. The contract asks for two framable positions; it does not require the room
+to divide or to move. Both halves are stated as the objective because a pipeline needs a target; only
+the first is derived.
+
+**Ten necessary conditions.** Row identity is `1a, 1b, 2, 3, 4, 5, 6, 7, 8, 9` — never a count, so
+that an implementation cannot satisfy the number while omitting a row. Each is owned by a named
+stage, which is what makes degradation locatable rather than felt.
+
+| # | Condition | Owner | Stage output | Knowable pre-event? |
+|---|---|---|---|---|
+| 1a | Someone is **on record** holding each side | `select` | `phase_0_verdict` | Yes — a contradiction sentence exists, **as a hypothesis** |
+| 1b | The **selected sources** actually assert and deny it | `positions` | `SOURCE-FIDELITY` | Yes, but only once quotes exist |
+| 2 | Both sides are cast, with material | `select` | `Gate 2` | Yes |
+| 3 | Each side's why is renderable from quotes | `story-draft` | `Story Drafts` | Yes |
+| 4 | Taking a position costs the room something | `prepare` | `4b-iii` | Yes — already gated |
+| 5 | The sharpened statement still matches the evidence | `prepare` | `is_synthesized` | Yes |
+| 6 | The point is relevant and comprehensible to the named room | `prepare` | `Print the room back` | Yes — the room is a required input |
+| 7 | The point fits the evening's speaking and re-staking time | `prepare` | `12 min per point` | Yes, since 2026-09-03 — RD-4 decided 36 min total, 12 per point |
+| 8 | The room splits on the first stake | `events/clarity-practice-event.md` | — | **No** |
+| 9 | Something moves on the re-stake | `events/clarity-practice-event.md` | — | **No** |
+
+**How to read the last two columns.** *Owner* names an existing pipeline file — the four stage skills
+under `.claude/commands/slava/disagreement/`, or the event doc for the two conditions only an event
+can settle. *Stage output* names a token that must OCCUR in that owner's file: the artifact, gate or
+rule through which the condition becomes visible. `src/tests/p1210-objective-table.test.ts` resolves
+every owner and every token, so a condition cannot quietly lose its referent. **What that test does
+NOT do, stated because the distinction matters: it checks that every condition has a real referent.
+It does not check that a run emits it — no test can observe a run.**
+
+**Conditions 3–9 are claims about what makes the contract's shape produce a working evening —
+argued, not derived — and the first event falsifies them.** Only 1a, 1b and 2 are entailed by the
+contract plus the pipeline's existing gates. Conditions 8 and 9 stay unmeasured rather than proxied:
+**do not substitute arguer split for room split.**
+
+---
+
+## 0.6 The four stores — named once, here
+
+<!-- store-naming:start -->
+The pipeline uses four content-addressed stores. **These paths are named in this file and nowhere
+else** — no skill restates them (P1210 §10). A stage that needs one refers to it by the variable
+name below.
+
+```sh
+YT_STORE=~/.local/share/yt-store            # raw + cleaned transcripts, permanent, content-hash-gated
+AUDIO_STORE=~/.local/share/audio-store      # extracted audio
+DIARIZE_STORE=~/.local/share/diarize-store  # speaker-labelled turn windows
+AGENT_STORE=~/.local/share/agent-store      # the agent store and its ledger
+AGENT_LEDGER=$AGENT_STORE/index.db          # the SQLite ledger that decides whether work was done
+```
+<!-- store-naming:end -->
+
+**Two rules, and the second one is the corrected form:**
+
+1. **Any cache or freshness check runs the owning tool and reads its HIT/MISS** — never a directory
+   listing. The store's own README states the designed interface: *"do not consult this directory
+   before diarizing: the reuse check lives inside the tool."* Run B was blocked for three days by an
+   artifact that had been on disk the whole time, because the pipeline inspected a directory, on the
+   wrong store, bypassing the reuse check.
+2. **No blocker may be reported without naming the artifact that would clear it and showing that it
+   was looked for — and the search must WALK THE STORE BYTES and diff them against the ledger, never
+   query the ledger.** A ledger query cannot find an artifact whose defining property is having no
+   ledger row, so the query form reproduces the exact miss it was added to prevent. Reconciled on
+   2026-09-01: 19 diarize artifacts on disk, 14 in the ledger, **5 orphans** — and the source that
+   blocked run B had 1 file on disk and 0 ledger rows. Run it:
+
+   ```sh
+   node scripts/points/store-reconcile.mjs --store-root "$DIARIZE_STORE" --ledger "$AGENT_LEDGER" \
+     --require "<video-id>/<start>s+<duration>s.json"
+   ```
+
+   An ORPHAN is reported and does **not** stop the run; a genuinely absent artifact still blocks.
+
+---
+
 ## 1. The Pipeline Overview
 
 The points pipeline turns public video into a published disagreement a room can take positions on.
@@ -109,7 +199,7 @@ The points pipeline turns public video into a published disagreement a room can 
 ### Step 3: `/slava:disagreement:positions`
 - **Goal:** Ground each arguer's position in verified quotes and resolve accurate timecodes.
 - **Ordering:** Quotes first, then position.
-- **Verification:** `grep -F` against the cleaned transcript (exit codes pasted). Timecode `seconds:` resolved strictly from the RAW `.vtt` file in `~/.local/share/yt-store/`. Every comparison harness in the stage runs a known-bad **and** a near-miss control and prints their verdicts beside the passes (Step 2a).
+- **Verification:** `grep -F` against the cleaned transcript (exit codes pasted). Timecode `seconds:` resolved strictly from the RAW `.vtt` file in the yt-store (§0.6). Every comparison harness in the stage runs a known-bad **and** a near-miss control and prints their verdicts beside the passes (Step 2a).
 - **Inference Strength:** Sets `close`, `derived`, or `stretch` label per position.
 - **Cast integrity:** Step 4d runs the mechanical same-**vote** collapse check across every arguer pair, once positions exist — the check `select`'s same-**position** judge structurally cannot perform. A pair whose single shared point is the only position either holds is flagged, not filed as low-confidence.
 - **`audio_in_store` is READ here, not just written upstream:** `positions` reads it before selecting quotes, re-confirms the bytes exist in the store, and emits `human-audio-check-required` where they do not. A quote that fails or cannot clear the audio check is **replaced at this stage** — at the same point-grounding and inference-strength bar, never a weaker quote kept at a stronger position — rather than carried to the filing gate where no cheap remedy exists.
@@ -190,7 +280,7 @@ arguers:                              # REPEATABLE, 2..6 entries, one per distin
     alternates: ["<Gate 1 runner-up name>"]   # carried, not discarded; may be empty
     video_url: "https://www.youtube.com/watch?v=..."
     video_id: "<id>"
-    audio_in_store: "<yes | NO — exit <n>>"      # select FETCHED the audio into ~/.local/share/yt-store/. ABSENT means it never tried — NOT `yes`
+    audio_in_store: "<yes | NO — exit <n>>"      # select FETCHED the audio into the yt-store (§0.6). ABSENT means it never tried — NOT `yes`
     audio_fetch: { at: "<ISO>", route: "<direct|proxy-CC>", exit: <int> }
     audio_ack: "<founder's verbatim answer to the separate acknowledgement, when NO>"
     video_title: "<title>"

@@ -1,0 +1,5 @@
+# Fixture ledger for P1210 DW-13/DW-18. One artifact path per line.
+# NOTE the omission, which is the whole point of the fixture: the
+# MWMe7yjPYpE artifact exists on disk and has NO row here. That is the
+# ledger-ORPHAN shape that blocked run B for three days.
+_-CuF1likvw/0s+8450s.json

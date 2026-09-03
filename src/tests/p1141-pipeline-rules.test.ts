@@ -72,8 +72,17 @@ describe('p1141 DW-11 — the voice rules live in exactly one skill', () => {
 
 describe('p1141 DW-13 — timecodes come from the raw .vtt, never the cleaned transcript', () => {
   it('disagreement:positions names the retained raw store as the source', () => {
-    expect(POSITIONS).toContain('~/.local/share/yt-store/');
+    // P1210 §10 moved the literal store paths into their single sanctioned home
+    // (docs/points-process.md §0.6) and forbids any skill restating them, so the
+    // skill now names the store by its variable. The property DW-13 protects is
+    // unchanged and asserted in both halves: positions.md still points timecode
+    // resolution at the retained RAW track, and the path itself still exists —
+    // in exactly one place.
+    expect(POSITIONS).toContain('$YT_STORE');
     expect(POSITIONS).toContain('.vtt');
+    expect(POSITIONS).not.toContain('~/.local/share/');
+    const canonical = read('docs/points-process.md');
+    expect(canonical).toContain('YT_STORE=~/.local/share/yt-store');
   });
 
   it('it names the ~30s cleaned transcript as the trap, explicitly', () => {

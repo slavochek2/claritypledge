@@ -35,7 +35,7 @@ Check all of them before building anything. A run where every gate passes and th
 | **An `agent_accounts` row for every arguer** | exact match on `subject_key` | Reuse is the account model (P1096). A miss halts or offers `/provision-agent` inline — never a create inside this skill. See below. |
 | **The arguers resolve to DISTINCT agents** | compare the resolved `profile_id`s | Two arguers on one agent (the same person speaking in both sources, or a duplicated `subject_key`) collides on `story_points_author_point_unique UNIQUE (author_id, point_id)` and again on `point_positions UNIQUE(point_id, user_id)`. Atomically that aborts everything, which is safe — but catch it at resolve time rather than by transaction failure, and note that one agent cannot hold two positions on one point anyway, so there is no artifact to salvage. |
 | **Speaker attribution was checked, not assumed** | named per quote, with the basis | Right words, wrong mouth is a **different failure** from mis-transcription and neither check below catches it. See the warning after the deploy check. |
-| **Every story body is under 1,500 characters of AUTHORED content** | `char_length` per story **minus the appended `#<event-tag>` and its separator**, before the write, **against 1,500 — not 10,000** | The binding ceiling is a build-time rule in `/slava:disagreement:story-draft` (see `docs/story-craft.md` §1), and until 2026-08-31 nothing re-asserted it here. **That left a real bypass:** the `## Story Drafts` section is not covered by either seal, so a story regenerated or hand-edited to 4,000 characters after `story-draft` ran kept every required label and quote and sailed through on the 10,000 check. Assert the real ceiling at the boundary that writes. Over 1,500 ⟹ back to `story-draft`, never a trim performed here — this skill does not author. |
+| **Every story body is under the `stories.content` 10,000-character limit of AUTHORED content** (the 1,500 build-time ceiling was WITHDRAWN by P1210 §7 — a per-point story is short by construction; asserting a ceiling the drafting stage no longer applies would block every run under the new unit) | `char_length` per story **minus the appended `#<event-tag>` and its separator**, before the write, **against 10,000** | The binding ceiling is a build-time rule in `/slava:disagreement:story-draft` (see `docs/story-craft.md` §1), and until 2026-08-31 nothing re-asserted it here. **That left a real bypass:** the `## Story Drafts` section is not covered by either seal, so a story regenerated or hand-edited to 4,000 characters after `story-draft` ran kept every required label and quote and sailed through on the 10,000 check. Assert the real ceiling at the boundary that writes. Over 1,500 ⟹ back to `story-draft`, never a trim performed here — this skill does not author. |
 | **Every story body is under 10,000 characters** | `char_length` per story, before the write | `stories.content` carries `CHECK (char_length(content) <= 10000)` (P427). Summary + quotes + inference chains approach it. The transaction aborts on violation, which is safe — but a length check at build time tells you which story to shorten, instead of a Postgres error that tells you only that one of them was too long. |
 | **Each agent's avatar renders — OR is deliberately absent** | **Branch on `profiles.avatar_url` read back from the target ref.** `NULL` ⟹ take the *deliberate absence* path below (no probe, no stop). Non-`NULL` ⟹ probe **that** URL — never a path you reconstructed — and assert `200` **and** `content-type: image/*`. | A missing avatar drops the portrait channel to the initials fallback (`gravatar-avatar.tsx:134`) silently. **Against storage, never assert "not 404"** (P1135 decision (d)) — *measured 2026-08-21 with a control:* a missing object in the `agent-avatars` bucket returns `HTTP/2 400`, `content-type: application/json`, body carrying `"code":"NoSuchKey"`; only the JSON says 404, the status **line** is 400. An existing object returns `HTTP/2 200`, `content-type: image/*`. Assert the positive (`200` + `image/*`) only — a "not 404" check passes on every missing avatar on this host. |
 | **Quote verification artifacts exist** | the per-quote `grep -F` exit codes against the cleaned transcript, **and** the audio-at-timecode check with who ran it and when | Prose saying "checked before filing" is the sentence that lets the check not happen. |
@@ -192,6 +192,32 @@ PRE-FLIGHT — <slug> → <test|prod> (ref <project ref>)
   THIS RUN WILL CREATE <p> PERMANENT PUBLIC IDENTITIES.
 ```
 
+**The two inputs a human must supply — asked HERE, in this block, and nowhere else (P1210 §9).**
+Stage 0 exists to end serial asking, and until 2026-09-03 it printed eight items while neither of the
+two inputs that actually need a human was among them; both sat mid-run in Stage 1.
+
+<!-- input-block:start -->
+- **The event tag** — one per run (one per arguer set, whatever its size). Ask if not supplied; never invent one.
+- **The filing identity** — the account that owns `points.first_validator_id`. This is the operator's account, not an agent: the points are aimed at a room by a person, and the agents only hold positions on them.
+<!-- input-block:end -->
+
+**Zero founder-input asks may appear after this block.** Approval gates are a different thing and
+they all stay — the prod write, identity creation, a `WALLED` source acknowledgement, quote and
+speaker verification. Those request a *decision*, not a *value*; §9 weakens none of them.
+Checked by `node scripts/points/input-block-scan.mjs`.
+
+**Seals — the two-artifact model (P1210 §11, RD-1 KEEP):**
+
+```sh
+node scripts/points/seal.mjs <seals.json>
+```
+
+The **construction seal** (the original prediction block plus its hash) and the **eligibility seal**
+(measured-position eligibility plus its hash) are both immutable; the publication version is sealed
+separately against the eligibility seal. Construction accuracy scores against the first, audience
+responses against the second — so a revised point set cannot retro-fit the prediction it was supposed
+to be scored against. `TAMPERED` names which seal broke.
+
 **Provisioning is part of publishing, not an exception to it.** A run whose subjects have no accounts
 is the *normal* first run for any new topic — every arguer is new the first time. Treat it as
 Stage 1.5 below, not as a halt with an offer attached.
@@ -199,8 +225,6 @@ Stage 1.5 below, not as a halt with an offer attached.
 ## Stage 1 — Resolve
 
 - **Name the target — `test` or `prod` — BEFORE resolving anything**, then take the **Target ref** from that row of the environment table (constraint 2): `.env.local` for test, `.env.prod` for prod. Print the target name and the ref together.
-- **The event tag** — one per run (one per arguer set, whatever its size). Ask if not supplied; never invent one.
-- **The filing identity** — the account that owns `points.first_validator_id`. This is the operator's account, not an agent: the points are aimed at a room by a person, and the agents only hold positions on them.
 - **Per arguer:** resolve `subject_key` → `agent_accounts.profile_id`, exact match. Any miss ⟹ halt (above).
 - **Capture the before-counts.** These are the gate instrument and they are cheap — always take them:
 

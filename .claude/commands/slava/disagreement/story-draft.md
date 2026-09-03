@@ -46,9 +46,23 @@ Stated here in full rather than inherited from a sibling skill: a safety propert
 
 ---
 
-## Story structure — one story per distinct experience
+## Story structure — one story per (person, point)
 
-- **One story per distinct experience, linked to every point it explains** (founder, 2026-08-25). A different experience becomes a second story.
+- **The unit is one story per (person, point) — P1210 §7, founder decision 2026-09-01.** Three or four sentences explaining why that person holds that position, then that point's quote. This REPLACES *one story per distinct experience, linked to every point it explains* (founder, 2026-08-25), which is what produced run B's 1,496-character digest carrying four unrelated arguments stitched with "the same shift repeats" and compressed until the sentences stopped being English.
+- **No character ceiling** — not until several runs have been seen. The old 1,500 ceiling is what forced the compression; a per-point story is short by construction, so a ceiling would be solving a problem the unit change already removes. The `stories.content` 10,000 database limit is a constraint, not a brief, and it still binds.
+- **Single-point scope is judged by a checker that is not the writer.** A story that has drifted into a second point is caught by the separate checker below, never by its own author — the writer/checker split already exists in this file and this is the property it buys.
+- **Schema note, stated precisely:** `story_points` is a many-to-many junction and its unique constraint (`20260301120000_story_points_author_unique.sql`) already forbids two stories by one author on one point, so this emitting shape is PERMITTED today. It is not ENFORCED — nothing prevents one story linking to several points, and nothing requires every (person, point) pair to have a story. The enforcement lives here, in the drafting stage.
+
+**Timestamps do not belong in story prose** — a timecode is an artifact of how the quote was verified, not part of the why. Scan before appending:
+
+```sh
+node scripts/points/story-scan.mjs <story.md>
+```
+
+The supporting-evidence block (delimited `<!-- evidence:start -->` / `<!-- evidence:end -->`) is exempt; prose is not.
+
+*Scope: the three rules above are instructions to the agent running this stage. `scripts/points/rule-present.mjs story-unit` verifies only that they are stated here — no test can observe an agent obeying them (P1210 §12).*
+
 - **The constraint and the rule are NOT the same rule, and they collide.** The database constraint is *one story per author **per point*** (`story_points` carries `UNIQUE(author_id, point_id)`); the rule is *one story per distinct **experience***. One arguer with two distinct experiences both bearing on the same point is mandated by the rule and forbidden by the constraint. **When that happens, only one story may link to that point — pick one and say which, or merge them.**
 - **Assert `(author_id, point_id)` uniqueness across the emitted set at build time, not by Postgres error.** Before writing the section, list every `(story, point)` link and verify no author appears twice on one point. Paste the check.
 
@@ -395,7 +409,7 @@ say so and re-run; do not launder them.
 **edits** this file and **not** when one **runs** it. The contract therefore lives here too:
 
 - **Subagents CAN read from disk.** Pass the transcript as a **path**
-  (`~/.local/share/yt-store/<video-id>/<lang>.clean.txt`), not inlined — a two-hour transcript
+  (`$YT_STORE/<video-id>/<lang>.clean.txt` — §0.6), not inlined — a two-hour transcript
   inlined into 13 prompts wastes the orchestrator's context and forces lossy summarising. Inline the
   small artifacts: the quote list, the point statements, the rules.
 - **Subagents CANNOT reliably return text.** A background subagent's final message can be lost
@@ -440,7 +454,7 @@ duration_seconds: <integer>
 - **No trailing `Source:` line in the story body.** The filed story renders with the video embedded directly above the text and every quote carrying its own timecode link into that video, so a closing "Source: the full talk" sentence repeats what two surfaces already say. Put the source in the `video_url` field, where it belongs.
 - **Respect the `stories.content` 10,000-character limit at build time**, not by Postgres error (`CHECK (char_length(content) <= 10000)`). Count the characters of each story draft before writing the section and paste the counts.
 - **The ceiling covers what YOU write — prose plus the quote block. It excludes the `#<event-tag>` the filer appends**, which is metadata and not yours. Do not leave headroom for it and do not add it yourself.
-- **The 1,500-character ceiling is the one that binds** — the DB limit is a constraint, the ceiling is the brief. It lives in `docs/story-craft.md` §1 with its measurement and its falsifier; it is named here only because this is the file that counts the characters. **Paste both numbers per story** (`content_chars` against 1,500, not against 10,000). A story over the ceiling is not filed; it goes back to its writer.
+- **The 1,500-character build-time ceiling is WITHDRAWN — P1210 §7, founder decision 2026-09-01.** It was written for a story carrying every point its author held a position on, and it is what forced the compression that decision removes. Under one story per (person, point) there is **no character ceiling** until several runs have been seen. **Paste `content_chars` per story anyway** — the number is the instrument that tells us whether a ceiling is ever needed again, and the 10,000 DB constraint above still binds.
 - **Quote budget: at most ONE quote per linked point inside the story text.** The ceiling counts the
   quote block, so an arguer with seven quotes would get 600 characters of prose to connect five points
   while an arguer with three gets 1,000 — the budget running exactly backwards to the work. The full

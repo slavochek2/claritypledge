@@ -252,6 +252,20 @@ Searches performed so far: 0
 
 ## Phase 1: Propose People Per Position
 
+**Transcript-first counterpart hypothesis (P1210 §5 — ordering rule).** Fix person one's video and
+**read person one's transcript first**, then hypothesize the counterpart from what that person
+actually said: name **2–3 counterpart candidates and the contradiction sentence** each one would
+produce against that transcript. **No counterpart video search runs before that** — the search is
+run against the hypothesis, not the other way round. Measured on run B: two arguers were admitted on
+reputation and their actual transcripts were weaker; one had no inference chain at all on 3 of 5
+points because the video did not cover the ground. Cost is one transcript fetched earlier than
+today, a fetch the run needs regardless.
+
+*Scope: this is an instruction to the agent running this stage. Nothing downstream can verify that
+it was obeyed — `scripts/points/rule-present.mjs transcript-first` verifies only that this rule is
+stated here.*
+
+
 Do not search YouTube for topics — search matches words, not stances. Phase 0 has already named the
 fork, the positions, and at least one advocate each; Phase 1 turns **each carried position** into a
 candidate set through research and reasoning.
@@ -331,7 +345,7 @@ changed, never who it changed to* — and the same limit binds identity evidence
 paste its output; **a count of 0 is a STOP**, not a prompt to reason around:
 
 ```bash
-grep -ciE "<surname>" ~/.local/share/yt-store/<id>/en.vtt   # 0 is a STOP
+grep -ciE "<surname>" "$YT_STORE"/<id>/en.vtt   # 0 is a STOP   # $YT_STORE: points-process.md §0.6
 ```
 
 If the surname is absent from the track, the name may still be carried by the description or the
@@ -378,7 +392,7 @@ into two sources. The line is still **who argues**, not how many mouths are in t
 distinguishable" is not this step.**
 
 0. **Check the store FIRST, and write back to it after.**
-   `~/.local/share/diarize-store/<video_id>/<start>s+<duration>s.json` — a hit means this window is
+   `$DIARIZE_STORE/<video_id>/<start>s+<duration>s.json` — a hit means this window is
    already transcribed; use it and spend nothing. After any real diarize run, copy the `--json` output
    in under that name. **The script does not do this for you**, and this step lives here rather than
    only in `/slava:util:diarize` because an agent following Step 2c verbatim would otherwise never
@@ -749,6 +763,23 @@ Present the proposed set to the founder:
 3. **Runners-up:** 1–2 runner-up videos per position with their stats and why they ranked lower, plus
    that position's Gate 1 `alternates` (people, not just videos) if any remain unused.
 4. **Judge Dissent:** Print the judge step's counter-argument in full.
+
+**Candidate points are proposed beside the cast. The founder approves cast and points at ONE gate (P1210 §4).** Phase 0 already writes contradiction sentences and currently discards them; they are
+the raw material. Print, per approved pair, the candidate **points** that pair could carry — so that
+cast and points are approved together rather than the points being invented afterwards, unconstrained.
+After this gate downstream may sharpen wording and drop a point the evidence kills; it may not add a
+new axis.
+
+**Cast-level controls, printed at this gate** — per-pair edges do not catch a star cast:
+
+```sh
+node scripts/points/cast-controls.mjs <cast.json>
+```
+
+Per-person concentration above half the filed points is a **FINDING for the founder, never an
+auto-drop**; distinct verified axes and pair coverage are printed values with no threshold, because
+no denominator or axis-identity rule exists yet and inventing one here would be a number nothing
+supports.
 
 **Halt for founder approval.** The founder approves the **set**, including its size: proceeding with
 fewer positions than were carried is an explicit choice made here, not an outcome of the search.

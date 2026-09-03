@@ -66,7 +66,34 @@ positions those people never took. Every existing gate stays exactly where it is
 | **Seed** *(optional)* | A person, a video URL, or both. Passed to `select` unchanged — see its *Optional seed* section. The seeded side is accepted; only the counterpart is proposed. |
 | **Target** | `test` (default) or `prod`. **Never both in one invocation** — see the hard rule below. |
 
+<!-- input-block:start -->
+**The story fan-out approval is asked HERE, in this block (P1210 §9).** Stage 4 spawns one writer and
+one checker per arguer plus five control checkers — thirteen subagents on a four-arguer run — and the
+standing rule is that three or more need an explicit ok with a rough token estimate first. **The halt
+stays; the 3+-subagent rule is not this pipeline's to delete.** What changes is that it stops being a
+mid-stage interruption whose answer sits twenty lines below it in another file. Print the fan-out plan
+and the token estimate with the inputs above, and take the answer once.
+<!-- input-block:end -->
+
 Gather all of these **before** Stage 1, in one message. Then go quiet until `select`'s Gate 1.
+
+---
+
+## Self-check before Stage 1 — the pipeline's own rules are CODE, not recitation (P1210 §12)
+
+**Run these three and read the exit codes.** A check whose execution depends on a reader choosing to
+perform it is the mechanism that produced run B; the checks that would have caught it existed as
+prose, in files that ran too late or not at all.
+
+```sh
+node scripts/points/rule-present.mjs            # every ordering / placement rule still stated at its named location
+node scripts/points/store-inspection-scan.mjs   # zero directory inspections; ask the owning tool instead
+node scripts/points/input-block-scan.mjs        # founder inputs live in their blocks, not mid-stage
+```
+
+A non-zero exit is a STOP: a stage file has lost a rule this pipeline depends on. **These verify that
+the RULES ARE STATED, never that an agent obeyed them** — the pipeline is markdown with zero
+executables, and no test can observe a reader.
 
 ---
 
