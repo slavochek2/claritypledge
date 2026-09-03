@@ -22,6 +22,7 @@ import {
 import { createTestStory, linkStoryToPoint, deleteTestStory } from './helpers/test-story';
 import { createTestPoint, deleteTestPoint } from './helpers/test-point';
 import { waitForDBPresence, mockMicPermission } from './helpers/test-realtime';
+import { completeLiveJoinIfPrompted } from './helpers/live-join';
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
@@ -42,16 +43,11 @@ async function setupTwoPartySession(
   await reviewerPage.goto(`/live/${roomCode}`);
   // Authenticated test users auto-join without the email form.
   // Try to find the email input with a short timeout; fill it only if it appears.
-  const emailInput = reviewerPage.getByPlaceholder('your@email.com');
-  const formVisible = await emailInput
-    .waitFor({ state: 'visible', timeout: 3000 })
-    .then(() => true)
-    .catch(() => false);
-  if (formVisible) {
-    await emailInput.fill(joinerUser.email);
-    await reviewerPage.getByRole('checkbox').check();
-    await reviewerPage.getByRole('button', { name: 'Join Session' }).click();
-  }
+    // P1232: P396 removed the guest email input and the consent checkbox.
+    // "Join Session" now renders only on the auto-join ERROR path, so an
+    // unconditional click hangs; a guard keyed on the removed email input
+    // is always false and skips the join entirely. See helpers/live-join.ts.
+    await completeLiveJoinIfPrompted(reviewerPage);
 
   // Handle "Updated Terms" dialog — appears for both authenticated and anonymous users
   try {

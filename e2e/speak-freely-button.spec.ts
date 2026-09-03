@@ -25,6 +25,7 @@
 import { test, expect } from '@playwright/test';
 import { deleteClaritySession, createTestUser, setTestSession, deleteTestUser } from './helpers/test-user';
 import { waitForDBPresence, waitForDBStateKey, mockMicPermission } from './helpers/test-realtime';
+import { completeLiveJoinIfPrompted } from './helpers/live-join';
 
 test.describe('Speak Freely Button - Negotiation Flow', () => {
   test.describe.configure({ timeout: 90000 });
@@ -66,12 +67,11 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
       expect(roomCode).toHaveLength(6);
 
-      // Step 2: Listener (Bob) joins the meeting (authenticated, but form still needs email + consent)
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -184,10 +184,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -286,10 +286,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -384,10 +384,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -482,10 +482,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -590,10 +590,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -685,10 +685,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -799,10 +799,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -903,10 +903,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      // Join form always shows email + consent (even for auth users); fill to enable the button
-      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
-      await listenerPage.getByRole('checkbox').check();
-      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(listenerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });

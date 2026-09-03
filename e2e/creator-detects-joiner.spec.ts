@@ -9,6 +9,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { deleteClaritySession } from './helpers/test-user';
+import { completeLiveJoinIfPrompted } from './helpers/live-join';
 
 test.describe('Creator Detects Joiner', () => {
   test('Creator transitions to live view when joiner joins', async ({ browser }) => {
@@ -93,19 +94,11 @@ test.describe('Creator Detects Joiner', () => {
 
       await joinerPage.getByPlaceholder('Enter your name').fill('Joiner');
 
-      // Fill email (required for guests - B50)
-      const joinerEmailInput = joinerPage.getByPlaceholder('your@email.com');
-      if (await joinerEmailInput.isVisible()) {
-        await joinerEmailInput.fill('joiner@test.com');
-      }
-
-      // Check consent checkbox if visible (required - B50)
-      const joinerCheckbox = joinerPage.getByRole('checkbox');
-      if (await joinerCheckbox.isVisible()) {
-        await joinerCheckbox.check();
-      }
-
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox.
+      // "Join Session" now renders only on the auto-join ERROR path, so an
+      // unconditional click hangs; a guard keyed on the removed email input
+      // is always false and skips the join entirely. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
 
       // Step 3: Joiner should see the live view (this works per the bug report)
       await expect(joinerPage.getByText('Creator')).toBeVisible({ timeout: 10000 });
@@ -203,19 +196,11 @@ test.describe('Creator Detects Joiner', () => {
       await joinerPage.goto(`/live/${roomCode}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Bob');
 
-      // Fill email (required for guests - B50)
-      const joinerEmailInput = joinerPage.getByPlaceholder('your@email.com');
-      if (await joinerEmailInput.isVisible()) {
-        await joinerEmailInput.fill('bob@test.com');
-      }
-
-      // Check consent checkbox if visible (required - B50)
-      const joinerCheckbox = joinerPage.getByRole('checkbox');
-      if (await joinerCheckbox.isVisible()) {
-        await joinerCheckbox.check();
-      }
-
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox.
+      // "Join Session" now renders only on the auto-join ERROR path, so an
+      // unconditional click hangs; a guard keyed on the removed email input
+      // is always false and skips the join entirely. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
 
       // Wait for joiner to be in live view
       await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });

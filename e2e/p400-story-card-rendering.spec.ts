@@ -30,6 +30,7 @@ import {
 } from './helpers/test-user';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
 import { waitForDBPresence, mockMicPermission } from './helpers/test-realtime';
+import { completeLiveJoinIfPrompted } from './helpers/live-join';
 
 test.describe('P400: Story card rendering — IdleScreen drawer + Speak Freely', () => {
   test.describe.configure({ timeout: 90000 });
@@ -84,7 +85,11 @@ test.describe('P400: Story card rendering — IdleScreen drawer + Speak Freely',
       // Step 2: Joiner joins
       await joinerPage.goto(`/live/${roomCode}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Bob');
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox.
+      // "Join Session" now renders only on the auto-join ERROR path, so an
+      // unconditional click hangs; a guard keyed on the removed email input
+      // is always false and skips the join entirely. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
       // Handle "Updated Terms" dialog if it appears
       try {
         await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -210,7 +215,11 @@ test.describe('P400: Story card rendering — IdleScreen drawer + Speak Freely',
       // Joiner joins
       await joinerPage.goto(`/live/${roomCode}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Dave');
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox.
+      // "Join Session" now renders only on the auto-join ERROR path, so an
+      // unconditional click hangs; a guard keyed on the removed email input
+      // is always false and skips the join entirely. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
       try {
         await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
         await joinerPage.getByRole('button', { name: 'Continue' }).click();
@@ -312,7 +321,11 @@ test.describe('P400: Story card rendering — IdleScreen drawer + Speak Freely',
       // Joiner joins
       await joinerPage.goto(`/live/${roomCode}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Frank');
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox.
+      // "Join Session" now renders only on the auto-join ERROR path, so an
+      // unconditional click hangs; a guard keyed on the removed email input
+      // is always false and skips the join entirely. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
       try {
         await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
         await joinerPage.getByRole('button', { name: 'Continue' }).click();

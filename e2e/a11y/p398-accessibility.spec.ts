@@ -26,6 +26,7 @@ import {
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
 import { waitForDBPresence, mockMicPermission } from '../helpers/test-realtime';
 import { supabaseAdmin } from '../helpers/supabase-admin';
+import { completeLiveJoinIfPrompted } from '../helpers/live-join';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -43,9 +44,10 @@ async function setupTwoPartySession(
   const roomCode = shareLink!.split('/').pop()!;
 
   await joinerPage.goto(`/live/${roomCode}`);
-  await joinerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-  await joinerPage.getByRole('checkbox').check();
-  await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+  // P1232: P396 removed the guest email input and the consent checkbox, and
+  // "Join Session" now renders only when auto-join FAILS — an unconditional
+  // click on either hangs until the test times out. See helpers/live-join.ts.
+  await completeLiveJoinIfPrompted(joinerPage);
 
   try {
     await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });

@@ -117,12 +117,9 @@ test.describe('Mic Permission Gating', () => {
       await expect(joinerNameInput).toBeVisible({ timeout: 5000 });
       await joinerNameInput.fill('Joiner');
 
-      // Email and consent are required for guest joiners (B50)
-      await joinerPage.getByPlaceholder('your@email.com').fill('joiner@test.com');
-      const joinerCheckbox = joinerPage.getByRole('checkbox');
-      if (await joinerCheckbox.isVisible()) {
-        await joinerCheckbox.check();
-      }
+      // P1232: the guest email input and consent checkbox were removed by P396;
+      // filling them auto-waited until the test timed out. The /join/i click below
+      // still matches the surviving "Join as Guest" button.
 
       // Step 3: Joiner clicks Join - mic permission will be denied
       console.log('[Test] Joiner clicking Join button...');
@@ -237,12 +234,9 @@ test.describe('Mic Permission Gating', () => {
       await expect(joinerNameInput).toBeVisible({ timeout: 5000 });
       await joinerNameInput.fill('Joiner');
 
-      // Email and consent are required for guest joiners (B50)
-      await joinerPage.getByPlaceholder('your@email.com').fill('joiner@test.com');
-      const joinerCheckbox = joinerPage.getByRole('checkbox');
-      if (await joinerCheckbox.isVisible()) {
-        await joinerCheckbox.check();
-      }
+      // P1232: the guest email input and consent checkbox were removed by P396;
+      // filling them auto-waited until the test timed out. The /join/i click below
+      // still matches the surviving "Join as Guest" button.
 
       await joinerPage.getByRole('button', { name: /join/i }).click();
 
@@ -298,12 +292,9 @@ test.describe('Mic Permission Gating', () => {
       const joinerNameInput = joinerPage.locator('input[placeholder="Enter your name"]');
       await joinerNameInput.fill('Joiner');
 
-      // Email and consent are required for guest joiners (B50)
-      await joinerPage.getByPlaceholder('your@email.com').fill('joiner@test.com');
-      const joinerCheckbox = joinerPage.getByRole('checkbox');
-      if (await joinerCheckbox.isVisible()) {
-        await joinerCheckbox.check();
-      }
+      // P1232: the guest email input and consent checkbox were removed by P396;
+      // filling them auto-waited until the test timed out. The /join/i click below
+      // still matches the surviving "Join as Guest" button.
 
       await joinerPage.getByRole('button', { name: /join/i }).click();
 

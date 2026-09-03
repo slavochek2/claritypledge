@@ -18,6 +18,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
 import { waitForDBPresence, mockMicPermission } from './helpers/test-realtime';
+import { completeLiveJoinIfPrompted } from './helpers/live-join';
 
 test.describe('New Meeting After Session Ends', () => {
   test.describe.configure({ timeout: 120000 }); // Long tests with multiple meetings
@@ -63,11 +64,11 @@ test.describe('New Meeting After Session Ends', () => {
       const roomCode1 = shareLink1!.split('/').pop()!;
       sessionCodes.push(roomCode1);
 
-      // Joiner joins first meeting (auth user — email + consent required, name pre-filled)
       await joinerPage.goto(`/live/${roomCode1}`);
-      await joinerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-      await joinerPage.getByRole('checkbox').check();
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
       // Handle "Updated Terms" dialog — new test users trigger this on first join
       try {
         await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
@@ -109,11 +110,11 @@ test.describe('New Meeting After Session Ends', () => {
       sessionCodes.push(roomCode2);
       expect(roomCode2).not.toBe(roomCode1);
 
-      // Joiner joins second meeting (email + consent required again)
       await joinerPage.goto(`/live/${roomCode2}`);
-      await joinerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-      await joinerPage.getByRole('checkbox').check();
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
 
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Bob', 'code', roomCode2);
 
@@ -167,9 +168,10 @@ test.describe('New Meeting After Session Ends', () => {
 
       // Joiner joins and leaves
       await joinerPage.goto(`/live/${roomCode1}`);
-      await joinerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-      await joinerPage.getByRole('checkbox').check();
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
       try {
         await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
         await joinerPage.getByRole('button', { name: 'Continue' }).click();
@@ -250,9 +252,10 @@ test.describe('New Meeting After Session Ends', () => {
       sessionCodes.push(roomCode1);
 
       await joinerPage.goto(`/live/${roomCode1}`);
-      await joinerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-      await joinerPage.getByRole('checkbox').check();
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox, and
+      // "Join Session" now renders only when auto-join FAILS — an unconditional
+      // click on either hangs until the test times out. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
       try {
         await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
         await joinerPage.getByRole('button', { name: 'Continue' }).click();
@@ -349,11 +352,11 @@ test.describe('New Meeting After Session Ends', () => {
         const roomCode = shareLink!.split('/').pop()!;
         sessionCodes.push(roomCode);
 
-        // Joiner joins via URL each round (email + consent required)
         await joinerPage.goto(`/live/${roomCode}`);
-        await joinerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-        await joinerPage.getByRole('checkbox').check();
-        await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+        // P1232: P396 removed the guest email input and the consent checkbox, and
+        // "Join Session" now renders only when auto-join FAILS — an unconditional
+        // click on either hangs until the test times out. See helpers/live-join.ts.
+        await completeLiveJoinIfPrompted(joinerPage);
         // Handle terms dialog on first round only (subsequent rounds: terms already accepted)
         if (round === 1) {
           try {

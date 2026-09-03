@@ -7,6 +7,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { deleteClaritySession } from './helpers/test-user';
+import { completeLiveJoinIfPrompted } from './helpers/live-join';
 
 const mockMicScript = () => {
   const mockAudioTrack = {
@@ -53,11 +54,11 @@ async function startTwoPersonSession(browser: Parameters<typeof test>[1] extends
   // Joiner joins
   await joinerPage.goto(`/live/${roomCode}`);
   await joinerPage.getByPlaceholder('Enter your name').fill('Bob');
-  const joinerEmail = joinerPage.getByPlaceholder('your@email.com');
-  if (await joinerEmail.isVisible()) await joinerEmail.fill('bob@test.com');
-  const joinerCheckbox = joinerPage.getByRole('checkbox');
-  if (await joinerCheckbox.isVisible()) await joinerCheckbox.check();
-  await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+  // P1232: P396 removed the guest email input and the consent checkbox.
+  // "Join Session" now renders only on the auto-join ERROR path, so an
+  // unconditional click hangs; a guard keyed on the removed email input
+  // is always false and skips the join entirely. See helpers/live-join.ts.
+  await completeLiveJoinIfPrompted(joinerPage);
 
   // Both reach live view
   await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });

@@ -16,6 +16,7 @@ import { test, expect } from '@playwright/test';
 import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
 import { mockMicPermission, waitForDBPresence } from './helpers/test-realtime';
 import { supabaseAdmin } from './helpers/supabase-admin';
+import { completeLiveJoinIfPrompted } from './helpers/live-join';
 
 test.describe('Live Content Picker - P128', () => {
   test('Happy path: Select story for verification', async ({ browser }) => {
@@ -305,17 +306,11 @@ test.describe('Live Content Picker - P128', () => {
       await joinerPage.goto(`/live/${roomCode}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Test Joiner');
 
-      const joinerEmailInput = joinerPage.getByPlaceholder('your@email.com');
-      if (await joinerEmailInput.isVisible()) {
-        await joinerEmailInput.fill('joiner@test.com');
-      }
-
-      const joinerCheckbox = joinerPage.getByRole('checkbox');
-      if (await joinerCheckbox.isVisible()) {
-        await joinerCheckbox.check();
-      }
-
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox.
+      // "Join Session" now renders only on the auto-join ERROR path, so an
+      // unconditional click hangs; a guard keyed on the removed email input
+      // is always false and skips the join entirely. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
 
       // P644: Wait for DB sync, then let Realtime + drift polling deliver (no reload)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Test Joiner', 'code', roomCode, 20000);
@@ -389,17 +384,11 @@ test.describe('Live Content Picker - P128', () => {
       await joinerPage.goto(`/live/${roomCode}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Test Joiner');
 
-      const joinerEmailInput = joinerPage.getByPlaceholder('your@email.com');
-      if (await joinerEmailInput.isVisible()) {
-        await joinerEmailInput.fill('joiner@test.com');
-      }
-
-      const joinerCheckbox = joinerPage.getByRole('checkbox');
-      if (await joinerCheckbox.isVisible()) {
-        await joinerCheckbox.check();
-      }
-
-      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+      // P1232: P396 removed the guest email input and the consent checkbox.
+      // "Join Session" now renders only on the auto-join ERROR path, so an
+      // unconditional click hangs; a guard keyed on the removed email input
+      // is always false and skips the join entirely. See helpers/live-join.ts.
+      await completeLiveJoinIfPrompted(joinerPage);
 
       // P644: Wait for DB sync, then let Realtime + drift polling deliver (no reload)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Test Joiner', 'code', roomCode, 20000);
