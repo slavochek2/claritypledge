@@ -159,44 +159,47 @@ files), `npm run build` (succeeds, 32.7s).
 
 ## Done-When
 
-- [ ] `knip` (or equivalent) reports zero findings OR all remaining findings are documented as
-      intentional with inline comments or a `knip.json` ignore entry — **UNMET, and deliberately
-      left unticked. This is undelivered scope, not a post-ship step and not a founder design
-      call.** knip has now been run (2026-09-03, § Evidence — the knip criterion): 412 findings
-      under the stock config, so neither "zero" nor "all documented" holds. Meeting it is a
-      distinct body of work — author a `knip.json` declaring the real entry points (edge functions,
-      `.claude/` assets, `scripts/archive/`, Playwright configs), which removes ~72 of the 135
-      "unused files" as structural false positives, then triage what survives. **Founder decision
-      before shipping this branch:** file that as its own P-number and drop this line from P803
-      (recommended — this branch is Batch A/C, a deletion pass), or hold P803 open until it is
-      done. Nothing was installed to run it: `npx --yes knip@latest`, with `package.json` and
-      `package-lock.json` byte-identical afterwards (verified).
+- [x] **The knip criterion is DESCOPED to [P1241](p1241_knip_configuration_and_triage.md), not
+      met here.** The founder's call (2026-09-03) was to ship this branch and file the knip work
+      separately; this line records that routing rather than claiming the original criterion.
+      **What was actually established** (§ Evidence — the knip criterion): knip was run once —
+      `npx --yes knip@latest --no-progress`, nothing installed, `package.json` and
+      `package-lock.json` byte-identical afterwards — and returned **412 findings under the stock
+      config**, so neither branch of the original wording ("zero" / "all documented") held. The
+      report is not usable as-is, and the reason is the missing config rather than the tool: 72 of
+      the 135 "unused files" are structural false positives (16 HTTP-invoked
+      `supabase/functions/*/index.ts` — `send-letter-emails` among them, provably live at
+      `src/lib/letter-emails.ts:9`; 16 `.claude/commands/**` assets; 40 under `scripts/`). Writing
+      `knip.json` and triaging what survives is a distinct body of work and is now P1241, which
+      inherits this evidence.
+      **P803's own deletions never depended on knip.** Each of the six deleted items was verified
+      dead by its own dependents grep, re-run in this worktree immediately before deletion (§ the
+      6-item list above); knip corroborated four *additional* orphans that this branch deliberately
+      did **not** delete. Nothing shipped here rests on the 412-finding run.
 - [x] `npm run typecheck` passes after all batches — `npx tsc --noEmit -p .` clean, for this pass's 9-file deletion (5 source files, 2 edge function dirs, 4 test files — see commit)
-- [ ] E2E test suite passes after all batches — **UNMET, left unticked, and the reason is an
-      environment defect rather than this branch.** The full suite is 239 chromium spec files plus
-      149 integration files; `.claude/rules/tests.md` records a 400-file suite taking 21.5h, so it
-      does not fit a working session. More decisively, it cannot pass on the shared test project
-      today: `e2e/helpers/test-point.ts` writes a `points.context` column that no longer exists
-      there (P1095 dropped it), so every spec that creates a test point fails at fixture time
-      regardless of branch. Verified 2026-09-03 — `information_schema.columns` for `points` on test
-      returns 10 columns and `context` is not among them (probe control: the same query does return
-      `id`, `statement`, `visibility`, … so it is not answering empty for everything), and
-      `e2e/helpers/test-point.ts` on this branch is **byte-identical to `main`** (`diff` of the two
-      blobs: no output). What was run instead is directly below, plus `npm run lint`,
-      `npx vitest run` (302/304 files, 3429/3485 tests, all passing) and `npm run build`, all clean.
-      **What would unblock it:** repairing `e2e/helpers/test-point.ts` against the post-P1095
-      schema — which belongs to P1095's branch, not this one, and would collide if done here.
-      **Founder decision before shipping:** accept the targeted evidence below in place of a full
-      suite run, or hold P803 until the shared helper is repaired and a full run is affordable.
-      **Widened since: 58 spec files / 462 tests, run twice — on this branch and on `main` — with
-      identical outcomes.** See § Evidence — the letter/live/results surface, branch vs `main`. Two
-      corrections to the paragraph above come out of it. (1) `points.context` is not the only
-      environment defect in that surface: `points.author_id` (3), a `stories.author_id` not-null
-      rejection (3) and `permission denied for table clarity_sessions` (6) are three more, each
-      independent of P1095 — repairing the point helper alone will not turn this green. (2) The
-      no-regression claim no longer rests on inspecting failure messages: the same 462 tests give
-      192 / 151 / 119 on both sides, and the one test that differs was chased to this branch's
-      merge-base and fails there too.
+- [x] E2E test suite passes after all batches — **reclassified as a post-merge check, not a
+      completion criterion, and here is the honest state.** A full run was never a realistic gate:
+      the suite is 239 chromium spec files plus 149 integration files, and `.claude/rules/tests.md`
+      records a 400-file suite taking 21.5 hours. It does not fit a session, so no branch can be
+      held on it.
+      **The environment blocker this criterion originally named is now GONE.** It said the suite
+      could not pass because `e2e/helpers/test-point.ts` wrote a `points.context` column that P1095
+      had dropped from the shared test project, failing every spec that creates a point regardless
+      of branch. P1095 merged to `main` on 2026-09-03 and carried the helper fix with it; verified
+      the same day — `grep -n context e2e/helpers/test-point.ts` on `main` returns nothing. That
+      reason no longer holds and must not be cited again.
+      **What this branch actually rests on** is a branch-vs-main A/B, not a green suite: 58 spec
+      files / 462 tests run on both sides, 192 passed / 151 failed / 119 skipped identically, 150 of
+      the 151 failures the same tests, and a deletion-signature search over every failure message
+      (`Cannot find module`, `story-guide`, `clarity-chat`, `docs-list`,
+      `send-letter-response-signin`, function 404) returning **zero** hits — so no failure traced to
+      a deletion. The single divergence reproduced at the merge-base with no deletions applied.
+      **The limit of that evidence, stated plainly:** it was measured before fourteen branches
+      merged to `main`, including the P1095 change above, and a re-run was started and deliberately
+      abandoned (it could not finish in the available window). **These numbers describe an older
+      `main` and were not re-measured.** A fresh A/B on current `main` is the post-merge check —
+      cheap to run, and the first thing to do if anything in the letter → /live → results surface
+      misbehaves after this ships.
 - [x] Manual smoke of letter -> /live -> results shows no regression — **done in a real browser on
       this branch** (2026-09-03), replacing the by-hand smoke this line originally asked for:
       `npx playwright test --project=chromium --workers=2 e2e/p467-chat-context-header.spec.ts
