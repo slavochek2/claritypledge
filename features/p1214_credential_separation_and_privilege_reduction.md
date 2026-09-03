@@ -5,7 +5,7 @@ rank: 1000063
 workstream: keyring
 created_date: '2026-09-01'
 tags: [security, credentials, least-privilege, supabase]
-related: [p1148, p1186, p998, p1189]
+related: [p1148, p1186, p998, p1189, p1239]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -317,10 +317,12 @@ for values; this applies it to the registry.
    with evidence above.**
    **Phases 1, 3 and 4 stand on their own. Phase 2 does not, and may be dropped entirely —
    see the scope note in Solution.**
-2. Does the vault / timed-unlock idea belong here or in
-   [P1148](p1148_credential_rotation_system.md), whose title already claims "vault"? The session
-   finding was that an unlock window gates a *state* rather than an *action*, so it does not
-   inherit `push-on`'s guarantees. Now leaning P1148, since that spec owns the irreversible half.
+2. ~~Does the vault / timed-unlock idea belong here or in P1148?~~ **Answered 2026-09-03:
+   neither — filed as [P1239](p1239_encrypt_the_critical_credential_half_with_a_timed_unlock.md),
+   same `keyring` workstream, and scheduled BEFORE this spec.** The reasoning reversed on review:
+   retirement here cannot reach the 44 keys that stay, including the master key eleven consumers
+   still write with, so encryption-at-rest is the only measure covering them. P1148's "vault" is a
+   short-lived rollback escrow during a swap — a different mechanism that shares a name.
 3. Should `TEST_SUPABASE_SERVICE_ROLE_KEY` (still legacy `eyJ…`) migrate in the same pass, or
    after? Not assessed.
 

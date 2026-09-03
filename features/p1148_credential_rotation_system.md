@@ -9,7 +9,7 @@ tags:
   - credentials
   - rotation
   - skills
-related: [p1214, p1186]
+related: [p1214, p1186, p1239]
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec

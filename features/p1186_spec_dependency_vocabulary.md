@@ -77,7 +77,15 @@ spec, no bidirectional edges to keep consistent.
 
 3. **Leave the 32 existing specs alone** unless a consumer is built. Rewriting them buys nothing while nothing reads the field, and touching 32 files across live and done specs has its own blast radius.
 
-[FOUNDER DECISION — still open, and narrower than it was: the `workstream`/`tags` split above is decided; this one is not. Is `blocked_by` / `related` the pair, or do you want `depends_on` / `parent` semantics instead? The counts are above; the recommendation is mine, the call is yours.]
+**DECIDED 2026-09-03 (founder delegated the call): `blocked_by:` and `related:`.**
+Not on the raw count — `parent:` leads that — but on the only ground that survives scrutiny:
+`blocked_by` is the sole spelling with a working consumer (the kanban parses, types, persists and
+tests it), so pinning anything else means abandoning or rewriting that consumer for no gain.
+`parent:` is rejected because it means *containment*, a third idea that should not be conflated
+with ordering. `depends_on:` and `blocks:` are rejected as synonyms of `blocked_by` with no
+consumer. The losing four are to be named as deprecated in `features.md`, per this spec's own
+risk row — a reader who reaches for `depends_on:` should find out why it is absent rather than
+add a sixth spelling.
 
 ## Invariants
 
