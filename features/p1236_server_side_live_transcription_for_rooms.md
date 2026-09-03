@@ -101,10 +101,23 @@ A phone on a table in a shared room is not a per-speaker channel.
 So the premise holds only when participants are **acoustically separated** — remote, or on
 close-talking mics — and fails when they are seated together.
 
-`[FOUNDER DECISION: are `/transcribe` rooms co-located (people in one physical room, each on their
-own phone) or acoustically separate (remote participants, or headsets)? P1149 does not state it.
-Co-located → cross-talk is real and diarization or per-stream gating is still required. Separate →
-diarization can be dropped entirely and attribution becomes exact.]`
+**ANSWERED 2026-09-03 (founder):** rooms are **co-located — one physical room — but every
+participant wears a lavalier microphone.** Verbatim: *"yes peopel for 1236 will be in one phsyical
+room - but they will have livalier micorphone on them.. so ohpuflyl it recornds mostly them alone"*
+
+This changes the premise from *contested* to *plausible but unmeasured*. A lavalier sits ~20cm from
+its wearer's mouth while other speakers are 1-3m away, and level falls with distance — so the
+wearer should dominate their own channel by a wide margin, unlike P569's phones-on-a-table scan.
+"Should" is the operative word: **nobody has measured it on this setup**, and the margin depends on
+lav pattern (omni vs cardioid), placement, room size and reverb, and how often people talk over each
+other. P1237's research question 2 measures exactly this, and its 10dB criterion is the bar.
+
+`[FOUNDER DECISION — still open: are the lavaliers plugged into each participant's OWN phone, or
+into one multi-track recorder? This is a different architecture, not a detail. Per-phone lavs give
+one credentialled person per stream, which is the design this spec assumes. A single multi-track
+recorder gives per-speaker channels with NO per-stream identity and no per-device consent surface —
+P1149's consent invariant ("each person consents for their own voice, on their own screen") assumes
+the former.]`
 
 ### Credit-eligible execution paths
 
@@ -125,7 +138,7 @@ not when the first word is spoken — the consent and join screens supply the co
 | Risk | Label | Note |
 |---|---|---|
 | Live sessions re-introduce warm-GPU cost, the P858 failure shape | MITIGATE | Wake on join, shut down on last-member-leave; verify scale-to-zero via billing, not assumption |
-| Co-location premise is wrong → attribution regresses vs today | MITIGATE | Blocked on the founder decision above; do not build the no-diarization path until answered |
+| Lavalier dominance is weaker than assumed → per-channel transcription picks up neighbours | MITIGATE | Measure it before building: P1237 RQ2, 10dB bar. Co-located-with-lavs is answered; the dB margin is not |
 | 4s fragments transcribe worse than whole files (no surrounding context) | MITIGATE | Part of the Step-1 measurement — compare chunked output against a batch run of the same audio |
 | Gemini credit coverage has changed since Apr 2026 | MITIGATE | Re-verify before committing; Cloud Run GPU is the proven fallback |
 | Live text becomes slower than the browser path | ACCEPT | The browser path does not work on Android at all; slower and working beats instant and absent |
@@ -156,10 +169,12 @@ not when the first word is spoken — the consent and join screens supply the co
 
 ## Open Questions
 
-1. Are `/transcribe` rooms co-located or acoustically separate? (Founder decision above — gates the
-   whole no-diarization premise.)
-2. Does chunked transcription quality hold on 4-second fragments? Unmeasured.
-3. Does the 30-minute Gemini cap apply when diarization is OFF? The cap is documented as tied to
+1. Do the lavaliers plug into each participant's own phone or into one multi-track recorder?
+   (Founder decision above — changes the identity and consent model, not just the audio path.)
+2. What is the measured dB margin between wearer and neighbours on a lavalier channel in this room?
+   Unmeasured; P1237 RQ2 owns it.
+3. Does chunked transcription quality hold on 4-second fragments? Unmeasured.
+4. Does the 30-minute Gemini cap apply when diarization is OFF? The cap is documented as tied to
    diarization/word-timestamps; unverified for plain transcription.
 
 ## Related

@@ -1112,7 +1112,14 @@ else
                     fi
                 fi;;
         esac
-        if [ "$f" != "package-lock.json" ]; then
+        # Exempt files that are large BY DESIGN and must ship in-repo. decisions.md is an
+        # append-only log, 4.1MB and growing — the gate blocked every /kdd commit on its first
+        # real use (2026-09-03), because the fixture only ever contained files it should reject.
+        case "$f" in
+            package-lock.json|docs/decisions.md) P1221_SIZE_EXEMPT=1;;
+            *) P1221_SIZE_EXEMPT=0;;
+        esac
+        if [ "$P1221_SIZE_EXEMPT" = "0" ]; then
             if ! sz=$(git cat-file -s ":$f" 2>/dev/null); then
                 echo -e "${RED}✗ Repo-structure gate: could not size staged blob for $f — failing closed${NC}"
                 ERRORS=$((ERRORS + 1)); continue
