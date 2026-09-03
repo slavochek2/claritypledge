@@ -52,16 +52,59 @@ test.describe('Migration: P1229 get_pledgers_page', () => {
     if (page.total > 100) expect(page.profiles.length).toBe(100);
   });
 
-  test('p_offset pages without overlap and keeps reason-first ordering', async () => {
+  // `profiles` is a deliberately unscoped shared table and the chromium project inserts
+  // pledgers concurrently (e2e-testing-guide.md — shared table, P1083). The original form of
+  // this test took page 0 and page 30 in two calls and asserted the id sets were disjoint;
+  // any insert at the head between the calls shifts every offset by one and makes page 2
+  // legitimately repeat a row, so it failed whenever `npm run test:e2e` ran both projects
+  // together (measured: red in the combined run, 3/3 green with --project=integration alone).
+  //
+  // Non-overlap is a property of the ORDER BY, not of a pair of calls. Proving the sort key
+  // is a STRICT total order inside ONE snapshot proves LIMIT/OFFSET slices of it cannot
+  // overlap, by construction — and does so without a second call to race.
+  test('the page is a strict total order, so p_offset slices cannot overlap', async () => {
+    const anon = makeAnonClient();
+    const { data, error } = await anon.rpc('get_pledgers_page', { p_limit: 60, p_offset: 0 });
+    expect(error).toBeNull();
+    const rows = (data as Page).profiles as Array<{ id: string; reason: string | null; created_at: string }>;
+    expect(rows.length).toBeGreaterThan(1);
+
+    // No duplicates inside one page.
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+
+    // Strictly decreasing on (has-reason, created_at, id) — the migration's ORDER BY. No ties
+    // anywhere means every row has exactly one position, so no two offsets can return it.
+    //
+    // created_at is compared as a STRING, never via Date.parse: Postgres timestamps carry
+    // microseconds (…:34.662162+00:00) and Date.parse truncates to milliseconds, inventing ties
+    // between rows the server ordered by their true sub-millisecond values. Measured — with
+    // Date.parse this check rejected the server's own correct ordering at row 19 of 60. The
+    // serialization is uniform (same column, same offset) and lexicographic order over it agrees
+    // with chronological order, including the shorter-prefix cases ('…34+00' < '…34.5+00').
+    const key = (r: { id: string; reason: string | null; created_at: string }) =>
+      [(r.reason ?? '').trim() !== '' ? 1 : 0, r.created_at, r.id] as const;
+    for (let i = 1; i < rows.length; i++) {
+      const a = key(rows[i - 1]);
+      const b = key(rows[i]);
+      const strictlyAfter =
+        a[0] > b[0] || (a[0] === b[0] && (a[1] > b[1] || (a[1] === b[1] && a[2] > b[2])));
+      expect(strictlyAfter, `row ${i} is not strictly after row ${i - 1}`).toBe(true);
+    }
+    // The leading component being non-increasing is the reason-first guarantee restated:
+    // once a row without a reason appears, no later row may have one.
+    const hasReason = rows.map((r) => (r.reason ?? '').trim() !== '');
+    const firstEmpty = hasReason.indexOf(false);
+    if (firstEmpty !== -1) expect(hasReason.slice(firstEmpty).some(Boolean)).toBe(false);
+  });
+
+  test('p_offset advances the window', async () => {
     const anon = makeAnonClient();
     const first = (await anon.rpc('get_pledgers_page', { p_limit: 30, p_offset: 0 })).data as Page;
     const second = (await anon.rpc('get_pledgers_page', { p_limit: 30, p_offset: 30 })).data as Page;
-    const ids1 = new Set(first.profiles.map((p) => p.id));
-    for (const p of second.profiles) expect(ids1.has(p.id)).toBe(false);
-    const all = [...first.profiles, ...second.profiles];
-    const hasReason = all.map((p) => ((p.reason as string | null) ?? '').trim() !== '');
-    // Once a row without a reason appears, no later row may have one.
-    const firstEmpty = hasReason.indexOf(false);
-    if (firstEmpty !== -1) expect(hasReason.slice(firstEmpty).some(Boolean)).toBe(false);
+    expect(first.profiles.length).toBe(30);
+    expect(second.profiles.length).toBe(30);
+    // Race-free: a concurrent insert shifts the window but can never make offset 30 start on
+    // the same row as offset 0 — that would need 30 identical rows ahead of it.
+    expect(second.profiles[0].id).not.toBe(first.profiles[0].id);
   });
 });
