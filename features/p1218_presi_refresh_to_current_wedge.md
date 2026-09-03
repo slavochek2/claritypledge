@@ -158,6 +158,94 @@ Insights, 8-10 / 5-10 / 6-10 and their sources (landing `REFERENCES`, `ASSUMED_S
 inherited unchanged from `main`; its *encoded* target was not decoded, only the printed URL beside
 it was checked. Scan it once before presenting.
 
+## Noted discrepancies — for the founder, nothing changed
+
+1. **The closing CTA is NOT retired.** A review flagged *"Book a free alignment audit."* on the closer as
+   contradicting a strategy doc. It was left alone: the shipped landing
+   (`src/app/pages/build-right-thing-landing.tsx:114-116`) still ships exactly that funnel, so the deck
+   matches the product. **The discrepancy is between the strategy doc and the shipped product, not
+   inside the deck** — recorded here for the founder to resolve in whichever direction they want; neither
+   file was edited.
+2. **The landing carries the same unbuilt-capability claim the deck just dropped.**
+   `src/app/components/landing/how-platform-works.tsx:34` still reads *"Agents flag the high-stakes
+   matters requiring alignment with your team."* — the sentence the deck synced from and has now
+   rewritten (finding 4 below). `docs/decisions.md` 2026-07-15 [product] records that bridge as
+   deliberately advertised-before-built (a founder-owned fake door with the assistant's attribution
+   objection overruled, not refuted). Left untouched: the deck is in scope here, the landing is not, and
+   the fake door is a founder decision. Flagging it so the two surfaces are not silently inconsistent.
+3. **Narrow-width overflow was NOT chased.** The review flagged it; it is not a regression on this branch
+   (measurements below). Slides 3, 10, 16, 23, 29, 39 clip at 320px and slides 3, 10, 29 at 375px on
+   `main` as well as here.
+
+## Evidence (2026-09-03, round 4 — Codex-review fixes)
+
+Five findings applied to `public/presi/index.html`. Per-finding proof:
+
+1. **Four dead citation links closed.** `grep -c 'href="#"' public/presi/index.html` → **0** (was 4, at
+   the 35% stat and the three assumed-clarity cards). All three URLs are the landing's own — copied from
+   `build-right-thing-landing.tsx` `REFERENCES` (lines 43-45), not authored: CB Insights
+   `research/startup-failure-reasons-top/`, Axios HQ `insights/internal-communications-statistics`
+   (used by both ref-1 cards), Radical Candor `trust-gap`. Every citation had a real source in the repo,
+   so **nothing was de-linked**. Rendered hrefs verified at lines 669, 742-744.
+2. **Tab title.** `<title>` was *"Slava — Protecting High-Stakes Partnerships"* (retired cofounder-era
+   positioning) → **"ClarityPledge — Practice Verified Understanding"**, the deck's own product identity
+   line from slide 1 (answer A). Verified at `index.html:6`.
+3. **Printing exports every slide.** `.slide{display:none}` / `.slide.active{display:flex}` with no print
+   rule made a PDF export one page. Added an `@media print` block (screen behaviour untouched — it is
+   entirely inside the media query): slides go `position:relative; display:flex`, one per page at
+   `@page size:1600px 900px`, nav + progress hidden. **Verified by actually exporting**, headless Chrome
+   `--print-to-pdf`, page count read with `pdfinfo`:
+
+   | version | Pages | Page size |
+   |---|---|---|
+   | HEAD (control) | **1** | 612 × 792 pts (letter) |
+   | working tree | **39** | 1200 × 675.12 pts (16:9) |
+
+   39 pages = 39 slides (`grep -c '<section class="slide'` → 39). Order spot-checked by `pdftotext` per
+   page: p1 hero, p2 the 35% stat, p9 "Who this is for", p10 five moves, p23 the CTA closer, p39 the
+   backing Clarity Group Terms — matching the round-2 arc. Page 10 also rendered to PNG to confirm the
+   print layout is not degenerate.
+4. **Unbuilt capability no longer asserted.** Five-moves card 3 body was *"Agents flag the high-stakes
+   matters requiring alignment with your team."* — a shipped-capability claim for a bridge
+   `docs/decisions.md` 2026-07-15 [product] records as deliberately unbuilt. Now: **"Where this is going:
+   high-stakes matters surfaced before work starts."** No replacement capability invented; the card title
+   ("Surface high-stakes decisions") is unchanged. See discrepancy 2 above for the landing's copy.
+5. **Audience slide — founder's ruling applied, size is not the segmentation axis.** Was: *"Small to
+   medium companies. Small team: a founder, C-level, or whoever owns product. Medium company: whoever
+   owns change and transformation — the bet we're testing."* Now, verbatim:
+
+   > Whoever owns the alignment problem — a founder, C-level or product owner in a small team; whoever
+   > owns change and transformation in a larger one, the bet we're testing. Size isn't the filter: so
+   > far, small teams through medium companies.
+
+   Role and situation lead; the size range is stated as an observation of where it has shown up, not as
+   the definition of the segment — `lean-canvas.md:79` explicitly rejects company size as a segmentation
+   variable in its own right. The buyer stays a hypothesis ("the bet we're testing"). `lean-canvas.md`
+   was **not** edited. Speaker notes rewritten to say why size leads nowhere and that a room
+   contradicting the buyer bet is data.
+
+### Render regression check — HEAD vs working tree, same probe, same directory
+
+Playwright/Chromium, `reducedMotion`, every one of the 39 slides activated via the deck's own `show(n)`.
+Clip metric = max pixels of any visible descendant outside the slide's box ∩ the viewport.
+`window.innerWidth` asserted equal to the requested width before any measurement (all three passed).
+
+| viewport | HEAD (control) | working tree |
+|---|---|---|
+| 1920×1080 | `29:40px` | `29:40px` |
+| 375×812 | `3:21px 10:542px 29:491px` | `3:20px 10:542px 29:491px` |
+| 320×700 | `3:189px 6:68px 9:128px 10:687px 16:193px 23:4px 29:797px 39:137px` | `3:189px 6:68px 10:687px 16:193px 23:4px 29:796px 39:137px` |
+
+**No new clipping at any viewport.** Slide 9 (the rewritten audience slide) is *better*: its 128px clip at
+320px is gone, and it does not clip at 375px either — the new note is longer than the line it replaced, so
+it first regressed (+13px at 375, +53px at 320) and a scoped `@media(max-width:400px)` rule on `.qualify`
+(note size, card padding, icon size, card gap) closed it and the pre-existing clip with it. Slide 10 also
+regressed +23px at 375 on the first wording of fix 4 and was closed by tightening that sentence, not by
+CSS. Every remaining clip is pre-existing and untouched. Console/page errors and failed requests: **0** at
+all three viewports, both versions.
+
+Artifacts: `<scratchpad>/p1218/presi-final.pdf` (39pp), `head-control.pdf` (1pp), `shots/{d,m,xs}-s{2,5,9,10}.png`.
+
 ## Evidence (2026-09-01, round 1)
 
 - Headless Chromium 1920×1080, all 38 slides + first-advance states: `<scratchpad>/presi/s01…s38(.b).png`; 375px for slides 1, 3, 8, 21, 30: `m*.png`.

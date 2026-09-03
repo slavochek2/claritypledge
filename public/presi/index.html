@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Slava — Protecting High-Stakes Partnerships</title>
+<title>ClarityPledge — Practice Verified Understanding</title>
 <!-- ClarityPledge favicon (the site's clarity-favicon.svg), inlined so the deck stays self-contained -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij4KICA8cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjE2IiBmaWxsPSIjM2I4MmY2IiAvPgogIDxwYXRoIGQ9Ik04OCA0MC41IEMgODIgMzUgNzMgMzIgNjQgMzIgQyA0NCAzMiAzMiA0OCAzMiA2NCBDIDMyIDgwIDQ0IDk2IDY0IDk2IEMgNzMgOTYgODIgOTMgODggODcuNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIiAvPgo8L3N2Zz4=">
 <style>
@@ -598,6 +598,39 @@
     .qualify h2{margin-bottom:.45rem}
     .qualify .card.step{padding-top:.85rem;padding-bottom:.85rem}
   }
+  /* The role-first note (P1218 review) is longer than the size-first line it
+     replaced; keep it inside the slide box at phone widths. Scoped to .qualify. */
+  @media(max-width:400px){
+    .who-note{font-size:.76rem;line-height:1.3;max-width:34ch}
+    .qualify .card.step{padding-top:.7rem;padding-bottom:.7rem}
+    .qualify .card.step p{font-size:.78rem;line-height:1.3}
+    .qualify .card.step h3{font-size:.95rem;margin-bottom:.35rem}
+    .qualify .step-ic{margin-bottom:.4rem}
+    .qualify .step-ic svg{width:32px;height:32px}
+    .qualify .cards{gap:.55rem;margin-top:1.1rem}
+  }
+
+  /* ── PRINT / PDF EXPORT ───────────────────────────────────────────────────
+     On screen exactly one slide is shown (`.slide.active`) and every other
+     slide is `display:none` — so "Save as PDF" exported a single page. In
+     print the deck is laid out in document order instead: every slide is
+     displayed, stacked, one per page, at the 16:9 projection ratio. Screen
+     behaviour is untouched (all of this is inside @media print). */
+  @media print{
+    @page{size:1600px 900px;margin:0}
+    html,body{height:auto;overflow:visible;background:#fff}
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .deck{position:static;height:auto;width:auto}
+    .slide{
+      position:relative!important;inset:auto!important;
+      display:flex!important;width:100%;height:100vh;
+      overflow:hidden;break-inside:avoid;
+      break-after:page;page-break-after:always;
+      animation:none!important;
+    }
+    .slide:last-of-type{break-after:auto;page-break-after:auto}
+    .nav,.progress{display:none!important}
+  }
 </style>
 <!-- motion layer lib — self-hosted (GSAP 3.12.5), deferred + feature-detected;
      the deck works without it. Loads under the claritypledge.com CSP and offline.
@@ -633,7 +666,7 @@
       - Claim = calibration, not accuracy: we do not make you right about the customer; we remove false confidence.
     -->
     <div class="bignum" data-target="35">35%</div>
-    <h2 style="margin-top:1.4rem;font-size:clamp(1.3rem,3.2vw,2.2rem);max-width:18ch">of failed startups built something the market never wanted<sup><a href="#">1</a></sup></h2>
+    <h2 style="margin-top:1.4rem;font-size:clamp(1.3rem,3.2vw,2.2rem);max-width:18ch">of failed startups built something the market never wanted<sup><a href="https://www.cbinsights.com/research/startup-failure-reasons-top/" target="_blank" rel="noopener">1</a></sup></h2>
     <p class="lead" style="margin-top:1.1rem;max-width:40ch">Building got 10x cheaper. Checking you meant the same thing didn't.</p>
     <div class="refs">[1] CB Insights — The Top Reasons Startups Fail (no market need: the #1 reason, cited in 35% of post-mortems)</div>
   </section>
@@ -706,9 +739,9 @@
     -->
     <h2>Everybody <span class="accent">assumes</span> they understand</h2>
     <div class="cards">
-      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="#">1</a></sup></div></div>
-      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="#">1</a></sup></div></div>
-      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="#">2</a></sup></div></div>
+      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="https://www.axioshq.com/insights/internal-communications-statistics" target="_blank" rel="noopener">1</a></sup></div></div>
+      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="https://www.axioshq.com/insights/internal-communications-statistics" target="_blank" rel="noopener">1</a></sup></div></div>
+      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="https://www.radicalcandor.com/trust-gap" target="_blank" rel="noopener">2</a></sup></div></div>
     </div>
     <div class="refs">[1] Axios HQ — Internal Communications Statistics · [2] Radical Candor — The Trust Gap (2026)</div>
   </section>
@@ -814,8 +847,9 @@
   <section class="slide qualify">
     <!-- NOTES
       - Card 1 body is "Months lost. Work thrown away." — "A relationship that frayed." was dropped as cofounder-era residue.
-      - Size: small through medium companies, not small-only. Say it plainly; do not narrow to startups.
-      - Buyer is UNRESOLVED and the slide says so. In a small team it is C-level or whoever owns product. In a medium company the working hypothesis is change-management / transformation leadership — present it as the bet being tested, never as a fact. If the room contradicts it, that is the data.
+      - Lead with the ROLE and the situation, never with company size: lean-canvas.md §Customer Segments states company size is not a segmentation variable in its own right — it only sets the distance between the person who feels the pain and the person who can sign.
+      - Size range (small through medium) is an OBSERVATION of where this has shown up so far, not the definition of the segment. Say it that way; do not narrow to startups either.
+      - Buyer is UNRESOLVED and the slide says so. In a small team it is a founder, C-level or whoever owns product. In a larger one the working hypothesis is change-management / transformation leadership — present it as the bet being tested, never as a fact. If the room contradicts it, that is the data.
       - Three cards, said as a filter, not printed as one: cost you can name, you like depth, you say the hard part.
       - Card 3 is load-bearing: "I don't understand" and "I don't agree", in the room, not after.
       - Do not read an exclusion line; the filter lives in how these are said.
@@ -839,7 +873,7 @@
         <p>&ldquo;I don't understand.&rdquo; &ldquo;I don't agree.&rdquo; &mdash; in the room, not after.</p>
       </div>
     </div>
-    <p class="lead who-note">Small to medium companies. Small team: a founder, C-level, or whoever owns product. Medium company: whoever owns change and transformation &mdash; the bet we&rsquo;re testing.</p>
+    <p class="lead who-note">Whoever owns the alignment problem &mdash; a founder, C-level or product owner in a small team; whoever owns change and transformation in a larger one, the bet we&rsquo;re testing. Size isn&rsquo;t the filter: so far, small teams through medium companies.</p>
   </section>
 
   <!-- 8 · WHAT'S THE SOLUTION — five moves, synced to src/app/components/landing/how-platform-works.tsx MOVES (will → mutual commitment → surface decisions → friction → skill). Icons reassigned, none added. -->
@@ -870,7 +904,7 @@
         <div class="step-n">3</div>
         <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>
         <h3>Surface <span style="white-space:nowrap">high-stakes</span> decisions</h3>
-        <p>Agents flag the high-stakes matters requiring alignment with your team.</p>
+        <p><b>Where this is going:</b> high-stakes matters surfaced before work starts.</p>
       </div>
       <div class="card step">
         <div class="step-n">4</div>
