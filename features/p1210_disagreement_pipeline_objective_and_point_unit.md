@@ -21,36 +21,20 @@ rejected options are carried forward here; its four-workstream frame is not.
 
 ## Run This
 
-> ## ⛔ DO NOT RUN — CONTRACT REJECTED 2026-09-03, adversarial review
->
-> **The `/goal` line below is suspended.** An independent reviewer found the contract carries the
-> exact defect that rejected P1208 twice: **8 of 16 MECHANICAL rows demand a verdict on future
-> agent behaviour**, which no test file can produce. The pipeline is six markdown files with zero
-> executables — a test can assert prose *contains* a rule, never that an agent *obeys* it.
->
-> **The anti-vacuity machinery is itself vacuous, and this is measured:** `## Verification
-> Contract` fact #1 concludes that whole-file rows close the exit-0 hole. They do not.
-> `it.skip` / `it.todo` reach the identical all-skipped state — measured 2026-09-03, **exit 0** —
-> and neither CHECK 1 nor CHECK 2 reads it. All 16 rows can be green with zero assertions executed.
->
-> Also confirmed: the "every row carries paired controls" sentence is false for roughly half the
-> lines; DW-11 was already satisfied before the loop started; DW-12 is an all-empty probe with no
-> known-bad control; DW-4+5 lets the loop author the fixture, the checker and the expected numbers.
->
-> **The 15 findings and the 9-step repair order live in
-> [`features/verification/p1210/contract-review-2026-09-03.md`](verification/p1210/contract-review-2026-09-03.md)** —
-> next to the pin and the assumptions log, not in this file, because `review-round-N.md` is the
-> filename `goal-gate.sh` CHECK 5 globs and a round with no `SCREENSHOT:` lines hard-fails. Step 1
-> of that list is a founder fork and blocks the other eight.
->
-> **Running this line would burn 30 turns against unsatisfiable rows.** The contract is repaired
-> before it is re-pinned. The worktree `feature/p1210-objective-and-point-unit` stays claimed; the
-> Solution (§§1–11) is NOT rejected — it survived three rounds and is unchanged.
+**Re-emitted 2026-09-03.** The first contract was rejected in adversarial review and its `/goal`
+line was suspended; §12 (RD-5) then changed what a check *is*, so `/goalify` was re-run against the
+new triage input rather than the table being hand-patched. The line below is the second contract's,
+pinned to a fresh digest. The Solution (§§1–12) was not reopened.
 
 Type this from anywhere in the repo — the main checkout is fine. Nothing to `cd` into, nothing to
-rebase; the worktree is already claimed for this spec and already carries the pinned contract.
+rebase; the worktree is already claimed for this spec and carries the pinned contract.
 
-    /goal "Work in the worktree on branch feature/p1210-objective-and-point-unit. Then: ./scripts/goal-gate.sh p1210 exits 0, output pasted. Stop after 30 turns."
+    /goal "Work in the worktree on branch feature/p1210-objective-and-point-unit. Then: ./scripts/goal-gate.sh p1210 exits 0, output pasted. Stop after 50 turns."
+
+**50, not 30 — founder decision 2026-09-03 (RD-10).** The 30 in the suspended line was set when the
+checks were prose. §12 commissions seven predicate modules with paired fixtures, a derivation script,
+wiring into six skill files and nineteen test files; 30 turns ends mid-build with a red gate and no
+committed branch.
 
 `/goal` is native Claude Code, not a repo skill — the founder types it; no agent can invoke it for
 them. The condition names an exit code on purpose: the loop's evaluator reads the transcript and
@@ -61,14 +45,22 @@ shared main checkout — *"refusing to soft-reset outside a worktree — main's 
 shared"* — so a loop started there cannot reach exit 0 no matter what it builds. Naming the branch
 rather than a slot keeps this line correct if the work is ever moved.
 
-**What the loop is walking into, so it does not have to discover it from red gates.** Four artifacts
-below `features/verification/p1210/` and `features/uat/p1210.md` already exist as seeds and are
-deliberately unsatisfied: the scorecard's rows carry no results, and `feedback.md` carries zeroes.
-Filling them is work, not housekeeping — CHECK 4 and CHECK 6 read them.
+**What the loop is walking into, so it does not have to discover it from red gates.** Nothing under
+`scripts/points/` exists yet and no `src/tests/p1210-*` file exists; all 24 rows are red by
+construction and Phase 4 measured them that way. `features/verification/p1210/` and
+`features/uat/p1210.md` exist as deliberately unsatisfied seeds — the scorecard's rows carry no
+results and `feedback.md` carries zeroes. Filling them is work, not housekeeping: CHECK 4 and
+CHECK 6 read them.
+
+**Two rows are already true and stay in the contract anyway.** DW-11 and DW-14 are regression
+guards — they were green before the loop started and earn their rows by going red if a later edit
+removes what they check. The first contract carried DW-11 as if it were new work; that is corrected
+rather than hidden.
 
 **Honest limit of the finish line.** The loop still stops on the agent's *paste* of the exit code;
 nothing here changes that. What the gate buys is that forgery and decay are caught at the merge
-boundary by CI. Expect a walk-back that is usually-but-not-always green.
+boundary by CI — and that only holds once the pin is on `origin/main`, which the first pinning never
+was (RD-9).
 
 ## Problem
 
@@ -636,26 +628,38 @@ fitting the measure to the result.
 
 ## Done-When
 
-- [ ] `docs/points-process.md` states the objective and the **ten**-condition table (1a, 1b, 2–9 — checked by row identity, not by count), each condition mapped to a named stage output that a run actually emits — verified by pointing at that output for every row (1a, 1b, 2–9), not by confirming the prose was copied
-- [ ] Every point names its pair, the pair's contradiction sentence, and its own axis with the assert/deny evidence for that axis. **Both controls:** a point whose axis has quote-grounded assert AND deny must FILE; one missing either side must be REFUSED. Both verdicts printed
-- [ ] Redundancy check runs its three-fixture control set — two distinct axes (must pass), one proposition twice verbatim (must fail), one proposition reworded (must fail) — with all three verdicts printed. A near-miss that passes means the check is a formatter and its results carry no weight
-- [ ] Re-running the new checks against run B reproduces the corrected table in Problem: **2 of 3 sentences unspanned**; **4 of 5 points trace to no sentence** (P4 and P5 included, not only P1 and P2); and **P1, P2 and P4 sit on pairs carrying no written contradiction**. **The expected verdict is whatever the specified rule produces — if the run disagrees with this line, the LINE is wrong until the rule is shown to be**
-- [ ] The unfilled-position count is derived from the cast entries and asserts agreement with `positions_unfilled` — verified on run B, where the two disagree and the assert must fire
-- [ ] `select` proposes candidate points alongside the cast and both are approved at one gate. **Both controls:** a downstream attempt to introduce a **new axis** must stop and return to the founder; a downstream **sharpening of an approved axis's wording** must pass unimpeded. A run that refuses both is a gate nobody can use
-- [ ] The counterpart is hypothesized from person one's **transcript**, with 2–3 candidates and the contradiction sentence each would produce, all printed **before** any counterpart video search runs. **Control:** an attempt to search for counterpart videos before that transcript is read must be refused, and the refusal printed
-- [ ] A run short of its point target adds an arguer only with a named new contradiction sentence, and reports `<points filed> of <target>` when it stops short
-- [ ] `story-draft` emits one story per (person, point); no character ceiling. "Addresses one point" is checked by a stated criterion — the story makes no claim requiring a different point's statement to be understood — applied by a checker that is not the writer, with a known-bad two-point story in the batch
-- [ ] Story prose contains no timestamps; the supporting-evidence block is the only place they appear
-- [ ] `docs/events/clarity-practice-event.md` §Run-of-show carries the pre-read model, per-point staking, and the stakeable-statement rule
-- [ ] No cache or freshness check in any pipeline file uses `ls` on a store; each runs the owning tool and reads its verdict — verified by grep returning zero `ls ~/.local/share` in the six skill files
-- [ ] A blocker cannot be reported without naming the clearing artifact and showing the search across all four stores — verified by staging a blocker whose artifact is cached and confirming the run does NOT stop
-- [ ] The same-vote three-way gate is **still present** (its automation was withdrawn — §9); the only change is that "re-cast" is described as meaning a new run. Verified against run B's flagged pair
-- [ ] `prepare` asks about audience size only below the run file's recorded floor — verified with a source above and a source below it
-- [ ] The event tag and filing identity are collected in `publish` Stage 0; the story fan-out approval is collected in the orchestrator's input block — verified by a run that reaches publish with no mid-stage input turn
-- [ ] Cast-level controls are reported every run — distinct verified axes, per-person concentration, pair coverage. **Both controls:** a constructed star cast (one arguer carrying >half) must be FLAGGED; a balanced cast must NOT be, and its printed values must differ from the star cast's. Identical output on both means the control is a formatter
-- [ ] **Both controls on the blocker check:** a staged ledger-ORPHAN (bytes present, zero ledger rows — the exact shape that blocked run B) must be FOUND and the run must not stop; a genuinely absent artifact must still produce a blocker. A check that never blocks is not a check
-- [ ] The two-artifact seal model is **implemented**. If the founder decides to drop it (Open Question 2), that decision is recorded AND this line is struck in the same edit — it may not be satisfied by an unanswered question. **The AI safety re-run may not start until the seal model is implemented or explicitly struck**
-- [ ] Every new refusal added by this spec is run against the pipeline's own documented happy path and passes it (`epistemic.md` gate 7c), and has been seen to FAIL on a staged bad input (gate 7). **This line does not substitute for the per-check controls above** — each names its own fixtures, and a generic sweep at the end is what let earlier versions ship checks whose false-positive rate was never measured
+**Rewritten 2026-09-03 after the contract was rejected** (RD-5 §12, RD-6 – RD-9). Eight lines
+previously demanded a verdict on **future agent behaviour**, which no test can produce: the pipeline
+is six markdown files with zero executables, and a test asserts prose *contains* a rule, never that
+an agent *obeys* it. Each line below is now either a **code predicate** under `scripts/points/`
+(§12) or a **rule-presence check** that says plainly it asserts only that the rule exists and is
+correctly stated at a named location. Every line names a must-pass **and** a must-fail fixture — the
+pre-repair claim that they all already did was false for roughly half of them.
+
+- [ ] **DW-1** `docs/points-process.md` carries the objective paragraph, its provenance paragraph, and a table whose row ids are exactly `1a, 1b, 2, 3, 4, 5, 6, 7, 8, 9` (row identity, never a count). Each row's Owner resolves to an existing pipeline file, and each of rows 1a–7 names a stage-output token that occurs in that file. **Both controls:** the real doc RESOLVES all ten; a fixture doc with row 5's owner pointed at a non-existent stage is REJECTED. *Scope, stated honestly: this checks that every condition has a real referent. It does not check that a run emits it — no test can observe a run.*
+- [ ] **DW-2** `scripts/points/admissibility.mjs` returns FILE for a point whose axis carries a quote-grounded assert AND deny, and REFUSE naming the missing side otherwise. **Both controls:** the assert-and-deny fixture FILES; the deny-only fixture REFUSES with the missing side named. Both verdicts printed.
+- [ ] **DW-3a** `scripts/points/redundancy.mjs` decides the two deterministic cases: two distinct propositions PASS, one proposition repeated verbatim FAILS. **Both controls, both verdicts printed.**
+- [ ] **DW-3b** The reworded near-miss verdict is printed by the same harness and **judged by the founder at `/ship`** (RD-7, HUMAN-ONLY). §2 already rules that exact-string identity cannot decide it and §12's non-goal forbids tuning a similarity threshold until its own three fixtures pass, so this half is not mechanized and the contract does not pretend it is.
+- [ ] **DW-4** `scripts/points/run-scoring.mjs` over the derived run-B fixture reproduces, exactly: **2 of 3 contradiction sentences unspanned**; canonical pairs **P1=(A2,A4), P2=(A1,A4), P3=AMBIGUOUS-PAIR, P4=(A3,A2), P5=(A1,A2)**; **P1, P2 and P4 on pairs carrying no written contradiction, P5 on sentence (a), P3 unscoreable**; and **4 of 5 points tracing to no sentence**, counted from the fixture's own declared `traces_to_sentence` field. **These values were derived by hand at `/goalify` time from the real run file under RD-6's tie-break and are pinned here: the loop writes the checker, never the expectation.** If the checker disagrees, the checker is wrong until the derivation is shown to be. *(The pre-repair line said the opposite — that the LINE was wrong if the run disagreed — which licensed the loop to rewrite the expectation to whatever its own fixture yielded.)*
+- [ ] **DW-5** `scripts/points/unfilled.mjs` derives the unfilled-position count from the cast entries — **1**, position 3 carries `status: UNFILLED` — and asserts agreement with `positions_unfilled`, which is **0** (an empty list). **On run B the two disagree and the assert MUST fire.** **Both controls:** a fixture where the two agree must NOT fire.
+- [ ] **DW-6** The one-gate rule is stated at named locations: `select.md` proposes candidate points beside the cast, and `prepare.md` states that downstream may sharpen an approved axis and may not add a new one, a genuinely new fork returning to the founder. Checked by `scripts/points/rule-present.mjs`. **Both controls:** the edited files RESOLVE; a fixture with the sharpen-not-add sentence removed is REJECTED. *Scope: rule presence at a named location. No test asserts an agent obeys it — §12.*
+- [ ] **DW-7** The transcript-first ordering rule is stated in `select.md`: person one's transcript is read first, 2–3 counterpart candidates and the contradiction sentence each would produce are printed, and no counterpart video search runs before that. Checked by `rule-present.mjs`, **both controls** as above. *Scope: rule presence at a named location.*
+- [ ] **DW-8** The point-target rule is stated (an arguer is added only against a named new contradiction sentence) and the shortfall report is emitted by `scripts/points/report-target.mjs` in the form `<filed> of <planned>`. **Both controls:** short of target prints the shortfall line; at target prints none.
+- [ ] **DW-9** `story-draft.md` states one story per (person, point), the no-ceiling rule, and that single-point scope is judged by a checker that is not the writer. Rule presence, **both controls**. *Scope: rule presence at a named location.*
+- [ ] **DW-10** `scripts/points/story-scan.mjs` finds zero timestamps in story prose and permits them inside the supporting-evidence block. **Both controls:** a clean story PASSES; a story carrying a timestamp in its prose FAILS, naming the offending span.
+- [ ] **DW-11** **REGRESSION GUARD — and it was already satisfied when the first contract was pinned** (commits `0f1fdf7c` / `694f9e97`; verified 2026-09-03, three greps, one hit each). `docs/events/clarity-practice-event.md` §Run-of-show still carries the pre-read model, per-point staking and the stakeable-statement rule. It earns its row by failing if a later edit removes one, not by being new work — relabelled rather than struck (RD-8), the way DW-14 already was. **Both controls:** the real doc RESOLVES; a fixture with per-point staking deleted is REJECTED.
+- [ ] **DW-12** `scripts/points/store-inspection-scan.mjs` finds zero direct store inspections across the six skill files plus `docs/points-process.md`. The pattern is **widened beyond `ls`** to `find`, `cat`, `test -f`, `stat`, and any literal `~/.local/share` or `$HOME/.local/share` path outside the single naming sanctioned in `docs/points-process.md`. **Both controls:** the edited tree PASSES; a fixture file containing a store-inspection line is FLAGGED with its line number. *The pre-repair version had exactly one occurrence to find, no known-bad control, and no coverage of any other spelling — deleting that one line would have made it permanently green.*
+- [ ] **DW-13** `scripts/points/store-reconcile.mjs` takes **a store root and a ledger path as parameters** and walks the bytes, diffing them against the ledger — never a ledger query, which by construction cannot find an artifact whose defining property is having no ledger row. It runs against a **committed fixture store tree** under `src/tests/fixtures/p1210/stores/`, never a home directory: that is what makes this row ci-tier honestly, and the pre-repair version was ci-tier while depending on four real home stores.
+- [ ] **DW-14** **REGRESSION GUARD.** The same-vote three-way gate is still present in `positions.md`, and "re-cast" is described as meaning fresh Gates 1–2, a fresh seal and therefore a new run. Rule presence, **both controls**.
+- [ ] **DW-15** `scripts/points/audience-floor.mjs` returns ASK only when a source's metrics fall below the floor recorded in the run file. **Both controls:** a source above the recorded floor returns NO-ASK; one below returns ASK, naming which metric failed.
+- [ ] **DW-16** `scripts/points/input-block-scan.mjs` finds the event tag and the filing identity inside `publish.md`'s Stage 0 block, the story fan-out approval inside the orchestrator's input block, and **zero** founder-input asks between those blocks and the end of `publish.md`. **Both controls:** the edited files PASS; a fixture with the event tag moved to a mid-stage ask is FLAGGED with its section.
+- [ ] **DW-17** `scripts/points/cast-controls.mjs` reports distinct verified axes, per-person concentration and pair coverage every run. **Both controls:** a constructed star cast (one arguer carrying more than half the filed points) is FLAGGED; a balanced cast is not, **and the two printed value sets differ** — identical output on both means the control is a formatter.
+- [ ] **DW-18** **Both controls on the blocker check:** a staged ledger-ORPHAN in the fixture store tree (bytes present, zero ledger rows — the exact shape that blocked run B) is FOUND and the run does NOT stop; a genuinely absent artifact still produces a blocker. A check that never blocks is not a check.
+- [ ] **DW-19** The two-artifact seal model is implemented as `scripts/points/seal.mjs`, and **"implemented" is defined here** because the pre-repair line left it undefined for a prose spec: the module emits and verifies two immutable blocks — a **construction seal** (the original prediction block plus its hash) and an **eligibility seal** (measured-position eligibility plus its hash) — with the publication version sealed separately against the second, construction accuracy scoring against the first and audience responses against the second. **Both controls:** an untouched block VERIFIES; a block with one character changed returns TAMPERED, naming which seal broke. RD-1 is KEEP, so this row may not be struck.
+- [ ] **DW-20** `scripts/points/verify-all.mjs` runs every predicate above against its must-pass **and** its must-fail fixture through the identical code path, prints both results beside each other, and **exits non-zero if any predicate has no must-fail fixture** (`epistemic.md` gates 7 and 7c). **This completeness sweep does not substitute for the per-line controls** — a generic end-of-run check is what let earlier versions of this work ship gates whose false-positive rate was never measured.
+- [ ] **DW-21** **No vacuous tests.** `scripts/points/no-vacuous-tests.mjs p1210` runs the p1210 suite under vitest's JSON reporter and exits non-zero if **any** test is skipped, todo or `.only`, or if zero tests executed. **Measured 2026-09-03 and again at this repair: a file whose every test is `it.skip` / `it.todo` exits 0 under vitest.** Whole-file rows therefore do NOT close the exit-0 hole the way the pre-repair contract claimed — all 16 of its rows could have been green with zero assertions executed, and neither CHECK 1 nor CHECK 2 reads for it. **Both controls:** the real suite PASSES; a fixture file carrying one `it.skip` FAILS this scan.
+- [ ] **DW-22** **One implementation, two callers** (§12). Every predicate module under `scripts/points/` is invoked by at least one of the six skill files through `node scripts/points/…` and imported by at least one p1210 test. Checked by `scripts/points/two-callers.mjs`. **Both controls:** the wired tree PASSES; a fixture module reachable from tests only is FLAGGED. *A check that exists as code nothing calls is prose with a file extension — the exact defect §12 was written to end.*
+- [ ] **DW-23** **The run-B fixture is DERIVED, never authored.** `scripts/points/verify-fixture.mjs` (a) scans the committed `src/tests/fixtures/p1210/run-b-redacted.md` and hard-fails on **any** real arguer surname or **any** verbatim contradiction sentence — a verbatim sentence carries the names it mentions, so anonymizing the roster to A1–A5 while keeping the sentences reconnects them, which is the P1208 defect (RD-2) reproduced in test data; and (b) re-runs `scripts/points/redact-run.mjs` over the real run file and asserts it reproduces the committed fixture **byte for byte**. The fixture is specified by **the fields the checker reads and the transform applied to each**, never as "the same as the original except X". **The roster transform is fixed and must match the predecessor's:** the four *filled* arguers map to `A1`–`A4` in cast order and position 3 keeps `status: UNFILLED` with no code — this is the convention already used in `features/archive/p1208_*.md`, where `A3` is the fourth cast position. Numbering by position instead would silently shift every pair in DW-4's pinned expectation. **Honest CI limit:** the run file is gitignored, so half (b) prints `DERIVATION: UNVERIFIABLE (source absent)` and exits 0 in CI; half (a) always runs because it reads only the committed fixture. The derivation is verified locally, where the loop and `/ship` both run.
 
 ## Open Questions
 
@@ -700,9 +704,16 @@ Answered by the founder on 2026-09-01 during `/goalify`. Append-only; `## Proble
 |---|---|---|---|
 | RD-1 | Keep the two-artifact seal model, or drop it? (Open Question 2) | **KEEP** | DW-19 is a live contract row. The AI safety re-run stays blocked until the seal model lands |
 | RD-2 | The archived P1208 pairs named people with derived position values (Open Question 3) | **REDACT** | Done in this same commit — arguers are `A1`–`A5`, whole-file. Not a loop task |
-| RD-3 | How is reviewer independence held for a spec that renders nothing? | **Mechanical gate, blind prose review at `/ship`** | Zero COMPARABLE rows. VC-17 carries the review; it is HUMAN-ONLY and the gate does not decide it |
+| RD-3 | How is reviewer independence held for a spec that renders nothing? | **Mechanical gate, blind prose review at `/ship`** | Zero COMPARABLE rows. VC-24 carries the review (VC-17 before the 2026-09-03 re-triage); it is HUMAN-ONLY and the gate does not decide it |
 | RD-4 | The event's per-point budget for block 6 | **36 min total, 12 per point over 3 points** | Written into the event doc in this same commit. Objective condition 7 becomes evaluable |
 | RD-5 | The pipeline's checks: prose an agent recites, or code the skills call? (2026-09-03, after the contract was rejected) | **CODE** | New §12. Scope change to the Solution. The contract is rewritten against it before re-pinning; the `/goal` line stays suspended until then |
+| RD-6 | §12 requires a total order over the inference-strength labels for the canonical-pair tie-break | **Sorted-descending lexicographic** — `close` > `derived` > `stretch`; a pair's strength is its two labels sorted descending and compared position by position; still equal ⟹ `AMBIGUOUS-PAIR` | Applied by hand to run B at `/goalify` time: P1=(A2,A4), P2=(A1,A4), **P3=AMBIGUOUS-PAIR**, P4=(A3,A2), P5=(A1,A2) — codes per the P1208 roster convention, filled arguers numbered in cast order. P3's two max-difference pairs both score `[close, derived]`. This contradicts §*What the run measures*'s table, which named a pair for P3 — and §2 already rules that when the rule and the table disagree, **the table is wrong**. DW-4 pins these five verdicts |
+| RD-7 | DW-3 demanded a reworded proposition deterministically FAIL, which §2 and §12's own non-goal both say is a judgment | **Split** | DW-3a is MECHANICAL (two distinct propositions PASS, one repeated verbatim FAILS). DW-3b is HUMAN-ONLY — the harness prints the near-miss verdict, the founder judges it at `/ship`. No similarity threshold is tuned |
+| RD-8 | DW-11 was already satisfied before the loop started (finding 9) — strike it or relabel it? | **Relabel as a regression guard** | It stays in the contract, labelled the way DW-14 already was, and earns its row by failing if a later edit removes pre-read, per-point staking or the stakeable-statement rule. Recorded rather than quietly dropped |
+| RD-9 | The contract pin is on local `main` but not on `origin/main`, so CHECK 7's merge-boundary guarantee is not in force (finding 13) | **Push the re-pin** | The repaired digest is committed to `main` and the founder is asked to approve the push before the loop starts. Until that push lands, CHECK 7 compares against a ref inside the same repository the branch lives in |
+| RD-10 | The suspended `/goal` line said *stop after 30 turns*, written when the checks were prose | **50 turns** | §12's commissioned scope is seven predicate modules with paired fixtures, a derivation script, six skill-file edits and nineteen test files. 30 ends mid-build with a red gate and no committed branch |
+
+**RD-6 through RD-10 were answered on 2026-09-03 during the second `/goalify` run.**
 
 **RD-3 is the one with a cost, so state it plainly.** `goal-gate.sh` CHECK 5 hard-fails a reviewer
 round that judged zero screenshots (*"an empty round is not a round"*), so a COMPARABLE row on a
@@ -714,63 +725,103 @@ cannot self-certify it.
 
 ## Verification Contract
 
-Seventeen rows: **16 MECHANICAL, 1 HUMAN-ONLY (5.8%)**, zero COMPARABLE. Under goalify's 25%
-refusal threshold, which `goal-gate.sh` CHECK 1 recomputes rather than trusting this sentence.
+**Second contract, written 2026-09-03 after the first was rejected in adversarial review.** The
+first is not revised here — §12 changed what a check *is*, so every row was re-triaged from the
+Done-When lines rather than edited. The 15 findings and the repair order live in
+[`verification/p1210/contract-review-2026-09-03.md`](verification/p1210/contract-review-2026-09-03.md),
+deliberately not named `review-round-N.md` because that glob is CHECK 5's and a round judging zero
+screenshots hard-fails.
 
-**Four parser and runner facts this table is built on, each measured this session — not inherited.**
+**Twenty-four rows: 22 MECHANICAL, 2 HUMAN-ONLY (8%), zero COMPARABLE.** Under goalify's 25%
+refusal threshold, which CHECK 1 recomputes rather than trusting this sentence.
 
-1. **`vitest -t` on a filter that matches nothing exits 0.** Measured: `npx vitest run src/tests
-   --reporter=dot -t "zzz-no-such-test-zzz"` → 3406 tests skipped, **exit 0**. So a `-t`-filtered row
-   is a green that asserted nothing the moment the file exists with any test in it. Every row below
-   therefore runs a **whole file**. P1108's contract records the same finding independently; this run
-   reproduced it rather than citing it.
-2. **A missing test file exits 1.** Measured against `src/tests/p1210-does-not-exist.test.ts` → exit
-   1. That is what makes row absence a real red, and it is the whole of Phase 4's evidence below.
-3. **No command contains a pipe.** `contract_rows()` splits each row with `awk -F'|'` and reads the
-   command from field 4 — a `|` inside a command silently shifts the fields and runs the wrong string.
-4. **`contract_hash()` hashes only this section's body.** The loop may append new sections to this
-   spec without breaking the pin; it may not touch a character between this heading and the next `##`.
+**Five parser and runner facts this table rests on, each measured this session — none inherited.**
 
-**Run B is gitignored, so no row may read it directly.** `.private/points-runs/ai-power-remedies.run-B.md`
-does not exist in CI, and every row below is CI-tier (only Playwright and `e2e/` rows are local). The
-regression rows therefore assert against a committed **structurally identical redacted fixture** —
-same three contradiction sentences, same five points, same four arguers, same `positions_unfilled`
-field, arguers as `A1`–`A5` — and additionally assert against the real run file **when it is present**,
-skipping that half when it is not. The checker is a pure function over a run file; the fixture
-preserves every field the checker reads. **This is the invariant this spec asserts, applied to its own
-test data:** a public file must not pair a named real person with an agent-derived position value.
+1. **An all-skipped file exits 0.** Measured: a probe file whose tests are `it.skip` and `it.todo`
+   → *1 skipped, 1 todo*, **exit 0**. The first contract concluded that whole-file rows closed the
+   vacuity hole; they close the `-t` spelling only, and all 16 of its rows could have been green
+   with zero assertions executed. Neither CHECK 1 nor CHECK 2 reads for it. **DW-21 is the row that
+   does**, and it is the reason this contract has 24 rows rather than 23.
+2. **`vitest -t` on a filter matching nothing also exits 0**, so no row below uses a `-t` filter.
+3. **A missing test file exits 1.** That is what makes row absence a real red, and it is the whole
+   of Phase 4's evidence — it proves nothing about any assertion inside a file that exists.
+4. **No command contains a pipe.** `contract_rows()` splits each row with `awk -F'|'` and reads the
+   command from field 4; a `|` inside a command shifts the fields and runs the wrong string.
+5. **`contract_hash()` hashes only this section's body.** New sections may be appended to this spec
+   without breaking the pin; nothing between this heading and the next `##` may change.
+
+**What the eight behavioural rows became.** The pipeline is six markdown files with zero
+executables, so no test can decide whether an agent obeys an ordering rule. §12 splits the work:
+seven predicates become real `.mjs` modules with one implementation and two callers, and what stays
+prose — ordering, gate placement, sharpen-not-add, the separate-checker requirement, input-turn
+consolidation — is checked for **rule presence at a named location** by `rule-present.mjs`, with a
+must-fail fixture in every case. Those rows say so in their own text and claim nothing more.
+
+**The run-B expectations are pinned, not computed by the loop.** DW-4's five canonical pairs, the
+two counts and P3's `AMBIGUOUS-PAIR` verdict were derived by hand at `/goalify` time from the real
+run file under RD-6's tie-break, and are written into the Done-When line this contract pins. The
+loop writes the checker; if the checker disagrees with the expectation, the checker is wrong. The
+first contract said the reverse, which licensed the loop to author the fixture, the checker and the
+oracle in one turn.
+
+**Run B is gitignored, so no row reads it directly.** `.private/points-runs/ai-power-remedies.run-B.md`
+does not exist in CI. Rows assert against a **derived** redacted fixture — produced by a committed
+redaction script, asserted byte-for-byte, scanned for real names and verbatim contradiction
+sentences (DW-23). *Both* transforms are required: an A1–A5 roster beside a verbatim sentence
+reconnects the names, which is this spec's own Invariant broken in its own test data.
 
 **Every row's test must resolve this spec by glob (`features/**/p1210_*.md`), never by literal path** —
 `/ship` moves the file into `features/done/{sprint}/` in the same commit the gate validates.
 
 | line | class | decided by | artifact |
 |---|---|---|---|
-| DW-1 points-process states the objective and the ten-condition table, each row mapped to a stage output that exists | MECHANICAL | `npx vitest run src/tests/p1210-objective-table.test.ts` | src/tests/p1210-objective-table.test.ts |
-| DW-2 a point names its pair, contradiction sentence and axis; quote-grounded assert AND deny FILES, either side missing REFUSES | MECHANICAL | `npx vitest run src/tests/p1210-point-unit.test.ts` | src/tests/p1210-point-unit.test.ts |
-| DW-3 redundancy check three-fixture control set — two distinct axes pass, verbatim repeat fails, reworded repeat fails | MECHANICAL | `npx vitest run src/tests/p1210-redundancy-control.test.ts` | src/tests/p1210-redundancy-control.test.ts |
-| DW-4 + DW-5 run B regression — 2 of 3 sentences unspanned, 4 of 5 points untraced, P1 P2 P4 on pairs with no written contradiction, and the unfilled count derived from cast entries fires its disagreement assert | MECHANICAL | `npx vitest run src/tests/p1210-run-b-regression.test.ts` | src/tests/p1210-run-b-regression.test.ts + src/tests/fixtures/p1210/run-b-redacted.md |
-| DW-6 one gate for cast and points — a new downstream axis stops, a sharpening of an approved axis passes | MECHANICAL | `npx vitest run src/tests/p1210-single-gate.test.ts` | src/tests/p1210-single-gate.test.ts |
-| DW-7 counterpart hypothesized from person one transcript with 2–3 candidates printed before any search, and a search-first attempt refused | MECHANICAL | `npx vitest run src/tests/p1210-counterpart-order.test.ts` | src/tests/p1210-counterpart-order.test.ts |
-| DW-8 a run short of target adds an arguer only against a named new contradiction sentence, and reports filed-of-target when it stops short | MECHANICAL | `npx vitest run src/tests/p1210-point-target.test.ts` | src/tests/p1210-point-target.test.ts |
-| DW-9 + DW-10 one story per person per point, single-point scope judged by a checker that is not the writer with a known-bad two-point story in the batch, and no timestamps in story prose | MECHANICAL | `npx vitest run src/tests/p1210-story-scope.test.ts` | src/tests/p1210-story-scope.test.ts |
-| DW-11 the event run-of-show carries the pre-read model, per-point staking and the stakeable-statement rule | MECHANICAL | `npx vitest run src/tests/p1210-event-contract.test.ts` | src/tests/p1210-event-contract.test.ts |
-| DW-12 + DW-13 + DW-18 no store is inspected with ls, a blocker names its clearing artifact across all four stores, a staged ledger-orphan is FOUND and does not stop the run, and a genuinely absent artifact still blocks | MECHANICAL | `npx vitest run src/tests/p1210-cache-blocker.test.ts` | src/tests/p1210-cache-blocker.test.ts |
-| DW-14 the same-vote three-way gate is still present and re-cast is described as a new run | MECHANICAL | `npx vitest run src/tests/p1210-same-vote-gate.test.ts` | src/tests/p1210-same-vote-gate.test.ts |
-| DW-15 prepare asks about audience size only below the run file's recorded floor, checked with a source above and a source below | MECHANICAL | `npx vitest run src/tests/p1210-audience-floor.test.ts` | src/tests/p1210-audience-floor.test.ts |
-| DW-16 event tag and filing identity in publish Stage 0, story fan-out approval in the orchestrator input block, no mid-stage input turn on the way to publish | MECHANICAL | `npx vitest run src/tests/p1210-input-turns.test.ts` | src/tests/p1210-input-turns.test.ts |
-| DW-17 cast-level controls reported every run — a star cast is FLAGGED, a balanced cast is not, and their printed values differ | MECHANICAL | `npx vitest run src/tests/p1210-cast-controls.test.ts` | src/tests/p1210-cast-controls.test.ts |
-| DW-19 the two-artifact seal model is implemented (RD-1 KEEP, so this row may not be struck) | MECHANICAL | `npx vitest run src/tests/p1210-seal-model.test.ts` | src/tests/p1210-seal-model.test.ts |
-| DW-20 every new refusal passes the pipeline's own documented happy path and has been watched to FAIL on a staged bad input | MECHANICAL | `npx vitest run src/tests/p1210-refusal-suite.test.ts` | src/tests/p1210-refusal-suite.test.ts |
-| VC-17 blind prose review of the changed skill files against this spec's controls, by a reader given neither the diff nor the rationale (RD-3) | HUMAN-ONLY | founder, AT /ship | — |
+| DW-1 objective + ten-condition table, every row id present and every owner and stage-output token resolving to a real file | MECHANICAL | `npx vitest run src/tests/p1210-objective-table.test.ts` | src/tests/p1210-objective-table.test.ts |
+| DW-2 admissibility predicate — assert-and-deny FILES, either side missing REFUSES naming it | MECHANICAL | `npx vitest run src/tests/p1210-admissibility.test.ts` | scripts/points/admissibility.mjs |
+| DW-3a redundancy, deterministic half — two distinct propositions PASS, one repeated verbatim FAILS | MECHANICAL | `npx vitest run src/tests/p1210-redundancy.test.ts` | scripts/points/redundancy.mjs |
+| DW-3b redundancy, reworded near-miss — verdict printed by the same harness, judged by the founder at /ship (RD-7) | HUMAN-ONLY | founder, AT /ship | — |
+| DW-4 run-B regression reproduces the pinned expectation — 2 of 3 unspanned, the five canonical pairs including P3 AMBIGUOUS-PAIR, 4 of 5 untraced | MECHANICAL | `npx vitest run src/tests/p1210-run-b-regression.test.ts` | scripts/points/run-scoring.mjs |
+| DW-5 unfilled count derived from cast entries is 1, the field says 0, the disagreement assert fires; an agreeing fixture does not fire it | MECHANICAL | `npx vitest run src/tests/p1210-unfilled.test.ts` | scripts/points/unfilled.mjs |
+| DW-6 one-gate and sharpen-not-add rules PRESENT at named locations; a fixture missing the sentence is REJECTED | MECHANICAL | `npx vitest run src/tests/p1210-rule-one-gate.test.ts` | scripts/points/rule-present.mjs |
+| DW-7 transcript-first ordering rule PRESENT at its named location; a fixture missing it is REJECTED | MECHANICAL | `npx vitest run src/tests/p1210-rule-transcript-first.test.ts` | scripts/points/rule-present.mjs |
+| DW-8 point-target rule present and the shortfall report emits filed-of-planned when short, nothing when at target | MECHANICAL | `npx vitest run src/tests/p1210-point-target.test.ts` | scripts/points/report-target.mjs |
+| DW-9 story-unit rules PRESENT — one per person per point, no ceiling, checker is not the writer; fixture missing them REJECTED | MECHANICAL | `npx vitest run src/tests/p1210-rule-story-unit.test.ts` | scripts/points/rule-present.mjs |
+| DW-10 story scan — clean prose PASSES, prose carrying a timestamp FAILS naming the span, evidence block exempt | MECHANICAL | `npx vitest run src/tests/p1210-story-scan.test.ts` | scripts/points/story-scan.mjs |
+| DW-11 regression guard — run-of-show still carries pre-read, per-point staking, stakeable statement; fixture with staking deleted REJECTED | MECHANICAL | `npx vitest run src/tests/p1210-event-contract.test.ts` | src/tests/p1210-event-contract.test.ts |
+| DW-12 store-inspection scan over seven files, pattern widened past ls; clean tree PASSES, planted inspection FLAGGED with its line | MECHANICAL | `npx vitest run src/tests/p1210-store-inspection.test.ts` | scripts/points/store-inspection-scan.mjs |
+| DW-13 + DW-18 store reconcile over a committed fixture store tree — planted ledger-orphan FOUND and not blocking, genuinely absent artifact still blocks | MECHANICAL | `npx vitest run src/tests/p1210-store-reconcile.test.ts` | scripts/points/store-reconcile.mjs |
+| DW-14 regression guard — same-vote three-way gate present, re-cast described as a new run; fixture missing it REJECTED | MECHANICAL | `npx vitest run src/tests/p1210-rule-same-vote.test.ts` | scripts/points/rule-present.mjs |
+| DW-15 audience floor — source above the recorded floor returns NO-ASK, source below returns ASK naming the failed metric | MECHANICAL | `npx vitest run src/tests/p1210-audience-floor.test.ts` | scripts/points/audience-floor.mjs |
+| DW-16 input blocks — event tag and filing identity inside publish Stage 0, fan-out approval in the orchestrator block, zero asks between; planted mid-stage ask FLAGGED | MECHANICAL | `npx vitest run src/tests/p1210-input-blocks.test.ts` | scripts/points/input-block-scan.mjs |
+| DW-17 cast controls — star cast FLAGGED, balanced cast not, and the two printed value sets differ | MECHANICAL | `npx vitest run src/tests/p1210-cast-controls.test.ts` | scripts/points/cast-controls.mjs |
+| DW-19 seal model — construction seal and eligibility seal emitted and verified; untouched VERIFIES, one character changed returns TAMPERED naming the seal | MECHANICAL | `npx vitest run src/tests/p1210-seal.test.ts` | scripts/points/seal.mjs |
+| DW-20 refusal sweep — every predicate run against its must-pass and its must-fail through one code path, exits non-zero if any predicate has no must-fail fixture | MECHANICAL | `node scripts/points/verify-all.mjs` | scripts/points/verify-all.mjs |
+| DW-21 no vacuous tests — zero skipped, todo or only across the p1210 suite, and a non-zero executed-test count | MECHANICAL | `node scripts/points/no-vacuous-tests.mjs p1210` | scripts/points/no-vacuous-tests.mjs |
+| DW-22 two callers — every predicate module invoked by a skill file and imported by a test; a test-only module is FLAGGED | MECHANICAL | `npx vitest run src/tests/p1210-two-callers.test.ts` | scripts/points/two-callers.mjs |
+| DW-23 fixture is derived and clean — zero real surnames, zero verbatim contradiction sentences, and the redaction script reproduces it byte-for-byte where the source is present | MECHANICAL | `node scripts/points/verify-fixture.mjs` | scripts/points/verify-fixture.mjs |
+| VC-24 blind prose review of the changed skill files against this spec's controls, by a reader given neither the diff nor the rationale (RD-3) | HUMAN-ONLY | founder, AT /ship | — |
 
-**Every MECHANICAL row above carries paired controls, and that is deliberate.** A row that only
-asserts the good case is a formatter. The Done-When lines already name the must-fail fixture for
-each; DW-20 is the sweep, and it explicitly does **not** substitute for them — a generic end-of-run
-check is what let earlier versions of this work ship gates whose false-positive rate was never
-measured (`epistemic.md` 7c).
+**Coverage, stated so it can be audited rather than believed.** Twenty-four Done-When lines
+(`DW-1` … `DW-23`, with `DW-3` split into `3a` and `3b`) map to **twenty-three** rows — `DW-13` and
+`DW-18` share one row and one fixture tree, every other line has its own, and no line is uncovered
+or claimed twice. The twenty-fourth row, `VC-24`, is the only one with no Done-When line: RD-3 holds
+the blind prose review at `/ship`, outside the gate, so the loop cannot self-certify it.
 
-**Phase 4 — red-first, run 2026-09-01 before the branch existed.** All 16 MECHANICAL commands were
-executed against the current tree. Every one exited **1** on a missing file. That is a real red for
-row absence and nothing more: it does **not** prove any individual assertion inside a file can fail.
-That property is DW-20's job and the loop's, per `epistemic.md` gate 7 — a check never watched to
-fail is not a check.
+**Paired controls, stated per row rather than asserted globally.** The first contract carried the
+sentence *"every MECHANICAL row above carries paired controls"* and it was false for roughly half
+the lines. Each row's Done-When line above now names its own must-fail fixture in its own text, and
+DW-20 fails the run if any predicate is missing one. That is the check on the claim; the sentence is
+not the check.
+
+**Phase 4 — red-first, run 2026-09-03 against the current tree, before any of it was built.** All
+**22** MECHANICAL commands below were executed and every one exited **1**: the 19 vitest rows on a
+missing test file, the 3 `node scripts/points/…` rows on a missing module directory. The rows were
+extracted with `goal-gate.sh`'s own `contract_rows()` parser, which read 24 rows and classified them
+22 MECHANICAL / 2 HUMAN-ONLY — the same arithmetic CHECK 1 will recompute. That is a real red for
+row absence and **nothing more**: it does not prove any individual assertion inside a file can fail.
+That property is DW-20's job and the loop's, per `epistemic.md` gate 7.
+
+**One guarantee that is weaker than it looks, stated rather than hidden.** CHECK 7 reads the pin
+from `origin/main` and falls back to local `main`. At the first pinning the digest was never pushed,
+so the merge-boundary guarantee the gate advertises was not in force. RD-9 resolves it: the repaired
+pin is committed to `main` and pushed before the loop starts. Until that push lands, CHECK 7 is
+comparing against a ref inside the same repository the branch lives in.
