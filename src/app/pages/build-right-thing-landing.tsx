@@ -401,7 +401,7 @@ export function BuildRightThingLanding() {
         <section className="relative px-4 py-24 lg:py-32 border-t border-border overflow-hidden">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
           <Reveal className="container mx-auto max-w-5xl text-center">
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 break-words hyphens-auto">
               {/* "Fighting the wrong disagreement", not "building wrong features" — field
                   observation: teams say "we're building the wrong thing" OR "THEY are", nobody
                   can adjudicate, so the argument parks and returns. What dissolves is the

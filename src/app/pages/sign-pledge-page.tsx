@@ -131,7 +131,7 @@ export function SignPledgePage() {
               })}
               {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
                 <div
-                  className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600"
+                  className="relative z-10 h-8 min-w-[2rem] px-2 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600 whitespace-nowrap"
                   aria-label={`${totalCount - AVATAR_ROW_LIMIT_MOBILE} more pledgers`}
                 >
                   +{totalCount - AVATAR_ROW_LIMIT_MOBILE}
@@ -159,7 +159,7 @@ export function SignPledgePage() {
               })}
               {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (
                 <div
-                  className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600"
+                  className="relative z-10 h-8 min-w-[2rem] px-2 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600 whitespace-nowrap"
                   aria-label={`${totalCount - AVATAR_ROW_LIMIT_DESKTOP} more pledgers`}
                 >
                   +{totalCount - AVATAR_ROW_LIMIT_DESKTOP}

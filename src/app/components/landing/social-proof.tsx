@@ -86,7 +86,7 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
           />
         ))}
         {totalCount > shownMobile.length && (
-          <div className="relative z-10 w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+          <div className="relative z-10 h-8 min-w-[2rem] px-2 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600 whitespace-nowrap">
             +{totalCount - shownMobile.length}
           </div>
         )}
@@ -108,7 +108,7 @@ export function PledgerAvatarStack({ className = "" }: { className?: string }) {
           />
         ))}
         {totalCount > shownDesktop.length && (
-          <div className="relative z-10 w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+          <div className="relative z-10 h-8 min-w-[2rem] px-2 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600 whitespace-nowrap">
             +{totalCount - shownDesktop.length}
           </div>
         )}
