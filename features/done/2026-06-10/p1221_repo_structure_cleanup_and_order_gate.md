@@ -1,23 +1,23 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000066
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [cleanup, repo-hygiene, pre-commit, file-locations]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: fable
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-09-03
 ---
 
 # P1221: Repo structure cleanup and an order gate that keeps it
 
 ## Problem
 
-The tree has drifted from [file-locations.md](../docs/technical/file-locations.md): one-off scripts sat in `scripts/` root, a typo directory (`.claire/`) was tracked since April, four `docs/technical/` pages have zero inbound references, `features/done/` mixes three folder conventions, and 443 relative doc links are dead. Pre-commit check 14 only watches `*.md`/`*.json`/images in the root — nothing gated a new top-level directory, an unreferenced `docs/` page, or a multi-MB asset, so each of these could recur the day after a cleanup.
+The tree has drifted from [file-locations.md](../../../docs/technical/file-locations.md): one-off scripts sat in `scripts/` root, a typo directory (`.claire/`) was tracked since April, four `docs/technical/` pages have zero inbound references, `features/done/` mixes three folder conventions, and 443 relative doc links are dead. Pre-commit check 14 only watches `*.md`/`*.json`/images in the root — nothing gated a new top-level directory, an unreferenced `docs/` page, or a multi-MB asset, so each of these could recur the day after a cleanup.
 
 ## Appetite
 
