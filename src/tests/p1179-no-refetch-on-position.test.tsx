@@ -35,7 +35,7 @@ vi.mock('@/app/components/feed/feed-point-card', () => ({
 vi.mock('@/app/components/feed/feed-story-card', () => ({ FeedStoryCard: () => null }));
 
 const point = (id: string, statement: string, total = 2) => ({
-  id, statement, context: '', tags: ['cmp7'], positionCounts: {}, totalPositions: total,
+  id, statement, tags: ['cmp7'], positionCounts: {}, totalPositions: total,
 } as unknown as PointWithUserPosition);
 
 beforeEach(() => {

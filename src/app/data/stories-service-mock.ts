@@ -77,7 +77,6 @@ const mockStoryPoints: Record<string, PointSummary[]> = {
     {
       id: 'point-2',
       statement: "Admitting confusion is a sign of strength, not weakness",
-      context: 'From my journey learning to say "I don\'t understand"',
       tags: ['vulnerability', 'leadership'],
       systemTags: [],
       visibility: 'public',
@@ -205,7 +204,6 @@ export const mockStoriesService: StoriesService = {
     const newPoint: PointSummary = {
       id: pointId,
       statement: `Mock point ${pointId}`,
-      context: 'Mock context for testing',
       tags: ['mock'],
       systemTags: [],
       visibility: 'public',

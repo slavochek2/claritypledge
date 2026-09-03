@@ -70,7 +70,6 @@ interface DbStoryPointWithPoint {
   point: {
     id: string;
     statement: string;
-    context: string | null;
     tags: string[];
     visibility?: string;
   } | null;

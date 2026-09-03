@@ -191,7 +191,7 @@ async function seed() {
 
     const { data: pt, error } = await admin.from('points').insert({
       statement: POINTS[i], first_validator_id: owner, visibility: 'public',
-      context: 'P1104 fixture', tags: [TAG],
+      tags: [TAG],
     }).select('id').single();
     if (error) throw new Error(`point ${i}: ${error.message}`);
     pointIds.push(pt.id);

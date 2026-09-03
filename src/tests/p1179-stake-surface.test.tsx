@@ -33,7 +33,7 @@ vi.mock('@/app/components/feed/feed-skeleton', () => ({ FeedSkeleton: () => <div
 vi.mock('@/app/components/seo', () => ({ SEO: () => null }));
 
 const point = (id: string, statement: string) => ({
-  id, statement, context: '', tags: ['cmp7'], positionCounts: {}, totalPositions: 1,
+  id, statement, tags: ['cmp7'], positionCounts: {}, totalPositions: 1,
 } as unknown as PointWithUserPosition);
 const story = (id: string, title: string) => ({ id, title } as unknown as StoryWithAuthor);
 
