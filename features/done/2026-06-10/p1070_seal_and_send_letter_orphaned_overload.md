@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 211
 severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [rpc, migrations, overload, letters]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-09-03
 ---
 
 # P1070: seal_and_send_letter carries an orphaned overload, so the three-argument call cannot resolve
