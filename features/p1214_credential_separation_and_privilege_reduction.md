@@ -318,7 +318,7 @@ for values; this applies it to the registry.
    **Phases 1, 3 and 4 stand on their own. Phase 2 does not, and may be dropped entirely —
    see the scope note in Solution.**
 2. ~~Does the vault / timed-unlock idea belong here or in P1148?~~ **Answered 2026-09-03:
-   neither — filed as [P1239](p1239_encrypt_the_critical_credential_half_with_a_timed_unlock.md),
+   neither — filed as [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md),
    same `keyring` workstream, and scheduled BEFORE this spec.** The reasoning reversed on review:
    retirement here cannot reach the 44 keys that stay, including the master key eleven consumers
    still write with, so encryption-at-rest is the only measure covering them. P1148's "vault" is a
