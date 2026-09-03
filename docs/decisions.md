@@ -6,6 +6,155 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+
+## 2026-09-03 [process]: Trust the probe, not the record — three claims died to one command each
+
+**Context:** A security audit of the local agent setup produced three confident assertions, each
+escalated to the founder, each false, each falsified by a single command. (1) *"The leaked prod
+`service_role` key is still live"* — reasoned from two unticked checkboxes in a **closed** task and
+from the Management API still listing a `{"type":"legacy"}` entry. A listing returns key material
+regardless of whether legacy auth is disabled, and the task's checklist was superseded by its own
+Outcome section. Probed: 401 on 5/5. (2) *"12 of 18 skills are read-only"* — from grepping HTTP
+write verbs; five skills reach a write by shelling out to a script, which no grep of their own text
+can see. (3) *"A scoped Postgres role with its own secret key"* — the mechanism does not exist;
+those keys always authorize as the built-in admin role. Confirmed against vendor docs in one fetch.
+
+**Decision:** For any claim about the CURRENT state of a credential, a gate, or a provider
+resource: run the probe. A record of state — a checkbox, a `status: done`, an API listing, a spec's
+own prose — is a claim about the past, and the past is not the question being asked. The predecessor
+task said this outright (*"Do not trust `status: done` on a credential task; trust the 401"*) and it
+was read and still not applied, because it was read as being about that task rather than as a rule.
+It generalises to any listing: **enumeration is not state.**
+
+**A second failure of the same family, worth its own line:** an invariant was written into the spec
+reading *"the evidence is the real consumer running successfully without the credential."* For a
+**retired** credential there is no consumer left to run, and the 401 that would prove it is produced
+only by revocation, which that spec deliberately forbids. The rule was unsatisfiable by
+construction — it read as rigour and could never fail. Adversarial review caught it, not the author.
+A rule that cannot be violated measures nothing; check satisfiability, not just strictness.
+
+**Alternatives rejected:** (a) *Argue the contradiction out with the reviewer* — both sides were
+reasoning from documents; the probe settled it in one command and cost less than the argument.
+(b) *Treat two independent reviews agreeing as confirmation* — they disagreed here, and the review
+was right; agreement between reviewers is not evidence either.
+
+**Consequences:** Three retractions in one session, two of them after the claim had already shaped
+the founder's priorities. The cost was not the wrong claim; it was the founder acting on
+"this is urgent" twice. Cheapest general guard: before escalating any state claim, name the command
+that would falsify it and run it — if no such command exists, the claim is an inference and must be
+labelled one.
+
+**References:** [p1214](../features/p1214_credential_separation_and_privilege_reduction.md) ·
+[epistemic.md](../.claude/rules/epistemic.md) gates 1, 5, 9
+
+---
+
+## 2026-09-03 [technical]: A spec that targets `.agents/skills/` measures a mirror, not the code
+
+**Context:** A spec's Phase 1 said "read each of the 18 skills" and its completion criterion was
+`grep -rn "<KEY>" .agents/skills/`. Measured: `.agents/skills/` and `.claude/commands/slava/` hold
+**18 key-readers each**, and 99 of their file pairs are byte-identical. `.claude/commands/slava/` is
+the single source of truth; `.agents/skills/` is a **generated, committed projection**
+(`scripts/sync-agent-skills.sh`, P1151) whose own header reads *"NEVER hand-edit anything under
+`.agents/skills/` — regenerate."*
+
+**Decision:** Any spec, gate, or completion criterion that names a consumer set must name
+`.claude/commands/slava/` (plus `scripts/`), never the projection. An agent following the original
+wording would have edited generated files, had them reverted by the next sync, and passed its own
+criterion the whole time.
+
+**Two facts that make this sharper than "don't edit generated files":** the projection is
+**committed**, so it looks like source in every listing and diff; and it is not perfectly in sync —
+2 pairs had drifted at time of writing (`kdd`, `note`) and 24 sources have no twin at all. So
+"identical to the source" is not safe to assume either direction.
+
+**Consequences:** A related trap for consumer enumeration generally — the credential-drift audit's
+own `--consumers-dir` list scans `.claude/commands` and `scripts/`, and does NOT scan
+`.agents/skills/`. A criterion grepping the projection is therefore checking the one tree the audit
+ignores. Also found while fixing this: **8 consumers are not skills at all** (four scripts, one
+shell script, three archived migrations), so "skill" was the wrong unit of work entirely — the unit
+is a consumer file.
+
+**References:** [p1214](../features/p1214_credential_separation_and_privilege_reduction.md) ·
+[`sync-agent-skills.sh`](../scripts/sync-agent-skills.sh) · P1151
+
+---
+
+## 2026-09-03 [process]: `workstream:` now means body-of-work; `tags:` keeps category
+
+**Context:** The founder asked how to name a family of closely-related specs: *"if family exists we
+might not use it well — some of specs are super closely related, and others are just a 'tag' — so
+infra sounds like tag, not a really family."* Measured: `workstream: infrastructure` on **28**
+specs, `infra` on **10** (same thing, two spellings), `letters` on 9. The field appears nowhere in
+`.claude/rules/features.md`, exactly like the five competing dependency spellings P1186 exists to
+fix. It was doing two incompatible jobs — naming a category (28 unrelated specs) and naming one
+body of work (`letters`). A founder looking for a family got 28 strangers.
+
+**Decision:** Narrow `workstream:` to **the body of work**; `tags:` carries category and needs no
+change. Four levels, four fields that already exist, nothing invented: `workstream` (one effort —
+changing one member re-scopes the others) · `tags` (area touched, no coupling) · `related` (same
+class, different surface; flat) · `blocked_by` (true ordering — **the only one the kanban reads**,
+`tools/kanban/server/api.ts:176`). First families named: `keyring` (P1214 + P1148) and `spec-schema`
+(P1186, P1238). Folded into P1186 rather than filed separately — same defect, one field over.
+
+**Alternatives rejected:** (a) *A new `family:` field* — a fifth spelling for a problem caused by
+five spellings. (b) *A maintained chain/graph between related specs* — rejected on measured
+evidence: a `related:` link written this session broke within hours because its target shipped to
+`features/done/` mid-session. Flat per-spec lists have no edges to keep consistent. (c) *Migrate the
+32 legacy values* — P1186's existing non-goal stands.
+
+**Consequences:** New specs carry the narrowed meaning; legacy values are untouched and will read
+as categories. The remaining founder decision on P1186 is now strictly narrower — the
+`workstream`/`tags` split is settled, only the `blocked_by`/`related` spelling is open. Neither is
+enforced until P1186's part 2 lands, which is what makes the filing skills emit them; **a schema
+field nobody writes is worse than no field, because it looks supported.**
+
+**References:** [p1186](../features/p1186_spec_dependency_vocabulary.md) ·
+[p1214](../features/p1214_credential_separation_and_privilege_reduction.md)
+
+---
+## 2026-09-03 [technical]: Removing an agent's write capability bounds integrity harm and nothing else — the agent's own response channel is the exfiltration route (P1215)
+
+**Context:** P1215 (agent-callable surface) was drafted on the reasoning that danger requires three legs — private data, untrusted content, and an outward channel — and that a read-only phase one removes the third. That framing was stated to the founder twice in one session as *"read-only IS the prompt-injection fix."* An adversarial review (codex, second pass) falsified it in one sentence: **no ClarityPledge send tool is required, because the agent's own reply is the outward channel.** Concrete path on this product: a poisoned counterparty letter — untrusted content by construction, since the letter is adversarial writing from a motivated party — instructs the agent to fetch the user's *other* letters, sealed positions, event attendance and registration-gated group-chat URLs and print them into a conversation the attacker can see.
+
+**Decision:** Any claim that a capability restriction makes an agent "unable to cause harm" is false and must name which harms it prevents. Capability removal bounds **integrity** harm (writes, sends, invites). It bounds neither **confidentiality** harm (the above) nor **decision** harm — a read-only agent can selectively misquote a counterparty or falsely summarise their position, which is precisely the damage this product exists to mediate. The residual is accepted, bounded (volume ceilings, kill switch) and disclosed to the user; it is never recorded as solved.
+
+**Alternatives rejected:** *Instruct the model to treat tool results as data, not instructions* — unsolved and not a control. Verified against the MCP specification (2026-07-28): the docs acknowledge tool results are untrusted input and prescribe only that clients SHOULD validate them. **There is no standard mitigation to adopt.** *Scope separation enforced by the protocol* — also verified false: MCP has no protocol-layer mechanism restricting a client to a subset of tools; every capability boundary is server-side application logic.
+
+**Consequences:** Generalises past this repo to any future agent-facing surface: the trifecta's third leg is the agent's output, not the product's send button, so "read-only" is never by itself a security posture. Also relevant to a related finding the same review produced — a "read" tool classified by *name* rather than by *effect* can mark content read, claim a delivery, or return a URL that grants access; tool enumeration proves names, never effects.
+
+**References:** [features/p1215_agent_callable_surface_for_user_actions.md](../features/p1215_agent_callable_surface_for_user_actions.md) §Invariants · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b (green bounds what was modelled)
+
+---
+
+## 2026-09-03 [process]: A gate scoped to one role cannot fail on a threat that arrives as another — P1207's criterion was `anon`-only while the threat it gated is `authenticated` (P1207/P1215)
+
+**Context:** P1207 (adversarial permission audit) was written as the hard dependency of P1215, and its Decision Criterion 1 read *"zero unintended reaches for `anon` on any table carrying user-authored content."* P1215's whole premise is an agent acting **for a signed-in user** — which runs as `authenticated`, not `anon`. Adversarial review found the consequence: P1207 could return **Yes**, P1215's phase gate could validly pass on it, and the precise threat the audit exists to gate — one authenticated user's agent enumerating another user's rows — would never have been examined. Both specs were written in the same session by the same author, an hour apart.
+
+**Decision:** P1207's criterion now covers **both** roles: `anon`, and `authenticated` reading another user's rows. The amendment carries an inline note that narrowing it back re-opens the hole, and P1215's gate states that reverting it voids the gate.
+
+**Alternatives rejected:** *Leave it as the founder's open question* — it had in fact been filed as one ("is `anon`-only the right bar?"), which is what let it survive drafting. A criterion that cannot fail on the threat it gates is a defect, not a preference; asking the founder to choose the safe default is offloading a correctness question as a taste question.
+
+**Consequences:** Generalises to any gate written alongside the thing it gates. **The tell is a criterion whose subject noun differs from the dependent work's actor** — here "anon" vs "an agent acting for a signed-in user", visible by reading the two documents side by side and invisible in either alone. Adjacent to the standing all-empty-probe rule but distinct: this probe was never run, so no verdict existed to look uniform; the defect was in the criterion's reach, not in its output.
+
+**References:** [features/p1207_adversarial_permission_audit_before_agent_api.md](../features/p1207_adversarial_permission_audit_before_agent_api.md) §Decision Criteria · [features/p1215_agent_callable_surface_for_user_actions.md](../features/p1215_agent_callable_surface_for_user_actions.md)
+
+---
+
+## 2026-09-03 [technical]: Deriving an agent tool surface from existing actions is fail-open — derive the contract automatically, publish it by opt-in (P1215)
+
+**Context:** P1215's central promise was that a new user action becomes agent-callable with no extra work, killing the per-action integration treadmill. Adversarial review named the failure direction: automatic exposure is **fail-open**. A developer shipping an action for a tightly controlled UI has not designed a public agent contract or threat-modelled hostile autonomous invocation — so a future account-deletion, membership, recipient or visibility action reaches agents before anyone reviews it, which also contradicts the project's standing "the credential set may only shrink" direction (P1214).
+
+**Decision:** Split derivation from exposure. The tool contract derives from the existing action automatically; **publishing it requires an explicit per-action opt-in.** The opt-in is one line, so the treadmill still dies — what is avoided is a hand-written adapter per action, not the decision to expose one.
+
+**Alternatives rejected:** *Automatic exposure with a post-hoc audit* — the audit runs after agents can already call it. *Hand-written tools per action* — the treadmill P1215 exists to remove.
+
+**Consequences:** Also corrected in the same pass: this repo's `src/app/data/` layer is more disciplined than the review assumed (47 RPC call sites, only 3 files calling Supabase directly outside the data layer), so derivation is mechanically plausible here — but service signatures carry no side-effect classification, scope, or confirmation semantics, so the derived contract is a starting point requiring per-action judgement, not a finished tool.
+
+**References:** [features/p1215_agent_callable_surface_for_user_actions.md](../features/p1215_agent_callable_surface_for_user_actions.md) §Invariants · P1214 (credential separation — filed by a concurrent session, untracked at time of writing)
+
+---
+
 ## 2026-09-03 [process]: `/goalify`'s red-first pass cannot detect an unsatisfiable row — every row is red for the same reason, which is the all-empty probe failure (P1210)
 
 **Context:** P1210's contract was emitted with 16 MECHANICAL rows and a Phase 4 red-first pass: every command run before the branch existed, 16 of 16 exiting 1, pasted as evidence. An independent reviewer then found **8 of the 16 rows demand a verdict on future agent behaviour** — the six pipeline files are markdown with zero executables, so a test can assert prose *contains* a rule and can never assert an agent *obeys* it. That is the exact defect P1208 was rejected for twice (*"an algorithm specified, then a verdict demanded that the algorithm does not produce"*), relocated from Done-When into the contract table meant to prevent it.
