@@ -23,6 +23,8 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
+import { FeedPointCard } from '@/app/components/feed/feed-point-card';
+import { linkKeyFor, linksFor } from '@/lib/linked-content';
 import { QuotedStory } from '@/app/components/social/point-card-with-links';
 import { QUOTE_LABEL_PREFIX } from '@/lib/story-quotes';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
@@ -44,6 +46,12 @@ vi.mock('@/app/contexts/agent-accounts-context', async (importOriginal) => {
     }),
   };
 });
+
+/** FeedPointCard reads the session for its position buttons; the expander does not
+ *  depend on auth, so an anonymous viewer is the right default here. */
+vi.mock('@/auth', () => ({
+  useAuth: () => ({ session: null, user: null, isLoading: false }),
+}));
 
 const navigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -251,5 +259,134 @@ describe('P1212 §4d (QuotedStory) — the stored `Agent · ` prefix never reach
 
     expect(document.body.textContent).toContain('Yann LeCun');
     expect(document.body.textContent).not.toContain('Agent ·');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The re-fetch bug. Found by review of the first §5 commit, not by these tests.
+// ---------------------------------------------------------------------------
+
+/**
+ * THE DEFECT. The first version stored the batch-fetched link map on its own and derived
+ * the card prop as `map?.get(id) ?? (map ? [] : undefined)`. Correct on first load. But
+ * `fetchData` reset `loading` and `error` and NOT the map, so on any re-fetch — tag click,
+ * sort toggle, error-state Retry — the new cards painted while the PREVIOUS fetch's map
+ * was still in state. Truthy map, id it has never seen, `.get()` undefined, fallback `[]`:
+ * every new card asserted "0 points" as a loaded fact about content whose links had not
+ * been fetched. Exactly the falsehood the three states exist to prevent.
+ *
+ * The fix is not "remember to clear it in fetchData" — that leaves the correctness in a
+ * side effect a future fetch path can forget, failing silently when it does. The map is
+ * stored with the id set it answers, and a map whose key is not the current one is
+ * structurally indistinguishable from no map.
+ */
+describe('P1212 §5 — a link map from a previous fetch is never read as an answer', () => {
+  const stale = { key: linkKeyFor(['old-1', 'old-2']), map: new Map([['old-1', POINTS]]) };
+
+  it('returns undefined — "not loaded" — for ids the stale map never covered', () => {
+    const currentKey = linkKeyFor(['new-1', 'new-2']);
+    expect(linksFor(stale, currentKey, 'new-1')).toBeUndefined();
+  });
+
+  it('refuses the stale map even for an id it DOES hold — the key, not the hit, decides', () => {
+    // The subtle half: `old-1` is in the stale map, so a `.get()`-based check would happily
+    // return last page's links for a card on this page.
+    const currentKey = linkKeyFor(['old-1', 'new-2']);
+    expect(linksFor(stale, currentKey, 'old-1')).toBeUndefined();
+  });
+
+  it('returns [] — "loaded, none linked" — only when the map answers the current set', () => {
+    const currentKey = linkKeyFor(['old-1', 'old-2']);
+    expect(linksFor(stale, currentKey, 'old-2')).toEqual([]);
+  });
+
+  it('returns the links when the map answers the current set and holds the id', () => {
+    const currentKey = linkKeyFor(['old-1', 'old-2']);
+    expect(linksFor(stale, currentKey, 'old-1')).toEqual(POINTS);
+  });
+
+  it('returns undefined when nothing has loaded yet', () => {
+    expect(linksFor(undefined, linkKeyFor(['a']), 'a')).toBeUndefined();
+  });
+
+  /** A re-sort reorders the same content. Throwing the map away there would flash the
+   *  expanders off for no reason, so the key is order-independent. */
+  it('survives a re-sort — same ids in a different order is the same set', () => {
+    expect(linkKeyFor(['b', 'a', 'c'])).toBe(linkKeyFor(['c', 'b', 'a']));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FeedPointCard — the other direction. Untested in the first §5 commit.
+// ---------------------------------------------------------------------------
+
+const LINKED_STORIES: StoryWithAuthor[] = [
+  makeStory({ id: 'ls-1', content: 'First linked story body.', authorName: 'Agent · Yann LeCun', authorId: 'agent-1' }),
+  makeStory({ id: 'ls-2', content: 'Second linked story body.', authorName: 'Jane Doe', authorId: 'human-1' }),
+];
+
+const POINT = {
+  id: 'p-1',
+  statement: 'Open weights do more against concentration than regulation will.',
+  text: 'Open weights do more against concentration than regulation will.',
+  tags: [],
+  systemTags: [],
+  visibility: 'public',
+  createdAt: '2026-09-01T00:00:00Z',
+  positionCounts: { agree: 1, disagree: 0, unsure: 0 },
+  userPosition: null,
+} as never;
+
+function renderFeedPointCard(linkedStories?: StoryWithAuthor[]) {
+  return render(
+    <MemoryRouter>
+      <FeedPointCard point={POINT} linkedStories={linkedStories} />
+    </MemoryRouter>
+  );
+}
+
+describe('P1212 §5 — feed point card: story-count expander', () => {
+  it('renders no expander while the links are still loading', () => {
+    renderFeedPointCard(undefined);
+    expect(screen.queryByTestId('feed-point-story-expander')).toBeNull();
+    expect(screen.queryByText('0 stories')).toBeNull();
+  });
+
+  it('renders "0 stories" once loaded with none linked', () => {
+    renderFeedPointCard([]);
+    expect(screen.getByText('0 stories')).toBeTruthy();
+    expect(screen.queryByTestId('feed-point-story-expander')).toBeNull();
+  });
+
+  it('singularises the count — "1 story", not "1 storys"', () => {
+    renderFeedPointCard([LINKED_STORIES[0]!]);
+    expect(screen.getByTestId('feed-point-story-expander').textContent).toContain('1 story');
+  });
+
+  it('expands to the linked stories and flips aria-expanded', () => {
+    renderFeedPointCard(LINKED_STORIES);
+    const expander = screen.getByTestId('feed-point-story-expander');
+    expect(expander.textContent).toContain('2 stories');
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(expander);
+    expect(expander.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText(/First linked story body/)).toBeTruthy();
+    expect(screen.getByText(/Second linked story body/)).toBeTruthy();
+  });
+
+  /**
+   * The reason this card renders QuotedStory rather than its own excerpt: the agent
+   * disclosure contract arrives with the component. A local preview would have had to
+   * re-implement the drained treatment, the chip and the prefix strip — and the §5 commit
+   * shows what happens when a surface re-implements one of those.
+   */
+  it('renders agent stories through QuotedStory, so the disclosure contract comes with them', () => {
+    renderFeedPointCard(LINKED_STORIES);
+    fireEvent.click(screen.getByTestId('feed-point-story-expander'));
+
+    expect(document.querySelectorAll('[data-agent-row="true"]').length).toBe(1);
+    expect(document.body.textContent).not.toContain('Agent ·');
+    expect(document.body.textContent).toContain('Yann LeCun');
   });
 });

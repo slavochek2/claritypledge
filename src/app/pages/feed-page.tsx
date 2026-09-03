@@ -20,6 +20,7 @@ import { SEO } from '@/app/components/seo';
 import { analytics } from '@/lib/mixpanel';
 import { parseTags, serializeTags, filterByTags, collapseToLatest } from '@/lib/feed-utils';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
+import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 
 type FeedTab = 'points' | 'stories';
 
@@ -68,9 +69,11 @@ export function FeedPage() {
   // now server-side filtered by the active tag and can't double as the cloud source.
   const [cloudStories, setCloudStories] = useState<StoryWithAuthor[]>([]);
   const [cloudPoints, setCloudPoints] = useState<PointWithUserPosition[]>([]);
-  // P1212 §5 — undefined until the link query resolves; see the effect below.
-  const [storyPointsMap, setStoryPointsMap] = useState<Map<string, PointSummary[]>>();
-  const [pointStoriesMap, setPointStoriesMap] = useState<Map<string, StoryWithAuthor[]>>();
+  // P1212 §5 — each map is stored WITH the id set it was fetched for, so a map left over
+  // from a previous fetch cannot be read as an answer about the current one. See
+  // `linked-content.ts` for the re-fetch bug that shape exists to make impossible.
+  const [storyPointsState, setStoryPointsState] = useState<LinkedContentState<PointSummary>>();
+  const [pointStoriesState, setPointStoriesState] = useState<LinkedContentState<StoryWithAuthor>>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -160,6 +163,8 @@ export function FeedPage() {
   // changing it means changing the service's error shape, which is outside §5.
   const visibleStoryIds = useMemo(() => stories.map(s => s.id), [stories]);
   const visiblePointIds = useMemo(() => points.map(p => p.id), [points]);
+  const storyLinkKey = useMemo(() => linkKeyFor(visibleStoryIds), [visibleStoryIds]);
+  const pointLinkKey = useMemo(() => linkKeyFor(visiblePointIds), [visiblePointIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,18 +173,18 @@ export function FeedPage() {
       if (visibleStoryIds.length === 0) return;
       storiesService
         .getPointsForStories(visibleStoryIds)
-        .then(map => { if (!cancelled) setStoryPointsMap(map); })
+        .then(map => { if (!cancelled) setStoryPointsState({ key: storyLinkKey, map }); })
         .catch(() => { /* expander stays hidden; the feed itself still renders */ });
     } else {
       if (visiblePointIds.length === 0) return;
       storiesService
         .getStoriesForPoints(visiblePointIds)
-        .then(map => { if (!cancelled) setPointStoriesMap(map); })
+        .then(map => { if (!cancelled) setPointStoriesState({ key: pointLinkKey, map }); })
         .catch(() => { /* expander stays hidden; the feed itself still renders */ });
     }
 
     return () => { cancelled = true; };
-  }, [activeTab, visibleStoryIds, visiblePointIds]);
+  }, [activeTab, visibleStoryIds, visiblePointIds, storyLinkKey, pointLinkKey]);
 
 
   useEffect(() => {
@@ -506,7 +511,7 @@ export function FeedPage() {
                       point={point}
                       activeTag={activeTags[0]}
                       onPointRemoved={handlePointRemoved}
-                      linkedStories={pointStoriesMap?.get(point.id) ?? (pointStoriesMap ? [] : undefined)}
+                      linkedStories={linksFor(pointStoriesState, pointLinkKey, point.id)}
                     />
                   ))
                 : (filteredStories as StoryWithAuthor[]).map((story) => (
@@ -514,7 +519,7 @@ export function FeedPage() {
                       key={story.id}
                       story={story}
                       activeTag={activeTags[0]}
-                      linkedPoints={storyPointsMap?.get(story.id) ?? (storyPointsMap ? [] : undefined)}
+                      linkedPoints={linksFor(storyPointsState, storyLinkKey, story.id)}
                     />
                   ))
               }
