@@ -239,8 +239,11 @@ table are in `.private/docs/security-log.md` § "P1207 closure". Public method r
       in P1215 with both of its remaining blockers named. The row's own warning proved correct —
       this push-side item existed only on main's copy and not on the branch the work sat on*
 - [x] Nothing was run against prod that wrote. *Prod access was GET-only plus read-only catalog
-      SELECTs; `readonly_sql.py` refuses anything that is not a single `SELECT`/`WITH`, and every
-      sweep asserts the test project ref before running. Seeding was test-only*
+      SELECTs; every sweep and the SQL helper assert the test project ref before running, and
+      seeding was test-only. The **project-ref assert** is what holds this up — `readonly_sql.py`'s
+      keyword filter was tested at close and is weaker than its own docstring claims (it does not
+      enforce single-statement, and cannot see a write performed inside a function a `SELECT`
+      calls). Recorded in the private log rather than restated from the docstring*
 
 ## What this spec does NOT deliver
 
