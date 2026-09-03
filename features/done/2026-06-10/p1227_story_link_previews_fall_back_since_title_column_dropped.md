@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000066
 severity: high
@@ -10,9 +10,9 @@ drafted_by: fable
 exec_model: fable
 exec_effort: high
 tags: [link-preview, og, stories, schema-drift, a11y, crawlers]
-delivery_stage: create-bug
 pipeline_ran: [create-bug, inline]
 flow: inline
+completed_at: 2026-09-03
 ---
 
 # P1227: Story link previews fall back to a blank card — og.ts selects a column P701 dropped
