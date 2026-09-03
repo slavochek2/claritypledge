@@ -159,6 +159,9 @@ export function FullArticlePage() {
       <style>{`
         .katex { font-size: 1.1em; }
         .katex-display {
+          /* the flattened equivalent of the box tint below (muted at 30% over the page), so the
+             scroll-shadow cover layers are invisible against it */
+          --formula-bg: color-mix(in srgb, hsl(var(--muted)) 30%, hsl(var(--background)));
           margin: 2rem 0;
           padding: 1.5rem;
           background-color: hsl(var(--muted) / 0.3);
@@ -171,14 +174,22 @@ export function FullArticlePage() {
              more formula in that direction. This is the affordance that actually renders on
              every platform — a styled scrollbar is invisible under macOS/iOS overlay
              scrollbars, which is how a 891px formula in a 240px box read as truncated. */
+          /* fallback for engines without color-mix(): the covers are the page background rather
+             than the flattened tint — a ~3/255 seam, against losing the affordance entirely,
+             because an unparsable color voids the whole background-image declaration. */
           background-image:
-            linear-gradient(to right, hsl(var(--background)), hsl(var(--background) / 0)),
-            linear-gradient(to left, hsl(var(--background)), hsl(var(--background) / 0)),
-            radial-gradient(farthest-side at 0 50%, hsl(var(--foreground) / 0.28), hsl(var(--foreground) / 0)),
-            radial-gradient(farthest-side at 100% 50%, hsl(var(--foreground) / 0.28), hsl(var(--foreground) / 0));
+            linear-gradient(to right, hsl(var(--background)) 55%, transparent),
+            linear-gradient(to left, hsl(var(--background)) 55%, transparent),
+            linear-gradient(to right, hsl(var(--foreground) / 0.16), hsl(var(--foreground) / 0)),
+            linear-gradient(to left, hsl(var(--foreground) / 0.16), hsl(var(--foreground) / 0));
+          background-image:
+            linear-gradient(to right, var(--formula-bg) 55%, transparent),
+            linear-gradient(to left, var(--formula-bg) 55%, transparent),
+            linear-gradient(to right, hsl(var(--foreground) / 0.16), hsl(var(--foreground) / 0)),
+            linear-gradient(to left, hsl(var(--foreground) / 0.16), hsl(var(--foreground) / 0));
           background-position: 0 0, 100% 0, 0 0, 100% 0;
           background-repeat: no-repeat;
-          background-size: 24px 100%, 24px 100%, 18px 100%, 18px 100%;
+          background-size: 40px 100%, 40px 100%, 22px 100%, 22px 100%;
           background-attachment: local, local, scroll, scroll;
         }
         .katex-display::-webkit-scrollbar {
