@@ -1,18 +1,18 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 1000067
 severity: high
 workstream: infrastructure
 created_date: '2026-09-03'
 tags: [security, rls, consent, audit-trail]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
 feature_type: backend
+completed_at: 2026-09-03
 ---
 
 # P1235: consent audit rows can be written naming a user who never consented
