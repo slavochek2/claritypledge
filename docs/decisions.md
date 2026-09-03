@@ -70,6 +70,49 @@ assert their own post-state. Also: the review found this in code that had passin
 
 ---
 
+## 2026-09-03 [process]: Two ship gates refused correct work — one could not read the artifact its own tool writes, the other demanded a tick that cannot exist yet (P1216)
+
+**Context:** Shipping P1216 hit both gates in one run, and neither failure was about the work.
+
+Gate 2.7 reported *"no code review entry for feature/p1216-remove-logrocket"* while a correctly
+recorded review sat in `.finish-reviewed` naming that exact branch. Its branch arm matched a single
+pattern requiring `"type"` to be **immediately followed by** `"branch"` — but `/dev` step 9.5a's own
+documented snippet emits `{type, pn, branch}`, since P1203 added `pn` and inserted it between them.
+The tool's documented output was unreadable to the gate that consumes it.
+
+Gate 2.5 refused three `- [ ] [post-deploy]` boxes. They were unsatisfiable by construction: the CSP
+header only exists as a response header on the deployed site, so the criteria could not be ticked
+before the deploy, and the deploy could not happen until they were ticked.
+
+**Decision:** (1) Gate 2.7's branch arm now matches `"type"` and `"branch"` **independently**, via
+the chained-grep form its own no-branch arm already used — order-independent, and it reads the
+stamps already on disk. (2) `/create-spec` now documents the P877 pattern for post-deploy criteria:
+tick the box for what was verified as far as it can be pre-deploy and name the re-check as a
+trailing clause on the same line; a criterion with no pre-deploy half at all is a deploy step and
+belongs in `## Pre-deploy Checklist`, which gate 3.5 owns.
+
+**Alternatives rejected:** For 2.7, correcting `/dev`'s snippet to emit `{type, branch, pn}` instead
+of widening the gate — rejected because it leaves every stamp already written unreadable, and keeps
+the gate depending on every future session emitting keys in one exact order. For 2.5, relaxing the
+gate to ignore a `[post-deploy]` marker — rejected: the gate's refusal was correct, the spec's
+modelling was wrong, and teaching the gate to skip a class of unticked box reopens exactly the hole
+P1169 closed.
+
+**Consequences:** The failure mode both gates shared is worth naming on its own — **a gate that
+refuses a valid artifact teaches people to edit the artifact until it passes**, which is the one
+thing an audit trail must never become. That pressure was live here: the available moves were to
+hand-write a stamp in a shape the gate liked, or tick a box that was not true. This is
+[epistemic.md](../.claude/rules/epistemic.md) gate 7c from the other side — 7c says run a new gate
+against the workflows that already exist; these two were never run against the tool that feeds them
+(2.7) or against infrastructure work at all (2.5). Both fixes were verified against their own
+failure paths: the widened 2.7 matcher accepts both key orders and still refuses a missing entry, a
+different branch, a non-`code` type, and a branch-name prefix collision.
+
+**References:** [scripts/ship-gates.sh](../scripts/ship-gates.sh),
+[.claude/commands/slava/build/create-spec.md](../.claude/commands/slava/build/create-spec.md),
+[features/done/2026-04-22/p877_profiles_directory_pii_exposure_anon_key.md](../features/done/2026-04-22/p877_profiles_directory_pii_exposure_anon_key.md),
+2026-09-01 [technical] (P1203 — added the `pn` field whose position broke the match)
+
 ## 2026-09-03 [technical]: Removing a vendor — the grep finds the integration, the test suite finds the dependents, and one deleted line can be load-bearing for something else (P1216)
 
 **Context:** P1216 removed LogRocket. It was init-only (`LogRocket.init()`, no `identify()`, no

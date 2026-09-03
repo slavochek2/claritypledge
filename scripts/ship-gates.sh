@@ -235,7 +235,15 @@ finish_file="${git_common_dir}/.finish-reviewed"
 matching_entries=""
 if [[ -f "$finish_file" ]]; then
   if [[ -n "$feature_branch" ]]; then
-    matching_entries="$($GREP -E "\"type\": ?\"code\", ?\"branch\": ?\"${feature_branch}\"" "$finish_file" 2>/dev/null || true)"
+    # P1216: match the two fields INDEPENDENTLY rather than requiring "type" to be
+    # immediately followed by "branch". The single adjacency-anchored pattern this
+    # replaces could not read a stamp written the way /dev's own documented snippet
+    # emits it — that snippet puts "pn" between them (P1203), so the key order was
+    # {type, pn, branch} and the gate reported "no code review entry" for a review
+    # that had genuinely run and was correctly recorded. A gate that refuses a valid
+    # artifact teaches people to hand-edit the artifact, which is the one thing an
+    # audit trail must never become. Chained greps also match the no-branch arm below.
+    matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"branch\": ?\"${feature_branch}\"" || true)"
   else
     # No feature branch context (direct-to-main / already-merged path). Require
     # the entry to name THIS spec — see the P1203 note above.

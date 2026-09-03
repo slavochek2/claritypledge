@@ -111,6 +111,32 @@ Measured across `features/` (2026-08-26): change-request specs carry AC and no D
 
 **Both are named by the `qa` hard gate** (`features.md:24`): every box in whichever section exists must be `[x]` before `status: qa`. A spec may carry both — user-observable outcomes in AC, the rest in Done-When, never restating one in the other. Never add a section you do not intend to fill.
 
+#### A criterion that can only be checked after deploying is a CLAUSE, never its own box
+
+`ship-gates.sh` gate 2.5 refuses to merge while any box is unticked — and it is right to.
+So a standalone `- [ ] [post-deploy] …` box is unsatisfiable by construction: it cannot be
+ticked before the deploy, and the deploy cannot happen until it is ticked. The spec deadlocks,
+and the only ways out are both bad — tick something untrue, or route around the gate.
+
+**Write it the way the repo already does** (`features/done/2026-04-22/p877_profiles_directory_pii_exposure_anon_key.md`):
+tick the box for what was verified *as far as it can be* pre-deploy, then name the post-deploy
+re-check as a trailing clause on the same line.
+
+```markdown
+- [x] Anon read of the restricted column errors rather than returning rows — verified on **test**
+      (curl + canary). `[post-deploy]` re-verify on prod once the migration applies.
+```
+
+The box means *this work is done and verified to the limit of what is checkable here*, not
+*this has been observed in production*. Almost everything has a pre-deploy half worth stating:
+a header change has its static diff and its canary; a migration has its test-environment run.
+**If a criterion genuinely has no pre-deploy half at all, it is a deploy step — put it in
+`## Pre-deploy Checklist`, which gate 3.5 owns, not in a completion section.**
+
+Found on P1216 (2026-09-03), which wrote three standalone `[post-deploy]` boxes and deadlocked
+its own ship. The P877 pattern already existed and was not written down anywhere a spec author
+would look. See [decisions.md](../../../../docs/decisions.md) 2026-09-03 [process].
+
 ### 6. Invariants — optional, additive-only
 
 Properties that must remain true **whatever the implementation does**. Omit entirely when there are none; nothing gates on its absence.
