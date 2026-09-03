@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: task
 rank: 39
 tags:
@@ -7,11 +7,12 @@ tags:
   - ai
   - speaker-attribution
 created_date: 2026-03-21
+completed_at: 2026-09-03
 ---
 
 # P558: Gemini Post-Processing for Transcript Speaker Correction
 
-> **PARKED 2026-08-14 — gated, not actionable.** [decisions.md](../docs/decisions.md) 2026-03-22 promoted this from post-processing layer to **the core attribution mechanism**, but this spec's Dependencies still say *"P556 must ship first"* — and P556 is marked done while the decided architecture was never built. This is the seed of the transcription redesign, not an independent task. **Unpark triggers:** (a) letter audio explain-backs need transcribing, (b) sessions should auto-produce a letter, (c) transcription cost bites. Prior art waiting: `.private/docs/research/live-transcription-stt-models-2026-08.md`.
+> **PARKED 2026-08-14 — gated, not actionable.** [decisions.md](../../../docs/decisions.md) 2026-03-22 promoted this from post-processing layer to **the core attribution mechanism**, but this spec's Dependencies still say *"P556 must ship first"* — and P556 is marked done while the decided architecture was never built. This is the seed of the transcription redesign, not an independent task. **Unpark triggers:** (a) letter audio explain-backs need transcribing, (b) sessions should auto-produce a letter, (c) transcription cost bites. Prior art waiting: `.private/docs/research/live-transcription-stt-models-2026-08.md`.
 
 ## Problem
 
