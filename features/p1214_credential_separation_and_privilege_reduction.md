@@ -2,7 +2,7 @@
 status: week
 type: task
 rank: 1000063
-workstream: infrastructure
+workstream: keyring
 created_date: '2026-09-01'
 tags: [security, credentials, least-privilege, supabase]
 related: [p1148, p1186, p998, p1189]

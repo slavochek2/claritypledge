@@ -2,7 +2,7 @@
 status: backlog
 type: task
 rank: 250
-workstream: infrastructure
+workstream: keyring
 created_date: '2026-08-21'
 tags:
   - security

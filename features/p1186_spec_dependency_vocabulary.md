@@ -2,7 +2,7 @@
 status: backlog
 type: task
 rank: 239
-workstream: infrastructure
+workstream: spec-schema
 created_date: '2026-08-28'
 tags: [specs, schema, skills, kanban]
 related: [p1214, p1148]
@@ -45,13 +45,39 @@ count; it now wins on a stronger ground — it is the only spelling with a worki
 pinning anything else means either abandoning that consumer or rewriting it. The `related:`
 half is still unconsumed and still a judgement call.
 
+**Scope extended 2026-09-03 — `workstream:` is the same defect, one field over.** Measured today:
+`workstream: infrastructure` **28** · `infra` **10** (same thing, two spellings) · `security` 3 ·
+`letters` 9. Like the dependency fields, `workstream:` appears nowhere in `features.md`. Worse, it
+is doing two incompatible jobs at once — naming a *category* ("infrastructure": 28 unrelated
+specs) and naming a *body of work* ("letters": one effort). A founder trying to find a family gets
+28 strangers.
+
+**Decision taken 2026-09-03 (founder delegated this one explicitly): narrow `workstream:` to mean
+the BODY OF WORK, and let `tags:` carry category** — `tags:` already does that job and needs no
+change. Three levels, three existing fields, nothing new invented:
+
+| Level | Field | Means | Example |
+|---|---|---|---|
+| Body of work | `workstream:` | one effort; changing one member re-scopes the others | `keyring` — P1214 + P1148 |
+| Category | `tags:` | what area it touches; no coupling implied | `security`, `credentials` |
+| Association | `related:` | same class, different surface; flat, no ordering | P1214 ↔ P998 |
+| Ordering | `blocked_by:` | genuinely cannot start until that lands | (kanban reads this one) |
+
+First families named under it: **`keyring`** (P1214 + P1148, and the encryption-at-rest spec when
+it is filed) and **`spec-schema`** (this spec). Legacy values stay as they are — the non-goal
+against migrating 32 specs applies here too.
+
+**Deliberately NOT a graph.** A hand-maintained chain rots: measured this session, a `related:`
+link broke within hours because its target shipped to `features/done/` mid-session. Flat lists per
+spec, no bidirectional edges to keep consistent.
+
 1. **Pin the vocabulary in `features.md`.** Two ideas, two fields: an **ordering** field (this cannot start until that is done) and an **association** field (these are about the same thing, no ordering implied). Recommend `blocked_by:` and `related:` — `blocked_by` is the most-used ordering spelling and reads unambiguously in one direction; `parent:` leads the raw count but means containment, which is a third idea and should not be conflated. Inline list form, matching `pipeline_ran`.
 
 2. **Emit it from the filing skills** — `/create-spec`, `/create-bug`, `/change-request` — so new specs carry it without anyone remembering.
 
 3. **Leave the 32 existing specs alone** unless a consumer is built. Rewriting them buys nothing while nothing reads the field, and touching 32 files across live and done specs has its own blast radius.
 
-[FOUNDER DECISION: is `blocked_by` / `related` the pair, or do you want `depends_on` / `parent` semantics instead? The counts are above; the recommendation is mine, the call is yours.]
+[FOUNDER DECISION — still open, and narrower than it was: the `workstream`/`tags` split above is decided; this one is not. Is `blocked_by` / `related` the pair, or do you want `depends_on` / `parent` semantics instead? The counts are above; the recommendation is mine, the call is yours.]
 
 ## Invariants
 
