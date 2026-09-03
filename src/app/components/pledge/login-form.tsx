@@ -130,7 +130,9 @@ export function LoginForm({ onSwitchToSign, redirect, action, extraParams }: Log
             </Label>
             <Input
               id="login-email"
-              type="text"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
               placeholder="your@email.com"
               value={email}
               onChange={(e) => {

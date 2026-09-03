@@ -136,7 +136,21 @@ export function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
+
+    // P955 (P1229 D8): the submit button is always enabled, so every incomplete state has
+    // to name itself here — a bare `return` would look like a dead button.
+    if (!name.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
+    if (!termsAccepted) {
+      setError("Please accept the Terms and Privacy Policy to continue");
+      return;
+    }
 
     // Validate name (at least 2 characters)
     if (name.trim().length < 2) {
@@ -442,7 +456,7 @@ export function SignupPage() {
               type="submit"
               className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
               size="lg"
-              disabled={isSubmitting || !termsAccepted || !name.trim() || !email.trim()}
+              disabled={isSubmitting}
             >
               {isSubmitting ? "Sending..." : searchParams.get('source') === 'letter-response' ? "Save my responses" : "Create Account"}
             </Button>
