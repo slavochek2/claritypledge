@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 4
 severity: high
@@ -7,9 +7,9 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1150: The story-verification write path binds the caller but not the counterparty — same class as P1138/P1139, first one with real callers
