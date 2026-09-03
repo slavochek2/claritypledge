@@ -6,8 +6,8 @@ severity: high
 workstream: infrastructure
 created_date: '2026-09-03'
 tags: [security, rls, consent, audit-trail]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
