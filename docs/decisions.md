@@ -6,6 +6,40 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [process]: Three independent checks agreed a change was visually neutral and all three were wrong — the test suite of a DIFFERENT feature is what caught it (P1220)
+
+**Context:** P1220's M1 batch swapped `border-gray-200` for the `border-border` token at 66 sites, on the premise that the two resolve identically. Three separate checks agreed it was neutral. (1) The implementing agent measured **0 pixels changed across 25 frames** at 320/375/1440 including focus and hover, using a *calibrated* probe — identical code twice returned 0px, genuinely different pages returned 142k/160k px — plus an element probe over 672 svgs showing 98 with changed class strings and 0 with changed geometry. That is a better-instrumented measurement than most visual QA ever gets. (2) The founder opened branch and main side by side on separate ports across four pages and reported *"i see no difference"*. (3) On that basis the branch was approved to ship. The only dissent was Codex's round-2 review, which said 65 of the border swaps were **not** identical — and it was overruled twice, by measurement and by eye.
+
+The ship gate ran the test suite during the cherry-pick and **13 tests failed** in `src/tests/p1212-quote-label-parity.test.tsx` — a different feature's tests, asserting on a letter/live-story-card surface. Proved by A/B in a throwaway worktree: those tests pass at main HEAD without the batch and fail with it.
+
+**Decision:** The batch is not neutral; P1220 was **backed out of main** (revert `37984ff0`, main returned byte-identical and green at 3615 tests) and the branch parked unshipped. The reviewer was right and the two empirical checks were both **under-sampled in the same direction** — neither the pixel probe's 25 frames nor the founder's four pages reached the surface the assertions cover, because it only renders inside a letter.
+
+**Alternatives rejected:** *Ship it and fix forward* — the failing tests belong to a concurrently-shipping feature (P1212), so the breakage would have been attributed to that team's branch, not this one. *Skip the offending batch and ship the rest* — produces a partial branch whose spec claims batches it no longer contains, with the remaining batches untested against the same surface.
+
+**Consequences:** A visual-neutrality claim is bounded by the surfaces the probe rendered, and both a pixel probe and a human side-by-side share the same blind spot: **they can only see states they can reach.** Two rules follow. First, when a change is described as mechanically identical across N sites, the reachability question — *which of those N sites did we actually render?* — is the load-bearing one, not the pixel delta. Second, an external review that contradicts a measurement is not overruled by adding a second measurement of the same kind; the founder's eye and the agent's probe were not independent evidence, they were the same sample twice. The cheap disambiguator was already available and free: run the other feature's tests. **Status: proposed** — P1220 needs the M1/P1212 interaction resolved before it can ship.
+
+**References:** `src/tests/p1212-quote-label-parity.test.tsx` · revert `37984ff0` · `features/p1220_design_consistency_mechanical_batches.md` (unmerged — lives on `feature/p1220-design-consistency-batches`, not on main, which is why this is not a link) · this log 2026-09-03 [technical] (requires-frontend, same session)
+
+---
+
+## 2026-09-03 [technical]: P1106 stopped being theoretical — six `requires-frontend` markers stranded on main in one night, and any ONE of them blocks the entire prod migration queue
+
+**Context:** A migration may carry `-- requires-frontend: <sha>`, and `scripts/migrate.sh` refuses to apply it until that sha is an ancestor of `origin/main`. [P1106](../features/p1106_requires_frontend_sha_invalidated_by_ship.md) has sat at `status: backlog` recording the defect: `/ship` **cherry-picks**, so the authoring-time sha — which only ever existed on the feature branch — can never become an ancestor of main. Previously a known-but-dormant flaw. This session shipped several migration-carrying branches in one run and it fired for real.
+
+Two things made it worse than the spec describes. First, `migrate.sh` exits 1 on the **ENTIRE pending set** when any single marker fails (`scripts/migrate.sh:446-460`), so one stranded sha blocks every unrelated migration behind it. Second, nothing rewrites markers at ship time — `grep -rn "requires-frontend" scripts/git-ops.sh` returns nothing — so the strand is silent until the next prod migrate, which is exactly when an operator least wants a confusing refusal.
+
+Found only because an adversarial review of an *unshipped* branch flagged the sha as unreachable; checking the shipped ones then showed two already live on main, and three more landed during the same session's remaining ships.
+
+**Decision:** Repaired all six by repointing each marker to its post-ship sha — find the commit on `main` by its subject line, rewrite the marker, verify with `git merge-base --is-ancestor <sha> main` (commits `6f33d915`, `879493b0`, `aacd6f05`). **This repair is now a mandatory post-ship step for any branch carrying such a marker**, recorded in each affected spec's Evidence section. The systemic fix remains P1106, whose priority this escalates from backlog: it is no longer a latent defect but a measured, recurring one.
+
+**Alternatives rejected:** *Delete the markers* — they are the P886 prevention gate; removing them re-opens applying a schema change ahead of the client that needs it. *Have the author write a sha that will exist after ship* — not knowable at authoring time, which is P1106's whole point. *Do it by hand each time without recording it* — this session proves the failure is silent and only surfaces at prod-migrate time, so relying on memory is what produced six of them.
+
+**Consequences:** Any ship of a migration-carrying branch now owes a marker check afterwards; the one-line audit is a loop over `grep -rhoE "requires-frontend: [0-9a-f]{6,40}" supabase/migrations/*.sql` testing each sha with `git merge-base --is-ancestor`. Separately and in the same session, `supabase/deploy-manifest.json` was found to have lost **22 test stamps** to a concurrent write — migrations genuinely applied but no longer recorded, which makes the pre-commit gate reject a correct migration as "not applied". Reconciled by querying `supabase_migrations.schema_migrations` directly: **the database is the arbiter, never another copy of the manifest**, since both copies can be wrong in the same way. **Status: proposed** — P1106 should be promoted out of backlog.
+
+**References:** [features/p1106](../features/p1106_requires_frontend_sha_invalidated_by_ship.md) · `scripts/migrate.sh:446-460` · commits `6f33d915` `879493b0` `aacd6f05` · this log 2026-08-23 [process] (P1173, manifest stage-unsafe under concurrency)
+
+---
+
 ## 2026-09-03 [process]: A rule-presence check cannot see the contradiction it leaves behind — P1210 applied §7 in the owning file and left the superseded rule live in seven others
 
 **Context:** P1210 §7 carried two founder decisions of 2026-09-01: withdraw the 1,500-character
