@@ -94,10 +94,31 @@ Rejected: a live-database canary — tests must not need network; the migrations
 
 ## Acceptance Criteria
 
-- [ ] Bot-UA fetch of a public `/story/:id` returns `og:title` = `Story by {author} | ClarityPledge`, a content excerpt as `og:description`, and the story's image (or default) — verified with `curl -A facebookexternalhit/1.1` after release
-- [ ] `src/tests/p1227-story-columns.test.ts` fails when a column in `STORY_COLUMNS` is absent from the migrations (control test included) and passes on the fixed list
-- [ ] Existing og tests (`p1108-*`, `p1141-og-*`, `p1201-*`) still pass
-- [ ] `docs/technical/database.md` no longer lists `title` as a `stories` column
+- [ ] **Bot-UA fetch of a *released* public `/story/:id`** returns `og:title` = `Story by {author} | ClarityPledge`, a content excerpt as `og:description`, and the story's image (or default).
+      **Proven locally, blocked on deploy — founder's action.** The handler + real-database half is
+      proven (see § Evidence — real `api/og.ts` handler, bot UA, unstubbed Supabase REST, correct
+      card; and the pre-fix column list reproducing the broken card on the same call). What cannot
+      be proven from a worktree is the deployed artifact, because the fix is not deployed: the only
+      unblocker is `/ship` + a production deploy, which is not this branch's to perform.
+      **Post-release check (founder, one command each):**
+      ```bash
+      curl -sS -A "facebookexternalhit/1.1" https://claritypledge.com/story/<a public story id> \
+        | grep -Eo '<meta property="og:(title|description|image)" content="[^"]*"'
+      ```
+      Expect `og:title` = `Story by <author> | ClarityPledge`. A second, id-free check
+      distinguishes fixed from broken without needing a story id — on a nonexistent id the fixed
+      build returns the route-miss card, the broken build still returns the 400-fallback:
+      ```bash
+      curl -sS -A "facebookexternalhit/1.1" https://claritypledge.com/story/00000000-0000-0000-0000-000000000000 \
+        | grep -Eo '<meta property="og:description" content="[^"]*"'
+      # fixed   -> "Calibrated communication practice for professionals."
+      # broken  -> "Preview temporarily unavailable."   <-- what prod returns today (baseline, 2026-09-03)
+      ```
+      Note the third-party caches (Facebook, LinkedIn, Slack) hold pre-deploy scrapes; `og.ts`'s own
+      `Cache-Control` cannot reach them, so a stale card after deploy is not a failed check.
+- [x] `src/tests/p1227-story-columns.test.ts` fails when a column in `STORY_COLUMNS` is absent from the migrations (control test included) and passes on the fixed list — 30/30 pass on the fixed list; with `'title'` reinstated in `STORY_COLUMNS` the binding assertion fails (see § Evidence)
+- [x] Existing og tests (`p1108-*`, `p1141-og-*`, `p1201-*`) still pass — 6 files / 50 tests pass; whole suite 305 files, 3515 tests, 0 failures (see § Evidence)
+- [x] `docs/technical/database.md` no longer lists `title` as a `stories` column — `docs/technical/database.md:228` now reads ``| `stories` | User-created content (content, understood_count; `title` dropped by P701 — see P1227) |``; `grep -n "title" docs/technical/database.md` returns no other `stories`-column mention (line 293's `title` is a `get_inbox_items()` RPC return field, not a column)
 
 ## Also fixed on this branch (a11y quick fixes, second commit)
 
@@ -121,3 +142,82 @@ heading to promote — adding one is a visual change.
 - Unknown routes answer HTTP 200 (soft-404; `/nonexistent-xyz` is cached as a hit) and `/login` has no `rel=canonical` (no spec).
 - P1211 — frontend shipped ahead of its migrations again today: 16 Sentry events (`events.org_id`, `event_private_info`) in the ~15 min before the migrations landed.
 - P1228 — auth callback "no session, unexplained" ×3 and a `login_page_viewed` spike (filed separately).
+
+## Evidence (2026-09-03)
+
+### The bot-UA card, end to end, without a stubbed fetch
+
+Every pre-existing og test stubs `fetch` — which is precisely why this defect survived five months
+(see § Root Cause). So the evidence here does *not* stub it: a harness imports the real default
+export of `api/og.ts` and calls it with the request shape the bot-UA rewrite config produces
+(`req.query.path = "/story/<id>"`, `user-agent: facebookexternalhit/1.1`), against the real
+Supabase REST endpoint using the anon key — the same read an unauthenticated crawler performs. Run
+against the **test** project (`VITE_SUPABASE_URL` in `.env.local`), read-only, no writes.
+
+```
+REST list status: 200 | public stories visible to anon: 1
+story id: 68fae8ae-a5a6-4f4a-8cc1-3175931daafd
+handler status: 200
+og:title       = Story by P700 Sender | ClarityPledge
+og:description = Human creativity cannot be automated.
+og:image       = https://claritypledge.com/clarity-pledge-icon.png
+twitter:title  = Story by P700 Sender | ClarityPledge
+```
+
+`og:title` matches the required `Story by {author} | ClarityPledge`, `og:description` is the story's
+own content excerpt, and `og:image` is the documented default — that row has neither `video_url` nor
+`banner_url`, so the default is the correct branch, not a failure.
+
+**A/B control on the identical call** — `'title'` put back at the head of `STORY_COLUMNS`, same
+harness, same story, nothing else changed:
+
+```
+og.ts: route handler failed OgFetchError: og.ts: Supabase REST request failed with status 400
+handler status: 200
+og:title       = ClarityPledge
+og:description = Preview temporarily unavailable.
+```
+
+That reproduces the reported bug from the fix's own code path, which is what makes the green run
+above evidence rather than a happy path. `api/og.ts` was restored byte-for-byte after each control
+run (`git status --short api/og.ts` empty, verified both times).
+
+**Production baseline, same day, read-only** (establishes that the bot-UA rewrite is live and does
+reach `og.ts`, and that the defect is present in the released build):
+
+```
+$ curl -sS -A "facebookexternalhit/1.1" https://claritypledge.com/story/00000000-0000-0000-0000-000000000000
+<meta property="og:title" content="ClarityPledge"
+<meta property="og:description" content="Preview temporarily unavailable."
+```
+
+### The regression test fails on a bad column list (epistemic gate 7)
+
+The suite's own `would have caught the P1227 defect` case checks a hard-coded old list; it does not
+prove the assertion binds the *live* `STORY_COLUMNS`. So `STORY_COLUMNS` itself was mutated
+(`['title', 'content', …]`) and the suite re-run:
+
+```
+✓ the migration parser is not blind (controls: a dropped and a kept column)
+× every plain column in STORY_COLUMNS exists in the stories schema      <-- fires on the mutant
+✓ would have caught the P1227 defect (control: the old column list fails)
+… 27 further cases pass (parser forms + fail-closed cases + title/excerpt derivation)
+```
+
+On the fixed list: `npx vitest run src/tests/p1227-story-columns.test.ts` → **30 passed**, exit 0.
+
+### The og suite, and the whole suite
+
+```
+$ npx vitest run src/tests/p1108-claim-binding.test.ts src/tests/p1108-esc.test.ts \
+    src/tests/p1108-fail-loud.test.ts src/tests/p1108-pledge-claim.test.ts \
+    src/tests/p1141-og-video-thumbnail.test.ts src/tests/p1201-api-esm-imports.test.ts
+Test Files  6 passed (6)      Tests  50 passed (50)
+
+$ npx vitest run
+Test Files  305 passed | 2 skipped (307)
+     Tests  3515 passed | 19 skipped (3534)      EXIT=0
+```
+
+(The `p1108-fail-loud` stderr lines are the suite deliberately exercising the fail-loud path — the
+file passes 16/16.)
