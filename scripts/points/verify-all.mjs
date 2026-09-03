@@ -22,7 +22,15 @@ import { fileURLToPath } from 'node:url'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
 /** The predicates. Harness modules (this file, the vacuity scan, two-callers,
- *  the fixture verifier, the derivation) are not predicates and are not swept. */
+ *  the derivation) are not predicates and are not swept.
+ *
+ *  `verify-fixture.mjs` IS swept, and the list below is the authority on that —
+ *  it carries a must-pass and a must-fail fixture like any other predicate, so
+ *  the sweep can check that it still bites. It is separately named in
+ *  `two-callers.mjs`'s HARNESS set, which is a DIFFERENT list answering a
+ *  DIFFERENT question (must a pipeline stage invoke it? — no). Corrected
+ *  2026-09-03: this comment previously claimed it was not swept, contradicting
+ *  the array three lines below it. */
 export const PREDICATE_MODULES = [
   'admissibility.mjs', 'redundancy.mjs', 'unfilled.mjs', 'rule-present.mjs',
   'report-target.mjs', 'story-scan.mjs', 'store-inspection-scan.mjs',

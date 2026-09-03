@@ -32,9 +32,16 @@ that point; do not copy.
 
 ---
 
-## 1. The ceiling
+## 1. The ceiling — WITHDRAWN 2026-09-01 (P1210 §7)
 
-**A pipeline story is at most 1,500 characters of AUTHORED content — the prose and the quote block.**
+> **This ceiling no longer binds.** Its own falsifier below fired on run B: stories written to 1,500
+> could not carry their reasoning without dropping strands the source contained. P1210 §7 changed the
+> unit to **one story per (person, point)**, which removes the pressure the ceiling was created to
+> manage — a per-point story is short by construction. `stories.content <= 10000` is now the only
+> binding length rule. **The measurement below is kept as evidence, not as a rule**: `content_chars`
+> is still pasted per story so a ceiling can be re-derived if several runs show one is needed.
+
+**Historical rule (no longer enforced): a pipeline story is at most 1,500 characters of AUTHORED content — the prose and the quote block.**
 **The event hashtag the filer appends is EXCLUDED from the count** (it is filer-written metadata, not
 something the writer chose), and so is anything else a downstream stage appends. The database's own
 10,000-character check covers the assembled total.

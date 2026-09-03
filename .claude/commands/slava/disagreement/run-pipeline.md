@@ -161,7 +161,7 @@ source · a `turn-verified` label with no per-quote confirmation artifact behind
 
 Invoke against `<slug>`.
 
-**Produces:** the `## Story Drafts` section — one story per arguer, quotes only, no imputed
+**Produces:** the `## Story Drafts` section — one story per (person, point) (P1210 §7), quotes only, no imputed
 interiority.
 
 **Stop conditions:** a body over 10,000 characters · a duplicate `(author_id, point_id)`.

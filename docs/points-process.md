@@ -159,7 +159,7 @@ The points pipeline turns public video into a published disagreement a room can 
       ▼ (reads Run File)
 ┌────────────────────────────────────────────────────────┐
 │ 4. /slava:disagreement:story-draft                         │
-│    • Draft 1 story per distinct experience per author  │
+│    • Draft 1 story per (person, point) — P1210 §7      │
 │    • Apply P1141 machine-reading voice rules           │
 │    • Enforce 10,000 char limit                         │
 │    • Unique (author_id, point_id) assertion            │
@@ -211,9 +211,9 @@ The points pipeline turns public video into a published disagreement a room can 
 - **Shape:** One isolated **writer** per arguer (that arguer's material only — nothing about the others, nothing from the orchestrating session), and a **separate checker** per story that did not write it. The checker receives the story text, the quote list, the transcript and the point statements; findings return to the writer, never to the checker to rewrite. Five control checkers per run prove the gate before its verdicts are trusted.
 - **Craft:** Length, opening sentence, banned metadiscourse, sentence style and the blind reader test live in [`story-craft.md`](story-craft.md). Person-safety — position, the three-tier accuracy rule, full-name — lives in the skill file.
 - **Constraints:**
-  - One story per distinct experience.
+  - One story per (person, point) — P1210 §7, founder 2026-09-01. This REPLACES *one story per distinct experience*: three or four sentences on why that person holds that position, then that point's quote.
   - Assert unique `(author_id, point_id)` at build time (no duplicate story links for one author on one point).
-  - Body length <= 10,000 characters (DB constraint) and **<= 1,500 characters (the binding build-time ceiling, quotes included)**.
+  - Body length <= 10,000 characters (DB constraint). **No build-time character ceiling** — the 1,500 ceiling was WITHDRAWN by P1210 §7; it was written for a story carrying every point its author held, and a per-point story is short by construction. Paste `content_chars` per story anyway: it is the instrument that says whether a ceiling is ever needed again.
   - P1141 voice rules: Full name/surname only (no bare pronouns), no position imputation, exact section header `Supporting quotes from {Full Name}`, no trailing `Source:` line.
 - **Writes:** Appends `## Story Drafts` section to the run file.
 
@@ -389,7 +389,7 @@ content: |
 7. **No Trailing `Source:` Line:**
    Story drafts must not include a trailing `Source:` line.
 8. **Character & Constraint Safety:**
-   `stories.content <= 10000` chars; `(author_id, point_id)` unique across emitted story points. The **binding** build-time ceiling is 1,500 characters including the quote block — [`story-craft.md`](story-craft.md) §1 owns the number and its falsifier.
+   `stories.content <= 10000` chars; `(author_id, point_id)` unique across emitted story points. There is **no build-time character ceiling** — the 1,500 figure was WITHDRAWN by P1210 §7 (founder, 2026-09-01) when the unit became one story per (person, point). `stories.content <= 10000` is the only binding length rule.
 8b. **A story never states, names or implies the arguer's position:**
    The position lives in the `point_positions` link. A story that names it is a Point wearing a Story's name, cannot be linked to a second point, and goes stale silently on any position revision. Rule and reasoning: `/slava:disagreement:story-draft` §Person safety.
 8c. **No agent checks its own story, and no comparison harness is trusted without controls:**

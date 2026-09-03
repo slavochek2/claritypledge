@@ -61,7 +61,7 @@ export function run(input = {}) {
   for (const m of modules) {
     if (harness.has(m)) continue
     const invoked = skillText.includes(`node scripts/points/${m}`)
-    const imported = new RegExp(`points/${m.replace('.', '\\.')}`).test(testText)
+    const imported = new RegExp(`points/${m.replaceAll('.', '\\.')}`).test(testText)
     if (invoked && imported) { wired.push(m); continue }
     const missing = [!invoked && 'no skill file invokes it', !imported && 'no p1210 test imports it'].filter(Boolean)
     findings.push({ module: m, missing })

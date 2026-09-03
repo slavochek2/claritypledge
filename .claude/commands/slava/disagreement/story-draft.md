@@ -1,6 +1,6 @@
 ---
 name: story-draft
-description: "Draft one story per arguer per distinct experience: a machine account's reading of that person's argument, holding only that speaker's verbatim quotes with the source link in the video_url field. Enforces the P1141 voice rules, the craft rules in docs/story-craft.md, the three-tier accuracy rule, the 1,500-character build-time ceiling, and (author_id, point_id) uniqueness at build time. Each story is written by an isolated per-arguer writer and checked by a separate agent that did not write it. Terminal output only; writes nothing to the product."
+description: "Draft one story per (person, point) — P1210 §7: a machine account's reading of that person's argument, holding only that speaker's verbatim quotes with the source link in the video_url field. Enforces the P1141 voice rules, the craft rules in docs/story-craft.md, the three-tier accuracy rule, and (author_id, point_id) uniqueness at build time. There is no build-time character ceiling (the 1,500 figure was WITHDRAWN by P1210 §7); `stories.content <= 10000` still binds. Each story is written by an isolated per-arguer writer and checked by a separate agent that did not write it. Terminal output only; writes nothing to the product."
 when_to_use: "Stage 4 of the points pipeline. Run after /slava:disagreement:positions has verified quotes and set positions. Carries the P1141 voice rules, the person-safety rules, the writer/checker shape, and attribution-basis labelling, and appends the Story Drafts section to the run file."
 version: 1.1.0
 ---
@@ -15,7 +15,7 @@ Draft the machine-reading story for each arguer — the craft surface of the pip
 
 > **The story model — what a Story is, the point model, the agreement test — lives in [`docs/story-point-model.md`](../../../../docs/story-point-model.md). Read it there; do not restate it here.**
 
-> **The craft rules — the 1,500-character ceiling, the opening-sentence rule, the banned
+> **The craft rules — the opening-sentence rule, the banned
 > metadiscourse patterns, the sentence style, and the blind reader test that measures them — live in
 > [`docs/story-craft.md`](../../../../docs/story-craft.md). Read it before writing a single sentence;
 > do not restate it here.** This file owns what that one does not: the rules that exist because a
@@ -63,7 +63,7 @@ The supporting-evidence block (delimited `<!-- evidence:start -->` / `<!-- evide
 
 *Scope: the three rules above are instructions to the agent running this stage. `scripts/points/rule-present.mjs story-unit` verifies only that they are stated here — no test can observe an agent obeying them (P1210 §12).*
 
-- **The constraint and the rule are NOT the same rule, and they collide.** The database constraint is *one story per author **per point*** (`story_points` carries `UNIQUE(author_id, point_id)`); the rule is *one story per distinct **experience***. One arguer with two distinct experiences both bearing on the same point is mandated by the rule and forbidden by the constraint. **When that happens, only one story may link to that point — pick one and say which, or merge them.**
+- **The constraint and the rule now AGREE, and that is the point of the unit change.** The database constraint is *one story per author **per point*** (`story_points` carries `UNIQUE(author_id, point_id)`) and the rule is now *one story per (person, point)* — the same shape. The old *one story per distinct **experience*** rule collided with the constraint whenever one arguer had two experiences bearing on the same point; P1210 §7 removed the collision by making the unit match the constraint. **A person with two experiences bearing on one point picks the one that carries that point, or merges them into the single story for that (person, point).**
 - **Assert `(author_id, point_id)` uniqueness across the emitted set at build time, not by Postgres error.** Before writing the section, list every `(story, point)` link and verify no author appears twice on one point. Paste the check.
 
 ## Voice — a machine writing about a person (P1141)

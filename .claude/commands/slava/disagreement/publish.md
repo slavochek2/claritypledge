@@ -185,7 +185,7 @@ PRE-FLIGHT — <slug> → <test|prod> (ref <project ref>)
   credentials     : <present by name, per the environment row>
   seals           : approvals <MATCH|MISMATCH>  prediction <MATCH|MISMATCH>
   quotes          : <n>/<n> grep-verified · <n>/<n> audio-verified
-  story lengths   : <all <=1500 | the offenders>
+  story lengths   : <all <=10000 | the offenders>  # 1,500 ceiling WITHDRAWN, P1210 §7
   agent accounts  : <e> existing, <p> MISSING -> provisioning required for: <names>
   client deployed : <bundle grep result, or N/A for a local dev host>
   where you view it: <URL>
@@ -548,7 +548,7 @@ The instrument is the before/after counts from stage 1.
 - [ ] **Every interpolated text field was dollar-quoted with a collision-checked tag**, and the check was actually run against the content rather than assumed.
 - [ ] **The JSON body was built with an encoder** and sent with `--data-binary @file`.
 - [ ] **Every quote carries an audio-at-timecode artifact** — the confirming result, who ran it, and when — **and this box is ticked for `test` runs exactly as for `prod`.** An unconfirmed quote is a STOP in both environments (see the preconditions). *(Added 2026-09-01: the preconditions required this and the checklist did not, so an operator using the checklist as the completion oracle could tick every box on a run where the audio check was skipped or merely described — the precondition-in-prose-but-absent-from-the-artifact failure this file exists to prevent.)*
-- [ ] **Every story body is `<= 1,500` characters of authored content** (total minus the appended `#<event-tag>` and its separator), verified from the read-back — not the 10,000 DB constraint, which is a different and much weaker check. Over ⟹ re-run disagreement:story-draft; never trim here.
+- [ ] **Every story body is under the `stories.content` 10,000-character limit of authored content** (total minus the appended `#<event-tag>` and its separator), verified from the read-back. **The 1,500 build-time ceiling was WITHDRAWN by P1210 §7** (founder, 2026-09-01) — under one story per (person, point) a story is short by construction, and re-asserting the old ceiling here would block every run under the new unit. Over 10,000 ⟹ re-run disagreement:story-draft; never trim here.
 - [ ] **Every story carries `#<event-tag>` in its text**, verified from the read-back `tags` array, not from the text you wrote.
 - [ ] **Every story with a video carries `Supporting quotes from {Full Name}` verbatim in its text**, verified from the read-back, not from the text you wrote. A mechanical backstop mirroring the hashtag check above — this skill does NOT author the rule. The voice rules and the label live in `/slava:disagreement:story-draft` and nowhere else; wrong text ⟹ re-run disagreement:story-draft.
 - [ ] **No story ends with a trailing `Source:` line**, verified from the read-back. Same shape as the check above and for the same reason — this skill does not author the rule, it only catches a violation before filing. Grep the read-back text for a line matching `^Source:`; a hit means re-run disagreement:story-draft. The rule lives in `/slava:disagreement:story-draft` (voice rules) and nowhere else: the embedded player and the per-quote timecode links already carry the source, and under P1141's link narrowing a label like "the full talk" asserts no destination, so the sentence renders as ordinary prose that looks like a link and is not one.
