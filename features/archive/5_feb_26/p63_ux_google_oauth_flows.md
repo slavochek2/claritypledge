@@ -160,7 +160,7 @@ This P63_UX spec is complete when it provides:
 **Requires:**
 - Understanding of current auth flow (see `docs/technical/authentication.md`)
 - Understanding of live meeting flow (see P60 features)
-- Design system (see `docs/bmad/ux-design-specification.md`)
+- Design system (see `docs/archive/bmad/ux-design-specification.md`)
 
 ## Questions for UX Designer Agent
 
@@ -247,7 +247,7 @@ When activated, the UX designer should:
 
 ### Decision 4: Visual Design
 
-**Wireframes:** [docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw](../../../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw)
+**Wireframes:** [docs/archive/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw](../../../docs/archive/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw)
 
 **Key visual decisions:**
 
@@ -358,7 +358,7 @@ When activated, the UX designer should:
 ## Deliverables Summary
 
 ✅ **Decision Matrix** - Where Google OAuth appears (above)
-✅ **Wireframes** - Visual design for `/live` and `/login` ([view file](../../../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw))
+✅ **Wireframes** - Visual design for `/live` and `/login` ([view file](../../../docs/archive/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw))
 ✅ **Copy Documentation** - All button labels and messaging (above)
 ✅ **Edge Case Handling** - MVP approach for all scenarios (above)
 ✅ **Technical Guidance** - Notes for dev implementation (above)

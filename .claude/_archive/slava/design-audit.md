@@ -19,7 +19,7 @@ Scan wireframe files for forbidden colors:
 
 ```bash
 # Find all excalidraw files
-find docs/bmad/diagrams -name "*.excalidraw" -type f 2>/dev/null
+find docs/archive/bmad/diagrams -name "*.excalidraw" -type f 2>/dev/null
 
 # For each file, check for forbidden colors:
 # Forbidden: amber (#f59e0b, #fbbf24), orange (#ff9800, #f97316), yellow (#eab308)

@@ -41,7 +41,7 @@ Before creating the new spec, audit existing documentation for gaps and edge cas
 
 **Two existing specs:**
 1. **CLAUDE.md** (lines 417-506): Design System section for AI agents
-2. **docs/bmad/ux-design-specification.md** (lines 1-148): UX design spec for Clarity Chat
+2. **docs/archive/bmad/ux-design-specification.md** (lines 1-148): UX design spec for Clarity Chat
 
 ### Audit Findings
 
@@ -173,7 +173,7 @@ Lightweight spec (~200 lines) using simplified 3-section structure above.
 - Version controlled with code
 - Easy for Opus to reference on demand
 - NOT in `.claude/` (that's for tool config)
-- NOT in `docs/bmad/` (that's workflow artifacts)
+- NOT in `docs/archive/bmad/` (that's workflow artifacts)
 
 ### Updated CLAUDE.md Section
 
@@ -214,14 +214,14 @@ Replace current "Design System" section (lines 417-506) with **ultra-lightweight
 
 2. **Content sources**:
    - Extract patterns from CLAUDE.md (lines 417-506)
-   - Extract patterns from `docs/bmad/ux-design-specification.md`
+   - Extract patterns from `docs/archive/bmad/ux-design-specification.md`
    - Reference [clarity-pledge-landing.tsx] for visual examples
    - Add missing edge cases from audit (green action buttons, multi-user contexts)
 
 3. **Replace CLAUDE.md section** (lines 417-506) with ultra-lightweight pointer
 
 4. **Archive old specs**:
-   - Move `docs/bmad/ux-design-specification.md` → `docs/bmad/archive/`
+   - Move `docs/archive/bmad/ux-design-specification.md` → `docs/archive/bmad/archive/`
    - Mark as "Superseded by docs/design-system.md"
 
 **Deliverable**: Single source of truth at `docs/design-system.md`, CLAUDE.md pointer updated
@@ -248,7 +248,7 @@ Replace current "Design System" section (lines 417-506) with **ultra-lightweight
 ### Phase 3: Fix Known Violations (Priority 3 - ~15 minutes)
 
 1. **Fix V8 wireframe**: Change Continue button from green (#22c55e) to blue (#3b82f6)
-2. **Archive old wireframes**: Move V4-V7 to `docs/bmad/diagrams/archive/` (V8 is latest)
+2. **Archive old wireframes**: Move V4-V7 to `docs/archive/bmad/diagrams/archive/` (V8 is latest)
 3. **Skip V6**: If not actively used, just archive it
 
 **Deliverable**: Latest wireframe (V8) compliant, old versions archived
@@ -262,11 +262,11 @@ Replace current "Design System" section (lines 417-506) with **ultra-lightweight
 
 - [x] `docs/design-system.md` created (~200 lines, 3 sections)
 - [x] CLAUDE.md Design System section replaced with 3-line pointer
-- [x] `docs/bmad/ux-design-specification.md` archived to `docs/bmad/archive/`
+- [x] `docs/archive/bmad/ux-design-specification.md` archived to `docs/archive/bmad/archive/`
 - [x] `.claude/commands/design-check.md` updated to reference new spec
 - [x] `.claude/hooks/design-system-check.sh` updated to reference new spec
 - [x] V8 wireframe fixed (green → blue Continue button)
-- [x] Old wireframes (V4-V7) archived to `docs/bmad/diagrams/archive/`
+- [x] Old wireframes (V4-V7) archived to `docs/archive/bmad/diagrams/archive/`
 - [x] Opus can read spec and make semantic design decisions
 - [x] Hook still catches syntax violations (amber, iOS blue, pixel sizes)
 
@@ -299,8 +299,8 @@ Replace current "Design System" section (lines 417-506) with **ultra-lightweight
 
 ## Design Decisions (Resolved)
 
-### 1. What happened to `docs/bmad/ux-design-specification.md`?
-**Decision**: Archive to `docs/bmad/archive/` - it's Clarity Chat-specific, new spec is app-wide.
+### 1. What happened to `docs/archive/bmad/ux-design-specification.md`?
+**Decision**: Archive to `docs/archive/bmad/archive/` - it's Clarity Chat-specific, new spec is app-wide.
 
 ### 2. Should we add complex green button validation to the hook?
 **Decision**: No. Too many false positives (context-dependent). Opus reads spec and makes semantic decisions. Hook catches only syntax violations (amber, iOS blue, pixel sizes).
@@ -330,11 +330,11 @@ Replace current "Design System" section (lines 417-506) with **ultra-lightweight
 ## Related Files
 
 - [CLAUDE.md](../../../CLAUDE.md) (lines 417-506 - current design system section)
-- [docs/bmad/ux-design-specification.md](../../../docs/bmad/archive/ux-design-specification.md) (existing UX spec)
+- [docs/archive/bmad/ux-design-specification.md](../../../docs/archive/bmad/archive/ux-design-specification.md) (existing UX spec)
 - [.claude/commands/design-check.md](../.claude/commands/design-check.md) (current skill)
 - [.claude/hooks/design-system-check.sh](../../../.claude/hooks/design-system-check.sh) (current hook)
 - [src/app/pages/landing-page.tsx](../src/app/pages/landing-page.tsx) (source of truth for UI)
-- [docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw](../../../docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw) (example violation)
+- [docs/archive/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw](../../../docs/archive/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw) (example violation)
 
 ## Execution Notes
 
@@ -367,8 +367,8 @@ Replace current "Design System" section (lines 417-506) with **ultra-lightweight
 **For executing agent:**
 1. Phase 1: Create `docs/design-system.md` using 3-section structure
 2. Phase 1: Update CLAUDE.md pointer (lines 417-506 → 3 lines)
-3. Phase 1: Archive `docs/bmad/ux-design-specification.md`
+3. Phase 1: Archive `docs/archive/bmad/ux-design-specification.md`
 4. Phase 2: Update `.claude/commands/design-check.md` references
 5. Phase 2: Update `.claude/hooks/design-system-check.sh` references
 6. Phase 3: Fix V8 wireframe Continue button (green → blue)
-7. Phase 3: Archive V4-V7 wireframes to `docs/bmad/diagrams/archive/`
+7. Phase 3: Archive V4-V7 wireframes to `docs/archive/bmad/diagrams/archive/`

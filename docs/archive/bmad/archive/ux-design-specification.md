@@ -13,7 +13,7 @@ scope: 'full-design-system'
 
 # UX Design Specification: Clarity Pledge Design System
 
-> **⚠️ ARCHIVED:** This document has been superseded by [docs/design-system.md](../../design-system.md) as of 2026-01-15.
+> **⚠️ ARCHIVED:** This document has been superseded by [docs/design-system.md](../../../design-system.md) as of 2026-01-15.
 >
 > This spec was Clarity Chat-specific. The new spec is app-wide and consolidates all design conventions.
 

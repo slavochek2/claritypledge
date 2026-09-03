@@ -291,4 +291,4 @@ Current: Documented concept, ready for stress-test
 ## Related Documents
 
 - [P22: Unified Ideas Architecture](./p275_unified-ideas.md) - Data model backbone
-- [Design Thinking Session](../docs/bmad/design-thinking-2025-12-21.md) - Previous session notes
+- Design Thinking Session (`docs/archive/bmad/design-thinking-2025-12-21.md`, no longer in the tree) - Previous session notes

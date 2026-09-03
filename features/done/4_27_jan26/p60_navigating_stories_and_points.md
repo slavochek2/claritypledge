@@ -210,8 +210,8 @@ Changes needed:
 
 ## Related Files
 
-- [Pattern B Wireframe](../../../docs/bmad/diagrams/story-point-pattern-B-reddit-border.excalidraw)
-- [Sifter MVP Wireframe v4](../../../docs/bmad/diagrams/_archive/sifter-mvp-wireframe-v4.excalidraw)
+- [Pattern B Wireframe](../../../docs/archive/bmad/diagrams/story-point-pattern-B-reddit-border.excalidraw)
+- [Sifter MVP Wireframe v4](../../../docs/archive/bmad/diagrams/_archive/sifter-mvp-wireframe-v4.excalidraw)
 - [P59 Context Portal](../../drafts/p59_context_portal_design.md)
 - [P55 Verification Loop](./done/p55_understanding_verification_loop.md)
 - [Shared Types](../../../tools/kanban/src/lib/types.ts)

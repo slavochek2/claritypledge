@@ -2,7 +2,7 @@
 
 **Created:** 2025-12-02
 **Status:** Completed
-**UX Reference:** [ux-profile-sharing-v2.md](../../docs/bmad/ux-profile-sharing-v2.md)
+**UX Reference:** `docs/archive/bmad/ux-profile-sharing-v2.md` (no longer in the tree)
 
 ## Overview
 

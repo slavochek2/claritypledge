@@ -274,7 +274,7 @@ After updates, test against known violations:
 - [CLAUDE.md](../../../CLAUDE.md) (lines 280-579 - current design system section)
 - [.claude/commands/design-check.md](../.claude/commands/design-check.md) (current skill)
 - [src/app/pages/landing-page.tsx](../src/app/pages/landing-page.tsx) (source of truth for UI)
-- [docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw](../../../docs/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw) (example violation)
+- [docs/archive/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw](../../../docs/archive/bmad/diagrams/sifter-mvp-wireframe-v8.excalidraw) (example violation)
 
 ---
 

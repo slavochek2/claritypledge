@@ -102,6 +102,6 @@ Add this check to the agent's activation or menu handler:
 
 ## Related
 
-- [P99: /prep-spec skill](../../features/p99_prep_spec_skill.md)
-- [P100: /generate-ralph-loop skill](../../features/p100_ralph_loop_skill.md)
-- [P101: /generate-uat skill](../../features/p101_generate_uat_skill.md)
+- P99: /prep-spec skill (`features/p99_prep_spec_skill.md`, no longer in the tree)
+- P100: /generate-ralph-loop skill (`features/p100_ralph_loop_skill.md`, no longer in the tree)
+- P101: /generate-uat skill (`features/p101_generate_uat_skill.md`, no longer in the tree)

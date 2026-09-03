@@ -3,7 +3,7 @@
 **Author:** Slava (via PM Agent John)
 **Date:** 2026-01-04
 **Status:** Draft
-**Feature Doc:** [features/p350_ideas_in_live.md](../../features/p350_ideas_in_live.md)
+**Feature Doc:** `features/p350_ideas_in_live.md` (spec no longer in the tree)
 
 ---
 
@@ -19,7 +19,7 @@ Currently, two people enter a session and verify understanding on... nothing spe
 
 Verification matters when there's an **idea** where agreement or disagreement has consequences.
 
-From [Theory of Change - Facilitation Ladder](../theory-of-change.md#the-facilitation-ladder):
+From [Theory of Change - Facilitation Ladder](../../theory-of-change.md#the-facilitation-ladder):
 
 > The answer: verification matters when there's an **idea** where agreement/disagreement has consequences.
 

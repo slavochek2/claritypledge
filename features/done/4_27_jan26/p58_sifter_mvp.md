@@ -117,7 +117,7 @@ A chat-based brain dump interface where AI separates your messy thoughts into **
 
 ## User Journey (Wireframes)
 
-See: [sifter-mvp-wireframe-v4.excalidraw](../../../docs/bmad/diagrams/_archive/sifter-mvp-wireframe-v4.excalidraw)
+See: [sifter-mvp-wireframe-v4.excalidraw](../../../docs/archive/bmad/diagrams/_archive/sifter-mvp-wireframe-v4.excalidraw)
 
 ### Screen Flow
 
@@ -463,7 +463,7 @@ AI summarizes Stories behind positions:
 ## Related Documents
 
 - [ROADMAP.md](./ROADMAP.md) — Where this fits in the build order
-- [sifter-mvp-wireframe-v4.excalidraw](../../../docs/bmad/diagrams/_archive/sifter-mvp-wireframe-v4.excalidraw) — UI wireframes
+- [sifter-mvp-wireframe-v4.excalidraw](../../../docs/archive/bmad/diagrams/_archive/sifter-mvp-wireframe-v4.excalidraw) — UI wireframes
 - [v5_1_sensemaking_platform_synthesis.md](../docs/visions/v5_1_sensemaking_platform_synthesis.md) — Philosophy of Story/Point
 
 ---

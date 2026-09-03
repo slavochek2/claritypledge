@@ -4,7 +4,7 @@
 
 **Audience:** AI agents (Claude), human developers
 
-**Status:** Active (supersedes `docs/bmad/ux-design-specification.md`)
+**Status:** Active (supersedes `docs/archive/bmad/archive/ux-design-specification.md`)
 
 ---
 
@@ -744,4 +744,4 @@ If you encounter a design decision not covered in this spec:
 
 **Spec version:** 1.0.0
 **Last updated:** 2026-01-15
-**Supersedes:** docs/bmad/ux-design-specification.md
+**Supersedes:** docs/archive/bmad/archive/ux-design-specification.md

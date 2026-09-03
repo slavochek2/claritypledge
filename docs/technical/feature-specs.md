@@ -408,8 +408,7 @@ When multiple worktrees create features simultaneously, `p{N}` numbers can colli
 | Archived features | `features/archive/` |
 | Research results | `features/research/` |
 | UAT files (ralph-loop) | `features/uat/p{N}.md` |
-| BMAD workflow outputs | `docs/bmad/` |
-| BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
+| BMAD workflow outputs (retired tool, read-only) | `docs/archive/bmad/` |
 | **Slava's custom skills** | `.claude/commands/slava/` |
 | Source code | `src/app/` |
 | Unit tests | `src/tests/` or colocated |

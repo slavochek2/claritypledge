@@ -71,8 +71,11 @@ global_GEMINI.md
 # Dead AI tool artifacts (Aider, BMAD, old IDE configs)
 .aider.chat.history.md
 .aider.tags.cache.v4/
-.bmad/
-bmad/
+# Anchored to the repo root: the retired tool's config/artifact dirs live there.
+# Unanchored, these also matched docs/archive/bmad/ — the tracked read-only
+# archive of the tool's workflow outputs (P1221) — which blocked `git add` on it.
+/.bmad/
+/bmad/
 # .agents/ is now generated-and-tracked (P1151) — do NOT re-add as a dead artifact
 .cursor/
 .opencode/
