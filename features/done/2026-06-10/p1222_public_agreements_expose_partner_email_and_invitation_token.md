@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000066
 severity: high
@@ -10,9 +10,9 @@ drafted_by: fable
 exec_model: fable
 exec_effort: high
 tags: [security, rls, agreements, pii, anonymous-reads]
-delivery_stage: create-bug
 pipeline_ran: [create-bug, inline]
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1222: public agreements expose the invitee's email and the invitation token
