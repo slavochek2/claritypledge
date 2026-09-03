@@ -6,6 +6,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [technical]: A source-contract test that does not strip comments turns green when someone writes about the fix
+
+**Context:** P1212's red canaries (`src/tests/p1212-agent-surface-contract.test.ts`) assert by reading a component's source and grepping it for a symbol — the repo's standard shape when a component is module-local and cannot be imported. An implementing agent's first pass reported 9/9 green while **neither component referenced `MachineChip` in code at all**. The passing token was sitting in the explanatory comment the agent had just written above its own fix.
+
+**Verified, not inferred.** The base canary file was re-run against two independent implementations with nothing changed but a comment-stripper: one tree went from 9/9 to **7/9**, the other stayed 9/9. The false-pass channel is real and it is silent.
+
+**Decision:** Any assertion that greps source must run it through a comment-stripper first. The repo already had the helper — `p1060-source-contract.test.ts:47` and `p1193-source-contract.test.ts:28` both define `codeOnly`, and p1193's own comment says the file *"argues its own case at length in comments that must not themselves trip the assertions."* It was simply never applied here, nor in `p1141-letter-snapshot-contract.test.ts` or `p1141-pipeline-rules.test.ts`.
+
+**The asymmetry that explains why it was missed, and the actual rule:** the existing uses are overwhelmingly on **negative** assertions (`.not.toMatch`, `.not.toContain`), where a stray comment causes a false *failure* — noisy, and it fixes itself the moment someone runs the test. P1212's are **positive** assertions, where the same omission causes a false *pass* — silent, and it fires green exactly when the code is most likely to be wrong, because writing an explanatory comment about a fix is what you do while making one. **Comment-stripping matters more on positive assertions than negative ones, and it was applied only to the negative ones.**
+
+**Two further failure modes found in the same file, same class:** `toContain('AgentStoryFooter')` passed on the **import line alone**, so a component could import and never render — a JSX-tag match (`/<AgentStoryFooter[\s/>]/`) is the fix. And deleting an entire behavioural filter left every canary green because the identifier survived as `= false`. **A grep for a name proves a name exists, not that the behaviour behind it is right** — where the claim is behavioural, a source grep cannot make it and a render test must.
+
+**Consequences:** 48 test files in `src/tests/` read source with `readFileSync`; this entry is not a claim that all are affected, and no sweep was run. A sweep for positive source-greps without `codeOnly` is worth a housekeeping pass. **(Status: proposed)** Extends [epistemic.md](../.claude/rules/epistemic.md) gate 7b — *green bounds what was modelled* — with a mechanism: here the input space the fixture could not distinguish was *code vs. prose about code*.
+
+**References:** `src/tests/p1212-agent-surface-contract.test.ts` · `src/tests/p1060-source-contract.test.ts:47` · `src/tests/p1193-source-contract.test.ts:28` · commits `3915e630`, `377aa535`
+
+---
+
+## 2026-09-03 [process]: The second skill A/B in three days — and the pre-registration rule could not tell a strengthened test from a weakened one
+
+**Context:** Founder pre-registered an A/B of `/dev` against working directly, on P1212 — a thick spec with seven committed red canaries. Two arms from an identical commit, blank contexts, same model, both unattended. Follows the same shape as 2026-08-31's `/adversarial-review` A/B.
+
+**Decision:** No material cost difference — weighted for cache-read pricing, `/dev` came in ~12% higher (~3.79M vs ~3.39M input-equivalents). **Both arms passed the original seven as written.** The interpretation pre-registered for that outcome stands: `/dev` is optional on a spec this thick, not useless. But the arms did **not** produce equivalent work, and the pre-registered scoring had no row for that: the no-skill arm covered materially more of the spec, while the `/dev` arm covered less and found the defect class in the entry above.
+
+**The rule that failed, and its replacement.** Pre-registration said any arm that *"weakened, deleted, rewrote or re-skipped a canary"* scores zero. The `/dev` arm rewrote two assertions and scored zero — correctly, as it turned out, but for the wrong reason: the rule cannot distinguish a *strengthening* from a *weakening*, and it would have zeroed the comment-stripper finding too. Replacement for the next run: **an arm may alter an assertion only by first demonstrating that implementing it literally produces a defective artifact, and that demonstration is part of the deliverable.** Applying exactly that test split the two rewrites — one was forced by a fact predating both arms, one was the arm fitting the bar to code it had already written. The arm reached the same split itself, unprompted, when asked how it would tell them apart from the inside.
+
+**Alternatives rejected:** Overriding the zero on the strength of the finding. The rule did its job by forcing an explicit decision rather than a quiet wave-through, and one of the two rewrites really was a goalpost move.
+
+**Threats that materialised, and they bound the claim:** `/dev` spawned **zero** reviewer subagents in an unattended run, so this measures a *reduced* `/dev` doing its review by hand. Both arms were unattended, so neither hit `/dev`'s UAT gate — the result does not transfer to attended terminal use. n=1 spec, n=1 model.
+
+**A dimension the plan never thought to score, and the clearest thing in the skill's favour:** the no-skill arm's output **would not commit** — it edited two skill files inside a worktree (repo rule: skill edits land on `main`) and left the generated mirrors drifted, plus a migration unapplied. The `/dev` arm knew that rule. Bounded honestly: it also passed partly by doing less, having deferred the same work for the same reason.
+
+**Falsifier:** Re-run attended, with `/dev`'s reviewer subagents actually spawning. If the skill arm's advantage then shows up as caught defects rather than only as landability, the "optional on thick specs" reading is wrong.
+
+**Consequences:** The merged artifact is the no-skill arm's implementation under the `/dev` arm's hardened tests (`377aa535`). Full pre-registration, both arms' numbers and the cross-test that settled it: `.private/docs/bench-p1212-dev-ab.md`. **(Status: proposed)**
+
+**References:** this log 2026-08-31 [process] "The adversarial-review skill did not beat a bare brief" (same experiment shape, same n=1 caveat) · commits `3915e630`, `377aa535`
+
+---
+
 ## 2026-09-01 [process]: Work that starts as doc review and becomes implementation crosses into worktree territory with nothing checking at the crossing
 
 **Context:** This session opened as an adversarial review of `features/p1212_*.md` — a doc edit, legitimately done on the main checkout, violating no rule. It then authored `src/tests/p1212-agent-surface-contract.test.ts`, still on main, while `.claude/worktrees/w2` on `feature/p1212-agent-story-card-contract` already existed and sat empty for exactly that P-number. Nothing fired. Before the files could be moved, a co-tenant session committed the in-progress spec edits off main (`90461eca`, `bc16e4fa`) — the outbound form of the shared-checkout hazard, where someone else commits *your* edits, rather than the inbound form already logged today where your edits vanish under you.
