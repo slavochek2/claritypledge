@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000066
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [e2e, testing, cleanup, p1043]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1217: Retire the E2E tests that assert deliberately-removed behaviour
@@ -38,14 +38,14 @@ and must be kept or split, and how much of the 580 does deleting actually remove
 Blast radius: **medium** — deleting a test cannot break the product, but silent coverage loss is
 invisible by construction (deleting the only test for a live component makes the suite *greener*).
 Reversibility: **high** — `git revert` restores any file. Decision density: **low** — the
-DEAD/STALE/SPLIT rule is already decided ([decisions.md](../docs/decisions.md) 2026-09-01 [process]).
+DEAD/STALE/SPLIT rule is already decided ([decisions.md](../../../docs/decisions.md) 2026-09-01 [process]).
 
 ## Invariants
 
 - **A dead spec is a filter, not a verdict.** Before deleting any file, enumerate every distinct
   component or page the file exercises — not only the feature its spec names — and grep `src/` for
   each. One spec can ship two things; the dead feature and a live shared component then share one
-  test file. ([decisions.md](../docs/decisions.md) 2026-09-01 [process].)
+  test file. ([decisions.md](../../../docs/decisions.md) 2026-09-01 [process].)
 - **No live component may lose its last coverage.** If a component still exists in `src/`, another
   `e2e/` spec must be shown to cover it before its blocks are deleted. If none does, the file is
   SPLIT, not DEAD.
