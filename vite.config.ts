@@ -318,6 +318,10 @@ export default defineConfig({
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*',
       '**/e2e/**',
+      // Live TEST-project lane — real credentials + network. Run it with
+      // `npm run test:integration` (src/tests/integration/vitest.config.ts). The default
+      // run is offline by design: CI has no Supabase credentials.
+      '**/src/tests/integration/**',
       '**/.claude/**',
       '**/.local/**',
       '**/tools/**', // Exclude tools (kanban has its own test suite)
