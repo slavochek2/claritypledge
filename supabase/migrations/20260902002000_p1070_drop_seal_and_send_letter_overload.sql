@@ -1,0 +1,67 @@
+-- P1070: drop the orphaned 3-argument seal_and_send_letter overload.
+--
+-- P952 (20260618120000_p952_responses_mode.sql) added p_responses_mode by re-declaring the
+-- function. CREATE OR REPLACE keys on the signature, so it created a SECOND function rather
+-- than replacing the first. Both are live and both are separately granted.
+--
+-- Because the 4-argument form declares p_responses_mode with a DEFAULT, both candidates match
+-- a call naming only the three shared arguments, and PostgREST refuses to choose. That
+-- directly falsifies P952's own client-safety note ("existing clients omit p_responses_mode
+-- and get default 'invite'"): such a client gets a hard PGRST203 and cannot seal a letter
+-- at all.
+--
+-- Measured 2026-09-01 against the LIVE catalog on both environments, not against migration
+-- text — a three-named-argument REST call returns, verbatim and identically on prod and test:
+--
+--   PGRST203 Could not choose the best candidate function between:
+--     public.seal_and_send_letter(p_letter_id => uuid, p_predictions => jsonb,
+--                                 p_deliveries => jsonb),
+--     public.seal_and_send_letter(p_letter_id => uuid, p_predictions => jsonb,
+--                                 p_deliveries => jsonb, p_responses_mode => text)
+--
+-- The probe is safe to repeat: the surviving body raises 'Letter not found' before any write,
+-- so a nonexistent UUID cannot mutate anything. The 4-argument call already resolves cleanly
+-- to that error, which is what confirms the survivor is the right one.
+--
+-- Same class as the two overloads closed in P1066 (get_inbox_items(uuid),
+-- accept_agreement(uuid,text,uuid)). Unlike those, this one carries no anon grant, so it is a
+-- correctness defect rather than a security one — which is why P1066 deliberately left it out
+-- rather than folding it in.
+--
+-- Do NOT "fix" this by re-declaring the function. That is the operation that created it.
+--
+-- client-safe: the shipped client (src/app/data/letters-service.ts:103-108) passes all four
+-- arguments and therefore already resolves to the surviving 4-argument function — verified by
+-- the probe above returning a normal domain error for the 4-argument shape. No deployed client
+-- calls the 3-argument shape; the only caller of it in this repo is the integration test named
+-- below, which exists to assert that the shape resolves.
+--
+-- diffed against: the live PGRST203 candidate list above, which enumerates pg_proc directly.
+--   Nothing is redeclared here, so no body needed diffing. For the record, the 3-argument
+--   victim was last defined by 20260610140000_p914_letter_rpc_scope_gate.sql and the surviving
+--   4-argument function by 20260823120100_p1141_seal_rpc_video_fields.sql — P952 introduced the
+--   second signature, but is no longer the current body of either.
+--
+-- The anon grant on both overloads was already revoked by
+-- 20260813080000_p1063_revoke_anon_execute_on_signed_in_rpcs.sql, so this DROP removes no
+-- reachable unauthenticated surface and there is no grant to re-assert: `authenticated` holds
+-- EXECUTE on the survivor independently (p1063:101, p1141:218).
+--
+-- Integration test: e2e/integration/20260902002000_p1070_seal_overload.spec.ts
+--
+-- P1066 F6: a DROP FUNCTION IF EXISTS recorded as applied on prod has previously left the
+-- function in place. A green migration run is NOT evidence here. After this runs, confirm on
+-- BOTH environments that exactly one candidate remains:
+--
+--   SELECT oid::regprocedure::text
+--   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--   WHERE n.nspname = 'public' AND p.proname = 'seal_and_send_letter';
+--
+-- or, without catalog access, re-run the 3-argument REST probe and require that it no longer
+-- returns PGRST203. The integration test does exactly that.
+
+BEGIN;
+
+DROP FUNCTION IF EXISTS public.seal_and_send_letter(uuid, jsonb, jsonb);
+
+COMMIT;

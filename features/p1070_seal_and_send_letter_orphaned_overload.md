@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: blocked
 type: bug
 rank: 211
 severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [rpc, migrations, overload, letters]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1070: seal_and_send_letter carries an orphaned overload, so the three-argument call cannot resolve
@@ -113,12 +113,78 @@ own grants.
 
 **Do not** re-declare the function to "replace" it; that is the operation that created the problem.
 
+## Work done 2026-09-02 — migration written and its gate proven, NOT applied
+
+**Reproduced read-only on BOTH environments**, against the live catalog rather than migration text.
+A three-named-argument REST call returns, verbatim and identically on prod and test:
+
+```
+PGRST203 Could not choose the best candidate function between:
+  public.seal_and_send_letter(p_letter_id => uuid, p_predictions => jsonb, p_deliveries => jsonb),
+  public.seal_and_send_letter(p_letter_id => uuid, p_predictions => jsonb, p_deliveries => jsonb,
+                              p_responses_mode => text)
+```
+
+The probe is non-destructive and repeatable: the surviving body raises `Letter not found` before any
+write, so a nonexistent UUID cannot mutate. The four-argument call already returns exactly that
+error, which is what confirms the survivor is the right function. PostgREST's OpenAPI document was
+tried first and is **useless for this** — it collapses both overloads into a single path carrying
+the union of arguments.
+
+**Written:**
+- `supabase/migrations/20260902002000_p1070_drop_seal_and_send_letter_overload.sql`
+- `e2e/integration/20260902002000_p1070_seal_overload.spec.ts`
+
+**The gate is proven to fire (epistemic gate 7).** The integration test was run BEFORE the migration:
+its three-argument case **fails on `PGRST203`** — the actual defect — while its four-argument control
+**passes**. So the test is known to detect this defect, and is not blind.
+
+**Version prefix corrected before commit:** first written as `20260901200000`, which collides with
+`w7`'s `20260901200000_p1097_a_server_minted_room_code.sql`, already applied to the test ledger. A
+co-tenant session flagged it; confirmed by `find` across main and all worktrees before renaming.
+
+### RESOLVED on test 2026-09-03 — prod still pending
+
+The founder approved applying to test. Before it was run by hand, a co-tenant `migrate.sh` on the
+shared main checkout globbed the uncommitted file off disk and applied it — so the drop reached test
+without either lane intending that specific run. Outcome is what was approved; the route was not.
+Worth noting as another instance of shared-checkout coupling (cf. P1209).
+
+**Verified against the live database, read-only, not against the manifest:** the three-named-argument
+REST call on test now returns `P0001 Letter not found` instead of `PGRST203`. The overload is gone.
+
+- `e2e/integration/20260902002000_p1070_seal_overload.spec.ts` — **2 passed**
+- `e2e/integration/20260412135402_fix_block_self_send.spec.ts` — **2 passed**, so the self-send guard
+  this defect was masking now runs and produces its real assertion
+
+**PROD IS UNCHANGED and remains a separate decision.** A three-argument call there still returns
+PGRST203. P1066's F6 is the reason this needs eyes rather than a green run: a `DROP FUNCTION IF
+EXISTS` recorded as applied on prod has previously left the function in place.
+
+### Original blocker (now cleared on test)
+
+`pre-commit-checks.sh` refuses to commit a migration that has not been applied to the test DB
+(`✗ 20260902002000_p1070_... not applied — run: ./scripts/migrate.sh`). Applying it means executing
+`DROP FUNCTION`, and `.claude/rules/db-access.md` requires explicit confirmation before any
+`DROP`/`DELETE`/`TRUNCATE` — *"This applies to all environments, including test."*
+
+So both files sit uncommitted on disk, deliberately. **What is being asked:**
+
+> Run `./scripts/migrate.sh` against the **test** project, executing
+> `DROP FUNCTION IF EXISTS public.seal_and_send_letter(uuid, jsonb, jsonb);`
+> This permanently removes the orphaned 3-argument overload from test. It removes no reachable
+> unauthenticated surface — P1063 already revoked anon EXECUTE on both overloads — and the shipped
+> client passes four arguments, so no user-facing path changes. Prod is a separate, later decision.
+
+Grants need no re-assertion: `authenticated` holds EXECUTE on the surviving function independently
+(`p1063:101`, `p1141:218`).
+
 ## Acceptance Criteria
 
-- [ ] `e2e/integration/20260412135402_fix_block_self_send.spec.ts` passes, with the self-send guard
-      producing "Cannot send a letter to yourself"
-- [ ] A three-named-argument REST call to `seal_and_send_letter` returns a normal result or a normal
-      domain error — never `PGRST203`
+- [x] `e2e/integration/20260412135402_fix_block_self_send.spec.ts` passes, with the self-send guard
+      producing "Cannot send a letter to yourself" — 2 passed on test 2026-09-03
+- [x] A three-named-argument REST call to `seal_and_send_letter` returns a normal result or a normal
+      domain error — never `PGRST203` — confirmed on **test**; **prod still returns PGRST203**
 - [ ] Live `pg_proc` on **both** prod and test shows exactly one `seal_and_send_letter` (query
       output pasted, not a green migration run)
 - [ ] Sealing a letter from the app still works end to end, with the response-intensity choice
