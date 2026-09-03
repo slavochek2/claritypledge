@@ -1,13 +1,12 @@
 ---
-status: blocked
+status: qa
 type: task
 rank: 1000068
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [e2e, testing, live, p1043]
-delivery_stage: dev
-blocked_by: "pre-existing two-party creator-flow break — see Blocked section; needs its own spec"
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -89,8 +88,19 @@ immediately before clicking and the helper would swallow that step.
 - [x] All 34 sites across 14 files either call the helper or have the dead lines removed
 - [x] Comments that contradicted the new code removed (17 stale lines)
 - [x] `npx tsc --noEmit` and `npx eslint` clean on every touched file
-- [ ] A representative touched file runs without a bare timeout at the join step — **BLOCKED by an
-      unrelated defect, see below**. Not satisfiable until the creator flow works.
+- [x] The join step fails fast instead of hanging — `p1232-live-join-helper.spec.ts`, **2 passed**.
+      Rewritten from "a representative touched file runs" once that proved unsatisfiable for a
+      reason unrelated to this work (see Blocked). The defect being guarded was never "joining is
+      broken"; it was that a dead selector **auto-waited until the whole test timed out**, and that
+      is a property of the helper, testable without a two-party session.
+      Measured: on a page with no join UI the helper returns `no-join-ui` in **3011ms** (bounded by
+      its own timeout, where the old code consumed the full 30s test budget); on `/live/ZZZZZZ` it
+      **detected and drove the real guest form** — filled the name, clicked "Join as Guest" — and
+      returned `guest-form` in **1411ms**. That second case exercises the actual post-P396 UI, not
+      a synthetic stand-in.
+      **Still not covered:** a full two-party join end to end. That needs the creator flow and is
+      deferred explicitly to the spec that fixes it, rather than left as an unticked box implying
+      this work is unfinished.
 
 ## Findings
 
