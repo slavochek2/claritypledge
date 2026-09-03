@@ -8,6 +8,8 @@ created_date: '2026-08-17'
 tags: [security, live, crypto, codes]
 driver: anomaly
 feature_type: backend
+delivery_stage: ship
+pipeline_ran: [inline, ship]
 ---
 
 # P1097: the room code is a bearer token minted with `Math.random()`
