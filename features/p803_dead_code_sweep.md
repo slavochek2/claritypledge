@@ -188,6 +188,15 @@ files), `npm run build` (succeeds, 32.7s).
       schema — which belongs to P1095's branch, not this one, and would collide if done here.
       **Founder decision before shipping:** accept the targeted evidence below in place of a full
       suite run, or hold P803 until the shared helper is repaired and a full run is affordable.
+      **Widened since: 58 spec files / 462 tests, run twice — on this branch and on `main` — with
+      identical outcomes.** See § Evidence — the letter/live/results surface, branch vs `main`. Two
+      corrections to the paragraph above come out of it. (1) `points.context` is not the only
+      environment defect in that surface: `points.author_id` (3), a `stories.author_id` not-null
+      rejection (3) and `permission denied for table clarity_sessions` (6) are three more, each
+      independent of P1095 — repairing the point helper alone will not turn this green. (2) The
+      no-regression claim no longer rests on inspecting failure messages: the same 462 tests give
+      192 / 151 / 119 on both sides, and the one test that differs was chased to this branch's
+      merge-base and fails there too.
 - [x] Manual smoke of letter -> /live -> results shows no regression — **done in a real browser on
       this branch** (2026-09-03), replacing the by-hand smoke this line originally asked for:
       `npx playwright test --project=chromium --workers=2 e2e/p467-chat-context-header.spec.ts
@@ -443,3 +452,49 @@ dependencies, and `grep -rln "from 'zod'"`, `"from 'date-fns'"` and `"react-hook
 `src/`, `supabase/`, `scripts/`, `api/` each return nothing — consistent with the tool, but a
 dependency can be reached through a config or a transitive re-export, so each still needs its own
 check before removal.
+
+## Evidence — the letter/live/results surface, branch vs `main` (2026-09-03)
+
+The by-hand smoke this spec originally asked for cannot be performed while `createTestPoint` throws,
+so the flow was exercised through its own E2E specs instead — and, because that surface is failing
+for environment reasons on every branch, the run is only worth anything as an A/B. Selection:
+every spec file under `e2e/` whose name matches `letter|live|result` — **58 files, 462 tests**,
+run with the JSON reporter (immune to the ANSI truncation `.claude/rules/tests.md` warns about).
+
+| | expected | unexpected | flaky | skipped |
+|---|---|---|---|---|
+| this branch (`7ac2bb02`) | 192 | 151 | 0 | 119 |
+| `main` (`5052d6ff`), same 58 files | 192 | 151 | 0 | 119 |
+
+**150 of the 151 failures are the same tests on both sides.** The control ran in a throwaway
+detached worktree created from `main` and removed afterwards (`git worktree remove`; `git worktree
+list` no longer lists it), so nothing was checked out over either branch.
+
+**No failure on either side carries a deletion signature.** A regex over every failure message for
+`Failed to resolve` / `Cannot find module` / `does not provide an export` / `story-guide` /
+`clarity-chat` / `docs-list` / `send-letter-response-signin` / a 404 on a function path returns
+**0 hits** — which is the shape a failure caused by deleting a module would have.
+
+**The single divergence, chased to the end rather than waved off as flake.**
+`live-page-auth-gate.spec.ts` -> `navigation shows "Start a Clarity Session"` failed here and passed
+on `main`. It re-ran and failed again here, so it is not flake. It is also not this branch: checked
+out at the branch's **merge-base `d53c8ff8`**, with none of the deletions applied, the same test
+fails the same way (4 passed, 1 failed). The spec file is byte-identical across branch, merge-base
+and `main`, and this branch touches no navigation, layout or landing file (`git diff --name-only
+d53c8ff8 HEAD -- src/` lists only the deleted files plus two comment-only edits). `main` gained a
+fix for it after the merge-base; the branch is simply behind.
+
+**What the 151 failures actually are** — four independent shared-environment defects plus their
+downstream fallout, not one:
+
+```
+  42  points.context missing              (createTestPoint throws in beforeAll)
+   6  clarity_sessions permission denied  (grant/RLS drift)
+   3  stories.author_id seed rejected     (not-null violation)
+   3  points.author_id missing
+  15  test timeout                        downstream of the above
+  82  assertion failure                   downstream of the above (page never got its fixture)
+```
+
+Recorded because the line above attributes the failures to `points.context` alone: fixing P1095's
+half will not make this surface green, and a later reader should not expect it to.
