@@ -124,7 +124,7 @@ export function PledgerGrid({
         {mobileItems.map((_, index) => (
           <button
             key={index}
-            className={`w-2 h-2 rounded-full transition-all ${
+            className={`w-2 h-2 rounded-full transition-all relative before:absolute before:left-1/2 before:top-1/2 before:h-10 before:w-[calc(100%+0.5rem)] before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] ${
               index === currentIndex
                 ? "bg-blue-600 w-4"
                 : "bg-gray-300 dark:bg-gray-600"

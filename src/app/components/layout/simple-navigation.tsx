@@ -147,7 +147,7 @@ function UseCasesMenu({ pathname }: { pathname: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={`inline-flex items-center gap-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md ${
+        className={`inline-flex items-center gap-1 -mx-2 px-2 py-1 text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md ${
           onUseCase ? "text-foreground" : "text-muted-foreground hover:text-foreground"
         }`}
       >
