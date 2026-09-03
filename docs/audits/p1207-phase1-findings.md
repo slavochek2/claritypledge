@@ -1,918 +1,105 @@
-# P1207 Phase 1 — Reachability findings
+# P1207 — adversarial permission audit: method and transferable results
 
-**Run:** 2026-09-01 · **Branch:** `feature/p1207-adversarial-permission-audit`
-**Lenses reported:** 5 of 5 (class A, class B, class C, class D, backlog). No lens uncovered.
+**Run:** 2026-09-01 → 2026-09-03 · Branch: `feature/p1207-adversarial-permission-audit`
 
-## Source bounds
-
-Per the spec's first Invariant, every verdict names the source it came from.
-
-| Source | What it settles | What it cannot settle |
-|---|---|---|
-| Live **prod** catalog (`pg_policies`, `information_schema`, read-only SELECT) | What production actually enforces today | Nothing about future migrations |
-| Live **test** catalog + PostgREST probes | Reachability with real role tokens | Prod divergence, unless separately probed |
-| `supabase/migrations/*.sql` | Authoring intent, history | Which policy is live — superseded ones still match a grep |
-
-**The file source was actively misleading and this is the audit's methodological result.** Grepping
-migrations suggested a dozen-plus unconditional write policies. The live catalog holds **six**. The
-rest were dropped by later migrations. Any fix fanned out from the grep would have been chasing
-policies that no longer exist. Start live, then classify — as the Invariant says.
-
-## Probe controls (Done-When #2)
-
-An all-clean sweep is worthless without a known-bad and known-good scoring differently through the
-*identical* probe on the *identical* metric.
-
-| Probe | Known-good | Known-bad | Discriminates |
-|---|---|---|---|
-| Row reach (anon) | `events`/`points`/`stories` → rows (public by design) | `profiles`/`clarity_letters` → 401 | yes |
-| Column grant | `profiles?select=id,name` → 200 | `profiles?select=email` → 401 42501 | yes |
-| Cross-row (set equality) | `clarity_docs` expected 76 / actual 76, extra 0 | `event_rsvps` expected 0 / actual 41, extra 41 | yes |
-| Privilege catalog | `TRUNCATE` to anon → 49 tables | `MAINTAIN` to anon → 0 | yes |
-| Dynamic SQL | `realtime` 8, `storage` 3, `extensions` 2 | `public` → 0 | yes (zero is real) |
-| `check-rls-scope.py` | `clean.sql` → exit 0 | `baseline_true.sql` → exit 1 | yes |
-
-**A control caught a real defect in the first sweep.** The class B sweep used `limit=1000`; three
-tables hit the cap for every role and read as "user sees all rows". Exact `Content-Range` counts
-show the filters working (3464/3491, 3999/4047, 4217/4265). Dismissed as measurement artifacts.
-
-**Six tables are VACUOUS on test** — empty, so a clean anon result proves nothing about their
-policies: `clarity_demo_rounds`, `clarity_ideas`, `clarity_live_turns`, `clarity_verifications`,
-`event_private_info`, `user_voice_profiles`. They cannot be classified until seeded. Criterion 4
-is therefore **not** satisfied for these six.
-
-## Coverage
-
-57 live public tables. The migration-derived list held 55: `point_references` and `worktree_status`
-exist live with **no migration file**, so every file-based control is structurally blind to them.
-Both are 404 on prod (test-only). The `worktree_status` allowlist entry asserts *"never on prod, and
-correctly so"* — that stored claim was tested rather than trusted, and it **holds**.
-
-**Consequence for the standing control:** it was scoped per-commit and therefore file-based. These
-two tables prove file-based checks cannot see unmigrated tables. The control needs a live
-reconciliation leg, or it must state that bound in its own output.
-
-## Findings
-
-Severity ordered. Evidence grade is stated per finding and is not uniform.
-
-### D-1 — Open email relay from the project's own sending domain · PROD · REPRODUCED
-`supabase/functions/send-letter-response-signin/index.ts` has no `Authorization` check, no
-`getUser`, and no `INTERNAL_FN_SECRET` — unlike every sibling sender. Only 2 of 16 functions carry
-that secret. It takes `{to, actionLink, senderName}` and posts to Mailgun as the project's branded
-sender; `actionLink` is HTML-escaped but never validated against an allowed host.
-
-`verify_jwt` is on, but **`verify_jwt` is not authentication** — the public anon key is a valid JWT
-and ships in the browser bundle. Measured boundary, both environments:
-
-```
-             nothing   key-header    Authorization only
-TEST           401         401            400  <- reached user code
-PROD           401         400            400  <- reached user code
-```
-
-(`key-header` = the anon key supplied via Supabase's project-key request header, no bearer token.)
-
-A credential-less request is correctly refused. The public anon key is not. Result: anyone can send
-DKIM-signed mail from the project's domain, to any address, carrying an attacker-chosen link.
-Probes used an empty body (no recipient), so no mail was emitted.
-
-**Fix pattern already exists in-repo:** `send-agreement-emails/index.ts:407`.
-
-### F0a — Real user emails readable by anonymous visitors · PROD · REPRODUCED
-`clarity_agreements` SELECT policy:
-```
-(visibility = 'public') OR (creator_profile_id = auth.uid())
-  OR (partner_profile_id = auth.uid())
-  OR (status = 'pending' AND lower(partner_email) = lower(auth.email()))
-```
-The pending branch is correctly built. The `visibility = 'public'` branch is unconditional and sits
-ahead of it, so anon reads the whole row on public agreements. Prod returns 3 rows, all carrying a
-real `partner_email`. No addresses are recorded here or anywhere in this repo.
-
-### F0b — Invitation token is a selectable column · defect live, unarmed by expiry · chain CODE-DERIVED
-The same policy exposes `invitation_token`, a capability. `create-and-sign` gates only on: token
-match, `status='pending'`, not expired, no existing profile — then calls
-`auth.admin.createUser({ email: partnerEmail, email_confirm: true })` and returns a session.
-
-For a **public + pending + unexpired** agreement, an anonymous caller reads the token and obtains a
-session bound to the victim's email, marked confirmed without the victim proving control. The
-legitimate invitee is then locked out by the `USER_EXISTS` guard.
-
-That state is producible: test holds 7 public+pending rows. All are expired; prod has none. **The
-chain is blocked today by expiry timing, not by any control.** Not executed — doing so would create
-a real auth user.
-
-### F6 — `anon` holds `TRUNCATE` on 49 prod tables; RLS does not govern it · PROD · LATENT
-Postgres does not apply row-level security to `TRUNCATE`; it is gated purely by the privilege.
-`anon` and `authenticated` hold `TRUNCATE`, `TRIGGER` and `REFERENCES` on 49 production tables
-including `profiles`, `clarity_letters`, `session_transcripts`, `clarity_sessions` — tables anon
-**cannot read**. Control: `MAINTAIN` to anon = 0.
-
-Root cause is one line: `20250101_initial_schema.sql:2` —
-`alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role`.
-Every table created since inherited it. P877, P880, P904 and P1104 each patched one table by hand;
-none revoked the class.
-
-**Latent, not armed:** class D established exhaustively that no route reaches it — no edge function
-takes a caller-supplied table, column, filter or SQL string (every `.from()`/`.rpc()` argument is a
-string literal or module constant), and `public` contains zero dynamic-SQL functions against a
-control that found 8 in `realtime`, 3 in `storage`, 2 in `extensions`.
-
-**This is the audit's central argument in one finding.** The defense is "no route has been built",
-not "permission denied". An agent-callable API is a route-building exercise.
-
-### D-2 — Any authenticated user can obtain a write URL for any session's audio · CODE-DERIVED
-`gcs-signed-url/index.ts:36-54` authenticates *that a user exists*, then forwards
-`sessionCode`/`fileName` verbatim. No check that the caller participates in that session. The Cloud
-Function builds `sessions/{sessionCode}/{fileName}` and returns a v4 `write` URL. Not reproduced:
-test 500s at an env guard before the JWT check; prod was out of the agent's mandate.
-
-### F1 — `clarity_idea_votes` UPDATE is unscoped · PROD · read REPRODUCED, write POLICY-DERIVED
-```
-cmd=UPDATE  roles={public}  qual=true  with_check=true
-policy name: "Voters can update their own votes"
-```
-The name asserts ownership; the predicate enforces none. `{public}` includes `anon`, which holds
-the `UPDATE` grant. No INSERT or DELETE policy exists, so a stranger cannot create or delete votes
-— only silently rewrite every existing one, including `vote`, `voter_name`, `voter_session_id`.
-
-**This finding is why the audit exists.** Prod, test and the migration files all agree on this
-policy. Nothing drifted. All three existing drift checks compare those three sources against each
-other, so a wrong-from-the-start policy is invisible to every one of them.
-
-### F7 / F8 — prod-only column grants, structurally invisible to a test-only audit · PROD · REPRODUCED
-
-```
-env=PROD  role=anon  read-only GET      control (bogus column) -> 400, discriminating
-clarity_verifications.session_id          200, 8 rows, 8 non-null session ids
-event_room_members.comprehension_rating   200, 4 rows, 1 real rating (value 5)
-```
-
-`comprehension_rating` is a private self-reported score — the same data class as
-`readiness_value`, which was deliberately revoked from `anon` on 2026-08-21. Its sibling column was
-left granted in prod.
-
-**Test refuses both.** Every convention in this repo says probe test rather than prod, and an audit
-following that convention would have reported both clean. They are false negatives reachable only
-by diffing prod against test — which is why the spec's Invariant demands the three-way diff first.
-
-### D-3 — test/prod grant divergence, and a migration recorded as applied that did not take effect
-
-`event_room_members.readiness_value` is readable by `anon` on **test** although the current
-migrations revoke it; `comprehension_rating` is refused on test although the migrations grant it.
-The live test grant set is neither a superset nor a subset of the files — it is a different set.
-
-**Prod is correct on this table**, matching the files exactly. So D-3 is not a production
-vulnerability. Its significance is methodological: `supabase_migrations.schema_migrations` on test
-and `supabase/deploy-manifest.json` both record `20260821120000` and `20260821170000` as applied,
-and the database disagrees with both. A migration ledger that says "applied" is not evidence the
-grants took effect, and nothing in the repo currently checks the difference.
-
-**Divergence, bounded** — column-level SELECT grants to `anon`/`authenticated`:
-
-| Direction | Entries | Substance |
-|---|---|---|
-| Prod more permissive (security-relevant) | 4 | F7, F8 |
-| Test more permissive | 38 | `worktree_status`, `point_references` (test-only tables), `event_private_info` x3, `events` x3, `readiness_value` |
-
-Six tables disagree: `clarity_verifications`, `event_private_info`, `event_room_members`, `events`,
-`point_references`, `worktree_status`. The other 878 of 882 prod grants match, so the test-derived
-findings below stand with those six carved out.
-
-### F2–F4 — test-confirmed reaches
-- `transcribe_rooms`: `SELECT TO authenticated USING (true)` — any user reads all room join `code`s.
-- `witnesses.witness_linkedin_url` anon-readable — the same data class P877 deliberately revoked on `profiles`.
-- `story_verifications`: anon reads both party uuids **and** their private ratings of each other.
-
-### F5 — the gate chosen to host the standing control is itself bypassable · STILL-OPEN (P1044)
-`scripts/check-rls-scope.py`, exercised against 10 fixtures:
-- annotation smuggling via string / block comment / dollar-quote — all exit 0
-- misses `((true))`, `true::boolean`, `1=1`, `NOT false` — all exit 0
-- a genuine violation exempted by a real annotation prints the byte-identical `ok:` line as a clean
-  file, so a reviewer cannot tell them apart
-Controls: `baseline_true` exit 1, `clean` exit 0 — the probe is not blind.
-
-## Backlog specs
-
-P1044 **STILL-OPEN** (above, reproduced). P1045, P1054, P1059, P1100 reported by the backlog lens;
-verdicts pending transcription of its truncated sections before any is marked closed. Per Non-Goals,
-none may be closed without evidence against the artifact.
+**Specifics are deliberately not published here.** Several findings are fixed on the test database
+but **not yet in production**, so exact policy predicates, reproduction payloads and per-table
+status live in `.private/docs/security-log.md` (2026-09-01..03) rather than in this public repo —
+per CLAUDE.md's rule on unpatched vulnerability mechanics. This file records what the audit
+*learned*, which is the part worth keeping and the part that is safe to keep in the open.
 
 ## Decision Criterion 1 — answered
 
-**No.** The agent API is not safe to build on this surface as it stands. D-1 is live and reachable
-by anyone holding a key that ships in the browser bundle. F0a leaks real personal data from
-production today. F7/F8 leak private per-user scores and session identifiers from production, and
-were invisible to every test-based probe. F0b is a token-to-session chain
-prevented only by expiry timing. F6 is a privilege RLS cannot govern on 49 production tables.
-
-Every fix is a **narrowing**, which the Invariants require be reported rather than auto-applied.
-None were applied. Nothing was written to any database in either environment; no exploit was run.
-
----
-
-# Phase 2 — corrections to Phase 1, and what was actually fixed
-
-Written 2026-09-01, after taking each approved fix to the code it would change. **Three of the
-four approved fixes did not survive that contact.** Recorded here in full, because a security
-audit that only records the findings it liked is the failure mode the spec's Invariants exist to
-prevent.
-
-## F8 — RETRACTED. Not a defect; a deliberate, shipped design.
-
-Phase 1 read `event_room_members.comprehension_rating` as the overlooked sibling of
-`readiness_value`, which was deliberately revoked from `anon` on 2026-08-21. That reading is
-wrong, and three independent artifacts say so:
-
-1. `20260821170000_p1114_room_readiness_distribution.sql:43` names `comprehension_rating`
-   **explicitly** in the re-issued column grant. It was kept in the same statement that removed
-   `readiness_value` — a deliberate inclusion, not an omission.
-2. `EventRoomMeet.tsx:160-175` renders `member.comprehensionRating` beside the member's name.
-   Revoking it would have broken a shipped, visible feature.
-3. `e2e/integration/p1114-db-schema.spec.ts:155-158` asserts the column **must** be anon-readable,
-   with a comment saying so.
-
-The two columns are opposite by design, and the migration's own header says it: the roster is
-public **by name** (a facilitator reads it off a projected screen); readiness is an **anonymous**
-distribution. Those two contracts cannot share one row, which is why one column left the grant and
-the other stayed. Phase 1 classified on data sensitivity and missed the design contract.
-
-This is the Invariant working as written — *"a privilege narrowing is presumed intentional and is
-reported, never auto-applied."* The same presumption has to run in the other direction: a
-**grant** that a migration names explicitly is intentional too.
-
-## F1 — CONFIRMED live, but reclassified: a documented accepted risk, now superseded.
-
-The policy is exactly as Phase 1 measured (`roles={public} qual=true with_check=true`,
-re-verified on prod 2026-09-01). What Phase 1 missed is that
-`20260211_tighten_idea_feed_rls.sql:26-38` created it **deliberately**, with a written rationale
-and a `COMMENT ON POLICY` recording the limitation in the database itself. It was a knowing
-trade-off, correctly documented in place — not an oversight.
-
-It is still fixed, on different grounds. P1139 established that the whole idea-feed family is dead
-code and dropped its INSERT policies on that basis; re-verified here rather than taken from
-P1139's claim (whole-repo grep: `voteOnIdea`, `getIdeaVoters`, `getVoteHistory` have zero callers
-outside their own definitions). The app-layer enforcement the 2026-02-11 comment relied on no
-longer exists, so the accepted risk is superseded rather than contradicted. Fixed by
-`20260901100100_p1207_drop_idea_votes_update_policy.sql`.
-
-**Phase 1's claim about F1 stands and is the audit's strongest result:** prod, test and the files
-all agree on this policy, so every drift check — all three of which compare those three sources
-against each other — is structurally blind to it. A wrong-from-the-start policy is not drift.
-
-## F7 / F0 — reclassified: the same root cause as F6, not separate column-grant defects.
-
-Phase 1 described F7 as a *"prod-only column grant"*. The prod catalog says otherwise:
-`clarity_verifications` and `clarity_agreements` carry no column-level carve-out at all. Both hold
-the blanket table-level `GRANT ALL` from the default-privileges line — every column, both roles.
-What is prod-only is the **absence of a REVOKE that test received**, which is D-3's ledger
-divergence, not a distinct grant.
-
-`clarity_verifications` SELECT is additionally governed by a policy reading
-`"Verifications are viewable by everyone" cmd=SELECT roles={public} qual=true`. `session_id` is
-reachable because that policy admits the row, so a column revoke would not be the fix; changing
-what "viewable by everyone" means is, and that is a product decision.
-
-**F0a and F0b are NOT fixed, and were not attempted.** Both need a design decision that was not in
-the approved scope:
-
-- `partner_email` cannot simply be revoked. `agreements-service-real.ts:429` filters on it
-  (`.eq('partner_email', ...)`) and `:619` (`.ilike('partner_email', email)`) — PostgREST needs the
-  SELECT privilege to filter on a column, so revoking it from `authenticated` breaks the incoming-
-  invitation flow outright. Revoking from `anon` alone closes the anonymous leak but leaves the
-  authenticated-stranger leak, because the exposure is the RLS policy's unconditional
-  `visibility = 'public'` branch, and Postgres RLS is row-level — it cannot withhold a column.
-- `invitation_token` has the same shape. `getIncomingInvitations` issues `select('*')`, which
-  PostgREST expands to every column and fails wholesale if one is revoked.
-
-The real fix for both is to route these reads through a `SECURITY DEFINER` RPC that returns the
-public projection without the capability column — the pattern this repo already uses for
-`get_room_readiness_distribution`. That is a build, not a revoke, and it needs the founder.
-
-**F0a remains live in production.** Real email addresses on public agreements are readable by
-anonymous visitors today.
-
-## F6 — FIXED, and it was larger than Phase 1 measured.
-
-Re-measured on prod 2026-09-01: `TRUNCATE` and `TRIGGER` at **50** tables each per role and
-`REFERENCES` at 50 — not the 49 Phase 1 recorded. `MAINTAIN` is 0 on existing tables, confirming
-Phase 1's control, **but** the live `pg_default_acl` entry is `arwdDxtm`: the `m` is granted to
-every future table. Phase 1's control was right about today and would have gone stale on the next
-`CREATE TABLE`. The fix revokes `MAINTAIN` from the default as well.
-
-**A bound the fix cannot reach, stated rather than papered over.** There are two default-ACL
-entries for tables in `public`: one owned by `postgres` and one owned by `supabase_admin`. Our
-migrations run as `postgres` and can only alter the first. The `supabase_admin` entry still grants
-all four privileges, so a table created by that role would still inherit them. Tables this repo
-creates use the `postgres` entry, so the fix is sufficient for our schema — but it is not a
-schema-wide guarantee, and the canary prints this as a `note:` on every run rather than hiding it
-behind a green exit code.
-
-## The standing control
-
-`scripts/check-p1207-privilege-floor.py [test|prod]` — read-only, SELECT only. Asserts the F6
-privilege floor (table grants **and** the postgres-owned default ACL) and that
-`clarity_idea_votes` has no unconditional UPDATE policy. Exercised both directions per gate 7:
-
-```
-before migrations, test:  exit 1  — "FAIL: 315 privilege-floor violation(s)"
-after  migrations, test:  exit 0  — "ok: no TRUNCATE/REFERENCES/TRIGGER/MAINTAIN to anon or
-                                     authenticated in schema public; clarity_idea_votes UPDATE
-                                     is not unconditional"
-```
-
-It is deliberately **not** wired into `pre-commit-checks.sh`: it requires network and a management
-token, and a commit gate that fails when offline is a gate people learn to bypass. It is a
-per-environment check, run against prod after the prod apply.
-
-## Regression evidence
-
-- `npm test` — 3445 passed, 19 skipped, 302 files. No failures.
-- Integration specs on the affected tables — 24 passed, 1 failed.
-
-**The one failure is pre-existing and is finding D-3, not a regression.**
-`p1114-db-schema.spec.ts:158` asserts `comprehension_rating` is anon-readable; test refuses it
-(`42501 permission denied`). Phase 1 measured that exact divergence on test **before** any
-migration was written, and the post-migration column-grant set is byte-identical to that
-measurement — `readiness_value` granted, `comprehension_rating` absent, inverted from the files.
-Neither migration contains the word `SELECT`, so neither could have caused it. The failing test is
-independent evidence for the F8 retraction above: it exists because the grant is deliberate.
-
-## Still open after Phase 2
-
-| Finding | State |
-|---|---|
-| D-1 open email relay | Fixed in source; **still deployed to prod** until the function is deleted from the platform |
-| F0a real emails readable by anon | **LIVE.** Needs the RPC-projection build above |
-| F0b invitation token → session chain | **LIVE**, blocked only by expiry timing |
-| F6 TRUNCATE class | Fixed on test; **prod apply still pending** |
-| F1 unconditional vote UPDATE | Fixed on test; **prod apply still pending** |
-| F7 `clarity_verifications.session_id` | Policy-level, needs a product decision |
-| F2–F4 | Untouched |
-| F5 / P1044 `check-rls-scope.py` bypassable | Untouched, STILL-OPEN |
-| D-2 signed-URL session authorization | Untouched, not reproduced |
-| D-3 migration ledger says applied, DB disagrees | Untouched; now has a failing test as a live marker |
-
-## Phase 3 — adversarial review of the Phase 2 commit
-
-An independent reviewer (codex, `--sandbox read-only`) was pointed at the four artifacts of
-commit `9ca4c73a` and explicitly told **not** to read this document or the commit message, so it
-read the code rather than checking my reasoning. Five defects were reported. Each was re-run as a
-command before being accepted or rejected — a reviewer's claim is not evidence until it is.
-
-| Claim | Verdict | Evidence |
-|---|---|---|
-| Grants held via the `PUBLIC` role survive the revoke | **REFUTED as live** | `table_privileges` where grantee not in the four known roles → `[]`. No table grants anything to `PUBLIC`. Still a blind spot in the canary; now checked. |
-| Column-level `REFERENCES` survives a table-level `REVOKE` | **REFUTED as live** | Postgres tracks them separately, so the mechanism is real, but `column_privileges` for the four privileges → 0 rows post-migration. Still a blind spot; now checked. |
-| The canary's unconditional-predicate regex is defeatable | **CONFIRMED** | `true AND true`, `NOT false`, `2 > 1` all passed an allowlist that matched only bare `true`. |
-| `with_check` is fetched and never examined; `cmd='ALL'` is not checked | **CONFIRMED** | Both true on read. A `FOR ALL` policy applies to UPDATE, and permissive policies are OR-ed. |
-| The integration spec would pass on a database where the migration never ran | **CONFIRMED** | `expect(data).toEqual([])` passed for any reason the write was blocked. |
-
-**The regex finding is the important one, and it is P1044 reproduced in a fresh artifact.** F5
-records that `check-rls-scope.py` is bypassable by exactly this class of predicate. I then wrote a
-new control with the same defect, in the same session, in the file whose purpose was to be the
-standing control. Enumerating the ways a predicate can spell "true" is unwinnable.
-
-**Fixed by inverting the test.** Rather than recognising unsafe predicates, the canary now
-requires a safe one: any PERMISSIVE `UPDATE` or `ALL` policy on `clarity_idea_votes` whose `qual`
-or `with_check` never references `auth.uid()/email()/jwt()/role()` is flagged, whatever it is
-spelled like. A predicate that cannot consult the caller cannot distinguish callers. The canary
-also now reads `column_privileges`, `PUBLIC` table grants, and the empty-grantee form a `PUBLIC`
-entry takes in a default ACL.
-
-**The detector is control-tested offline, and the control ships with it** —
-`check-p1207-privilege-floor.py --self-test`, no network or token required:
-
-```
-self-test ok: 11 known-bad predicates flagged, 4 known-good predicates passed,
-PUBLIC ACL entry detected — the detector discriminates
-```
-
-The 11 known-bad are every evasion the reviewer supplied plus the annotation-smuggling and cast
-forms P1044 documents. The 4 known-good are real identity-scoped predicates from this schema, and
-they exist to measure the false-positive rate — a fixture containing only inputs the gate should
-reject leaves that rate unmeasured.
-
-**Spec fix.** `error === null` is now asserted alongside the empty result set. The two are
-different mechanisms and are distinguishable: a revoked UPDATE *grant* returns `42501 permission
-denied`, while RLS row-invisibility returns no error and an empty set. Measured directly against
-test before writing the assertion. Pinning `error === null` pins the mechanism, so the test can no
-longer pass on a database where this migration never ran but something else blocks the write.
-
----
-
-# Phase 4 — F9: agreement hijack. New, and the most severe finding in the audit.
-
-**Found while fixing F0a, not by the Phase 1 sweep.** Reproduced on test, fixed, RED→GREEN pair
-in `e2e/integration/p1207-agreements-exposure.spec.ts`.
-
-## F9 — any authenticated user could take over any pending agreement · REPRODUCED · was LIVE on prod
-
-The `clarity_agreements` UPDATE policy read:
-
-```
-USING      (creator=auth.uid() OR partner=auth.uid() OR (status='pending' AND invitation_token IS NOT NULL))
-WITH CHECK (creator=auth.uid() OR partner=auth.uid())
-```
-
-The third `USING` branch admits **any** caller to **any** pending row. The `WITH CHECK` reads
-like it compensates — it does not, because the attacker satisfies it by **writing themselves in**.
-
-Measured, not reasoned. A test user who was neither party and held no token ran one PostgREST
-update against another user's agreement and the service-role read-back showed:
-
-```
-partner_profile_id: "a234114c-…"   ← the attacker
-status:             "active"
-```
-
-The real invitee is then permanently locked out. **This needs no token and no expiry-timing
-luck, which makes it strictly worse than F0b** — F0b required harvesting a live token on a
-public+pending+unexpired row, and prod had none. F9 required only a pending agreement's id.
-
-The branch was also **vestigial**. `accept_agreement()` is `SECURITY DEFINER`, checks
-`auth.uid() = p_partner_id`, and matches `invitation_token` itself — it bypasses RLS entirely, so
-the accept flow never used this branch. It admitted attackers and nothing else.
-
-**Phase 1 read this policy and did not flag it.** The sweep classified SELECT exposure and
-unconditional `qual=true` predicates; a *partially* scoped `USING` whose third branch is
-unconditional did not match either shape. Reading a policy is not the same as reasoning about
-what its branches admit in combination with its `WITH CHECK`.
-
-## F0a / F0b — fixed, but not the approved way
-
-The approved plan was a column revoke. **It cannot work here**, and this is a general fact about
-PostgREST worth recording: *PostgREST needs the SELECT privilege to FILTER on a column*, so
-revoking `partner_email` breaks `getIncomingInvitations` (`.ilike('partner_email', email)`) and
-`hasActiveAgreementWith` (`.eq('partner_email', …)`) outright — and `getIncomingInvitations`
-issues `select('*')`, which fails wholesale when any column is ungranted.
-
-Fixed at the **policy** layer instead. The SELECT policy's first branch was a bare
-`(visibility = 'public')` sitting ahead of three correctly-built "caller is a party" branches.
-RLS is row-level and cannot withhold a column, so that one branch handed the entire row — real
-address and capability token — to anyone. Removing it leaves only party branches, and a party may
-see the whole row. No column surgery, no broken flow, all three findings closed at once.
-
-Public viewing is preserved by **projection**: `get_public_agreement` and
-`get_public_agreements_for_profile`, both `SECURITY DEFINER`, `STABLE`, returning an **explicit
-column list** rather than `SETOF clarity_agreements`. The explicit list is deliberate — a `SETOF`
-return puts every future column into the public projection by default, which is the shape that
-produced this defect in the first place. This mirrors `get_agreement_by_token`, added earlier as
-the "H2 fix" for the same class: *"the old SELECT policy exposed all pending agreements to anon."*
-
-The client change ships in the same commit, so the migration never lands ahead of it.
-
-## Evidence
-
-```
-before fix: 4 failed  — partner_email returned a real address; invitation_token returned;
-                        select(*) leaked both; the hijack wrote partner_profile_id + status='active'
-after fix:  4 passed
-```
-
-Regression: `npm test` 3445 passed / 0 failed; agreement + privilege-floor integration specs
-18 passed / 0 failed.
-
-## A tooling trap found on the way
-
-`npx tsc --noEmit -p tsconfig.json` **checks nothing** in this repo and exits 0 — the root
-tsconfig is `"files": []` with project references. It returned a clean exit on a file containing
-an undefined identifier. The real check is `-p tsconfig.app.json`. Anyone using the root form as
-a typecheck gate is reading a green light that was never wired to anything.
-
----
-
-# Phase 5 — F2 fixed; F3 and F4 retracted
-
-## F2 — room-code enumeration · REPRODUCED · was LIVE on prod · FIXED
-
-`transcribe_rooms` SELECT was `TO authenticated USING (true)`. `code` is not an identifier, it is
-a **credential**: `transcribe-service.ts:137 getRoomByCode()` resolves a room from its code and
-that is the entire join path. So any signed-in user could list every live room's code and walk
-into any transcription session, including sessions attached to an event they were never invited
-to. Transcripts are the product's most sensitive content.
-
-Reproduced with a signed-in stranger holding no membership:
-
-```
-before: a non-member read the room -> [{"id":"dec4f700-…","code":"P1250492"}]
-        bulk sweep                 -> 9 live room codes harvested
-after:  4 passed — non-member reads nothing, sweep returns nothing,
-        a PRESENTED code still resolves to exactly one room,
-        partial/wrong codes resolve to nothing (no prefix oracle)
-```
-
-**Fix shape, third instance of the same pattern in this audit:** a credential must be
-*presented*, never *listed*. Table SELECT is scoped to rooms the caller is a member of;
-`get_transcribe_room_by_code()` (`SECURITY DEFINER`, exact equality only — no `LIKE`, no prefix,
-no paging) trades a known code for its room. P1149's UPDATE policy and column guard are untouched
-and still pass.
-
-## F3 — RETRACTED. `witnesses.witness_linkedin_url` is deliberately public.
-
-`witness-list.tsx:55-57` renders it as a public link on the profile page. A witness vouches
-publicly and their LinkedIn is the identity evidence — that is the feature. Phase 1 flagged it as
-the parallel of `profiles.linkedin_url`, which P877 revoked. **Same column name, opposite
-contract:** one is a member's own contact detail, the other is a public attestation.
-
-## F4 — RETRACTED. `story_verifications` SELECT is properly scoped.
-
-Phase 1 said anon reads both party uuids and their private ratings. The live policy is a CASE:
-
-```
-WHEN source='letter' THEN (speaker_id = auth.uid() OR listener_id = auth.uid())
-ELSE EXISTS (SELECT 1 FROM stories WHERE stories.id = story_verifications.story_id
-             AND (stories.visibility='public' OR stories.author_id = auth.uid()))
-```
-
-Letter verifications are party-only. Story verifications inherit the story's own visibility,
-which is the policy's stated intent and its name. Not unconditional.
-
-## The methodological finding this audit should be remembered for
-
-**Four of Phase 1's findings — F3, F4, F7 and F8 — share one error: a sensitive-*looking* column
-is publicly readable, therefore it is a leak.** Each was classified on the data's apparent
-sensitivity without checking whether the product deliberately publishes it. In every case the
-answer was in the repo: a rendering component, an explicit column list in a migration, an
-assertion in an existing test, or the policy's own CASE.
-
-The three real findings had the opposite shape. F2, F9 and F0a/F0b are all **a credential or a
-third party's data reachable by someone the system never intended to be a party** — not a
-sensitive-looking column, but an *unscoped branch*. F9 in particular sat in a policy Phase 1 read
-and passed over, because its `USING` was *partially* scoped and only the third branch was open.
-
-**The lesson for the next audit: classify by who the predicate admits, not by what the column
-looks like.** A column-sensitivity sweep produced a 4:3 false-positive ratio here. A
-branch-admission review found the critical one.
-
----
-
-# Phase 6 — backlog verdicts, and a gap the F2 fix left open
-
-Done-When required each of P1044, P1045, P1054, P1059, P1100 marked **closed / still-open /
-superseded**. Phase 1's backlog lens truncated and only P1044 got a verdict. Each is now decided
-**against the artifact**, not against the agent's report.
-
-| Spec | Verdict | Evidence |
-|---|---|---|
-| P1044 — RLS-scope gate bypassable | **STILL-OPEN** | Reproduced as F5, and then reproduced *again* in my own new canary (Phase 3). `check-rls-scope.py` is unchanged. |
-| P1045 — unauthenticated write surfaces | **STILL-OPEN**, list refined | Live sweep below. |
-| P1054 — objects live but in no migration | **STILL-OPEN**, confirmed | `point_references` and `worktree_status` exist live with no migration file (Phase 1 coverage section). Independent confirmation. |
-| P1059 — search_path pins, CSPRNG codes | **PARTIALLY CLOSED here** | The CSPRNG half is fixed for room codes; see below. Every function this audit added pins `SET search_path = public`. The rest of P1059 is untouched. |
-| P1100 — letter verification insertable directly | **STILL-OPEN** | `story_verifications` INSERT `with_check` is `auth.uid() IS NOT NULL AND (auth.uid() = speaker_id OR auth.uid() = listener_id)`. That binds **identity** but not **provenance** — nothing requires a letter to exist, so a caller can still insert a verification naming themselves as speaker with an arbitrary listener and arbitrary ratings. Exactly P1100's claim. |
-
-## P1045 — the live evidence
-
-Permissive write policies (`INSERT`/`UPDATE`/`DELETE`/`ALL`) whose predicate never references
-`auth.*`, on prod. Predicate `false` = a deliberate block, `service_role` = out of scope. What
-remains reachable by a public or authenticated caller:
-
-| Table | cmd | roles | predicate |
-|---|---|---|---|
-| `clarity_live_invites` | UPDATE | `{public}` | `(closed_at IS NOT NULL)` |
-| `ready_submissions` | INSERT | `{anon,authenticated}` | `true` |
-| `ml_training_sessions` | INSERT | `{authenticated}` | `true` |
-| `transcribe_rooms` | INSERT | `{authenticated}` | `true` |
-| `clarity_idea_votes` | UPDATE | `{public}` | `true` — fixed on test by this audit, still live on prod |
-
-`ready_submissions` and `transcribe_rooms` inserts are plausibly by design (a public readiness
-poll; any user may open a room). `clarity_live_invites` and `ml_training_sessions` are not
-obviously either way and are P1045's remaining work — **intent decisions, not defects**, which is
-what P1045's own title says ("decide intent, then close or document").
-
-**Probe bound, stated up front:** the sweep is a regex for `auth.*` in the predicate, so a policy
-that delegates its identity check to a helper reads as unscoped. `story_explain_backs` does
-exactly this via `_is_delivery_receiver(delivery_id)` and is a false positive, excluded above by
-inspection rather than by the regex. The same bound is now documented inside the canary.
-
-## The F2 fix was half a fix — found by taking P1059 seriously
-
-P1059 lists "CSPRNG codes" as backlog. Checking it against the artifact:
-
-```js
-code += chars.charAt(Math.floor(Math.random() * chars.length));   // transcribe-service.ts:94
-```
-
-**`Math.random()` is not cryptographically secure.** V8's xorshift128+ internal state is
-recoverable from a handful of observed outputs, so an attacker who creates a few rooms of their
-own can predict the codes issued around them. Phase 5 closed code **enumeration** through RLS and
-left codes **predictable** — and since F2's entire premise is "the code is the credential", that
-is half a fix. A credential that cannot be listed but can be computed is still not a secret.
-
-Fixed with `crypto.getRandomValues`. The alphabet is 32 characters and 256 is an exact multiple
-of 32, so masking a byte with `0x1f` is uniform **by construction** — no modulo bias, no
-rejection loop.
-
-Verified with the right statistic, and with a control, after a first attempt used a
-max-minus-min spread threshold that flagged correct code as biased (5.26% spread at ~6250 per
-bucket is ordinary sampling noise — the threshold was wrong, not the code):
-
-```
-chi-square, df=31, critical value at p=0.001 = 61.10
-  n=200000  chi2=49.1   UNIFORM
-  n=200000  chi2=35.5   UNIFORM
-  n=200000  chi2=40.7   UNIFORM
-  CONTROL (byte % 30, deliberately biased)  chi2=14212.3   BIASED — the probe discriminates
-```
-
----
-
-# Phase 7 — the standing control, and why it is not a pre-commit check
-
-Done-When asks for the control "as a pre-commit check". **It is deliberately not one, and that is
-a deviation the founder accepted rather than one I hid.** The live check needs network and a
-Supabase management token. A commit gate that fails when you are offline is a gate people learn to
-route around, and the documented way around it in this repo is `--no-verify`, which also disables
-the privacy gate. Trading a working privacy gate for a privilege check is a bad trade.
-
-**What runs where instead:**
-
-| Surface | What runs | Needs |
-|---|---|---|
-| `/day` (daily) | `check-p1207-privilege-floor.py prod` + `--self-test` | network + token, both already local |
-| Any time, offline | `check-p1207-privilege-floor.py --self-test` | nothing |
-
-Wired into `day-cp.md` beside the two checks that were structurally blind to F6: the RLS drift
-check reads `pg_policies`, the function-grant check reads EXECUTE on `pg_proc`, and **neither
-reads table/column privileges or `pg_default_acl`**. That is precisely why `anon` held `TRUNCATE`
-on 50 production tables while both checks reported clean. It follows their existing three-way
-exit contract (0 clean / 1 alarm / ≥2 did-not-run) so "did not run" can never read as "clean".
-
-The self-test runs alongside the live check every day, and the guidance says to treat a self-test
-failure as **louder** than a live failure — because an adversarial review defeated the first
-version of this detector with `true AND true`, and the live run looked identical before and after.
-
-## Gate 7c caught a real defect here
-
-Running the tool's own documented invocation — `prod`, the way `/day` calls it, from a worktree —
-failed outright:
-
-```
-ERROR: need SUPABASE_ACCESS_TOKEN and VITE_SUPABASE_URL in .env.prod
-```
-
-Env files are gitignored, so they exist **only in the main checkout**. And the usual escape
-(`deploy-functions.sh` resolves the main repo by following a symlink from `$0`) does not work
-here: worktree `scripts/` is a **native checkout** since `3d7a010e`, so `__file__` points inside
-the worktree. Fixed by resolving the main checkout via `git rev-parse --git-common-dir`, the same
-mechanism `day-cp.md` already uses for the drift baseline.
-
-Every one of my own runs had been `test`, which reads `.env.local` and had always worked. **The
-gate was proven to fire (7) and never run through the workflow that would actually invoke it
-(7c).** All three invocation sites are now exercised:
-
-```
-worktree, test  -> exit 0    ok (test/gfjctyxqlwexxwsmkakq)
-worktree, prod  -> exit 1    FAIL (prod/…): 1210 privilege-floor violation(s)
-main checkout   -> exit 0    ok (test/gfjctyxqlwexxwsmkakq)
---self-test     -> exit 0    11 known-bad flagged, 4 known-good passed
-```
-
-**Prod's 1210 vs test's 315 is not noise and is worth reading.** Test was fixed by migration;
-prod was not. The extra ~900 are **column-level** `REFERENCES` grants — a category the first
-version of this canary did not check at all, added only because the adversarial review flagged
-it. The finding it was refuted on ("no column-level residue today") was true of test and false of
-prod. A blind spot that looks empty in one environment is not empty.
-
-**Expect `/day` to alarm on the privilege floor until P1207 ships to prod.** That is correct
-behaviour, not a bug to silence.
-
----
-
-# Phase 8 — the six vacuous tables, and F10: private session transcripts were world-readable
-
-Phase 1 could not classify six tables because they were empty on test, and stated plainly that a
-clean anon result on an empty table proves nothing. They were seeded and probed. **Four of the six
-turned out to be anon-enumerable with full content.**
-
-| Table | anon can enumerate | sentinel content visible |
-|---|---|---|
-| `clarity_demo_rounds` | yes | yes — incl. `paraphrase_text`, `speaker_rating`, `calibration_gap` |
-| `clarity_ideas` | yes | yes |
-| `clarity_live_turns` | yes | yes — incl. `transcript`, `self_rating`, `other_rating` |
-| `clarity_verifications` | yes | yes (this is F7, now measured rather than inferred) |
-| `event_private_info` | no | no — P1193 scoped it correctly |
-| `user_voice_profiles` | no | no |
-
-Control on both runs: `profiles.email` → `42501`. The probe can see a refusal, so the four
-positives are real and the two negatives are not the probe failing.
-
-**The "empty table" caveat was not bookkeeping.** Every one of these four would have been reported
-clean by an unseeded sweep, and one of them is F10 below.
-
-## F10 — a directed session's transcript was readable by anyone · REPRODUCED · was LIVE on prod
-
-`clarity_sessions` gates correctly:
-
-```
-qual = (target_listener_id IS NULL)
-       OR (auth.uid() = target_listener_id OR auth.uid() = creator_profile_id)
-```
-
-An **open** session is public by design — that is the anonymous `/live` flow, where participants
-join by code and hold no account. A **directed** session is private to its two parties.
-
-The three child tables did not inherit that. Each carried a bare `qual = true`
-("Demo rounds are viewable by everyone", "Ideas…", "Live turns…"). So the parent hid a private
-session's row while its **content** stayed world-readable:
-
-```
-anon reads the directed session's parent row  ->  0 rows   (correctly gated)
-anon reads that session's live turns          ->  1 row
-   [{"transcript":"SENTINEL private transcript","self_rating":9}]
-```
-
-No id and no credential are needed — an unfiltered select returns them. Transcripts and private
-self-ratings are the most sensitive content this product holds.
-
-**Fix:** each child's predicate becomes "the parent is visible to me", via
-`can_read_clarity_session(session_id)` — a `SECURITY DEFINER STABLE` function that **re-uses** the
-parent's rule instead of restating it, so parent and children cannot drift apart again. That
-drift is precisely how this happened.
-
-**The anonymous `/live` flow is unchanged and that is asserted, not assumed.** The spec's first
-test is the open-session control: an open session's transcript must still be readable by anon. A
-suite that only checked the private case would pass just as happily against a database where all
-reads had been broken.
-
-```
-before: 2 failed — private transcript returned by id AND by unfiltered sweep
-after:  4 passed — private hidden both ways; open session still readable
-```
-
-## The same shape, a fifth time
-
-F2, F9, F0a/F0b, F10 — every real finding in this audit is **an unscoped branch admitting someone
-who is not a party**, never a sensitive-looking column. F10 adds a variant worth naming on its
-own: **a correctly-scoped parent with unscoped children.** The gate existed, was well written, and
-simply was not applied one level down. Grepping for `qual = true` finds it; reading the parent
-policy and concluding "sessions are protected" does not.
-
----
-
-# Phase 9 — the 103-failure scare, resolved
-
-A full parallel `e2e/integration` run reported **103 failed / 939 passed / 5 flaky**. That number
-was left formally unresolved in the F10 commit rather than explained away. It is now resolved.
-
-## What was actually run
-
-The parallel run cannot answer the question, because `docs/technical/e2e-testing-guide.md:105`
-documents that these specs race each other under `fullyParallel` — a table-wide delete or an
-exact-count assertion in one file races any other file touching the same table. So the run was
-repeated **serially** (`--workers=1`) over the 41 integration specs that touch a table this
-branch changed: `clarity_agreements`, `transcribe_rooms`, `clarity_live_turns`, `clarity_ideas`,
-`clarity_demo_rounds`, `clarity_idea_votes`, `clarity_sessions`, `clarity_verifications`.
-
-```
-41 specs, --workers=1:  10 failed, 2 flaky, 4 skipped, 275 passed (16.8m)
-```
-
-`verify-prod-agreements.spec.ts` was deliberately excluded — it targets production.
-
-## Verdict: 0 of the 10 are attributable to this branch
-
-Established by diffing the live catalogs, not by reasoning about the diff.
-
-**1. Policy diff, test vs prod — the only differences are the six tables this branch edited.**
-
-```
-removed on test:  clarity_agreements "…visibility and parties"      (mine)
-                  clarity_demo_rounds/ideas/live_turns "…everyone"   (mine)
-                  clarity_idea_votes "Voters can update their own"   (mine)
-                  transcribe_rooms "authenticated users can read"    (mine)
-                  profiles "Service role can insert profiles"        (pre-existing divergence)
-added on test:    the five replacements                             (mine)
-                  event_room_members / point_references /
-                  worktree_status                                    (pre-existing, test-only)
-changed:          clarity_agreements "Parties can update"           (mine)
-                  8 × "Test data: service_role bypass for X"        (pre-existing fixtures)
-```
-
-**`clarity_sessions` policies are byte-identical between test and prod.** So every failure naming
-that table — p396, p703, p674 — cannot come from a policy this branch changed.
-
-**2. Grant diff on `clarity_sessions`** — the only privilege test lost is `REFERENCES`, which is
-required to create a foreign key and is never consulted for `INSERT`, `SELECT` or `UPDATE`.
-Column-level `SELECT`/`INSERT`/`UPDATE` grants are identical to prod. A direct probe confirms the
-refusal is `new row violates row-level security policy`, an RLS decision, not
-`permission denied`, a grant decision.
-
-**3. Every RPC the failing tests assert exists, exists on test** — `update_last_activity`,
-`complete_clarity_session`, `patch_live_state`, `get_letter_overview`, `release_joiner_seat`,
-`claim_joiner_seat`. This branch drops no function.
-
-**4. Four failures are structurally unreachable from this branch:** `p511` and `p769` assert *an
-RPC exists*; `p858` asserts *columns exist*; `p686` is `badge_points`, a table never touched.
-
-**5. Three failures are reproduce canaries for a known-open finding.** `p1058-release-seat-
-authorization.spec.ts` says so in its own header — *"P1058 Phase 1 — reproduce or close F4"* — and
-fails with `F4 REPRODUCED` / `EVASION CONFIRMED`. It is **designed to fail until P1058 is fixed.**
-
-**6. None of the four P1207 specs appears in the failure list.**
-
-## What this leaves open, honestly
-
-The remaining failures (`p396`, `p703`, `p674`, `p671`, and the two flaky) are **pre-existing and
-unexplained by this audit**. Their causes were not investigated — out of P1207's scope — and no
-claim is made that they are benign, only that they are not caused by this branch. `e2e/integration`
-is **not run in CI** (only `csp-smoke` and `prod-health-smoke` are), so the suite has no enforced
-green baseline and nobody has been keeping it at zero.
-
-**A true before/after control was not available and that bound is stated rather than hidden.**
-Checking out the pre-P1207 commit restores the old *code* but not the old *schema* — the
-migrations are already applied to test, and rolling them back to measure would destroy the state
-under investigation (gate 2b). The catalog diff above is the substitute: it establishes what this
-branch changed, exhaustively, and shows the failing tests depend on none of it.
-
-## A finding this surfaced, filed not fixed
-
-`p1058`'s F4 turns on the `clarity_sessions` SELECT policy publishing the id of every
-non-addressed session to anon. **F10 scoped the session's children; the parent still publishes
-those ids**, which is deliberate for the anonymous `/live` flow but is what makes P1058's seat
-eviction reachable. That is P1058's scope, already filed, and is listed here so the connection is
-not lost: the same parent policy that F10 inherited from is load-bearing for another open finding.
-
----
-
-# Phase 10 — F11, and two corrections to my own P1045 sweep
-
-## F11 — the verification leak F10 stopped one join short of · FIXED
-
-F10 scoped the session's direct children. `clarity_verifications` hangs off
-`clarity_chat_messages`, which hangs off the session — a **grandchild** — and was missed.
-
-The resulting state answers the question Phase 2 had filed as a founder decision:
-
-```
-clarity_chat_messages   RLS on, NO SELECT policy at all -> default-deny, anon reads nothing
-clarity_verifications   "Verifications are viewable by everyone"  SELECT  qual = true
-```
-
-The **message** is private. The **paraphrase of that message** is world-readable, with the
-verifier's name and self-rating. Nobody designs that on purpose.
-
-**This retires F7.** Phase 1 filed it as "`session_id` is anon-readable on prod"; Phase 2
-reclassified it as a product question — *"should verifications be public?"*. It was never a
-product question: the neighbouring table already answered it. Checking the artifact rather than
-asking the founder is what surfaced that, and it is the same check that retracted F3, F4 and F8.
-
-## The first F11 fix was wrong, and the control caught it
-
-The initial policy inlined the lookup:
-
-```sql
-USING (EXISTS (SELECT 1 FROM clarity_chat_messages m
-               WHERE m.id = message_id AND can_read_clarity_session(m.session_id)))
-```
-
-**A subquery inside an RLS policy runs with the caller's own permissions, so RLS on the
-referenced table applies too.** `clarity_chat_messages` is default-denied, so that `EXISTS`
-returned false for every caller and every row. The policy did not tighten the private case — it
-hid **every** verification, including the anonymous `/live` flow's own.
-
-It was caught by the spec's control assertion, which runs **before** the leak assertion precisely
-for this: *"an open session's verification must stay readable."* Without it the run would have
-gone green on a fix that broke the product — **the leak assertion passes most emphatically when
-nothing is readable at all.** This is gate 7c in one line: a fixture holding only inputs the gate
-should reject cannot measure what it wrongly rejects.
-
-Fixed by moving the lookup into `can_read_verification_message()`, `SECURITY DEFINER`, for the
-same reason `can_read_clarity_session()` is one. Boolean out, never a row.
-
-```
-before F11:        1 failed — private paraphrase readable by anon
-after first fix:   1 failed — CONTROL failed; the open session's paraphrase was hidden too
-after the definer: 15 passed across all four P1207 specs, --workers=1
-```
-
-## P1045, corrected — `clarity_live_invites` was MY sweep's error
-
-Phase 6 listed `clarity_live_invites UPDATE {public} (closed_at IS NOT NULL)` as unscoped. **It is
-not.** The full policy is:
-
-```
-qual       = (auth.uid() = target_user_id
-              OR auth.uid() IN (SELECT creator_profile_id FROM clarity_sessions WHERE id = session_id))
-with_check = (closed_at IS NOT NULL)
-```
-
-Properly scoped to the two parties. My sweep selected `coalesce(with_check, qual)`, which prefers
-`with_check` and **never looked at `qual` when a `with_check` existed**. For an `UPDATE` both
-halves matter — the same defect the adversarial review found in the canary (Phase 3), committed
-again three phases later in a different query. Reading one half of a two-half rule is apparently
-my most durable mistake in this audit.
-
-`ml_training_sessions INSERT {authenticated} true` **stands** and stays open. It has no column
-tying a row to a caller (`session_code`, `user_name` text, `audio_path`), so it cannot be scoped
-to "own rows" without a schema change — which is beyond an audit's remit and is P1045's to
-decide. Nothing reads the table today, which makes it the cheapest moment to decide, not a reason
-to skip it.
-
-## Running tally of retractions
-
-Six of Phase 1's findings did not survive contact with the artifact: **F3, F4, F7, F8** (the
-column-sensitivity error), plus `clarity_live_invites` from my own Phase 6 sweep. Every real
-finding — F0a/F0b, F2, F9, F10, F11 — is an unscoped branch admitting a non-party. The ratio is
-the audit's most transferable result.
+**No.** The permission surface was not safe to build an agent-callable API on. Seven distinct
+reachability defects were confirmed against live catalogs, six of them reachable in production at
+the time of the audit. Every one is now fixed on test; the production apply is a separate,
+gated step.
+
+## The transferable result
+
+**Classify by who the predicate admits, not by what the column looks like.**
+
+Phase 1 swept for sensitive-*looking* columns that were publicly readable. That method produced a
+**4:3 false-positive ratio** — four findings were retracted after checking the artifact, because
+the product deliberately publishes those columns. In every retracted case the answer was already
+in the repo: a rendering component, an explicit column list in a migration, an assertion in an
+existing test, or the policy's own `CASE` expression.
+
+Every finding that survived has the opposite shape: **an unscoped branch admitting someone the
+system never intended to be a party.** Not a sensitive column — a missing condition. The most
+severe one sat in a policy Phase 1 had read and passed over, because only its *third* branch was
+unscoped and the first two looked correct.
+
+Three sub-patterns worth naming, each of which produced a real finding:
+
+1. **A correctly-scoped parent with unscoped children.** The gate existed, was well written, and
+   simply was not applied one level down. Then it recurred one level further out, on a
+   *grandchild*, after the first fix.
+2. **A credential treated as an identifier.** If knowing a value is sufficient to gain access,
+   that value must be *presented*, never *listed*. Any read that returns a set of them is an
+   enumeration oracle.
+3. **A `WITH CHECK` that appears to compensate for a permissive `USING`.** It does not, when the
+   caller can satisfy the check by writing themselves into the row.
+
+## What the method got right
+
+**Start from the live catalog, not the migration files.** Grepping migrations suggested a
+dozen-plus unconditional write policies; the live catalog held six. The rest had been superseded.
+Fixes fanned out from the file-based list would have chased policies that no longer exist.
+
+**Diff production against test before trusting either.** Two findings were invisible to every
+test-based probe because the test database refused the column that production allowed. An audit
+following this repo's own probe-test convention would have reported both clean.
+
+**An empty table cannot be classified.** Six tables were unclassifiable because they held no rows —
+a clean anonymous result on an empty table proves nothing. Seeding them turned four into confirmed
+findings, one of which was among the most serious in the audit.
+
+**Every probe needs a known-good and a known-bad scoring differently on the identical metric.** A
+control caught a measurement artifact in the first sweep that had produced three false leads.
+
+## What the method got wrong, and what it cost
+
+- **Reading one half of a two-half rule.** An `UPDATE` policy is governed by both `USING` and
+  `WITH CHECK`. Two separate checks in this audit examined only one of them — the second one
+  three phases after an adversarial review had already flagged the same defect elsewhere. It
+  produced one false finding and one blind spot in a control.
+- **Writing a new gate with a defect the audit had itself just documented.** A standing control
+  written mid-audit was defeated by trivially-equivalent predicates — the same weakness the audit
+  had recorded in an existing gate. Fixed by inverting the test: rather than enumerating the ways
+  a predicate can be unconditional, require that it reference caller identity at all.
+- **A fix that broke the feature it protected.** A tightened policy referenced a table that is
+  itself default-denied. A subquery inside a policy runs with the caller's own permissions, so it
+  evaluated false for everyone and hid all rows, not just the private ones. Caught only because
+  the test asserted the legitimate case *first*: **a leak assertion passes most emphatically when
+  nothing is readable at all.**
+
+## Standing control
+
+A per-environment check now runs daily rather than per-commit. It reads the two catalogs the
+repo's existing drift checks do not — table/column privileges and schema default privileges —
+which is why a whole class of privilege was invisible to them.
+
+It ships with an **offline self-test** that scores known-bad and known-good predicates and fails
+if it cannot tell them apart. That matters more than the live check: an adversarial review
+defeated the first version of the detector, and the live run looked identical before and after.
+The daily guidance says to treat a self-test failure as louder than a live failure.
+
+## Verification bounds, stated
+
+- The privilege floor cannot be exercised through the application's own API surface, so it is
+  asserted at the catalog level and not by an end-to-end test. That unreachability *is* the
+  finding's severity classification.
+- One schema default is owned by a platform role this repo cannot alter. The control reports it
+  on every run rather than hiding it behind a green exit code.
+- A full parallel run of the database-layer test suite reports failures unrelated to this work.
+  A serial re-run plus a catalog diff established that none is attributable to this branch; their
+  causes were not investigated and no claim is made that they are benign. That suite is not run in
+  CI and has no enforced green baseline.
+- A true before/after control was unavailable: reverting the code would not revert the schema, and
+  rolling the schema back to measure would destroy the state under investigation.
+
+## Backlog specs
+
+Five related specs were each given a verdict against the artifact rather than against a summary.
+Four remain open; one is partially closed by this work. Details in the private log.

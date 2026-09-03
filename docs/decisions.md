@@ -697,6 +697,32 @@ here without anyone running a destructive command at all.
 
 **References:** [p1208](../features/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md) · [p1190](../features/p1190_arbiter_filter_into_disagreement_pipeline.md) · [p1171](../features/p1171_select_phase0_contestedness_and_spectrum.md)
 
+## 2026-09-03 [technical]: Classify a permission surface by who the predicate admits, not by what the column looks like (P1207)
+
+**Context:** P1207 audited whether the permission surface was safe to build an agent-callable API on. The first pass swept for sensitive-*looking* columns that were publicly readable. That method produced a **4:3 false-positive ratio**: four findings were retracted after checking the artifact, because the product deliberately publishes those columns — and in every case the answer was already in the repo (a rendering component, an explicit column list in a migration, an assertion in an existing test, or the policy's own `CASE`). Meanwhile the most severe real finding sat in a policy the sweep had *read and passed over*, because only its third branch was unscoped and the first two looked correct.
+
+**Decision:** Audit reachability by asking **who each branch of a predicate admits**, not what the data looks like. Three sub-patterns, each of which produced a confirmed finding here and each worth checking directly: (1) a correctly-scoped **parent with unscoped children** — the gate exists, is well written, and was not applied one level down; it then recurred on a *grandchild* after the first fix; (2) a **credential treated as an identifier** — if knowing a value grants access, it must be *presented*, never *listed*, and any read returning a set of them is an enumeration oracle; (3) a **`WITH CHECK` that appears to compensate for a permissive `USING`** — it does not, when the caller can satisfy it by writing themselves into the row.
+
+**Alternatives rejected:** *Column-sensitivity sweeps* — measured here at 4 false positives to 3 real findings, and blind to the severe ones by construction. *Trusting the migration files* — grepping them suggested a dozen-plus unconditional write policies where the live catalog held six; the rest had been superseded, so fixes fanned out from the file list would have chased policies that no longer exist. *Probing only the test database* — two findings were invisible there because test refused a column production allowed; an audit following this repo's own convention would have reported both clean. *Sweeping tables without seeding them* — six tables were unclassifiable while empty, and seeding turned four into confirmed findings, one of them among the most serious.
+
+**Consequences:** Reachability, not drift, is the thing to audit — all three existing drift checks compare prod, test and files against each other, so a policy that was wrong from the start is invisible to every one of them. A standing per-environment control now reads the two catalogs those checks do not, and ships with an **offline self-test** that fails if it can no longer tell known-bad predicates from known-good ones; the daily guidance treats a self-test failure as louder than a live failure, because an adversarial review defeated the first version of that detector and the live run looked identical before and after. Specifics are deliberately unpublished while fixes are outstanding — see `.private/docs/security-log.md` 2026-09-01..03. **Status: proposed** — production apply still pending.
+
+**References:** [docs/audits/p1207-phase1-findings.md](audits/p1207-phase1-findings.md) | `scripts/check-p1207-privilege-floor.py` | `.claude/commands/slava/maintain/day-cp.md` | `.private/docs/security-log.md`
+
+---
+
+## 2026-09-03 [process]: Four sessions independently found the same defects — and an earlier migration can silently regress a later one (P1207)
+
+**Context:** P1207 ran for two days in one worktree. Independently, three other sessions filed and fixed **the same underlying defects** on their own branches, and a fourth overlapped on hardening. Two of them went further than P1207 did on the shared surface. None of the four sessions knew about the others; the collision surfaced only when a co-tenant's deploy-manifest write removed **all five** of P1207's migration stamps, and the database's own ledger had to be used to reconcile them — the manifest was wrong in both directions.
+
+**Decision:** Before starting security or schema work, enumerate the other active worktrees (`git worktree list`) and read their branch names, not just `main`. Where two branches change the same policy, **the later-numbered migration wins on a shared database, but the earlier-numbered one wins on a fresh apply** — so an earlier migration that re-creates a policy can silently *regress* a later, stricter version of it when both are pending on production. Reconcile the deploy manifest against `supabase_migrations.schema_migrations`, never against another manifest copy.
+
+**Alternatives rejected:** *Trusting the deploy manifest* — it lost five stamps to a concurrent write and gained one that belonged to another branch; the ledger is the only source that matched reality. *Assuming parallel branches are complementary* — three of four here were duplicative, and the duplication was invisible from inside any one worktree. *Shipping on migration order alone* — version numbers encode authoring time, not intent, so a lower number is not a weaker claim.
+
+**Consequences:** Duplicated effort across four sessions on the same defects, and a live regression hazard that only appears when two branches reach production in a particular order. This is the second class of co-tenant collision recorded in this repo (the first was P-number allocation); both share one root — **shared state that a session reads once and acts on later**. A cheap mitigation exists and is not yet built: have `git-ops.sh claim` print the other active branches whose names share a keyword. **Status: proposed** — no spec filed.
+
+**References:** `.private/docs/security-log.md` 2026-09-01..03 | [.claude/rules/git.md](../.claude/rules/git.md)
+
 ---
 
 ## 2026-09-01 [technical]: The observer must be invoked by something the observed cannot skip — and its oracle must be an artifact the observed cannot write (P1206)
