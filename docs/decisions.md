@@ -6,6 +6,60 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [process]: `/goalify`'s red-first pass cannot detect an unsatisfiable row — every row is red for the same reason, which is the all-empty probe failure (P1210)
+
+**Context:** P1210's contract was emitted with 16 MECHANICAL rows and a Phase 4 red-first pass: every command run before the branch existed, 16 of 16 exiting 1, pasted as evidence. An independent reviewer then found **8 of the 16 rows demand a verdict on future agent behaviour** — the six pipeline files are markdown with zero executables, so a test can assert prose *contains* a rule and can never assert an agent *obeys* it. That is the exact defect P1208 was rejected for twice (*"an algorithm specified, then a verdict demanded that the algorithm does not produce"*), relocated from Done-When into the contract table meant to prevent it.
+
+**Decision:** Red-first, as specified, is blind to this by construction. A missing test file exits 1 whether the row is satisfiable or not, so the pass returns **one uniform verdict across every candidate** — which is the global "all-empty probe" rule: when a probe answers identically for all candidates, run a known-good and a known-bad control through the identical probe. Here both controls score alike, so the probe is blind whichever way it answered. **Phase 4 must therefore add a per-row question that red cannot answer: name the assertion this file will contain.** A row whose answer is a claim about what a future agent will do is not MECHANICAL, and no amount of red proves otherwise.
+
+**Alternatives rejected:** *Trusting the 16 reds* — they were real and told us nothing about satisfiability. *Reclassifying the eight rows HUMAN-ONLY* — pushes the share to ~29%, above goalify's 25% refusal threshold, so the spec stops being loopable rather than getting fixed. *Reducing every row to "the rule exists and is correctly stated"* — honest, but turns the contract into a documentation linter and never builds the checks the spec exists to create.
+
+**Consequences:** The recommended repair is to **commission the pipeline's checkers as real code** — the spec's own §10 already rules *"never `ls` a store; run the owning tool and read its verdict"*, and a prose instruction telling an agent to check redundancy is the same class of object as `ls`-ing a store: a check that does not run. That converts the mechanizable rows (assert/deny predicate, run-file trace counts, per-person concentration, ledger-orphan scan) into real functions, and is the only shape where the HUMAN-ONLY share stays under threshold. It is a scope change to §§1–11 and is the founder's call. The `/goal` line is suspended with a DO-NOT-RUN banner rather than deleted; the Solution is NOT rejected — only the contract layer added on top of it.
+
+**References:** `features/p1210_disagreement_pipeline_objective_and_point_unit.md` §Run This, §Verification Contract · `scripts/goal-gate.sh` CHECK 1–2 · `.claude/commands/slava/build/goalify/SKILL.md` Phase 4 · [epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
+## 2026-09-03 [technical]: `vitest` exits 0 on an all-skipped file, so "run the whole file" does not close the vacuity hole — the `-t` finding was only half of it
+
+**Context:** P1108's contract recorded that `npx vitest run <dir> -t "<no-match>"` exits **0**, and prescribed whole-file rows as the remedy. P1210 reproduced that measurement independently (3406 skipped, exit 0) and adopted the same remedy, writing into its contract that *"every row below therefore runs a whole file."* A reviewer pointed out the remedy closes one spelling only. **Measured the same day:** a file containing nothing but `it.skip` and `it.todo` → `Test Files 1 skipped`, `Tests 1 skipped | 1 todo`, **exit 0**.
+
+**Decision:** Record the general form rather than the second spelling: **any all-skipped run exits 0, and `goal-gate.sh` reads only the exit code** (CHECK 2 reads `rc`; CHECK 1 counts files). So every MECHANICAL row in any goalified contract can be green with zero assertions executed, by a loop that writes the named files and skips their contents. The fix is a scanner row — one MECHANICAL row running a script that greps the contract's own test files for `.skip`/`.todo`/`.only` and asserts a minimum executed-assertion count. It must be a separate row because `goal-gate.sh` parses commands with `awk -F'|'` and a pipe inside a cell silently shifts the fields.
+
+**Alternatives rejected:** *`--passWithNoTests=false`* — governs missing files only; confirmed against a control, it does not change the all-skipped case. *Trusting reviewers to spot a `.skip`* — the gate exists because the implementing agent's own review is not evidence.
+
+**Consequences:** Every contract already pinned under the whole-file remedy carries this hole, P1108's included. The remedy is not wrong, it is incomplete — and the incompleteness was invisible because the measurement that produced it (`-t` with no match) and the hole it left (`.skip` in-file) reach the *same* exit-0 state by different routes. This is the reason a fix should be scored against the failure class, not the spelling that was measured.
+
+**References:** `scripts/goal-gate.sh:180-219` · `features/done/2026-06-10/p1108_link_previews_say_true_things.md` §Verification Contract · `features/p1210_disagreement_pipeline_objective_and_point_unit.md` §Verification Contract fact #1
+
+---
+
+## 2026-09-03 [process]: A spec that renders nothing cannot carry a COMPARABLE row, so `/goalify`'s one durable property is unenforceable for every skill and docs spec
+
+**Context:** `/goalify`'s SKILL.md names exactly one constraint it calls durable, because it is about independence rather than method: *"the blind reviewer must not be the agent that built the thing."* `goal-gate.sh` CHECK 5 enforces it through screenshot hashes it re-derives, and hard-fails any round that judged zero images — *"an empty round is not a round."* P1210 changes only markdown skill files and docs. A COMPARABLE row on it is therefore unsatisfiable without fabricating screenshots, and the honest emit has **zero** COMPARABLE rows and a CHECK 5 that skips.
+
+**Decision:** State the gap rather than let a green CHECK 5 skip imply coverage: **for any non-visual spec, the gate enforces no independent reader at all.** The substitute must be named explicitly in the contract and held outside the gate — for P1210, a blind prose reviewer at `/ship`, given the changed skill files and the spec's controls but never the diff or the rationale, recorded where the loop cannot self-certify it. The existing CHECK 5 entries (2026-08-24, 2026-08-31) are all about visual specs with too few or too many rounds; none of them says the reviewer property is structurally absent for the infrastructure specs that make up most of what gets goalified.
+
+**Alternatives rejected:** *Classify the prose rows COMPARABLE anyway* — unsatisfiable, and the only route to green is fabricating images. *Render something to screenshot* — manufacturing evidence to satisfy a check. *Say nothing, since CHECK 5 skips cleanly* — a skip is indistinguishable from a pass in the summary line, which is how an unenforced property reads as an enforced one.
+
+**Consequences:** Any future `/goalify` on a skill, hook, rule or docs spec should expect zero COMPARABLE rows and should name its own independence substitute in `## Resolved Decisions`. Worth considering whether CHECK 5 should gain a non-visual reviewer path (a round judging named file digests rather than screenshot digests) — the arithmetic is identical, only the artifact class differs.
+
+**References:** `scripts/goal-gate.sh` CHECK 5 · `.claude/commands/slava/build/goalify/SKILL.md` §"The design rule" · `features/p1210_disagreement_pipeline_objective_and_point_unit.md` RD-3
+
+---
+
+## 2026-09-03 [process]: Partial redaction is false assurance — and a derived test fixture inherits the trap the original redaction closed
+
+**Context:** P1208 paired named real people with agent-derived position values in a public repo, which `positions.md` and `prepare.md` both forbid. The obvious redaction was the `+3 / −3` matrix. It was rejected: anonymizing the matrix alone leaves the mapping trivially recoverable from prose two lines below it (*"remove [name] and there is no disagreement anywhere"*), so the file would read as redacted while the pairing survived. Every arguer was anonymized whole-file to `A1`–`A5` instead, with the mapping held only in the gitignored run file. **Four hours later, in the same session,** the P1210 contract specified a committed test fixture as *"the same three contradiction sentences… arguers as `A1`–`A5`"* — and those sentences name the same four people, while the fixture must also carry the position values the pairing rule reads. The paragraph ends by asserting *"This is the invariant this spec asserts, applied to its own test data."*
+
+**Decision:** Two rules, both learned the hard way in one day. **(1) Redaction scope is set by what the surrounding text can reconstruct, not by which field carries the sensitive value.** If any prose beside the redacted object re-identifies it, the redaction is decorative. **(2) A fixture derived from a private artifact inherits the artifact's disclosure surface, and "structurally identical" is precisely the property that carries it across.** Specify a derived fixture by naming the fields the checker reads and the transform applied to each — never by "same as the original except X."
+
+**Consequences:** Also names a third pattern that appeared **three times** in one document: a summary sentence asserting compliance with a control the document violates — *"every MECHANICAL row carries paired controls"* (false for nine and a half of twenty lines), *"the ten-condition table"* while two sites still called condition 7 undecided after it had been decided, and the fixture paragraph above. The tell is a compliance claim written by the same author in the same pass as the thing it certifies; it is never evidence, and a reviewer should read it as a pointer to where to look.
+
+**References:** `features/archive/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md` §REDACTED banner · `features/p1210_disagreement_pipeline_objective_and_point_unit.md` §Invariants, §Verification Contract · decisions.md 2026-09-01 [process] "Changing a claim without grepping its restatements"
+
+---
+
 ## 2026-09-03 [process]: A per-commit gate makes a 14-commit cherry-pick slower than the shared main checkout moves — rebase to land, validate the tree once (P1207)
 
 **Context:** Landing P1207's branch (14 commits, 6 migrations, base 101 commits behind) onto main. `git cherry-pick` fires the pre-commit hook on **every** commit, and this repo's hook runs typecheck + eslint + build + the full unit suite — roughly 2.5 minutes each, so ~35 minutes for the sequence. Main moved **twice** during it (a co-tenant landed the whole P1221 restructure, ~100 files), so the fast-forward that the pick existed to enable was refused on arrival, twice. The pick had also stopped five times on `deploy-manifest.json` and once each on `decisions.md` and a service file.

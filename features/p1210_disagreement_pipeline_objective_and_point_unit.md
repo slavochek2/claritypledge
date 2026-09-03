@@ -21,6 +21,26 @@ rejected options are carried forward here; its four-workstream frame is not.
 
 ## Run This
 
+> ## ⛔ DO NOT RUN — CONTRACT REJECTED 2026-09-03, adversarial review
+>
+> **The `/goal` line below is suspended.** An independent reviewer found the contract carries the
+> exact defect that rejected P1208 twice: **8 of 16 MECHANICAL rows demand a verdict on future
+> agent behaviour**, which no test file can produce. The pipeline is six markdown files with zero
+> executables — a test can assert prose *contains* a rule, never that an agent *obeys* it.
+>
+> **The anti-vacuity machinery is itself vacuous, and this is measured:** `## Verification
+> Contract` fact #1 concludes that whole-file rows close the exit-0 hole. They do not.
+> `it.skip` / `it.todo` reach the identical all-skipped state — measured 2026-09-03, **exit 0** —
+> and neither CHECK 1 nor CHECK 2 reads it. All 16 rows can be green with zero assertions executed.
+>
+> Also confirmed: the "every row carries paired controls" sentence is false for roughly half the
+> lines; DW-11 was already satisfied before the loop started; DW-12 is an all-empty probe with no
+> known-bad control; DW-4+5 lets the loop author the fixture, the checker and the expected numbers.
+>
+> **Running this line would burn 30 turns against unsatisfiable rows.** The contract is repaired
+> before it is re-pinned. The worktree `feature/p1210-objective-and-point-unit` stays claimed; the
+> Solution (§§1–11) is NOT rejected — it survived three rounds and is unchanged.
+
 Type this from anywhere in the repo — the main checkout is fine. Nothing to `cd` into, nothing to
 rebase; the worktree is already claimed for this spec and already carries the pinned contract.
 
@@ -108,7 +128,7 @@ locatable rather than felt:
 | 4 | Taking a position costs the room something | `prepare` 4b-iii | Yes — already gated |
 | 5 | **The sharpened statement still matches the evidence** | `prepare` 4c | Yes |
 | 6 | **The point is relevant and comprehensible to the named room** | `prepare` (room is a required input) | Yes |
-| 7 | **The point fits the evening's speaking and re-staking time** | `select`/`prepare` against the contract | **NOT YET** — the event's per-point time budget is an open `[FOUNDER DECISION]`. Until that number exists this condition is unevaluable, and saying otherwise would be a verdict the rule cannot produce |
+| 7 | **The point fits the evening's speaking and re-staking time** | `select`/`prepare` against the contract | **YES, since 2026-09-03** — the per-point budget was decided (RD-4: 36 min total, 12 per point) and written into `docs/events/clarity-practice-event.md`. A point that cannot be staked, framed and argued inside 12 min does not fit. **This cell read NOT YET for two hours after the decision** — see decisions.md 2026-09-01 on restatement sweeps |
 | 8 | The room splits on the first stake | the event | **No** |
 | 9 | Something moves on the re-stake | the event | **No** |
 
@@ -536,7 +556,7 @@ instances of it. Restored here, with the reason each existed.**
 | Each added arguer costs provisioning, stories and per-quote verification, never amortised | ACCEPT | It is why the founder rejected ten arguers on 2026-08-27, and why §3 adds a person only against a named new contradiction |
 | A point framed between two arguers the room has not met needs an in-room introduction | ACCEPT | ~30s per point; the headline pair carries most of them |
 | Per-point stories are too thin to comprehend | ACCEPT | Reversible in one stage edit; a room member positions on one point at a time |
-| The objective's conditions **8 and 9** (room divides; something moves) are unmeasurable until an event runs — and condition 7 is unevaluable until the event's time budget is decided | ACCEPT | Stated as unmeasured rather than proxied. **Do not substitute arguer split for room split** |
+| The objective's conditions **8 and 9** (room divides; something moves) are unmeasurable until an event runs — ~~and condition 7 is unevaluable until the event's time budget is decided~~ **condition 7 is evaluable as of RD-4** | ACCEPT | Conditions 8 and 9 stay unmeasured rather than proxied. **Do not substitute arguer split for room split** |
 | A cast finding discovered *after* Gate 2 has no gate to land on — this run's post-seal correction named the collapse before points were built and the run proceeded | MITIGATE | Add a re-approval path: a post-seal cast finding halts before `prepare` runs |
 | The diarize ledger is blind to 5 of 19 cached artifacts, including the one that blocked run B | MITIGATE | §10 rule 2 (look across all four stores before blocking) holds regardless. The reconciliation fix is global tooling and is explicitly NOT a dependency of this spec |
 | ~~Automating the same-vote choice removes a founder decision point~~ | **VOID** | **The automation was WITHDRAWN — §9.** Its premise (that §2 makes collapse structurally impossible) is false and deleted. This row is kept struck rather than removed so the reversal is visible; the same-vote gate stays founder-facing |
