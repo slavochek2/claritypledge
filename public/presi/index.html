@@ -588,6 +588,16 @@
   .cards.four.loss{flex-wrap:nowrap}
   .cards.loss .card.step{justify-content:center}
   .cards.loss .card.step h3{white-space:nowrap;margin-bottom:0}
+  /* "Who this is for" — the size/buyer line is a 4th text block under three cards.
+     At projection size it sits at the .lead clamp (>=24px, the round-2 legibility
+     floor). On a phone that block overran the fold by 80px (measured), so this slide
+     ONLY tightens the note and the card padding; nothing shared moves. */
+  .who-note{margin:1.3rem auto 0;max-width:60ch}
+  @media(max-width:560px){
+    .who-note{font-size:.82rem;line-height:1.35;margin-top:.7rem;max-width:36ch}
+    .qualify h2{margin-bottom:.45rem}
+    .qualify .card.step{padding-top:.85rem;padding-bottom:.85rem}
+  }
 </style>
 <!-- motion layer lib — self-hosted (GSAP 3.12.5), deferred + feature-detected;
      the deck works without it. Loads under the claritypledge.com CSP and offline.
@@ -602,6 +612,7 @@
       - Read the three lines slowly; pause before "In opposing directions."
       - The claim is coordination, not output quality: everyone ships faster, nobody checked they meant the same thing.
       - Promise is an outcome ("off the treadmill"), deliberately not the mechanism yet.
+      - Then say what it IS in one breath: a platform to practice verified understanding. A stranger needs the category before the stat on the next slide.
     -->
     <div class="badge">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -609,13 +620,14 @@
     </div>
     <h1>Your team agreed on the strategy.<br>Each of your AIs ships 10x faster.<br><span class="accent">In opposing directions.</span></h1>
     <p class="lead">Get your team off the treadmill.</p>
+    <p class="lead" style="margin-top:1rem;max-width:42ch">ClarityPledge &mdash; a platform to practice verified understanding.</p>
     <div class="url" style="margin-top:1.2rem"><span class="accent">claritypledge.com</span></div>
   </section>
 
   <!-- 4 · THE STAKES — CB Insights: "no market need" is the #1 startup-failure reason, ~35% of post-mortems (landing ref 1; the landing renders it as "1 in 3"). -->
   <section class="slide soft">
     <!-- NOTES
-      - FOUNDER DECISION (unconfirmed, authored): bridge line "Building got 10x cheaper. Checking you meant the same thing didn't." — pays off the hero's 10x and turns the market stat toward internal misunderstanding.
+      - Bridge line "Building got 10x cheaper. Checking you meant the same thing didn't." pays off the hero's 10x and turns the market stat toward internal misunderstanding.
       - CB Insights post-mortems: "no market need" is the #1 stated reason (~35%).
       - Bridge: some of that is a market nobody had the signal on. A lot of it is a team that never verified it agreed.
       - Claim = calibration, not accuracy: we do not make you right about the customer; we remove false confidence.
@@ -626,7 +638,7 @@
     <div class="refs">[1] CB Insights — The Top Reasons Startups Fail (no market need: the #1 reason, cited in 35% of post-mortems)</div>
   </section>
 
-  <!-- 2 · THE SEAM — the landing's HardTruthChat (variant="they-withheld", build-right-thing-landing.tsx §2b): a teammate held a doubt about the DIRECTION, didn't send it, and built on the guess. Dialogue quoted from the landing, where it is marked FOUNDER DECISION (drafted from spec guidance, awaiting UAT). GENERIC/ANONYMIZED — not a real person. Reuses the deck's deleted-message chat grammar (chat() in the motion layer types the truth, strikes it, collapses it). -->
+  <!-- 2 · THE SEAM — the landing's HardTruthChat (variant="they-withheld", build-right-thing-landing.tsx §2b): a teammate held a doubt about the DIRECTION, didn't send it, and built on the guess. Dialogue quoted verbatim from the landing (§2b), which is the deck's source of truth for how the product and its problem are described. GENERIC/ANONYMIZED — not a real person. Reuses the deck's deleted-message chat grammar (chat() in the motion layer types the truth, strikes it, collapses it). -->
   <section class="slide wa-big">
     <!-- NOTES
       - Let the typed message land, then the strike-through: the doubt existed and was deleted.
@@ -662,7 +674,7 @@
   <!-- 3 · WHAT MISCALIBRATION COSTS (montage — just boxes, short) -->
   <section class="slide soft">
     <!-- NOTES
-      - FOUNDER DECISION (unconfirmed): headline "What assumed agreement cost me." (was "I have lost business partners."). Cards unchanged.
+      - Headline is "What assumed agreement cost me." (was "I have lost business partners."). Cards unchanged: three real cases, told as evidence of the cost, not as a cofounder pitch.
       - Three real cases, months lost each. Each was an agreement both sides believed was shared.
       - Say the stamps as they thud: nine months, seven months, a friend.
     -->
@@ -757,7 +769,7 @@
   <!-- 9c · SPIRAL — how the illusion of understanding leads to rework (numbered; staggered reveal via spiral() in JS) -->
   <section class="slide">
     <!-- NOTES
-      - FOUNDER DECISION (unconfirmed): heading says "lead to rework?" (was "a partner split?"); last step "Until the team rebuilds what it thought it had already agreed on." (was "Until walking away feels easier than working it out.").
+      - Heading is "lead to rework?" (was "a partner split?"); last step is "Until the team rebuilds what it thought it had already agreed on." (was "Until walking away feels easier than working it out.").
       - Steps reveal one by one; read each arrow as "therefore".
       - Step 3 is the rework step: wasted work, missed goals. Step 5 is the team version, not the split version.
       - Chronic pain rarely opens a budget; ask for the dated event: the pivot two people describe differently.
@@ -792,16 +804,24 @@
        lives entirely in how the three are SAID from the stage, not in printed copy.
        If this slide ever stops filtering, restoring a spoken exclusion is the first
        thing to try before adding text back.
-       Copy is [FOUNDER DECISION] — drafted 2026-08-20, not yet approved. -->
-  <section class="slide">
+       Heading no longer names the "Clarity Champions" program: that name is a real,
+       shipped offer level (src/app/components/landing/offers-section.tsx, P1087) but it
+       is NOT what this deck asks for — the single ask is the free alignment audit. Naming
+       an unexplained program here and then asking for a different action is what confused
+       the arc; "Who this is for" carries the same filter without the mismatch.
+       Company size and buyer resolved by the founder 2026-09-03: small THROUGH medium, not
+       small-only; the buyer is genuinely unresolved and the size line says so. -->
+  <section class="slide qualify">
     <!-- NOTES
-      - FOUNDER DECISION (unconfirmed): card 1 body cut to "Months lost. Work thrown away." — "A relationship that frayed." dropped as cofounder-era residue (this copy was itself a 2026-08-20 draft). "Clarity Champions" naming still open.
+      - Card 1 body is "Months lost. Work thrown away." — "A relationship that frayed." was dropped as cofounder-era residue.
+      - Size: small through medium companies, not small-only. Say it plainly; do not narrow to startups.
+      - Buyer is UNRESOLVED and the slide says so. In a small team it is C-level or whoever owns product. In a medium company the working hypothesis is change-management / transformation leadership — present it as the bet being tested, never as a fact. If the room contradicts it, that is the data.
       - Three cards, said as a filter, not printed as one: cost you can name, you like depth, you say the hard part.
       - Card 3 is load-bearing: "I don't understand" and "I don't agree", in the room, not after.
       - Do not read an exclusion line; the filter lives in how these are said.
     -->
     <div class="kicker">Before we go further</div>
-    <h2>Who the <span class="accent">Clarity Champions</span> program is for</h2>
+    <h2>Who this is <span class="accent">for</span></h2>
     <div class="cards">
       <div class="card step">
         <div class="step-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"/></svg></div>
@@ -819,6 +839,7 @@
         <p>&ldquo;I don't understand.&rdquo; &ldquo;I don't agree.&rdquo; &mdash; in the room, not after.</p>
       </div>
     </div>
+    <p class="lead who-note">Small to medium companies. Small team: a founder, C-level, or whoever owns product. Medium company: whoever owns change and transformation &mdash; the bet we&rsquo;re testing.</p>
   </section>
 
   <!-- 8 · WHAT'S THE SOLUTION — five moves, synced to src/app/components/landing/how-platform-works.tsx MOVES (will → mutual commitment → surface decisions → friction → skill). Icons reassigned, none added. -->
@@ -886,7 +907,7 @@
     </div>
   </section>
 
-  <!-- 9 · LIVE DEMO — QR → claritypledge.com/story/st1 -->
+  <!-- 9 · LIVE DEMO — QR → claritypledge.com/letter/st1 (the slug route verified in features/uat/p849.md; an earlier comment here said /story/st1, which is a different route) -->
   <section class="slide dark">
     <!-- NOTES
       - Live demo: scan, read the letter, score the two points on the next slides.
@@ -923,7 +944,7 @@
   <section class="slide">
     <!-- NOTES
       - Full point text (read or paraphrase): "When someone says 'you don't understand me,' they could mean at least three different things. They might mean I don't feel what they feel. They might mean I don't agree with them. Or they might mean they don't know whether I actually know what they mean. These are three separate requests. Satisfying one doesn't necessarily satisfy the others. The word 'understand' never tells me which kind of understanding is being asked for."
-      - FOUNDER DECISION (unconfirmed): on-slide lead line "'You don't understand me' can mean three things:" condenses the first sentence; the three clauses are verbatim.
+      - On-slide lead line "'You don't understand me' can mean three things:" condenses the first sentence; the three clauses are verbatim.
       - Ask again. Watch the shift from the previous card.
       - Understood-and-rejected is allowed: verification is decoupled from validation.
     -->
@@ -943,7 +964,7 @@
   <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
   <section class="slide soft">
     <!-- NOTES
-      - FOUNDER DECISION (unconfirmed, authored): title "Make it a habit" (was the badge text) + setup line "A bracelet is the reminder: on in the morning, counted in the evening."
+      - Title is "Make it a habit" (was the badge text); setup line "A bracelet is the reminder: on in the morning, counted in the evening."
       - The whole practice reduces to one sentence: "I believe I understand you at N out of 10."
       - Bracelet is a slip-tracker, not a reward. Evening count is the metric.
     -->
@@ -1232,7 +1253,6 @@
       - Clarity of the problem statement is achievable given the will and skill to reveal the gaps.
     -->
     <div class="kicker">The principle of optimism, applied</div>
-    <!-- FOUNDER DECISION: heading wording -->
     <h2 style="font-size:clamp(1.35rem,3.2vw,2.4rem);margin-bottom:.2rem">How to gain <span class="accent">clarity</span> over the problem definition?</h2>
     <div class="fd">
       <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle: ego, fear and laziness. A blue arrow labelled the skill to reveal the gap curves around the obstacle from A to B.">
@@ -1300,7 +1320,7 @@
   <!-- 10 · THE ASK — one action: the landing's single primary CTA ("Book a free alignment audit." → /intro, microcopy "Starts with a 15-min call."), URL as a button ≥32px. The other two paths are a footer line. Round 2 (critic): the three-card "Let's collaborate!" is gone. -->
   <section class="slide grid-bg">
     <!-- NOTES
-      - FOUNDER DECISION (resolved by removal): the "For growing teams" path label no longer exists — one ask, no audience labels. Leaders/coaches paths survive as a footer line only.
+      - No audience labels on this slide: one ask. The leaders/coaches paths survive as a footer line only.
       - One ask: book the free alignment audit. It starts with a 15-minute call.
       - The other two paths exist; mention them only if the room asks.
     -->
@@ -1734,10 +1754,11 @@
        Category labels ("cross-team collaboration", "complex projects") were rejected
        outright: every other cell is a scene you can picture, and a category among
        scenes reads as the odd one out.
-       "Clarity Principle" is the founder's wording from the same call and is NOT a
-       term used elsewhere in the repo - reconcile against Clarity Pledge / Clarity
-       Champions before this deck is presented.
-       Copy is [FOUNDER DECISION] - drafted 2026-08-24, not yet approved.
+       "Clarity Principle" is the founder's wording from the same call and IS attested
+       in the repo: src/app/content/full-article.md names it as the core social contract
+       (§ VI, "Verify others as you would want to be verified"), and the shipped five-moves
+       component says "Commit to a minimum clarity principle as a team"
+       (src/app/components/landing/how-platform-works.tsx, move 2). Kept.
        Reasoning: docs/definitions.md "When the Protocol Applies" (c) + lean-canvas
        arbiter-failure criteria; docs/decisions.md 2026-08-24 [product]. -->
   <style>
@@ -1756,7 +1777,7 @@
       - BACKING (round 2): moved out of the main arc — scoping model with non-wedge examples and "Two co-founders"; not a qualifier.
       - Four situations land neutral; ADVANCE ONCE to light ours (top-right).
       - Where a price, rule, standard or precedent exists, use it. We are for what no wording can pin down.
-      - Naming ("Clarity Principle") is still a founder decision; say "the clarity commitment" if unsure.
+      - "Clarity Principle" is the repo's own term (full-article.md § VI; how-platform-works move 2, "a minimum clarity principle"). Say it as written.
     -->
     <div class="kicker">Which situations need the Clarity Principle?</div>
     <div class="mx-frame mx-scope" data-flip>
@@ -1855,7 +1876,6 @@
       - Deutsch: if no law forbids B, what stands between you and it is knowledge you have not found yet.
     -->
     <div class="kicker">The principle of optimism</div>
-    <!-- FOUNDER DECISION: heading wording -->
     <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem);margin-bottom:.2rem">How to turn problems into <span class="accent">challenges?</span></h2>
     <div class="fd">
       <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle. A blue arrow labelled knowledge curves around the obstacle from A to B — the route that gets you across.">
@@ -1884,7 +1904,7 @@
         <circle cx="585" cy="92" r="9" fill="#3b82f6"/>
       </svg>
     </div>
-    <!-- FOUNDER DECISION: constructor-theory footnote (keep / cut / reword) -->
+    <!-- Footnote KEPT: attributed Deutsch quote, backing slide only. -->
     <div class="note">&ldquo;If no law of nature forbids Point B, the only thing between you and it is knowledge you haven't found yet.&rdquo;<br><span style="font-style:normal;font-weight:600;opacity:.75">David Deutsch &middot; The Beginning of Infinity</span></div>
   </section>
 
