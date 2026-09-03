@@ -6,6 +6,70 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [technical]: A guard keyed on a removed element is not a guard — it is a silent skip, and the "known-good" control was the broken one (P1232)
+
+**Context:** P396 removed the guest email input from the /live join form. The 2026-08-31 triage found
+seven spec files still calling `.fill()` on it, held up `p272-live-verification.spec.ts:110` as the
+file that had been fixed correctly, and told the next agent to copy its pattern. Measuring the class
+properly found 14 files, not 7 — and that the exemplar was broken too.
+
+**Decision:** Three distinct failure modes were fixed behind one helper
+(`e2e/helpers/live-join.ts`), because they are one defect wearing three signatures:
+
+1. **Unguarded `.fill()`** (20 sites) — `fill()` AUTO-WAITS, so it does not fail fast. It blocks
+   until the whole test times out, producing a bare timeout with **no assertion error**. That is why
+   58 failures were classified as an unexplained environmental category rather than a dead selector.
+2. **Unconditional click on a label that still exists** (8 sites) — "Join Session" was NOT renamed.
+   It survives at `clarity-live-page.tsx:4002`, but only inside the auto-join **error** branch; the
+   normal path renders a spinner. So the click hangs on every run where joining *works*.
+3. **A guard that can never be true** (3 sites) — the guarded pattern waits on the removed element,
+   so `formVisible` is permanently false, the join block is skipped, and the test never joins. It
+   does not hang. It fails later, elsewhere, looking unrelated.
+
+**Alternatives rejected:** (a) Find-and-replace the button label — the mapping is conditional, not
+1:1; both labels are live on different branches. (b) Copy the "correct" guard to the unguarded sites
+— that guard is mode 3. Copying it would have converted 20 loud hangs into 20 silent skips and read
+as a fix.
+
+**Consequences:** **A guard whose condition references something the product deleted degrades to
+"skip", not to "fail".** It is invisible to any probe that looks for failures, which is why it
+outlived the loud version of the same bug. When retiring a UI element, grep for guards that *mention*
+it, not only for calls that *use* it. And an exemplar named by a triage is a claim, not a control —
+this one had been cited as the fix to copy while being the subtly worse instance.
+
+**References:** `e2e/helpers/live-join.ts` · `features/p1232_e2e_specs_drive_the_p396_removed_guest_join_form.md`
+· `docs/technical/e2e-triage-2026-09-01.md` (the mis-attribution) · `4e0238d9`, `fd971afc`
+
+---
+
+## 2026-09-03 [technical]: `Promise.race` over two waiters is a coin flip when both can reject — use `Promise.any` (P1232)
+
+**Context:** `completeLiveJoinIfPrompted` raced two locators to decide which join UI was present,
+with a `.catch()` mapping failure to "already joined". Found by external Codex adversarial review.
+
+**Decision:** Use `Promise.any`, not `Promise.race`, whenever the question is *"did any of these
+appear?"*. `race` settles on the first **settled** promise — **including a rejection** — so with both
+waiters on the same timeout, whichever rejected first decided the outcome and the `.catch()` reported
+"joined" even when the other control was about to appear. `any` resolves on the first **fulfilment**
+and rejects only when all reject; it also aggregates rejections, so the losing waiter cannot surface
+as an unhandled rejection.
+
+Renamed the outcome `auto-joined` → `no-join-ui`, because absence of controls is not evidence of a
+join: a stalled auto-join, an unrecognised gate, and a page still showing "Joining session..." are
+indistinguishable from there. The name now states what was **observed**, not what was assumed.
+
+**Alternatives rejected:** Throwing on the indeterminate case — the already-authenticated path is
+legitimate and common, so throwing would fail more tests than it caught.
+
+**Consequences:** Any helper that returns "nothing was there, so we must be fine" is asserting a
+negative it did not test. Name such a return for the observation, not the inference, and let callers
+assert their own post-state. Also: the review found this in code that had passing tests, `tsc`,
+`eslint` and a clean full collection — none of which can see a race that resolves the wrong way.
+
+**References:** `e2e/helpers/live-join.ts` · `fd971afc` · `.git/.finish-reviewed` (p1232 entry)
+
+---
+
 ## 2026-09-03 [technical]: Removing a vendor — the grep finds the integration, the test suite finds the dependents, and one deleted line can be load-bearing for something else (P1216)
 
 **Context:** P1216 removed LogRocket. It was init-only (`LogRocket.init()`, no `identify()`, no
