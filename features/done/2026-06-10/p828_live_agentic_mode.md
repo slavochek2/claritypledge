@@ -1,11 +1,11 @@
 ---
-status: backlog
+status: all-done
 type: story
 rank: 61
 created_date: '2026-04-29'
 tags: [live, agentic, mode, ai-facilitator, comprehension, badge]
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
+completed_at: 2026-09-03
 ---
 
 # P828: /live Agentic Mode — AI as Facilitator
