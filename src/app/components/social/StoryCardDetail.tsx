@@ -858,7 +858,24 @@ function LinkedStoryCard({
           identityPending={identityPending}
           className="!w-5 !h-5 !text-[10px]"
         />
-        <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
+        {/* P1212 §4d — THIS CARD WAS THE ONE FILE THE BYLINE CONTRACT MISSED.
+            It rendered `{story.authorName}` raw, which on an agent account is the STORED
+            name and therefore leaks the reserved `Agent · ` prefix that `stripAgentPrefix`
+            exists to keep off screen. That is the exact defect agent-byline.tsx:39-41
+            records as fixed on every other surface — "the feed said `Machine reading of X`
+            while the profile header and every stance row said `Agent · X` … Same account,
+            two identities, decided by which file a reader happened to be looking at."
+
+            AgentByline is deliberately the whole fix rather than a `stripAgentPrefix` call:
+            it is "the one place an agent account is named", and it carries the MachineChip
+            with it, so this card gains the disclosure marker in the same change. No
+            `onNameClick` — the card root is itself the link, and a name-button inside it
+            would be the dead-nested-button defect that component's note 1 and 2 describe. */}
+        {isAgent ? (
+          <AgentByline name={story.authorName} className="min-w-0 flex-1" />
+        ) : (
+          <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
+        )}
         {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />}
       </div>
       <p className="text-sm text-foreground line-clamp-4 break-words">{linkifyText(story.content)}</p>

@@ -1,14 +1,14 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1000062
 workstream: C2
 created_date: '2026-09-01'
 tags: [stories, agents, feed, profile]
-delivery_stage: create-spec
+delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, generate-tests, dev, verify]
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 pipeline_skipped: ["decompose -- 5 sections but they collide on the same three files (agent-byline/machine-chip/agent-story-footer); children would conflict, not parallelise", "ux -- byline form and pill question both answered 2026-09-01, no open design question left to write as a sentence", "spec-review -- spec is same-day, not stale", "architect -- no schema, RLS or data-model change; render-path and string changes only"]
 drafted_by: opus
 exec_model: opus
@@ -519,7 +519,7 @@ Make the expander with counts present on all four, both directions.
 - [ ] No surface renders the label with zero quotes beneath it — publish refuses to file such a story
 - [ ] Every timecode shown seeks the player in place; no timecode is displayed where clicking does nothing
 - [ ] The byline reads the approved form on all **seven** surfaces (the six in §4 plus `LinkedStoryCard`, §4d), with no occurrence of "MACHINE" or "reading of" in `agent-byline.tsx`, `machine-chip.tsx` or `agent-story-footer.tsx`. The `/machines` explainer page is exempt — its prose defines the term
-- [ ] `LinkedStoryCard` renders the agent name through `AgentByline`/`stripAgentPrefix`, not raw `story.authorName` — no surface leaks the stored `Agent · ` prefix (§4d)
+- [x] `LinkedStoryCard` renders the agent name through `AgentByline`/`stripAgentPrefix`, not raw `story.authorName` — no surface leaks the stored `Agent · ` prefix (§4d)
 - [ ] A repo-wide check passes: no component renders `story.authorName` for an agent account without going through `stripAgentPrefix` or `AgentByline`
 - [ ] An agent row's position chip is legible as Agree vs Disagree vs Unsure **without hue** — measured at 20px, 40px and 320px
 - [ ] `e2e/p1104-agent-marker.spec.ts` still passes unmodified on the drained-chrome saturation assertion
@@ -530,18 +530,18 @@ Make the expander with counts present on all four, both directions.
 - [ ] `agent-story-footer`'s "except the quotes" sentence never appears on a surface where no quotes render
 - [ ] A point card shows a story-count expander on feed, profile and point detail; a story card shows a linked-point expander on feed and profile
 - [ ] ~~A letter sealed before the change renders identically after it~~ — **falsified by §4b, replaced 2026-09-01.** §4b deliberately adds video, quotes, byline, chip and footer to that surface, so identical rendering is not the goal and never was achievable. Replaced by the two below
-- [ ] A letter sealed **before** §1 renders its quotes **exactly once** — the frozen inline copy in `storyText` and the frozen `videoQuotes` copy must not both render (§4b legacy branch)
-- [ ] No letter loses content it rendered before the change: every quote, timecode and image visible in a pre-change sealed letter is still visible after
-- [ ] No surface derives an agent byline from a name the snapshot does not own — the letter surface's `authorName` is the **sender's** (§4b, `story-walk.tsx:95-96`)
+- [x] A letter sealed **before** §1 renders its quotes **exactly once** — the frozen inline copy in `storyText` and the frozen `videoQuotes` copy must not both render (§4b legacy branch)
+- [x] No letter loses content it rendered before the change: every quote, timecode and image visible in a pre-change sealed letter is still visible after
+- [x] No surface derives an agent byline from a name the snapshot does not own — the letter surface's `authorName` is the **sender's** (§4b, `story-walk.tsx:95-96`)
 
 ## Done-When
 
 - [ ] Both `p1141-pipeline-rules.test.ts` and `p1141-agent-story-chrome.test.tsx` updated to the new contract, passing
-- [ ] A test asserts `live-story-card-expanded.tsx` renders quotes — failing before the fix, passing after
+- [x] A test asserts `live-story-card-expanded.tsx` renders quotes — failing before the fix, passing after
 - [ ] The publish precondition asserting the quote label still passes against a re-filed story
-- [ ] No surface renders `StoryMedia` conditionally on a code path the profile does not reach
-- [ ] A test asserts `LinkedStoryCard` renders the stripped subject name, never the raw stored `Agent · ` prefix — failing before the fix, passing after (§4d)
-- [ ] A snapshot-fixture test asserts a pre-§1 sealed letter renders its quote block once, not twice (§4b legacy branch) — failing before the fix, passing after
+- [x] No surface renders `StoryMedia` conditionally on a code path the profile does not reach
+- [x] A test asserts `LinkedStoryCard` renders the stripped subject name, never the raw stored `Agent · ` prefix — failing before the fix, passing after (§4d)
+- [x] A snapshot-fixture test asserts a pre-§1 sealed letter renders its quote block once, not twice (§4b legacy branch) — failing before the fix, passing after
 - [ ] A test asserts every surface that renders the quote LABEL also renders the quote bodies — parameterised over the surface list, so adding a surface without quotes fails
 
 ## Open Questions

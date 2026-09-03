@@ -143,6 +143,62 @@ export function normalizeVideoQuotes(raw: unknown): StoryVideoQuotesData {
   return { quotes, durationSeconds };
 }
 
+/**
+ * Collapses the differences that do not change which words a quote is, so that
+ * "is this quote already printed in the prose?" survives the wrapping the drafting
+ * pipeline applies: surrounding quotation marks (straight or typographic), a line
+ * break where the prose had a space, and case.
+ */
+function normalizeForQuoteMatch(text: string): string {
+  return text
+    .replace(/[""''"'`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * P1212 §4b legacy — the quotes that are NOT already sitting inline in the story text.
+ *
+ * WHY THIS EXISTS. The seal RPC freezes BOTH halves of a story into a letter snapshot:
+ * `point_config.storyText` (the prose, which before P1212 §1 had the quote bodies baked
+ * into it) AND `point_config.videoQuotes` — see
+ * `20260823120100_p1141_seal_rpc_video_fields.sql:102,105`, restored independently by
+ * `letter-snapshot-mapper.ts`. So the moment the letter surface starts rendering a
+ * `video_quotes` block, every letter sealed BEFORE §1 shows its quotes twice: once in
+ * the frozen prose, once in the new block. Snapshots are immutable, so re-filing the
+ * story cannot repair one — the branch has to live in the renderer.
+ *
+ * PER-QUOTE, NOT PER-BLOCK. The spec's smallest fix suppresses the whole block when the
+ * prose already holds the quotes. That loses content: the pre-§1 drafting rule was "at
+ * most ONE quote per linked point inside the story text", so the prose typically holds a
+ * SUBSET. Suppressing the block would hide every quote that was only ever in
+ * `video_quotes`. Filtering per quote renders each one exactly once and drops nothing,
+ * which is what the two acceptance criteria actually ask for together.
+ *
+ * THE MATCH LEANS TOWARD "already inline", DELIBERATELY. The two failure directions are
+ * not symmetric. A false positive hides a quote from the block while it stays readable in
+ * the prose — a cosmetic loss of the jump link. A false negative prints it twice, which
+ * is the exact defect this exists to prevent. So the comparison is on a normalized PREFIX
+ * rather than the whole string, which still matches when the prose truncated or re-punctuated
+ * the tail. Very short quotes compare whole: a 10-character prefix would collide with
+ * ordinary prose and hide a quote that is not actually there, which IS content loss.
+ */
+const QUOTE_MATCH_PREFIX = 40;
+
+export function quotesNotInStoryText(storyText: string, quotes: VideoQuote[]): VideoQuote[] {
+  if (!quotes || quotes.length === 0) return [];
+  const haystack = normalizeForQuoteMatch(storyText ?? '');
+  if (!haystack) return quotes;
+
+  return quotes.filter((quote) => {
+    const needle = normalizeForQuoteMatch(quote.text);
+    if (!needle) return false;
+    const probe = needle.length > QUOTE_MATCH_PREFIX ? needle.slice(0, QUOTE_MATCH_PREFIX) : needle;
+    return !haystack.includes(probe);
+  });
+}
+
 let youTubeApiPromise: Promise<void> | null = null;
 
 /**
