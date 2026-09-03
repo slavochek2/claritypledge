@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin, Share2 } from 'lucide-react';
+import { Pin, Share2, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
@@ -18,8 +18,9 @@ import {
   PositionButtons,
 } from '@/app/components/shared';
 import { adjustPositionCounts } from '@/app/utils/position-helpers';
+import { QuotedStory } from '@/app/components/social/point-card-with-links';
 import { InlineVisibilityIcon } from '@/app/components/shared';
-import type { PointWithUserPosition, PositionType } from '@/app/types';
+import type { PointWithUserPosition, PositionType, StoryWithAuthor } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
@@ -31,15 +32,25 @@ interface FeedPointCardProps {
   activeTag?: string;
   /** P543: Notify parent that a position was removed — parent decides whether to filter or decrement */
   onPointRemoved?: (pointId: string, removedPosition: PositionType | null) => void;
+  /**
+   * P1212 §5 — the stories arguing this point, batch-fetched by the feed page
+   * (`getStoriesForPoints`, one query per page — never per card).
+   *
+   * Undefined means "not loaded" and renders no expander; an empty array means "loaded,
+   * none linked" and renders the `0 stories` label. Profile point cards and the point
+   * detail page already carried this affordance; the feed was the surface that did not.
+   */
+  linkedStories?: StoryWithAuthor[];
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories }: FeedPointCardProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
 
   // P594: Expand/collapse for truncated text
   const statementRef = useRef<HTMLParagraphElement>(null);
   const [statementExpanded, setStatementExpanded] = useState(false);
+  const [storiesExpanded, setStoriesExpanded] = useState(false);
   const [statementOverflows, setStatementOverflows] = useState(false);
 
   const checkOverflows = useCallback(() => {
@@ -221,6 +232,76 @@ export function FeedPointCard({ point, activeTag, onPointRemoved }: FeedPointCar
             {/* P502: Anonymous position CTA */}
             {!session?.user && anonPosition && (
               <AnonPositionCTA pointId={point.id} position={anonPosition} />
+            )}
+
+            {/* P1212 §5 — story-count expander. The profile point card and the point
+                detail page both offered this; the feed point card offered no route to the
+                stories arguing the point at all. Same chevron + count affordance, so the
+                two directions of the link read identically wherever they appear. */}
+            {linkedStories !== undefined && (
+              <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
+                {linkedStories.length > 0 ? (
+                  <button
+                    onClick={() => setStoriesExpanded(!storiesExpanded)}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
+                    aria-expanded={storiesExpanded}
+                    data-testid="feed-point-story-expander"
+                  >
+                    {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <span>
+                      {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}
+                    </span>
+                  </button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">0 stories</span>
+                )}
+
+                {/* The SAME QuotedStory the profile point card and live sessions render,
+                    not a local text preview. A second excerpt renderer here would be a
+                    ninth surface with its own label handling, its own agent treatment and
+                    its own truncation rule — which is the drift this spec exists to close,
+                    reintroduced by the section meant to close it. */}
+                {storiesExpanded && linkedStories.length > 0 && (
+                  <div className="flex flex-col gap-2 mt-1.5">
+                    {linkedStories.map((linked) => (
+                      <QuotedStory
+                        key={linked.id}
+                        // Production -> prototype shape, the same conversion
+                        // point-detail-page.tsx:424-432 performs. `linkedPointIds` is
+                        // unused by QuotedStory (it renders author, text and image only)
+                        // and the feed has not fetched the reverse direction here.
+                        story={{
+                          id: linked.id,
+                          authorId: linked.authorId,
+                          text: linked.content,
+                          createdAt: linked.createdAt,
+                          visibility: linked.visibility,
+                          linkedPointIds: [],
+                          understoodCount: linked.understoodCount,
+                          imageUrl: linked.imageUrl,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/story/${linked.id}`);
+                        }}
+                        onAuthorClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/p/${linked.authorSlug || linked.authorId}`);
+                        }}
+                        getStoryAuthor={() => ({
+                          id: linked.authorId,
+                          name: linked.authorName,
+                          slug: linked.authorSlug,
+                          avatarColor: linked.authorAvatarColor,
+                          avatarUrl: linked.authorAvatarUrl,
+                          earsCount: linked.authorEarsCount,
+                          hasPledged: linked.authorHasPledged,
+                        })}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -5,7 +5,7 @@ rank: 1000062
 workstream: C2
 created_date: '2026-09-01'
 tags: [stories, agents, feed, profile]
-delivery_stage: verify
+delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, generate-tests, dev, verify]
 pipeline_ran: [create-spec, dev, verify]

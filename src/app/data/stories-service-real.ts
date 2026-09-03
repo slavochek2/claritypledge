@@ -765,6 +765,56 @@ export const realStoriesService: StoriesService = {
     });
     return result;
   },
+
+  /**
+   * P1212 §5 — the reverse of `getStoriesForPoints`, for the story->point expander.
+   *
+   * ONE query for every story on the page. The feed renders a page of story cards and a
+   * per-card fetch would be exactly the N+1 the repo's data-fetching rule forbids.
+   *
+   * `points.context` is deliberately NOT selected. It is optional on `PointSummary`, the
+   * expander renders only the statement, and P1095 is retiring the column — the test
+   * database has already dropped it, which is why main's other point joins currently 400
+   * with `column points_1.context does not exist`. Asking for the minimum keeps this
+   * query correct on both schemas and across that retirement.
+   */
+  async getPointsForStories(storyIds: string[]): Promise<Map<string, PointSummary[]>> {
+    log(' getPointsForStories:', { storyIds });
+
+    if (storyIds.length === 0) return new Map();
+
+    const { data, error } = await supabase
+      .from('story_points')
+      .select(`
+        story_id,
+        point_id,
+        point:points!story_points_point_id_fkey (
+          id,
+          statement,
+          tags,
+          system_tags,
+          visibility,
+          superseded_by
+        )
+      `)
+      .in('story_id', storyIds);
+
+    if (error || !data) {
+      logDbError('getPointsForStories', error);
+      return new Map();
+    }
+
+    const result = new Map<string, PointSummary[]>();
+    for (const row of data as unknown as (DbStoryPointWithPoint & { story_id: string })[]) {
+      const summary = mapPointSummaryFromDb(row);
+      if (!summary) continue;
+      // P800: show only current heads — a superseded point is not what the story argues now.
+      if (summary.supersededBy) continue;
+      const existing = result.get(row.story_id) ?? [];
+      result.set(row.story_id, [...existing, summary]);
+    }
+    return result;
+  },
 };
 
 /**

@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Share2 } from 'lucide-react';
+import { Share2, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
@@ -22,13 +22,21 @@ import { InlineVisibilityIcon } from '@/app/components/shared';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { normalizeVideoQuotes } from '@/lib/video';
-import type { StoryWithAuthor } from '@/app/types';
+import type { StoryWithAuthor, PointSummary } from '@/app/types';
 
 interface FeedStoryCardProps {
   story: StoryWithAuthor;
   activeTag?: string;
-  /** Optional point count — when available, shown in footer */
-  pointCount?: number;
+  /**
+   * P1212 §5 — the points this story argues, batch-fetched by the feed page
+   * (`getPointsForStories`, one query per page — never per card).
+   *
+   * Undefined means "not loaded", which renders no footer at all. An empty array means
+   * "loaded, none linked" and renders the `0 points` label. The distinction matters: a
+   * card that flashes `0 points` while the links are still in flight reads as a fact
+   * about the story rather than about the fetch.
+   */
+  linkedPoints?: PointSummary[];
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -43,10 +51,11 @@ function formatTimeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 30)}mo ago`;
 }
 
-export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardProps) {
+export function FeedStoryCard({ story, activeTag, linkedPoints }: FeedStoryCardProps) {
   const navigate = useNavigate();
   const textRef = useRef<HTMLParagraphElement>(null);
   const [textExpanded, setTextExpanded] = useState(false);
+  const [pointsExpanded, setPointsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
@@ -205,16 +214,46 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
         </div>
       </div>
 
-      {/* Footer: point count */}
-      {pointCount !== undefined && (
+      {/* P1212 §5 — linked-point expander. The feed showed a static count while the
+          profile story card showed an expandable list of the same links, which is the
+          per-surface drift this spec exists to close. Same affordance as
+          profile-page-v2.tsx's StoryCardFull footer: chevron + count, expanding in place. */}
+      {linkedPoints !== undefined && (
         <div
           role="presentation"
-          className="flex items-center justify-between px-4 py-2.5 border-t border-border"
+          className="flex flex-col px-4 py-2.5 border-t border-border gap-2"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="text-sm text-muted-foreground">
-            {pointCount} {pointCount === 1 ? 'point' : 'points'}
-          </span>
+          {linkedPoints.length > 0 ? (
+            <button
+              onClick={() => setPointsExpanded(!pointsExpanded)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors self-start min-h-[40px]"
+              aria-expanded={pointsExpanded}
+              data-testid="feed-story-point-expander"
+            >
+              {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <span>
+                {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
+              </span>
+            </button>
+          ) : (
+            <span className="text-sm text-muted-foreground">0 points</span>
+          )}
+
+          {pointsExpanded && linkedPoints.length > 0 && (
+            <ul className="flex flex-col gap-1.5 pl-5">
+              {linkedPoints.map((point) => (
+                <li key={point.id}>
+                  <button
+                    onClick={() => navigate(`/point/${point.id}`)}
+                    className="text-left text-sm text-foreground hover:text-blue-600 transition-colors break-words min-h-[40px] w-full"
+                  >
+                    {point.statement}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

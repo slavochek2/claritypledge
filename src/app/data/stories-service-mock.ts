@@ -246,6 +246,18 @@ export const mockStoriesService: StoriesService = {
   ): Promise<Map<string, StoryWithAuthor[]>> {
     return new Map();
   },
+
+  async getPointsForStories(storyIds: string[]): Promise<Map<string, PointSummary[]>> {
+    // Backed by the same `mockStoryPoints` fixture the single-story getters use, so a
+    // mock-mode feed shows the same links a mock-mode story detail page does. An empty
+    // Map here would make the expander untestable against the mock service.
+    const result = new Map<string, PointSummary[]>();
+    for (const id of storyIds) {
+      const points = mockStoryPoints[id];
+      if (points && points.length > 0) result.set(id, points);
+    }
+    return result;
+  },
 };
 
 export type { Story, StoryWithAuthor } from '@/app/types';

@@ -30,7 +30,8 @@ import { getPositionGroup, getPositionCTACopy, adjustPositionCounts, type Positi
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
-import { stripHashtags } from '@/lib/utils';
+import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
+import { storyTextForDisplay } from '@/lib/story-quotes';
 
 /** Author information for a story in quoted context */
 export interface StoryAuthor {
@@ -705,7 +706,7 @@ export function PointCardWithLinks({
 /**
  * Twitter-style quoted Story card - shows a linked story within a Point.
  */
-function QuotedStory({
+export function QuotedStory({
   story,
   onClick,
   onAuthorClick,
@@ -785,7 +786,17 @@ function QuotedStory({
             }}
             className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
           >
-            {author.name}
+            {/* P1212 §5 — the §4d defect, in the component §4d did not reach.
+                `author.name` is the STORED profile name, which on an agent account carries
+                the reserved `Agent · ` prefix the database enforces and `stripAgentPrefix`
+                exists to keep off screen. Verified leaking 4× on the feed before this fix.
+
+                The spec's own risk table states the hazard for the sibling case: "§5 makes
+                this card MORE reachable, so §5 must not ship before §4d." §5 puts THIS
+                component on the feed, so the same sentence binds here. AgentByline is the
+                one place an agent account is named, and it carries the machine chip with
+                it — the same composition §4d used for LinkedStoryCard. */}
+            {isAgent ? <AgentByline name={author.name} /> : author.name}
           </span>
           {/* Ear indicator - understanding credibility */}
           {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
@@ -796,13 +807,23 @@ function QuotedStory({
         <div className="mb-2">
           <StoryImage
             src={story.imageUrl}
-            authorName={author?.name ?? 'Author'}
+            authorName={stripAgentPrefix(author?.name) || 'Author'}
           />
         </div>
       )}
-      {/* Story text — strip hashtags that are rendered as TagPills */}
+      {/* Story text — strip hashtags (rendered as TagPills) and the quote label.
+          P1212 §5: this component was the EIGHTH surface, and the parity census missed it
+          because the census lists files and this one is module-private to a POINT card.
+          It called `stripHashtags` alone, so the profile point card's story expander
+          printed `Supporting quotes from {Name}` with no quote block under it — the exact
+          §1 defect, on a surface §5 was about to widen to the feed. */}
       {(() => {
-        const cleanText = stripHashtags(story.text, story.tags ?? []);
+        // The prototype `Story` shape carries no `tags` field, so this is `undefined`
+        // for every caller that converts from production — exactly what the previous
+        // `stripHashtags(story.text, story.tags ?? [])` resolved to at runtime. Read
+        // through a widening cast rather than changing the shape: callers that DO
+        // spread a production object still get their hashtags stripped.
+        const cleanText = storyTextForDisplay(story.text, (story as { tags?: string[] }).tags);
         return !textExpanded && cleanText.length > 200 ? (
           <p className="text-sm text-gray-800 break-words">
             {linkifyText(cleanText.slice(0, 200))}

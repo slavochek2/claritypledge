@@ -19,7 +19,7 @@ import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
 import { analytics } from '@/lib/mixpanel';
 import { parseTags, serializeTags, filterByTags, collapseToLatest } from '@/lib/feed-utils';
-import type { StoryWithAuthor, PointWithUserPosition, PositionType } from '@/app/types';
+import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
 
 type FeedTab = 'points' | 'stories';
 
@@ -68,6 +68,9 @@ export function FeedPage() {
   // now server-side filtered by the active tag and can't double as the cloud source.
   const [cloudStories, setCloudStories] = useState<StoryWithAuthor[]>([]);
   const [cloudPoints, setCloudPoints] = useState<PointWithUserPosition[]>([]);
+  // P1212 §5 — undefined until the link query resolves; see the effect below.
+  const [storyPointsMap, setStoryPointsMap] = useState<Map<string, PointSummary[]>>();
+  const [pointStoriesMap, setPointStoriesMap] = useState<Map<string, StoryWithAuthor[]>>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,6 +139,41 @@ export function FeedPage() {
       if (!isStale()) setLoading(false);
     }
   }, [session?.user?.id, ascending, activeTags]);
+
+  // P1212 §5 — point<->story links for the expanders, in ONE query per tab.
+  //
+  // Deliberately its OWN effect rather than another leg of the Promise.all above: the
+  // feed's first paint must not wait on a link query it does not need to render a card.
+  // Until the map arrives the cards get `undefined`, which renders no footer at all — the
+  // "not loaded" state, distinct from an empty array's "loaded, none linked". A card that
+  // flashed `0 stories` before its links landed would be stating a falsehood about the
+  // point rather than a fact about the fetch.
+  //
+  // Only the ACTIVE tab is fetched. The inactive tab's cards are not mounted, so fetching
+  // its links would be a round-trip for markup nobody is looking at.
+  const visibleStoryIds = useMemo(() => stories.map(s => s.id), [stories]);
+  const visiblePointIds = useMemo(() => points.map(p => p.id), [points]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (activeTab === 'stories') {
+      if (visibleStoryIds.length === 0) return;
+      storiesService
+        .getPointsForStories(visibleStoryIds)
+        .then(map => { if (!cancelled) setStoryPointsMap(map); })
+        .catch(() => { /* expander stays hidden; the feed itself still renders */ });
+    } else {
+      if (visiblePointIds.length === 0) return;
+      storiesService
+        .getStoriesForPoints(visiblePointIds)
+        .then(map => { if (!cancelled) setPointStoriesMap(map); })
+        .catch(() => { /* expander stays hidden; the feed itself still renders */ });
+    }
+
+    return () => { cancelled = true; };
+  }, [activeTab, visibleStoryIds, visiblePointIds]);
+
 
   useEffect(() => {
     fetchData();
@@ -461,6 +499,7 @@ export function FeedPage() {
                       point={point}
                       activeTag={activeTags[0]}
                       onPointRemoved={handlePointRemoved}
+                      linkedStories={pointStoriesMap?.get(point.id) ?? (pointStoriesMap ? [] : undefined)}
                     />
                   ))
                 : (filteredStories as StoryWithAuthor[]).map((story) => (
@@ -468,6 +507,7 @@ export function FeedPage() {
                       key={story.id}
                       story={story}
                       activeTag={activeTags[0]}
+                      linkedPoints={storyPointsMap?.get(story.id) ?? (storyPointsMap ? [] : undefined)}
                     />
                   ))
               }

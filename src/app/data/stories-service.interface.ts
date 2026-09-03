@@ -9,6 +9,7 @@ import type {
   StoryWithPoints,
   StoryVersion,
   StoryVisibility,
+  PointSummary,
 } from '@/app/types';
 
 export interface StoriesService {
@@ -83,6 +84,20 @@ export interface StoriesService {
     pointIds: string[],
     excludeStoryId?: string
   ): Promise<Map<string, StoryWithAuthor[]>>;
+
+  /**
+   * P1212 §5 — the reverse of `getStoriesForPoints`, for the story->point expander.
+   *
+   * Returns a Map<storyId, PointSummary[]>. ONE query for the whole page: the feed
+   * renders up to a page of story cards and a per-card fetch would be the N+1 this
+   * repo's data-fetching rule exists to prevent.
+   *
+   * Does NOT select `points.context`. The column is optional on `PointSummary`, the
+   * expander shows only the statement, and P1095 is retiring it — the test database has
+   * already dropped it while main's other queries still ask for it and 400. Selecting the
+   * minimum keeps this working on both schemas and through that retirement.
+   */
+  getPointsForStories(storyIds: string[]): Promise<Map<string, PointSummary[]>>;
 
   // ============================================================================
   // UPDATE

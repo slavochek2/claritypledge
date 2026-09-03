@@ -35,7 +35,27 @@ import { QUOTE_LABEL_PREFIX, storyTextForDisplay, stripQuoteLabel } from '@/lib/
 import { stripHashtags } from '@/lib/utils';
 
 const SRC = join(__dirname, '..');
-const read = (rel: string) => readFileSync(join(SRC, rel), 'utf8');
+
+/**
+ * STRIP COMMENTS BEFORE MATCHING — the same rule p1212-agent-surface-contract.test.ts
+ * learned, and it bites in BOTH directions.
+ *
+ * There, a comment naming `MachineChip` turned an assertion green while no component
+ * referenced the chip in code — a false pass. Here it produced the opposite: documenting
+ * the eighth surface required writing the label string into a comment explaining the
+ * defect, and `does not carry its own copy of the label string` went red on the prose
+ * while the code was correct — a false fail, which is the failure mode that pressures you
+ * to delete the explanation rather than fix the test.
+ *
+ * A source-contract assertion is a claim about CODE. Comments are not code.
+ */
+function codeOnly(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')      // block comments, including JSX {/* … */}
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 '); // line comments, sparing the // in URLs
+}
+
+const read = (rel: string) => codeOnly(readFileSync(join(SRC, rel), 'utf8'));
 
 /**
  * `renders quotes` — the surface mounts StoryVideoQuotes, so the label it shows is that
@@ -52,15 +72,40 @@ const read = (rel: string) => readFileSync(join(SRC, rel), 'utf8');
  */
 type QuotePolicy = 'renders quotes' | 'suppresses label';
 
-const SURFACES: ReadonlyArray<{ name: string; file: string; policy: QuotePolicy }> = [
-  { name: 'Feed story card', file: 'app/components/feed/feed-story-card.tsx', policy: 'suppresses label' },
-  { name: 'Point detail / linked story', file: 'app/components/social/story-card-with-links.tsx', policy: 'suppresses label' },
-  { name: 'Story detail', file: 'app/components/social/StoryCardDetail.tsx', policy: 'renders quotes' },
-  { name: 'Profile (StoryCardFull)', file: 'app/pages/profile-page-v2.tsx', policy: 'suppresses label' },
-  { name: 'Live / sealed letter', file: 'app/components/partners/live-story-card-expanded.tsx', policy: 'renders quotes' },
+/**
+ * Whether the surface is a story CARD (must route media through StoryMedia) or a compact
+ * EXCERPT of a story shown inside something else (a point card's expander), where a video
+ * player would be wrong. Added with the eighth surface — see the QuotedStory row below.
+ */
+type MediaPolicy = 'card' | 'excerpt';
+
+const SURFACES: ReadonlyArray<{ name: string; file: string; policy: QuotePolicy; media: MediaPolicy }> = [
+  { name: 'Feed story card', file: 'app/components/feed/feed-story-card.tsx', policy: 'suppresses label', media: 'card' },
+  { name: 'Point detail / linked story', file: 'app/components/social/story-card-with-links.tsx', policy: 'suppresses label', media: 'card' },
+  { name: 'Story detail', file: 'app/components/social/StoryCardDetail.tsx', policy: 'renders quotes', media: 'card' },
+  { name: 'Profile (StoryCardFull)', file: 'app/pages/profile-page-v2.tsx', policy: 'suppresses label', media: 'card' },
+  { name: 'Live / sealed letter', file: 'app/components/partners/live-story-card-expanded.tsx', policy: 'renders quotes', media: 'card' },
   // §4d — the seventh surface. Private to StoryCardDetail.tsx, which is why it shares a
   // file with "Story detail" and why that file must satisfy BOTH policies.
-  { name: 'Nested LinkedStoryCard', file: 'app/components/social/StoryCardDetail.tsx', policy: 'suppresses label' },
+  { name: 'Nested LinkedStoryCard', file: 'app/components/social/StoryCardDetail.tsx', policy: 'suppresses label', media: 'card' },
+  /**
+   * THE EIGHTH SURFACE, found 2026-09-03 while implementing §5.
+   *
+   * `QuotedStory` is module-private to point-card-with-links.tsx — a POINT card file, which
+   * is why a census built from story-card filenames missed it twice. It renders story text
+   * inside the profile point card's story expander and in live sessions, and it called
+   * `stripHashtags` alone: the label reached the screen with no quote block under it, the
+   * exact §1 defect, verified in a browser at /p/machine-yann-lecun before the fix.
+   *
+   * `excerpt`, not `card`: it is a compact quotation of a story inside another card. It
+   * shows author, text and image; mounting a video player there was never the intent, so
+   * the StoryMedia assertion below would be demanding the wrong thing.
+   *
+   * The feed point card (§5) renders THIS component rather than its own preview, so it
+   * inherits the fix and is deliberately not a separate row — a second excerpt renderer
+   * would be the ninth surface.
+   */
+  { name: 'QuotedStory (point-card expander)', file: 'app/components/social/point-card-with-links.tsx', policy: 'suppresses label', media: 'excerpt' },
 ];
 
 describe('P1212 DW-7 — label and bodies are the same condition on every surface', () => {
@@ -131,9 +176,12 @@ describe('P1212 DW-7 — label and bodies are the same condition on every surfac
   // DW-4. The profile card handled `imageUrl` itself and never imported StoryMedia, so a
   // shared profile — the link most likely to reach someone who has never seen the site —
   // showed no video at all.
-  it.each(SURFACES)('$name renders media through StoryMedia, not a private image path', ({ file }) => {
-    expect(read(file)).toContain('StoryMedia');
-  });
+  it.each(SURFACES.filter(s => s.media === 'card'))(
+    '$name renders media through StoryMedia, not a private image path',
+    ({ file }) => {
+      expect(read(file)).toContain('StoryMedia');
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
