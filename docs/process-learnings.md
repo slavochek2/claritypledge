@@ -1037,3 +1037,33 @@ open specs sitting in the 1,000,000 band, so `max+1` reproduces the ratchet. Don
 `/create-spec` in a populated column returns a rank in the same scale as the hand-ordered entries.
 
 ---
+
+## Redesign the two points scanners that bite on one phrasing, and close three latent gaps
+
+**Date:** 2026-09-03
+**Status:** proposed
+**due:** week
+
+Five findings from the /finish code review at the P1210 ship, all deferred deliberately.
+**The scanners (a design change, not a regex tune):** `scripts/points/store-inspection-scan.mjs`
+matches only `ls|find|cat|stat|test -f`, so `grep`/`head`/`tail`/`wc`/`du`/`file`/`tree`/`less`/`readlink`
+all evade it, and it requires the verb and the store name on the **same line** — a two-line
+instruction slips past, and neither fixture covers the split. `scripts/points/input-block-scan.mjs`
+anchors `INPUT_ASK` on the literal word "ask", so *"confirm the event tag with the founder"* or
+*"get the filing identity from the operator"* bypass the very pattern DW-16 exists to catch.
+**Widening was attempted at the ship and reverted:** the widened gate produced three false
+positives on already-correct files, one of them a line describing `grep -F` against a transcript
+read as a store inspection. P1210 §12's non-goal forbids tuning these predicates, so this needs a
+different detection shape, not a longer verb list.
+**Latent, no current failure:** `two-callers.mjs`'s "invoked by a skill file" is a raw substring
+test that cannot tell a runnable stanza from a prose mention (a future predicate that is only ever
+*mentioned* would read as wired); `redact-run.mjs`'s `codeForPerson()` matches on surname alone, so
+two arguers sharing a surname would be misattributed in the cast codes, with no fixture covering it.
+**Also carried from the same ship:** DW-21 (`no-vacuous-tests.mjs`) and DW-23 (`verify-fixture.mjs`)
+are manual-only gates by deliberate decision — run both by hand before any change under
+`scripts/points/`.
+**Droppable if:** the disagreement pipeline stops being run, or the six skill files are replaced by
+something that is not agent-read markdown — at which point the scanners have no surface to guard.
+Sources: `docs/decisions.md` 2026-09-03 [process] ×2 + [technical]; `features/uat/p1210.md`.
+
+---
