@@ -161,9 +161,36 @@ export function FullArticlePage() {
         .katex-display {
           margin: 2rem 0;
           padding: 1.5rem;
-          background: hsl(var(--muted) / 0.3);
+          background-color: hsl(var(--muted) / 0.3);
           border-radius: 0.5rem;
           overflow-x: auto;
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--muted-foreground) / 0.5) transparent;
+          /* Scroll shadows: the two cover layers are attached to the CONTENT (local) and the
+             two shadow layers to the BOX (scroll), so an edge shadow shows only while there is
+             more formula in that direction. This is the affordance that actually renders on
+             every platform — a styled scrollbar is invisible under macOS/iOS overlay
+             scrollbars, which is how a 891px formula in a 240px box read as truncated. */
+          background-image:
+            linear-gradient(to right, hsl(var(--background)), hsl(var(--background) / 0)),
+            linear-gradient(to left, hsl(var(--background)), hsl(var(--background) / 0)),
+            radial-gradient(farthest-side at 0 50%, hsl(var(--foreground) / 0.28), hsl(var(--foreground) / 0)),
+            radial-gradient(farthest-side at 100% 50%, hsl(var(--foreground) / 0.28), hsl(var(--foreground) / 0));
+          background-position: 0 0, 100% 0, 0 0, 100% 0;
+          background-repeat: no-repeat;
+          background-size: 24px 100%, 24px 100%, 18px 100%, 18px 100%;
+          background-attachment: local, local, scroll, scroll;
+        }
+        .katex-display::-webkit-scrollbar {
+          height: 8px;
+          -webkit-appearance: none;
+        }
+        .katex-display::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .katex-display::-webkit-scrollbar-thumb {
+          background: hsl(var(--muted-foreground) / 0.5);
+          border-radius: 4px;
         }
         article code {
           font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
@@ -183,7 +210,7 @@ export function FullArticlePage() {
       <Button
         variant="outline"
         size="sm"
-        className="lg:hidden fixed top-[calc(5rem+env(safe-area-inset-top))] left-4 z-40 shadow-md bg-background"
+        className="lg:hidden fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 z-40 shadow-md bg-background"
         onClick={() => setIsMobileTocOpen(!isMobileTocOpen)}
         aria-label="Table of contents"
       >
@@ -192,7 +219,7 @@ export function FullArticlePage() {
 
       {/* Mobile TOC Dropdown */}
       {isMobileTocOpen && (
-        <div className="lg:hidden fixed top-32 left-4 right-4 z-40 bg-background border rounded-lg shadow-lg max-h-[60vh] overflow-y-auto">
+        <div className="lg:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-4 right-4 z-40 bg-background border rounded-lg shadow-lg max-h-[60vh] overflow-y-auto">
           <nav className="p-4 space-y-1">
             {mainSections.map((header) => (
               <a
@@ -309,7 +336,7 @@ export function FullArticlePage() {
                   We assume we understand each other, but often we're just guessing. When those guesses are wrong, we pay the price—in rework, in mistakes, in conflicts, in broken trust.
                 </p>
                 <p className="text-lg leading-relaxed">
-                  This is the <strong className="text-amber-500">Clarity Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S. (<a href="https://www.businesswire.com/news/home/20220125005525/en/Grammarly-and-Harris-Poll-Research-Estimates-U.S.-Businesses-Lose-%241.2-Trillion-Annually-to-Poor-Communication" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">source</a>).
+                  This is the <strong>Clarity Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S. (<a href="https://www.businesswire.com/news/home/20220125005525/en/Grammarly-and-Harris-Poll-Research-Estimates-U.S.-Businesses-Lose-%241.2-Trillion-Annually-to-Poor-Communication" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">source</a>).
                 </p>
                 <p className="text-lg leading-relaxed">
                   The problem isn't that we're careless—it's that we're human. Cognitive biases make us overestimate how clearly we communicate and how well we understand others. We operate under an <em>illusion of shared reality</em>.
@@ -343,7 +370,7 @@ export function FullArticlePage() {
               )}
             </div>
 
-            <article className="prose prose-lg dark:prose-invert mx-auto text-justify
+            <article className="prose prose-lg dark:prose-invert mx-auto text-justify pb-28
               prose-headings:scroll-mt-24 prose-headings:font-serif prose-headings:text-left
               prose-h1:text-4xl prose-h1:font-bold prose-h1:mb-8 prose-h1:mt-0
               prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-16 prose-h2:mb-6 prose-h2:pb-2 prose-h2:border-b prose-h2:border-border
@@ -416,10 +443,10 @@ export function FullArticlePage() {
 
       {/* Floating CTA Button */}
       {showFloatingCTA && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-40 animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 sm:right-6 sm:bottom-6 z-40 animate-in slide-in-from-bottom-4">
           <Link
             to="/sign-pledge"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-2xl text-base sm:text-lg px-6 py-4 sm:px-8 sm:py-6 h-auto"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-2xl text-base sm:text-lg px-6 py-4 sm:px-8 sm:py-6 h-auto"
           >
             Take the Pledge
             <ArrowRightIcon className="ml-2 w-5 h-5" />
