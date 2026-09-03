@@ -5,8 +5,8 @@ rank: 1000066
 workstream: content
 created_date: '2026-09-01'
 tags: [presi, deck, positioning, wedge]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: fable
 exec_model: fable
 exec_effort: high
