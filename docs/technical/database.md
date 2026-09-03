@@ -226,7 +226,7 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 
 | Table | Purpose |
 |-------|---------|
-| `stories` | User-created content (title, content, understood_count) |
+| `stories` | User-created content (content, understood_count; `title` dropped by P701 — see P1227) |
 | `story_versions` | Immutable snapshots, auto-created by trigger |
 | `points` | Statements users take positions on |
 | `story_points` | Many-to-many junction (stories ↔ points); `author_id UUID NOT NULL` + `UNIQUE(author_id, point_id)` since P465 |

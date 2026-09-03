@@ -186,8 +186,28 @@ function requireAgentOperator(profile: Record<string, unknown> | null): string |
 // can drift from it. Adversarial review found the prior version declared this
 // array and hand-wrote an identical-looking select string beside it; deleting the
 // embed from the string left the array (and bindClaim) untouched and green.
-const STORY_COLUMNS = ['title', 'content', 'banner_url', 'video_url', `profiles!stories_author_id_fkey(name,${AGENT_EMBED})`] as const;
+// P1227: `title` is NOT here. P701 dropped `stories.title` (20260413110001) and this
+// select kept naming it, so PostgREST answered 400 for every story and the crawler
+// saw the "Preview temporarily unavailable" card for five months. The card's title
+// mirrors the story page's own document title (`Story by {author}` — see
+// src/app/pages/story-detail-page.tsx `<SEO title=…>`), so preview and page agree.
+// p1227-story-columns.test.ts asserts every column here exists in the migrations.
+export const STORY_COLUMNS = ['content', 'banner_url', 'video_url', `profiles!stories_author_id_fkey(name,${AGENT_EMBED})`] as const;
 bindClaim(STORY_COLUMNS, AGENT_EMBED, 'is a machine-generated reading, operated by {operator}');
+
+/**
+ * P1227: the story card's title, derived the same way the story page derives its
+ * document title (`Story by {author}`) — there is no stored title to read since P701.
+ * An agent reading is named as a reading, never as the person (P1141 contract).
+ */
+export function storyTitle(authorName: string, isAgentReading: boolean): string {
+  return isAgentReading ? `Story read by ${authorName}` : `Story by ${authorName}`;
+}
+
+/** Same excerpt rule as the story page's `storyExcerpt` (strip markdown, 160 chars, one line). */
+export function storyExcerpt(content: string): string {
+  return content.replace(/[#*_~`>[\]]/g, '').slice(0, 160).replace(/\n/g, ' ').trim();
+}
 
 async function ogForStory(id: string): Promise<OgData | null> {
   const row = await supabaseGet(
@@ -199,14 +219,11 @@ async function ogForStory(id: string): Promise<OgData | null> {
   const profile = row.profiles as Record<string, unknown> | null;
   const authorName = (profile?.name as string) || 'Someone';
   const operator = requireAgentOperator(profile);
-  const title = (row.title as string) || 'A Story';
   const content = (row.content as string) || '';
-  const excerpt = content.replace(/[#*_~`>[\]]/g, '').slice(0, 160).replace(/\n/g, ' ').trim();
+  const excerpt = storyExcerpt(content);
 
   return {
-    title: operator
-      ? `${title} — read by ${authorName} | ClarityPledge`
-      : `${title} — by ${authorName} | ClarityPledge`,
+    title: `${storyTitle(authorName, operator !== null)} | ClarityPledge`,
     description: operator
       ? `A machine-generated reading, not the person. ${authorName} is operated by ${operator} on ClarityPledge.`
       : (excerpt || `A story shared on ClarityPledge by ${authorName}.`),
