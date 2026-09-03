@@ -50,6 +50,40 @@ async function signIn(email: string): Promise<SupabaseClient> {
   return makeUserClient(data!.session!.access_token);
 }
 
+
+/**
+ * Management-API SQL runner (TEST project). Playwright loads .env.test.local,
+ * which carries no access token; fall back to the repo's .env.local so the
+ * transactional checks below can run locally. Returns null when no token is
+ * available — callers skip.
+ */
+async function managementQuery(sql: string): Promise<Record<string, unknown>[] | null> {
+  const ref = process.env.VITE_SUPABASE_URL?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+  // .env.local first: Playwright's dotenv loads .env.test.local, whose access
+  // token is a different (stale) PAT on this machine — the P1173-era keychain
+  // shadow. The repo's .env.local holds the live one.
+  let token: string | undefined;
+  {
+    try {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const envFile = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
+      token = envFile.match(/^SUPABASE_ACCESS_TOKEN=(.+)$/m)?.[1]?.trim().replace(/^"|"$/g, '');
+    } catch {
+      token = undefined;
+    }
+  }
+  token = token || process.env.SUPABASE_ACCESS_TOKEN;
+  if (!token || !ref) return null;
+  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: sql }),
+  });
+  if (!res.ok) throw new Error(`management API ${res.status}: ${await res.text()}`);
+  return (await res.json()) as Record<string, unknown>[];
+}
+
 test.describe('P1222: public agreements do not expose partner_email / invitation_token', () => {
   let creator: TestUser;
   let partner: TestUser;
@@ -259,6 +293,13 @@ test.describe('P1222: pending invitations require a CONFIRMED auth email', () =>
       type: 'magiclink',
     });
     if (verifyError || !verified.session) return null;
+    // Verifying the magic link CONFIRMS the address as a side effect. The
+    // fixture is "a JWT exists for an UNCONFIRMED email", so un-confirm the
+    // fixture user again (own test row, TEST project) while the JWT stays valid.
+    const reset = await managementQuery(
+      `UPDATE auth.users SET email_confirmed_at = NULL WHERE id = '${unconfirmedUserId}' RETURNING id`,
+    );
+    if (!reset || reset.length !== 1) return null;
     return makeUserClient(verified.session.access_token);
   }
 
@@ -334,11 +375,12 @@ test.describe('P1222: red state against the prod-shaped policy (transactional, r
   });
 
   test('with the P422 policy in place, anon sees partner_email and invitation_token; the transaction is rolled back', async () => {
-    const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
-    const ref = process.env.VITE_SUPABASE_URL?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
-    test.skip(!accessToken || !ref, 'SUPABASE_ACCESS_TOKEN / project ref not available — transactional red-state check not run');
+    const probe = await managementQuery('SELECT 1 AS ok');
+    test.skip(probe === null, 'no Management API access token available — transactional red-state check not run');
 
-    const sql = `
+    // One request = one transaction on the Management API; explicit ROLLBACK
+    // closes it and a failure anywhere also rolls back.
+    const rows = await managementQuery(`
       BEGIN;
       CREATE POLICY "p1222_redstate_p422" ON public.clarity_agreements FOR SELECT
         USING (visibility = 'public' OR creator_profile_id = auth.uid() OR partner_profile_id = auth.uid());
@@ -346,20 +388,13 @@ test.describe('P1222: red state against the prod-shaped policy (transactional, r
       SELECT id, partner_email, invitation_token
       FROM public.clarity_agreements
       WHERE id = '${publicActive.id}';
-    `;
-    // The Management API runs the text in a single transaction; an explicit
-    // ROLLBACK closes it. A failure anywhere also rolls back.
-    const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: sql + '\nROLLBACK;' }),
-    });
-    expect(res.ok, `management API ${res.status}`).toBe(true);
-    const rows = (await res.json()) as Record<string, unknown>[];
-    expect(rows).toHaveLength(1);
-    expect(rows[0].id).toBe(publicActive.id);
-    expect(rows[0].partner_email).toBe(partner.email);
-    expect(rows[0].invitation_token).toBe(publicActive.invitationToken);
+      ROLLBACK;
+    `);
+    expect(rows).not.toBeNull();
+    expect(rows!).toHaveLength(1);
+    expect(rows![0].id).toBe(publicActive.id);
+    expect(rows![0].partner_email).toBe(partner.email);
+    expect(rows![0].invitation_token).toBe(publicActive.invitationToken);
 
     // Rolled back: the temporary policy is gone and anon sees nothing.
     const { data: after } = await makeAnonClient()
@@ -367,11 +402,9 @@ test.describe('P1222: red state against the prod-shaped policy (transactional, r
       .select('id')
       .eq('id', publicActive.id);
     expect(after ?? []).toEqual([]);
-    const check = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: "SELECT count(*)::int AS n FROM pg_policies WHERE tablename='clarity_agreements' AND policyname='p1222_redstate_p422'" }),
-    });
-    expect(((await check.json()) as { n: number }[])[0].n).toBe(0);
+    const check = await managementQuery(
+      "SELECT count(*)::int AS n FROM pg_policies WHERE tablename='clarity_agreements' AND policyname='p1222_redstate_p422'",
+    );
+    expect((check![0] as { n: number }).n).toBe(0);
   });
 });

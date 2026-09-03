@@ -153,7 +153,7 @@ party-only columns.
 
 ## Acceptance Criteria
 
-- [x] `e2e/integration/p1222-public-agreement-pii.spec.ts` — 6/6 on TEST before and after Migration B
+- [x] `e2e/integration/p1222-public-agreement-pii.spec.ts` — 10/10 on TEST after migrations A/B/C/D (see Evidence); 6/6 before the codex follow-up
       (`ce02c269`, `6844d9bc`). Caveat: the two defect tests are green pre-B on test only because
       test already carried the parties-only policy out-of-band; the red state is the prod `GET` in
       Reproduction step 1 (three rows, 2026-09-01, private log)
@@ -169,3 +169,52 @@ party-only columns.
       (§ 2026-09-01 "P1222 built in w17")
 - [ ] **Founder step:** Migration A (`20260901233000`) applied to prod, client deployed, Migration B
       (`20260901234000`) applied to prod — then the reproduction `GET` in step 1 returns `[]`
+
+## Evidence
+
+**Applied to TEST (Management API, from inside w17):** `20260901233000`, `20260901234000`,
+`20260901235000`, `20260901236000` — all four present in `supabase_migrations.schema_migrations`
+on the test project. Post-apply catalogue read of `pg_policies` for `clarity_agreements`:
+
+```
+SELECT  | Agreements readable by parties only | {anon,authenticated}
+        | ((creator_profile_id = auth.uid()) OR (partner_profile_id = auth.uid()))
+UPDATE  | Parties can update their agreements | {authenticated}
+INSERT  | Authenticated users can create agreements
+```
+
+No `visibility`, no `email`, no `pending` branch — the email-claim disjunct is gone.
+
+**Integration suite** (`npx playwright test --project=integration
+e2e/integration/p1222-public-agreement-pii.spec.ts`, 2026-09-03): **10 passed, 0 failed, 0 skipped**
+(2 of the 10 flaked on the first attempt with `Client network socket disconnected before secure TLS
+connection was established` reaching the Management API under concurrent load, and passed on retry
+— network, not assertion). None of the `test.skip` guards fired, so the confirmed-email fixtures
+were genuinely exercised rather than skipped. Covering, in particular:
+
+- an `email_confirm:false` user holding a valid JWT reads **nothing** for its own pending
+  invitation — neither `from('clarity_agreements')` nor `get_my_pending_invitations()`;
+- a confirmed invitee **does** read that row through `get_my_pending_invitations()` **with** the
+  invitation token, and reads nothing for it from the table;
+- `anon` calling `get_my_pending_invitations()` is refused with `42501`;
+- the readers never return `terminated_by`;
+- the transactional red state: with the P422 policy recreated inside one rolled-back transaction,
+  `anon` does see `partner_email` + `invitation_token` — then the rollback is asserted.
+
+**Review items re-verified by command on the branch:**
+- `supabase/deploy-manifest.json` lists `20260901233000`, `20260901234000`, `20260901235000`,
+  `20260901236000`.
+- `grep -n terminated_by supabase/migrations/20260901235000_*.sql` → comments only; neither
+  reader's `RETURNS TABLE` carries the column.
+- `isRpcMissing` (`error.code === 'PGRST202'`) is called at two sites in
+  `src/app/data/agreements-service-real.ts` — the `getAgreementsForProfile` and
+  `getIncomingInvitations` reader calls — so a client deployed ahead of the readers falls back to
+  the table read instead of hard-failing.
+
+**Production order (unchanged, restated as the operational contract):**
+1. `20260901233000` + `20260901235000` — client-safe, additive, no `requires-frontend`.
+2. Deploy the client (`ce02c269` + `f157a855`).
+3. `20260901234000` + `20260901236000` — both `requires-frontend`; `migrate.sh` refuses them until
+   the client commit is an ancestor of `origin/main`.
+
+Then re-run the reproduction `GET`; expect `[]`.
