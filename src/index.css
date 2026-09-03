@@ -149,28 +149,6 @@ body {
   }
 }
 
-/* P1220 — reduced-motion guard for the Tailwind animation utilities.
- * Spinners, pulses and enter/exit animations collapse to their final frame;
- * bounce and ping (which never rest at a neutral frame) are removed outright.
- * Lives in @layer base so it stays a fallback, but !important is required
- * because the utilities layer would otherwise win on source order. */
-@layer base {
-  @media (prefers-reduced-motion: reduce) {
-    .animate-spin,
-    .animate-pulse,
-    .animate-fade-in,
-    .animate-in,
-    .animate-out {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-    }
-    .animate-bounce,
-    .animate-ping {
-      animation: none !important;
-    }
-  }
-}
-
 .rounded-sm {
   border-radius: calc(var(--radius) - 4px);
 }
