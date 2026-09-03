@@ -325,6 +325,24 @@ for values; this applies it to the registry.
    short-lived rollback escrow during a swap — a different mechanism that shares a name.
 3. Should `TEST_SUPABASE_SERVICE_ROLE_KEY` (still legacy `eyJ…`) migrate in the same pass, or
    after? Not assessed.
+4. **The prod DB connection string has a SECOND copy that this spec's own recommendation leans
+   on, and no spec in the `keyring` workstream currently owns it.** `secrets.SUPABASE_DB_URL`
+   in GitHub Actions — read nightly by `db-backup.yml` (`cron: '0 3 * * *'`), verified
+   2026-09-03 as the *only* critical-tier credential in any of the 12 workflow files.
+   The tension is worth stating plainly rather than leaving implicit:
+   **Open Question 1(d) treats that credential as an asset** — a principal already outside the
+   local-shell threat model, which is precisely why extending the backup job costs no new
+   credential. That reasoning is sound *for this spec's adversary*.
+   **[P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) cannot reach
+   it.** P1239 locks the local `.env.local` copy behind a per-access confirmation; the GitHub
+   copy is untouched, so prod-DB access remains standing-readable to anything that compromises
+   the GitHub account or a workflow. Locking the local file does **not** break the nightly backup
+   (verified — the workflow never reads `.env.local`), and no exemption is needed. But neither
+   spec should be described as removing standing prod-DB access while this copy exists.
+   **Not assessed:** whether that is acceptable (a different adversary, plausibly better
+   defended than a local shell), or whether it needs its own control. Recommendation is to
+   answer it here rather than in P1239 — this spec owns credential *reach*, P1239 owns the local
+   file's *readability*. Filed from P1239's measurement pass, which is why it appears late.
 
 ## Related
 
