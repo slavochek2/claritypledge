@@ -1,16 +1,16 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 1000065
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [observability, csp, analytics, dependencies]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-09-03
 ---
 
 # P1216: Remove LogRocket entirely
