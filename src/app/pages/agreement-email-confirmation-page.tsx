@@ -95,7 +95,7 @@ export function AgreementEmailConfirmationPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 -ml-1 min-h-11 px-1"
         aria-label="Go back to agreement"
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft className="w-4 h-4" />
         Back to agreement
       </button>
 

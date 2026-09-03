@@ -116,7 +116,7 @@ function TerminateDialog({
           <Button variant="destructive" onClick={onConfirm} disabled={isTerminating}>
             {isTerminating ? (
               <>
-                <Loader2 size={16} className="animate-spin mr-1" />
+                <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 Terminating...
               </>
             ) : (

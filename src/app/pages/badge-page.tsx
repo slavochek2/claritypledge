@@ -214,7 +214,7 @@ export function BadgePage() {
             onClick={() => navigate(`/p/${profile.slug}`)}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
-            <ArrowLeft size={16} className="mr-1" />
+            <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </button>
 

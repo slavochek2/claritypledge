@@ -77,7 +77,7 @@ export function ClaritySessions({
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Radio size={16} className="text-gray-500" />
+          <Radio className="w-4 h-4 text-gray-500" />
           <span className="font-medium text-gray-900">Clarity Sessions</span>
           <span className="text-sm text-gray-500">({displayCount})</span>
         </div>
@@ -142,7 +142,7 @@ export function ClaritySessionsEmpty() {
   return (
     <div className="bg-white border border-border mx-2 mt-3 rounded-lg">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-        <Radio size={16} className="text-gray-500" />
+        <Radio className="w-4 h-4 text-gray-500" />
         <span className="font-medium text-gray-900">Clarity Sessions</span>
         <span className="text-sm text-gray-500">(0)</span>
       </div>

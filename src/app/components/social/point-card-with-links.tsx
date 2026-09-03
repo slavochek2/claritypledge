@@ -322,7 +322,7 @@ export function PointCardWithLinks({
               <div className="flex items-start gap-3">
                 {/* Pin icon column - matches StoryCard avatar width */}
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
-                  <Pin size={16} className="rotate-45" />
+                  <Pin className="w-4 h-4 rotate-45" />
                 </div>
 
                 {/* Content column */}
@@ -462,7 +462,7 @@ export function PointCardWithLinks({
                           className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                           aria-label="Open point"
                         >
-                          <ExternalLink size={16} />
+                          <ExternalLink className="w-4 h-4" />
                         </button>
                       </MobileTooltip>
                     )}
@@ -628,7 +628,7 @@ export function PointCardWithLinks({
                     className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                     aria-label="Open point"
                   >
-                    <ExternalLink size={16} />
+                    <ExternalLink className="w-4 h-4" />
                   </button>
                 </MobileTooltip>
               )}

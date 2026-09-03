@@ -81,8 +81,7 @@ export function ChatContextHeader({ pointId, pointText, userPosition, sticky = t
       <div className="px-4 flex items-center gap-2 py-2 min-h-[48px]">
         {/* Pin icon */}
         <Pin
-          size={16}
-          className="flex-shrink-0 text-muted-foreground"
+          className="w-4 h-4 flex-shrink-0 text-muted-foreground"
           aria-hidden="true"
         />
 
@@ -131,7 +130,7 @@ export function ChatContextHeader({ pointId, pointText, userPosition, sticky = t
           aria-label="Open point detail"
           className="flex-shrink-0 flex items-center justify-center w-11 h-11 -mr-3 -my-1.5 text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ExternalLink size={16} aria-hidden="true" />
+          <ExternalLink className="w-4 h-4" aria-hidden="true" />
         </Link>
       </div>
       {visibilityLine && (

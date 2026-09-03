@@ -154,7 +154,7 @@ export function ShareDialog({
                 onClick={handleNativeShare}
                 className="w-full mt-2 bg-blue-500 hover:bg-blue-600"
               >
-                <Share2 size={16} className="mr-2" />
+                <Share2 className="w-4 h-4 mr-2" />
                 Share...
               </Button>
             )}
@@ -269,7 +269,7 @@ export function ShareButton({ type, id, url, className, title, description, from
           className={className || "p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"}
           aria-label={`Share ${type}`}
         >
-          <Share2 size={16} />
+          <Share2 className="w-4 h-4" />
         </button>
       </MobileTooltip>
       <ShareDialog

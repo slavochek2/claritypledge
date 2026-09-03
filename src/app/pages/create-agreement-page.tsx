@@ -315,7 +315,7 @@ export function CreateAgreementPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
         aria-label="Go back"
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft className="w-4 h-4" />
         Back
       </Button>
 

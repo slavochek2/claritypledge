@@ -132,7 +132,7 @@ export function ProfileConnectionsPage() {
           onClick={() => navigate(-1)}
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
-          <ArrowLeft size={16} className="mr-1" />
+          <ArrowLeft className="w-4 h-4 mr-1" />
           Back
         </button>
         <p className="text-sm text-muted-foreground">{error ?? 'Profile not found.'}</p>
@@ -159,7 +159,7 @@ export function ProfileConnectionsPage() {
         onClick={() => navigate(`/p/${profile.slug ?? profile.id}`)}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
-        <ArrowLeft size={16} className="mr-1" />
+        <ArrowLeft className="w-4 h-4 mr-1" />
         Back
       </button>
 

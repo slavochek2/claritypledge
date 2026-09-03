@@ -27,9 +27,9 @@ export function VisibilityLine({ visibility, source }: VisibilityLineProps) {
       }`}
     >
       {isPrivate ? (
-        <Lock size={16} className="text-amber-600 flex-shrink-0" />
+        <Lock className="w-4 h-4 text-amber-600 flex-shrink-0" />
       ) : (
-        <Globe size={16} className="text-blue-600 flex-shrink-0" />
+        <Globe className="w-4 h-4 text-blue-600 flex-shrink-0" />
       )}
       <span className={isPrivate ? 'text-amber-800' : 'text-blue-800'}>
         {isPrivate

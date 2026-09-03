@@ -237,7 +237,7 @@ function AddPointForm({
           >
             {isAdding ? (
               <>
-                <Loader2 size={16} className="animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
                 Retrying...
               </>
             ) : (
@@ -304,22 +304,22 @@ function AddPointForm({
                     >
                       {isAdding ? (
                         <>
-                          <Loader2 size={16} className="animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                           Adding...
                         </>
                       ) : docVisibility === 'private' ? (
                         <>
-                          <LockIcon size={16} />
+                          <LockIcon className="w-4 h-4" />
                           Add Private Point
                         </>
                       ) : docVisibility === 'public' ? (
                         <>
-                          <Globe size={16} />
+                          <Globe className="w-4 h-4" />
                           Add Public Point
                         </>
                       ) : (
                         <>
-                          <Globe size={16} />
+                          <Globe className="w-4 h-4" />
                           Add Public Point
                         </>
                       )}
@@ -485,7 +485,7 @@ function EditStoryCard({
                   >
                     {isSaving ? (
                       <>
-                        <Loader2 size={16} className="animate-spin mr-1" />
+                        <Loader2 className="w-4 h-4 animate-spin mr-1" />
                         Saving…
                       </>
                     ) : (
@@ -558,7 +558,7 @@ function DeleteStoryDialog({
           >
             {isDeleting ? (
               <>
-                <Loader2 size={16} className="animate-spin mr-1" />
+                <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 Deleting…
               </>
             ) : (

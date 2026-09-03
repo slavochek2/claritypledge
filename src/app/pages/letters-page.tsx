@@ -132,7 +132,7 @@ export function LettersPage() {
                   disabled={creating}
                   className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
                 >
-                  <Lock size={16} className="text-muted-foreground flex-shrink-0" />
+                  <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <div>
                     <div className="font-medium">Private Draft</div>
                     <div className="text-xs text-muted-foreground">Only people you share with can see this</div>
@@ -143,7 +143,7 @@ export function LettersPage() {
                   disabled={creating}
                   className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm hover:bg-accent transition-colors text-left"
                 >
-                  <Globe size={16} className="text-muted-foreground flex-shrink-0" />
+                  <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <div>
                     <div className="font-medium">Public Draft</div>
                     <div className="text-xs text-muted-foreground">Visible on your profile</div>

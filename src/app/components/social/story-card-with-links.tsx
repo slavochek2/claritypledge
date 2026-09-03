@@ -439,7 +439,7 @@ export function StoryCardWithLinks({
                       className="min-w-10 min-h-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       aria-label="Unlink point from story"
                     >
-                      <Unlink2 size={16} />
+                      <Unlink2 className="w-4 h-4" />
                     </button>
                   </MobileTooltip>
                 )}
@@ -520,7 +520,7 @@ export function StoryCardWithLinks({
                       className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                       aria-label="Open story"
                     >
-                      <ExternalLink size={16} />
+                      <ExternalLink className="w-4 h-4" />
                     </button>
                   </MobileTooltip>
                 )}
@@ -715,7 +715,7 @@ function QuotedPoint({
         <div className="flex items-start gap-3">
           {/* Pin icon column */}
           <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
-            <Pin size={16} className="rotate-45" />
+            <Pin className="w-4 h-4 rotate-45" />
           </div>
 
           {/* Content column */}

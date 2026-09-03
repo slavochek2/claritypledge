@@ -301,7 +301,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
                   className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                   aria-label="Open story"
                 >
-                  <ExternalLink size={16} />
+                  <ExternalLink className="w-4 h-4" />
                 </Link>
               )}
             </div>

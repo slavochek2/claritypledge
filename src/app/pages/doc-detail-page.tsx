@@ -519,7 +519,7 @@ export function DocDetailPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to={`/create?docId=${doc.id}`}>
-                        {doc.visibility === 'private' ? <Lock size={16} /> : <Globe size={16} />}
+                        {doc.visibility === 'private' ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
                         Share a story
                       </Link>
                     </DropdownMenuItem>

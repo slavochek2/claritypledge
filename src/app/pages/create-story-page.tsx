@@ -296,7 +296,7 @@ export function CreateStoryPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
         aria-label={isDocContext ? `Back to ${docTitle}` : 'Go back'}
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft className="w-4 h-4" />
         {isDocContext ? docTitle || 'Back' : 'Back'}
       </Button>
 
@@ -424,12 +424,12 @@ export function CreateStoryPage() {
               </>
             ) : visibility === 'private' ? (
               <>
-                <Lock size={16} />
+                <Lock className="w-4 h-4" />
                 Save Private Story
               </>
             ) : (
               <>
-                <Globe size={16} />
+                <Globe className="w-4 h-4" />
                 Publish Public Story
               </>
             )}

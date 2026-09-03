@@ -181,7 +181,7 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
               className="w-full max-w-sm min-h-11 gap-2 bg-[#0044CC] hover:bg-[#0033AA] text-white"
               onClick={handleStartRecording}
             >
-              <Mic size={16} aria-hidden="true" />
+              <Mic className="w-4 h-4" aria-hidden="true" />
               Record voice message
             </Button>
             <button

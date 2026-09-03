@@ -71,7 +71,7 @@ export function DocHeader({ doc, isOwner, onDocUpdated, children }: DocHeaderPro
         onClick={() => navigate('/letters?tab=drafts')}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft className="w-4 h-4" />
         <span>Letters</span>
       </button>
 

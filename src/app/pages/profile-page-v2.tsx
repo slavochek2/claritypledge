@@ -791,7 +791,7 @@ export function ProfilePageV2() {
             onClick={() => navigate('/events')}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
-            <ArrowLeft size={16} className="mr-1" />
+            <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </button>
 
@@ -1628,7 +1628,7 @@ function StoryCardFull({
                   className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
                   aria-label="Edit story"
                 >
-                  <Pencil size={16} />
+                  <Pencil className="w-4 h-4" />
                 </button>
               </MobileTooltip>
               <MobileTooltip content="Delete story">
@@ -1650,7 +1650,7 @@ function StoryCardFull({
                   className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-muted rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Delete story"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </MobileTooltip>
             </>
@@ -1667,7 +1667,7 @@ function StoryCardFull({
               className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
               aria-label="Open story"
             >
-              <ExternalLink size={16} />
+              <ExternalLink className="w-4 h-4" />
             </button>
           </MobileTooltip>
         </div>
@@ -1811,7 +1811,7 @@ function PointCardFull({
           <div className="flex items-start gap-3">
             {/* Pin icon column */}
             <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 text-blue-600 dark:text-blue-400">
-              <Pin size={16} className="rotate-45" />
+              <Pin className="w-4 h-4 rotate-45" />
             </div>
 
             {/* Content column */}
@@ -1854,7 +1854,7 @@ function PointCardFull({
                   className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
                   aria-label="Open point"
                 >
-                  <ExternalLink size={16} />
+                  <ExternalLink className="w-4 h-4" />
                 </button>
               </MobileTooltip>
             </div>
