@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-08-21'
 created_date: '2026-08-21'
 tags: [rls, security, prod, data-integrity]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 driver: anomaly
 ---
 
