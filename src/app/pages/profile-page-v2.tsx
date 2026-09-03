@@ -68,6 +68,9 @@ import {
 import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
+import { StoryMedia } from '@/app/components/shared/story-media';
+import { storyTextForDisplay } from '@/lib/story-quotes';
+import { normalizeVideoQuotes } from '@/lib/video';
 import { uploadStoryImage } from '@/app/data/story-image-service';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, PositionButtonGroup, StoryVisibility } from "@/app/types";
@@ -1325,7 +1328,9 @@ function StoryCardFull({
   };
 
   const linkedPoints = story.points || [];
-  const strippedContent = stripHashtags(story.content, story.tags);
+  // P1212 §1 — the quote label is StoryVideoQuotes' heading; this card renders no
+  // quote block, so it renders no heading either.
+  const strippedContent = storyTextForDisplay(story.content, story.tags);
   const { isAgentAccountId: isAgentStory, isLoading: storyIdentityPending } = useAgentAccountIds();
   const storyIsAgent = isAgentStory(story.authorId);
 
@@ -1477,12 +1482,29 @@ function StoryCardFull({
               </div>
             ) : (
               <>
-                {localImageUrl && (
+                {/* P1212 §4 — the profile rendered the IMAGE only, so a shared agent
+                    profile showed no video. `StoryCardFull` is private to this page and
+                    predates P1141, so the `StoryMedia` sweep that fixed the feed, the
+                    point-detail card and the story detail never reached it: grepping the
+                    component name could not find a surface that inlines its own markup.
+
+                    Video-over-image is StoryMedia's own rule, and the image path is passed
+                    through untouched via `imageProps` — a story with no parseable video
+                    renders exactly the markup it rendered before. The EDIT branch above
+                    keeps StoryImage deliberately: it owns upload/delete of `image_url`,
+                    which is an image control, not a media renderer. */}
+                {(story.videoUrl || localImageUrl) && (
                   <div className="mb-2">
-                    <StoryImage
-                      src={localImageUrl}
-                      authorName={author.name}
-                      onClick={() => navigate(detailRoutes.story(story.id))}
+                    <StoryMedia
+                      videoUrl={story.videoUrl}
+                      durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
+                      mode="thumbnail"
+                      storyHref={detailRoutes.story(story.id)}
+                      imageProps={localImageUrl ? {
+                        src: localImageUrl,
+                        authorName: author.name,
+                        onClick: () => navigate(detailRoutes.story(story.id)),
+                      } : undefined}
                     />
                   </div>
                 )}

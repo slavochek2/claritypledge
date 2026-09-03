@@ -762,6 +762,85 @@ remains a named follow-up. (Status: proposed)
 
 **References:** `~/.local/share/agent-store/index.db` · `~/.local/share/diarize-store/README.md` ·
 `features/p1210_...md` §10
+## 2026-09-03 [technical]: A source-contract test that does not strip comments turns green when someone writes about the fix
+
+**Context:** P1212's red canaries (`src/tests/p1212-agent-surface-contract.test.ts`) assert by reading a component's source and grepping it for a symbol — the repo's standard shape when a component is module-local and cannot be imported. An implementing agent's first pass reported 9/9 green while **neither component referenced `MachineChip` in code at all**. The passing token was sitting in the explanatory comment the agent had just written above its own fix.
+
+**Verified, not inferred.** The base canary file was re-run against two independent implementations with nothing changed but a comment-stripper: one tree went from 9/9 to **7/9**, the other stayed 9/9. The false-pass channel is real and it is silent.
+
+**Decision:** Any assertion that greps source must run it through a comment-stripper first. The repo already had the helper — `p1060-source-contract.test.ts:47` and `p1193-source-contract.test.ts:28` both define `codeOnly`, and p1193's own comment says the file *"argues its own case at length in comments that must not themselves trip the assertions."* It was simply never applied here, nor in `p1141-letter-snapshot-contract.test.ts` or `p1141-pipeline-rules.test.ts`.
+
+**The asymmetry that explains why it was missed, and the actual rule:** the existing uses are overwhelmingly on **negative** assertions (`.not.toMatch`, `.not.toContain`), where a stray comment causes a false *failure* — noisy, and it fixes itself the moment someone runs the test. P1212's are **positive** assertions, where the same omission causes a false *pass* — silent, and it fires green exactly when the code is most likely to be wrong, because writing an explanatory comment about a fix is what you do while making one. **Comment-stripping matters more on positive assertions than negative ones, and it was applied only to the negative ones.**
+
+**Two further failure modes found in the same file, same class:** `toContain('AgentStoryFooter')` passed on the **import line alone**, so a component could import and never render — a JSX-tag match (`/<AgentStoryFooter[\s/>]/`) is the fix. And deleting an entire behavioural filter left every canary green because the identifier survived as `= false`. **A grep for a name proves a name exists, not that the behaviour behind it is right** — where the claim is behavioural, a source grep cannot make it and a render test must.
+
+**Consequences:** 48 test files in `src/tests/` read source with `readFileSync`; this entry is not a claim that all are affected, and no sweep was run. A sweep for positive source-greps without `codeOnly` is worth a housekeeping pass. **(Status: proposed)** Extends [epistemic.md](../.claude/rules/epistemic.md) gate 7b — *green bounds what was modelled* — with a mechanism: here the input space the fixture could not distinguish was *code vs. prose about code*.
+
+**References:** `src/tests/p1212-agent-surface-contract.test.ts` · `src/tests/p1060-source-contract.test.ts:47` · `src/tests/p1193-source-contract.test.ts:28` · commits `3915e630`, `377aa535`
+
+---
+
+## 2026-09-03 [process]: The second skill A/B in three days — and the pre-registration rule could not tell a strengthened test from a weakened one
+
+**Context:** Founder pre-registered an A/B of `/dev` against working directly, on P1212 — a thick spec with seven committed red canaries. Two arms from an identical commit, blank contexts, same model, both unattended. Follows the same shape as 2026-08-31's `/adversarial-review` A/B.
+
+**Decision:** No material cost difference — weighted for cache-read pricing, `/dev` came in ~12% higher (~3.79M vs ~3.39M input-equivalents). **Both arms passed the original seven as written.** The interpretation pre-registered for that outcome stands: `/dev` is optional on a spec this thick, not useless. But the arms did **not** produce equivalent work, and the pre-registered scoring had no row for that: the no-skill arm covered materially more of the spec, while the `/dev` arm covered less and found the defect class in the entry above.
+
+**The rule that failed, and its replacement.** Pre-registration said any arm that *"weakened, deleted, rewrote or re-skipped a canary"* scores zero. The `/dev` arm rewrote two assertions and scored zero — correctly, as it turned out, but for the wrong reason: the rule cannot distinguish a *strengthening* from a *weakening*, and it would have zeroed the comment-stripper finding too. Replacement for the next run: **an arm may alter an assertion only by first demonstrating that implementing it literally produces a defective artifact, and that demonstration is part of the deliverable.** Applying exactly that test split the two rewrites — one was forced by a fact predating both arms, one was the arm fitting the bar to code it had already written. The arm reached the same split itself, unprompted, when asked how it would tell them apart from the inside.
+
+**Alternatives rejected:** Overriding the zero on the strength of the finding. The rule did its job by forcing an explicit decision rather than a quiet wave-through, and one of the two rewrites really was a goalpost move.
+
+**Threats that materialised, and they bound the claim:** `/dev` spawned **zero** reviewer subagents in an unattended run, so this measures a *reduced* `/dev` doing its review by hand. Both arms were unattended, so neither hit `/dev`'s UAT gate — the result does not transfer to attended terminal use. n=1 spec, n=1 model.
+
+**A dimension the plan never thought to score, and the clearest thing in the skill's favour:** the no-skill arm's output **would not commit** — it edited two skill files inside a worktree (repo rule: skill edits land on `main`) and left the generated mirrors drifted, plus a migration unapplied. The `/dev` arm knew that rule. Bounded honestly: it also passed partly by doing less, having deferred the same work for the same reason.
+
+**Falsifier:** Re-run attended, with `/dev`'s reviewer subagents actually spawning. If the skill arm's advantage then shows up as caught defects rather than only as landability, the "optional on thick specs" reading is wrong.
+
+**Consequences:** The merged artifact is the no-skill arm's implementation under the `/dev` arm's hardened tests (`377aa535`). Full pre-registration, both arms' numbers and the cross-test that settled it: `.private/docs/bench-p1212-dev-ab.md`. **(Status: proposed)**
+
+**References:** this log 2026-08-31 [process] "The adversarial-review skill did not beat a bare brief" (same experiment shape, same n=1 caveat) · commits `3915e630`, `377aa535`
+
+---
+
+## 2026-09-01 [process]: Work that starts as doc review and becomes implementation crosses into worktree territory with nothing checking at the crossing
+
+**Context:** This session opened as an adversarial review of `features/p1212_*.md` — a doc edit, legitimately done on the main checkout, violating no rule. It then authored `src/tests/p1212-agent-surface-contract.test.ts`, still on main, while `.claude/worktrees/w2` on `feature/p1212-agent-story-card-contract` already existed and sat empty for exactly that P-number. Nothing fired. Before the files could be moved, a co-tenant session committed the in-progress spec edits off main (`90461eca`, `bc16e4fa`) — the outbound form of the shared-checkout hazard, where someone else commits *your* edits, rather than the inbound form already logged today where your edits vanish under you.
+
+**Decision:** Treat the **first implementation-shaped write** — a file under `src/`, `e2e/`, or `supabase/` carrying a P-number — as its own routing checkpoint, not just the skill entry point. At that moment, run `git worktree list` and ask whether a worktree already owns this P-number. Doc-only work on main stays fine; the check is on the transition, not on the session's opening intent.
+
+**Alternatives rejected:** Treating this as a compliance failure against an existing rule — verified it is not. `CLAUDE.md:236` scopes the worktree default to `/dev` and `/fix`, and this session ran neither. `git.md`'s One-Worktree invariant governs branch *creation* (`never git checkout -b in the main working dir`) and says nothing about a branch that already exists. Every `git worktree list` call in `.claude/` is either reporting or the **inverse** check — `create-spec.md:20` and `change-request.md:20` ask *"am I inside a worktree?"* and stop if so; none asks *"does a worktree exist for the P-number I am about to write for?"* Adding a rule was rejected as the first move: `git.md` already opens by warning that its own table is *"four spellings of one mistake."*
+
+**Consequences:** This is a second instance of the class the entry *"Every deploy-safety gate was attached to the feature branch"* (same date) already generalises — *"a safety check keyed to a lifecycle stage silently stops existing for work that skips the stage, and its absence is indistinguishable from a pass."* Cite that entry rather than re-deriving it. **Mechanical enforcement is structurally blind here and correctly so:** `scripts/lib/branch-guard.sh` returns a violation only for a `feature/`/`feat/`/`fix/` branch in the main checkout; work sitting on `main` in the main checkout passes, which is right for the orphan-branch case it was built for. If a mechanical route is wanted later it needs its own spec — the defensible shape is a `pre-commit-checks.sh` warning when a commit on `main` touches a path carrying a `pNNNN` token whose `feature/pNNNN-*` branch appears in `git worktree list`. **Status: proposed** — not built, and deliberately not built as part of this KDD.
+
+**References:** [.claude/rules/git.md](../.claude/rules/git.md), [docs/technical/worktree-setup.md](technical/worktree-setup.md)
+
+---
+
+## 2026-09-01 [process]: Catching a failure class in one section is why nobody checks the next one — the same document repeated it two sections later
+
+**Context:** A second adversarial review of P1212, after the first had already corrected §3 for citing a decisions.md sentence in the direction that removed a safety marker (entry below, same date). §2 of the same document recommends replacing the byline `[MACHINE] reading of {Name}` with `AGENT · {Name}`. The component being edited documents both halves of that as tried and rejected: `agent-byline.tsx:65-67` — *"NOT `Agent · {Name}`. 'Agent' reads in English as **representative of**, which is the one implication an account bearing a real person's name must never carry"* — and `:71-76` — *"`reading of` is not trimmable, at any size. Dropped, the marker lands on the PERSON."* Neither appeared in §2's evidence block, which cited transcripts and decisions.md at length. The first review corrected §3's citation and did not re-examine §2, because §2's problem was not a bad citation: it was **no citation of the file being changed at all**.
+
+**Decision:** Before recommending any change to a component, **read that component's own header comment and reject-notes first** — the artifact under the knife outranks every doc about it. And treat a corrected section as *raising* suspicion of its siblings, not lowering it: a document that produced one instance of a failure class was written under the conditions that produce it. Re-run the check across every section, not just the one that failed.
+
+**Alternatives rejected:** Trusting the first adversarial review's coverage — it found §3 and stopped. Adding a rule about citation quality — the second failure had no citation to grade, so a citation rule cannot reach it.
+
+**Consequences:** The founder decision on byline wording is now taken against the two recorded rejections rather than around them; `AGENT · on Yann LeCun` is the only candidate in the spec that survives both, because the preposition restores the account→subject relation the `·` deletes. **Two further instances of the same not-reading-the-artifact shape surfaced in the same pass:** §4c asserted *"no byline string is stored anywhere"* while `Agent · ` is stored in `profiles.name` and enforced by two migrations (`p1104_agent_accounts.sql:206-209` plus a homoglyph-hardening follow-up); and §1's blocking precondition named one component to fix while §4 of the same document already listed five surfaces with the same gap. The evidence that falsified each claim was inside the spec or one file-read away.
+
+**References:** [features/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/p1212_agent_story_card_contract_drift_across_surfaces.md), [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
+## 2026-09-01 [process]: A restated invariant is a copy frozen at restatement time — and a reviewer's wrong conclusion is how you find out it went stale
+
+**Context:** P1212's Invariants section restated P1202's rule as *"A story MUST NOT state, name or imply the arguer's position on any point."* That wording was **superseded on 2026-08-31** — `p1202:74-76` records the founder dropping "imply", because enforcing it literally failed 3 of 4 stories and passed the one whose positions were weakest-grounded: quality and passing ran in opposite directions. The restatement was made the next day and copied the pre-amendment text. An external adversarial reviewer, reading the spec faithfully, then reported as a HIGH finding that §5's expander *"directly violates the no-position invariant"* because a `PositionBadge` renders beside the agent byline (`StoryCardDetail.tsx:680`). That finding is wrong — the position lives in the `point_positions` link and is *meant* to render; §3 of the same spec exists to make it **more** legible. But the reviewer reasoned correctly from the text it was given.
+
+**Decision:** When restating an invariant that another spec owns, **quote it with its amendment history or link it instead of copying it** — a restatement inherits the source's wording at one instant and never tracks the amendment. Cheapest check: grep the owning spec for a `[FOUNDER DECISION: SETTLED` marker in the same block before copying the line.
+
+**Alternatives rejected:** Banning restatement outright — P1212 restates it for a real reason (it edits the surfaces that display both story and position), and a bare link would have been skipped. Treating the reviewer's finding as correct — it would have suppressed the agent stance badge, deleting a disclosure channel and contradicting the same spec's §3.
+
+**Consequences:** Invariant corrected in place with the supersession quoted and the wrong conclusion recorded beside it, so the next reader sees why the wording matters. **Generalises the review-reading rule:** a hostile reviewer's *false positive* is evidence about your text, not only about the reviewer. When a faithful reading of a document yields a conclusion its author rejects, the document is what is broken. Verify the finding by command before promoting it (epistemic gate 9) — and when it fails to verify, ask what wording produced it before discarding it.
+
+**References:** [features/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/p1212_agent_story_card_contract_drift_across_surfaces.md), [features/done/2026-06-10/p1202_disagreement_story_quality_and_pipeline_defects.md](../features/done/2026-06-10/p1202_disagreement_story_quality_and_pipeline_defects.md)
 
 ---
 

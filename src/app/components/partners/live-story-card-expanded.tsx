@@ -15,8 +15,14 @@ import {
 } from '@/app/components/shared';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
-import { StoryImage } from '@/app/components/shared/story-image';
-import { stripHashtags } from '@/lib/utils';
+import { StoryMedia } from '@/app/components/shared/story-media';
+import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import { AgentByline } from '@/app/components/shared/agent-byline';
+import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
+import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
+import { normalizeVideoQuotes, quotesNotInStoryText } from '@/lib/video';
+import { stripQuoteLabel } from '@/lib/story-quotes';
+import { stripAgentPrefix, stripHashtags } from '@/lib/utils';
 
 interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
@@ -102,7 +108,38 @@ export function LiveStoryCardExpanded({
     setStoryExpanded(defaultStoryExpanded ?? readOnly);
   }, [story.id, defaultStoryExpanded, readOnly]);
 
-  const strippedContent = stripHashtags(story.content, story.tags);
+  // P1212 §4b — agent-ness comes from the story's OWN author id, never from `authorName`.
+  //
+  // This is not defensive style, it is the one thing that makes a byline here safe. On a
+  // sealed letter `authorName` is the SENDER's name, not the story author's: the seal RPC
+  // stores no story-author identity at all, so `snapshotToStoryWithPoints` sets
+  // `authorId: ''` and derives the display name from the letter's sender
+  // (`story-walk.tsx` — "Author of the story = sender"). Deriving the machine marker from
+  // that name would put a machine byline on a human's name, or vice versa — false
+  // attribution on the surface that actually gets sent to another person.
+  //
+  // With the id absent, `isAgentAccountId('')` is false and no agent chrome renders on a
+  // sealed letter. That is correct today rather than merely safe: `doc_stories` INSERT
+  // requires `stories.author_id = auth.uid()`, so a sender can only attach their OWN
+  // stories and an agent story cannot reach that path. The live-session call sites, which
+  // pass real story rows, do carry a real id and do render the contract.
+  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
+  const isAgent = isAgentAccountId(story.authorId);
+
+  // P1212 §4b — the quote block, minus anything the frozen prose already prints.
+  // `quotesAlreadyInContent` is the pre-§1 snapshot case: quote bodies baked into
+  // `storyText` AND frozen again in `videoQuotes`. See `quotesNotInStoryText`.
+  const allQuotes = normalizeVideoQuotes(story.videoQuotes).quotes;
+  const quotesToRender = quotesNotInStoryText(story.content, allQuotes);
+  const quotesAlreadyInContent = allQuotes.length > 0 && quotesToRender.length < allQuotes.length;
+
+  // P1212 §1 — the label is StoryVideoQuotes' own heading. Strip it from the prose
+  // exactly when that block renders, so the heading appears once rather than twice.
+  // When no block renders — a legacy letter whose bodies are already inline — the
+  // frozen label stays, because it still has bodies under it.
+  const contentForDisplay =
+    quotesToRender.length > 0 ? stripQuoteLabel(story.content) : story.content;
+  const strippedContent = stripHashtags(contentForDisplay, story.tags);
   const isLongStory = strippedContent.length > STORY_THRESHOLD;
   const displayText =
     isLongStory && !storyExpanded
@@ -112,6 +149,11 @@ export function LiveStoryCardExpanded({
   return (
     <div
       data-testid="live-story-card-expanded"
+      // P1212 §4b legacy — observable so a snapshot fixture can assert WHICH branch ran,
+      // not merely that the rendered output happened to look right. Present only on a
+      // pre-§1 snapshot whose frozen prose already prints at least one of its quotes.
+      {...(quotesAlreadyInContent ? { 'data-legacy-quotes-inline': 'true' } : {})}
+      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm shrink-0 overflow-hidden ${className ?? ''}`}
     >
       {/* Main content */}
@@ -123,15 +165,37 @@ export function LiveStoryCardExpanded({
             avatarColor={story.authorAvatarColor}
             size="sm"
             isPledger={story.authorHasPledged ?? false}
+            isAgent={isAgent}
+            identityPending={identityPending}
             className="flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
+            {/* P1212 §4b — this surface carried NONE of the agent disclosure contract: a
+                machine-authored reading of a real named person rendered as a plain bold
+                name, with no chip, no footer and no link to /machines, in the context
+                where the reader has the least surrounding signal (no site chrome, no
+                profile to click through). It is also the surface actually sent to another
+                person. AgentByline is the one place an agent account is named, and it
+                carries the MachineChip with it.
+
+                The ear count is suppressed for agents for the reason P1141 suppresses it
+                everywhere else: an agent cannot sit in a live session, so the number is
+                permanently 0 and reads as "nobody understood this" rather than "this
+                metric does not describe an agent story". Gated on identityPending too —
+                the registry fails closed, and an unresolved fetch must not print a human
+                trust affordance on a machine account. */}
             <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="font-semibold text-gray-900 text-sm">{story.authorName}</span>
-              <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
-                <Ear size={12} />
-                {story.authorEarsCount ?? 0}
-              </span>
+              {isAgent ? (
+                <AgentByline name={story.authorName} className="min-w-0 flex-1" />
+              ) : (
+                <span className="font-semibold text-gray-900 text-sm">{story.authorName}</span>
+              )}
+              {!isAgent && !identityPending && (
+                <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
+                  <Ear size={12} />
+                  {story.authorEarsCount ?? 0}
+                </span>
+              )}
             </div>
             {(story.authorRole || story.createdAt || story.visibility) && (
               <p className="text-xs text-gray-500 mb-1 inline-flex items-center gap-1">
@@ -139,16 +203,28 @@ export function LiveStoryCardExpanded({
                 {story.visibility && <InlineVisibilityIcon visibility={story.visibility} />}
               </p>
             )}
-            {story.imageUrl && (
-                      <div className="mb-2">
-                        <StoryImage
-                          src={story.imageUrl}
-                          authorName={story.authorName}
-                          className={imageClassName}
-                          fit={imageFit}
-                        />
-                      </div>
-                    )}
+            {/* P1212 §4b — was `StoryImage` alone, so the video was dropped on the one
+                surface that gets sent to someone. Same defect class as the profile card.
+                `StoryMedia` picks video over image and forwards the image path untouched,
+                so a story with no parseable video renders exactly the markup it did
+                before, `imageClassName` and `fit` included. `thumbnail`, not `player`:
+                only a story's dedicated detail surface mounts a live embed. */}
+            {(story.videoUrl || story.imageUrl) && (
+              <div className="mb-2">
+                <StoryMedia
+                  videoUrl={story.videoUrl}
+                  durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
+                  mode="thumbnail"
+                  storyHref={`/story/${story.id}`}
+                  imageProps={story.imageUrl ? {
+                    src: story.imageUrl,
+                    authorName: story.authorName,
+                    className: imageClassName,
+                    fit: imageFit,
+                  } : undefined}
+                />
+              </div>
+            )}
             <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug break-words">{linkifyText(displayText)}</p>
             {isLongStory && (
               <button
@@ -163,6 +239,42 @@ export function LiveStoryCardExpanded({
             )}
           </div>
         </div>
+
+        {/* P1212 §4b — the supporting quotes. This component had NO quote render path at
+            all: zero references to `video_quotes` anywhere in the file. Today the quotes
+            are readable here only because their bodies sit inline in `story.content`, so
+            the moment §1 moves them out of the prose this surface would show the
+            the quote-label heading with nothing beneath it. Rendering them
+            here is the precondition §1 ships behind, not a follow-up.
+
+            `quotesToRender` excludes any quote the prose already prints — see
+            `quotesNotInStoryText`. Without that filter, adding this block would make every
+            letter sealed before §1 render its quotes TWICE, since the seal freezes the
+            prose and the quote array independently and snapshots are immutable.
+
+            No `onSeek`: this card renders a thumbnail, not a player, so there is nothing to
+            seek in place. StoryVideoQuotes falls back to open-at-timestamp links, which
+            keeps the rule that no timecode is shown where clicking it does nothing. */}
+        {story.videoUrl && quotesToRender.length > 0 && (
+          <div className="mt-2 pl-4 sm:pl-[52px] pr-4">
+            <StoryVideoQuotes
+              videoUrl={story.videoUrl}
+              quotes={quotesToRender}
+              subjectName={stripAgentPrefix(story.authorName)}
+            />
+          </div>
+        )}
+
+        {/* P1212 §4b — level 2 of the three attribution levels, on the surface that had
+            none. `hasQuotes` asks whether the reader can see quotes ON THIS PAGE at all,
+            which includes the legacy case where they are inline in the prose — the
+            footer's "except the quotes" clause is true either way, and false only when the
+            story genuinely has none. */}
+        {isAgent && !identityPending && (
+          <div className="px-4 pl-4 sm:pl-[52px]">
+            <AgentStoryFooter name={story.authorName} hasQuotes={allQuotes.length > 0} />
+          </div>
+        )}
 
         {/* P491: Tag pills (display-only in live context) */}
         {story.tags && story.tags.length > 0 && (
