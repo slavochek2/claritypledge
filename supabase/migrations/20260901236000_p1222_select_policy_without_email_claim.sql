@@ -1,7 +1,7 @@
 -- P1222 (codex review follow-up): the parties-only SELECT policy loses its
 -- email-claim branch.
 --
--- requires-frontend: f157a855
+-- requires-frontend: 741d63a0f
 -- (the client that reads pending invitations through get_my_pending_invitations
 --  — 20260901235000 — instead of the table. Applying this policy while a
 --  pre-f157a855 bundle is live empties every signed-in user's "Invited to sign"

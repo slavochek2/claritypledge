@@ -1,6 +1,6 @@
 -- P1222: clarity_agreements SELECT policy becomes parties-only.
 --
--- requires-frontend: ce02c269
+-- requires-frontend: 6f5f3d0de
 -- (the P1222 client — public agreement pages read through get_public_agreement /
 --  get_public_agreements_for_profile instead of the table. Applying this policy
 --  while a pre-P1222 bundle is live blanks every anonymous /agreements/:id and

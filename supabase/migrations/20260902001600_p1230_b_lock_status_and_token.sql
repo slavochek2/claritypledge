@@ -2,7 +2,7 @@
 -- party-mutable, and the verification block asserts predicates instead of
 -- searching them for substrings.
 --
--- requires-frontend: 2df58753
+-- requires-frontend: c666aa473
 -- (the client whose resendInvitation() calls rotate_invitation_token() instead
 --  of PATCHing invitation_token / invitation_expires_at / status on the table.
 --  Applying this while a pre-P1230-B bundle is live breaks "Resend invitation"
