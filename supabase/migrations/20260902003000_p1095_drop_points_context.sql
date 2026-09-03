@@ -1,6 +1,6 @@
 -- P1095: retire the dead points.context column.
 --
--- requires-frontend: 5826463c
+-- requires-frontend: 0a6af8555
 --   ("fix(p1095): drop 'context' from all three points select lists").
 --
 --   NOT client-safe, despite the column carrying no data. Three read paths
