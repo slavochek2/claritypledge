@@ -18,6 +18,7 @@ import { UnderstoodBadge } from '@/components/ui/understood-badge';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags } from '@/lib/utils';
+import { stripQuoteLabel } from '@/lib/story-quotes';
 import { InlineVisibilityIcon } from '@/app/components/shared';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { AgentByline } from '@/app/components/shared/agent-byline';
@@ -157,7 +158,8 @@ export function FeedStoryCard({ story, activeTag, pointCount }: FeedStoryCardPro
               ref={textRef}
               className={`text-foreground break-words text-sm ${textExpanded ? '' : 'line-clamp-6'}`}
             >
-              {linkifyText(stripHashtags(story.content, story.tags))}
+              {/* P1212 §1 — no quote block on the feed card, therefore no quote label. */}
+              {linkifyText(stripQuoteLabel(stripHashtags(story.content, story.tags)))}
             </p>
             {isOverflowing && !textExpanded && (
               <button

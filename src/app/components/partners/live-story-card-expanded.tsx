@@ -21,6 +21,7 @@ import { AgentByline } from '@/app/components/shared/agent-byline';
 import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { normalizeVideoQuotes, quotesNotInStoryText } from '@/lib/video';
+import { stripQuoteLabel } from '@/lib/story-quotes';
 import { stripAgentPrefix, stripHashtags } from '@/lib/utils';
 
 interface LiveStoryCardExpandedProps {
@@ -125,15 +126,21 @@ export function LiveStoryCardExpanded({
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
 
-  const strippedContent = stripHashtags(story.content, story.tags);
-  const isLongStory = strippedContent.length > STORY_THRESHOLD;
-
   // P1212 §4b — the quote block, minus anything the frozen prose already prints.
   // `quotesAlreadyInContent` is the pre-§1 snapshot case: quote bodies baked into
   // `storyText` AND frozen again in `videoQuotes`. See `quotesNotInStoryText`.
   const allQuotes = normalizeVideoQuotes(story.videoQuotes).quotes;
   const quotesToRender = quotesNotInStoryText(story.content, allQuotes);
   const quotesAlreadyInContent = allQuotes.length > 0 && quotesToRender.length < allQuotes.length;
+
+  // P1212 §1 — the label is StoryVideoQuotes' own heading. Strip it from the prose
+  // exactly when that block renders, so the heading appears once rather than twice.
+  // When no block renders — a legacy letter whose bodies are already inline — the
+  // frozen label stays, because it still has bodies under it.
+  const contentForDisplay =
+    quotesToRender.length > 0 ? stripQuoteLabel(story.content) : story.content;
+  const strippedContent = stripHashtags(contentForDisplay, story.tags);
+  const isLongStory = strippedContent.length > STORY_THRESHOLD;
   const displayText =
     isLongStory && !storyExpanded
       ? strippedContent.slice(0, STORY_THRESHOLD) + '…'
@@ -237,7 +244,7 @@ export function LiveStoryCardExpanded({
             all: zero references to `video_quotes` anywhere in the file. Today the quotes
             are readable here only because their bodies sit inline in `story.content`, so
             the moment §1 moves them out of the prose this surface would show the
-            "Supporting quotes from {Name}" label with nothing beneath it. Rendering them
+            the quote-label heading with nothing beneath it. Rendering them
             here is the precondition §1 ships behind, not a follow-up.
 
             `quotesToRender` excludes any quote the prose already prints — see

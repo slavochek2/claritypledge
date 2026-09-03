@@ -36,6 +36,7 @@ import { AgentByline } from '@/app/components/shared/agent-byline';
 import type { StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { stripAgentPrefix } from '@/lib/utils';
+import { stripQuoteLabel } from '@/lib/story-quotes';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
@@ -248,7 +249,9 @@ export function StoryCardDetail({
 
           {/* Story text */}
           <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
-            {linkifyText(stripHashtags(story.content, story.tags))}
+            {/* P1212 §1 — the quote label is StoryVideoQuotes' heading. This branch renders
+                no quote block, so it renders no heading. */}
+            {linkifyText(stripQuoteLabel(stripHashtags(story.content, story.tags)))}
           </p>
         </div>
       </div>
@@ -363,7 +366,9 @@ export function StoryCardDetail({
 
             {/* Story text - indented under author */}
             <div className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
-              {renderStoryText(stripHashtags(story.content, story.tags))}
+              {/* P1212 §1 — the heading below comes from StoryVideoQuotes, which cannot render
+                  it without bodies. Rendering it out of `content` too is the same-page duplicate. */}
+              {renderStoryText(stripQuoteLabel(stripHashtags(story.content, story.tags)))}
             </div>
 
             {/* P1141: quotes sit BELOW the argument, never inside it — the separation is
