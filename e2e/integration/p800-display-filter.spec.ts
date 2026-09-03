@@ -78,7 +78,6 @@ test.describe('P800: display filter — superseded points excluded from story vi
           .from('points')
           .insert({
             statement: `P800 display-filter ${label} ${Date.now()}`,
-            context: 'P800 display filter test',
             first_validator_id: validatorId!,
             tags: ['test'],
             system_tags: [],

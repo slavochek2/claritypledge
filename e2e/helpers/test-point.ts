@@ -32,7 +32,6 @@ export interface TestPosition {
 
 type PointOptions = {
   statement?: string;
-  context?: string;
   tags?: string[];
   visibility?: 'public' | 'private';
 };
@@ -60,7 +59,6 @@ export async function createTestPoint(
   }
 
   const statement = options.statement || `E2E Test Point: ${Date.now()}`;
-  const context = options.context || 'Testing point functionality';
   const tags = options.tags || ['test'];
 
   console.log(`[TEST HELPER] Creating test point: ${statement}`);
@@ -69,7 +67,6 @@ export async function createTestPoint(
     .from('points')
     .insert({
       statement,
-      context,
       first_validator_id: firstValidatorId,
       tags,
       ...(options.visibility ? { visibility: options.visibility } : {}),

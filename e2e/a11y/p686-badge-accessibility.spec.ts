@@ -51,7 +51,6 @@ test.describe('P686 Accessibility — Badge Certificate + Profile', () => {
 
     const point = await createTestPoint(certifier.user.id, {
       statement: 'P686 a11y test point',
-      context: 'Accessibility test',
     });
     pointId = point.id;
 

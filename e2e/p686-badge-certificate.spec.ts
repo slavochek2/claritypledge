@@ -63,7 +63,6 @@ test.describe('P686: Badge certificate page', () => {
     for (let i = 0; i < 3; i++) {
       const point = await createTestPoint(certifier.user.id, {
         statement: `P686 certificate test point ${i + 1}`,
-        context: 'Badge certificate test',
       });
       pointIds.push(point.id);
 

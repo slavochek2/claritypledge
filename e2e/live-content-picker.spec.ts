@@ -121,7 +121,6 @@ test.describe('Live Content Picker - P128', () => {
       .from('points')
       .insert({
         statement: 'Remote work is more productive than office work',
-        context: 'Based on personal experience and team feedback',
         first_validator_id: testUser.user.id,
         tags: ['remote-work', 'productivity'],
       })

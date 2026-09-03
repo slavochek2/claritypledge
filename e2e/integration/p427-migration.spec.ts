@@ -333,7 +333,6 @@ test.describe('P427 Migration — stories.content CHECK constraint + RLS', () =>
       .from('points')
       .insert({
         statement: 'E2E cascade test point for P427.',
-        context: 'Test',
         first_validator_id: userA.user.id,
         tags: ['test'],
       })

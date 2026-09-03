@@ -45,7 +45,6 @@ test.describe('Position Loading Regression Tests (P151)', () => {
       .from('points')
       .insert({
         statement: 'Regression test: Point detail page works',
-        context: 'Testing point detail page after P151 refactor',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145', 'regression'],
       })
@@ -147,7 +146,6 @@ test.describe('Position Loading Regression Tests (P151)', () => {
       .from('points')
       .insert({
         statement: 'Cross-page regression test point',
-        context: 'Testing position display across all pages',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145', 'regression'],
       })
@@ -197,7 +195,6 @@ test.describe('Position Loading Regression Tests (P151)', () => {
       .from('points')
       .insert({
         statement: 'Multi-page sync test point',
-        context: 'Testing position sync across pages',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145', 'regression'],
       })
@@ -252,7 +249,6 @@ test.describe('Position Loading Regression Tests (P151)', () => {
       .from('points')
       .insert({
         statement: 'Public access regression test',
-        context: 'Testing unauthenticated viewing after refactor',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145', 'regression'],
       })

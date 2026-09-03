@@ -46,7 +46,6 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
       .from('points')
       .insert({
         statement: 'Test point: Position buttons should be visible',
-        context: 'Testing P154 - button visibility',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p154'],
       })
@@ -90,7 +89,6 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
       .from('points')
       .insert({
         statement: 'Test point: Click should persist',
-        context: 'Testing P154 - persistence',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p154'],
       })
@@ -150,7 +148,6 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
       .from('points')
       .insert({
         statement: 'Test point: Toggle should remove',
-        context: 'Testing P154 - toggle behavior',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p154'],
       })
@@ -219,7 +216,6 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
       .from('points')
       .insert({
         statement: 'Test point: Counts should update',
-        context: 'Testing P154 - count updates',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p154'],
       })
@@ -281,7 +277,6 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
       .from('points')
       .insert({
         statement: 'Test point for story expand regression',
-        context: 'Testing P155 - story expand crash fix',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p155'],
       })
@@ -335,7 +330,6 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
       .from('points')
       .insert({
         statement: 'Test point: Unauthenticated view',
-        context: 'Testing P154 - unauthenticated behavior',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p154'],
       })

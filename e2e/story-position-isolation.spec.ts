@@ -45,7 +45,6 @@ test.describe('Story Detail - Position Isolation', () => {
       .from('points')
       .insert({
         statement: 'Position isolation test point',
-        context: 'Testing position isolation on story detail page',
         first_validator_id: authorUser.user.id,
         tags: ['test', 'position-isolation'],
       })

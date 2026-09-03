@@ -224,7 +224,6 @@ describe('P634: Private points visibility', () => {
         data: {
           id: 'point-1',
           statement: 'Test',
-          context: null,
           first_validator_id: 'user-1',
           created_at: '2026-01-01',
           updated_at: '2026-01-01',

@@ -83,5 +83,48 @@ Commit 1 below (client-side reads/renders) is complete and does not depend on th
 - [x] Deprecation comment in place, stating what was verified and when
 - [x] Non-null count on prod recorded: **zero** (`content-range: */0`, service-role key — bypasses RLS, covers private rows too, not just the earlier anon-key check)
 - [x] Client-side reads/renders removed across all 7 files + `createPoint` signature updated; typecheck (`npx tsc --noEmit`), full vitest (3485 passed / 19 skipped), and eslint on changed files all green
-- [ ] Column removed via migration — **blocked**, see "Blocker found mid-implementation" above
-- [ ] `grep -rn "\.context" src/app/data/points-service-real.ts` returns nothing for the point row type — true today (comment + field both removed) but re-check after the migration lands, since the DB row type is what this line is actually about
+- [x] Column removed via migration — **unblocked and applied to TEST**. `supabase/migrations/20260902003000_p1095_drop_points_context.sql` drops the out-of-band `create_point_with_position` by `pg_proc` oid lookup (any signature, `IF EXISTS`; a no-op on prod where it was never defined) and then `ALTER TABLE public.points DROP COLUMN IF EXISTS context`. Applied via the Management API from inside w11; the migration's own verification block passed, and an independent catalogue read after the apply returns `col_present = 0, fn_present = 0`
+- [x] `grep -rn "\.context" src/app/data/points-service-real.ts` returns nothing for the point row type — re-checked after the migration landed: zero hits
+
+## Evidence (2026-09-03) — the drop, and the dependents it surfaced
+
+**Applied to TEST:** `20260902003000`, recorded in `supabase_migrations.schema_migrations` and
+listed in `supabase/deploy-manifest.json`. Post-apply catalogue read: `points.context` absent,
+`create_point_with_position` absent. No view, rule or other function depended on the column
+(`pg_depend` join over `pg_rewrite`, and a `pg_proc.prosrc` scan, both empty apart from the
+out-of-band function this migration drops).
+
+**The header was wrong and is corrected.** The file declared `client-safe`. It is not:
+`src/app/data/docs-service.ts` named `context` inside an **explicit embedded column list** on
+`points` before `cce676d8`, and PostgREST answers a select naming a dropped column with `42703` for
+the *whole* query — so applying this ahead of that bundle does not blank a field, it fails every
+story/doc read that embeds points. `createPoint`'s INSERT named the column too. The header now
+carries `requires-frontend: cce676d8`, which is what makes `migrate.sh` hold the prod apply.
+
+**A dependent the client sweep missed: the test fixtures.** `e2e/helpers/test-point.ts` inserted
+`context` on every point it created, and 34 further lines across 15 e2e specs passed it either as a
+`createTestPoint` option or as a direct `points` INSERT column. The first integration run after the
+drop failed 5 / passed 1 on `Could not find the 'context' column of 'points'`. All 35 sites are
+removed; the same four specs now run **8 passed / 2 failed**.
+
+**The 2 remaining failures are pre-existing and unrelated** —
+`20260420120000_p768_…spec.ts` inserts `author_id` on `points`, a column that has never existed on
+that table (current catalogue: id, statement, first_validator_id, created_at, updated_at, tags,
+banner_url, visibility, system_tags, superseded_by). Widening the run to nine points-adjacent
+integration specs gives **33 passed / 9 failed**, and every one of those nine fails on a column
+belonging to someone else's change: `stories.title` missing (P1227's lane), `points.author_id`
+missing, `story_points.author_id` NOT NULL, and one badge_points insert that collides with a row an
+earlier test in the same file created. None of them mention `context`. They are not filed here.
+
+**Unit tests:** `npx vitest run` → 3484 passed / 19 skipped / 1 failed; the one failure was
+`src/tests/p887-reproduce.test.ts` timing out at 5000 ms under the session's concurrent load, and
+the same file re-run alone is **11/11 green**. Reported rather than retried-until-green.
+
+**Migration ordering note:** `20260902003000` sorts *below* `20260903100000`, which a concurrent
+session had already applied to TEST. Harmless on TEST (both are recorded) and harmless for prod,
+whose ledger is independent — but a `supabase db push` that ever replays this directory in filename
+order would run them in the other order. Nothing here depends on that ordering.
+
+**Not done here:** nothing applied to prod. `e2e/integration/p523-point-references-migration.spec.ts`
+is `test.describe.skip`, not deleted — the RPC it exercised existed only on TEST, out-of-band, and
+is now gone; deleting the file is a P1217 retirement decision, not this spec's.

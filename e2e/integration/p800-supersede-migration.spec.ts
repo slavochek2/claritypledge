@@ -54,7 +54,6 @@ test.describe('P800: superseded_by column + invariant trigger', () => {
       .from('points')
       .insert({
         statement: `${TEST_STATEMENT_PREFIX} ${suffix} ${Date.now()}`,
-        context: 'P800 trigger test',
         first_validator_id: validatorId,
         tags: ['test'],
         system_tags: systemTags,

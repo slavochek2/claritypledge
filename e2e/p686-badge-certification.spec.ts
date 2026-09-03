@@ -37,7 +37,6 @@ test.describe('P686: Badge auto-certification from /live', () => {
       .from('points')
       .insert({
         statement: `P686 E2E understanding point ${Date.now()}`,
-        context: 'Auto-certification test',
         first_validator_id: firstValidatorId,
         system_tags: ['understanding'],
       })

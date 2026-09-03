@@ -39,7 +39,6 @@ test.describe('usePointsForProfile Hook Integration (P151)', () => {
       .from('points')
       .insert({
         statement: 'Hook test: AI ethics should be regulated',
-        context: 'Testing hook data loading',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145'],
       })
@@ -85,7 +84,6 @@ test.describe('usePointsForProfile Hook Integration (P151)', () => {
       .from('points')
       .insert({
         statement: 'Loading state test point',
-        context: 'Testing hook loading states',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145'],
       })
@@ -128,7 +126,6 @@ test.describe('usePointsForProfile Hook Integration (P151)', () => {
       .from('points')
       .insert({
         statement: 'Refetch test: Privacy is a human right',
-        context: 'Testing hook refetch on user change',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145'],
       })
@@ -226,7 +223,6 @@ test.describe('usePointsForProfile Hook Integration (P151)', () => {
       .from('points')
       .insert({
         statement: 'First user point',
-        context: 'Testing profile switching',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145'],
       })
@@ -239,7 +235,6 @@ test.describe('usePointsForProfile Hook Integration (P151)', () => {
       .from('points')
       .insert({
         statement: 'Second user point',
-        context: 'Testing profile switching',
         first_validator_id: secondUser.user.id,
         tags: ['test', 'p145'],
       })

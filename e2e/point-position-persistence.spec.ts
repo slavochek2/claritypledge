@@ -37,7 +37,6 @@ test.describe('Point Position Persistence', () => {
       .from('points')
       .insert({
         statement: POINT_STATEMENT,
-        context: 'Testing position persistence',
         first_validator_id: testUser.user.id,
         tags: ['test'],
       })

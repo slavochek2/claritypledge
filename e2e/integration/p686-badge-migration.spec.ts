@@ -51,7 +51,6 @@ test.describe('P686: badge_points migration + RLS', () => {
       .from('points')
       .insert({
         statement: 'P686 integration test point',
-        context: 'Testing badge_points schema',
         first_validator_id: certifierId,
         system_tags: ['understanding'],
       })
@@ -187,7 +186,6 @@ test.describe('P686: badge_points migration + RLS', () => {
       .from('points')
       .insert({
         statement: 'P686 RLS INSERT test point',
-        context: 'RLS test',
         first_validator_id: certifierId,
       })
       .select('id')
@@ -240,7 +238,6 @@ test.describe('P686: badge_points migration + RLS', () => {
       .from('points')
       .insert({
         statement: 'P686 non-certifier RLS test',
-        context: 'RLS block test',
         first_validator_id: certifierId,
       })
       .select('id')
@@ -273,7 +270,6 @@ test.describe('P686: badge_points migration + RLS', () => {
       .from('points')
       .insert({
         statement: 'P686 UNIQUE constraint test point',
-        context: 'UNIQUE test',
         first_validator_id: certifierId,
       })
       .select('id')

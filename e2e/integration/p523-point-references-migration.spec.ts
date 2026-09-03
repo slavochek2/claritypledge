@@ -54,7 +54,11 @@ function createAuthClient(jwt: string) {
   );
 }
 
-test.describe('P523 Migration — point_references table + create_point_with_position RPC', () => {
+// P1095 + P1217 (retirement lane): create_point_with_position was never shipped via a
+// tracked migration — it existed only on TEST, out-of-band, and referenced points.context
+// (dropped by P1095's migration). No client caller ever existed. Skipped rather than
+// deleted per P1095's spec; a future retirement pass may remove this file entirely.
+test.describe.skip('P523 Migration — point_references table + create_point_with_position RPC', () => {
   test.setTimeout(45000);
 
   let verifiedUser: TestUser;

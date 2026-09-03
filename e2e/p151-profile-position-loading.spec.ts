@@ -44,7 +44,6 @@ test.describe('Profile Position Loading (P151)', () => {
       .from('points')
       .insert({
         statement: 'Profile test: AI will transform education',
-        context: 'Testing position visibility on profile',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145'],
       })
@@ -102,7 +101,6 @@ test.describe('Profile Position Loading (P151)', () => {
         .from('points')
         .insert({
           statement,
-          context: 'Testing position badge rendering',
           first_validator_id: testUser.user.id,
           tags: ['test', 'p145'],
         })
@@ -151,7 +149,6 @@ test.describe('Profile Position Loading (P151)', () => {
         .from('points')
         .insert({
           statement: `Batch test point ${i + 1}`,
-          context: 'Testing efficient batch loading',
           first_validator_id: testUser.user.id,
           tags: ['test', 'p145'],
         })
@@ -197,7 +194,6 @@ test.describe('Profile Position Loading (P151)', () => {
       .from('points')
       .insert({
         statement: 'Public test: Remote work is the future',
-        context: 'Testing unauthenticated viewer experience',
         first_validator_id: testUser.user.id,
         tags: ['test', 'p145'],
       })
@@ -243,7 +239,6 @@ test.describe('Profile Position Loading (P151)', () => {
       .from('points')
       .insert({
         statement: 'Creator test: Climate action is urgent',
-        context: 'Testing positions on others points',
         first_validator_id: creatorUser.user.id, // Different creator
         tags: ['test', 'p145'],
       })

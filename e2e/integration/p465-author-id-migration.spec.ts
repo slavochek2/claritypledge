@@ -47,7 +47,6 @@ test.describe('P465 Migration — story_points.author_id + UNIQUE(author_id, poi
       .from('points')
       .insert({
         statement: `P465 migration test point ${Date.now()}`,
-        context: 'Migration constraint test',
         first_validator_id: userA.user.id,
         tags: ['test'],
       })
