@@ -106,19 +106,30 @@ extract_contract() {  # stdout: the '## Verification Contract' body, normalized
   # relative doc link to match the new depth (../docs/ -> ../../../docs/). That
   # rewrite lands INSIDE the Verification Contract section, so without this the pin
   # fails during the very ship it exists to protect — the contract text is identical,
-  # only its distance from repo root changed. Collapsing any run of "../" to a single
-  # "../" makes the digest a function of the contract's CONTENT, not of where the file
+  # only its distance from repo root changed. Stripping the depth prefix entirely
+  # makes the digest a function of the contract's CONTENT, not of where the file
   # currently sits.
   #
   # This does NOT weaken the pin: changing a link's TARGET (../docs/decisions.md ->
   # ../docs/other.md), or any other character in the section, still changes the digest.
-  # Only the depth prefix is collapsed. Verified by running a real content change
-  # through the gate and confirming it still FAILs (see the P1060 ship, 2026-08-31).
+  # Only the depth prefix is removed. Verified by running a real content change
+  # through the gate and confirming it still FAILs (see the P1060 ship, 2026-08-31,
+  # and the P1210 ship, 2026-09-03).
+  #
+  # CORRECTED 2026-09-03 (P1210 ship). This previously COLLAPSED runs of "../" to a
+  # single "../" — which normalizes a depth INCREASE from a base that already had one
+  # ("../docs" -> "../../../docs" -> "../docs") but cannot normalize a link that had
+  # NO prefix and gained one. P1210's contract is the first to link SIDEWAYS inside
+  # features/ ("verification/p1210/contract-review-2026-09-03.md"); /ship rewrote it
+  # to "../verification/..." and the pin failed on a path artifact with the contract
+  # text byte-identical. Collapsing is not depth-independence; removal is. Of the
+  # seven pinned contracts at the time of the fix, five contain no links at all and
+  # one (p1060) is closed, so only the spec being shipped was affected.
   awk '
     /^## Verification Contract[[:space:]]*$/ { inc=1; next }
     inc && /^## / { inc=0 }
     inc { print }
-  ' "$SPEC" | sed 's/[[:space:]]*$//' | sed -E 's|(\.\./)+|../|g' | $GREP -v '^$' || true
+  ' "$SPEC" | sed 's/[[:space:]]*$//' | sed -E 's|(\.\./)+||g' | $GREP -v '^$' || true
 }
 contract_hash() { extract_contract | sha256_stdin; }
 
