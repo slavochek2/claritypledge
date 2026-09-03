@@ -39,6 +39,20 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * P1152/PV-1 (2026-09-01): on Android, holding a MediaRecorder on the mic starves
+ * SpeechRecognition — it opens, receives silence, and closes at ~5.3s with no error
+ * of any kind, then auto-restarts forever. Measured on a physical Galaxy S22 over adb:
+ * with the recorder running the recognizer heard nothing 14 consecutive times; with the
+ * recorder off, the SAME page on the SAME device transcribed "windows for you 1 2 3"
+ * on the first attempt.
+ *
+ * Live text is the room's whole purpose, so recording yields until audio capture is
+ * unified server-side (one mic stream, both transcribed and stored). Flip to true only
+ * to reproduce the starvation.
+ */
+const RECORD_AUDIO_WHILE_LIVE = false;
+
 export function TranscribeRoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -116,38 +130,40 @@ export function TranscribeRoomPage() {
 
   const startCapture = useCallback(async (roomForCapture: TranscribeRoom, memberForCapture: TranscribeRoomMember) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
-      chunkNumberRef.current = 0;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      const flush = async (isLast: boolean) => {
-        if (audioChunksRef.current.length === 0) return;
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      if (RECORD_AUDIO_WHILE_LIVE) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
         audioChunksRef.current = [];
-        const num = chunkNumberRef.current++;
-        try {
-          await uploadRoomAudioChunk(roomForCapture.code, memberForCapture.displayName, memberForCapture.id, blob, num, isLast);
-        } catch (err) {
-          console.error('[transcribe] chunk upload failed:', err);
-        }
-      };
+        chunkNumberRef.current = 0;
 
-      recorder.start();
-      chunkIntervalRef.current = setInterval(() => {
-        recorder.requestData();
-        void flush(false);
-      }, CHUNK_INTERVAL_MS);
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
 
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        void flush(true);
-      };
+        const flush = async (isLast: boolean) => {
+          if (audioChunksRef.current.length === 0) return;
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          audioChunksRef.current = [];
+          const num = chunkNumberRef.current++;
+          try {
+            await uploadRoomAudioChunk(roomForCapture.code, memberForCapture.displayName, memberForCapture.id, blob, num, isLast);
+          } catch (err) {
+            console.error('[transcribe] chunk upload failed:', err);
+          }
+        };
+
+        recorder.start();
+        chunkIntervalRef.current = setInterval(() => {
+          recorder.requestData();
+          void flush(false);
+        }, CHUNK_INTERVAL_MS);
+
+        recorder.onstop = () => {
+          stream.getTracks().forEach((t) => t.stop());
+          void flush(true);
+        };
+      }
 
       if (speechSupported) {
         startListening();

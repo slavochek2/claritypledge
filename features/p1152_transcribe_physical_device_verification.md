@@ -12,6 +12,17 @@ drafted_by: opus
 
 # P1152: `/transcribe` — the physical verification a loop cannot do
 
+**PV-1 cause found 2026-09-03 — the check itself still needs re-running.** PV-1's recorded
+outcome has been `fail` with no cause since 2026-08-31. The cause is now known: on a physical
+Galaxy S22, read over an adb-forwarded DevTools console, `MediaRecorder` starves
+`SpeechRecognition` — 14 consecutive sessions ended at ~5.3s with `heard=false` and **no error of
+any kind**, and an isolated A/B on the same device 25 seconds apart produced `heard=true` with the
+recorder off and `heard=false` with it on. This settles the H1-vs-H2 verdict this spec was holding
+(H1 confirmed). Mitigation `RECORD_AUDIO_WHILE_LIVE = false` is applied; **PV-1 must be re-run
+against it before this spec closes**, and PV-2 through PV-4 remain unrun. See
+[decisions.md](../docs/decisions.md) 2026-09-03 and
+[P1236](p1236_server_side_live_transcription_for_rooms.md).
+
 **Reopened 2026-08-31, twice.** `/ship p1196` auto-closed this spec a second time as a
 co-located spec on the same branch — the mechanism does not know that a spec holding physical
 checks is not finished when the code beside it is. That is the same closure-without-outcome
