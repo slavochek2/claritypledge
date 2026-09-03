@@ -11,6 +11,8 @@
 --     client that does is deployed; the pre-P1230-B client keeps rotating on the
 --     table, which part B2 (20260902001600) is what closes.
 -- new function (rotate_invitation_token has no prior definition)
+-- diffed against: 20260813170000_p1066_null_identity_authz_guards.sql (§ 5, accept_agreement)
+--   the only change is the added WHERE conjunct marked "P1230 part B" below
 --
 -- What codex found. Part A (20260902001000) locks creator_profile_id /
 -- partner_profile_id against anon+authenticated with a BEFORE UPDATE trigger,

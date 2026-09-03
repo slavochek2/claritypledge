@@ -126,5 +126,72 @@ path and gives no error message naming the rule; the trigger is explicit. Either
 - [x] Migration's `DO` block passed on TEST; `pre-commit-checks.sh` green on `d011deda`
       (TypeScript ✓ ESLint ✓ Build ✓ Tests ✓, client-safety + RLS scoping + migration-applied gates)
 - [x] `.private/docs/security-log.md` carries the exact predicate (§ 2026-09-01 "P1230 built in w21")
-- [ ] **Founder step:** migration applied to prod; then a stranger PATCH of `partner_profile_id`
+- [ ] **Founder step:** migrations applied to prod in the part-B order below; then a stranger PATCH of `partner_profile_id`
       on a pending fixture returns 0 rows / 42501 on prod
+
+## Part B — the composed bypass (codex review, 2026-09-03)
+
+Part A locked `creator_profile_id` / `partner_profile_id` with a BEFORE UPDATE trigger and exempted
+`accept_agreement` because a SECURITY DEFINER body runs as the function owner. `status` and
+`invitation_token` were left party-writable, so a party could reach the same outcome in five steps:
+revert the row to `pending`; set an `invitation_token` of their choosing; hand it to any other
+authenticated account; that account calls `accept_agreement`; the exempt RPC writes it in as the
+partner. Codex also found part A's `DO` block asserted the *absence of substrings* in the policy
+predicate, which `USING (true)` passes.
+
+**Fix, in two migrations, because the release order matters.**
+
+- `20260902001500` (**client-safe**, additive) — `accept_agreement` gains
+  `AND (partner_profile_id IS NULL OR partner_profile_id = p_partner_id)`; body otherwise
+  `20260813170000` § 5 verbatim. Plus `rotate_invitation_token(uuid)`: SECURITY DEFINER,
+  creator-only, `pending`/`expired` only, EXECUTE to `authenticated` + `service_role`.
+- Client (`2df58753`) — `resendInvitation()` calls that RPC, falling back to the old table PATCH on
+  `PGRST202`.
+- `20260902001600` (**`requires-frontend: 2df58753`**) — the trigger additionally refuses
+  `NEW.status = 'pending' AND OLD.status <> 'pending'` and any change to `invitation_token`, for
+  `anon`/`authenticated` only. Its `DO` block compares the deparsed policy predicate to the intended
+  expression via `pg_get_expr` + whitespace-normalised equality, pins the trigger's `tgfoid`,
+  row-level BEFORE UPDATE timing bits and `tgenabled`, joins `pg_namespace`, and asserts
+  `authenticated` still holds UPDATE while `anon` does not.
+
+A single migration was not possible: the trigger tightening breaks any bundle that still PATCHes the
+token, and the RPC must exist before the bundle that calls it — the same A/B shape as P1222.
+
+**Prod order:** apply `20260902001000` + `20260902001500` → deploy the client → apply
+`20260902001600` (`migrate.sh` refuses it until `2df58753` is an ancestor of `origin/main`).
+
+## Evidence (part B, 2026-09-03)
+
+**Applied to TEST** from inside w21 via the Management API: `20260902001500`, `20260902001600`;
+both `DO` blocks passed, both recorded in `supabase_migrations.schema_migrations`, both listed in
+`supabase/deploy-manifest.json`. `pg_proc` confirms the accept guard text is live and
+`rotate_invitation_token` is `prosecdef = true` with `anon` EXECUTE absent.
+
+**Integration suite: 21 passed, 0 failed, 0 skipped** (`npx playwright test --project=integration
+e2e/integration/p1230-pending-agreement-hijack.spec.ts`), up from 9. New coverage: the staged attack
+step by step (a party cannot return an active *or* terminated row to `pending`; a party cannot write
+`invitation_token`; `accept_agreement` refuses to displace an assigned partner even when handed a
+valid rotated token, staged as `service_role`), the RPC's own authorization (non-creator → 42501,
+active agreement → 42501, `anon` → 42501), and the false-positive group: an email-addressed accept,
+a pre-assigned-partner accept, resend of a pending invitation, resend of an *expired* invitation,
+cancel, terminate and lazy expiry.
+
+**The guards were observed red, not only green** — each in a rolled-back Management API transaction
+(no fixture leaked; verified by a follow-up count):
+
+| Probe | With the old definition | With the shipped definition |
+|---|---|---|
+| creator PATCHes `status='pending'` + `invitation_token` on an active row | write succeeds | `42501` on both, row unchanged |
+| a third party calls `accept_agreement` with a valid token on a row whose partner is set | returns `true`, partner replaced | returns `false`, partner unchanged |
+
+**The `DO` block was observed failing** on the two shapes it exists to catch: replacing the policy
+with `USING (true) WITH CHECK (true)` → `P1230-B2: UPDATE policy USING is true — expected
+((creator_profile_id = auth.uid()) OR (partner_profile_id = auth.uid()))`; `DISABLE TRIGGER` →
+`P1230-B2: trigger tgenabled=D — expected O`. Both inside rolled-back transactions.
+
+**One test was rewritten, deliberately.** `control: the creator resends (rotates the token)` issued
+the direct table PATCH that part B closes. It now calls `rotate_invitation_token`, and the PATCH it
+used to make is asserted as refused in the new group. The spec changed; the test follows it.
+
+**Not done here:** nothing applied to prod; no browser check of the resend button on the new RPC
+path (service-level only) → `/verify`.
