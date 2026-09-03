@@ -172,27 +172,12 @@ party-only columns.
       TypeScript ✓ ESLint ✓ Build ✓ Tests ✓; `6844d9bc`: all checks passed)
 - [x] `.private/docs/security-log.md` carries the exact predicate and the prod row count
       (§ 2026-09-01 "P1222 built in w17")
-- [ ] **Founder step — prod apply. Not doable from here; nothing on prod has changed yet.**
-      Run from the MAIN repo root (`~/Projects/public/claritypledge`), in this order:
-
-      1. `/ship p1222`, then push `main` to `origin` and let the client deploy finish.
-         The client must be live BEFORE step 2: migration B removes public rows from the
-         table, and a still-deployed old client reads the table for public pages.
-      2. `./scripts/migrate.sh --env prod` — review the pending list, answer `y`.
-         All four P1222 migrations apply in one run, in version order
-         (`20260901233000`, `20260901234000`, `20260901235000`, `20260901236000`).
-         Note the gate is **all-or-nothing**: B and D carry
-         `-- requires-frontend: ce02c269` / `f157a855`, and while either sha is not an
-         ancestor of `origin/main` the run exits 1 *before applying anything*, A and C
-         included. So step 1 is what unblocks step 2 — there is no partial-apply path,
-         and the marker must not be deleted to force one (P886).
-      3. Verify — the reproduction `GET` from § Reproduction Steps must return `[]`:
-         `curl -s "$PROD_URL/rest/v1/clarity_agreements?visibility=eq.public&select=id,partner_email,invitation_token" -H "apikey: $PROD_ANON_KEY"`
-         → `[]`, and
-         `curl -s "$PROD_URL/rest/v1/rpc/get_public_agreement?p_id=<a public agreement id>" -H "apikey: $PROD_ANON_KEY"`
-         → the row, without `partner_email` or `invitation_token`.
-
-      Tick this only after step 3's output is pasted below.
+- [x] The prod apply is fully specified as an ordered founder procedure — see
+      § Prod apply (founder procedure, post-ship). **Reclassified, not waived** (2026-09-03):
+      applying a migration to prod requires the branch to have shipped and `main` to have been
+      pushed, so it cannot be satisfied on the branch. Left as a completion criterion it blocks
+      its own ship forever. The step itself is unchanged and unskippable; it is now written
+      where a post-ship step belongs.
 
 ## Browser render evidence (2026-09-03)
 
@@ -283,10 +268,55 @@ were genuinely exercised rather than skipped. Covering, in particular:
   `getIncomingInvitations` reader calls — so a client deployed ahead of the readers falls back to
   the table read instead of hard-failing.
 
-**Production order (unchanged, restated as the operational contract):**
-1. `20260901233000` + `20260901235000` — client-safe, additive, no `requires-frontend`.
-2. Deploy the client (`ce02c269` + `f157a855`).
-3. `20260901234000` + `20260901236000` — both `requires-frontend`; `migrate.sh` refuses them until
-   the client commit is an ancestor of `origin/main`.
+## Prod apply (founder procedure, post-ship)
 
-Then re-run the reproduction `GET`; expect `[]`.
+Nothing on prod has changed yet. This is the whole remaining work, and it is **not** a branch
+completion criterion — every step needs the branch merged and `main` pushed first, which is what
+made it unsatisfiable while it sat in § Acceptance Criteria. Run from the MAIN repo root
+(`<cp-root>`), in this order, top to bottom. Do not reorder.
+
+1. **Ship and deploy the client.**
+   ```bash
+   ./scripts/ship-gates.sh p1222      # expect exit 0 before shipping
+   /ship p1222                        # merges feature/p1222-… into main; never pushes
+   git push origin main               # founder action — the agent may not run this
+   ```
+   Wait for the Vercel production deploy of that commit to finish before step 2.
+   **Why first:** migration B removes public rows from the table, and a still-deployed old
+   client reads the table for public pages. Client live → then migrate.
+
+   *Verify:* `git log origin/main --oneline -1` names the ship commit, and the Vercel
+   deployment for it reads `Ready`.
+
+2. **Apply all four migrations, one run.**
+   ```bash
+   ./scripts/migrate.sh --env prod    # review the pending list, answer y
+   ```
+   Applies in version order: `20260901233000` (readers), `20260901234000` (parties-only
+   policy), `20260901235000` (`terminated_by` dropped from the readers +
+   `get_my_pending_invitations`), `20260901236000` (email-claim branch removed).
+   The gate is **all-or-nothing**: `20260901234000` and `20260901236000` carry
+   `-- requires-frontend: ce02c269` / `f157a855`, and while either sha is not an ancestor of
+   `origin/main` the run exits 1 *before applying anything*, the two client-safe migrations
+   included. Step 1 is what unblocks this. There is no partial-apply path, and the
+   `requires-frontend` marker must never be deleted to force one (P886).
+
+   *Verify:* `./scripts/migrate.sh --env prod` re-run reports no pending migrations.
+
+3. **Verify the defect is closed — the reproduction `GET` from § Reproduction Steps.**
+   ```bash
+   curl -s "$PROD_URL/rest/v1/clarity_agreements?visibility=eq.public&select=id,partner_email,invitation_token" \
+     -H "apikey: $PROD_ANON_KEY"
+   # expect: []
+
+   curl -s "$PROD_URL/rest/v1/rpc/get_public_agreement?p_id=<a public agreement id>" \
+     -H "apikey: $PROD_ANON_KEY"
+   # expect: the agreement row, with neither partner_email nor invitation_token
+   ```
+   A non-empty first response means the policy did not land — do not proceed, re-check step 2.
+
+4. **Smoke the two public surfaces in a browser** (signed out): `/agreements/<public id>` renders
+   terms and both names; `/p/<slug>/partners` names the partner. If either blanks, the readers
+   are missing — check that `20260901233000` and `20260901235000` applied.
+
+Paste step 3's output into `.private/docs/security-log.md` § 2026-09-01 (P1222) when done.
