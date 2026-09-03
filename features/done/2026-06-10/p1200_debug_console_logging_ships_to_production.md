@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 89
 severity: low
@@ -9,8 +9,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [logging, privacy, production, cleanup]
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
+completed_at: 2026-09-03
 ---
 
 # P1200: Ungated debug console logging ships to the production console
