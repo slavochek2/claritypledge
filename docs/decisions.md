@@ -6,6 +6,131 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [process]: A rule-presence check cannot see the contradiction it leaves behind — P1210 applied §7 in the owning file and left the superseded rule live in seven others
+
+**Context:** P1210 §7 carried two founder decisions of 2026-09-01: withdraw the 1,500-character
+story ceiling, and change the unit from *one story per distinct experience* to *one story per
+(person, point)*. Both landed in `story-draft.md`, the owning file. Both were left contradicted in
+seven other places — including a live `- [ ] Every story body is <= 1,500 characters` checkbox in
+`publish.md`'s Quality Gates (the same file whose precondition table two hundred lines earlier
+correctly recorded the withdrawal), and `docs/points-process.md`, which every skill file names as
+schema authority and which still specified the superseded unit in two places. Shipped as-is, the
+pipeline would have rejected every story its own new unit produces.
+
+The branch's whole purpose was turning pipeline rules from prose into executable checks, and
+`scripts/points/rule-present.mjs` passed on all of it: it asserts a rule is **stated at a named
+location** and has no concept of the same rule being **denied somewhere else**. `goal-gate.sh`
+returned PASS — 28 groups, 0 failures — over the contradiction.
+
+Found by the blind prose reviewer held outside the gate (RD-3, the 2026-09-03 entry below), given
+the six skill files and neither the diff nor the rationale. It was its first finding.
+
+**Decision:** Record the class, not the instance: **presence checks are one-sided, and a superseding
+decision is the case where the missing side bites.** A check that greps for the new rule is green
+the moment the new rule exists, whether or not the old one was removed — and the two most dangerous
+copies are the file that *enforces* the rule at a boundary (a checklist a downstream stage ticks)
+and the doc every other file defers to for the schema. Verified by command before acting: on `main`
+all seven places agreed with each other; the branch introduced the divergence.
+
+**Alternatives rejected:** *Add an absence check to `rule-present.mjs`* — the superseded text has no
+stable form to grep for, and P1210 §12's non-goal forbids tuning these predicates mid-branch. *Treat
+it as a P1210 bug and move on* — the same shape is available to every future spec that supersedes a
+rule stated in more than one file, which is most of them.
+
+**Consequences:** A spec that supersedes a rule must enumerate every file asserting the old one
+before it is done — `grep` the number, the phrase and the doc that claims authority, not just the
+file being edited. The blind prose reviewer is currently the only thing in the pipeline that catches
+this, and it is manual, held at `/ship`, and exists only because CHECK 5 structurally skips on
+non-visual specs. (Status: proposed — no mechanical check is proposed here, because none of the
+obvious ones survives §12's non-goal.)
+
+**References:** `.claude/commands/slava/disagreement/publish.md` §Quality Gates ·
+`docs/points-process.md` §Story constraints · `docs/story-craft.md` §1 ·
+`scripts/points/rule-present.mjs` · `features/done/2026-06-10/p1210_disagreement_pipeline_objective_and_point_unit.md` §7
+
+---
+
+## 2026-09-03 [process]: A spec's contract-table checks stop running the day the spec closes — P1210 shipped its own safety net into inertness
+
+**Context:** P1210 built thirteen predicate modules and four harness tools under `scripts/points/`.
+A code review claimed the four harness tools had no caller anywhere. **That was wrong as filed** and
+the correction is the point: `two-callers.mjs` runs in CI through
+`src/tests/p1210-two-callers.test.ts`, and `verify-all.mjs`, `no-vacuous-tests.mjs` and
+`verify-fixture.mjs` all ran today — through P1210's own `goal-gate.sh` contract table.
+
+Through the contract table is the defect. `goal-gate.sh` resolves its checks from the spec, and the
+spec moves to `features/done/` at `/ship`. The three checks that only ever ran that way — a
+predicate shipped with no must-fail fixture (DW-20), a test file quietly reduced to `.skip`
+(DW-21), the run fixture drifting from its derivation (DW-23) — would have gone unenforced from the
+moment of the merge. The branch's own thesis, *"a check that exists as code nothing calls is prose
+with a file extension"*, coming true about its own safety net and triggered by shipping it.
+
+**Decision:** **A goalified spec's contract is scaffolding with a closing date; anything that must
+outlive the spec has to be re-homed before `/ship`.** DW-20 was wired into `src/tests/` — and
+therefore `npm test` and `.github/workflows/test.yml` — independently of any P-number (founder
+decision at `/ship`). DW-21 and DW-23 stay manual, on the record and for stated reasons:
+`no-vacuous-tests.mjs` would run vitest inside vitest, and `verify-fixture.mjs` half (b) reads a
+gitignored run file and is unverifiable in CI by design.
+
+The new test was proven by exercising its failure path rather than asserting it (epistemic.md gate
+7): disabling `seal.mjs`'s must-fail fixture turned it red, 2 of 3; restoring it turned it green.
+
+**Alternatives rejected:** *Wire all four into CI* — two of them cannot honestly run there, and a
+partly-inert step in every CI run teaches people to ignore it. *Leave all three manual and file a
+follow-up* — nothing would have enforced them in the gap, and the gap has no deadline.
+
+**Consequences:** Every future goalified spec inherits this question at `/ship`: which of these
+checks is about **this change**, and which is about **the code from now on**? The first closes with
+the spec; the second needs a home in `src/tests/`, `pre-commit-checks.sh` or a workflow. `/ship` does
+not ask it, so it has to be asked by hand until something does. (Status: proposed — a `ship-gates.sh`
+row that lists contract commands with no caller outside the spec is the obvious candidate.)
+
+**References:** `src/tests/p1210-verify-all-sweep.test.ts` · `scripts/goal-gate.sh` CHECK 2 ·
+`features/uat/p1210.md` §"DW-20 is now wired into npm test"
+
+---
+
+## 2026-09-03 [technical]: Collapsing `../` is not depth-independence — the contract pin failed on a sideways link during the ship it protects (P1210)
+
+**Context:** `goal-gate.sh` CHECK 7 pins a spec's Verification Contract digest on `main` so a branch
+cannot edit the criteria it is judged against. `/ship` moves a closing spec into
+`features/done/<sprint>/` and rewrites its relative links to the new depth, so the digest is
+normalized for depth before hashing. The 2026-08-31 entry (P1060) recorded that fix as *"only the
+depth prefix is collapsed."*
+
+Collapsing runs of `../` to a single `../` normalizes a depth increase **from a base that already
+had one** — `../docs` → `../../../docs` → `../docs`. It cannot normalize a link that had **no**
+prefix and gained one. P1210's contract is the first to link sideways inside `features/`
+(`verification/p1210/contract-review-2026-09-03.md`); `/ship` rewrote it to `../verification/...`
+and CHECK 7 failed mid-ship with the contract text byte-identical — diffed against main's pinned
+copy, that one prefix was the only difference.
+
+**Decision:** Strip the depth prefix entirely rather than collapse it (`s|(\.\./)+||g`). The stated
+intent was always that the digest track content, not location; collapsing implemented that for one
+of the two directions.
+
+Exercised rather than asserted (epistemic.md gate 7), four controls against the real contract: link
+**target** changed → CAUGHT; a word inserted into contract prose → CAUGHT; a MECHANICAL row deleted
+from inside the contract section → CAUGHT; pure depth change → normalized, unchanged. **The
+row-deletion control first came back BLIND, and the probe was broken, not the gate** — its regex had
+deleted a MECHANICAL row from *Resolved Decisions*, outside the contract section. Re-run against a
+row genuinely inside the section: CAUGHT. A control that reports "no change" is a claim about the
+probe until you confirm the probe changed something.
+
+**Alternatives rejected:** *Re-pin p1210 only* — narrow, but it is precisely the move the pin exists
+to forbid, and it leaves the bug live for the next spec that links sideways. *Leave it and ship with
+`--no-verify`* — editing the artifact to evade the scan, forbidden outright (see 2026-08-31).
+
+**Consequences:** Blast radius at the time of the fix was one spec: of seven pinned contracts, five
+contain no links at all and the one other that does (p1060) is closed and never re-hashed. Any
+future contract may now link sideways within `features/` without tripping the pin. A link whose
+**target** changes is still caught in both directions.
+
+**References:** `scripts/goal-gate.sh` `extract_contract()` · `features/verification/p1210/contract.sha256` ·
+decisions.md 2026-08-31 (P1060), which this entry corrects
+
+---
+
 ## 2026-09-03 [process]: A merged spec is not a closed vulnerability — three security specs closed the same day with every finding still live in production (P1207/P1222/P1230)
 
 **Context:** P1207 closed with Decision Criterion 1 answered **No**. P1222 and P1230 closed within
