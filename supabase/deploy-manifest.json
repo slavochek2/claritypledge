@@ -15,9 +15,7 @@
       "request-letter-response-signin": "956eb682327b8efa503163f559e64f73d7b309b6e4c6176ca49e25d259d35e3a",
       "send-agreement-emails": "e9d6b6b12b029b7741c66efef7cc64499a614d4061b1522bc3d6c737920da3ae",
       "send-event-emails": "ab1041f1264758481f4f63d7454437ec698501a75181f643caef617543744e64",
-      "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717",
-      "send-letter-response-signin": "3b16dac8ac9feb06993e4f8f4909d066849419c4b0571498aa99c4618f8a0526",
-      "story-guide-chat": "db27441eb5ec5f62e9043edb1b2110ab6b1fee6d8c523e54f199997ac25c3993"
+      "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717"
     },
     "functions_deployed_at": "2026-08-28T14:43:58Z",
     "migrations": [
@@ -304,9 +302,7 @@
       "request-letter-response-signin": "956eb682327b8efa503163f559e64f73d7b309b6e4c6176ca49e25d259d35e3a",
       "send-agreement-emails": "6f70aff8a195ff606db77a429410e937599605d50ab6aed264624a16ba9ba0a3",
       "send-event-emails": "ab1041f1264758481f4f63d7454437ec698501a75181f643caef617543744e64",
-      "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717",
-      "send-letter-response-signin": "3b16dac8ac9feb06993e4f8f4909d066849419c4b0571498aa99c4618f8a0526",
-      "story-guide-chat": "db27441eb5ec5f62e9043edb1b2110ab6b1fee6d8c523e54f199997ac25c3993"
+      "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717"
     },
     "functions_deployed_at": "2026-08-19T18:46:41Z",
     "migrations": [

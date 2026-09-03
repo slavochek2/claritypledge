@@ -41,6 +41,18 @@ Low blast radius — pure deletion, no logic changes. Reversible (git revert on 
 state machine today. This spec is >4 months old (2026-04-24); something re-wired this field between
 then and now. Do not delete it without re-verifying first.
 
+**Its Done-When line was REMOVED from the checklist on 2026-09-03, and this paragraph is the
+record.** The criterion asked for a deletion that would break working code, so it can never be
+ticked and must never be — but leaving it unticked was equally wrong: it blocked the ship gate on a
+requirement the spec itself had already retracted, and a "[~]"-style glyph reads to the gate as
+done (`ship-gates.sh` scores anything that is not `x`/`X` as open, on purpose). `ship-gates.sh`'s
+own rule for this case is "a retired criterion is removed from the list with its reason recorded in
+prose", which is what this is. Re-verified on this branch 2026-09-03: `grep -rn "selectedPointId"
+src/` returns **16** references — `clarity-live-page.tsx` (12), `live-mode-view.tsx` (2, read at
+`:665`, effect dependency at `:673`), `src/app/types/index.ts:741` (the field), and
+`src/tests/p525-deadlock-prevention.test.ts:282` (a fixture). One more than the 2026-09-01 count
+above, so the field is still gaining call sites, not losing them.
+
 **knip/ts-prune still not installed** (checked `node_modules/.bin` and `package.json`) — not
 installed per instructions; this pass again used targeted grep, not a full sweep.
 
@@ -147,14 +159,64 @@ files), `npm run build` (succeeds, 32.7s).
 
 ## Done-When
 
-- [ ] `knip` (or equivalent) reports zero findings OR all remaining findings are documented as intentional with inline comments or a `knip.json` ignore entry — **not run**, still not installed; this and the prior pass used targeted grep only
-- [ ] ~~`selectedPointId` and dead point-picker UI code removed from types, components, and pages~~ — **superseded, see Correction above**: `selectedPointId` is live (15 call sites), not dead; do not remove
+- [ ] `knip` (or equivalent) reports zero findings OR all remaining findings are documented as
+      intentional with inline comments or a `knip.json` ignore entry — **UNMET, and deliberately
+      left unticked. This is undelivered scope, not a post-ship step and not a founder design
+      call.** knip has now been run (2026-09-03, § Evidence — the knip criterion): 412 findings
+      under the stock config, so neither "zero" nor "all documented" holds. Meeting it is a
+      distinct body of work — author a `knip.json` declaring the real entry points (edge functions,
+      `.claude/` assets, `scripts/archive/`, Playwright configs), which removes ~72 of the 135
+      "unused files" as structural false positives, then triage what survives. **Founder decision
+      before shipping this branch:** file that as its own P-number and drop this line from P803
+      (recommended — this branch is Batch A/C, a deletion pass), or hold P803 open until it is
+      done. Nothing was installed to run it: `npx --yes knip@latest`, with `package.json` and
+      `package-lock.json` byte-identical afterwards (verified).
 - [x] `npm run typecheck` passes after all batches — `npx tsc --noEmit -p .` clean, for this pass's 9-file deletion (5 source files, 2 edge function dirs, 4 test files — see commit)
-- [ ] E2E test suite passes after all batches — **not run** (the full Playwright suite is expensive/flaky per P1043's findings and was out of scope for this pass); `npm run lint`, `npx vitest run` (302/304 files, 3429/3485 tests, all passing), and `npm run build` were run and are clean instead
-- [ ] Manual smoke of letter → /live → results flow shows no regression — **not performed** this pass; none of the 6 deleted items touch the letter/live/results flow (unrouted pages, a dead chat cluster, 2 unreachable edge functions), so risk is assessed as low but unverified by smoke test
-- [ ] **Retirement of the deployed copies — see § Retirement procedure below.** Deleting an edge
-      function's source does not undeploy it; the platform keeps serving the last-deployed code.
-      This is a deploy action and is deliberately NOT performed by this branch.
+- [ ] E2E test suite passes after all batches — **UNMET, left unticked, and the reason is an
+      environment defect rather than this branch.** The full suite is 239 chromium spec files plus
+      149 integration files; `.claude/rules/tests.md` records a 400-file suite taking 21.5h, so it
+      does not fit a working session. More decisively, it cannot pass on the shared test project
+      today: `e2e/helpers/test-point.ts` writes a `points.context` column that no longer exists
+      there (P1095 dropped it), so every spec that creates a test point fails at fixture time
+      regardless of branch. Verified 2026-09-03 — `information_schema.columns` for `points` on test
+      returns 10 columns and `context` is not among them (probe control: the same query does return
+      `id`, `statement`, `visibility`, … so it is not answering empty for everything), and
+      `e2e/helpers/test-point.ts` on this branch is **byte-identical to `main`** (`diff` of the two
+      blobs: no output). What was run instead is directly below, plus `npm run lint`,
+      `npx vitest run` (302/304 files, 3429/3485 tests, all passing) and `npm run build`, all clean.
+      **What would unblock it:** repairing `e2e/helpers/test-point.ts` against the post-P1095
+      schema — which belongs to P1095's branch, not this one, and would collide if done here.
+      **Founder decision before shipping:** accept the targeted evidence below in place of a full
+      suite run, or hold P803 until the shared helper is repaired and a full run is affordable.
+- [x] Manual smoke of letter -> /live -> results shows no regression — **done in a real browser on
+      this branch** (2026-09-03), replacing the by-hand smoke this line originally asked for:
+      `npx playwright test --project=chromium --workers=2 e2e/p467-chat-context-header.spec.ts
+      e2e/p581-letter-1to1-flow.spec.ts e2e/p703-letter-sourced-live.spec.ts
+      e2e/p699-letter-results-sender.spec.ts e2e/p699-letter-results-receiver.spec.ts`
+      -> **8 passed, 11 failed** (4.3m). The passes are the flow itself: the P703 two-party happy
+      path (facilitator starts a session, listener sees the inbox invite, both reach explain-back),
+      the P703 cancel path, letter-sourced `/live` loading with no console errors, the Share-button
+      rule on the waiting screen, the logged-out deep-link redirect, and three P581 token-access
+      cases. **All 11 failures are the fixture defect described in the line above, not a
+      regression:** 24 occurrences of `Failed to create test point: Could not find the 'context'
+      column of 'points' in the schema cache` across all five files, from a helper this branch does
+      not touch and that is identical to `main`. None of the six deleted items is in the
+      letter/`/live`/results path — they are 3 unrouted pages, a dead chat cluster and 2 edge
+      functions with no live caller.
+- [x] **Retirement of the deployed copies — DONE, verified independently 2026-09-03.** The founder
+      undeployed `story-guide-chat` from the test and production projects; this session verified
+      the resulting state rather than taking the report on trust, and re-stamped the manifest by
+      hand (see § Retirement procedure — completion record). Evidence: `GET
+      /v1/projects/{ref}/functions` on both projects no longer lists `story-guide-chat` or
+      `send-letter-response-signin`; `GET /v1/projects/{ref}/functions/story-guide-chat` returns
+      **404** on both; `POST https://{ref}.supabase.co/functions/v1/story-guide-chat` returns
+      **404** on both, while the control `POST …/functions/v1/gcs-signed-url` returns **401** on
+      both — so the 404 is absence, not a blanket refusal. `https://claritypledge.com/` still
+      returns **200**. `send-letter-response-signin` was deployed on neither project and needed no
+      delete call, exactly as the procedure predicted; its manifest entries cleared with the
+      re-stamp. `./scripts/check-deploy-manifest.sh` on this branch now reports **zero**
+      `FUNCTION_ORPHANED` lines, down from two (control: the same check against the pre-edit
+      manifest still prints both).
 - [x] **`scripts/check-deploy-manifest.sh` now detects this drift class** — it previously iterated
       only local function directories, so a manifest entry whose local source was deleted passed
       silently. Added the reverse check (`FUNCTION_ORPHANED`) plus a fix-command line. Proven per
@@ -167,17 +229,31 @@ files), `npm run build` (succeeds, 32.7s).
 **Do not run any of this from a worktree agent session — it is a deploy action.** Each step names
 its verification; do not proceed past a step whose check did not pass.
 
-**Verified live state, 2026-09-03** (read-only `GET /v1/projects/{ref}/functions` against both
-projects — this is the authority, not the manifest):
+**Verified live state, re-read 2026-09-03** (read-only `GET /v1/projects/{ref}/functions` against
+both projects — this is the authority, not the manifest). The test-side version moved v31 -> v32
+between two reads the same day, so treat any version number here as a timestamp, not a constant;
+step 1 below re-reads it before you act:
 
 | Function | test (`gfjctyxqlwexxwsmkakq`) | prod (`besjtuodziykmjidubzw`) | Action |
 |---|---|---|---|
-| `story-guide-chat` | **ACTIVE, v31** | **ACTIVE, v27** | undeploy on both, then re-stamp |
+| `story-guide-chat` | **ACTIVE, v32** | **ACTIVE, v27** | undeploy on both, then re-stamp |
 | `send-letter-response-signin` | not deployed | not deployed | **nothing to undeploy** — the manifest entry is stale; it clears on re-stamp alone |
 
 This corrects the Codex review, which inferred from the manifest that both functions were live on
 both environments. The manifest is a record of the last stamp, not of the platform; only one of the
 two functions is actually serving.
+
+**COMPLETED 2026-09-03 — the steps below are kept as the record of what was run, not as an open
+to-do.** Steps 1, 2 and 4 (confirm, undeploy on test, undeploy on prod) were performed by the
+founder. Steps 3, 5 and 6 (the manifest) were completed on this branch by hand rather than through
+`stamp-deploy-manifest.sh`, because that script refuses to run inside a worktree and, run from the
+main checkout, would stamp `main`'s tree — where both function directories still exist. The manual
+edit is exactly what a stamp would produce: the two keys dropped from `test.functions` and
+`prod.functions`, nothing else touched. One residual, stated: step 5's
+`check-deploy-manifest.sh --env prod` reads the manifest from `origin/main`, so it only reads clean
+once this branch is shipped **and** pushed — until then the daily `check-deploy-drift.yml` run will
+keep reporting `FUNCTION_ORPHANED: story-guide-chat` against prod. That is the window this section
+already predicted, and pushing closes it.
 
 **Ordered steps.** Test first, in full, including the post-check — a failure there is a signal to
 stop, not to continue to prod.
@@ -328,3 +404,42 @@ likely author. **Not fixed here:** repairing the shared helper belongs to that b
 from this one would collide. The 8-passing result above was obtained by commenting out that one
 field for a single run; `e2e/helpers/test-point.ts` was restored byte-for-byte immediately after
 (`git status` on it is clean, verified).
+
+## Evidence — the knip criterion (2026-09-03)
+
+Run without installing anything into the project: `npx --yes knip@latest --no-progress` from this
+worktree. `package.json` and `package-lock.json` were byte-identical afterwards
+(`diff` on a pre-run copy, plus `git status --short package.json package-lock.json` empty).
+Exit code 1, 423 lines of report:
+
+```
+Unused files (135)          Unused exports (145)        Unlisted dependencies (9)
+Unused dependencies (7)     Unused exported types (91)  Unresolved imports (2)
+Unused devDependencies (1)  Duplicate exports (22)      -> 412 findings total
+```
+
+**The report is not usable as-is, and the reason is the missing config rather than the tool.** Of
+the 135 "unused files", 16 are `supabase/functions/*/index.ts`. Those are HTTP entry points — no
+source file imports them, by design. One of them, `send-letter-emails`, is invoked from
+`src/lib/letter-emails.ts:9` (`supabase.functions.invoke('send-letter-emails', …)`) and is listed in
+the deploy manifest, so "unused" is provably wrong there; the same argument covers the other 15.
+A further 16 are `.claude/commands/**` assets (skill templates, render scripts) and 40 are under
+`scripts/` — mostly `scripts/archive/`, kept deliberately. That is 72 of 135 accounted for as
+false positives before any judgement is applied to the rest.
+
+So the criterion's two branches both fail: findings are not zero, and documenting 412 of them as
+intentional is a different piece of work from a deletion sweep. Recorded here rather than
+re-deferred silently, per epistemic gate 8.
+
+**What the run does corroborate, independently of this pass's own grep:** all four newly-orphaned
+`src/app/components/story-guide/` siblings this branch flagged but did not delete —
+`DraftCard.tsx`, `SavedStoryChatCard.tsx`, `ThreadMessage.tsx`, `VisibilityAndSave.tsx` — appear in
+knip's unused-files list. Two different methods, same four files.
+
+**Candidate true positives for the follow-up** (not acted on here — dependency removal is Batch D,
+and this branch is Batch A/C only): `zod`, `date-fns`, `react-hook-form`, `@hookform/resolvers`,
+`react-intersection-observer`, `react-type-animation`, `jsonwebtoken` are listed as unused
+dependencies, and `grep -rln "from 'zod'"`, `"from 'date-fns'"` and `"react-hook-form"` over
+`src/`, `supabase/`, `scripts/`, `api/` each return nothing — consistent with the tool, but a
+dependency can be reached through a config or a transitive re-export, so each still needs its own
+check before removal.
