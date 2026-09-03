@@ -1,14 +1,14 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000066
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [legal, gdpr, privacy, tos]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: fable
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1219: Terms of Service and Privacy Policy refresh
