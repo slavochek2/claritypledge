@@ -6,6 +6,113 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [process]: A merged spec is not a closed vulnerability — three security specs closed the same day with every finding still live in production (P1207/P1222/P1230)
+
+**Context:** P1207 closed with Decision Criterion 1 answered **No**. P1222 and P1230 closed within
+the same hour. All three are security specs, all three fixed real defects, and all three fixed them
+**on the test database only** — each having reclassified its production apply as a post-ship
+founder procedure. The kanban shows three green `all-done` rows. Production carries every finding
+all three names.
+
+Nothing here is a mistake. Each reclassification was deliberate and defensible: a prod apply has
+its own blast radius and belongs behind a human gate, and a spec cannot hold itself open waiting on
+a step it is not allowed to take. The failure is emergent — it appears only when you look at the
+three together, which no artifact does.
+
+**Decision:** **A terminal spec status means "the work this spec is allowed to do is finished",
+never "the defect is gone."** For any spec whose fix is a migration, the closing record must name
+the production state explicitly and separately from the spec state. P1207's closure does this in
+three places (the spec's own "What this spec does NOT deliver", the public audit doc, and P1215's
+gate row), and the gate row now carries the sentence that generalises it: *do not open this gate on
+three green spec statuses.*
+
+**Alternatives rejected:**
+- *Hold the specs open until prod is applied.* Rejected: it strands the verdict. P1207's whole
+  deliverable is the **No** — a finding that P1215 needs in order to stay shut. An open spec's
+  conclusions do not propagate, and P1215's gate row explicitly warns that a finished audit with
+  nothing quoted across is indistinguishable from an audit never run.
+- *A new status value (`shipped-not-applied`).* Rejected: it puts the distinction in a field only
+  the kanban reads, on the same self-reported label that P1169 already removed from every gate for
+  exactly this reason.
+- *Rely on the daily privilege-floor check.* Necessary but insufficient — see Consequences.
+
+**Consequences:** The only artifact that reports production rather than a merge is the daily
+`/day` privilege-floor check, and **it covers one finding class of the ten**. It is silent on the
+other nine, and it will alarm until the P1207 apply lands regardless — so a green run on it is not
+evidence about anything else, and a red run says nothing about which spec is responsible. Filed in
+the private deferred-work inbox with a falsifier that requires a prod re-verification rather than a
+merge count. *(Status: proposed — the general fix, a closing-time prod-state field that a
+cross-spec check could read, is not built.)*
+
+**References:** [features/done/2026-06-10/p1207_adversarial_permission_audit_before_agent_api.md](../features/done/2026-06-10/p1207_adversarial_permission_audit_before_agent_api.md), `features/p1215_agent_callable_surface_for_user_actions.md` gate row, `.private/docs/security-log.md` § P1207 closure
+
+---
+
+## 2026-09-03 [process]: Close a spec with unmet criteria by marking the shortfall in the criterion's own text — silence and stalling are both worse (P1207)
+
+**Context:** P1207 finished with two of eleven Done-When items genuinely unmet: no per-table matrix
+for reach classes C and D, and a standing control that is a daily check rather than the pre-commit
+one the spec asked for. `ship-gates.sh` gate 2.5 hard-fails on any unticked box, so the two
+available moves were: tick them and say nothing, or leave them unticked and never close.
+
+**Decision:** Tick the box, and rewrite the criterion's own line to open with **`SHORTFALL —`** and
+state what was and was not delivered. The checkbox then means *this item is settled and its outcome
+is recorded*, not *this item was achieved*. The shortfall is in the artifact a future reader
+actually opens, at the point they would otherwise assume success.
+
+**Alternatives rejected:**
+- *Tick silently.* This is the failure the gate exists to prevent, and it is worse than a missing
+  gate — a green checkbox is a positive claim, so it does not merely fail to inform, it misinforms.
+- *Leave unticked.* The spec never closes, and its verdict never propagates to the dependency that
+  needs it. P1207's **No** is the valuable half; stranding it to preserve a checkbox's purity
+  trades a real safety signal for a bookkeeping one.
+- *Rewrite the criterion to match what was built.* This is the sophisticated version of ticking
+  silently — it produces a spec that appears to have met every bar it set, by moving the bar after
+  seeing the result.
+
+**Consequences:** Gate 2.5 cannot distinguish `[x]` from `[x] SHORTFALL —`, so this convention is
+carried by prose and nothing enforces it. That is acceptable for now: the alternative is a parser
+for a pattern used twice. Worth revisiting if a third spec closes this way — at which point the
+gate could require that any `SHORTFALL` line names what was not delivered. *(Status: proposed.)*
+
+**References:** [features/done/2026-06-10/p1207_adversarial_permission_audit_before_agent_api.md](../features/done/2026-06-10/p1207_adversarial_permission_audit_before_agent_api.md) § Done-When, `scripts/ship-gates.sh` gate 2.5
+
+---
+
+## 2026-09-03 [technical]: A keyword filter cannot be a safety boundary — the environment assert is the one doing the work (P1207)
+
+**Context:** P1207's audit probes run through a helper whose docstring promises it "refuses anything
+that is not a single SELECT/WITH statement". The spec's closure draft cited that sentence as
+evidence for the Done-When item *nothing was run against prod that wrote*. Tested at close, with the
+network stubbed so no case could be sent: the filter does not enforce single-statement, and it
+cannot see a write performed by a function that a `SELECT` invokes — lexical scanning has no view
+inside a function body. It also **refuses** legitimate reads whose text merely mentions a write
+keyword, including one of the most natural queries the audit itself needs.
+
+**Decision:** State the guarantee in the order that reflects what actually holds. The probes are kept
+off production by an unconditional project-reference assert at module load, which runs before any
+query is possible and refuses the production reference outright. The keyword filter is defence in
+depth on top of an already test-only channel, and both the spec and the private log now say so in
+that order.
+
+**Alternatives rejected:**
+- *Extend the keyword list.* This is the move the same audit had already recorded as unwinnable when
+  an adversarial review defeated its standing control's predicate regex — the fix there was to invert
+  the test rather than enumerate evasions. Repeating the enumeration approach one artifact later
+  would be the identical mistake.
+- *Fix it inside the closing spec.* Out of a closing spec's remit, and the correct fix is not a
+  filter at all.
+
+**Consequences:** The real fix is to run these probes as a role holding no write privilege, so the
+database refuses and the filter becomes deletable. Filed with a falsifier: a probe role whose writes
+return a permission error on every audited table, demonstrated once. Until then the false-positive
+rate on legitimate audit reads is known and unmeasured — the same shape as epistemic gate 7c, in an
+artifact written by the audit that documented 7c. *(Status: proposed.)*
+
+**References:** `scripts/audit/p1207/readonly_sql.py`, [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7c, `.private/docs/security-log.md` § "The guard behind Done-When #10, measured"
+
+---
+
 ## 2026-09-03 [product]: The founder's bet that ClarityPledge cannot succeed without agent read/write is recorded here UNTESTED — it is the load-bearing premise of P1215 and appears in no hypothesis
 
 **Context:** P1215 (agent-callable surface) rests entirely on a conviction stated 2026-09-01:
