@@ -5,6 +5,7 @@ rank: 239
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [specs, schema, skills, kanban]
+related: [p1214, p1148]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -19,7 +20,11 @@ driver: anomaly
 
 **Situation:** `.claude/rules/features.md` defines relationship fields **only** for `type: change-request` (`changes:`, `superseded_by:`). Every other kind of relationship between specs is ad hoc.
 
-**Complication:** Measured across `features/` on 2026-08-28 — `parent:` **12** · `blocked_by:` **7** · `depends_on:` **6** · `blocks:` **5** · `related:` **2**. Five spellings for two ideas (ordering and association), across 32 specs, none in the schema. Nothing consumes any of them — control-checked, the same probe finds `delivery_stage` in `scripts/` without trouble.
+**Complication:** Measured across `features/` on 2026-08-28 — `parent:` **12** · `blocked_by:` **7** · `depends_on:` **6** · `blocks:` **5** · `related:` **2**. Five spellings for two ideas (ordering and association), across 32 specs, none in the schema. ~~Nothing consumes any of them~~ — **corrected 2026-09-03: `blocked_by` HAS a consumer.** The
+kanban parses it (`tools/kanban/server/api.ts:176`), types it (`tools/kanban/src/lib/types.ts:50`,
+commented *"AI-managed, display only"*), persists it through the PATCH path
+(`api.ts:661-663,712`), and covers it in tests (`server/__tests__/api.test.ts:482`). The original
+probe searched `scripts/` and missed `tools/`. The other four spellings remain unconsumed.
 
 So a chain of dependent specs is **invisible unless a human reads the prose**. Filed this session: P1180 → P1181 → P1182, whose ordering lived only in a `## Related` paragraph until it was added by hand, in a spelling chosen by counting other files.
 
@@ -34,6 +39,11 @@ So a chain of dependent specs is **invisible unless a human reads the prose**. F
 ## Solution
 
 Three parts.
+
+**This changes the recommendation's basis, not its direction.** `blocked_by` was proposed on a raw
+count; it now wins on a stronger ground — it is the only spelling with a working consumer, so
+pinning anything else means either abandoning that consumer or rewriting it. The `related:`
+half is still unconsumed and still a judgement call.
 
 1. **Pin the vocabulary in `features.md`.** Two ideas, two fields: an **ordering** field (this cannot start until that is done) and an **association** field (these are about the same thing, no ordering implied). Recommend `blocked_by:` and `related:` — `blocked_by` is the most-used ordering spelling and reads unambiguously in one direction; `parent:` leads the raw count but means containment, which is a third idea and should not be conflated. Inline list form, matching `pipeline_ran`.
 
@@ -53,7 +63,7 @@ Three parts.
 | Risk | Label | Note |
 |---|---|---|
 | A sixth spelling gets added rather than the five converging | MITIGATE | The rules file names the losing spellings explicitly as deprecated, so a reader sees why theirs is absent |
-| A field nobody reads is documentation theatre | ACCEPT | True until a consumer exists — but the cost is one line, and the current cost is chains that only exist in prose |
+| A field nobody reads is documentation theatre | ACCEPT | Half-true as of 2026-09-03: `blocked_by` is read by the kanban, `related` is not. The cost is one line, and the current cost is chains that only exist in prose |
 | Migrating 32 specs breaks something in `done/` or kanban parsing | DEFER | Not migrating them; revisit if a consumer lands |
 
 **Non-Goals**

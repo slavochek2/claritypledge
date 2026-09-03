@@ -9,6 +9,7 @@ tags:
   - credentials
   - rotation
   - skills
+related: [p1214, p1186]
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
@@ -17,9 +18,36 @@ driver: heuristic
 
 # P1148: Credential rotation system — plugin rotators, driver, vault
 
-**Blocked by P1147.** Do not start until the drift audit has run at least twice. P1147 produces
-the classification data that sizes this work; starting first means committing to a per-provider
-plugin surface on an estimate. Two independent adversarial reviews converged on that ordering.
+**P1147 is met; P1214 is a peer, not a blocker.** P1147 shipped 2026-06-10 and its audit ran
+2026-09-01 with the full argument set, exit 0 — meaning only that no registry row held an inline
+plaintext value, the script's single hard-fail class. It is not a clean bill: the same run
+reported 28 retirement candidates out of 101 classified credentials, 48 stale consumer lists,
+`COVERAGE:84/86`, and a prod/test master-key row sharing metadata.
+
+An earlier revision of this note declared this spec blocked by
+[P1214](p1214_credential_separation_and_privilege_reduction.md). Codex review (2026-09-01) showed
+that deadlocks: P1214 would create, swap and delete credentials while the spec building the
+safeguards for exactly those operations waited on it. **Resolved as a boundary instead of an
+order — P1214 performs no irreversible step; this spec owns every deletion, revocation and
+provider-side disable, including the retirements P1214 marks but deliberately does not execute.**
+Both proceed in parallel — **and "parallel" needs one shared-resource rule, because
+`.private/docs/accounts.md` is written by both.** This spec's driver resolves `coupled_with` and
+consumer lists from registry rows that P1214 Phase 4 rewrites (it splits the bundled prod/test
+row and repairs 48 consumer lists). A split landing mid-rotation, after `mint` and before
+`verify`, leaves this spec's rollback targeting a row identity that no longer exists.
+**Requirement: fingerprint the registry rows a run starts from and abort on change** — the
+fingerprint concept already exists here for values (item 1); apply it to the rows too. P1214
+carries the reciprocal rule: no Phase 4 with a run in flight.
+
+**Scheduling, stated rather than assumed:** this spec is `status: backlog` while P1214 is
+`status: week`. P1214 hands over a queue of credentials marked retired but NOT revoked — each one
+still live and no longer monitored by any consumer. That window stays open until this spec runs,
+so either it leaves backlog when the first retirement verdict lands, or P1214's liveness probes
+are the accepted compensating control for an unbounded window. It is not automatically both.
+
+Two independent adversarial reviews established this work must not be sized on an estimate. That
+still holds: build rotators against the set that survives P1214's de-privileging, and treat any
+credential P1214 has marked retired as this spec's input queue.
 
 ## Problem
 
@@ -170,7 +198,7 @@ vault's own retention tail inside backup snapshots.
 
 ### Non-Goals
 
-- Do NOT start before P1147 has run twice.
+- Do NOT build a rotator for a credential P1214 has already marked retired — retire it instead.
 - Do NOT rotate anything absent from the registry.
 - Do NOT implement in-place rotation for any provider, even where the API offers it.
 - Do NOT solve CAPTCHA or 2FA — stop and hand over the exact screen.
@@ -181,8 +209,10 @@ vault's own retention tail inside backup snapshots.
 
 ## Done-When
 
-Deferred until P1147 lands — the classification data determines how many rotators exist and which
-tiers they fall in. Carried forward from the predecessor as non-negotiable:
+Sized by the surviving credential set. P1147's classification data exists as of 2026-09-01; what
+is still unknown is how much of it P1214 marks retired. Add one Done-When as a consequence of the
+boundary: **every deletion or revocation in this repo flows through this spec's driver**, so a
+credential P1214 marked retired is either retired here with evidence, or its verdict is reversed. Carried forward from the predecessor as non-negotiable:
 
 - [ ] A rotation whose verify fails leaves the old credential live and working — demonstrated
 - [ ] Each verify is proven discriminating by observing it **fail** against the old value
@@ -194,7 +224,10 @@ tiers they fall in. Carried forward from the predecessor as non-negotiable:
 
 ## Related
 
-- **Predecessor:** P1147 (drift audit) — blocking.
+- **Predecessor:** P1147 (drift audit) — **met** (shipped 2026-06-10, ran clean 2026-09-01).
+- **Peer:** [P1214](p1214_credential_separation_and_privilege_reduction.md) — shrinks and
+  de-privileges the set, and hands this spec its retirement queue. Non-destructive by
+  construction; this spec is the destructive half. Parallel, not sequential.
 - The single-credential rotation skill — the ordering precedent. Its human hard-stops (vault
   read-back, restore-path proof) are **not expressible** in an executable four-verb contract;
   that credential stays `manual-only` and this system defers to the skill rather than wrapping it.
