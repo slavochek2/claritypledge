@@ -2,7 +2,7 @@
  * CSP deploy smoke (P865) — cross-route, cross-feature.
  *
  * Catches the recurring class of bug where a third-party SDK (Mixpanel,
- * Mixpanel, Sentry) loads a resource from a host that is NOT in our CSP
+ * Sentry) loads a resource from a host that is NOT in our CSP
  * allowlist, so the browser blocks it in production. This is invisible to
  * every static check we run on push:
  *   - The CSP lives in vercel.json response headers, not app code, and the

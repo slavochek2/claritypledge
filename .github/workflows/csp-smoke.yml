@@ -2,7 +2,7 @@ name: CSP smoke (prod)
 
 # Loads the deployed strict-CSP routes in a real browser and fails on any CSP
 # violation. Catches the recurring class where a third-party SDK (Mixpanel,
-# Mixpanel, Sentry) loads from a host missing from the vercel.json allowlist —
+# Sentry) loads from a host missing from the vercel.json allowlist —
 # invisible to every static check because the CSP lives in response headers and
 # the blocked host is decided at runtime (a vendor may rotate CDN hosts).
 #
