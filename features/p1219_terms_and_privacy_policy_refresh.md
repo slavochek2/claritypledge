@@ -49,20 +49,23 @@ privacy-lawyer reviewer; findings verified against code before acceptance.
 
 | Risk | Label | Note |
 |---|---|---|
-| Draft overclaims a safeguard (DPF certification, deletion period) | MITIGATE | Unverifiable claims are hedged or marked `[FOUNDER DECISION]` |
-| P520 self-serve deletion slips; policy promises it | MITIGATE | Marked `[PENDING P520]`; founder ships together or edits |
+| Draft overclaims a safeguard (DPF certification, deletion period) | MITIGATE | Unverifiable claims hedged or dropped; no retention number the code does not enforce |
+| P520 self-serve deletion slips; policy promises it | MITIGATE | Hard publication-ordering constraint recorded under Evidence; both documents describe the shipped P520 flow |
 | Version bump forces re-acceptance for all users | ACCEPT | That is the point of `CURRENT_TERMS_VERSION` (skill stage 7b) |
 
 Do NOT push, ship, or merge. Do NOT touch `/meet` copy. Do NOT fabricate entity or imprint details.
 
 ## Done-When
 
-- [ ] `src/app/content/privacy.md` exists and `privacy-policy-page.tsx` renders it (no legal prose in TSX)
-- [ ] `tos.md` and `privacy.md` updated; every processor in the inventory below appears in the policy
-- [ ] `## Changes` table below lists section / old / new / reason / confidence for every edit
-- [ ] Adversarial review run; each finding accepted (applied) or rejected (reason recorded) here
-- [ ] Screenshots at 375 and 1440 for both routes; `pre-commit-checks.sh`, tsc, eslint, vitest pass
-- [ ] Founder decisions listed below are answered before `/ship`
+- [x] `src/app/content/privacy.md` exists and `privacy-policy-page.tsx` renders it (no legal prose in TSX)
+- [x] `tos.md` and `privacy.md` updated; every processor in the inventory below appears in the policy
+- [x] `## Changes` table below lists section / old / new / reason / confidence for every edit
+- [x] Adversarial review run; each finding accepted (applied) or rejected (reason recorded) here
+- [ ] Screenshots at 375 and 1440 for both routes — **not taken**; `pre-commit-checks.sh`, tsc, eslint, vitest pass (see Evidence)
+- [x] Founder decisions listed below are answered — every `[FOUNDER DECISION]` / `[PENDING]`
+      bracket is gone from both documents; each was resolved by describing what the code does
+      (see "Marker resolution" below). The remaining items are legal-advice questions, not
+      blockers on the text.
 
 ## Processor inventory (Stage 1 — `[Service] → [data] → [introduced by]`, all cited)
 
@@ -122,8 +125,8 @@ fact not verifiable from the repo.
 | Processors | 9 items incl. Google Fonts | 18-row table with location; Google Fonts removed (self-hosted); Hugging Face added; DPA claim softened; "who else sees your data" | inventory above; `index.css:2-18`; `diarizer.py:36-46` | H |
 | Transfers | "Supabase EU regions" | **primary DB and storage in the US**; own Cloud Run in US; SCC + DPF where certified (verify) | `.env.example:10`; `infrastructure.md:58` | H |
 | Cookies | 3 bullets | accurate key list; Mixpanel/Sentry identifiers; no banner exists (flagged) | `grep localStorage` inventory | H |
-| Rights | 7 bullets, email only | self-serve deletion `[PENDING P520]` with honest scope split; export on request; withdrawal → deletion; no in-app analytics opt-out | P520 spec table | H |
-| Retention | 90-day audio, 12-month logs, 30-day replays | honest: no schedule exists; per-item list; consent records survive deletion `[FOUNDER DECISION]` | P43 ACs unchecked; no lifecycle rule in repo | H |
+| Rights | 7 bullets, email only | self-serve deletion written from the shipped P520 RPC (what is deleted, what stays name-removed, what is deleted on request); export on request; withdrawal → deletion; no in-app analytics opt-out | `20260901213000_p520_erase_my_account.sql`; `20260902090000_p520_erasure_hardening.sql` | H |
+| Retention | 90-day audio, 12-month logs, 30-day replays | honest: no fixed period, kept while the account exists so the user can reach it, deleted on request; consent records deleted **with** the account | P43 ACs unchecked; no lifecycle rule in repo; P520 deletes `terms_acceptances` / `session_consents` | H |
 | Children | absent | 16+, no exception, no age gate (flagged) | reviewer #40 | M |
 | Automated decisions / complaint / changes / contact | kept | wording aligned to re-acceptance gate | `App.tsx:309` | H |
 
@@ -145,15 +148,15 @@ fact not verifiable from the repo.
 | Letters | letters only | + account creation scope, explain-backs excluded from ML, consent basis | P904 | H |
 | Events and Groups | absent | new; injury exclusion removed after review, assumption-of-risk kept | reviewer #60 | M |
 | Meeting Terms on /meet | absent | states /meet is non-binding and outside these terms | P1016/P1022 | H |
-| Donations and Paid Offers | absent | Stripe; refund policy `[FOUNDER DECISION]` | P1123/P951 | H |
-| Account Termination | "contact us" | self-serve `[PENDING P520]`; **Reporting Content** section added | reviewer #59 | M |
+| Donations and Paid Offers | absent | Stripe; the Champions refund terms already published with the offer (month-to-month, cancel before next billing, month-one refund) | `faqs.ts:19`; `offers-section.tsx:526-530` | H |
+| Account Termination | "contact us" | self-serve deletion as P520 ships it; **Reporting Content** section added | reviewer #59; P520 RPC | M |
 | Intellectual Property | profile content | + stories/points/letters; machine-account quotes under quotation right | reviewer #57 | M |
 | Disclaimer / Liability | as before | + AI/transcript errors; carve-out for injury/intent | reviewer #60 | M |
 | Governing Law | Estonian jurisdiction; ODR link | consumer-forum carve-out; ODR link removed (platform discontinued 2025) | reviewer #60 | L |
 | Changes | "continued use = acceptance" | deleted; re-acceptance on sign-in | reviewer #41; `App.tsx:309` gate | H |
 | Analytics & Error Monitoring | Sentry "may include your email" | Mixpanel + session recording added; Sentry: user ID not email, masked replay; opt-out by email | `main.tsx:31` no `setUser` | H |
 
-**Constants:** `LEGAL_LAST_UPDATED` → "September 1, 2026" `[FOUNDER DECISION: effective date]`; `CURRENT_TERMS_VERSION` v1.3 → v1.4; client `ACCEPTED_TERMS_VERSIONS` → `['v1.4']`; three edge-function allowlists → `['v1.3','v1.4']` (rollout-safe); P839 canary copies + 5 e2e fixtures updated.
+**Constants:** `LEGAL_LAST_UPDATED` → "September 3, 2026" (set to the real publication day at ship); `CURRENT_TERMS_VERSION` v1.3 → v1.4; client `ACCEPTED_TERMS_VERSIONS` → `['v1.4']`; three edge-function allowlists → `['v1.3','v1.4']` (rollout-safe); P839 canary copies + 5 e2e fixtures updated.
 
 ## Adversarial review — `1 of 1 reports received` (hostile privacy lawyer + AKI inspector; 60 findings)
 
@@ -167,25 +170,103 @@ fact not verifiable from the repo.
 
 **Reviewer's external-law claims not verifiable from the repo (marked `verify` by the reviewer too):** Estonian ESS §103¹ soft-opt-in scope; IKS §4 journalistic exemption; IKS child-consent age; VÕS §42(3); DSA micro-enterprise scope; AI Act Art. 50(4) applicability; ODR platform discontinuation. Counsel.
 
-## Founder decisions (all marked inline in the drafts)
+## Marker resolution (every inline bracket, and the code that answered it)
 
-1. Effective date (`copy.ts:7`) and whether to publish before P1216 (LogRocket) and P520 (deletion) land.
-2. Live joiner recording consent step (BLOCK) — add control, or accept published wording.
-3. Voice profiles — explicit-consent step, or stop `user_voice_profiles` writes (`storage.py:66`).
-4. Mixpanel: `record_sessions_percent` 100 → 0 and drop `people.set(email,name)`, or add a consent banner.
-5. AI-training opt-in separate from the ToS licence.
-6. Newsletter: opt-in checkbox at sign-up vs legitimate-interest wording; Ghost open/click tracking.
-7. Gemini Developer API billing tier (DPA applicability).
-8. Retention: audio lifecycle period; consent-record survival period; Sentry/Mixpanel configured numbers; Sentry data region.
-9. DPF/DPA register for Supabase, Google, Vercel, Sentry, Stripe, Unsplash, Web3Forms, Tally, Brevo.
-10. Machine accounts: bare-name handles (P1104), correction-response window (P1142).
-11. In-person events assumption-of-risk wording; donation/paid-offer refund policy.
-12. Age attestation at sign-up; explain-back point-of-capture sentence; partner-email cleanup job.
+The founder's instruction for this pass: **do not make new product decisions — make the
+documents describe what the code actually does today.** Every marker below was resolved that
+way. Where the code cannot support a promise, the text now says what happens instead of
+promising.
+
+| Marker (was) | Resolved as | Evidence |
+|---|---|---|
+| Effective date | `LEGAL_LAST_UPDATED` = "September 3, 2026", with a comment that it must be set to the real publication day | `src/app/content/copy.ts:6-9` |
+| Live joiner recording consent | Text states plainly: no separate recording-consent dialog, no per-participant control; the host's switch decides it, and a joiner declines only by not joining | `src/app/pages/clarity-live-page.tsx:865` (recording auto-starts when not private), `:3970` (badge only when private) |
+| Voice profiles (Art. 9) | Text states they ARE created for participants with an account whenever speakers are separated, that no screen asks separately, and that the only consent given is the recording consent | `services/transcribe/pipeline.py:167` → `services/transcribe/storage.py:65-90` (`update_voice_profiles` upsert) |
+| Voice-profile deletion | Added: removed when the account is deleted — the row cascades off `auth.users` | `supabase/migrations/20260313120000_p495_transcription_tables.sql:51` (`REFERENCES auth.users(id) ON DELETE CASCADE`) |
+| Mixpanel session recording | Text states 100% of sessions, starts on page load, nothing asks first, no in-app control | `index.html:88` (all non-localhost hosts), `:95` `record_sessions_percent: 100` |
+| Mixpanel identify/profile | Kept: user id, email, name and profile flags | `src/auth/AuthCallbackPage.tsx:525,537-548` |
+| Mixpanel opt-out toggle | Bracket dropped; the text already says there is no in-app switch | no `opt_out_tracking` call anywhere in `src/` |
+| Cookie/consent banner | Text states we do not show one and the identifiers are set on load | no consent-banner code in `src/` or `index.html` |
+| Gemini API tier | Tier claim dropped (not knowable from the repo). Text names the endpoint and says Google processes under that API's terms | `supabase/functions/story-guide-chat/index.ts:17`, `generate-event-banner/index.ts:123`, `generate-banner/index.ts:274` — all `generativelanguage.googleapis.com` |
+| Newsletter opt-in | Text states there is no sign-up checkbox, keeps legitimate interest + unsubscribe, and now discloses per-subscriber open/click tracking | Ghost Admin settings read live: `email_track_opens=true`, `email_track_clicks=true`, `members_track_sources=true` |
+| Sentry data region | European Union | Sentry API: org `22minds-llc` → `regionUrl https://de.sentry.io`; org/project match `SENTRY_ORG`/`SENTRY_PROJECT` in `.env.local` |
+| Sentry/Mixpanel retention numbers | No number invented: "kept for as long as each provider retains it under our plan; we have not set a shorter period" | not configurable from the repo |
+| DPA register / DPF certification | Both brackets dropped; the surviving wording claims no certification, only "under their published data processing terms" and "where the provider is certified" | not verifiable from the repo — counsel item |
+| Agreement partner email auto-delete | Text states expiry only flips the status and the address is not deleted automatically | `src/app/data/agreements-service-real.ts:255-265` (lazy expiry sets `status:'expired'` only) |
+| Machine-account naming | Bracket dropped: the recommended change is already shipped — every surface renders `MACHINE reading of {name}` | `src/app/components/shared/agent-byline.tsx` + `machine-chip.tsx` (P1141) |
+| Machine-account correction window | "We answer within 30 days", the same window the policy already commits to for every request | consistent with `privacy.md` § Your Rights |
+| Age check | Text states we do not ask for or verify age at sign-up | no age/birthdate field anywhere in `src/` or `supabase/migrations/` |
+| DSA notice-and-action | Bracket dropped; the Reporting Content section already describes the practice | counsel item, not a text gap |
+| In-person event injury | Bracket dropped; assumption-of-risk kept and now points at the liability carve-out | `tos.md` § Limitation of Liability |
+| Refund policy | Resolved from copy already published with the offer: month-to-month, cancel before the next billing date, full refund of month one after the first two sessions | `src/app/content/faqs.ts:19`; `src/app/components/landing/offers-section.tsx:526-530` |
+| Retention (audio, content) | Founder's answer, written as given: no fixed period, kept while the account exists so the user can reach it, deleted on request. No schedule, no lifecycle rule claimed | no lifecycle/retention rule exists in `scripts/`, `services/` or `supabase/` |
+| Consent-record retention | Corrected: they are deleted **with** the account; only an id-only audit row survives | P520 `...p520_erasure_hardening.sql:470-476` (`DELETE FROM terms_acceptances` / `session_consents`, then `INSERT INTO erased_subjects`) |
+| Erasure scope (was `[PENDING P520]`) | Rewritten from the shipped RPC: what is deleted, what stays with the name removed, and the two things deletion does not reach (GCS audio, provider-side profiles) | `20260901213000_p520_erase_my_account.sql:110-267`; hardening header § 5 ("audio_path points at GCS — not reachable from SQL") |
+
+**Spec corrections this pass.** Two claims in the Changes table above were wrong by the time
+the code was read: P520 **does** delete `session_transcripts`, letters and the consent records
+(and `user_voice_profiles` goes with `auth.users` by cascade), and the machine-account naming
+recommendation is already shipped as P1141. Both are corrected in the text.
+
+## Still for the founder or for counsel (not blockers on the text)
+
+These are product or legal-advice questions. The documents now describe today's behaviour
+truthfully, so none of them blocks publication — but each is a real exposure.
+
+1. **Recording consent for a live-session joiner.** No per-participant control exists; the
+   documents say so. Adding one is a product change.
+2. **Voice profiles are Article 9 biometric data** collected without a separate explicit
+   consent step. Either add that step or stop writing `user_voice_profiles`.
+3. **Mixpanel session recording at 100%** with email and name attached, and no consent
+   control before `mixpanel.init` runs.
+4. **The AI/ML training licence is granted by participating**, not by a separate opt-in.
+5. Newsletter on legitimate interest with open/click tracking and no sign-up checkbox.
+6. Gemini billing tier (whether Google may use prompts for its own improvement).
+7. Which providers have an accepted DPA, and current DPF certification for the US ones.
+8. EU 14-day withdrawal right on paid digital services, alongside the published refund terms.
+9. DSA notice-and-action duties; the Estonian journalistic exemption for machine accounts;
+   the assumption-of-risk wording for in-person events.
+10. No age verification at sign-up; no cookie/consent banner.
+
+## Evidence
+
+**Publication ordering — hard constraint.** These documents must NOT be published before both
+branches below are on `main`. Verified this session against `main`, not inferred:
+
+- **P520 (`feature/p520-account-deletion`) — blocking.** Self-serve account deletion does not
+  exist on `main`: `git grep -i "delete.account\|deleteAccount\|delete_account" main -- src/ supabase/`
+  returns **zero** hits. The erasure control and the `erase_my_account()` RPC live only on that
+  branch. Both documents now promise self-serve deletion from the Settings page, so publishing
+  first would make that promise false on day one.
+- **P1216 (`feature/p1216-remove-logrocket`) — blocking.** LogRocket is still initialised on
+  `main` (`src/main.tsx:5,17` — `LogRocket.init` in production) and is still listed in `package.json:52`.
+  Neither refreshed document mentions LogRocket, so publishing first would omit a live
+  session-replay processor.
+- After both land: redeploy the three edge functions whose allowlists changed, redeploy the web
+  app (the version constant is baked into the bundle), and set `LEGAL_LAST_UPDATED` to the
+  actual publication day.
+
+**Version bump (tos-review Stage 7b).** `CURRENT_TERMS_VERSION` v1.3 → v1.4 and client
+`ACCEPTED_TERMS_VERSIONS` → `['v1.4']` (`src/lib/constants.ts:8,10`); the three edge-function
+allowlists accept `['v1.3','v1.4']` for rollout safety. `TermsAcceptanceGate` wraps the router
+(`src/App.tsx:309`), so **every existing user is asked to re-accept on their next sign-in** once
+the new bundle is deployed.
+
+**Gates.** `npx tsc --noEmit` → exit 0. `npx eslint` → see commit run. `npx vitest run`
+(p1219-legal-markdown-strict, p839-parity-terms-version, consent-api) → 22 passed / 3 files.
+`./scripts/pre-commit-checks.sh` → run before the commit.
+
+**Not done: Stage 8 visual review.** No screenshots were taken at 375 or 1440 for
+`/terms-of-service` or `/privacy-policy`. Both routes render committed markdown through
+`renderMarkdownLegal`, and this pass changed prose only — no new markdown constructs — but that
+is reasoning, not a render check. Run `/verify` or load both routes before publishing.
 
 ## Pre-deploy Checklist
 
-- [ ] P1216 (LogRocket removal) merged before or with this — otherwise the policy is false on day one
-- [ ] P520 merged, or swap the `[PENDING P520]` sentences to the email-based wording
+- [ ] P1216 (LogRocket removal) merged before or with this — otherwise the policy omits a live processor on day one
+- [ ] P520 merged — both documents promise self-serve deletion, which does not exist on `main` (see Evidence)
 - [ ] Redeploy the three edge functions whose allowlists changed (`create-and-sign`, `create-and-open-letter`, `request-letter-response-signin`) to prod so v1.4 is accepted
 - [ ] Redeploy the web app (version constant is baked into the bundle); all users will be asked to re-accept
-- [ ] Every `[FOUNDER DECISION ...]` bracket resolved and removed from `privacy.md` / `tos.md`
+- [ ] Set `LEGAL_LAST_UPDATED` to the actual publication day
+- [x] Every `[FOUNDER DECISION ...]` / `[PENDING ...]` bracket resolved and removed from `privacy.md` / `tos.md`
+- [ ] Load `/terms-of-service` and `/privacy-policy` at 375 and 1440 (Stage 8 was not run — see Evidence)

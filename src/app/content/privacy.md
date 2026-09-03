@@ -80,22 +80,22 @@ bucket. After the session, our own transcription service — software we run on 
 converts the audio to text and separates the speakers. The transcript is stored with the
 session. When the host has switched recording off, the join screen shows a "Private
 session" badge; when recording is on, the join screen does not say so before you join.
-[FOUNDER DECISION: this describes the shipped flow. The previous policy promised a
-separate recording-consent dialog with a "Start Recording" button that does not exist
-(`clarity-live-page.tsx:442, 4279`). A joiner today cannot decline recording other than by
-not joining, which the adversarial review rates as no valid consent (BLOCK). Recommended:
-a per-participant "This session is recorded — I agree" control on the join screen, written
-to `session_consents` only after it is tapped, before microphone access]
+
+There is no separate recording-consent dialog. If a session is recorded, the only way for a
+joiner to decline is not to join it, or to ask the host to start a private session instead.
 
 **Voice profile.** To attribute speech to the right participant across sessions, the
 transcription service computes a numerical voice signature (a speaker embedding) for each
 participant with an account and stores it against your user ID. This signature is biometric
 data in the sense of GDPR Article 9. It is used solely to label who said what in your own
 sessions. You can have your voice profile deleted at any time by contacting
-privacy AT claritypledge DOT com; deletion does not affect earlier transcripts.
-[FOUNDER DECISION: Article 9 data needs explicit, specific consent, and no screen asks for it
-today. Either add that consent to the recording step above, or stop writing
-`user_voice_profiles` (`services/transcribe/storage.py:66`) and delete this paragraph]
+privacy AT claritypledge DOT com; deletion does not affect earlier transcripts. It is also
+removed when your account is deleted.
+
+No screen asks you separately to agree to a voice profile: it is created as part of
+processing a recorded session in which the speakers are separated. Biometric data of this
+kind normally requires explicit, specific consent; today the only consent asked for is the
+one that covers recording the session.
 
 **Behavioural events.** During a recorded session we also capture the timestamps of in-session
 actions (positions taken, ratings given) aligned to the audio, so that the two can be studied
@@ -133,9 +133,8 @@ any other purpose. A text alternative is available for anyone who prefers not to
 
 When you create an agreement, we store your partner's email address to send the invitation,
 identifying you as the sender. If the invitation is not accepted it expires after seven
-days; the email address is deleted on request. [FOUNDER DECISION: the previous text said it
-is deleted automatically at expiry — nothing does that (`agreements-service-real.ts:255-264`
-only flips the status). Add a cleanup job and restore the automatic wording, or keep this]
+days; the email address is deleted on request. Expiry only changes the invitation's status —
+the address is not deleted automatically at that point.
 
 ### Events and groups
 
@@ -158,10 +157,8 @@ are stored and visible to other members of that group.
 Google processes this content under its own terms. Do not enter health, religious or other
 special-category information into these features, and avoid putting people's names in
 event or story titles that you ask us to illustrate; the platform works without these
-features. [FOUNDER DECISION: the calls go to the Gemini Developer API
-(`generativelanguage.googleapis.com`), not Vertex AI. On the unpaid tier Google may use
-prompts to improve its products and no Cloud DPA applies — confirm the project is on the
-paid tier, or move Google Gemini to the independent-controller list below]
+features. These calls go to the Gemini API at `generativelanguage.googleapis.com` with an API
+key, not to Vertex AI; Google processes what is sent under the terms that apply to that API.
 
 ### Donations and paid offers
 
@@ -181,11 +178,9 @@ acknowledge your payment.
   When you subscribe on the blog, Ghost stores your email. We also add verified account
   holders to the newsletter list, on the basis of our legitimate interest in telling the
   people who use the product about it; every issue carries an unsubscribe link, and you can
-  opt out at any time without affecting your account. [FOUNDER DECISION: the adversarial
-  review rates account-creation-as-consent as HIGH risk under Estonian ESS §103¹ soft opt-in
-  (a free account is not a sale). Recommended: an unticked "product updates" checkbox at
-  sign-up, and sync only those who tick it. Also confirm whether Ghost's open/click tracking
-  is on; if so, disclose it here]
+  opt out at any time without affecting your account. There is no separate newsletter
+  checkbox at sign-up. Ghost records, per subscriber, whether a newsletter email was opened
+  and which links in it were clicked, and where the subscriber signed up from.
 
 ### Videos embedded in stories
 
@@ -201,9 +196,8 @@ your viewing under its own policy.
   sign in, your user ID, email, name and profile flags (for example whether you have pledged),
   so we can understand how the product is used. **Mixpanel also records sessions**: a replay of
   how the page was used — clicks, scrolling and navigation — with the contents of form fields
-  excluded from capture. [FOUNDER DECISION: session recording without a prior opt-in is the
-  single largest consent gap this review found — either add a consent control before
-  `mixpanel.init` runs, or reduce `record_sessions_percent` to 0 and delete this sentence]
+  excluded from capture. Recording is set to 100% of sessions and starts when the page loads:
+  nothing asks you first, and there is no in-app control to turn it off.
 - **Sentry.** When an error occurs we send Sentry the stack trace, the URL or action that
   triggered it, browser and device metadata, and in some cases your user ID. Sentry is
   configured not to send personal data by default. On an error only, a masked replay of the
@@ -213,8 +207,6 @@ your viewing under its own policy.
 
 You can object to analytics and error tracking by emailing us; we then delete your Mixpanel
 profile and any Sentry events carrying your identifiers. There is no in-app switch yet.
-[FOUNDER DECISION: Mixpanel ships `opt_out_tracking()` — a Settings toggle would make this
-self-serve]
 
 ### Technical data
 
@@ -226,14 +218,14 @@ security and operations. We do not build profiles from them.
 | Purpose | Basis |
 |---|---|
 | Account, profile, pledge, stories, letters, agreements, events, groups, live sessions, transcribe rooms, donations acknowledgement | Contract — Art. 6(1)(b) |
-| Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, the transcribe-room agreement control, or pressing record [FOUNDER DECISION: see Live sessions above for the joiner gap] |
-| Voice profiles (speaker embeddings) | Explicit consent — Art. 9(2)(a) [FOUNDER DECISION: not collected today — see Live sessions] |
+| Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, the transcribe-room agreement control, or pressing record A joiner of a recorded live session is not asked separately — see Live sessions |
+| Voice profiles (speaker embeddings) | Explicit consent — Art. 9(2)(a) this is biometric data under Art. 9, which normally requires explicit consent; today it is covered by the recording consent above |
 | Using recordings, transcripts and session events to improve our AI/ML services (anonymized) | Consent — Art. 6(1)(a), given with the recording |
 | Storing a letter recipient's or agreement partner's email address, and sending it to our email provider | Legitimate interest — Art. 6(1)(f): delivering what a user asked us to send to you; you can have it removed at any time |
-| Product newsletter to account holders | Legitimate interest — Art. 6(1)(f), with an unsubscribe in every issue [FOUNDER DECISION: see Blog and newsletter] |
-| Analytics and session recording (Mixpanel), error tracking (Sentry) | Legitimate interest — Art. 6(1)(f); you can object at any time [FOUNDER DECISION: the review rates session replay tied to your email as not defensible under legitimate interest, and the Mixpanel device identifier as needing consent under ePrivacy Art. 5(3)] |
+| Product newsletter to account holders | Legitimate interest — Art. 6(1)(f), with an unsubscribe in every issue |
+| Analytics and session recording (Mixpanel), error tracking (Sentry) | Legitimate interest — Art. 6(1)(f); you can object at any time no consent step runs before analytics or session recording start |
 | Terms acceptance and consent records | Legitimate interest — Art. 6(1)(f), being able to evidence that consent was given (Art. 7(1)) |
-| Public-source content by machine accounts (below) | Legitimate interest — Art. 6(1)(f): commentary on public statements by public figures [FOUNDER DECISION: whether the Estonian journalistic exemption (IKS §4) applies is for counsel] |
+| Public-source content by machine accounts (below) | Legitimate interest — Art. 6(1)(f): commentary on public statements by public figures |
 
 ## Machine Accounts and Public-Source Content
 
@@ -253,9 +245,12 @@ before it is published and takes editorial responsibility for it.
 
 If you are a person named or quoted by a machine account, you can object to the processing
 (Art. 21) and ask for a correction or removal by writing to
-privacy AT claritypledge DOT com. [FOUNDER DECISION: response commitment for correction
-requests — P1142 requires "a route that is actually monitored"; the review recommends
-72 hours to acknowledge and 7 days to resolve. State a window only if it will be kept]
+privacy AT claritypledge DOT com. We answer within 30 days, as for every other request under
+this policy.
+
+Every surface that names a machine account labels it as one: the profile header, each story
+byline and each row where the account takes a position all read "MACHINE reading of" followed
+by the person's name, never the bare name on its own.
 
 ## Who Processes Your Data
 
@@ -269,7 +264,7 @@ requests — P1142 requires "a route that is actually monitored"; the review rec
 | Mailgun | Letters, agreement, event, newsletter and sign-in emails | Email address, sender name, links | European Union |
 | Ghost (self-hosted) | Blog and newsletter | Subscriber name and email | United States (Google Cloud) |
 | Mixpanel | Analytics and session recording | User ID, email, name, events, session replays | European Union |
-| Sentry | Error tracking, masked error replays, CSP reports | Error data, user ID, browser metadata | [FOUNDER DECISION: confirm the Sentry organisation's data region — EU or US] |
+| Sentry | Error tracking, masked error replays, CSP reports | Error data, user ID, browser metadata | European Union (Sentry's EU region) |
 | Vercel | Website hosting and share-card images | Server logs | Global edge network |
 | Stripe | Donations and paid offers | Payment details (entered on Stripe) | Stripe's infrastructure |
 | Web3Forms | Contact and application forms | What you submit | Provider's infrastructure |
@@ -282,9 +277,7 @@ requests — P1142 requires "a route that is actually monitored"; the review rec
 
 We do not sell personal data. Providers that process data on our behalf do so under their
 data processing terms; Stripe, Google (for Sign-In, YouTube and Calendar), WhatsApp and
-Unsplash act as independent controllers for what you give them directly. [FOUNDER DECISION:
-keep a private register of which providers have an accepted DPA (Web3Forms, Tally, Brevo and
-the Gemini API tier are unverified) and list only those here as processors]
+Unsplash act as independent controllers for what you give them directly.
 
 **Who else sees your data.** Other participants in a session or room (display name, voice,
 live text); the sender and recipient of a letter (letter content, explain-back); attendees of
@@ -301,8 +294,6 @@ Transfers outside the European Economic Area rely on the European Commission's S
 Contractual Clauses and, where the provider is certified, the EU-U.S. Data Privacy Framework.
 Our own transcription service runs in Google Cloud's US region, so session audio is
 transferred there under Google Cloud's data processing terms and transfer safeguards.
-[FOUNDER DECISION: verify current DPF certification for Supabase, Google, Vercel, Sentry,
-Stripe and Unsplash before publishing; remove the DPF clause for any that are not listed]
 
 ## Cookies and Local Storage
 
@@ -318,8 +309,9 @@ We do not use advertising cookies or cross-site tracking. We use:
 - **Sentry** — a session identifier while an error replay is being captured.
 - **YouTube (privacy-enhanced)** — cookies only after you press play on an embedded video.
 
-[FOUNDER DECISION: no cookie/consent banner exists today; the Mixpanel identifiers above are
-non-essential under the ePrivacy rules and need either a consent control or removal]
+We do not show a cookie or consent banner: the Mixpanel and Sentry identifiers above are
+set when the site loads, without asking first. Write to us if you want to be excluded from
+analytics and session recording, and we will exclude you.
 
 ## Your Rights
 
@@ -327,16 +319,19 @@ Under the GDPR you can:
 
 - **Access** (Art. 15) — ask for a copy of the personal data we hold about you.
 - **Rectification** (Art. 16) — edit your profile at any time; ask us to correct anything else.
-- **Erasure** (Art. 17) — delete your account yourself from the Settings page. Deletion is
-  immediate and removes your profile, stories, positions, endorsements, RSVPs, sign-in
-  identity and rate-limit records. Points and events you created that other people have
-  built on remain, with your name removed. Active partner agreements are ended. Recordings,
-  transcripts, voice profiles, letters and explain-backs, and your analytics and error-tracking
-  profiles are deleted on request by email. [PENDING P520: the self-serve control ships
-  with P520; until then, request deletion by email and we complete it within 30 days.
-  FOUNDER DECISION: P520's deletion table does not cover `session_transcripts`,
-  `user_voice_profiles`, GCS audio, letters or provider-side profiles — either extend P520 or
-  keep the "on request" split above]
+- **Erasure** (Art. 17) — delete your account yourself from the Settings page. Deletion runs
+  immediately and removes your profile and sign-in identity, your stories and the positions
+  and history behind them, the letters you sent and your explain-back recordings, the
+  transcripts of every session you took part in, any session nobody else joined, your voice
+  profile, your partner agreements, your terms-acceptance and session-consent records, and
+  your AI rate-limit records. What other people have built on stays, with your name removed
+  from it: points, events you hosted, group memberships, letters delivered to you, and a
+  session you shared with someone else — that session remains theirs, without your name and
+  without its transcript. We keep one audit row holding the deleted account's identifier and
+  nothing else, so that we can show an erasure was carried out. Two things this deletion does
+  not reach and that we delete on request instead: the audio files themselves, which live in
+  file storage rather than in the database, and the profiles our analytics and error-tracking
+  providers hold about you.
 - **Portability** (Art. 20) — ask for an export of your data in a machine-readable format
   (JSON). There is no self-serve export yet; email us.
 - **Objection** (Art. 21) — object to analytics, session recording, error tracking or the
@@ -355,25 +350,27 @@ To exercise any right, email privacy AT claritypledge DOT com. We respond within
 
 ## Data Retention
 
+We do not delete what you have written or recorded on a timer. It stays available to you for
+as long as you have an account, because that is what makes it worth writing; you can delete
+any of it whenever you want, and all of it by deleting your account.
+
 - **Account and profile data** — kept while your account exists; deleted when you delete it
   (see Your Rights).
 - **Content you publish** (stories, points, positions, letters) — kept while your account
   exists, subject to the survival rules above for community data.
-- **Audio recordings, transcripts and voice profiles** — kept while your account exists,
-  unless you ask us to delete them earlier. We do not currently delete recordings on a fixed
-  schedule. [FOUNDER DECISION: set a retention period and implement it as a storage lifecycle
-  rule before promising one; the previous "90 days" statement was never implemented]
+- **Audio recordings, transcripts and voice profiles** — kept for as long as your account
+  exists, so that you can go back to your own sessions, and deleted when you ask us. There is
+  no fixed retention period and nothing deletes recordings on a schedule.
 - **Explain-back recordings** — kept while the letter exists.
-- **Partner and recipient email addresses** for unaccepted invitations — deleted when the
-  invitation expires (7 days) or on request.
-- **Consent and terms-acceptance records** — kept after account deletion for as long as a
-  claim could be made about that consent. [FOUNDER DECISION: state the period — the Estonian
-  general limitation period is three years — and confirm P520 does not delete these rows
-  if that is the choice]
+- **Partner and recipient email addresses** for unaccepted invitations — kept after the
+  invitation expires (expiry only changes its status) and deleted on request.
+- **Consent and terms-acceptance records** — kept while your account exists and deleted with
+  it; only the audit row described under Erasure survives, and it holds no personal data
+  beyond the deleted account's identifier.
 - **Rate-limit records for AI features** (user ID and timestamp) — deleted with your account.
-- **Error data (Sentry)**, **analytics and session recordings (Mixpanel)** — retained
-  according to each provider's default retention. [FOUNDER DECISION: state the configured
-  retention for each after checking the project settings]
+- **Error data (Sentry)**, **analytics and session recordings (Mixpanel)** — kept for as long
+  as each provider retains it under our plan with them; we have not set a shorter period. Ask
+  us and we will delete what carries your identifiers.
 - **Server logs** — per our hosting providers' standard retention.
 
 ## Automated Decision-Making
@@ -386,9 +383,8 @@ decide anything about your account, access or rights.
 
 The service is intended for adults. You must be 16 or older to create an account; there is
 no exception for parental consent. We do not knowingly collect data from anyone younger; if
-you believe a child has created an account, contact us and we will delete it.
-[FOUNDER DECISION: no age check exists at sign-up — the review recommends an age attestation
-checkbox]
+you believe a child has created an account, contact us and we will delete it. We do not ask
+for or verify your age when you sign up.
 
 ## Filing a Complaint
 

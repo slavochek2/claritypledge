@@ -43,11 +43,9 @@ it off starts a private session that is never recorded. When a session is record
 The join screen tells you that you are accepting these terms and shows a "Private session"
 badge when the host has switched recording off; a "Session recorded for AI Insights" banner
 is shown throughout a recorded session. If you do not want to be recorded, do not join a
-recorded session — ask the host to start a private one instead. [FOUNDER DECISION: the
-previous version promised a separate consent dialog with a "Start Recording" button; the
-shipped flow has neither, and the adversarial review rates the joiner's position as no valid
-consent (BLOCK). Recommended: a per-participant recording consent control on the join
-screen before microphone access]
+recorded session — ask the host to start a private one instead. There is no separate
+recording-consent dialog and no per-participant recording control: the host's switch decides
+it for the session.
 
 By participating in live sessions, you also agree that:
 
@@ -71,9 +69,7 @@ If you take part in a recorded session or transcribe room, you grant us a non-ex
 worldwide, royalty-free license to use your interactions (including audio recordings,
 transcripts, session content and usage patterns — excluding /chat conversations and
 explain-back recordings), with names, emails and user IDs removed before any training use,
-to: [FOUNDER DECISION: the review rates a licence granted "by using the platform" as bundled
-consent (Art. 7(4), BLOCK); it recommends a separate, unticked AI-training opt-in at the
-recording step, with this licence conditional on it]
+to:
 
 - Train and improve our AI/ML models
 - Develop new features for understanding verification
@@ -115,11 +111,9 @@ named after. A machine account reads a public video of a public figure and publi
 reading of what was said, with quotes taken from the video's captions and linked to a
 timecode so you can check them. Every such story is marked as machine-written and names the
 human operator, who selects the sources, confirms every filing before publication, and takes
-editorial responsibility for it. [FOUNDER DECISION: the review flags (HIGH) that an account
-bearing a living person's bare name is a name-right/personality-right exposure (VÕS §1046;
-§12 BGB for German subjects) and sits awkwardly beside the impersonation ban below; it
-recommends a distinct handle such as "Reading of {name} (machine)" and a machine label in
-the profile header, not only the story footer. Product decision — P1104/P1142]
+editorial responsibility for it. Wherever such an account is named — the profile header,
+each story byline, each row where it takes a position — it is shown as "MACHINE reading of"
+followed by the person's name, never as the bare name on its own.
 
 - The position a machine account takes is the account's reading of an argument, never the
   named person's own stated position
@@ -128,8 +122,7 @@ the profile header, not only the story footer. Product decision — P1104/P1142]
 - Only we operate machine accounts. You may not create an account that presents itself as
   another person or as an official account of a public figure
 - If you are named or quoted by a machine account and want a correction or removal, write to
-  privacy AT claritypledge DOT com [FOUNDER DECISION: commit to a response window only if it
-  will be kept — P1142]
+  privacy AT claritypledge DOT com; we answer within 30 days
 
 How these accounts work is explained at [claritypledge.com/machines](https://claritypledge.com/machines).
 
@@ -150,8 +143,7 @@ By signing the pledge and using the platform, you agree to:
 
 You must be 16 years old or older to use The Clarity Pledge. There is no exception for
 parental consent. By using this service, you confirm that you meet this age requirement.
-[FOUNDER DECISION: no age check exists at sign-up — the review recommends an age attestation
-checkbox]
+We do not ask for or verify your age when you sign up.
 
 ## Public Visibility
 
@@ -182,8 +174,8 @@ invitations, and community news, sent from our self-hosted blog (Ghost) through 
 We send these to account holders on the basis of our legitimate interest in keeping the
 people who use the product informed about it. You can opt out at any time using the link in
 any email or by contacting us at privacy AT claritypledge DOT com. Opting out does not
-affect service emails. [FOUNDER DECISION: see the Privacy Policy — the review recommends an
-unticked opt-in checkbox at sign-up instead]
+affect service emails. There is no separate newsletter checkbox at sign-up, and our blog
+records whether an issue was opened and which links in it were clicked.
 
 We do not sell or share your email address with third parties for their marketing purposes.
 
@@ -225,8 +217,8 @@ person and are not using the feature to send unsolicited messages.
 
 We store your partner's email address to deliver the invitation. If they don't accept, the
 invitation expires after 7 days. Partners can request deletion of their email address at any
-time by contacting privacy AT claritypledge DOT com. [FOUNDER DECISION: automatic deletion
-at expiry was promised before and never built — see the Privacy Policy]
+time by contacting privacy AT claritypledge DOT com. Expiry only changes the invitation's
+status; the address is not deleted automatically at that point.
 
 ## Letters and Explain-Backs
 
@@ -269,11 +261,8 @@ group chat runs on that service under its terms, not ours, and we do not moderat
 
 **In-person events** — including walks and hikes — are attended at your own risk. You are
 responsible for judging your own fitness for an activity, for your own equipment and safety,
-and for following the host's instructions. [FOUNDER DECISION: the review removed a blanket
-injury exclusion here — Estonian VÕS §42(3) blacklists excluding liability for injury to
-life or health in consumer standard terms, and the general Limitation of Liability section
-already preserves it. Have counsel confirm the assumption-of-risk wording — the first
-physical event has already been run (P1194)]
+and for following the host's instructions. This does not exclude our liability for death or
+personal injury, which is preserved in the Limitation of Liability section below.
 
 Group organizers are responsible for the groups they run. We may remove a group or an event
 that violates these terms.
@@ -289,9 +278,12 @@ legally binding. They are not part of these terms.
 Donations, memberships and partnerships are paid through Stripe payment links. Your payment
 details are entered on Stripe's pages and are subject to Stripe's terms; we never see your
 card number. Donations are voluntary gifts to support the project and are not payments for
-goods or services. [FOUNDER DECISION: refund policy for donations and paid offers — EU
-consumer law gives a 14-day withdrawal right on paid digital services unless you obtain
-express waiver at purchase; state the policy here]
+goods or services.
+
+For the Clarity Champions Program, the terms we publish with the offer apply: the membership
+is month-to-month with no minimum term, cancelling before the next billing date stops any
+further charge, and if the first two sessions are not for you we refund month one. Nothing
+here limits your statutory rights as a consumer.
 
 ## Account Termination
 
@@ -302,19 +294,16 @@ We reserve the right to remove profiles that:
 - Are used for spam or promotional abuse
 - Violate these terms or applicable laws
 
-You can delete your account yourself at any time from the Settings page. Deletion is
-immediate; what is deleted and what remains is described in the Privacy Policy.
-[PENDING P520: the self-serve control ships with P520. Until then: "You may request to
-delete your account at any time by contacting us."]
+You can delete your account yourself at any time from the Settings page. Deletion runs
+immediately; what is deleted, what stays with your name removed, and what we delete on
+request instead are described in the Privacy Policy.
 
 ## Reporting Content
 
 If you believe content on the platform is illegal, infringes your rights, or breaks these
 terms, write to privacy AT claritypledge DOT com with a link to the content and the reason.
 We review every report and remove or restrict content that violates these terms or the law,
-and we tell you what we decided. [FOUNDER DECISION: the review flags EU Digital Services Act
-hosting-provider duties (notice-and-action, point of contact) as applying even to
-micro-enterprises — verify with counsel]
+and we tell you what we decided.
 
 ## Intellectual Property
 
@@ -365,9 +354,9 @@ version the next time you sign in.
 
 To understand how the product is used we use Mixpanel (EU servers), which records product
 events and — for signed-in users — your user ID, email and name. Mixpanel also records
-sessions: a replay of clicks, scrolling and navigation with form contents excluded.
-[FOUNDER DECISION: see the Privacy Policy — session recording currently starts without a
-prior opt-in]
+sessions: a replay of clicks, scrolling and navigation with form contents excluded. It is
+set to 100% of sessions and starts when the page loads; nothing asks you first, and there is
+no in-app control to turn it off.
 
 To keep the platform functioning we use Sentry (Functional Software, Inc.) to capture
 application errors and performance issues. When an error occurs in your session we send
