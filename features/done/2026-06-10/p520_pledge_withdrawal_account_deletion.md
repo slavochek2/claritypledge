@@ -1,12 +1,11 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 0.5
 tags:
   - gdpr
   - account
   - off-boarding
-delivery_stage: ship
 pipeline_ran: [challenge-prd, inline, ship]
 created_date: '2026-03-15'
 reviews:
@@ -14,6 +13,7 @@ reviews:
   architect: null
   alignment: null
 locked_at: '2026-08-17T07:29:20.408Z'
+completed_at: 2026-09-03
 ---
 
 # P520: Self-Serve Account Deletion
