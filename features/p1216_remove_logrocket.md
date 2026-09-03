@@ -158,6 +158,36 @@ so no number was invented — the retention entry now reads "Retained per Mixpan
 policy." If a specific figure should appear on a public privacy page, confirm it with Mixpanel and
 replace that line.
 
+## Adversarial Review (Codex, 2026-09-03)
+
+Verdict: **BLOCK**, on four findings. One was in scope and is fixed; three are pre-existing and
+routed out. Every finding below was independently re-verified by command before being acted on.
+
+**Fixed here (introduced by this change).** The privacy policy said Mixpanel recording is
+"Production only". LogRocket's init was gated on `import.meta.env.PROD`, so that phrase was true of
+LogRocket; Mixpanel's gate (`index.html:88`) is hostname-based — everything except `localhost` and
+`127.0.0.1` — so preview deploys, staging and LAN hosts record too. Moving the sentence to the
+Mixpanel entry carried a claim that is false for Mixpanel. Corrected in `bfe0bc79`.
+
+**Routed to P1233 (pre-existing, HIGH).** `record_console` is unset in `mixpanel.init`, and the
+vendor's documented default is `true` — verified against Mixpanel's own docs, not inferred. Console
+output is therefore captured as replay data for 100% of sessions, and DOM masking does not apply to
+console arguments. `src/` holds 458 `console.*` calls, 106 of which reference user/email/id/token/
+session. Not caused by this change, but this change makes Mixpanel the sole recorder, so it is
+newly load-bearing.
+
+**Not acted on (pre-existing, out of scope).** (a) `PROD_HEALTH_ALLOWLIST.urlPatterns` allows the
+whole `api-eu.mixpanel.com` host while its comment justifies only 429s, so a 401/403/5xx on the
+replay ingest is suppressed and both scheduled gates can stay green while recording is dead.
+(b) Two `p553` tests accept a `not-found` sentinel and so pass when the SDK is absent. Both predate
+this spec and belong to the gate-hardening that P1233's follow-up should consider.
+
+**Confirmed sound by the review:** the 37 removed CSP tokens were LogRocket-only with no surviving
+consumer; Mixpanel retains script/worker/connect capability including `blob:` workers and
+`api-eu.mixpanel.com` ingest; `'wasm-unsafe-eval'` survives in both directives; `worker-src 'self'`
+keeps the service worker; the empty console allowlist fails closed; and no non-LogRocket assertion
+was lost from any of the four edited canaries.
+
 ## Related
 
 - decisions.md 2026-03-19 [technical], "Performance — defer analytics, lazy-import all pages, self-host fonts" (P553) — the deferred decision this closes
