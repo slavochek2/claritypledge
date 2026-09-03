@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [process]: A per-commit gate makes a 14-commit cherry-pick slower than the shared main checkout moves — rebase to land, validate the tree once (P1207)
+
+**Context:** Landing P1207's branch (14 commits, 6 migrations, base 101 commits behind) onto main. `git cherry-pick` fires the pre-commit hook on **every** commit, and this repo's hook runs typecheck + eslint + build + the full unit suite — roughly 2.5 minutes each, so ~35 minutes for the sequence. Main moved **twice** during it (a co-tenant landed the whole P1221 restructure, ~100 files), so the fast-forward that the pick existed to enable was refused on arrival, twice. The pick had also stopped five times on `deploy-manifest.json` and once each on `decisions.md` and a service file.
+
+**Decision:** Land via **rebase, not cherry-pick**, and validate once at the end. `git rebase` does not run the pre-commit hook for replayed commits, so re-basing all 14 onto a newly-moved main took seconds and applied cleanly — versus ~35 minutes to re-pick. Then run the gate against the *final tree* (which is the state that actually ships) and fast-forward immediately, re-basing again if main moved in between. The per-commit gate runs are not lost value: they validate intermediate states nobody will ever check out.
+
+**Alternatives rejected:** *Re-run the cherry-pick after each move* — non-terminating by construction: the sequence takes longer than the interval between co-tenant landings, so it loses the race indefinitely. *`git-ops.sh ship`* — it is the correct tested path and holds the lock for the whole run, but it closes the spec, and P1207 was deliberately kept open. *Cherry-picking directly on the shared main checkout* — leaves `CHERRY_PICK_HEAD` and a half-resolved index in a tree three other sessions are editing; done in a throwaway worktree instead, whose private index cannot collide.
+
+**Consequences:** **The "validated" in "validated cherry-pick" attaches to commits, not to the tree you ship.** Only the final tree's gate run is evidence about what lands. Two things follow: automate conflict resolution with a driver that *stops* on any file outside a known-safe set (mine auto-resolved only the manifest and aborted on `decisions.md` and a service file — both genuinely needed judgment), and always re-derive the base immediately before the fast-forward rather than trusting the SHA the sequence started from. Also worth knowing: a `tsc | tail -5` pipeline reports `rc=0` from `tail`, hiding the real exit code — the 5 "errors" that looked new were 5 *lines*, and the control showed 934 on unmodified main and 934 on the landed tree, i.e. zero added.
+
+**References:** `scripts/git-ops.sh` (`cmd_ship`, `commit-to-main`) · [.claude/rules/git.md](../.claude/rules/git.md) · decisions.md 2026-09-01 [technical] "Cherry-picking a worktree branch that predates two intervening merges" · decisions.md 2026-08-31 [process] "A ship that takes eight resumes"
+
+---
+
 ## 2026-09-03 [process]: The P1221 large-file gate blocks every `/kdd` commit — the repo's own decisions log is 4.1MB
 
 **Context:** P1221 shipped a repo-structure gate yesterday that fails any staged file over 500KB. The first `/kdd` run after it immediately hit `✗ Staged file over 500KB: docs/decisions.md (4142KB)`. This file is append-only and has been over the limit since long before the gate existed, so the gate does not block a regression — it blocks the act of recording a decision at all, for every session from now on.
@@ -811,7 +825,7 @@ here without anyone running a destructive command at all.
 
 **Alternatives rejected:** none — no resolution required actual judgment beyond "keep both," which is itself the useful signal.
 
-**Consequences:** When two worktree branches touch the same growing interface independently (adding sibling optional fields is the common shape for this codebase's event/type files), a stale-base cherry-pick conflict is a strong prior for "safe to keep both sides" rather than "needs a redesign" — worth a fast first pass of exactly that check before deeper conflict analysis. Not worth automating; two data points is not a pattern yet.
+**Consequences:** When two worktree branches touch the same growing interface independently (adding sibling optional fields is the common shape for this codebase's event/type files), a stale-base cherry-pick conflict is a strong prior for "safe to keep both sides" rather than "needs a redesign" — worth a fast first pass of exactly that check before deeper conflict analysis. Not worth automating as a resolver, but a **third instance** (P1207 landing, 2026-09-03) makes it a pattern: the recurring conflict files are `deploy-manifest.json` (five times in one sequence) and `decisions.md`, and both resolve by **union** — every migration stamp from both sides plus the later timestamp; every log entry from both sides. What is worth automating is the *stop* condition: auto-resolve only those two, abort on anything else. See 2026-09-03 [process] on landing by rebase.
 
 ## 2026-09-01 [process]: A PreToolUse safety hook false-positived on its own trigger phrase appearing in loaded CLAUDE.md content, not in an actual user report
 
