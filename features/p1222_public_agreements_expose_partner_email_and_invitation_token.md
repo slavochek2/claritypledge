@@ -157,18 +157,90 @@ party-only columns.
       (`ce02c269`, `6844d9bc`). Caveat: the two defect tests are green pre-B on test only because
       test already carried the parties-only policy out-of-band; the red state is the prod `GET` in
       Reproduction step 1 (three rows, 2026-09-01, private log)
-- [ ] Anonymous `/agreements/:id` for a public agreement still renders (RPC path), and a profile's
-      partners list still shows public active agreements to visitors — **service-level verified only**
-      (the RPC controls in the integration test); no browser render check yet → `/verify`
-- [ ] A party's agreement page still shows the invitation link / partner email where it did before —
-      party table read verified in the integration test; browser check pending → `/verify`
+- [x] Anonymous `/agreements/:id` for a public agreement still renders (RPC path), and a profile's
+      partners list still shows public active agreements to visitors — browser-verified in
+      `e2e/p1222-public-agreement-render.spec.ts` (11/11, exit 0), each with a control; see
+      § Browser render evidence
+- [x] A party's agreement page still shows the invitation link where it did before, and the
+      token-keyed accept flow still works — browser-verified in the same file, with a non-party
+      control. `partner_email` is **not rendered on the agreement page at all** (`grep -rn
+      partnerEmail src/` → no render site in `agreement-page.tsx`); a party's read of that column
+      is covered by the integration suite's party table read. See § Browser render evidence for
+      what this AC could and could not be tested as
 - [x] `grep -rn "get_public_agreement" src/app` → `agreements-service-real.ts` calls both RPCs
 - [x] Full vitest + build + `pre-commit-checks.sh` green on the branch (pre-commit on `ce02c269`:
       TypeScript ✓ ESLint ✓ Build ✓ Tests ✓; `6844d9bc`: all checks passed)
 - [x] `.private/docs/security-log.md` carries the exact predicate and the prod row count
       (§ 2026-09-01 "P1222 built in w17")
-- [ ] **Founder step:** Migration A (`20260901233000`) applied to prod, client deployed, Migration B
-      (`20260901234000`) applied to prod — then the reproduction `GET` in step 1 returns `[]`
+- [ ] **Founder step — prod apply. Not doable from here; nothing on prod has changed yet.**
+      Run from the MAIN repo root (`~/Projects/public/claritypledge`), in this order:
+
+      1. `/ship p1222`, then push `main` to `origin` and let the client deploy finish.
+         The client must be live BEFORE step 2: migration B removes public rows from the
+         table, and a still-deployed old client reads the table for public pages.
+      2. `./scripts/migrate.sh --env prod` — review the pending list, answer `y`.
+         All four P1222 migrations apply in one run, in version order
+         (`20260901233000`, `20260901234000`, `20260901235000`, `20260901236000`).
+         Note the gate is **all-or-nothing**: B and D carry
+         `-- requires-frontend: ce02c269` / `f157a855`, and while either sha is not an
+         ancestor of `origin/main` the run exits 1 *before applying anything*, A and C
+         included. So step 1 is what unblocks step 2 — there is no partial-apply path,
+         and the marker must not be deleted to force one (P886).
+      3. Verify — the reproduction `GET` from § Reproduction Steps must return `[]`:
+         `curl -s "$PROD_URL/rest/v1/clarity_agreements?visibility=eq.public&select=id,partner_email,invitation_token" -H "apikey: $PROD_ANON_KEY"`
+         → `[]`, and
+         `curl -s "$PROD_URL/rest/v1/rpc/get_public_agreement?p_id=<a public agreement id>" -H "apikey: $PROD_ANON_KEY"`
+         → the row, without `partner_email` or `invitation_token`.
+
+      Tick this only after step 3's output is pasted below.
+
+## Browser render evidence (2026-09-03)
+
+The integration suite proves the DATA contract. It cannot prove that the pages which used to
+read the table still render once the table stops answering them — that is what the two
+previously-unticked ACs asked for, and it is now `e2e/p1222-public-agreement-render.spec.ts`,
+run in a real browser against the test project with all four migrations applied:
+
+```
+npx playwright test --project=chromium e2e/p1222-public-agreement-render.spec.ts
+  11 passed (28.8s)        exit 0
+```
+
+Every property is paired with a control that fails differently, so a green run cannot come
+from the page being permissive:
+
+| Property (AC) | Control |
+|---|---|
+| anon `/agreements/:id` for a **public** agreement renders terms + both names, and the delivered HTML contains neither party's email | the same page for a **private** agreement shows "This agreement is private" and never the terms |
+| anon `/p/:slug` shows "1 Clarity Partner"; `/p/:slug/partners` names the partner and carries no email | a profile with no public agreement shows "0 Clarity Partners" |
+| the invitee (signed in) still sees **Review & Sign** whose `href` carries the invitation token | a non-party visitor on the same agreement gets no such link |
+| the creator (signed in) still sees the party-only "Your Agreement" toolbar + Share | — (the anon test above is its own negative) |
+| the token-keyed accept flow reaches co-sign for a signed-in invitee, and renders the certificate for a signed-out one | a bad token gives "This invitation has expired or is invalid" |
+
+**The gate was watched fail** (epistemic gate 7). With the public fixture created as
+`visibility: 'private'` instead — the one change that should break it — the public-render test
+reports:
+
+```
+Locator: getByText('P1222 public terms mtl7qzli5pw')   Expected: visible   element(s) not found
+  1 failed
+```
+
+**What this AC could not be tested as, stated rather than quietly dropped.** The second AC's
+wording ("shows the invitation link / partner email") does not match the page:
+`agreement-page.tsx` never renders `partner_email` — `grep -rn "partnerEmail" src/` returns the
+mapper, the create-page duplicate guard, and the accept page, and no render site on the
+agreement page. So the invitation link is asserted directly; the party's *read* of
+`partner_email` is the integration suite's party table read.
+
+**Pre-existing, found while testing this, NOT caused by P1222 and not fixed here.** A
+signed-out invitee who already has an account is never recognised on the accept page — the
+"Sign In to Co-Sign" branch needs `lookup_party_by_email`, and P877 revoked `anon` EXECUTE from
+it on 2026-06-02 (`20260602160000_p877_profiles_pii_column_grants.sql:351`; confirmed against
+`pg_proc.proacl` on test, which grants only `authenticated` and `service_role`). Every
+signed-out invitee therefore gets the new-user "Seal & Sign" path, including returning users.
+That is a deliberate anti-enumeration grant with an unintended UX consequence; it wants its own
+bug spec, not a change on this branch.
 
 ## Evidence
 
