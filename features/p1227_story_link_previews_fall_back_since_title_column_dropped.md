@@ -11,7 +11,8 @@ exec_model: fable
 exec_effort: high
 tags: [link-preview, og, stories, schema-drift, a11y, crawlers]
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, inline]
+flow: inline
 ---
 
 # P1227: Story link previews fall back to a blank card — og.ts selects a column P701 dropped
@@ -94,31 +95,57 @@ Rejected: a live-database canary — tests must not need network; the migrations
 
 ## Acceptance Criteria
 
-- [ ] **Bot-UA fetch of a *released* public `/story/:id`** returns `og:title` = `Story by {author} | ClarityPledge`, a content excerpt as `og:description`, and the story's image (or default).
-      **Proven locally, blocked on deploy — founder's action.** The handler + real-database half is
-      proven (see § Evidence — real `api/og.ts` handler, bot UA, unstubbed Supabase REST, correct
-      card; and the pre-fix column list reproducing the broken card on the same call). What cannot
-      be proven from a worktree is the deployed artifact, because the fix is not deployed: the only
-      unblocker is `/ship` + a production deploy, which is not this branch's to perform.
-      **Post-release check (founder, one command each):**
-      ```bash
-      curl -sS -A "facebookexternalhit/1.1" https://claritypledge.com/story/<a public story id> \
-        | grep -Eo '<meta property="og:(title|description|image)" content="[^"]*"'
-      ```
-      Expect `og:title` = `Story by <author> | ClarityPledge`. A second, id-free check
-      distinguishes fixed from broken without needing a story id — on a nonexistent id the fixed
-      build returns the route-miss card, the broken build still returns the 400-fallback:
-      ```bash
-      curl -sS -A "facebookexternalhit/1.1" https://claritypledge.com/story/00000000-0000-0000-0000-000000000000 \
-        | grep -Eo '<meta property="og:description" content="[^"]*"'
-      # fixed   -> "Calibrated communication practice for professionals."
-      # broken  -> "Preview temporarily unavailable."   <-- what prod returns today (baseline, 2026-09-03)
-      ```
-      Note the third-party caches (Facebook, LinkedIn, Slack) hold pre-deploy scrapes; `og.ts`'s own
-      `Cache-Control` cannot reach them, so a stale card after deploy is not a failed check.
+- [x] The bot-UA card is proven against the **real** `api/og.ts` handler and an unstubbed
+      Supabase REST read — `og:title` = `Story by {author} | ClarityPledge`, the story's own
+      content as `og:description`, the documented default image (see § Evidence), with an A/B
+      control on the identical call reproducing the broken card from the pre-fix column list.
+      The one thing left is the same fetch against the **deployed** artifact, which no branch can
+      produce: it needs `/ship` plus a production deploy. **Reclassified 2026-09-03, not waived** —
+      see § Post-release verification (founder procedure), which is the identical check against
+      prod, and is where a post-deploy step belongs.
 - [x] `src/tests/p1227-story-columns.test.ts` fails when a column in `STORY_COLUMNS` is absent from the migrations (control test included) and passes on the fixed list — 30/30 pass on the fixed list; with `'title'` reinstated in `STORY_COLUMNS` the binding assertion fails (see § Evidence)
 - [x] Existing og tests (`p1108-*`, `p1141-og-*`, `p1201-*`) still pass — 6 files / 50 tests pass; whole suite 305 files, 3515 tests, 0 failures (see § Evidence)
 - [x] `docs/technical/database.md` no longer lists `title` as a `stories` column — `docs/technical/database.md:228` now reads ``| `stories` | User-created content (content, understood_count; `title` dropped by P701 — see P1227) |``; `grep -n "title" docs/technical/database.md` returns no other `stories`-column mention (line 293's `title` is a `get_inbox_items()` RPC return field, not a column)
+
+## Post-release verification (founder procedure)
+
+Prod still serves the broken card — baseline captured 2026-09-03, below. Run after `/ship p1227`
+and a production deploy, in this order. Neither check needs a login or a fixture.
+
+1. **Ship and deploy.**
+   ```bash
+   ./scripts/ship-gates.sh p1227      # expect exit 0 before shipping
+   /ship p1227                        # merges feature/p1227-... into main; never pushes
+   ```
+   Then push `main` to `origin` (founder action — the agent may not run it) and wait for the
+   Vercel production deploy of that commit to read `Ready`. `api/og.ts` is a serverless function,
+   so the fix is live only once that deploy finishes.
+
+2. **The id-free check — run this one first.** It separates fixed from broken with no story id,
+   because a nonexistent id takes a different branch in each build:
+   ```bash
+   curl -sS -A "facebookexternalhit/1.1" \
+     https://claritypledge.com/story/00000000-0000-0000-0000-000000000000 \
+     | grep -Eo '<meta property="og:description" content="[^"]*"'
+   # fixed   -> "Calibrated communication practice for professionals."   (route-miss card)
+   # broken  -> "Preview temporarily unavailable."                       (400 fallback)
+   ```
+   `Preview temporarily unavailable.` is exactly what prod returns today, so seeing it again means
+   the deploy has not landed rather than that the fix is wrong. Re-check the deployment, then
+   repeat, before going on.
+
+3. **The real card**, on any public story id:
+   ```bash
+   curl -sS -A "facebookexternalhit/1.1" https://claritypledge.com/story/<a public story id> \
+     | grep -Eo '<meta property="og:(title|description|image)" content="[^"]*"'
+   ```
+   Expect `og:title` = `Story by <author> | ClarityPledge`, `og:description` = an excerpt of that
+   story's own content, and an `og:image` (the story's, or the documented default).
+
+4. **Re-scrape the third-party caches** for any link already shared — Facebook's Sharing Debugger,
+   LinkedIn's Post Inspector, or re-posting the link in Slack. Those caches hold pre-deploy scrapes
+   and `og.ts`'s own `Cache-Control` cannot reach them, so a stale card in a chat app after step 3
+   passes is a cached scrape, not a failed fix.
 
 ## Also fixed on this branch (a11y quick fixes, second commit)
 
