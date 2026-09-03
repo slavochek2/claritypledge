@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 86
 severity: medium
@@ -10,8 +10,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [edge-functions, auth, secrets, api-key-migration]
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
+completed_at: 2026-09-03
 ---
 
 # P1189: `generate-banner` uses the database master key as its service-to-service shared secret
