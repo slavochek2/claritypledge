@@ -1,25 +1,51 @@
 -- P1095: retire the dead points.context column.
 --
 -- requires-frontend: 5826463c
---   ("fix(p1095): drop 'context' from all three points select lists"). NOT
---   client-safe. Originally this marker named cce676d8, which removed only the
---   MAPPER lines and left `context` in three explicit PostgREST select lists
---   (docs-service once, stories-service twice) — so the marker pointed at a
---   commit that did not complete the job. Found in review 2026-09-03.
---   despite the column carrying no data: src/app/data/docs-service.ts named
---   `context` inside an explicit embedded column list on `points` before that
---   commit, and PostgREST answers a select naming a dropped column with 42703
---   for the WHOLE query. Applying this ahead of that bundle therefore does not
---   blank a field — it fails every story/doc read that embeds points. The
---   other six readers (feed card, point detail page, three live-session
---   renderers, letter preload) go through `select('*')` or a mapper and would
---   have degraded to undefined; docs-service is the one that hard-fails, which
---   is why the coupling is real. migrate.sh holds the prod apply until
---   cce676d8 is an ancestor of origin/main.
+--   ("fix(p1095): drop 'context' from all three points select lists").
 --
---   No client WRITE path breaks either way: createPoint's INSERT named
---   `context` before cce676d8, so it too must not run against the dropped
---   column — same marker, same reason.
+--   NOT client-safe, despite the column carrying no data. Three read paths
+--   named `context` inside an EXPLICIT embedded column list on `points`, and
+--   PostgREST answers a select naming a dropped column with 42703 for the
+--   WHOLE query:
+--     src/app/data/docs-service.ts        STORY_WITH_AUTHOR_AND_POINTS_SELECT (getDoc)
+--     src/app/data/stories-service-real.ts  getStoryWithPoints
+--     src/app/data/stories-service-real.ts  getStoriesByAuthorWithPoints
+--
+--   NONE OF THE THREE HARD-FAILS. Each logs the PostgrestError and then
+--   substitutes an empty collection: getDoc returns the doc with `stories: []`
+--   (docs-service.ts:315-320), and both stories-service readers fall through
+--   `if (pointsError) logDbError(...)` (stories-service-real.ts:281, :419) to
+--   `(storyPoints || [])`. So applying this ahead of the client bundle does
+--   not blank one field and does not raise anything a user would see as an
+--   outage — it SILENTLY DEGRADES every doc, story-detail and profile read to
+--   ZERO POINTS. That is worse than a hard failure: the pages still render,
+--   just without their points, and only a Sentry breadcrumb records why.
+--   An earlier version of this header claimed docs-service hard-fails. It
+--   does not. Corrected in review, 2026-09-03.
+--
+--   The other six readers (feed card, point detail page, three live-session
+--   renderers, letter preload) went through `select('*')` or a mapper and
+--   would have degraded to undefined — real, but not what makes the coupling
+--   mandatory. The three explicit select lists are.
+--
+--   This marker originally named cce676d8, which removed only the MAPPER
+--   lines and left all three select lists intact — a commit that did not
+--   complete the job. 5826463c is the one that does, and migrate.sh holds the
+--   prod apply until 5826463c is an ancestor of origin/main.
+--
+--   POST-SHIP REPAIR REQUIRED: /ship cherry-picks, so 5826463c can never
+--   become an ancestor of origin/main under this id. After this branch ships,
+--   find the cherry-picked commit on main by its subject line, repoint this
+--   marker at it, and verify with
+--   `git merge-base --is-ancestor <new-sha> main`. Two live instances of the
+--   same breakage were repaired on main in 6f33d915; the systemic fix is
+--   backlog spec P1106. Until the marker is repointed, migrate.sh exits 1 on
+--   the ENTIRE pending set, not just this file.
+--
+--   The client WRITE path is not silent, and is covered by the same marker:
+--   before cce676d8 createPoint's INSERT named `context`; PostgREST rejects
+--   an insert naming an unknown column with PGRST204, and createPoint logs
+--   and returns null, so point creation fails outright.
 --
 -- Data loss: none. The prod non-null count is zero, verified with the
 -- service-role key (bypasses RLS, so private rows are counted too), recorded in

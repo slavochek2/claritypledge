@@ -85,6 +85,8 @@ Commit 1 below (client-side reads/renders) is complete and does not depend on th
 - [x] Client-side reads/renders removed across all 7 files + `createPoint` signature updated; typecheck (`npx tsc --noEmit`), full vitest (3485 passed / 19 skipped), and eslint on changed files all green
 - [x] Column removed via migration — **unblocked and applied to TEST**. `supabase/migrations/20260902003000_p1095_drop_points_context.sql` drops the out-of-band `create_point_with_position` by `pg_proc` oid lookup (any signature, `IF EXISTS`; a no-op on prod where it was never defined) and then `ALTER TABLE public.points DROP COLUMN IF EXISTS context`. Applied via the Management API from inside w11; the migration's own verification block passed, and an independent catalogue read after the apply returns `col_present = 0, fn_present = 0`
 - [x] `grep -rn "\.context" src/app/data/points-service-real.ts` returns nothing for the point row type — re-checked after the migration landed: zero hits
+- [x] **Every writer and reader outside `src/app/data/` swept.** The original sweep was scoped to that one directory and missed `scripts/dev-agent-fixture.mjs:194`, the P1104 UAT seeding step, which INSERTed `context: 'P1104 fixture'` and would have aborted the seed with PGRST204. Four further dead references removed (`stories-service-real.ts` row type, two `stories-service-mock.ts` `PointSummary` literals, two p1179 unit fixtures hidden behind `as unknown as` casts, `story-detail-page.tsx`'s orphan-point state type). Full-repo re-sweep across `scripts/`, `e2e/`, `supabase/`, `api/`, `services/`, `tools/`, `cloud-functions/`, SQL and seeds found nothing else
+- [x] **The select-list fix is bound by a test that fails without it.** `src/tests/integration/p1095-points-read-paths.test.ts` exercises `docsService.getDoc`, `realStoriesService.getStoryWithPoints` and `realStoriesService.getStoriesByAuthorWithPoints` against TEST and asserts each returns its seeded point. Red/green proof below
 
 ## Evidence (2026-09-03) — the drop, and the dependents it surfaced
 
@@ -94,12 +96,38 @@ listed in `supabase/deploy-manifest.json`. Post-apply catalogue read: `points.co
 (`pg_depend` join over `pg_rewrite`, and a `pg_proc.prosrc` scan, both empty apart from the
 out-of-band function this migration drops).
 
-**The header was wrong and is corrected.** The file declared `client-safe`. It is not:
-`src/app/data/docs-service.ts` named `context` inside an **explicit embedded column list** on
-`points` before `cce676d8`, and PostgREST answers a select naming a dropped column with `42703` for
-the *whole* query — so applying this ahead of that bundle does not blank a field, it fails every
-story/doc read that embeds points. `createPoint`'s INSERT named the column too. The header now
-carries `requires-frontend: cce676d8`, which is what makes `migrate.sh` hold the prod apply.
+**The header was wrong and is corrected — twice.** The file first declared `client-safe`. It is
+not: **three** read paths named `context` inside an **explicit embedded column list** on `points`
+— `docs-service.getDoc`, `stories-service-real.getStoryWithPoints` and
+`stories-service-real.getStoriesByAuthorWithPoints` — and PostgREST answers a select naming a
+dropped column with `42703` for the *whole* query. The second correction (review, 2026-09-03) is
+the **failure mode**: the header claimed `docs-service` *hard-fails*. It does not. All three
+callers log the `PostgrestError` and substitute an empty collection (`docs-service.ts:315-320`,
+`stories-service-real.ts:281` and `:419`), so applying this ahead of the client bundle **silently
+degrades every doc, story-detail and profile read to zero points** — pages render, points vanish,
+nothing surfaces as an outage. That is worse than a hard failure, and the header now says so.
+`createPoint`'s INSERT named the column too; that path is not silent (PGRST204 → `createPoint`
+returns `null`, point creation fails outright).
+
+The marker also named the wrong commit: `cce676d8` removed only the mapper lines and left all
+three select lists intact. It now carries `requires-frontend: 5826463c`
+(*"fix(p1095): drop 'context' from all three points select lists"*), which is what makes
+`migrate.sh` hold the prod apply.
+
+**POST-SHIP STEP — REQUIRED, and not doable before the ship.** `/ship` cherry-picks, which mints
+new commit ids, so `5826463c` can never become an ancestor of `origin/main` under that id — and
+`scripts/migrate.sh` then exits 1 on the **entire** pending migration set, not just this file.
+After `/ship`:
+
+1. Find this branch's frontend commit on `main` by its subject line:
+   `git log --oneline main --grep="drop 'context' from all three points select lists"`
+2. Repoint the `requires-frontend:` marker in
+   `supabase/migrations/20260902003000_p1095_drop_points_context.sql` at that sha (the header's
+   POST-SHIP REPAIR block says the same).
+3. Verify: `git merge-base --is-ancestor <new-sha> main` must exit 0.
+
+Do **not** guess a sha before the ship. Two live instances of exactly this breakage were repaired
+on `main` in `6f33d915`; the systemic fix is the existing backlog spec **P1106**.
 
 **A dependent the client sweep missed: the test fixtures.** `e2e/helpers/test-point.ts` inserted
 `context` on every point it created, and 34 further lines across 15 e2e specs passed it either as a
@@ -124,6 +152,44 @@ the same file re-run alone is **11/11 green**. Reported rather than retried-unti
 session had already applied to TEST. Harmless on TEST (both are recorded) and harmless for prod,
 whose ledger is independent — but a `supabase db push` that ever replays this directory in filename
 order would run them in the other order. Nothing here depends on that ordering.
+
+**The select-list fix is now bound (review follow-up, 2026-09-03).** The integration spec that
+shipped with the migration asserts only that the column and the RPC are *absent* — both pass with
+the client bug present, so a revert of `5826463c` would have left the suite green while points
+silently vanished. `src/tests/integration/p1095-points-read-paths.test.ts` seeds a public
+user/story/point/doc on TEST, signs in through the app's own `@/lib/supabase` client, calls the
+three real service functions, and asserts the points come back **non-empty**.
+
+It runs in a new live vitest lane (`npm run test:integration`,
+`src/tests/integration/vitest.config.ts`), excluded from `npm test`. It cannot be a Playwright
+`e2e/integration/` spec: those services reach the DB via `@/lib/supabase`, which reads
+`import.meta.env` — resolved by Vite only. The default vitest run stays offline by design (CI has
+no Supabase credentials, `vite.config.ts` stubs the URL), which is exactly why it could never have
+caught this class of defect.
+
+Binding proof — `context` reinstated in one select list at a time, run, restored:
+
+| select list patched | result |
+|---|---|
+| `docs-service.ts` `STORY_WITH_AUTHOR_AND_POINTS_SELECT` | `getDoc` test **fails** (`expected 0 to be greater than 0`), other two pass |
+| `stories-service-real.ts` `getStoryWithPoints` | that test **fails**, other two pass |
+| `stories-service-real.ts` `getStoriesByAuthorWithPoints` | that test **fails**, other two pass |
+| all three restored | **3 passed (3)** |
+
+Each test binds its own path; none passes with its bug present. Re-confirmed after the config was
+relocated out of the repo root (the P1221 repo-structure gate refuses new root entries — its
+message offers `P1221_ALLOW_NEW_ROOT=<name>`, but **nothing in the repo implements that variable**;
+flagged, not fixed here).
+
+**Gates after the review fixes:** `npx tsc --noEmit` clean; eslint clean on all changed files;
+`npx vitest run` **3485 passed / 19 skipped / 0 failed** (304 files); the migration's own
+integration spec **3 passed**; the new live lane **3 passed**; `pre-commit-checks.sh` green.
+
+**Manifest stamp corrected.** `supabase/deploy-manifest.json` listed `20260902003000` under `test`
+while `migrations_deployed_at` still read `2026-09-01T13:05:22Z`, predating the apply.
+`supabase_migrations.schema_migrations` carries no timestamp column (columns: version, statements,
+name, created_by, idempotency_key, rollback), so the apply time is taken from the commit that
+recorded it — `4d8872a6f`, `2026-09-03T06:16:34Z` — which is now the stamp.
 
 **Not done here:** nothing applied to prod. `e2e/integration/p523-point-references-migration.spec.ts`
 is `test.describe.skip`, not deleted — the RPC it exercised existed only on TEST, out-of-band, and
