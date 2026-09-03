@@ -45,7 +45,7 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 - User can delete their account and all personal data from the settings page
 - Deletion requires explicit confirmation (type name to confirm)
 - Deletion is immediate — no waiting period, no approval queue
-- No personally identifiable data remains after deletion
+- No personally identifiable data remains after deletion — **as scoped in § Erasure scope below**: what is erased, what is anonymised, and what this mechanism cannot reach are listed explicitly; "all" is not a claim the RPC can make
 - Exit experience is clean and dignified — no guilt, no feedback requirement
 - Deleted user can create a new account with the same email later (clean slate)
 
@@ -119,7 +119,7 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 - Founder time on deletion requests: 0 (vs ~30min/request currently)
 - Self-serve deletion completion rate: 100% without support contact
 - GDPR deletion requests handled within seconds (vs current: days)
-- Zero PII remains after deletion
+- Zero PII remains in the tables the RPC covers (§ Erasure scope); the unreachable set is named, not implied away
 - Zero orphaned data that blocks future operations
 
 ---
@@ -137,13 +137,55 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 - [x] No guilt language in the flow — copy reviewed by the independent visual-QA pass ("neutral/factual, no reason-for-leaving prompt"); unit test asserts no "sorry to see you go / feedback" text
 - [x] Featured profiles / pledgers page correctly excludes deleted users (already handled by existing queries) — the `profiles` row is gone, so there is nothing to exclude; no query change needed
 
-**Also verified (integration test, test project):** (c) a different signed-in user cannot reach the leaver — the RPC has no target parameter and PostgREST rejects an invented one (`PGRST202`); (d) anon gets `42501`; the RPC's returned counts match the seeded fixture exactly (`stories_deleted: 2, points_orphaned: 1, events_orphaned: 1, agreements_deleted: 1, agreements_anonymised: 1, sessions_anonymised: 1, positions_deleted: 2, verifications_deleted: 3`).
+**Also verified (integration test, test project — `npx playwright test --project=integration e2e/integration/p520-account-deletion.spec.ts` → 14 passed, exit 0; `npx vitest run` → 3489 passed / 19 skipped, 304 files, exit 0):** (c) a different signed-in user cannot reach the leaver — the RPC has no target parameter and PostgREST rejects an invented one (`PGRST202`); (d) anon gets `42501`; the RPC's returned counts match the seeded fixture exactly (`stories_deleted: 2, points_orphaned: 1, events_orphaned: 1, agreements_deleted: 1, agreements_anonymised: 1, sessions_anonymised: 1, positions_deleted: 2, verifications_deleted: 3`).
+
+### Codex review — where each finding landed
+
+The review (9 findings, verdict FIX FIRST) was answered in two migrations. Findings 1–5 by
+`20260902090000_p520_erasure_hardening.sql`, findings 6–8 by
+`20260903090000_p520_erasure_hardening_2.sql`; finding 9 (test coverage) by both, and by the
+three catalogue-derived census tests described below.
+
+| # | Finding | Closed by | Proof |
+|---|---------|-----------|-------|
+| 1 | Stale access JWT still authorises writes | six INSERT policies now also require the caller's `profiles` row to exist; `patch_live_state` + the sessions UPDATE policy refuse `status = 'cancelled'` | test `stale JWT: no new tokens, no writes through the uid-only tables, no live_state patch` — refresh fails, `terms_acceptances` insert → `42501`, `stories` insert refused, `patch_live_state` touches zero rows. Residual (read for ≤1 h) stated below. |
+| 2 | `live_state` scrub skipped for names with a quote/backslash | `_p520_scrub_live_state()` rewrites 9 scalar keys, re-keys 4 name-keyed maps, matches `selectedStoryData` by author **slug** — no textual replace, no skip | test `every name-bearing key is tombstoned, the partner's untouched, JSON intact`, fixture name `O"Bri\en 100% _x Ñandú` |
+| 3 | Concurrent live-session write can re-introduce PII | the RPC row-locks the user's sessions `FOR UPDATE` first, then sets shared ones to `cancelled`; every live writer refuses that state | test `race: the counterparty can no longer write into the cancelled session` — with **controls**: the identical insert/update into a LIVE session is accepted, so the refusal is the predicate and not a malformed row |
+| 4 | Name equality tombstones the wrong person | every identity column is matched on the **id**; the five name-only tables use the SESSION-TIME name and only when the counterparty's name differs; same-name sessions are recorded in `erased_subjects.same_name_sessions` and left untouched | test `ambiguous name-only rows are left alone and the session is recorded for the founder` |
+| 5 | The census is an FK census, not a personal-data census | `ml_training_sessions` erased by (session code, name); the unreachable set named below | tests `census: no column in public that references an identity still holds the erased id` and `census: the name-bearing tables with no link to an account are exactly the documented set` — both enumerate from `pg_catalog`, so a table added later is covered without anyone editing the test |
+| 6 | All three replacement FKs left permanently `NOT VALID` | orphans copied into `public.p520_legacy_fk_orphans` (nothing discarded), column nulled, all three constraints `VALIDATE`d (920 rows recorded on test: 913 points, 5 events, 2 badge_points) | test `the three replacement FKs are validated, and the orphans that blocked them are recorded` |
+| 7 | Definer function not hardened to Supabase's shape | `SET search_path = ''` + full schema qualification on `erase_my_account()` and `_p520_scrub_live_state()`; deploy-time assertion of exactly one overload, the expected owner, and no `anon`/`PUBLIC` EXECUTE | migration § 4 raises on violation; `pg_proc.proconfig` on test reads `search_path=""` for both |
+| 8 | GoTrue cleanup assumed, never verified | catalogue introspection found two auth tables that do **not** cascade — `auth.refresh_tokens` (varchar `user_id`, no FK) and `auth.flow_state` (no FK); both now deleted explicitly by the RPC | test `census: no auth-schema table still carries the erased subject id` — enumerates every `auth.*` table with a `user_id` column from the catalogue and asserts zero rows |
+| 9 | Tests do not prove the inventory or the failure properties | the four census/validation tests above, plus the stale-token, race, same-name and hostile-name cases | 14 integration tests pass; the two new census gates were each **watched fail** (exit 1) before being trusted — one pointed at a still-existing user (14 offending columns reported), one with a documented entry removed (`+ "organization.name"`) |
+
+**Still open after the review (not closed, deliberately):** the ≤1 h stale-token READ window,
+GCS/Storage objects, Mixpanel/Sentry server-side profiles, the anonymous-localStorage idea
+tables, same-name sessions, and the legacy `clarity_sessions.state` jsonb — all enumerated
+under "NOT reachable by this mechanism" below. Finding 7's suggested **event trigger** against
+future overloads was not built; the migration-time assertion catches an overload at the next
+deploy, not at the moment one is created.
+
+### Erasure scope (accurate statement — replaces "all personal data")
+
+**Erased (rows deleted):** profile, auth user (+ GoTrue sessions/refresh tokens), stories/versions/story-point links, positions + position history, story verifications (both sides, counterparties' counters recomputed), letters I sent (+ deliveries, snapshots, predictions, receivers' responses), my docs, my explain-back rows, agreements I created, my letter responses on letters sent to me, solo sessions, session transcripts + transcription jobs of my sessions, my rows in the name-only live tables (chat, verifications, ideas, live turns as actor) and `ml_training_sessions` — both by session-time name, only where the counterparty's name differs — terms acceptances, session consents, RSVPs, endorsements of me, memberships, invites, rooms, rate limits, voice profile, pending letter responses.
+
+**Anonymised (row kept, identity removed, matched on the ID column):** points I created, events I hosted, badges I certified, endorsements I gave, agreements where I was partner (terminated), shared live sessions (creator/joiner/target ids → NULL, names → tombstone, `status = 'cancelled'`, `live_state` scrubbed per key: 9 scalar name keys, 4 name-keyed maps, `selectedStoryData` by author slug), my name on the counterparty's turns/demo rounds, deliveries to me, event-room membership, email log.
+
+**NOT reachable by this mechanism (documented, not erased):**
+- GCS objects: explain-back audio (`story_explain_backs.audio_storage_path`), transcription audio, `ml_training_sessions.audio_path` — only the DB rows go. `[FOUNDER DECISION: lifecycle rule vs. cleanup job keyed on orphaned paths]`
+- Storage/CDN assets: `profiles.banner_url` (P504-generated), event banners I generated.
+- Mixpanel and Sentry: client identity is reset (`analytics.reset()`), server-side profiles/events are not purged.
+- Name-only rows with an anonymous localStorage session id and no account link: `clarity_feed_ideas.originator_name`, `clarity_idea_comments.author_name`, `clarity_idea_votes` / `clarity_idea_vote_history.voter_name` — not locatable from an account.
+- Same-name sessions: where my counterparty shared my display name, the name-only rows in that session are left untouched (neither row can be attributed) and the session id is recorded in `erased_subjects.same_name_sessions`. `[FOUNDER DECISION: same-name counterparty — tombstone both or leave]`
+- The legacy `clarity_sessions.state` jsonb (demo-flow state, free-form keys) is not scrubbed.
+- A still-open tab's access JWT stays valid for its lifetime (≤ 1 h). (`auth.refresh_tokens` and `auth.flow_state` do not cascade from `auth.users` and are now deleted explicitly by the RPC — codex finding 8; every other `auth.*` table carrying the subject id cascades, asserted from the catalogue by the auth census test.) Accepted: refresh tokens die with `auth.users` (proven: refresh fails), every write policy that lacked a profile FK now requires the profile to exist (proven: `42501`), `patch_live_state` and the session UPDATE policy refuse the cancelled session (proven: zero rows). What remains is read access to what any signed-in user can read, for at most an hour. Doing a global sign-out *before* the RPC was considered and rejected: it would strip the client's session before the erase call, forcing the call through a hand-carried token, and on an RPC failure would leave the user signed out with the account intact — the RPC-first order fails closed (nothing erased, session intact).
 
 **Not done / open:**
 - GCS objects behind `story_explain_backs.audio_storage_path` and any transcription audio are not deleted — the RPC cannot reach GCS. `[FOUNDER DECISION: lifecycle rule vs. a cleanup job keyed on the orphaned paths]`
 - `profiles.avatar_url` points at a Google-hosted image, nothing is stored; `banner_url` (P504) may point at a generated asset — not deleted.
 - Mixpanel / Sentry identities are reset client-side (`analytics.reset()`); server-side analytics profiles are not purged.
 - P524 pledge withdrawal was already shipped (the `Pledge` section above the new one) — nothing to do here.
+- P1053 seat-claim RPCs are not gated on `status = 'cancelled'` (a late seat claim re-pins joiner fields, carries no third-party name) — residual, see migration header § 4.
 - Worktree slot `w10` maps to dev port 6000, which Chromium refuses as an unsafe port (`ERR_UNSAFE_PORT`); screenshots were captured with `--explicitly-allowed-ports=6000`. Worth a note in `worktree-setup.md`.
 
 ---
@@ -151,7 +193,7 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 ## Technical Notes (for /architect)
 
 - ~~**Edge function required:** Supabase doesn't allow client-side `auth.users` deletion.~~ **Superseded in /dev:** client-side deletion is indeed impossible, but a `SECURITY DEFINER` function owned by the migration role can `DELETE FROM auth.users` — verified on the test project (`e2e/integration/p520-account-deletion.spec.ts` asserts `admin.getUserById → null` and same-email re-registration). `public.erase_my_account()` does steps (1)–(4) in ONE transaction: an error anywhere erases nothing. Recommended over an edge function on correctness (atomic) and runtime complexity (no second hop, no service-role key in Deno).
-- **Migration:** `20260901213000_p520_erase_my_account.sql` — `points.first_validator_id`, `events.host_id`, `badge_points.verified_by` → nullable + `ON DELETE SET NULL` (constraint names kept: the client embeds `points_first_validator_id_fkey` in PostgREST joins). Added `NOT VALID` because the test DB already held orphaned `first_validator_id` values — the prior FK was not enforcing. Null creator/host renders as the existing client fallback "Unknown" (`mapPointFromDb`, `mapEventWithHostFromDb`).
+- **Migration:** `20260901213000_p520_erase_my_account.sql` — `points.first_validator_id`, `events.host_id`, `badge_points.verified_by` → nullable + `ON DELETE SET NULL` (constraint names kept: the client embeds `points_first_validator_id_fkey` in PostgREST joins). Added `NOT VALID` because the test DB already held orphaned `first_validator_id` values — the prior FK was not enforcing. **Superseded by `20260903090000_p520_erasure_hardening_2.sql`:** the orphans are copied to `public.p520_legacy_fk_orphans`, nulled, and all three constraints `VALIDATE`d, so the invalid state is repaired rather than inherited (codex finding 6). Null creator/host renders as the existing client fallback "Unknown" (`mapPointFromDb`, `mapEventWithHostFromDb`).
 - **PII tables without FK:** `terms_acceptances`, `session_consents` — explicit `DELETE ... WHERE user_id = auth.uid()` inside the RPC.
 - **Client:** `eraseMyAccount()` in `src/app/data/api.ts`; `SettingsPage` "Account" section; `signOut({ scope: 'local' })` after success (a global sign-out would round-trip to GoTrue for a user that no longer exists).
 - **No profile-page change:** an erased slug already renders the existing graceful "Profile Not Found" page (`profile-page-v2.tsx:665`), not a 404 or a broken page. The AC's exact wording "This profile no longer exists" is copy — `[FOUNDER DECISION: keep "Profile Not Found" or change the copy (it is shared with never-existed slugs)]`.

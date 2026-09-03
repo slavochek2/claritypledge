@@ -30,6 +30,9 @@
 
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 import { createTestStory } from '../helpers/test-story';
@@ -40,6 +43,17 @@ import { createTestSessionInDB } from '../helpers/test-session';
 import { createEarCountData } from '../helpers/test-calibration';
 
 const TOMBSTONE = 'Deleted user';
+
+/**
+ * Fixture display names must be unique per run. Several assertions here are name-based
+ * (`countLike('witnesses', 'witness_name', leaver.name)`) and cannot tell this run's row
+ * from a row a PREVIOUS run failed to tear down — a fixed name makes the suite pass or
+ * fail on history rather than on the code under test. Observed: a run whose beforeAll
+ * timed out left a `witnesses` row named 'Leaver Person' behind (its teardown was blocked
+ * by witnesses_witness_profile_id_fkey), and the next run's assertion (a) failed on it.
+ */
+const RUN = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const runName = (base: string) => `${base} ${RUN}`;
 
 /** A client that presents a fixed (possibly stale) access token — what a still-open tab holds. */
 function bearerClient(accessToken: string): SupabaseClient {
@@ -81,6 +95,49 @@ async function countWhere(table: string, col: string, value: string): Promise<nu
   return count ?? 0;
 }
 
+/**
+ * Read-only catalogue query on the TEST project via the Management API.
+ * Precedent: e2e/integration/p506-backfill-hashtags.spec.ts. PostgREST does not expose
+ * pg_catalog, and the census tests below must derive their own list of tables from the
+ * schema rather than from a hand-written one — a hand-written list cannot fail when a
+ * new personal-data table is added, which is the property these tests exist to hold.
+ */
+function managementToken(): string {
+  // .env.local is where this repo's own tooling keeps the Management API PAT
+  // (scripts/migrate.sh, scripts/check-edge-function-secrets.sh both read it there).
+  // playwright.config.ts loads .env.test.local instead, which may carry an older copy of
+  // the same variable — so read the canonical file first and fall back to the process environment only
+  // when it is absent.
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const envLocal = path.join(repoRoot, '.env.local');
+  if (fs.existsSync(envLocal)) {
+    const line = fs.readFileSync(envLocal, 'utf8')
+      .split('\n').find((l) => l.startsWith('SUPABASE_ACCESS_TOKEN='));
+    if (line) {
+      const value = line.slice('SUPABASE_ACCESS_TOKEN='.length).trim().replace(/^["']|["']$/g, '');
+      if (value) return value;
+    }
+  }
+  const fromEnv = process.env.SUPABASE_ACCESS_TOKEN;
+  if (fromEnv) return fromEnv;
+  throw new Error(
+    'SUPABASE_ACCESS_TOKEN is not set in .env.local or the environment. The P520 census ' +
+    'tests need catalogue access; without it the census is unproven, so this fails rather than skips.',
+  );
+}
+
+async function catalogQuery<T = Record<string, unknown>>(sql: string): Promise<T[]> {
+  const token = managementToken();
+  const ref = new URL(process.env.VITE_SUPABASE_URL!).hostname.split('.')[0];
+  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: sql }),
+  });
+  if (!res.ok) throw new Error(`catalogue query failed (${res.status}): ${await res.text()}`);
+  return (await res.json()) as T[];
+}
+
 /** Service-role count of rows whose text column contains the needle (case-insensitive). */
 async function countLike(table: string, col: string, needle: string): Promise<number> {
   const { count, error } = await supabaseAdmin
@@ -114,9 +171,9 @@ test.describe('P520: erase_my_account', () => {
   let staleTokens: { access_token: string; refresh_token: string }; // what an open tab still holds
 
   test.beforeAll(async () => {
-    leaver = await createTestUser({ name: 'Leaver Person' });
-    stayer = await createTestUser({ name: 'Stayer Person' });
-    bystander = await createTestUser({ name: 'Bystander Person' });
+    leaver = await createTestUser({ name: runName('Leaver Person') });
+    stayer = await createTestUser({ name: runName('Stayer Person') });
+    bystander = await createTestUser({ name: runName('Bystander Person') });
 
     // Own content + a community point on it, with the leaver's own position.
     leaverStoryId = (await createTestStory(leaver.user.id, { content: 'Leaver story' })).id;
@@ -320,6 +377,129 @@ test.describe('P520: erase_my_account', () => {
     await supabaseAdmin.auth.admin.deleteUser(again.user!.id);
   });
 
+  // ---------------------------------------------------------------------------
+  // Census. Test (a) above asserts a hand-written list of tables — it proves the
+  // tables someone thought of. These three derive their list from the catalogue, so a
+  // table added later is covered without anyone remembering to add it here.
+  // (codex review findings 5, 8 and 9: "an FK census is not a personal-data census",
+  //  "GoTrue cleanup assumptions are not tested", "tests do not prove the inventory")
+  // ---------------------------------------------------------------------------
+
+  test('census: no column in public that references an identity still holds the erased id', async () => {
+    const uid = leaver.user.id;
+    const cols = await catalogQuery<{ tbl: string; col: string }>(`
+      SELECT con.conrelid::regclass::text AS tbl, a.attname AS col
+        FROM pg_constraint con
+        JOIN LATERAL unnest(con.conkey) k(attnum) ON true
+        JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+        JOIN pg_class c ON c.oid = con.conrelid
+        JOIN pg_namespace ns ON ns.oid = c.relnamespace
+       WHERE con.contype = 'f'
+         AND ns.nspname = 'public'
+         AND con.confrelid IN ('public.profiles'::regclass, 'auth.users'::regclass)
+       ORDER BY 1, 2`);
+
+    // Control (epistemic gate: a probe that returns nothing agrees with every hypothesis).
+    expect(cols.length, 'the catalogue returned no FK columns — the probe is blind').toBeGreaterThan(20);
+
+    const offenders: string[] = [];
+    for (const { tbl, col } of cols) {
+      if (await countWhere(tbl, col, uid) !== 0) offenders.push(`${tbl}.${col}`);
+    }
+    expect(offenders, 'these columns still carry the erased profile id').toEqual([]);
+  });
+
+  test('census: the name-bearing tables with no link to an account are exactly the documented set', async () => {
+    // Every text column that can hold a person's name or contact in a table the RPC
+    // cannot reach through an account. When this list grows, the spec's "NOT reachable
+    // by this mechanism" section is out of date and this test says so.
+    const documented = [
+      // session-scoped: erased by (session, session-time name) inside the RPC
+      'clarity_chat_messages.author_name',
+      'clarity_demo_rounds.listener_name',
+      'clarity_demo_rounds.speaker_name',
+      'clarity_ideas.author_name',
+      'clarity_live_turns.actor_name',
+      'clarity_live_turns.listener_name',
+      'clarity_live_turns.speaker_name',
+      'clarity_verifications.verifier_name',
+      'ml_training_sessions.user_name',
+      // audio: the row goes, the object in GCS does not (spec § NOT reachable)
+      'clarity_verifications.audio_url',
+      'ml_training_sessions.audio_path',
+      // anonymous localStorage identity only, not locatable from an account (spec § NOT reachable)
+      'clarity_feed_ideas.originator_name',
+      'clarity_idea_comments.author_name',
+      'clarity_idea_vote_history.voter_name',
+      'clarity_idea_votes.voter_name',
+      // not a person
+      'organization.name',
+    ].sort();
+
+    const rows = await catalogQuery<{ ref: string }>(`
+      SELECT (c.relname || '.' || a.attname) AS ref
+        FROM pg_class c
+        JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'public'
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+        JOIN pg_type t ON t.oid = a.atttypid
+       WHERE c.relkind = 'r'
+         AND t.typname IN ('text', 'varchar', 'bpchar')
+         AND a.attname ~ '(_name$|^name$|email|linkedin|audio_path|audio_url|audio_storage_path)'
+         AND c.relname <> 'p520_legacy_fk_orphans'
+         AND NOT EXISTS (
+           SELECT 1 FROM pg_constraint con
+            WHERE con.contype = 'f' AND con.conrelid = c.oid
+              AND con.confrelid IN ('public.profiles'::regclass, 'auth.users'::regclass))
+       ORDER BY 1`);
+
+    expect(rows.length, 'the catalogue returned nothing — the probe is blind').toBeGreaterThan(5);
+    expect(rows.map((r) => r.ref).sort()).toEqual(documented);
+  });
+
+  test('census: no auth-schema table still carries the erased subject id', async () => {
+    const uid = leaver.user.id;
+    const tables = await catalogQuery<{ relname: string }>(`
+      SELECT c.relname
+        FROM pg_class c
+        JOIN pg_namespace ns ON ns.oid = c.relnamespace AND ns.nspname = 'auth'
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'user_id' AND NOT a.attisdropped
+       WHERE c.relkind = 'r'
+       ORDER BY 1`);
+
+    // Control: the enumeration must actually find the GoTrue tables.
+    const names = tables.map((t) => t.relname);
+    expect(names, 'auth.sessions must be in the enumeration').toContain('sessions');
+    expect(names, 'auth.refresh_tokens must be in the enumeration').toContain('refresh_tokens');
+
+    // user_id is uuid on most and varchar on refresh_tokens — compare as text.
+    const union = names
+      .map((t) => `SELECT '${t}' AS tbl, count(*)::int AS n FROM auth.${t} WHERE user_id::text = '${uid}'`)
+      .join(' UNION ALL ');
+    const counts = await catalogQuery<{ tbl: string; n: number }>(union);
+    const left = counts.filter((r) => r.n > 0).map((r) => `auth.${r.tbl}=${r.n}`);
+    expect(left, 'auth rows survived the erasure').toEqual([]);
+
+    // auth.users itself carries the id in `id`, not `user_id`.
+    const [{ n: userRows }] = await catalogQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM auth.users WHERE id = '${uid}'`);
+    expect(userRows).toBe(0);
+  });
+
+  test('the three replacement FKs are validated, and the orphans that blocked them are recorded', async () => {
+    const cons = await catalogQuery<{ conname: string; convalidated: boolean }>(`
+      SELECT conname, convalidated FROM pg_constraint
+       WHERE conname IN ('points_first_validator_id_fkey','events_host_id_fkey','badge_points_verified_by_fkey')
+       ORDER BY 1`);
+    expect(cons.length, 'all three constraints must exist').toBe(3);
+    expect(cons.filter((c) => !c.convalidated).map((c) => c.conname),
+      'a NOT VALID constraint never repairs the integrity defect it inherited').toEqual([]);
+
+    // And nothing was silently thrown away: every id that was nulled is recorded.
+    const [{ n }] = await catalogQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.p520_legacy_fk_orphans`);
+    expect(n, 'the nulled legacy ids must be recoverable from p520_legacy_fk_orphans').toBeGreaterThan(0);
+  });
+
   test('(b) the stayer\'s data that referenced the leaver still loads, with a tombstone', async () => {
     const anon = anonClient();
 
@@ -490,7 +670,7 @@ test.describe('P520: erase_my_account', () => {
 
 test.describe('P520: same-name counterparty — the other person\'s rows are untouched', () => {
   test.describe.configure({ mode: 'serial' });
-  const NAME = 'Twin Person';
+  const NAME = runName('Twin Person');
   let twinLeaver: TestUser;
   let twinStayer: TestUser;
   let sid: string;
@@ -540,7 +720,7 @@ test.describe('P520: same-name counterparty — the other person\'s rows are unt
 test.describe('P520: live_state scrub survives hostile display names', () => {
   test.describe.configure({ mode: 'serial' });
   // quote, backslash, LIKE wildcards, non-ASCII — every character the old textual replace tripped on
-  const NAME = 'O"Bri\\en 100% _x Ñandú';
+  const NAME = runName('O"Bri\\en 100% _x Ñandú');
   let hostile: TestUser;
   let partner: TestUser;
   let sid: string;
@@ -548,7 +728,7 @@ test.describe('P520: live_state scrub survives hostile display names', () => {
 
   test.beforeAll(async () => {
     hostile = await createTestUser({ name: NAME });
-    partner = await createTestUser({ name: 'Plain Partner' });
+    partner = await createTestUser({ name: runName('Plain Partner') });
     const s = await createTestSessionInDB(hostile.user.id, partner.name, { hostName: NAME, guestProfileId: partner.user.id });
     sid = s.sessionId; cleanup = s.cleanup;
     const { error } = await supabaseAdmin.from('clarity_sessions').update({
