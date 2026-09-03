@@ -33,9 +33,14 @@
 - **Never** create manually (skills handle P-number assignment)
 
 **Completed features:**
-- Moved to `features/done/{N}_{mon}_{yy}/` dated subfolders
-- `/dev` and `/fix` auto-close on success (move + set `status: done` + `completed_at`)
-- `scripts/sweep-done.sh` auto-sweeps any files that land at done/ root (Kanban drag, manual mv) into the current month's folder on next pre-commit run
+- Moved to `features/done/{sprint}/`, where `{sprint}` is the date folder named in
+  `features/done/CURRENT_SPRINT` — resolved by `scripts/git-ops.sh` when `/ship` closes the spec.
+  Older folders use a `{N}_{mon}_{yy}` naming from a retired sweep; both shapes are present.
+- `/ship` auto-closes on success (move + set `status` + `completed_at`)
+- `scripts/sweep-done.sh` can move files that land at `features/done/` root (Kanban drag, manual
+  `mv`) into a dated subfolder, but **nothing calls it** — not pre-commit, not any skill. Run it by
+  hand, or expect loose specs to stay at `done/` root. (P1199 owns reconciling the two folder
+  shapes; P1221 recorded the root cause.)
 
 **Examples:**
 ```
@@ -80,15 +85,15 @@ e2e/p145-regression.spec.ts
 - NEVER create proactively
 - User decides what deserves permanent documentation
 
-**Existing docs:**
+**Existing docs:** 28 pages as of 2026-09-03 — list them with `ls docs/technical/*.md` rather than
+reading a copy here, which is what went stale (this block previously named 7, one of which,
+`testing.md`, no longer exists). The most-linked entry points:
+
 ```
-docs/technical/architecture.md
-docs/technical/authentication.md
-docs/technical/database.md
-docs/technical/debugging.md
-docs/technical/feature-specs.md
-docs/technical/git-workflow.md
-docs/technical/testing.md
+docs/technical/architecture.md      docs/technical/e2e-testing-guide.md
+docs/technical/authentication.md    docs/technical/feature-specs.md
+docs/technical/database.md          docs/technical/git-workflow.md
+docs/technical/debugging.md         docs/technical/worktree-setup.md
 ```
 
 **When to add vs. update:**
@@ -309,7 +314,7 @@ If none of the above:
 | `/create-spec` | Feature specs | `features/p{N}_{slug}.md` |
 | `/prepare-blog` | Blog posts | `content/blog/{slug}.md` |
 | `/generate-uat` | UAT docs | `features/uat/p{N}.md` |
-| `/done` | Moves completed features | `features/` → `features/done/` |
+| `/ship` | Moves completed features | `features/` → `features/done/{sprint}/` |
 | `/architect` | Appends to feature | Existing `features/p{N}_{slug}.md` |
 | `/ux` | Appends to feature | Existing `features/p{N}_{slug}.md` |
 | `/dev` | Appends to feature + creates E2E | Existing spec + `e2e/p{N}-*.spec.ts` |
