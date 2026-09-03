@@ -80,6 +80,42 @@ test.describe('P1207 F10: session children inherit the parent session\'s visibil
       `a private session's transcript must not be readable by anon; got ${JSON.stringify(turns.data)}`).toEqual([]);
   });
 
+  test('F11: a verification of a private session\'s message is hidden too — one join further out', async () => {
+    // F10 scoped the session's direct children. Verifications hang off chat messages, which hang
+    // off the session, so the fix stopped one join short. The chat message itself was already
+    // default-denied to anon; only its paraphrase leaked.
+    const dm = await supabaseAdmin.from('clarity_chat_messages')
+      .insert({ session_id: directedId, author_name: 'p1207 A', content: 'SENTINEL PRIVATE message' })
+      .select('id').single();
+    expect(dm.error, `fixture: private chat message: ${dm.error?.message}`).toBeNull();
+    const om = await supabaseAdmin.from('clarity_chat_messages')
+      .insert({ session_id: openId, author_name: 'p1207 A', content: 'SENTINEL OPEN message' })
+      .select('id').single();
+    expect(om.error, `fixture: open chat message: ${om.error?.message}`).toBeNull();
+
+    for (const [mid, tag] of [[dm.data!.id, 'PRIVATE'], [om.data!.id, 'OPEN']] as const) {
+      const v = await supabaseAdmin.from('clarity_verifications').insert({
+        message_id: mid, verifier_name: 'p1207 B',
+        paraphrase_text: `SENTINEL ${tag} paraphrase`, self_rating: 8,
+      });
+      expect(v.error, `fixture: ${tag} verification: ${v.error?.message}`).toBeNull();
+    }
+
+    const sweep = await anon().from('clarity_verifications').select('paraphrase_text').limit(1000);
+    const body = JSON.stringify(sweep.data ?? []);
+    // CONTROL first: the OPEN session's paraphrase must still be readable, or this proves nothing.
+    expect(body.includes('SENTINEL OPEN paraphrase'),
+      'control: an open session\'s verification must stay readable').toBe(true);
+    expect(body.includes('SENTINEL PRIVATE paraphrase'),
+      'a private session\'s paraphrase must not be readable by anon').toBe(false);
+
+    for (const sid of [directedId, openId]) {
+      await supabaseAdmin.from('clarity_verifications').delete()
+        .in('message_id', (await supabaseAdmin.from('clarity_chat_messages').select('id').eq('session_id', sid)).data?.map(r => r.id) ?? []);
+      await supabaseAdmin.from('clarity_chat_messages').delete().eq('session_id', sid);
+    }
+  });
+
   test('nor by an unfiltered sweep — no session_id needed to find it', async () => {
     const sweep = await anon().from('clarity_live_turns').select('transcript').limit(1000);
     const found = JSON.stringify(sweep.data ?? []).includes('SENTINEL PRIVATE');

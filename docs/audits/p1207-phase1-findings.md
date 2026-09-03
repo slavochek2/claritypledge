@@ -833,3 +833,86 @@ non-addressed session to anon. **F10 scoped the session's children; the parent s
 those ids**, which is deliberate for the anonymous `/live` flow but is what makes P1058's seat
 eviction reachable. That is P1058's scope, already filed, and is listed here so the connection is
 not lost: the same parent policy that F10 inherited from is load-bearing for another open finding.
+
+---
+
+# Phase 10 — F11, and two corrections to my own P1045 sweep
+
+## F11 — the verification leak F10 stopped one join short of · FIXED
+
+F10 scoped the session's direct children. `clarity_verifications` hangs off
+`clarity_chat_messages`, which hangs off the session — a **grandchild** — and was missed.
+
+The resulting state answers the question Phase 2 had filed as a founder decision:
+
+```
+clarity_chat_messages   RLS on, NO SELECT policy at all -> default-deny, anon reads nothing
+clarity_verifications   "Verifications are viewable by everyone"  SELECT  qual = true
+```
+
+The **message** is private. The **paraphrase of that message** is world-readable, with the
+verifier's name and self-rating. Nobody designs that on purpose.
+
+**This retires F7.** Phase 1 filed it as "`session_id` is anon-readable on prod"; Phase 2
+reclassified it as a product question — *"should verifications be public?"*. It was never a
+product question: the neighbouring table already answered it. Checking the artifact rather than
+asking the founder is what surfaced that, and it is the same check that retracted F3, F4 and F8.
+
+## The first F11 fix was wrong, and the control caught it
+
+The initial policy inlined the lookup:
+
+```sql
+USING (EXISTS (SELECT 1 FROM clarity_chat_messages m
+               WHERE m.id = message_id AND can_read_clarity_session(m.session_id)))
+```
+
+**A subquery inside an RLS policy runs with the caller's own permissions, so RLS on the
+referenced table applies too.** `clarity_chat_messages` is default-denied, so that `EXISTS`
+returned false for every caller and every row. The policy did not tighten the private case — it
+hid **every** verification, including the anonymous `/live` flow's own.
+
+It was caught by the spec's control assertion, which runs **before** the leak assertion precisely
+for this: *"an open session's verification must stay readable."* Without it the run would have
+gone green on a fix that broke the product — **the leak assertion passes most emphatically when
+nothing is readable at all.** This is gate 7c in one line: a fixture holding only inputs the gate
+should reject cannot measure what it wrongly rejects.
+
+Fixed by moving the lookup into `can_read_verification_message()`, `SECURITY DEFINER`, for the
+same reason `can_read_clarity_session()` is one. Boolean out, never a row.
+
+```
+before F11:        1 failed — private paraphrase readable by anon
+after first fix:   1 failed — CONTROL failed; the open session's paraphrase was hidden too
+after the definer: 15 passed across all four P1207 specs, --workers=1
+```
+
+## P1045, corrected — `clarity_live_invites` was MY sweep's error
+
+Phase 6 listed `clarity_live_invites UPDATE {public} (closed_at IS NOT NULL)` as unscoped. **It is
+not.** The full policy is:
+
+```
+qual       = (auth.uid() = target_user_id
+              OR auth.uid() IN (SELECT creator_profile_id FROM clarity_sessions WHERE id = session_id))
+with_check = (closed_at IS NOT NULL)
+```
+
+Properly scoped to the two parties. My sweep selected `coalesce(with_check, qual)`, which prefers
+`with_check` and **never looked at `qual` when a `with_check` existed**. For an `UPDATE` both
+halves matter — the same defect the adversarial review found in the canary (Phase 3), committed
+again three phases later in a different query. Reading one half of a two-half rule is apparently
+my most durable mistake in this audit.
+
+`ml_training_sessions INSERT {authenticated} true` **stands** and stays open. It has no column
+tying a row to a caller (`session_code`, `user_name` text, `audio_path`), so it cannot be scoped
+to "own rows" without a schema change — which is beyond an audit's remit and is P1045's to
+decide. Nothing reads the table today, which makes it the cheapest moment to decide, not a reason
+to skip it.
+
+## Running tally of retractions
+
+Six of Phase 1's findings did not survive contact with the artifact: **F3, F4, F7, F8** (the
+column-sensitivity error), plus `clarity_live_invites` from my own Phase 6 sweep. Every real
+finding — F0a/F0b, F2, F9, F10, F11 — is an unscoped branch admitting a non-party. The ratio is
+the audit's most transferable result.
