@@ -10,8 +10,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [edge-functions, auth, secrets, api-key-migration]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 ---
 
 # P1189: `generate-banner` uses the database master key as its service-to-service shared secret
