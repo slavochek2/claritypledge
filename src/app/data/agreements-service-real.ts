@@ -541,20 +541,41 @@ export const realAgreementsService: AgreementsService = {
       return false;
     }
 
-    const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    // P1230: rotating the token is a creator-only SECURITY DEFINER RPC
+    // (20260902001500). Writing invitation_token — or returning status to
+    // 'pending' — from a table PATCH is refused for authenticated callers by
+    // the agreements_lock_party_ids trigger (20260902001600), because a party
+    // choosing the acceptance credential is the middle of a takeover: revert to
+    // pending, set a token you know, hand it to someone, have them accept.
+    const { error: rpcError } = await supabase.rpc('rotate_invitation_token', {
+      p_agreement_id: agreementId,
+    });
 
-    const { error: updateError } = await supabase
-      .from('clarity_agreements')
-      .update({
-        invitation_token: crypto.randomUUID(),
-        invitation_expires_at: newExpiry,
-        status: 'pending',
-      })
-      .eq('id', agreementId);
+    if (rpcError) {
+      // PGRST202 = the function is absent from PostgREST's schema cache. The
+      // only window where that happens is a bundle deployed ahead of
+      // 20260902001500 — and in that same window 20260902001600 is not applied
+      // either, so the table write below is still permitted. It is the
+      // pre-P1230 path, kept for exactly that release gap and nothing else.
+      if (rpcError.code !== 'PGRST202') {
+        logDbError('resendInvitation', rpcError);
+        return false;
+      }
 
-    if (updateError) {
-      logDbError('resendInvitation', updateError);
-      return false;
+      const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: updateError } = await supabase
+        .from('clarity_agreements')
+        .update({
+          invitation_token: crypto.randomUUID(),
+          invitation_expires_at: newExpiry,
+          status: 'pending',
+        })
+        .eq('id', agreementId);
+
+      if (updateError) {
+        logDbError('resendInvitation', updateError);
+        return false;
+      }
     }
 
     // Fire-and-forget
