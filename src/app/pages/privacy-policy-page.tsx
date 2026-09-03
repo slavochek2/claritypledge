@@ -186,7 +186,7 @@ export function PrivacyPolicyPage() {
               <li><strong className="text-foreground">Supabase</strong> — Authentication, database hosting, and real-time session sync</li>
               <li><strong className="text-foreground">Vercel</strong> — Website hosting</li>
               <li><strong className="text-foreground">Sentry</strong> — Error tracking and performance monitoring. Collects stack traces and masked session replays when errors occur. Text is masked and media blocked. No personal data sent by default.</li>
-              <li><strong className="text-foreground">Mixpanel</strong> — Product analytics and session replay. Tracks events like page views, feature interactions, and user journeys, and records screen interactions (clicks, scrolling, navigation) with text masking enabled. Production only. Data retained per Mixpanel's policy.</li>
+              <li><strong className="text-foreground">Mixpanel</strong> — Product analytics and session replay. Tracks events like page views, feature interactions, and user journeys, and records screen interactions (clicks, scrolling, navigation) with text masking enabled. Recording is disabled on local development machines and active everywhere else. Data retained per Mixpanel's policy.</li>
               <li><strong className="text-foreground">Google Cloud Storage</strong> — Secure storage for audio recordings from Live Meetings. Files encrypted at rest.</li>
               <li><strong className="text-foreground">Web3Forms</strong> — Processes contact form submissions on our About page. Receives only the information you submit.</li>
               <li><strong className="text-foreground">Google Fonts</strong> — Serves typography. Standard font requests, no tracking.</li>
