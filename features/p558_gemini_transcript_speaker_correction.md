@@ -30,7 +30,7 @@ After the transcription pipeline produces a speaker-attributed transcript, run G
 ## Technical Notes
 
 - Uses existing Gemini API key (`GEMINI_API_KEY` in `.env.local`) + $25k GCP credits
-- Model: `gemini-2.0-flash` (already used for story-guide-chat edge function)
+- Model: `gemini-2.0-flash` (was used by the `story-guide-chat` edge function, deleted by P803 2026-09-02 — pick the model from a live function, e.g. `generate-banner`, not from this line)
 - Input: speaker-attributed transcript segments + events.json round structure
 - Output: corrected speaker labels + confidence flags on changed segments
 - Runs AFTER P556 energy attribution, as a cleanup layer

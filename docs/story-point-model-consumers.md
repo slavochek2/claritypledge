@@ -29,7 +29,7 @@ Consumers that carry their own definitions instead of reading the model doc. Las
 
 | Consumer | Divergence | Status |
 |---|---|---|
-| `supabase/functions/story-guide-chat/` (`index.ts`, `prompts/v1.md`) | Inlines its own story definition ("not factual claims… redirect gently if the user starts writing a verifiable claim") | **Stale — not a correction target.** Founder's call, 2026-08-06 |
+| ~~`supabase/functions/story-guide-chat/`~~ | Inlined its own story definition ("not factual claims… redirect gently if the user starts writing a verifiable claim") | **Removed by P803 (2026-09-02) — dead edge function, no live callers.** Row kept as historical record of the divergence pattern |
 | `.claude/commands/slava/content/create-letter-from-transcript.md` | Carries its **own** element table (Fact point / Anti-point / Story / Point, each with a "User's position" column) | **Live pipeline, deliberately left unfixed.** Registered rather than corrected, 2026-08-06 |
 | `~/.claude/commands/slava/think/problemify.md` | Uses "point" in the project's own sense but is a **global** skill — it cannot reference a cp-scoped doc | **Structural, not fixable by editing.** A global skill has no path to `docs/` |
 | `docs/theory-of-change.md:596` | Still reasons over "any story/point/**position**" as a triple — the composite Position sense the model cut on 2026-08-06 | **Known, unfixed.** The passage is about epistemic states, not the model's ontology; correcting it means re-reading the Pinker argument. Do not use it as evidence that Position is an entity |

@@ -2,7 +2,9 @@
 # scripts/check-deploy-manifest.sh — Compare supabase/ state against deploy manifest
 #
 # Returns 0 if all infra matches what was last deployed to the target env.
-# Returns 1 if drift is detected (undeployed functions or unapplied migrations).
+# Returns 1 if drift is detected. Drift is bidirectional:
+#   local-not-deployed  → FUNCTION_MISSING / FUNCTION_STALE / MIGRATION_MISSING
+#   deployed-not-local  → FUNCTION_ORPHANED (source deleted, platform still serving)
 #
 # Manifest source:
 #   --env prod  → origin/main:supabase/deploy-manifest.json (avoids false positives
@@ -101,6 +103,26 @@ for fn_dir in sorted(glob.glob(os.path.join(functions_dir, '*/'))):
         if deployed_functions[fn_name] != local_hash:
             issues.append(f'FUNCTION_STALE: {fn_name} (local code changed since last deploy to {env_key})')
 
+# Check for functions the manifest still lists as deployed but whose local
+# source directory is gone. P803 (2026-09-01): deleting a function's source
+# does not undeploy it — the platform keeps serving the last-deployed code
+# until `supabase functions delete` runs. The loop above only iterates local
+# dirs, so it is structurally blind to this state: a deleted function with no
+# local dir silently passes drift while still live on the target env.
+local_function_names = {
+    os.path.basename(fn_dir.rstrip('/'))
+    for fn_dir in glob.glob(os.path.join(functions_dir, '*/'))
+}
+# No key is exempt, including _shared: if its directory disappeared locally that is
+# the same unmanaged-deployed-code state and must be reported, not skipped.
+for fn_name in sorted(deployed_functions.keys()):
+    if fn_name not in local_function_names:
+        issues.append(
+            f'FUNCTION_ORPHANED: {fn_name} (in manifest for {env_key}, no local '
+            f'source — still deployed and serving; run `supabase functions delete '
+            f'{fn_name}` against {env_key}, then re-stamp the manifest)'
+        )
+
 # Check migrations
 for sql_file in sorted(glob.glob(os.path.join(migrations_dir, '*.sql'))):
     bn = os.path.basename(sql_file)
@@ -139,6 +161,9 @@ while IFS= read -r line; do
   if [[ "$line" == FUNCTION_MISSING:* ]] || [[ "$line" == FUNCTION_STALE:* ]]; then
     fn=$(echo "$line" | sed 's/^[^:]*: //' | cut -d' ' -f1)
     echo "  ./scripts/deploy-functions.sh $fn --env $ENV_NAME"
+  elif [[ "$line" == FUNCTION_ORPHANED:* ]]; then
+    fn=$(echo "$line" | sed 's/^[^:]*: //' | cut -d' ' -f1)
+    echo "  supabase functions delete $fn --project-ref <$ENV_KEY ref>   # then ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME"
   elif [[ "$line" == MIGRATION_MISSING:* ]]; then
     echo "  ./scripts/migrate.sh --env $ENV_NAME"
   fi

@@ -70,16 +70,31 @@ re-run in this worktree immediately before each:
 stated the 2 e2e specs and 2 `src/tests` unit tests "will fail to compile after deletion." Verified
 false: none of the 4 files have a live `import` of the deleted symbols — `p425-chat-phase.test.ts`
 and `p457-chat-empty-state.test.ts` only had **commented-out TODO imports** (`// import { ... }
-from '.../StoryGuideChat'`), never activated, and the 2 e2e specs (`p467-chat-context-header.spec.ts`,
-`p457-chat-empty-state.spec.ts`) reference only a `data-testid` string and navigate to `/chat` —
-already redirected to `/create` today, so these specs were independently rotted (asserting UI on a
-route that has not rendered `StoryGuideChat` for as long as the redirect has existed), not
-compile-coupled to it. `npx tsc --noEmit -p .` was run and passed cleanly with the 3 source files
-deleted and all 4 test files still present, confirming no compile dependency. They were deleted
-anyway, in the same commit — the intended outcome (retire tests for a dead subject) holds even
-though the compile-failure justification does not. **This overlaps P1217's class** ("retire E2E
-tests that assert deliberately-removed behaviour") — flagging per that spec's territory, not
-claiming this sweep supersedes it.
+from '.../StoryGuideChat'`), never activated, and the 2 e2e specs reference only a `data-testid`
+string and navigate to `/chat`. `npx tsc --noEmit -p .` was run and passed cleanly with the 3
+source files deleted and all 4 test files still present, confirming no compile dependency.
+
+**`e2e/p467-chat-context-header.spec.ts` was deleted, then restored — it was NOT rotted.** The
+premise above ("navigates to `/chat`, already redirected to `/create`, so independently rotted")
+missed that `ChatRedirect` (`src/App.tsx:135-139`) **preserves the query string** across the
+redirect — `/chat?from=position&pointId=X` lands on `/create?from=position&pointId=X`, and
+`create-story-page.tsx` renders `ChatContextHeader` whenever `pointId` is present. So most of this
+spec's tests were exercising the LIVE `ChatContextHeader.tsx` (shared with the live
+`create-story-page.tsx`, 3 importers) through the redirect the whole time — a real coverage loss,
+caught by a review question, not by this pass's own dependents check. **Restored** from
+`e7a786b5^`, and its 14 `page.goto` calls re-pointed from `/chat?...` to `/create?...` directly
+(functionally identical — removes an unneeded redirect hop, not a behavior change). Confirmed live
+by running it: 8/15 tests pass and exercise real `ChatContextHeader` behavior; see Evidence section
+below for the 3 failures (pre-existing, unrelated to this fix) and 4 skips.
+
+**`e2e/p457-chat-empty-state.spec.ts` and both `src/tests` unit tests stay deleted** — genuinely
+rotted, not restored. `p457-chat-empty-state.spec.ts` asserts an "AI opening bubble" with
+`StoryGuideChat`-specific copy ("brain-dump it — messy is fine") that `create-story-page.tsx` (a
+plain textarea, no model call) never rendered, live route or not. `p425-chat-phase.test.ts` and
+`p457-chat-empty-state.test.ts` only ever had commented-out TODO imports — no live coverage to
+lose. Deleting these three still overlaps **P1217's class** ("retire E2E tests that assert
+deliberately-removed behaviour") — flagging per that spec's territory, not claiming this sweep
+supersedes it.
 
 **Newly-orphaned collateral, NOT deleted (outside this pass's 6-item scope).** Deleting
 `StoryGuideChat.tsx` leaves 4 sibling files in `src/app/components/story-guide/` with zero
@@ -137,3 +152,179 @@ files), `npm run build` (succeeds, 32.7s).
 - [x] `npm run typecheck` passes after all batches — `npx tsc --noEmit -p .` clean, for this pass's 9-file deletion (5 source files, 2 edge function dirs, 4 test files — see commit)
 - [ ] E2E test suite passes after all batches — **not run** (the full Playwright suite is expensive/flaky per P1043's findings and was out of scope for this pass); `npm run lint`, `npx vitest run` (302/304 files, 3429/3485 tests, all passing), and `npm run build` were run and are clean instead
 - [ ] Manual smoke of letter → /live → results flow shows no regression — **not performed** this pass; none of the 6 deleted items touch the letter/live/results flow (unrouted pages, a dead chat cluster, 2 unreachable edge functions), so risk is assessed as low but unverified by smoke test
+- [ ] **Retirement of the deployed copies — see § Retirement procedure below.** Deleting an edge
+      function's source does not undeploy it; the platform keeps serving the last-deployed code.
+      This is a deploy action and is deliberately NOT performed by this branch.
+- [x] **`scripts/check-deploy-manifest.sh` now detects this drift class** — it previously iterated
+      only local function directories, so a manifest entry whose local source was deleted passed
+      silently. Added the reverse check (`FUNCTION_ORPHANED`) plus a fix-command line. Proven per
+      epistemic gate 7 (watched fail: exit 1 where the old script exits 0) and gate 7c (both of the
+      script's own documented workflows produce byte-identical output before and after the change)
+      — see § Evidence.
+
+## Retirement procedure (the deployed copies)
+
+**Do not run any of this from a worktree agent session — it is a deploy action.** Each step names
+its verification; do not proceed past a step whose check did not pass.
+
+**Verified live state, 2026-09-03** (read-only `GET /v1/projects/{ref}/functions` against both
+projects — this is the authority, not the manifest):
+
+| Function | test (`gfjctyxqlwexxwsmkakq`) | prod (`besjtuodziykmjidubzw`) | Action |
+|---|---|---|---|
+| `story-guide-chat` | **ACTIVE, v31** | **ACTIVE, v27** | undeploy on both, then re-stamp |
+| `send-letter-response-signin` | not deployed | not deployed | **nothing to undeploy** — the manifest entry is stale; it clears on re-stamp alone |
+
+This corrects the Codex review, which inferred from the manifest that both functions were live on
+both environments. The manifest is a record of the last stamp, not of the platform; only one of the
+two functions is actually serving.
+
+**Ordered steps.** Test first, in full, including the post-check — a failure there is a signal to
+stop, not to continue to prod.
+
+1. **Confirm the current state has not moved** (the table above is a point-in-time read):
+   ```bash
+   TOKEN=$(grep -m1 '^SUPABASE_ACCESS_TOKEN=' .env.local | cut -d= -f2- | tr -d '"')
+   for ref in gfjctyxqlwexxwsmkakq besjtuodziykmjidubzw; do
+     echo "== $ref"; curl -sS "https://api.supabase.com/v1/projects/$ref/functions" \
+       -H "Authorization: Bearer $TOKEN" | python3 -c 'import json,sys; [print(f["slug"], f["status"], f["version"]) for f in json.load(sys.stdin)]'
+   done
+   ```
+   Expect `story-guide-chat` present on both, `send-letter-response-signin` on neither.
+2. **Undeploy `story-guide-chat` from TEST:**
+   `SUPABASE_ACCESS_TOKEN=$TOKEN supabase functions delete story-guide-chat --project-ref gfjctyxqlwexxwsmkakq`
+   Then re-run step 1 and confirm it is gone from test and still present on prod.
+3. **Re-stamp the test manifest:** `./scripts/stamp-deploy-manifest.sh --env test`, then
+   `./scripts/check-deploy-manifest.sh` — no `FUNCTION_ORPHANED` line may remain for
+   `story-guide-chat` or `send-letter-response-signin`.
+4. **Undeploy `story-guide-chat` from PROD:**
+   `SUPABASE_ACCESS_TOKEN=$TOKEN supabase functions delete story-guide-chat --project-ref besjtuodziykmjidubzw`
+   Then re-run step 1 and confirm it is gone from both.
+5. **Re-stamp the prod manifest:** `./scripts/stamp-deploy-manifest.sh --env prod`, then
+   `./scripts/check-deploy-manifest.sh --env prod` (this one reads the manifest from `origin/main`,
+   so the stamp commit must be **pushed** before the check reads clean — P820).
+6. **`send-letter-response-signin` needs no delete call** — steps 3 and 5 drop its stale manifest
+   entry on their own. Running `functions delete` on it is a no-op at best.
+
+**Why the order is test-then-prod and not both at once:** `story-guide-chat` has no live caller in
+the client (verified: zero `functions.invoke('story-guide-chat')` call sites, zero fetches to its
+URL), so the expected blast radius is nil — but "expected nil" is exactly the claim the test
+environment exists to check. If deleting it on test breaks something unforeseen, prod is still
+serving and the recovery is a redeploy from
+`git show e7a786b5^:supabase/functions/story-guide-chat/index.ts`.
+
+**Known consequence between merge and retirement:** once this branch is on `main`,
+`.github/workflows/check-deploy-drift.yml` (daily + on push to main) runs
+`check-deploy-manifest.sh --env prod` and will open a GitHub issue reporting
+`FUNCTION_ORPHANED: story-guide-chat`, and `/ship` step 3.6 will report the same drift. That is the
+new check working as designed, not a regression — it stops once step 5 completes. Retiring before
+or immediately after the merge keeps the window short.
+
+**Limit of the drift check, stated rather than implied (epistemic gate 7b).**
+`check-deploy-manifest.sh` compares the **manifest** against the **local tree**. It never queries
+the platform, so a function that is live but absent from the manifest is invisible to it in both
+directions. One such function exists right now and is **out of this spec's scope**:
+`create-and-respond-to-letter` is ACTIVE on test (`v11`), has no local source, and has no manifest
+entry — so neither the old check nor the new one reports it. Closing that hole needs a live API
+query with a PAT available to CI; filed as follow-up, not built here.
+
+
+## Evidence (2026-09-03, Codex-review follow-up)
+
+### The drift check — gate 7 (watched fail) and gate 7c (no false positives)
+
+A/B against a controlled fixture: a temp project root with this branch's `supabase/functions/` and
+`supabase/migrations/` plus a synthesized manifest whose hashes all match, so the only variable is
+one manifest key with no local directory (`ghost-fn`). Old script = `git show HEAD:scripts/check-deploy-manifest.sh`.
+
+```
+===== A. GHOST manifest (a function in the manifest with no local source) =====
+--- OLD script ---
+Deploy manifest check passed — all infra matches test.
+OLD_EXIT=0                        <-- structurally blind: this is the defect
+--- NEW script ---
+DEPLOY DRIFT DETECTED (test):
+FUNCTION_ORPHANED: ghost-fn (in manifest for test, no local source — still deployed and serving;
+  run `supabase functions delete ghost-fn` against test, then re-stamp the manifest)
+
+Fix commands:
+  supabase functions delete ghost-fn --project-ref <test ref>   # then ./scripts/stamp-deploy-manifest.sh --env test
+NEW_EXIT=1
+
+===== B. CLEAN manifest (same tree, ghost key removed) =====
+--- OLD script --- Deploy manifest check passed — all infra matches test.   OLD_EXIT=0
+--- NEW script --- Deploy manifest check passed — all infra matches test.   NEW_EXIT=0
+```
+
+Gate 7c proper — the script's own two documented workflows (`# Usage:` in its header), run against
+the intact `main` checkout where the deleted sources still exist, old vs new:
+
+```
+===== workflow 1: ./scripts/check-deploy-manifest.sh =====
+OLD_EXIT=1   NEW_EXIT=1   diff old new -> OUTPUT IDENTICAL
+===== workflow 2: ./scripts/check-deploy-manifest.sh --env prod =====
+OLD_EXIT=1   NEW_EXIT=1   diff old new -> OUTPUT IDENTICAL
+```
+
+Both exit 1 on pre-existing drift from other concurrent work (`FUNCTION_STALE: create-and-sign`,
+`send-agreement-emails` on test; `MIGRATION_MISSING: 20260902002000_p1070_…` on prod) — unrelated
+to this change, and **identical before and after it**, which is the property gate 7c asks for: the
+new refusal does not reject work that was already correct.
+
+And on this branch's real state (the two sources deleted, both still in the manifest):
+
+```
+$ ./scripts/check-deploy-manifest.sh --env test
+FUNCTION_ORPHANED: send-letter-response-signin (in manifest for test, no local source — …)
+FUNCTION_ORPHANED: story-guide-chat (in manifest for test, no local source — …)
+EXIT=1
+```
+
+### `e2e/p467-chat-context-header.spec.ts` — split, not restored wholesale
+
+`ChatContextHeader` is **alive**: `create-story-page.tsx:23` imports it and `:315` renders it. The
+inline rating UI it used to sit inside is **gone** with `StoryGuideChat.tsx`:
+
+```
+$ for t in story-guide-chat rating-bubble- thread-area chat-context-header position-chip; do
+    printf '%-24s %s\n' "$t" "$(grep -rn "\"$t" --include='*.tsx' --include='*.ts' src/ | wc -l)"; done
+story-guide-chat         0
+rating-bubble-           0
+thread-area              0
+chat-context-header      1
+position-chip            1
+$ grep -rn "edit-story-heading" src/ e2e/   # only the test itself
+e2e/p467-chat-context-header.spec.ts:318
+```
+
+So the file was kept and **seven tests deleted**: the five rating-phase tests (all written as
+`if (inRatingPhase) { … }`, so with the count permanently 0 they would have passed **vacuously**),
+the "no Drawer" assertion about that same rating UI, and the P465 edit-heading regression
+(`edit-story-heading` is emitted nowhere in `src/`, so that one would have failed outright). Eight
+tests remain, each bound to markup the surviving component actually emits.
+
+One real test defect was fixed rather than deleted: `[↗] link navigates to /point/:id` clicked a
+link carrying `target="_blank"` (`ChatContextHeader.tsx:129`) and then asserted on `page.url()` of
+the *original* tab, which never navigates. It now waits for the popup and asserts on that.
+
+**Run result: 8 passed, exit 0** — but only after temporarily unblocking a shared-environment
+breakage; see the next section. `npx tsc --noEmit` and `npx eslint` on the file are both clean.
+
+### Blocked, and not caused by this branch: `points.context` is gone from the shared test project
+
+`e2e/helpers/test-point.ts:72` inserts a `context` column. That column no longer exists on the test
+project:
+
+```
+$ <management API> select column_name from information_schema.columns
+    where table_schema='public' and table_name='points' and column_name in ('context','statement')
+[{"column_name":"statement"}]
+```
+
+So `createTestPoint()` fails with *"Could not find the 'context' column of 'points' in the schema
+cache"* and every spec using that helper dies in `beforeAll` — on any branch, not just this one.
+`feature/p1095-retire-point-context` is in flight in `w14`'s sibling worktree `w11` and is the
+likely author. **Not fixed here:** repairing the shared helper belongs to that branch, and doing it
+from this one would collide. The 8-passing result above was obtained by commenting out that one
+field for a single run; `e2e/helpers/test-point.ts` was restored byte-for-byte immediately after
+(`git status` on it is clean, verified).

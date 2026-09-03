@@ -36,7 +36,7 @@ Automate point extraction from stories using the existing Gemini integration. Wh
 
 - P560 (story filing) — stories must exist as entities first
 - P564 (point-story attribution) — extracted points need attribution links
-- Existing `story-guide-chat` edge function (Gemini 2.0 Flash)
+- ~~Existing `story-guide-chat` edge function (Gemini 2.0 Flash)~~ — deleted by P803 (2026-09-02); this spec can no longer build on it
 
 ## Open Questions
 

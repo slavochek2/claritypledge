@@ -7061,7 +7061,7 @@ converts the load-bearing rules to mechanisms before P1117 removes any prose.
 
 ## 2026-08-19 [product]: The mirror agent is a design, not a shipped surface — `definitions.md` claimed it was live
 
-**Context:** [definitions.md](definitions.md) §Mirror Agent stated *"The mirror agent is the story-filing interface (active now, in `/chat`)."* Verified 2026-08-19: [clarity-chat-page.tsx](../src/app/pages/clarity-chat-page.tsx) carries the comment *"NOT ROUTED — /clarity-chat was reverted from prod"*; [App.tsx](../src/App.tsx) routes both `/chat` and `/clarity-chat` to a redirect that forwards to `/create` (P486); [create-story-page.tsx](../src/app/pages/create-story-page.tsx) is a plain textarea form with a 10 000-character cap and no model call in it. The sentence entered the doc in `8ba5a713` and has not been touched since. `/docs-strategy-update` Gate 1 flags it independently: `definitions.md` is a glossary and may carry **no status words at all** — *"active now"* is one.
+**Context:** [definitions.md](definitions.md) §Mirror Agent stated *"The mirror agent is the story-filing interface (active now, in `/chat`)."* Verified 2026-08-19: `src/app/pages/clarity-chat-page.tsx` (deleted by P803, 2026-09-02 — dead code) carries the comment *"NOT ROUTED — /clarity-chat was reverted from prod"*; [App.tsx](../src/App.tsx) routes both `/chat` and `/clarity-chat` to a redirect that forwards to `/create` (P486); [create-story-page.tsx](../src/app/pages/create-story-page.tsx) is a plain textarea form with a 10 000-character cap and no model call in it. The sentence entered the doc in `8ba5a713` and has not been touched since. `/docs-strategy-update` Gate 1 flags it independently: `definitions.md` is a glossary and may carry **no status words at all** — *"active now"* is one.
 
 **Decision:** Strip the as-shipped claim; keep the definition. The mirror agent stays in the glossary as the **intended** story-filing interface, with its current state stated plainly — not routed, `/chat` redirects to the plain `/create` form. The section heading loses its `In-Product` qualifier for the same reason.
 
@@ -25781,7 +25781,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Decision:** Add `storyCTAOverride?: React.ReactNode` prop with three-state semantics: `undefined` = default button (all existing callsites unchanged); `null` = suppress CTA entirely; `ReactNode` = custom replacement. /chat passes a muted status chip `"✓ Position saved — write your experience below ↓"` when a position is set, `null` when not.
 **Alternatives rejected:** `hideCTA: boolean` — loses ability to show contextual replacement; `liveSessionMode` flag reuse — wrong semantic (that flag is for /live, not /chat); separate chat-specific card — third diverging render path.
 **Consequences:** Any future context embedding `PointCardWithLinks` but needing a different CTA can use this escape hatch without touching core logic. `undefined` default ensures all existing callsites are unaffected.
-**References:** [point-card-with-links.tsx](src/app/components/social/point-card-with-links.tsx) · [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx)
+**References:** [point-card-with-links.tsx](../src/app/components/social/point-card-with-links.tsx) · `src/app/components/story-guide/StoryGuideChat.tsx` (deleted by P803, 2026-09-02 — dead code)
 
 ---
 
@@ -25791,7 +25791,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Decision:** Wire the full stack in any interactive embedding: (1) `localPosition` state initialized from prop + `useEffect` sync for prop changes; (2) `useRemovePositionGuard` with context-appropriate post-remove action (in /chat: `navigate(-1)`, since chatting about a removed position makes no sense); (3) `handlePositionSelect` checks `pointsService.setPosition` boolean return, toasts on failure; (4) pass `currentUserId`, `selectedPosition`, `onPositionSelect`, and render `<RemovePositionDialog {...dialogProps} />`.
 **Alternatives rejected:** `localPosition ?? serverPosition` effectivePosition pattern (used in QuotedPoint) — not needed in /chat since the page doesn't re-render with fresh server position data after mount.
 **Consequences:** Pattern is now explicit: 4 props + dialog = interactive position card. Missing any one of them = silent partial functionality. Documented here so future surfaces don't repeat the /chat mistake.
-**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · [remove-position-dialog.tsx](src/app/components/shared/remove-position-dialog.tsx)
+**References:** `src/app/components/story-guide/StoryGuideChat.tsx` (deleted by P803, 2026-09-02 — dead code) · [remove-position-dialog.tsx](../src/app/components/shared/remove-position-dialog.tsx)
 
 ---
 
@@ -25811,7 +25811,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Decision:** Delete `ContextChip`, render `PointCardWithLinks` directly with `profileOwner` for the position badge. Page adapts the `PointWithUserPosition` fetch result (already in flight) to the prototype `Point` shape and passes `contextPoint` + `contextProfileOwner` as props to `StoryGuideChat`.
 **Alternatives rejected:** `hideActions`/`disableNavigation` flags — strips share, open, linked stories with no benefit; bespoke chat card — third divergent rendering of the same data.
 **Consequences:** One card component renders points consistently everywhere. Any future card improvement (badge, story preview, share) automatically applies in chat.
-**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · [story-guide-chat-page.tsx](src/app/pages/story-guide-chat-page.tsx)
+**References:** `src/app/components/story-guide/StoryGuideChat.tsx` · `src/app/pages/story-guide-chat-page.tsx` (both deleted by P803, 2026-09-02 — dead code)
 
 ---
 
@@ -26079,7 +26079,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 **Decision:** Always inline system prompts as template literals directly in `index.ts`. Keep a source-of-truth `.md` file alongside for readability, but the deployed code must not use `Deno.readTextFile` for anything loaded at request time.
 **Alternatives rejected:** Bundling the prompt file as a static asset — no documented Supabase mechanism for this; env var — too unwieldy for multi-paragraph prompts.
 **Consequences:** All future edge functions with prompt files must inline them. The `.md` file stays as a comment/reference but is not read at runtime.
-**References:** [story-guide-chat/index.ts](../supabase/functions/story-guide-chat/index.ts)
+**References:** `supabase/functions/story-guide-chat/index.ts` (source deleted by P803, 2026-09-02; the deployed copy is retired per that spec's § Retirement procedure)
 
 ---
 

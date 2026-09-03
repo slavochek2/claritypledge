@@ -1207,7 +1207,7 @@ AI streaming can take 10–30s per round-trip. Use:
 
 ### Gemini model fragility
 
-`gemini-2.0-flash` was deprecated and returns 404 for new users. Current model: `gemini-2.5-flash` (set in `supabase/functions/story-guide-chat/index.ts`). If tests start returning 404/500 from the edge function, check for a new deprecation first.
+`gemini-2.0-flash` was deprecated and returns 404 for new users. (P803, 2026-09-02: the edge function that set this — `story-guide-chat` — was removed as dead code; kept as historical context for the deprecation-check pattern.) If a live edge function starts returning 404/500 from Gemini, check for a new deprecation first.
 
 ### Structured AI output detection
 

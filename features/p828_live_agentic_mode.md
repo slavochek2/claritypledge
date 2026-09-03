@@ -182,4 +182,4 @@ Founder decisions that block UX design. /ux must collect answers before proceedi
   - `src/app/components/partners/slider-track.tsx` — slider primitive (reused as-is)
   - `src/app/components/partners/free-mode-view.tsx` and `live-mode-view.tsx` — existing mode views; agentic adds a third view
   - `src/app/pages/clarity-live-page.tsx` — entry page; mode selection lives here
-  - `StoryGuideChat` (`src/app/components/story-guide/StoryGuideChat.tsx`) — chat scaffold patterns to reference, not extend (agentic mode is its own surface)
+  - ~~`StoryGuideChat` (`src/app/components/story-guide/StoryGuideChat.tsx`)~~ — **deleted by P803 (2026-09-02) as dead code.** Read it from git history (`git show e7a786b5^:src/app/components/story-guide/StoryGuideChat.tsx`) if the chat scaffold pattern is still wanted; there is nothing to reference in the working tree

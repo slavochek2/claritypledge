@@ -39,7 +39,7 @@
 - Agreement: `navigate(-1)`
 - Chat: navigate to source point (`/point/:pointId`) if URL has `?pointId=`, fallback `navigate(-1)`
 
-**Examples:** `/story-detail-page.tsx`, `/point-detail-page.tsx`, `/agreement-page.tsx`, `/story-guide-chat-page.tsx`
+**Examples:** `/story-detail-page.tsx`, `/point-detail-page.tsx`, `/agreement-page.tsx`, `/create-story-page.tsx` (removed by P803: `/story-guide-chat-page.tsx`, dead code)
 
 ---
 
@@ -143,7 +143,7 @@
 
 **Examples:**
 - Modal: `/story-detail-page.tsx` DeleteStoryDialog, unsaved changes prompt
-- Page: `/story-guide-chat-page.tsx` (AI chat workflow)
+- Page: `/create-story-page.tsx` (AI-assisted story creation workflow) — removed by P803: `/story-guide-chat-page.tsx`, dead code
 
 ---
 

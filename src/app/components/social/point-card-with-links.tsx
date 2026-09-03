@@ -694,7 +694,9 @@ export function PointCardWithLinks({
           </div>
         )}
     </div>
-    {/* storyCTAOverride: custom node injected by StoryGuideChat when position is taken in /chat */}
+    {/* storyCTAOverride: custom node for the story CTA slot when a position is taken.
+        (P803, 2026-09-02: the only caller, StoryGuideChat, was removed as dead code —
+        no current caller passes this prop; flagged as follow-up collateral, not deleted here.) */}
     {storyCTAOverride !== undefined && !liveSessionMode && storyCTAOverride}
     </>
   );

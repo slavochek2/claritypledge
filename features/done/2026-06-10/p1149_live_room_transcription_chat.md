@@ -61,7 +61,7 @@ the finished branch before it merges.
 records a session, uploads chunked audio to `gs://claritypledge-ml-training/sessions/{code}/`
 ([api.ts](../../../src/app/data/api.ts):3139 `uploadAudioChunk`), and the GPU service transcribes it
 after the fact. Separately, `/chat` renders live words from the browser speech API while
-recording ([clarity-chat-page.tsx](../../../src/app/pages/clarity-chat-page.tsx):544-580). Neither
+recording (`src/app/pages/clarity-chat-page.tsx`:544-580 (deleted by P803, 2026-09-02 — dead code)). Neither
 serves a **room**: `/live` is structurally 1-on-1, and `/chat` is one person alone.
 
 **Complication:** An event puts eight people and eight microphones in one space. They cannot

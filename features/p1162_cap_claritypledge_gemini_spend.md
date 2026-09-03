@@ -17,7 +17,7 @@ driver: heuristic
 
 ## Problem
 
-**Situation:** Three edge functions — `story-guide-chat`, `generate-banner`,
+**Situation:** Three edge functions — `story-guide-chat` (source deleted by P803 2026-09-02; the deployed copy is retired per that spec — re-scope this cap to the two that remain), `generate-banner`,
 `generate-event-banner` — share one Gemini API key. The key is restricted to the Gemini API and is
 service-account-backed, but it carries **no spend limit**. It bills against the founder's personal
 Google Cloud credit balance.

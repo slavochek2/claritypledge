@@ -2,7 +2,9 @@
  * @file ChatContextHeader.tsx
  * @description P467: Slim sticky context header for /chat page.
  * Shows point text (truncated, expandable) + 1st-person position chip + open-in-point link.
- * Replaces PointCardWithLinks in the StoryGuideChat header — no share, no position buttons.
+ * Replaces PointCardWithLinks in the chat header — no share, no position buttons.
+ * (P803, 2026-09-02: StoryGuideChat, the original host, was deleted as dead code.
+ *  This component is still live — imported by create-story-page.tsx.)
  *
  * Height: ~48px (sticky top-16, below app nav bar).
  * Expands to auto height when user taps the text region.
