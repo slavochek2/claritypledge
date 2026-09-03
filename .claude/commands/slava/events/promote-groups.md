@@ -2,7 +2,7 @@
 name: promote-groups
 description: "Post an event blurb into the mapped WhatsApp/Telegram group chats via Beeper"
 when_to_use: "After the event is published, to share into recurring group chats. Reads group mapping from .private/event-channels.json"
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Promote Event into Group Chats
@@ -211,7 +211,8 @@ Schema:
       "platform": "<whatsapp|telegram>",
       "status": "sent|skipped_declined|verify_unavailable|verify_needed|failed",
       "posted_at": "<ISO timestamp or null>",
-      "blurb_hash": "<first 8 chars of blurb sha256 — detects same group, different text>"
+      "blurb_hash": "<first 8 chars of blurb sha256 — detects same group, different text>",
+      "sent_message_id": "<id of the landed message, from the content-search match in step 6c — null if verify fell back to timestamp_fallback (no message lookup happened) or status != sent>"
     }
   ],
   "updated_at": "<ISO timestamp>"
@@ -250,11 +251,13 @@ After the send call returns, confirm the message actually landed by searching th
 
 **Which tool call to use:** this file does not hardcode a Beeper MCP tool name for content search — `ToolSearch` for the Beeper MCP's message/content-search tool at runtime (its exact name is not verified as of this writing; do not guess or invent one). If no content-search tool exists in the loaded Beeper MCP, content verification is unavailable — fall back to `get_chat`'s last-activity field, but treat that fallback as weaker evidence and note it explicitly in the status write (e.g. `"verify_method": "timestamp_fallback"`).
 
+**Capture `sent_message_id` from this same match.** The content-search hit that confirms the send landed is a specific message object with its own `id` — take that id, not any id the raw `send_message` response might separately claim to return (which may be absent or unreliable). This is the value written to `sent_message_id` in step 6d. If content verification fell back to `timestamp_fallback` (no message lookup happened, so no candidate to take an id from), `sent_message_id` is `null` for that group — `check_event_replies.py` treats a `null` here as "announcement id unknown for this send" and degrades to its old, less precise matching for that row rather than erroring.
+
 **Never resend blind after a connection error.** If the send call itself errors (timeout, dropped connection), re-verify by content **before** retrying — the message may have landed despite the error. Only retry if content verification confirms it did NOT land. Retrying without this check risks a duplicate post to a live group.
 
 **d. Write status immediately:**
 
-After each send (success or failure) and its content verification, write the group's row to the state file before moving to the next group. Never batch.
+After each send (success or failure) and its content verification, write the group's row to the state file before moving to the next group — including the `sent_message_id` captured in step 6c (or `null` if unavailable). Never batch.
 
 ### 7. Summary
 
@@ -286,3 +289,4 @@ For each `verify_unavailable` or `verify_needed` group, note: "Re-trigger requir
 - **Staleness is a token test, never a judgment call** — every resolved blurb must contain the current event's date (and venue token, if the type defines one). A reused blurb with zero unresolved placeholders is exactly the shape that must fail this check.
 - **Probe binds to the text being sent, not to "a probe happened this run"** — any mid-run copy revision needs its own fresh self-chat probe before it reaches a group.
 - **Verify-by-content, never by timestamp, and never resend blind** — a send is confirmed by finding the actual text in the chat, not by a moved last-activity timestamp; a connection error triggers re-verification before any retry.
+- **The landed message's own id is persisted, not just "sent after X"** — `sent_message_id` (from the content-search match, step 6c) lets `check_event_replies.py` match replies to the specific announcement instead of to any message Slava sent in that chat afterward. `null` when content verification fell back to timestamp-only.
