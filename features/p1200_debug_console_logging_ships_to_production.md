@@ -9,8 +9,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [logging, privacy, production, cleanup]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 ---
 
 # P1200: Ungated debug console logging ships to the production console
