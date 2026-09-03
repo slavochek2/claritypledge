@@ -1,11 +1,11 @@
 ---
-status: backlog
+status: all-done
 type: task
 rank: 95
 created_date: '2026-08-17'
 tags: [tech-debt, points, schema]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
+completed_at: 2026-09-03
 ---
 
 # P1095: Retire the dead `points.context` field
