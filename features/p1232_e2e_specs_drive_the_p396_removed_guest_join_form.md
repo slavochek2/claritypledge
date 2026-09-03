@@ -1,11 +1,12 @@
 ---
-status: in-progress
+status: blocked
 type: task
 rank: 1000068
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [e2e, testing, live, p1043]
 delivery_stage: dev
+blocked_by: "pre-existing two-party creator-flow break — see Blocked section; needs its own spec"
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
