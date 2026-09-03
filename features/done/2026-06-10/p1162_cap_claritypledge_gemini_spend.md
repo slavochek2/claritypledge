@@ -1,16 +1,16 @@
 ---
-status: backlog
+status: all-done
 type: task
 rank: 232
 workstream: infrastructure
 created_date: '2026-08-26'
 tags: [infrastructure, cost-control, edge-functions, gemini]
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-09-03
 ---
 
 # P1162 — Cap ClarityPledge's Gemini spend, and alert when the key stops answering
