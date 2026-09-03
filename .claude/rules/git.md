@@ -197,9 +197,28 @@ failed at file-write time, after the founder had made design decisions on it.
 
 Never use `git add .` or `git add -A` in a worktree — use `git add src/` or explicit file paths. (This extends the existing `git add .` ban with a worktree-specific failure mode.)
 
-## File Creation Inside Worktrees
+## File Creation *and Editing* Inside Worktrees
 
-When running inside a worktree (cwd contains `.claude/worktrees/wN`), every new file created with Write or Edit **must use the worktree-rooted absolute path** — never the main repo path.
+When running inside a worktree (cwd contains `.claude/worktrees/wN`), every file you create **or
+modify** — Write, Edit, or a shell edit (`sed -i`, a heredoc, a python rewrite) — **must use the
+worktree-rooted absolute path**, never the main repo path.
+
+**The silent case: a TRACKED file that exists at both roots.** Everything below this line describes
+a loud failure — `git add` refuses, and you find out immediately. That deterrent **cannot fire** for
+a file already present in both the main checkout and the worktree, which is most of what a ship
+touches: specs, docs, shared config. The edit lands on the shared main checkout, `git add` in the
+worktree reports nothing wrong because the worktree's own copy is simply unmodified, and the only
+signal is `git status` in the main repo — which you have no reason to run. The uncommitted edit then
+sits exposed on the shared checkout for a co-tenant's next broad `git add` (see "Any uncommitted
+file on the shared checkout is exposed", above).
+
+So: **run `git rev-parse --show-toplevel` before EDITS, not only before creations**, and confirm the
+change landed where you meant — `git status --short` in the worktree must show the file you just
+edited. Incident 2026-09-03 (P1210 ship): 24 checkboxes and a frontmatter stamp were written to the
+main checkout's copy of a spec while all the work lived in `w3`; caught only by reading the
+worktree's copy back and finding it unchanged. Repair was copy-into-worktree plus
+`git checkout --` on main — itself a banned command run on a file whose only edit was known
+disposable.
 
 **Read precondition:** Before editing any file in a worktree, Read it using the worktree-rooted absolute path. Reading from the main-repo path (e.g. `/Users/.../claritypledge/src/foo.ts`) does not satisfy the Edit precondition for the worktree path (e.g. `.../worktrees/w2/src/foo.ts`) — the Edit tool will reject the call. Always derive the correct root with `git rev-parse --show-toplevel` and use that prefix for both Read and Edit.
 
