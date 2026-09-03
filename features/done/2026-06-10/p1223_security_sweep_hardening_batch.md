@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000066
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [security, dependencies, edge-functions, migrations]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1223: Security sweep hardening batch (2026-09-01)
