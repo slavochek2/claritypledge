@@ -112,12 +112,21 @@ wearer should dominate their own channel by a wide margin, unlike P569's phones-
 lav pattern (omni vs cardioid), placement, room size and reverb, and how often people talk over each
 other. P1237's research question 2 measures exactly this, and its 10dB criterion is the bar.
 
-`[FOUNDER DECISION — still open: are the lavaliers plugged into each participant's OWN phone, or
-into one multi-track recorder? This is a different architecture, not a detail. Per-phone lavs give
-one credentialled person per stream, which is the design this spec assumes. A single multi-track
-recorder gives per-speaker channels with NO per-stream identity and no per-device consent surface —
-P1149's consent invariant ("each person consents for their own voice, on their own screen") assumes
-the former.]`
+**ANSWERED 2026-09-03 (founder): each lavalier plugs into its wearer's own phone.**
+
+That closes the premise. Every stream now carries one authenticated participant, so:
+
+- **Attribution is exact by construction** — speaker identity is the room member who owns the
+  device, never inferred from audio. Diarization has nothing to do on this path.
+- **P1149's consent invariant holds unchanged** — each person consents for their own voice on their
+  own screen, because each person still owns exactly one capture device.
+- **The mic-contention defect is fully resolved rather than moved.** The browser opens one
+  `getUserMedia` stream per phone; it is uploaded and transcribed server-side, so nothing competes
+  for the microphone and the recording is a by-product of the same stream.
+
+The only thing still unmeasured is **how much of a neighbour a lavalier picks up** — P1237 RQ2, 10dB
+bar. That governs transcript cleanliness (stray words from the person next to you), not attribution,
+which is now settled by device ownership regardless of what the audio contains.
 
 ### Credit-eligible execution paths
 
@@ -157,7 +166,9 @@ not when the first word is spoken — the consent and join screens supply the co
 
 - [ ] Chunk-transcription throughput with diarization removed is measured and recorded in this spec
       as a number, replacing the UNVERIFIED 3-5-speakers-per-L4 estimate
-- [ ] Both founder decisions above are answered and recorded here
+- [x] Co-location and device-routing premises answered and recorded (2026-09-03: one room,
+      lavalier per person, each into its owner's phone)
+- [ ] The remaining founder decision (latency vs iteration) is answered here, after the measurement
 - [ ] A person speaking on a physical Android phone sees their words in the room, verified over the
       adb DevTools console with the log pasted into this spec — the same instrument that produced
       the A/B above
@@ -169,12 +180,10 @@ not when the first word is spoken — the consent and join screens supply the co
 
 ## Open Questions
 
-1. Do the lavaliers plug into each participant's own phone or into one multi-track recorder?
-   (Founder decision above — changes the identity and consent model, not just the audio path.)
-2. What is the measured dB margin between wearer and neighbours on a lavalier channel in this room?
+1. What is the measured dB margin between wearer and neighbours on a lavalier channel in this room?
    Unmeasured; P1237 RQ2 owns it.
-3. Does chunked transcription quality hold on 4-second fragments? Unmeasured.
-4. Does the 30-minute Gemini cap apply when diarization is OFF? The cap is documented as tied to
+2. Does chunked transcription quality hold on 4-second fragments? Unmeasured.
+3. Does the 30-minute Gemini cap apply when diarization is OFF? The cap is documented as tied to
    diarization/word-timestamps; unverified for plain transcription.
 
 ## Related

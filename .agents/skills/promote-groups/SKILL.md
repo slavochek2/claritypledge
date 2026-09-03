@@ -2,7 +2,7 @@
 name: promote-groups
 description: "Post an event blurb into the mapped WhatsApp/Telegram group chats via Beeper"
 when_to_use: "After the event is published, to share into recurring group chats. Reads group mapping from .private/event-channels.json"
-version: 1.4.0
+version: 1.6.0
 ---
 
 # Promote Event into Group Chats
@@ -209,9 +209,12 @@ Schema:
       "chatID": "<beeper-chatID>",
       "name": "<config name>",
       "platform": "<whatsapp|telegram>",
+      "lang": "<group's lang, resolved in Step 3>",
       "status": "sent|skipped_declined|verify_unavailable|verify_needed|failed",
       "posted_at": "<ISO timestamp or null>",
-      "blurb_hash": "<first 8 chars of blurb sha256 — detects same group, different text>"
+      "blurb_hash": "<first 8 chars of blurb sha256 — detects same group, different text>",
+      "verify_method": "content_confirmed|timestamp_fallback",
+      "sent_message_id": "<id of the landed message, resolved per step 6c below — null if verify_method is timestamp_fallback, no confident match was found, or status != sent>"
     }
   ],
   "updated_at": "<ISO timestamp>"
@@ -250,11 +253,17 @@ After the send call returns, confirm the message actually landed by searching th
 
 **Which tool call to use:** this file does not hardcode a Beeper MCP tool name for content search — `ToolSearch` for the Beeper MCP's message/content-search tool at runtime (its exact name is not verified as of this writing; do not guess or invent one). If no content-search tool exists in the loaded Beeper MCP, content verification is unavailable — fall back to `get_chat`'s last-activity field, but treat that fallback as weaker evidence and note it explicitly in the status write (e.g. `"verify_method": "timestamp_fallback"`).
 
+**Capturing `sent_message_id` needs a SEPARATE, JSON-returning lookup — never take an id (or anything that looks like one) out of the content-search tool's own result.** A Beeper MCP content-search tool may render its hits as markdown/links rather than structured JSON — e.g. a link shaped like `/open/<chatID>/<N>` where `N` is a **sort key**, not the message's `id`, and a sort key will never equal a reply's `linkedMessageID` (adversarial review, 2026-09-03 — an earlier version of this instruction told the agent to "take that id" from the content-search hit itself, which silently produces a `sent_message_id` from the wrong namespace on every send if the loaded content-search tool is link-only; `check_event_replies.py`'s own id-validation, added the same day, is the backstop but the id should be right in the first place).
+
+To get the real `id`: `ToolSearch` for the Beeper MCP's message-*listing* tool (JSON output, an `id` field on every message — as of this writing this is a different tool than the content-search one above; do not assume either name persists). Call it on this chatID and find the candidate: among messages with `isSender: true` whose text contains the distinctive substring used for the content-search, **take the newest one whose timestamp is at or after this send's transport time** — most-recent-wins, so a correction re-post (see the idempotency section above) never anchors `sent_message_id` to the superseded post's id. That id is the value written to `sent_message_id` in step 6d, **overwriting** any prior value for this group when re-posting a correction.
+
+If content verification fell back to `timestamp_fallback`, or the listing lookup returns no matching candidate, `sent_message_id` is `null` for that group. `check_event_replies.py` treats `null`, or an id it cannot independently find among Slava's own messages in the chat when it later reads this row, identically — "announcement id unknown/unverifiable for this send" — and degrades to its old, less precise matching for that row rather than erroring or silently trusting an unverified id.
+
 **Never resend blind after a connection error.** If the send call itself errors (timeout, dropped connection), re-verify by content **before** retrying — the message may have landed despite the error. Only retry if content verification confirms it did NOT land. Retrying without this check risks a duplicate post to a live group.
 
 **d. Write status immediately:**
 
-After each send (success or failure) and its content verification, write the group's row to the state file before moving to the next group. Never batch.
+After each send (success or failure) and its content verification, write the group's row to the state file before moving to the next group — including the `sent_message_id` captured in step 6c (or `null` if unavailable). Never batch.
 
 ### 7. Summary
 
@@ -286,3 +295,4 @@ For each `verify_unavailable` or `verify_needed` group, note: "Re-trigger requir
 - **Staleness is a token test, never a judgment call** — every resolved blurb must contain the current event's date (and venue token, if the type defines one). A reused blurb with zero unresolved placeholders is exactly the shape that must fail this check.
 - **Probe binds to the text being sent, not to "a probe happened this run"** — any mid-run copy revision needs its own fresh self-chat probe before it reaches a group.
 - **Verify-by-content, never by timestamp, and never resend blind** — a send is confirmed by finding the actual text in the chat, not by a moved last-activity timestamp; a connection error triggers re-verification before any retry.
+- **The landed message's own id is persisted, not just "sent after X"** — `sent_message_id` (resolved via a JSON message-listing lookup, step 6c — never taken from the content-search hit's own markdown/link, which may expose a sort key instead of the real id) lets `check_event_replies.py` match replies to the specific announcement instead of to any message Slava sent in that chat afterward. Most-recent-match-at-or-after-send-time wins, so a correction re-post never anchors to a superseded post. `null` when content verification fell back to timestamp-only or no confident candidate was found.
