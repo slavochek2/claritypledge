@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000068
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [e2e, testing, live, p1043]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1232: E2E specs still drive the guest-join form P396 removed
