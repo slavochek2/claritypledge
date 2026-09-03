@@ -324,6 +324,8 @@ Magic link emails are sent via Brevo SMTP (`smtp-relay.brevo.com:587`), configur
 
 **Known issue — silent SMTP failures:** Supabase GoTrue sends emails via a background goroutine and sets `confirmation_sent_at` before confirming SMTP delivery. If the SMTP handoff fails, the error is logged server-side but not propagated to the API or database ([supabase/supabase#39691](https://github.com/supabase/supabase/issues/39691)). Brevo logs will show zero records for the recipient. P608 (done 2026-03-30) added the mitigation (PKCE + resend + monitoring).
 
+> **The PKCE choice is a live trade-off, not a settled fact (P1240, 2026-09-03).** PKCE buys prefetch resistance and costs cross-browser link opening — P608's own acceptance criteria say "Same browser works, different browser fails gracefully". The repo ships *both* sides: `request-letter-response-signin` emails a non-PKCE `?token_hash=` link specifically because PKCE broke it cross-browser. An untested hypothesis would resolve it: a `/auth/v1/verify?token=` URL is consumed by a plain GET, whereas a `?token_hash=` URL is redeemed only when JS runs `verifyOtp`, which a prefetcher never does. Falsifier: send a token_hash link to a Microsoft 365 mailbox and see whether it is consumed pre-click. See `docs/decisions.md` 2026-09-03.
+
 **Known issue — Microsoft ATP token consumption:** Corporate email systems (Microsoft 365, Google Workspace) pre-fetch magic link URLs for malware scanning, consuming single-use OTP tokens before the user clicks ([supabase/auth#713](https://github.com/supabase/auth/issues/713)). P608 enabled the PKCE flow (`src/lib/supabase.ts:15`) to prevent this.
 
 If emails aren't arriving:
@@ -398,7 +400,10 @@ After `setSession()`, `onAuthStateChange` fires → profile fetch → `currentUs
 
 The Supabase JS client persists the session in **`localStorage`** (`sb-<ref>-auth-token`), not in cookies — `src/lib/supabase.ts` passes no custom `storage`, so the supabase-js default applies. No Set-Cookie is involved in client-side auth — `confirm-letter-response` and similar edge functions return JSON; the session lives in localStorage from the `verifyOtp`/`setSession` call.
 
-Mobile in-app browsers (Gmail, Twitter, Instagram, LinkedIn) typically spawn a **fresh WebView instance per link tap** with an **isolated/ephemeral storage partition**. The localStorage written during one link tap is **not readable** from the WebView spawned by the next link tap — even on the same device, same session, same email client.
+Mobile in-app browsers (Gmail, Twitter, Instagram, LinkedIn) typically spawn a **fresh WebView instance per link tap** with an **isolated/ephemeral storage partition**.
+
+> **Gmail on Android is UNVERIFIED and may not belong in that list (P1240, 2026-09-03).** Gmail routes link taps through Chrome Custom Tabs by default, and a Custom Tab shares Chrome's storage partition — if that is what happens, this mechanism does not fire for Gmail at all and applies only to the true-WebView apps. Nobody has checked. The check is one tap on an app link inside Gmail while watching `adb shell cat /proc/net/unix | grep devtools_remote`: a new `@webview_devtools_remote` socket means isolated WebView; the tab appearing in Chrome's own target list means Custom Tab. Do not act on either reading until it is run.
+ The localStorage written during one link tap is **not readable** from the WebView spawned by the next link tap — even on the same device, same session, same email client.
 
 Symptom: user signs up via email link 1, lands authenticated inside the WebView. Taps email link 2 minutes later → lands **anonymous** on the same origin. `currentUser` is null. There is no broken code; the storage simply isn't there.
 

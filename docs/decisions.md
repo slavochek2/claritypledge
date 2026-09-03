@@ -6,6 +6,51 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [technical]: P1240 — the login link's cross-browser failure is a P608 trade-off, and the repo has already taken the other side of it
+
+**Context:** P1240 was filed on a recurring founder report of phones losing the session, and its spec
+asserted that the PKCE cross-browser break was "a real defect with an in-repo pattern" for the fix.
+Investigation on a real device (Galaxy S22, USB debug + CDP) plus a read of the auth history showed
+the framing was wrong in both directions, and the corrected picture is worth recording because two
+future agents will otherwise re-derive it from the same misleading spec text.
+
+**Decision:** Record three things and change nothing in code yet.
+
+1. **The cross-browser break is deliberate, not a defect.** P608 enabled `flowType: 'pkce'` so link
+pre-fetchers could not consume single-use tokens, and its own acceptance criteria state the
+consequence in as many words: *"Same browser works, different browser fails gracefully."* Any future
+agent proposing to "fix" this must be told it is undoing a named mitigation for a real incident.
+
+2. **But it is a live trade-off, not a closed question.** `request-letter-response-signin` emails a
+`?token_hash=` link that is inbox-delivered, non-PKCE, and cross-browser — the repo moved that flow
+*off* PKCE precisely because PKCE broke it. So both sides of this trade already ship here. An earlier
+draft of the P1240 spec claimed the token_hash flows are safe only because they "never sit in an
+inbox"; that is false and was retracted the same session.
+
+3. **The untested hypothesis that would settle it.** A Supabase `/auth/v1/verify?token=` URL is
+consumed by a plain GET, which is how a scanner consumes it. A `?token_hash=` URL on an app page is
+redeemed only when JavaScript runs `verifyOtp`, which a non-executing prefetcher never does. If that
+holds, token_hash gives cross-browser support *and* prefetch resistance and P608's trade was never
+forced. **UNTESTED.** Falsifier: send a token_hash link to a Microsoft 365 mailbox and check whether
+the token is consumed before a human clicks.
+
+**Alternatives rejected:** Converting `/auth/callback` to `token_hash` now — the prefetch question
+above is unresolved, and getting it wrong reproduces a signup-blocking incident. Declaring the
+cross-browser break unfixable — contradicted by the letter-response flow already doing it.
+
+**Consequences:** (Status: proposed) The user-facing failure page is where the actionable defect sits
+and it is untouched: when the exchange fails, `AuthCallbackPage` renders "Link Expired or Invalid —
+magic links are valid for 1 hour" (false in this case) with a primary CTA to `/sign-pledge` that both
+mis-routes a returning login and, if followed from the same browser, reproduces the identical
+failure — a loop with no exit. Fixing it needs E2E coverage first (the file carries a
+do-not-modify-without-E2E header) and a founder copy decision; both are recorded as open ACs on
+P1240. Also newly noted and unassessed: login emails traverse a Brevo click-tracking redirector,
+an extra hop that was not in anyone's model of this flow.
+
+**References:** [features/p1240_mobile_session_survives_the_email_app_handoff.md](../features/p1240_mobile_session_survives_the_email_app_handoff.md) · [docs/technical/authentication.md](technical/authentication.md) · features/done/2026-03-30/p608_magic_link_reliability.md
+
+---
+
 ## 2026-09-03 [process]: Three independent checks agreed a change was visually neutral and all three were wrong — the test suite of a DIFFERENT feature is what caught it (P1220)
 
 **Context:** P1220's M1 batch swapped `border-gray-200` for the `border-border` token at 66 sites, on the premise that the two resolve identically. Three separate checks agreed it was neutral. (1) The implementing agent measured **0 pixels changed across 25 frames** at 320/375/1440 including focus and hover, using a *calibrated* probe — identical code twice returned 0px, genuinely different pages returned 142k/160k px — plus an element probe over 672 svgs showing 98 with changed class strings and 0 with changed geometry. That is a better-instrumented measurement than most visual QA ever gets. (2) The founder opened branch and main side by side on separate ports across four pages and reported *"i see no difference"*. (3) On that basis the branch was approved to ship. The only dissent was Codex's round-2 review, which said 65 of the border swaps were **not** identical — and it was overruled twice, by measurement and by eye.
