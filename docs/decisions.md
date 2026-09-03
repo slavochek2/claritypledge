@@ -6,6 +6,67 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-03 [technical]: Removing a vendor — the grep finds the integration, the test suite finds the dependents, and one deleted line can be load-bearing for something else (P1216)
+
+**Context:** P1216 removed LogRocket. It was init-only (`LogRocket.init()`, no `identify()`, no
+consumers), while Mixpanel Session Replay records 100% of sessions and Sentry covers error sessions
+— so it was the third recorder, the only anonymous one, and the sole reason 12 ad-block-evading CDN
+hosts sat in three CSP directives. That host pool had produced four incidents (P805, P863, P865,
+P869). This closes the question left open in the 2026-03-19 [technical] entry (P553), which had
+framed it as "whether Sentry alone suffices"; the answer changed when Mixpanel replay landed.
+
+**Decision:** Four rules, each earned by something that went wrong during the removal.
+
+(1) **A file named for a vendor is not necessarily about that vendor — read it before deleting it.**
+`p865-csp-logrocket-hosts.test.ts` had five tests; ONE was about LogRocket hosts. The others guarded
+the enforcing-CSP's existence, the reporting directive, the non-vendor allowlist, and
+`'wasm-unsafe-eval'` — which is what keeps HEIC photo uploads working (P869) and has no connection
+to observability at all. The spec said "delete this file". Deleting it would have silently removed
+the iPhone-upload guard. Kept and trimmed instead, renamed `p865-csp-directives`.
+
+(2) **Enumerate a vendor's dependents by RUNNING THE SUITE, not by grepping.** The spec named one
+canary; there were four (p805, p863, p865, p866). The other three each carried a LogRocket host
+inside a *"these entries must be preserved"* list, where it reads as a prior-fix regression guard
+rather than a vendor reference — invisible to a grep for the vendor's role, found immediately by
+`npm test`. Editing tests is normally forbidden; the narrow exception is a requirement that changed
+by decision rather than an implementation that is wrong, and it must be called out, not left in a
+diff.
+
+(3) **Before deleting a disclosure, check what else it was disclosing.** The privacy policy's
+LogRocket entries were doing double duty as the site's *session-replay* disclosure. Mixpanel was
+described only as product analytics while recording every session. Deleting the LogRocket lines
+would have left 100% session recording undisclosed — strictly worse than leaving the vendor
+installed. The same pass introduced a second drift: "Production only" was true of LogRocket
+(`import.meta.env.PROD`-gated) and false of Mixpanel (gated on `hostname !== 'localhost'`, so
+preview and staging record too). Moving a sentence between vendors moves its truth conditions.
+
+(4) **Delete a test that can only pass vacuously, and narrow an allowlist entry that can only
+over-match.** The `p553` assertion "LogRocket is not initialized before first paint" would have
+passed forever once `window.LogRocket` stopped existing, and `'LogRocket'` in the prod-health
+console allowlist is a broad substring that would suppress any future error containing the word.
+Both were removed rather than left green.
+
+**Alternatives rejected:** (a) Keep LogRocket and upgrade the plan when its quota ran out — buys
+back anonymous replays no code reads and re-arms the host-rotation breakage class. (b) Keep the
+dependency but gate init behind a flag — the CSP hosts and the canary would have to stay for a
+disabled vendor, which is the entire carrying cost with none of the benefit. (c) Delete the
+`csp-smoke` gate and its 6-hour cron along with the vendor — rejected: Mixpanel and Sentry are also
+CDN-hosted and can break with no commit from us, so the gate's value never depended on LogRocket.
+
+**Consequences:** 37 CSP tokens, a dependency, a bundle and an incident class are gone; the
+`worker-src ⊇ script-src` parity assertion survives, generalized past the vendor that taught it,
+and a denylist now fails if any LogRocket host reappears. The adversarial review surfaced one
+finding the removal did not cause but did make load-bearing: Mixpanel's `record_console` defaults
+to **true** (verified against the vendor's documentation), so console output — including 106
+`console.*` call sites in `src/` that reference user/email/id/token/session — is captured as replay
+data. Filed as **P1233** (Status: proposed, `severity: high`); Mixpanel is now the only full-session
+recorder, so that path has no second observer.
+
+**References:** [features/done/2026-06-10/p1216_remove_logrocket.md](../features/done/2026-06-10/p1216_remove_logrocket.md),
+[src/tests/p865-csp-directives.test.ts](../src/tests/p865-csp-directives.test.ts),
+[features/p1233_mixpanel_replay_records_console_pii.md](../features/p1233_mixpanel_replay_records_console_pii.md),
+2026-03-19 [technical] (P553 — the deferred decision this closes), P865/P863/P805/P869 entries
+
 ## 2026-09-01 [technical]: Hiding a value behind registration is a table, not a render branch — and the flag that says one exists must be separate from the value
 
 **Context:** P1194. An event's WhatsApp invite lived inside `events.description`, and `events` is
