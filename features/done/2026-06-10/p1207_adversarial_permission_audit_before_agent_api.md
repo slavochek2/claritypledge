@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000058
 workstream: security
 created_date: '2026-09-01'
 tags: [security, rls, agent-api, audit]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: xhigh
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1207: Adversarial permission audit — is the policy set CORRECT, not just undrifted
