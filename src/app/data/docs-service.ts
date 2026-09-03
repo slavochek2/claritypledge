@@ -55,7 +55,6 @@ interface DbDocStoryWithStory extends DbDocStory {
       point: {
         id: string;
         statement: string;
-        context: string | null;
         tags: string[];
         visibility: string | null;
       } | null;
@@ -244,7 +243,6 @@ const STORY_WITH_AUTHOR_AND_POINTS_SELECT = `
     point:points!story_points_point_id_fkey (
       id,
       statement,
-      context,
       tags,
       system_tags,
       visibility,

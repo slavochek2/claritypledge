@@ -270,7 +270,6 @@ export const realStoriesService: StoriesService = {
         point:points!story_points_point_id_fkey (
           id,
           statement,
-          context,
           tags,
           system_tags,
           created_at,
@@ -409,7 +408,6 @@ export const realStoriesService: StoriesService = {
         point:points!story_points_point_id_fkey (
           id,
           statement,
-          context,
           tags,
           system_tags,
           created_at,
