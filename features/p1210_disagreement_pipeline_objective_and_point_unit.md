@@ -538,6 +538,62 @@ instances of it. Restored here, with the reason each existed.**
   document ended up prescribing opposite verdicts for the same input.
 
 
+
+### 12. The pipeline's checks are CODE the skills call, not prose the skills recite
+
+**Added 2026-09-03 by founder decision (RD-5), after the verification contract was rejected.** This
+is a scope change to the Solution, and it is the deepest correction in this spec.
+
+**The argument, which is this spec's own.** §10 rules that no cache check may `ls` a store — *"each
+runs the owning tool and reads its verdict."* A sentence in `prepare.md` telling an agent to check
+redundancy is the same class of object as an `ls`: a check whose execution depends on a reader
+choosing to perform it. That is the mechanism that produced run B. Five points shipped with two
+carrying no opposition, and the checks that would have caught it existed — as prose, in files that
+ran too late or not at all. **A pipeline whose defect is "our checks did not run" cannot be repaired
+by writing more prose instructing an agent to run them.**
+
+**What this commissions.** A module under `scripts/points/`, in `.mjs` so that ONE implementation has
+two callers: the six skill files invoke it through `node scripts/points/…` and read an exit code,
+and vitest imports the same functions directly. Neither caller gets its own copy of the logic.
+
+| Predicate | Input | Verdict |
+|---|---|---|
+| assert-and-deny on an axis | a point plus its quote set | FILE / REFUSE, naming the missing side |
+| pair carries a written contradiction | two arguers plus the run's `phase_0_note` | the sentence, or NONE |
+| canonical pair | a point's positions | the pair, `AMBIGUOUS-PAIR`, or `UNPAIRABLE` |
+| sentence-span and point-trace counts | a whole run file | the two counts plus the untraced point ids |
+| unfilled positions | the cast entries | count, plus agreement assert against `positions_unfilled` |
+| cast concentration | the cast plus every position | per-person share, pair coverage, FLAG or clear |
+| store reconciliation | the four stores plus the ledger | orphans, by bytes-vs-ledger diff, never a ledger query |
+
+**Three requirements, each closing a defect the review found.**
+
+1. **The canonical-pair tie-break must define a total order** over inference-strength labels. The
+   current text — *"ties break toward the pair with the stronger inference-strength labels"* — names
+   no ordering, and §2 already flags an unresolved tie on P3. A rule that cannot be executed is prose
+   wearing an algorithm's clothes, which is the defect this spec was rewritten to remove.
+2. **Every predicate ships with a must-pass AND a must-fail fixture**, and the must-fail is watched
+   to fail before the predicate is trusted (`epistemic.md` gate 7). A predicate with only good inputs
+   has an unmeasured false-positive rate.
+3. **The run-file fixtures are DERIVED, never authored** — by a committed redaction script run over
+   the real run file, asserted to reproduce the committed fixture byte-for-byte. Otherwise the loop
+   authors the fixture, the checker and the expected numbers in one turn, and the oracle is the
+   system under test. **Specify each fixture by the fields the checker reads and the transform applied
+   to each field — never as "the same as the original except X."** A verbatim contradiction sentence
+   carries the names it mentions, so anonymizing the arguer roster while keeping the sentences
+   reconnects them; that is the P1208 defect (RD-2) reproduced in test data.
+
+**What stays prose, and is honest about it.** Ordering rules (transcript before search), gate
+placement (cast and points at one gate), the sharpen-not-add rule, the separate-checker requirement,
+and the input-turn consolidation are instructions to an agent. **No test can assert an agent obeys
+them** — only that the rule exists and is correctly stated at a named location. Their Done-When lines
+and contract rows must say exactly that and claim nothing more.
+
+**Non-goal:** this does NOT move judgment into code. The redundancy check's semantic half (two
+reworded propositions are one point) stays a judgment with a fixture — §2 already says exact-string
+identity cannot decide it, and a similarity threshold tuned until its own three fixtures pass is
+fitting the measure to the result.
+
 ## Alternatives Considered
 
 | Option | Verdict |
@@ -646,6 +702,7 @@ Answered by the founder on 2026-09-01 during `/goalify`. Append-only; `## Proble
 | RD-2 | The archived P1208 pairs named people with derived position values (Open Question 3) | **REDACT** | Done in this same commit — arguers are `A1`–`A5`, whole-file. Not a loop task |
 | RD-3 | How is reviewer independence held for a spec that renders nothing? | **Mechanical gate, blind prose review at `/ship`** | Zero COMPARABLE rows. VC-17 carries the review; it is HUMAN-ONLY and the gate does not decide it |
 | RD-4 | The event's per-point budget for block 6 | **36 min total, 12 per point over 3 points** | Written into the event doc in this same commit. Objective condition 7 becomes evaluable |
+| RD-5 | The pipeline's checks: prose an agent recites, or code the skills call? (2026-09-03, after the contract was rejected) | **CODE** | New §12. Scope change to the Solution. The contract is rewritten against it before re-pinning; the `/goal` line stays suspended until then |
 
 **RD-3 is the one with a cost, so state it plainly.** `goal-gate.sh` CHECK 5 hard-fails a reviewer
 round that judged zero screenshots (*"an empty round is not a round"*), so a COMPARABLE row on a

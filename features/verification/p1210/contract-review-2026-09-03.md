@@ -38,9 +38,14 @@ section, so appending headed sections leaves the digest intact (un-headed prose 
 
 ## Repair order
 
-1. Decide the fork: **commission the checkers as code** (recommended — §10's own rule, *"never `ls` a
-   store; run the owning tool"*, applied to the pipeline's own checks) or accept a documentation
-   linter. Without the former the HUMAN-ONLY share reaches ~29% and `/goalify` refuses to emit.
+1. ~~Decide the fork.~~ **DONE 2026-09-03 — founder chose CODE (RD-5).** The spec now carries §12,
+   commissioning a `scripts/points/` module in `.mjs` that the six skill files invoke and vitest
+   imports — one implementation, two callers. Steps 2–8 are executed against §12, not invented.
+
+**How the repair is actually run: `/goalify p1210` again.** §12 changes the Phase 0 triage input, so
+re-running the skill re-classifies every line against a spec where most predicates are now real
+functions, emits a corrected contract, and re-pins. This is not a manual edit of the rejected table —
+that table was authored under the assumption the checks were prose, and every row rests on it.
 2. Rewrite the 8 behavioural rows to what a test can decide, and say so in the row text.
 3. Delete the false paired-controls sentence; add a must-fail fixture to every line lacking one.
 4. Add a 17th MECHANICAL row scanning the test files for `.skip`/`.todo`/`.only`.
