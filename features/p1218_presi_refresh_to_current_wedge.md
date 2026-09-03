@@ -177,6 +177,106 @@ it was checked. Scan it once before presenting.
    (measurements below). Slides 3, 10, 16, 23, 29, 39 clip at 320px and slides 3, 10, 29 at 375px on
    `main` as well as here.
 
+## Evidence (2026-09-03, round 6 — founder restructure #2: arc 1–22, backing 23–38)
+
+Seven founder changes to `public/presi/index.html`. **One line deleted, nothing else** — every other change
+is a block move (leading comment + any scoped `<style>` travelling with its slide). Slide identity, never
+slide number, was used to locate each target; the full list was re-derived from the file by script before
+and after the moves.
+
+### Final order (38 slides, re-derived after the moves)
+
+Arc (1–22): 1 hero · 2 credibility €398k · 3 scientists & thinkers · 4 35% CB Insights ·
+**5 Closed-Loop Communication** *(was 22)* · 6 the seam (Maya chat) · 7 what assumed agreement cost me ·
+8 everybody assumes · **9 which situations need the Clarity Principle** *(was 2)* ·
+**10 when I refuse, what am I protecting** *(was 31, backing)* · 11 spiral → rework ·
+12 names this method already goes by · 13 what's the solution · 14 listening calibration · 15 live demo QR ·
+16 anti-point card · 17 st1 story card · 18 point card · 19 make it a habit · 20 make it normal to admit ·
+**21 the ask — Clarity Champions Program** · **22 gift, Chiang Mai calendar**.
+
+Backing (23–38, Q&A only): 23 the mechanism · 24 the marked move · 25 who carries the risk ·
+**26 why almost nobody verifies** *(was 9, arc — takes the slot vacated by "when I refuse")* ·
+27 gaslight thread · **28 three types of cognitive understanding** *(was 10, arc)* · 29 information
+asymmetry (st2) · 30 the illusion of shared understanding (venn) · 31 no will or skill (st5) · 32 Ray Dalio ·
+33 how to turn problems into challenges · **34 how misunderstandings influence decisions** *(was 23, arc)* ·
+**35 how to gain clarity over the problem definition** *(was 24, arc)* · **36 what the practice is really
+building** *(was 25, arc)* · **37 the fundraising loop** *(was 21, arc)* · 38 full Clarity Group Terms.
+
+Arc check: the arc still ends on the ask (21) with only the gift after it (22).
+
+### Per change
+
+1. **Scope matrix → after "everybody assumes"** (2 → 9), with its leading comment and its scoped
+   `.mx-scope` `@media(max-width:480px)` block. It lands after "everybody assumes" and before the refusal
+   slide, per the founder's placement; the refusal slide (change 7) therefore sits one position later than
+   the raw slot number, because change 1 claimed the slot immediately after "everybody assumes".
+2. **"Three types of cognitive understanding" → backing**, placed immediately **before** "Information
+   asymmetry between speaker and listener" (now 28, ahead of 29–31). Reason: it defines the three types,
+   29 and 30 then show how they diverge between speaker and listener, and 31 gives the consequence — one
+   continuous understanding-theory run in the backing deck.
+3. **Bracelet line deleted** from "Make it a habit": `<p class="lead">A bracelet is the reminder: on in the
+   morning, counted in the evening.</p>`. Nothing else on the slide changed. Layout re-checked by
+   screenshot at 1920 and 375 (`<scratchpad>/d-s19.png`, `m-s19.png`): the ritual tree still centres and
+   still reads at both widths; the slide clips at no viewport, before or after. The h2 now sits ~0.3rem
+   above the first ritual step — tighter than any comparable slide. Cosmetic, not a defect; **not changed**,
+   because a spacing edit was not asked for. The slide's own `<!-- NOTES -->` comment still quotes the line
+   as a "setup line" — left in place under delete-nothing-else.
+4. **"The fundraising loop" → backing, second-to-last** (21 → 37), ahead of the full Clarity Group Terms.
+   Reason: 38 is a reference appendix (the whole agreement); a narrative Q&A slide reads better before it
+   than after it. Its own inline `<style>` and `<script>` sit *inside* its `<section>`, so both moved with it.
+5. **Closed-Loop Communication → arc position 5** (was 22), immediately after the 35% CB Insights stat —
+   the prior-art answer now lands while the stakes are still on screen.
+6. **Decision closers → backing** (23, 24, 25 → 34, 35, 36), relative order kept, placed immediately after
+   "How to turn problems into challenges?". Reason: that slide's own comment marks it `CLOSE 1 · TRANSFORM
+   (high level)` and the three arrivals are `CLOSE 3`, `CLOSE 2` and `CLOSER · NESTED INTEGRITY` — the
+   closer family is reunited in one run rather than split across the two arcs.
+7. **Arc/backing exchange.** "When I refuse, what am I protecting?" (backing 31) → arc; "Why almost nobody
+   verifies understanding" (arc 9) → the backing slot it vacated (now 26). The refusal slide's scoped
+   `.card.refuse` style block moved with it — verified visually, not just structurally
+   (`<scratchpad>/d-s10.png` shows the red-bordered cards intact in the arc).
+
+**Backing-deck banner comment updated, not deleted:** *"the arc, which now runs 1–27"* → *"1–22"*, and the
+`D · what they protect` line now records that the D slot holds "why almost nobody verifies" and that the
+refusal slide moved into the arc. Left stale comments would have mis-described the arc boundary for the
+next reader. These two comment lines plus the deleted `<p>` are the **only** non-move changes in the diff:
+`sort`-diff of the file against `8e749c6c` shows exactly those three hunks and nothing else.
+
+### Render regression check — `8e749c6c` (control) vs working tree, same probe, same directory
+
+Playwright/Chromium, `reducedMotion`, every slide activated via the deck's own `show(n)`. Clip metric = max
+pixels of any visible descendant outside the slide's own box ∩ the viewport. `window.innerWidth` asserted
+equal to the requested width before any measurement (all six runs passed; the probe aborts the viewport
+otherwise). Control was measured from a copy in the **same directory** so relative assets resolve
+identically. **Compared by slide identity, not index** — indices moved.
+
+| viewport | control (`8e749c6c`) | working tree | verdict |
+|---|---|---|---|
+| 1920×1080 | gaslight 38px | gaslight 38px | unchanged |
+| 375×812 | seam 18px · solution 540px · gaslight 489px | seam 18px · solution 540px · gaslight 489px | unchanged |
+| 320×700 | seam 187px · why-nobody 66px · solution 684px · make-it-normal 191px · gaslight 795px · terms 136px | seam 187px · why-nobody 66px · solution 684px · make-it-normal 191px · gaslight 794px · terms 135px | unchanged (±1px jitter, documented in round 5) |
+
+**No new clipping at any viewport, and no slide moved into or out of a clipping state.** Every clip present
+is pre-existing and carried by the same slide identity in both versions. Console errors, page errors and
+failed requests: **0** at all three viewports, both versions.
+
+**Print / PDF path.** `page.pdf` headless with `preferCSSPageSize`, read with `pdfinfo`: **38 pages,
+1200 × 675.12 pts (16:9)** — one page per slide, matching `grep -c '<section class="slide'` → 38. Order
+spot-checked with `pdftotext`: p1 hero, p5 Closed-Loop, p9 which situations, p10 when I refuse, p19 make it
+a habit, p21 the ask, p22 the gift, p23 the mechanism, p26 why almost nobody verifies, p37 the fundraising
+loop, p38 the terms — matching the order above.
+
+**Structural integrity.** `<section>`/`</section>` 38/38. Multiset diff of file lines against `8e749c6c`:
+1 line removed (the bracelet `<p>`), 2 comment lines changed — every other line preserved verbatim, which is
+the proof the reorder was a pure block permutation. Dev server on `:5180` re-checked after the write:
+38 sections served, 0 occurrences of the deleted `<p>`.
+
+**Style-block travel — the named risk, checked directly.** Every scoped `<style>` block was moved as part of
+its slide's block; the two slides that changed arcs and carry their own scoped CSS were then verified by
+screenshot rather than by structure alone: the refusal slide (`.card.refuse`, `d-s10.png`) and the scope
+matrix (`.mx-scope` `@media(max-width:480px)`, `m-s9.png`) both render with their styles applied in their
+new positions. The backing deck's shared `.bk` block stays at the arc boundary with the banner; the one
+slide that left that group ("when I refuse") does not use `.bk`.
+
 ## Evidence (2026-09-03, round 5 — founder restructure: arc 1–27, backing 28–38)
 
 Nine changes to `public/presi/index.html`, on top of the audience-slide deletion already in the tree
