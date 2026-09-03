@@ -5,10 +5,10 @@ rank: 1000062
 workstream: C2
 created_date: '2026-09-01'
 tags: [stories, agents, feed, profile]
-delivery_stage: dev
+delivery_stage: verify
 flow: dev
 pipeline_plan: [create-spec, generate-tests, dev, verify]
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec, dev, verify]
 pipeline_skipped: ["decompose -- 5 sections but they collide on the same three files (agent-byline/machine-chip/agent-story-footer); children would conflict, not parallelise", "ux -- byline form and pill question both answered 2026-09-01, no open design question left to write as a sentence", "spec-review -- spec is same-day, not stale", "architect -- no schema, RLS or data-model change; render-path and string changes only"]
 drafted_by: opus
 exec_model: opus

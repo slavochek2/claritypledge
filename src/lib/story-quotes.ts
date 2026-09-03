@@ -26,6 +26,7 @@
  * live card suppresses its quote block for exactly those letters.
  */
 
+import { stripHashtags } from './utils';
 import type { VideoQuote } from './video';
 
 /** The label's fixed prefix. The full string is `${QUOTE_LABEL_PREFIX} {Full Name}`. */
@@ -56,6 +57,34 @@ export function stripQuoteLabel(content: string | null | undefined): string {
     .replace(QUOTE_LABEL_LINE, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+/**
+ * The one call a surface should make to turn stored `content` into displayable text.
+ *
+ * WHY THIS EXISTS RATHER THAN TWO CALLS AT EACH SITE. `stripQuoteLabel` matches an
+ * ANCHORED line (`/^…$/m`), and `stripHashtags` collapses every run of whitespace —
+ * newlines included — into single spaces. So the two are not commutative, and only one
+ * order works:
+ *
+ *   stripQuoteLabel(stripHashtags(x))  -> NO-OP. The label is mid-sentence by then,
+ *                                         the anchor never matches, and the function
+ *                                         returns its input unchanged.
+ *   stripHashtags(stripQuoteLabel(x))  -> correct.
+ *
+ * Both spellings read the same at a glance and both typecheck. The wrong one shipped to
+ * five of six surfaces and was invisible to a green 3533-test suite, because the parity
+ * test asserted the token `stripQuoteLabel` appeared in the file rather than asserting
+ * the label left the text. Measured on the four live agent stories, the wrong order was
+ * byte-identical to no call at all.
+ *
+ * Composing it here means a surface cannot get the order wrong: there is no order to get.
+ */
+export function storyTextForDisplay(
+  content: string | null | undefined,
+  tags: string[] | null | undefined
+): string {
+  return stripHashtags(stripQuoteLabel(content), tags ?? []);
 }
 
 /**

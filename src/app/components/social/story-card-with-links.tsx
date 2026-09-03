@@ -30,7 +30,7 @@ import { StoryMedia } from '@/app/components/shared/story-media';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags } from '@/lib/utils';
-import { stripQuoteLabel } from '@/lib/story-quotes';
+import { storyTextForDisplay } from '@/lib/story-quotes';
 import type { StoryAuthor } from '@/app/components/social/point-card-with-links';
 
 /** Display context for StoryCard - controls what's shown */
@@ -121,7 +121,7 @@ export function StoryCardWithLinks({
   // which is the only thing that renders the quote BODIES. This surface renders neither,
   // so it renders no label either: a heading with nothing under it is the defect §1 makes
   // visible, not a smaller version of it.
-  const rawText = stripQuoteLabel(stripHashtags(story.text, tags));
+  const rawText = storyTextForDisplay(story.text, tags);
   const fullText = rawText;
   // In embed mode, truncate long story text to keep embed compact
   const EMBED_TRUNCATE = 750;

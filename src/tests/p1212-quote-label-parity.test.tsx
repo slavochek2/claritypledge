@@ -31,7 +31,8 @@ import { join } from 'node:path';
 
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { docStoryToSnapshot, snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
-import { QUOTE_LABEL_PREFIX } from '@/lib/story-quotes';
+import { QUOTE_LABEL_PREFIX, storyTextForDisplay, stripQuoteLabel } from '@/lib/story-quotes';
+import { stripHashtags } from '@/lib/utils';
 
 const SRC = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(SRC, rel), 'utf8');
@@ -74,8 +75,50 @@ describe('P1212 DW-7 — label and bodies are the same condition on every surfac
     if (policy === 'renders quotes') {
       expect(source).toContain('StoryVideoQuotes');
     } else {
-      expect(source).toContain('stripQuoteLabel');
+      // `storyTextForDisplay` is the ONLY accepted spelling — see the behavioural test
+      // below for why a bare `stripQuoteLabel` is not enough.
+      expect(source).toContain('storyTextForDisplay');
     }
+  });
+
+  /**
+   * THE ASSERTION ABOVE IS A GREP, AND A GREP IS WHAT LET THE DEFECT SHIP.
+   *
+   * The first implementation of §1 satisfied it on all five "suppresses label" surfaces
+   * and still printed the label on four of them, live in a browser. Every surface called
+   * `stripQuoteLabel(stripHashtags(content, tags))` — inner first — and `stripHashtags`
+   * collapses newlines to spaces, so by the time `stripQuoteLabel` ran, its anchored
+   * `/^…$/m` had no line to match. Measured on the four live agent stories, the composed
+   * call was byte-identical to not calling it at all. 3533 unit tests passed.
+   *
+   * So this asserts the OUTCOME on the real stored content shape — prose, blank line,
+   * label on its own line, blank line, quote bodies — which is what the pipeline writes
+   * and what a grep can never check. It fails if the order is ever inverted again, if the
+   * label regex stops matching the stored shape, or if a surface stops calling the helper.
+   */
+  const STORED_SHAPE = [
+    'The blocker is not size but who holds the data.',
+    '',
+    'Supporting quotes from Yann LeCun',
+    '',
+    '"we\'re not going to be no private company as big as it can do this by itself." — 14:36',
+  ].join('\n');
+
+  it('the display helper actually removes the label from the real stored content shape', () => {
+    const shown = storyTextForDisplay(STORED_SHAPE, ['aisafety1']);
+
+    expect(shown).not.toContain(QUOTE_LABEL_PREFIX);
+    // The prose and the quote bodies both survive — this strips a heading, not content.
+    expect(shown).toContain('The blocker is not size but who holds the data.');
+    expect(shown).toContain('as big as it can do this by itself');
+  });
+
+  it('the inverted composition is a no-op — the regression this pins', () => {
+    // Documents the exact failure, so the next author sees why the order is load-bearing
+    // rather than reading `storyTextForDisplay` as a cosmetic wrapper.
+    const inverted = stripQuoteLabel(stripHashtags(STORED_SHAPE, ['aisafety1']));
+    expect(inverted).toContain(QUOTE_LABEL_PREFIX);
+    expect(inverted).toBe(stripHashtags(STORED_SHAPE, ['aisafety1']));
   });
 
   // The half a policy table cannot state: no surface may print the label out of `content`.

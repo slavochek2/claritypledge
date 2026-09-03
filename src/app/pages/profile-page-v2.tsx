@@ -69,7 +69,7 @@ import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
-import { stripQuoteLabel } from '@/lib/story-quotes';
+import { storyTextForDisplay } from '@/lib/story-quotes';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { uploadStoryImage } from '@/app/data/story-image-service';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
@@ -1330,7 +1330,7 @@ function StoryCardFull({
   const linkedPoints = story.points || [];
   // P1212 §1 — the quote label is StoryVideoQuotes' heading; this card renders no
   // quote block, so it renders no heading either.
-  const strippedContent = stripQuoteLabel(stripHashtags(story.content, story.tags));
+  const strippedContent = storyTextForDisplay(story.content, story.tags);
   const { isAgentAccountId: isAgentStory, isLoading: storyIdentityPending } = useAgentAccountIds();
   const storyIsAgent = isAgentStory(story.authorId);
 
