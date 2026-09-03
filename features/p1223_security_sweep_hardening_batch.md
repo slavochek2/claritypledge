@@ -67,12 +67,19 @@ do NOT refactor the upload client.
 - [x] Unit test rejects every advisory vector and accepts the allowlisted happy paths
 - [x] Catalogue query on TEST shows `search_path` in `proconfig` for all four functions
 - [x] `gcs-signed-url` handler: non-participant → 403, bad code charset → 400, participant → forwarded — proven at the handler level with fakes (`handler.test.ts`, 20/20)
-- [ ] The same three cases proven over HTTP against the TEST project — BLOCKED: the deployed
-      `gcs-signed-url` on test is the pre-P1223 build (v12, last updated 2026-04-21; its eszip
-      carries only `index.ts` and none of `handler.ts` / `validate.ts`). Unblocking needs a
-      human-approved `supabase functions deploy gcs-signed-url --project-ref <test-ref>`, after
-      which `npx playwright test --project=integration e2e/integration/p1223-gcs-signed-url-authz.spec.ts`
-      is the check. No deploy was performed.
+- [x] The same three cases proven over HTTP against the TEST project — UNBLOCKED and passing.
+      The test project ran the pre-P1223 build (v12, 2026-04-21) until it was redeployed with
+      founder approval (`supabase functions deploy gcs-signed-url --project-ref <test-ref>`).
+      The first run after that deploy returned `500` on every case rather than 403/400, because
+      the function fails closed when `GCS_UPLOAD_SECRET` is unset and the test project had no
+      such secret — the GCP Cloud Function validates a single shared value (`cloud-functions/
+      gcs-signed-url/index.js:12,55-57`) against one hardcoded bucket, so a distinct test-only
+      secret is not possible without changing production infrastructure. The value was read from
+      Google Secret Manager (`gcloud secrets versions access latest --secret=gcs-upload-secret`)
+      and mirrored onto the test project. Re-run:
+      `npx playwright test --project=integration e2e/integration/p1223-gcs-signed-url-authz.spec.ts`
+      → **5 passed**, exit 0 (non-participant 403, cross-participant object name 403,
+      extension/content-type mismatch 400, participant forwarded).
 - [x] Full `vitest`, `tsc`, `eslint`, `npm run build`, pre-commit checks green
 
 ## Evidence (2026-09-03, worktree w18 @ `0ab09246`)
