@@ -132,12 +132,67 @@ Pledge withdrawal is handled separately in P524 (inline toggle, ~30 min). This s
 - [x] Deletion removes: profile, stories, story versions, positions, witnesses, RSVPs, terms_acceptances, session_consents, auth.users record — integration test (a), 12 per-table zero-count assertions + `admin.getUserById → null`
 - [x] Deletion orphans: points (first_validator_id → NULL), events (host_id → NULL) — integration test (b): both rows load through the app's own joins with a null actor
 - [x] Active agreements are terminated (status: terminated) before profile deletion — integration test (b): partner-side agreement `status = terminated`, `terminated_at` set, partner tombstoned
-- [ ] Deleted user's profile slug shows "This profile no longer exists" (not 404, not broken page) — existing "Profile Not Found" page renders (graceful, not 404); exact copy is a `[FOUNDER DECISION]`, see Technical Notes
+- [x] Deleted user's profile slug shows a graceful page (not 404, not broken page) — proven in two halves, data and render; exact copy remains a `[FOUNDER DECISION]`, see Technical Notes and Evidence below
 - [x] Deleted user can re-register with the same email — integration test (a): `admin.createUser` with the erased email succeeds
 - [x] No guilt language in the flow — copy reviewed by the independent visual-QA pass ("neutral/factual, no reason-for-leaving prompt"); unit test asserts no "sorry to see you go / feedback" text
 - [x] Featured profiles / pledgers page correctly excludes deleted users (already handled by existing queries) — the `profiles` row is gone, so there is nothing to exclude; no query change needed
 
 **Also verified (integration test, test project — `npx playwright test --project=integration e2e/integration/p520-account-deletion.spec.ts` → 14 passed, exit 0; `npx vitest run` → 3489 passed / 19 skipped, 304 files, exit 0):** (c) a different signed-in user cannot reach the leaver — the RPC has no target parameter and PostgREST rejects an invented one (`PGRST202`); (d) anon gets `42501`; the RPC's returned counts match the seeded fixture exactly (`stories_deleted: 2, points_orphaned: 1, events_orphaned: 1, agreements_deleted: 1, agreements_anonymised: 1, sessions_anonymised: 1, positions_deleted: 2, verifications_deleted: 3`).
+
+### Evidence — the erased profile slug (last AC)
+
+The AC has two halves. Both were run 2026-09-03; neither was inferred from reading the code.
+
+**Data half — the slug really stops resolving, without raising.** `ProfilePageV2` calls
+`getProfileBySlug(id)` → `get_profile_by_slug`, falls back to `getProfile(id)` →
+`get_profile_by_id`, and only renders the graceful branch when both return null *without*
+setting `error`. Run on the TEST project against a real erasure (anon key, the same call
+the page makes), with a live-slug control on both sides:
+
+```
+[PROBE] control: slug resolves BEFORE erasure -> probe-leaver-…  (assertion passed)
+[PROBE] erased slug -> {"data":null,"error":null}
+[PROBE] erased id   -> {"data":null,"error":null}
+[PROBE] live slug   -> {"slug":"probe-stayer-mtl7bzq5-1788420405066-8707","error":null}
+  1 passed (7.5s)   exit 0
+```
+
+The assertion is now committed as `the erased slug resolves to "not found", not an error,
+through the app's own accessor` in `e2e/integration/p520-account-deletion.spec.ts`. It could
+not be executed inside that file today — see "Not done / open" — so it was executed as a
+standalone Playwright spec with the same helpers and the same fixture minus the point/event
+seeding, then that temporary file was deleted. What is committed and what was run are the
+same three calls plus the same control.
+
+**Render half — given that null pair, the page is graceful, not the error page.**
+`src/tests/p520-erased-profile-slug.test.tsx`:
+
+```
+npx vitest run src/tests/p520-erased-profile-slug.test.tsx
+ ✓ src/tests/p520-erased-profile-slug.test.tsx (2 tests) 259ms
+ Test Files  1 passed (1)      Tests  2 passed (2)
+```
+
+It asserts the property the AC is about — a heading, no "Something went wrong", no "Try
+Again", a working way onward, and no `Failed to load profile` on the console — and pins the
+current copy only as a change-detector. The second test is the control: a live slug renders
+the profile through the identical harness, so the not-found branch is the erasure and not
+the test setup.
+
+**The gate was watched fail** (epistemic gate 7). With both accessors made to reject instead
+of returning null — the page's error branch — the same file reports:
+
+```
+× renders a graceful not-found page, not the error page and not a crash
+TestingLibraryElementError: Unable to find role="heading" and name `/profile not found/i`
+ Test Files  1 failed (1)      Tests  1 failed | 1 passed (2)
+```
+
+**Still a `[FOUNDER DECISION]`:** the page says "Profile Not Found" / "This profile doesn't
+exist or has been removed", copy it shares with slugs that never existed. The AC's original
+wording "This profile no longer exists" would need a separate branch (the page cannot tell an
+erased slug from a typo — the row is gone either way). Keep the shared copy, or add a
+distinct erased-slug message and the tombstone lookup it would require?
 
 ### Codex review — where each finding landed
 
@@ -187,6 +242,7 @@ deploy, not at the moment one is created.
 - P524 pledge withdrawal was already shipped (the `Pledge` section above the new one) — nothing to do here.
 - P1053 seat-claim RPCs are not gated on `status = 'cancelled'` (a late seat claim re-pins joiner fields, carries no third-party name) — residual, see migration header § 4.
 - Worktree slot `w10` maps to dev port 6000, which Chromium refuses as an unsafe port (`ERR_UNSAFE_PORT`); screenshots were captured with `--explicitly-allowed-ports=6000`. Worth a note in `worktree-setup.md`.
+- **`e2e/integration/p520-account-deletion.spec.ts` cannot currently run end-to-end, for a reason outside this branch.** Its `beforeAll` fails at `createTestPoint` with `PGRST204: Could not find the 'context' column of 'points' in the schema cache` (2026-09-03 run: 1 failed, 2 passed of 15). Cause, verified rather than guessed: migration `20260902003000_p1095_drop_points_context` is applied on the shared TEST project (`supabase_migrations.schema_migrations`) while P1095 is still unmerged — `git ls-tree main supabase/migrations/` has no P1095 file, and `main`'s `e2e/helpers/test-point.ts` still inserts `context` whereas `feature/p1095-retire-point-context`'s copy does not. So the shared test database is ahead of `main`, and every branch whose integration fixture creates a point fails there until P1095 lands. Not fixed here: the helper fix belongs to P1095, which already contains it; patching the shared helper on this branch would collide with it. **The p520 assertions themselves are unaffected** — the added slug test was executed standalone (see Evidence above) and the other 14 passed against these same migrations before P1095 was applied to test. Re-run the full file after P1095 merges.
 
 ---
 

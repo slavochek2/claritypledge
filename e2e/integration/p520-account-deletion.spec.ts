@@ -377,6 +377,39 @@ test.describe('P520: erase_my_account', () => {
     await supabaseAdmin.auth.admin.deleteUser(again.user!.id);
   });
 
+  /**
+   * The erased slug, fetched exactly the way `/p/:id` fetches it.
+   *
+   * `ProfilePageV2` calls `getProfileBySlug(id)` → `get_profile_by_slug`, then falls back
+   * to `getProfile(id)` → `get_profile_by_id`, and renders its graceful "Profile Not Found"
+   * branch when both yield null. This test holds the DATA half of that: both accessors
+   * must return NULL rather than raise — a raised error would set `error` in the page and
+   * render "Something went wrong" instead. The RENDER half is
+   * `src/tests/p520-erased-profile-slug.test.tsx`.
+   *
+   * Control: the stayer's live slug through the same anon accessor must still return a
+   * row, so a null here is the erasure and not a broken accessor.
+   */
+  test('the erased slug resolves to "not found", not an error, through the app\'s own accessor', async () => {
+    const anon = anonClient();
+
+    const { data: erased, error: erasedErr } = await anon
+      .rpc('get_profile_by_slug', { p_slug: leaver.slug });
+    expect(erasedErr, `slug accessor raised: ${erasedErr?.message}`).toBeNull();
+    expect(erased ?? null).toBeNull();
+
+    // The id fallback the page runs next. `id` here is the URL segment (a slug), so the
+    // uuid-typed accessor refuses it — the page treats any non-row as "not found".
+    const { data: byId } = await anon.rpc('get_profile_by_id', { p_id: leaver.user.id });
+    expect(byId ?? null).toBeNull();
+
+    // Control — a live slug through the identical call still returns a row.
+    const { data: alive, error: aliveErr } = await anon
+      .rpc('get_profile_by_slug', { p_slug: stayer.slug });
+    expect(aliveErr, `control slug raised: ${aliveErr?.message}`).toBeNull();
+    expect((alive as { slug?: string } | null)?.slug).toBe(stayer.slug);
+  });
+
   // ---------------------------------------------------------------------------
   // Census. Test (a) above asserts a hand-written list of tables — it proves the
   // tables someone thought of. These three derive their list from the catalogue, so a
