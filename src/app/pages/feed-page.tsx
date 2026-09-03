@@ -151,6 +151,13 @@ export function FeedPage() {
   //
   // Only the ACTIVE tab is fetched. The inactive tab's cards are not mounted, so fetching
   // its links would be a round-trip for markup nobody is looking at.
+  //
+  // KNOWN GAP, stated rather than papered over: the three-state distinction holds while a
+  // request is IN FLIGHT, not when one FAILS. Both service methods catch their own DB
+  // errors, log them and return an empty Map, so a 400 is indistinguishable here from
+  // "genuinely no links" and every card would read `0 points` / `0 stories`. That is the
+  // pre-existing contract of `getStoriesForPoints`, which this mirrors deliberately;
+  // changing it means changing the service's error shape, which is outside §5.
   const visibleStoryIds = useMemo(() => stories.map(s => s.id), [stories]);
   const visiblePointIds = useMemo(() => points.map(p => p.id), [points]);
 
