@@ -1,7 +1,11 @@
 -- P1095: retire the dead points.context column.
 --
--- requires-frontend: cce676d8
---   ("chore(p1095): stop reading points.context everywhere"). NOT client-safe,
+-- requires-frontend: 5826463c
+--   ("fix(p1095): drop 'context' from all three points select lists"). NOT
+--   client-safe. Originally this marker named cce676d8, which removed only the
+--   MAPPER lines and left `context` in three explicit PostgREST select lists
+--   (docs-service once, stories-service twice) — so the marker pointed at a
+--   commit that did not complete the job. Found in review 2026-09-03.
 --   despite the column carrying no data: src/app/data/docs-service.ts named
 --   `context` inside an explicit embedded column list on `points` before that
 --   commit, and PostgREST answers a select naming a dropped column with 42703
