@@ -146,9 +146,25 @@ table). The spec's Risk mitigation happens to reach the right conclusion for the
 see the corrected note in Risks. This is the gate-3 failure mode the audit must not repeat at
 scale: **grep the live migration per table; do not trust either database doc's prose.**
 
+> **CORRECTION 2026-09-03 (P1235): `terms_acceptances` and `session_consents` were misclassified
+> below. Both are wrong on both halves of the test.** Each carries `user_id` — the owner column —
+> and each has four client-reachable INSERT paths writing under the user's own JWT
+> (`api.ts` `recordTermsAcceptance` / `recordSessionConsent`, `letters-service.ts`
+> `submitLetterResponseAuthenticated`, `letter-reading-page.tsx` `handleStaleTermsAccept`). Their
+> INSERT policies bound nothing, so any authenticated user could forge a consent record naming any
+> other user — the exact P1032/P1034 shape this audit existed to find. Confirmed by execution and
+> fixed in `20260903140000_p1235_bind_consent_insert_to_acting_user.sql`.
+>
+> **The classifier error worth carrying forward:** these two tables deliberately carry *no foreign
+> key* on `user_id` (a retention choice documented in `20260107_p37_consent_mechanism.sql`), so an
+> owner-column test that keys on a FK sees no owner column. Ownership is a semantic property of the
+> schema, not a constraint you can read off `pg_constraint`. Any re-run of this audit must classify
+> on what the column *means*, and treat "no FK" as a reason to look harder rather than to skip.
+> See `features/p1235_consent_record_forgeable.md`.
+
 Confirmed not-applicable (no owner column, or no client-reachable INSERT at all):
-`organization` (SELECT-only, no client INSERT), `terms_acceptances`,
-`session_consents`, the anonymous session-scoped demo/idea/chat sibling tables (no `auth.uid()`
+`organization` (SELECT-only, no client INSERT), ~~`terms_acceptances`~~,
+~~`session_consents`~~ (see correction above), the anonymous session-scoped demo/idea/chat sibling tables (no `auth.uid()`
 involved at all), `ai_rate_limits`, `email_send_log`, `letter_response_pending` (no client
 INSERT/UPDATE/DELETE policy found for either — service-role/RPC-only). Already tracked, not new:
 `stories`, `points` (fixed by P1032), `story_points` (was an open gap filed as P1034; fixed
