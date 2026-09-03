@@ -381,8 +381,14 @@ export function SignupPage() {
             </div>
           </div>
 
-          {/* Email form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Email form.
+              P1229 D8: noValidate — the inputs keep `required` for assistive tech, but native
+              constraint validation must not intercept submit. It did: the browser blocked the
+              event on an empty form and showed its own "Please fill out this field." bubble, so
+              the handler's empty-name and empty-email branches never ran. handleSubmit already
+              checks presence, name length and email format, so nothing is lost by routing every
+              incomplete state through the one inline error the rest of the form uses. */}
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signup-name" className="text-sm font-medium">
