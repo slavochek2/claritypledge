@@ -138,8 +138,85 @@ Deploying was out of scope for this worktree (code + tests + commit only, no pus
 - [x] `grep -rn "SUPABASE_SERVICE_ROLE_KEY" supabase/functions/generate-banner/index.ts` shows the key
       used only for its DB client, never for caller authorization — verified: 2 remaining matches,
       both `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)`, zero header comparisons
-- [ ] The existing "rejects user request without x-service-key header (403)" test still passes —
-      **rewritten** (the guard it tested no longer exists); the replacement test
-      (`point: is not a client entity type (400)`) currently fails against the **test** Supabase
-      project with `403` because that project has not been redeployed with this fix — see
-      "Deploy-pending test note" above. Will pass once `generate-banner` is redeployed to test.
+- [x] The existing "rejects user request without x-service-key header (403)" test still passes —
+      **rewritten** (the guard it tested no longer exists), and the property it was rewritten to
+      assert is now proven **without a deploy** by
+      `supabase/functions/generate-banner/entity-type-contract.test.ts` (4/4). The e2e round trip
+      (`point: is not a client entity type (400)`) still reports `403` against the **test** project
+      because that project runs the pre-fix build — that is a stale deployment, not a code defect,
+      and it is not the basis of this tick. See Evidence below.
+
+## Evidence (2026-09-03, worktree w13 @ `cc12268f`)
+
+### The deploy diagnosis is confirmed, not assumed
+
+Supabase Management API, TEST project (`gfjctyxqlwexxwsmkakq`), read-only: `generate-banner` is
+**v19, `updated_at` 2026-04-21T11:45:31Z** — months before this fix (2026-09-01). Its deployed eszip
+still carries the pre-fix source:
+
+| String in the deployed bundle | Matches |
+|---|---|
+| `x-service-key` | 2 |
+| `fetchPointData` | 3 |
+| `buildPointPrompt` | 3 |
+| `VALID_ENTITY_TYPES: EntityType[] = ['event', 'story', 'point', 'profile']` | present verbatim |
+
+So `point` passes the deployed `validateInput()` and falls into the deleted service-key branch —
+which is exactly the `403` the e2e case reports. Local `index.ts` on this branch has
+`type EntityType = 'event' | 'story' | 'profile'` (line 21),
+`VALID_ENTITY_TYPES = ['event', 'story', 'profile']` (line 42), and zero `x-service-key` matches.
+
+### The property is provable here — it does not need the deploy
+
+`validateInput()` runs before the JWT check and before any DB client is used, so the handler can be
+exercised directly. `entity-type-contract.test.ts` captures the handler `index.ts` registers with
+`Deno.serve` and calls it with real `Request` objects — no port, no outbound call, no source change.
+
+```
+$ deno test --allow-net --allow-env supabase/functions/generate-banner/entity-type-contract.test.ts
+running 4 tests from ./supabase/functions/generate-banner/entity-type-contract.test.ts
+'point' is not a client entity type — 400 before auth ... ok
+no header revives the deleted point path — 'x-service-key' is ignored ... ok
+the three real entity types are NOT rejected by validateInput ... ok
+the other validateInput rejections are unchanged ... ok
+ok | 4 passed | 0 failed (19ms)
+```
+
+It asserts in both directions: `point` is rejected (400, and no `x-service-key` value revives it),
+and `event` / `story` / `profile` are **not** over-rejected — they pass validation and stop at the
+JWT gate with 401, which is the next check in `index.ts`.
+
+### Discriminating control — the test fails against the pre-fix source
+
+The same test file run against `main`'s `generate-banner/index.ts` (extracted with `git show`, run
+through the identical probe):
+
+```
+FAILED | 2 passed | 2 failed
+'point' is not a client entity type — 400 before auth        → actual 403
+no header revives the deleted point path                     → actual 404
+```
+
+Direct probe of the pre-fix handler, for the record:
+
+```
+POST {"entityType":"point",...}                    → 403 {"error":"Point banners can only be generated server-side"}
+POST same + x-service-key: <the env service key>   → past the guard (404 — no such point row)
+```
+
+The two allow-side tests pass against both builds, as they should — they were never what changed.
+
+### Gate run on this branch
+
+| Command | Exit | Result |
+|---|---|---|
+| `npx vitest run` | 0 | 304 files passed, 2 skipped; **3482 tests passed**, 19 skipped |
+| `npx tsc --noEmit` | 0 | no output |
+| `npx eslint .` | 0 | no output |
+| `./scripts/pre-commit-checks.sh` | 0 | all checks passed |
+
+### Still outstanding (not blocking this spec's ACs)
+
+`e2e/integration/edge-fn-authz-regression.spec.ts` → `point: is not a client entity type (400)`
+will keep reporting `403` until someone runs
+`supabase functions deploy generate-banner --project-ref <test-ref>`. No deploy was performed here.
