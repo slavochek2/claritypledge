@@ -1,21 +1,21 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000060
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [disagreement, pipeline, points, event]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, finish, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1210: The Disagreement Pipeline has no stated objective, and its unit of work is the wrong size
 
-**Supersedes [p1208](archive/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md)**, rejected
+**Supersedes [p1208](../../archive/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md)**, rejected
 rather than revised (founder decision 2026-09-01 — see *Alternatives Considered*). P1208's evidence and
 rejected options are carried forward here; its four-workstream frame is not.
 
@@ -686,11 +686,11 @@ pre-repair claim that they all already did was false for roughly half of them.
 
 ## Related
 
-- [p1208](archive/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md) — **superseded by this spec.** Its two adversarial rounds and their corrections are the source of several findings above
+- [p1208](../../archive/p1208_disagreement_pipeline_produces_points_nobody_splits_on.md) — **superseded by this spec.** Its two adversarial rounds and their corrections are the source of several findings above
 - `p1202` — added the same-vote and room-vs-arguer checks that detect this defect too late. All 13 Done-When complete
 - `p1190` — whether a point is load-bearing. Adjacent, not the same question: a point can matter and not split, or split and not matter
 - `p1171` — `select` Phase 0 contestedness + the N-arguer spectrum. Establishes the topic is contested; says nothing about whether the cast preserves it
-- [p1161](done/p1161_first_physical_event_chiang_mai.md) — event #1; §Run-of-show and the deviation that cut in-room story reading
+- [p1161](../p1161_first_physical_event_chiang_mai.md) — event #1; §Run-of-show and the deviation that cut in-room story reading
 - `docs/events/clarity-practice-event.md` — the run-of-show, edited by §8
 - `docs/points-process.md` — the canonical contract, edited by §1
 - `docs/process-learnings.md` — the story quote block renders twice on the detail page; folded into §7
@@ -728,7 +728,7 @@ cannot self-certify it.
 **Second contract, written 2026-09-03 after the first was rejected in adversarial review.** The
 first is not revised here — §12 changed what a check *is*, so every row was re-triaged from the
 Done-When lines rather than edited. The 15 findings and the repair order live in
-[`verification/p1210/contract-review-2026-09-03.md`](verification/p1210/contract-review-2026-09-03.md),
+[`verification/p1210/contract-review-2026-09-03.md`](../../verification/p1210/contract-review-2026-09-03.md),
 deliberately not named `review-round-N.md` because that glob is CHECK 5's and a round judging zero
 screenshots hard-fails.
 
