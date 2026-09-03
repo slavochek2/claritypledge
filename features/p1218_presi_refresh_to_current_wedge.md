@@ -177,6 +177,138 @@ it was checked. Scan it once before presenting.
    (measurements below). Slides 3, 10, 16, 23, 29, 39 clip at 320px and slides 3, 10, 29 at 375px on
    `main` as well as here.
 
+## Evidence (2026-09-03, round 5 — founder restructure: arc 1–27, backing 28–38)
+
+Nine changes to `public/presi/index.html`, on top of the audience-slide deletion already in the tree
+(39 → 38 slides). **Nothing was deleted except where the founder asked**; every other change is a
+reorder. Positions below were re-derived from the file by script before and after each step, never
+from the spec or from the deck's own comments.
+
+### Final order (38 slides, re-derived after the moves)
+
+Arc: 1 hero · 2 which situations need the Clarity Principle *(was 33)* · 3 credibility, €398k *(was 16)* ·
+4 scientists & thinkers who influenced the work *(was 27)* · 5 35% CB Insights · 6 the seam (Maya chat) ·
+7 what assumed agreement cost me · 8 everybody assumes · 9 why almost nobody verifies · 10 three types ·
+11 spiral → rework · 12 names this method already goes by *(was 36)* · 13 what's the solution · 14 the skill,
+defined · 15 live demo QR (/letter/st1) · 16 anti-point card · 17 st1 story card *(was 34)* · 18 point card ·
+19 make it a habit · 20 make it normal to admit · 21 listening calibration · 22 proven, just not practiced ·
+23 how misunderstandings influence decisions · 24 how to gain clarity over the problem definition ·
+25 what the practice is really building · 26 **the ask — Clarity Champions Program** *(was 22)* ·
+27 gift, Chiang Mai calendar *(was 29)*.
+
+Backing (Q&A only, unchanged relative order): 28 the mechanism · 29 why it has to be pre-agreed ·
+30 asymmetry of vulnerability · 31 where the will breaks down · 32 gaslight thread · 33 information
+asymmetry (st2) · 34 the root cause (venn) · 35 no will or skill (st5) · 36 Ray Dalio · 37 the principle
+of optimism · 38 make it normal / full Clarity Group Terms.
+
+Arc check: the room learns which situations this applies to (2), who is speaking (3) and whose ideas
+this rests on (4) before any claim is made on it; the ask is last in the arc (26) and only the gift
+follows it (27).
+
+### Per change
+
+1. **Hero reduced.** Badge + H1 only. Deleted from the face of the slide: *"ClarityPledge — a platform to
+   practice verified understanding."* and *"claritypledge.com"* (founder, explicit), plus the promise line
+   *"Get your team off the treadmill."* under "cut the rest". All three survive **verbatim in the speaker
+   notes**, which is the deck's own convention for cut copy. Type down: `h1` was
+   `clamp(2.1rem,6vw,5.2rem)` → `clamp(1.7rem,4.4vw,3.8rem)`. `h1` is used by no other slide
+   (`grep -c '<h1' → 1`). Measured, control vs working tree, same probe:
+
+   | viewport | control font-size / lines | working tree |
+   |---|---|---|
+   | 1920×1080 | 83.2px / 3 lines / 267px tall | **60.8px / 3 lines / 195px** |
+   | 375×812 | 33.6px / 6 lines / 216px | **27.2px / 5 lines / 145px** |
+   | 320×700 | 33.6px / 7 lines / 252px | **27.2px / 6 lines / 175px** |
+
+2. **Credibility slide to position 3** (was 16). Moved as a block with its leading comment. No copy change.
+3. **Influences cloud to position 4** (was 27), immediately after the credibility slide — founder: *"its a
+   story whom i studied.. after my picture slide"*. Its `.cloud-slide` style block moved with it; the other
+   cloud slide (now 12) sits after it, so both are still covered. Speaker note re-labelled BACKING → IN THE ARC.
+4. **Scope matrix to position 2** (was 33), with its leading comment and its scoped `.mx-scope` style block.
+   Its comment claimed *"last slide, and the only concession in the deck"* and referenced *"slide 29"* by
+   number — both rewritten (position stated, sibling slide named rather than numbered).
+5. **Names cloud to position 12** (was 36), immediately before "What's the solution?" — so the room hears
+   the method is not new before it is introduced.
+6. **st1 story card to position 17** (was 34), between the anti-point card (16) and the point card (18).
+   Both kept. Its shared `.st1-*` style block was moved to sit before it, so the styles still precede
+   both story slides. **Flagged for the founder:** slide 16 is the *anti*-point (the statement the room
+   votes on) and slide 18 is the point (the correct three-meanings answer) — the instruction placed the
+   story between them. If the intent was point-then-story, the card belongs after 18; that is a one-block move.
+7. **The ask, repointed to the paid program.** Deleted, as instructed: the leaders/coaches footer line and
+   the open-source line (GitHub is still named on the five-moves slide, now slide 13 — the
+   "say it once" note there still holds). New wording is **entirely lifted from the program page**, nothing
+   authored for the deck and no founder decision required:
+   - heading *"Join the Clarity Champions Program"* — `src/app/pages/offers-page.tsx:68`
+   - sub-line *"Weekly live practice with a small batch of peers, €295/month, cancel anytime."* —
+     `src/app/pages/offers-page.tsx:52`
+   - button *"Start at €295/month →"* — `src/app/components/landing/offers-section.tsx:337`
+   - link `claritypledge.com/program`, a real route redirecting to `/pricing` (`src/App.tsx:350`).
+   Price appears twice (sub-line and button), so the ask cannot be read as a free call. Available verbatim
+   from the same page if the founder wants risk reversal on the slide, recorded in the notes but **not**
+   added: *"Full refund if the first two sessions aren't for you."*
+8. **Chiang Mai gift to position 27**, immediately after the ask — founder: *"this is a gift i can give"*.
+9. **Deniability added to the obstacle** on slide 24. `docs/hypotheses.md:604` states misunderstanding-harm
+   is *"diffuse, deniable, and unattributable"*, so deniability is the mechanism that makes the harm
+   unattributable. Added in the slide's existing idiom — same red block, now two label lines
+   (`ego · fear · laziness` / `deniability`), rect widened 144→180 and heightened 68→82, label 13px→12px.
+   No restructure. `aria-label` and the speaker notes updated to match.
+
+**Comments corrected, not slides:** the BACKING banner still claimed the arc ended at 23 and that the scope
+matrix / st1 card / names cloud were parked behind the CTA — rewritten to describe the 1–27 arc. Five
+per-slide `BACKING` notes re-labelled `IN THE ARC` with the founder's reason. The `.mx-scope` comment's
+"slide 29" reference replaced with the slide's name, since numbers move.
+
+### Render regression check — control vs working tree, same probe, same directory
+
+Probe reused from round 4 (Playwright/Chromium, `reducedMotion`, every slide activated via the deck's own
+`show(n)`; clip metric = max pixels of any visible descendant outside the slide's box ∩ the viewport;
+`window.innerWidth` asserted equal to the requested width before any measurement — all six runs passed).
+Control = the working tree as it stood before this round (38 slides). Clips are listed by **slide identity**,
+because the indices moved.
+
+| viewport | control | working tree | verdict |
+|---|---|---|---|
+| 1920×1080 | gaslight 39–40px | gaslight 39–40px | unchanged |
+| 375×812 | seam 20px · solution 542px · gaslight 491px | seam 20px · solution 542px · gaslight 491px | unchanged |
+| 320×700 | seam 189px · why-nobody 68px · solution 687px · make-it-normal 193px · **CTA 4px** · gaslight 796–797px · terms 137–138px | seam 189px · why-nobody 68px · solution 687px · make-it-normal 193px · gaslight 796–797px · terms 137–138px | **CTA clip gone**; rest unchanged |
+
+**No new clipping at any viewport**; the CTA's 4px clip at 320 was closed by the rewrite. The ±1px ranges are
+run-to-run jitter — reproduced in the **control** across repeat runs, not a change. Console errors, page
+errors and failed requests: **0** at all three viewports, both versions. No slide moved into or out of a
+clipping state.
+
+**Print / PDF path.** Exported headless (`page.pdf`, `preferCSSPageSize`), read with `pdfinfo`:
+**38 pages, 1200 × 675.12 pts (16:9)** — one page per slide, matching `grep -c '<section class="slide'` → 38.
+Order spot-checked with `pdftotext` per page: p1 hero, p2 which situations, p3 credibility, p4 scientists,
+p12 names-this-method, p13 what's the solution, p17 st1 card, p26 the ask, p27 gift, p28 the mechanism,
+p38 the terms — matching the arc above.
+
+**Structural integrity.** The reorder was a pure block permutation: line multiset of the file before vs after
+differs only by the intended content edits (21 lines added, 24 removed, every one accounted for above);
+`<section>`/`</section>` 38/38, `<style>`/`</style>` 8/8, blank-line count identical.
+
+**Independent visual QA** (1 of 1 subagent reported; screenshots + checklist only, no diff, no intent) on
+the 9 changed/moved slides at 1920 / 375 / 320. It found no defect introduced by this round. It raised four
+pre-existing items, none touched here and all left for the founder: (a) the small/low-contrast tiers on both
+word-cloud slides (`.cw.m` `#c4c4c8`, `.cw.s` `#8a8a92`) are hard to read from the back of a room; (b) the
+deck-wide `.note` / kicker captions are the smallest text on every slide that has one; (c) the hero headline
+widows at 375/320 — measured **better** than control (5 vs 6 lines, 6 vs 7), a consequence of the forced
+`<br>` structure, not a regression; (d) the credibility slide's two checklist bullets look like links —
+they are links (SSRN paper, manifesto), so the affordance is correct.
+
+### Deletion candidates — NOT deleted, founder decides
+
+1. `.cta-alt` CSS (`index.html:446-447`) is now unreferenced — the only user was the leaders/coaches footer
+   line the founder asked to delete. Verified by grep: 0 uses outside the rule itself. Removing it is safe;
+   left in place because removal was not asked for.
+2. Slide 37 ("The principle of optimism", backing) carries the *same* Point A/B obstacle diagram as slide 24,
+   and its own note already says so: *"same diagram as meta-optimism, which is the one applied to the topic."*
+   Now that slide 24 carries the fuller obstacle (four items incl. deniability), 37 is the weaker twin.
+   Left in place — it is backing, so it costs nothing in the arc.
+3. Slide 12 (names cloud, now in the arc) and slide 22 ("Proven — just not practiced", prior art) make the
+   same argument — *this method is not new* — 10 slides apart. The names cloud's own note used to say it
+   *"duplicates the prior-art slide"*. Both kept; if one goes, the prior-art slide is the one with citations.
+
 ## Evidence (2026-09-03, round 4 — Codex-review fixes)
 
 Five findings applied to `public/presi/index.html`. Per-finding proof:
