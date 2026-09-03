@@ -229,6 +229,73 @@ describe('ClarityPledgersPage', () => {
     });
   });
 
+  // P1229 D1: the desktop grid renders one page at a time behind a "Show more" control.
+  // The browser cannot prove the last clause — exhausting 5,308 test-DB pledgers is 176
+  // clicks — so the boundary lives here.
+  describe('Desktop pagination (P1229 D1)', () => {
+    const page = (from: number, count: number) =>
+      Array.from({ length: count }, (_, i) => createMockProfile(from + i + 1));
+
+    it('renders one page and a "Show more" control while more remain', async () => {
+      vi.mocked(getVerifiedProfilesPage).mockResolvedValue({ profiles: page(0, 30), total: 75 });
+
+      render(<ClarityPledgersPage />, { wrapper });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Show 30 more pledgers/ })).toBeInTheDocument();
+      });
+      expect(screen.getByText('Showing 30 of 75 pledgers')).toBeInTheDocument();
+      expect(screen.queryByText(/User 31\b/)).not.toBeInTheDocument();
+    });
+
+    it('appends the next page on each click and drops the control at total', async () => {
+      vi.mocked(getVerifiedProfilesPage)
+        .mockResolvedValueOnce({ profiles: page(0, 30), total: 75 })
+        .mockResolvedValueOnce({ profiles: page(30, 30), total: 75 })
+        .mockResolvedValueOnce({ profiles: page(60, 15), total: 75 });
+
+      render(<ClarityPledgersPage />, { wrapper });
+      const user = userEvent.setup();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Show 30 more pledgers/ })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /Show 30 more pledgers/ }));
+      await waitFor(() => {
+        expect(screen.getByText('Showing 60 of 75 pledgers')).toBeInTheDocument();
+      });
+      // last page is the remainder, not a full page
+      expect(screen.getByRole('button', { name: /Show 15 more pledgers/ })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Show 15 more pledgers/ }));
+      await waitFor(() => {
+        expect(screen.getAllByText(/User 75\b/).length).toBeGreaterThan(0);
+      });
+
+      // loaded === total → the control is gone, and so is the desktop counter beside it.
+      // (The mobile carousel's own "Showing 20 of 75 pledgers" line is a different element
+      // and correctly stays — the carousel cap is unrelated to desktop pagination.)
+      expect(screen.queryByRole('button', { name: /more pledgers/ })).not.toBeInTheDocument();
+      expect(screen.queryByText('Showing 75 of 75 pledgers')).not.toBeInTheDocument();
+
+      expect(getVerifiedProfilesPage).toHaveBeenNthCalledWith(1, 0);
+      expect(getVerifiedProfilesPage).toHaveBeenNthCalledWith(2, 30);
+      expect(getVerifiedProfilesPage).toHaveBeenNthCalledWith(3, 60);
+    });
+
+    it('does not render the control when the first page is the whole set', async () => {
+      mockPage(page(0, 12));
+
+      render(<ClarityPledgersPage />, { wrapper });
+
+      await waitFor(() => {
+        expect(screen.getAllByText('User 1').length).toBeGreaterThan(0);
+      });
+      expect(screen.queryByRole('button', { name: /more pledgers/ })).not.toBeInTheDocument();
+    });
+  });
+
   describe('CTA section', () => {
     it('"Ready to Commit" CTA section appears after loading', async () => {
       const mockProfiles = [createMockProfile(1)];
