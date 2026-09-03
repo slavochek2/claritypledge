@@ -1,22 +1,22 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000066
 workstream: content
 created_date: '2026-09-01'
 tags: [presi, deck, positioning, wedge]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: fable
 exec_model: fable
 exec_effort: high
+completed_at: 2026-09-03
 ---
 
 # P1218: Refresh /presi to the current wedge (prevent rework before work begins)
 
 ## Problem
 
-`/presi` still tells the **cofounder-split** story ("I've lost business partners. I help you keep yours.", "65% of startup failures stem from co-founder conflict", "How does the illusion lead to a *partner split*?", CTA "Join a founding cohort of co-founders"). The active wedge since the 2026-07-20 flip is **a growing seed–A team that keeps building the wrong thing because they never verify they understood each other before agreeing or disagreeing** — re-stated 2026-08-10 as **prevent rework before work begins** ([lean-canvas.md](../docs/lean-canvas.md) §Customer Segments → Active focus; [hypotheses.md](../docs/hypotheses.md) H-BuildRightThing; [decisions.md](../docs/decisions.md) 2026-07-20 + 2026-08-10 [product]). The shipped landing (`/`, `build-right-thing-landing.tsx`) already carries the current copy; the deck contradicts it. Slide order is also the June-15 "Monday talk" order, with a stale event title slide (4Seas, 15 June) at position 2.
+`/presi` still tells the **cofounder-split** story ("I've lost business partners. I help you keep yours.", "65% of startup failures stem from co-founder conflict", "How does the illusion lead to a *partner split*?", CTA "Join a founding cohort of co-founders"). The active wedge since the 2026-07-20 flip is **a growing seed–A team that keeps building the wrong thing because they never verify they understood each other before agreeing or disagreeing** — re-stated 2026-08-10 as **prevent rework before work begins** ([lean-canvas.md](../../../docs/lean-canvas.md) §Customer Segments → Active focus; [hypotheses.md](../../../docs/hypotheses.md) H-BuildRightThing; [decisions.md](../../../docs/decisions.md) 2026-07-20 + 2026-08-10 [product]). The shipped landing (`/`, `build-right-thing-landing.tsx`) already carries the current copy; the deck contradicts it. Slide order is also the June-15 "Monday talk" order, with a stale event title slide (4Seas, 15 June) at position 2.
 
 ## Appetite
 
