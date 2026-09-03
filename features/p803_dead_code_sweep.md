@@ -4,8 +4,8 @@ type: task
 rank: 58
 created_date: '2026-04-24'
 tags: [cleanup, dead-code, refactor, knip]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 ---
 
 # P803: Dead Code Sweep (knip-guided)
