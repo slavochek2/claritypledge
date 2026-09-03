@@ -11,7 +11,7 @@ exec_model: fable
 exec_effort: high
 tags: [security, rls, agreements, privilege-escalation]
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, inline]
 driver: anomaly
 ---
 
