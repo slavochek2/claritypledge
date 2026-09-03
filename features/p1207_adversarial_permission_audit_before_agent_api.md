@@ -200,6 +200,13 @@ Pre-registered, before the audit runs.
       documented migration workflow unchanged (gate 7c), and stating in its own output that
       its verdict is bounded by the migration files rather than by live prod
 - [ ] Decision Criteria 1 answered Yes or No in writing, with the evidence behind it
+- [ ] **The Criterion 1 verdict is written into P1215's gate row**, quoted, with the date and
+      the commit that settled it. Added 2026-09-03: P1207 is P1215's hard dependency and until
+      now named it nowhere, so the verdict would have landed in this file and never crossed.
+      An unticked gate row in P1215 with a finished audit here is indistinguishable from an
+      audit that was never run — and the failure direction is permissive, because the next
+      reader assumes the dependency passed. **If the verdict is No, write that too** — a No is
+      the more valuable half and the half nobody carries forward
 - [ ] Nothing was run against prod that wrote
 
 ## Open Questions
@@ -235,6 +242,9 @@ deleted — the reasoning is what a later reader needs.**
    with the harness in hand rather than guessed at now.
 
 ## Related
+
+- **P1215** — the agent-callable surface this audit gates. Its phase-1 gate reads this
+  spec's Criterion 1 verdict; see the Done-When row requiring the verdict be carried across.
 
 - P1044, P1045, P1054, P1059, P1100 — open, narrow security specs; inputs to Phase 1
 - P1048 / P1138 (`rls-drift-check.py`), P1065 (`function-grant-drift-check.py`),
