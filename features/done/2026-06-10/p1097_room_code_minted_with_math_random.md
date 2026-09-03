@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 2
 severity: high
@@ -8,8 +8,8 @@ created_date: '2026-08-17'
 tags: [security, live, crypto, codes]
 driver: anomaly
 feature_type: backend
-delivery_stage: ship
 pipeline_ran: [inline, ship]
+completed_at: 2026-09-03
 ---
 
 # P1097: the room code is a bearer token minted with `Math.random()`
