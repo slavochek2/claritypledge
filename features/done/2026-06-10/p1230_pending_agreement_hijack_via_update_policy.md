@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000066
 severity: high
@@ -10,9 +10,9 @@ drafted_by: fable
 exec_model: fable
 exec_effort: high
 tags: [security, rls, agreements, privilege-escalation]
-delivery_stage: create-bug
 pipeline_ran: [create-bug, inline]
 driver: anomaly
+completed_at: 2026-09-03
 ---
 
 # P1230: a pending agreement can be taken over through the table UPDATE policy
