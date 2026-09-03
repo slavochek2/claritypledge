@@ -7,6 +7,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-09-03 [process]: The /dev A/B was defeated by its own scoreboard — the seven canaries were skipped, and green when un-skipped for the wrong reason
+
+**Context:** Founder asked whether `/dev` earns its cost. Two arms were run on P1212 from the
+same base commit: arm A (`feature/p1212-agent-story-card-contract`, w2) invoked `/dev`; arm B
+(`bench/p1212-noskill`, w4) was forbidden every skill. The oracle was the spec's seven Done-When
+criteria, already committed as red canaries in `src/tests/p1212-agent-surface-contract.test.ts`,
+plus a pre-registered rule: *altering an assertion scores that arm zero.*
+
+**Both arms modified the canary file, independently, for correct reasons — and the two edits are
+the finding.** Arm B changed `const redCanary = it.skip` to `it`: the canaries had never executed
+at all, and per this log's own 2026-09-03 entry `vitest` exits 0 on an all-skipped file, so the
+"scoreboard" reported success without running. Arm A un-skipped them and then found the assertions
+themselves vacuous — its first pass went **9/9 green on tokens appearing only in comments it had
+just written** — and hardened them with a comment-stripper, a JSX-tag match replacing an
+import-line match, and a behavioural test added after a whole-filter deletion left every canary
+green. Arm A scored itself zero under the pre-registered rule and said so in its own commit message.
+
+**Decision:** The comparison is void and is not re-run on this spec. Arm A cannot be scored against
+an oracle it had to repair to make meaningful, and arm B cannot be scored against the repaired
+version it never saw. **Arm B is adopted as P1212's implementation** on coverage, not on the
+benchmark: six surfaces plus a shared `story-quotes.ts` helper, the snapshot mapper, a seal-RPC
+migration and 37 passing tests (9 canaries + 28 new behavioural), against arm A's four surfaces
+with the byline left on the open founder decision. Arm B additionally found a latent hole neither
+arm was looking for — `/slava:disagreement:publish`'s label check and its per-quote checks are
+**both vacuously satisfiable by a story with an empty quote set**, so an arguer whose every
+candidate quote was dropped published a heading with nothing beneath it.
+
+**Alternatives rejected:** Re-running arm B against the hardened canaries — arm A paid for the
+hardening, so the arms would face different jobs. Scoring on raw test output — that is the number
+the vacuity finding disqualifies. Scoring arm A zero and stopping there — the pre-registered rule
+worked exactly as designed and the arm reported against itself; treating that as a loss would
+punish the only reason we know the oracle was broken.
+
+**Consequences:** **Three benchmarks in this repo have now been defeated by the instrument rather
+than by the thing measured** (2026-08-31 review A/B: brief-generation confounded with skill;
+2026-08-28 Codex bake-off: control lens silent; this one: oracle vacuous, twice over). The rule
+that survives is that **an oracle needs a known-bad control before it can score anything** — a
+canary file must be shown to fail on a deliberately wrong implementation before it is trusted to
+pass on a right one. That check costs one command and was skipped in all three runs. The `/dev`
+question stays open; it is not answerable by a run whose scoreboard has to be repaired mid-run.
+**Arm A's canary hardening is not carried over and should be** — arm B's file still contains the
+prose-satisfiable assertions arm A diagnosed.
+
+**Blocked at commit, unresolved:** arm B's migration `20260903120000_p1212_seal_rpc_story_author`
+is unapplied to test and carries no `e2e/integration/p1212-db-schema.spec.ts`, which P270 requires.
+`pre-commit-checks.sh` blocks on both. Arm A shipped no migration, so this is a real quality gap in
+the adopted arm, not a benchmark artifact.
+
+**References:** `features/p1212_agent_story_card_contract_drift_across_surfaces.md` ·
+`bench/p1212-noskill` (w4, staged) · `feature/p1212-agent-story-card-contract` commit `3915e630`
+(arm A, self-scored zero) · this log 2026-08-31 (review A/B) · 2026-08-28 (Codex bake-off) ·
+2026-09-03 (`vitest` exits 0 on an all-skipped file) · `docs/process-learnings.md` (bake-off debt)
+
+---
+
+
 ## 2026-09-03 [process]: Trust the probe, not the record — three claims died to one command each
 
 **Context:** A security audit of the local agent setup produced three confident assertions, each

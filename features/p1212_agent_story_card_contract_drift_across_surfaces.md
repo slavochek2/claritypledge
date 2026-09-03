@@ -5,10 +5,10 @@ rank: 1000062
 workstream: C2
 created_date: '2026-09-01'
 tags: [stories, agents, feed, profile]
-delivery_stage: create-spec
+delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, generate-tests, dev, verify]
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 pipeline_skipped: ["decompose -- 5 sections but they collide on the same three files (agent-byline/machine-chip/agent-story-footer); children would conflict, not parallelise", "ux -- byline form and pill question both answered 2026-09-01, no open design question left to write as a sentence", "spec-review -- spec is same-day, not stale", "architect -- no schema, RLS or data-model change; render-path and string changes only"]
 drafted_by: opus
 exec_model: opus
@@ -533,6 +533,32 @@ Make the expander with counts present on all four, both directions.
 - [ ] A letter sealed **before** §1 renders its quotes **exactly once** — the frozen inline copy in `storyText` and the frozen `videoQuotes` copy must not both render (§4b legacy branch)
 - [ ] No letter loses content it rendered before the change: every quote, timecode and image visible in a pre-change sealed letter is still visible after
 - [ ] No surface derives an agent byline from a name the snapshot does not own — the letter surface's `authorName` is the **sender's** (§4b, `story-walk.tsx:95-96`)
+
+## Implementation — arm B adopted (2026-09-03)
+
+This spec was built **twice**, as the two arms of a `/dev` A/B benchmark, from the same base commit.
+The benchmark is void (see `docs/decisions.md` 2026-09-03 — the seven Done-When canaries were
+`it.skip` and never executed, and were prose-satisfiable once un-skipped). **Arm B is adopted on
+coverage, not on the benchmark result.**
+
+- **Adopted:** `bench/p1212-noskill` (w4) — six surfaces, `src/lib/story-quotes.ts`, the snapshot
+  mapper, a seal-RPC migration, 37 passing tests. §1 is implemented at the skill layer
+  (`disagreement/publish.md` + `story-draft.md`): the story text carries the LABEL only, quote
+  bodies live in `video_quotes` and render once.
+- **Discarded:** `feature/p1212-agent-story-card-contract` (w2, commit `3915e630`) — four surfaces,
+  byline left on the open founder decision. **Its canary hardening is worth salvaging** (comment
+  stripper, JSX-tag match, behavioural test); arm B's copy still carries the vacuous assertions.
+- **Found in passing, beyond this spec's scope:** `publish.md`'s quote-label check and its per-quote
+  checks are **both vacuously satisfiable by an empty quote set** — a story could publish a
+  `Supporting quotes from …` heading with nothing under it. Arm B added a
+  `jsonb_array_length(...) > 0` check; the underlying drop happens in
+  `/slava:disagreement:positions` Step 4b.
+
+**Blocking commit, unresolved:** migration `20260903120000_p1212_seal_rpc_story_author` is unapplied
+to test and has no `e2e/integration/p1212-db-schema.spec.ts` (P270 requires one).
+`pre-commit-checks.sh` refuses the commit on both counts.
+
+**Still open:** §2 byline rename — the founder decision below is unanswered, and neither arm shipped it.
 
 ## Done-When
 
