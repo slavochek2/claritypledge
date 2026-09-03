@@ -1,11 +1,11 @@
 ---
-status: backlog
+status: all-done
 type: task
 rank: 58
 created_date: '2026-04-24'
 tags: [cleanup, dead-code, refactor, knip]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
+completed_at: 2026-09-03
 ---
 
 # P803: Dead Code Sweep (knip-guided)
@@ -159,7 +159,7 @@ files), `npm run build` (succeeds, 32.7s).
 
 ## Done-When
 
-- [x] **The knip criterion is DESCOPED to [P1241](p1241_knip_configuration_and_triage.md), not
+- [x] **The knip criterion is DESCOPED to [P1241](../../p1241_knip_configuration_and_triage.md), not
       met here.** The founder's call (2026-09-03) was to ship this branch and file the knip work
       separately; this line records that routing rather than claiming the original criterion.
       **What was actually established** (§ Evidence — the knip criterion): knip was run once —
