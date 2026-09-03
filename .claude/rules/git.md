@@ -65,9 +65,11 @@ git reset HEAD -- <file>        # unstage any bystanders before staging your own
 
 Do this **before** `git add`, not after. After `git add` both sets are mixed and the review looks correct — prior-session files are invisible among your own staged files. This is what causes the wrong-files-in-commit bug.
 
-## Unstaging leaves the file on disk — delete it when moving work to a worktree
+## Any uncommitted file on the shared checkout is exposed — unstaging is not cleanup
 
-`git reset HEAD -- <file>` is index-only. The file itself stays on the shared main checkout, uncommitted and unstaged, available for the next broad `git add` or commit that happens to touch that directory — regardless of who runs it or what they intended to commit. When work created on the main checkout moves into a worktree, delete the abandoned copy from the main checkout's working tree in the same step; unstaging it is not cleanup.
+`git reset HEAD -- <file>` is index-only. The file itself stays on the shared main checkout, uncommitted and unstaged, available for the next broad `git add` or commit that happens to touch that directory — regardless of who runs it or what they intended to commit. When work created on the main checkout moves into a worktree, delete the abandoned copy from the main checkout's working tree in the same step.
+
+**This is not only about abandoned copies — it applies to the edit you are still working on.** A file you have written but not yet committed on the shared checkout is exposed for as long as it sits there, and "commit it sooner" is the wrong remedy (each raw commit on main is itself the hazard this file spends its length on). **Do the edit in a worktree.** 2026-09-03: a spec edit held ~40 min on main to be committed with its siblings was absorbed into a co-tenant's unrelated commit; content survived, attribution did not. The window is not the variable — a co-tenant `git add` can land seconds after you save.
 
 A stray file left this way is not passively inert — a different session can find it, mistake it for live work, and actively build on it. P1147 (2026-08-23): a test file created on main before its worktree existed was unstaged when work moved to the worktree but never deleted; hours later a different concurrent session found the two-day-old orphan, fixed its assertions, and committed it — producing a real cherry-pick conflict when the original branch was later shipped. See [decisions.md](../../docs/decisions.md) 2026-08-23 [process].
 
@@ -96,6 +98,13 @@ git add -A
 git commit -m "fix: ..."                                              # dirty index, no bystander check first
 git commit -m "fix: ..." -- src/app/pages/MyPage.tsx src/components/Button.tsx   # see below — NOT safe
 ```
+
+**`--files $VAR` does not work from the agent shell.** zsh does not word-split unquoted parameter
+expansions, so a variable holding several paths arrives as ONE argument and `commit-to-main`
+reports the whole list as a single not-found path. Write the paths literally, or use a real array.
+And when a retry produces a **byte-identical** error, that is deterministic — not contention: break
+and re-read it. A loop makes N attempts without N decisions, so the "reflect after 2 failures" rule
+in CLAUDE.md cannot fire on its own (2026-09-03: 39 iterations against a quoting bug).
 
 **Why NOT `git commit -- <files>` — corrected 2026-08-20, this rule previously recommended it.**
 `git commit` given a pathspec does not commit the staged INDEX for those paths — per `git-commit(1)` (`-o`/`--only`, the default mode whenever any path is given), it re-reads them from the CURRENT WORKING TREE first. If a co-tenant session has unsaved edits sitting in the same file, they ride along into your commit under your message, and `git status` shows clean afterward — no signal anything went wrong. First found 2026-04-22 (P783, ship-phase temp-index finding — decisions.md) and hit again 2026-08-20, when it silently pulled another session's uncommitted `docs/decisions.md` WIP into a `/kdd` commit; recovered with `git hash-object` + `git update-index --cacheinfo` to stage the exact intended blob, then a plain commit.
