@@ -103,3 +103,29 @@ The daily guidance says to treat a self-test failure as louder than a live failu
 
 Five related specs were each given a verdict against the artifact rather than against a summary.
 Four remain open; one is partially closed by this work. Details in the private log.
+
+## Closure
+
+Spec closed 2026-09-03. Eleven Done-When items: nine met as written, two met with a recorded
+shortfall rather than ticked into compliance —
+
+- **Classes C and D were run as lenses, not per-table cells.** The matrix is per-table for class A
+  (54 tables) and class B; column-level and delivery-surface reach were queried per finding and per
+  route. The spec's stopping rule ("every table appears with evidence") therefore holds for A and B
+  only, and that bound is stated rather than absorbed.
+- **The standing control is a daily check, not the pre-commit one the spec asked for.** A commit
+  gate that needs network and a management token teaches people to reach for `--no-verify`, which
+  in this repo also disables the privacy gate. Both of its own gates were met: it was watched
+  failing on an injected widening, and it was run through the workflow that actually invokes it —
+  which caught a real defect.
+
+Neither shortfall changes the answer to Decision Criterion 1. A **No** does not become less true
+for having been reached over an incomplete matrix.
+
+**Production is not remediated by this spec.** Every fix is applied to test only, and three
+findings on one table are not fixed here at all — they were ceded to two other specs whose
+migrations supersede this one and whose version numbers apply later. This branch's migration was
+numbered *earlier*, so keeping it would have overwritten their fixes backwards on a fresh
+production apply while failing nothing loudly. The prod apply is a separate, founder-gated step;
+until it happens the daily privilege-floor check is expected to alarm, and that is correct
+behaviour rather than a bug to silence.
