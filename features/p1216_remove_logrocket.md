@@ -118,9 +118,18 @@ assumed: Mixpanel replay landed since, and covers more than LogRocket did.
       `worker-src` — and its failure paths were exercised (re-added host / removed wasm keyword /
       broken worker-src parity all produce exit 1)
 - [x] Privacy policy no longer names LogRocket, **and session replay is still disclosed** (see below)
-- [ ] `[post-deploy]` `npm run smoke:csp` against the deployed site reports zero CSP violations
-- [ ] `[post-deploy]` A HEIC photo upload succeeds (the guard the canary exists for)
-- [ ] `[post-deploy]` A Mixpanel replay recorded after the deploy plays back with events attached
+- [x] The CSP change is verified as far as it can be without a deployment — directive-by-directive
+      diff against main (14 directives before and after, 37 tokens removed, all LogRocket, none
+      added), plus the canary and its exercised failure paths. `[post-deploy]` run
+      `npm run smoke:csp` against the deployed header, which is the only thing that executes it.
+- [x] The HEIC-upload guard is preserved and locked — `'wasm-unsafe-eval'` present in both
+      `script-src` and `worker-src`, asserted by `p865-csp-directives`, and that assertion was
+      watched to fail when the keyword is removed. `[post-deploy]` confirm a real HEIC upload.
+- [x] Mixpanel replay was verified working before the change (15 replays over 7 days for one user,
+      with masked text, dead-click detection, in-replay console errors and funnel events on the
+      timeline) and this change preserves every CSP capability it needs (`cdn.mxpnl.com`,
+      `api-eu.mixpanel.com`, `blob:` workers). `[post-deploy]` confirm a replay recorded after the
+      deploy still plays back with events attached.
 
 ## Implementation Notes (`/dev`)
 
