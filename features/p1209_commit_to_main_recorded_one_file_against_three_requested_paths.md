@@ -133,6 +133,58 @@ after-write check would have caught both, loudly, in a session that instead repo
 (4 files, includes the foreign `cmd_commit_to_main` advisory + `cmd_ship` die-message hunks),
 `docs/decisions.md` 2026-09-01 "The second `push-on` was never one bug".
 
+## Third reproduction — 2026-09-01, 2 files against 1 path, with the concurrent writer IDENTIFIED
+
+The P1217 test-retirement session hit the over-record direction twice in three minutes. Unlike the
+first two reproductions, this one names the process that wrote into the shared index.
+
+**The over-record.** `commit-to-main --files scripts/git-ops.sh` printed
+`requested 1 path(s); the commit records 2 file(s)` plus the WARNING, exited 0, and produced
+`b56ebc61` (2026-09-01 22:27:20 +0700) carrying `scripts/git-ops.sh` **and**
+`supabase/deploy-manifest.json` — a file the caller never named and did not modify. Verified from
+the object database after recovery: `git show --stat --no-renames b56ebc61` reports
+`2 files changed, 9 insertions(+), 3 deletions(-)`. The commit is now unreachable; recovery was a
+reset to the **absolute** parent SHA `daa1577e263667fef4476b633ef8c46f863aaa0c` (never `HEAD~1` on
+the shared checkout), re-stage, recommit as `cc145ced` at 22:29:14.
+
+**The writer.** `supabase/deploy-manifest.json` is stamped **and staged** by a co-tenant
+`migrate.sh` run — the same stage-then-commit-later behaviour that produced the P1173 false
+positive already recorded in `.claude/rules/epistemic.md` gate 7c. At the time, the manifest's
+`migrations_deployed_at` read `2026-09-01T15:28:05Z`, i.e. **45 seconds after this commit began**,
+placing the co-tenant's `git add` inside the verify→commit window. That specific stamp is no longer
+re-derivable — a later co-tenant run has since moved it to `2026-09-01T16:51:30Z` — so it is
+recorded here as observed at the time, not as a claim a reader can re-verify from the working tree.
+
+**The same contamination on the next batch was REFUSED.** Minutes later the identical manifest
+staging recurred, and `commit_staged_exact` rejected the call; `git reset -q HEAD -- supabase/deploy-manifest.json`
+and a retry succeeded. So the guard does fire — when the foreign `git add` lands **before** the
+staged-set comparison. It is defeated only when the write lands **between** the comparison and the
+commit.
+
+**Why this discriminates between the two open hypotheses.** The second reproduction proposed that
+`commit-to-main` "re-derives content from the paths and the working tree" rather than committing the
+index it was handed. That mechanism would be **deterministic** — it would over-record on every call
+with a dirty working tree. Observed here instead: two calls, same contaminating file, same session,
+minutes apart, **one refused and one admitted**. Intermittency of that shape is what a timing window
+predicts and what a re-derive bug does not. It raises the "leading hypothesis — NOT established"
+(a co-tenant racing a lock that binds only `git-ops` callers) from plausible to positively
+evidenced, with a named writer, while leaving the empty-commit case from reproduction 2 unexplained
+by it.
+
+**What it does NOT establish:** nothing here explains `faf79d78`, the commit that recorded **zero**
+files against three paths. An external `git add` cannot subtract from an index. The empty-commit
+direction still needs its own mechanism, and should not be assumed to share this one.
+
+**Consequence for Open Question 2:** a post-write verification — compare the recorded tree against
+the requested paths, fail loudly on mismatch — would have caught all three reproductions in all
+three directions (0-of-3, 4-of-4-with-strangers, 2-of-1), without needing the cause. In this session
+the WARNING line already printed the correct numbers and the call still exited 0; the information
+was present and simply not made fatal.
+
+**Evidence:** `b56ebc61` (unreachable; recoverable via `git show`), `cc145ced` (the clean
+replacement), `daa1577e` (the reset target), `.claude/rules/epistemic.md` gate 7c (P1173 —
+`migrate.sh` stages the manifest and expects a later commit).
+
 ## Open Questions
 
 1. Is `main.lock` intended to bind raw-git users at all? If it cannot, is a git hook the

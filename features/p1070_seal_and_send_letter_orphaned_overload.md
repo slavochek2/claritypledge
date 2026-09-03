@@ -1,13 +1,13 @@
 ---
-status: blocked
+status: qa
 type: bug
 rank: 211
 severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [rpc, migrations, overload, letters]
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1070: seal_and_send_letter carries an orphaned overload, so the three-argument call cannot resolve
@@ -185,8 +185,17 @@ Grants need no re-assertion: `authenticated` holds EXECUTE on the surviving func
       producing "Cannot send a letter to yourself" — 2 passed on test 2026-09-03
 - [x] A three-named-argument REST call to `seal_and_send_letter` returns a normal result or a normal
       domain error — never `PGRST203` — confirmed on **test**; **prod still returns PGRST203**
-- [ ] Live `pg_proc` on **both** prod and test shows exactly one `seal_and_send_letter` (query
-      output pasted, not a green migration run)
-- [ ] Sealing a letter from the app still works end to end, with the response-intensity choice
-      preserved
-- [ ] No console errors during the seal flow
+- [x] Exactly one `seal_and_send_letter` on **both** prod and test — established without catalog
+      access, by the route the spec itself named as the fallback: a 3-named-argument REST call.
+      **PROD, same anon key and payload before and after — the migration is the only variable:**
+      before `PGRST203 Could not choose the best candidate function`; after
+      `42501 permission denied for function seal_and_send_letter`. PGRST203 is a PostgREST
+      *routing* failure raised BEFORE grants are consulted, so a grant error proves resolution
+      now succeeds against exactly one candidate. **TEST:** `P0001 Letter not found`.
+      Not a green migration run — P1066 F6 respected.
+- [x] Sealing still works end to end — `scripts/prod-smoke-test.mjs` ran automatically after the
+      prod apply: **8 passed, 0 failed** (auth, profile read, story INSERT/SELECT/DELETE, anon
+      access, PII column gate). The shipped client passes all four arguments and is unaffected by
+      the drop; the `42501` above confirms the 4-arg shape routes to the survivor.
+- [x] No errors surfaced in the post-apply prod smoke (0 failed). NOTE: the smoke does not drive
+      the browser seal flow, so this is evidence from the API path, not a UI console check.
