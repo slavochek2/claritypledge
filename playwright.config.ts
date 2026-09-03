@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { buildE2EStorageState } from './e2e/helpers/storage-state';
 
 // Load test environment variables from .env.test.local
 const __filename = fileURLToPath(import.meta.url);
@@ -78,7 +79,21 @@ function loadStorageState(): string | undefined {
   return undefined;
 }
 
-const storageState = loadStorageState();
+/**
+ * P1231: every context starts as a RETURNING user, not a first-run one.
+ *
+ * The saved auth state (when present) is merged with the first-run tutorial gate, so the
+ * hard-mandatory IntensityTutorialModal does not open on top of the letter flow in tests.
+ * See e2e/helpers/storage-state.ts for why, and for how a test opts back in.
+ *
+ * Always defined now — previously this was `undefined` when no auth file existed, which is
+ * behaviourally identical to a storageState carrying no cookies and one localStorage key.
+ */
+const storageState = buildE2EStorageState(
+  PORT,
+  loadStorageState() ?? path.resolve(__dirname, '.private', 'test-auth', 'local.json'),
+  path.resolve(__dirname, '.private', 'test-auth'),
+);
 
 /**
  * Playwright E2E Test Configuration
@@ -129,9 +144,10 @@ export default defineConfig({
     // Video on retry
     video: 'retain-on-failure',
 
-    // Inject saved auth state when available (produced by `npm run test:save-auth`)
-    // undefined → no storageState set, unauthenticated baseline
-    ...(storageState !== undefined ? { storageState } : {}),
+    // Saved auth state when available (produced by `npm run test:save-auth`), always
+    // carrying the P1231 first-run tutorial seed. Contexts built by hand with
+    // `browser.newContext()` inherit this too — measured, see e2e/helpers/storage-state.ts.
+    storageState,
   },
 
   // Test projects (browsers to test)
