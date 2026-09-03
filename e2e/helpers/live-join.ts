@@ -23,11 +23,16 @@
  * The three states a page can be in after landing on /live/<code>, all handled below:
  *   'guest-form'   — not signed in: name field + "Join as Guest".
  *   'retry-button' — auto-join failed and offered the fallback "Join Session".
- *   'auto-joined'  — signed in and already through; nothing to do.
+ *   'no-join-ui'   — neither control appeared. USUALLY means an authenticated user auto-joined,
+ *                    but it is NOT proof of that: a stalled auto-join, an unrecognised gate, or a
+ *                    page still showing "Joining session..." all look identical from here. The
+ *                    name says what was observed (no join UI), not what is assumed. Callers must
+ *                    assert their own post-join state; every call site in this repo does.
+ *                    Raised by codex adversarial review 2026-09-03.
  */
 import type { Page } from '@playwright/test';
 
-export type JoinOutcome = 'guest-form' | 'retry-button' | 'auto-joined';
+export type JoinOutcome = 'guest-form' | 'retry-button' | 'no-join-ui';
 
 /**
  * Resolves the /live join step whatever state it is in, and reports which state that was so
@@ -39,7 +44,7 @@ export type JoinOutcome = 'guest-form' | 'retry-button' | 'auto-joined';
  * is a different surface with a different lifetime.
  *
  * @param name    name to type when the guest form is showing and its field is empty
- * @param timeout how long to wait for the join UI to settle before concluding 'auto-joined'
+ * @param timeout how long to wait for the join UI to appear before concluding 'no-join-ui'
  */
 export async function completeLiveJoinIfPrompted(
   page: Page,
@@ -49,12 +54,17 @@ export async function completeLiveJoinIfPrompted(
   const guestButton = page.getByRole('button', { name: 'Join as Guest' });
   const retryButton = page.getByRole('button', { name: 'Join Session' });
 
-  // Race the two terminal shapes. Whichever appears first decides the branch; if neither
-  // does within `timeout`, the page auto-joined and there is nothing to interact with.
-  const appeared = await Promise.race([
+  // Promise.any, NOT Promise.race. race settles on the first SETTLED promise — including a
+  // rejection — so with both waiters on the same timeout, whichever rejected first would have
+  // decided the outcome, and the .catch() would have reported "no join UI" even when the other
+  // control was about to appear. any resolves on the first FULFILMENT and rejects only when both
+  // reject, which is the actual question being asked. It also aggregates both rejections, so the
+  // losing waiter cannot surface as an unhandled rejection.
+  // (codex adversarial review, 2026-09-03.)
+  const appeared = await Promise.any([
     guestButton.waitFor({ state: 'visible', timeout }).then(() => 'guest-form' as const),
     retryButton.waitFor({ state: 'visible', timeout }).then(() => 'retry-button' as const),
-  ]).catch(() => 'auto-joined' as const);
+  ]).catch(() => 'no-join-ui' as const);
 
   if (appeared === 'guest-form') {
     // Some callers fill the name themselves before calling this. Don't clobber that.
@@ -71,5 +81,5 @@ export async function completeLiveJoinIfPrompted(
     return 'retry-button';
   }
 
-  return 'auto-joined';
+  return 'no-join-ui';
 }

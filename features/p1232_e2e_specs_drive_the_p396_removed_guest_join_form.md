@@ -43,7 +43,8 @@ the /live join step, handling the three states a page can actually be in:
 
 - `guest-form` — not signed in: fill the name field if empty, click "Join as Guest".
 - `retry-button` — auto-join failed and offered the fallback "Join Session".
-- `auto-joined` — signed in and already through; nothing to do, and not an error.
+- `no-join-ui` — neither control appeared. Usually an authenticated auto-join, but deliberately
+  NOT named as proof of one; callers assert their own post-join state.
 
 Applied at **34 sites across 14 files** — 31 helper call sites in 13 files, plus 3 dead blocks
 removed in `live-meeting-mic-permission.spec.ts`. Three distinct failure modes, all tracing to the
@@ -145,6 +146,27 @@ was never what those particular runs were failing on.
 
 Needs its own spec. Filing it is out of scope for this one; recorded here so the next agent does not
 re-derive it.
+
+## Adversarial review (codex, 2026-09-03) — 2 findings, both checked by command
+
+**[MEDIUM, ACCEPTED AND FIXED] The helper reported success it had not observed.** It used
+`Promise.race` over the two join controls. `race` settles on the first *settled* promise, including
+a **rejection** — and both waiters carried the same timeout, so whichever rejected first decided the
+outcome and the `.catch()` reported "joined" even when the other control was about to appear. Fixed
+by switching to `Promise.any`, which resolves on the first *fulfilment* and rejects only when both
+reject; it also aggregates both rejections, so the losing waiter cannot surface as an unhandled
+rejection. The outcome `auto-joined` was additionally renamed to **`no-join-ui`**, because absence of
+join controls is not evidence of a join — a stalled auto-join or an unrecognised gate looks identical.
+
+**[HIGH, DISPUTED — real hazard, but pre-existing and not introduced here.]** Codex reported that
+saved manual auth contaminates guest and multi-user tests, attributing it to this change. Checked
+against history rather than accepted: `git show 3ba55ff0^:playwright.config.ts:134` already applied
+`storageState` to every context whenever `.private/test-auth/local.json` existed. The merge is new;
+the every-context application is not, and the precondition is unchanged. The file also **does not
+currently exist**, so the path is inert today. The hazard is genuine and worth its own spec — a
+developer running `npm run test:save-auth` would give two supposedly independent participants the
+same identity, and the suite would behave differently on that machine than in CI. Not a reason to
+revert P1231, and not fixed here.
 
 ## Alternatives Considered
 
