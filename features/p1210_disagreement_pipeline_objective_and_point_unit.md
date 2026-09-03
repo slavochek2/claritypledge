@@ -37,6 +37,12 @@ rejected options are carried forward here; its four-workstream frame is not.
 > lines; DW-11 was already satisfied before the loop started; DW-12 is an all-empty probe with no
 > known-bad control; DW-4+5 lets the loop author the fixture, the checker and the expected numbers.
 >
+> **The 15 findings and the 9-step repair order live in
+> [`features/verification/p1210/contract-review-2026-09-03.md`](verification/p1210/contract-review-2026-09-03.md)** —
+> next to the pin and the assumptions log, not in this file, because `review-round-N.md` is the
+> filename `goal-gate.sh` CHECK 5 globs and a round with no `SCREENSHOT:` lines hard-fails. Step 1
+> of that list is a founder fork and blocks the other eight.
+>
 > **Running this line would burn 30 turns against unsatisfiable rows.** The contract is repaired
 > before it is re-pinned. The worktree `feature/p1210-objective-and-point-unit` stays claimed; the
 > Solution (§§1–11) is NOT rejected — it survived three rounds and is unchanged.
