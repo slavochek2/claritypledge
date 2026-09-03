@@ -1,6 +1,9 @@
-# User Acceptance Tests
+# Manual acceptance tests (`claude --chrome`)
 
-Manual acceptance tests designed to be run with `claude --chrome` for OAuth and authenticated flows.
+Most files in `features/uat/` are per-spec UAT docs written by `/generate-uat` (`p{N}.md`). The two
+listed below are older hand-written checklists for OAuth and authenticated flows, which need a real
+browser session rather than a scripted run. They moved here from `tests/acceptance/` in P1221;
+`docs/technical/file-locations.md` names `features/uat/` as the single home for UAT documentation.
 
 ## How to Run
 
