@@ -126,8 +126,29 @@ path and gives no error message naming the rule; the trigger is explicit. Either
 - [x] Migration's `DO` block passed on TEST; `pre-commit-checks.sh` green on `d011deda`
       (TypeScript ✓ ESLint ✓ Build ✓ Tests ✓, client-safety + RLS scoping + migration-applied gates)
 - [x] `.private/docs/security-log.md` carries the exact predicate (§ 2026-09-01 "P1230 built in w21")
-- [ ] **Founder step:** migrations applied to prod in the part-B order below; then a stranger PATCH of `partner_profile_id`
-      on a pending fixture returns 0 rows / 42501 on prod
+- [ ] **Founder step — prod apply. Not doable from here; prod still carries the P422 predicate.**
+      Run from the MAIN repo root (`~/Projects/public/claritypledge`), in this order:
+
+      1. `/ship p1230`, then push `main` to `origin` and let the client deploy finish.
+         `2df58753` (resend via `rotate_invitation_token`) must be live before step 2:
+         `20260902001600` makes the direct token PATCH the old client uses a `42501`.
+      2. `./scripts/migrate.sh --env prod` — review the pending list, answer `y`. The three
+         P1230 migrations apply in version order (`20260902001000`, `20260902001500`,
+         `20260902001600`). The gate is **all-or-nothing**: while `2df58753` is not an
+         ancestor of `origin/main`, `20260902001600`'s `-- requires-frontend` marker exits
+         the run 1 *before applying anything*, including the two client-safe files. Step 1
+         is what unblocks step 2; do not delete the marker to force a partial apply (P886).
+         If P1222 ships around the same time its four migrations will be in the same pending
+         list — that is fine, they are independent, but read the list before answering.
+      3. Verify on prod, with a pending fixture agreement and a signed-in account that is
+         **not** a party to it (this is the reproduction from § Reproduction Steps step 2):
+         `curl -s -X PATCH "$PROD_URL/rest/v1/clarity_agreements?id=eq.<pending id>" -H "apikey: $PROD_ANON_KEY" -H "Authorization: Bearer <stranger JWT>" -H "Content-Type: application/json" -H "Prefer: return=representation" -d '{"partner_profile_id":"<stranger profile id>"}'`
+         → `[]` (no row matched the policy). Then repeat it as the **creator** of that row
+         → `42501` from `agreements_lock_party_ids`, not a silent success.
+         Both `DO` blocks also re-assert the final state at apply time, so a failed apply is
+         itself a verification failure.
+
+      Tick this only after step 3's two outputs are pasted below.
 
 ## Part B — the composed bypass (codex review, 2026-09-03)
 
@@ -193,5 +214,36 @@ with `USING (true) WITH CHECK (true)` → `P1230-B2: UPDATE policy USING is true
 the direct table PATCH that part B closes. It now calls `rotate_invitation_token`, and the PATCH it
 used to make is asserted as refused in the new group. The spec changed; the test follows it.
 
-**Not done here:** nothing applied to prod; no browser check of the resend button on the new RPC
-path (service-level only) → `/verify`.
+### Browser check of the resend button (2026-09-03) — the gap this section used to name
+
+Part B makes `invitation_token` unwritable from a table PATCH for `anon`/`authenticated`. The
+resend button was the one legitimate caller that used to make exactly that write, so it is the
+path most likely to have been broken by the fix — and the integration suite exercises the RPC,
+never the button. `e2e/p1230-resend-invitation-render.spec.ts` drives it in a real browser:
+
+```
+npx playwright test --project=chromium e2e/p1230-resend-invitation-render.spec.ts --workers=1
+  3 passed (16.8s)        exit 0
+```
+
+- the creator clicks **Resend Invitation**, gets the "Invitation resent" toast, and the row's
+  `invitation_token` and `invitation_expires_at` have really changed — read back as
+  `service_role`, because the DOM cannot show a rotated token;
+- control: the invitee on the same agreement is offered Review & Sign and no resend button;
+- control: the token does not change when nobody clicks, so the rotation above is the click.
+
+**The gate was watched fail** (epistemic gate 7), and the failure is informative rather than
+cosmetic. With the RPC name changed to one that does not exist — which forces the `PGRST202`
+fallback into the old table PATCH — the click produces the failure toast and the token is not
+rotated:
+
+```
+Locator: getByText(/invitation resent/i)   Expected: visible   element(s) not found
+  1 failed
+```
+
+That is `20260902001600`'s trigger refusing the pre-P1230 write path from a real browser
+session, which the integration suite could only assert through a raw PATCH. The source edit was
+reverted immediately; `git status` shows `agreements-service-real.ts` unmodified.
+
+**Not done here:** nothing applied to prod — see the founder step in § Acceptance Criteria.
