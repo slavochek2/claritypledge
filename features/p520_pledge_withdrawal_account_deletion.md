@@ -7,6 +7,7 @@ tags:
   - account
   - off-boarding
 delivery_stage: challenge-prd
+pipeline_ran: [challenge-prd, inline]
 created_date: '2026-03-15'
 reviews:
   ux: null
