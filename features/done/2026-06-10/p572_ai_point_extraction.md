@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: story
 rank: 22
 tags:
@@ -8,6 +8,7 @@ tags:
   - points
   - stories
 created_date: 2026-03-22T00:00:00.000Z
+completed_at: 2026-09-03
 ---
 
 # P572: AI-Assisted Point Extraction from Stories
