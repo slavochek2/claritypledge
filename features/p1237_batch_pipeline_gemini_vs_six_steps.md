@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: qa
 type: comment
 rank: 255
 workstream: transcription
