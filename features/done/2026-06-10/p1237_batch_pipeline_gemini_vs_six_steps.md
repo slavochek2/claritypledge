@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: comment
 rank: 255
 workstream: transcription
 created_date: '2026-09-03'
 tags: [transcription, gemini, diarization, cost]
 flow: inline
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-09-04
 ---
 
 # P1237: The batch pipeline still mixes phones and diarizes — decide between separate-channel and Gemini
@@ -22,7 +22,7 @@ driver: heuristic
 diarization → speaker embeddings → merge → speaker mapping → store. Four of those six exist only to
 recover *who said what*.
 
-**Complication:** [P552](done/23_mar_26/p552_separate_channel_transcription.md) specified removing
+**Complication:** [P552](../23_mar_26/p552_separate_channel_transcription.md) specified removing
 exactly that, in March 2026 — *"Speaker identity = recorder identity — each phone IS one speaker, no
 diarization needed"* — and is marked `status: all-done, completed_at: 2026-03-19`. **Its mechanism is
 not in the code.** Verified 2026-09-03:
@@ -66,7 +66,7 @@ below. This is a measurement spec; the deliverable is a decision, not a deployme
 ## Research Questions
 
 1. Does separate-channel attribution beat the current merged+diarized pipeline, measured
-   **per-speaker**, not overall? ([decisions.md](../docs/decisions.md) 2026-03-22 established that
+   **per-speaker**, not overall? ([decisions.md](../../../docs/decisions.md) 2026-03-22 established that
    overall accuracy inflates on skewed conversations — 74% of one session was one speaker.)
 2. How much cross-talk does a co-located phone actually capture? P569's energy scan found every
    phone hears every voice; P552 assumes the owner dominates their own channel. Both can be true —
@@ -120,7 +120,7 @@ Run over the archived corpus: **44 two-recorder sessions** pulled from
 > 7.1 → **4.4 dB**, sessions below the bar 15/20 → **15/18**, start-offset max 126.3 → **51.7 s**,
 > the high-separation agreement 57.2% → **59.5%** against a naive rate of 74.0% → **75.0%**. No
 > conclusion changed; every one of them is now better supported. The superseded figures are
-> recorded here rather than quietly replaced, because [decisions.md](../docs/decisions.md) carried
+> recorded here rather than quietly replaced, because [decisions.md](../../../docs/decisions.md) carried
 > them for one commit.
 
 ### RQ2 — how much of a neighbour does a co-located phone capture? **The objection is REAL.**
@@ -163,7 +163,7 @@ recorders with `amix` **from t=0, applying no offset at all**. Measured start-ti
 **median 2.2 s, max 51.7 s** — at the median already beyond a diarizer's tolerance, and at the
 maximum, most of a minute of the session laid on top of the wrong minute.
 
-[decisions.md](../docs/decisions.md) 2026-03-22 names this exactly: rejected alternative (D),
+[decisions.md](../../../docs/decisions.md) 2026-03-22 names this exactly: rejected alternative (D),
 *"Pyannote on unaligned amix — the '50/50' result was an artifact of misalignment"*, and the same
 entry's Consequences state *"Cross-correlation alignment in audio.py is production-ready (keep
 regardless of approach)"*. `git log --all -S` over `services/transcribe/audio.py` returns **zero
@@ -224,7 +224,7 @@ identity is a strong signal and diarization is the weak one. The corpus-wide "83
 verdict is a statement about the *corpus*, not about every session — on the 3 of 18 sessions
 above the bar, separate-channel is the path with the physics behind it.
 
-**The pipeline being measured is the option March explicitly REJECTED.** [decisions.md](../docs/decisions.md)
+**The pipeline being measured is the option March explicitly REJECTED.** [decisions.md](../../../docs/decisions.md)
 2026-03-22 decided: *"align recordings via cross-correlation, Whisper each phone separately, LLM
 merge… **No amix. No pyannote for multi-phone.**"* Today's `pipeline.py` does amix, then pyannote,
 for multi-phone. Four artifacts that entry and its neighbours record as done, shipped or
@@ -317,7 +317,7 @@ Three consequences the measurement forces:
 
 1. **P552's premise is refuted for the conditions actually recorded.** *"Each phone IS one
    speaker"* is false on phones-on-a-table: 83% of sessions are below 10 dB and eight are at the
-   shared-mic floor. It is **untested**, not refuted, for [P1236](p1236_server_side_live_transcription_for_rooms.md)'s
+   shared-mic floor. It is **untested**, not refuted, for [P1236](../../p1236_server_side_live_transcription_for_rooms.md)'s
    answered setup — lavalier per person, each into its own phone — which is a different acoustic
    situation and the one where the design should work. P1236's RQ2 bar must be re-measured on the
    first lavalier session; none of this corpus was recorded that way.
@@ -350,7 +350,7 @@ Three consequences the measurement forces:
 | Gemini mis-renders proper nouns | ACCEPT | Documented in `/slava:util:diarize`. Names are never evidence of who spoke; attribution comes from channel or diarization label |
 
 **Non-Goals**
-- Do NOT change the live path — that is [P1236](p1236_server_side_live_transcription_for_rooms.md).
+- Do NOT change the live path — that is [P1236](../../p1236_server_side_live_transcription_for_rooms.md).
 - Do NOT deploy any replacement in this spec. It produces a decision; adoption is separate work.
 - Do NOT re-enable Vertex AI.
 - Do NOT re-litigate P556/P568/P569's energy approach — it is superseded by both candidates here.
@@ -374,11 +374,11 @@ Three consequences the measurement forces:
 
 ## Related
 
-- [P552](done/23_mar_26/p552_separate_channel_transcription.md) — specified this in March, closed
+- [P552](../23_mar_26/p552_separate_channel_transcription.md) — specified this in March, closed
   `all-done`, mechanism absent from the code (verified above).
 - [P558](p558_gemini_transcript_speaker_correction.md) — parked; calls itself *"the seed of the
   transcription redesign."* This spec is that redesign; P558 should be superseded by whatever this
   concludes.
-- [P1236](p1236_server_side_live_transcription_for_rooms.md) — the live half. If P1236 resolves to
+- [P1236](../../p1236_server_side_live_transcription_for_rooms.md) — the live half. If P1236 resolves to
   acoustically-separate streams, this spec's scope narrows to single-mic `/live` sessions only.
-- [P858](done/2026-04-22/p858_event_driven_transcription.md) — the pipeline this would replace.
+- [P858](../2026-04-22/p858_event_driven_transcription.md) — the pipeline this would replace.
