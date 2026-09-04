@@ -68,8 +68,11 @@ export const STORE_NAMES =
 export const LITERAL_PATH = /(~|\$HOME|\$\{HOME\})\/\.local\/share/
 // P1244: existence + metadata ONLY. Content reads (cat/grep/head/tail/wc) are the
 // pipeline's legitimate quote verification and were removed — see (b) in the header.
+// A leading path is part of the command: /bin/ls and $(which ls) are still ls.
+// `[[ -d x ]]` is as much an existence test as `[ -f x ]` — codex review 2026-09-04
+// reproduced both bypasses against the previous pattern.
 export const INSPECTION_VERB =
-  /(^|[\s`(|;&])(ls|find|stat|tree|readlink|realpath|du)\s|(^|[\s`(|;&])(test|\[)\s+-[a-z]\s/
+  /(^|[\s`(|;&$]|\/)(ls|find|stat|tree|readlink|realpath|du|dir)(\s|$)|(^|[\s`(|;&])(test|\[{1,2})\s+-[a-zA-Z]{1,2}\s/
 
 /** The one sanctioned naming, delimited so the exemption is a region, not a guess. */
 const SANCTION_OPEN = /<!--\s*store-naming:start\s*-->/
@@ -90,12 +93,28 @@ export function run(input = {}) {
     // Which lines are inside the sanctioned naming region — computed once, used by both rules.
     const exempt = new Array(lines.length).fill(false)
     if (isSanctionedFile) {
-      let on = false
-      lines.forEach((line, i) => {
-        if (SANCTION_OPEN.test(line)) { on = true; exempt[i] = true; return }
-        if (SANCTION_CLOSE.test(line)) { on = false; exempt[i] = true; return }
-        exempt[i] = on
-      })
+      // FAIL CLOSED on a malformed exemption — codex review 2026-09-04. Turning the
+      // region on at `start` and never checking for `end` meant one deleted marker
+      // silently exempted the whole remainder of the file: the narrow documented
+      // carve-out becomes a blanket one, and the scanner still reports PASS. An
+      // unbalanced marker now exempts NOTHING and is reported as a finding.
+      const opens = lines.filter(l => SANCTION_OPEN.test(l)).length
+      const closes = lines.filter(l => SANCTION_CLOSE.test(l)).length
+      if (opens !== closes) {
+        const at = lines.findIndex(l => SANCTION_OPEN.test(l) || SANCTION_CLOSE.test(l))
+        findings.push({
+          file, line: at + 1,
+          reason: `unbalanced store-naming markers (${opens} start, ${closes} end) — the exemption is DISABLED for this file`,
+          text: (lines[at] ?? '').trim(),
+        })
+      } else {
+        let on = false
+        lines.forEach((line, i) => {
+          if (SANCTION_OPEN.test(line)) { on = true; exempt[i] = true; return }
+          if (SANCTION_CLOSE.test(line)) { on = false; exempt[i] = true; return }
+          exempt[i] = on
+        })
+      }
     }
 
     // Rule 2 — literal store path, EVERY line including prose (see header).

@@ -84,6 +84,41 @@ describe('P1244 — store-inspection-scan: existence vs content, span vs prose',
   })
 })
 
+/**
+ * Bypasses an independent codex review reproduced against the first implementation
+ * (2026-09-04). Each is kept as a permanent control: the author of a scanner is the
+ * worst judge of what evades it, and three of these were live after a pass that had
+ * already run nine of my own controls.
+ */
+describe('P1244 — codex-review bypasses, closed', () => {
+  it('a leading path does not disguise the command: /bin/ls is still ls', () => {
+    const r = storeScan({ files: [fx('codex-bypasses.md')] })
+    expect(r.verdict).toBe('FLAG')
+    const t = r.findings.map((f: any) => f.text).join(' | ')
+    expect(t).toMatch(/\/bin\/ls/)
+    expect(t).toMatch(/\[\[ -d/)
+    console.log('[P1244 codex F1]', r.detail)
+  })
+
+  it('a command inside an HTML comment is NOT a command span', () => {
+    const { units } = commandSpans('<!-- `node scripts/points/fake.mjs` is documentation -->')
+    expect(units).toHaveLength(0)
+  })
+
+  it('an HTML comment does not shift the line numbers of later spans', () => {
+    const { units } = commandSpans('<!-- `a` -->\n\nrun `ls` here\n')
+    expect(units).toHaveLength(1)
+    expect(units[0].startLine).toBe(3)
+  })
+
+  it('unbalanced store-naming markers DISABLE the exemption and are reported', () => {
+    const r = storeScan({ files: [fx('unbalanced-sanction/docs/points-process.md')] })
+    expect(r.verdict).toBe('FLAG')
+    expect(r.findings.some((f: any) => /unbalanced store-naming/.test(f.reason))).toBe(true)
+    console.log('[P1244 codex F5]', r.detail)
+  })
+})
+
 describe('P1244 — input-block-scan: widened by object, not by verb', () => {
   const asks = [
     ['ask for the event tag if not supplied', 'the original shape still bites'],

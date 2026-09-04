@@ -1,5 +1,5 @@
 ---
-status: qa
+status: week
 type: task
 rank: 1000071
 workstream: infrastructure
@@ -152,8 +152,10 @@ P1210 DW-12 removed eleven literal store paths that were live in the skill files
       must-fail fixtures.
 - [x] `npx vitest run src/tests/p1210-` stays green (20 files) — these scanners are covered by
       P1210's suite and must not regress it.
-- [x] `two-callers.mjs` distinguishes a runnable stanza from a prose mention, and the wired-module
-      set is asserted unchanged at 13.
+- [ ] `two-callers.mjs` distinguishes a runnable stanza from a prose mention, and the wired-module
+      set is asserted unchanged at 13. **NOT MET — see Open #1.** The wired set is asserted unchanged
+      at 13 and the substring surface is narrowed to command spans, but a quoted command inside prose
+      still reads as an invocation. Un-ticked after an independent review reproduced the forgery.
 - [x] `redact-run.mjs` resolves a cast code unambiguously or refuses; a same-surname roster fixture
       proves it does not silently misattribute.
 
@@ -172,8 +174,22 @@ reasoning. Two carry a note because implementation changed what they mean.
 | Gate 7c: seven real files, zero findings | All three scanners exit 0 on the real tree. This is the check that caught the reverted attempt. |
 | `verify-all.mjs` exits 0 | `PASS — 13 predicate(s), every must-pass passed and every must-fail failed` |
 | P1210 suite stays green | 21 files, 105 tests passing (20 P1210 files + this spec's). |
-| `two-callers` distinguishes a stanza from a prose mention; wired set unchanged | `PASS — 13 predicate(s) … 7 harness module(s)`. **Note:** the allowlist grew by one — `md-spans.mjs`, the shared parser — asserted by name in the test so the growth is visible. |
+| `two-callers` distinguishes a stanza from a prose mention; wired set unchanged | **PARTIAL — this claim was too strong and is corrected here.** The check moved from a raw substring search over whole files to a search over command spans, which is narrower. It does **not** distinguish a runnable stanza from a command quoted inside prose, because an inline code span in a blockquote is still a command span. An independent codex review reproduced the forgery (see Open below). Wired set unchanged at 13; the allowlist grew by one — `md-spans.mjs`, the shared parser — asserted by name in the test so the growth is visible. |
 | `redact-run` refuses rather than misattributing | Ambiguity now throws, naming the colliding codes. Derivation still `REPRODUCED byte for byte (1428 bytes)`, so the real roster is unaffected. |
+
+### The independent review, and what it changed
+
+An independent codex review of the first implementation returned **FAIL** with five findings. I
+reproduced all five with my own probes before acting on any of them. **Three were live bypasses that
+survived nine controls I had written myself**, which is the argument for the review existing at all:
+
+| Finding | Status |
+|---|---|
+| `/bin/ls "$YT_STORE"` and `[[ -d … ]]` evade the verb pattern | **CLOSED** — verbs anchored on a path-aware boundary; `[[` covered. Fixture `codex-bypasses.md`. |
+| A command inside an HTML comment counts as executable | **CLOSED** — comments masked before span extraction, newlines preserved so line numbers stay exact. |
+| An unclosed `store-naming:start` marker exempts the rest of the file | **CLOSED, fail-closed** — unbalanced markers now exempt nothing and are reported. This was the worst of the five: one deleted marker turned a narrow carve-out into a blanket one while still printing PASS. |
+| A prose mention inside a code span still reads as an invocation | **OPEN** — see below. |
+| Ordinary phrasings ("Please provide the event tag") evade `INPUT_ASK` | **OPEN** — see below. |
 
 **Two defects found by writing controls, not by reading code** — both are the reason this spec is
 worth more than the regex tune it started as:
@@ -182,6 +198,24 @@ worth more than the regex tune it started as:
 2. An inline code span that **wraps across source lines** (real, in `positions.md`) was invisible to
    a per-line parser, which reported a genuinely-wired module as unwired. Markdown treats a wrapped
    span as one span; the parser now does too.
+
+## Open — deliberately not closed here
+
+Both are real, both are recorded rather than quietly dropped, and neither has a bounded fix.
+
+**1. `two-callers` cannot tell a runnable stanza from a quoted command.** Requiring a fenced or
+indented block would settle it — but `positions.md` invokes `store-reconcile.mjs` through an inline
+span that wraps inside a blockquote, so tightening the rule reports a genuinely-wired module as
+unwired. The honest fix changes the skill files to carry real command stanzas, which is a change to
+the pipeline's prose and belongs in its own spec. **Do not describe this check as forgery-proof.**
+
+**2. `INPUT_ASK` cannot enumerate English.** "Please provide the event tag" asks for a value and
+matches nothing. Every widening of this regex has cost false positives (P1210's revert, and `check`
+/ `get` in this spec's first draft), and no finite verb list closes a natural-language surface. The
+options are a different mechanism — an explicit marker on legitimate asks, so the scanner checks a
+structure instead of guessing at prose — or accepting the limit and stating it. **The success
+message currently overclaims**: it says "zero founder-input asks after it" when it means "zero
+matching the known shapes." That sentence should be corrected whichever way this goes.
 
 ## Related
 

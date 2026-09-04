@@ -117,7 +117,8 @@ export function run(input = {}) {
         findings.map(f => `    ${f.file} §${f.section}${f.line ? `:${f.line}` : ''} — ${f.reason}${f.text ? `\n      ${f.text}` : ''}`).join('\n'),
     }
   }
-  return { ok: true, verdict: 'PASS', findings: [], found, detail: `PASS — every named input is in its block; zero founder-input asks after it` }
+  return { ok: true, verdict: 'PASS', findings: [], found, detail: `PASS — every named input is in its block; no founder-input ask MATCHING THE KNOWN SHAPES after it`
+    + ` (this pattern cannot enumerate English — see P1244 Open #2)` }
 }
 
 const FIXTURE_DIR = path.join(REPO_ROOT, 'src/tests/fixtures/p1210/input-blocks')

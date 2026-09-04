@@ -100,7 +100,12 @@ export function commandSpans(text) {
   // Pass 2 — inline spans across the whole document, outside fenced blocks.
   // Fence lines and fenced content are blanked (newlines kept, so offsets and
   // therefore line numbers stay exact) before scanning.
-  const masked = lines.map((l, i) => (inFence[i] || FENCE.test(l) ? '' : l)).join('\n')
+  // HTML comments are masked too — a command inside <!-- --> is disabled or
+  // explanatory, and treating it as executable let a documented-but-never-run
+  // module read as wired (codex review 2026-09-04). Newlines are preserved so
+  // every offset, and therefore every reported line number, stays exact.
+  const maskComments = (t) => t.replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' '))
+  const masked = maskComments(lines.map((l, i) => (inFence[i] || FENCE.test(l) ? '' : l)).join('\n'))
   const lineStarts = [0]
   for (let i = 0; i < masked.length; i++) if (masked[i] === '\n') lineStarts.push(i + 1)
   const lineOf = (off) => {
