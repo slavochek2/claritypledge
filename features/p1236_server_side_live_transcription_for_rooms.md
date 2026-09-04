@@ -89,125 +89,166 @@ The two shapes the measurement had to distinguish:
   iterative surface: duplicate words at chunk boundaries, partial-to-final promotion, reconnection
   on a dropped radio.
 
-`[FOUNDER DECISION: latency vs iteration. Now priced. Finding 2 below shows the two trade almost
-1:1 — 4s chunks cost ~5 streams per L4 and land ~4-5s behind speech; 15s chunks cost ~10.6 streams
-and land ~15s behind. What the measurement does NOT settle is whether 5s-late text is worth having
-in a room, or whether the duplicate-and-rewrite surface of true streaming is worth paying for. Still
-not decidable from code.]`
+`[FOUNDER DECISION — ANSWERED 2026-09-04: 4-second slices.]` Founder's reasoning, verbatim: the
+surface is login-only and rarely used — *"maximum once per week or so, and then maximum 10 people"* —
+so credit cost is not a deciding factor, and *"read while talking is not really the case at all."*
+Every named use case (letter generation, points in the feed, who-said-what recall, a question asked
+of the transcript) acts **after** a trigger and does not feel the delay. Two do not exist yet and
+would: live translation, and a proactive clarity signal mid-conversation.
 
-### Step-1 measurement — RESULT (2026-09-03)
+2 seconds was considered and **rejected on measured quality, not cost** — see Finding 4. A
+flush-on-trigger path covers the "letter now" case without shortening the slice.
 
-Measured on the real thing: a throwaway Cloud Run service (`p1236-measure`, deleted after the run)
-built `FROM` the exact production image, one nvidia-L4, `concurrency=1`, same
-`WHISPER_MODEL=large-v3-turbo`. Input: 168.24s of real `/transcribe` room audio pulled from GCS
-(five sessions, founder's own voice), catted and decoded the way `audio.py` does it. Diarization was
-never invoked. Harness: `services/transcribe/measurement/`; raw per-chunk JSON archived to
+`[FOUNDER DECISION — OPEN: engine. Finding 6 and 7 make Gemini the better default on quality,
+determinism, concurrency and the amount of infrastructure it deletes, at ~1.3s more latency per
+slice. Whisper stays the proven-on-this-stack fallback. Not decidable from code; it trades a
+container we control for an API we do not.]`
+
+### Step-1 measurement — RESULT (2026-09-03, revised 2026-09-04 after review)
+
+**Read the strength label on each finding.** A Codex review of the harness and of the first
+write-up returned REJECT on the architecture conclusions as originally stated, and it was right on
+seven of ten points. The numbers below are the corrected ones; what each does and does not support
+is named inline. Harness: `services/transcribe/measurement/`; raw per-chunk JSON in
 `gs://claritypledge-ml-training/p1236-measurement/`.
 
-Each row is one pass over the same 168.24s, sliced at that chunk length. **streams/L4** is
-`chunk_seconds / mean chunk cost`: one live stream emits one chunk every `chunk_seconds`, and a GPU
-container serves one chunk at a time. Cost columns are per chunk, steady state (chunk 0 excluded).
+**Method.** A throwaway Cloud Run service built `FROM` the exact production image, one nvidia-L4,
+`concurrency=1`, `WHISPER_MODEL=large-v3-turbo`. Input: 168.24s of real `/transcribe` room audio
+from five sessions, catted and decoded the way `audio.py` does it. Diarization never invoked. One
+run per configuration.
 
-| chunk | VAD | chunks | VAD-gated | p50 | p95 | worst | **streams/L4** | GPU-s per audio-min | words |
-|---|---|---|---|---|---|---|---|---|---|
-| 2s | off | 85 | – | 0.46s | 1.24s | 4.26s | 2.9 | 20.7 | 237 |
-| 4s | off | 43 | – | 0.48s | 1.81s | 6.83s | 4.4 | 13.9 | 205 |
-| 8s | off | 22 | – | 0.55s | 3.12s | 3.38s | 7.5 | 8.2 | 173 |
-| 15s | off | 12 | – | 0.70s | 1.87s | 2.66s | 15.4 | 4.1 | 161 |
-| 30s | off | 6 | – | 1.09s | 1.16s | 5.15s | 28.4 | 3.7 | 129 |
-| **2s** | **on** | 85 | 40 (47%) | 0.57s | 1.22s | 4.46s | **3.8** | 16.0 | 159 |
-| **4s** | **on** | 43 | 12 (28%) | 0.67s | 1.26s | 7.19s | **5.2** | 11.8 | 139 |
-| **8s** | **on** | 22 | 3 (14%) | 0.84s | 2.11s | 5.22s | **6.8** | 9.1 | 115 |
-| **15s** | **on** | 12 | 2 (17%) | 0.99s | 3.03s | 4.67s | **10.6** | 6.0 | 130 |
-| **30s** | **on** | 6 | 0 | 1.98s | 2.01s | 3.81s | **15.2** | 4.9 | 116 |
+#### Whisper on the L4
 
-Whole-file batch over the identical audio, for reference: 10.2-14.9s wall for 168s of audio
-(RTF ~0.07), 117-149 words. Word counts vary run to run on identical input — Whisper is not
-deterministic here, so word count is a signal about hallucination volume, never a quality score.
+Cost columns are per chunk over the steady-state population (chunk 0 excluded); `chunk0` is shown
+separately because it was previously folded into the "worst" column and dominated the 30s rows.
 
-**Finding 1 — the 3-5-speakers-per-L4 estimate was right for 4s and wrong as a constant.** It is a
-function of chunk length, not a property of the GPU: 3.8 streams at 2s, 5.2 at 4s, 6.8 at 8s, 10.6
-at 15s, 15.2 at 30s. The number to carry forward is **~5 concurrent live streams per L4 at
-4-second chunks, VAD on**.
+| chunk | gate | n | steady n | gated | p50 | p95 | worst (steady) | chunk0 | mean | seq. ceiling | words |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2s | off | 85 | 84 | – | 0.46s | 1.37s | 4.26s | 0.50s | 0.68s | 2.9 | 237 |
+| 4s | off | 43 | 42 | – | 0.47s | 3.21s | 6.83s | 0.48s | 0.91s | 4.4 | 205 |
+| 8s | off | 22 | 21 | – | 0.55s | 3.12s | 3.38s | 0.56s | 1.07s | 7.5 | 173 |
+| 15s | off | 12 | 11 | – | 0.70s | 2.66s | 2.66s | 0.85s | 0.97s | 15.4 | 161 |
+| 30s | off | 6 | 5 | – | 1.09s | 1.83s | 1.83s | **5.15s** | 1.06s | 28.4 | 129 |
+| 2s | on | 85 | 84 | 40 | 0.57s | 1.30s | 4.46s | 0.14s | 0.53s | 3.8 | 159 |
+| **4s** | **on** | 43 | 42 | 12 | **0.67s** | **1.29s** | **7.19s** | 0.70s | 0.77s | **5.2** | 139 |
+| 8s | on | 22 | 21 | 3 | 0.84s | 2.11s | 5.22s | 0.86s | 1.17s | 6.8 | 115 |
+| 15s | on | 12 | 11 | 2 | 0.99s | 4.67s | 4.67s | 1.19s | 1.42s | 10.6 | 130 |
+| 30s | on | 6 | 5 | 0 | 1.98s | 3.18s | 3.18s | 3.81s | 1.98s | 15.2 | 116 |
 
-**Finding 2 — Whisper's cost is dominated by a fixed per-call floor, so latency and throughput
-trade almost 1:1.** Transcribing 15x more audio per call (2s -> 30s) costs only ~2.4x more time.
-Every second of latency conceded buys roughly proportional throughput, with no sweet spot hiding in
-the curve. This is the shape of the founder decision, now measured rather than argued.
+Two labels that matter, both corrected after review:
 
-**Finding 3 — below ~8s the tail is the constraint, not the mean.** At 4s the p50 is 0.67s but the
-worst chunk took 7.19s, longer than the audio it covered. A live path needs a queue-depth and
-drop/skip policy, not just a throughput budget; a speaker in a dense stretch can otherwise fall
-permanently behind.
+- **"seq. ceiling" is NOT a sustainable stream count.** It is `chunk_seconds / mean`, the sequential
+  service-rate ceiling at **100% utilization** — the point where queue delay grows without bound. No
+  concurrent load test was ever run against the GPU: no contention, no synchronized arrivals, no
+  queueing, no HTTP overhead. Five streams at 4s implies 96% utilization against a population whose
+  worst sample took 7.19s, longer than one arrival period. **Treat this column as an upper bound
+  that cannot be reached, not as capacity.**
+- **The "on" gate is NOT `vad.py`.** Production loads `pyannote/voice-activity-detection` and builds
+  a new WAV holding only detected speech regions. The harness loads `segmentation-3.0` (the only one
+  this token can fetch — see Finding 5) and makes a binary keep-or-drop decision on the whole chunk,
+  so kept chunks retain their internal silence. The gated counts and word counts describe that gate.
 
-**Finding 4 — short chunks hallucinate badly, and the existing VAD is what stops it.** Without VAD,
-4-second chunks produced 205 words against batch's ~120 for the same audio: `"Thank you."` emitted
-ten times over silence, stray tokens in other scripts, and one entirely fabricated sentence
-(*"And now this time is coming in for space like this. OK, it's wide a higher authority, so the
-creator's taste."*). This is the exact signature `vad.py` was written for — its docstring names
-*P546: Added to fix hallucinations ("Thank you" x53)*. With VAD on, 4s output drops to 139 words
-against batch's 134 and reads like the batch transcript. **The lavalier-per-phone design makes this
-load-bearing rather than incidental:** each channel is silent whenever its wearer is not talking, so
-most chunks on most streams are silence. VAD gated 28% of 4s chunks here, and it pays for itself —
-throughput at 4s is *higher* with VAD on (5.2 streams) than off (4.4), because gated chunks skip
-Whisper entirely.
+`p95` at n=5 and n=11 is the slowest one or two samples, not a distribution. Whole-file batch over
+the same audio: 10.2-14.9s for 168s, **117-149 words across five runs** — Whisper is not
+deterministic here, and that 32-word spread is wider than most differences in the table.
 
-**Finding 5 — the VAD the pipeline actually calls is broken in production.** `vad.py:91` loads
+**Finding 1 — the 3-5-speakers-per-L4 estimate is neither confirmed nor replaced.** What is measured
+is a service rate: ~1.3 four-second chunks per GPU-second on this trace. Converting that to a stream
+count needs a concurrent load test and a tail budget, and neither exists. `[UNRESOLVED: the capacity
+number Done-When #1 asks for. What replaced the guess is a measured service rate plus an explicit
+admission that the stream count does not follow from it.]`
+
+**Finding 2 — Whisper's per-call cost is largely fixed, so cost scales far slower than audio
+length.** 15x more audio per call costs between 1.6x and 3.7x more time depending on which statistic
+and which gate — sublinear on every reading, which is the load-bearing part. The earlier "~2.4x"
+picked the no-VAD p50 while the capacity column used the mean; that was cherry-picking and is
+withdrawn. **"No sweet spot in the curve" is withdrawn entirely** — five points, one run each,
+cannot support it.
+
+**Finding 3 — the tail is real at 4 seconds and is the binding constraint.** p50 0.67s but one
+steady-state chunk (index 5, not the excluded warm-up) took **7.19s**, longer than the audio it
+covered. Verified against the raw trace after review raised the possibility it was chunk 0; it is
+not. No queue-depth, deadline-miss or backlog-recovery figure was measured, so the drop/skip policy
+this implies is unsized.
+
+**Finding 4 — short chunks hallucinate, on direct reading of the output.** The word counts alone
+cannot carry this (n=1, and batch's own spread is 32 words). What can: reading the transcripts. At
+4s without any gate, Whisper emitted `"Thank you."` ten times over silence, tokens in other scripts,
+and one wholly fabricated sentence — *"And now this time is coming in for space like this. OK, it's
+wide a higher authority, so the creator's taste."* At 2s it mangled a proper noun the other
+configurations got right (`Galaxy S22` → `GOером XES 22`) and spliced a hallucinated `"Thank you."`
+into the middle of a real sentence. **That specific output hallucinated; a general rate is not
+established.** This is the signature `vad.py` exists for — its docstring names *P546: Added to fix
+hallucinations ("Thank you" x53)*. The lavalier-per-phone design makes a silence gate load-bearing
+regardless: each channel is silent whenever its wearer is not talking.
+
+**Finding 5 — VAD would fail open under the reproduced production configuration.** `vad.py:92` loads
 `pyannote/voice-activity-detection`, whose weights sit behind `pyannote/segmentation`. The deployed
-`hf-token` secret returns **403 on both** (checked directly against the HF API), so
-`Pipeline.from_pretrained` returns `None`, `.to()` raises `AttributeError`, and
-`pipeline.py::_apply_vad` catches it and silently falls back to un-stripped audio. `pyannote/
-segmentation-3.0` and `speaker-diarization-3.1` return 200 with the same token — which is why
-diarization works and VAD does not. The measurement above used a `segmentation-3.0`-backed VAD for
-that reason. **Not confirmed from a production log line:** no session has been transcribed inside
-the retained log window, so there is no prod run showing the warning. Filed separately.
+`hf-token` returns **403 on both** (checked directly against the HF API), so
+`Pipeline.from_pretrained` returns `None`, `.to()` raises, and `pipeline.py::_apply_vad` catches it
+and falls back to un-stripped audio. `segmentation-3.0`, `speaker-diarization-3.1`, `embedding` and
+`wespeaker-voxceleb-resnet34-LM` all return 200 with the same token — which is why diarization works
+and VAD does not. **Reproduced on the exact production image, secret and env; NOT observed in a
+production run.** No session has been transcribed inside the retained log window, so "has been
+broken in production" overstates it — what is established is that the shipped configuration fails
+open when the path executes. Filed as P1242.
 
-**Cost.** At 4s chunks with VAD, one live stream costs ~11.8 GPU-seconds per audio-minute; a
-five-person room saturates one L4. Idle cost is unchanged only if the shutdown path holds — see the
-P858 risk row below.
+#### Gemini 3.5 Transcribe on the same audio — measured 2026-09-04
 
-### The co-location premise — load-bearing and NOT established
+The spec named two credit-eligible paths and the first pass measured one. Same 168.24s, same
+4-second slices, **no gate and no normalization on either side** — the fairest comparison available,
+and it handicaps Gemini, which gets no preprocessing at all.
 
-The design under discussion assumes one person per audio stream, which would make speaker
-attribution exact by construction and remove diarization entirely. `/slava:util:diarize`'s own
-verified note supports it: *"If you control the recording, record a separate channel per person and
-skip diarization entirely — device identity beats any model."*
+Run from Cloud Run in `us-east4` (a laptop run first showed ~5.2s per slice; that was home-network
+round trip, and in-region it is not). 43 slices x 4 concurrency levels x 3 repeats = **516 requests,
+0 errors**:
 
-**But this repo has already measured the opposite case.** [decisions.md](../docs/decisions.md)
-2026-03-22 (P569) reports an energy scan of **17 multi-phone sessions** where each participant had
-their own phone and every phone still captured every voice — *"Slava's phone is consistently louder
-in all sessions"* — which is precisely why cross-phone energy comparison and LLM merge were built.
-A phone on a table in a shared room is not a per-speaker channel.
+| concurrent streams | p50 | p95 | worst | wall for 43 slices | errors | words | empty slices |
+|---|---|---|---|---|---|---|---|
+| 1 | 1.88-1.93s | 2.32-2.40s | 3.65s | 84-88s | 0 | 132 | 16 |
+| 5 | 1.91-1.99s | 2.30-2.40s | 3.39s | 17.8s | 0 | 132 | 16 |
+| 10 | 1.84-1.94s | 2.20-2.41s | 3.57s | 9.0-9.6s | 0 | 132 | 16 |
+| 20 | 1.92-2.01s | 2.36-2.75s | 3.70s | 5.4-6.1s | 0 | 132 | 16 |
 
-So the premise holds only when participants are **acoustically separated** — remote, or on
-close-talking mics — and fails when they are seated together.
+Against Whisper-at-4s (0.67s p50 / 1.29s p95 with the approximated gate, 0.47s / 3.21s without):
 
-**ANSWERED 2026-09-03 (founder):** rooms are **co-located — one physical room — but every
-participant wears a lavalier microphone.** Verbatim: *"yes peopel for 1236 will be in one phsyical
-room - but they will have livalier micorphone on them.. so ohpuflyl it recornds mostly them alone"*
+| | Whisper on L4 | Gemini |
+|---|---|---|
+| Words, no gate | 205 | **132** |
+| Whole-file reference | 134 | — |
+| `"Thank you."` fabrications | 10 | **0** |
+| Silent slices left empty | 0 | **16 of 43** |
+| Determinism across runs | 117-149 words (5 runs) | **132 words, all 12 runs** |
+| Per-slice p50 | 0.67s | 1.9s |
+| Scaling | GPU instances, untested concurrently | flat to 20 streams, 0 errors |
 
-This changes the premise from *contested* to *plausible but unmeasured*. A lavalier sits ~20cm from
-its wearer's mouth while other speakers are 1-3m away, and level falls with distance — so the
-wearer should dominate their own channel by a wide margin, unlike P569's phones-on-a-table scan.
-"Should" is the operative word: **nobody has measured it on this setup**, and the margin depends on
-lav pattern (omni vs cardioid), placement, room size and reverb, and how often people talk over each
-other. P1237's research question 2 measures exactly this, and its 10dB criterion is the bar.
+**Finding 6 — Gemini does not hallucinate on 4-second fragments, and Whisper does.** It returned
+**empty** on 16 of 43 slices rather than inventing filler, and transcribed the one real sentence
+with the product name and phone model intact — *"Transcribe and on my Galaxy S22 and still"* —
+where Whisper-4s produced *"I tried fixing the loop"* and Whisper-2s produced *"GOером XES 22"*.
+132 words against a whole-file reference of 134, **with no gate at all**, where Whisper needed one
+and still scored 139. Unlike every Whisper row, this is not n=1: 12 runs returned an identical word
+count and identical empty-slice count.
 
-**ANSWERED 2026-09-03 (founder): each lavalier plugs into its wearer's own phone.**
+**Finding 7 — Gemini's capacity question does not exist in the form Whisper's does.** p50 is flat
+from 1 to 20 concurrent streams (1.93s → 1.93s) with zero errors across 516 requests. Whisper's
+stream count needed a load test that was never run; Gemini's was run and shows no degradation at the
+sizes this product will see. **Untested above 20; rate limits and their behaviour under sustained
+multi-session load are unknown.**
 
-That closes the premise. Every stream now carries one authenticated participant, so:
+**End-to-end lag**, the number that actually matters and that neither engine's per-slice figure is
+on its own: 4s to fill a slice, plus transcription. Whisper ≈ 4.7s, Gemini ≈ 6s. Neither includes
+upload, queueing or render — **still not an end-to-end measurement.**
 
-- **Attribution is exact by construction** — speaker identity is the room member who owns the
-  device, never inferred from audio. Diarization has nothing to do on this path.
-- **P1149's consent invariant holds unchanged** — each person consents for their own voice on their
-  own screen, because each person still owns exactly one capture device.
-- **The mic-contention defect is fully resolved rather than moved.** The browser opens one
-  `getUserMedia` stream per phone; it is uploaded and transcribed server-side, so nothing competes
-  for the microphone and the recording is a by-product of the same stream.
+**What Gemini removes from the design:** the GPU (warm-instance cost, the scale-to-zero path, the
+P858 failure shape, the unverified multi-card allowance), the pyannote dependency and its gated-model
+breakage, and per-card capacity planning. **What it adds:** ~1.3s more latency per slice and a
+dependency on an API rather than a container we control.
 
-The only thing still unmeasured is **how much of a neighbour a lavalier picks up** — P1237 RQ2, 10dB
-bar. That governs transcript cleanliness (stray words from the person next to you), not attribution,
-which is now settled by device ownership regardless of what the audio contains.
+**Limits on all of the above.** One 168-second recording, one speaker, English, speech-sparse with
+long silences — which is the worst case for hallucination and also, per the lavalier design, the
+normal case for a per-person channel. Real conversational density is untested for both engines. No
+end-to-end latency measurement for either. No cost figure for Gemini at session scale.
 
 ### Credit-eligible execution paths
 
@@ -246,8 +287,8 @@ not when the first word is spoken — the consent and join screens supply the co
 |---|---|---|
 | Live sessions re-introduce warm-GPU cost, the P858 failure shape | MITIGATE | Wake on join, shut down on last-member-leave; verify scale-to-zero via billing, not assumption |
 | Lavalier dominance is weaker than assumed → per-channel transcription picks up neighbours | MITIGATE | Measure it before building: P1237 RQ2, 10dB bar. Co-located-with-lavs is answered; the dB margin is not |
-| 4s fragments transcribe worse than whole files (no surrounding context) | MEASURED | Real without VAD (fabricated sentences), gone with it. Finding 4. The live path MUST gate on voice activity — it is not an optimization |
-| The VAD the pipeline calls has been failing open in production | MITIGATE | Finding 5: `hf-token` is 403 on the two gated repos `vad.py` needs; `_apply_vad` swallows the error. Filed separately — the live path cannot be built on top of it until it loads |
+| 4s fragments transcribe worse than whole files (no surrounding context) | MEASURED (Whisper) / REFUTED (Gemini) | Whisper fabricates whole sentences on un-gated 4s fragments and needs a silence gate. Gemini returns empty on silence and matches the whole-file reference with no gate at all. Findings 4 and 6 |
+| VAD fails open under the reproduced production configuration | MITIGATE | Finding 5: `hf-token` is 403 on the two gated repos `vad.py` needs; `_apply_vad` swallows the error. Reproduced on the exact image/secret/env, NOT observed in a prod run. Filed as P1242. **Moot on the Gemini path** — Finding 6 shows it needs no gate |
 | Only `chunk_000` carries a WebM header, so chunks are not independently decodable | MITIGATE | Confirmed on real session audio. Either the capture side emits standalone units or the server holds a per-stream decoder; "reuse the existing chunk upload path" is not a drop-in |
 | Gemini credit coverage has changed since Apr 2026 | MITIGATE | Re-verify before committing; Cloud Run GPU is the proven fallback |
 | Live text becomes slower than the browser path | ACCEPT | The browser path does not work on Android at all; slower and working beats instant and absent |
@@ -265,9 +306,12 @@ not when the first word is spoken — the consent and join screens supply the co
 ## Done-When
 
 - [x] Chunk-transcription throughput with diarization removed is measured and recorded in this spec
-      as a number, replacing the UNVERIFIED 3-5-speakers-per-L4 estimate (2026-09-03: **~5 concurrent
-      streams per L4 at 4s chunks with VAD**, p50 0.67s / p95 1.26s per chunk; full curve and method
-      under "Step-1 measurement — RESULT")
+      (2026-09-03, corrected 2026-09-04). **The 3-5-speakers-per-L4 estimate is retired but not
+      replaced by a GPU stream count** — what is measured is a service rate (~1.3 four-second chunks
+      per GPU-second, p50 0.67s / p95 1.29s per chunk) plus an explicit finding that converting it to
+      a sustainable stream count needs a concurrent load test that was never run. **For the Gemini
+      path the equivalent question IS answered**: flat p50 from 1 to 20 concurrent streams, 0 errors
+      in 516 requests
 - [x] Co-location and device-routing premises answered and recorded (2026-09-03: one room,
       lavalier per person, each into its owner's phone)
 - [ ] The remaining founder decision (latency vs iteration) is answered here, after the measurement

@@ -23,6 +23,7 @@ Usage:
 
 import argparse
 import json
+import logging
 import subprocess
 import sys
 import tempfile
@@ -71,10 +72,18 @@ def fetch_gcs(uri: str) -> str:
 
 _VAD_PIPELINE = None
 _VAD_BACKEND = "uninitialised"
+_NORMALIZE_FAILURES = 0
 
 
 def _get_vad():
-    """Build a VAD pipeline that this HF token can actually load.
+    """Build a voice-activity gate this HF token can actually load.
+
+    NOT equivalent to `vad.py`. Production loads `pyannote/voice-activity-detection`
+    and builds a NEW WAV holding only the detected speech regions; this builds a
+    `segmentation-3.0` pipeline and makes a binary keep-or-drop decision about the
+    whole chunk, so a kept chunk still carries all its internal silence. Timings and
+    word counts from this path describe THIS gate, not the pipeline's. Caught in
+    review 2026-09-04 after the results were first written up as "the pipeline's VAD".
 
     `vad.py` asks for `pyannote/voice-activity-detection`, whose weights live
     behind `pyannote/segmentation`. Both return 403 for the deployed hf-token
@@ -128,8 +137,12 @@ def _has_speech(path: str) -> bool:
 
 
 def preprocess_timed(path: str) -> tuple[float, str | None]:
-    """Loudness-normalize, then gate on voice activity — the same two steps
-    pipeline.py runs before Whisper (steps 1.5 and 2).
+    """Loudness-normalize, then gate the chunk on voice activity.
+
+    An APPROXIMATION of pipeline.py steps 1.5 and 2, not a reproduction — see
+    `_get_vad`. Normalization failure is swallowed here the way the pipeline
+    swallows it, and is reported in the result so a swallowed failure cannot be
+    mistaken for a clean run.
 
     Returns (elapsed, path) or (elapsed, None) when there is no speech. The
     batch pipeline falls back to the un-gated audio in that case; a LIVE path
@@ -138,10 +151,13 @@ def preprocess_timed(path: str) -> tuple[float, str | None]:
     """
     from audio import normalize_audio
 
+    global _NORMALIZE_FAILURES
     t0 = time.perf_counter()
     try:
         normalized = normalize_audio(path)
-    except Exception:
+    except Exception as e:
+        logging.getLogger(__name__).warning("normalize_audio failed on %s: %s", path, e)
+        _NORMALIZE_FAILURES += 1
         normalized = path
     keep = _has_speech(normalized)
     return time.perf_counter() - t0, (normalized if keep else None)
@@ -157,11 +173,19 @@ def transcribe_timed(path: str) -> tuple[float, str, int]:
 
 
 def percentile(values: list[float], p: float) -> float:
+    """Nearest-rank percentile.
+
+    The previous form indexed `round(p * (n-1))`, which at n=12 returned the 11th
+    ordered value where nearest-rank returns the 12th, and at n<=5 collapsed p95
+    onto the maximum. Both were found in review. At these sample sizes a p95 is
+    still barely more than "the slowest one or two" — `n` is reported alongside it
+    so nobody reads it as a distribution.
+    """
     if not values:
         return 0.0
-    s = sorted(values)
-    idx = min(len(s) - 1, int(round((p / 100.0) * (len(s) - 1))))
-    return s[idx]
+    ordered = sorted(values)
+    rank = max(1, -(-int(p * len(ordered) * 100) // 100))  # ceil(p * n), p as 0..1 x100
+    return ordered[min(rank, len(ordered)) - 1]
 
 
 def run_measurement(wav_path: str, chunk_seconds: int = 4, apply_vad: bool = False) -> dict:
@@ -241,7 +265,8 @@ def run_measurement(wav_path: str, chunk_seconds: int = 4, apply_vad: bool = Fal
         "diarization": "not invoked (harness never imports diarizer)",
         "chunk_seconds": chunk_seconds,
         "vad_backend": _VAD_BACKEND if apply_vad else "n/a",
-        "vad_and_normalization": "applied (pipeline.py steps 1.5 + 2)" if apply_vad
+        "vad_and_normalization": ("approximated (chunk-level gate, NOT pipeline.py's "
+                                  "region-stripping VAD — see _get_vad)") if apply_vad
                                  else "NOT applied — Whisper sees raw audio",
         "total_audio_s": round(total_audio_s, 2),
         "model_warm_s": round(model_warm_s, 2),
@@ -254,19 +279,29 @@ def run_measurement(wav_path: str, chunk_seconds: int = 4, apply_vad: bool = Fal
         },
         "chunked": {
             "n_chunks": len(chunks),
+            "n_steady": len(steady),
+            "normalize_failures": _NORMALIZE_FAILURES,
             "n_vad_gated": sum(1 for c in chunks if c["vad_gated"]),
             "preprocess_total_s": round(sum(c["preprocess_s"] for c in chunks), 3),
             "total_elapsed_s": round(sum(elapsed_list), 3),
             "mean_s": round(sum(elapsed_list) / len(elapsed_list), 3),
             "mean_steady_s": round(mean_steady, 3),
-            "p50_s": round(percentile(steady, 50), 3),
-            "p95_s": round(percentile(steady, 95), 3),
-            "max_s": round(max(elapsed_list), 3),
+            "p50_s": round(percentile(steady, 0.50), 3),
+            "p95_s": round(percentile(steady, 0.95), 3),
+            # Over `steady`, not `elapsed_list`: reporting a max that includes the
+            # excluded warm-up sample alongside percentiles that exclude it put a
+            # chunk-0 value in the "worst" column of the 30s rows.
+            "max_steady_s": round(max(steady), 3),
+            "chunk0_s": round(elapsed_list[0], 3),
             "words": sum(c["words"] for c in chunks),
             # The number the spec asks for: a live stream emits one chunk every
             # `chunk_seconds`, and containerConcurrency=1 means one container
             # serves one chunk at a time.
-            "sustainable_streams_per_gpu": round(chunk_seconds / mean_steady, 2),
+            # NOT a measured concurrency result. This is the sequential service-rate
+            # ceiling at 100% utilization — the point at which queue delay grows
+            # without bound. A usable stream count needs a real concurrent load test
+            # (never run) and headroom for the tail. Named accordingly after review.
+            "sequential_ceiling_streams": round(chunk_seconds / mean_steady, 2),
             "chunks": chunks,
         },
     }
