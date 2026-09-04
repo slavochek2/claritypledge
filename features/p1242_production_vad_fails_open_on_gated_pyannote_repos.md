@@ -14,14 +14,21 @@ delivery_stage: create-bug
 pipeline_ran: [create-bug]
 ---
 
-# P1242: Production VAD fails open — `hf-token` is 403 on the two gated repos `vad.py` needs
+# P1242: VAD fails open in the shipped configuration — `hf-token` is 403 on the two gated repos `vad.py` needs
 
 ## Summary
 
 `vad.py` loads `pyannote/voice-activity-detection`, which the deployed `hf-token` secret cannot
 download, so `Pipeline.from_pretrained` returns `None`, `.to()` raises, and `_apply_vad` falls back
-to un-stripped audio — meaning Whisper has been running without the silence gate P546 added to stop
-it hallucinating.
+to un-stripped audio — so whenever the pipeline runs, Whisper runs without the silence gate P546
+added to stop it hallucinating.
+
+**Strength of claim (tightened 2026-09-04 after review):** what is established is that the *shipped
+configuration* fails open, reproduced on the exact production image, secret, service account and
+env. What is NOT established is that any particular stored transcript was produced this way — no
+session has been transcribed inside the retained log window, so there is no production warning line,
+and the running revision's cached model state was never inspected. Phrase it as "fails open under
+the reproduced configuration", not "has been broken in production for N months".
 
 ## Root Cause
 
@@ -151,6 +158,8 @@ that, say what it is; otherwise keep the fallback and fix the visibility.
 - [ ] A transcription job's logs show VAD ran, naming the model it loaded
 - [ ] Re-running an archived session end-to-end produces a transcript with no `"Thank you."`
       repetitions over silent stretches, compared against the pre-fix transcript for the same session
+- [ ] The blast radius is established rather than assumed: stored transcripts are checked for the
+      hallucination signature, and the spec records how many were affected (or that none were)
 - [ ] A deliberately broken model reference fails visibly at deploy or startup, not silently per job
       (exercise the failure path and paste the non-zero exit / alert — epistemic gate 7)
 - [ ] The job still completes on un-stripped audio when VAD genuinely cannot load (P815 invariant
