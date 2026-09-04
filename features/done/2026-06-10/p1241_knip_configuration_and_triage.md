@@ -1,11 +1,11 @@
 ---
-status: backlog
+status: all-done
 type: task
 rank: 50
 tags: [cleanup, dead-code, tooling, knip]
-delivery_stage: create-spec
 pipeline_ran: [create-spec]
 created_date: 2026-09-03
+completed_at: 2026-09-04
 ---
 
 # P1241: Configure knip, then triage its findings
