@@ -34,6 +34,25 @@ interface PointConfig {
   videoUrl?: string;
   /** P1141: `{ quotes: { text, seconds }[], durationSeconds }`. Absent on pre-P1141 letters. */
   videoQuotes?: StoryVideoQuotesData;
+  /**
+   * P1212 §4b: the STORY's own author id — `stories.author_id`, sealed alongside the
+   * text it wrote.
+   *
+   * Nothing in the snapshot identified the story's author before this. The letter
+   * surface therefore derived its byline from the caller-supplied `authorName`, which
+   * is the letter's SENDER (`story-walk.tsx:95-96`: "Author of the story = sender").
+   * That is sound for a sender's own stories — the only ones `doc_stories` INSERT lets
+   * them attach (`p551_clarity_docs.sql:92-105`) — but it means the surface cannot tell
+   * a machine-authored reading from a human's, so it rendered every story as a human's.
+   * A service-role write, which the disagreement pipeline uses, bypasses that RLS
+   * entirely.
+   *
+   * ABSENT on every letter sealed before this field. Absent reads as "not an agent",
+   * which renders the letter exactly as it rendered before — a guess is the one thing
+   * this must not do, because the guess would attribute machine-written prose to a
+   * named human.
+   */
+  storyAuthorId?: string;
   points?: PointConfigPoint[];
   hidden?: string[];
   order?: string[];
@@ -178,7 +197,10 @@ export function snapshotToStoryWithPoints(
 
   return {
     id: snapshot.story_id,
-    authorId: '',
+    // P1212 §4b: the story's own author, when the snapshot carries it. Empty on letters
+    // sealed before that field existed — read as "not an agent", never guessed from the
+    // name, which belongs to the sender.
+    authorId: config.storyAuthorId ?? '',
     content: config.storyText ?? '',
     imageUrl: config.imageUrl || undefined,
     videoUrl: config.videoUrl || undefined,
@@ -226,6 +248,9 @@ export function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
       imageUrl: docStory.story.imageUrl,
       videoUrl: docStory.story.videoUrl,
       videoQuotes: docStory.story.videoQuotes,
+      // P1212 §4b: preview path mirrors what the seal RPC writes, so the builder and the
+      // reader agree on the shape — the drift between them was the root cause of P749.
+      storyAuthorId: docStory.story.authorId || undefined,
       points: docStory.story.points.map((p) => ({
         id: p.id,
         text: p.statement,

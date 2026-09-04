@@ -26,7 +26,7 @@ import { createTestStory, linkStoryToPoint, deleteTestStory } from '../helpers/t
 /**
  * P1141 amendment. `agent.name` is the STORED name (`Agent · {subject}`) and is still what
  * every aria-label interpolates — so every assertion below is unchanged. What changed is the
- * VISIBLE text: an agent is now named `Machine reading of {subject}` on every surface, so a
+ * VISIBLE text: an agent is now named `Agent on {subject}` on every surface (P1212 §2), so a
  * locator that finds a row by `hasText: agent.name` finds nothing.
  *
  * That divergence is the point of this file, not an inconvenience to paper over: display and

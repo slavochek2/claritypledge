@@ -135,6 +135,37 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     expect(screen.queryByText(POINTS[0]!.statement)).toBeNull();
   });
 
+  /**
+   * THE ASSERTION THE FOUNDER'S EYE MADE AND THIS FILE DID NOT — added 2026-09-04.
+   *
+   * Everything above pins the TRIGGER (chevron, count, aria-expanded) and that the
+   * statement TEXT appears once expanded. All of it passed while the feed rendered each
+   * linked point as a bare `<button>` of plain text — no card, no author, no affordance
+   * until hover — beside a profile surface rendering the same relation as a full quoted
+   * card, and a feed POINT card rendering ITS linked stories as `QuotedStory` cards.
+   * Screenshot 2026-09-04: "weird this is not consistent with rest?".
+   *
+   * `getByText(statement)` cannot separate those two renderings; both put the text on
+   * screen. So the assertion has to name the COMPONENT, not the string. `quoted-point-card`
+   * is emitted only by the shared component both surfaces now render through, which makes
+   * "same component" structurally true rather than asserted in prose.
+   */
+  it('expands to quoted-point CARDS, not bare text — one per linked point', () => {
+    renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
+
+    const cards = screen.getAllByTestId('quoted-point-card');
+    expect(
+      cards.length,
+      'the feed must render each linked point through the SHARED QuotedPointCard the profile uses — bare text passes every other assertion in this file',
+    ).toBe(POINTS.length);
+
+    // And the statement must live INSIDE that card, not merely somewhere on the page:
+    // a card rendered empty beside loose text would satisfy the count alone.
+    expect(cards.some((c) => c.textContent?.includes(POINTS[0]!.statement))).toBe(true);
+    expect(cards.some((c) => c.textContent?.includes(POINTS[1]!.statement))).toBe(true);
+  });
+
   it('singularises the count — "1 point", not "1 points"', () => {
     renderFeedStoryCard({ linkedPoints: [POINTS[0]!] });
     expect(screen.getByTestId('feed-story-point-expander').textContent).toContain('1 point');

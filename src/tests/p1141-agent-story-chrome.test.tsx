@@ -23,9 +23,12 @@ function wrap(ui: React.ReactNode) {
 }
 
 describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', () => {
-  it('reads `[MACHINE] reading of {Full Name}`, the UI Contract string verbatim', () => {
+  /** UI Contract string amended by FOUNDER DECISION 2026-09-04 (P1212 §2): the marker is
+   *  `AGENT`, the connective is `on`. The three-part shape is unchanged and is what these
+   *  assertions actually protect — marker, connective, full name. */
+  it('reads `[AGENT] on {Full Name}`, the UI Contract string verbatim', () => {
     wrap(<AgentByline name="Agent · Jane Doe" />);
-    expect(screen.getByTestId('agent-byline').textContent).toContain('reading of');
+    expect(screen.getByTestId('agent-byline').textContent).toContain('on');
     expect(screen.getByTestId('agent-byline-name').textContent).toBe('Jane Doe');
   });
 
@@ -39,9 +42,28 @@ describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', 
     expect(screen.getByTestId('agent-byline-name').textContent).toBe('Agentic Systems');
   });
 
-  it('carries the machine chip beside it, always', () => {
+  /** The TOKEN changed 2026-09-04 (`Machine` -> `Agent`, founder decision). The chip
+   *  itself is unchanged and must stay a bordered pill: `index.css` counts it as one of
+   *  three non-colour WCAG 1.4.1 channels, and on the feed story card it is the only
+   *  non-avatar channel present. Renaming a channel must not delete it. */
+  it('carries the disclosure chip beside it, always', () => {
     wrap(<AgentByline name="Agent · Jane Doe" />);
-    expect(screen.getByTestId('machine-chip').textContent).toBe('Machine');
+    expect(screen.getByTestId('machine-chip').textContent).toBe('Agent');
+  });
+
+  /**
+   * THE RETIRED WORDS, asserted negatively — 2026-09-04. This is the assertion that
+   * moved here out of `p1141-pipeline-rules.test.ts`'s source-grep table, which could
+   * not do it: that table `toContain`s a literal over the FILE TEXT, so during this
+   * rename its `'reading of'` case stayed green on the doc comment explaining the
+   * change while the JSX had already stopped rendering it. A grep cannot separate a
+   * rendered string from prose about that string. This can.
+   */
+  it('renders NEITHER retired word — the rename is on screen, not only in the source', () => {
+    wrap(<AgentByline name="Agent · Jane Doe" />);
+    const text = screen.getByTestId('agent-byline').textContent ?? '';
+    expect(text).not.toContain('Machine');
+    expect(text).not.toContain('reading of');
   });
 
   // Amendment 2026-08-24. The chip now LEADS the byline, so "the first span" is no longer
@@ -93,15 +115,15 @@ describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', 
     expect(screen.getByTestId('agent-byline').querySelectorAll('button')).toHaveLength(0);
   });
 
-  it('says the SAME three things at every size — `reading of` is not trimmable', () => {
-    // Dropped, the marker lands on the PERSON: `[Machine] Daniel Bar-Tal` reads as
-    // *Daniel Bar-Tal, who is a machine*. Worst on the profile header, which is the
-    // one surface `lg` exists for.
+  it('says the SAME three things at every size — the connective is not trimmable', () => {
+    // Dropped, the marker lands on the PERSON: `[Agent] Daniel Bar-Tal` reads as
+    // *Daniel Bar-Tal, who is an agent*. Worst on the profile header, which is the
+    // one surface `lg` exists for. The words changed 2026-09-04; the rule did not.
     for (const size of ['sm', 'lg'] as const) {
       const { unmount } = wrap(<AgentByline name="Agent · Jane Doe" size={size} />);
       const text = screen.getByTestId('agent-byline').textContent ?? '';
-      expect(text).toContain('Machine');
-      expect(text).toContain('reading of');
+      expect(text).toContain('Agent');
+      expect(text).toContain('on');
       expect(text).toContain('Jane Doe');
       expect(text).not.toContain('Agent ·');
       unmount();

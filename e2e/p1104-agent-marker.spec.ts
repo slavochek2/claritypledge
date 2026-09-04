@@ -68,7 +68,8 @@ async function meanSaturation(page: Page, locator: Locator): Promise<number> {
  * The row/card element carrying the drained treatment for a given person.
  *
  * P1141 amendment: takes the STORED name and filters on the DISPLAYED one. An agent is now
- * named `Machine reading of {subject}` everywhere it appears, so filtering on the raw
+ * named `Agent on {subject}` everywhere it appears (P1212 §2; was `Machine reading of`),
+ * so filtering on the raw
  * `Agent · {subject}` matches nothing. Callers keep passing `agent.name` — the stored name is
  * still the identity these tests are about, and it is still what every aria-label carries.
  */
@@ -169,7 +170,7 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await expect(page.getByText(stripAgentPrefixForTest(agent.name)).first()).toBeVisible({ timeout: 15000 });
     });
 
-    // P1141 amendment: the VISIBLE name is now `Machine reading of {subject}`; the stored
+    // P1141 amendment, reworded by P1212 §2: the VISIBLE name is now `Agent on {subject}`; the stored
     // name and every aria-label still carry `Agent · `. Renamed so the title states the
     // contract the body actually checks.
     test('renders the subject name, with the stored `Agent · ` marker stripped', async ({ page }) => {

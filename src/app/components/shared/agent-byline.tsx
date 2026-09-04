@@ -8,7 +8,7 @@ const SIZES = {
   // The connective is deliberately SMALLER than the name at lg. Set to text-xl it matched the
   // name's weight-class and, at 320px, pushed the byline to three lines with the chip stranded
   // alone on the first — the marker reading as a floating tag rather than as the sentence's
-  // subject. Dropping it one step keeps the name dominant and packs `[MACHINE] reading of` onto
+  // subject. Dropping it one step keeps the name dominant and packs `[AGENT] on` onto
   // one line.
   lg: { chip: 'lg', connective: 'text-base', name: 'text-xl' },
 } as const;
@@ -31,7 +31,7 @@ interface AgentBylineProps {
 }
 
 /**
- * P1141 — `[MACHINE] reading of {Full Name}`, with the NAME as the only link.
+ * P1141 + P1212 §2 — `[AGENT] on {Full Name}`, with the NAME as the only link.
  *
  * THE ONE PLACE AN AGENT ACCOUNT IS NAMED. Every surface that shows an agent's
  * name renders this: story bylines, the profile header, point stance rows,
@@ -62,14 +62,33 @@ interface AgentBylineProps {
  *    Without it, clicking the name navigates twice — once to the profile, once to
  *    the story.
  *
- * 4. NOT `Agent · {Name}`. "Agent" reads in English as *representative of*, which
- *    is the one implication an account bearing a real person's name must never
- *    carry. The STORED name keeps its `Agent ·` marker — the database enforces it,
+ * 4. `AGENT · on {Full Name}` — FOUNDER DECISION 2026-09-04, overruling the two
+ *    findings recorded below. Both still hold as written; the ruling is that the
+ *    preposition answers them.
+ *
+ *    The objection to the old form: "machine is not a word that people use", and
+ *    "agent reading of" is redundant. `on` survives BOTH recorded misreads — it
+ *    restores the account->subject relation a bare `·` deletes, so the marker
+ *    cannot land on the person. It is also the byline convention ("Smith on X")
+ *    and three characters shorter than `about`, which matters against the 320px
+ *    measurement recorded below.
+ *
+ *    WAS: NOT `Agent · {Name}`. "Agent" reads in English as *representative of*,
+ *    which is the one implication an account bearing a real person's name must
+ *    never carry. That risk is real and is now carried by `on` alone.
+ *
+ *    NOT CHANGED, flagged for the founder: `agent-story-footer.tsx` still reads
+ *    "A machine account operated by ClarityPledge wrote this reading of {name}".
+ *    A different disclosure level, outside the decision taken — so "machine" now
+ *    appears there and nowhere else on the surface.
+ *
+ *    The STORED name keeps its `Agent ·` marker — the database enforces it,
  *    and it is what reaches off-platform surfaces and aria-labels, which is why
  *    `stripAgentPrefix` is applied here at render rather than at the source.
  *
- * And `reading of` is not trimmable, at any size. Dropped, the marker lands on the
- * PERSON — `[Machine] Daniel Bar-Tal` reads as *Daniel Bar-Tal, who is a machine*
+ * And the CONNECTIVE — `on` since 2026-09-04, `reading of` before — is not trimmable
+ * at any size. Dropped, the marker lands on the
+ * PERSON — `[Agent] Daniel Bar-Tal` reads as *Daniel Bar-Tal, who is an agent*
  * rather than as an account that reads him. That misread is worst on the profile
  * header, the one surface whose whole job is identity and the one most likely to
  * be mistaken for the subject's own account, which is why `lg` carries the same
@@ -93,7 +112,7 @@ export function AgentByline({ name, onNameClick, size = 'sm', className = '' }: 
     // It now leads, so it is also the last thing a squeeze can reach.
     //
     // `flex-wrap` is the fix for what leading the chip COST. With the chip and
-    // "reading of" both shrink-0 ahead of it, the name was the only flexible item
+    // the connective both shrink-0 ahead of it, the name was the only flexible item
     // left and absorbed the whole squeeze: measured at 375px it truncated to
     // "Daniel Bar-…" (scrollWidth 107 vs clientWidth 102) and at 320px to "Dan…".
     // Two blind reviewers independently called that the worst thing on the page —
@@ -107,7 +126,7 @@ export function AgentByline({ name, onNameClick, size = 'sm', className = '' }: 
       data-byline-size={size}
     >
       <MachineChip size={s.chip} className="shrink-0" />
-      <span className={`shrink-0 font-normal text-muted-foreground ${s.connective}`}>reading of</span>
+      <span className={`shrink-0 font-normal text-muted-foreground ${s.connective}`}>on</span>
       {onNameClick ? (
         <button
           type="button"

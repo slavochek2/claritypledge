@@ -21,6 +21,8 @@ import { storyTextForDisplay } from '@/lib/story-quotes';
 import { InlineVisibilityIcon } from '@/app/components/shared';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { AgentByline } from '@/app/components/shared/agent-byline';
+import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
+import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
 import { normalizeVideoQuotes } from '@/lib/video';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
 
@@ -240,19 +242,30 @@ export function FeedStoryCard({ story, activeTag, linkedPoints }: FeedStoryCardP
             <span className="text-sm text-muted-foreground">0 points</span>
           )}
 
+          {/* The expanded content renders through the SAME shared component the profile
+              uses (extracted from `profile-page-v2.tsx` for exactly this). The first §5
+              pass matched only the TRIGGER and rendered the points as bare `<button>`
+              text here — no card, no author, no affordance until hover — beside a profile
+              rendering full quoted cards and a feed POINT card rendering `QuotedStory`
+              cards. Every assertion in the parity suite passed on that, because they all
+              looked for the statement STRING. Founder, from a screenshot: "weird this is
+              not consistent with rest?". */}
           {pointsExpanded && linkedPoints.length > 0 && (
-            <ul className="flex flex-col gap-1.5 pl-5">
-              {linkedPoints.map((point) => (
-                <li key={point.id}>
-                  <button
-                    onClick={() => navigate(`/point/${point.id}`)}
-                    className="text-left text-sm text-foreground hover:text-blue-600 transition-colors break-words min-h-[40px] w-full"
-                  >
-                    {point.statement}
-                  </button>
-                </li>
+            <ThreadLineGroup>
+              {linkedPoints.map((point, index) => (
+                <ThreadLineItem key={point.id} isLast={index === linkedPoints.length - 1}>
+                  <QuotedPointCard
+                    point={point}
+                    authorId={story.authorId}
+                    authorName={story.authorName}
+                    authorAvatarUrl={story.authorAvatarUrl ?? undefined}
+                    authorAvatarColor={story.authorAvatarColor}
+                    authorEarCount={story.authorEarsCount ?? 0}
+                    authorHasPledged={story.authorHasPledged ?? false}
+                  />
+                </ThreadLineItem>
               ))}
-            </ul>
+            </ThreadLineGroup>
           )}
         </div>
       )}

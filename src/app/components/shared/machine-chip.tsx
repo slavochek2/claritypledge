@@ -6,7 +6,7 @@
  * glance which words a machine wrote.
  *
  * SIZES. The chip is not decoration that can be scaled freely: it is the
- * grammatical subject of the sentence it leads (`[Machine] reading of {Name}`),
+ * grammatical subject of the sentence it leads (`[Agent] on {Name}`),
  * so it has to sit on the same optical line as the text beside it. `sm` is
  * tuned to 14px byline text; `lg` to the 20px bold `h2` in the profile header.
  * Same border, same palette, same radius in both — a reader must read them as
@@ -30,7 +30,7 @@ export function MachineChip({
       data-chip-size={size}
       className={`inline-flex shrink-0 whitespace-nowrap items-center rounded-full border border-gray-300 font-medium uppercase tracking-wide text-gray-600 dark:border-gray-600 dark:text-gray-400 ${SIZES[size]} ${className}`}
     >
-      Machine
+      Agent
     </span>
   );
 }

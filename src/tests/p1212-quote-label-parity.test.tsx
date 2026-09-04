@@ -308,7 +308,7 @@ function renderAgentLetter() {
  * migration. These assertions are the acceptance criteria for that branch, written before
  * the decision so they cannot be shaped by it.
  */
-describe.skip('P1212 §4b — the letter surface carries the agent contract [BLOCKED: founder decision]', () => {
+describe('P1212 §4b — the letter surface carries the agent contract', () => {
   it('renders the byline component, not the raw stored name', () => {
     renderAgentLetter();
     expect(screen.getByTestId('agent-byline')).toBeTruthy();
@@ -337,5 +337,67 @@ describe.skip('P1212 §4b — the letter surface carries the agent contract [BLO
   it('an agent letter shows no ear count — a machine account holds no reputation', () => {
     renderAgentLetter();
     expect(screen.queryByTestId('ear-badge')).toBeNull();
+  });
+});
+
+/**
+ * THE SEAM NOTHING TESTED — added 2026-09-04, after a known-bad control failed.
+ *
+ * The §4b block above renders `LiveStoryCardExpanded` with `authorId: 'agent-1'` INJECTED
+ * into its props. That verifies the component renders an agent correctly when handed one.
+ * It cannot verify that the sealed snapshot SUPPLIES one — the mapper is never called.
+ *
+ * Measured: deleting the mapper's `config.storyAuthorId` read entirely left all 32 tests
+ * in this file green. The block was un-gated as the acceptance criteria for the snapshot
+ * field, and would have shipped certifying a mechanism it does not touch. Same shape as
+ * this spec's canaries (satisfiable by a comment) and its expander-parity suite
+ * (satisfiable by bare text): the assertion sat one layer away from the change.
+ *
+ * These four call the mapper directly, so breaking it breaks them.
+ */
+describe('P1212 §4b — the MAPPER carries the story author out of the snapshot', () => {
+  const baseSnapshot = {
+    story_id: 'story-9',
+    visibility: 'public' as const,
+    point_config: {},
+  };
+
+  it('propagates storyAuthorId from the snapshot into authorId', () => {
+    const story = snapshotToStoryWithPoints(
+      { ...baseSnapshot, point_config: { storyText: 'x', storyAuthorId: 'agent-1' } } as never,
+      { name: 'Human Sender' }
+    );
+    expect(story.authorId).toBe('agent-1');
+  });
+
+  it('does NOT fall back to the sender when the field is present', () => {
+    const story = snapshotToStoryWithPoints(
+      { ...baseSnapshot, point_config: { storyText: 'x', storyAuthorId: 'agent-1' } } as never,
+      { name: 'Human Sender' }
+    );
+    expect(story.authorId).not.toBe('Human Sender');
+    expect(story.authorName).toBe('Human Sender');
+  });
+
+  /** Pre-§4b letters legitimately carry no author id. Absent must read as "not an agent",
+   *  never as a guess from the sender's name — the one outcome that would brand a human. */
+  it('leaves authorId empty on a letter sealed before the field existed', () => {
+    const story = snapshotToStoryWithPoints(
+      { ...baseSnapshot, point_config: { storyText: 'x' } } as never,
+      { name: 'Human Sender' }
+    );
+    expect(story.authorId).toBe('');
+  });
+
+  it('keeps the P1141 fields the same replace has dropped three times', () => {
+    const story = snapshotToStoryWithPoints(
+      {
+        ...baseSnapshot,
+        point_config: { storyText: 'x', storyAuthorId: 'agent-1', videoUrl: 'https://youtu.be/a', imageUrl: 'https://i/x.png' },
+      } as never,
+      { name: 'Human Sender' }
+    );
+    expect(story.videoUrl).toBe('https://youtu.be/a');
+    expect(story.imageUrl).toBe('https://i/x.png');
   });
 });

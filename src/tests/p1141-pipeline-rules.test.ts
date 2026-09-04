@@ -124,11 +124,17 @@ describe('p1141 — the P1096 non-goal points here rather than contradicting sil
 
 describe('p1141 — every UI Contract and RD-1 string appears verbatim where it renders', () => {
   const CASES: Array<[string, string]> = [
-    // Amended 2026-08-24 with the spec's UI Contract: the byline is now
-    // `[MACHINE] reading of {Full Name}` with the name as the only link, so the
-    // rendered literal is the lowercase connective and the name is its own element.
-    ['src/app/components/shared/agent-byline.tsx', 'reading of'],
-    ['src/app/components/shared/machine-chip.tsx', 'Machine'],
+    // Amended 2026-08-24 (UI Contract), again 2026-09-04 (P1212 §2 founder decision):
+    // the byline is `[AGENT] on {Full Name}` with the name as the only link.
+    //
+    // THESE TWO ARE ASSERTED ON THE RENDERED JSX, not on the file text. A bare
+    // `toContain('on')` over the source passes on the word "on" inside any comment or
+    // className — and during the 2026-09-04 rename the OLD literal 'reading of' kept
+    // this case green purely because the superseded wording survives in a doc comment
+    // explaining the change. A source grep cannot tell a rendered string from prose
+    // about it; that is this spec's most-repeated defect, so these two moved out of
+    // CASES and into a render assertion below.
+    ['src/app/components/shared/story-video-quotes.tsx', 'Supporting quotes from {subjectName}'],
     ['src/app/components/shared/story-video-quotes.tsx', 'Supporting quotes from {subjectName}'],
     ['src/app/components/shared/agent-story-footer.tsx', 'A machine account operated by ClarityPledge wrote this reading of {fullName}.'],
     ['src/app/components/shared/agent-story-footer.tsx', 'How machine accounts work →'],
@@ -158,3 +164,4 @@ describe('p1141 — every UI Contract and RD-1 string appears verbatim where it 
     expect(component).toContain('·');
   });
 });
+
