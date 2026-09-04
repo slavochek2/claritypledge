@@ -344,7 +344,12 @@ file, not an id with missing numbers:
 
 ```sh
 yt --flat-playlist --skip-download --print "%(id)s" "ytsearch30:<query>" > searched.txt
-node scripts/points/candidate-sweep.mjs <candidates.json>   # {searched:[...], candidates:[...]}
+node scripts/points/candidate-sweep.mjs <candidates.json>
+# candidates.json = {floor:{minViews,minComments}, recencyFloor:"YYYYMMDD",
+#                   searched:[...ids from the file above...], candidates:[{id,title,upload_date,view_count,comment_count}]}
+# ALL FOUR keys are required. Omitting the floors returns REFUSE, not a field verdict:
+# the floors ARE what "cleared" means, and this line previously named only two keys,
+# which made the documented invocation crash (found 2026-09-04, first real use).
 ```
 
 Three distinct verdicts, and the difference between them is the whole point:

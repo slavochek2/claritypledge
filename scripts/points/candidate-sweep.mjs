@@ -45,6 +45,28 @@ const num = v => (Number.isFinite(v) ? v : null)
  */
 export function run(input) {
   const { floor, recencyFloor, searched, candidates = [] } = input
+
+  // A CRASH IS NOT A VERDICT. Found 2026-09-04 on this predicate's first real
+  // use: `select.md` documented the input as `{searched, candidates}` and said
+  // nothing about the floors, so the documented invocation threw a TypeError on
+  // `floor.minViews` instead of returning one of the three verdicts. Every
+  // fixture supplied `floor`, so `verify-all` stayed green — the fixtures
+  // modelled what the docs omit, which is epistemic gate 7b in one line.
+  // Missing floors mean there is no measurement standard, and a field verdict
+  // with no standard behind it is exactly the unmeasured claim this file exists
+  // to refuse.
+  const badFloor = !floor || num(floor.minViews) === null || num(floor.minComments) === null
+  if (badFloor || !recencyFloor) {
+    const missing = [
+      badFloor ? 'floor {minViews, minComments}' : null,
+      !recencyFloor ? 'recencyFloor (YYYYMMDD)' : null,
+    ].filter(Boolean).join(' and ')
+    return {
+      ok: false, verdict: 'REFUSE', unmeasured: [], dropped: [],
+      detail: `REFUSE — no measurement standard supplied: missing ${missing}. The floors are what "cleared" and "did not clear" mean; without them this sweep cannot classify anything and no field verdict may rest on it.`,
+    }
+  }
+
   if (!candidates.length) {
     return { ok: false, verdict: 'REFUSE', unmeasured: [], dropped: [], detail: 'REFUSE — empty candidate list: a sweep that examined nothing cannot report a field as exhausted.' }
   }

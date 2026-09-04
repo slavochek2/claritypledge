@@ -74,3 +74,39 @@ describe('candidate-sweep — exclusions must be measured, not eyeballed', () =>
     expect(r.unmeasured ?? []).toHaveLength(0)
   })
 })
+
+describe('candidate-sweep: a crash is not a verdict (found 2026-09-04, first real use)', () => {
+  const body = {
+    searched: ['aaa111'],
+    candidates: [{ id: 'aaa111', upload_date: '20260304', view_count: 785823, comment_count: 8700 }],
+  }
+
+  it('the shape select.md documented — no floors — REFUSES instead of throwing', () => {
+    // select.md said `{searched:[...], candidates:[...]}`. That input dereferenced
+    // floor.minViews and threw a TypeError. Every fixture supplied `floor`, so
+    // verify-all stayed green over an invocation the docs made impossible.
+    expect(() => run(body as never)).not.toThrow()
+    const r = run(body as never)
+    expect(r.ok).toBe(false)
+    expect(r.verdict).toBe('REFUSE')
+    expect(r.detail).toMatch(/no measurement standard/i)
+  })
+
+  it('names BOTH missing halves, so the caller knows what to supply', () => {
+    const r = run(body as never)
+    expect(r.detail).toContain('floor {minViews, minComments}')
+    expect(r.detail).toContain('recencyFloor')
+  })
+
+  it('a floor present but non-numeric is refused too, not silently coerced', () => {
+    const r = run({ ...body, floor: { minViews: '2000', minComments: 50 }, recencyFloor: '20251127' } as never)
+    expect(r.verdict).toBe('REFUSE')
+    expect(r.detail).toMatch(/floor \{minViews, minComments\}/)
+  })
+
+  it('with both floors supplied the same body still classifies normally', () => {
+    const r = run({ ...body, floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127' } as never)
+    expect(r.ok).toBe(true)
+    expect(r.verdict).toBe('FIELD-NON-EMPTY')
+  })
+})
