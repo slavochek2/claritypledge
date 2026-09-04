@@ -58,6 +58,28 @@ exit 0
 HOOK
 chmod +x "$T/work/.git/hooks/pre-push"
 
+# has_in_fn <function-name> <pattern> [--fixed]
+# Counts matches inside a function body WITHOUT `pipeline | grep -q`. Under the
+# `set -uo pipefail` above, `awk … | grep -q X` is a RACE: grep -q exits on the first
+# match, and if awk is still writing it takes SIGPIPE (141), pipefail promotes that to
+# a pipeline failure, and a condition that genuinely matched reports false. Measured
+# 2026-09-04: the same suite returned 26/1, 26/1, then 27/0 on three consecutive runs.
+# A flaky gate is worse than no gate — it teaches you to re-run until green.
+# Comment lines are stripped before matching. A check that forbids a construct will
+# almost always be accompanied by a comment NAMING that construct to explain the ban,
+# and matching the explanation is a false positive that has now fired twice here
+# (the `${2:-…}` check and the PIPESTATUS check both flagged their own rationale).
+has_in_fn() {
+  local fn="$1" pat="$2" mode="${3:-}" body
+  body="$(awk -v f="^${fn}\\(\\)" '$0 ~ f {n=1} n {print} n && /^}/ {exit}' "$G" \
+          | sed 's/^[[:space:]]*#.*//')"
+  if [[ "$mode" == "--fixed" ]]; then
+    [[ "$(grep -cF -- "$pat" <<< "$body")" -gt 0 ]]
+  else
+    [[ "$(grep -c -- "$pat" <<< "$body")" -gt 0 ]]
+  fi
+}
+
 echo "── Test 1: the pre-push gate still fires on a SHA refspec ──"
 # pre-push-checks.sh gates every layer on remote_ref == refs/heads/main (:88, :213)
 # and never uses local_ref (read at :57/:87/:212, unused). If a SHA source ref
@@ -172,15 +194,23 @@ else
   # Comment lines are excluded: the function's own comment quotes the forbidden
   # `${2:-$(git rev-parse HEAD)}` shape to explain why it is banned, and an earlier
   # version of this check flagged that explanation as the violation.
-  if awk '/^print_staging_hop\(\)/,/^}/' "$G" \
-     | sed 's/^[[:space:]]*#.*//' | grep -q '\${2:-[^}]'; then
+  HOP_BODY="$(awk '/^print_staging_hop\(\)/,/^}/' "$G" | sed 's/^[[:space:]]*#.*//')"
+  if [[ "$(grep -c '\${2:-[^}]' <<< "$HOP_BODY")" -gt 0 ]]; then
     bad "print_staging_hop has a \${2:-…} default — it must require the snapshot arg"
   else
     ok "print_staging_hop requires its snapshot arg (no HEAD fallback)"
   fi
-  HOP_CALLS_1ARG="$(grep -n 'print_staging_hop[[:space:]]' "$G" \
-    | grep -v '^\s*[0-9]*:\s*#' \
-    | awk -F'print_staging_hop' '{ n=split($2, a, "\""); if (n < 5) print }' || true)"
+  # Require a SECOND argument structurally, not by counting quote characters. The
+  # quote-count proxy false-passed on the one caller that matters most: git-ops.sh's
+  # commit-to-main hop passes `"doc-$( … "$_hop_snap" )" "$_hop_snap"`, whose first
+  # argument contains embedded quotes — strip its second arg and the line still carries
+  # 6 quotes, sailing past a `< 5` test. Match instead: after the function name there
+  # must be a token, then whitespace, then a final quoted variable at end of line.
+  # `print_staging_hop "$pn"` has no token before its final quoted var, so it fails.
+  HOP_CALL_LINES="$(grep -n 'print_staging_hop[[:space:]]' "$G" \
+    | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*#' \
+    | grep -v 'print_staging_hop()' || true)"
+  HOP_CALLS_1ARG="$(grep -v -E 'print_staging_hop[[:space:]]+[^[:space:]].*[[:space:]]"\$[A-Za-z_][A-Za-z0-9_]*"[[:space:]]*$' <<< "$HOP_CALL_LINES" || true)"
   [[ -z "$HOP_CALLS_1ARG" ]] \
     && ok "every print_staging_hop caller passes a snapshot SHA" \
     || bad "print_staging_hop caller(s) missing the snapshot arg:"$'\n'"$HOP_CALLS_1ARG"
@@ -194,6 +224,52 @@ else
   fi
 fi
 
+echo "── Test 7: a leaked staging branch already at our snapshot is deleted, not no-op'd ──"
+# The retreat made this the common case: every aborted run leaks staging/doc-<sha>,
+# and Step 0 then re-selects that exact SHA on the next run. Pushing the same SHA onto
+# an existing ref is a no-op — no push event, no audit-privacy run, and the poll waits
+# out MAX_WAIT for a run that cannot exist. Observed live 2026-09-04: a run retreated
+# to bb04591ce while staging/doc-bb04591ce sat on origin at bb04591ce.
+NOOP_OUT="$(git push origin "${SNAP2}:refs/heads/main" --force-with-lease 2>&1 || true)"  # already there from Test 2
+if grep -qi 'up-to-date' <<< "$NOOP_OUT"; then
+  ok "RED control: pushing an already-present SHA is a no-op ('up-to-date') — no event would fire"
+else
+  bad "RED control failed to reproduce the no-op (got: ${NOOP_OUT:0:80}) — Test 7 proves nothing"
+fi
+if has_in_fn cmd_push_docs 'push origin --delete "${staging_branch}"' --fixed; then
+  ok "cmd_push_docs deletes a leaked staging branch before pushing"
+else
+  bad "cmd_push_docs does NOT delete a leaked staging branch — a retreat onto one hangs until MAX_WAIT (same sha) or gets a narrow-range scan (different sha)"
+fi
+# Test the PROPERTY, not the absence of a word. The previous version grepped for the
+# string "PIPESTATUS" and passed on a file that still contained a raw piped, unchecked
+# `ls-remote | awk` in the --resume path — a defect fixed in one site and left in its
+# sibling, which is the exact class-vs-instance failure decisions.md warns about.
+# Every remote lookup must go through the one helper that checks its own exit status.
+RAW_LSREMOTE="$(grep -n "ls-remote" "$G" \
+  | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*#' \
+  | grep -v 'remote_branch_sha' \
+  | awk -F: '$1 < '"$(grep -n '^remote_branch_sha()' "$G" | cut -d: -f1)"' || $1 > '"$(( $(grep -n '^remote_branch_sha()' "$G" | cut -d: -f1) + 12 ))"'' || true)"
+[[ -z "$RAW_LSREMOTE" ]] \
+  && ok "every remote lookup goes through remote_branch_sha (status-checked, retried)" \
+  || bad "raw ls-remote outside the helper — its exit status is unchecked:"$'\n'"$RAW_LSREMOTE"
+
+if grep -q '^remote_branch_sha()' "$G"; then
+  ok "remote_branch_sha helper exists"
+else
+  bad "remote_branch_sha helper is gone — the two lookup sites will drift apart again"
+fi
+
+# BLOCKER: the reconcile must delete whenever the branch EXISTS, not only when it sits
+# at our snapshot. A leaked branch at a DIFFERENT sha makes the push a real ref update,
+# so the event carries BEFORE=<old> instead of 0000 and privacy-scan.yml runs a NARROW
+# range — a green check on a range nobody intended, past the required check.
+if has_in_fn cmd_push_docs 'if [[ -n "$existing_staging_sha" ]]; then' --fixed; then
+  ok "the reconcile deletes a leaked staging branch at ANY sha, not only a matching one"
+else
+  bad "the reconcile only handles the equal-sha case — a leaked branch at a different sha yields a narrow-range scan"
+fi
+
 echo "── Test 6: the CI freshness baseline is stamped BEFORE the staging push ──"
 # The guard rejects a check-run whose started_at pre-dates PUSH_EPOCH. GitHub starts
 # the workflow when the ref lands — DURING the push — so a baseline stamped after the
@@ -205,6 +281,15 @@ echo "── Test 6: the CI freshness baseline is stamped BEFORE the staging pus
 for fn in cmd_push_docs cmd_ship_to_prod; do
   BODY="$(awk -v f="^${fn}\\\\(\\\\)" '$0 ~ f {n=NR} n && NR>=n {print NR": "$0}' "$G" \
           | awk '/^[0-9]+: }$/{print; exit} {print}')"
+  # Count FIRST, then compare position. `head -1` alone only ever sees the earliest
+  # stamp, so re-adding a second stamp after the push — the literal regression this
+  # test exists to catch — leaves the ordering check green while the value the poll
+  # actually uses is the late one. Demonstrated with a running mutant 2026-09-04.
+  EPOCH_COUNT="$(echo "$BODY" | grep -c 'PUSH_EPOCH="\$(date' || true)"
+  if [[ "$EPOCH_COUNT" -ne 1 ]]; then
+    bad "$fn: expected exactly ONE PUSH_EPOCH stamp, found ${EPOCH_COUNT} — a second stamp after the push silently wins"
+    continue
+  fi
   EPOCH_LN="$(echo "$BODY" | grep -n 'PUSH_EPOCH="\$(date' | head -1 | cut -d: -f1)"
   PUSH_LN="$(echo "$BODY" | grep -n 'push origin "\${local_sha}:refs/heads/\${staging_branch}"' | head -1 | cut -d: -f1)"
   if [[ -z "$EPOCH_LN" || -z "$PUSH_LN" ]]; then
@@ -342,7 +427,11 @@ else
 
   run_resume() {  # $1 = state file content ("" = no file); echoes "<sha> <branch>"
     ( set -uo pipefail
-      die() { echo "DIED: $*" >&2; exit 9; }
+      # The real `die`, sourced rather than restated (Reference Over Duplication): a
+      # hand-written stub silently stops matching if `die` ever gains cleanup or a
+      # different exit code, and the assertions would then be testing the stub.
+      eval "$(awk '/^die\(\) \{/,/^\}/' "$REPO_ROOT_REAL/scripts/git-ops.sh")"
+      type die >/dev/null 2>&1 || { echo "could not source die" >&2; exit 3; }
       REPO_ROOT="$F"; cd "$F"
       resume=1
       resume_state="$T/state"
@@ -362,19 +451,19 @@ else
     || bad "resume replay: got '$r', expected '$OLDSNAP $OLDBRANCH rc=0'"
 
   r="$(run_resume ""; echo "rc=$?")"
-  [[ "$r" == *"rc=9" ]] \
+  [[ "$r" == *"rc=1" ]] \
     && ok "no run state: dies with a clear message rather than inventing a snapshot" \
-    || bad "resume with no state: got '$r', expected a die (rc=9)"
+    || bad "resume with no state: got '$r', expected a die (rc=1)"
 
   r="$(run_resume "not-a-sha somebranch"; echo "rc=$?")"
-  [[ "$r" == *"rc=9" ]] \
+  [[ "$r" == *"rc=1" ]] \
     && ok "malformed run state: dies (fails closed)" \
-    || bad "resume with malformed state: got '$r', expected a die (rc=9)"
+    || bad "resume with malformed state: got '$r', expected a die (rc=1)"
 
   r="$(run_resume "$(printf '%040d' 0) somebranch"; echo "rc=$?")"
-  [[ "$r" == *"rc=9" ]] \
+  [[ "$r" == *"rc=1" ]] \
     && ok "run state naming a SHA this repo does not have: dies (fails closed)" \
-    || bad "resume with unknown SHA: got '$r', expected a die (rc=9)"
+    || bad "resume with unknown SHA: got '$r', expected a die (rc=1)"
 fi
 
 echo

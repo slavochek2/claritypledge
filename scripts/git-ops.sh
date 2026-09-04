@@ -1052,8 +1052,15 @@ print_staging_hop() {
   # resolve HEAD with no lock held and print a SHA that may already include co-tenant
   # commits the caller never verified. Failing loudly beats printing a wrong SHA that
   # a human will paste into a promote.
+  # Loud, but NOT `die`. All three call sites run AFTER release_main_lock and
+  # `trap - EXIT` — main has already moved and the ship/commit has fully landed. `die`
+  # exits 1, which would turn a COMPLETED operation into a failure the caller may retry.
+  # Loudness was the right instinct; the exit code was not.
   if [[ -z "${2:-}" ]]; then
-    die "print_staging_hop: snapshot SHA (arg 2) is required — pass the SHA the caller verified, never a live HEAD read."
+    echo "  ❌ print_staging_hop: snapshot SHA (arg 2) is required — pass the SHA the caller" >&2
+    echo "     verified, never a live HEAD read. The work above SUCCEEDED; only this" >&2
+    echo "     guidance block is missing. Derive the hop by hand from the commit you just made." >&2
+    return 1
   fi
   local snap="$2"
   cat >&2 <<EOF
@@ -3323,8 +3330,15 @@ cmd_ship_to_prod() {
 
   while (( waited < MAX_WAIT )); do
     local check_run
+    # NEWEST matching run, not an arbitrary first one. A single SHA can carry several
+    # `audit-privacy` runs — a prior aborted attempt, or a `pull_request`-event run whose
+    # scan range differs (decisions.md 2026-09-01). `head -1` re-picked the same possibly
+    # stale one every poll and spun to MAX_WAIT while a fresh green run existed on the
+    # SHA — indistinguishable from the ordering bug fixed above, and a second live path
+    # to the identical symptom.
     check_run="$(gh api "repos/:owner/:repo/commits/${local_sha}/check-runs" \
-      --jq ".check_runs[] | select(.name == \"${CHECK_NAME}\")" 2>/dev/null | head -1)"
+      --jq "[.check_runs[] | select(.name == \"${CHECK_NAME}\")] | sort_by(.started_at) | last" 2>/dev/null)"
+    [[ "$check_run" == "null" ]] && check_run=""
 
     if [[ -z "$check_run" ]]; then
       echo "  ... check run not yet registered (${waited}s elapsed, waiting...)" >&2
@@ -3349,7 +3363,15 @@ cmd_ship_to_prod() {
       continue
     fi
 
-    if (( started_epoch > 0 && started_epoch < PUSH_EPOCH )); then
+    # CROSS-CLOCK COMPARE, stated plainly: PUSH_EPOCH is this machine's `date +%s`;
+    # started_epoch is GitHub's clock. Stamping PUSH_EPOCH before the push buys the
+    # transfer duration as slack, and nothing at all against clock skew — if this Mac
+    # runs ahead of GitHub by more than the push takes, the poll rejects its own green
+    # scan again. So allow a tolerance. It cannot admit a genuinely stale run: those are
+    # minutes to hours old (a prior aborted attempt), far outside this window, and the
+    # `head_sha != local_sha` guard below independently excludes every other SHA.
+    local CLOCK_SKEW_TOLERANCE=180
+    if (( started_epoch > 0 && started_epoch < PUSH_EPOCH - CLOCK_SKEW_TOLERANCE )); then
       echo "  ... check run pre-dates our push (stale run) -- waiting for fresh run..." >&2
       sleep "$POLL_INTERVAL"
       waited=$((waited + POLL_INTERVAL))
@@ -3427,6 +3449,35 @@ cmd_ship_to_prod() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
   echo "  ship-to-prod complete. ${pn} is live on claritypledge.com." >&2
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+}
+
+# remote_branch_sha <branch> — echo the SHA origin has for refs/heads/<branch>, or
+# nothing if the branch does not exist. Returns non-zero ONLY when origin could not be
+# reached (after one retry), so callers can tell "no such branch" from "no answer".
+#
+# ls-remote runs UNPIPED so `$?` is its own. The earlier version of this used
+# `${PIPESTATUS[0]:-0}` after the assignment and fell through fail-open; the comment
+# that shipped with it blamed command substitution and was FALSE — verified 2026-09-04
+# in bash, `x="$(false | awk ...)"` leaves PIPESTATUS[0]=1 and a failed ls-remote
+# leaves 128. Two real reasons it broke: (1) PIPESTATUS is clobbered by the NEXT
+# command, and a `local st` declaration between the assignment and the read resets it
+# to 0 — which is the shape that shipped; (2) the "verifying" experiment was run in
+# zsh, where PIPESTATUS is unset entirely (zsh uses lowercase `pipestatus`), while the
+# script under test is bash. Checking bash semantics in zsh is not verification.
+#
+# Why this is a function and not two inline copies: the piped-and-unchecked form
+# survived in the --resume path after being fixed in the reconcile, and the canary
+# check for it grepped for the ABSENCE of a string rather than the presence of the
+# property, so it passed on a file that still contained the bug.
+remote_branch_sha() {
+  local br="$1" out
+  if ! out="$(git -C "$REPO_ROOT" ls-remote origin "refs/heads/${br}" 2>/dev/null)"; then
+    if ! out="$(git -C "$REPO_ROOT" ls-remote origin "refs/heads/${br}" 2>/dev/null)"; then
+      return 1
+    fi
+  fi
+  awk '{print $1}' <<< "$out"
+  return 0
 }
 
 # ── cmd_push_docs ─────────────────────────────────────────────────────────────
@@ -3655,7 +3706,6 @@ cmd_push_docs() {
   # CI timeout, red check, lapsed push-on, a killed terminal — is resumable. Written
   # before the push, not after, because the push itself is one of the things that can
   # fail after creating the ref.
-  printf '%s %s\n' "$local_sha" "$staging_branch" > "$resume_state"
   if (( resume )); then
     # Delete the leftover staging branch so the re-push below CREATES the ref again.
     # This is the whole mechanism: pushing the same SHA onto an existing branch is a
@@ -3672,7 +3722,12 @@ cmd_push_docs() {
     # nothing ever scanned. The freshness guard in the poll below is what binds the
     # verdict to OUR full-range push; it stays enforced on every path.
     local remote_staging_sha
-    remote_staging_sha="$(git -C "$REPO_ROOT" ls-remote origin "refs/heads/${staging_branch}" 2>/dev/null | awk '{print $1}')"
+    if ! remote_staging_sha="$(remote_branch_sha "$staging_branch")"; then
+      # Distinguish "cannot reach origin" from "branch is gone". Conflating them told
+      # the founder to drop --resume on a transient network blip, and dropping --resume
+      # is exactly what orphans the branch permanently.
+      die "push-docs --resume: cannot reach origin to look up ${staging_branch}. This is NOT 'the branch is gone' — do not drop --resume; retry when the network is back."
+    fi
     if [[ -z "$remote_staging_sha" ]]; then
       die "push-docs --resume: no staging branch ${staging_branch} on origin — drop --resume to start a normal run."
     fi
@@ -3687,13 +3742,78 @@ cmd_push_docs() {
   # local command returns — so a baseline taken afterwards is later than our own
   # check-run's started_at. The poll below then rejects its own scan as "pre-dates
   # our push (stale run)", waits for a fresh run that will never be created, and
-  # dies at MAX_WAIT with the scan sitting green on origin. Observed 2026-09-04:
-  # audit-privacy started 09:39:13 and concluded SUCCESS at 09:47:53 on the pinned
-  # snapshot, and the run still failed with origin/main unmoved. The bigger the
+  # dies at MAX_WAIT with the scan sitting green on origin. Observed 2026-09-04 on the
+  # pinned snapshot 20e894b89: `audit-privacy` started 09:39:13 and concluded SUCCESS at
+  # 09:47:53, yet push-docs died and origin/main did not move. Precisely: `goal-gate`
+  # also ran on that SHA and concluded FAILURE at 09:50:27 — it is NOT the explanation,
+  # because the `main-privacy-gate` ruleset requires only the `audit-privacy` context
+  # (verified against the live ruleset), so a red goal-gate cannot block the promote.
+  # Named here because the two failures sat in the same evidence and only one is ours. The bigger the
   # push, the longer the transfer, the more certain the misordering — which is why
   # this bites hardest exactly when the backlog is worst.
   # Taking it early is strictly safer: a check-run started before we pushed is
   # still correctly rejected, which is all the guard was ever for.
+  # A staging branch left on origin under our name is a trap in BOTH directions, so
+  # delete it whenever it exists — not only when it matches our snapshot.
+  #
+  #  - Same SHA: pushing it again is a no-op update ("Everything up-to-date"), so no
+  #    ref changes. GitHub creates workflow runs from ref updates, so no push event and
+  #    no audit-privacy run; the poll then waits out MAX_WAIT for a run that cannot
+  #    exist. (The local no-op is verified by the canary's RED control; that the event
+  #    does not fire is inference from GitHub's documented push-event semantics plus
+  #    the --resume mechanism below, which exists for precisely this reason.)
+  #  - DIFFERENT SHA: worse, and the reason this is unconditional. The push succeeds as
+  #    a real ref update, so the event carries BEFORE=<old sha> rather than 0000, and
+  #    privacy-scan.yml computes its range from the event — yielding a NARROW scan
+  #    instead of the full origin/main..AFTER. A green check is a verdict on a RANGE,
+  #    not on a SHA (decisions.md 2026-09-01), so content nothing scanned would pass
+  #    the required check. Needs a --short abbreviation collision to happen (git widens
+  #    abbreviations as the repo grows), so it is unlikely — and unbounded if it does.
+  #
+  # --resume already deletes unconditionally; the normal path now matches it. This is
+  # reachable at all because the Step-0 retreat re-selects the stamp SHA, and every
+  # aborted run leaks a branch named from it. Observed live 2026-09-04.
+  #
+  # SAFETY NOTE: deleting a branch another session may own is prevented by main.lock,
+  # acquired above and held through the promote — a co-tenant push-docs blocks at its
+  # 120s timeout and never reaches here. If the lock is ever released across the CI
+  # poll (a real contention cost recorded in decisions.md 2026-09-01), THIS DELETE
+  # BECOMES UNSAFE and needs its own ownership check. Do not release that lock without
+  # revisiting this block.
+  if (( ! resume )); then
+    local existing_staging_sha
+    if ! existing_staging_sha="$(remote_branch_sha "$staging_branch")"; then
+      die "push-docs: cannot reach origin to check for an existing ${staging_branch} — refusing to push blind into a possible no-op or a narrow-range scan."
+    fi
+    if [[ -n "$existing_staging_sha" ]]; then
+      echo "push-docs [3/6]: ${staging_branch} already on origin at ${existing_staging_sha:0:9} (leaked by an earlier abort)." >&2
+      echo "  Deleting it so the re-push creates the ref and gets a full-range scan." >&2
+      if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" 2>&1; then
+        die "push-docs: could not delete the stale ${staging_branch} — delete it by hand, then re-run."
+      fi
+    fi
+  fi
+
+  # Written AFTER the reconcile, deliberately. Written before it, either reconcile
+  # `die` (origin unreachable, delete failed) exited leaving state that names a staging
+  # branch this run never pushed — and a later --resume would then either delete a
+  # branch by accident or tell the founder to drop --resume, which orphans it.
+  # Overwriting run state from a PREVIOUS abort makes that abort's staging branch
+  # unreachable from any future --resume — the exact outcome the replay mechanism
+  # exists to prevent, reached by a second route. Warn and NAME it rather than refuse:
+  # refusing would add a new way for the founder to be stuck, which is the failure class
+  # this whole change is fixing. The founder is not expected to know this file exists.
+  if [[ -f "$resume_state" ]]; then
+    local _old_sha _old_branch
+    read -r _old_sha _old_branch < "$resume_state" || true
+    if [[ -n "${_old_branch:-}" ]] && [[ "$_old_branch" != "$staging_branch" ]]; then
+      echo "  ⚠️  Discarding run state from an earlier aborted push (${_old_sha:0:9} on ${_old_branch})." >&2
+      echo "     That branch is no longer resumable. If it is still on origin, delete it:" >&2
+      echo "       git push origin --delete ${_old_branch}" >&2
+    fi
+  fi
+  printf '%s %s\n' "$local_sha" "$staging_branch" > "$resume_state"
+
   local PUSH_EPOCH
   PUSH_EPOCH="$(date +%s)"
 
@@ -3733,8 +3853,15 @@ cmd_push_docs() {
 
   while (( waited < MAX_WAIT )); do
     local check_run
+    # NEWEST matching run, not an arbitrary first one. A single SHA can carry several
+    # `audit-privacy` runs — a prior aborted attempt, or a `pull_request`-event run whose
+    # scan range differs (decisions.md 2026-09-01). `head -1` re-picked the same possibly
+    # stale one every poll and spun to MAX_WAIT while a fresh green run existed on the
+    # SHA — indistinguishable from the ordering bug fixed above, and a second live path
+    # to the identical symptom.
     check_run="$(gh api "repos/:owner/:repo/commits/${local_sha}/check-runs" \
-      --jq ".check_runs[] | select(.name == \"${CHECK_NAME}\")" 2>/dev/null | head -1)"
+      --jq "[.check_runs[] | select(.name == \"${CHECK_NAME}\")] | sort_by(.started_at) | last" 2>/dev/null)"
+    [[ "$check_run" == "null" ]] && check_run=""
 
     if [[ -z "$check_run" ]]; then
       echo "  ... check run not yet registered (${waited}s elapsed, waiting...)" >&2
@@ -3757,7 +3884,15 @@ cmd_push_docs() {
       continue
     fi
 
-    if (( started_epoch > 0 && started_epoch < PUSH_EPOCH )); then
+    # CROSS-CLOCK COMPARE, stated plainly: PUSH_EPOCH is this machine's `date +%s`;
+    # started_epoch is GitHub's clock. Stamping PUSH_EPOCH before the push buys the
+    # transfer duration as slack, and nothing at all against clock skew — if this Mac
+    # runs ahead of GitHub by more than the push takes, the poll rejects its own green
+    # scan again. So allow a tolerance. It cannot admit a genuinely stale run: those are
+    # minutes to hours old (a prior aborted attempt), far outside this window, and the
+    # `head_sha != local_sha` guard below independently excludes every other SHA.
+    local CLOCK_SKEW_TOLERANCE=180
+    if (( started_epoch > 0 && started_epoch < PUSH_EPOCH - CLOCK_SKEW_TOLERANCE )); then
       echo "  ... check run pre-dates our push (stale run) -- waiting for fresh run..." >&2
       sleep "$POLL_INTERVAL"
       waited=$((waited + POLL_INTERVAL))
@@ -3787,6 +3922,12 @@ cmd_push_docs() {
     echo "" >&2
     echo "  ❌ push-docs: '${CHECK_NAME}' concluded: ${check_conclusion} (not success)." >&2
     echo "  Staging branch ${staging_branch} left for inspection." >&2
+    # Clear the run state on a RED check specifically. --resume exists to retry a run
+    # that was interrupted (CI timeout, lapsed push-on, killed terminal) — not to
+    # re-push a snapshot audit-privacy has already judged, which would burn another
+    # full poll to be told the same thing. Those interrupted paths deliberately KEEP
+    # the state; this one must not.
+    rm -f "$resume_state"
     die "CI check failed: $check_conclusion"
   fi
 
