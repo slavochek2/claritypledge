@@ -49,6 +49,84 @@ spec that never had the label written), and `pipeline_ran` is the same class of 
 
 ---
 
+## 2026-09-04 [technical]: The batch pipeline is the design March REJECTED — four artifacts recorded as shipped have never existed, and all three engines tie a coin flip on the minority speaker
+
+**Context:** P1237 ran the pre-registered measurement: the current six-step pipeline, P552's
+separate-channel design, and Gemini 3.5 Transcribe, over the same archived audio, scored
+per-speaker. 44 two-recorder sessions pulled from GCS; 20 measurable; 162 minutes of two-sided
+speech. Reproduce with `scripts/p1237-crosstalk-scan.py`, `scripts/p1237-paths-compare.py`,
+`scripts/p1237-highsep-crosscheck.py`.
+
+**Decision:** Keep the current pipeline — no candidate cleared its pre-registered bar — and record
+that this is **not** an endorsement, because the measurement also found the incumbent is not what
+anyone thought it was.
+
+1. **Cross-talk is real (RQ2).** Intra-channel dominance margin: median **7.1 dB**, **15 of 20
+   sessions below the 10 dB bar**, four at the shared-mic floor. Criterion 2's condition met, so
+   *"each phone IS one speaker"* is refuted for phones-on-a-table. The probe was controlled before
+   its verdict was believed: a constructed 20 dB pair reads 19.0/19.2 dB, a shared-mic pair with
+   ±3 dB drift reads 3.1/2.8 dB.
+2. **No engine beats a coin flip on the minority speaker (RQ1/RQ3).** On the only hand-labelled
+   session (38 points): pyannote **73.7% / 0 of 10**, separate-channel **50.0% / 1 of 10**, Gemini
+   **73.7% / 0 of 10**, naive always-the-dominant-speaker **73.7% / 0 of 10**. Gemini returned
+   **3 turns for a 9-minute two-person conversation**. On the best-separated session, where 84% of
+   speech is physically unambiguous, pyannote agrees with the channel oracle **57.2%** — below the
+   74.0% naive rate there too, so the failure is not an artefact of one bad session.
+3. **Four artifacts recorded as done/shipped/production-ready have never existed on any branch:**
+   `get_separate_wavs()` (P552, `all-done`), `llm_merge.py` (P556, closed *"deployed to prod"*),
+   `energy_validator.py` (*"complete with adaptive gates"*), and cross-correlation alignment in
+   `audio.py` (*"production-ready"*). `git log --all -S` returns zero commits for the last one.
+   The 2026-03-22 entry decided *"No amix. No pyannote for multi-phone"*; the shipped pipeline does
+   both. **The incumbent is the rejected option, surviving because its replacement was recorded as
+   shipped and never committed** — and the only path ever measured to attribute the minority
+   speaker (8 of 10, same ground-truth file) is among the missing code.
+4. **`_merge_wavs()` applies no offset.** Measured start-time offsets between the two phones:
+   median **2.9 s**, max **126.3 s**. Every multi-phone session has been diarized on audio where
+   the phones are superimposed out of step. Each recorder's events file already carries its own
+   `sessionStartedAt`, so the fix needs no cross-correlation.
+5. **Cost, measured rather than estimated (RQ4).** Cloud Run `transcribe-session` blends to
+   **€0.930 per instance-hour** over 180 days of actuals. Pipeline cost is **€0.16 per audio-hour
+   under 30 minutes and €0.72 at or above it** — P858's *"$0.11–0.17, still valid"* holds only for
+   short sessions. 1.7 pipeline runs per session; every retry bills. Gemini measures **€0.158 per
+   audio-hour** (€1.755/M audio tokens × 25.0 tokens/s, both measured). Credit coverage verified
+   live: Gemini 99.4% (Aug), Cloud Run GPU 94.8%.
+6. **Gemini's 30-minute cap does not refuse when diarization is off — it silently under-delivers
+   (RQ5).** Same 58-minute file: diarization ON → `Invalid input received`; diarization OFF →
+   HTTP 200, **87,020 audio tokens billed for the full file**, a transcript covering roughly the
+   first five minutes, no warning. Measured by 4-gram overlap against a local Whisper transcript
+   per 5-minute bucket: 22%, then ≤1% for the remaining 53 minutes.
+
+**Alternatives rejected:** *Adopt separate-channel anyway on the four-steps-deleted argument* — it
+loses the dominant speaker without gaining the minority one, and 75% of the corpus is below the
+separation it needs. *Adopt Gemini on price* — it ties the incumbent digit for digit on
+attribution, and criterion 3 fails outright: both budgets on the billing account are alert-only and
+neither is scoped to `generativelanguage.googleapis.com`, so the required spend cap does not exist.
+*Score the paths on overall accuracy* — all three read 73.7% while attributing nothing to the
+person who spoke a quarter of the time, which is precisely the inflation the 2026-03-22 ruling
+named. *Treat the 50% oracle re-check as evidence the March hand labels are wrong* — that session
+measures 2.9/3.5 dB, so the channel signal carries no information there; the re-check bounds the
+oracle, not the labels.
+
+**Consequences:** P552 is **superseded**, not reopened: refuted for phones-on-a-table, untested for
+[P1236](../features/p1236_server_side_live_transcription_for_rooms.md)'s lavalier-per-phone setup,
+which no archived audio uses — P1236's RQ2 bar must be re-measured on the first lavalier session.
+Three follow-ups are now unowned work: fix the `_merge_wavs` offset (evidence is in the events
+files); decide the disposition of the four missing March artifacts before any engine choice, since
+"keep the current pipeline" currently means keeping a rejected design; and create the
+`generativelanguage.googleapis.com` spend cap before any Gemini batch run. The shape worth building
+is conditional rather than unconditional — measure the margin per session and branch on it — but
+that is a different spec. **Method note worth keeping: envelope cross-correlation is the wrong
+aligner for separated channels**, because better separation makes the two envelopes *more*
+anti-correlated (one session's best blind peak was negative); the per-recorder `sessionStartedAt`
+is the oracle that does not degrade with the thing being measured. (Status: proposed.)
+
+**References:** [p1237](../features/p1237_batch_pipeline_gemini_vs_six_steps.md) ·
+[p552](../features/done/23_mar_26/p552_separate_channel_transcription.md) ·
+[p1236](../features/p1236_server_side_live_transcription_for_rooms.md) ·
+`services/transcribe/audio.py` · `services/transcribe/pipeline.py` ·
+`scripts/p1237-crosstalk-scan.py` · `scripts/p1237-paths-compare.py` ·
+`scripts/p1237-highsep-crosscheck.py` · decisions.md 2026-03-22 [technical] (P556/P569)
+
 ## 2026-09-04 [technical]: Credential-exposure disclosure stays an authoring control — the gate that would enforce it publishes the thing it protects
 
 **Context:** A spec-writing session put credential-location detail into public specs. Every existing
