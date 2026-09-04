@@ -1,11 +1,10 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 1000062
 workstream: C2
 created_date: '2026-09-01'
 tags: [stories, agents, feed, profile]
-delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, generate-tests, dev, verify]
 pipeline_ran: [create-spec, dev, verify]
@@ -14,6 +13,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-04
 ---
 
 # P1212: The agent story card contradicts its own shipped contract, and renders differently on every surface
