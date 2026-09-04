@@ -99,10 +99,19 @@ would: live translation, and a proactive clarity signal mid-conversation.
 2 seconds was considered and **rejected on measured quality, not cost** — see Finding 4. A
 flush-on-trigger path covers the "letter now" case without shortening the slice.
 
-`[FOUNDER DECISION — OPEN: engine. Finding 6 and 7 make Gemini the better default on quality,
-determinism, concurrency and the amount of infrastructure it deletes, at ~1.3s more latency per
-slice. Whisper stays the proven-on-this-stack fallback. Not decidable from code; it trades a
-container we control for an API we do not.]`
+`[FOUNDER DECISION — ANSWERED 2026-09-04: Gemini 3.5 Transcribe for the live path.]` Chosen on
+Findings 6 and 7 — better text with no gate, an identical word count across all 12 runs, flat
+latency to 20 concurrent streams, and the deletion of the GPU, the pyannote dependency and per-card
+capacity planning. Accepted cost: ~1.3s more per slice, and a dependency on an API rather than a
+container we run. Whisper remains the batch engine and the fallback; it is not removed.
+
+**This decision does NOT extend to `/live`'s batch pipeline, and [P1237](p1237_batch_pipeline_gemini_vs_six_steps.md)
+is why.** Measured the same day on the same corpus: Gemini's **diarization** ties the current
+pipeline digit for digit (73.7% overall, **0/10 on the minority speaker**) — which is also exactly
+what answering "the dominant speaker" every time scores. P1237's pre-registered decision is *keep
+the current pipeline, adopt neither replacement*. Gemini is better at **transcribing one voice** and
+no better at **deciding who spoke**. The live path only ever needs the first, because device
+ownership supplies the second.
 
 ### Step-1 measurement — RESULT (2026-09-03, revised 2026-09-04 after review)
 
@@ -292,6 +301,7 @@ not when the first word is spoken — the consent and join screens supply the co
 | Only `chunk_000` carries a WebM header, so chunks are not independently decodable | MITIGATE | Confirmed on real session audio. Either the capture side emits standalone units or the server holds a per-stream decoder; "reuse the existing chunk upload path" is not a drop-in |
 | Gemini credit coverage has changed since Apr 2026 | MITIGATE | Re-verify before committing; Cloud Run GPU is the proven fallback |
 | Live text becomes slower than the browser path | ACCEPT | The browser path does not work on Android at all; slower and working beats instant and absent |
+| Gemini silently truncates long audio when diarization is off | MITIGATE | P1237 RQ5: a 58-minute file with diarization OFF returned HTTP 200, billed all 87,020 audio tokens, and returned a transcript covering roughly the first five minutes — **no warning of any kind**. Harmless for 4s slices (43/43 returned correct text, 12 runs), fatal for any "re-transcribe the whole session on trigger" path. The flush-on-trigger design must transcribe the outstanding tail as slices, never the session as one call |
 | Gemini transcription mis-renders proper nouns | ACCEPT | Documented in `/slava:util:diarize` — same name spelled two ways across runs. Names are not evidence of who spoke; attribution comes from stream identity, never from the text |
 
 **Non-Goals**
@@ -314,7 +324,12 @@ not when the first word is spoken — the consent and join screens supply the co
       in 516 requests
 - [x] Co-location and device-routing premises answered and recorded (2026-09-03: one room,
       lavalier per person, each into its owner's phone)
-- [ ] The remaining founder decision (latency vs iteration) is answered here, after the measurement
+- [x] The remaining founder decision (latency vs iteration) is answered here, after the measurement
+      (2026-09-04: 4-second slices; engine answered separately as Gemini 3.5 Transcribe)
+- [ ] A spend cap exists on `generativelanguage.googleapis.com` before the Gemini path carries real
+      sessions — P1237 criterion 3 found both budgets on the billing account are alert-only and
+      neither is scoped to that service. Caps count gross cost with credits excluded, so this is the
+      only mechanism that actually stops a runaway
 - [ ] A person speaking on a physical Android phone sees their words in the room, verified over the
       adb DevTools console with the log pasted into this spec — the same instrument that produced
       the A/B above
@@ -329,7 +344,18 @@ not when the first word is spoken — the consent and join screens supply the co
 ## Open Questions
 
 1. What is the measured dB margin between wearer and neighbours on a lavalier channel in this room?
-   Unmeasured; P1237 RQ2 owns it.
+   **Still unmeasured — and P1237 has handed it back rather than answered it.** RQ2 ran over 44
+   archived sessions and found the median dominance margin is **7.1 dB, with 15 of 20 measurable
+   sessions below the 10 dB bar** — but every one of those sessions is *phones on a table*, not
+   lavaliers. P1237's own consequence 1 records P552's premise as *"untested, not refuted, for
+   P1236's answered setup"* and says the bar must be re-measured on the first lavalier session.
+   Reusable instrument: `scripts/p1237-crosstalk-scan.py`.
+
+   **What poor separation would cost the live path, sharpened by P1237's numbers:** attribution is
+   safe regardless (it comes from device ownership, never from audio). The damage is duplication —
+   on R8FUEQ, at the shared-mic floor, **36 of 38 labelled points were transcribed by BOTH
+   channels**. Rendered live, that is two people's names against the same sentence on screen. The
+   first lavalier session is the cheapest possible test and nobody has recorded one.
 2. ~~Does chunked transcription quality hold on 4-second fragments?~~ **ANSWERED 2026-09-03: yes,
    but only with VAD in front of it.** Un-gated 4s fragments fabricate whole sentences; VAD-gated 4s
    output matches the batch transcript (139 vs 134 words on identical audio). Finding 4 above.
