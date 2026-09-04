@@ -99,28 +99,60 @@ export function run(input) {
   const unmeasured = candidates.filter(c =>
     !c.upload_date || num(c.view_count) === null || num(c.comment_count) === null)
 
-  if (unmeasured.length) {
-    const named = unmeasured.map(c => {
+  // UNMEASURED IS A PROPERTY OF THE VERDICT, NOT OF THE FIELD (refined 2026-09-04,
+  // first real run, 150 candidates across 5 positions — epistemic gate 7c: a new
+  // gate must let the workflows that already exist through).
+  //
+  // 20 of 150 candidates carried `comment_count: null` — YouTube simply does not
+  // report it when comments are off. Refusing on all of them blocked FOUR of five
+  // positions. But 19 of those 20 were ALREADY excluded by a field that WAS
+  // measured (9, 17, 25, 51, 65, 135, 194, 610 views against a 2000 floor): the
+  // missing number could not have changed their verdict.
+  //
+  // So refuse on the ONE case that is genuinely unknown — a candidate that clears
+  // every floor we could measure and is missing a field that could still exclude
+  // it. That is the case where "we never measured it" and "it failed" are
+  // different states, which is this file's whole subject. Exactly one such
+  // candidate existed in that run, and refusing on it was correct.
+  //
+  // This is NOT a relaxed floor. The floors are untouched; a determinately-failing
+  // candidate is still reported as a reject, with the missing field named, so the
+  // exclusion stays reviewable.
+  const failsAMeasuredFloor = c =>
+    (c.upload_date && c.upload_date < recencyFloor) ||
+    (num(c.view_count) !== null && c.view_count < floor.minViews) ||
+    (num(c.comment_count) !== null && c.comment_count < floor.minComments)
+
+  const indeterminate = unmeasured.filter(c => !failsAMeasuredFloor(c))
+
+  if (indeterminate.length) {
+    const named = indeterminate.map(c => {
       const missing = [
         !c.upload_date ? 'upload_date' : null,
         num(c.view_count) === null ? 'view_count' : null,
         num(c.comment_count) === null ? 'comment_count' : null,
       ].filter(Boolean).join(', ')
       const how = c.excluded ? `ALREADY MARKED EXCLUDED${c.exclusion_reason ? ` ("${c.exclusion_reason}")` : ''} — ` : ''
-      return `    ${c.id}${c.title ? ` — "${c.title}"` : ''}: ${how}missing ${missing}`
+      return `    ${c.id}${c.title ? ` — "${c.title}"` : ''}: ${how}missing ${missing} — clears every floor that WAS measured, so the verdict is unknown`
     })
     return {
       ok: false, verdict: 'REFUSE',
-      unmeasured: unmeasured.map(c => c.id), dropped: [],
-      detail: `REFUSE — ${unmeasured.length} of ${candidates.length} candidate(s) carry no measurement. Fetch metadata for EVERY candidate before setting any aside; a title is not a metric:\n${named.join('\n')}`,
+      unmeasured: indeterminate.map(c => c.id), dropped: [],
+      detail: `REFUSE — ${indeterminate.length} of ${candidates.length} candidate(s) clear every measured floor but carry a missing field that could still exclude them. "Never measured" and "failed" are different states, and a title is not a metric. Resolve these before any field verdict:\n${named.join('\n')}`,
     }
   }
 
   const classify = c => {
     const failed = []
-    if (c.upload_date < recencyFloor) failed.push(`stale (${c.upload_date} < ${recencyFloor})`)
-    if (c.view_count < floor.minViews) failed.push(`views ${c.view_count} < ${floor.minViews}`)
-    if (c.comment_count < floor.minComments) failed.push(`comments ${c.comment_count} < ${floor.minComments}`)
+    // null is never compared against a floor — `null < 2000` is true in JS and
+    // would report a MISSING number as a FAILING one, which is the exact
+    // conflation this file exists to prevent.
+    if (!c.upload_date) failed.push('upload_date not reported')
+    else if (c.upload_date < recencyFloor) failed.push(`stale (${c.upload_date} < ${recencyFloor})`)
+    if (num(c.view_count) === null) failed.push('view_count not reported')
+    else if (c.view_count < floor.minViews) failed.push(`views ${c.view_count} < ${floor.minViews}`)
+    if (num(c.comment_count) === null) failed.push('comment_count not reported')
+    else if (c.comment_count < floor.minComments) failed.push(`comments ${c.comment_count} < ${floor.minComments}`)
     return { id: c.id, title: c.title, admit: failed.length === 0, failed }
   }
   const rows = candidates.map(classify)

@@ -110,3 +110,53 @@ describe('candidate-sweep: a crash is not a verdict (found 2026-09-04, first rea
     expect(r.verdict).toBe('FIELD-NON-EMPTY')
   })
 })
+
+describe('candidate-sweep: unmeasured is a property of the VERDICT, not the field', () => {
+  const base = { floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127' }
+
+  it('7c: a candidate already below a MEASURED floor is a reject, not a refusal', () => {
+    // The real shape: 20 of 150 candidates had comment_count null because YouTube
+    // does not report it when comments are off. 19 were already excluded on views
+    // (9..610 against a 2000 floor). Refusing on those blocked 4 of 5 positions.
+    const r = run({
+      ...base,
+      searched: ['a1'],
+      candidates: [{ id: 'a1', title: 'tiny', upload_date: '20260412', view_count: 610, comment_count: null }],
+    } as never)
+    expect(r.ok).toBe(true)
+    expect(r.verdict).toBe('FIELD-EMPTY')
+    expect(r.detail).toMatch(/comment_count not reported/)
+    expect(r.detail).toMatch(/views 610 < 2000/)
+  })
+
+  it('the ONE genuinely unknown case still REFUSES', () => {
+    // VKLDl3siaSE: 36,190 views, in-window, comment_count unavailable. Clears
+    // every floor that could be measured, so the missing field could still exclude it.
+    const r = run({
+      ...base,
+      searched: ['VKLDl3siaSE'],
+      candidates: [{ id: 'VKLDl3siaSE', title: 'ABC News Bengio', upload_date: '20251218', view_count: 36190, comment_count: null }],
+    } as never)
+    expect(r.ok).toBe(false)
+    expect(r.verdict).toBe('REFUSE')
+    expect(r.unmeasured).toContain('VKLDl3siaSE')
+    expect(r.detail).toMatch(/clears every floor that WAS measured/)
+  })
+
+  it('a missing number is never reported as a failing number', () => {
+    // `null < 2000` is true in JS; reporting that as "views null < 2000" would be
+    // the exact conflation this predicate exists to prevent.
+    const r = run({
+      ...base,
+      searched: ['a1'],
+      candidates: [{ id: 'a1', upload_date: '20240101', view_count: null, comment_count: null }],
+    } as never)
+    expect(r.detail).toMatch(/view_count not reported/)
+    expect(r.detail).not.toMatch(/views null/)
+  })
+
+  it('an all-null candidate that cannot be excluded still REFUSES (must-fail intact)', () => {
+    const r = run(FIXTURES.fail as never)
+    expect(r.verdict).toBe('REFUSE')
+  })
+})
