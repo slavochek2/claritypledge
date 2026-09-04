@@ -1067,3 +1067,21 @@ something that is not agent-read markdown — at which point the scanners have n
 Sources: `docs/decisions.md` 2026-09-03 [process] ×2 + [technical]; `features/uat/p1210.md`.
 
 ---
+
+## Produce hand-labelled audio for a well-separated session, then re-run P1237's three-way comparison
+
+**Date:** 2026-09-04
+**Status:** proposed
+**due:** month
+
+P1237's headline decision ("keep the current pipeline, adopt neither") rests on n=1 — the single
+hand-labelled session in the corpus, which also sits at the shared-mic floor and is the least
+favourable case for the separate-channel path; the spec states this limit itself. Its corpus-wide
+findings are solid and unaffected (the 44-session dB scan with 3dB/19dB controls, the `_merge_wavs`
+t=0 alignment defect, the four never-committed artifacts, the Gemini silent-truncation result) —
+it is specifically the per-speaker accuracy table that carries the decision. Done when a
+well-separated session has hand labels and the three paths are re-scored on it; **droppable** if
+the conditional design in P1237 consequence 4 (measure the per-session margin and branch on it) is
+specced and adopted instead, since that removes the need for an unconditional winner.
+
+---
