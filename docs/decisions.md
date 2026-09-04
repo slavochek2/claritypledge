@@ -6,6 +6,58 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [process]: Nine controls I wrote missed three bypasses one independent pass found — an author's controls measure the author's imagination, not the surface (P1244)
+
+**Context:** P1244 fixed two markdown scanners that matched per line and so could not tell a command
+from a sentence about one. Before committing I wrote **nine** controls, including the three real
+false positives that had forced a revert at the P1210 ship, and all nine passed. An independent
+codex review then returned FAIL with five findings, **three of them live bypasses**: a leading path
+(`/bin/ls "$YT_STORE"`) defeating the verb anchor, `[[ -d … ]]` unmatched because only single-bracket
+`test` was covered, and — the worst — an unclosed exemption marker silently exempting the rest of the
+file while still printing PASS. I reproduced all five myself before acting on any.
+
+Then, having fixed three findings, I committed without a second pass — which
+[decisions.md 2026-08-31](decisions.md) already forbids in those words: *"the first review does not
+certify what the fixes for its own findings introduce."* Running the second pass returned REJECT
+with six more, **two of them defects I had just introduced**: the marker repair counted `start` and
+`end`, so an `end` followed by a `start` *balances* and left the region open to EOF — the identical
+fail-open, reachable by reordering instead of deleting, under a comment that claimed it failed
+closed. And widening the test operator to `-[a-zA-Z]{1,2}` made `[ -z "$VAR" ]` flag: a false
+positive I created while fixing a false negative, in the spec whose entire thesis is that widening
+costs false positives.
+
+**Decision:** Record the measured limit, not the exhortation. **Controls written by the author of a
+check are a test of the author's imagination; they cannot bound the surface, and the ratio here was
+nine-to-zero against them.** Two consequences follow, and the second is the one that keeps being
+re-learned:
+
+1. For any artifact whose job is to *refuse* — a scanner, gate, guard, validator — an independent
+   pass is not optional polish. Budget it as part of building the thing, not as review afterwards.
+2. **The second pass is part of the first.** A review whose findings you fixed has not reviewed the
+   fixes. This is now the third recorded instance (2026-08-31 twice, this one), and each time the
+   rule existed and was read *after* the commit rather than before it.
+
+**Alternatives rejected:** *Write more controls before reviewing* — nine were not the problem;
+their author was. *Treat the first REJECT as the finding list and ship the fixes* — that is exactly
+what produced the two self-inflicted defects. *Keep widening the patterns* — every remaining finding
+is a pattern enumerating spellings against a surface with no finite list of them; four are recorded
+open in the spec, and the next move is a different mechanism, not a longer list.
+
+**Consequences:** P1244 stays at `week` with one Done-When honestly unticked and four findings open
+with reproductions — it closes three real bypasses and one live false negative, and it does not
+pretend to close the class. Two claims were retracted in place rather than quietly edited: a commit
+message that said the wiring check distinguishes a runnable stanza from a prose mention (it does
+not — a quoted command inside prose is still a command span), and a success message that said "zero
+founder-input asks" when it meant "zero matching the known shapes". (Status: proposed — the
+mechanical form would be a `/finish` step that refuses to stamp a review artifact when the reviewed
+SHA is not the committed SHA, which is the shape both 2026-08-31 entries and this one describe.)
+
+**References:** `features/p1244_points_scanners_read_prose_as_instructions.md` §Open ·
+`scripts/points/md-spans.mjs` · `~/.agents/bin/codex-review` · decisions.md 2026-08-31 (two entries
+this one is the third instance of)
+
+---
+
 ## 2026-09-04 [process]: Fifteen branches were each reviewed alone and none reviewed together — the combination review found two HIGH defects, one of them CAUSED by a reviewer doing the right thing (P1243)
 
 **Context:** A single session merged 15 branches to `main`. Every one had an individual adversarial review (Codex, or Opus where Codex was out of credit) and every finding was fixed and verified. **The combination was never reviewed.** Running that review afterwards — same diff, same tool, but framed as "these shipped together, where do they touch?" — returned **FAIL** with two HIGH defects, both live on `main`, both invisible from inside either contributing branch because each change is correct alone:
