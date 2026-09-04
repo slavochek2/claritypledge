@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [process]: The pipeline fails in BOTH directions on spec closure — and closure is downstream of verification, so the two cannot be fixed in parallel
+
+**Context:** Measured while deciding how to route the follow-up to the entry below. Co-located auto-close is wrong at scale: **8 of 19** auto-closed specs were later reopened by hand (`p1043 p1044 p1045 p1047 p1048 p1057 p1152 p1241`); `p1152` was wrongly closed, reopened, then wrongly closed again a week later. But the founder's lived complaint is the **opposite** failure — *"why is this spec not closed?"* — and `ship.md` records four specs stranded open, one for eight days.
+
+Both directions failing is the finding. It means the pipeline cannot distinguish *finished* from *unfinished* at all, which is the same question a concurrent session is stuck on: `/dev` cannot verify its own work.
+
+**Decision:** Treat closure and verification as ONE problem, investigated in a fresh session at Opus/high, with the `/dev` session's findings as an input rather than re-derived. Evidence gathering and root-cause analysis may run in parallel with that session (read-only); **the solution may not** — both touch `.claude/commands/slava/build/*.md`, and a closure fix built on an unreliable "done" signal is built on sand. Adversarial/codex review goes on the **root-cause analysis**, not first on the plan: a wrong cause produces a wrong plan that no plan review catches — demonstrated the same day, when a reviewer's finding rested on measuring the wrong interval.
+
+**Alternatives rejected:** *Fix the auto-close heuristic alone* — addresses one of the two directions and leaves the stranded-open half untouched. *Run both efforts concurrently* — same shared files, and this repo's incident log already carries repeated co-tenant collisions on shared checkouts.
+
+**Consequences:** No fix is applied yet; the auto-close remains a live trap at roughly a 40% wrong rate whenever a branch touches another spec's file. **Status: proposed** — the investigation spec is not yet filed.
+
+**References:** 2026-09-04 [process] co-located recurrence (below) · 2026-08-27 [process] · `scripts/git-ops.sh` (`detect_cospecs`) · `.claude/commands/slava/build/ship.md`
+
 ## 2026-09-04 [process]: A decision recorded as discipline-only recurred in eight days — and the trigger was not the rename it named, but the pipeline's own housekeeping step (P1234/P1241)
 
 **Context:** On 2026-08-27 this log recorded that `git-ops.sh`'s `detect_cospecs` reads a *reference-only* edit as delivery, and would have auto-closed four live specs during P1165's namespace rename. The decision was **discipline, not a control**: *"a branch may edit another open spec's file only when the branch actually delivers that spec."* Patching `detect_cospecs` was named *"the right long-term fix"* and deferred as *"a spec's worth of work"*, with the entry closing: *a spec to make it distinguish delivery from mention is **not yet filed** (Status: proposed).* It was never filed.
