@@ -6,6 +6,43 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [process]: Fifteen branches were each reviewed alone and none reviewed together — the combination review found two HIGH defects, one of them CAUSED by a reviewer doing the right thing (P1243)
+
+**Context:** A single session merged 15 branches to `main`. Every one had an individual adversarial review (Codex, or Opus where Codex was out of credit) and every finding was fixed and verified. **The combination was never reviewed.** Running that review afterwards — same diff, same tool, but framed as "these shipped together, where do they touch?" — returned **FAIL** with two HIGH defects, both live on `main`, both invisible from inside either contributing branch because each change is correct alone:
+
+1. **P1235 removed P520's post-erasure stale-JWT guard.** P520 required a live `profiles` row before a consent INSERT, so a token still valid for up to an hour after erasure cannot recreate records. P1235 replaced both policies and dropped that conjunct. Confirmed by reading `pg_policy` on test: the predicate had become `(user_id = auth.uid())` alone. P520's own test still asserted the guard, so that test was asserting a fiction.
+2. **Erasure could be undone by a race.** `rotate_invitation_token()` read `status` without `FOR UPDATE` then updated unconditionally; `erase_my_account()` landing in that window let a resend overwrite a just-terminated agreement back to `pending` with a usable token. The P1230 trigger cannot see it — the RPC is `SECURITY DEFINER` and the trigger exempts that role, which is *why* the RPC is the one party-reachable path allowed to write the token.
+
+**The mechanism behind (1) is the part worth keeping.** The P1235 author saw the extra conjunct on the test database, **grepped the repo for it, found nothing, and concluded it was out-of-band drift by an unknown actor** — then deliberately removed it, and recorded that reasoning honestly. Every step was correct practice. The conjunct belonged to P520, which had been applied to the shared test project by an *unmerged* branch. **On a shared test database, "in the database but in no repo file" does not mean drift — it can mean another branch got there first.** The grep was right; the inference from it was not.
+
+**Decision:** An integration review is a distinct required step when a batch ships, not a nice-to-have — record it as such. Both defects fixed in P1243 (`0345718a`, `312a4e7c`) with the fix branch merged. Separately: when a shared-environment artifact has no source in the repo, check the unmerged branches before concluding drift.
+
+**Alternatives rejected:** *Trust the per-branch reviews* — they were good reviews and they structurally could not see this; the defects exist only in the composition. *Review the combination before merging instead of after* — attractive, but the interactions only become concrete once the merge order is fixed, and this batch's order changed repeatedly as branches were held or reverted.
+
+**Consequences:** Two review kinds now exist, with different framings and different findings: per-branch ("is this change correct?") and integration ("where do these changes touch?"). The second is cheap — one prompt naming what shipped and where they might interact — and this session is the evidence that it finds a class the first cannot. The integration review's *cleared* list also proved load-bearing: it confirmed migration ordering, all six `requires-frontend` shas resolving, the v1.3→v1.4 rollout having no lockout or loop, and erasure still covering every table after the schema changes — none of which any single branch could assert.
+
+**References:** [features/p1243](../features/done/2026-06-10/p1243_consent_guard_regression_and_rotation_race.md) · `20260903150000` · `20260903151000` · this log 2026-09-03 [technical] (P1106) · scratchpad `codex-integration.md`
+
+---
+
+## 2026-09-04 [process]: Three probes in one session reported on states they could not reach — under-sampling, a broken fixture chain, and a stale baseline
+
+**Context:** Three separate measurements in one session returned confident answers about conditions they had not actually produced. Same failure, three mechanisms:
+
+1. **Under-sampling (P1220).** A pixel probe measured 0px across 25 frames and a human side-by-side saw no difference; both missed the surface a different feature's tests assert on, because it only renders inside a letter. Recorded in full in this log 2026-09-03 [process].
+2. **A broken fixture chain (P1243) — my own error.** A test failed in a run whose network had died from the machine sleeping. To check whether it was real, I re-ran it with `-g "race: the counterparty"`. It failed again, and I reported that as independent confirmation. It was not: the suite is `mode: 'serial'` and the erasure it depends on happens **inside an earlier test**, so the filter skipped the setup, the session was never cancelled, and the RLS policy correctly allowed the write. The full file passes **15/15**. A serial fixture chain is not `-g`-addressable — that is Playwright semantics, not a defect, and the filter silently produced a different scenario than the one I meant to re-run.
+3. **A stale baseline (P803).** A branch-vs-main A/B was cited as evidence that deletions broke nothing. It had been measured before fourteen merges — including the one that dropped the column causing 42 of the failures it counted. The conclusion may still hold; the numbers describe a `main` that no longer exists. Recorded in that spec rather than presented as current.
+
+**Decision:** Before a probe's result is treated as evidence, state which state it actually produced and how that was confirmed — not which state it was aimed at. For a filtered test run specifically: **a filter that skips setup is a different experiment**, so a filtered re-run can never confirm a full-run failure. Run the file.
+
+**Alternatives rejected:** *Add a control to every probe* — right, and the pixel probe DID have one (identical code twice → 0px; different pages → 142k px) and still missed, because a control proves the instrument works, never that it was pointed at the right thing. Reachability and instrument-validity are separate questions and the second does not answer the first.
+
+**Consequences:** The cheap disambiguator in all three cases already existed and was free: run the other feature's tests; run the unfiltered file; re-measure against current `main`. The expensive part was not the check — it was noticing the check was needed. The tell shared by all three: **a probe reporting on a state that something else was supposed to have set up.** When that is the shape, verify the setup ran before believing the result.
+
+**References:** this log 2026-09-03 [process] (P1220 visual neutrality) · [features/p803](../features/done/2026-06-10/p803_dead_code_sweep.md) · `e2e/integration/p520-account-deletion.spec.ts` (`mode: 'serial'`)
+
+---
+
 ## 2026-09-03 [technical]: P1240 — the login link's cross-browser failure is a P608 trade-off, and the repo has already taken the other side of it
 
 **Context:** P1240 was filed on a recurring founder report of phones losing the session, and its spec
