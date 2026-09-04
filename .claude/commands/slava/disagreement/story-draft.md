@@ -80,6 +80,23 @@ Story text is a machine account writing **about** a named person, never a famili
 
   `{Full Name}` is the same value the byline renders. The string is verbatim — the filer greps for it, and a paraphrase fails the gate.
 
+- **The label goes in `content`. The quote BODIES do not — P1212 §1, founder decision 2026-09-01.**
+  Write the label line and stop. The verified quotes travel in `video_quotes` and nowhere else.
+
+  Every surface that renders a story now renders that block or strips the label before display; no
+  surface prints quote text out of `content`. Writing the bodies here too puts the same quotes on
+  the page **twice** — once as unstyled prose, once in the block with its own heading and working
+  jump links. That was live on four readings of four real people until 2026-09-03.
+
+  The label stays because `/slava:disagreement:publish` greps the filed text for it. That is a
+  mechanical backstop on the label, not an instruction to inline the quotes under it.
+
+- **Omit the label entirely when ZERO quotes survive verification.** If every candidate quote was
+  dropped upstream — all `turn-inferred`, or all failing the audio-at-timecode check — the story
+  has no quotes, and a heading with nothing under it is worse than no heading. The quote block
+  renders nothing on an empty array, so the label would be the only thing left: a promise the page
+  does not keep, on a machine-authored reading of a real person.
+
 ## Person safety — the three rules that exist because the subject is real
 
 **These sit under the same ownership sentence as the voice rules above: this file, no second copy.**
@@ -455,22 +472,17 @@ duration_seconds: <integer>
 - **Respect the `stories.content` 10,000-character limit at build time**, not by Postgres error (`CHECK (char_length(content) <= 10000)`). Count the characters of each story draft before writing the section and paste the counts.
 - **The ceiling covers what YOU write — prose plus the quote block. It excludes the `#<event-tag>` the filer appends**, which is metadata and not yours. Do not leave headroom for it and do not add it yourself.
 - **The 1,500-character build-time ceiling is WITHDRAWN — P1210 §7, founder decision 2026-09-01.** It was written for a story carrying every point its author held a position on, and it is what forced the compression that decision removes. Under one story per (person, point) there is **no character ceiling** until several runs have been seen. **Paste `content_chars` per story anyway** — the number is the instrument that tells us whether a ceiling is ever needed again, and the 10,000 DB constraint above still binds.
-- **Quote budget: at most ONE quote per linked point inside the story text.** The ceiling counts the
-  quote block, so an arguer with seven quotes would get 600 characters of prose to connect five points
-  while an arguer with three gets 1,000 — the budget running exactly backwards to the work. The full
-  verified set still travels in `video_quotes` and still renders below the argument with its jump
-  links, so nothing is lost to the reader and no point loses its grounding. Pick the quote the prose
-  actually leans on; **a quote no sentence connects to has no reason to be in the text.**
+- **The quote budget rule is GONE, and so is the defect it mitigated.** It read *"at most ONE
+  quote per linked point inside the story text"*, and it existed only because the quote bodies were
+  written into `content`, where they competed with the prose for a character ceiling. P1212 §1
+  moved the bodies out — they live in `video_quotes` alone — so there is no budget to spend and no
+  compression to trade against. The full verified set renders below the argument with its jump
+  links, exactly where P1141's design table always put it.
 
-  > **Known defect, filed for the founder, NOT fixed here.** `video_quotes` renders through
-  > `story-video-quotes.tsx`, which emits its own `Supporting quotes from {subjectName}` heading and
-  > the quotes with jump links — so on the detail page the quotes inside `content` appear a **second
-  > time**, under a duplicate heading. P1141's own design table places the quote block *"Below the
-  > argument"* and its component comment records that *"quotes inline in the prose"* was built and
-  > rejected. But `/slava:disagreement:publish` requires the label string verbatim **in the story
-  > text**, so the duplication cannot be removed from this end without touching a publish
-  > precondition — explicitly out of scope for P1202. The quote budget above is the mitigation, not
-  > the fix.
+  The duplicate-heading defect this section carried as *"known defect, filed for the founder, NOT
+  fixed here"* is **discharged.** One module owns the label, every surface either renders the quote
+  block or strips the label, and the rendering is pinned by tests that open the page rather than
+  grep the file — the distinction that let the defect survive a green suite once already.
 
 ---
 
