@@ -6,6 +6,93 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [technical]: Credential-exposure disclosure stays an authoring control — the gate that would enforce it publishes the thing it protects
+
+**Context:** A spec-writing session put credential-location detail into public specs. Every existing
+gate passed clean and correctly: the privacy scanner matches personal identifiers and has no notion
+of credential exposure. P1248 was filed to close that mechanically and **rejected the same day** on
+two independent hostile reviews (2 of 2 reported). A predecessor, P994, had been rejected 7 weeks
+earlier for a related reason; its residual control was the CLAUDE.md checklist line, which is the
+control that failed here — the second failure of the same control.
+
+**Decision:** No mechanical gate. The class stays an authoring-layer control, and the four reasons
+are each re-verified by command rather than argued:
+
+1. **The capability already ships.** `gitleaks` runs on every commit over the full staged diff
+   including `features/`, and one config block expresses the whole proposed rule. The spec's own
+   open question said to check this first; it specced a bespoke build instead.
+2. **The list the gate needs IS the disclosure.** Committed to a public repo it publishes a curated
+   inventory of which credentials matter; gitignored it is absent from CI's fresh checkout and the
+   check fails **open**, silently. `.claude/rules/pii.md` already records P936 rejecting the
+   identical move for third-party names — *"a committed names watchlist would itself be the
+   disclosure."* Same mechanism, same repo, already ruled on.
+3. **A name-match gate does not detect this leak, and the bypass was already committed.** The
+   session's own redaction passes such a gate with zero hits while the text still conveys the same
+   thing in descriptors. It converts an unenforced judgement rule into an enforced *lexical* one and
+   lets the residual ship green with an audit trail saying a gate approved it.
+4. **Nothing was left to protect.** Measured: secret-bearing names in public prose that are not
+   already on `origin/main` = **0**.
+
+**Alternatives rejected:** *Bespoke check in `pre-commit-checks.sh`* — findings 1-4. *Warn-mode
+first* — defers the unsatisfiability rather than resolving it, and the promotion step had no owner.
+*Retro-redacting published history* — disproportionate, and obscurity was never the boundary.
+
+**Consequences:** **The generalisable rule: before building a detector, check whether its own
+reference data is more sensitive than what it detects.** For secrets-adjacent content that test is
+usually fatal, which is why this class lands on authoring and not on enforcement — the same split
+P936 reached independently.
+
+**Also recorded, because it is the more useful finding than the verdict:** the spec's own numbers
+were wrong, and wrong in the direction that made its design look feasible — the credential count was
+under by 6, and the already-published file count under by **2.3x**. The bad number was generated
+with a classification invented during the measurement and promoted into the spec's central section
+without re-derivation. That is `epistemic.md` gate 9, violated by the author of a spec proposing a
+verification gate, and caught only because a reviewer re-ran the commands. **A measurement that
+justifies a design is exactly the measurement to re-derive, and being the one who wrote the gate is
+not protection against skipping it.**
+
+**Status: proposed** — one residue has no home yet: authoring credential-topic specs in `.private/`
+from the start, with a public stub carrying the reasoning. It is a rule change and belongs through
+the `/slava:maintain:claude-md` gate, not a spec. Not yet filed.
+
+**References:** `features/p1248_*` (rejected, kept as the record) · `features/archive/p994_*` ·
+`.claude/rules/pii.md` · `.private/docs/security-log.md`
+
+---
+
+## 2026-09-04 [process]: "Not pushed yet" is not a safety property on the shared main checkout
+
+**Context:** On finding the disclosure above, this session reasoned "it is committed but not pushed,
+so there is time to fix it before it becomes public" and spent an hour redacting. That reasoning was
+false. A concurrent session was already pushing everything on `main`, and the unredacted commits
+reached public staging branches before the redaction landed. The founder stopped the promotion by
+hand at a terminal prompt, so `main` itself was never affected.
+
+**Decision:** Treat any commit on the shared main checkout as **queued for publication by whoever
+pushes next**, not as local work with a decision window. A privacy or redaction decision that is not
+yet committed has no protection at all, and one that is committed is already in the publish queue.
+
+**Alternatives rejected:** *A "publication hold" flag another session must honour* — another
+coordination artifact to forget, and the repo already has the answer. *Blocking pushes during
+sensitive edits* — unenforceable across sessions that cannot see each other.
+
+**Consequences:** The existing rule already covers it and was simply not applied: `.claude/rules/git.md`
+says sensitive authoring belongs in a **worktree**, whose commits are not on `main` and therefore
+cannot be published by anyone else's push. This session did all its spec work directly on `main` and
+broke a rule a co-tenant had strengthened the same day.
+
+**Two things this makes concrete.** The staging-branch hop is not a leak but it is not a shield
+either: the server-side privacy check runs on a branch that has already been pushed to the public
+remote, so **that gate can prevent promotion to `main`, never publication**. The only gate that runs
+before anything becomes public is the local commit hook. And separately — a redaction on a shared
+checkout is not stable: while this one was in progress, a different session added a *new* credential
+location to the same file, which the redaction pass then had to catch on a second sweep.
+
+**References:** `.claude/rules/git.md` · `docs/technical/git-workflow.md` (P919 staging hop) ·
+`.private/docs/security-log.md`
+
+---
+
 ## 2026-09-04 [product]: Event #1 precedes the multiplier ask — and whether the pipeline "works well" is judged by a room, not by another run
 
 **Context:** A five-week reflection over both repos recommended *"send ten multiplier messages this week"* and *"set the event date"*. The founder rejected the first on the repo's own terms: [goals.md](goals.md) defines the multiplier ask as *"can I run this for your startups?"*, which presupposes a run that exists. *"What exactly am I offering? Just running some workshops for free? And what am I learning exactly?"* Concession recorded: the ask is empty until event #1 has happened; the sequencing in goals.md (multiplier first, then event #1) was written when the event was a throughput plan, not a first run. The founder's stated dependency chain: disagreement pipeline → one offline event → online → at scale, because *"without it I will achieve clarity about clarity, and to people who are not necessarily warm."* Credibility with a champion prospect comes from rooms that happened, not from the promise of a norm.
