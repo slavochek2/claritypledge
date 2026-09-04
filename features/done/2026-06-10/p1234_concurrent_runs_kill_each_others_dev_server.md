@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000065
 severity: high
@@ -7,7 +7,6 @@ workstream: infrastructure
 date_reported: '2026-09-03'
 created_date: '2026-09-03'
 tags: [live, e2e, test-infra, concurrency, p1043]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 drafted_by: opus
 exec_model: opus
@@ -21,6 +20,7 @@ reproduce_artifact:
   reproduced_at: 2026-09-03
   fix_shape: open
   fix_shape_why: "two credible remedies for the predev half (health-check before reaping vs refuse-and-abort with worktree guidance), and neither addresses the Playwright-teardown half, which may need a per-run port instead"
+completed_at: 2026-09-04
 ---
 
 # P1234: Concurrent test runs on the shared main checkout kill each other's dev server, making /live suite triage meaningless
