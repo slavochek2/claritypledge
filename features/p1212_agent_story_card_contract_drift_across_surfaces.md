@@ -562,6 +562,62 @@ up, and it is why §5's tests render components instead of grepping them.
 - [x] No letter loses content it rendered before the change: every quote, timecode and image visible in a pre-change sealed letter is still visible after
 - [x] No surface derives an agent byline from a name the snapshot does not own — the letter surface's `authorName` is the **sender's** (§4b, `story-walk.tsx:95-96`)
 
+## What shipped, and the three things that did not (2026-09-04)
+
+**§2's rename is complete in both halves.** The `agent-` predicate shipped 2026-09-04 and, for
+several hours, **nothing called it** — the profiles guard trigger, `upsert_my_profile` and
+`create_or_reuse_agent_account` all still named `is_reserved_machine_slug`. A predicate with no
+call site is a spec section whose mechanism is absent from the code, which is the failure
+`docs/process-learnings.md` records going unnoticed for five months. `20260904170000` is the call
+sites; `20260904190000` makes the rename's collision guard raise instead of skipping silently.
+
+**Two adversarial reviews (Opus × 2) over the whole branch diff produced 12 findings; 10 were
+acted on, 1 documented, 1 rejected on evidence.** Both reviewers reported in full. The two that
+mattered most were live defects a fully green suite was certifying:
+
+- The preview path sealed `storyAuthorId` **without** `storyAuthorName`, so a sender previewing a
+  letter saw agent chrome picked from the id and their **own** name printed beside it. The two
+  tests written to cover exactly this both hand-built their `point_config` — they exercised the
+  reader and never the builder. This is the third time in this spec that an assertion sat one
+  layer away from the change.
+- Two slug-guard bypasses, both also live on the shipped `machine-` guard: `ᴀgent-<name>`
+  (U+1D00 — the fold table carried the small-capital G, E, N and T and missed A) and
+  `-agent-<name>` (a leading separator makes `regexp_split_to_array` emit an empty first token).
+  Closed by `20260904180000` on both guards, with `-agentic-systems` and `-my-agent` asserted as
+  controls so the fix cannot widen into a land-grab.
+
+**THREE THINGS ARE OPEN, and none of them is an oversight to be quietly closed later.**
+
+1. **[FOUNDER DECISION: the footer's wording — OPEN.]** `agent-story-footer.tsx` still reads
+   *"A machine account operated by ClarityPledge wrote this reading of {fullName}."* After §2,
+   **"machine" appears there and nowhere else a reader sees.** This is a disclosure sentence, not
+   a byline, so the §2 decision does not automatically reach it.
+
+2. **[FOUNDER DECISION: footer coverage — OPEN, and entangled with 1.]** `AgentStoryFooter`
+   renders on **2 of 6** story surfaces (`StoryCardDetail`, `live-story-card-expanded`). The feed,
+   the profile card and the linked-story card carry the byline and chip but no footer — so a feed
+   reader now sees `AGENT · on Yann LeCun`, a video thumbnail and verbatim quotes attributed to a
+   real living person, with no operator disclosure on the surface. Pre-existing and untouched by
+   this branch. Deliberately **not** fixed here: propagating the footer would put the word
+   "machine" on three more surfaces while decision 1 is open. Mitigating fact, verified: all three
+   cards navigate to the story detail page, which does carry the footer — the disclosure is one
+   click away, not absent.
+
+3. **[FOUNDER DECISION: `profileSubjectPosition` on the feed — OPEN.]** The feed's query
+   deliberately does not supply it, so `QuotedPointCard`'s whole author header — including the
+   byline and its chip — renders on the profile and not on the feed. **The two surfaces share the
+   component and do not render identically.** "Rendered through `QuotedPointCard`" is what the
+   parity test asserts and all it asserts; the call site now says so in as many words rather than
+   reading as achieved parity.
+
+**Filed separately, not fixed here:** the tilde gap. `machine~sam-harris` and `agent~x` are
+mintable today — the combining-mark strip keeps `[:alnum:] [:space:] [:punct:]` and Unicode
+classes `~` as Sm, a math symbol, so it is stripped rather than treated as a separator. Same for
+`+ < = > | $ ^` and backtick. Live since `20260824140000`.
+`e2e/integration/p1212-agent-slug-reservation.spec.ts` asserts the **current wrong behaviour** so
+the day it is fixed the test fails loudly instead of passing silently. A character-class security
+fix should not ride an unrelated namespace rename.
+
 ## Implementation — the two A/B arms, merged (2026-09-04)
 
 This spec was built **twice**, as the arms of a `/dev` A/B benchmark from one base commit.
