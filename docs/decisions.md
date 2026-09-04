@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [technical]: The push poll gave up before its own scan could finish — every run that day outlived its timeout
+
+**Context:** After four rounds of fixes to the push path (snapshot pinning, the stamp retreat, `--resume` replay, the freshness-baseline ordering, the leaked-branch reconcile), pushes still failed. Measuring the CI itself rather than the script found why: three `audit-privacy` runs on one SHA took **768s, 980s and 793s** against a `MAX_WAIT` of **600s**. The clearest case did everything right — snapshot pinned, real push event fired, baseline correctly ordered — and concluded SUCCESS at 10:31:59Z while `push-docs` had already died around 10:28. The verdict arrived after the poll stopped listening.
+
+**Decision:** Raise the poll budget to 2400s in both pollers (`GIT_OPS_CI_MAX_WAIT`), and add a canary asserting it stays above the worst **measured** scan — a floor derived from observation, not a guess. `/push` now budgets 45 minutes and asks for `push-on 60`; 20 could never cover a scan that reliably takes 13-16.
+
+**Alternatives rejected:** *Leave it and retry* — rejected: the failure is deterministic on this backlog, and a retry re-runs the full scan. *Make the scan faster* — a real option, but it changes what gets scanned; correctness first, and the timeout is a one-line fix that unblocks measurement of everything else.
+
+**Consequences:** This was the **dominant** cause and it is independent of every other defect fixed in the series — with all of those correct, a push on this backlog still could not finish. It is also self-reinforcing: the scan's cost scales with distance from `origin/main`, so each failed push lengthens the next scan and makes the next timeout more certain. A 276-commit backlog was both the result and the cause, which is why this degraded over three days rather than staying flat. **The trade is real and is stated rather than buried:** `push-docs` holds `main.lock` across the poll and co-tenants time out at 120s, so a longer budget widens the window in which nobody else can commit. A push that cannot succeed is worse than one that blocks commits, so this is right today — but it turns "release the lock across the CI poll" from optional into the obvious next change. **Status: proposed** for that follow-up, which must also add an ownership check to the unconditional staging-branch delete, safe today only because the lock is held.
+
+**References:** `scripts/git-ops.sh` (`cmd_push_docs`, `cmd_ship_to_prod` poll blocks) · `scripts/test-push-snapshot-pinning.sh` Test 8 · `.claude/commands/slava/build/push.md` step 4
+
+---
+
+## 2026-09-04 [process]: I verified bash behaviour by running it in zsh, then built a gate that enforced the wrong conclusion
+
+**Context:** Fixing a fail-open guard in `git-ops.sh`, I wrote that `PIPESTATUS` "does not survive a command substitution" and marked it *verified by direct experiment*. A hostile reviewer falsified it: in bash a failed `ls-remote` through a substitution leaves `PIPESTATUS[0]=128`. The experiment had been run in **zsh** — the agent's tool shell — where `PIPESTATUS` is unset entirely because zsh uses lowercase `pipestatus`. The script under test is bash. The real mechanism, verified in bash afterwards, is that `PIPESTATUS` is clobbered by the *next* command, and a `local st` declaration between the assignment and the read resets it to 0 — the shape that actually shipped.
+
+**Decision:** When testing shell semantics, run the probe in the **interpreter the artifact declares**, named explicitly (`bash -c`), never in whatever shell the tool happens to hand you. The default shell is not a neutral substrate; it is a different language with the same syntax. Extend the same rule to any runtime whose behaviour is being asserted: check the version and the interpreter before quoting a result as evidence.
+
+**Alternatives rejected:** *Trust the code change and skip the mechanism* — rejected: the change was right and the reason was wrong, and the reason is what a future author generalizes from.
+
+**Consequences:** The failure compounded twice. First, the false claim reached a **committed comment** carrying the phrase "verified by direct experiment", which is the exact credential that makes a reader stop checking. Second, the canary I built then **enforced** the false claim with a permanent ban plus a comment restating it — a gate that would have taught every future author the wrong lesson while passing green. This is the repo's documented `push.md` pattern (four versions, four sets of inferred-from-symptom claims) recurring *inside* the fix for it. Two further instances of the same shape in one session: a check that forbade a construct flagged its own explanatory comment as the violation, twice, because the rationale names the thing it bans. **Detection rule that worked:** mutation testing. The mutant refused to go red, which is what forced the re-examination — a gate disagreeing with you is worth more than your confidence. **Status: proposed** — no mechanical control exists for "an assertion about interpreter semantics must name the interpreter"; this entry is the record, not the fix.
+
+**References:** `scripts/git-ops.sh` (`remote_branch_sha`) · `scripts/test-push-snapshot-pinning.sh` Test 7 · `.claude/commands/slava/build/push.md` History block v5.1.0 · `.claude/rules/epistemic.md` gates 7b, 7c, 9
+
+---
+
 ## 2026-09-04 [technical]: The push pipeline asked "what is main right now" six times across one run, on a checkout that moves every ~16 minutes
 
 **Context:** The founder reported that concurrent sessions' automatic commits "fuck up push-on" — and, in the same breath, that he *cannot* commit while a push is running. Both halves are true and they are the same mechanism. `cmd_push_docs` resolved `main` live at five points (ahead-count, staging branch NAME, staging PUSH `main:refs/heads/…`, promote `push origin main`) plus the `.privacy-reviewed` stamp written earlier by `/maintain:privacy`. Measured on the 270-commit backlog: 230 watched-path commits, **218 of them within 15 minutes of the previous one (95%)**, mean gap 15.9 min — against a run that needs 15-20 min of agreement between those six reads. Observable failure: the staging branch is pushed at one SHA, the CI poll waits on another, never matches, burns `MAX_WAIT` and dies leaking a staging branch. `cmd_ship_to_prod` carried the identical defect. Three failed pushes were observed live during the diagnosis session; `origin/main` did not move for three days.
