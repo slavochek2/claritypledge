@@ -3,10 +3,9 @@
 -- Defect (pre-existing since 20250101_initial_schema.sql, re-declared identically in
 -- 20260107_p37_consent_mechanism.sql): the INSERT policies on `terms_acceptances` and
 -- `session_consents` verified only that the CALLER was authenticated, never that the row's
--- `user_id` named that caller. Any authenticated user could write a consent record naming any
--- other user, and neither table has an UPDATE or DELETE policy, so the forged row was permanent
--- from the client's perspective. These tables are the GDPR Art. 7(1) "demonstrate consent"
--- evidence, so an unbound writer voids the evidence.
+-- `user_id` named that caller. These tables are the GDPR Art. 7(1) "demonstrate consent"
+-- evidence, so an unbound writer voids the evidence. Mechanics + measurement (prod not yet
+-- remediated as of this writing): .private/docs/security-log.md § 2026-09-04.
 --
 -- Applies decisions.md 2026-08-10: "Every INSERT policy whose table has an owner/author column
 -- must include `<owner_column> = auth.uid()` in WITH CHECK." P1032/P1034 fixed the same class on

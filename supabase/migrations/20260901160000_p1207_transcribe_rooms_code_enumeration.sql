@@ -7,11 +7,9 @@
 -- The SELECT policy was:  TO authenticated  USING (true)
 -- so any signed-in user could read every row of transcribe_rooms — including `code`.
 --
--- `code` is not an identifier, it is a CREDENTIAL. transcribe-service.ts:137 getRoomByCode()
--- resolves a room from its code and that is the whole join path: know the code, join the room.
--- A blanket read therefore let any authenticated user enumerate every live room's join code and
--- walk into any transcription session, including ones attached to an event they were never
--- invited to. Transcripts are the product's most sensitive content.
+-- `code` is not an identifier, it is a CREDENTIAL, and a blanket read exposed it to every
+-- authenticated user regardless of room membership. Transcripts are the product's most sensitive
+-- content. Mechanics: .private/docs/security-log.md § 2026-09-04.
 --
 -- FIX SHAPE — the same one already used for clarity_agreements' invitation_token in this audit,
 -- and for get_agreement_by_token before it: a credential must be PRESENTED, never LISTED.

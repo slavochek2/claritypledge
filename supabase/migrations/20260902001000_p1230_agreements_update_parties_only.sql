@@ -9,14 +9,10 @@
 -- accept_agreement SECURITY DEFINER RPC, which the trigger below exempts.
 -- new function (trg_agreements_lock_party_ids has no prior definition)
 --
--- What was wrong (P422, 20260225150000 / 20260225180000): the UPDATE policy's
--- USING admitted any caller on `status = 'pending' AND invitation_token IS NOT
--- NULL`, and WITH CHECK only required the NEW row to name the caller as a
--- party. So a signed-in stranger who knows a pending agreement's id can set
--- partner_profile_id to themselves — USING passes on the pending branch, WITH
--- CHECK passes once they are the partner — and take over the invitation
--- without ever holding the token. Mechanics + measurement:
--- .private/docs/security-log.md § 2026-09-01 (P1230).
+-- What was wrong (P422, 20260225150000 / 20260225180000): the UPDATE policy
+-- admitted a caller who was not yet a party to a pending row. Full mechanics
+-- + measurement (prod not yet remediated as of this writing):
+-- .private/docs/security-log.md § 2026-09-01 / 2026-09-04 (P1230).
 --
 -- Drift note: the test project already carries the parties-only USING/CHECK
 -- (out-of-band, no migration). Prod still has the P422 predicate. The DO block

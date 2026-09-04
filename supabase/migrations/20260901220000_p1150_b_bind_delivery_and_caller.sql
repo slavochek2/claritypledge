@@ -14,14 +14,10 @@
 --   the frontend that sends it is live. The marker is repointed to the commit that adds it once
 --   that commit exists (P1057 Migration B precedent); migrate.sh holds prod until then.
 --
--- Codex review of P1150 (FIX FIRST), both verified by the lead:
---   1. The part-A helper took p_listener from the caller and was EXECUTE-granted to
---      authenticated, so a direct RPC call `p1150_letter_rating_admissible(story, speaker,
---      <someone else>, ...)` answered whether ANOTHER user holds a delivery of a letter with
---      that story from that sender — an enumeration oracle over the letter relations.
---   2. `p_delivery IS NULL` was a wildcard, and P1067's dedup index is partial on
---      `delivery_id IS NOT NULL`, so a legitimate recipient could insert unlimited rows per
---      snapshot with delivery_id = NULL, each bumping the sender's verification_session_count.
+-- Codex review of P1150 (FIX FIRST), both verified by the lead — two findings against the
+-- part-A helper, an enumeration oracle over the letter relations and an unbounded-insert
+-- wildcard. Mechanics + measurement (prod not yet remediated as of this writing):
+-- .private/docs/security-log.md § 2026-09-04.
 --
 -- Fix: the helper only ever answers about auth.uid(); the delivery is mandatory and must be
 -- the caller's on that letter, so every admitted row falls under P1067's unique index

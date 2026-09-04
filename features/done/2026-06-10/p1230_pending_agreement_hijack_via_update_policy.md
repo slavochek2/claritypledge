@@ -43,19 +43,13 @@ state so it is correct from either starting point.
 
 ## Reproduction Steps
 
-1. On TEST, create a pending agreement as service_role (fixture helper), and two users: the
-   creator and a stranger.
-2. Sign in as the stranger; `PATCH /rest/v1/clarity_agreements?id=eq.<id>` with
-   `{ partner_profile_id: <stranger> }`.
-3. Against the prod-shaped policy the row changes; against test's out-of-band policy it does
-   not (0 rows) — that half is not reproducible on test without writing the prod policy there.
-4. What **does** reproduce on test today: sign in as the creator and `PATCH`
-   `partner_profile_id` to any profile → 1 row written; sign in as the partner and `PATCH`
-   `creator_profile_id` → 1 row written; anon `PATCH` → 0 rows, no error (anon holds the UPDATE
-   grant; only the policy stops it).
+An unrelated party could write themselves into a pending agreement's `partner_profile_id` without
+holding the invitation token, and either existing party could reassign either party id. Full
+reproduction transcript (unpatched on prod as of this writing): `.private/docs/security-log.md`
+§ 2026-09-04, per the disclosure rule in CLAUDE.md.
 
-**Reproduction rate:** 100% for step 4 on test (integration test, 2026-09-01: 3 failed / 6 passed
-before the fix); step 2 is prod-only by policy text.
+**Reproduction rate:** 100% on test for the party-reassignment case (integration test, 2026-09-01:
+3 failed / 6 passed before the fix); the unrelated-party case is prod-only by policy text.
 
 ## Expected Behavior
 
@@ -65,8 +59,8 @@ neither can change who the parties are. Becoming the partner happens only throug
 
 ## Actual Behavior
 
-See Reproduction. On prod any authenticated caller can claim any pending agreement by id; on
-both environments a party can reassign either party id; anon writes fail only by policy.
+See Reproduction (detail in `.private/docs/security-log.md` — unpatched on prod). Fix scoped in
+§ Fix Approach; anon writes already fail by policy in both environments.
 
 ## Affected Files
 
@@ -270,18 +264,11 @@ is what made it unsatisfiable while it sat in § Acceptance Criteria. Run from t
    grant list at apply time, so a successful apply is itself the assertion. Re-run
    `./scripts/migrate.sh --env prod`; it should report no pending migrations.
 
-3. **Verify the defect is closed on prod** — the reproduction from § Reproduction Steps step 2,
-   with a pending fixture agreement and a signed-in account that is **not** a party to it:
-   ```bash
-   curl -s -X PATCH "$PROD_URL/rest/v1/clarity_agreements?id=eq.<pending id>" \
-     -H "apikey: $PROD_ANON_KEY" -H "Authorization: Bearer <stranger JWT>" \
-     -H "Content-Type: application/json" -H "Prefer: return=representation" \
-     -d '{"partner_profile_id":"<stranger profile id>"}'
-   # expect: []   (no row matched the policy)
-   ```
-   Then repeat the same PATCH as the **creator** of that row — expect `42501` from
-   `agreements_lock_party_ids`, not a silent success. A `200` with a row on either call means the
-   policy or the trigger did not land; do not proceed, re-check step 2.
+3. **Verify the defect is closed on prod** — the exact verification request is recorded in
+   `.private/docs/security-log.md` § 2026-09-04 (unrelated-party PATCH, expect no row matched the
+   policy; same PATCH as the creator, expect `42501` from `agreements_lock_party_ids`). A success
+   response on either call means the policy or the trigger did not land; do not proceed, re-check
+   step 2.
 
 4. **Smoke the one legitimate write path in a browser:** as the creator of a pending agreement,
    click **Resend Invitation** and confirm the "Invitation resent" toast. A failure toast means

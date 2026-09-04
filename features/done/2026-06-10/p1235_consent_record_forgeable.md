@@ -24,12 +24,13 @@ to demonstrate that a given person accepted a given version of the terms. Both t
 `user_id` column naming whose consent the row records. Both carry a single INSERT policy that
 verifies the *caller* is authenticated and never checks that `user_id` names that caller.
 
-**Complication:** Caller-verification is not owner-binding. Any authenticated user can write a row
-naming any other user's UUID, and the victim has no way to remove it — neither table carries an
-UPDATE or DELETE policy at all, so a forged row is permanent from the client's perspective. This
+**Complication:** Caller-verification is not owner-binding — the row's named subject was not
+constrained to the acting caller. The victim has no way to remove a forged row: neither table
+carries an UPDATE or DELETE policy at all, so it is permanent from the client's perspective. This
 becomes live-relevant now: a terms bump to v1.4 will force every existing user to re-accept, and
 these rows are the evidence that the re-acceptance happened. Evidence that anyone can author is not
-evidence.
+evidence. Full mechanics (unpatched on prod as of this writing): `.private/docs/security-log.md`
+§ 2026-09-04, per the disclosure rule in CLAUDE.md.
 
 **This class was supposed to be closed already.** The 2026-08-10 ruling below requires every INSERT
 policy on a table with an owner column to bind that column. P1038 audited the whole schema against
