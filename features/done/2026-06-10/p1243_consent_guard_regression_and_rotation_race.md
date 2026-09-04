@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000071
 workstream: infrastructure
 created_date: '2026-09-03'
 tags: [security, rls, gdpr, migrations]
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-04
 ---
 
 # P1243: Consent INSERT policies lost the post-erasure guard, and token rotation races account erasure
