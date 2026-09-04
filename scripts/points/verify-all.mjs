@@ -37,6 +37,7 @@ export const PREDICATE_MODULES = [
   'store-reconcile.mjs', 'audience-floor.mjs', 'input-block-scan.mjs',
   'cast-controls.mjs', 'seal.mjs', 'verify-fixture.mjs', 'candidate-sweep.mjs',
   'source-binding.mjs',
+  'room-split.mjs',
 ]
 
 /** Modules that are harness, not predicates — the ONLY sanctioned reason for a

@@ -716,6 +716,38 @@ raw marker count (106 on this source) counts those repeats and is not the turn c
   Gate 2 and paste the output. **It cannot judge whether the term list is the right list for the
   position** — that stays a founder call; it removes only the case where nobody looked.
 
+- **Room division — the axis this file was missing, and the only one that scores the OBJECTIVE.** The
+  four axes above all score the ARGUERS. The pipeline's target is a point *"the room does not already
+  agree about, such that the per-point re-stake can move"*
+  ([points-process.md](../../../../docs/points-process.md) §0.5), which says in bold: **do not
+  substitute arguer split for room split.** For each candidate point, name **which group inside the
+  named room takes each side**, from the registry's `composition` — not "the room is divided".
+
+  > **Measured 2026-09-04, run `ai-power-remedies-d`, at Gate 1.** The orchestrator spent an entire
+  > founder gate deciding whether two arguers *really* disagreed, and never once asked whether the
+  > room would. It was not carelessness — the rung was missing. In this file at that moment:
+  > **0** occurrences of "room" in this Ranking Axes section, **0** of "room split" / "does not
+  > already agree" / "re-stake" anywhere in the file, and all **6** mentions of "room" were intake.
+  > Condition 6 (relevance to the room) is owned by `prepare`, a stage LATER, while P1210 §4 moved
+  > candidate-POINT approval INTO Gate 2 here — so points were approved at a gate with no room
+  > criterion and the room arrived afterwards. The founder caught it by asking whether the plan
+  > served the event at all.
+
+  **Two groups, or it is not a room split.** A basis that cannot name two *different* groups inside
+  the room is an arguer split relabelled — checked structurally, never by reading the prose:
+
+  ```sh
+  node scripts/points/room-split.mjs <points.json>
+  # {room:"<verbatim room string>", points:[{id, statement,
+  #   room_split:{for_who, against_who, lean}}]}
+  ```
+
+  `REFUSE` = a point is UNASSESSED, ONE-SIDED, or names the SAME group on both sides.
+  `ASSESSED-ALL-LOPSIDED` = assessed, but every point leans the same way — a **finding for the
+  founder**, never an auto-drop. **It cannot tell you whether the room will actually split**:
+  conditions 8 and 9 are left unmeasured by design and the first event falsifies them. It removes
+  only the case where nobody asked.
+
 **Insight and popularity are shown separately and never collapsed into one number.** A single blended score hides exactly the trade this skill exists to inspect.
 
 **Fetch Strategy (Early-stop):** Read whole transcripts for top candidates one by one, **position by
@@ -836,6 +868,10 @@ It evaluates:
 - **Does each source argue the position it was admitted for?** A silent re-shuffle of who occupies
   what leaves N sources and fewer than N positions.
 - Is the disagreement genuine and load-bearing, or purely semantic?
+- **Would the NAMED ROOM divide on this, or only the arguers?** The judge is handed the room in its
+  inputs above and, until 2026-09-04, no evaluation bullet ever used it. For each candidate point,
+  argue the case that this specific room **already agrees** — that is the cheapest way for an evening
+  to fail, and it is invisible to every same-side check, which compare arguers to each other.
 - Does any transcript rely on unevidenced assertions?
 - **Is the spectrum actually a spectrum**, or N points clustered at two poles with the middle
   unoccupied? Say which; it is the founder's call, not a rejection.
@@ -892,6 +928,7 @@ new axis.
 
 ```sh
 node scripts/points/cast-controls.mjs <cast.json>
+node scripts/points/room-split.mjs <points.json>   # points are approved at THIS gate (P1210 §4)
 ```
 
 Per-person concentration above half the filed points is a **FINDING for the founder, never an
