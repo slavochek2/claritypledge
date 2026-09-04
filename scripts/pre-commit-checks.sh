@@ -363,6 +363,7 @@ if [ -n "$PUSH_PIN_STAGED" ]; then
 else
     echo ">>> Push snapshot-pinning canary skipped (git-ops.sh not staged)"
 fi
+echo ""
 
 # 4.7d. Playwright tail-pipe hook canary (P911) — runs when the hook or its canary
 # is staged. Proves block-pw-tail-pipe.sh still BLOCKS a live test run piped to

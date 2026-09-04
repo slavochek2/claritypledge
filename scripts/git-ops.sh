@@ -1046,7 +1046,16 @@ PYJ
 # step" and ran an unpinned, unlocked promote. See pp/docs/decisions.md 2026-08-28.
 print_staging_hop() {
   local sb="${STAGING_BRANCH_PREFIX:-staging/}${1}"
-  local snap="${2:-$( cd "$REPO_ROOT" && git rev-parse HEAD )}"
+  # $2 is REQUIRED — no `${2:-$(git rev-parse HEAD)}` default. A default silently
+  # reintroduces exactly the defect this function was changed to remove: two of the
+  # three callers sit immediately after release_main_lock, so the fallback would
+  # resolve HEAD with no lock held and print a SHA that may already include co-tenant
+  # commits the caller never verified. Failing loudly beats printing a wrong SHA that
+  # a human will paste into a promote.
+  if [[ -z "${2:-}" ]]; then
+    die "print_staging_hop: snapshot SHA (arg 2) is required — pass the SHA the caller verified, never a live HEAD read."
+  fi
+  local snap="$2"
   cat >&2 <<EOF
 Staging hop (P919) — main is gated by the 'audit-privacy' required check.
 Every command below pins the snapshot ${snap} on purpose; do not substitute 'main'.
@@ -2407,10 +2416,15 @@ PY
       fi
 
       echo "ship: no branch — closing $pn directly on main ($sprint_dir)"
+      # Capture the snapshot BEFORE releasing the lock: after the release a co-tenant
+      # can commit, and the SHA printed in the guidance below must be the one this
+      # ship verified, not whatever main has drifted to by the time a human reads it.
+      local _hop_sha_nobranch
+      _hop_sha_nobranch="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
       release_main_lock
       trap - EXIT
       # P919 D4: the closure commit (P920 no-branch path) is main-bound too — staging hop applies.
-      print_staging_hop "$pn"
+      print_staging_hop "$pn" "$_hop_sha_nobranch"
       echo "Ready to push."
       return
     fi
@@ -3034,6 +3048,10 @@ The branch is authoritative for shipped migrations. Compare each file with
     ship_set_journal_flag "$pn" "branch_deleted"
   fi
 
+  # Capture the snapshot BEFORE releasing the lock — see the no-branch path above.
+  local _hop_sha
+  _hop_sha="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+
   # Release lock and clean up journal.
   release_main_lock
   trap - EXIT
@@ -3042,7 +3060,7 @@ The branch is authoritative for shipped migrations. Compare each file with
   echo "ship: $pn landed on main; branch and journal cleaned up."
   # P919 D4: cherry-picked commits are new SHAs CI has never seen — staging hop runs
   # the privacy-scan check on them before the human pushes main.
-  print_staging_hop "$pn"
+  print_staging_hop "$pn" "$_hop_sha"
   echo "Ready to push."
 }
 
@@ -3263,6 +3281,8 @@ cmd_ship_to_prod() {
 
   # ── Step 3: Staging push ─────────────────────────────────────────────────
   local staging_branch="staging/${pn}"
+  local PUSH_EPOCH
+  PUSH_EPOCH="$(date +%s)"
   echo "ship-to-prod [3/6]: pushing to staging branch ${staging_branch}..." >&2
 
   # Force-with-lease: if staging/pN already exists from a prior failed attempt,
@@ -3293,8 +3313,9 @@ cmd_ship_to_prod() {
   fi
 
   local CHECK_NAME="audit-privacy"
-  local PUSH_EPOCH
-  PUSH_EPOCH="$(date +%s)"
+  # Taken before the staging push (see cmd_push_docs for the mechanism): a baseline
+  # stamped after the push is later than our own check-run's started_at, so the poll
+  # rejects its own scan as stale and dies at MAX_WAIT with CI green.
   local MAX_WAIT=600   # 10 minutes
   local POLL_INTERVAL=20
   local waited=0
@@ -3464,6 +3485,41 @@ cmd_push_docs() {
     origin_main_sha="$(git -C "$REPO_ROOT" rev-parse origin/main)"
   fi
 
+  # --resume must REPLAY the prior run's snapshot, never re-derive it. Re-deriving
+  # is what broke it: the retreat below depends on the privacy stamp, and the stamp
+  # moves whenever /maintain:privacy runs (/day, /kdd, or a co-tenant). A resume that
+  # recomputed the snapshot then computed a DIFFERENT staging branch name, ls-remote
+  # missed the branch the aborted run actually left on origin, and the run died with
+  # "no staging branch — drop --resume" while orphaning that branch permanently. The
+  # recovery path was broken by the exact condition it exists to recover from.
+  # Resolved here rather than reusing Step 0's $git_common: that block is extracted
+  # and executed standalone by scripts/test-push-snapshot-pinning.sh Test 4, so it
+  # must stay self-contained and cannot depend on — or be depended on by — this one.
+  local state_dir
+  state_dir="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
+  [[ "$state_dir" == /* ]] || state_dir="$REPO_ROOT/$state_dir"
+  local resume_state="$state_dir/.push-docs-resume"
+  local resumed_branch=""
+  # --8<-- RESUME-REPLAY-BEGIN (extracted by scripts/test-push-snapshot-pinning.sh Test 5;
+  # may read only: resume, resume_state, REPO_ROOT, local_sha — and the `die` function.)
+  if (( resume )); then
+    if [[ ! -f "$resume_state" ]]; then
+      die "push-docs --resume: no run state at $resume_state — nothing to resume. Drop --resume to start a normal run."
+    fi
+    local _rs_sha _rs_branch
+    read -r _rs_sha _rs_branch < "$resume_state" || true
+    if [[ ! "$_rs_sha" =~ ^[0-9a-f]{40}$ ]] || [[ -z "$_rs_branch" ]]; then
+      die "push-docs --resume: run state at $resume_state is malformed ('${_rs_sha:-empty}') — delete it and start a normal run."
+    fi
+    if ! git -C "$REPO_ROOT" cat-file -e "$_rs_sha" 2>/dev/null; then
+      die "push-docs --resume: recorded snapshot $_rs_sha no longer exists in this repo — delete $resume_state and start a normal run."
+    fi
+    local_sha="$_rs_sha"
+    resumed_branch="$_rs_branch"
+    echo "push-docs: --resume replaying snapshot ${local_sha:0:9} on ${resumed_branch}." >&2
+  fi
+  # --8<-- RESUME-REPLAY-END
+
   # Retreat the snapshot to the privacy stamp when HEAD has run ahead of it.
   # A co-tenant watched-path commit landing between /maintain:privacy and this
   # run used to ABORT at Step 1 below, forcing a full re-review — measured at
@@ -3492,7 +3548,8 @@ cmd_push_docs() {
     stamp_sha="$(tr -d '[:space:]' < "$git_common/.privacy-reviewed")"
   fi
 
-  if [[ "$stamp_sha" =~ ^[0-9a-f]{40}$ ]] \
+  if [[ "${resume:-0}" -eq 0 ]] \
+     && [[ "$stamp_sha" =~ ^[0-9a-f]{40}$ ]] \
      && [[ "$stamp_sha" != "$local_sha" ]] \
      && [[ -n "$origin_main_sha" ]] && [[ "$stamp_sha" != "$origin_main_sha" ]] \
      && git -C "$REPO_ROOT" cat-file -e "$stamp_sha" 2>/dev/null \
@@ -3512,6 +3569,11 @@ cmd_push_docs() {
   # --8<-- STEP0-RETREAT-END
 
   # Must have commits ahead of origin/main — measured on the PINNED snapshot.
+  # When origin/main does not exist the expansion is a BARE SHA, not a range, so
+  # rev-list counts the whole history and the run proceeds. That is a deliberate
+  # change from the old `origin/main..HEAD`, which errored into `|| echo 0` and
+  # exited "nothing to push" on a repo that in fact had everything to push. It
+  # matches privacy_range's own no-origin fallback a few lines below.
   local ahead_count
   ahead_count="$(git -C "$REPO_ROOT" rev-list --count "${origin_main_sha:+${origin_main_sha}..}${local_sha}" 2>/dev/null || echo 0)"
   if [[ "$ahead_count" -eq 0 ]]; then
@@ -3579,11 +3641,21 @@ cmd_push_docs() {
 
   # ── Step 3: Staging push ─────────────────────────────────────────────────
   local short_sha
-  # From the PINNED snapshot, never a fresh HEAD read: the branch name must match
-  # the SHA the CI poll waits on, and must stay stable across a --resume so
-  # ls-remote can still find the branch a prior aborted run left behind.
+  # From the PINNED snapshot, never a fresh HEAD read: the branch name must match the
+  # SHA the CI poll waits on. Across a --resume the name is REPLAYED from the run
+  # state, not recomputed — recomputing is what orphaned branches when the privacy
+  # stamp moved between the abort and the resume (see the --resume block above).
   short_sha="$(git -C "$REPO_ROOT" rev-parse --short "$local_sha")"
   local staging_branch="staging/doc-${short_sha}"
+  if [[ -n "$resumed_branch" ]]; then
+    staging_branch="$resumed_branch"
+  fi
+
+  # Record the run state BEFORE the staging push, so an abort at any later point —
+  # CI timeout, red check, lapsed push-on, a killed terminal — is resumable. Written
+  # before the push, not after, because the push itself is one of the things that can
+  # fail after creating the ref.
+  printf '%s %s\n' "$local_sha" "$staging_branch" > "$resume_state"
   if (( resume )); then
     # Delete the leftover staging branch so the re-push below CREATES the ref again.
     # This is the whole mechanism: pushing the same SHA onto an existing branch is a
@@ -3609,6 +3681,21 @@ cmd_push_docs() {
       die "push-docs --resume: could not delete ${staging_branch} — resolve by hand, then re-run without --resume."
     fi
   fi
+
+  # Stamp the freshness baseline BEFORE the push, not after. GitHub starts the
+  # workflow the instant the ref lands — which is DURING the push, not after the
+  # local command returns — so a baseline taken afterwards is later than our own
+  # check-run's started_at. The poll below then rejects its own scan as "pre-dates
+  # our push (stale run)", waits for a fresh run that will never be created, and
+  # dies at MAX_WAIT with the scan sitting green on origin. Observed 2026-09-04:
+  # audit-privacy started 09:39:13 and concluded SUCCESS at 09:47:53 on the pinned
+  # snapshot, and the run still failed with origin/main unmoved. The bigger the
+  # push, the longer the transfer, the more certain the misordering — which is why
+  # this bites hardest exactly when the backlog is worst.
+  # Taking it early is strictly safer: a check-run started before we pushed is
+  # still correctly rejected, which is all the guard was ever for.
+  local PUSH_EPOCH
+  PUSH_EPOCH="$(date +%s)"
 
   echo "push-docs [3/6]: pushing to staging branch ${staging_branch}..." >&2
 
@@ -3636,8 +3723,9 @@ cmd_push_docs() {
   fi
 
   local CHECK_NAME="audit-privacy"
-  local PUSH_EPOCH
-  PUSH_EPOCH="$(date +%s)"
+  # PUSH_EPOCH is deliberately NOT re-stamped here — it was taken BEFORE the staging
+  # push (see the comment there). Re-stamping it now would reinstate the race that
+  # made the poll reject its own green scan.
   local MAX_WAIT=600
   local POLL_INTERVAL=20
   local waited=0
@@ -3760,6 +3848,11 @@ cmd_push_docs() {
   else
     echo "  Warning: could not delete ${staging_branch} -- delete manually: git push origin --delete ${staging_branch}" >&2
   fi
+
+  # The run succeeded — drop the resume state so a later --resume cannot replay a
+  # snapshot that is already on origin (which would re-push a staging branch and burn
+  # a CI run for nothing).
+  rm -f "$resume_state"
 
   echo "" >&2
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
