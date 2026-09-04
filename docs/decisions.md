@@ -6,6 +6,83 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [technical]: A test that hand-builds its own input exercises the reader and never the builder — twice in one spec, both times a live defect under a green suite
+
+**Context:** P1212 ran two adversarial reviews over a branch whose suite was fully green (3729
+tests). Two of the twelve findings were live defects, and both had the same shape.
+
+(1) The sealed-letter snapshot carries `storyAuthorId` **and** `storyAuthorName` so an agent story
+shows its own author rather than the letter's sender. Two tests asserted exactly that, and both
+constructed a `point_config` object by hand and passed it to the reader. The **builder**
+(`docStoryToSnapshot`, the preview path) wrote the id and not the name. So a sender previewing a
+letter saw agent chrome selected from the id and their **own name** printed beside it — the precise
+misattribution the field was added to prevent, on the other side of the same seam.
+
+(2) The reserved `agent-` slug predicate was written, hardened twice, and covered by its own
+integration tests. **Nothing called it** for several hours: the profiles guard trigger and both
+RPCs still named the predecessor. Every test exercised the predicate directly; none exercised a
+call path.
+
+**Decision:** State the rule as a property of the fixture, not of coverage: **when a test
+constructs the value under test, it has verified the consumer and asserted nothing about the
+producer.** The repair is a round-trip — drive the real builder, then the real reader, and assert
+across both. Applied here: a test that calls `docStoryToSnapshot` and then
+`snapshotToStoryWithPoints`, and a P270 integration test that goes through the RPC rather than the
+predicate.
+
+**Alternatives rejected:** *Treating this as the known vacuous-assertion rule* — it is not the same
+failure. A vacuous assertion would still pass with the production code deleted; these assertions
+bind real code and would go red if the reader broke. They are **correct tests of the wrong half**,
+which is why a known-bad control on the reader passes them and finds nothing. *Requiring integration
+tests everywhere* — the cost is real and the trigger is narrower: it fires only where a value
+crosses a producer/consumer seam that both sides can implement independently.
+
+**Consequences:** The tell is syntactic and cheap to look for in review: a test whose fixture
+literal contains the exact field the assertion reads. Note the interaction with the
+`all-done`-with-absent-mechanism entry (2026-09-03, P552): that one is about a spec closing on
+work never done; this one is about work genuinely done on **one side of a seam** while the tests
+sit on the other. A suite can be green, non-vacuous, and still blind in this direction.
+
+**References:** `src/app/utils/letter-snapshot-mapper.ts` · `src/tests/p1212-quote-label-parity.test.tsx` · `e2e/integration/p1104-agent-accounts-migration.spec.ts` · [features/done/2026-06-10/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/done/2026-06-10/p1212_agent_story_card_contract_drift_across_surfaces.md)
+
+---
+
+## 2026-09-04 [technical]: An asymmetry inside a hand-kept lookalike table is the tell that it is incomplete
+
+**Context:** Two reserved-namespace guards protect profile URLs so a machine-authored account
+bearing a real person's name cannot be mistaken for that person's own page — the URL is the only
+marker that travels in a pasted link. Both guards normalise, strip invisible characters, fold a
+hand-maintained table of lookalike codepoints, and then compare the first token. An adversarial
+review found two ways past them, both fixed in `20260904180000`.
+
+**Decision:** Record the **detection heuristic**, which generalises past this pair of functions and
+past Unicode. The fold table listed the small-capital forms of four of the five letters in the
+reserved word and omitted the fifth. Nothing failed; the omission was invisible to every test,
+because the tests enumerated inputs someone had thought of. **The asymmetry within the table was
+itself the evidence** — a hand-kept list that treats sibling members of one obvious class
+differently is incomplete at the odd one out, and that is checkable by reading, without knowing
+which input exploits it. The second defect was a tokenisation edge at the start of the string, also
+found by reading rather than by any failing case.
+
+**Alternatives rejected:** *Treating a longer table as the fix* — it is not; Unicode's confusables
+set is larger than any hand-kept list, so both functions are best-effort hardening of a
+known-incomplete mechanism and now say so in their own comments. *Folding a third known gap in at
+the same time* — a documented character-class gap is filed separately, with a test asserting the
+current wrong behaviour so a fix fails loudly rather than passing silently; a security
+character-class change should not ride an unrelated rename.
+
+**Consequences:** Two things carry forward. First, a widening guard needs **false-positive
+controls**, not only bypass tests — a reservation with no test proving ordinary handles stay
+available has an unmeasured land-grab rate, and the fix here added those alongside the closures.
+Second, and specific to this repo's history: the newest definition of a database function is the
+one to clone. Earlier in the same spec a predicate was cloned from a superseded migration a grep
+returned first, reintroducing a hole that had been found and fixed four hours later in a file
+nobody read (epistemic.md gate 4, "read the manifest before guessing among N paths").
+
+**References:** `supabase/migrations/20260904180000_p1212_slug_guards_smallcap_a_and_leading_separator.sql` · `e2e/integration/p1212-agent-slug-reservation.spec.ts` · [docs/technical/database.md](technical/database.md) §Reserved account namespaces
+
+---
+
 ## 2026-09-04 [process]: A spec's reading of a quoted source is a claim — and the pass that would challenge it is optional in practice
 
 **Context:** P1240's Problem section quoted the founder describing a signed-in person who "clicks on
