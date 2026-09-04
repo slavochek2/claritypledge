@@ -69,6 +69,22 @@
 --    carries no third-party name); the legacy `state` jsonb column (demo flow) is
 --    not scrubbed — see the spec's scope statement.
 --
+--    Residual, accepted and NOT closed here (documented 2026-09-04, P1243 review):
+--    `clarity_verifications` is the fourth table §3 lists but only THREE carry the
+--    cancelled-session clause. It has no `session_id` column — its session is reachable
+--    only via `message_id -> clarity_chat_messages.session_id` — so the same one-line
+--    `NOT EXISTS (... WHERE s.id = <table>.session_id AND s.status = 'cancelled')`
+--    could not be written, and the omission was silent rather than stated. Effect: a
+--    surviving counterparty can still insert a paraphrase against a message in a
+--    cancelled session. What is written is the COUNTERPARTY'S own text, not the erased
+--    user's, so this does not recreate erased personal data — but it is a write into a
+--    conversation the erased user closed by leaving, and the live page carries no
+--    status guard of its own (verified 2026-09-04: no cancelled-status check in
+--    clarity-live-page.tsx), so these policies are the only control. Closing it needs a
+--    two-table join inside an RLS policy on the hot path of a live session, which is a
+--    write-path change deserving its own test pass rather than a footnote — filed as
+--    P1245.
+--
 -- 5. CENSUS. ml_training_sessions(session_code, user_name) has no id column; rows
 --    are erased by session code + session-time name under the same same-name rule.
 --    Its audio_path points at GCS — not reachable from SQL. clarity_feed_ideas /
