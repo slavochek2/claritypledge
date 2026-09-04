@@ -271,12 +271,12 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
    credentials") is exactly what THIS spec removes. Whether the narrow form is in or out of P1214's
    rejection is unresolved and is a founder call, not an implementer's.
 
-5. **A second credential location this spec does not cover.** Scope is `.env.local`, but
-   `~/.claude/mcp-*.json` holds four live secrets outside it: two Google OAuth values, a Gmail app
-   password, and a Telegram bot token. `TELEGRAM_BOT_TOKEN` exists in **both** files, so one copy is
-   already redundant. The founder proposed folding these into `.env.local` on 2026-09-04; that was
-   **not** done, because it would move four secrets from a guarded file into the unguarded 78-secret
-   one. Open: do these join the critical half, get their own guard, or stay put?
+5. **A second credential location this spec does not cover.** Scope is `.env.local`, but another
+   local config store holds four live secrets outside it — two OAuth values, a mail app password
+   and a bot token; the file and variable names are in `.private/docs/security-log.md`. One of the
+   four is duplicated across both stores, so a copy is already redundant. The founder proposed
+   folding these into `.env.local` on 2026-09-04; that was **not** done, because it would move four
+   secrets from a comparatively guarded store into the unguarded one. Open: do these join the critical half, get their own guard, or stay put?
 
 6. **Key-count drift.** This spec says 72 keys; the file held **78** on 2026-09-04. The founder pass
    in question 2 should work from a freshly enumerated list, not the number recorded here.
