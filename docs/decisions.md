@@ -6,6 +6,55 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [technical]: P1240 — four proposed mechanisms for mobile session loss, four dead; the spec becomes a measurement
+
+**Context:** P1240 was filed on a recurring founder report — a signed-in person on a phone taps a
+link or opens a tab and is signed out. The spec proposed three causes and a fallback-identity UI to
+build. Two full sessions went into it. **The report had been misread from the start:** the founder
+clarified 2026-09-04 that he meant an ordinary public link, never a magic link, so the entire
+login-link branch — including the previous day's P608 work — was answering a different question.
+
+**Decision:** Stop proposing mechanisms; instrument and measure. Every mechanism anyone offered is
+now dead or out of scope, each killed cheaply:
+
+- **(a) in-app WebView spawn** — falsified by the founder's own observation (same browser). Also
+  never verified for Gmail, which routes taps through Chrome Custom Tabs (shared storage), so Gmail
+  may never have belonged on the isolated-WebView list in `authentication.md` at all.
+- **(b) PKCE login link opened elsewhere** — real and deliberate, but about *signing in*, not staying
+  signed in. Moved out of the spec; findings stand in the 2026-09-03 entry.
+- **(c) storage eviction** — still live, untested.
+- **(d) refresh-token reuse detection revoking the session family** — **falsified by direct test**
+  against the test project: rotation is ON, yet reusing a stale refresh token 90 s after rotation
+  (far past `refresh_token_reuse_interval = 10`) returned the *same* replacement token and the
+  session survived. GoTrue keeps an idempotent mapping rather than revoking.
+
+Also considered and rejected: raising `jwt_expiry`. The 1-hour access token renews silently
+(observed renewing on the device) and is not the mechanism; raising it buys nothing and costs
+revocability, since an access token cannot be revoked — sign-outs and bans would not take effect
+until it lapses. Capped at 604,800 s regardless.
+
+**Alternatives rejected:** Building the fallback-identity UI the spec called for — it presumes a
+cause nobody has established, for a failure reproduced zero times across two investigations.
+Rejecting the spec outright as P840 did — that produced this exact re-litigation four months later;
+recording a number is what makes the third report cheap instead of another evening.
+
+**Consequences:** (Status: proposed) `src/auth/AuthContext.tsx` now fires `session_lost_unexplained`
+on a session that vanishes without a deliberate sign-out, carrying `stored_token_present` — the field
+that splits "the client discarded a session whose token is still on disk" (ours) from "storage was
+cleared underneath us" (environment) from "storage is unreadable" (a cause itself). Production-only,
+so nothing is measured until it ships; and `analytics.track` no-ops behind tracker blockers, so the
+count is a floor, not a rate. **Two method points earned the hard way.** First, the control probe was
+load-bearing: the reuse test returned 200 twice, and only a garbage-token control returning 400
+established that the probe could see failure at all. Second, an instrument never observed firing is
+worth nothing — the first implementation read `Object.keys(localStorage)`, which returns method names
+rather than stored keys under some Storage implementations, so the one discriminating field reported
+`false` while a token sat in storage. A test asserting **both** directions caught it before it could
+produce weeks of confident, wrong data; a fires-on-loss test alone would have passed.
+
+**References:** [features/p1240_mobile_session_loss_measure_before_building.md](../features/p1240_mobile_session_loss_measure_before_building.md) · `src/tests/p1240-session-loss-instrumentation.test.tsx` · decisions.md 2026-09-03 (the login-link half)
+
+---
+
 ## 2026-09-04 [technical]: The push poll gave up before its own scan could finish — every run that day outlived its timeout
 
 **Context:** After four rounds of fixes to the push path (snapshot pinning, the stamp retreat, `--resume` replay, the freshness-baseline ordering, the leaked-branch reconcile), pushes still failed. Measuring the CI itself rather than the script found why: three `audit-privacy` runs on one SHA took **768s, 980s and 793s** against a `MAX_WAIT` of **600s**. The clearest case did everything right — snapshot pinned, real push event fired, baseline correctly ordered — and concluded SUCCESS at 10:31:59Z while `push-docs` had already died around 10:28. The verdict arrived after the poll stopped listening.
@@ -279,7 +328,7 @@ do-not-modify-without-E2E header) and a founder copy decision; both are recorded
 P1240. Also newly noted and unassessed: login emails traverse a Brevo click-tracking redirector,
 an extra hop that was not in anyone's model of this flow.
 
-**References:** [features/p1240_mobile_session_survives_the_email_app_handoff.md](../features/p1240_mobile_session_survives_the_email_app_handoff.md) · [docs/technical/authentication.md](technical/authentication.md) · features/done/2026-03-30/p608_magic_link_reliability.md
+**References:** [features/p1240_mobile_session_loss_measure_before_building.md](../features/p1240_mobile_session_loss_measure_before_building.md) · [docs/technical/authentication.md](technical/authentication.md) · features/done/2026-03-30/p608_magic_link_reliability.md
 
 ---
 ## 2026-09-04 [technical]: A "zombie cleanup" that cannot tell a zombie from a live server made every /live triage number meaningless (P1234)

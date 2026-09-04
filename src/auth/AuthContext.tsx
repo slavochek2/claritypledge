@@ -46,6 +46,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Track if initial session check is complete
   const [sessionChecked, setSessionChecked] = useState(false);
 
+  // P1240: distinguish a session the person ENDED from one that vanished on them.
+  // Set only by the signOut() below; every other transition to a null session is
+  // unexplained by construction. Three hypotheses for the founder's recurring
+  // "my phone forgot me" report were each falsified cheaply (in-app WebView spawn,
+  // PKCE cross-browser, refresh-token reuse revocation — the last by direct test
+  // against the test project, 2026-09-04). Nothing in the product recorded the event,
+  // so there was no way to tell which remaining cause it is, or whether it is real
+  // at all. This is the measurement, not a fix.
+  const deliberateSignOutRef = useRef(false);
+  const hadSessionRef = useRef(false);
+
   // Effect 1: Session management only
   // This follows Supabase's recommended pattern - onAuthStateChange just updates session
   useEffect(() => {
@@ -61,6 +72,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         setSession(initialSession);
+        hadSessionRef.current = !!initialSession;  // P1240: seed, so the first
+        // transition after mount is classified against a real prior state
         setSessionChecked(true);
 
         // Only set loading false here if NO session (profile effect won't run)
@@ -77,7 +90,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Listen for auth changes - ONLY update session, don't fetch profile here
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
+        // P1240: fire BEFORE state updates — this is the only moment where the
+        // previous session and the new absence are both observable.
+        if (hadSessionRef.current && !newSession) {
+          if (deliberateSignOutRef.current) {
+            deliberateSignOutRef.current = false;
+          } else {
+            let storedToken: string | null = null;
+            try {
+              // Index API, not Object.keys(localStorage): Storage exposes its
+              // entries as own enumerable properties in browsers, but not in every
+              // Storage implementation — under the test environment Object.keys
+              // returns the METHOD names ('getItem', 'setItem', …) and the lookup
+              // silently reports "no token" while a token is sitting right there.
+              // That is the one field this whole measurement turns on, so it must
+              // not depend on which Storage implementation is underneath.
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.endsWith('-auth-token')) {
+                  storedToken = localStorage.getItem(k);
+                  break;
+                }
+              }
+            } catch {
+              // Storage can throw outright (private mode, blocked site data) — that
+              // IS a candidate cause, so record it rather than swallowing it.
+              storedToken = '__storage_threw__';
+            }
+            analytics.track('session_lost_unexplained', {
+              auth_event: event,
+              // The discriminator: token still on disk => the client dropped it.
+              // Token gone => storage was cleared underneath us (eviction, WebView
+              // spawn, browser setting). Threw => storage is unreadable.
+              stored_token_present: storedToken === '__storage_threw__' ? 'threw' : !!storedToken,
+              visibility: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
+              was_hidden: typeof document !== 'undefined' ? document.hidden : null,
+              online: typeof navigator !== 'undefined' ? navigator.onLine : null,
+              path: typeof window !== 'undefined' ? window.location.pathname : null,
+            });
+          }
+        }
+        hadSessionRef.current = !!newSession;
+
         setSession(newSession);
 
         // Clear user immediately on sign out
@@ -204,6 +259,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Session cleanup is best-effort — proceed with sign-out regardless
       }
     }
+    deliberateSignOutRef.current = true;  // P1240: this one is expected — don't record it
     await apiSignOut(options);
     // Clear localStorage session info so the banner doesn't show stale data after sign-out
     clearActiveSessionFromStorage();
