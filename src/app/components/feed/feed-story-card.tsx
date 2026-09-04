@@ -117,6 +117,16 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
       tabIndex={0}
       className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${isAgent ? ' agent-card-drained' : ''}`}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
+      /* P1212 — parity with profile-page-v2.tsx:1363, in the accessibility layer. A
+         role="button" with no accessible name takes it from its SUBTREE, so without this the
+         same story announces as a cleanly named control on the profile and as one button
+         whose name is the story text plus the counts plus the expander label plus the whole
+         quoted point list on the feed — a concatenation §4 and §5 made longer by putting
+         anchors and buttons inside this root.
+         The RAW authorName is deliberate: for an agent it reads `Agent · {Name}`, so a
+         screen-reader user hears the marker. Stripping it would delete the disclosure from
+         the one channel that carries no chip and no drained card. */
+      aria-label={`Story by ${story.authorName}`}
       onClick={handleClick}
       onKeyDown={(e) => {
         // P1212: only the CARD ITSELF activates on Enter/Space. Without this target check

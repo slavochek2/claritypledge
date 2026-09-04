@@ -154,8 +154,17 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
       role="button"
       tabIndex={0}
       className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-muted-foreground/70 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
+         subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
+         concatenation now includes every linked story's author and prose. */
+      aria-label={`Point: ${point.statement}`}
       onClick={handleClick}
       onKeyDown={(e) => {
+        // P1212: only the CARD ITSELF activates. Without the target check this fires for a
+        // keydown on any nested control — the §5 story expander, a position button, a
+        // QuotedStory — and, because it calls preventDefault(), cancels that control's own
+        // activation before navigating.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           handleClick();

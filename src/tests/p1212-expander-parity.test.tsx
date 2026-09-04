@@ -314,6 +314,46 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
    * §4's own stated rule is "timecodes only where clicking works". For a keyboard reader
    * clicking did not work on ANY of the three surfaces §4 put quotes on.
    */
+  /**
+   * THE SAME DRIFT, IN THE ACCESSIBILITY LAYER — found 2026-09-04 by the UI review, after
+   * the visual parity work was done.
+   *
+   * The profile's story card root carries `aria-label={`Story by ${author.name}`}`
+   * (profile-page-v2.tsx:1363). The feed's did not. A `role="button"` with no accessible
+   * name takes it from its subtree, so the SAME story announced as a cleanly named control
+   * on the profile and as one button whose name is the concatenation of the story text, the
+   * counts, the expander label and — once §5 landed — the entire quoted point list on the
+   * feed. §4 and §5 are what put those anchors and buttons inside the root, so the branch
+   * made the concatenation longer.
+   *
+   * The raw `authorName` is used deliberately, matching the profile: for an agent account it
+   * is `Agent · {Name}`, so a screen-reader user hears the marker. Stripping the prefix here
+   * would delete the disclosure from the one channel that has no chip and no drained card.
+   *
+   * This does NOT fix the nested-widget structure (role="button" inside role="button"),
+   * which needs the outer card to stop being a widget and is its own spec.
+   */
+  it('the card root has an accessible name, so it is not announced as its whole subtree', () => {
+    renderFeedStoryCard({ linkedPoints: POINTS, currentUserId: 'viewer-1' });
+    const root = document.querySelector('[role="button"][tabindex="0"]');
+    expect(root, 'the card root must exist').toBeTruthy();
+    expect(
+      root!.getAttribute('aria-label'),
+      'the feed card must name itself the way the profile card does — without it a screen reader reads the entire subtree as the control name',
+    ).toBe('Story by Yann LeCun');
+  });
+
+  /** The agent case: the marker must survive into the accessible name. */
+  it('an agent story keeps its marker in the accessible name', () => {
+    render(
+      <MemoryRouter>
+        <FeedStoryCard story={makeStory({ authorId: 'agent-1', authorName: 'Agent · Yann LeCun' })} />
+      </MemoryRouter>
+    );
+    const root = document.querySelector('[role="button"][tabindex="0"]');
+    expect(root!.getAttribute('aria-label')).toContain('Agent ·');
+  });
+
   it('Enter on a quote timecode does NOT navigate to the story', () => {
     navigate.mockClear();
     render(
