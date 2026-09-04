@@ -3323,7 +3323,24 @@ cmd_ship_to_prod() {
   # Taken before the staging push (see cmd_push_docs for the mechanism): a baseline
   # stamped after the push is later than our own check-run's started_at, so the poll
   # rejects its own scan as stale and dies at MAX_WAIT with CI green.
-  local MAX_WAIT=600   # 10 minutes
+  # 40 minutes, not 10. MEASURED, not guessed: every audit-privacy run on 2026-09-04
+  # exceeded the old 600s budget — 768s, 980s and 793s on the same SHA. The 10:18:46Z
+  # run concluded SUCCESS at 10:31:59Z while push-docs had already died at ~10:28, so a
+  # green verdict arrived ~4 minutes after the poll stopped listening. That was the
+  # dominant cause of the day's failures, independent of every other defect fixed here.
+  #
+  # It also COMPOUNDS: the scan cost scales with how far behind origin/main we are, so
+  # each failed push lengthens the next scan and makes the next timeout more certain.
+  # The backlog was both the result and the cause.
+  #
+  # COST, stated because it is real: push-docs holds main.lock across this poll, so a
+  # longer budget widens the window in which co-tenant sessions cannot commit
+  # (GIT_OPS_MAIN_LOCK_TIMEOUT is 120s — they cannot wait this long by construction).
+  # A push that cannot succeed is strictly worse than one that blocks commits, so this
+  # is the right trade today — but it makes releasing the lock across the poll the
+  # obvious next change rather than an optional one.
+  # 40 min also means a push-on grant must cover ~45 minutes, not the 20 /push budgets.
+  local MAX_WAIT="${GIT_OPS_CI_MAX_WAIT:-2400}"
   local POLL_INTERVAL=20
   local waited=0
   local check_conclusion=""
@@ -3846,7 +3863,24 @@ cmd_push_docs() {
   # PUSH_EPOCH is deliberately NOT re-stamped here — it was taken BEFORE the staging
   # push (see the comment there). Re-stamping it now would reinstate the race that
   # made the poll reject its own green scan.
-  local MAX_WAIT=600
+  # 40 minutes, not 10. MEASURED, not guessed: every audit-privacy run on 2026-09-04
+  # exceeded the old 600s budget — 768s, 980s and 793s on the same SHA. The 10:18:46Z
+  # run concluded SUCCESS at 10:31:59Z while push-docs had already died at ~10:28, so a
+  # green verdict arrived ~4 minutes after the poll stopped listening. That was the
+  # dominant cause of the day's failures, independent of every other defect fixed here.
+  #
+  # It also COMPOUNDS: the scan cost scales with how far behind origin/main we are, so
+  # each failed push lengthens the next scan and makes the next timeout more certain.
+  # The backlog was both the result and the cause.
+  #
+  # COST, stated because it is real: push-docs holds main.lock across this poll, so a
+  # longer budget widens the window in which co-tenant sessions cannot commit
+  # (GIT_OPS_MAIN_LOCK_TIMEOUT is 120s — they cannot wait this long by construction).
+  # A push that cannot succeed is strictly worse than one that blocks commits, so this
+  # is the right trade today — but it makes releasing the lock across the poll the
+  # obvious next change rather than an optional one.
+  # 40 min also means a push-on grant must cover ~45 minutes, not the 20 /push budgets.
+  local MAX_WAIT="${GIT_OPS_CI_MAX_WAIT:-2400}"
   local POLL_INTERVAL=20
   local waited=0
   local check_conclusion=""

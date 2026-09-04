@@ -270,6 +270,26 @@ else
   bad "the reconcile only handles the equal-sha case — a leaked branch at a different sha yields a narrow-range scan"
 fi
 
+echo "── Test 8: the CI poll waits longer than the scan actually takes ──"
+# Measured 2026-09-04, three audit-privacy runs on one SHA: 768s, 980s, 793s. The old
+# budget was 600s, so EVERY run outlived it — the 10:18:46Z run concluded SUCCESS at
+# 10:31:59Z about four minutes after push-docs gave up. This was the dominant cause of
+# the day's failures and no other check here could see it: the pinning, the freshness
+# ordering and the reconcile were all correct on that run. The floor is deliberately
+# above the worst observed run, not equal to it.
+OBSERVED_WORST=980
+for fn in cmd_push_docs cmd_ship_to_prod; do
+  MW="$(awk -v f="^${fn}\\(\\)" '$0 ~ f {n=1} n {print} n && /^}/ {exit}' "$G" \
+        | sed 's/^[[:space:]]*#.*//' | grep -o 'MAX_WAIT="\${GIT_OPS_CI_MAX_WAIT:-[0-9]*}"' | head -1 | grep -o '[0-9]*}' | tr -d '}')"
+  if [[ -z "$MW" ]]; then
+    bad "$fn: could not read MAX_WAIT — has the poll budget been renamed or hardcoded?"
+  elif (( MW > OBSERVED_WORST )); then
+    ok "$fn: poll budget ${MW}s exceeds the worst measured scan (${OBSERVED_WORST}s)"
+  else
+    bad "$fn: poll budget ${MW}s is at or below the worst MEASURED scan (${OBSERVED_WORST}s) — the poll will die while CI is still running and a green verdict will be thrown away"
+  fi
+done
+
 echo "── Test 6: the CI freshness baseline is stamped BEFORE the staging push ──"
 # The guard rejects a check-run whose started_at pre-dates PUSH_EPOCH. GitHub starts
 # the workflow when the ref lands — DURING the push — so a baseline stamped after the

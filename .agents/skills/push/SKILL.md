@@ -151,7 +151,7 @@ flag lapsed, second `push-on` needed. Same *symptom* as the case above, differen
 **One grant must cover BOTH pushes.** `push-docs` pushes twice — the staging branch, then `main` —
 separated by a CI poll budgeted at up to 600s (plus up to 120s of lock wait even when the pre-check
 above was clean, since a co-tenant can take the lock between your check and your run). So the question is never "is the flag set" but
-**"are there enough minutes left for staging push + CI + promote"**. Budget **20 minutes**.
+**"are there enough minutes left for staging push + CI + promote"**. Budget **45 minutes** — ask for `push-on 60`. MEASURED 2026-09-04: three `audit-privacy` runs on one SHA took 768s, 980s and 793s, so the poll budget is now 2400s (`GIT_OPS_CI_MAX_WAIT`), not the 600s that was throwing away green verdicts. A 20-minute grant cannot cover a scan that reliably takes 13-16.
 
 ```bash
 _e=$(head -1 ~/.push-enabled 2>/dev/null)
