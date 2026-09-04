@@ -27,8 +27,9 @@ MARKER="$(mktemp)"   # timestamp marker to find zips created after we trigger th
 
 if [ "${DRY_RUN:-}" = "1" ]; then
   echo "[DRY_RUN] would: open \"$URL\""
-  echo "[DRY_RUN] would: wait up to ${WAIT_SECS}s for data-*.zip newer than marker in $DESKTOP or $DOWNLOADS"
-  echo "[DRY_RUN] would: copy newest zip to $DOWNLOADS/"
+  echo "[DRY_RUN] would: wait up to ${WAIT_SECS}s for data-*.zip OR manifest-*.json newer than marker in $DESKTOP or $DOWNLOADS"
+  echo "[DRY_RUN] would (legacy zip): copy newest zip to $DOWNLOADS/"
+  echo "[DRY_RUN] would (manifest): open each per-category URL, extract parts into $DOWNLOADS/data-<ts>-batch-0/"
   echo "[DRY_RUN] would: run claude-sync"
   rm -f "$MARKER"
   echo "[DRY_RUN] args valid; control flow OK"
@@ -36,33 +37,85 @@ if [ "${DRY_RUN:-}" = "1" ]; then
 fi
 
 # --- step 3: trigger native browser download (uses logged-in Chrome session; Cloudflare-gated) ---
+# curl CANNOT be used here: the export URLs are Cloudflare-gated and return HTTP 403 + an
+# HTML body. Only a real logged-in Chrome session gets the bytes, hence `open`.
 echo "Opening download URL in browser..."
 open "$URL"
 
-# wait for the zip to appear on Desktop OR Downloads (newer than MARKER) —
-# the browser may save directly to either depending on its download-location setting
-echo "Waiting up to ${WAIT_SECS}s for the zip..."
-ZIP=""
+# Two export formats exist (claude.ai changed this ~2026-09):
+#   LEGACY : the URL yields one data-*.zip containing conversations.json
+#   MANIFEST: the URL yields manifest-*.json listing N single-use per-category zip URLs
+# Wait for whichever lands.
+echo "Waiting up to ${WAIT_SECS}s for the download..."
+ZIP=""; MANIFEST=""
 for _ in $(seq 1 "$WAIT_SECS"); do
   sleep 1
   ZIP="$(find "$DESKTOP" "$DOWNLOADS" -maxdepth 1 -name 'data-*.zip' -newer "$MARKER" 2>/dev/null | sort | tail -1 || true)"
   [ -n "$ZIP" ] && break
+  MANIFEST="$(find "$DESKTOP" "$DOWNLOADS" -maxdepth 1 -name 'manifest-*.json' -newer "$MARKER" 2>/dev/null | sort | tail -1 || true)"
+  [ -n "$MANIFEST" ] && break
 done
-rm -f "$MARKER"
 
-if [ -z "$ZIP" ]; then
-  echo "ERROR: no new data-*.zip appeared on $DESKTOP or $DOWNLOADS within ${WAIT_SECS}s (download may have failed / returned HTML)." >&2
+if [ -z "$ZIP" ] && [ -z "$MANIFEST" ]; then
+  rm -f "$MARKER"
+  echo "ERROR: no new data-*.zip or manifest-*.json appeared on $DESKTOP or $DOWNLOADS within ${WAIT_SECS}s (download may have failed / returned HTML)." >&2
   exit 2
 fi
-echo "Downloaded: $ZIP"
 
-# copy to ~/Downloads where claude-sync scans (no-op if it already landed there)
-DEST="$DOWNLOADS/$(basename "$ZIP")"
-if [ "$ZIP" != "$DEST" ]; then
-  cp "$ZIP" "$DEST"
-  echo "Copied to: $DEST"
+# The importer (import-conversations.py) globs ~/Downloads for a data-*-batch-* DIRECTORY
+# holding conversations.json. Legacy zips already unpack to that shape; the manifest path
+# has to assemble it from the per-category zips.
+if [ -n "$MANIFEST" ]; then
+  echo "Manifest export detected: $(basename "$MANIFEST")"
+  EXPECTED="$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["data_files"]))' "$MANIFEST")"
+  echo "Opening ${EXPECTED} per-category download URLs (each is single-use)..."
+  python3 - "$MANIFEST" <<'PY'
+import json, subprocess, sys, time
+files = json.load(open(sys.argv[1]))["data_files"]
+for f in files:
+    subprocess.run(["open", "-a", "Google Chrome", f["export_url"]], check=False)
+    print("  opened: %s" % f["filename"])
+    time.sleep(4)
+PY
+  # Chrome does not always preserve the manifest's filename (a part has been seen landing
+  # as dow.zip), so collect by mtime rather than by expected name.
+  echo "Waiting up to ${WAIT_SECS}s for ${EXPECTED} part zips..."
+  for _ in $(seq 1 "$WAIT_SECS"); do
+    sleep 1
+    COUNT="$(find "$DESKTOP" "$DOWNLOADS" -maxdepth 1 -name '*.zip' -newer "$MARKER" 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$COUNT" -ge "$EXPECTED" ] && break
+  done
+  COUNT="$(find "$DESKTOP" "$DOWNLOADS" -maxdepth 1 -name '*.zip' -newer "$MARKER" 2>/dev/null | wc -l | tr -d ' ')"
+  if [ "$COUNT" -eq 0 ]; then
+    rm -f "$MARKER"
+    echo "ERROR: manifest listed ${EXPECTED} files but no part zips downloaded." >&2
+    exit 2
+  fi
+  [ "$COUNT" -lt "$EXPECTED" ] && echo "WARNING: only ${COUNT} of ${EXPECTED} part zips landed; importing what arrived."
+
+  STAGE="$DOWNLOADS/data-$(date +%Y-%m-%d-%H%M%S)-batch-0"
+  mkdir -p "$STAGE"
+  find "$DESKTOP" "$DOWNLOADS" -maxdepth 1 -name '*.zip' -newer "$MARKER" 2>/dev/null | while read -r z; do
+    unzip -o -q "$z" -d "$STAGE" && echo "  extracted: $(basename "$z")"
+  done
+  rm -f "$MARKER"
+
+  if [ ! -f "$STAGE/conversations.json" ]; then
+    echo "ERROR: no conversations.json after extracting parts into $STAGE" >&2
+    exit 2
+  fi
+  echo "Staged for import: $STAGE"
 else
-  echo "Already in $DOWNLOADS"
+  echo "Downloaded: $ZIP"
+  rm -f "$MARKER"
+  # copy to ~/Downloads where claude-sync scans (no-op if it already landed there)
+  DEST="$DOWNLOADS/$(basename "$ZIP")"
+  if [ "$ZIP" != "$DEST" ]; then
+    cp "$ZIP" "$DEST"
+    echo "Copied to: $DEST"
+  else
+    echo "Already in $DOWNLOADS"
+  fi
 fi
 
 # --- step 4: run the importer ---

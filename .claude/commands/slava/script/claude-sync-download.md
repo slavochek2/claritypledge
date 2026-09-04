@@ -46,8 +46,21 @@ From the newest valid email, extract the download URL: `https://claude.ai/export
 ./scripts/generated/claude-sync-download.sh "<download_url from Step 2>"
 ```
 
-This opens the URL (native Chrome download, Cloudflare-gated), waits for the
-`data-*.zip` on the Desktop, copies it to `~/Downloads`, and runs `claude-sync`.
+This opens the URL (native Chrome download, Cloudflare-gated) and handles **either**
+export format claude.ai may return:
+
+- **Legacy** — one `data-*.zip`; copied to `~/Downloads`.
+- **Manifest** (current, since ~2026-09) — a `manifest-*.json` listing N **single-use**
+  per-category zip URLs (`conversations`, `projects`, `memories`, `design_chats`,
+  `light_metadata`). The script opens each in Chrome and extracts all parts into
+  `~/Downloads/data-<ts>-batch-0/`, the layout `import-conversations.py` globs for.
+
+Then it runs `claude-sync`.
+
+**Never fetch the export URLs with `curl`** — they are Cloudflare-gated and return HTTP
+403 with an HTML body. Only the logged-in Chrome session gets the bytes. Chrome also does
+not always honor the manifest's filename (a part has been seen landing as `dow.zip`), so
+the script collects parts by mtime, not by name.
 
 ## Step 5: Report  *(inline)*
 
@@ -60,4 +73,12 @@ Relay the script output: how many conversations imported, any errors, the file p
 Same as the original — see `claude-sync-download.md` (export failures, expired links,
 rate limits, unauthenticated browser). If the script exits non-zero:
 - `exit 1` — missing/malformed URL arg (Step 2 didn't produce a valid link)
-- `exit 2` — no zip appeared (download failed or returned HTML → re-trigger export)
+- `exit 2` — nothing downloaded, or the manifest's parts yielded no `conversations.json`
+  (download failed or returned HTML → re-trigger export)
+
+**Step 2 hangs instead of erroring?** Check the VPN before anything else. Surfshark (and
+most commercial VPNs) silently blackhole IMAP/SMTP ports: TCP connects, then the TLS
+handshake never completes, so the Gmail MCP reports a connect timeout that reads like a
+dead server. `route -n get default` naming a `utun*` interface is the tell. Fix is a
+split-tunnel bypass for the mail host. The ops mailbox reader is affected the same way.
+Mechanism, probe and bypass list: `pp/docs/infra/surfshark-vpn.md`.
