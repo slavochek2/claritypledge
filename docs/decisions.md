@@ -6,6 +6,97 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [technical]: The delegation gate hangs on exactly the payloads it exists to scan
+
+**Context:** `/kdd`-adjacent work needed a Gemini adversarial review, which must go through
+`~/.agents/bin/delegate-gemini` (the wrapper is the gate: it refuses secrets/PII, hash-checks the
+provider overlay, and logs every send). `--check` never returned. Traced to the payload-emptiness
+guard, `${TASK//[[:space:]]/}`, on the bash macOS ships (3.2.57). Measured on one payload truncated
+to each size: 500 B → 1.0 s, 2 KB → 1.0 s, 4 KB → 5.1 s, 8 KB → no completion in 20 s. Every scan
+pattern itself was timed separately and each is instant, so the regexes are not the cause.
+
+**Decision:** Record the lane as **unavailable for bulk payloads** until fixed, and do the work
+inline rather than reshape the payload. The standing rule ("on exit 2, do it inline; never edit the
+payload to get past the scan") covers a refusal; it did not anticipate a hang, which is worse — a
+refusal is legible, a hang looks like the tool being slow.
+
+**Alternatives rejected:** *Split the payload under the threshold* — it defeats the review and
+teaches the agent to shape inputs around the gate. *Call `dsh` directly* — the wrapper is the gate;
+bypassing it is the failure mode the wrapper exists to make unreachable.
+
+**Consequences:** The routing policy tells agents to delegate long-file reads, log scans, research
+sweeps and first drafts to free Gemini. Those are all multi-KB by definition, so the documented
+lane is currently unreachable for its stated purpose while appearing merely slow. Independently:
+this payload would also have been **refused** on the `decisions.md` private-path pattern — a
+public-repo path matching a private-scope rule, worth revisiting separately. (Status: proposed —
+no fix written; the emptiness check does not need pattern substitution at all.)
+
+**References:** `~/.agents/bin/delegate-gemini` · [p1247](../features/p1247_harness_agnostic_contract_2_has_no_gate.md)
+
+---
+
+## 2026-09-04 [technical]: An absence assertion that never proves its file exists is a fail-open, and a suite's precondition list must cover every file it reads
+
+**Context:** P1247 proposed promoting `scripts/test-multi-harness-routing.sh` to a commit gate.
+Reviewing the instrument first found three defects, each verified by command. (1) `absent()` is
+`grep -qEi … && bad || ok`, so a **missing file reports PASS**. Run with the controls this repo's
+rules require: real file with the pattern genuinely absent → PASS; known-bad control with the
+pattern present → FAIL (the probe is not blind); file deleted → PASS. (2) The suite's SKIP
+precondition checks four files, but assertions read four *others*, including the `~/.codex/AGENTS.md`
+that the two decay-detecting assertions depend on. So deleting that file makes those two assertions
+greener. (3) Two live failures were not drift at all but a literal `gemini-3.7-flash` pinned in two
+assertions against a live `gemini-3.8-flash`.
+
+**Decision:** Three rules for any check of this shape. An `absent`-style assertion MUST prove the
+file exists before concluding anything from a non-match. A suite's precondition list MUST be derived
+from every path any assertion reads, not from the paths the author had in mind. And an assertion
+about configuration MUST target the **route or shape**, never a version string.
+
+**Alternatives rejected:** *Fix the pin and wire it* — leaves both fail-opens live and gates on an
+instrument that cannot tell "clean" from "gone". *Add existence checks only to the failing
+assertions* — the defect is in the shared helper, so it recurs at the next call site.
+
+**Consequences:** A version-pinned assertion is coupled to whatever tool performs version bumps.
+Here `/slava:util:model-bump` bumps pinned models across surfaces and has **no reference** to this
+canary (verified), so a routine bump would have red-lined every commit in the repo had the suite
+been wired. Generalises: **when adding a gate that asserts a pinned value, name the maintenance tool
+that changes that value, or do not pin it.**
+
+**References:** `scripts/test-multi-harness-routing.sh` · [p1247](../features/p1247_harness_agnostic_contract_2_has_no_gate.md)
+
+---
+
+## 2026-09-04 [process]: "Ungated" and "unversioned" are easy to confuse for cause and effect — and a decisions lookup can run, hit, and still miss
+
+**Context:** P1247's first draft rested on a clean-looking correlation: of three multi-harness
+contracts, the two with pre-commit gates show no drift and the one without has forked. Adversarial
+review named the confound. The gated contracts assert against subjects **in git**; the ungated one
+asserts mostly against `~/.codex`, `~/.dsh`, `~/.gemini` — verified **not** version controlled.
+Unversioned files have no diff, no review, and no commit to hang a gate on. Gate-absence and drift
+are two symptoms of one cause, not cause and effect, and n=3 could never have separated them.
+
+**Decision:** Before attributing an outcome to the presence of a gate, check whether the gated and
+ungated subjects differ in version control. Where they do, the split to build is not "gate more" but
+"gate what is gateable" — which in P1247 turned out to select exactly the same two assertions, for a
+reason that is defensible rather than incidental.
+
+**Alternatives rejected:** *Keep the tidier framing and add a caveat* — the framing drove the whole
+proposed solution, so a caveat would have left the wrong work scoped.
+
+**Consequences:** Sharpens the 2026-09-01 entry below, which says to grep this log before
+investigating infrastructure that looks deliberately odd. **That lookup ran this time and still
+missed.** The relevant prior decision (a canary recorded as "REAL CHECK, NOT wired, NOT archived —
+deliberate", with two named blockers) was in a file the search returned — but the search asked *is
+this referenced anywhere*, and answered that, while the question that mattered was *was this already
+decided, and why*. A grep that confirms a file mentions your subject is not the same as reading what
+it concluded. CLAUDE.md's "an existing reference is evidence of deliberate intent" rule exists for
+this and did not fire, because the reference was found and skimmed rather than read.
+
+**References:** [p1247](../features/p1247_harness_agnostic_contract_2_has_no_gate.md) ·
+[p1221](../features/done/2026-06-10/p1221_repo_structure_cleanup_and_order_gate.md) · this log 2026-09-01 [process]
+
+---
+
 ## 2026-09-04 [technical]: P1240 — four proposed mechanisms for mobile session loss, four dead; the spec becomes a measurement
 
 **Context:** P1240 was filed on a recurring founder report — a signed-in person on a phone taps a
