@@ -233,6 +233,50 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
    pass** against the full 72-key name list for anything the proposed set missed.
 3. ~~**Does the window need to be visible while open?**~~ **CLOSED** — no window, nothing to display.
 
+4. **Which mechanism guards the locked half at READ time — and one that is now ruled out.**
+   Measured 2026-09-04, on the machine, during an unrelated incident:
+
+   - **Do NOT use `permissions.deny`.** From Claude Code **v2.1.257** (reached this machine
+     2026-09-03), the *existence of any* `permissions.deny` rule makes Claude Code escalate to the
+     human on every Bash command whose read target it cannot statically resolve — the everyday
+     `cd $X && grep -rn foo src/`. Deny rules bind in every permission mode, so
+     `--dangerously-skip-permissions` does not help. Six such rules protecting two files produced a
+     day of near-continuous approval prompts across every concurrent session. The prompt says so
+     verbatim: *"a Read() deny rule is configured; only you can approve running it anyway."* If this
+     spec's locked half is implemented as a deny rule, it reproduces that outage at 30x the file
+     count. See pp `docs/decisions.md` 2026-09-04 and `docs/infra/claude-code.md`.
+
+   - **A text-matching PreToolUse hook is necessary but NOT sufficient.** `~/.claude/hooks/block-secret-reads.sh`
+     replaced those deny rules and closes the leak they had (a plain `cat` walked around a `Read()`
+     rule). But it matches the pre-expansion command string, and three bypasses were reproduced
+     against it and cannot be closed by any regex: a path split across the command
+     (`cd $HOME/.config && cat restic/*`), variable indirection (`d=denytest; cat /tmp/$d/x`), and a
+     pre-existing symlink. The path does not exist as text until the shell expands it. Good against
+     accident and honest mistake; not against an instruction-following agent.
+
+   - **`sandbox.filesystem.denyRead` is the only spelling-proof option** — enforced at the syscall
+     level, immune to all three bypasses, and it does **not** trigger the v2.1.257 escalation.
+     Entries for the mail credentials are already staged in `~/.claude/settings.json` and are inert
+     because `sandbox.enabled` is unset.
+
+   **The tension this spec must resolve:** [P1214](p1214_credential_separation_and_privilege_reduction.md)
+   Non-Goals rejects sandboxing the interactive session (2026-09-01) on the grounds that it "needs
+   the repo, MCP servers and browser, and would still hold the same credentials." That reasoning is
+   about *confining the session*; `sandbox.filesystem.denyRead` is a narrower thing — a read block on
+   named paths, not confinement — and the second half of the objection ("would still hold the same
+   credentials") is exactly what THIS spec removes. Whether the narrow form is in or out of P1214's
+   rejection is unresolved and is a founder call, not an implementer's.
+
+5. **A second credential location this spec does not cover.** Scope is `.env.local`, but
+   `~/.claude/mcp-*.json` holds four live secrets outside it: two Google OAuth values, a Gmail app
+   password, and a Telegram bot token. `TELEGRAM_BOT_TOKEN` exists in **both** files, so one copy is
+   already redundant. The founder proposed folding these into `.env.local` on 2026-09-04; that was
+   **not** done, because it would move four secrets from a guarded file into the unguarded 78-secret
+   one. Open: do these join the critical half, get their own guard, or stay put?
+
+6. **Key-count drift.** This spec says 72 keys; the file held **78** on 2026-09-04. The founder pass
+   in question 2 should work from a freshly enumerated list, not the number recorded here.
+
 ## Related
 
 - **Peer:** [P1214](p1214_credential_separation_and_privilege_reduction.md) — shrinks what ends up
