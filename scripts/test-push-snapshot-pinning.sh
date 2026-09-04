@@ -25,6 +25,11 @@
 #     - the audit-privacy CI poll (git-ops.sh hard-fails without real `gh auth`)
 #   Those three are verified MANUALLY, on origin, by running a real /push. Anyone
 #   claiming this canary covers them is wrong.
+#
+# Run standalone:  bash scripts/test-push-snapshot-pinning.sh
+# Runs automatically from pre-commit-checks.sh whenever scripts/git-ops.sh or this
+# file is staged. Exits non-zero on any failure — proven red against the pre-fix code
+# and against mutants of each individual guard (2026-09-04).
 set -uo pipefail
 
 PASS=0; FAIL=0
