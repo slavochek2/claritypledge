@@ -56,12 +56,12 @@ zeroes are measured absences, not a broken search.
 
 | Credential | Consumers | Events / 30d | Attended? |
 |---|---|---|---|
-| `PROD_SUPABASE_SERVICE_ROLE_KEY` | ~15 scripts + ~20 skills; concentrated in `/day-cp`, `/weekly`, `promote-*` | **14 across 9 days** | attended |
-| `OPS_EMAIL_PASSWORD` | `scripts/read-ops-email.mjs`, and inside `/weekly` | **4** (3 ride inside `/weekly`) | attended |
-| `MAILGUN_API_KEY` | 3 edge functions (deployed secret, **not** read from `.env.local`); `scripts/resend-feedback.sh` manual | **1 manual** | manual attended |
-| `GHOST_ADMIN_API_KEY` | 6 content skills | **0** | — |
-| `POSTIZ_API_TOKEN` / `POSTIZ_PASSWORD` | 3 skills | **0** | — |
-| `SUPABASE_DB_URL` | `.github/workflows/db-backup.yml`, `cron: '0 3 * * *'` | **daily** | **UNATTENDED** |
+| the prod master key | ~15 scripts + ~20 skills; concentrated in `/day-cp`, `/weekly`, `promote-*` | **14 across 9 days** | attended |
+| the ops mailbox password | `scripts/read-ops-email.mjs`, and inside `/weekly` | **4** (3 ride inside `/weekly`) | attended |
+| the mail-sending key | 3 edge functions (deployed secret, **not** read from `.env.local`); `scripts/resend-feedback.sh` manual | **1 manual** | manual attended |
+| the blog admin key | 6 content skills | **0** | — |
+| the social-publishing tokens | 3 skills | **0** | — |
+| the direct-DB credential | one scheduled CI job, nightly | **daily** | **UNATTENDED** |
 
 **Distinct days with any founder-triggered critical touch: 9 of 30.**
 **Per-access model: ~4 confirmations/week. 30-minute-window model: ~2/week.** The window's entire
@@ -73,18 +73,22 @@ order, same conclusion.
 
 ### The unattended consumer, and what it does and does not mean
 
-`db-backup.yml` reads a prod-DB-tier credential nightly with no human present. It reads it from
-**GitHub's** secret store, not from `.env.local` — verified by reading the workflow. So locking the
-local file **does not break the nightly backup**, and no exemption is needed.
+One scheduled CI job reads a prod-DB-tier credential nightly with no human present. It reads it
+from the CI provider's own secret store, not from `.env.local` — verified by reading the job
+definition. So locking the local file **does not break that backup**, and no exemption is needed.
 
-It does mean the prod database connection string exists in a second place this spec does not
-reach. That is a different attack surface (GitHub account compromise, not local shell injection)
-and is **out of scope here** — filed as a note for P1214, not solved by any version of P1239.
-Do not describe this spec as removing standing prod-DB access; it removes the *local* copy's
-standing readability only.
+It does mean that credential exists in a second place this spec does not reach. That is a
+different attack surface (CI/account compromise, not local shell injection) and is **out of scope
+here** — carried as an open question on P1214, not solved by any version of P1239. Do not describe
+this spec as removing standing prod-DB access; it removes the *local* copy's standing readability
+only.
 
-No other workflow references a critical-tier key (all 12 checked). `crontab -l` is empty; the one
-launchd job belongs to a different repo.
+Every CI job definition was checked; no other one reaches a critical-tier credential. The local
+scheduler tables hold nothing relevant to this repo.
+
+> **Specifics deliberately omitted.** Credential identifiers, the job name and its schedule live in
+> `.private/docs/security-log.md` (gitignored), per this repo's rule on keeping unpatched
+> infra mechanics out of public files. The reasoning above does not depend on them.
 
 ## Appetite
 
@@ -113,10 +117,10 @@ Split `.env.local` into a routine half (stays plaintext) and a critical half (lo
 A consumer that needs a critical key triggers a confirmation the founder answers **at the moment
 of the read**. There is no window, no expiry to enforce, and no unlock command to remember.
 
-**Critical set — all five categories, including the two that measured zero.** Ghost admin and the
-Postiz tokens cost nothing to gate this month, so gating them is free insurance rather than a
-judgment call. `SUPABASE_DB_URL` is included for the local copy; the GitHub copy is out of scope
-per above.
+**Critical set — all five categories, including the two that measured zero.** The blog admin key
+and the social-publishing tokens cost nothing to gate this month, so gating them is free insurance
+rather than a judgment call. The direct-DB credential is included for its local copy; the CI-side
+copy is out of scope per above.
 
 **Classification is coarse and comes first** — it does not wait on P1214's 28 retirement verdicts.
 The test is "would losing this be unrecoverable or expensive?", not a full inventory.
@@ -180,7 +184,7 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
 - Do NOT encrypt the routine half. Friction spent on low-value keys is what gets the whole thing
   switched off.
 - Do NOT change which credential any consumer uses — that is P1214.
-- Do NOT solve the GitHub-side copy of `SUPABASE_DB_URL` here — see Measured Baseline.
+- Do NOT solve the CI-side copy of the direct-DB credential here — see Measured Baseline.
 - ~~Do NOT adopt a password manager CLI on the assumption it solves this.~~ **Narrowed 2026-09-03.**
   The original wording — *"any secret an agent can obtain by running a command, an injected agent
   obtains the same way"* — is correct for an **already-unlocked** manager and wrong for any
@@ -229,8 +233,8 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
    biometric variant it had in mind is paywalled while a better-than-expected non-biometric variant
    works today.
 2. **What counts as critical.** Resolved to all five proposed categories plus the local
-   `SUPABASE_DB_URL` — the two zero-use categories are free to include. **Still needs a founder
-   pass** against the full 72-key name list for anything the proposed set missed.
+   the direct-DB credential — the two zero-use categories are free to include. **Still needs a
+   founder pass** over the full key list for anything the proposed set missed.
 3. ~~**Does the window need to be visible while open?**~~ **CLOSED** — no window, nothing to display.
 
 4. **Which mechanism guards the locked half at READ time — and one that is now ruled out.**
@@ -280,7 +284,7 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
 ## Related
 
 - **Peer:** [P1214](p1214_credential_separation_and_privilege_reduction.md) — shrinks what ends up
-  inside the locked half, and owns the GitHub-side `SUPABASE_DB_URL` copy this spec cannot reach.
+  inside the locked half, and owns the CI-side credential copy this spec cannot reach.
   Independent: this spec does not wait on its verdicts.
 - **Peer:** [P1148](p1148_credential_rotation_system.md) — owns rotation and revocation. Its own
   "vault" is a short-lived ROLLBACK escrow during a swap, a different mechanism from this one;

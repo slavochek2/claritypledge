@@ -18,6 +18,13 @@ driver: anomaly
 
 ## Problem
 
+> **Specifics deliberately omitted throughout this spec.** Credential variable names, the scheduled
+> job that reads the CI-side copy, and its schedule live in `.private/docs/security-log.md`
+> (gitignored), per this repo's rule on keeping unpatched infra mechanics out of public files.
+> Placeholders like `<prod master key var>` mark where a real identifier belongs. None of the
+> reasoning below depends on the omitted values.
+
+
 **Situation:** An adversarial review of the local agent setup (2026-09-01) found that any agent
 with a shell reads every credential on the machine and reaches the open network; write-fencing is
 the only confinement in place. The founder's response was not "add a sandbox" but a better
@@ -46,14 +53,14 @@ rotation mechanism.
    candidates**, 48 stale consumer lists, `COVERAGE:84/86`. It exited 0 — which means **no
    registry row held an inline plaintext value**, the script's one hard-fail class. Exit 0 is not
    "clean": every finding above is informational by design. It also reports `CONSUMER_LIST_STALE:
-   PROD_SUPABASE_SERVICE_ROLE_KEY:documented=0:live=13` and `MULTI_KEY_ROW_BUNDLED:
-   PROD_SUPABASE_SERVICE_ROLE_KEY/TEST_SUPABASE_SERVICE_ROLE_KEY` — the prod and test master keys
+   <prod master key>:documented=0:live=13` and `MULTI_KEY_ROW_BUNDLED:
+   <prod master key>/<test master key>` — the prod and test master keys
    share one registry row. That is shared *metadata* — the audit does not show the two values are
    conflated or that one operation would overwrite both. It is the shape
    [P1148](p1148_credential_rotation_system.md) names as its first design constraint, not proof
    the hazard has fired.
 3. **Some reach for the master key is over-privileged, but the exact split is not yet known.**
-   18 skills read `PROD_SUPABASE_SERVICE_ROLE_KEY` — but "skill" is the wrong unit, and an
+   18 skills read the prod master key — but "skill" is the wrong unit, and an
    earlier draft of this spec used it. `.claude/commands/slava/` is the single source of truth;
    `.agents/skills/` is a **generated, committed projection** of it (`scripts/sync-agent-skills.sh`,
    P1151) whose header reads *"NEVER hand-edit anything under `.agents/skills/` — regenerate."*
@@ -119,7 +126,7 @@ never precede it.
   P1148 revokes. Until then the credential is monitored rather than dark. A retired row with no
   probe is not retired, it is forgotten.
 - **A "retirement candidate" is a shortlist, never a verdict, and text search cannot clear it.**
-  The audit scans this repo only; `CRD_PIN` appears in the 28 and is live, consumed from the
+  The audit scans this repo only; one remote-access PIN is among the 28 and is live, consumed from the
   founder's global config. But cross-repo grep is also insufficient — a credential can be absent
   from every file and still installed in Vercel, GCP Secret Manager, GitHub Actions secrets, a
   launchd job, a deployed container revision, a provider dashboard, or another machine. p46 hit
@@ -155,8 +162,8 @@ skills reach it by shell-out with no matching verb in their own text. Never edit
 Adversarial review (Opus, 2026-09-03) steelmanned the null option and it lands: **under the
 threat model this spec states, moving one consumer to a scoped credential reduces expected loss
 by approximately zero.** The adversary is an injected local agent that already has shell and
-reads every credential on the machine. It reads `PROD_SUPABASE_SERVICE_ROLE_KEY` out of
-`.env.local` (72 keys) regardless of what `/day-cp` presents, because six direct-write skills,
+reads every credential on the machine. It reads the prod master key out of
+`.env.local` regardless of what `/day-cp` presents, because six direct-write skills,
 `scripts/event-photo-prep.sh:122`, and four non-skill scripts keep the master key in that file
 either way. Swapping one consumer's credential changes *which credential one consumer presents*.
 It does not remove the key from the machine, and **removing the key from the machine is the only
@@ -164,7 +171,7 @@ move that changes the outcome for the stated adversary.**
 
 So Phase 2 is worth doing only as *the path to that removal*, never as a win by itself. The
 success condition is not "`/day-cp` uses a scoped key" — it is
-**`PROD_SUPABASE_SERVICE_ROLE_KEY` no longer present in `.env.local`**, which requires every
+**the prod master key no longer present in `.env.local`**, which requires every
 consumer off it. Phase 1's per-consumer verdicts are what size that. If the write-side consumers
 turn out to be immovable, Phase 2 should be abandoned rather than half-done: a scoped key for the
 readers plus the master key still on disk is pure motion, and it adds a credential to rotate.
@@ -174,7 +181,7 @@ isolation, without machine-wide shell — but that is a different and weaker thr
 this spec opens with.
 
 **The replacement goal, and the bill for it.** Not "de-privilege `/day-cp`" but
-**`grep PROD_SUPABASE_SERVICE_ROLE_KEY .env.local` returns nothing.** That is the only version
+**grepping `.env.local` for the prod master key's variable name returns nothing.** That is the only version
 whose benefit survives the threat model, and it has the useful property that it cannot be
 satisfied by editing a generated mirror. Because the key stays in the file for whoever has not
 moved yet, **only the last consumer's migration produces any security benefit** — so the *total*
@@ -253,7 +260,7 @@ for values; this applies it to the registry.
 - [ ] Every consumer FILE that reads the key carries a written read/write verdict derived from
       reading it, naming the write form found (direct, shell-out, RPC, client library) or stating
       none — covering `.claude/commands/slava/` AND `scripts/` including `scripts/archive/`
-- [ ] `grep -rln "PROD_SUPABASE_SERVICE_ROLE_KEY" .claude/commands/slava/ scripts/` returns only
+- [ ] `grep -rln "<prod master key var>" .claude/commands/slava/ scripts/` returns only
       files whose verdict is write; `/day-cp` is not among them
 - [ ] `git diff --stat .agents/skills/` shows only changes produced by
       `scripts/sync-agent-skills.sh`, never a hand edit
@@ -271,7 +278,7 @@ for values; this applies it to the registry.
       key unset, and its principal's allowed/denied RPC set is recorded
 - [ ] `audit-credential-drift.sh --audit` reports no `MULTI_KEY_ROW_BUNDLED` for the
       prod/test service-role pair, and `CONSUMER_LIST_STALE` for
-      `PROD_SUPABASE_SERVICE_ROLE_KEY` shows `documented` matching `live`
+      the prod master key row shows `documented` matching `live`
 
 ## Open Questions
 
@@ -280,11 +287,11 @@ for values; this applies it to the registry.
    refuted it and the vendor docs confirm: secret keys authorize as the built-in `service_role`,
    which holds `BYPASSRLS` and full data access. New-format keys are independently *revocable*,
    never independently *privileged*. Candidates not yet assessed:
-   (a) ~~a scoped Postgres user over the direct connection (`SUPABASE_DB_URL`)~~ — **assessed and
+   (a) ~~a scoped Postgres user over the direct connection (the direct-DB credential)~~ — **assessed and
    rejected 2026-09-03.** The URL exists, but `psql` is not installed and
    [decisions.md](../docs/decisions.md):14318 records it as a rejected alternative
    ("do not install"), so the transport is Node or the Management API — and the latter
-   authenticates with `SUPABASE_ACCESS_TOKEN`, a *higher*-privilege meta-credential than the one
+   authenticates with the platform meta-credential, a *higher*-privilege meta-credential than the one
    being de-privileged. The role would also need clearing against **162 migrations containing
    `SECURITY DEFINER` and 266 `GRANT`/`REVOKE EXECUTE` statements**, and its password cannot be
    minted without the plaintext crossing the session transcript. Net: trades a PostgREST
@@ -303,9 +310,9 @@ for values; this applies it to the registry.
    migrations touch it, including one dated 2026-09-03. Highest regression risk, for an outcome
    (b) delivers without touching RLS;
    (d) **no new credential at all — the strongest, and unconsidered until review.**
-   `.github/workflows/db-backup.yml:66` ALREADY runs
+   a scheduled CI backup job ALREADY runs
    `psql "$DB_URL" -tAc "SELECT count(*) FROM public.profiles"` on a schedule, authenticating with
-   `secrets.SUPABASE_DB_URL` — a GitHub Actions secret this spec's own audit invocation declares
+   a credential held in the CI provider's secret store, which this spec's own audit invocation declares
    the local agent cannot read (`--not-enumerated "ci-secrets: … HTTP 403 by design"`). Extend
    that job to emit a counts artifact; the skills read the artifact. Zero credentials minted, zero
    local data-plane credential, and the query runs as a principal already outside the threat
@@ -323,11 +330,11 @@ for values; this applies it to the registry.
    retirement here cannot reach the 44 keys that stay, including the master key eleven consumers
    still write with, so encryption-at-rest is the only measure covering them. P1148's "vault" is a
    short-lived rollback escrow during a swap — a different mechanism that shares a name.
-3. Should `TEST_SUPABASE_SERVICE_ROLE_KEY` (still legacy `eyJ…`) migrate in the same pass, or
+3. Should the test master key (still legacy `eyJ…`) migrate in the same pass, or
    after? Not assessed.
 4. **The prod DB connection string has a SECOND copy that this spec's own recommendation leans
-   on, and no spec in the `keyring` workstream currently owns it.** `secrets.SUPABASE_DB_URL`
-   in GitHub Actions — read nightly by `db-backup.yml` (`cron: '0 3 * * *'`), verified
+   on, and no spec in the `keyring` workstream currently owns it.** A copy held in the CI
+   provider's secret store — read nightly by one scheduled job, verified
    2026-09-03 as the *only* critical-tier credential in any of the 12 workflow files.
    The tension is worth stating plainly rather than leaving implicit:
    **Open Question 1(d) treats that credential as an asset** — a principal already outside the
