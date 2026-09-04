@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000071
 workstream: infrastructure
 created_date: '2026-09-04'
 tags: [points, pipeline, scanners, verification]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-09-04
 ---
 
 # P1244: The points scanners read prose as if it were an instruction, so they cannot be widened
@@ -276,10 +276,10 @@ recorded with a reproduction instead of discovered again in six months.
 
 ## Related
 
-- **Predecessor:** [p1210](done/2026-06-10/p1210_disagreement_pipeline_objective_and_point_unit.md) —
+- **Predecessor:** [p1210](p1210_disagreement_pipeline_objective_and_point_unit.md) —
   built these scanners; its §12 non-goal forbade tuning them mid-branch. Shipped 2026-09-03, so that
   constraint has lifted. Findings and the reverted attempt: `features/uat/p1210.md`.
-- **Same failure class, different target:** [p1009](p1009_single_value_canary_evasions.md) — a
+- **Same failure class, different target:** [p1009](../../p1009_single_value_canary_evasions.md) — a
   markdown guard that recognises one shape and is evaded by every other. Worth reading before
   choosing the parsing approach; the two may share a helper.
 - Deferred-work entry: `docs/process-learnings.md` (filed 2026-09-03).
