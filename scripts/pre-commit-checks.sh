@@ -343,6 +343,27 @@ else
 fi
 echo ""
 
+# 4.7c-bis. Push snapshot-pinning canary — runs when git-ops.sh or its canary is
+# staged. Proves the push/deploy paths still promote a PINNED snapshot SHA rather
+# than the live `main` branch. Without this, the five separate live reads of `main`
+# across a 15-20 min run silently come back: on this checkout the median gap between
+# watched-path commits is ~16 min, so the reads disagree and the CI poll can never
+# match its own staging branch. See scripts/test-push-snapshot-pinning.sh header and
+# pp/docs/decisions.md 2026-08-28.
+PUSH_PIN_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-push-snapshot-pinning)\.sh$' || true)
+if [ -n "$PUSH_PIN_STAGED" ]; then
+    if [ -f "scripts/test-push-snapshot-pinning.sh" ]; then
+        if ! run_quiet "Push snapshot-pinning canary" bash scripts/test-push-snapshot-pinning.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Push snapshot-pinning canary... ${RED}✗ scripts/test-push-snapshot-pinning.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Push snapshot-pinning canary skipped (git-ops.sh not staged)"
+fi
+
 # 4.7d. Playwright tail-pipe hook canary (P911) — runs when the hook or its canary
 # is staged. Proves block-pw-tail-pipe.sh still BLOCKS a live test run piped to
 # head/tail (incl. `;`/`&`/`|&` and case variants) and ALLOWS mere mentions, log-file

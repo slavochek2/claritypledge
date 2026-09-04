@@ -1029,23 +1029,37 @@ PYJ
 # ruleset is active on main (Phase 2), a direct push of un-checked commits to main
 # is rejected server-side (GH013); the hop runs CI on the commits via a staging
 # branch FIRST so the required check is green on those exact SHAs when `git push
-# origin main` promotes them (SHA-portability — proven in P919 Phase 0). Until the
-# ruleset is active, a direct `git push origin main` is equivalent.
+# origin <sha>:refs/heads/main` promotes them (SHA-portability — proven in P919
+# Phase 0). The ruleset IS active (verified 2026-09-04: 'main-privacy-gate',
+# enforcement active, empty bypass list) — an unpinned promote of a tip CI never
+# scanned is refused server-side, so it costs a wasted run, not a leak.
 # Override the branch prefix with STAGING_BRANCH_PREFIX (default "staging/").
 # Output goes to stderr (human guidance); shell-safe (no >, <, | tokens — P783).
 # Args: $1 = staging branch leaf (e.g. "p919" or "doc-<short-sha>").
+#       $2 = the snapshot SHA to pin every printed command to (default: current HEAD).
+#
+# The printed commands MUST name an explicit SHA, never the bare branch `main`.
+# A human or agent following this guidance runs it minutes after it is printed, on a
+# shared checkout where the measured median gap between watched-path commits is ~16
+# minutes — so `main` at step 3 is routinely not the SHA CI went green on at step 2.
+# 2026-09-04: a session followed this text literally as "the documented manual-recovery
+# step" and ran an unpinned, unlocked promote. See pp/docs/decisions.md 2026-08-28.
 print_staging_hop() {
   local sb="${STAGING_BRANCH_PREFIX:-staging/}${1}"
+  local snap="${2:-$( cd "$REPO_ROOT" && git rev-parse HEAD )}"
   cat >&2 <<EOF
-Staging hop (P919) — main is gated by the 'audit-privacy' required check:
+Staging hop (P919) — main is gated by the 'audit-privacy' required check.
+Every command below pins the snapshot ${snap} on purpose; do not substitute 'main'.
   1. Run CI on these commits via a staging branch:
-       git push origin main:refs/heads/${sb}
+       git push origin ${snap}:refs/heads/${sb}
   2. Wait for 'audit-privacy' to pass on those commits (Actions tab, or gh run watch).
-  3. Promote to main (the green check on the same SHAs satisfies the rule):
-       git push origin main
+  3. Promote to main (the green check on that exact SHA satisfies the rule):
+       git push origin ${snap}:refs/heads/main
   4. Delete the ephemeral staging branch:
        git push origin --delete ${sb}
-  (Until the P919 ruleset is activated in Phase 2, a direct 'git push origin main' is equivalent.)
+  (The ruleset IS active on main — verified 2026-09-04: ruleset 'main-privacy-gate',
+   enforcement active, empty bypass list. A promote of an unscanned tip is refused
+   server-side, so an unpinned push does not silently leak — it wastes the run.)
 EOF
 }
 
@@ -1180,7 +1194,9 @@ cmd_commit_to_main() {
   # subshell still resolves the new HEAD after release (commit is already on disk).
   release_main_lock
   trap - EXIT
-  print_staging_hop "doc-$( cd "$REPO_ROOT" && git rev-parse --short HEAD )"
+  local _hop_snap
+  _hop_snap="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+  print_staging_hop "doc-$( cd "$REPO_ROOT" && git rev-parse --short "$_hop_snap" )" "$_hop_snap"
 }
 
 # ----------------------------------------------------------------------------
@@ -3251,9 +3267,9 @@ cmd_ship_to_prod() {
 
   # Force-with-lease: if staging/pN already exists from a prior failed attempt,
   # overwrite it exactly to our current SHAs so CI runs on THESE commits.
-  if ! git -C "$REPO_ROOT" push origin "main:refs/heads/${staging_branch}" --force-with-lease="${staging_branch}" 2>&1; then
+  if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/${staging_branch}" --force-with-lease="${staging_branch}" 2>&1; then
     # Branch may not exist yet; try without lease
-    if ! git -C "$REPO_ROOT" push origin "main:refs/heads/${staging_branch}" 2>&1; then
+    if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/${staging_branch}" 2>&1; then
       die "ship-to-prod: staging push failed"
     fi
   fi
@@ -3267,12 +3283,12 @@ cmd_ship_to_prod() {
     echo "" >&2
     echo "  ❌ ship-to-prod: 'gh' CLI not found. Cannot poll CI." >&2
     echo "  Manual fallback: wait for 'audit-privacy' to pass in GitHub Actions," >&2
-    echo "  then run: git push origin main && git push origin --delete ${staging_branch}" >&2
+    echo "  then run: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "gh not available"
   fi
   if ! gh auth status >/dev/null 2>&1; then
     echo "  ❌ ship-to-prod: gh not authenticated. Run: gh auth login" >&2
-    echo "  Manual fallback: wait for CI, then: git push origin main && git push origin --delete ${staging_branch}" >&2
+    echo "  Manual fallback: wait for CI, then: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "gh not authenticated"
   fi
 
@@ -3334,7 +3350,7 @@ cmd_ship_to_prod() {
     echo "" >&2
     echo "  ❌ ship-to-prod: timed out waiting for '${CHECK_NAME}' after ${MAX_WAIT}s." >&2
     echo "  Staging branch ${staging_branch} left for inspection." >&2
-    echo "  Check GitHub Actions manually, then promote: git push origin main && git push origin --delete ${staging_branch}" >&2
+    echo "  Check GitHub Actions manually, then promote: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "CI poll timeout"
   fi
 
@@ -3370,8 +3386,9 @@ cmd_ship_to_prod() {
 
   echo "" >&2
   echo "  Pushing to main..." >&2
-  if ! git -C "$REPO_ROOT" push origin main; then
-    die "ship-to-prod: git push origin main failed"
+  # Promote the EXACT SHA that CI scanned — same rule as cmd_push_docs above.
+  if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/main"; then
+    die "ship-to-prod: promote of ${local_sha} to refs/heads/main failed"
   fi
   echo "  ✅ Pushed to main." >&2
 
@@ -3427,25 +3444,84 @@ cmd_push_docs() {
   current_branch="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
   [[ "$current_branch" == "main" ]] || die "push-docs: must be on main (current: $current_branch)"
 
+  # ── Step 0: Pin the snapshot ──────────────────────────────────────────────
+  # EVERY stage below operates on $local_sha and never re-reads `main`. This
+  # function previously resolved "what is main right now" at five separate points
+  # — ahead-count, staging branch NAME, staging PUSH (`main:refs/...`), and the
+  # promote (`push origin main`) — spread across a run that takes 15-20 minutes.
+  # On this shared checkout the measured median gap between watched-path commits
+  # is ~16 minutes (230 such commits in the 270-commit backlog of 2026-09-04, 95%
+  # of them within 15 min of the previous one), so those five reads routinely
+  # disagreed. The observable failure was a CI poll that could never match
+  # (`head_sha != local_sha`), burning MAX_WAIT and leaking a staging branch.
+  # Recorded but never implemented here: pp/docs/decisions.md 2026-08-28
+  # "Push the SHA that CI actually scanned, never local HEAD".
   local local_sha
   local_sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
-
-  # Must have commits ahead of origin/main
-  local ahead_count
-  ahead_count="$(git -C "$REPO_ROOT" rev-list --count origin/main..HEAD 2>/dev/null || echo 0)"
-  if [[ "$ahead_count" -eq 0 ]]; then
-    echo "push-docs: nothing to push — HEAD is already at origin/main." >&2
-    exit 0
-  fi
-  echo "push-docs: ${ahead_count} commit(s) ahead of origin/main." >&2
-
-  # ── Step 1: Privacy check (D2) ────────────────────────────────────────────
-  echo "push-docs [1/6]: checking privacy stamp covers push range..." >&2
 
   local origin_main_sha=""
   if git -C "$REPO_ROOT" rev-parse --verify origin/main >/dev/null 2>&1; then
     origin_main_sha="$(git -C "$REPO_ROOT" rev-parse origin/main)"
   fi
+
+  # Retreat the snapshot to the privacy stamp when HEAD has run ahead of it.
+  # A co-tenant watched-path commit landing between /maintain:privacy and this
+  # run used to ABORT at Step 1 below, forcing a full re-review — measured at
+  # 34 min over 168 commits (docs/decisions.md 2026-09-01). That window is the
+  # widest in the whole pipeline and nothing else closes it. Retreating instead
+  # ships the reviewed snapshot and leaves the later commits for the next run.
+  # Conditions are deliberately strict: the stamp must be a real commit, strictly
+  # between origin/main and HEAD, and HEAD must actually carry watched-path
+  # commits it does not cover. Anything else leaves local_sha at HEAD, so a
+  # genuinely-uncovered range still fails closed at Step 1.
+  # --8<-- STEP0-RETREAT-BEGIN (extracted verbatim by scripts/test-push-snapshot-pinning.sh
+  # Test 4 and executed against a fixture under `set -euo pipefail`. Keep this block
+  # self-contained: it may read only REPO_ROOT, WATCHED_PATHS, local_sha, origin_main_sha.)
+  local git_common
+  git_common="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
+  [[ "$git_common" == /* ]] || git_common="$REPO_ROOT/$git_common"
+  local stamp_sha=""
+  # Plain `if` rather than `[[ -f … ]] && stamp_sha=…`. NOTE, because the first draft
+  # of this comment claimed the opposite and was wrong: the `&&` form does NOT trip
+  # the `set -euo pipefail` at :39 — verified 2026-09-04 by direct experiment
+  # (`( set -euo pipefail; [[ -f /missing ]] && x=1 )` exits 0), because errexit
+  # exempts a command that is not the last in an AND-OR list. The trap documented at
+  # :1160 is a different shape. The `if` is kept for legibility and so this line does
+  # not depend on that subtlety, not because the alternative was a bug.
+  if [[ -f "$git_common/.privacy-reviewed" ]]; then
+    stamp_sha="$(tr -d '[:space:]' < "$git_common/.privacy-reviewed")"
+  fi
+
+  if [[ "$stamp_sha" =~ ^[0-9a-f]{40}$ ]] \
+     && [[ "$stamp_sha" != "$local_sha" ]] \
+     && [[ -n "$origin_main_sha" ]] && [[ "$stamp_sha" != "$origin_main_sha" ]] \
+     && git -C "$REPO_ROOT" cat-file -e "$stamp_sha" 2>/dev/null \
+     && git -C "$REPO_ROOT" merge-base --is-ancestor "$stamp_sha" "$local_sha" 2>/dev/null \
+     && git -C "$REPO_ROOT" merge-base --is-ancestor "$origin_main_sha" "$stamp_sha" 2>/dev/null; then
+    # shellcheck disable=SC2086
+    local unstamped_watched
+    unstamped_watched="$(git -C "$REPO_ROOT" rev-list "${stamp_sha}..${local_sha}" -- $WATCHED_PATHS 2>/dev/null)"
+    if [[ -n "$unstamped_watched" ]]; then
+      local deferred
+      deferred="$(git -C "$REPO_ROOT" rev-list --count "${stamp_sha}..${local_sha}" 2>/dev/null || echo '?')"
+      echo "push-docs [0/6]: ${deferred} commit(s) landed after the privacy review." >&2
+      echo "  Pinning this push to the reviewed snapshot ${stamp_sha:0:9}; they ship on the next push." >&2
+      local_sha="$stamp_sha"
+    fi
+  fi
+  # --8<-- STEP0-RETREAT-END
+
+  # Must have commits ahead of origin/main — measured on the PINNED snapshot.
+  local ahead_count
+  ahead_count="$(git -C "$REPO_ROOT" rev-list --count "${origin_main_sha:+${origin_main_sha}..}${local_sha}" 2>/dev/null || echo 0)"
+  if [[ "$ahead_count" -eq 0 ]]; then
+    echo "push-docs: nothing to push — the reviewed snapshot is already on origin/main." >&2
+    exit 0
+  fi
+  echo "push-docs: ${ahead_count} commit(s) ahead of origin/main (snapshot ${local_sha:0:9})." >&2
+
+  # ── Step 1: Privacy check (D2) ────────────────────────────────────────────
+  echo "push-docs [1/6]: checking privacy stamp covers push range..." >&2
 
   local privacy_range
   if [[ -n "$origin_main_sha" ]]; then
@@ -3459,14 +3535,11 @@ cmd_push_docs() {
   uncovered_commits="$(git -C "$REPO_ROOT" rev-list "$privacy_range" -- $WATCHED_PATHS 2>/dev/null)"
 
   if [[ -n "$uncovered_commits" ]]; then
-    local git_common
-    git_common="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
-    [[ "$git_common" == /* ]] || git_common="$REPO_ROOT/$git_common"
-    local stamp_file="$git_common/.privacy-reviewed"
-    local reviewed_sha=""
-    if [[ -f "$stamp_file" ]]; then
-      reviewed_sha="$(tr -d '[:space:]' < "$stamp_file")"
-    fi
+    # $git_common / $stamp_sha were resolved once at Step 0 -- do NOT re-read the
+    # stamp here. A second read can observe a DIFFERENT value than the one the
+    # snapshot was pinned to (a co-tenant /maintain:privacy rewrites this file
+    # mid-run), which is the same read-live defect Step 0 exists to remove.
+    local reviewed_sha="$stamp_sha"
 
     local still_uncovered=""
     if [[ -n "$reviewed_sha" ]] && [[ "$reviewed_sha" =~ ^[0-9a-f]{40}$ ]]; then
@@ -3506,7 +3579,10 @@ cmd_push_docs() {
 
   # ── Step 3: Staging push ─────────────────────────────────────────────────
   local short_sha
-  short_sha="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
+  # From the PINNED snapshot, never a fresh HEAD read: the branch name must match
+  # the SHA the CI poll waits on, and must stay stable across a --resume so
+  # ls-remote can still find the branch a prior aborted run left behind.
+  short_sha="$(git -C "$REPO_ROOT" rev-parse --short "$local_sha")"
   local staging_branch="staging/doc-${short_sha}"
   if (( resume )); then
     # Delete the leftover staging branch so the re-push below CREATES the ref again.
@@ -3536,8 +3612,8 @@ cmd_push_docs() {
 
   echo "push-docs [3/6]: pushing to staging branch ${staging_branch}..." >&2
 
-  if ! git -C "$REPO_ROOT" push origin "main:refs/heads/${staging_branch}" --force-with-lease="${staging_branch}" 2>&1; then
-    if ! git -C "$REPO_ROOT" push origin "main:refs/heads/${staging_branch}" 2>&1; then
+  if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/${staging_branch}" --force-with-lease="${staging_branch}" 2>&1; then
+    if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/${staging_branch}" 2>&1; then
       die "push-docs: staging push failed"
     fi
   fi
@@ -3550,12 +3626,12 @@ cmd_push_docs() {
     echo "" >&2
     echo "  ❌ push-docs: 'gh' CLI not found. Cannot poll CI." >&2
     echo "  Manual fallback: wait for 'audit-privacy' to pass in GitHub Actions," >&2
-    echo "  then run: git push origin main && git push origin --delete ${staging_branch}" >&2
+    echo "  then run: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "gh not available"
   fi
   if ! gh auth status >/dev/null 2>&1; then
     echo "  ❌ push-docs: gh not authenticated. Run: gh auth login" >&2
-    echo "  Manual fallback: wait for CI, then: git push origin main && git push origin --delete ${staging_branch}" >&2
+    echo "  Manual fallback: wait for CI, then: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "gh not authenticated"
   fi
 
@@ -3615,7 +3691,7 @@ cmd_push_docs() {
     echo "" >&2
     echo "  ❌ push-docs: timed out waiting for '${CHECK_NAME}' after ${MAX_WAIT}s." >&2
     echo "  Staging branch ${staging_branch} left for inspection." >&2
-    echo "  Check GitHub Actions manually, then promote: git push origin main && git push origin --delete ${staging_branch}" >&2
+    echo "  Check GitHub Actions manually, then promote: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "CI poll timeout"
   fi
 
@@ -3663,8 +3739,17 @@ cmd_push_docs() {
 
   echo "" >&2
   echo "  Pushing to main..." >&2
-  if ! git -C "$REPO_ROOT" push origin main; then
-    die "push-docs: git push origin main failed"
+  # Promote the EXACT SHA that CI scanned, not the branch name. pp/docs/decisions.md
+  # 2026-08-28: "The staging-hop pattern makes this easy to get wrong, because its
+  # instructions end with a literal push of `main` — correct only if nothing lands
+  # during CI, which on this machine is the unlikely case rather than the safe default."
+  # remote_ref stays refs/heads/main with a SHA source ref, so all three layers of
+  # pre-push-checks.sh still fire — verified 2026-09-04 in a throwaway bare repo with
+  # an instrumented pre-push hook: the SHA form yields local_ref=<sha>,
+  # remote_ref=refs/heads/main, and pre-push-checks.sh reads local_ref (:57/:87/:212)
+  # but never uses it; every layer gates on remote_ref.
+  if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/main"; then
+    die "push-docs: promote of ${local_sha} to refs/heads/main failed"
   fi
   echo "  ✅ Pushed to main." >&2
 
