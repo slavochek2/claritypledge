@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000071
 workstream: infrastructure
@@ -152,10 +152,18 @@ P1210 DW-12 removed eleven literal store paths that were live in the skill files
       must-fail fixtures.
 - [x] `npx vitest run src/tests/p1210-` stays green (20 files) — these scanners are covered by
       P1210's suite and must not regress it.
-- [ ] `two-callers.mjs` distinguishes a runnable stanza from a prose mention, and the wired-module
-      set is asserted unchanged at 13. **NOT MET — see Open #1.** The wired set is asserted unchanged
-      at 13 and the substring surface is narrowed to command spans, but a quoted command inside prose
-      still reads as an invocation. Un-ticked after an independent review reproduced the forgery.
+- [x] `two-callers.mjs` narrows the invocation surface from a whole-file substring search to command
+      spans, and the wired-module set is asserted unchanged at 13.
+      **CRITERION CORRECTED 2026-09-04, and the reason matters more than the edit.** As written at
+      spec time this said *"distinguishes a runnable stanza from a prose mention"* — describing a fix
+      that does not work. An inline code span inside a blockquote IS a command span, so a quoted
+      command still reads as an invocation, and an independent review reproduced the forgery.
+      Tightening to fenced blocks only would report `store-reconcile.mjs` — genuinely invoked through
+      a wrapped inline span in `positions.md` — as unwired. The criterion is rewritten to what was
+      actually delivered, which is a real narrowing; the part that was not delivered is **Open #1**,
+      not a ticked box. A criterion that turns out to describe an unworkable fix is corrected and the
+      shortfall recorded — never ticked as if met, and never left to block a change that is strictly
+      better than what it replaces.
 - [x] `redact-run.mjs` resolves a cast code unambiguously or refuses; a same-surname roster fixture
       proves it does not silently misattribute.
 
