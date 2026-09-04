@@ -5,8 +5,9 @@ rank: 255
 workstream: transcription
 created_date: '2026-09-03'
 tags: [transcription, gemini, diarization, cost]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+flow: inline
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -104,42 +105,63 @@ whether P552 should be reopened, superseded, or closed as refuted.
 
 Run over the archived corpus: **44 two-recorder sessions** pulled from
 `gs://claritypledge-ml-training/sessions/`. Reproduce with
-`scripts/p1237-crosstalk-scan.py` (RQ2) and `scripts/p1237-paths-compare.py` (RQ1/RQ3).
+`scripts/p1237-crosstalk-scan.py` (RQ2), `scripts/p1237-paths-compare.py` (RQ1/RQ3) and
+`scripts/p1237-highsep-crosscheck.py`.
+
+> **Revised after code review, before ship.** The first pass of these numbers was wrong in two
+> ways a reader could not have seen. (a) When a recorder's `sessionStartedAt` fell outside the
+> correlation search range, the aligner silently degraded to a blind search **and kept the
+> "trusted" label**, which also skipped its confidence gate — 4 of the then-20 measured sessions.
+> (b) The noise floor was a percentile over all frames including speech, so a speaker who held
+> the floor lifted their own channel's floor and *shrank* the computed margin — biasing exactly
+> the sessions near the 10 dB threshold. Both are fixed; the corpus was re-run from scratch.
+>
+> Every headline moved, and all of them moved **against** the first report: median margin
+> 7.1 → **4.4 dB**, sessions below the bar 15/20 → **15/18**, start-offset max 126.3 → **51.7 s**,
+> the high-separation agreement 57.2% → **59.5%** against a naive rate of 74.0% → **75.0%**. No
+> conclusion changed; every one of them is now better supported. The superseded figures are
+> recorded here rather than quietly replaced, because [decisions.md](../docs/decisions.md) carried
+> them for one commit.
 
 ### RQ2 — how much of a neighbour does a co-located phone capture? **The objection is REAL.**
 
 Metric: the **intra-channel dominance margin** — how many dB louder a channel is when its owner
 speaks than when the other person speaks. Intra-channel by construction, so it is immune to the
-per-device gain bias P569 hit. 20 of the 44 sessions were measurable (the rest had one recorder
-dead, no two-sided speech, or too little overlap); **162 minutes of two-sided speech**.
+per-device gain bias P569 hit. 18 of the 44 sessions were measurable (the rest had one recorder
+dead, no two-sided speech, too little overlap, or an alignment that could not be trusted);
+**52 minutes of scored speech**.
 
 Min-of-pair margin per session, sorted (dB):
 
 ```
--0.4  1.1  1.3  2.9  2.9  3.0  4.7  4.9  5.5  6.1
- 8.1  8.7  8.8  9.0  9.6 10.0 11.6 14.1 15.6 17.3
+-4.5  0.4  1.0  1.1  1.7  1.9  2.2  2.3  4.4
+ 4.5  6.7  8.4  8.7  8.7  9.8 11.8 14.5 17.3
 ```
 
-**Median 7.1 dB. 15 of 20 sessions (75%) sit below the 10 dB bar.** Criterion 2 called the
-objection real if a majority fell below 10 dB — it does. Per-channel transcription on
-phones-on-a-table is not safe on its own.
+**Median 4.4 dB. 15 of 18 sessions (83%) sit below the 10 dB bar.** Criterion 2 called the
+objection real if a majority fell below 10 dB — it does, by a wide margin. Per-channel
+transcription on phones-on-a-table is not safe on its own.
 
 **The probe was controlled before its verdict was believed** (`--controls`, same metric, same code
-path): a synthetic *one shared mic* pair with a ±3 dB gain drift reads **3.1 / 2.8 dB**; a
-constructed *20 dB separated* pair reads **19.0 / 19.2 dB**. So the four sessions reading 1-3 dB
-are at the shared-mic floor — acoustically indistinguishable from a single microphone — and the
-metric recovers a real 20 dB when one exists.
+path): a synthetic *one shared mic* pair with a ±3 dB gain drift reads **3.2 / 3.0 dB**; a
+constructed *20 dB separated* pair reads **19.0 / 19.2 dB**. So the eight sessions reading under
+3 dB are at the shared-mic floor — acoustically indistinguishable from a single microphone — and
+the metric recovers a real 20 dB when one exists.
 
-**Alignment came from an oracle outside the audio.** Envelope cross-correlation is unsafe here:
-the better the separation, the more *anti*-correlated the two envelopes are, so its peak weakens
-exactly where the answer matters (one session's best blind peak was **negative**). Each recorder
-writes its own `sessionStartedAt`, so the offset is read from there and refined within ±10 s.
-The two independent estimates disagree by a median of **2.12 s**.
+**Alignment came from an oracle outside the audio, and is refused when that oracle is out of
+range.** Envelope cross-correlation is unsafe here: the better the separation, the more
+*anti*-correlated the two envelopes are, so its peak weakens exactly where the answer matters
+(one session's best blind peak was **negative**). Each recorder writes its own `sessionStartedAt`,
+so the offset is read from there and refined within ±10 s; the two independent estimates disagree
+by a median of **1.73 s**. `sessionStartedAt` is the session's start on that device, not the
+recording's — a late join or a rejoin puts it hundreds of seconds off, which happened on 5 of the
+44 sessions. Those fall back to a blind search and must clear the same confidence bar as any other
+blind result; two sessions are excluded on exactly that ground.
 
 **The misalignment defect is real, and it was already known.** `audio.py::_merge_wavs()` mixes the
 recorders with `amix` **from t=0, applying no offset at all**. Measured start-time offsets:
-**median 2.9 s, max 126.3 s** — at the median already beyond a diarizer's tolerance, and at the
-maximum, two unrelated minutes of the session laid on top of each other.
+**median 2.2 s, max 51.7 s** — at the median already beyond a diarizer's tolerance, and at the
+maximum, most of a minute of the session laid on top of the wrong minute.
 
 [decisions.md](../docs/decisions.md) 2026-03-22 names this exactly: rejected alternative (D),
 *"Pyannote on unaligned amix — the '50/50' result was an artifact of misalignment"*, and the same
@@ -169,6 +191,10 @@ Supporting measurements:
 
 - **Gemini returned 3 turns for a 9-minute two-person conversation** — one of 182 s, one of 3.6 s,
   one of 364 s. It reported 2 speakers and put almost everything in one.
+- **The scores rest on exact localization, not on a fallback.** For both A and C, 37 of the 38
+  labelled points fall *inside* a returned segment; exactly one uses the nearest-segment-within-2 s
+  fallback, and none are unmatched. So the 0-of-10 results are not an artefact of loose timestamp
+  matching.
 - **pyannote produced two balanced clusters** (434.7 s and 318.1 s) that do not correspond to the
   two people: scored across shifts of ±10 s in 2 s steps, minority-speaker recall stays 0/10 at
   every shift. Misalignment is not the explanation.
@@ -183,18 +209,19 @@ Supporting measurements:
 
 **The complementary case, run because the one above is unrepresentative**
 (`scripts/p1237-highsep-crosscheck.py`). UY9N35 is the best-separated pair measured
-(15.6 / 21.2 dB). There is no human label for it, so pyannote is scored against the **channel
+(14.5 / 23.8 dB). There is no human label for it, so pyannote is scored against the **channel
 oracle** — legitimate at this separation (the scan's known-good control recovers 19.0 dB from a
 constructed 20 dB) and independent of pyannote, but agreement with physics, not accuracy against
-a person. On a 10-minute slice, **84% of speech frames are physically unambiguous** (|Δ| ≥ 10 dB),
-and on those frames pyannote agrees **3239/5666 = 57.2%** — 33.9% on one speaker, 65.3% on the
-other. Answering "the majority speaker" every time would score 74.0%. **The baseline is below the
-naive baseline on the cleanest audio in the corpus too**, so its failure is not an artefact of
-R8FUEQ's bad separation.
+a person. On a 10-minute slice, **81% of speech frames are physically unambiguous** (|Δ| ≥ 10 dB).
+On those frames pyannote agrees **3185/5356 = 59.5%**; counting only the frames it actually
+labelled (it leaves 4.3% unlabelled) it agrees **62.1%**. Per speaker: 32.4% and 68.5%. Answering
+"the majority speaker" every time would score **75.0%**. **The baseline is below the naive baseline
+on the cleanest audio in the corpus too**, on either denominator — so its failure is not an
+artefact of R8FUEQ's bad separation.
 
-The same number cuts the other way for path B: where 84% of speech is unambiguous, recorder
-identity is a strong signal and diarization is the weak one. The corpus-wide "75% below 10 dB"
-verdict is a statement about the *corpus*, not about every session — on the 5 of 20 sessions
+The same number cuts the other way for path B: where 81% of speech is unambiguous, recorder
+identity is a strong signal and diarization is the weak one. The corpus-wide "83% below 10 dB"
+verdict is a statement about the *corpus*, not about every session — on the 3 of 18 sessions
 above the bar, separate-channel is the path with the physics behind it.
 
 **The pipeline being measured is the option March explicitly REJECTED.** [decisions.md](../docs/decisions.md)
@@ -289,7 +316,7 @@ scores 0/10 on the minority speaker: it is not better than the replacements, it 
 Three consequences the measurement forces:
 
 1. **P552's premise is refuted for the conditions actually recorded.** *"Each phone IS one
-   speaker"* is false on phones-on-a-table: 75% of sessions are below 10 dB and four are at the
+   speaker"* is false on phones-on-a-table: 83% of sessions are below 10 dB and eight are at the
    shared-mic floor. It is **untested**, not refuted, for [P1236](p1236_server_side_live_transcription_for_rooms.md)'s
    answered setup — lavalier per person, each into its own phone — which is a different acoustic
    situation and the one where the design should work. P1236's RQ2 bar must be re-measured on the
@@ -335,7 +362,7 @@ Three consequences the measurement forces:
       the corpus holds exactly one hand-labelled session, so the three-way comparison is n=1 and
       lands on the least favourable session for path B. RQ2 ran on all 20 measurable sessions.
 - [x] Cross-talk dominance measured in dB per channel, answering research question 2 with a number
-      — median 7.1 dB, 15/20 sessions below the 10 dB bar, probe controlled at 3 dB / 19 dB
+      — median 4.4 dB, 15/18 sessions below the 10 dB bar, probe controlled at 3 dB / 19 dB
 - [x] Cost per session-hour recorded per path, with current credit coverage verified against billing
       — €0.16 (<30 min) / €0.72 (≥30 min) baseline, €0.158 Gemini; coverage 99.4% / 94.8%
 - [x] A recommendation written here against the pre-registered criteria above

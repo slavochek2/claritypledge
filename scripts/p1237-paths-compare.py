@@ -99,16 +99,31 @@ def load_truth(path):
 
 # ---------------------------------------------------------------- path A: pyannote
 
-def path_a(merged_wav, out_dir, num_speakers=None):
+def _cached(path, what, fresh):
+    """Report a cache hit rather than swallowing it, and honour --fresh.
+
+    Every artifact here is keyed by filename alone. A silently reused stale artifact —
+    from a run before a code fix, a model change, or a different --speakers — would put a
+    wrong number into a spec with nothing to notice it by. So: say when reuse happens.
+    """
+    if fresh or not os.path.exists(path):
+        return None
+    print(f"  [cache] reusing {what} from {os.path.basename(path)} "
+          f"— delete it or pass --fresh to recompute", flush=True)
+    return json.load(open(path))
+
+
+def path_a(merged_wav, out_dir, num_speakers=None, fresh=False):
     """pyannote/speaker-diarization-3.1, with prod's `num_speakers` hint (pipeline.py:223).
 
     Deviation to state: prod pins pyannote 3.x, where the pipeline returns an Annotation
     directly. The locally installed pyannote.audio is 4.x, which wraps the same Annotation
     in a `DiarizeOutput`. Same model checkpoint, different wrapper.
     """
-    cache = os.path.join(out_dir, "pyannote.json")
-    if os.path.exists(cache):
-        return json.load(open(cache))
+    cache = os.path.join(out_dir, f"pyannote_spk{num_speakers or 'auto'}.json")
+    hit = _cached(cache, "pyannote diarization", fresh)
+    if hit is not None:
+        return hit
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     import torchaudio
     from pyannote.audio import Pipeline
@@ -125,10 +140,12 @@ def path_a(merged_wav, out_dir, num_speakers=None):
 
 # ------------------------------------------------------- path B: per-channel Whisper
 
-def whisper_segments(wav_path, out_dir, tag):
-    cache = os.path.join(out_dir, f"whisper_{tag}.json")
-    if os.path.exists(cache):
-        return json.load(open(cache))
+def whisper_segments(wav_path, out_dir, tag, fresh=False):
+    # Keyed by model too: changing WHISPER_MODEL must not silently reuse the old text.
+    cache = os.path.join(out_dir, f"whisper_{tag}_{WHISPER_MODEL.split('/')[-1]}.json")
+    hit = _cached(cache, f"whisper transcript for {tag}", fresh)
+    if hit is not None:
+        return hit
     sh([os.path.expanduser("~/.whisper-env/bin/mlx_whisper"), "--model", WHISPER_MODEL,
         "--output-format", "json", "--output-dir", out_dir, "--output-name", f"w_{tag}",
         wav_path])
@@ -141,9 +158,14 @@ def whisper_segments(wav_path, out_dir, tag):
 
 # ------------------------------------------------------------------- path C: Gemini
 
-def path_c(merged_wav, out_dir, speakers):
-    cache = os.path.join(out_dir, "gemini.json")
-    if not os.path.exists(cache):
+def path_c(merged_wav, out_dir, speakers, fresh=False):
+    cache = os.path.join(out_dir, f"gemini_spk{speakers}.json")
+    if fresh and os.path.exists(cache):
+        os.remove(cache)
+    if os.path.exists(cache):
+        print(f"  [cache] reusing gemini turns from {os.path.basename(cache)} "
+              f"— delete it or pass --fresh to re-call the API", flush=True)
+    else:
         sh([os.path.expanduser("~/.agents/bin/diarize"), merged_wav,
             "--speakers", str(speakers), "--json", cache, "-q"])
     d = json.load(open(cache))
@@ -155,24 +177,40 @@ def path_c(merged_wav, out_dir, speakers):
 
 # ------------------------------------------------------------------------- scoring
 
-def label_at(segs, t):
-    """Label of the segment covering t; else the nearest segment within 2 s; else None."""
+def label_at(segs, t, stats=None):
+    """Label of the segment covering t; else the nearest segment within 2 s; else None.
+
+    The nearest-within-2s arm can return the ADJACENT turn, which may be the other
+    speaker — so a score built mostly on it is a score built on approximate localization.
+    `stats` counts which arm answered, and the caller prints it, because a reader of the
+    per-speaker percentages otherwise cannot tell the two apart.
+    """
     for s in segs:
         if s["start"] <= t <= s["end"]:
+            if stats is not None:
+                stats["contained"] += 1
             return s["label"]
     best, bd = None, 2.0
     for s in segs:
         d = min(abs(s["start"] - t), abs(s["end"] - t))
         if d < bd:
             best, bd = s["label"], d
+    if stats is not None:
+        stats["nearest" if best is not None else "unmatched"] += 1
     return best
 
 
 def best_mapping(preds, truth_names):
     """Map opaque labels to real names by whichever assignment maximises agreement.
 
-    Deliberately generous — see the module docstring. Only handles the 2-speaker case,
-    which is every labelled session this repo has.
+    Deliberately generous — see the module docstring.
+
+    Exhaustive ONLY for two labels: the search tries each label's most-agreeing name and
+    the all-flip of that, which enumerates both orientations when |labels| == 2 and does NOT
+    enumerate all 2^k assignments for more. Both scored paths are pinned to 2 speakers
+    (pyannote via num_speakers, Gemini via the run's --speakers), so this is exhaustive on
+    the measured runs; a path that returns 3+ labels would need a real argmax over
+    assignments, and the printed label count is what tells you that happened.
     """
     labels = sorted({p for p in preds if p is not None})
     names = sorted(set(truth_names))
@@ -234,6 +272,8 @@ def main():
     ap.add_argument("--truth", required=True)
     ap.add_argument("--paths", default="A,B,C")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--fresh", action="store_true",
+                    help="recompute every cached artifact instead of reusing it")
     a = ap.parse_args()
 
     sess_dir = os.path.join(a.audio_dir, a.session)
@@ -284,14 +324,17 @@ def main():
     print("\nper-speaker attribution accuracy at the 38 labelled points:")
 
     if "A" in want:
-        segs = path_a(merged, sess_dir, num_speakers=len(names))
-        preds = {i: label_at(segs, t) for i, (t, _) in enumerate(truth)}
+        segs = path_a(merged, sess_dir, num_speakers=len(names), fresh=a.fresh)
+        st = {"contained": 0, "nearest": 0, "unmatched": 0}
+        preds = {i: label_at(segs, t, st) for i, (t, _) in enumerate(truth)}
         results["A_baseline_pyannote"] = score(
             "A baseline", preds, truth,
-            f"({len({s['label'] for s in segs})} pyannote labels)")
+            f"({len({s['label'] for s in segs})} pyannote labels; "
+            f"{st['contained']} contained / {st['nearest']} nearest-2s / {st['unmatched']} unmatched)")
+        results["A_localization"] = st
 
     if "B" in want:
-        per_rec = {r: whisper_segments(w, sess_dir, r) for r, w in zip(recs, wavs)}
+        per_rec = {r: whisper_segments(w, sess_dir, r, a.fresh) for r, w in zip(recs, wavs)}
         preds, ambiguous, silent = {}, 0, 0
         for i, (t, _) in enumerate(truth):
             covering = [r for r in recs
@@ -312,11 +355,14 @@ def main():
             f"energy tie-break; {silent} by neither)", premapped=True)
 
     if "C" in want:
-        segs = path_c(merged, sess_dir, len(names))
-        preds = {i: label_at(segs, t) for i, (t, _) in enumerate(truth)}
+        segs = path_c(merged, sess_dir, len(names), fresh=a.fresh)
+        st = {"contained": 0, "nearest": 0, "unmatched": 0}
+        preds = {i: label_at(segs, t, st) for i, (t, _) in enumerate(truth)}
         results["C_gemini"] = score(
             "C gemini", preds, truth,
-            f"({len({s['label'] for s in segs})} gemini labels)")
+            f"({len({s['label'] for s in segs})} gemini labels, {len(segs)} turns; "
+            f"{st['contained']} contained / {st['nearest']} nearest-2s / {st['unmatched']} unmatched)")
+        results["C_localization"] = st
 
     # Naive baseline: always answer with the majority speaker. P569 recorded 74% here.
     maj = max(set(n for _, n in truth), key=lambda s: sum(1 for _, n in truth if n == s))

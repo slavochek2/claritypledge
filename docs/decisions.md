@@ -138,17 +138,18 @@ speech. Reproduce with `scripts/p1237-crosstalk-scan.py`, `scripts/p1237-paths-c
 that this is **not** an endorsement, because the measurement also found the incumbent is not what
 anyone thought it was.
 
-1. **Cross-talk is real (RQ2).** Intra-channel dominance margin: median **7.1 dB**, **15 of 20
-   sessions below the 10 dB bar**, four at the shared-mic floor. Criterion 2's condition met, so
+1. **Cross-talk is real (RQ2).** Intra-channel dominance margin: median **4.4 dB**, **15 of 18
+   sessions below the 10 dB bar**, eight at the shared-mic floor. Criterion 2's condition met, so
    *"each phone IS one speaker"* is refuted for phones-on-a-table. The probe was controlled before
    its verdict was believed: a constructed 20 dB pair reads 19.0/19.2 dB, a shared-mic pair with
-   ±3 dB drift reads 3.1/2.8 dB.
+   ±3 dB drift reads 3.2/3.0 dB.
 2. **No engine beats a coin flip on the minority speaker (RQ1/RQ3).** On the only hand-labelled
    session (38 points): pyannote **73.7% / 0 of 10**, separate-channel **50.0% / 1 of 10**, Gemini
    **73.7% / 0 of 10**, naive always-the-dominant-speaker **73.7% / 0 of 10**. Gemini returned
-   **3 turns for a 9-minute two-person conversation**. On the best-separated session, where 84% of
-   speech is physically unambiguous, pyannote agrees with the channel oracle **57.2%** — below the
-   74.0% naive rate there too, so the failure is not an artefact of one bad session.
+   **3 turns for a 9-minute two-person conversation**. On the best-separated session, where 81% of
+   speech is physically unambiguous, pyannote agrees with the channel oracle **59.5%** (62.1%
+   counting only frames it labelled) — below the 75.0% naive rate there too, so the failure is not
+   an artefact of one bad session.
 3. **Four artifacts recorded as done/shipped/production-ready have never existed on any branch:**
    `get_separate_wavs()` (P552, `all-done`), `llm_merge.py` (P556, closed *"deployed to prod"*),
    `energy_validator.py` (*"complete with adaptive gates"*), and cross-correlation alignment in
@@ -158,9 +159,11 @@ anyone thought it was.
    shipped and never committed** — and the only path ever measured to attribute the minority
    speaker (8 of 10, same ground-truth file) is among the missing code.
 4. **`_merge_wavs()` applies no offset.** Measured start-time offsets between the two phones:
-   median **2.9 s**, max **126.3 s**. Every multi-phone session has been diarized on audio where
-   the phones are superimposed out of step. Each recorder's events file already carries its own
-   `sessionStartedAt`, so the fix needs no cross-correlation.
+   median **2.2 s**, max **51.7 s**. Every multi-phone session has been diarized on audio where
+   the phones are superimposed out of step. Each recorder's events file carries its own
+   `sessionStartedAt` — but that is the session's start on that device, not the recording's, so a
+   late join or rejoin puts it hundreds of seconds off (5 of 44 sessions here); a fix must treat it
+   as a prior to be validated, not as ground truth.
 5. **Cost, measured rather than estimated (RQ4).** Cloud Run `transcribe-session` blends to
    **€0.930 per instance-hour** over 180 days of actuals. Pipeline cost is **€0.16 per audio-hour
    under 30 minutes and €0.72 at or above it** — P858's *"$0.11–0.17, still valid"* holds only for
@@ -195,7 +198,19 @@ is conditional rather than unconditional — measure the margin per session and 
 that is a different spec. **Method note worth keeping: envelope cross-correlation is the wrong
 aligner for separated channels**, because better separation makes the two envelopes *more*
 anti-correlated (one session's best blind peak was negative); the per-recorder `sessionStartedAt`
-is the oracle that does not degrade with the thing being measured. (Status: proposed.)
+is the oracle that does not degrade with the thing being measured.
+
+**Corrected before ship, by this session's own code review.** The figures above are the second
+pass. The first carried two defects that a reader of the output could not have detected: an
+aligner that silently degraded to a blind search while still reporting itself as oracle-aligned
+(and therefore skipping its own confidence gate), and a noise floor estimated over frames that
+included speech, which shrank margins on exactly the sessions nearest the decision threshold.
+Superseded figures: median 7.1 dB, 15/20 below the bar, max offset 126.3 s, high-separation
+agreement 57.2% against a 74.0% naive rate. **Every corrected number moved against the first
+report and no conclusion changed** — which is the useful part: the review caught numbers that were
+already committed to this log, one commit earlier. **A measurement script is not "throwaway"
+because it is run once; when its output is promoted into a decision, it earns the same review as
+shipped code.** (Status: proposed.)
 
 **References:** [p1237](../features/p1237_batch_pipeline_gemini_vs_six_steps.md) ·
 [p552](../features/done/23_mar_26/p552_separate_channel_transcription.md) ·

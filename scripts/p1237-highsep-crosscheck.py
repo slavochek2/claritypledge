@@ -39,11 +39,27 @@ def read(p):
     return np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0, sr
 
 
+SILENCE_DBFS = -75.0   # below this a channel is not recording, it is digital silence
+SMOOTH_FRAMES = 5      # 250 ms median smoothing — must match p1237-crosstalk-scan.py
+
+
 def env(x, sr):
+    """Same envelope as `p1237-crosstalk-scan.py::envelope`, smoothing included.
+
+    The two scripts compute the same physical quantity and feed related claims, so an
+    unsmoothed variant here would mean the oracle in this script and the margin in that
+    one are not the same signal.
+    """
     h = int(sr * HOP)
     n = len(x) // h
     f = x[: n * h].reshape(n, h)
-    return 20 * np.log10(np.sqrt((f ** 2).mean(axis=1) + 1e-12))
+    db = 20 * np.log10(np.sqrt((f ** 2).mean(axis=1) + 1e-12))
+    if n >= SMOOTH_FRAMES:
+        pad = SMOOTH_FRAMES // 2
+        db = np.median(
+            np.lib.stride_tricks.sliding_window_view(np.pad(db, pad, mode="edge"),
+                                                     SMOOTH_FRAMES), axis=-1)
+    return db
 
 
 wavs = [os.path.join(SL, r + ".wav") for r in RECS]
@@ -53,19 +69,28 @@ if not os.path.exists(merged):
                     "-filter_complex", "amix=inputs=2:duration=longest",
                     "-ac", "1", "-ar", "16000", merged], check=True)
 
-es = []
+raw = []
 for w in wavs:
     x, sr = read(w)
-    e = env(x, sr)
-    es.append(e - np.percentile(e, 20))
-n = min(len(es[0]), len(es[1]))
-a, b = es[0][:n], es[1][:n]
-speech = (a >= 15) | (b >= 15)
+    raw.append(env(x, sr))
+n = min(len(raw[0]), len(raw[1]))
+raw = [e[:n] for e in raw]
+
+# Live-channel guard, carried over from p1237-crosstalk-scan.py. A recorder that stopped
+# reads as digital silence, and an oracle built against it reports fake separation — that
+# is what produced 80-100 dB margins on the sibling script's first run. Without this guard
+# here, this script's oracle inherits the defect the other one was patched to avoid.
+live = (raw[0] > SILENCE_DBFS) & (raw[1] > SILENCE_DBFS)
+if live.sum() < 200:
+    sys.exit(f"only {live.sum() * HOP:.0f}s with both channels recording — too little to score")
+a, b = (raw[0] - np.percentile(raw[0][live], 20)), (raw[1] - np.percentile(raw[1][live], 20))
+speech = ((a >= 15) | (b >= 15)) & live
 delta = a - b
 # Only frames where the physical answer is unambiguous at this separation.
 confident = speech & (np.abs(delta) >= 10)
 oracle = np.where(delta > 0, RECS[0], RECS[1])
-print(f"slice: {n*HOP:.0f}s, speech {speech.sum()*HOP:.0f}s, "
+print(f"slice: {n*HOP:.0f}s, both-channels-live {live.sum()*HOP:.0f}s, "
+      f"speech {speech.sum()*HOP:.0f}s, "
       f"confident (|delta|>=10dB) {confident.sum()*HOP:.0f}s "
       f"({confident.sum()/max(1,speech.sum()):.0%} of speech)")
 share = {r: int((oracle[confident] == r).sum()) for r in RECS}
@@ -103,14 +128,26 @@ if len(labels) >= 2:
         if best is None or agree > best[0]:
             best = (agree, m, pred)
     agree, m, pred = best
+    labelled = np.array([lab[i] is not None for i in idx])
     print(f"  best label mapping {m}")
-    print(f"  agreement with the channel oracle: {agree}/{len(idx)} ({agree/len(idx):.1%})")
+    # Two denominators, stated separately: a frame pyannote left UNLABELLED is a coverage
+    # gap, not a misclassification, and collapsing both into one percentage hides which
+    # failure is being reported.
+    print(f"  agreement over all confident frames:      {agree}/{len(idx)} "
+          f"({agree/len(idx):.1%})   [unlabelled frames count as disagreement]")
+    if labelled.sum():
+        agree_lab = int((pred[labelled] == oracle[idx][labelled]).sum())
+        print(f"  agreement where pyannote DID label:      {agree_lab}/{int(labelled.sum())} "
+              f"({agree_lab/labelled.sum():.1%})   [misclassification only]")
+    print(f"  pyannote left unlabelled: {int((~labelled).sum())}/{len(idx)} "
+          f"({(~labelled).mean():.1%})")
     for r in RECS:
         sel = oracle[idx] == r
         if sel.sum():
             print(f"    {r:20s}: {(pred[sel] == r).sum()}/{sel.sum()} "
                   f"({(pred[sel] == r).sum()/sel.sum():.1%})")
-    covered = sum(1 for i in idx if lab[i] is not None)
-    print(f"  (pyannote assigned a label at {covered}/{len(idx)} confident frames)")
+    naive = max(int((oracle[idx] == r).sum()) for r in RECS)
+    print(f"  naive always-the-majority-speaker would score: {naive}/{len(idx)} "
+          f"({naive/len(idx):.1%})")
 else:
     print("  pyannote produced fewer than 2 labels")

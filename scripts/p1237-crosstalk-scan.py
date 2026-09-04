@@ -63,7 +63,7 @@ MIN_ALIGN_CORR = 0.15  # blind-alignment confidence floor (not applied when even
 MIN_FRAMES = 200       # per-side minimum before a margin is reported
 
 
-def decode_recorder(session_dir, recorder, out_dir):
+def decode_recorder(session_dir, recorder, out_dir, fresh=False):
     """Concatenate a recorder's chunks and decode to 16 kHz mono WAV. Returns path or None."""
     chunks = sorted(
         f for f in os.listdir(session_dir)
@@ -75,8 +75,15 @@ def decode_recorder(session_dir, recorder, out_dir):
         # Same guard as audio.py: chunk_000 carries the WebM headers.
         return None
 
+    # Cache the decode, but only reuse it when the chunk set that produced it is the one
+    # on disk now. Filename-only caching would silently serve a WAV decoded from a partial
+    # download — and these numbers get promoted into a spec, so a stale artifact nobody
+    # notices is the worst available failure.
     cached = os.path.join(out_dir, recorder + ".wav")
-    if os.path.exists(cached) and os.path.getsize(cached) > 1000:
+    stampf = cached + ".chunks"
+    stamp = "%d:%s:%s" % (len(chunks), chunks[0], chunks[-1])
+    if (not fresh and os.path.exists(cached) and os.path.getsize(cached) > 1000
+            and os.path.exists(stampf) and open(stampf).read().strip() == stamp):
         return cached
 
     concat = os.path.join(out_dir, recorder + "_concat.webm")
@@ -93,6 +100,8 @@ def decode_recorder(session_dir, recorder, out_dir):
     os.remove(concat)
     if r.returncode != 0 or not os.path.exists(wav) or os.path.getsize(wav) < 1000:
         return None
+    with open(stampf, "w") as f:
+        f.write(stamp)
     return wav
 
 
@@ -158,13 +167,22 @@ def estimate_offset(a, b, prior_frames=None):
     lags = np.arange(-max_lag, max_lag + 1)
     norm = np.sqrt((ca ** 2).sum() * (cb ** 2).sum()) + 1e-12
     corr = corr / norm
+    refined = False
     if prior_frames is not None:
         half = int(REFINE_S / HOP_S)
         window = (lags >= prior_frames - half) & (lags <= prior_frames + half)
         if window.any():
             lags, corr = lags[window], corr[window]
+            refined = True
+        # else: the prior lies outside the searchable range and this call degrades to a
+        # BLIND search. Reporting that is load-bearing — the caller skips its correlation
+        # confidence gate whenever it believes an independent oracle supplied the offset,
+        # so a silent degrade produces an untrusted offset wearing a trusted label.
+        # `sessionStartedAt` is the session's start on that device, not the recording's:
+        # a participant who joins late or rejoins carries a prior hundreds of seconds away
+        # from the true audio offset. Measured on this corpus: 5 of 44 sessions.
     k = int(np.argmax(corr))
-    return int(lags[k]), float(corr[k])
+    return int(lags[k]), float(corr[k]), refined
 
 
 def margins(da, db_):
@@ -177,8 +195,24 @@ def margins(da, db_):
         return {"live_frames": int(live.sum()), "insufficient": "both-channels-live"}
     da, db_ = da[live], db_[live]
 
-    floor_a = float(np.percentile(da, FLOOR_PCTL))
-    floor_b = float(np.percentile(db_, FLOOR_PCTL))
+    # Two-pass noise floor. A single 20th-percentile over ALL frames is contaminated by
+    # speech whenever a speaker holds the floor for more than ~20% of the session — their
+    # own voice lifts their channel's "floor", which SHRINKS the computed margin. That
+    # biases exactly the sessions sitting near the 10 dB decision threshold, and in the
+    # direction that makes separation look worse than it is. So: estimate a floor, use it
+    # to find speech, then re-estimate the floor over the non-speech frames only.
+    def _floor(x, mask=None):
+        v = x if mask is None else x[mask]
+        return float(np.percentile(v, FLOOR_PCTL)) if v.size else float(np.percentile(x, FLOOR_PCTL))
+
+    floor_a, floor_b = _floor(da), _floor(db_)
+    for _ in range(2):
+        speech = ((da - floor_a) >= SPEECH_OVER_FLOOR_DB) | ((db_ - floor_b) >= SPEECH_OVER_FLOOR_DB)
+        quiet = ~speech
+        if quiet.sum() < MIN_FRAMES:
+            break   # almost everything is speech; the first-pass floor is all there is
+        floor_a, floor_b = _floor(da, quiet), _floor(db_, quiet)
+
     rel_a = da - floor_a
     rel_b = db_ - floor_b
     speech = (rel_a >= SPEECH_OVER_FLOOR_DB) | (rel_b >= SPEECH_OVER_FLOOR_DB)
@@ -219,7 +253,7 @@ def analyse_pair(wav_a, wav_b, prior_s=None):
         return {"skip": "too short"}
 
     prior_frames = None if prior_s is None else int(round(prior_s / HOP_S))
-    lag, corr = estimate_offset(ea, eb, prior_frames)
+    lag, corr, refined = estimate_offset(ea, eb, prior_frames)
     if lag >= 0:
         a2, b2 = ea[lag:], eb
     else:
@@ -232,15 +266,20 @@ def analyse_pair(wav_a, wav_b, prior_s=None):
         "dur_b_s": round(len(eb) * HOP_S, 1),
         "offset_s": round(lag * HOP_S, 2),
         "align_corr": round(corr, 3),
-        "align_source": "events+refine" if prior_frames is not None else "blind-correlation",
+        "align_source": "events+refine" if refined else "blind-correlation",
         "events_offset_s": None if prior_s is None else round(prior_s, 2),
         "overlap_s": round(n * HOP_S, 1),
     }
     if n < MIN_FRAMES:
         out["skip"] = f"overlap too short ({n} frames)"
         return out
-    if prior_frames is None and corr < MIN_ALIGN_CORR:
-        out["skip"] = f"blind alignment not trusted (corr {corr:.3f} < {MIN_ALIGN_CORR})"
+    # The gate keys on whether the refinement ACTUALLY applied, not on whether a prior was
+    # offered. A prior outside the search range leaves a blind result that must clear the
+    # same confidence bar as any other blind result.
+    if not refined and corr < MIN_ALIGN_CORR:
+        why = "blind" if prior_frames is None else (
+            f"prior {prior_s:.0f}s outside search range, fell back to blind")
+        out["skip"] = f"alignment not trusted ({why}, corr {corr:.3f} < {MIN_ALIGN_CORR})"
         return out
     m = margins(a2, b2)
     if m is None:
@@ -276,8 +315,7 @@ def run_controls(audio_dir, work):
 
     Same speech, same metric, same code path; only the separation differs.
     """
-    src = None
-    best = -1
+    candidates = []
     for code in sorted(os.listdir(audio_dir)):
         d = os.path.join(audio_dir, code)
         if not os.path.isdir(d) or code.startswith("_"):
@@ -291,12 +329,19 @@ def run_controls(audio_dir, work):
             os.path.getsize(os.path.join(d, f))
             for f in os.listdir(d) if f.endswith(".webm")
         )
-        if size > best:
-            best, src = size, (code, d, recs)
-    if src:
-        code, d, recs = src
+        candidates.append((size, code, d, recs))
+    # Try candidates largest-first rather than betting the whole control on one session:
+    # a corrupt chunk_000 in the biggest session would otherwise skip control generation
+    # entirely, and a self-check that silently does not run is worse than no self-check.
+    chosen = None
+    for _size, code, d, recs in sorted(candidates, reverse=True, key=lambda c: c[0]):
         wavs = [decode_recorder(d, r, work) for r in recs]
-        src = (code, wavs) if all(wavs) else None
+        if all(wavs):
+            chosen = (code, wavs)
+            break
+        print(f"controls: {code} failed to decode, trying the next-largest session",
+              file=sys.stderr)
+    src = chosen
     if not src:
         print("controls: no suitable source session found", file=sys.stderr)
         return
@@ -355,6 +400,8 @@ def main():
     ap.add_argument("--json", default=None)
     ap.add_argument("--controls", action="store_true")
     ap.add_argument("--work", default=None, help="scratch dir for decoded WAVs")
+    ap.add_argument("--fresh", action="store_true",
+                    help="re-decode every WAV instead of reusing the cache")
     a = ap.parse_args()
 
     work = a.work or os.path.join(a.audio_dir, "_wav")
@@ -378,7 +425,7 @@ def main():
             continue
         w = os.path.join(work, code)
         os.makedirs(w, exist_ok=True)
-        wavs = [decode_recorder(d, r, w) for r in recs]
+        wavs = [decode_recorder(d, r, w, a.fresh) for r in recs]
         if not all(wavs):
             results[code] = {"skip": "decode failed", "recorders": recs}
             print(f"{code:8s} SKIP decode failed", flush=True)
