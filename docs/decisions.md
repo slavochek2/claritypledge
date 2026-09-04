@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [process]: A decision recorded as discipline-only recurred in eight days — and the trigger was not the rename it named, but the pipeline's own housekeeping step (P1234/P1241)
+
+**Context:** On 2026-08-27 this log recorded that `git-ops.sh`'s `detect_cospecs` reads a *reference-only* edit as delivery, and would have auto-closed four live specs during P1165's namespace rename. The decision was **discipline, not a control**: *"a branch may edit another open spec's file only when the branch actually delivers that spec."* Patching `detect_cospecs` was named *"the right long-term fix"* and deferred as *"a spec's worth of work"*, with the entry closing: *a spec to make it distinguish delivery from mention is **not yet filed** (Status: proposed).* It was never filed.
+
+Eight days later it recurred, and this time nothing caught it. `/fix` step 4 invokes `/slava:maintain:fix-kanban`, which runs `scripts/fix-frontmatter.sh` **with no arguments** — so it rewrites every spec under `features/`, not the one being worked. Inside the P1234 worktree it backfilled `created_date` into `p1241` (configure knip — an unstarted backlog task). `/ship`'s gate 2 requires a clean worktree, so the edit was committed on the feature branch; `detect_cospecs` then classified `p1241` as delivered and closed it — moved to `features/done/2026-06-10/`, `status: all-done`, `completed_at` stamped (`ae92afe66`). Repaired by `c4e6ceb68`, restored byte-identical to its pre-close content.
+
+**The frequency was misjudged, not the mechanism.** The 2026-08-27 entry scoped the trigger to *"any wide rename — skill namespaces, doc paths, command names"* and prescribed planning commit topology before the sweep. Renames are rare and plannable. But the pipeline's own housekeeping step manufactures the identical forbidden edit automatically, on every `/fix` and `/dev`, against every spec in the directory. A rule that depends on the agent noticing loses to a workflow that generates the violation for it.
+
+That entry also predicted its own next failure: *"the guard printed a correct, legible warning and would still have destroyed state, because it warns inside a command whose next action is the thing being warned about."* In 2026-08-27 a co-tenant lock failure put the warning in front of a human. Here the warning printed inside a **successful** run — read, flagged aloud, and still not acted on until after the merge.
+
+**Decision:** Recorded; the intervention is not yet chosen (Status: proposed). The two candidates are (a) finally file the deferred spec so `detect_cospecs` distinguishes delivery from mention, and (b) scope `fix-kanban` to the spec being worked, so the forbidden edit is never generated. (b) removes the trigger on the common path; (a) covers the rename path (b) does not. Neither is done.
+
+**A subagent's absence claim nearly buried this.** The extraction agent reported *"Not covered by existing decisions.md entries — grepped for `detect_cospecs`/`cospec`/`p1241`, no hits before this session's repair commit."* Those terms return **16**, **16** and 0 hits. Had it been trusted, this would have been filed as a novel finding and the eight-day-old unenforced decision would have stayed invisible — the recurrence, which is the entire point, would have been lost. This is `epistemic.md` gate 9 exactly: the claim was well-formed, correctly attributed and false, and only re-running the grep on the consumer side caught it. Absence claims remain the highest-risk class and the cheapest to check.
+
+**References:** `scripts/git-ops.sh` (`detect_cospecs`) · `scripts/fix-frontmatter.sh` · `.claude/commands/slava/maintain/fix-kanban.md` · [git.md](../.claude/rules/git.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 9 · 2026-08-27 [process] co-located-spec detection · commits `ae92afe66` / `c4e6ceb68`
+
 ## 2026-09-04 [process]: Nine controls I wrote missed three bypasses one independent pass found — an author's controls measure the author's imagination, not the surface (P1244)
 
 **Context:** P1244 fixed two markdown scanners that matched per line and so could not tell a command
