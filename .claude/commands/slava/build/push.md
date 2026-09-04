@@ -2,7 +2,7 @@
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 5.0.0
+version: 5.1.0
 ---
 
 # /push
@@ -51,7 +51,7 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 
 `PUSH_DOCS_ASSUME_YES=1` is unrelated to all of the above. A `VAR=1 cmd` prefix **is** inherited by every child process including `git push` and the hooks — but no hook reads this variable. It gates exactly one branch — the `PUSH_DOCS_ASSUME_YES` test in `cmd_push_docs`'s promote step.
 
-> **History — read this before you assert anything about the gates.** v1.0.0 promised "no confirmation prompt" (ignored the TTY gate). v2.0.0 claimed the flag "does not enable an agent push" (inverted the waiver). v3.0.0 claimed `PUSH_DOCS_ASSUME_YES` "is never exported into the git push" (false — it is inherited; the conclusion was right, the mechanism invented) and that Layer 2 is "always enforced" (it skips non-main refs). v3.1.0 then shipped a recovery check (`--is-ancestor <sha> origin/main`) that **can never return true in the abort case it was written for**, so orphaned staging branches would have read "unsafe to delete" forever. **Four versions, four sets of false claims — including two consecutive attempts to fix the problem — every one produced by inferring from an observed symptom instead of reading the source.** Cite `file:line` you have actually opened, or don't make the claim. The only thing that has ever caught these is a hostile reviewer told to assume a false claim exists.
+> **History — read this before you assert anything about the gates.** v1.0.0 promised "no confirmation prompt" (ignored the TTY gate). v2.0.0 claimed the flag "does not enable an agent push" (inverted the waiver). v3.0.0 claimed `PUSH_DOCS_ASSUME_YES` "is never exported into the git push" (false — it is inherited; the conclusion was right, the mechanism invented) and that Layer 2 is "always enforced" (it skips non-main refs). v3.1.0 then shipped a recovery check (`--is-ancestor <sha> origin/main`) that **can never return true in the abort case it was written for**, so orphaned staging branches would have read "unsafe to delete" forever. **Four versions, four sets of false claims — including two consecutive attempts to fix the problem — every one produced by inferring from an observed symptom instead of reading the source.** Cite `file:line` you have actually opened, or don't make the claim. The only thing that has ever caught these is a hostile reviewer told to assume a false claim exists. **v5.1.0 continues the pattern and is recorded here by the session that wrote it:** while fixing `cmd_push_docs` on 2026-09-04 the author asserted that co-tenant commits could reach production unscanned (false — the server-side `main-privacy-gate` ruleset refuses them; the cost was always a wasted run, never a leak), aimed the first fix at the promote when the defect was at the staging push, and declared an `errexit` bug in his own new code that mutation testing then refused to reproduce. Three retractions in one session; two hostile reviews caught the first two, a mutant caught the third. **A gate that disagrees with you is worth more than your confidence.**
 
 **Do NOT re-derive the git sequence in prose.** Delegate to `push-docs`. If you find yourself manually `git push`-ing to a staging branch, stop — you're reimplementing the brittle path this skill replaces.
 
@@ -179,9 +179,15 @@ fresh grant, but say that plainly.
 PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs
 ```
 
-Deterministic: privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → `audit-privacy` CI poll → push to main → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag FRESH the pre-push waiver handles the rest, and it runs unattended end to end.
+Deterministic: **snapshot pin** → privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → `audit-privacy` CI poll → promote → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag FRESH the pre-push waiver handles the rest, and it runs unattended end to end.
 
-**The staging branch name is computed from live HEAD** (`staging_branch="staging/doc-${short_sha}"` in `cmd_push_docs`) and cleanup runs **only after a successful main push** (`push-docs [6/6]` block, after the `git`-push-to-main step). So every aborted run **leaks one remote branch permanently** — the script prints the delete command on the `n` path but *not* on a hook failure.
+**Everything runs on ONE pinned snapshot SHA — `main` is never re-read (2026-09-04).** Step 0 resolves `$local_sha` once and every later stage uses it: the ahead-count, the branch NAME, the staging push (`${local_sha}:refs/heads/<branch>`) and the promote (`${local_sha}:refs/heads/main`). Before this, `cmd_push_docs` resolved `main` live at five points across a 15-20 minute run on a checkout whose median gap between watched-path commits is ~16 min, so the staging branch was pushed at one SHA while the poll waited on another, never matched, and died at `MAX_WAIT`. Do not "simplify" any of these back to `main`; `scripts/test-push-snapshot-pinning.sh` fails the commit if you do.
+
+**A push therefore ships the REVIEWED snapshot, not "everything on main right now."** If HEAD has run ahead of the `.privacy-reviewed` stamp, Step 0 **retreats** the snapshot to the stamp and says so, and those later commits ship on the next run — instead of aborting and forcing a re-review (measured at 34 min over 168 commits). Report the deferred count to the user; do not treat it as a failure.
+
+**The CI freshness baseline is stamped BEFORE the staging push** — GitHub starts the workflow when the ref lands, mid-push, so a baseline taken afterwards is later than our own run's `started_at` and the poll rejects its own green scan. Measured 2026-09-04: `audit-privacy` concluded SUCCESS at 09:47:53 on the pinned snapshot and the run still died with `origin/main` unmoved. It is stamped *after* the `--resume` delete, so a prior run's check-run is still correctly rejected.
+
+Cleanup runs **only after a successful promote** (`push-docs [6/6]`), so every aborted run **leaks one remote branch** — the script prints the delete command on the `n` path but *not* on a hook failure.
 
 **Recovery if the run aborts after the staging push (the flag-expired case) — use `--resume`:**
 
@@ -192,8 +198,16 @@ Deterministic: privacy-coverage check → `main.lock` → staging push to `stagi
 `--resume` **deletes the leftover staging branch and re-pushes it**, so GitHub fires a fresh `push`
 event and a fresh full-range `audit-privacy` run. That is the actual deadlock: re-pushing the same
 SHA onto an existing ref is a no-op update, no event fires, no run is ever created, and a plain
-re-run therefore polls until `MAX_WAIT` and dies — which is what forced a second `push-on`. It
-refuses if no such staging branch exists.
+re-run therefore polls until `MAX_WAIT` and dies — which is what forced a second `push-on`.
+
+**`--resume` REPLAYS the aborted run's snapshot from `$GIT_COMMON_DIR/.push-docs-resume`; it does
+not re-derive one (2026-09-04).** It must, because the Step-0 retreat depends on the privacy stamp
+and the stamp moves whenever `/maintain:privacy` runs — including from `/day`, `/kdd`, or a
+co-tenant. A resume that recomputed the snapshot computed a *different* branch name, `ls-remote`
+missed the branch the aborted run had actually left on origin, and it died "no staging branch —
+drop `--resume`" while orphaning that branch permanently: the recovery path broken by the exact
+condition it exists to recover from. It now refuses when the run state is missing, malformed, or
+names a SHA this repo does not have, and clears the state on success.
 
 **It does NOT reuse the green run that already passed on that SHA, and neither should you.**
 `audit-privacy` scans a **range computed from the event** (`privacy-scan.yml`, "Compute scan range"
