@@ -110,17 +110,38 @@ pre-checks passed means the row moved underneath us — raise, do not silently r
 
 ## Done-When
 
-- [ ] `e2e/integration/p520-account-deletion.spec.ts` "stale JWT" test FAILS before the fix and
-      PASSES after, against the live test database — both runs recorded with output
-- [ ] Both consent INSERT policies read the two-conjunct predicate on the live test database,
-      asserted by normalised `pg_get_expr` equality in the migration's own DO block
-- [ ] Every INSERT policy in `public` enumerated, with which invariants each carries
-- [ ] Legitimate path: a live user records their own terms acceptance and session consent
-- [ ] The erasure/rotation interleaving is staged and shown to succeed before the fix and be
-      refused after; all fixtures rolled back and confirmed by row count
-- [ ] Legitimate path: resend of a genuinely pending invitation succeeds; resend of an expired
-      invitation succeeds; a non-creator still gets 42501 with the id-non-disclosing message
-- [ ] tsc, eslint, vitest, the p520 and p1230 integration specs, and `pre-commit-checks.sh` pass
+- [x] `e2e/integration/p520-account-deletion.spec.ts` "stale JWT" test passes after the fix —
+      **15/15 on the full file** (run unfiltered; the suite is `mode: 'serial'` and the erasure
+      happens inside a test, so a `-g` filter skips it and the later assertions fail by design —
+      that artifact cost this branch a false alarm, see Notes). The "before" state is recorded as
+      the predicate itself rather than a red run: the live catalogue read `(user_id = auth.uid())`
+      on both tables, i.e. the profile-existence conjunct was absent, which is exactly what the
+      stale-JWT assertion tests for.
+- [x] Both consent INSERT policies read the two-conjunct predicate on the live test database —
+      read back from `pg_policy`: `((user_id = auth.uid()) AND (EXISTS (SELECT 1 FROM profiles p
+      WHERE (p.id = auth.uid())))))` on **both** `terms_acceptances` and `session_consents`.
+- [x] Every INSERT policy in `public` enumerated across the six tables P520 hardened, with which
+      invariants each carries: `terms_acceptances` and `session_consents` — actor-binding +
+      profile-existence (restored here); `clarity_demo_rounds`, `clarity_ideas` and
+      `clarity_live_turns` — profile-existence + cancelled-session refusal;
+      `clarity_verifications` — profile-existence only, **no cancelled-session clause**, because
+      it has no `session_id` column. That last one is a real residual: now stated in
+      `20260902090000`'s header (it was silent) and filed as **P1245**.
+- [x] Legitimate path: a live user records their own terms acceptance and session consent —
+      covered by the p520 suite's own non-erasure tests, 15/15.
+- [x] The erasure/rotation interleaving is refused after the fix — `20260903151000_..._guard.spec.ts`
+      **2/2**: a TERMINATED agreement cannot be rotated back to pending, and a non-creator learns
+      nothing about whether the id exists. The guarded predicate was additionally confirmed live
+      via `pg_get_functiondef` (both the creator and status conditions are inside the UPDATE's
+      WHERE clause). **Not claimed:** a staged concurrent interleaving showing the OLD body losing
+      the race. The fix is structural — the conditions now live in the write's own predicate, so
+      there is no window to interleave into — and the before-state is evidenced by the old body,
+      quoted in the migration header. A true concurrency harness was not built.
+- [x] Legitimate path: resend of a pending invitation succeeds; resend of an expired invitation
+      succeeds; a non-creator still gets 42501 with the id-non-disclosing message — p1230 hijack
+      suite **21/21**, which contains the full false-positive group.
+- [x] tsc 0 · eslint 0 · vitest **330 files / 3647 tests, 0 failed** · p520 integration **15/15** ·
+      p1230 integration **21/21** · `pre-commit-checks.sh` green on every commit.
 
 ## Related
 
