@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000065
 severity: high
@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-09-03'
 created_date: '2026-09-03'
 tags: [live, e2e, test-infra, concurrency, p1043]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -124,7 +124,10 @@ The originally reported symptom, and the two hypotheses the first triage rested 
 reconciled that manifest against `schema_migrations` earlier the same day and it is still wrong.
 
 This is not cosmetic: it is what made the environmental hypothesis look confirmed, and it will
-mislead the next agent that reads it. Same shape as P1103. Not fixed here.
+mislead the next agent that reads it. **Tracked by P1103** (open, backlog): its root cause —
+`stamp-deploy-manifest.sh` rebuilding the migration array from whichever checkout runs it, deleting
+entries applied from another worktree — is the mechanism that makes `check-deploy-manifest.sh`
+report an applied migration as unapplied. Not fixed here; no new ticket needed.
 
 ## Open question — not confirmed
 
@@ -167,14 +170,41 @@ that another session is using. Recorded as a hypothesis, not a finding.
       share link read, row bound to the creator's profile id)
 - [x] `p-story-persistence-fixes.spec.ts` — the untouched control — reaches a join step (it
       completes creation, share link, guest join, and the `joiner_name` DB write)
-- [ ] `./scripts/test-p1234-predev-port-guard.sh` exits 0: a healthy dev server survives `predev`,
-      **and** a true zombie is still reaped
-- [ ] A concurrent `npm run dev` during a running Playwright batch produces zero
+- [x] `./scripts/test-p1234-predev-port-guard.sh` exits 0: a healthy dev server survives `predev`,
+      **and** a true zombie is still reaped — 4/4 scenarios pass, `EXIT_REAL=0`. Two scenarios were
+      added for `epistemic.md` gate 7c: a FREE port must be ALLOWED (the fixture previously had an
+      occupant in every scenario, so the refusal's false-positive rate was unmeasured), and the
+      `FORCE_PORT_RECLAIM=1` escape hatch must still reclaim. Every scenario has a proven failure
+      path: S1 failed pre-fix (exit 1); S2/S3/S4 fail (exit 1) against deliberately broken guards.
+      Post-review, S1 and S4 also assert the guard's **exit code and abort message**, not only
+      whether the fixture server lived — a guard that silently no-ops would otherwise have read as
+      PASS; proven by two further broken variants (refusal exiting 0 → S1 fails; reclaim exiting 1
+      → S4 fails).
+- [x] A concurrent `npm run dev` during a running Playwright batch produces zero
       `ERR_CONNECTION_REFUSED` failures, or fails the run loudly as an infrastructure error rather
-      than as N application failures
-- [ ] The Playwright-teardown half (Root Cause path 2) is either fixed or recorded with its
-      mitigation named
-- [ ] The cause is stated in `docs/decisions.md`
+      than as N application failures — both halves hold. Verified end-to-end in w1 on port 5100: a
+      healthy server (pid 6149, HTTP 200) survived a second `npm run dev`, which exited 1 naming the
+      port; `npm run smoke` against that same server passed 3/3 and left it alive (pid 6149, HTTP
+      200); `FORCE_PORT_RECLAIM=1 npm run dev` reclaimed it (pid 22857 → 23118, HTTP 200). Port 5001
+      was never touched. For the residual path 2, the `infra-cascade` reporter prints a loud
+      infrastructure banner — driven end-to-end, it split a 2-failure run into 1 `[infra]` + 1
+      `[app]` and stayed silent on an all-application run. Independent review found the first
+      classifier would have mislabelled REAL defects as `[infra]` (52 specs collect `consoleErrors`
+      and several embed the array into the failure message); it now requires a Playwright call at
+      the line head **and** an origin match against the base URL, with 6 added fixtures covering
+      shapes the original suite structurally could not emit.
+- [x] The Playwright-teardown half (Root Cause path 2) is either fixed or recorded with its
+      mitigation named — **recorded, not fixed.** `playwright.config.ts` carries the reason
+      (Playwright exposes no hook to decline the kill of a server it started), the named mitigation
+      (run concurrent E2E batches from separate worktrees, one port each), and why a per-run
+      ephemeral port was rejected — it would add a fourth divergent copy of a port mapping that
+      already lives in three files, and concurrent Vite servers in one worktree share the single
+      `.vite-<slot>` dep cache that `validate_vite_cache` exists to repair. Same text in
+      `docs/technical/worktree-setup.md`.
+- [x] The cause is stated in `docs/decisions.md` — 2026-09-04 [technical], including the two
+      canary defects found while building it (unmeasured false-positive rate; a silent SKIP on the
+      only must-be-ALLOWED input) and the `timeout`-not-installed probe that reported a false
+      defect.
 
 ## Why this matters more than its own tests
 

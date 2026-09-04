@@ -123,12 +123,16 @@ Ports are auto-detected from the worktree slot — just run `npm run dev`:
 
 ```bash
 cd .claude/worktrees/w1
-npm run dev   # auto-binds to 5100 (w1), kills any zombie on that port first
+npm run dev   # auto-binds to 5100 (w1), reaps a zombie on that port first
 ```
 
 Port reference: w0 (main) = 5001, w1 = 5100, w2 = 5200, named worktrees = 5800-5899 (hash-based).
 
-**Kill-on-start:** The `predev` hook (`check-worktree-env.sh`) automatically kills any existing process on the worktree's port before Vite starts. This prevents zombie accumulation — no manual cleanup needed.
+**Kill-on-start — zombies only (P1234):** The `predev` hook (`check-worktree-env.sh`) reaps a *zombie* on the worktree's port before Vite starts — a process that holds the port but does not complete an HTTP response. This prevents zombie accumulation with no manual cleanup.
+
+It will **not** kill a server that answers HTTP. It aborts instead, naming the port. Before P1234 the kill was unconditional, and on the shared main checkout (where every session maps to 5001) that removed the dev server a concurrent Playwright run was using — every remaining test in the victim run then failed at `page.goto` with `ERR_CONNECTION_REFUSED` and was triaged as an application defect. To restart your own healthy server deliberately: `FORCE_PORT_RECLAIM=1 npm run dev`.
+
+**Concurrent E2E runs need separate worktrees.** `playwright.config.ts` sets `reuseExistingServer`, so a second run adopts the first run's server and loses it when that run tears down — the predev guard cannot see this and does not prevent it. One worktree per concurrent batch gives each its own port. When it does happen, the `infra-cascade` reporter labels the resulting failures `[infra]` so they are not counted as product bugs.
 
 **Pre-commit zombie scan:** `pre-commit-checks.sh` section 19 detects Vite processes whose cwd points to a deleted worktree directory and warns with the PID to kill.
 

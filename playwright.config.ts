@@ -128,6 +128,10 @@ export default defineConfig({
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],
     ['list'],
+    // P1234 — separates "the dev server vanished" failures from real application
+    // failures in the run output. Without it a cascade is indistinguishable from N
+    // product bugs, and the failure count supports any hypothesis you bring to it.
+    ['./e2e/reporters/infra-cascade.ts'],
   ],
 
   // Shared settings for all tests
@@ -176,6 +180,21 @@ export default defineConfig({
   webServer: process.env.CSP_SMOKE_URL || process.env.PROD_SMOKE_URL ? undefined : {
     command: `npm run dev -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
+    // P1234 — KNOWN, UNFIXED: this is Root Cause path 2. Run B adopts run A's server
+    // rather than starting its own; when A finishes, Playwright kills the server *it*
+    // started and B loses it mid-flight. Playwright exposes no hook to decline that
+    // kill, so this config cannot fix it.
+    //
+    // Mitigation (named, not automatic): run concurrent E2E batches from separate
+    // worktrees — each maps to its own port, so no two runs share a server. The
+    // infra-cascade reporter above makes it legible when this does happen.
+    //
+    // Rejected: a per-run ephemeral port. It would fix path 2, but the port mapping is
+    // already recomputed independently in vite.config.ts, this file and
+    // check-worktree-env.sh, and concurrent Vite servers in one worktree share the
+    // single `.vite-<slot>` dep cache that check-worktree-env.sh's validate_vite_cache
+    // exists to repair. Also note reuse silently voids the `env` block below
+    // (decisions.md 2026-09-01) — a reused server keeps the env it was booted with.
     reuseExistingServer: !process.env.CI,
     timeout: 120000, // 2 minutes to start
     env: {
