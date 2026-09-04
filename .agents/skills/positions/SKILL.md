@@ -56,6 +56,24 @@ done < quotes.txt
 
 **Paste all grep exit codes in the output.** Any quote with exit code != 0 must be corrected or replaced before proceeding.
 
+### On a `speaker-labelled` source, the DIARIZED turns are the quote artifact — not the caption track
+
+**Two transcriptions of the same audio disagree at word level, and only one of them says who spoke.**
+When Gate 0 admitted the source via Step 2c, quote against **that arguer's own turns** from the
+diarization, and record which artifact each quote was verified against. Measured 2026-09-04 on one
+sentence of one source: the caption track reads *"it's **the way** we have at least some hope of
+putting guardrails"* and the diarization reads *"it's **the only way** we have at least some hope"*.
+Both are transcriptions of the same seconds; a `grep -F` of the diarized wording against the caption
+file returns 0 and reads as a fabricated quote, and the reverse publishes the weaker sentence.
+
+Two consequences, both load-bearing:
+
+1. **Name the artifact per quote** (`verified_against: diarized | captions`). A run that mixes them has
+   no single source of truth and cannot be re-verified later.
+2. **This does not relax the audio check.** The diarization is still machine transcription — better,
+   and speaker-attributed, but not heard by a human. Step 4b and the audio-at-timecode check are
+   unchanged, and on a source whose audio never reached the store they are the *only* guarantee.
+
 > **Verification is a STEP with an artifact, not a promise.** `grep -F` proves a quote is in the transcript; the audio check below proves the caption robot heard it right; **neither proves the right person said it** — that is the attribution-basis label's job. Prose saying "checked" is the sentence that lets the check silently not happen. Also check the surviving quotes against the audio at their timecodes and record **who ran it and when**.
 
 > **Do this HERE, and act on it HERE — do not carry an unverified quote forward for `publish` to

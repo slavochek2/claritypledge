@@ -6,6 +6,63 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [technical]: One selector defect fired three times in one run — a cheap proxy was substituted for the measurement, and the proxy's answer was reported as a finding
+
+**Context:** The AI-safety re-run (`ai-power-remedies-c`, the forward-half acceptance test for P1210) reported a position **unfillable** and swapped the founder's approved arguer out of position 3. The claim was *"every source with reach predates the recency floor."* It was **false**. The qualifying source — **785,823 views, 8,700 comments, in-window, the highest-engagement source in the entire run** — had already been returned by an earlier search **in the same session** and was dropped unread because its title reads "AI Expert" rather than the person's name. Re-running the identical searches and filtering on fetched metadata surfaced **six** qualifying sources. **The founder caught it by looking at YouTube himself.**
+
+The same move fired twice more in that one run: a source was carried whose claim-match had been measured against a *different* file (the carried file scored **0** on every term of its own claimed position — caught by the adversarial judge, not the selector), and a second position was declared unfillable with **no sweep run at all**.
+
+**Decision:** Mechanize the two instances that can be mechanized, and say plainly which cannot.
+- `scripts/points/candidate-sweep.mjs` — the candidate set is checked **against the search's own captured output**, not against itself. Three verdicts: `REFUSE` (an id the search returned never reached the set, or a candidate carries no metrics, or no `searched` list was supplied), `FIELD-EMPTY` (all measured, none cleared — a real finding), `FIELD-NON-EMPTY`.
+- `scripts/points/source-binding.mjs` — a claim-match verdict belongs to a **file**, never to a person. `STALE` when the match names a different id than the one carried, `UNBOUND` when none was recorded, `ZERO` when every term of the claimed position scores 0.
+
+**Alternatives rejected:** *A prose rule in `select.md`* — P1210 §12 already ruled that a check an agent recites is not a check, and this run is the proof: the rule "report an unfilled position, never drop it" was present and correctly stated the whole time. *Checking only that metrics are present* — **shipped first, and the adversarial review destroyed it**: the first version validated only the file it was handed, so omitting the qualifying id entirely returned `ok:true` / `FIELD-EMPTY` / *"Every candidate was measured"* — the incident's exact false conclusion, produced cleanly by its own fix. Verified by command before rewriting.
+
+**Consequences:** Two predicates, both with the real incident as their must-fail fixture; the sweep now refuses without a machine-captured search-result list. **What is NOT fixed, stated rather than implied:** nothing forces the sweep to be *invoked* before an "unfillable" verdict reaches a founder gate, and nothing distinguishes a fetched number from a typed one. Both remain prose-enforced. **Status: proposed.**
+
+---
+
+## 2026-09-04 [technical]: A gate's own harness read from a hand-maintained list, so a new predicate was invisible to the completeness sweep
+
+**Context:** Found while fixing the entry above. `verify-all.mjs` — the sweep whose job is to exit non-zero if any predicate lacks a must-fail fixture — enumerated `PREDICATE_MODULES`, a hardcoded array. A newly added predicate shipped with both fixtures and a green test file, and the sweep reported **13 predicates, all passing**, without ever loading the 14th. DW-20 exists to catch a predicate with no must-fail fixture; it could not catch a predicate it had never heard of.
+
+Same defect class as the entry above: a check that reads as complete because an exclusion went unmeasured.
+
+**Decision:** The divergence is itself an error. Every `.mjs` under `scripts/points/` must appear on exactly one of `PREDICATE_MODULES` or the new `HARNESS_MODULES`; `checkCoverage()` fails the run otherwise. **Failure path exercised, not asserted** (epistemic gate 7): an unlisted file present ⟹ exit 1 naming it; removed ⟹ exit 0.
+
+**Alternatives rejected:** *Just add the missing module* — repairs the instance and leaves the mechanism, guaranteeing recurrence on the next predicate. *Glob the directory instead of listing it* — erases the deliberate predicate/harness distinction that `two-callers.mjs` depends on.
+
+**Consequences:** 15 predicates swept. **Still missed, named honestly:** a listed predicate whose `run()` is a no-op, and a predicate that is registered but whose output nothing consults before a founder gate.
+
+---
+
+## 2026-09-04 [technical]: Speaker-share by caption parity was wrong on all five sources it screened, always in the direction of discarding sound material
+
+**Context:** Gate 0's parity screen (`turn-verified`, ≥75% dominant-side share) **rejected every multi-speaker source in the run** — 68.5, 68.3, 66.5, 64.3, 60.0, 55.1, 54.9, 52.7, 51.1 percent. Diarization then admitted five of them, each time higher: **+8.5, +12.6, +14.6, +10.4, +20.8** points. Only one position in five cleared Gate 0 on parity alone — reproducing the previously recorded "1 of 5" figure on a different topic and a different cast.
+
+**Decision:** Three corrections to Step 2c, each from a measured failure of my own harness rather than from reasoning.
+1. **`>1 asker = PANEL`** replaces *"a one-way interview has ONE asker"*, which is false for long-form: two sound interviews scored **zero** askers (host 22.7% and 33.3% of his own turns; guest 16.7% and 30.8%).
+2. **A granularity floor.** Above ~130 words/turn or below ~50 turns the ratio measures turn length, not who is asking — it flagged two genuine one-way interviews as panels. Print `UNMEASURABLE` and fall back to the semantic oracle with evidence pasted, mirroring Step 2b's 10-turn floor.
+3. **Consolidate to PEOPLE before counting.** Per-(window, label) counting re-counts one host once per window: the same interview scored **4 askers** that way and **0** once mapped, while the panel fixture scored 3 both times — a probe returning the same verdict for known-good and known-bad is blind whichever way it answered.
+
+**Alternatives rejected:** *Trust the first green run* — the harness passed nothing until the documented panel fixture was run through it, and it failed that fixture **twice**, for two different defects I had introduced. *Tune the threshold until the sources passed* — fitting the measure to the result.
+
+**Consequences:** The granularity thresholds are **fit to five observations in one run** and are the weakest part of this entry — a short panel with a talkative moderator could sit inside the "reliable" band. `UNMEASURABLE` routes to human judgement, which is an escape hatch, not a gate. Recorded as such. **Status: proposed.**
+
+---
+
+## 2026-09-04 [technical]: Two transcriptions of the same audio disagree at word level, and only one of them says who spoke
+
+**Context:** On a speaker-labelled source the caption track reads *"it's **the way** we have at least some hope of putting guardrails"* and the diarization reads *"it's **the only way**…"*. Same seconds, same speaker. A `grep -F` of one wording against the other file returns 0 and reads as a fabricated quote.
+
+**Decision:** On a `speaker-labelled` source the diarized turns are the quote artifact, and every quote records `verified_against: diarized | captions`. The audio-at-timecode check is unchanged — the diarization is better machine transcription, still not a human hearing it.
+
+**Alternatives rejected:** *Keep the caption track as the single artifact* — it carries no speaker attribution, which is the whole reason Step 2c exists.
+
+**Consequences:** The per-quote artifact label is **prose with no predicate checking it** — aspirational until something greps for the field. Named rather than implied. **Status: proposed.**
+
+---
+
 ## 2026-09-04 [process]: The pipeline fails in BOTH directions on spec closure — and closure is downstream of verification, so the two cannot be fixed in parallel
 
 **Context:** Measured while deciding how to route the follow-up to the entry below. Co-located auto-close is wrong at scale: **8 of 19** auto-closed specs were later reopened by hand (`p1043 p1044 p1045 p1047 p1048 p1057 p1152 p1241`); `p1152` was wrongly closed, reopened, then wrongly closed again a week later. But the founder's lived complaint is the **opposite** failure — *"why is this spec not closed?"* — and `ship.md` records four specs stranded open, one for eight days.

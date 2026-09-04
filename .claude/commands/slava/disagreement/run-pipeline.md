@@ -184,6 +184,37 @@ where it is.
 
 ---
 
+## Delegate the BULK READS; keep the judgement; verify the load-bearing claims by command
+
+**Measured 2026-09-04:** one `select` stage alone consumed most of a context window and forced a
+compaction mid-run, because the orchestrator pulled metadata one video at a time and read whole
+transcripts inline. That is the wrong work for the conductor to hold, and the founder named the cost:
+*"this takes also time which is a problem in the process as well."*
+
+**Delegate — mechanical, high-volume, and re-runnable by one command:**
+
+- the candidate metadata sweep (ids in → `upload_date | view_count | comment_count` table out)
+- per-source claim-match and position-match counts over a named word list
+- Step 2b parity measurement and Step 2c label→person mapping evidence
+- transcript reads whose product is a table, a count, or a quote list with timecodes
+
+**Never delegate:** Phase 0's contradiction sentences · which arguer occupies which position · the
+Phase 3 judge (it is *already* an isolated agent and its independence is the point) · anything
+presented at a founder gate.
+
+**The pairing is not optional.** [epistemic.md](../../../../.claude/rules/epistemic.md) gate 9 binds
+the consumer: a subagent's claim is not evidence until a command confirms it, and the command must
+test the CLAIM. These delegations are safe **because each returns something one command re-derives** —
+re-run the sweep, re-run the grep, re-count. A delegation whose output cannot be re-derived that way
+is not on this list and does not belong in a subagent. Follow CLAUDE.md's standing rule: **default
+ONE**, name the independent failure domain before spawning a second, and print
+`<reports received> of <spawned>`.
+
+**Announce it.** Say which work went out and that its load-bearing claims were re-run — a silent
+delegation is indistinguishable from the orchestrator having done the work itself.
+
+---
+
 ## What this skill does NOT do
 
 - **Does not skip, merge, or auto-answer any stage gate.** If a stage halts, this skill halts.

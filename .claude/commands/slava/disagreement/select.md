@@ -331,6 +331,52 @@ For each approved person, search for their solo talks on the topic — and searc
 position they were approved to occupy**, using that position's Phase 0 statement as the query frame
 rather than guessing keywords off the topic string.
 
+### The candidate field is filtered by MEASURED METADATA, never by title — run the sweep
+
+**Fetch `upload_date`, `view_count` and `comment_count` for EVERY id the search returns, before
+setting any candidate aside.** Then filter on those numbers. Do not read the result list and drop
+the ones whose titles look wrong — a title names the episode, not the speaker, and uploaders
+routinely omit the guest's name.
+
+**Capture the id list from the search itself — never retype it.** The sweep checks the candidate set
+against what the search actually returned, because the failure below was an id that never reached any
+file, not an id with missing numbers:
+
+```sh
+yt --flat-playlist --skip-download --print "%(id)s" "ytsearch30:<query>" > searched.txt
+node scripts/points/candidate-sweep.mjs <candidates.json>   # {searched:[...], candidates:[...]}
+```
+
+Three distinct verdicts, and the difference between them is the whole point:
+
+| verdict | meaning | what it licenses |
+|---|---|---|
+| `REFUSE` | an id the search returned is missing from the set, **or** a candidate carries no metrics, **or** no `searched` list was supplied | **STOP.** No "unfillable" claim may rest on this. |
+| `FIELD-EMPTY` | every returned id measured; none cleared the floors | a real finding — report it to the founder |
+| `FIELD-NON-EMPTY` | candidates cleared | continue |
+
+**Scope, stated so it is not oversold:** this binds the candidate set to the search output and forces
+metrics on every member. It cannot verify that the numbers in the file were *fetched* rather than
+typed, and it cannot judge whether the search query was the right one. Those stay human.
+
+> **Measured 2026-09-04, run `ai-power-remedies-c`.** The selector reported *"every Yudkowsky source
+> with reach predates the recency floor"* and swapped the founder's approved arguer out of position 3
+> on that basis. **The statement was false.** `1oS35oWWl28` — **785,823 views, 8,700 comments,
+> 2026-03-04**, clearing every bar, the highest-engagement source in the whole run — had *already been
+> returned by an earlier search in that same session* and was discarded unread because its title reads
+> "AI Expert" rather than the person's name. Re-running the identical searches and filtering on fetched
+> metadata surfaced **six** qualifying sources. The founder caught it by looking at YouTube himself.
+>
+> **The same move fired twice more in that one run:** a source was selected and its claim-match never
+> re-run against the file actually chosen (it scored **0** on every term of its own claimed position —
+> caught by the Phase 3 judge, not by the selector), and a second position was declared unfillable with
+> no sweep performed at all. One defect, three instances: **a cheap proxy — the title, an earlier
+> verdict, the shape of a URL — was substituted for the measurement, and the proxy's answer was then
+> reported as a finding.**
+>
+> A search whose results were never measured has not searched. Say `FIELD-EMPTY` only with the numbers
+> beside it.
+
 ### Gate 0 — One Voice, or One Voice Plus a Verified Questioner (Hard Gate)
 
 **Step 0 — Identity, before shape. A name-bearing artefact, never an inference from a turn boundary.**
@@ -438,6 +484,40 @@ Two consequences, both load-bearing:
    Word share does not: consolidate the fixture's two largest labels and it would read ~81%, right
    past the bar. **Count the askers.**
 
+   **Two corrections to how that count is read, both measured 2026-09-04 on this pipeline's own
+   sources.**
+
+   **(a) The discriminator is `>1 asker = PANEL`. It is NOT "a one-way interview has exactly ONE
+   asker".** That phrasing holds only for short-form, where a host's turns are nearly all questions.
+   Across long-form it is false in the safe direction and will read as satisfied when it is not: on two
+   real one-way interviews the host scored **22.7%** and **33.3%** of his own turns as questions and the
+   guest **16.7%** and **30.8%** — *zero* speakers cleared the bar, and both sources are sound. Reject on
+   *several* askers; never admit on *exactly one*, and never reject on *none*.
+
+   **(b) The ratio is UNMEASURABLE on coarse turns — say so rather than passing or failing it.** Above
+   roughly **130 words per turn**, or below roughly **50 turns**, a speaker's own monologue contains a
+   question mark by accident and the ratio measures turn granularity instead of who is asking. Measured
+   across five sources in one run:
+
+   | source | turns | words/turn | askers | reading |
+   |---|---|---|---|---|
+   | 2h20m interview | 337 | 64.5 | 0 | reliable |
+   | 1h34m interview | 348 | 53.0 | 0 | reliable |
+   | 54m interview | 100 | 103.7 | 1 | reliable |
+   | **29m interview** | **34** | **138.2** | **2** | **false positive** |
+   | **4-person panel fixture** | **11** | **229.4** | **3** | correct, same coarse regime |
+
+   Two genuine one-way interviews were flagged as panels purely by turn length. **Print
+   `oracle: UNMEASURABLE (<n> turns, <w> words/turn)` and fall back to the semantic oracle in step 2
+   above** — do questions and answers land on *different* labels — with the evidence pasted. This
+   mirrors Step 2b's own 10-turn floor: *unmeasurable* and *failed* are different findings.
+
+   **Consolidate to PEOPLE before counting askers, or every long source rejects.** Labels are not stable
+   across windows, so a per-(window, label) count re-counts one host once per window: the same 2h20m
+   interview scored **4 askers** that way and **0** once mapped, while the panel fixture scored 3 both
+   times. A count that rejects the known-good and the known-bad alike is blind, whichever way it
+   answered.
+
 **FAILURE FIXTURE — this gate has been watched fail, on a real source (2026-08-28).**
 `Gw1azCJpsPw` ("Why AI Sovereignty Depends on Open Source", a 4-person panel) is the negative control
 for Step 2c. Re-run it whenever this step is edited; a Step 2c that admits it is broken.
@@ -446,7 +526,7 @@ for Step 2c. Re-run it whenever this step is edited; a Step 2c that admits it is
 |---|---|---|
 | Speakers detected (`--speakers 2` passed) | **4** | unreliable-labels warning fires |
 | Word share | 48.0% / 33.2% / 18.7% / 0.1% | **no dominant speaker** |
-| Oracle: which speakers ask questions | **three** of them (8/11, 4/6, 4/9) | one-way interview has ONE asker → FAIL |
+| Oracle: which speakers ask questions | **three** of them (8/11, 4/6, 4/9) | several askers ⟹ PANEL → FAIL |
 
 **The number that matters most is the disagreement between the two methods.** Step 2b's parity
 measurement scored this same source **80.8%** — comfortably above its own ≥75% bar, i.e. Step 2b
@@ -467,6 +547,18 @@ quotes will be published.
    succeed from the same machine (measured 2026-08-28: VPN egress `M247/Singapore` → 403 on every
    player client; the same request from a residential IP succeeded). Route via `proxy run` or a home
    IP; this is not a cookie problem and signing into Chrome does not fix it.
+
+   **Proxy the AUDIO FETCH ONLY — never wrap the whole diarize run.** `proxy run <diarize>` routes
+   *every* egress through the residential exit, including the transcription API call, and that API is
+   region-locked: measured 2026-09-04, windows failed with `This API is not available in your current
+   location` and `upload init returned no upload URL` purely because the proxy exit had landed in an
+   unserved country. Fetch the audio through the proxy once — it is content-addressed and cached — then
+   run the windows **without** it. Neither failure signature mentions the proxy, which is the trap.
+
+   **Window size is capped by the transport, not by the 30-minute API limit.** 30-minute windows failed
+   deterministically with `curl exited 16` (an HTTP/2 stream error, no stderr, byte-identical on retry);
+   **15-minute windows succeed**. A byte-identical error on retry is deterministic — shorten the window
+   rather than re-running it. Cost is per minute of audio, so more windows is not more money.
 
 > **Why this is not a loosening.** `docs/decisions.md` 2026-08-19 ruled speaker attribution is solved
 > by source selection and named the acceptable shapes: *"Prefer single-speaker **or dominant-speaker**
@@ -597,6 +689,27 @@ raw marker count (106 on this source) counts those repeats and is not the turn c
 - **Position match:** Does this person's video actually argue the position they were approved for? A
   source admitted for position 3 that argues position 1 collapses the spectrum silently. Report the
   mismatch; do not re-file the source under the position it happens to fit.
+
+  **Measure claim match and position match on the ARGUER'S OWN WORDS, and re-measure whenever the
+  source changes.** On a multi-speaker source that means the speaker-labelled turns from Step 2c, not
+  the caption track — the host's vocabulary otherwise counts toward the guest's score. And a source
+  swap invalidates every earlier match: the verdict belongs to the *file*, never to the person.
+  *(2026-09-04: a cast member's claimed position was evidenced from one video while a different one was
+  carried forward as the source; the carried file scored **0** on every term of that position. Separately,
+  a candidate looked strongly on-fork at **34** hits across the caption track and fell to **18** — all of
+  them a commercial argument, none about the fork — once the host's turns were removed.)*
+
+  **This is checked, not remembered.** A claim-match verdict belongs to a FILE, so a source swap
+  invalidates it mechanically:
+
+  ```sh
+  node scripts/points/source-binding.mjs <arguers.json>   # REFUSE = STALE, UNBOUND, or ZERO
+  ```
+
+  `STALE` = the match was measured against a different id than the one carried. `UNBOUND` = no match
+  recorded. `ZERO` = every term of the claimed position scores 0 in the selected file. Run it before
+  Gate 2 and paste the output. **It cannot judge whether the term list is the right list for the
+  position** — that stays a founder call; it removes only the case where nobody looked.
 
 **Insight and popularity are shown separately and never collapsed into one number.** A single blended score hides exactly the trade this skill exists to inspect.
 

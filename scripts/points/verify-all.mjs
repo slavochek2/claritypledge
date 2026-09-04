@@ -35,8 +35,36 @@ export const PREDICATE_MODULES = [
   'admissibility.mjs', 'redundancy.mjs', 'unfilled.mjs', 'rule-present.mjs',
   'report-target.mjs', 'story-scan.mjs', 'store-inspection-scan.mjs',
   'store-reconcile.mjs', 'audience-floor.mjs', 'input-block-scan.mjs',
-  'cast-controls.mjs', 'seal.mjs', 'verify-fixture.mjs',
+  'cast-controls.mjs', 'seal.mjs', 'verify-fixture.mjs', 'candidate-sweep.mjs',
+  'source-binding.mjs',
 ]
+
+/** Modules that are harness, not predicates — the ONLY sanctioned reason for a
+ *  file under scripts/points/ to be absent from PREDICATE_MODULES. */
+export const HARNESS_MODULES = [
+  'verify-all.mjs', 'two-callers.mjs', 'no-vacuous-tests.mjs', 'redact-run.mjs',
+  'run-scoring.mjs', 'md-spans.mjs', 'build-rule-fixtures.mjs',
+]
+
+/**
+ * The list above is hand-maintained, so a NEW predicate is invisible to this
+ * sweep until someone remembers to add it — and an omitted module looks exactly
+ * like a passing one. Measured 2026-09-04: `candidate-sweep.mjs` shipped with
+ * both fixtures and a green test file, and this sweep reported 13 predicates all
+ * passing without ever loading it. DW-20 exists to catch a predicate with no
+ * must-fail fixture; it could not catch a predicate it had never heard of.
+ *
+ * So the divergence is now itself an error: every .mjs under this directory must
+ * be on exactly one of the two lists.
+ */
+export async function checkCoverage() {
+  const { readdirSync } = await import('node:fs')
+  const onDisk = readdirSync(HERE).filter(f => f.endsWith('.mjs'))
+  const known = new Set([...PREDICATE_MODULES, ...HARNESS_MODULES])
+  const unlisted = onDisk.filter(f => !known.has(f))
+  const missing = [...known].filter(f => !onDisk.includes(f))
+  return { ok: unlisted.length === 0 && missing.length === 0, unlisted, missing }
+}
 
 export async function loadPredicates(names = PREDICATE_MODULES) {
   const out = []
@@ -91,8 +119,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`\n  self-control: a predicate with no must-fail fixture -> ${control[0].status}` +
               ` (${controlCaught ? 'CAUGHT — this sweep exits non-zero on it' : 'NOT CAUGHT — the sweep is blind'})`)
 
-  if (bad.length || !controlCaught) {
-    console.log(`\nFAIL — ${bad.length} predicate(s) not OK${controlCaught ? '' : ', and the sweep failed its own control'}`)
+  // A module absent from both lists is invisible to everything above.
+  const cov = await checkCoverage()
+  if (!cov.ok) {
+    console.log('\n  coverage: FAIL — every .mjs here must be on PREDICATE_MODULES or HARNESS_MODULES')
+    if (cov.unlisted.length) console.log(`    on disk but on neither list: ${cov.unlisted.join(', ')}`)
+    if (cov.missing.length) console.log(`    listed but not on disk: ${cov.missing.join(', ')}`)
+  } else {
+    console.log('\n  coverage: OK — no module under scripts/points/ is absent from both lists')
+  }
+
+  if (bad.length || !controlCaught || !cov.ok) {
+    console.log(`\nFAIL — ${bad.length} predicate(s) not OK${controlCaught ? '' : ', and the sweep failed its own control'}${cov.ok ? '' : ', and a module is unaccounted for'}`)
     process.exit(1)
   }
   console.log(`\nPASS — ${rows.length} predicate(s), every must-pass passed and every must-fail failed`)
