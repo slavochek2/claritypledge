@@ -13,7 +13,7 @@ exec_effort: high
 driver: anomaly
 ---
 
-# P1247: Multi-harness contract 2 is the only one without a gate, and the only one that decayed
+# P1247: Shared policy reaches other harnesses by generation, not by pointing — measured
 
 ## Problem
 
@@ -74,6 +74,24 @@ Codex is not a peripheral consumer. `~/.agents/bin/codex-review` clones the repo
 `codex exec` with the clone as cwd, so it reads `cp/AGENTS.md -> CLAUDE.md` on every adversarial
 review this repo relies on — and the 18 files under `.claude/rules/`, which hold the git firewall
 and the epistemic gates, are path-autoloaded by Claude Code alone and reach it not at all.
+
+**Measured 2026-09-04, after the reviews — these three results decide the design.** Using Codex's
+own assembled-prompt oracle (`codex debug prompt-input`), which reports what the model actually
+receives rather than what the filesystem contains:
+
+| Question | Result |
+|---|---|
+| Does Codex expand a pointer/include in `AGENTS.md`? | **No.** `@file`, `./file`, `@./file` all tried; the adapter's own marker appears, the pointed-to file's marker does not |
+| Does Codex layer global `~/.codex/AGENTS.md` with a project `AGENTS.md`? | **Yes, natively** — both markers present, no configuration |
+| Is there a size limit, and is it silent? | **Yes and yes.** A 54,598 B file keeps markers through ~33.5 KB and drops everything past ~36.3 KB, with no warning. cp's real 25,428 B `AGENTS.md` survives intact — the cap is per-file, ~32 KiB, and cp is at **78%** of it |
+
+**This kills the pointer shape and replaces it.** Prose naming a file is a request the agent may
+decline; nothing loads it. But Codex's directory-tree layering *is* a native include, so shared
+policy reaches it by being **generated into** each harness's own `AGENTS.md` — the closed-world
+projection mechanism of contract 1, which is already proven and gated in this repo. Generation, not
+pointing. `~/.dsh/AGENTS.md` remains untested and `~/.gemini/GEMINI.md` could not be tested (the
+Gemini CLI refused on an invalid API key); neither may be converted until each is measured the same
+way.
 
 **And the canary itself fails open, measured.** Its SKIP guard (`:22-24`) checks exactly four
 files — `~/.agents/model-routing.md`, `~/.codex/model-routing.md`, `~/.dsh/model-routing.md`,
@@ -166,18 +184,20 @@ Reduce `~/.codex/AGENTS.md` to adapter-local content plus a pointer to the share
 `~/.dsh/AGENTS.md` pattern. Extract the shared half into `~/.agents/` alongside the routing and
 history-store files already there. Same treatment for `~/.gemini/GEMINI.md`, which is seven months
 stale and actively contradicts current rules (it directs the agent to prefer Chrome DevTools MCP
-with Playwright as backup). **A pointer is not an include, and this is the spec's central risk.** Nothing currently
-establishes that Codex or Gemini opens a file its instructions merely name — prose is a request,
-not a load. Before any content is removed from a harness's own file, build a **fresh-session
-behavioral canary** per harness: put a distinctive, otherwise-unmotivated directive in the shared
-file only, start a clean session in that harness, and observe whether the directive takes effect.
-**If a harness does not demonstrably follow the pointer, it does not get the pointer shape** — it
-gets a generated projection (the contract-1 mechanism, which is proven) or a native include
-directive if the harness has one. `~/.dsh/AGENTS.md` is the shape reference, not the proof: it has
-never drifted, and nothing has ever tested that DSH reads what it points at.
+with Playwright as backup). **Superseded by measurement — do not build the pointer shape.** Codex does not expand includes,
+so `~/.codex/AGENTS.md` becomes a **generated file**: shared policy from `~/.agents/` plus its own
+adapter-local section, emitted by a closed-world writer with the same never-hand-edit contract as
+`.agents/skills/`. Drift then becomes structurally impossible rather than merely detectable, which
+is the whole point.
 
-Only after that canary passes does the structural assertion get added — that the pointer resolves
-and that the shared file carries no harness-local content.
+**Every harness must be measured before conversion, with the harness's own assembled-prompt oracle
+— never with a file check.** Codex: done (above). DSH and Gemini: not done; `~/.dsh/AGENTS.md` is a
+shape reference and has never been tested for whether DSH reads what it points at, and the Gemini
+CLI could not be exercised. A harness with no oracle does not get converted.
+
+**Budget the generator in bytes.** The target is a ~32 KiB per-file cap that truncates in silence;
+cp is at 78% of it today. The generator must fail loudly when its output would exceed the cap —
+a silent cut here removes rules while every structural check stays green.
 
 **Phase 3 — resolve the rules-layer reach.** See Q1. Either project `.claude/rules/*.md` so
 non-Claude harnesses receive them, or state in `AGENTS.md` that they do not apply outside Claude
@@ -262,12 +282,15 @@ guarantees recurrence regardless of what else ships.
 
 ## Open Questions
 
-1. **[FOUNDER DECISION] — one option is now measured impossible as stated.** `.claude/rules/*.md`
-   totals **123,005 bytes**, against an instruction channel that truncates silently at ~32 KiB and
-   is already 77% consumed by `CLAUDE.md` alone. "Project the rules" is therefore not available in
-   the naive form; the live choices are a prioritised subset (which rules, chosen by you), a native
-   include directive if a harness has one, or the honest sentence. The underlying question stands:
-   must `.claude/rules/*.md` reach non-Claude harnesses? The git firewall
+1. **[FOUNDER DECISION] — narrowed by measurement to one workable shape.** `.claude/rules/*.md`
+   totals **123,005 bytes** against roughly **7 KB** of remaining headroom in a per-file ~32 KiB
+   channel that truncates silently. Projecting the rules is therefore impossible, and there is no
+   include mechanism to escape it — both measured, not inferred. The only workable form is a short
+   curated **hard-stops block** carried in the generated shared policy: the non-negotiables that
+   must hold in any harness (never push or deploy unasked, never install unasked, stop at a CAPTCHA,
+   the banned destructive git commands). Everything else stays Claude-only and says so.
+   **The remaining call is yours and is only: which rules earn a place in that block.** Proposed
+   starting set above; nothing is built until you name it. The git firewall
    and the epistemic gates live there, and `codex-review` — the adversarial reviewer this repo
    leans on, cited throughout `decisions.md` — currently runs without them. Projecting them is real
    work; the honest alternative is one sentence in `AGENTS.md` saying they are Claude-only. Both

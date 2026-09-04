@@ -255,6 +255,46 @@ The event work was real and is not in the table because nothing in either repo r
 
 ---
 
+## 2026-09-04 [technical]: A prose pointer is not an include — measured against the harness's own assembled prompt, not its filesystem
+
+**Context:** P1247 proposed replacing duplicated global instruction files with thin per-harness
+files that *point at* one shared policy file, on the strength of one such file never having drifted.
+Adversarial review objected that nothing established any harness actually opens a file its
+instructions merely name. Tested with Codex's own oracle (`codex debug prompt-input`, which renders
+what the model receives rather than what exists on disk), using distinct markers in the referencing
+file and the referenced one:
+
+| Question | Result |
+|---|---|
+| Pointer expanded? | **No** — `@file`, `./file`, `@./file` all tried; referencing file's marker present, referenced file's marker absent |
+| Global + project instruction files layered? | **Yes, natively**, no configuration |
+| Silent size limit? | **Yes** — a 54,598 B file keeps content to ~33.5 KB and drops past ~36.3 KB with no warning; the repo's real 25,428 B file survives whole. Per-file, ~32 KiB, currently 78% consumed |
+
+**Decision:** Shared policy reaches another harness by **generation into that harness's own
+instruction file**, never by pointing at a shared one. This is the closed-world projection already
+proven for skills. Drift becomes structurally impossible instead of detectable-in-principle. Every
+harness must be measured with its own assembled-prompt oracle before conversion — a file-existence
+or symlink-resolution check cannot answer this question, and a dangling reference was separately
+observed to produce a built prompt with exit 0 and nothing on stderr.
+
+**Alternatives rejected:** *Pointer plus a check that the pointer resolves* — measured false; the
+file resolves and is never read. *Trust the one never-drifted example* — it had never been tested
+either; stability was mistaken for delivery. *Project the whole path-triggered rules layer* —
+123,005 bytes against ~7 KB of headroom, so it would truncate silently and remove rules while every
+structural check stayed green.
+
+**Consequences:** Any future claim that a harness "has" a rule requires the assembled-prompt
+evidence, and any generator writing into this channel must fail loudly rather than emit past the
+cap. Two harnesses remain unmeasured and are not convertible until they are: DSH has never been
+tested for whether it reads what it points at, and the Gemini CLI could not be exercised here
+(invalid API key). Generalises beyond instruction files: **when a mechanism's job is to deliver
+something to a consumer, test the consumer's input, not the producer's output.**
+
+**References:** [p1247](../features/p1247_harness_agnostic_contract_2_has_no_gate.md) ·
+`codex debug prompt-input`
+
+---
+
 ## 2026-09-04 [technical]: The delegation gate hangs on exactly the payloads it exists to scan
 
 **Context:** `/kdd`-adjacent work needed a Gemini adversarial review, which must go through
