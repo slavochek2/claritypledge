@@ -254,6 +254,27 @@ P858 failure shape, the unverified multi-card allowance), the pyannote dependenc
 breakage, and per-card capacity planning. **What it adds:** ~1.3s more latency per slice and a
 dependency on an API rather than a container we control.
 
+**Finding 8 — a word straddling a slice boundary IS damaged, and one second of overlap recovers
+it.** Measured 2026-09-04 on the same audio, three cuttings of the same sentence
+(*"I tried fixing the transcribe and on my Galaxy S22 and it still doesn't work"*):
+
+| cutting | what came back |
+|---|---|
+| 4s, no overlap | `"Try fixing the"` / `"Transcribe and on my Galaxy S22 and still"` / **`"that work."`** |
+| 4s, 1s lead-in overlap | `"tried fixing the"` / `"Transcribe and on my Galaxy S22 and"` / **`"23 and still doesn't work."`** |
+| 15s windows | `"Try fixing the transcribe."` / `"and on my Galaxy S22 and still doesn't work."` |
+
+At a clean 4-second cut **`"doesn't"` came back as `"that"`** — the word spanning the boundary is
+the one that breaks. With 1s of lead-in, `"doesn't work"` is recovered intact; the cost is that the
+overlapped second is transcribed twice (`S22` also re-emerges as a stray `23`), so total words go
+132 → 155 and a de-duplication step becomes mandatory rather than optional.
+
+**This corrects the spec's own framing above.** The Approach section attributed
+"duplicate words at chunk boundaries, partial-to-final promotion" to the **streaming** option alone.
+The chunked option has the same surface — less of it, but it is not absent, and a chunked design
+with no overlap silently corrupts roughly one word per boundary instead. **The live path needs
+overlapping slices plus de-duplication.** Not optional, and not free.
+
 **Limits on all of the above.** One 168-second recording, one speaker, English, speech-sparse with
 long silences — which is the worst case for hallucination and also, per the lavalier design, the
 normal case for a per-person channel. Real conversational density is untested for both engines. No
@@ -338,6 +359,9 @@ not when the first word is spoken — the consent and join screens supply the co
 - [x] Current Gemini credit coverage re-verified against billing before any Gemini path is committed
       (2026-09-03, from the BigQuery billing export, superseding the Apr 2026 figure — see
       "Credit-eligible execution paths")
+- [ ] Slice boundaries do not corrupt words: overlapping slices with de-duplication, verified by
+      reconstructing a known sentence across boundaries and comparing to a whole-file transcript
+      (Finding 8 — without overlap, `"doesn't"` became `"that"`)
 - [ ] `/transcribe` produces a stored recording again (by-product of the server-side stream),
       restoring what the `RECORD_AUDIO_WHILE_LIVE=false` mitigation currently gives up
 
