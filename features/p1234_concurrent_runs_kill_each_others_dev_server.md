@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-09-03'
 created_date: '2026-09-03'
 tags: [live, e2e, test-infra, concurrency, p1043]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
