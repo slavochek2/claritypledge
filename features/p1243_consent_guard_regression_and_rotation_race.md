@@ -5,8 +5,8 @@ rank: 1000071
 workstream: infrastructure
 created_date: '2026-09-03'
 tags: [security, rls, gdpr, migrations]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
