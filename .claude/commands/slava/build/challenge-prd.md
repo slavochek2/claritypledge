@@ -311,6 +311,24 @@ Two jobs. Both are command-backed — quote the command and its output, never th
    dimension in this skill; this is the only one that catches it. Report a false claim as
    `[BLOCK]` regardless of which dimension it sits under.
 
+3. **A spec's reading of a quoted primary source is a claim too — re-read the quote.** When a
+   spec quotes a founder report, a transcript, or a user's words and *then* interprets them
+   (a causes table, a "what they mean is", a restated Problem), the interpretation is an
+   assertion and the quote is the artifact. Read the quote on its own, without the surrounding
+   reading, and state whether it actually supports the interpretation. Divergence is `[BLOCK]`.
+
+   Unlike job 2 this needs no command — the source is in the file. That is exactly why it gets
+   skipped: nothing fails, nothing greps empty, and the spec reads as coherent because the
+   interpretation is internally consistent with everything downstream of it. **Reading the spec
+   completely does not catch this** — both halves get read; what is missing is precedence
+   between them.
+
+   P1240 (2026-09-04): the spec quoted the founder describing a signed-in person who "clicks on
+   some kind of a link or something or opens a new tab" and loses their session, then built a
+   causes table treating that as a possible *login-link* failure. It meant an ordinary public
+   link. Two sessions went into investigating authentication before the founder said so; the
+   quote had been sitting in the spec the whole time and is unambiguous read cold.
+
 **Phase 3 — Extract assumptions**
 
 Parse the entire spec and list every implicit and explicit assumption. For each,

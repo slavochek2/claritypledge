@@ -6,6 +6,49 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [process]: A spec's reading of a quoted source is a claim — and the pass that would challenge it is optional in practice
+
+**Context:** P1240's Problem section quoted the founder describing a signed-in person who "clicks on
+some kind of a link or something or opens a new tab" and loses their session, then built a causes
+table treating that as a possible *login-link* failure. He meant an ordinary public link. Two full
+investigation sessions went into authentication before he said so in conversation. The quote was in
+the spec the whole time and is unambiguous read cold.
+
+**Decision:** Two changes, deliberately unequal in size.
+
+1. **`/challenge-prd` Phase 2.5 gains a third job** (founder-approved): when a spec quotes a primary
+source and then interprets it, the interpretation is an assertion and the quote is the artifact —
+read the quote without the surrounding reading and report divergence as `[BLOCK]`. Unlike the other
+two jobs it needs no command, which is exactly why it gets skipped: nothing fails, nothing greps
+empty, and the spec reads as coherent because the interpretation is internally consistent with
+everything downstream of it.
+
+2. **The flow gap is filed as P1249, not fixed here.** P1240 carried `pipeline_ran: [create-spec]`
+— the adversarial pass never ran at all, and no surface reported the absence. P1249 counts the
+occurrences before designing any remedy, because if it is one spec this is an incident rather than
+a pattern.
+
+**Alternatives rejected:** Adding a rule to `CLAUDE.md` — it is at exactly 350/350 lines, so a new
+line evicts a proven rule to buy an n=1 generalization, and this is spec-authoring behaviour that
+the containing skill already owns. Extending `epistemic.md` gate 3 — its "artifact, not the
+documentation about the artifact" clause is the right *shape*, but every instance it enumerates is a
+machine-readable store (seed data, migration, live row); stretching it to cover a human's quoted
+words is a reading, not the text. **Claiming `/challenge-prd` would have caught P1240** — refused
+during review as an unfalsifiable counterfactual, and not recorded as one.
+
+**Consequences:** (Status: proposed) The nearest existing rules were each checked and each misses
+this case, which is why it is recorded rather than dismissed as non-compliance: `CLAUDE.md` §Before
+Starting Work item 5 closes its own scope to "schema column, API response, or state invariant"; item
+3 ("read the spec completely") misses because both halves *were* read — what was absent is
+**precedence between two things present in the same file**. Any future gate on this must be a
+report, never a merge block: `features.md` records what happened the last time a self-reported
+frontmatter field was made load-bearing (P1141 shipped with unticked criteria, P1164 blocked every
+spec that never had the label written), and `pipeline_ran` is the same class of field.
+
+**References:** `.claude/commands/slava/build/challenge-prd.md` Phase 2.5 job 3 · [features/p1249_the_adversarial_spec_pass_is_skipped_and_nothing_notices.md](../features/p1249_the_adversarial_spec_pass_is_skipped_and_nothing_notices.md) · decisions.md 2026-09-04 (P1240)
+
+---
+
 ## 2026-09-04 [technical]: Credential-exposure disclosure stays an authoring control — the gate that would enforce it publishes the thing it protects
 
 **Context:** A spec-writing session put credential-location detail into public specs. Every existing
