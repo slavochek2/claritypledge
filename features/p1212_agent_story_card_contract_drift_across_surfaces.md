@@ -562,6 +562,39 @@ up, and it is why §5's tests render components instead of grepping them.
 - [x] No letter loses content it rendered before the change: every quote, timecode and image visible in a pre-change sealed letter is still visible after
 - [x] No surface derives an agent byline from a name the snapshot does not own — the letter surface's `authorName` is the **sender's** (§4b, `story-walk.tsx:95-96`)
 
+## Implementation — the two A/B arms, merged (2026-09-04)
+
+This spec was built **twice**, as the arms of a `/dev` A/B benchmark from one base commit.
+**The benchmark is void** — see `docs/decisions.md` 2026-09-03: its oracle, this spec's seven
+Done-When canaries, were `it.skip` and had never executed, and were satisfiable by prose once
+un-skipped. Neither arm can be scored. Both arms' work is kept; nothing was discarded on the
+strength of a measurement that did not happen.
+
+**The arms were complementary, not duplicate** — each silently built a different subset of this
+spec and neither announced the gap:
+
+| | arm A (`feature/p1212-…`) | arm B (`bench/p1212-noskill`, deleted) |
+|---|---|---|
+| §1 quote block | ✅ (also landed at the skill layer on main) | ✅ (superseded by arm A's) |
+| §3 chips · §5 expander | ✅ | — |
+| §4 · §4d media, nested card | ✅ | ✅ |
+| §4b seal RPC + migration | — | ✅ **lifted onto arm A** |
+| §2 byline | — blocked | — blocked |
+
+**§2 is resolved.** Founder decision 2026-09-04: **`AGENT · on {Full Name}`**. It overrules the two
+findings recorded in `agent-byline.tsx`, which still stand as written — `on` is what survives both
+(it restores the account→subject relation a bare `·` deletes) and is shorter than `about` against
+the measured 320px fix. **The footer is NOT changed** and still reads "A machine account operated by
+ClarityPledge wrote this reading of {name}" — a different disclosure level, outside the decision
+taken, so "machine" now appears there and nowhere else on the surface. **Open for the founder.**
+
+**Three assertions in this spec's own suites were vacuous, each proven so by a known-bad control
+and each now binding:** the §5 parity suite passed on bare text (it asserted the statement STRING,
+not the component); the five §4b tests inject `authorId` into props and never call the mapper, so
+deleting the mapper's read left all 32 green; and `p1141-pipeline-rules` greps FILE TEXT, so its
+`reading of` case stayed green on a doc comment after the JSX stopped rendering it. This is the
+same defect four times in one spec, including in the canaries meant to certify it.
+
 ## Done-When
 
 - [ ] Both `p1141-pipeline-rules.test.ts` and `p1141-agent-story-chrome.test.tsx` updated to the new contract, passing
