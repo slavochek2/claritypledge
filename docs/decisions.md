@@ -6,6 +6,47 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [product]: Event #1 precedes the multiplier ask — and whether the pipeline "works well" is judged by a room, not by another run
+
+**Context:** A five-week reflection over both repos recommended *"send ten multiplier messages this week"* and *"set the event date"*. The founder rejected the first on the repo's own terms: [goals.md](goals.md) defines the multiplier ask as *"can I run this for your startups?"*, which presupposes a run that exists. *"What exactly am I offering? Just running some workshops for free? And what am I learning exactly?"* Concession recorded: the ask is empty until event #1 has happened; the sequencing in goals.md (multiplier first, then event #1) was written when the event was a throughput plan, not a first run. The founder's stated dependency chain: disagreement pipeline → one offline event → online → at scale, because *"without it I will achieve clarity about clarity, and to people who are not necessarily warm."* Credibility with a champion prospect comes from rooms that happened, not from the promise of a norm.
+
+**Decision:** Event #1 runs **before** any multiplier conversation. The pipeline (P1210, shipped 2026-09-03) is the event's raw material and that dependency was real, not avoidance — the 2026-09-01 run that produced five points the founder agreed with all of is what the spec then fixed. The venue's organizer is engaged (the contact lives in chat, not in either repo — nothing tracks a follow-up date on it). **The event date is a `[FOUNDER DECISION]`, not yet set:** the founder sets it when satisfied with the point set the pipeline produces.
+
+**Alternatives rejected:** *Set the date now with the current point set and let the room be the pipeline's next test* — the reviewer's recommendation, held rather than withdrawn: "working well" has no exit criterion reachable from the desk, and the precondition has already moved once (25 August, to the organizer: *"finalize the feature by tomorrow and then run a test event"*; the feature shipped 3 September; the date is still open while the second event's topic is already under discussion). Founder's position stands; the risk is named here so the next session reads it as a pending decision, not a settled sequence.
+
+**Consequences:** goals.md §Core outcome re-sequenced (event #1 → multiplier), same day. The stopping rule's clause 2 ([research-programme.md](research-programme.md), *"2 months with zero tests run"*) counts from the last field datum, 2026-07-29/30; it trips at the end of September on its own terms unless event #1 runs first. **Falsifier for the sequencing:** if event #1 runs and no attendee is a coordinator or names one, the multiplier ask was never downstream of the event and the original order returns.
+
+**References:** [goals.md](goals.md) §Core outcome · [research-programme.md](research-programme.md) §Stopping rule · P1210 · P1161
+
+---
+
+## 2026-09-04 [process]: A reflection scored the repos and missed the work — field activity lives in chat, and the log's own counts are the scoreboard being optimised
+
+**Context:** Asked to name the founder's biggest mistakes, the reviewing agent read both repos end to end and concluded *"no new prospect conversations since 29 July, three outreach lists untouched, no event work"*. Two of the three were false. The organizer contact and the event negotiation existed, daily, in the messaging mirror the private repo maintains for exactly this purpose — and the reviewer never opened it, because every other probe had returned from files. Same family as the 2026-08-05 private entry (a "degenerating programme" verdict issued from commit shape without reading a single pivot's reasoning) and the 2026-08-05 finding that 30+ facilitated sessions have no participant roster in any repo. Absence in the repo is not absence.
+
+**What the numbers did show, and still show after the correction:**
+
+| August 2026 | Count |
+|---|---|
+| Commits to this repo | 1,110 |
+| Decision entries across both repos | 654 |
+| Of those about product or go-to-market | 63 |
+| Rows on the three outreach lists, all still `new` | 247 |
+| Events run | 0 |
+| Paid asks ever made | 0 |
+
+The event work was real and is not in the table because nothing in either repo records it. What the table measures is what the repos measure — and the decision log, the spec count and the commit count are the only scoreboard the process reads.
+
+**Decision:** Before asserting that any field activity did not happen, query the chat mirror (`pp/data/beeper_mirror.db`) and the calendar, not only the repos. Recorded as a rule of evidence, not a new gate. **(Status: proposed)** — a monthly scorecard that counts *rooms run* and *people who used the protocol without the founder present* alongside the log counts, so the thing being optimised is the thing the mission needs; `/slava:maintain:programme-health` is the natural reader.
+
+**Alternatives rejected:** *Log every field contact in the repo* — the 2026-08-05 roster finding already asked for this and it did not happen in a month; the mirror already holds the data, so read it there. *Treat the miss as the reviewer's error only* — it is also a property of the repos: they cannot see the one activity that matters most.
+
+**Consequences:** The reviewer conceded three claims in-session (event work, multiplier timing, "afraid of no"). The correct name for the pattern in the record is not fear of asking; it is asking that waits behind a build — a different mechanism, and the one the stopping rule's clause 1 ("repeat before re-cut") was written for.
+
+**References:** [epistemic.md](../.claude/rules/epistemic.md) gate 1 (grep before asserting absence) · pp decisions 2026-08-05 · [research-programme.md](research-programme.md) §Stopping rule
+
+---
+
 ## 2026-09-04 [technical]: The delegation gate hangs on exactly the payloads it exists to scan
 
 **Context:** `/kdd`-adjacent work needed a Gemini adversarial review, which must go through
