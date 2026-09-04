@@ -140,10 +140,25 @@ export function QuotedPointCard({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => navigate(detailRoutes.point(point.id, fromProfileId))}
+        // `stopPropagation` on BOTH handlers, and it is this component's job rather than the
+        // caller's. Every surface that expands a story's points wraps them in a card that is
+        // itself a control, so an event that reaches the wrapper navigates a second time and
+        // the LAST navigation wins — the reader asks for the point and lands on the story.
+        //
+        // The click path was already safe by accident: both call sites wrap the list in a
+        // container with `onClick={e => e.stopPropagation()}`. That container does not handle
+        // `onKeyDown`, so keyboard users navigated somewhere mouse users did not, and a test
+        // written with `fireEvent.click` is structurally incapable of seeing it. Found by
+        // adversarial review 2026-09-04; a container-level fix would have to be repeated at
+        // every future call site, so it belongs here.
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(detailRoutes.point(point.id, fromProfileId));
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
+            e.stopPropagation();
             navigate(detailRoutes.point(point.id, fromProfileId));
           }
         }}

@@ -137,6 +137,16 @@ test.describe('Migration p1212: seal_and_send_letter records the story author', 
     //    defaults the key to the sender fails loudly rather than passing assertion 1.
     expect(config.storyAuthorId).not.toBe(sender.user.id);
 
+    // 3b. The NAME that goes with the id — added 2026-09-04 after adversarial review.
+    //     The id alone shipped a defect: the surface picked agent chrome from the id and then
+    //     printed the letter SENDER's name beside it, because that is the only other name the
+    //     mapper receives. An identity is the pair, not the id.
+    expect(
+      config.storyAuthorName,
+      'storyAuthorName must be the story author\'s own name — without it the surface falls back to the sender and misattributes machine prose to a named human',
+    ).toBe('P1212-Integration-Author');
+    expect(config.storyAuthorName).not.toBe('P1212-Integration-Sender');
+
     // 4. P1141 keys survive — the drop-on-replace regression this function has had 3×.
     expect(config.storyText, 'storyText must still be populated (P1141 regression guard)').toBe(
       STORY_CONTENT,

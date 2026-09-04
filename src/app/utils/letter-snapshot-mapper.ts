@@ -53,6 +53,16 @@ interface PointConfig {
    * named human.
    */
   storyAuthorId?: string;
+  /**
+   * P1212 §4b, second pass: the name that goes WITH `storyAuthorId`.
+   *
+   * The id alone was not enough and shipped a real defect — the surface picked agent chrome
+   * from the id and then printed the letter SENDER's name beside it, because the sender is
+   * the only name the mapper's other argument carries. "Agent on {sender}" is precisely the
+   * misattribution the id was added to prevent. Absent (pre-2026-09-04 letters) falls back to
+   * the sender, which is correct there: no author id means the story IS the sender's.
+   */
+  storyAuthorName?: string;
   points?: PointConfigPoint[];
   hidden?: string[];
   order?: string[];
@@ -212,7 +222,9 @@ export function snapshotToStoryWithPoints(
     updatedAt: '',
     tags: [],
     systemTags: [],
-    authorName: authorProfile.name,
+    // The story's OWN author name when the snapshot carries one, the sender otherwise.
+    // Never the sender when the snapshot names a different author — see storyAuthorName.
+    authorName: config.storyAuthorName || authorProfile.name,
     authorSlug: '',
     authorAvatarUrl: authorProfile.avatarUrl,
     authorAvatarColor: authorProfile.avatarColor,

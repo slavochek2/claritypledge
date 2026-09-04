@@ -172,7 +172,7 @@ export function FeedPage() {
     if (activeTab === 'stories') {
       if (visibleStoryIds.length === 0) return;
       storiesService
-        .getPointsForStories(visibleStoryIds)
+        .getPointsForStories(visibleStoryIds, session?.user?.id)
         .then(map => { if (!cancelled) setStoryPointsState({ key: storyLinkKey, map }); })
         .catch(() => { /* expander stays hidden; the feed itself still renders */ });
     } else {
@@ -184,7 +184,7 @@ export function FeedPage() {
     }
 
     return () => { cancelled = true; };
-  }, [activeTab, visibleStoryIds, visiblePointIds, storyLinkKey, pointLinkKey]);
+  }, [activeTab, visibleStoryIds, visiblePointIds, storyLinkKey, pointLinkKey, session?.user?.id]);
 
 
   useEffect(() => {
@@ -520,6 +520,7 @@ export function FeedPage() {
                       story={story}
                       activeTag={activeTags[0]}
                       linkedPoints={linksFor(storyPointsState, storyLinkKey, story.id)}
+                      currentUserId={session?.user?.id}
                     />
                   ))
               }

@@ -97,7 +97,17 @@ export interface StoriesService {
    * already dropped it while main's other queries still ask for it and 400. Selecting the
    * minimum keeps this working on both schemas and through that retirement.
    */
-  getPointsForStories(storyIds: string[]): Promise<Map<string, PointSummary[]>>;
+  /**
+   * `viewerId` enriches each summary with position counts and the viewer's own position, the
+   * same two fields `getStoriesByAuthorWithPoints` supplies. Without them the shared
+   * `QuotedPointCard` renders a read-only slab on the feed and an interactive card on the
+   * profile — one component, two behaviours, decided by which caller filled its props
+   * (adversarial review, 2026-09-04). `profileSubjectPosition` is deliberately NOT supplied:
+   * "where does the author stand" answers a question a single-subject profile asks and a
+   * multi-author feed does not, and it would cost a per-author query. Open founder question,
+   * recorded in the P1212 spec rather than decided here.
+   */
+  getPointsForStories(storyIds: string[], viewerId?: string): Promise<Map<string, PointSummary[]>>;
 
   // ============================================================================
   // UPDATE

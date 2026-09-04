@@ -27,6 +27,8 @@ import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/ap
 import type { Story, Point } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryMedia } from '@/app/components/shared/story-media';
+import { stripAgentPrefix } from '@/lib/utils';
+import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags } from '@/lib/utils';
@@ -356,6 +358,20 @@ export function StoryCardWithLinks({
                   </button>
                 )}
               </p>
+            )}
+
+            {/* P1212 §4 — the quotes travel with the story on this surface too (a story linked
+                from a point). §1 removed the inline bodies; without this the reader gets the
+                argument and none of its evidence. No `onSeek` — no player here, so each timecode
+                becomes a link opening the source at that second, which is what §4's rule asks. */}
+            {normalizeVideoQuotes(story.videoQuotes).quotes.length > 0 && story.videoUrl && (
+              <div role="presentation" onClick={(e) => e.stopPropagation()}>
+                <StoryVideoQuotes
+                  videoUrl={story.videoUrl}
+                  quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
+                  subjectName={stripAgentPrefix(author.name) ?? author.name}
+                />
+              </div>
             )}
 
             {/* P491: Tag pills — after text, before stats */}

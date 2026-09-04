@@ -370,12 +370,63 @@ describe('P1212 §4b — the MAPPER carries the story author out of the snapshot
     expect(story.authorId).toBe('agent-1');
   });
 
-  it('does NOT fall back to the sender when the field is present', () => {
+  /**
+   * REWRITTEN 2026-09-04 — the previous version of this test ASSERTED THE DEFECT.
+   *
+   * It read `expect(story.authorName).toBe('Human Sender')` on a snapshot whose story was
+   * written by `agent-1`. That is the exact outcome `20260903164500`'s own header says must
+   * never happen: the surface picks agent chrome from the id and then prints the SENDER's
+   * name beside it, so a sealed letter rendered "Agent on Human Sender" and a footer reading
+   * "a machine account wrote this reading of Human Sender". Found by an adversarial review
+   * that rendered the component; every test here had passed.
+   *
+   * The id alone was never enough. A snapshot that says WHO wrote the story must carry the
+   * name that goes with that id, or the surface will reach for the only other name present.
+   */
+  it('does NOT print the sender name for a story the sender did not write', () => {
     const story = snapshotToStoryWithPoints(
-      { ...baseSnapshot, point_config: { storyText: 'x', storyAuthorId: 'agent-1' } } as never,
+      {
+        ...baseSnapshot,
+        point_config: { storyText: 'x', storyAuthorId: 'agent-1', storyAuthorName: 'Agent · Yann LeCun' },
+      } as never,
       { name: 'Human Sender' }
     );
-    expect(story.authorId).not.toBe('Human Sender');
+    expect(story.authorId).toBe('agent-1');
+    expect(story.authorName).not.toBe('Human Sender');
+    expect(story.authorName).toBe('Agent · Yann LeCun');
+  });
+
+  /**
+   * THE RENDER PROBE — this is the assertion that would have caught it, and no mapper-level
+   * test can replace it. The mapper returning the right fields is necessary; what the reader
+   * SEES is the claim. Adapted from the adversarial reviewer's probe (codex, 2026-09-04),
+   * which found the defect by rendering while 484 unit assertions passed over it.
+   */
+  it('renders NO sender name anywhere on a sealed agent story — byline, footer, quotes', () => {
+    const story = snapshotToStoryWithPoints(
+      {
+        ...baseSnapshot,
+        point_config: { storyText: 'A machine-written reading.', storyAuthorId: 'agent-1', storyAuthorName: 'Agent · Yann LeCun' },
+      } as never,
+      { name: 'Human Sender' }
+    );
+    render(
+      <MemoryRouter>
+        <LiveStoryCardExpanded story={story as never} readOnly defaultStoryExpanded />
+      </MemoryRouter>
+    );
+    expect(document.body.textContent).not.toContain('Human Sender');
+    expect(screen.getByTestId('agent-byline').textContent).toContain('Yann LeCun');
+  });
+
+  /** The sender's own story is the common case and must be untouched: no author id in the
+   *  snapshot means the story IS the sender's, and the sender's name is correct. */
+  it('still uses the sender name when the snapshot names no other author', () => {
+    const story = snapshotToStoryWithPoints(
+      { ...baseSnapshot, point_config: { storyText: 'x' } } as never,
+      { name: 'Human Sender' }
+    );
+    expect(story.authorId).toBe('');
     expect(story.authorName).toBe('Human Sender');
   });
 

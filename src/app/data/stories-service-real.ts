@@ -778,8 +778,8 @@ export const realStoriesService: StoriesService = {
    * with `column points_1.context does not exist`. Asking for the minimum keeps this
    * query correct on both schemas and across that retirement.
    */
-  async getPointsForStories(storyIds: string[]): Promise<Map<string, PointSummary[]>> {
-    log(' getPointsForStories:', { storyIds });
+  async getPointsForStories(storyIds: string[], viewerId?: string): Promise<Map<string, PointSummary[]>> {
+    log(' getPointsForStories:', { storyIds, viewerId });
 
     if (storyIds.length === 0) return new Map();
 
@@ -793,6 +793,7 @@ export const realStoriesService: StoriesService = {
           statement,
           tags,
           system_tags,
+          created_at,
           visibility,
           superseded_by
         )
@@ -813,6 +814,35 @@ export const realStoriesService: StoriesService = {
       const existing = result.get(row.story_id) ?? [];
       result.set(row.story_id, [...existing, summary]);
     }
+
+    // Enrich exactly as `getStoriesByAuthorWithPoints` does — two batched calls, never
+    // per-point. Without this the shared QuotedPointCard renders a read-only slab here and an
+    // interactive card on the profile: the component was shared, the DATA was not.
+    // `profileSubjectPosition` is deliberately absent — see the interface doc.
+    const allPointIds = [...new Set([...result.values()].flat().map(p => p.id))];
+    if (allPointIds.length === 0) return result;
+
+    const [countsMap, userPositionsMap] = await Promise.all([
+      pointsService.getPositionCountsForPoints(allPointIds),
+      viewerId
+        ? pointsService.getMyPositionsForPoints(allPointIds, viewerId)
+        : Promise.resolve(new Map<string, { position: string }>()),
+    ]);
+
+    // Same order as the profile, which sorts newest-first (see getStoriesByAuthorWithPoints).
+    // The feed previously preserved PostgREST's unspecified row order, so the same story's
+    // points could list differently on two surfaces — parity of appearance is not parity if
+    // the sequence disagrees. `createdAt` is selected for this and nothing else.
+    result.forEach((points, storyId) => {
+      result.set(storyId, [...points]
+        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+        .map(p => ({
+        ...p,
+        positionCounts: countsMap.get(p.id),
+        userPosition: (userPositionsMap.get(p.id) as { position: string } | undefined)?.position as PositionType | null ?? null,
+      })));
+    });
+
     return result;
   },
 };

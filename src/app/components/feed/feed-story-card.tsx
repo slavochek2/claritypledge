@@ -20,6 +20,8 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import { InlineVisibilityIcon } from '@/app/components/shared';
 import { StoryMedia } from '@/app/components/shared/story-media';
+import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import { stripAgentPrefix } from '@/lib/utils';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
@@ -39,6 +41,13 @@ interface FeedStoryCardProps {
    * about the story rather than about the fetch.
    */
   linkedPoints?: PointSummary[];
+  /**
+   * The signed-in viewer. Forwarded to `QuotedPointCard`, which renders its position
+   * controls only for a known viewer. Omitting it is why the feed rendered a read-only
+   * slab where the profile rendered an interactive card, from the same component
+   * (adversarial review, 2026-09-04).
+   */
+  currentUserId?: string;
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -53,7 +62,7 @@ function formatTimeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 30)}mo ago`;
 }
 
-export function FeedStoryCard({ story, activeTag, linkedPoints }: FeedStoryCardProps) {
+export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }: FeedStoryCardProps) {
   const navigate = useNavigate();
   const textRef = useRef<HTMLParagraphElement>(null);
   const [textExpanded, setTextExpanded] = useState(false);
@@ -168,7 +177,7 @@ export function FeedStoryCard({ story, activeTag, linkedPoints }: FeedStoryCardP
               ref={textRef}
               className={`text-foreground break-words text-sm ${textExpanded ? '' : 'line-clamp-6'}`}
             >
-              {/* P1212 §1 — no quote block on the feed card, therefore no quote label. */}
+              {/* P1212 §1 — the label is StoryVideoQuotes' own <h3>, never inline prose. */}
               {linkifyText(storyTextForDisplay(story.content, story.tags))}
             </p>
             {isOverflowing && !textExpanded && (
@@ -186,6 +195,25 @@ export function FeedStoryCard({ story, activeTag, linkedPoints }: FeedStoryCardP
               >
                 show less
               </button>
+            )}
+
+            {/* P1212 §4 — the quotes travel with the story, on every surface that shows it.
+                §1 took the bodies OUT of `content`; before this they were readable here only
+                because they sat inline, so removing them left the argument with no evidence.
+                No `onSeek`: there is no player on the feed, and StoryVideoQuotes' own fallback
+                turns each timecode into a link that opens the source at that second — which is
+                what §4's "timecodes only where clicking works" rule actually asks for.
+
+                `stopPropagation` because the card root is a link to the story: without it,
+                clicking a timecode navigates to the story instead of opening the source. */}
+            {normalizeVideoQuotes(story.videoQuotes).quotes.length > 0 && story.videoUrl && (
+              <div role="presentation" onClick={(e) => e.stopPropagation()}>
+                <StoryVideoQuotes
+                  videoUrl={story.videoUrl}
+                  quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
+                  subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
+                />
+              </div>
             )}
 
             {/* Tag pills */}
@@ -262,6 +290,7 @@ export function FeedStoryCard({ story, activeTag, linkedPoints }: FeedStoryCardP
                     authorAvatarColor={story.authorAvatarColor}
                     authorEarCount={story.authorEarsCount ?? 0}
                     authorHasPledged={story.authorHasPledged ?? false}
+                    currentUserId={currentUserId}
                   />
                 </ThreadLineItem>
               ))}

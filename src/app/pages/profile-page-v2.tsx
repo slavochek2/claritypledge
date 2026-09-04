@@ -70,6 +70,8 @@ import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
+import { stripAgentPrefix } from '@/lib/utils';
+import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { uploadStoryImage } from '@/app/data/story-image-service';
@@ -1329,8 +1331,11 @@ function StoryCardFull({
   };
 
   const linkedPoints = story.points || [];
-  // P1212 §1 — the quote label is StoryVideoQuotes' heading; this card renders no
-  // quote block, so it renders no heading either.
+  // P1212 §1 — the label belongs to StoryVideoQuotes' own <h3>, never to the prose. Strip
+  // it from `content` so the heading renders once, from the component that owns it.
+  // (This comment said "renders no quote block" until 2026-09-04, when §4 gave this surface
+  //  the block; the stripping is now what PREVENTS a double heading rather than what
+  //  suppresses a stray one.)
   const strippedContent = storyTextForDisplay(story.content, story.tags);
   const { isAgentAccountId: isAgentStory, isLoading: storyIdentityPending } = useAgentAccountIds();
   const storyIsAgent = isAgentStory(story.authorId);
@@ -1511,6 +1516,21 @@ function StoryCardFull({
                   </div>
                 )}
                 <p id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-8' : ''}`}>{linkifyText(strippedContent)}</p>
+                {/* P1212 §4 — the quotes travel with the story here too. Founder, on this exact
+                    surface: "If I send a profile of Yann LeCun to somebody, it should render the
+                    full card that we have, like with the video and the timestamps". §1 removed
+                    the inline bodies, so without this the profile shows the argument and none of
+                    the evidence. No `onSeek` — no player here; StoryVideoQuotes turns each
+                    timecode into a link into the source at that second. */}
+                {normalizeVideoQuotes(story.videoQuotes).quotes.length > 0 && story.videoUrl && (
+                  <div role="presentation" onClick={(e) => e.stopPropagation()}>
+                    <StoryVideoQuotes
+                      videoUrl={story.videoUrl}
+                      quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
+                      subjectName={stripAgentPrefix(story.authorName ?? author.name) ?? author.name}
+                    />
+                  </div>
+                )}
                 {strippedContent.length > STORY_THRESHOLD && (
                   <div role="presentation" onClick={(e) => e.stopPropagation()}>
                     <button

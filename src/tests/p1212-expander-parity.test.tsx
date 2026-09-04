@@ -50,7 +50,7 @@ vi.mock('@/app/contexts/agent-accounts-context', async (importOriginal) => {
 /** FeedPointCard reads the session for its position buttons; the expander does not
  *  depend on auth, so an anonymous viewer is the right default here. */
 vi.mock('@/auth', () => ({
-  useAuth: () => ({ session: null, user: null, isLoading: false }),
+  useAuth: () => ({ session: { user: { id: 'viewer-1' } }, user: { id: 'viewer-1' }, isLoading: false }),
 }));
 
 const navigate = vi.fn();
@@ -59,6 +59,12 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
+/**
+ * ENRICHED 2026-09-04. The previous fixture carried only id/statement/tags/visibility and the
+ * suite mocked an anonymous viewer — so it rendered, and certified, a card with ZERO interactive
+ * controls while the profile rendered three. Adversarial review counted them: profile 3, feed 0.
+ * A parity fixture that cannot express the fields under test cannot detect their absence.
+ */
 const POINTS: PointSummary[] = [
   {
     id: 'pt-1',
@@ -66,6 +72,8 @@ const POINTS: PointSummary[] = [
     tags: [],
     systemTags: [],
     visibility: 'public',
+    positionCounts: { agree: 2, disagree: 1 },
+    userPosition: null,
   },
   {
     id: 'pt-2',
@@ -73,8 +81,10 @@ const POINTS: PointSummary[] = [
     tags: [],
     systemTags: [],
     visibility: 'public',
+    positionCounts: { agree: 1 },
+    userPosition: null,
   },
-];
+] as PointSummary[];
 
 function makeStory(overrides: Partial<StoryWithAuthor> = {}): StoryWithAuthor {
   return {
@@ -164,6 +174,63 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     // a card rendered empty beside loose text would satisfy the count alone.
     expect(cards.some((c) => c.textContent?.includes(POINTS[0]!.statement))).toBe(true);
     expect(cards.some((c) => c.textContent?.includes(POINTS[1]!.statement))).toBe(true);
+  });
+
+  /**
+   * KEYBOARD, NOT MOUSE — added 2026-09-04 after adversarial review found this and the
+   * committed test could not.
+   *
+   * The card above it stops CLICK propagation on its container, so a mouse click on a linked
+   * point navigates once and every existing assertion passes. `keydown` is not stopped there,
+   * and the outer story card handles the same key — so Tab to a point, press Enter, and the
+   * app navigates twice and lands on the STORY, not the point. Keyboard users got a different
+   * destination from mouse users, and `fireEvent.click` is structurally blind to it.
+   */
+  it('Enter on a linked point navigates ONCE, to the point — not on to the story', () => {
+    renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
+
+    const card = screen.getAllByTestId('quoted-point-card')[0]!;
+    // `querySelector`, NOT `closest`: the point's own control is a DESCENDANT of the
+    // testid node. `closest` walks UP and finds the outer story card — a different control,
+    // firing on which proves nothing about propagation. First draft of this test did that
+    // and reported the fix as failing when it was working.
+    const target = card.querySelector('[role="button"]') ?? card;
+    fireEvent.keyDown(target, { key: 'Enter', code: 'Enter' });
+
+    expect(navigate.mock.calls, `expected one navigation, got ${JSON.stringify(navigate.mock.calls)}`).toHaveLength(1);
+    expect(navigate).toHaveBeenCalledWith(`/point/${POINTS[0]!.id}`);
+  });
+
+  it('Space behaves the same as Enter — one navigation, to the point', () => {
+    renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
+    const card = screen.getAllByTestId('quoted-point-card')[0]!;
+    // `querySelector`, NOT `closest`: the point's own control is a DESCENDANT of the
+    // testid node. `closest` walks UP and finds the outer story card — a different control,
+    // firing on which proves nothing about propagation. First draft of this test did that
+    // and reported the fix as failing when it was working.
+    const target = card.querySelector('[role="button"]') ?? card;
+    fireEvent.keyDown(target, { key: ' ', code: 'Space' });
+    expect(navigate.mock.calls).toHaveLength(1);
+  });
+
+  /**
+   * THE CONTROL COUNT — added 2026-09-04. Adversarial review rendered both surfaces and
+   * counted interactive controls inside the quoted card: profile 3, feed 0. The card was
+   * shared, so the difference came entirely from what each surface FEEDS it — the feed's
+   * query supplied no counts and no viewer position, and the card was handed no viewer.
+   * Sharing a component is not parity if only one caller fills its props.
+   */
+  it('renders the point position controls, not a read-only slab', () => {
+    renderFeedStoryCard({ linkedPoints: POINTS, currentUserId: 'viewer-1' });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
+    const card = screen.getAllByTestId('quoted-point-card')[0]!;
+    const controls = card.querySelectorAll('button');
+    expect(
+      controls.length,
+      'the feed card must offer the same position controls the profile does — 0 means the surface fed it nothing',
+    ).toBeGreaterThan(0);
   });
 
   it('singularises the count — "1 point", not "1 points"', () => {
