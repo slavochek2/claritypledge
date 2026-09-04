@@ -347,7 +347,11 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
                     currentUserId={currentUserId}
                     onPositionSelect={(pos) => handlePointPosition(point.id, pos)}
                     /* The six author props above are inert on THIS surface and that is not
-                       an oversight. QuotedPointCard gates its whole author header on
+                       an oversight — but "inert" is not the same as "would be right if they
+                       rendered", and an earlier version of this comment stopped at the first
+                       claim. They caption a POSITION, and the position they would caption is
+                       the story author's; see the prop contract on QuotedPointCardProps before
+                       supplying profileSubjectPosition here from anyone else. QuotedPointCard gates its whole author header on
                        `point.profileSubjectPosition`, which the feed's query deliberately
                        does not supply (see stories-service.interface.ts) — so the feed
                        shows the point and its controls, the profile additionally shows who

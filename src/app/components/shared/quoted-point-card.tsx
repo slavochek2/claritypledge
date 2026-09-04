@@ -38,6 +38,30 @@ const detailRoutes = {
 
 export interface QuotedPointCardProps {
   point: PointSummary;
+  /**
+   * THE SIX `author*` PROPS DESCRIBE THE PERSON WHOSE **POSITION** IS BEING SHOWN — not the
+   * person who wrote the point. The naming is misleading and the distinction is load-bearing,
+   * so it is stated here rather than left to be inferred from the call sites.
+   *
+   * They exist only to caption `point.profileSubjectPosition`, and the header that uses them
+   * is gated on it (below). The profile passes the profile SUBJECT and the subject's stance,
+   * which is coherent and is the whole point of the row: *"Yann LeCun disagrees with this"* is
+   * a true and useful thing to render above a point somebody else wrote.
+   *
+   * **They must be supplied consistently with `profileSubjectPosition`, from the same person.**
+   * A caller that opens the header by supplying a position from one person while passing these
+   * six from another renders a misattribution: `quotedIsAgent` is computed from `authorId`, so
+   * the agent chip, the drained chrome and the `AgentByline` would all describe the wrong
+   * party. That is not reachable today — the feed passes the story's author and supplies no
+   * position, so the header does not render at all — but it is one prop away, and the review
+   * that raised it read these props as naming the point's author, which is exactly the misread
+   * this comment exists to stop.
+   *
+   * Note what this component canNOT do: `PointSummary` carries no author field, and
+   * `getPointsForStories` selects none. So there is no way to render "who wrote this point"
+   * here even if a caller wanted to — any future need for that must add `points.author_id` to
+   * the query first, and must not reuse these six.
+   */
   authorId: string;
   authorName: string;
   authorAvatarUrl?: string;
