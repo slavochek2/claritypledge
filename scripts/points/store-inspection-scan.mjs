@@ -72,7 +72,7 @@ export const LITERAL_PATH = /(~|\$HOME|\$\{HOME\})\/\.local\/share/
 // `[[ -d x ]]` is as much an existence test as `[ -f x ]` — codex review 2026-09-04
 // reproduced both bypasses against the previous pattern.
 export const INSPECTION_VERB =
-  /(^|[\s`(|;&$]|\/)(ls|find|stat|tree|readlink|realpath|du|dir)(\s|$)|(^|[\s`(|;&])(test|\[{1,2})\s+-[a-zA-Z]{1,2}\s/
+  /(^|[\s`(|;&$]|\/)(ls|find|stat|tree|readlink|realpath|du|dir)(\s|$)|(^|[\s`(|;&])(test|\[{1,2})\s+-(e|f|d|L|h|s|r|w|x|b|c|p|S|G|O|N)\s/
 
 /** The one sanctioned naming, delimited so the exemption is a region, not a guess. */
 const SANCTION_OPEN = /<!--\s*store-naming:start\s*-->/
@@ -98,14 +98,31 @@ export function run(input = {}) {
       // silently exempted the whole remainder of the file: the narrow documented
       // carve-out becomes a blanket one, and the scanner still reports PASS. An
       // unbalanced marker now exempts NOTHING and is reported as a finding.
-      const opens = lines.filter(l => SANCTION_OPEN.test(l)).length
-      const closes = lines.filter(l => SANCTION_CLOSE.test(l)).length
-      if (opens !== closes) {
-        const at = lines.findIndex(l => SANCTION_OPEN.test(l) || SANCTION_CLOSE.test(l))
+      // A STATE MACHINE, not a count. Counting was the first repair and a second
+      // codex pass falsified it in one line: `end` followed by `start` BALANCES,
+      // so the count check passed and `on` stayed true through EOF — the precise
+      // fail-open this code claims to have closed, reachable by reordering rather
+      // than deleting. Reject closing-while-closed, opening-while-open, and open
+      // at EOF. The lesson is in the comment because the comment was the lie.
+      let bad = null
+      {
+        let on = false
+        for (let i = 0; i < lines.length && !bad; i++) {
+          if (SANCTION_OPEN.test(lines[i])) {
+            if (on) bad = { line: i + 1, why: 'a second `start` while the region is already open' }
+            on = true
+          } else if (SANCTION_CLOSE.test(lines[i])) {
+            if (!on) bad = { line: i + 1, why: 'an `end` with no matching `start`' }
+            on = false
+          }
+        }
+        if (!bad && on) bad = { line: lines.findIndex(l => SANCTION_OPEN.test(l)) + 1, why: 'the region is still open at end of file' }
+      }
+      if (bad) {
         findings.push({
-          file, line: at + 1,
-          reason: `unbalanced store-naming markers (${opens} start, ${closes} end) — the exemption is DISABLED for this file`,
-          text: (lines[at] ?? '').trim(),
+          file, line: bad.line,
+          reason: `malformed store-naming markers — ${bad.why}. The exemption is DISABLED for this file`,
+          text: (lines[bad.line - 1] ?? '').trim(),
         })
       } else {
         let on = false

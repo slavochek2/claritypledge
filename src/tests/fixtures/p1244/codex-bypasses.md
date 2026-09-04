@@ -11,3 +11,12 @@ Double-bracket is an existence test too:
 ```bash
 [[ -d "$DIARIZE_STORE" ]] && echo "already done"
 ```
+
+A string test is NOT a filesystem inspection and must stay clean:
+`[ -z "$DIARIZE_STORE" ] && echo unset`
+
+A file test is:
+
+```bash
+[ -d "$DIARIZE_STORE" ] && echo "already done"
+```

@@ -199,6 +199,24 @@ worth more than the regex tune it started as:
    a per-line parser, which reported a genuinely-wired module as unwired. Markdown treats a wrapped
    span as one span; the parser now does too.
 
+### Second review pass — REJECT, and it falsified my own repair
+
+decisions.md 2026-08-31 records that *"the first review does not certify what the fixes for its own
+findings introduce."* I fixed three findings and committed without a second pass, which is exactly
+what that entry forbids. Running it returned **REJECT** with six more findings. Two were defects
+**I had just introduced**, and both are now closed with fixtures:
+
+- **My "fail closed" comment was false.** The repair counted `start` and `end` markers. An `end`
+  followed by a `start` *balances*, so the count passed and the exemption stayed open to end of
+  file — the identical fail-open, reachable by reordering instead of deleting. Now a state machine
+  rejecting close-while-closed, open-while-open, and open-at-EOF.
+- **A false positive I created.** Widening the test operator to `-[a-zA-Z]{1,2}` made
+  `[ -z "$DIARIZE_STORE" ]` — a string test that inspects no filesystem — FLAG. Narrowed to file
+  test operators. A widening that adds a false positive is not a fix, which is the whole thesis of
+  this spec applied to its own patch.
+
+Four findings from that pass are **left open** and listed below with the two from the first pass.
+
 ## Open — deliberately not closed here
 
 Both are real, both are recorded rather than quietly dropped, and neither has a bounded fix.
@@ -213,9 +231,40 @@ the pipeline's prose and belongs in its own spec. **Do not describe this check a
 matches nothing. Every widening of this regex has cost false positives (P1210's revert, and `check`
 / `get` in this spec's first draft), and no finite verb list closes a natural-language surface. The
 options are a different mechanism — an explicit marker on legitimate asks, so the scanner checks a
-structure instead of guessing at prose — or accepting the limit and stating it. **The success
-message currently overclaims**: it says "zero founder-input asks after it" when it means "zero
-matching the known shapes." That sentence should be corrected whichever way this goes.
+structure instead of guessing at prose — or accepting the limit and stating it. The success message
+has been corrected to say what it means; the second review added two more evading forms (a long ask
+exceeding the 60-character window, and an ask wrapped across source lines, since this scanner still
+matches per physical line).
+
+**3. Naming a required input satisfies the input block.** The block check is a substring search for
+the noun, so a block containing *"Do not ask for the event tag or filing identity here"* reports both
+inputs as present and returns PASS. It proves the words appear, never that the block collects a
+value. Needs an affirmative declaration structure, which is a change to the skill files' format.
+
+**4. Glob enumeration evades the verb list.** `printf "%s\n" "$DIARIZE_STORE"/*` enumerates the
+store without using any listed command. Existence inference is a shell *behaviour*, not a fixed set
+of command names — the verb list is the wrong shape for it, and lengthening it will not converge.
+The durable fix is to constrain store access to the owning tool rather than to enumerate the ways of
+going around it.
+
+**5. A fenced block's language is ignored, and shell comments are not masked.** A ```` ```text ````
+example containing *"find the diarize-store entry"*, and a commented-out `# find "$DIARIZE_STORE"`,
+both FLAG. This is the prose-versus-command distinction reappearing one level down, inside the code
+spans themselves.
+
+### What these five have in common, and why the spec stops here
+
+Every remaining finding is the same shape: **a pattern that enumerates spellings, guarding a surface
+that has no finite list of spellings.** Verb lists, phrase lists and noun searches all converge on
+the same wall, and each widening so far has cost a false positive — twice in this spec alone, once
+in P1210 before it. The next move is not a longer list; it is a different mechanism (an explicit
+marker on legitimate access, so the scanner reads a structure instead of guessing at prose), and
+that changes the six skill files' format. **That belongs in its own spec, with the founder's call on
+whether the pipeline's prose should carry markup.**
+
+This spec's net effect is honest and worth keeping: three real bypasses closed, one live false
+negative closed, a measured false-positive rate of zero on the real files, and every finding above
+recorded with a reproduction instead of discovered again in six months.
 
 ## Related
 

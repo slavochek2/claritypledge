@@ -111,10 +111,28 @@ describe('P1244 — codex-review bypasses, closed', () => {
     expect(units[0].startLine).toBe(3)
   })
 
-  it('unbalanced store-naming markers DISABLE the exemption and are reported', () => {
+  it('a string test is not a filesystem inspection — no false positive on [ -z ]', () => {
+    // Introduced by the first repair (`-[a-zA-Z]{1,2}`) and caught by the SECOND
+    // codex pass. A widening that adds a false positive is not a fix.
+    const r = storeScan({ files: [fx('codex-bypasses.md')] })
+    const t = r.findings.map((f: any) => f.text).join(' | ')
+    expect(t).not.toMatch(/-z/)
+    expect(t).toMatch(/\[ -d/)
+  })
+
+  it('markers that BALANCE but are misordered still disable the exemption', () => {
+    // `end` then `start` passes a count check and leaves the region open to EOF.
+    // The counting repair claimed to fail closed and did not.
+    const r = storeScan({ files: [fx('misordered-sanction/docs/points-process.md')] })
+    expect(r.verdict).toBe('FLAG')
+    expect(r.findings.some((f: any) => /malformed store-naming/.test(f.reason))).toBe(true)
+    console.log('[P1244 codex-2 F1]', r.detail)
+  })
+
+  it('an unclosed store-naming marker DISABLES the exemption and is reported', () => {
     const r = storeScan({ files: [fx('unbalanced-sanction/docs/points-process.md')] })
     expect(r.verdict).toBe('FLAG')
-    expect(r.findings.some((f: any) => /unbalanced store-naming/.test(f.reason))).toBe(true)
+    expect(r.findings.some((f: any) => /malformed store-naming/.test(f.reason))).toBe(true)
     console.log('[P1244 codex F5]', r.detail)
   })
 })
