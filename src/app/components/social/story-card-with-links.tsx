@@ -245,6 +245,26 @@ export function StoryCardWithLinks({
     : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-gray-200 overflow-hidden cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`;
 
   return (
+    /*
+     * P1212 — A LATENT DEAD END, RECORDED BECAUSE NO TEST CAN SEE IT.
+     *
+     * `disableNavigation` strips role, tabIndex, onClick and onKeyDown from this root AND
+     * (at the "Open story" button below) removes the escape hatch. On an AGENT story that
+     * combination leaves a card carrying the byline, the chip, the video and the verbatim
+     * quotes with NO route to the story page — the surface that used to be the only home of
+     * the operator disclosure.
+     *
+     * It does not fire today, and the reason is the part worth writing down: both callers
+     * that pass it (`landing-v4.tsx:357,759` and `usp-contrast-demo.tsx:84,92`) hand in
+     * hardcoded fixture objects and fetch nothing, so `isAgentAccountId(story.authorId)` is
+     * false there and no agent chrome ever renders. That is a property of the CALLERS, not
+     * of this component — pass `disableNavigation` with real fetched data and the dead end
+     * appears silently, with nothing red to show for it.
+     *
+     * Since 2026-09-04 the footer renders on this surface itself, so the disclosure no
+     * longer depends on that navigation. Keep both: the footer is the fix, this note is why
+     * the prop still deserves a look before anyone points it at live data.
+     */
     <div
       role={!isDetailView && !disableNavigation ? 'button' : undefined}
       tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
