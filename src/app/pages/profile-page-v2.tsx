@@ -68,6 +68,7 @@ import {
 } from "@/app/components/shared";
 import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
+import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { stripAgentPrefix } from '@/lib/utils';
@@ -1554,6 +1555,16 @@ function StoryCardFull({
                   </div>
                 )}
               </>
+            )}
+
+            {/* P1212 §2 — attribution level 3 of 3, on the surface most likely to be
+                mistaken for the subject's own page. Not shown while editing: the edit view
+                is the author's own working surface, not a reader's. */}
+            {!isEditing && storyIsAgent && !storyIdentityPending && (
+              <AgentStoryFooter
+                name={story.authorName ?? author.name}
+                hasQuotes={normalizeVideoQuotes(story.videoQuotes).quotes.length > 0}
+              />
             )}
 
             {/* P503: Tag pills */}

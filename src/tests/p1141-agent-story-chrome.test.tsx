@@ -145,14 +145,14 @@ describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', 
 });
 
 describe('p1141 DW-7 / RD-1 — attribution level 2: the footer, verbatim', () => {
-  it('leads with the machine and names the quote exception second', () => {
+  it('leads with the agent account and names the quote exception second', () => {
     wrap(<AgentStoryFooter name="Agent · Jane Doe" />);
     const text = screen.getByTestId('agent-story-footer').textContent ?? '';
     expect(text).toContain(
-      'A machine account operated by ClarityPledge wrote this reading of Jane Doe.'
+      'An agent account operated by ClarityPledge wrote this on Jane Doe.'
     );
     expect(text).toContain(
-      "Nothing here is Jane Doe's own words except the quotes, which come from the linked video."
+      'Everything except the quotes is machine-written; the quotes come from the linked video.'
     );
   });
 
@@ -183,7 +183,7 @@ describe('p1141 DW-7 / RD-1 — attribution level 2: the footer, verbatim', () =
     for (const hasQuotes of [true, false]) {
       const view = wrap(<AgentStoryFooter name="Agent · Jane Doe" hasQuotes={hasQuotes} />);
       expect(view.getByTestId('agent-story-footer').textContent).toContain(
-        'A machine account operated by ClarityPledge wrote this reading of Jane Doe.'
+        'An agent account operated by ClarityPledge wrote this on Jane Doe.'
       );
       view.unmount();
     }
@@ -209,7 +209,7 @@ describe('p1141 DW-7 / RD-2 — attribution level 3: the link resolves', () => {
   it('carries the UI Contract label and points at /machines', () => {
     wrap(<AgentStoryFooter name="Agent · Jane Doe" />);
     const link = screen.getByTestId('agent-story-footer-link');
-    expect(link.textContent).toBe('How machine accounts work →');
+    expect(link.textContent).toBe('How agent accounts work →');
     expect(link.getAttribute('href')).toBe('/machines');
   });
 

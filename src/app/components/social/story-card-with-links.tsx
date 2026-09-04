@@ -30,6 +30,7 @@ import { StoryMedia } from '@/app/components/shared/story-media';
 import { stripAgentPrefix } from '@/lib/utils';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
+import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
@@ -376,6 +377,16 @@ export function StoryCardWithLinks({
                   subjectName={stripAgentPrefix(author.name) ?? author.name}
                 />
               </div>
+            )}
+
+            {/* P1212 §2 — attribution level 3 of 3. See feed-story-card.tsx for the reason
+                this arrived late: §4 propagated the evidence to this surface and the
+                disclosure that frames it did not follow. */}
+            {isAgent && !identityPending && (
+              <AgentStoryFooter
+                name={author.name}
+                hasQuotes={normalizeVideoQuotes(story.videoQuotes).quotes.length > 0}
+              />
             )}
 
             {/* P491: Tag pills — after text, before stats */}

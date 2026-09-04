@@ -143,8 +143,8 @@ describe('p1141 — every UI Contract and RD-1 string appears verbatim where it 
     // checked twice and the second slot doing nothing. A deletion that leaves a copy of
     // its neighbour behind looks like coverage and is not.
     ['src/app/components/shared/story-video-quotes.tsx', 'Supporting quotes from {subjectName}'],
-    ['src/app/components/shared/agent-story-footer.tsx', 'A machine account operated by ClarityPledge wrote this reading of {fullName}.'],
-    ['src/app/components/shared/agent-story-footer.tsx', 'How machine accounts work →'],
+    ['src/app/components/shared/agent-story-footer.tsx', 'An agent account operated by ClarityPledge wrote this on {fullName}.'],
+    ['src/app/components/shared/agent-story-footer.tsx', 'How agent accounts work →'],
   ];
 
   it.each(CASES)('%s carries %s', (file, needle) => {
@@ -156,8 +156,12 @@ describe('p1141 — every UI Contract and RD-1 string appears verbatim where it 
     // from a conditional (a no-quotes story must not claim quotes exist — blind
     // review round 3, defect 1), so it is split across JSX lines in the file
     // while still reaching the reader verbatim. The reader is what RD-1 binds.
+    // Reworded by P1212 §2 (founder, 2026-09-04) along with the first sentence. The
+    // exception is still named and still second; "machine-written" survives HERE on
+    // purpose — it describes how the words were produced, which is what this sentence is
+    // for, and is not the account's noun.
     const footer = read('src/app/components/shared/agent-story-footer.tsx');
-    expect(footer).toContain('own words except the quotes, which come from the linked');
+    expect(footer).toContain('Everything except the quotes is machine-written; the quotes come from the linked');
     expect(footer).toContain('video.');
   });
 

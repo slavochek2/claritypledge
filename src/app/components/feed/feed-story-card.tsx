@@ -23,6 +23,7 @@ import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { stripAgentPrefix } from '@/lib/utils';
 import { AgentByline } from '@/app/components/shared/agent-byline';
+import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
 import { pointsService } from '@/app/data/points-service';
@@ -253,6 +254,20 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
                   subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
                 />
               </div>
+            )}
+
+            {/* P1212 §2, founder decision 2026-09-04 — attribution level 3 of 3, now on THIS
+                surface too. §4 put the video and the verbatim quotes on the feed; the
+                disclosure that frames them stayed on the two surfaces P1141 gave it, so a
+                feed reader got a real person's words with nothing saying who operates the
+                account writing around them. Gated on identityPending for the same reason
+                every other agent branch is: the registry fails closed, and reading isAgent
+                while it loads renders an agent story as a human one. */}
+            {isAgent && !identityPending && (
+              <AgentStoryFooter
+                name={story.authorName}
+                hasQuotes={normalizeVideoQuotes(story.videoQuotes).quotes.length > 0}
+              />
             )}
 
             {/* Tag pills */}
