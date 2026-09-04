@@ -44,7 +44,7 @@ export async function createTestAgentAccount(options: {
   const subjectKey = options.subjectKey ?? `e2e-test-subject-key-${unique}`;
   const operatorName = options.operatorName ?? 'E2E Test Operator';
   const name = `Agent · ${subject}`;
-  const slug = `machine-e2e-${unique}`;
+  const slug = `agent-e2e-${unique}`;   // P1212: the reserved namespace was renamed; create_or_reuse_agent_account now REQUIRES "agent-".
   const email = `e2e-agent-${unique}@claritypledge-test.com`;
 
   console.log(`[TEST HELPER] Creating test agent account: ${name} (subject_key=${subjectKey})`);

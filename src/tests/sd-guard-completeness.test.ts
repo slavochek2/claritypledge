@@ -69,6 +69,29 @@ const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
   // structurally unnecessary — callers can no longer supply a user_id, so
   // impersonation via this RPC is impossible regardless of the guard.
   "get_inbox_items:Unauthorized: cannot query another user's inbox",
+
+  // P1212 (20260904170000_p1212_enforce_agent_slug_namespace.sql) renamed the reserved
+  // agent URL namespace from "machine-" to "agent-". Two RAISE messages disappear; neither
+  // is a dropped guard.
+  //
+  // 1. upsert_my_profile. The machine- refusal was not removed, it was WIDENED: the two
+  //    separate ifs became one condition testing BOTH predicates, under a single message
+  //    naming both prefixes. "machine-" is still refused — asserted by name in
+  //    e2e/integration/p1104-agent-accounts-migration.spec.ts, which passes the full
+  //    original reserved-slug table (plain, underscore, full-stop, uppercase, Cyrillic
+  //    homoglyph, bare word, three combining-mark forms) through both the RPC and the
+  //    direct-UPDATE path, and adds the same table for "agent-". This canary matches on the
+  //    message string, so a rewording reads to it as a removal.
+  "upsert_my_profile:profile slug may not use the reserved \"machine-\" prefix",
+
+  // 2. create_or_reuse_agent_account. This one IS a real removal, and it is the point of
+  //    the change: the positive assertion moved from REQUIRING "machine-" to REQUIRING
+  //    "agent-". Requiring both is impossible, and requiring the retired one would freeze
+  //    the rename. Nothing is unguarded — an agent account still cannot be created outside
+  //    a reserved namespace, and the retired namespace is explicitly asserted to no longer
+  //    satisfy the requirement (same spec file, "an agent account may no longer be created
+  //    in the RETIRED machine- namespace").
+  "create_or_reuse_agent_account:an agent account slug must carry the reserved \"machine-\" prefix; got %",
 ]);
 
 /**

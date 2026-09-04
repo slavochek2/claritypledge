@@ -166,7 +166,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-authed-rpc-should-fail-${Date.now()}`,
       p_email: authedUser.email,
       p_name: 'Agent · Should Not Be Created',
-      p_slug: `machine-should-not-be-created-${Date.now()}`,
+      p_slug: `agent-should-not-be-created-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Should Not Work',
@@ -183,7 +183,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-service-role-rpc-${Date.now()}`,
       p_email: `p1104-sr-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Service Role Test Subject',
-      p_slug: `machine-service-role-test-${Date.now()}`,
+      p_slug: `agent-service-role-test-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Migration Test Operator',
@@ -223,7 +223,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-empty-operator-${Date.now()}`,
       p_email: `p1104-eo-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · No Operator',
-      p_slug: `machine-no-operator-${Date.now()}`,
+      p_slug: `agent-no-operator-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: '   ',
@@ -249,7 +249,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: subjectKey,
       p_email: `p1104-reuse-a-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Reuse Test Subject',
-      p_slug: `machine-reuse-test-${Date.now()}`,
+      p_slug: `agent-reuse-test-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Migration Test Operator',
@@ -267,7 +267,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       // than reusing, these values would have to land somewhere.
       p_email: `p1104-reuse-b-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Reuse Test Subject (second call)',
-      p_slug: `machine-reuse-test-second-${Date.now()}`,
+      p_slug: `agent-reuse-test-second-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       // The SAME operator. Reuse under a different operator is now refused outright —
@@ -477,6 +477,21 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     ['combining low line splitting the token', `m${String.fromCharCode(818)}achine-real-public-figure`],
     ['combining acute splitting the token', `m${String.fromCharCode(769)}achine-real-public-figure`],
     ['combining mark mid-word', `mach${String.fromCharCode(775)}ine-real-public-figure`],
+
+    // P1212 (2026-09-04): the namespace was renamed to "agent-" for CREATION, and the
+    // rename did NOT open "machine-" back up — every entry above still belongs here.
+    // A retired namespace is a MORE attractive impersonation target than a live one,
+    // because the links and screenshots already in circulation point at it.
+    //
+    // These entries are the new half: the client guards must refuse "agent-" too, on both
+    // the RPC and the direct-UPDATE path. Before 20260904170000 the predicate existed and
+    // NOTHING called it, so every one of these was mintable by any authenticated user.
+    ['P1212 the plain agent form', 'agent-real-public-figure'],
+    ['P1212 underscore separator', 'agent_real_public_figure'],
+    ['P1212 uppercase', 'AGENT-REAL-PUBLIC-FIGURE'],
+    ['P1212 Cyrillic homoglyphs', '\u0430g\u0435nt-real-public-figure'],
+    ['P1212 the bare word', 'agent'],
+    ['P1212 combining low line splitting the token', `a${String.fromCharCode(818)}gent-real-public-figure`],
   ];
 
   for (const [label, slug] of reservedSlugs) {
@@ -508,7 +523,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
 
   // The control. Without it the reservation could widen into a land-grab and nothing
   // would notice — "machinery" and "my-machine" are ordinary words.
-  for (const slug of ['machinery-corp', 'my-machine', 'sam-harris']) {
+  for (const slug of ['machinery-corp', 'my-machine', 'sam-harris', 'agentic-systems', 'my-agent']) {
     test(`an ordinary slug is still available — ${slug}`, async () => {
       const unique = `${slug}-${Date.now()}`;
       const { error } = await authed.rpc('upsert_my_profile', {
@@ -548,7 +563,34 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     });
 
     expect(error, 'an agent holding a bare person URL must be refused').not.toBeNull();
-    expect(error!.message).toMatch(/machine-/);
+    expect(error!.message).toMatch(/agent-/);
+  });
+
+  test('P1212: an agent account may no longer be created in the RETIRED machine- namespace', async () => {
+    // The half of a rename that is easy to leave undone. Swapping the REQUIREMENT from
+    // machine- to agent- is what makes new accounts land on the new URLs; without this
+    // assertion the requirement could silently accept either and the namespace would
+    // fork — half the agents on one prefix, half on the other, and no reader able to
+    // learn which spelling means "not this person's own page".
+    //
+    // The client-side reservation on machine- is unchanged and asserted above; only the
+    // creation requirement moved.
+    const proposedId = await mintAuthUser();
+    strayAuthUserIds.push(proposedId);
+
+    const { error } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
+      p_profile_id: proposedId,
+      p_subject_key: `p1212-retired-ns-${Date.now()}`,
+      p_email: `p1212-retired-ns-${Date.now()}@claritypledge-test.com`,
+      p_name: 'Agent · Real Public Figure',
+      p_slug: `machine-real-public-figure-${Date.now()}`,
+      p_avatar_url: null,
+      p_avatar_color: '#0044CC',
+      p_operator_name: 'Test Operator',
+    });
+
+    expect(error, 'the retired machine- namespace must no longer satisfy the requirement').not.toBeNull();
+    expect(error!.message).toMatch(/agent-/);
   });
 
   test('the trust-column pinning still works — the name guard did not disable it', async () => {
@@ -580,7 +622,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-bare-name-${Date.now()}`,
       p_email: `p1104-bare-${Date.now()}@claritypledge-test.com`,
       p_name: 'A Real Public Figure',
-      p_slug: `machine-bare-${Date.now()}`,
+      p_slug: `agent-bare-${Date.now()}`,
       p_avatar_url: null,
       p_avatar_color: '#0044CC',
       p_operator_name: 'Test Operator',
@@ -611,7 +653,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     const { data: first, error: e1 } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
       p_profile_id: firstId, p_subject_key: `  ${key}  `,
       p_email: `p1104-trim-a-${Date.now()}@claritypledge-test.com`,
-      p_name: 'Agent · Trim Subject', p_slug: `machine-trim-a-${Date.now()}`,
+      p_name: 'Agent · Trim Subject', p_slug: `agent-trim-a-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
     });
     expect(e1).toBeNull();
@@ -622,7 +664,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
     const { data: second, error: e2 } = await supabaseAdmin.rpc('create_or_reuse_agent_account', {
       p_profile_id: secondId, p_subject_key: key,
       p_email: `p1104-trim-b-${Date.now()}@claritypledge-test.com`,
-      p_name: 'Agent · Trim Subject', p_slug: `machine-trim-b-${Date.now()}`,
+      p_name: 'Agent · Trim Subject', p_slug: `agent-trim-b-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
     });
     expect(e2).toBeNull();
@@ -638,7 +680,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: fixtureAccount.subjectKey,
       p_email: `p1104-op-${Date.now()}@claritypledge-test.com`,
       p_name: 'Agent · Migration Fixture Subject',
-      p_slug: `machine-op-${Date.now()}`,
+      p_slug: `agent-op-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC',
       p_operator_name: 'A Completely Different Operator',
     });
@@ -666,7 +708,7 @@ test.describe('Migration: P1104 agent_accounts table + RPCs', () => {
       p_subject_key: `p1104-session-${Date.now()}`,
       p_email: email,
       p_name: 'Agent · Session Subject',
-      p_slug: `machine-session-${Date.now()}`,
+      p_slug: `agent-session-${Date.now()}`,
       p_avatar_url: null, p_avatar_color: '#0044CC', p_operator_name: 'Test Operator',
     });
     expect(rpcError).toBeNull();

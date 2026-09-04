@@ -74,7 +74,7 @@ On this branch:
   slate `#39424B` (see Step 5's rule below). On this branch the initials placeholder is the only thing
   rendering, so the default `#0044CC` would make the account look precisely like an ordinary member
   who has not uploaded a photo. Every other marker still holds: the `Agent · <Subject>` display name,
-  the `machine-<subject-slug>` slug, the drained card, the chip, the `Operated by` footer line.
+  the `agent-<subject-slug>` slug, the drained card, the chip, the `Operated by` footer line.
 - **Record the absence as deliberate, in writing.** Append `portrait: none (deliberate,
   founder-approved <date>)` to the subject's line in `.private/logs/agent-registry.log`, alongside
   `subject_key`. This written record is what `/slava:disagreement:publish` reads to tell a deliberate
@@ -148,7 +148,9 @@ Two writes, in this order. The reference implementation is `e2e/helpers/test-age
 
 The display name **must** be `Agent · <Subject Name>`. It is no longer a convention: `IF NOT is_reserved_agent_name(p_name) THEN RAISE` (`20260819160000:264`), hardened across three later migrations against zero-width, variation-selector and combining-diacritic lookalikes. The name is the only marker channel that reaches off-platform surfaces and the only one that survives a pending or failed registry read.
 
-The slug **must** be `machine-<subject-slug>`, and this is enforced the same way for the same reason: `IF NOT is_reserved_machine_slug(p_slug) THEN RAISE` (`20260824120000`). The URL is the one surface where **none** of the other markers travel — no chip, no drained card, no footer, no `Operated by` line renders until someone clicks, so until then the address itself is the entire claim. `/p/sam-harris` reads as Sam Harris's own page. `/p/machine-sam-harris` cannot. The word is `machine`, not `agent`, because that is what every reader already sees (the chip, the `/machines` explainer, the footer line) — and because "agent" reads in English as *representative of*, the one implication these accounts must never carry.
+The slug **must** be `agent-<subject-slug>`, and this is enforced the same way for the same reason: `IF NOT is_reserved_agent_slug(p_slug) THEN RAISE` (`20260904170000`). The URL is the one surface where **none** of the other markers travel — no chip, no drained card, no footer, no `Operated by` line renders until someone clicks, so until then the address itself is the entire claim. `/p/sam-harris` reads as Sam Harris's own page. `/p/agent-sam-harris` cannot.
+
+**The word was `machine` until 2026-09-04 and is now `agent` — P1212 §2, founder decision.** The earlier reasoning was that `machine` is what every reader already sees and that "agent" reads in English as *representative of*. The founder overruled the first half on evidence — *"machine is not a word that people use"* — and the byline that ships alongside this reads `AGENT · on {Full Name}`, where the preposition carries the account→subject relation that the *representative-of* objection was about. The URL cannot hold a preposition, so it inherits the marker without the repair; that is a known weakening of one channel, taken deliberately to keep every channel spelling the same word. **`machine-` is NOT reopened.** It stays refused to clients forever (`20260904170000`), because a retired namespace is a more attractive impersonation target than a live one — the screenshots and pasted links already in circulation point at it.
 
 The `avatar_color` **must be a desaturated slate**, matching the portrait palette
 (`gen-agent-avatar.md:211` — "cool slate greys… amber sensor eyes as the only saturated
@@ -223,7 +225,7 @@ SELECT count(*) FROM agent_accounts;
 - [ ] **On the Step 2b branch only:** `p_avatar_url` was passed as `NULL` (not `''`, not a placeholder), `avatar_color` is `#39424B`, and `portrait: none (deliberate, founder-approved <date>)` was written to `.private/logs/agent-registry.log` and read back.
 - [ ] **The gate received an explicit affirmative** on the operator's own turn; silence treated as refusal.
 - [ ] **The display name is `Agent · <Subject>`** and `is_reserved_agent_name` returns true on the target.
-- [ ] **The slug is `machine-<subject-slug>`** and `is_reserved_machine_slug` returns true on the target.
+- [ ] **The slug is `agent-<subject-slug>`** and `is_reserved_agent_slug` returns true on the target. (`machine-` is refused by `create_or_reuse_agent_account` since `20260904170000`.)
 - [ ] **The `avatar_color` is a desaturated slate** (`#39424B` unless justified) — never the `#0044CC` default.
 - [ ] **A lost response was handled by CHECKING, never by blind cleanup.**
 - [ ] **Reuse returning a different id was compared**, and only the freshly-minted auth user was removed.
