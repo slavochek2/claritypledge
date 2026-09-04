@@ -6,6 +6,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-04 [process]: Partial delivery carries the credibility of delivery — count a reviewer's FINDINGS, not its reports
+
+**Context:** P1212's two adversarial reviewers both reported. The agent-level ratio was a clean
+**2 of 2**, so `epistemic.md` gate 9b was satisfied by construction. Three of their messages
+nevertheless truncated mid-sentence, and **two findings never arrived**. Both were real: one led to
+an accessibility defect this branch had itself worsened (the feed announcing a story card as its
+whole concatenated subtree), and chasing it surfaced a fourth unguarded keyboard handler the
+reviewer had never flagged. They surfaced only because the reviewer's own closing tally listed nine
+findings and a comparison against the seven actually received did not reconcile.
+
+**Decision:** Record the gap; **do not edit `epistemic.md` here** — a change to `.claude/rules/`
+runs through `/slava:maintain:claude-md` first, and this is one session's n=1.
+
+The gap is precise. Gate 9b's unit is the **agent**: *"state `<reports received> of <agents
+spawned>`"*, written against a subagent that goes silent. It has no clause for a report that
+**starts arriving and stops**, and that case defeats its mechanism rather than triggering it — the
+gate asks you to notice an absence, and a partially-delivered report presents as a presence. A
+message that ends mid-sentence looks exactly like a message that ended.
+
+**The reconciliation that worked, and it is cheap:** when a reviewer states a total, compare it
+against the findings actually in hand and name the difference. Discrepancy in *either* direction is
+the signal — the same tally also listed two findings as outstanding that had already been fixed.
+
+**Alternatives rejected:** *Treating this as ordinary flakiness* — the failure is systematic, not
+random: it recurred on three of five messages and always at the same place, the size limit.
+*Inferring completeness from a report that reads finished* — every truncated message here ended on
+a plausible-looking boundary. *Re-running the reviewer wholesale* — a re-run produces a fresh
+report against changed code; two of the re-sent findings came back stale for exactly that reason,
+describing pre-fix state and needing verification before dismissal.
+
+**Consequences:** (Status: proposed) Worth generalising past subagents to any channel with a size
+limit that truncates rather than erroring — a tool result, a piped log, a paginated API. The
+existing "coverage" clause in `~/.claude/CLAUDE.md` (*"confirm pagination ran to exhaustion"*) is
+the same shape for reads and does not reach a pushed report. If a second instance appears, that is
+the point to take it to the rules gate; one instance is a decision-log entry.
+
+**References:** [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9b · [features/done/2026-06-10/p1212_agent_story_card_contract_drift_across_surfaces.md](../features/done/2026-06-10/p1212_agent_story_card_contract_drift_across_surfaces.md)
+
+---
+
 ## 2026-09-04 [technical]: A test that hand-builds its own input exercises the reader and never the builder — twice in one spec, both times a live defect under a green suite
 
 **Context:** P1212 ran two adversarial reviews over a branch whose suite was fully green (3729
