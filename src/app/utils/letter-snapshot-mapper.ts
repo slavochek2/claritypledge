@@ -263,6 +263,14 @@ export function docStoryToSnapshot(docStory: DocStory): LetterStorySnapshot {
       // P1212 §4b: preview path mirrors what the seal RPC writes, so the builder and the
       // reader agree on the shape — the drift between them was the root cause of P749.
       storyAuthorId: docStory.story.authorId || undefined,
+      // The NAME must travel with the id, on this path as much as on the seal RPC's.
+      // Sealing only the id is worse than sealing neither: the surface picks agent chrome
+      // from the id, finds no name beside it, and reaches for the only other name present
+      // — the SENDER's. The preview then reads "AGENT on <the human who sent the letter>".
+      // Shipped that way until 2026-09-04; the two mapper tests that were meant to cover
+      // this both hand-built their point_config, so they exercised the reader and never
+      // the builder.
+      storyAuthorName: docStory.story.authorName || undefined,
       points: docStory.story.points.map((p) => ({
         id: p.id,
         text: p.statement,

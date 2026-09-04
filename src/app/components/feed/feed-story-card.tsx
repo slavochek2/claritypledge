@@ -25,6 +25,8 @@ import { stripAgentPrefix } from '@/lib/utils';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
+import { pointsService } from '@/app/data/points-service';
+import type { Position } from '@/app/types';
 import { normalizeVideoQuotes } from '@/lib/video';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
 
@@ -84,6 +86,30 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
     navigate(`/story/${story.id}`);
   };
 
+  /**
+   * P1212: the WRITE half of the position controls this section put on the feed.
+   *
+   * `QuotedPointCard.handlePositionClick` sets its optimistic local state and then calls
+   * `onPositionSelect?.()`. The profile passed that prop and the feed did not, so the
+   * button lit up, the count moved, and nothing was persisted — the position was gone on
+   * the next load. Rendering the control was never the claim; recording the position is,
+   * and a control that only appears to work is worse than the read-only slab it replaced.
+   *
+   * Toggle-off is deliberately NOT handled here. On the feed point card that path goes
+   * through `useRemovePositionGuard`, which warns when the position has linked stories
+   * (P401); silently removing it from this surface would bypass that warning. Until this
+   * card carries the dialog too, a toggle-off keeps its optimistic local state and writes
+   * nothing — the same behaviour as before this fix, and only for that one case.
+   */
+  const handlePointPosition = async (pointId: string, position: Position) => {
+    if (!currentUserId || position === null) return;
+    try {
+      await pointsService.setPosition(pointId, currentUserId, position);
+    } catch {
+      toast.error('Failed to save position.');
+    }
+  };
+
   return (
     <div
       role="button"
@@ -92,6 +118,19 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={handleClick}
       onKeyDown={(e) => {
+        // P1212: only the CARD ITSELF activates on Enter/Space. Without this target check
+        // the handler fires for a keydown on any control nested inside — the point
+        // expander, a position button, a quote timecode — and because it calls
+        // preventDefault() it CANCELS that control's own activation before navigating. A
+        // keyboard reader pressing Enter on "2 points" was thrown to the story detail page
+        // instead of expanding it, while the mouse path worked, because the
+        // role="presentation" wrapper below stops onClick and not onKeyDown.
+        //
+        // Guarding at the root rather than per-control is the point: the alternative is
+        // remembering to add stopPropagation to every interactive element this card will
+        // ever contain, and the two added in this very spec are the proof that it gets
+        // forgotten.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           handleClick();
@@ -291,6 +330,18 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
                     authorEarCount={story.authorEarsCount ?? 0}
                     authorHasPledged={story.authorHasPledged ?? false}
                     currentUserId={currentUserId}
+                    onPositionSelect={(pos) => handlePointPosition(point.id, pos)}
+                    /* The six author props above are inert on THIS surface and that is not
+                       an oversight. QuotedPointCard gates its whole author header on
+                       `point.profileSubjectPosition`, which the feed's query deliberately
+                       does not supply (see stories-service.interface.ts) — so the feed
+                       shows the point and its controls, the profile additionally shows who
+                       holds a position on it and where they stand.
+                       SAY IT PLAINLY: the two surfaces share the component and do NOT
+                       render identically. "Rendered through QuotedPointCard" is what the
+                       parity test asserts and all it asserts. Whether the feed should carry
+                       the subject's stance is an OPEN FOUNDER QUESTION recorded in the
+                       spec, not a settled piece of §5. */
                   />
                 </ThreadLineItem>
               ))}

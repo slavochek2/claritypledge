@@ -397,6 +397,49 @@ describe('P1212 §4b — the MAPPER carries the story author out of the snapshot
   });
 
   /**
+   * THE SAME BUG ON THE OTHER SIDE OF THE SEAM — found 2026-09-04 by an adversarial review,
+   * after the two tests above were written and passing.
+   *
+   * Both tests above hand-build a `point_config` containing `storyAuthorName`. That proves
+   * the READER uses the field. It cannot prove the BUILDER writes it — and `docStoryToSnapshot`,
+   * the preview path, wrote `storyAuthorId` and not `storyAuthorName`. So the previewing
+   * sender saw exactly the misattribution the second pass existed to prevent: agent chrome
+   * picked from the id, the sender's name printed beside it, because `authorName` fell
+   * through to `authorProfile.name`.
+   *
+   * The lesson is the file's own: an assertion that constructs the input it verifies tests
+   * the half you wrote by hand. This one goes through the builder, so breaking either side
+   * breaks it.
+   */
+  it('the PREVIEW path carries the author name too, not just the id', () => {
+    const snap = docStoryToSnapshot({
+      story_id: 'story-9',
+      position: 0,
+      story: {
+        id: 'story-9',
+        content: 'A machine-written reading.',
+        title: '',
+        imageUrl: '',
+        videoUrl: '',
+        authorId: 'agent-1',
+        authorName: 'Agent · Yann LeCun',
+        points: [],
+      },
+      point_config: {},
+    } as never);
+
+    const config = snap.point_config as { storyAuthorId?: string; storyAuthorName?: string };
+    expect(config.storyAuthorId).toBe('agent-1');
+    expect(config.storyAuthorName).toBe('Agent · Yann LeCun');
+
+    // The round trip is the claim that matters: preview and sealed must agree.
+    const story = snapshotToStoryWithPoints(snap as never, { name: 'Human Sender' });
+    expect(story.authorId).toBe('agent-1');
+    expect(story.authorName).toBe('Agent · Yann LeCun');
+    expect(story.authorName).not.toBe('Human Sender');
+  });
+
+  /**
    * THE RENDER PROBE — this is the assertion that would have caught it, and no mapper-level
    * test can replace it. The mapper returning the right fields is necessary; what the reader
    * SEES is the claim. Adapted from the adversarial reviewer's probe (codex, 2026-09-04),

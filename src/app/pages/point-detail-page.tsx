@@ -429,6 +429,12 @@ export function PointDetailPage() {
       visibility: s.visibility,
       linkedPointIds: [],
       understoodCount: s.understoodCount,
+      // P1212 §4: same conversion, same omission as feed-point-card's. QuotedStory renders
+      // the media and the quote block when they are present, and this converter is the
+      // only reason the embed surface would not show them.
+      imageUrl: s.imageUrl,
+      videoUrl: s.videoUrl,
+      videoQuotes: s.videoQuotes,
     }));
 
     return (

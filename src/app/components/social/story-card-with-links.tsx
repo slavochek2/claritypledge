@@ -251,6 +251,10 @@ export function StoryCardWithLinks({
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={!isDetailView && !disableNavigation ? (e) => {
+        // P1212: see feed-story-card.tsx. Only the card root activates; a keydown on a
+        // nested control (the quote timecodes §4 added, the point links) must keep its own
+        // default, not be cancelled by this handler and turned into a navigation.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           handleCardClick();

@@ -133,8 +133,15 @@ describe('p1141 — every UI Contract and RD-1 string appears verbatim where it 
     // this case green purely because the superseded wording survives in a doc comment
     // explaining the change. A source grep cannot tell a rendered string from prose
     // about it; that is this spec's most-repeated defect, so these two moved out of
-    // CASES and into a render assertion below.
-    ['src/app/components/shared/story-video-quotes.tsx', 'Supporting quotes from {subjectName}'],
+    // CASES and into RENDER assertions in `p1141-agent-story-chrome.test.tsx` — named
+    // here because the previous wording said "below" and meant another file, which reads
+    // as a promise this file does not keep. The byline shape is pinned at
+    // `:29 ('reads [AGENT] on {Full Name}')` and the chip's literal exactly at
+    // `:51 (textContent === 'Agent')`; the retired words are asserted negatively there too.
+    //
+    // Removing those two entries also left this line duplicated byte-for-byte — one file
+    // checked twice and the second slot doing nothing. A deletion that leaves a copy of
+    // its neighbour behind looks like coverage and is not.
     ['src/app/components/shared/story-video-quotes.tsx', 'Supporting quotes from {subjectName}'],
     ['src/app/components/shared/agent-story-footer.tsx', 'A machine account operated by ClarityPledge wrote this reading of {fullName}.'],
     ['src/app/components/shared/agent-story-footer.tsx', 'How machine accounts work →'],

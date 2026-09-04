@@ -30,6 +30,9 @@ import { getPositionGroup, getPositionCTACopy, adjustPositionCounts, type Positi
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
+import { StoryMedia } from '@/app/components/shared/story-media';
+import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 
@@ -802,15 +805,33 @@ export function QuotedStory({
           {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
         </div>
       )}
-      {/* Story image — compact in quoted context */}
-      {story.imageUrl && (
+      {/* Story media — compact in quoted context.
+          P1212 §4, second pass: this surface rendered `StoryImage` alone, so a story whose
+          only media is a VIDEO rendered with no media at all. That was survivable while
+          this card lived only under a profile point; §5 put it on the feed, and §1 removed
+          the quote bodies from `content` — so the reader got the argument, no video, and
+          no evidence. `StoryMedia` is the same component the other five surfaces use. */}
+      {story.videoUrl ? (
+        <StoryMedia
+          videoUrl={story.videoUrl}
+          durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
+          mode="thumbnail"
+          storyHref={`/story/${story.id}`}
+          className="mb-2"
+          imageProps={story.imageUrl ? {
+            src: story.imageUrl,
+            authorName: stripAgentPrefix(author?.name) || 'Author',
+            className: 'mb-2',
+          } : undefined}
+        />
+      ) : story.imageUrl ? (
         <div className="mb-2">
           <StoryImage
             src={story.imageUrl}
             authorName={stripAgentPrefix(author?.name) || 'Author'}
           />
         </div>
-      )}
+      ) : null}
       {/* Story text — strip hashtags (rendered as TagPills) and the quote label.
           P1212 §5: this component was the EIGHTH surface, and the parity census missed it
           because the census lists files and this one is module-private to a POINT card.
@@ -840,6 +861,21 @@ export function QuotedStory({
           <p className="text-sm text-gray-800 break-words">{linkifyText(cleanText)}</p>
         );
       })()}
+      {/* P1212 §4, on the eighth surface. The text above has had the quote LABEL stripped
+          by §1, so without this block the reader gets the claim and none of the evidence —
+          and this card is the one §5 newly put on the feed. Same component and same
+          no-onSeek contract as the other five surfaces: no player here, so each timecode
+          becomes a link that opens the source at that second.
+          The wrapper stops click propagation because this whole card is itself a button. */}
+      {normalizeVideoQuotes(story.videoQuotes).quotes.length > 0 && story.videoUrl && (
+        <div role="presentation" onClick={(e) => e.stopPropagation()}>
+          <StoryVideoQuotes
+            videoUrl={story.videoUrl}
+            quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
+            subjectName={stripAgentPrefix(author?.name) || 'Author'}
+          />
+        </div>
+      )}
       {(story.tags ?? []).length > 0 && (
         <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
       )}

@@ -97,6 +97,43 @@ test.describe('Migration p1212: the agent- slug namespace is reserved', () => {
     expect(await isReservedMachine('machine-x')).toBe(true);
   });
 
+  /**
+   * TWO HOLES FOUND BY ADVERSARIAL REVIEW, 2026-09-04, AFTER the namespace shipped —
+   * distinct from the filed tilde gap, and both fixed in 20260904180000.
+   *
+   * 1. SMALL-CAPITAL A. The confusables table folds ɢ ᴇ ɴ ᴛ — every small-capital letter of
+   *    "agent" EXCEPT ᴀ (U+1D00). That letter has no compatibility decomposition, so NFKD
+   *    leaves it; it is already lowercase-category, so lower() is a no-op; it is [:alnum:],
+   *    so the visible-strip keeps it. `ᴀgent-yann-lecun` therefore tokenised as `ᴀgent` and
+   *    was mintable by any authenticated user. The asymmetry inside the table is what makes
+   *    this an oversight rather than a decision — the other four letters are all folded.
+   *
+   * 2. A LEADING SEPARATOR. regexp_split_to_array emits an EMPTY first element when the
+   *    string starts with a separator, so `-agent-x` split to ['', 'agent', 'x'] and the
+   *    first-token test compared '' against 'agent'. Only leading WHITESPACE was stripped.
+   *    There is no CHECK constraint on profiles.slug and upsert_my_profile passes the value
+   *    through unvalidated, so the client fully controls the string.
+   *
+   * Both defeated is_reserved_machine_slug identically, so both are asserted on both guards.
+   */
+  test('reserves the small-capital spelling — the one letter the fold table missed', async () => {
+    expect(await isReservedAgent('\u1D00gent-yann-lecun'), 'small-capital A').toBe(true);
+    expect(await isReservedMachine('\u1D0Dachine-sam-harris'), 'small-capital M, already folded').toBe(true);
+    expect(await isReservedMachine('m\u1D00chine-sam-harris'), 'small-capital A in machine').toBe(true);
+  });
+
+  test('a leading separator does not produce an empty first token', async () => {
+    for (const slug of ['-agent-yann-lecun', '.agent-yann-lecun', '_agent-yann-lecun', '--agent-x']) {
+      expect(await isReservedAgent(slug), `${slug} must be reserved`).toBe(true);
+    }
+    expect(await isReservedMachine('-machine-sam-harris'), 'same hole on the shipped guard').toBe(true);
+
+    // The control that keeps the fix from widening into a land-grab: stripping the leading
+    // separator must not turn an ordinary handle into a reserved one.
+    expect(await isReservedAgent('-agentic-systems'), 'still a real handle').toBe(false);
+    expect(await isReservedAgent('-my-agent'), 'still a real handle').toBe(false);
+  });
+
   test('empty and null are not reserved', async () => {
     expect(await isReservedAgent('')).toBe(false);
     const { data } = await supabaseAdmin.rpc('is_reserved_agent_slug', { p_slug: null });

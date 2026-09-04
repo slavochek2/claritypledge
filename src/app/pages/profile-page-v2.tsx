@@ -1365,6 +1365,14 @@ function StoryCardFull({
         handleCardClick();
       }}
       onKeyDown={(e) => {
+        // P1212: only the CARD ITSELF activates on Enter/Space. Without this target check
+        // the handler fires for a keydown on any nested control and — because it calls
+        // preventDefault() — CANCELS that control's own activation before navigating. The
+        // quote timecodes §4 added here are anchors: a keyboard reader pressing Enter on
+        // "2:14" had the link cancelled and was sent to the story page instead of the
+        // source video. The data-story-toggle check below it is the narrow, per-control
+        // version of the same guard and is kept for the click path's sake.
+        if (e.target !== e.currentTarget) return;
         if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();

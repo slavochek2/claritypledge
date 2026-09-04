@@ -53,6 +53,20 @@ vi.mock('@/auth', () => ({
   useAuth: () => ({ session: { user: { id: 'viewer-1' } }, user: { id: 'viewer-1' }, isLoading: false }),
 }));
 
+/**
+ * The position write path. Asserting the SERVICE call rather than a parent callback is
+ * deliberate: the defect was that no callback existed, so a test written against a
+ * callback prop would have had nothing to bind to.
+ */
+const setPosition = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/app/data/points-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/app/data/points-service')>();
+  return {
+    ...actual,
+    pointsService: { ...actual.pointsService, setPosition: (...a: unknown[]) => setPosition(...a) },
+  };
+});
+
 const navigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -227,10 +241,114 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     fireEvent.click(screen.getByTestId('feed-story-point-expander'));
     const card = screen.getAllByTestId('quoted-point-card')[0]!;
     const controls = card.querySelectorAll('button');
+    // toBeGreaterThan(0) was the first form of this assertion and it was too weak: the
+    // finding was "profile 3, feed 0", and >0 passes at 1 — so a regression dropping two of
+    // the three controls, or one supplying positionCounts without userPosition, stayed
+    // green. Pin the number the review actually measured.
     expect(
       controls.length,
-      'the feed card must offer the same position controls the profile does — 0 means the surface fed it nothing',
-    ).toBeGreaterThan(0);
+      'the feed card must offer the same THREE position controls the profile does — 0 means the surface fed it nothing, and 1 or 2 means it fed it half',
+    ).toBe(3);
+  });
+
+  /**
+   * DEAD CONTROLS — found 2026-09-04 by an adversarial review, AFTER the count assertion
+   * above was written and green. Rendering the buttons was never the claim; recording a
+   * position is.
+   *
+   * `handlePositionClick` in quoted-point-card.tsx sets optimistic local state and THEN
+   * calls `onPositionSelect?.()`. The profile passes that prop; the feed did not. So the
+   * button lit up, the count incremented, and nothing was written — the position was gone
+   * on the next load. That is worse than the read-only slab this section replaced, because
+   * a slab does not claim a position was recorded.
+   *
+   * The count test above cannot catch it: a control that persists nothing renders exactly
+   * like one that does.
+   */
+  it('a position click on the feed PERSISTS, it does not just light up the button', async () => {
+    setPosition.mockClear();
+    renderFeedStoryCard({ linkedPoints: POINTS, currentUserId: 'viewer-1' });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
+
+    const card = screen.getAllByTestId('quoted-point-card')[0]!;
+    const agree = [...card.querySelectorAll('button')].find(
+      b => /agree/i.test(b.textContent ?? '') && !/disagree/i.test(b.textContent ?? ''),
+    );
+    expect(agree, 'the fixture must expose an Agree control to click').toBeTruthy();
+
+    fireEvent.click(agree!);
+
+    await vi.waitFor(() => {
+      expect(
+        setPosition.mock.calls.length,
+        'clicking Agree on the feed must reach pointsService.setPosition — an optimistic highlight that writes nothing is a dead control',
+      ).toBe(1);
+    });
+    expect(setPosition.mock.calls[0]?.[0]).toBe('pt-1');
+    expect(setPosition.mock.calls[0]?.[2]).toBe('agree');
+  });
+
+  /**
+   * KEYBOARD — found by the same review. The card root is `role="button"` with an
+   * `onKeyDown` that calls `preventDefault()` on Enter/Space and navigates, and it does not
+   * check the event TARGET. So a keydown on any control inside the card bubbles to the
+   * root, gets its default activation cancelled, and navigates instead.
+   *
+   * For the expander that means: Tab to "2 points", press Enter, and instead of expanding
+   * you are thrown to the story detail page. The `role="presentation"` wrapper around the
+   * footer stops `onClick` only, so the mouse path was fine and the keyboard path was not —
+   * which is exactly why a click-only test suite certified this.
+   *
+   * This is the same class the branch already fixed INSIDE QuotedPointCard by adding
+   * stopPropagation to its own onKeyDown. Fixing it per-control is a treadmill; the root
+   * guard fixes every control the card will ever contain.
+   */
+  /**
+   * THE SAME ROOT BUG, ON THE CONTROL §4 ADDED. Found by the same review, after the
+   * expander case above was fixed — which is the argument for the root-level guard rather
+   * than a per-control one. With no `onSeek`, each timecode renders as an `<a target=
+   * "_blank">` opening the source at that second. The `role="presentation"` wrapper stops
+   * onClick, so the mouse path opens the video; the keydown path reached the root, had the
+   * anchor's activation cancelled, and navigated to the story instead.
+   *
+   * §4's own stated rule is "timecodes only where clicking works". For a keyboard reader
+   * clicking did not work on ANY of the three surfaces §4 put quotes on.
+   */
+  it('Enter on a quote timecode does NOT navigate to the story', () => {
+    navigate.mockClear();
+    render(
+      <MemoryRouter>
+        <FeedStoryCard
+          story={makeStory({
+            videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            videoQuotes: { quotes: [{ text: 'they are interpolating', seconds: 134 }], durationSeconds: 300 },
+          } as Partial<StoryWithAuthor>)}
+        />
+      </MemoryRouter>
+    );
+
+    const timecode = document.querySelector('a[href*="dQw4w9WgXcQ"]');
+    expect(timecode, 'the fixture must render a timecode link to press Enter on').toBeTruthy();
+
+    fireEvent.keyDown(timecode!, { key: 'Enter' });
+
+    expect(
+      navigate.mock.calls,
+      'Enter on a timecode must open the source, not cancel the anchor and navigate to the story',
+    ).toHaveLength(0);
+  });
+
+  it('Enter on the expander expands it, and does NOT navigate away', () => {
+    navigate.mockClear();
+    renderFeedStoryCard({ linkedPoints: POINTS });
+    const expander = screen.getByTestId('feed-story-point-expander');
+
+    fireEvent.keyDown(expander, { key: 'Enter' });
+
+    expect(
+      navigate.mock.calls,
+      'a keydown on a control INSIDE the card must not reach the card root and navigate',
+    ).toHaveLength(0);
   });
 
   it('singularises the count — "1 point", not "1 points"', () => {
@@ -320,6 +438,42 @@ describe('P1212 §1 (eighth surface) — QuotedStory suppresses the quote label'
     renderQuoted();
     expect(document.body.textContent).toContain('The blocker is not size.');
     expect(document.body.textContent).toContain('a quote');
+  });
+
+  /**
+   * §4 ON THE EIGHTH SURFACE — found 2026-09-04 by an adversarial review, after the two
+   * tests above were written and green.
+   *
+   * They pin that the LABEL is suppressed here. Nothing pinned that the quotes it labels
+   * are rendered instead. `QuotedStory` called `StoryImage` alone, so a story whose only
+   * media is a video showed no media at all, and no quote block — the reader got the claim
+   * with its evidence removed by §1 and never restored by §4. Survivable while this card
+   * lived only under a profile point; §5 put it on the feed.
+   *
+   * The two converters that feed it (feed-point-card.tsx, point-detail-page.tsx) dropped
+   * videoUrl/videoQuotes silently, so the data was available at both call sites all along.
+   */
+  it('renders the video and its quote block, not an image path only', () => {
+    render(
+      <MemoryRouter>
+        <QuotedStory
+          story={{
+            ...LABEL_STORY,
+            videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            videoQuotes: { quotes: [{ text: 'the blocker is not size', seconds: 876 }], durationSeconds: 1200 },
+          }}
+          onClick={() => {}}
+        />
+      </MemoryRouter>
+    );
+
+    // The quote block, with a working timecode link into the source at that second.
+    const timecode = document.querySelector('a[href*="dQw4w9WgXcQ"]');
+    expect(
+      timecode,
+      'a story with quotes must render them here too — this surface is on the feed now',
+    ).toBeTruthy();
+    expect(document.body.textContent).toContain('the blocker is not size');
   });
 });
 

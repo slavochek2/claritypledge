@@ -42,6 +42,14 @@ export interface Story {
   understoodCount: number;
   crossDisagreementCount?: number;
   imageUrl?: string;
+  /**
+   * P1212 §4: the story's video and its supporting quotes. Optional because most callers
+   * convert from a production row that may carry neither — but a surface that renders the
+   * story's prose without them shows the argument and withholds its evidence, which is what
+   * §1 made visible when it stripped the quote bodies out of `content`.
+   */
+  videoUrl?: string;
+  videoQuotes?: unknown;
 }
 
 /**

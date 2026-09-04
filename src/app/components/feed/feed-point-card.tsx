@@ -279,6 +279,13 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
                           linkedPointIds: [],
                           understoodCount: linked.understoodCount,
                           imageUrl: linked.imageUrl,
+                          // P1212 §4: the video and its quotes travel with the story. The
+                          // conversion dropped them silently, so on the points feed an
+                          // agent story whose only media is video rendered with no media
+                          // and — after §1 stripped the quote bodies from the prose — no
+                          // evidence either.
+                          videoUrl: linked.videoUrl,
+                          videoQuotes: linked.videoQuotes,
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
