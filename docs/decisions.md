@@ -126,6 +126,95 @@ spec that never had the label written), and `pipeline_ran` is the same class of 
 
 ---
 
+## 2026-09-04 [process]: A measurement script whose output becomes a decision earns the same review as shipped code — this one caught two defects after the numbers were already committed
+
+**Context:** P1237's deliverable was numbers, produced by three throwaway-feeling Python scripts.
+The numbers were written into the spec and into this log, committed, and only then did `/ship`'s
+gate 2.7 force a code review of the scripts that produced them. The review (1 of 1 reviewer
+reported, 10 findings) returned two that had corrupted already-committed figures.
+
+**Decision:** Treat measurement code as reviewable code whenever its output is promoted into a
+spec, a decision, or a user-facing claim. "It runs once" is not the test; "something downstream
+depends on its answer" is. Both defects generalise past this session:
+
+1. **A degraded oracle that keeps its trusted label.** The aligner took an independent
+   offset estimate and refined it by correlation within ±10 s. When the estimate fell outside the
+   searchable range the code fell through to a *blind* search — but still reported
+   `align_source: events+refine`, which is also the flag that skips the correlation confidence
+   gate. So the least trustworthy alignments were the ones exempted from the check. Fired on 4 of
+   the then-20 measured sessions. **The general shape: a fallback path that inherits the
+   confidence of the path it fell back from.** Anything that reports *how* it got an answer must
+   report the branch actually taken, not the branch requested.
+2. **A noise floor contaminated by the signal it exists to exclude.** The floor was a 20th
+   percentile over all frames, speech included, so a speaker holding the floor lifted their own
+   channel's floor and **shrank** the measured margin — biasing hardest on the sessions nearest
+   the decision threshold, in the direction that made the conclusion look stronger. Fixed by
+   re-estimating the floor over non-speech frames. **The general shape: a baseline estimated over
+   the whole population when the thing being measured is part of that population.**
+
+**Alternatives rejected:** *Skip the review because the scripts are not production code* — the
+gate would have allowed it (path-pattern classification maps `scripts/*.ts`, not `*.py`), and it
+is precisely what would have left the wrong numbers standing. *Accept the corrected numbers
+without re-running the corpus* — a fix whose effect on the result is not measured is a guess;
+the re-run is what turned "possibly biased" into "median 7.1 → 4.4 dB". *Silently replace the
+superseded figures* — they had already been committed to this log, so the correction is recorded
+alongside them.
+
+**Consequences:** Every corrected figure moved **against** the original report and no conclusion
+changed — the review's value was not that it overturned a verdict but that it converted numbers
+that happened to be directionally right into numbers that are defensible. Worth generalising to
+the two probe-discipline rules already in `~/.claude/CLAUDE.md`: the control-probe check fires when
+a probe returns the same verdict for everything, and neither defect here would have tripped it —
+both produced varied, plausible output. The detector that worked was an adversarial read of the
+code by something that had not written it. `/finish`'s classifier maps `scripts/*.ts` but not
+`scripts/*.py`, so this review only happened because gate 2.7 demanded one by P-number; that gap
+is worth closing. (Status: proposed.)
+
+**References:** [p1237](../features/done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) ·
+`scripts/p1237-crosstalk-scan.py` · `scripts/p1237-highsep-crosscheck.py` ·
+`.claude/commands/slava/build/finish/SKILL.md` (Step 2 classification table)
+
+## 2026-09-04 [process]: Second occurrence — `commit-to-main` recorded a co-tenant's four files under this session's commit message, and the count tripwire agreed
+
+**Context:** `git-ops.sh commit-to-main --files <four p1237 paths>` printed
+*"requested 4 path(s); the commit records 4 file(s)"* and created a commit carrying this session's
+message over **a co-tenant's four entirely unrelated files** (a skill edit, its mirror, a different
+spec, and a `decisions.md` entry that was not this session's). None of the four requested paths
+were in it; they were still uncommitted afterwards, so nothing was lost — but a commit on `main`
+now describes work it does not contain. Re-issuing the same command minutes later committed the
+correct four files.
+
+**Decision:** Record it as a **second occurrence** of the defect `git-ops.sh` already documents
+inline at the tripwire (*"the 2026-09-01 incident printed a confident 'committed 3 file(s)' over a
+commit holding one deletion… main.lock serializes git-ops CALLERS only, so a co-tenant running raw
+git on the shared checkout is not held off by it at all. Cause unresolved."*). **The cause is still
+not established and is not claimed here.** What this occurrence adds:
+
+- The substituted content was a **complete foreign set**, not a partial or empty commit — so
+  whatever replaced the index replaced all of it, between `commit_staged_exact`'s comparison and
+  its `git commit`.
+- **The count tripwire cannot detect this shape.** Its own comment says it cannot fire while the
+  exact-match guard holds; here the guard passed *and* the counts matched at 4 = 4 by coincidence.
+  A count is not an identity check.
+- The verify-then-commit window is real even inside the lock, because the lock binds git-ops
+  callers only.
+
+**Alternatives rejected:** *Rewrite history to relabel the bad commit* — it is not pushed, so an
+interactive rebase would work, but a co-tenant was actively committing to this checkout and a
+rebase would clobber them; a mislabeled commit is strictly cheaper than that. *Blame the co-tenant
+without evidence* — no session was observed running raw `git`; the mechanism remains a hypothesis.
+
+**Consequences:** The honest mitigation available today is to **verify by content, not by count**:
+after `commit-to-main`, run `git show --stat --format="" HEAD` and read the filenames against what
+you asked for. This session did that and caught it; the tool's own line did not. A durable fix
+would compare the committed tree against the requested paths inside git-ops and refuse, rather
+than reporting a count after the fact — but the underlying race would still need closing, and
+that is unowned work. (Status: proposed.)
+
+**References:** `scripts/git-ops.sh` (`commit_staged_exact`, the tripwire comment at the
+"requested N path(s)" line) · [git.md](../.claude/rules/git.md) "Any uncommitted file on the shared
+checkout is exposed" · decisions.md 2026-06-06 and 2026-08-17 (P1057) shared-index incidents
+
 ## 2026-09-04 [technical]: The batch pipeline is the design March REJECTED — four artifacts recorded as shipped have never existed, and all three engines tie a coin flip on the minority speaker
 
 **Context:** P1237 ran the pre-registered measurement: the current six-step pipeline, P552's
