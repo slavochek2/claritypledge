@@ -24,8 +24,8 @@ describe('P1210 DW-22 — two callers per predicate', () => {
 
   it('the harness exemption is an explicit, named allowlist — not an inferred category', () => {
     expect([...HARNESS].sort()).toEqual([
-      'build-rule-fixtures.mjs', 'no-vacuous-tests.mjs', 'redact-run.mjs',
-      'two-callers.mjs', 'verify-all.mjs', 'verify-fixture.mjs',
+      'build-rule-fixtures.mjs', 'md-spans.mjs', 'no-vacuous-tests.mjs',
+      'redact-run.mjs', 'two-callers.mjs', 'verify-all.mjs', 'verify-fixture.mjs',
     ])
   })
 })

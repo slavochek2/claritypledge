@@ -23,9 +23,19 @@ describe('P1210 DW-12 — store-inspection scan', () => {
     expect(run(FIXTURES.pass).verdict).toBe('PASS')
   })
 
-  it('the pattern is widened past `ls` — find, cat, stat and test -f all bite', () => {
-    for (const verb of ['ls ', 'find ', 'cat ', 'stat ', 'test -f ']) {
+  // AMENDED BY P1244, deliberately — this assertion encoded the pre-P1244 semantics.
+  // It required `cat` to bite. `cat` is a CONTENT read of a named artifact, which is
+  // how the pipeline legitimately verifies a quote (select.md, positions.md both grep
+  // a transcript out of $YT_STORE). The rule forbids inferring THAT WORK WAS DONE from
+  // the filesystem — existence and metadata — so the verb list shrank on the content
+  // side and grew on the existence side. See P1244 and the header of the scanner.
+  it('the verb list is EXISTENCE and metadata — content reads are not inspections', () => {
+    for (const verb of ['ls ', 'find ', 'stat ', 'tree ', 'du ', 'test -f ', 'readlink ']) {
       expect(INSPECTION_VERB.test(`${verb}the diarize-store directory`)).toBe(true)
+    }
+    // Content reads must NOT bite — flagging these is what broke the real files.
+    for (const verb of ['cat ', 'grep ', 'head ', 'tail ', 'wc ']) {
+      expect(INSPECTION_VERB.test(`${verb}the diarize-store file`)).toBe(false)
     }
     expect(LITERAL_PATH.test('~/.local/share/anything')).toBe(true)
     expect(LITERAL_PATH.test('$HOME/.local/share/anything')).toBe(true)

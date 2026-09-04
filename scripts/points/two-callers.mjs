@@ -20,6 +20,7 @@
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
+import { commandSpans } from './md-spans.mjs'
 import { fileURLToPath } from 'node:url'
 
 export const id = 'two-callers'
@@ -34,6 +35,7 @@ export const HARNESS = new Set([
   'verify-fixture.mjs',       // DW-23 — the fixture verifier
   'redact-run.mjs',           // the derivation behind the run-B fixture
   'build-rule-fixtures.mjs',  // the must-fail fixture builder for rule-present
+  'md-spans.mjs',             // P1244 — the markdown parser two scanners share
 ])
 
 /**
@@ -51,6 +53,17 @@ export function run(input = {}) {
     : [])
 
   const skillText = skillFiles.map(f => (existsSync(f) ? readFileSync(f, 'utf8') : '')).join('\n')
+  // P1244 — an invocation must appear in a COMMAND SPAN, not in prose that merely
+  // names the module. The old raw substring test over whole files could not tell
+  // `node scripts/points/store-reconcile.mjs …` inside a runnable stanza from the
+  // same string quoted inside a `>` blockquote explaining what the stage does.
+  // No current false pass — both affected modules are genuinely invoked elsewhere —
+  // but a future predicate that is only ever MENTIONED would have read as wired,
+  // which is precisely the defect this check exists to catch, one level up.
+  const skillCommandText = skillFiles
+    .filter(f => existsSync(f))
+    .map(f => commandSpans(readFileSync(f, 'utf8')).units.map(u => u.text).join('\n'))
+    .join('\n')
   const testText = testFiles.map(f => (existsSync(f) ? readFileSync(f, 'utf8') : '')).join('\n')
 
   const modules = existsSync(modulesDir)
@@ -60,7 +73,7 @@ export function run(input = {}) {
   const wired = []
   for (const m of modules) {
     if (harness.has(m)) continue
-    const invoked = skillText.includes(`node scripts/points/${m}`)
+    const invoked = skillCommandText.includes(`node scripts/points/${m}`)
     const imported = new RegExp(`points/${m.replaceAll('.', '\\.')}`).test(testText)
     if (invoked && imported) { wired.push(m); continue }
     const missing = [!invoked && 'no skill file invokes it', !imported && 'no p1210 test imports it'].filter(Boolean)

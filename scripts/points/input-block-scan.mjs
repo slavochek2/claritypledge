@@ -27,8 +27,36 @@ const BLOCK_OPEN = /<!--\s*input-block:start\s*-->/
 const BLOCK_CLOSE = /<!--\s*input-block:end\s*-->/
 const MUST_STAY = /<!--\s*must-stay-gate\s*-->/
 
-/** Asking for a VALUE. Not an approval, not a confirmation, not a gate. */
-export const INPUT_ASK = /\bask\b[^.\n]{0,60}?\b(if not supplied|for the |for a |which |what )/i
+/** Asking for a VALUE. Not an approval, not a confirmation, not a gate.
+ *
+ * P1244 — WIDENED BY OBJECT, NOT BY VERB, and the distinction is the whole fix.
+ * The old pattern was anchored on the literal word "ask", so every rewording that
+ * asks for a value without it slipped through: "confirm the event tag with the
+ * founder", "obtain the filing identity from the operator".
+ *
+ * The obvious repair — add more verbs — was attempted at the P1210 ship and
+ * REVERTED. Adding `check` and `get` flagged two ordinary English sentences:
+ *   "A whitelist-and-count check is what makes a hash … mean anything."
+ *   "Same shape as the check above and for the same reason …"
+ * Those verbs are too common in prose about a pipeline to carry a rule.
+ *
+ * NOTE this scanner does NOT use md-spans.mjs, unlike store-inspection-scan.mjs.
+ * That module restricts matching to command spans, which is right for shell
+ * commands and wrong here: an input ask is an INSTRUCTION IN PROSE to the agent
+ * running the stage. Restricting it to code spans would delete the check.
+ *
+ * So the widening is by OBJECT instead. Branch 1 keeps the original ask-shape.
+ * Branch 2 admits more verbs only when the founder or the operator is named as the
+ * thing being asked — "confirm X with the founder" is an input ask; "confirm the
+ * hash matches" is not, and no amount of verb-listing separates them.
+ */
+export const INPUT_ASK = new RegExp(
+  '\\bask\\b[^.\\n]{0,60}?\\b(if not supplied|for the |for a |which |what )' +
+  '|' +
+  '\\b(ask|confirm|obtain|request|collect|solicit)\\b[^.\\n]{0,60}?\\b(with|from|of)\\s+the\\s+(founder|operator|user)\\b' +
+  '|' +
+  '\\b(founder|operator)\\s+(supplies|provides|is asked)\\b',
+  'i')
 
 export const TARGETS = [
   {

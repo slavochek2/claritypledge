@@ -86,12 +86,35 @@ export function resolveRunFile() {
   return null
 }
 
-/** Surname -> code, built from the cast. Returns UNCAST for anyone not cast. */
+/**
+ * Surname -> code, built from the cast. Returns UNCAST for anyone not cast.
+ *
+ * P1244 — AMBIGUITY THROWS, it does not guess. Matching on surname alone silently
+ * misattributes when two arguers share one: the contradiction-sentence asserts/denies
+ * fields would point at the wrong person's code, in a fixture whose whole purpose is
+ * to be trusted as a faithful derivation. A wrong cast code here is invisible — it
+ * reads as a valid run — so the failure must be loud at derivation time rather than
+ * discovered later from a fixture nobody re-derives. Full name wins outright when it
+ * matches; surname is a fallback and only when it is unique across the roster.
+ */
 function codeForPerson(name, roster) {
-  const surname = name.trim().split(/\s+/).pop().toLowerCase()
-  for (const entry of roster) {
-    if (!entry.name) continue
-    if (entry.name.toLowerCase().split(/\s+/).includes(surname)) return entry.code
+  const full = name.trim().toLowerCase().replace(/\s+/g, ' ')
+  const named = roster.filter(e => e.name)
+
+  const exact = named.filter(e => e.name.toLowerCase().replace(/\s+/g, ' ') === full)
+  if (exact.length === 1) return exact[0].code
+  if (exact.length > 1) {
+    throw new Error(`redact-run: "${name}" matches ${exact.length} cast entries by FULL NAME ` +
+      `(${exact.map(e => e.code).join(', ')}). Refusing to guess — disambiguate the roster.`)
+  }
+
+  const surname = full.split(' ').pop()
+  const bySurname = named.filter(e => e.name.toLowerCase().split(/\s+/).includes(surname))
+  if (bySurname.length === 1) return bySurname[0].code
+  if (bySurname.length > 1) {
+    throw new Error(`redact-run: surname "${surname}" is shared by ${bySurname.length} cast entries ` +
+      `(${bySurname.map(e => e.code).join(', ')}), and "${name}" matches none of them by full name. ` +
+      `Refusing to guess — a wrong cast code is invisible in the derived fixture.`)
   }
   return 'UNCAST'
 }
