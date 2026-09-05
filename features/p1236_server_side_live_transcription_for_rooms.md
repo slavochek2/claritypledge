@@ -375,6 +375,22 @@ not when the first word is spoken — the consent and join screens supply the co
    P1236's answered setup"* and says the bar must be re-measured on the first lavalier session.
    Reusable instrument: `scripts/p1237-crosstalk-scan.py`.
 
+   **Upper bound measured 2026-09-05 from public data, while the real test is pending.** The AMI
+   meeting corpus records each participant in one room on their own close microphone. On
+   `ES2002a`, two headset channels, 10 minutes, scored with P1237's own
+   `scripts/p1237-crosstalk-scan.py`: **min-of-pair margin 16.5 dB, 96% of speech frames
+   physically unambiguous** (157s of scored speech). Against the same instrument, phones-on-a-table
+   read a 7.1 dB median with 75% of sessions below the bar. **Close-miking in a shared room clears
+   the bar; phones on a table do not.**
+
+   **Strength: upper bound, not a prediction.** An AMI headset sits 2-5 cm from the mouth; a
+   lavalier sits ~20 cm on the chest, and level falls with distance, so a lav reads lower than
+   16.5 dB by an unmeasured amount. Instrument check: fed two identical channels — true zero
+   separation — the script reported *nothing* rather than a margin, so it does not manufacture
+   separation from nothing. Its known-good end is validated by P1237's own control run
+   (19.0/19.2 dB), not by this one. What this establishes is that the approach is not doomed,
+   which was open before; it does not retire the question.
+
    **What poor separation would cost the live path, sharpened by P1237's numbers:** attribution is
    safe regardless (it comes from device ownership, never from audio). The damage is duplication —
    on R8FUEQ, at the shared-mic floor, **36 of 38 labelled points were transcribed by BOTH
