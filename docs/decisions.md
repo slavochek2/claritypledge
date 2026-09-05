@@ -6,6 +6,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-05 [technical]: Two transcription engines, two different jobs — Gemini wins on one voice, ties naive on who-spoke
+
+**Context:** P1236 needed an engine for live per-person transcription; P1237 asked the same question for the batch pipeline the same week. The instinct was that one answer covers both.
+
+**Decision:** Split by job. **Transcribing one voice** → Gemini 3.5 Transcribe. On identical audio and identical 4-second slices with no preprocessing on either side, it produced 132 words against a whole-file reference of 134, returned **empty on 16 of 43 silent slices**, and fabricated nothing — where Whisper produced 205 words including ten invented `"Thank you."`s and one wholly fabricated sentence, and needed a silence gate to get near the reference. Gemini's word count was **identical across all 12 runs**; Whisper's spans 117-149 across five. **Deciding who spoke** → not Gemini: P1237 measured its diarization at 73.7% overall and **0/10 on the minority speaker**, digit-for-digit identical to the current pipeline *and* to always answering "the dominant speaker".
+
+**Alternatives rejected:** *Whisper for both* — it hallucinates on short fragments and needs a silence gate that was itself failing open (P1242). *Gemini for both* — refuted by P1237's attribution table; better transcription does not make a diarizer. *Defer the engine choice until the batch question resolved* — the live path never needs diarization at all, because device ownership supplies the speaker, so it was never blocked on it.
+
+**Consequences:** The live path drops the GPU, the pyannote dependency and per-card capacity planning; measured flat p50 from 1 to 20 concurrent streams, 0 errors in 516 requests. Two constraints ride along: **Gemini silently truncates long audio when diarization is off** (a 58-minute file returned HTTP 200, billed in full, transcript covered ~5 minutes, no warning), so a flush-on-trigger path must send slices and never a whole session; and **slice boundaries corrupt the word that straddles them** (`"doesn't"` → `"that"`), so overlapping slices with de-duplication are mandatory, not an optimization. `Status: proposed` — no live path is built yet.
+
+**References:** [p1236](../features/p1236_server_side_live_transcription_for_rooms.md), [p1237](../features/p1237_batch_pipeline_gemini_vs_six_steps.md)
+
+## 2026-09-05 [process]: A measurement is an artifact and needs adversarial review before its numbers become decisions
+
+**Context:** P1236's Step-1 measurement ran on a real L4, was committed, and was summarized to the founder as settled — headline "~5 concurrent streams per L4". A Codex review then returned **REJECT on the architecture conclusions**, correct on seven of ten points. By then the founder had already reasoned about session sizes on the reported number.
+
+**Decision:** Treat a measurement harness and its write-up the way `/finish` treats code — reviewed adversarially *before* its numbers are promoted into a decision, not after. Three of the ten findings were harness bugs (`logging` never imported so the documented fallback would have raised `NameError`; a percentile that returned the 11th ordered value at n=12 where nearest-rank returns the 12th; a "worst" column taken over a population the percentiles excluded, which put the warm-up sample in the 30s rows). Four were claims stronger than the evidence — most damagingly, rows labelled as the pipeline's VAD that were actually a different model behind a different algorithm.
+
+**Alternatives rejected:** *Trust the review wholesale* — two of its findings did not survive checking: the 7.19s stall at 4s is at index 5, a genuine steady-state sample, not the excluded warm-up it suspected. Verifying each claim by command (epistemic gate 9) is what separated the seven from the two. *Skip the review because the numbers came from real hardware* — real hardware guarantees the timer ran, never that it timed the right span or that the arithmetic on top models the system.
+
+**Consequences:** A second, sharper rule surfaced the next day and belongs with this one: **when a control fails to run, that is the finding — do not keep the number that survived.** Building an upper-bound measurement from public audio, the first "known-good" control was constructed exactly the way the scoring script's own docstring warns against, and two replacements scored zero seconds of speech. The real number was only reported once a control demonstrated the instrument would not manufacture a margin from nothing. `Status: proposed`.
+
+**References:** [p1236](../features/p1236_server_side_live_transcription_for_rooms.md), [epistemic.md](../.claude/rules/epistemic.md)
+
 ## 2026-09-04 [process]: Partial delivery carries the credibility of delivery — count a reviewer's FINDINGS, not its reports
 
 **Context:** P1212's two adversarial reviewers both reported. The agent-level ratio was a clean
