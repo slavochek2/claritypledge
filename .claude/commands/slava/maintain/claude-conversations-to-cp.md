@@ -2,7 +2,7 @@
 name: claude-conversations-to-cp
 description: Analyze recent Claude conversations to surface strategic signals AND content candidates. Updates strategy docs and files article ideas to content kanban. Never writes without explicit confirmation.
 when_to_use: After a sprint, a week of sessions, or any period where you want to surface unresolved tensions, update strategy docs, and identify article-worthy conversations.
-version: 3.1.0
+version: 3.2.0
 ---
 
 # /claude-conversations-to-cp
@@ -67,24 +67,69 @@ The founder uses `[/cp ...]` inline markers in conversations to flag CP-relevant
 ### Default: Exported Claude.ai markdown (~/Projects/private/claude-conversations/)
 
 Files are structured markdown with this format:
-```
-# Conversation Title
 
-**Created:** YYYY-MM-DDTHH:MM:SSZ
-**Updated:** YYYY-MM-DDTHH:MM:SSZ
+**Structure of each file:**
+```
+# {Conversation title}
+
+**Created:** {timestamp}
+**Updated:** {timestamp}
+**ID:** `{uuid}`
+**Summary:** {one-line summary, when Claude.ai generated one}
 
 ---
 
 ### 👤 Human
-[user message text]
+
+{user message text}
+
+> 📎 Attached: `{filename}`
 
 ---
 
 ### 🤖 Claude
-[assistant message text]
+
+{Claude response text}
+
+<!-- thinking: N block(s) omitted -->
+
+**📄 Artifact (create): {title}**
+
+```markdown
+{full artifact content}
+```
+
+**📄 Created file: `{path}`**
+
+```markdown
+{full file content}
+```
+
+> ✏️  Edited `{path}` — {what changed}
+> 🔧 {tool}({brief args})
 
 ---
 ```
+
+**Since importer v2 (2026-09) these are present and were NOT in older files:**
+- `**Summary:**` — a fast relevance filter; read it before the body.
+- `**📄 Artifact …**` / `**📄 Created file: …**` fenced blocks — **the deliverables.**
+  Documents Claude wrote (201 artifacts + 115 files across the archive) live here, not
+  in the prose. A conclusion that was handed over as a document is only findable here.
+- `> ✏️` / `> 🔧` / `> 📎` one-liners — the tool trail and attachments. Low signal
+  individually; useful for reconstructing what actually happened in a session.
+- `<!-- thinking: N block(s) omitted -->` — Claude's raw reasoning is deliberately not
+  archived. Do not treat the marker as content, and never infer what it contained.
+
+Files written before the v2 importer carry prose only. Re-run
+`~/projects/private/claude-conversations/import-conversations.py --rebuild` against a
+fresh export to backfill them in place.
+
+**Sibling directories (also written by the importer, not monthly conversation folders):**
+`memories/` (Claude's memory files + conversations memory), `projects/` (project docs and
+custom instructions), `design-chats/`. These are **current state, overwritten every
+import** — not dated history — so the time-window filter does not apply to them. Read
+them for standing context, never as evidence that something happened in the window.
 
 Read BOTH `👤 Human` and `🤖 Claude` sections — insights come from both sides. Extract the text under each heading. The date filter uses the `Created:` or `Updated:` frontmatter field.
 

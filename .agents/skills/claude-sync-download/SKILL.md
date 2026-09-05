@@ -2,7 +2,7 @@
 name: claude-sync-download
 description: "Automate Claude.ai export, email download, and sync — mechanical tail (download + sync) extracted to scripts/generated/claude-sync-download.sh"
 when_to_use: "When syncing Claude.ai conversation exports to local storage."
-version: 1.0.0
+version: 2.0.0
 verified: true
 ---
 
@@ -14,12 +14,31 @@ export click, Gmail poll) stay inline — they need MCP/tool context. Steps 3–
 (download + sync) are the deterministic tail, extracted to
 `scripts/generated/claude-sync-download.sh`.
 
+## Export shape (changed 2026-09)
+
+An export is no longer one zip. It is **five single-use downloads** plus a manifest:
+
+| File | Contents | Imported |
+|------|----------|----------|
+| `conversations-NNN.zip` | `conversations.json` | ✅ markdown per conversation |
+| `projects-NNN.zip` | project docs + custom instructions | ✅ `projects/` |
+| `memories-NNN.zip` | memory files + conversations memory | ✅ `memories/` |
+| `design_chats-NNN.zip` | design chats | ✅ `design-chats/` |
+| `light_metadata-NNN.zip` | `users.json`, `login_history.json` | ❌ no durable value |
+
+Each `export_url` works **exactly once**. The legacy single `data-*-batch-*.zip` is
+still handled by the importer as a fallback.
+
 ## Contract
 
-`scripts/generated/claude-sync-download.sh <download_url>`
-- `<download_url>` — the `https://claude.ai/export/<uuid>/download/<hash>` URL extracted
-  from the export email in Step 2 below (this is the judgment→script handoff).
-- The script validates the URL shape and `exit 1`s if missing/malformed.
+`scripts/generated/claude-sync-download.sh <url> [<url>...]`
+`scripts/generated/claude-sync-download.sh /path/to/manifest-<uuid>-....json`
+- Either one or more `https://claude.ai/export/<uuid>/download/<hash>` URLs, or the
+  manifest JSON the export mail links to (the script reads every `export_url` out of it).
+  This is the judgment→script handoff from Step 2.
+- The script validates every URL shape and `exit 1`s if missing/malformed.
+- It warns (does not fail) when fewer files land than URLs were opened — the importer
+  then reports which categories are missing against the manifest.
 - Set `DRY_RUN=1` to validate args + control flow without downloading or syncing.
 
 ---
@@ -38,7 +57,10 @@ Claude.ai emails a download link; do not wait in the browser.
 Use `mcp__slavochek-gmail__*` (personal Gmail — see global CLAUDE.md profile).
 Poll `search_emails { query: "your data is ready" }` every 60s up to 10 min.
 **Skip any email older than the Step 1 trigger time** (stale prior-run emails share the subject).
-From the newest valid email, extract the download URL: `https://claude.ai/export/<uuid>/download/<hash>`.
+From the newest valid email, extract **every** download URL
+(`https://claude.ai/export/<uuid>/download/<hash>`) — an export is now five of them.
+If the mail links a `manifest-*.json` instead, download that and pass its path to the
+script; it will read the URLs out of it.
 
 ## Steps 3–4: Download + sync  *(script)*
 
