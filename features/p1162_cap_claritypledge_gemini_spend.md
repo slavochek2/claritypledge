@@ -269,11 +269,24 @@ would have been testing the wrong credential, which is precisely the error this 
       banner functions) and batch (transcription / agent tooling)
       — `aikey-cp-prod-inte-81368` and `aikey-cp-batch-81413`, provisioned 2026-09-05, both
       billing-linked and both verified answering
-- [ ] A monthly **spend-cap-enforcement** budget is active on `generativelanguage.googleapis.com`
-      in each — **50 USD** prod-interactive, **75 USD** batch — each verified as `Configured` in the
-      budget list, not merely created
-- [ ] An alert-only budget exists alongside each cap at roughly 10% of the cap amount
-- [ ] Both amounts are recorded in the `ai-keys` registry where `/day` can read them
+- [x] A monthly **spend-cap-enforcement** budget is active on `generativelanguage.googleapis.com`
+      in each — created 2026-09-05 and verified by opening each budget's own detail page, not by
+      trusting the creation toast:
+      - `cp-prod-interactive cap 50` — **Spend cap configured**, €50.00, *Service "Gemini API" in
+        Project "ai-key cp-prod-interactive"*
+      - `cp-batch cap 75` — **Spend cap configured**, €75.00, *Service "Gemini API" in Project
+        "ai-key cp-batch"*
+- [x] An alert-only budget exists alongside each cap at roughly 10% of the cap amount
+      — **superseded, and the separate budget is not needed.** A spend-cap budget carries its own
+      notification thresholds, defaulted to 50% / 80% / 100% (€25 / €40 / €50 and
+      €37.50 / €60 / €75), emailing billing admins and project owners. That is the sensor this
+      spec asked for, already at a lower number than the fuse. A second alert-only budget would
+      duplicate it.
+- [x] Both amounts are recorded in the `ai-keys` registry where `/day` can read them
+      — `budget_eur: 50` / `budget_eur: 75`, plus `--mark-cap-set` on each. Note the tool's own
+      wording: *"This is a claim to be falsified by `--report`, not a verified fact."* The registry
+      records that someone said a cap exists; the console detail pages above are the actual
+      evidence.
 - [ ] A tripped cap produces a generic user-facing message — verified by inspecting what the
       browser receives, with no project id, service name, or Google error text present
 - [x] `/day` pings the **deployed** ClarityPledge Gemini key(s) — not an ambient environment
@@ -343,9 +356,10 @@ restricted to `generativelanguage.googleapis.com`, both billing-linked to `01008
 both verified answering (`models.list` -> HTTP 200). Key strings are recoverable at any time with
 `~/.agents/bin/ai-keys --key-string --name <name>` — they do not need to be stored anywhere.
 
-> **Both keys are UNCAPPED until step 2 is done.** Their exposure today is near zero because
-> neither is deployed to anything yet, but nothing bounds them, so do not point any workload at
-> them before the caps exist.
+> **Steps 2-4 are now DONE too (2026-09-05).** Both caps are live and verified `Configured`, and
+> both amounts are in the registry. The keys are no longer unbounded. What remains is step 5
+> onward: moving the prod banner secret onto the new key, retiring the dead 39-character key, and
+> exercising a real cap trip on the batch project.
 
 2. For **each** project, at
    `https://console.cloud.google.com/billing/010089-354936-77CD27/budgets` → **Create budget** →
