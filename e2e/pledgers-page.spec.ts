@@ -35,7 +35,7 @@ test.describe('Pledgers Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for profiles to load
-    await page.waitForSelector('text=Test Pledger 1');
+    await page.waitForSelector('text=Test Pledger 1 >> visible=true');
 
     // Find the carousel container (role="region")
     const carousel = page.locator('[role="region"][aria-label="Pledger profiles carousel"]');
@@ -64,7 +64,7 @@ test.describe('Pledgers Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for profiles to load
-    await page.waitForSelector('text=Test Pledger 1');
+    await page.waitForSelector('text=Test Pledger 1 >> visible=true');
 
     // Find carousel container
     const carousel = page.locator('[role="region"][aria-label="Pledger profiles carousel"]');
@@ -91,7 +91,7 @@ test.describe('Pledgers Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for profiles to load
-    await page.waitForSelector('text=Test Pledger 1');
+    await page.waitForSelector('text=Test Pledger 1 >> visible=true');
 
     // First dot should be active (has bg-blue-600 class and w-4 width)
     const firstDot = page.locator('button[aria-label="Go to profile 1"]');
@@ -121,7 +121,7 @@ test.describe('Pledgers Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for profiles to load
-    await page.waitForSelector('text=Test Pledger 1');
+    await page.waitForSelector('text=Test Pledger 1 >> visible=true');
 
     // Click the first pledger card
     const firstCard = page.locator('[href^="/p/"]').first();
@@ -144,7 +144,7 @@ test.describe('Pledgers Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for profiles to load (use getAllByText to avoid duplicates)
-    await page.waitForSelector('text=Test Pledger 1', { timeout: 10000 });
+    await page.waitForSelector('text=Test Pledger 1 >> visible=true', { timeout: 10000 });
 
     // Wait a bit for all cards to render
     await page.waitForTimeout(1000);
@@ -164,7 +164,7 @@ test.describe('Pledgers Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for profiles to load
-    await page.waitForSelector('text=Test Pledger 1', { timeout: 10000 });
+    await page.waitForSelector('text=Test Pledger 1 >> visible=true', { timeout: 10000 });
 
     // Wait for the "Showing" message to render
     await page.waitForTimeout(1000);
@@ -192,7 +192,7 @@ test.describe('Pledgers Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for profiles to load
-    await page.waitForSelector('text=Test Pledger 1');
+    await page.waitForSelector('text=Test Pledger 1 >> visible=true');
 
     // Count dot indicators
     const dots = page.locator('button[aria-label^="Go to profile"]');
@@ -201,19 +201,21 @@ test.describe('Pledgers Page', () => {
   });
 
   test('Empty state shows when no profiles exist', async ({ page }) => {
-    // Clean up all test users first
-    console.log('[E2E] Cleaning up all profiles for empty state test...');
-    await Promise.all(testUsers.map((u) => deleteTestUser(u.user.id)));
-    testUsers = [];
-
-    // Wait a bit for database to sync
-    await page.waitForTimeout(2000);
+    // P1229: this used to delete the 25 seeded users and assert the page was empty.
+    // That asserts a GLOBAL property of a table other sessions (and earlier interrupted
+    // runs of this very file) also write to, so it passed or failed depending on how much
+    // orphaned data happened to be in the shared test project. Stub the RPC instead — the
+    // behaviour under test is the component's empty state, not the table's contents.
+    await page.route('**/rest/v1/rpc/get_pledgers_page', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ total: 0, profiles: [] }),
+      });
+    });
 
     await page.goto('/pledgers');
     await page.waitForLoadState('networkidle');
-
-    // Wait for loading to complete (spinner should disappear)
-    await page.waitForTimeout(1500);
 
     // Should show empty state
     await expect(page.locator('text=No Verified Pledgers Yet')).toBeVisible({ timeout: 10000 });
