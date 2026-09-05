@@ -319,6 +319,39 @@ the ping returns `totalTokenCount: 1` and produces no image bytes.
       see Problem), and `.private/docs/edge-function-secrets.md` updated in the same change
 - [ ] Raising the cap restores service — proven, not assumed
 
+## Execution steps — part 1 (founder; the agent cannot do these)
+
+Spend caps are **console-only**: `gcloud billing budgets` has no cap flag on any track, the
+Budgets API discovery documents contain zero hits, and a created cap does not appear in
+`budgets list`. Provisioning also creates GCP projects, links billing and rotates a prod secret.
+Both are founder actions. Dry-run verified 2026-09-05; billing account `010089-354936-77CD27` is
+the only open one.
+
+```bash
+# 1. Provision each key in its own project (drop --dry-run when ready)
+~/.agents/bin/ai-keys --issue --name cp-prod-interactive   --holder "ClarityPledge prod edge functions" --budget 50 --dry-run
+~/.agents/bin/ai-keys --issue --name cp-batch   --holder "ClarityPledge batch transcription + agent tooling" --budget 75 --dry-run
+```
+
+2. For **each** project, at
+   `https://console.cloud.google.com/billing/010089-354936-77CD27/budgets` → **Create budget** →
+   **Spend cap enforcement** (*not* Alerts only) → scope to that one project and the Gemini API
+   (`generativelanguage.googleapis.com`) → amount **50** / **75**, set ~5% below intent.
+   Stopping after step 1 of the wizard silently creates nothing.
+3. Create a second, **alert-only** budget per project at roughly a tenth of the cap.
+4. `~/.agents/bin/ai-keys --mark-cap-set --name <name>` for each — the registry is the only place
+   a cap's existence is recorded, because nothing can read one back.
+5. Move the prod banner secret onto `cp-prod-interactive`: **test Supabase first**, verify, then
+   prod. Update `.private/docs/edge-function-secrets.md` in the same change and re-run
+   `scripts/check-edge-function-secrets.sh --env prod`.
+6. Re-run `./scripts/check-gemini-prod-key.sh` — it must print `digest OK` against the **new**
+   deployed secret. A `KEY_DIGEST_MISMATCH` here means step 5 updated one store and not the other.
+7. Rotate or retire the dead 39-character key (test Supabase + GCP Secret Manager
+   `gemini-api-key`), and re-verify `transcribe-session` afterwards.
+8. Once a cap exists, exercise a real trip on the **batch** project (never prod-interactive) and
+   confirm the `KEY_CAP_TRIPPED` branch fires on a genuine 403 — the one classifier branch still
+   verified only against a synthetic body.
+
 ## Pre-deploy Checklist
 
 - [ ] If the key is rotated, the new value is set in **test** Supabase secrets, verified, then
