@@ -42,14 +42,18 @@ driver: heuristic
 
 **There are two different Gemini keys, not one.** Confirmed by SHA-256 over each stored value
 (Supabase's `secrets list` returns the SHA-256 digest of the secret, which is what makes the
-comparison possible without ever printing a key):
+comparison possible without ever printing a key). **Key A** and **key B** below are labels, not
+values — the digests themselves are deliberately not recorded here, because a fingerprint of a live
+credential does not belong in a public repo even when it is not reversible. Reproduce them with
+`scripts/check-gemini-prod-key.sh`, which prints a digest prefix to your terminal and to nothing
+else:
 
-| store | consumer | sha256 (first 8) | length | last updated | live test |
+| store | consumer | identity | length | last updated | live test |
 |---|---|---|---|---|---|
-| Supabase **prod** `GEMINI_API_KEY` | `generate-banner`, `generate-event-banner` | `8faaf692` | 53 | 2026-08-24 | **HTTP 200** |
-| local `.env.local` `GEMINI_API_KEY` | agent / local tooling | `8faaf692` | 53 | — | **HTTP 200** |
-| Supabase **test** `GEMINI_API_KEY` | test-env edge functions | `5062b658` | 39 | 2026-02-25 | **HTTP 400 `API_KEY_INVALID`** |
-| GCP Secret Manager `gemini-api-key` (`gen-lang-client-0869694595`) | Cloud Run `transcribe-session` | `5062b658` | 39 | created 2026-03-22, single version | **HTTP 400 `API_KEY_INVALID`** |
+| Supabase **prod** `GEMINI_API_KEY` | `generate-banner`, `generate-event-banner` | **key A** | 53 | 2026-08-24 | **HTTP 200** |
+| local `.env.local` `GEMINI_API_KEY` | agent / local tooling | **key A** | 53 | — | **HTTP 200** |
+| Supabase **test** `GEMINI_API_KEY` | test-env edge functions | **key B** | 39 | 2026-02-25 | **HTTP 400 `API_KEY_INVALID`** |
+| GCP Secret Manager `gemini-api-key` (`gen-lang-client-0869694595`) | Cloud Run `transcribe-session` | **key B** | 39 | created 2026-03-22, single version | **HTTP 400 `API_KEY_INVALID`** |
 
 Live test = `GET /v1beta/models` and, for the prod key, the exact call
 `generate-banner/index.ts:240` constructs —
