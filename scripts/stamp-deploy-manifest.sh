@@ -269,21 +269,19 @@ if not migrations_only:
     env['functions_deployed_at'] = now
 
 if not functions_only:
-    # DEDUPE. build_migrations_json emits one entry per FILE, taking the version from the
-    # filename prefix — so two migrations sharing a prefix emit the version twice. Three such
-    # pairs exist on disk (20260223, 20260409120000, 20260413100000) and predate the P1042
-    # pre-commit gate that now blocks new ones, so every full stamp run reproduced them.
+    # NO DEDUPE, DELIBERATELY. The list tracks by BARE VERSION, so two migration files
+    # sharing a 14-digit prefix legitimately produce two entries — that is both halves
+    # reported as applied, not one stamped twice. Three such pairs are grandfathered in
+    # supabase/migrations/.duplicate-version-allowlist, which explains why renumbering them
+    # would be the more dangerous option.
     #
-    # The manifest records WHICH VERSIONS ARE DEPLOYED, so a repeated version carries no
-    # information; it just makes any count or cross-env diff of this file wrong. Sorting is
-    # safe because the versions are zero-padded numeric strings, so lexicographic order is
-    # numeric order — and the list was already emitted in sorted-filename order.
-    #
-    # Found 2026-09-04 after a P1212 ship: the duplicates were misdiagnosed twice, first by a
-    # review and then by me, as a merge folding prod's known-bad list into test. Both readings
-    # fit the evidence (prod carried exactly these three, test did not) and both were wrong.
-    # Reading this function settled it in one command.
-    env['migrations'] = sorted(set(json.loads(migrations_json)))
+    # Deduping here is a KNOWN ERROR with a written record: decisions.md 2026-08-25 documents
+    # a first pass that deduped exactly this and thereby silently under-reported that both
+    # had actually been applied, caught only by diffing against main own copy. Its Decision
+    # is to check ls supabase/migrations/ | grep '^<timestamp>' before treating a repeat as
+    # a bug. I added a sorted(set(...)) here on 2026-09-04 without running that check, which
+    # would have made the documented error permanent and automatic. Reverted the same day.
+    env['migrations'] = json.loads(migrations_json)
     env['migrations_deployed_at'] = now
 
 existing[env_key] = env
