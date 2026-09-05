@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000074
 severity: medium
@@ -9,8 +9,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [e2e, test-isolation, pledgers, shared-state]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1253: `e2e/pledgers-page.spec.ts` is coupled to shared test-DB state
@@ -25,13 +25,23 @@ desktop pagination narrowed the window that was hiding one of them.
 
 Three distinct couplings, all in one file:
 
-1. **Module-level fixture array + generic `afterEach`.** The file keeps `let testUsers: TestUser[]`
-   at describe scope, seeded in `beforeEach` and torn down in `afterEach`. The e2e guide names this
-   exact shape as the thing not to do: *"never a shared module-level array plus a generic
-   `afterEach` (that reintroduces the same race once tests in one file run in parallel: one test's
-   cleanup can delete another still-running test's not-yet-used row)"*. Today the file is held
-   together only by `test.describe.configure({ mode: 'serial' })`; remove that line, or add a
-   second worker, and the cleanup races the seeding.
+1. **Seeded rows are tracked only after `Promise.all` resolves, so a partial failure leaks all of
+   them.** `beforeEach` did `testUsers = await Promise.all(...25 creates...)`. `Promise.all` rejects
+   on the first failure and never yields the successes, so if creation 13 fails — or the run is
+   interrupted mid-flight — the 12 rows already written are never assigned to `testUsers`, and
+   `afterEach` therefore deletes nothing. **This is the mechanism behind the orphan `Test Pledger N`
+   rows accumulating in the shared test project**, and it is the defect with real consequences.
+
+   **Corrected 2026-09-05 — the originally-filed cause was wrong.** This was first written up as
+   the module-level-array-plus-generic-`afterEach` race that `docs/technical/e2e-testing-guide.md`
+   (P1083) warns about, with the claim that only `test.describe.configure({ mode: 'serial' })` was
+   holding the file together. **Measured, that claim is false.** The pre-fix file was run with
+   `serial` removed and `--workers=4` (`fullyParallel: true` is set in `playwright.config.ts`, so
+   tests within a file genuinely do distribute): **9 passed, exit 0.** Each worker is a separate
+   process with its own module instance and runs one test at a time, so two tests never share that
+   array concurrently — the race the guide describes is not reachable in this execution model. The
+   probe that "proved" the fix was therefore blind: a known-good and a known-bad control both
+   passed it. The guide's advice still holds as a shape to prefer; it was not this file's bug.
 
 2. **An exact-count assertion against a table other tests write to.** `expect(count).toBe(20)` on
    the carousel dots. The guide's rule is *"assert floors (`toBeGreaterThanOrEqual`), not exact
@@ -139,11 +149,24 @@ fix this bug.
 
 ## Acceptance Criteria
 
-- [ ] `e2e/pledgers-page.spec.ts` passes with `test.describe.configure({ mode: 'serial' })` removed,
-      on three consecutive runs (proving cleanup no longer depends on serialization)
-- [ ] `serial` mode restored afterwards if desired as defence in depth, and the file still green
-- [ ] Running only the empty-state test produces zero `[TEST HELPER] Test user created` lines
-- [ ] No test in the file deletes a user id it did not itself create
-- [ ] The dot-count assertion states whether it asserts a cap or a population
-- [ ] Full file green: 9 passed / 0 failed / 0 flaky, exit 0, on three consecutive runs
-- [ ] `npx vitest run` and `./scripts/pre-commit-checks.sh` green
+- [x] A mid-seed failure leaves **zero** rows behind. Control probe running both fixture shapes
+      against a `createTestUser` that throws on call 13: push-after-`Promise.all` leaves **24 rows**,
+      track-as-created leaves **0**.
+- [x] Running only the empty-state test performs **zero** database work: **0** `[TEST HELPER]` lines
+      on the fixed file vs **126** on `main`'s version of the same test (5.3s vs 7.5s).
+- [x] No test deletes an id it did not itself create — seeding is a per-test Playwright fixture
+      whose tracking array is function-local and whose teardown runs in `finally`.
+- [x] Seeded rows carry a per-run unique prefix, so rows from another run (or a leftover orphan)
+      can neither satisfy nor defeat an assertion.
+- [x] No wait depends on one specific seeded row being inside the visible slice. The mobile
+      carousel shows only the first 20 of a newest-first page while the 25 fixture rows are created
+      concurrently, so any single seeded name had a real chance of being paginated out — the
+      original mobile flakes. Waits now assert on visible pledger cards.
+- [x] The dot-count assertion states that it asserts a **cap** (`MAX_MOBILE_CAROUSEL`), not a
+      population, and is valid regardless of how many rows the shared table holds.
+- [x] Full file green: 9 passed / 0 failed / 0 flaky, exit 0, on three consecutive runs.
+- [x] `npx tsc --noEmit`, `npx eslint`, `npx vitest run` and `./scripts/pre-commit-checks.sh` green.
+- [x] **Withdrawn as unmeasurable:** "passes with `serial` removed, proving cleanup no longer
+      depends on serialization." Both the fixed file **and** the unfixed control pass that check
+      (9 passed, exit 0, `--workers=4`), so it discriminates nothing. Recorded rather than deleted
+      because the criterion looked decisive when written. `serial` is kept as defence in depth.
