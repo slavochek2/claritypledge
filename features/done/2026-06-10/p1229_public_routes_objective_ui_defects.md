@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000066
 severity: high
@@ -9,9 +9,9 @@ drafted_by: fable
 exec_model: fable
 exec_effort: high
 tags: [ui, visual-qa, public-routes, pledgers, mobile, a11y]
-delivery_stage: park
 pipeline_ran: [create-bug, inline, park]
 flow: inline
+completed_at: 2026-09-05
 ---
 
 # P1229: Public routes — objective UI defects from the headless visual-QA sweep
