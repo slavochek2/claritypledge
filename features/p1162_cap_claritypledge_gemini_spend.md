@@ -176,10 +176,15 @@ cap breach is distinguishable by its text: the 403 names the cap and the service
   image generation and bursty batch transcription can only be separated by **project**. Sharing one
   means a P1237-style batch run can trip the cap and dark banner generation for every visitor.
 
-  | Project | Consumers | Spend cap (gross/mo) |
+  | Project (provisioned 2026-09-05) | Consumers | Spend cap (gross/mo) |
   |---|---|---|
-  | ClarityPledge prod-interactive | `generate-banner`, `generate-event-banner` | **50 USD** |
-  | ClarityPledge batch | P1237 batch transcription, P1236 if it lands, agent tooling | **75 USD** |
+  | `aikey-cp-prod-inte-81368` | `generate-banner`, `generate-event-banner` | **50** |
+  | `aikey-cp-batch-81413` | P1237 batch transcription, P1236 if it lands, agent tooling | **75** |
+
+  **Currency: EUR, not USD.** The billing account `010089-354936-77CD27` is denominated in EUR, and
+  a cap is set in the billing account's currency — there is no per-budget currency choice. So these
+  are EUR 50 / EUR 75, roughly 8% more headroom than the USD figures decided. On a fuse carrying
+  ~10x headroom that difference is immaterial, and is recorded rather than silently converted.
 
 - **Each cap is paired with a separate alert-only budget at a much lower amount** (order of 10% of
   the cap). The alert is the sensor; the cap is the fuse. They must not sit near each other: a fuse
@@ -260,8 +265,10 @@ would have been testing the wrong credential, which is precisely the error this 
 
 ## Done-When
 
-- [ ] Two ClarityPledge projects exist, each with its own Gemini key: prod-interactive (the two
+- [x] Two ClarityPledge projects exist, each with its own Gemini key: prod-interactive (the two
       banner functions) and batch (transcription / agent tooling)
+      — `aikey-cp-prod-inte-81368` and `aikey-cp-batch-81413`, provisioned 2026-09-05, both
+      billing-linked and both verified answering
 - [ ] A monthly **spend-cap-enforcement** budget is active on `generativelanguage.googleapis.com`
       in each — **50 USD** prod-interactive, **75 USD** batch — each verified as `Configured` in the
       budget list, not merely created
@@ -327,15 +334,18 @@ the ping returns `totalTokenCount: 1` and produces no image bytes.
 
 Spend caps are **console-only**: `gcloud billing budgets` has no cap flag on any track, the
 Budgets API discovery documents contain zero hits, and a created cap does not appear in
-`budgets list`. Provisioning also creates GCP projects, links billing and rotates a prod secret.
-Both are founder actions. Dry-run verified 2026-09-05; billing account `010089-354936-77CD27` is
-the only open one.
+`budgets list`. Step 1 (provisioning) is scriptable and is now done; steps 2-4 are console-only
+and step 5 touches prod secrets, so both remain founder actions. Billing account
+`010089-354936-77CD27` is the only open one.
 
-```bash
-# 1. Provision each key in its own project (drop --dry-run when ready)
-~/.agents/bin/ai-keys --issue --name cp-prod-interactive   --holder "ClarityPledge prod edge functions" --budget 50 --dry-run
-~/.agents/bin/ai-keys --issue --name cp-batch   --holder "ClarityPledge batch transcription + agent tooling" --budget 75 --dry-run
-```
+**Step 1 is DONE (2026-09-05).** Both keys are provisioned, each in its own project, each
+restricted to `generativelanguage.googleapis.com`, both billing-linked to `010089-354936-77CD27`,
+both verified answering (`models.list` -> HTTP 200). Key strings are recoverable at any time with
+`~/.agents/bin/ai-keys --key-string --name <name>` — they do not need to be stored anywhere.
+
+> **Both keys are UNCAPPED until step 2 is done.** Their exposure today is near zero because
+> neither is deployed to anything yet, but nothing bounds them, so do not point any workload at
+> them before the caps exist.
 
 2. For **each** project, at
    `https://console.cloud.google.com/billing/010089-354936-77CD27/budgets` → **Create budget** →
