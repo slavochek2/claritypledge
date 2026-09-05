@@ -108,6 +108,32 @@ Pattern: (1) track and delete only the ids a test itself created, in a **per-tes
 
 **Never follow a wait with a non-retrying DOM read (P1083):** Playwright's dev webServer runs `npm run dev` (`playwright.config.ts`), so `React.StrictMode` (`src/main.tsx`) is live in every e2e run — a mount effect can fire its data-fetch twice, with the app's own `cancelled`-style guard discarding the first result. "Wait for the relevant network response, then call `.count()`/`.textContent()` once" can resolve on the *discarded* first response and read the DOM before the real state update lands — StrictMode just turns a probabilistic race into a deterministic failure; the same read-after-wait pattern is unsound even without it, since `waitForResponse` resolves before React's re-render commits. Use `expect.poll()` or a web-first auto-retrying assertion (`toBeVisible`, `toHaveCount` with an exact target) instead of any one-shot locator read after a wait.
 
+**A `text=` selector against a responsive component resolves into the HIDDEN tree, and `waitForSelector` then waits forever (P1229/P1253):** components that switch layout with Tailwind breakpoints render **both** trees into the DOM and hide one with CSS — `pledger-grid.tsx` emits the mobile carousel (`md:hidden`) *first*, then the desktop grid (`hidden md:grid`). At a desktop viewport the carousel is `display:none`, but its text nodes are still matched. `page.waitForSelector('text=Some Name')` defaults to state **`visible`**, takes the *first* match — which is in the hidden subtree — and times out waiting for a node that can never become visible. The failure looks like missing data, so it gets misdiagnosed as a seeding or database problem. Diagnostic tell: Playwright's log says `locator resolved to N elements` and names a first match that is obviously present on screen.
+
+Fix: scope the wait with `>> visible=true`, or assert on the visible cards themselves (`'[href^="/p/"]:visible'`). Prefer the latter — a readiness gate should assert *something rendered*, not that one specific row rendered.
+
+**Do not wait on one specific seeded row when the page paginates or caps (P1253):** a related trap in the same family. If the view shows a capped or paginated slice (here `MAX_MOBILE_CAROUSEL = 20` of a newest-first page of 30) and the fixture seeds rows **concurrently** via `Promise.all`, the creation order among them is nondeterministic — so any *individual* seeded name has a real chance of falling outside the visible slice, intermittently. Gate on visible cards, then assert the property under test.
+
+**Track fixture rows AS THEY ARE CREATED, not after `Promise.all` resolves (P1253):** `created = await Promise.all(...N creates...)` rejects on the first failure and **never yields the successes**, so a partial failure or an interrupted run leaves every already-written row untracked and therefore undeleted. This is a leading source of orphan rows in the shared test project. Push each row inside the mapped async function instead, and tear down in `finally`:
+
+```typescript
+const created: TestUser[] = [];
+try {
+  await Promise.all(Array.from({ length: N }, async (_, i) => {
+    const user = await createTestUser({ name: `${prefix} ${i + 1}` });
+    created.push(user);            // tracked immediately, not after the await
+    return user;
+  }));
+  await provide(created);
+} finally {
+  await Promise.all(created.map((u) => deleteTestUser(u.user.id).catch(() => undefined)));
+}
+```
+
+Measured with a `createTestUser` that throws on call 13: push-after-`Promise.all` leaves **24 rows** behind, track-as-created leaves **0**. Give the fixture a **per-run unique name prefix** too, so another run's rows can neither satisfy nor defeat an assertion. Note the honest limits: this covers the *creation*-failure path, not a *deletion* failure, and nothing covers a worker crash — `finally` never runs.
+
+**A test that reads no rows should seed none.** Moving a stubbed-RPC empty-state test out of a seeding `describe` cut it from **126** `[TEST HELPER]` calls to **0** on the same single test. Seeding a fixture a test never reads is pure orphan production.
+
 ### User Helpers (`test-user.ts`)
 
 **Create test user:**

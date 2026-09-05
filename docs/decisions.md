@@ -6,6 +6,52 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-05 [technical]: Rebasing work that was previously REVERTED silently drops commits — patch-id matches the revert's history, and every gate stays green
+
+**Context:** P1220 was reverted off main on 2026-09-03 (entry below) and parked. Shipping it two days later meant replaying 11 commits onto a main that was 314 commits ahead. `git rebase` reported `warning: skipped previously applied commit 9d405894e` and dropped it. That commit was M9 — the entire interaction layer: press feedback, 150ms ease-out, and the `prefers-reduced-motion` guard at the primitives.
+
+It is not "previously applied". It was applied and then reverted, so the content is absent from main — but `git` compares **patch-ids**, and the patch-id still matches its own presence in the reachable history. The same happened to a second commit. Nothing failed: the rebase completed clean, `tsc`, `eslint`, 3777 unit tests, `pre-commit-checks.sh` and all five ship gates passed on a tree missing a feature. It was caught only by `grep -c 'prefers-reduced-motion' src/index.css` returning 0 — a by-hand check of whether the code was actually there.
+
+**Decision:** After rebasing any branch whose work appears in a `revert(...)` commit on the target, **enumerate the source commits and assert each one's content is present in the tree** — not that the rebase exited 0. Grep for a token unique to each commit's payload. Re-apply skipped commits explicitly with `git cherry-pick <sha>`. `--reapply-cherry-picks` is the flag-level fix but only helps if you already suspect the problem.
+
+**Alternatives rejected:** *Trust the rebase's own reporting* — its `warning: skipped` line is the only signal and it is indistinguishable from the benign case (a commit genuinely already on main), so it reads as informational noise in a 300-commit replay. *Rely on the test suite* — the dropped content was CSS interaction polish with no assertions on it, which is exactly the class of change that ships silently; a suite that covered it would have made the whole batch unnecessary.
+
+**Consequences:** This generalises past `revert`: any workflow that replays commits onto a branch where they once lived and were removed — a revert, a `reset --hard`, a squashed re-land — is exposed. The revert makes it *more* likely, not less, because reverting is what creates the gap between "patch-id is reachable" and "content is in the tree". Ties to [epistemic.md](../.claude/rules/epistemic.md) gate 5: a tool call that succeeded is not evidence its output is what you asked for.
+
+**References:** [.claude/rules/git.md](../.claude/rules/git.md) · P1220 revert entry (2026-09-03, below)
+
+---
+
+## 2026-09-05 [process]: A parked spec's recorded root cause is a hypothesis that has decayed — re-derive it before acting, especially when it asks for an irreversible step
+
+**Context:** Two parked branches were resumed this session. Both carried a written root cause for their one blocking item. **Both were wrong, and both would have led to the wrong action.**
+
+P1229's spec said its Playwright suite failed because orphan `Test Pledger N` rows in the shared test project collided with a substring locator, and named the cheapest disproof as *deleting the 192 orphans* — a `DELETE` on shared state, correctly flagged as the founder's call. The spec's own honesty is what makes this worth recording: it labelled the item *"Hypothesis, not a diagnosis — the disproof was not run."* Re-derived from the failing log, the actual cause was a wait on a permanently **hidden** node (`waitForSelector` defaults to state `visible`; the responsive component renders the mobile carousel before the desktop grid and it is `display:none` at desktop width). The substring theory was falsified **by the branch's own log**: on retry the first match was the exact string and it still timed out. The second cause was a test asserting a *global* property of a shared table. No `DELETE` was needed, and it would not have fixed anything — it buys one green run, not a green test.
+
+P1253 then repeated the shape in-session: its bug spec was filed naming the module-level-array race the repo's own e2e guide warns about. Measured, that race is **not reachable** under Playwright's worker model (each worker is a separate process running one test at a time) — the unfixed file with `serial` removed and `--workers=4` passed 9/9. The real defect was seeded rows tracked only after `Promise.all` resolves, so a partial failure orphaned every already-created row (control probe: **24 rows leaked vs 0**).
+
+**Decision:** Treat a root cause written in a parked or previously-filed spec as **evidence about what a past session believed**, not as a finding. Before acting on it — and unconditionally before requesting an irreversible or founder-gated step it recommends — reproduce the failure and re-derive the cause from the current artifact. Where the spec's cause turns out wrong, **correct the spec in place and say so**, rather than silently fixing the real thing.
+
+**Alternatives rejected:** *Trust it when the spec sounds confident* — inverted here: P1229's spec was explicitly hedged and still had the correct instinct that it was unverified, which is what made re-deriving cheap. Confidence in the prose is uncorrelated with correctness of the cause. *Re-derive only when the fix fails* — the failure mode is not a failed fix; it is a **successful, unnecessary** action, like a `DELETE` on shared state that appears to help because the next run happens to be green.
+
+**Consequences:** Extends [epistemic.md](../.claude/rules/epistemic.md) gate 2 (present root causes as hypotheses) across **time and authorship** — gate 2 binds the agent proposing a cause; this binds the agent inheriting one. The tell is a spec that names a founder-gated or destructive step as its "cheapest disproof": that is precisely where re-deriving is cheapest relative to the cost of being wrong. Also a second instance of the blind-probe pattern in [epistemic.md](../.claude/rules/epistemic.md) — in P1253's case a known-good and a known-bad control **both passed** the `serial`-removal probe, which is the documented signal that the probe, not the code, is the thing that is broken.
+
+**References:** P1229, P1253, P1254 specs in `features/done/` · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
+## 2026-09-05 [technical]: P1220 shipped after all — the revert's failure did not reproduce on current main
+
+**Context:** Resolution of the 2026-09-03 entry below, which backed P1220 out of main because its M1 border-token batch broke 13 tests in `src/tests/p1212-quote-label-parity.test.tsx`. That entry is correct as written and is not being amended; this records what happened when the branch was resumed.
+
+**Decision:** P1220 was rebased onto current main and shipped. The 13 failures **do not reproduce**: 39/39 pass on that suite, 3777 (later 3786) unit tests green. Two things changed between the revert and the ship — P1212's own tests evolved on main over the intervening 314 commits, and the rebase conflict in `live-story-card-expanded.tsx` was resolved to keep P1212's `data-legacy-quotes-inline` observability attributes **alongside** the token swap, rather than either side winning.
+
+**Alternatives rejected:** *Treat the revert as a permanent verdict on the batch* — it was a verdict on the batch **against that main**, and the entry itself scoped it that way. *Ship without re-running the previously-failing suite* — the whole value here is that the specific suite named in the revert was re-run by name before shipping, not just the aggregate count.
+
+**Consequences:** A revert entry answers "was this safe then", never "is this safe now". When resuming reverted work, re-run **the named failing artifact specifically** and report it by name; an aggregate green is not an answer to a specific past failure. Note the conflict resolution was load-bearing: taking either side wholesale would have dropped either the token swap or P1212's observability attributes.
+
+**References:** 2026-09-03 [process] P1220 entry (below) · `features/done/`
+
 ## 2026-09-05 [technical]: Two transcription engines, two different jobs — Gemini wins on one voice, ties naive on who-spoke
 
 **Context:** P1236 needed an engine for live per-person transcription; P1237 asked the same question for the batch pipeline the same week. The instinct was that one answer covers both.
