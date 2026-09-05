@@ -444,7 +444,11 @@ checker. The known-open backlog lives in `.private/function-grant-baseline.json`
 
 **P877 — column-level PII gate (email, linkedin_url, reason):** RLS is row-level only; it does not gate columns. `anon`+`authenticated` have a column-scoped `GRANT SELECT` on the non-sensitive columns only — `email`/`linkedin_url`/`reason` are **not** directly selectable (or filterable in a WHERE) by either role (returns `42501`). Read/write them via the `SECURITY DEFINER` accessors instead:
 - `get_profile_by_id(uuid)` / `get_profile_by_slug(text)` — display fields always; `email` → owner only; `linkedin_url`/`reason` → verified+pledged (public-by-design) or owner
-- `get_featured_profiles(int)` — verified+pledged list for the public wall / `/pledgers` (no email)
+- `get_featured_profiles(int)` — verified+pledged list for the public wall (no email)
+- `get_pledgers_page(p_limit int, p_offset int)` — one paginated page of that same verified+pledged
+  list plus the total, for `/pledgers` (no email). Same row shape, eligibility filter and ordering as
+  `get_featured_profiles`; `p_limit` is clamped server-side to 1..100 so a client cannot re-create the
+  unbounded fetch P1229 removed.
 - `get_my_profile_by_email(text)` — own row by email (`/live` migration); rejects other emails
 - `lookup_party_by_email(text)` — resolve an invitee to a party (no email out); authenticated only
 - `email_exists(text)` — login email check (boolean only)
