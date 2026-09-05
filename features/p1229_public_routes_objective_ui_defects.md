@@ -128,35 +128,29 @@ ship gate on the founder's inbox; they moved verbatim to § Founder decisions (2
 - [x] `/pledgers` never issues a REST `in()` list longer than the page size; console is clean on load (D2)
 - [x] `/pledgers` desktop first paint renders at most one page (30) of cards and a "Show more" control; each click appends the next page; control disappears at `total` (D1)
 - [x] `/pledgers` mobile still shows the 20-card carousel and "Showing 20 of <total> pledgers"
-- [ ] **`e2e/pledgers-page.spec.ts` green — still not green, but the blocker recorded here was
-  wrong, or at least incomplete.** The AirPlay diagnosis is confirmed: this worktree's Playwright
-  port is `5000 + 20*100 = 7000`, `curl http://localhost:7000/` returns `HTTP/1.1 403` with
-  `Server: AirTunes/950.7.1`, and `webServer.reuseExistingServer: !CI` accepts that as the app.
-  **That blocker has now been worked around without touching the shared config** (2026-09-03): a
-  dev server was started by hand on a free port (`npm run dev -- --port 6420`, `HTTP 200`) and the
-  spec run through a throwaway config that inherits `playwright.config.ts` and overrides only
-  `use.baseURL` and `webServer` — the config file was deleted immediately after the run, and
-  `playwright.config.ts` is unmodified on this branch (`git diff` shows it absent).
-  **Result: 4 flaky, 1 failed — the spec is NOT green.** The hard failure is
-  `Desktop viewport - profiles render in grid (no carousel)`, timing out at
-  `page.waitForSelector('text=Test Pledger 1')`; Playwright reports the locator resolving to **20**
-  elements on the first attempt and **18** on the retry, of the same page, and waiting on the first
-  match (`Test Pledger 17`, then `Test Pledger 14`) to become visible.
-  **Hypothesis, not a diagnosis — the disproof was not run.** The spec seeds 25 `Test Pledger N`
-  profiles in `beforeEach` and deletes them in `afterEach`, but the shared test project currently
-  holds **192** rows matching `^Test Pledger [0-9]+$` out of 5,498 profiles — orphans from earlier
-  interrupted runs. `text=Test Pledger 1` is a substring match, so it also matches `Test Pledger
-  17`, `100`, `192`, and this branch's D1 change caps the desktop first paint at one page, where
-  the page previously rendered every pledger. Cheapest disproof: delete the 192 orphans (a DELETE on
-  the test DB — founder's call under `.claude/rules/db-access.md`, and it is shared state other
-  sessions may be mid-run against), then re-run. Whether the same failure occurs without this
-  branch's changes was **not** established: it needs the spec run against a `main` tree, and no
-  worktree here has one.
-  **What this changes for the reader:** the item is not blocked on a repo-wide port fix. That fix
-  is still worth making — `getWorktreePort()` (`playwright.config.ts:22-46`) skips 5000 for exactly
-  this reason and does not skip 7000, and its comment documents slots w1-w7 only — but it is no
-  longer what stands between this spec and green. The assertions the spec makes are measured
-  directly under Evidence D1/D2/D3 below.
+- [x] **`e2e/pledgers-page.spec.ts` green** — 9 passed / 0 failed / 0 flaky, exit 0, on three
+  consecutive full runs (2026-09-05). The blocker recorded here previously was wrong on both
+  counts, and the DB DELETE it proposed as the cheapest disproof was never needed.
+  **The AirPlay port collision was real but incidental** — it belonged to the w20 slot the earlier
+  session used (`5000 + 20*100 = 7000`); this run used w1 (`5100`) and never met it. The repo-wide
+  `getWorktreePort()` gap is still worth fixing and still is not what blocked this spec.
+  **What actually broke it — two independent test bugs, neither of them the one recorded:**
+  1. *The desktop grid test was waiting on a permanently hidden node.*
+     `pledger-grid.tsx:84` renders the mobile carousel (`md:hidden`) FIRST in the DOM and the
+     desktop grid (`hidden md:grid`) second (`:160`). At 1024px the carousel is `display:none`, so
+     `text=Test Pledger 1` resolved into the hidden subtree, and `waitForSelector` — whose default
+     state is `visible`, not `attached` — waited it out. The recorded substring-collision theory is
+     **falsified by the branch's own log**: on retry the first match was the exact string
+     `Test Pledger 1` and it still timed out. Orphan rows were never the mechanism.
+     Fix: scope every wait in the file with `>> visible=true`.
+  2. *The empty-state test asserted a global property of shared state.* It deleted its own 25 seeded
+     users and then asserted no verified pledger existed **anywhere**, in a project other sessions
+     and earlier interrupted runs of this same file also write to. Measured directly: it PASSED on
+     this session's first run and FAILED on the second, the only difference being orphans the first
+     run itself left behind. Deleting the 192 orphans would therefore have bought one green run, not
+     a green test — which is why the founder DELETE was not requested.
+     Fix: stub the `get_pledgers_page` RPC and assert the component's empty state directly, so the
+     test no longer reads or depends on the table at all.
 - [x] `window.innerWidth === 375` on `/coach` and `/partner-template` immediately after load at 375x812, and `=== 320` at 320x700 (D3)
 - [x] Home H2 last word fully visible at 320 (D4)
 - [x] "+N" chip text fully inside the chip on `/`, `/coach`, `/hiring`, `/sign-pledge` (D5)
