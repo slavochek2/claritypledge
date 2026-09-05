@@ -31,46 +31,62 @@ driver: heuristic
 > `gcloud auth` had expired when this note was written. Tracked by
 > [P1250](p1250_colocated_autoclose_closes_specs_nobody_did.md).
 
-## Measured 2026-09-05 — the key IS dead, and prod image generation is failing now
+## Measured 2026-09-05 — CORRECTED 2026-09-05 (later): prod is fine; the dead key is the TEST key
 
-Both halves of this spec stopped being hypothetical on the same day, found incidentally while
-sizing a Gemini cap for [P1236](p1236_server_side_live_transcription_for_rooms.md).
+> **This section previously read "the key IS dead, and prod image generation is failing now."
+> That was wrong, and it was wrong in a way worth recording.** The original measurement read the
+> **test** Supabase project's `GEMINI_API_KEY` and reported it as prod's. Every downstream claim
+> built on it — same-key-two-stores, the 2026-02-25 update date, "prod banner generation is failing
+> right now", and the rotation-does-double-duty framing — inherited the error. Re-measured below by
+> command, against both Supabase projects and GCP Secret Manager.
 
-**One key, two stores, same value.** The GCP Secret Manager secret `gemini-api-key` (mounted on
-Cloud Run `transcribe-session`) and the Supabase secret `GEMINI_API_KEY` (read by
-`generate-banner` and `generate-event-banner`) are **the same key** — confirmed by SHA-256, not by
-assumption. Supabase's copy was last updated 2026-02-25.
+**There are two different Gemini keys, not one.** Confirmed by SHA-256 over each stored value
+(Supabase's `secrets list` returns the SHA-256 digest of the secret, which is what makes the
+comparison possible without ever printing a key):
 
-**That key no longer authenticates.** Tested against the exact call `generate-banner/index.ts:240`
-constructs — `models/gemini-3.1-flash-image-preview:generateContent?key=…`:
+| store | consumer | sha256 (first 8) | length | last updated | live test |
+|---|---|---|---|---|---|
+| Supabase **prod** `GEMINI_API_KEY` | `generate-banner`, `generate-event-banner` | `8faaf692` | 53 | 2026-08-24 | **HTTP 200** |
+| local `.env.local` `GEMINI_API_KEY` | agent / local tooling | `8faaf692` | 53 | — | **HTTP 200** |
+| Supabase **test** `GEMINI_API_KEY` | test-env edge functions | `5062b658` | 39 | 2026-02-25 | **HTTP 400 `API_KEY_INVALID`** |
+| GCP Secret Manager `gemini-api-key` (`gen-lang-client-0869694595`) | Cloud Run `transcribe-session` | `5062b658` | 39 | created 2026-03-22, single version | **HTTP 400 `API_KEY_INVALID`** |
 
-| key | result |
-|---|---|
-| the deployed prod key | **HTTP 400, `API_KEY_INVALID`, "API key not valid"** |
-| the key in local `.env.local` | HTTP 200, returns an image |
+Live test = `GET /v1beta/models` and, for the prod key, the exact call
+`generate-banner/index.ts:240` constructs —
+`models/gemini-3.1-flash-image-preview:generateContent`. The prod key returned a JPEG.
 
-Not a restriction and not a quota: the same 400 comes back from `models.list`, from the `?key=`
-form and the `x-goog-api-key` header form, and from the transcription endpoint. **Prod banner
-generation is failing right now.** Since when is unknown — which is precisely the gap this spec's
-part 2 was filed to close, in the founder's own words: *"maybe /day should also check if the gemini
-api key in prod [works]"*. It died, and nothing said so.
+**So: prod banner generation is NOT failing.** The prod key is alive, and it is the same value as
+the local copy — the local key was never a "working key the prod one diverged from"; they are one
+key that happens to be stored twice.
 
-**Sizing consequence — $50 does not fit the current project.** A spend cap is scoped to one
-**project x one service**, never to one key. The prod key and the local/agent key both bill to
-`gen-lang-client-0869694595`, whose Gemini gross was **€47.42 in August** — largely local tooling,
-not prod. Cap that project at $50 and ordinary local work trips it and takes prod down with it,
-which is exactly the user-facing blast radius the Appetite section warns about.
+**What IS dead is the other key** — the 39-character one, held identically in test Supabase and in
+GCP Secret Manager, unrotated since March. Its blast radius today is small: `transcribe-session`
+mounts it but never calls the Gemini API (verified — no `generativelanguage` reference anywhere in
+`services/`), and test-env banner generation falls back to Unsplash/gradient like prod does. But it
+is exactly the key P1237's batch transcription and P1236 would pick up, so it must be rotated before
+either lands, not after.
 
-So the cap and the fourth key are **not two options, they are one sequence**: provision the
-ClarityPledge key in its **own project** (pp P45's project-per-key rule is what makes budgets
-independent), move both stores onto it, then cap that project. Isolated, prod's own Gemini spend is
-small and there is real headroom. **Amounts and the project split are settled in Founder decisions
-below (2026-09-05): two projects, 50 USD prod-interactive and 75 USD batch** — the single-project
-framing in this paragraph is what that decision supersedes.
+**The real finding is the monitoring gap, and it is worse than "a key died quietly."**
+`/day` does ping a production key — `~/.agents/bin/ai-keys --ping-prod`, added 2026-08-27
+(`93f68476`). But it pings whatever `GEMINI_API_KEY` is set in the **ambient shell environment** of
+the machine running `/day`, which is not any deployed ClarityPledge secret. On this machine that
+variable is unset, so the check reports:
 
-**Rotation is now doing double duty** — it fixes a dead key *and* creates the isolation the cap
-needs. It touches prod secrets in two places (GCP Secret Manager and Supabase), so it stays a
-founder-approved action, and the prod secret registry must be updated with it per the Invariants.
+```
+ERROR: GEMINI_API_KEY is not set — the production key could NOT be checked. This is not a pass.
+exit=2
+```
+
+It fails safe rather than reporting a false green — that part of its design is right, and `/day`'s
+documented reading of `ai_keys_ping_exit=2` is *"NOT checked this run"*. But the practical coverage
+of ClarityPledge's keys is **zero**, and has been since the ping shipped. A key died in March and
+neither the ping nor any spend check could have said so: a dead key spends nothing.
+
+**Sizing consequence.** The prod key and the local/agent key are the same key in the same project,
+`gen-lang-client-0869694595`, whose Gemini gross was **EUR 47.42 in August** — largely local
+tooling. So capping that project *would* let ordinary local work take prod down with it. The
+project split decided below is what resolves that, and it now has a second reason: prod banners and
+local agent work currently share not just a project but a **credential**.
 
 ## Problem
 
@@ -186,11 +202,12 @@ Headroom at these amounts, against measured unit costs:
 - Batch transcription — 75 USD is roughly 475 audio-hours at **EUR 0.158 per audio-hour**, measured
   directly by P1237 from a response usage block (25.0 audio tokens/sec at EUR 1.755 per million).
 
-**Sizing input still missing:** prod's actual image-generation gross is unmeasurable today, because
-the prod key does not authenticate (measured above) so recent prod Gemini spend is zero. The
-project's EUR 47.42 August gross was largely local tooling. 50 USD is headroom-derived, not
-load-derived. Fix the key, let one month run, then tighten against real data rather than leaving a
-number nobody has checked against traffic.
+**Sizing input still missing — but for a different reason than first recorded.** Prod's
+image-generation gross is not *unmeasurable*; it is *unseparable*. The prod key and the local/agent
+key are the same credential in the same project, so the project's EUR 47.42 August gross mixes both
+and no query can split them. 50 USD is headroom-derived, not load-derived. The split below is what
+makes prod's own figure observable for the first time — provision, run one month, then tighten
+against real data rather than leaving a number nobody has checked against traffic.
 
 **Open question for the founder, not blocking this spec:** the remaining GCP credit balance and its
 expiry date is the denominator for all of the above. Worth recording in
@@ -198,9 +215,23 @@ expiry date is the denominator for all of the above. Worth recording in
 
 ### Sequencing — part 2 first
 
-Part 2 (the `/day` liveness ping) has no blast radius and closes a gap that is costing something
-*right now*: the prod key is dead and nothing said so. Part 1 is the piece that can itself cause an
-outage, and the ping is also what would report a tripped cap. Ship the ping before the caps.
+Part 2 has no blast radius and closes a gap that is real right now — just not the one first
+recorded. Nothing user-facing is broken; what is broken is the **coverage**. `/day`'s `--ping-prod`
+reads an ambient `GEMINI_API_KEY` that is unset on this machine, so it has never checked a
+ClarityPledge key, and the key that *did* die in March was invisible to every spend check because a
+dead key spends nothing.
+
+Part 1 is the piece that can itself cause an outage, and the ping is also what would report a
+tripped cap. Ship the ping before the caps.
+
+**Part 2 is a fix to an existing check, not a new one.** `ai-keys --ping-prod` already classifies
+the failures this spec asks for — `KEY_PING_OK`, `KEY_CAP_TRIPPED` (matched on the 403's *"Spend cap
+breached"* text), `KEY_PING_MODEL_UNAVAILABLE`, `KEY_PING_FAILED`, `KEY_PING_UNKNOWN` — and exits 2
+rather than 0 when it cannot run. What it lacks is a way to reach the *deployed* secret. Supabase
+never returns a secret's value, only its SHA-256 digest, so the check must: compare the digest of a
+locally-held copy against the digest Supabase reports for the deployed secret, and ping the copy
+only if they match. A mismatch is itself the finding — it means the local copy is stale and the ping
+would have been testing the wrong credential, which is precisely the error this spec was built on.
 
 ## Risks / Non-Goals
 
@@ -234,9 +265,24 @@ outage, and the ping is also what would report a tripped cap. Ship the ping befo
 - [ ] Both amounts are recorded in the `ai-keys` registry where `/day` can read them
 - [ ] A tripped cap produces a generic user-facing message — verified by inspecting what the
       browser receives, with no project id, service name, or Google error text present
-- [ ] `/day` pings the production Gemini key and warns on failure, distinguishing cap-breach from
-      auth failure from timeout
-- [ ] The ping's failure path has been exercised — warning confirmed to fire, not merely assumed
+- [x] `/day` pings the **deployed** ClarityPledge Gemini key(s) — not an ambient environment
+      variable — and warns on failure, distinguishing cap-breach from auth failure from timeout
+      — `scripts/check-gemini-prod-key.sh`, wired into `day-cp.md` as `=== GEMINI PROD KEY (P1162) ===`
+- [x] The check verifies the locally-held copy still matches the deployed secret's SHA-256 digest
+      before pinging it, and reports a mismatch as a finding rather than pinging the wrong key
+      — exercised: a wrong local key produces `KEY_DIGEST_MISMATCH`, exit 1, and no ping is sent
+- [ ] The dead 39-character key (test Supabase + GCP Secret Manager `gemini-api-key`) is rotated or
+      explicitly retired, and `transcribe-session` re-verified afterwards
+- [x] The ping's failure path has been exercised — warning confirmed to fire, not merely assumed.
+      Evidence, all real non-zero exits:
+      - digest mismatch → `KEY_DIGEST_MISMATCH`, **exit 1**
+      - no local key reachable → `GEMINI-PROD-KEY-CHECK-DID-NOT-RUN`, **exit 2** (explicitly not a pass)
+      - the genuinely dead 39-char key, classified against **real Google output** rather than a
+        fixture → `KEY_PING_FAILED — API_KEY_INVALID`, **exit 1**
+      - the self-test proven capable of failing: mutating one expected verdict makes it report
+        `FAIL dead key` and **exit 1**
+      - **Not exercised:** `KEY_CAP_TRIPPED` is matched only against a synthetic 403 body, because
+        no cap exists yet to trip. Re-verify against a real refusal once the caps are created.
 - [ ] `/day` reports spend against the recorded budget for **each** of the two keys
 - [ ] Both banner functions verified working in prod afterwards (`story-guide-chat` is retired —
       see Problem), and `.private/docs/edge-function-secrets.md` updated in the same change

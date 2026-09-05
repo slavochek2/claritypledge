@@ -116,6 +116,23 @@ if [ -n "$DATE" ]; then
   fi
 fi
 
+echo "=== GEMINI PROD KEY (P1162) ==="
+# The DEPLOYED key, not an ambient one. `ai-keys --ping-prod` pings whatever $GEMINI_API_KEY is set
+# in the shell, which is no ClarityPledge secret — it has exited 2 since it shipped and its coverage
+# of this repo is zero. Supabase never returns a secret's value, only its SHA-256 digest, so this
+# check asserts the local copy still matches the deployed digest BEFORE pinging it. Without that
+# assertion a stale local copy reports a false green, which is the exact error P1162 was written on.
+# A dead key is invisible to every spend check above: it spends nothing and looks calm.
+./scripts/check-gemini-prod-key.sh 2>&1
+GEMKEY_RC=$?
+if [ "$GEMKEY_RC" -ge 2 ]; then
+  echo "GEMINI-PROD-KEY-CHECK-DID-NOT-RUN (exit $GEMKEY_RC) — do NOT report clean"
+fi
+# Offline control pass, same reasoning as the privilege-floor check: a green live run proves the
+# happy path ran, never that the classifier can still tell a tripped cap from a dead key.
+./scripts/check-gemini-prod-key.sh --self-test 2>&1
+echo "gemini_prod_key_selftest_exit=$?"
+
 echo "=== COST TRIPWIRE ==="
 # Structural leak detection — catches always-on/GPU resources BEFORE cost accrues.
 # (Gross MTD spend is not CLI-readable without BigQuery export; cause-pattern check is the daily signal.
@@ -177,6 +194,32 @@ Flag cloud only if broken: Ghost non-200, backup >2d old.
 **Do not prompt from here** — that is the dispatcher's job and prompting twice is the thing
 the single gate exists to prevent. Report every cloud-dependent row as
 `⚠ ... NOT checked this run (gcloud unauthenticated)` and carry on. Never clean, never silent.
+
+**Gemini prod key** (`=== GEMINI PROD KEY (P1162) ===`) — read `gemini_prod_key_exit=N`:
+
+- `0` — the local copy matches the deployed prod secret's digest AND the key answered. Report `✓ Gemini prod key: alive`.
+- `1` — a finding. Which one matters, they need opposite responses:
+  - `KEY_DIGEST_MISMATCH` — the local copy is **not** the deployed key. Nothing is proven about
+    prod's key; the ping was correctly refused rather than testing the wrong credential. Either
+    `.env.local` is stale, or someone rotated one store and not the other. Resolve before trusting
+    any other Gemini reading.
+  - `KEY_CAP_TRIPPED` — the budget is spent, the credential is fine. Do **not** debug the key, and
+    do **not** lift the cap on its own: a cap lifted within the same billing month does not
+    re-enforce unless the amount is raised first, so a bare lift removes the budget for the rest of
+    the month. Raise, then lift.
+  - `KEY_PING_FAILED` — the deployed key genuinely stopped authenticating. Banner generation is
+    degrading to Unsplash/gradient right now.
+  - `KEY_PING_MODEL_UNAVAILABLE` — a retired model name. Says nothing about the credential.
+  - `KEY_PING_RATE_LIMITED` / `KEY_PING_FORBIDDEN` — quota, or a restriction that is not a cap.
+- `2` — **did not run** (`GEMINI-PROD-KEY-CHECK-DID-NOT-RUN`): no local copy of the key, the
+  Supabase CLI could not list secrets, or the ping never completed. Report `⚠ Gemini prod key: NOT
+  checked this run — [reason]`. Never as clean, never as "the key is fine".
+- `gemini_prod_key_selftest_exit` non-zero — the classifier itself is broken. Every verdict above is
+  untrustworthy this run, including a `0`.
+
+**Known coverage gap:** the `KEY_CAP_TRIPPED` branch is exercised only against a synthetic 403 body,
+because no spend cap exists yet to trip. When P1162's caps are created, re-verify that branch
+against a real refusal before treating it as proven.
 
 **Cost tripwire — flag if ANY line appears under `=== COST TRIPWIRE ===`:**
 - `GPU_SERVICE:` → a GPU is attached to a Cloud Run service. GPUs bill ~€0.80/hr while allocated. Confirm it is intended and scales to zero (`minScale=0`, but note `cpu-throttle=false` still bills GPU between requests if kept warm).
