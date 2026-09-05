@@ -181,3 +181,30 @@ fix this bug.
       depends on serialization." Both the fixed file **and** the unfixed control pass that check
       (9 passed, exit 0, `--workers=4`), so it discriminates nothing. Recorded rather than deleted
       because the criterion looked decisive when written. `serial` is kept as defence in depth.
+
+## Post-ship finding (2026-09-05) — the fixture is not load-bearing for most assertions
+
+Recorded after `/ship`, because it qualifies a claim made in the code comments above.
+
+**Measured:** a throwaway probe ran the dot-count assertion (`toHaveCount(20)`) with **no seeding
+fixture at all** — `1 passed`, exit 0, in 3.1s. So the shared test project already holds at least
+20 eligible verified+pledged rows on its own, and the fixture's "guarantees >= 25 rows exist"
+comment overstates its role: for the carousel-mechanics tests, the table is already saturated
+without it.
+
+**The circularity worth naming:** the rows making those tests pass without seeding are largely the
+orphan `Test Pledger N` rows this very spec exists to stop producing. If the orphans were cleaned
+up and the fixture kept, the tests would still pass (the fixture seeds 25). If the orphans were
+cleaned up and the fixture removed, several would fail. So the seeding is correct to keep — it is
+just not currently the thing making them green.
+
+**What this does NOT change.** The two shipped fixes were measured against controls that
+discriminate, and neither depends on this: the leak fix (24 rows left behind vs 0, control probe
+with a `createTestUser` throwing on call 13) and the dead-seeding removal (126 `[TEST HELPER]`
+lines vs 0 on the same single test). Both stand.
+
+**Follow-up, not done here:** decide whether these tests should assert against *only* their own
+seeded rows — which would make the fixture load-bearing and the assertions genuinely independent of
+table population — or stay as mechanics-against-whatever-renders. That is a test-design call, and
+it is coupled to whether the orphan rows get cleaned up (a `DELETE` on shared state, founder's call
+under `.claude/rules/db-access.md`). Tracked alongside P1254.
