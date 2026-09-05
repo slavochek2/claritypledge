@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: comment
 rank: 1000069
 workstream: transcription
@@ -15,9 +15,16 @@ driver: anomaly
 
 # P1251: Decide what happened to the four March transcription artifacts recorded as shipped and never committed
 
+> **Superseded by [P1250](../../p1250_colocated_autoclose_closes_specs_nobody_did.md) on the day it
+> was filed, at the founder's push-back: *"but why so many can you put them into one?"*** He was
+> right. This spec and P1250 describe one problem class — a closure record that asserts an outcome
+> nothing delivered — reached by two different mechanisms. Splitting them created two audits of the
+> same kind of evidence and two things to track. The content below now lives in P1250 as part 3,
+> sequenced so it blocks neither the mechanical fix nor the 23-commit audit.
+
 ## Problem
 
-**Situation:** [P1237](done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) verified by
+**Situation:** [P1237](../../done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) verified by
 `git log --all -S` across every branch that four artifacts recorded as done, shipped or
 production-ready have **never existed in this repository**:
 
@@ -63,7 +70,7 @@ the evidence.
 | Risk | Label | Note |
 |---|---|---|
 | Rebuilding LLM merge on the strength of one 8-of-10 benchmark over-reads n=1 | MITIGATE | The 8/10 is a reason to *look*, not to adopt; any rebuild is re-benchmarked per-speaker against the same ground truth before it counts |
-| The batch pipeline is currently producing nothing, so all of this is moot | ACCEPT and STATE | Every transcription job since 2026-08-29 failed with *"No files found"* because `RECORD_AUDIO_WHILE_LIVE = false` disables recording ([P1236](p1236_server_side_live_transcription_for_rooms.md)). The last transcript on prod is 2026-07-05. This work only pays off once recording resumes |
+| The batch pipeline is currently producing nothing, so all of this is moot | ACCEPT and STATE | Every transcription job since 2026-08-29 failed with *"No files found"* because `RECORD_AUDIO_WHILE_LIVE = false` disables recording ([P1236](../../p1236_server_side_live_transcription_for_rooms.md)). The last transcript on prod is 2026-07-05. This work only pays off once recording resumes |
 | The code exists in a prod container and gets rebuilt from scratch anyway | MITIGATE | Step 1 searches before step 2 decides |
 | Recording the March record as unreliable reads as blame | ACCEPT | The pattern is mechanical and has six instances across two distinct causes; naming the mechanism is what prevents the seventh |
 
@@ -84,7 +91,7 @@ the evidence.
 
 ## Related
 
-- [P1237](done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) — established the absences.
-- [P1250](p1250_colocated_autoclose_closes_specs_nobody_did.md) — the same
+- [P1237](../../done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) — established the absences.
+- [P1250](../../p1250_colocated_autoclose_closes_specs_nobody_did.md) — the same
   closure-without-outcome shape from a mechanical cause.
-- [P1236](p1236_server_side_live_transcription_for_rooms.md) — owns why nothing is being recorded.
+- [P1236](../../p1236_server_side_live_transcription_for_rooms.md) — owns why nothing is being recorded.

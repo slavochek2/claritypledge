@@ -104,5 +104,5 @@ transcript built on superimposed audio.
   wrote the reference implementation in `scripts/p1237-crosstalk-scan.py`.
 - [P1236](p1236_server_side_live_transcription_for_rooms.md) — owns recording; this should land
   before it restores audio.
-- [P1251](p1251_disposition_of_the_four_missing_march_transcription_artifacts.md) — the March
-  alignment code this was supposed to be.
+- [P1250](p1250_colocated_autoclose_closes_specs_nobody_did.md) — owns the disposition of the March
+  alignment code this fix replaces.
