@@ -16,6 +16,13 @@ const SEED_COUNT = 25;
 
 type PledgerSeed = { prefix: string; users: TestUser[] };
 
+// Destructuring `seeded` in a test's signature is what ACTIVATES this fixture — Playwright builds
+// only the fixtures a test asks for. Several tests below therefore name `seeded` without reading
+// it under the alias `_seeded` (a destructuring RENAME — Playwright matches the fixture by the
+// property name `seeded`, so activation is unaffected, while the local binding satisfies the
+// unused-args lint rule). Asserting on seeded.users.length inside a test would be
+// a tautology (the fixture rejects rather than yielding a short list), so those assertions are
+// deliberately absent.
 const seededTest = test.extend<{ seeded: PledgerSeed }>({
   // Playwright requires the destructuring pattern for a fixture's first argument ("First argument
   // must use the object destructuring pattern") and rejects a plain identifier at runtime. This
@@ -46,6 +53,15 @@ const seededTest = test.extend<{ seeded: PledgerSeed }>({
       await provide({ prefix, users: created });
     } finally {
       // Only ids this test created. Never a shared array.
+      //
+      // The .catch matches the established convention in this repo (21 other call sites wrap
+      // deleteTestUser this way) and is deliberate, not an oversight: deleteTestUser already
+      // warns-and-continues internally on profile/auth delete errors, so the only thing that can
+      // throw out of it is a network-level exception, and letting one id's network blip abort the
+      // Promise.all would skip the deletion of every other id in the batch — strictly more
+      // orphans, not fewer. Note the limit honestly: the zero-orphan guarantee below covers the
+      // creation-failure path, not a deletion-failure one, and nothing covers a worker crash,
+      // which never runs `finally` at all.
       await Promise.all(created.map((u) => deleteTestUser(u.user.id).catch(() => undefined)));
     }
   },
@@ -69,8 +85,7 @@ async function waitForPledgerCards(page: import('@playwright/test').Page) {
 test.describe('Pledgers Page', () => {
   test.describe.configure({ mode: 'serial' });
 
-  seededTest('Mobile viewport - carousel scrolls horizontally', async ({ page, seeded }) => {
-    expect(seeded.users).toHaveLength(SEED_COUNT);
+  seededTest('Mobile viewport - carousel scrolls horizontally', async ({ page, seeded: _seeded }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.goto('/pledgers');
@@ -91,8 +106,7 @@ test.describe('Pledgers Page', () => {
     expect(newScrollLeft).toBeGreaterThan(0);
   });
 
-  seededTest('Clicking dot navigates to corresponding profile card', async ({ page, seeded }) => {
-    expect(seeded.users).toHaveLength(SEED_COUNT);
+  seededTest('Clicking dot navigates to corresponding profile card', async ({ page, seeded: _seeded }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.goto('/pledgers');
@@ -108,8 +122,7 @@ test.describe('Pledgers Page', () => {
     expect(newScroll).toBeGreaterThan(initialScroll);
   });
 
-  seededTest('Scroll position updates currentIndex (dot indicator highlights)', async ({ page, seeded }) => {
-    expect(seeded.users).toHaveLength(SEED_COUNT);
+  seededTest('Scroll position updates currentIndex (dot indicator highlights)', async ({ page, seeded: _seeded }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.goto('/pledgers');
@@ -130,8 +143,7 @@ test.describe('Pledgers Page', () => {
     await expect(activeDots).toHaveCount(1);
   });
 
-  seededTest('Clicking pledger card navigates to pledge certificate', async ({ page, seeded }) => {
-    expect(seeded.users).toHaveLength(SEED_COUNT);
+  seededTest('Clicking pledger card navigates to pledge certificate', async ({ page, seeded: _seeded }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.goto('/pledgers');
@@ -160,8 +172,7 @@ test.describe('Pledgers Page', () => {
       .toBeGreaterThanOrEqual(seeded.users.length);
   });
 
-  seededTest('Mobile shows "Showing 20 of X" when profiles exceed limit', async ({ page, seeded }) => {
-    expect(seeded.users).toHaveLength(SEED_COUNT);
+  seededTest('Mobile shows "Showing 20 of X" when profiles exceed limit', async ({ page, seeded: _seeded }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.goto('/pledgers');
@@ -172,8 +183,7 @@ test.describe('Pledgers Page', () => {
     await expect(page.locator('text=/Showing 20 of/i')).toBeVisible({ timeout: 10000 });
   });
 
-  seededTest('Dot indicators count matches mobile profiles (max 20)', async ({ page, seeded }) => {
-    expect(seeded.users).toHaveLength(SEED_COUNT);
+  seededTest('Dot indicators count matches mobile profiles (max 20)', async ({ page, seeded: _seeded }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.goto('/pledgers');

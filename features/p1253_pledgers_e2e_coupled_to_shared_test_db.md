@@ -152,6 +152,13 @@ fix this bug.
 - [x] A mid-seed failure leaves **zero** rows behind. Control probe running both fixture shapes
       against a `createTestUser` that throws on call 13: push-after-`Promise.all` leaves **24 rows**,
       track-as-created leaves **0**.
+      **Scope of that guarantee, stated honestly (review finding):** it covers the *creation*-failure
+      path only. It does **not** cover a *deletion* failure — teardown wraps each `deleteTestUser`
+      in `.catch`, matching the convention at 21 other call sites in `e2e/`, because letting one
+      id's network blip reject the `Promise.all` would skip every other id's deletion and produce
+      strictly more orphans. And nothing covers a worker crash or SIGKILL, which never runs
+      `finally` at all — that gap is identical for every `afterEach`-based cleanup in this repo and
+      is not closeable in Node.
 - [x] Running only the empty-state test performs **zero** database work: **0** `[TEST HELPER]` lines
       on the fixed file vs **126** on `main`'s version of the same test (5.3s vs 7.5s).
 - [x] No test deletes an id it did not itself create — seeding is a per-test Playwright fixture
@@ -166,6 +173,10 @@ fix this bug.
       population, and is valid regardless of how many rows the shared table holds.
 - [x] Full file green: 9 passed / 0 failed / 0 flaky, exit 0, on three consecutive runs.
 - [x] `npx tsc --noEmit`, `npx eslint`, `npx vitest run` and `./scripts/pre-commit-checks.sh` green.
+- [x] The fixture still activates after unused bindings were aliased to `_seeded` — positive
+      control: **175** `[TEST HELPER] Creating test user` lines in a full run (7 seeded tests x 25),
+      not 0. A rename that silently disabled seeding would still have passed every assertion, since
+      the shared table already holds enough rows.
 - [x] **Withdrawn as unmeasurable:** "passes with `serial` removed, proving cleanup no longer
       depends on serialization." Both the fixed file **and** the unfixed control pass that check
       (9 passed, exit 0, `--workers=4`), so it discriminates nothing. Recorded rather than deleted
