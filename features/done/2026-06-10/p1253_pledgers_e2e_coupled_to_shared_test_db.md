@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000074
 severity: medium
@@ -9,8 +9,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [e2e, test-isolation, pledgers, shared-state]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-09-05
 ---
 
 # P1253: `e2e/pledgers-page.spec.ts` is coupled to shared test-DB state
