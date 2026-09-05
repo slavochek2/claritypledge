@@ -36,7 +36,11 @@ export function LoginForm({ onSwitchToSign, redirect, action, extraParams }: Log
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    // With noValidate the browser no longer reports the empty `required` field, so say it here.
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
+    }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -122,7 +126,14 @@ export function LoginForm({ onSwitchToSign, redirect, action, extraParams }: Log
       </div>
 
       {/* Existing magic link form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {/*
+        P1229 D15 follow-up: this form gained type="email" in this same branch, which made the
+        browser's native validation intercept submit — so the hand-rolled emailRegex check in
+        handleSubmit could never set its styled "Please enter a valid email address" message for
+        malformed input. noValidate hands validation back to handleSubmit, matching the treatment
+        signup-page.tsx got for D8. The inputs keep `required` for assistive tech.
+      */}
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="login-email" className="text-sm font-medium">

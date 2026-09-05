@@ -54,6 +54,16 @@ export function ClarityPledgersPage() {
     setLoadingMore(true);
     try {
       const { profiles, total } = await getVerifiedProfilesPage(verifiedProfiles.length);
+      // P1229 review: getVerifiedProfilesPage never throws — it logs and returns its
+      // {profiles: [], total: 0} sentinel on any RPC error, so the catch below cannot see
+      // a failure. loadMore only runs while hasMore is true, i.e. we already hold rows and
+      // a positive totalCount, so a zero total here is never the real answer; it is the
+      // sentinel. Writing it into totalCount would make hasMore false permanently and
+      // truncate the list at the current page with no error and no way back.
+      if (total === 0 && profiles.length === 0) {
+        console.error("Failed to fetch more verified profiles: empty page from RPC");
+        return;
+      }
       // Dedupe on id: a pledger verified between two page loads shifts the offsets.
       setVerifiedProfiles((prev) => {
         const seen = new Set(prev.map((p) => p.id));

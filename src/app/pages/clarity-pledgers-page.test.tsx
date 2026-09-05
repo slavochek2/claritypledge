@@ -284,6 +284,37 @@ describe('ClarityPledgersPage', () => {
       expect(getVerifiedProfilesPage).toHaveBeenNthCalledWith(3, 60);
     });
 
+    it('keeps "Show more" alive when a page fetch fails mid-list (P1229 review, HIGH)', async () => {
+      // getVerifiedProfilesPage swallows RPC errors and returns {profiles: [], total: 0}.
+      // Writing that zero into totalCount makes hasMore false forever, so one flaky click
+      // silently truncates the list at page 1 with no error and no way to recover.
+      vi.mocked(getVerifiedProfilesPage)
+        .mockResolvedValueOnce({ profiles: page(0, 30), total: 75 })
+        .mockResolvedValueOnce({ profiles: [], total: 0 })
+        .mockResolvedValueOnce({ profiles: page(30, 30), total: 75 });
+
+      render(<ClarityPledgersPage />, { wrapper });
+      const user = userEvent.setup();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Show 30 more pledgers/ })).toBeInTheDocument();
+      });
+
+      // the failing click must not destroy the known-good total
+      await user.click(screen.getByRole('button', { name: /Show 30 more pledgers/ }));
+      await waitFor(() => {
+        expect(getVerifiedProfilesPage).toHaveBeenCalledTimes(2);
+      });
+      expect(screen.getByText('Showing 30 of 75 pledgers')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Show 30 more pledgers/ })).toBeInTheDocument();
+
+      // and a retry still works
+      await user.click(screen.getByRole('button', { name: /Show 30 more pledgers/ }));
+      await waitFor(() => {
+        expect(screen.getByText('Showing 60 of 75 pledgers')).toBeInTheDocument();
+      });
+    });
+
     it('does not render the control when the first page is the whole set', async () => {
       mockPage(page(0, 12));
 
