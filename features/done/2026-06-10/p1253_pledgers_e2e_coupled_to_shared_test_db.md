@@ -182,15 +182,24 @@ fix this bug.
       (9 passed, exit 0, `--workers=4`), so it discriminates nothing. Recorded rather than deleted
       because the criterion looked decisive when written. `serial` is kept as defence in depth.
 
-## Post-ship finding (2026-09-05) — the fixture is not load-bearing for most assertions
+## Post-ship finding (2026-09-05) — the fixture is redundant today, not unnecessary
+
+**Heading and framing corrected after the reviewer's full report arrived.** The first version of
+this section was titled "the fixture is not load-bearing" and said the code comment "overstates its
+role". That was wrong, and the reviewer's reasoning beats the measurement below on this point: the
+fixture's job is to make `toHaveCount(20)` independent of table state, and it does that. If the
+shared project ever held fewer than 20 eligible verified+pledged rows, the carousel would render
+fewer than 20 dots and the assertion would fail — the fixture's 25 seeds are what guarantee the cap
+is actually reached. The probe shows the guarantee is currently *also* satisfied by other rows, i.e.
+**redundant right now**, which is not the same as unnecessary. Keep the fixture; the comment stands.
 
 Recorded after `/ship`, because it qualifies a claim made in the code comments above.
 
 **Measured:** a throwaway probe ran the dot-count assertion (`toHaveCount(20)`) with **no seeding
 fixture at all** — `1 passed`, exit 0, in 3.1s. So the shared test project already holds at least
-20 eligible verified+pledged rows on its own, and the fixture's "guarantees >= 25 rows exist"
-comment overstates its role: for the carousel-mechanics tests, the table is already saturated
-without it.
+20 eligible verified+pledged rows on its own. That measures redundancy, not sufficiency: it says
+the precondition happens to hold today, and says nothing about whether it will tomorrow. The
+fixture is what makes that a guarantee rather than a coincidence.
 
 **The circularity worth naming:** the rows making those tests pass without seeding are largely the
 orphan `Test Pledger N` rows this very spec exists to stop producing. If the orphans were cleaned
