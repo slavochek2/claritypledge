@@ -31,6 +31,45 @@ driver: heuristic
 > `gcloud auth` had expired when this note was written. Tracked by
 > [P1250](p1250_colocated_autoclose_closes_specs_nobody_did.md).
 
+## Measured 2026-09-05 — the key IS dead, and prod image generation is failing now
+
+Both halves of this spec stopped being hypothetical on the same day, found incidentally while
+sizing a Gemini cap for [P1236](p1236_server_side_live_transcription_for_rooms.md).
+
+**One key, two stores, same value.** The GCP Secret Manager secret `gemini-api-key` (mounted on
+Cloud Run `transcribe-session`) and the Supabase secret `GEMINI_API_KEY` (read by
+`generate-banner` and `generate-event-banner`) are **the same key** — confirmed by SHA-256, not by
+assumption. Supabase's copy was last updated 2026-02-25.
+
+**That key no longer authenticates.** Tested against the exact call `generate-banner/index.ts:240`
+constructs — `models/gemini-3.1-flash-image-preview:generateContent?key=…`:
+
+| key | result |
+|---|---|
+| the deployed prod key | **HTTP 400, `API_KEY_INVALID`, "API key not valid"** |
+| the key in local `.env.local` | HTTP 200, returns an image |
+
+Not a restriction and not a quota: the same 400 comes back from `models.list`, from the `?key=`
+form and the `x-goog-api-key` header form, and from the transcription endpoint. **Prod banner
+generation is failing right now.** Since when is unknown — which is precisely the gap this spec's
+part 2 was filed to close, in the founder's own words: *"maybe /day should also check if the gemini
+api key in prod [works]"*. It died, and nothing said so.
+
+**Sizing consequence — $50 does not fit the current project.** A spend cap is scoped to one
+**project x one service**, never to one key. The prod key and the local/agent key both bill to
+`gen-lang-client-0869694595`, whose Gemini gross was **€47.42 in August** — largely local tooling,
+not prod. Cap that project at $50 and ordinary local work trips it and takes prod down with it,
+which is exactly the user-facing blast radius the Appetite section warns about.
+
+So the cap and the fourth key are **not two options, they are one sequence**: provision the
+ClarityPledge key in its **own project** (pp P45's project-per-key rule is what makes budgets
+independent), move both stores onto it, then cap that project at $50. Isolated, prod's own Gemini
+spend is small and $50 has real headroom.
+
+**Rotation is now doing double duty** — it fixes a dead key *and* creates the isolation the cap
+needs. It touches prod secrets in two places (GCP Secret Manager and Supabase), so it stays a
+founder-approved action, and the prod secret registry must be updated with it per the Invariants.
+
 ## Problem
 
 **Situation:** Three edge functions — `story-guide-chat` (source deleted by P803 2026-09-02; the deployed copy is retired per that spec — re-scope this cap to the two that remain), `generate-banner`,
