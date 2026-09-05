@@ -6,6 +6,7 @@ tags: [design-system, ui]
 delivery_stage: park
 pipeline_ran: [create-spec, inline, park]
 flow: inline
+created_date: 2026-09-03
 ---
 
 # P1220: Design consistency — mechanical batches from the drift audit
