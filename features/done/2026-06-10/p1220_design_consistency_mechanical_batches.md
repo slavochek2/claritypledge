@@ -1,12 +1,12 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 3
 tags: [design-system, ui]
-delivery_stage: park
 pipeline_ran: [create-spec, inline, park]
 flow: inline
 created_date: 2026-09-03
+completed_at: 2026-09-05
 ---
 
 # P1220: Design consistency — mechanical batches from the drift audit
