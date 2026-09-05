@@ -281,8 +281,39 @@ would have been testing the wrong credential, which is precisely the error this 
         fixture → `KEY_PING_FAILED — API_KEY_INVALID`, **exit 1**
       - the self-test proven capable of failing: mutating one expected verdict makes it report
         `FAIL dead key` and **exit 1**
+      - digest matches **and** the key is dead (the end-to-end path, via a stubbed secrets
+        listing) → `KEY_PING_FAILED`, **exit 1**
+      - Supabase CLI emits text instead of JSON → **exit 2**, "did not run"
+      - duplicate `GEMINI_API_KEY` rows → **exit 2**, "did not run"
+      - a sibling secret named `GEMINI_API_KEY_OLD` does **not** confuse the lookup (structural
+        JSON parse, not `grep`)
       - **Not exercised:** `KEY_CAP_TRIPPED` is matched only against a synthetic 403 body, because
         no cap exists yet to trip. Re-verify against a real refusal once the caps are created.
+
+### Adversarial review, 2026-09-05
+
+Codex reviewed the committed script cold and returned **DO NOT SHIP** with three findings. Two —
+the API key on curl's command line, and a predictable shared `/tmp` response file — had been found
+and fixed independently in the same pass; the third was new:
+
+- **Supabase CLI output format.** The check parsed JSON while the CLI's own `--help` documents
+  `text` as the default. Verified: the installed CLI emits JSON without the flag, so Codex's stated
+  failure does not reproduce, and the worst case was exit 2 ("could not run") rather than a false
+  green. Fixed anyway — the flag is now passed explicitly and the response parsed structurally,
+  because an undocumented default that a CLI upgrade can flip is a monitor that silently stops
+  monitoring.
+
+The argv fix was proven with a control that first had to be made to work: a probe against a
+connection-refused port and another against the test harness's own command line both reported "no
+leak" for the known-bad form as well as the fixed one. Only a blackhole-IP target held the process
+open long enough to show the key in `curl`'s argv for the old form and nothing for the new one.
+
+**Coverage: 1 of 2 external reviewers reported.** The second (Gemini, via
+`~/.agents/bin/delegate-gemini`) was **refused by the delegation gate** — the payload matched its
+private-path pattern on `.env`. Policy is to do the work inline rather than reshape a payload to
+pass a security scan, so that lens was run inline instead; it produced the argv finding and one
+hypothesis (that the liveness ping bills for a generated image) that measurement **refuted** —
+the ping returns `totalTokenCount: 1` and produces no image bytes.
 - [ ] `/day` reports spend against the recorded budget for **each** of the two keys
 - [ ] Both banner functions verified working in prod afterwards (`story-guide-chat` is retired —
       see Problem), and `.private/docs/edge-function-secrets.md` updated in the same change

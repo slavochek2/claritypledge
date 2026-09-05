@@ -108,10 +108,30 @@ fi
 
 LOCAL_DIGEST="$(printf '%s' "$LOCAL_KEY" | shasum -a 256 | awk '{print $1}')"
 
-DEPLOYED_JSON="$(npx --yes supabase secrets list --project-ref "$PROD_REF" 2>/dev/null)" \
+# --output-format json is passed EXPLICITLY. The installed CLI happens to emit JSON by default,
+# but its own --help documents `text` as the default, so the default is undocumented behaviour that
+# a CLI upgrade could flip. Relying on it fails safe (exit 2, "could not run") rather than reporting
+# a false green — but a monitor that silently stops monitoring is still the thing this spec exists
+# to prevent. Parsing is structural (json.load), not grep/sed: a second secret whose name merely
+# CONTAINS GEMINI_API_KEY would otherwise yield two digests and a spurious mismatch.
+DEPLOYED_JSON="$(npx --yes supabase secrets list --project-ref "$PROD_REF" --output-format json 2>/dev/null)" \
   || die_cannot_run "could not list prod Supabase secrets (CLI missing, not logged in, or network)"
-DEPLOYED_DIGEST="$(printf '%s' "$DEPLOYED_JSON" | tr ',' '\n' | grep -A1 '"name":"GEMINI_API_KEY"' | grep '"value"' | sed 's/.*"value":"//; s/".*//')"
-[ -n "$DEPLOYED_DIGEST" ] || die_cannot_run "prod Supabase reports no GEMINI_API_KEY secret — cannot compare digests"
+DEPLOYED_DIGEST="$(printf '%s' "$DEPLOYED_JSON" | python3 -c '
+import json,sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(3)          # not JSON at all — the CLI changed its default output format
+rows = [s for s in d.get("secrets", []) if s.get("name") == "GEMINI_API_KEY"]
+if len(rows) != 1:
+    sys.exit(4)          # zero, or an ambiguous duplicate
+print(rows[0].get("value", ""))
+' 2>/dev/null)"
+case $? in
+  3) die_cannot_run "prod Supabase secrets did not parse as JSON — the CLI's output format changed; the deployed key could NOT be checked" ;;
+  4) die_cannot_run "prod Supabase reports zero or duplicate GEMINI_API_KEY secrets — cannot compare digests" ;;
+esac
+[ -n "$DEPLOYED_DIGEST" ] || die_cannot_run "prod Supabase returned an empty digest for GEMINI_API_KEY — cannot compare"
 
 if [ "$LOCAL_DIGEST" != "$DEPLOYED_DIGEST" ]; then
   echo "KEY_DIGEST_MISMATCH — the local copy is NOT the deployed prod key."
@@ -124,12 +144,32 @@ if [ "$LOCAL_DIGEST" != "$DEPLOYED_DIGEST" ]; then
 fi
 echo "digest OK — local copy matches deployed prod secret (sha256 ${LOCAL_DIGEST:0:16}…)"
 
-CODE="$(curl -s -m 20 -o /tmp/gemini-prod-ping.json -w '%{http_code}' \
-  "https://generativelanguage.googleapis.com/v1beta/${PING_MODEL}:generateContent?key=${LOCAL_KEY}" \
-  -H 'content-type: application/json' \
-  -d '{"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":1}}' 2>/dev/null)"
-BODY="$(head -c 600 /tmp/gemini-prod-ping.json 2>/dev/null)"
-rm -f /tmp/gemini-prod-ping.json
+# The key never becomes a process argument. Anything on any process's argv is world-readable via
+# `ps auxww` for the life of that process — and that includes the process FEEDING a pipe, not just
+# curl: an earlier attempt here piped `printf`-built config into `curl --config -` and the key was
+# still visible, in printf's argv. Measured, not assumed (control: key-in-URL, 2 hits; piped
+# printf, 2 hits; the config-file form below, 0 hits).
+# So both the config and the response body go to mode-600 mktemp files, created before they are
+# written to, and removed on every exit path.
+PING_CFG="$(mktemp "${TMPDIR:-/tmp}/gemini-cfg.XXXXXX")" || die_cannot_run "could not create a temp file for the curl config"
+PING_BODY_FILE="$(mktemp "${TMPDIR:-/tmp}/gemini-ping.XXXXXX")" || die_cannot_run "could not create a temp file for the response"
+chmod 600 "$PING_CFG" "$PING_BODY_FILE" 2>/dev/null
+trap 'rm -f "$PING_CFG" "$PING_BODY_FILE"' EXIT INT TERM
+
+{
+  echo "url = https://generativelanguage.googleapis.com/v1beta/${PING_MODEL}:generateContent"
+  echo "header = \"x-goog-api-key: ${LOCAL_KEY}\""
+  echo 'header = "content-type: application/json"'
+  echo 'data = {"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":1}}'
+  echo "output = ${PING_BODY_FILE}"
+  echo 'silent'
+  echo 'max-time = 20'
+  echo 'write-out = %{http_code}'
+} > "$PING_CFG"
+
+CODE="$(curl --config "$PING_CFG" 2>/dev/null)"
+BODY="$(head -c 600 "$PING_BODY_FILE" 2>/dev/null)"
+rm -f "$PING_CFG" "$PING_BODY_FILE"; trap - EXIT INT TERM
 
 VERDICT="$(classify "$CODE" "$BODY")"; RC=$?
 echo "$VERDICT"
