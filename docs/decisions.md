@@ -97,6 +97,46 @@ question then surfaced four further defects in under a minute).
 
 ---
 
+## 2026-09-07 [technical]: `cd` does not scope git — a canary's `git init --bare` rewrote the real repo's config
+
+**Context:** `core.bare` flipped to `true` on the shared main checkout four times in one session.
+While flipped, `git rev-parse --show-toplevel` fails, so every tool deriving paths from it breaks
+with errors naming unrelated files: a `git-ops.sh ship` aborted mid-run with
+`audit-privacy.sh missing` after 7 commits had already been cherry-picked, and a push failed with
+`/scripts/audit-privacy.sh missing` — the leading slash being an empty toplevel interpolated into a
+path. None of the errors named the cause, so it read four times as a broken tool.
+
+**Root cause, reproduced rather than inferred.** `scripts/test-git-ops-extensions.sh:75` runs
+`( cd "$SCRATCH/origin.git" && git init --bare -q )` — **no path argument**. `git init --bare` with
+no path operates on `$GIT_DIR` when that is set, and `cd` does not override it. Canaries invoked
+from a git hook inherit `GIT_DIR` as an absolute path, which this log already recorded for a
+different script (P1131, the "fourth surface" entry). Sandbox proof: a throwaway repo went
+`core.bare: false` → `true` and `is-inside-work-tree: false` from that one command.
+
+**Decision:** Filed as **P1263**. Every `git init` / `git clone` in a test or canary must name its
+target path explicitly, and canary scripts run from hooks should clear the inherited environment
+(`env -u GIT_DIR -u GIT_WORK_TREE`) rather than trusting every future git call in the file to be
+path-explicit. `scripts/test-hook-sha-gate.sh:20` already uses the explicit-path form and is the
+model.
+
+**Alternatives rejected:** Resetting `core.bare` when it is noticed — that is what happened four
+times, and it treats a repo-corrupting write as an operational chore. Trusting `cd` to scope the
+subshell — the sandbox shows it does not.
+
+**Consequences:** This is the **second** instance of the same class: a canary inheriting `GIT_DIR`
+and acting on the real repository instead of its fixture. The generalisable rule is broader than
+either instance — **a test that can write to the repository that invoked it is not isolated**, and
+`cd` is not isolation. Worth checking the remaining `--bare` call sites
+(`scripts/test-push-snapshot-pinning.sh` is **UNVERIFIED**) and adding an assertion that the
+invoking repo's config is unchanged after a canary runs — exercised to fail first, per epistemic
+gate 7.
+
+**References:** features/p1263_bare_init_in_canary_flips_core_bare_on_the_real_repo.md ·
+features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md ·
+scripts/test-git-ops-extensions.sh · scripts/test-hook-sha-gate.sh
+
+---
+
 ## 2026-09-07 [technical]: Every operator-minted sign-in link was unredeemable, and the 2026-08-16 "test-infrastructure-only" verdict was wrong
 
 **Context:** Someone tried three times to register for an event and never got in. Investigating, a
