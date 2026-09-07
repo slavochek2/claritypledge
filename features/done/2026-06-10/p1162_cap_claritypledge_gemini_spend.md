@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000068
 workstream: infrastructure
@@ -11,7 +11,7 @@ exec_model: opus
 exec_effort: high
 driver: heuristic
 flow: inline
-delivery_stage: ship
+completed_at: 2026-09-07
 ---
 
 # P1162 — Cap ClarityPledge's Gemini spend, and alert when the key stops answering
@@ -19,10 +19,10 @@ delivery_stage: ship
 > **Reopened 2026-09-05.** This spec was never worked on. It was closed by `43c46d6f9`
 > *"close p1162 (co-located with p803)"* — `git-ops.sh ship` Phase 2b closes every spec whose file
 > sits on the shipped branch, and P803's ship swept in four of them. All seven Done-When boxes were
-> and are unticked, and [decisions.md](../docs/decisions.md) describes P1162 as *"open, untouched
+> and are unticked, and [decisions.md](../../../docs/decisions.md) describes P1162 as *"open, untouched
 > by this work"* in an entry written before the auto-close moved the file.
 >
-> The absence has already cost something. [P1237](done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md)
+> The absence has already cost something. [P1237](p1237_batch_pipeline_gemini_vs_six_steps.md)
 > went looking for a Gemini spend cap on 2026-09-04, found that both budgets on billing account
 > `010089-354936-77CD27` are alert-only and neither is scoped to `generativelanguage.googleapis.com`,
 > and recorded the cap as missing — with no idea a shipped spec claimed to have built it.
@@ -31,7 +31,7 @@ delivery_stage: ship
 > check enumerated one billing account, and `pp/docs/infra/gcp-spend-caps.md` records that each
 > capped key gets its own project. Re-verify across all billing accounts before doing any work —
 > `gcloud auth` had expired when this note was written. Tracked by
-> [P1250](p1250_colocated_autoclose_closes_specs_nobody_did.md).
+> [P1250](../../p1250_colocated_autoclose_closes_specs_nobody_did.md).
 
 ## Measured 2026-09-05 — CORRECTED 2026-09-05 (later): prod is fine; the dead key is the TEST key
 
@@ -542,7 +542,7 @@ now the self-test's fixture** (9/9, and the test was mutated to prove it can sti
 the real message names the project as `projects/<number>` — *prefixed*, not the bare id the fixture
 used — and carries a trailing `Correlation id:`. A match string tightened around the invented shape
 would have passed the old self-test and failed silently in production. This is the
-[epistemic.md](../.claude/rules/epistemic.md) gate-7b pattern exactly: green bounded what was
+[epistemic.md](../../../.claude/rules/epistemic.md) gate-7b pattern exactly: green bounded what was
 *modelled*, and the model of the input was fiction.
 
 **Caveat, stated rather than papered over:** the captured refusal is from `aiplatform.googleapis.com`
