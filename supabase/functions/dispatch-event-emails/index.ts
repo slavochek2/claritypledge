@@ -96,7 +96,15 @@ async function dispatchReminder(
   }
 
   // Atomic claim: set mailgun_message_ids->reminder = 'PENDING' only if currently NULL.
-  // Use .filter() not .is() — PostgREST .is() only works on real columns, not JSONB extractions.
+  //
+  // P1256: the old note here said ".is() only works on real columns, not JSONB
+  // extractions" — that is FALSE, and it is why this file carries three spellings of one
+  // condition. Checked against the client rather than repeated: PostgrestFilterBuilder
+  // emits `<column>=is.null` for `.is(col, null)` and `<column>=<op>.<value>` for
+  // `.filter(col, 'is', 'null')`, so these two and the `.or()` string below produce
+  // byte-identical request parameters. Either form is correct on a JSONB extraction.
+  // Keeping .filter() here only because it is what shipped; do not read a meaning into
+  // the difference.
   const currentIds = rsvp.mailgun_message_ids ?? {};
   const claimIds = { ...currentIds, reminder: 'PENDING' };
 

@@ -560,7 +560,11 @@ export function EventDetail() {
               )}
 
               {/* Add to Calendar — hidden pre-RSVP for online events (link would be embedded; P941) */}
-              {!isPast && !isCancelled && !locationGated && (
+              {/* hasEnded, not isPast (P1256): adding a FINISHED event to your calendar is
+                  never useful — the export's DTEND is already in the past. On the 12h flag a
+                  30-minute event kept offering it for 11.5h after it ended. This is the one
+                  place the widened window bought nothing, so it does not get it. */}
+              {!hasEnded && !isCancelled && !locationGated && (
                 <div className="relative mb-6" ref={calendarMenuRef}>
                   <Button
                     variant="outline"
@@ -653,6 +657,12 @@ export function EventDetail() {
 
               {/* P1194: the group chat, after the description and before the RSVP
                   confirmation — a button rather than a link buried in the body copy. */}
+              {/* DELIBERATELY still isPast, unlike the calendar block just above (P1256).
+                  These two were flagged together in review for sharing the widened flag, but
+                  they are not the same case: a group chat is MOST useful just after the
+                  event — photos, "who has my jacket", where everyone went for food. Cutting
+                  it off the moment a hike ends is the opposite of what the block is for.
+                  Staying open longer is the feature here, not the leak. */}
               {!isPast && !isCancelled && (
                 <div className="mb-6">
                 <GroupChatBlock

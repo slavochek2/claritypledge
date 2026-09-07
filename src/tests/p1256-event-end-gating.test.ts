@@ -76,6 +76,24 @@ describe('P1256 — host destructive controls bind to hasEnded, never to isPast'
   });
 });
 
+describe('P1256 — calendar and group chat are split ON PURPOSE, not by oversight', () => {
+  /**
+   * Review flagged both for sharing the widened flag. Only one was a defect. Pinning the
+   * split so a future "consistency" cleanup has to argue with this test rather than
+   * quietly collapse them.
+   */
+  it('Add to Calendar closes at the real end — a past DTEND helps nobody', () => {
+    expect(DETAIL).toContain('{!hasEnded && !isCancelled && !locationGated && (');
+    expect(DETAIL).not.toContain('{!isPast && !isCancelled && !locationGated && (');
+  });
+
+  it('the group chat stays on the widened window — it is most useful right after', () => {
+    // Photos, lost jackets, where everyone went for food. Cutting it at the end of a
+    // hike is the opposite of the block's purpose.
+    expect(DETAIL).toContain('{!isPast && !isCancelled && (');
+  });
+});
+
 describe('P1256 — the widened window is the one the founder asked for', () => {
   it('is 12 hours, and long enough for a full-day hike', () => {
     expect(EVENT_GRACE_HOURS).toBe(12);
