@@ -8,6 +8,21 @@ paths:
 Auto-loaded when editing `.claude/commands/slava/**/*.md`.
 
 > **Trace before editing.** Before changing a skill, trace the behavior to the exact file+step that produces it and confirm that's what actually runs — don't edit the surface you assume is responsible. (Picking the wrong surface from a mental model — e.g. a rules file when the live skill is the real home — is assumption-over-tracing, the same root cause as shipping a fix without observing it run.)
+>
+> **"The file+step that produces it" includes the DATA a skill reads and posts verbatim** — a
+> config blurb, a template, a `.private/*.json` entry. Editing a skill's instructions changes what
+> a future agent is told; it does not change a hardcoded string the skill will copy out unaltered.
+> A gitignored data file is the easiest emitter to miss precisely because no grep of
+> `.claude/commands/` reaches it. (2026-09-07: a stale-link fix rewrote six promo skills while the
+> eight hardcoded links that actually produced the bug sat untouched in `event-channels.json`.)
+>
+> **Trace out, not only in.** Before declaring a skill or data change done, follow one full run
+> end-to-end through every surface that consumes the edited value — sibling skills, placeholder
+> expansions, character limits, adjacent entry points that resolve nothing. The trace-in rule
+> above binds the START of an edit and says nothing about the end; `/finish` reviews branch code,
+> and CLAUDE.md's per-AC evidence bar is scoped to spec'd work, so inline skill edits have no
+> other completion gate. (Same session: the fix was reported complete, and one founder question —
+> "will new publishing know?" — surfaced four more defects in under a minute.)
 
 ---
 
