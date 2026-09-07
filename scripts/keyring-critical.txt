@@ -1,0 +1,29 @@
+# P1239 — the critical half of .env.local.
+#
+# Every name here is stored in the macOS login keychain with an empty
+# trusted-application list, so reading it needs a human at the keyboard.
+# Names only: this file is committed, values never are.
+#
+# Test: "would losing this be unrecoverable or expensive?" The classification is
+# deliberately coarse and does not wait on P1214's retirement verdicts.
+
+# the prod master key — ~15 scripts + ~20 skills, the widest blast radius here
+PROD_SUPABASE_SERVICE_ROLE_KEY
+
+# the direct-DB credential (LOCAL copy only; the CI-side copy is out of scope,
+# see P1239 Measured Baseline)
+SUPABASE_DB_URL
+
+# the ops mailbox password
+OPS_EMAIL_PASSWORD
+
+# the mail-sending key
+MAILGUN_API_KEY
+
+# the blog admin key — measured 0 uses in 30d, gated anyway because it is free to
+GHOST_ADMIN_API_KEY
+
+# the social-publishing tokens — measured 0 uses in 30d, same reasoning
+POSTIZ_API_TOKEN
+POSTIZ_PASSWORD
+TELEGRAM_BOT_TOKEN

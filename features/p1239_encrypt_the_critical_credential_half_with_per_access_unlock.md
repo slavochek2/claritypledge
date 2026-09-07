@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000068
 workstream: keyring
 created_date: '2026-09-03'
 tags: [security, credentials, encryption]
 related: [p1214, p1148]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -196,16 +196,16 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
 ## Done-When
 
 - [ ] The critical half is unreadable on disk without a confirmation, verified by reading the file
-- [ ] A consumer needing a critical key produces a confirmation prompt; **declining it** makes the
+- [x] A consumer needing a critical key produces a confirmation prompt; **declining it** makes the
       consumer stop with a non-zero exit and a message naming what happened — observed, exit code
       pasted (epistemic gate 7)
-- [ ] A second read of the same key produces a **second** prompt — verifying no implicit window and
+- [x] A second read of the same key produces a **second** prompt — verifying no implicit window and
       no "Always Allow" was recorded
-- [ ] The "Always Allow" failure mode is either impossible or detectable: document what the founder
+- [x] The "Always Allow" failure mode is either impossible or detectable: document what the founder
       must not click, and provide a one-command check that reports whether the gate still fires
 - [ ] `/day-cp` and one deploy complete on the locked path while the plaintext copy still exists
-- [ ] The recovery path is documented and has been executed once, before any plaintext is removed
-- [ ] No passphrase or decrypted value appears in shell history, the session transcript, or `ps`
+- [x] The recovery path is documented and has been executed once, before any plaintext is removed
+- [x] No passphrase or decrypted value appears in shell history, the session transcript, or `ps`
 - [ ] Prompt count over one full `/weekly` + `/day-cp` cycle is recorded and compared to the ~4/week
       prediction — if it exceeds ~10/week, stop and revisit before removing any plaintext
 
@@ -282,6 +282,10 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
    in question 2 should work from a freshly enumerated list, not the number recorded here.
 
 ## Related
+
+- **Implementation:** [docs/technical/credential-keyring.md](../docs/technical/credential-keyring.md)
+  — how the locked half works, the commands, the "Always Allow" failure mode and how to detect it,
+  and the recovery path.
 
 - **Peer:** [P1214](p1214_credential_separation_and_privilege_reduction.md) — shrinks what ends up
   inside the locked half, and owns the CI-side credential copy this spec cannot reach.

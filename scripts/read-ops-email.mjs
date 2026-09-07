@@ -14,6 +14,7 @@ import tls from 'tls';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { keyringGet } from './lib/keyring.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const envPath = join(__dir, '../.env.local');
@@ -26,7 +27,10 @@ const env = Object.fromEntries(
 const HOST = 'w00dd4f1.kasserver.com';
 const PORT = 993;
 const USER = env.OPS_EMAIL;
-const PASS = env.OPS_EMAIL_PASSWORD;
+// P1239: the mailbox password is a critical credential. It comes from the
+// keychain behind a per-access authorization dialog, never from .env.local —
+// and if that read is declined this throws rather than continuing unauthenticated.
+const PASS = keyringGet('OPS_EMAIL_PASSWORD');
 
 const args = process.argv.slice(2);
 const showLatest = args.includes('--latest');
