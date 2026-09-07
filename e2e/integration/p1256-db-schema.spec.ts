@@ -44,7 +44,7 @@ test.describe('P1256: event grace interval + dispatch cron', () => {
       fileURLToPath(new URL('../../src/app/data/events-service-real.ts', import.meta.url)),
       'utf8',
     );
-    const m = src.match(/export const EVENT_GRACE_HOURS = (\d+);/);
+    const m = src.match(/^export const EVENT_GRACE_HOURS = (\d+);/m);
     expect(m, 'EVENT_GRACE_HOURS declaration not found — did it get renamed?').not.toBeNull();
     const tsHours = Number(m![1]);
 
