@@ -2,12 +2,12 @@
 name: promote-all
 description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, Eventbrite, and Social Layer in one pass"
 when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
-version: 1.6.0
+version: 1.7.0
 ---
 
 # Promote Event to All Platforms
 
-Wraps `promote-todo-today`, `promote-facebook-personal`, `promote-luma`, `promote-eventbrite`, and `promote-sola` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything. Social Layer runs only when the series has a `sola_group`.
+Wraps `promote-todo-today`, `promote-facebook-personal`, `promote-facebook` (groups), `promote-luma`, `promote-eventbrite`, and `promote-sola` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything. Social Layer runs only when the series has a `sola_group`.
 
 After all platforms are done, shows the series WhatsApp blurb (or generates a fallback) for the user to paste into chat groups. If the user edits it, the series doc is updated.
 
@@ -26,7 +26,7 @@ Read `.private/event-operator.json` (repo-relative, gitignored — each operator
 ```json
 {
   "operator_name": "<name the platform browser sessions are logged in as>",
-  "platforms": ["todo-today", "facebook-personal", "luma", "eventbrite", "sola"],
+  "platforms": ["todo-today", "facebook-personal", "facebook-groups", "luma", "eventbrite", "sola"],
   "facebook_groups": ["<optional — known groups for promote-facebook, grows run over run>"]
 }
 ```
@@ -71,6 +71,7 @@ Schema:
   "status": {
     "todo_today": "pending",
     "facebook_personal": "pending",
+    "facebook_groups": "pending",
     "luma": "pending",
     "eventbrite": "pending",
     "sola": "pending"
@@ -101,6 +102,7 @@ Report one table before proceeding:
 ```
 todo.today:        <logged in as <name> | NOT logged in>
 Facebook personal: <logged in as <name> | NOT logged in>
+Facebook groups:   <n eligible | NOT logged in>  (same session as Facebook personal)
 Luma:              <logged in as <name> | NOT logged in>
 Eventbrite:        <logged in as <name> | NOT logged in>
 Social Layer:      <logged in as <name> | NOT logged in | n/a — no sola_group>
@@ -168,11 +170,22 @@ then facebok, then luma. all three happen one after another and i just go and cl
 post"* (2026-08-31). The old shape stopped after each platform and waited — five separate
 returns to the keyboard for one hike. This shape produces one.
 
-**Phase A — fill, in this order, without stopping.** todo.today → Facebook (personal) → Luma
-→ Eventbrite → Social Layer. Rationale unchanged: todo.today has the highest UI friction (tag
-picker, character truncation), so fail-fast there; Facebook needs visual cover-photo review;
-Luma is stable; Eventbrite is a multi-step wizard; Social Layer is last and skipped entirely
-when the series has no `sola_group`.
+**Phase A — fill, in this order, without stopping.** todo.today → Facebook (personal) →
+**Facebook groups** → Luma → Eventbrite → Social Layer. Rationale unchanged: todo.today has the
+highest UI friction (tag picker, character truncation), so fail-fast there; Facebook needs visual
+cover-photo review; Facebook groups follows it because the personal-post tab is already open and
+logged in; Luma is stable; Eventbrite is a multi-step wizard; Social Layer is last and skipped
+entirely when the series has no `sola_group`.
+
+**Facebook groups is a platform here, not a separate errand.** It was absent from this list until
+2026-09-07, when the founder asked for it mid-run and it had to be added by hand — *"and facebook
+gorups also please (and make sure they are there next time)"*. The gap was invisible because
+`.private/event-operator.json` has carried a populated `facebook_groups` array since 2026-08-31,
+with eligibility and block reasons already researched: the data was there, and nothing read it.
+A config key nothing consumes looks exactly like a feature that works. Invoke
+`slava:events:promote-facebook` with the slug for every entry where `eligible: true`, and report
+each `eligible: false` entry with its reason rather than dropping it silently — an ineligible
+group that vanishes from the report is indistinguishable from one nobody checked.
 
 For each platform in turn:
 1. Skip if not in the operator config's `platforms` list (step 0) — mark `"skipped (not in operator config)"`.
@@ -281,6 +294,7 @@ Print a 3-line summary:
 ```
 todo.today:        <done | skipped>
 Facebook personal: <done | skipped>
+Facebook groups:   <done | skipped>  (list each group and its eligible/blocked reason)
 Luma:              <done | skipped>
 Eventbrite:        <done | skipped>
 Social Layer:      <done | skipped>
