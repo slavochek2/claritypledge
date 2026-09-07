@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: uat
 type: bug
 rank: 5
 created_date: '2026-09-07'
@@ -126,8 +126,16 @@ Small. Three contained fixes plus one prod recovery action.
 - [x] `/day` reads `cron.job_run_details` directly; verified against prod with both
       controls in one output — a healthy job (288 ok / 0 failed) and the broken one
       (0 ok / 4 failed, error text shown)
-- [ ] Edge function + migrations deployed to prod (founder approval)
-- [ ] CRON_SECRET rotated after deploy
+- [x] **Second defect found only by invoking it on prod:** the gateway verifies JWTs for
+      this function, so `Authorization: Bearer <64-hex CRON_SECRET>` could never have
+      reached it. Fixing the quoting alone would have turned 328 Postgres errors into 328
+      gateway 401s. Tick now sends the anon JWT + `x-cron-secret` (20260907170000).
+- [x] Migrations + both edge functions deployed to prod; prod smoke 8/8
+- [x] Broken `dispatch-event-emails` job unscheduled; `dispatch_event_emails` active */30
+- [x] Tick returns 200 `{"ok":true,"mode":"cron"}`, and the schedule then fired unprompted
+- [x] Backfill run: `{"eligible":8,"sent":8,"skipped":0,"errors":0}`; 8 rows carry real
+      Mailgun ids; `email_send_log` independently shows feedback/sent = 8
+- [ ] **CRON_SECRET rotated** — still outstanding, see Risks
 - [ ] Backfill invoked for `77756d40-…`; the 8 rows show a real `mailgun_message_ids.feedback`
 
 ## Invariants
