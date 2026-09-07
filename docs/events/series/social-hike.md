@@ -139,6 +139,31 @@ Coffee or lunch after for anyone who feels like it.
   speak; end the description with the terms.
 - No em dashes in the prose. Short sentences. Facts stay, framing goes.
 
+## Banner from a group photo — the recipe, so it is not re-derived
+
+The event page renders the banner at about **5.85:1** on desktop (1497x256) and **1.95:1** on
+mobile (375x192), `object-fit: cover`, centred. A portrait group photo cannot fill either without
+cutting people: a naive upload on 2026-09-07 sliced everyone at chest height and removed the
+kneeling person from the frame entirely.
+
+**What works:** crop a horizontal band that contains every face with headroom, then pad left and
+right with a blurred copy of the same photo out to the desktop ratio. Faces survive both widths;
+only the blurred fill is lost on mobile.
+
+```bash
+# SRC is the prepped photo. Adjust the crop Y offset until every face has headroom.
+ffmpeg -y -i "$SRC" -filter_complex "\
+[0:v]crop=1440:560:0:915[fg];\
+[0:v]scale=3276:-1,crop=3276:560:0:ih/2-280,boxblur=34:2,eq=brightness=-0.04[bg];\
+[bg][fg]overlay=(W-w)/2:0[out]" -map "[out]" -frames:v 1 -q:v 2 banner.jpg
+```
+
+Upload with `x-upsert: true` — `event-photo-prep.sh` skips an object that already exists, so a
+re-crop uploaded through it silently does nothing.
+
+**Then look at it at both widths before promoting.** The founder's requirement is that no face and
+no person is cropped out; a successful upload is not evidence of that.
+
 ## Promo blurb (external platforms)
 
 <!--

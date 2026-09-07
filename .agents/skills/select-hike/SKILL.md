@@ -125,17 +125,32 @@ announcement, its access required registration starting at park headquarters 100
 weeks earlier the department had published a statement about hikers being threatened on that exact
 route. The cafe gate built the same day worked perfectly. Nothing checked the trail.
 
-### 2. Collect the founder's constraints — one message, then go
+### 2. Read the standing preferences — do not re-interrogate
 
-Ask once, together, and only for what wasn't already said:
+Read `.private/hike-preferences.json` FIRST. It holds what the founder has already decided and
+does not want to be asked again: the day and meet time, the distance band, how far from the city,
+the cafe gate's thresholds, the never-re-offer rule, the banner requirement, and what this skill
+may do without checking in. Each entry carries the date and the words it came from.
 
-1. **Date and start time?** (e.g. "this Sunday, 9:00")
-2. **Any shape constraints?** — distance/difficulty band, closer to or further from the city, loop vs point-to-point, one-way, cafe at the end.
-3. **A photo for the banner?** — see step 6; ask here so it isn't a separate interruption later.
+> *"improve the skills so next time the next hike will not need me to repeat and I am less in the
+> loop if needed"* — founder, 2026-09-07
 
-Prior constraint sets are a starting draft, not a fresh interrogation. If the founder says
-"similar to last time," read the last hike's row from prod and restate the band you inferred
-in one line for confirmation rather than re-asking all three questions.
+**Ask only what the file does not cover**, and ask it in ONE message at a moment he is already
+deciding — never as a separate interruption. In a normal week that is zero questions, or one:
+the banner photo, if the file's answer has gone stale.
+
+**A contradicted preference is updated here in the same turn.** When he says "too long", "further
+out", "not that one again", write it into the file with his words and today's date before
+continuing. A preference obeyed for one run and then forgotten is the interrogation rebuilding
+itself.
+
+**What the file does not do is remove decisions.** He still picks the trail from open tabs, picks
+the cafe from open tabs, approves the description, and clicks Create. What it removes is
+everything that used to happen before those four moments.
+
+If a preference looks wrong for this particular week — a public holiday, he is away, he has asked
+for something unusual — say so in one line and proceed on the exception. Do not silently override
+the file, and do not stop for permission to follow it.
 
 ### 3. Search AllTrails via Chrome
 
