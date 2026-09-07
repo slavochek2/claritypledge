@@ -29,6 +29,9 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? '';
 const MAX_TIME_DRIFT_MS = 30 * 60 * 1000; // 30 minutes
 
 // A PENDING row older than this is treated as stuck and retried.
+/** P1256: the backfill target is interpolated into a PostgREST filter — pin its shape. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const STUCK_PENDING_THRESHOLD_MS = 7 * 60 * 60 * 1000; // 7 hours
 
 interface RsvpRow {
@@ -118,6 +121,15 @@ async function dispatchFeedback(
   supabase: SupabaseClient,
   rsvp: RsvpRow,
   now: Date,
+  /**
+   * P1256 backfill: send NOW rather than handing Mailgun the stored
+   * `feedback_scheduled_at` as `o:deliverytime`. On the normal path that stored
+   * time is in the future and scheduling is the whole point; on the backfill path
+   * it is in the PAST, and a past `o:deliverytime` is not a thing worth relying on
+   * — this drops the header instead of betting on how Mailgun rounds it.
+   * Every other guard (host gate, drift check, atomic claim, send log) is shared.
+   */
+  immediate = false,
 ): Promise<void> {
   const { events: event, profile_id: profileId, profiles: profileData } = rsvp;
   const email = profileData?.email;
@@ -159,7 +171,7 @@ async function dispatchFeedback(
     .single();
 
   const from = feedbackFrom(host?.name as string | null);
-  const deliverAt = new Date(rsvp.feedback_scheduled_at);
+  const deliverAt = immediate ? undefined : new Date(rsvp.feedback_scheduled_at);
   const feedback = buildFeedback(event, profileData?.name);
   const messageId = await sendEmail({ to: email, ...feedback, from, deliverAt });
 
@@ -177,6 +189,93 @@ async function dispatchFeedback(
     messageId,
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });
+}
+
+/**
+ * P1256: send the feedback email for an event whose feedback time has ALREADY PASSED.
+ *
+ * WHY THIS EXISTS. `runDispatch` selects on `feedback_scheduled_at > now()` — it
+ * hands Mailgun a future delivery time, so it only ever looks FORWARD. That makes
+ * the past an absorbing state: once a row's scheduled moment slips by unsent, no
+ * number of subsequent cron runs will ever see it again. Between P947 (2026-06-10)
+ * and P1256 nothing invoked the dispatcher at all, so every reminder and every
+ * feedback email in that window fell into exactly this hole — 8 of them for the
+ * 2026-09-06 hike alone, all with a correct `feedback_scheduled_at` and an empty
+ * `mailgun_message_ids`.
+ *
+ * It is deliberately NOT wired into the cron tick. A scheduled job that
+ * retroactively mails everyone it finds behind it is how a backlog turns into a
+ * mass send; this runs only when a human names one event id.
+ *
+ * What it does NOT relax:
+ *   - the CRON_SECRET check (shared with the cron path, in the handler)
+ *   - the FEEDBACK_HOST_ID host gate, inside dispatchFeedback
+ *   - the drift check — `feedback_scheduled_at` must still be within 30min of
+ *     `datetime + duration + 2h`. A row whose schedule was never computed, or was
+ *     computed under different event details, is skipped rather than guessed at.
+ *   - the atomic PENDING claim on `mailgun_message_ids->>feedback`, which is what
+ *     makes a double invocation safe: the second one claims nothing and sends
+ *     nothing.
+ *   - `logEmailSend`
+ *
+ * So the honest description is: it is `runDispatch`'s feedback branch with the
+ * forward-looking time filter replaced by an explicit event id, and rows that
+ * already have a message id still excluded.
+ */
+async function runFeedbackBackfill(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ dispatched: number; errors: number; skipped: number }> {
+  const now = new Date();
+
+  const { data: rows, error } = await supabase
+    .from('event_rsvps')
+    .select(`
+      id, event_id, profile_id,
+      reminder_scheduled_at, feedback_scheduled_at,
+      reminder_attempted_at, feedback_attempted_at,
+      mailgun_message_ids,
+      profiles(email, name),
+      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status)
+    `)
+    .eq('event_id', eventId)
+    .neq('events.status', 'cancelled')
+    .not('feedback_scheduled_at', 'is', null)
+    // Past only. A future-scheduled row is the cron's job, not this one — mailing
+    // it now would send a "how was it?" before the event has happened.
+    .lt('feedback_scheduled_at', now.toISOString())
+    .is('mailgun_message_ids->>feedback', null);
+
+  if (error) {
+    console.error('backfill query error:', error.message);
+    return { dispatched: 0, errors: 1, skipped: 0 };
+  }
+  if (!rows || rows.length === 0) {
+    console.log(`backfill: no eligible rows for event ${eventId}`);
+    return { dispatched: 0, errors: 0, skipped: 0 };
+  }
+
+  console.log(`backfill: ${rows.length} eligible row(s) for event ${eventId}`);
+
+  let dispatched = 0;
+  let errors = 0;
+
+  // Sequential, not Promise.all: this is a human-triggered send to real people and
+  // the row count is small. Serial keeps the log readable and cannot burst Mailgun.
+  for (const rsvp of rows as unknown as RsvpRow[]) {
+    try {
+      await dispatchFeedback(supabase, rsvp, now, true);
+      dispatched++;
+    } catch (err) {
+      console.error(`backfill error for rsvp ${rsvp.id}:`, err);
+      errors++;
+    }
+  }
+
+  // dispatchFeedback returns void whether it sent or bailed on a gate, so
+  // `dispatched` counts ATTEMPTS. The send log and mailgun_message_ids are the
+  // record of what actually left.
+  return { dispatched, errors, skipped: 0 };
 }
 
 async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: number; errors: number }> {
@@ -266,10 +365,39 @@ serve(async (req: Request) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  // P1256: opt-in backfill. The cron tick posts `{}` and takes the normal path;
+  // only an explicit `backfill_event_id` reaches runFeedbackBackfill. Parsed
+  // defensively — a body that is absent, empty or not JSON is the cron's shape.
+  let backfillEventId: string | null = null;
   try {
+    const raw = await req.text();
+    if (raw.trim()) {
+      const parsed = JSON.parse(raw) as { backfill_event_id?: unknown };
+      if (typeof parsed.backfill_event_id === 'string') backfillEventId = parsed.backfill_event_id.trim();
+    }
+  } catch {
+    // Not JSON — treat as the cron's empty body rather than failing the tick.
+  }
+
+  if (backfillEventId !== null && !UUID_RE.test(backfillEventId)) {
+    return new Response(JSON.stringify({ error: 'backfill_event_id must be a uuid' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    if (backfillEventId) {
+      const result = await runFeedbackBackfill(supabase, backfillEventId);
+      console.log(`backfill complete for ${backfillEventId}: ${result.dispatched} attempted, ${result.errors} errors`);
+      return new Response(JSON.stringify({ ok: true, mode: 'backfill', event_id: backfillEventId, ...result }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const result = await runDispatch(supabase);
     console.log(`dispatch complete: ${result.dispatched} dispatched, ${result.errors} errors`);
-    return new Response(JSON.stringify({ ok: true, ...result }), {
+    return new Response(JSON.stringify({ ok: true, mode: 'cron', ...result }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {

@@ -45,11 +45,16 @@ vi.mock('@/app/data/stories-service', () => ({
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 
 /**
- * The standard entries, IN ORDER. `cmp10` was removed from the menu 2026-08-31
- * (founder: "I would suggest to delete CMP10. Let's keep it simple") — asserting
- * the array verbatim is what keeps it from drifting back in.
+ * The standard entries, IN ORDER. Asserting the array verbatim is what keeps
+ * unapproved copy from drifting in — that is still this constant's job.
+ *
+ * P1256 (2026-09-07): `cmp10` returns, and `understanding` / `misunderstanding`
+ * join it, at the founder's explicit instruction. This list previously carried a
+ * note pinning cmp10's 2026-08-31 removal; that note is gone rather than
+ * softened, because the decision it recorded has been reversed by the same
+ * person who made it. See event-links.ts for both sides.
  */
-const APPROVED = ['cmp7', 'cmp3', 'Transcribe', 'Start a Clarity Session'];
+const APPROVED = ['cmp7', 'cmp3', 'cmp10', 'understanding', 'misunderstanding', 'Transcribe', 'Start a Clarity Session'];
 const UNAPPROVED = ['Seven dimensions', 'The triad', 'All ten'];
 
 function renderAt(path: string, variant?: 'sheet' | 'dropdown') {
@@ -85,7 +90,7 @@ describe('P1179 AC-1 — the Links button renders on every room screen', () => {
   });
 });
 
-describe('P1179 AC-4 — an event with no extras lists exactly the five standard entries', () => {
+describe('P1179 AC-4 — an event with no extras lists exactly the standard entries', () => {
   beforeEach(() => { eventRow.current = { links: [] }; });
 
   it('lists the five approved labels verbatim, and nothing else', async () => {
@@ -105,7 +110,9 @@ describe('P1179 AC-4 — an event with no extras lists exactly the five standard
   it('every entry points at an internal path carrying the event', async () => {
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries).toHaveLength(4);
+    // Derived from APPROVED, not a literal: P1256 grew this list from 4 to 7 and
+    // a hardcoded count made that a test edit in three separate places.
+    expect(entries).toHaveLength(APPROVED.length);
     // The separator the approved reference puts before Transcribe is present.
     expect(screen.getByTestId('event-links-separator')).toBeInTheDocument();
   });
@@ -114,14 +121,14 @@ describe('P1179 AC-4 — an event with no extras lists exactly the five standard
 describe('P1179 AC-5 — extras are additive and per-event', () => {
   beforeEach(() => { tagContent.current = { tonight: 3 }; probeThrows.current = false; });
 
-  it('one configured extra yields five entries, FIRST, under its own "This event" heading', async () => {
+  it('one configured extra prepends ONE entry, FIRST, under its own "This event" heading', async () => {
     // Order is the assertion (founder 2026-08-31: "tonight should be the first
     // link if the event has it") — the per-event tag is why this attendee is in
     // this room, the standing instruments are the same at every event.
     eventRow.current = { links: [{ tag: 'tonight', label: 'Tonight' }] };
     renderAt('/events/cm-1/room');
     const entries = await openSheet();
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(APPROVED.length + 1);
     expect(entries[0]).toHaveTextContent('Tonight');
     expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
     expect(screen.getByText('This event')).toBeInTheDocument();
@@ -141,7 +148,7 @@ describe('P1179 AC-5 — extras are additive and per-event', () => {
     expect(entries.map(e => e.textContent)).toEqual(APPROVED);
   });
 
-  it('an unreadable event row still yields the five standard entries — the menu never fails closed mid-event', async () => {
+  it('an unreadable event row still yields the standard entries — the menu never fails closed mid-event', async () => {
     eventRow.current = null;
     renderAt('/events/cm-1/room');
     const entries = await openSheet();

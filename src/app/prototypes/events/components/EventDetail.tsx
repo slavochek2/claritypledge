@@ -23,6 +23,7 @@ import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GroupChatBlock } from './GroupChatBlock';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
+import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useAuth } from '@/auth';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { extractBannerKeywords } from '../banner-utils';
@@ -178,8 +179,14 @@ export function EventDetail() {
   }
 
   const eventDate = new Date(event.datetime);
+  // Kept on durationMinutes: this is the DISPLAYED end time and the calendar
+  // export's DTEND. It is what the event says it is.
   const endDate = new Date(eventDate.getTime() + event.durationMinutes * 60 * 1000);
-  const isPast = endDate < new Date();
+  // P1256: but "is it over" is NOT endDate. It is the same grace rule the
+  // /events list uses, so RSVP here and presence in "upcoming" there can never
+  // disagree again — before this, a 4h hike closed RSVP a full hour before it
+  // left the upcoming list. See EVENT_GRACE_HOURS for why it measures from start.
+  const isPast = Date.now() >= eventDate.getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000;
   const isCancelled = event.status === 'cancelled';
   const isFull = eventsService.isEventFull(event);
 

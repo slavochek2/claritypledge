@@ -45,12 +45,27 @@ export function isSafeTag(tag: unknown): tag is string {
  * "Seven dimensions" / "The triad" / "All ten" are NOT approved copy.
  *
  * `cmp10` was REMOVED 2026-08-31 (founder: "I would suggest to delete CMP10.
- * Let's keep it simple"). It is dropped from the MENU only — `/stake/cmp10`
- * still resolves, because the route is global and the tag keeps working for
- * anyone holding the link; what changed is that the room stops offering a third
- * instrument nobody had asked for mid-event.
+ * Let's keep it simple") and RESTORED 2026-09-07 at the founder's explicit
+ * instruction, alongside `understanding` and `misunderstanding`. The 2026-08-31
+ * reasoning is not withdrawn — it is overridden: this menu is now the room's
+ * index of every standing instrument, not a shortlist. Content was verified in
+ * prod before adding, so none of the five is an empty feed: cmp7=7, cmp3=3,
+ * cmp10=10 points on `tags`; understanding=18, misunderstanding=11 on
+ * `system_tags`.
+ *
+ * `understanding` and `misunderstanding` are SYSTEM tags — they live in the
+ * `system_tags` column, not `tags`. Nothing here needs to know that: the stake
+ * page routes through `getPublicPointsFeed` / `getPublicStoriesFeed`, both of
+ * which branch on `isSystemTag()` (feed-utils.ts, where both words are already
+ * explicit SYSTEM_TAG_VALUES) and query the right column. Verified before
+ * adding — a tag that needed a third code path would not belong in this list.
+ *
+ * Five entries is the design's stated ceiling territory: the module caps
+ * nothing, and the auto-hide probe in event-links-menu.tsx is what enforces the
+ * hard fan-out cap. If a sixth standing instrument is ever proposed, check that
+ * probe before adding it rather than after.
  */
-export const STANDARD_STAKE_TAGS = ['cmp7', 'cmp3'] as const;
+export const STANDARD_STAKE_TAGS = ['cmp7', 'cmp3', 'cmp10', 'understanding', 'misunderstanding'] as const;
 
 /**
  * The two standard tool destinations. Both labels are existing product copy,

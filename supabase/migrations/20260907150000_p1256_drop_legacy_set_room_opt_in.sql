@@ -1,0 +1,32 @@
+-- P1256: drop the legacy 2-arg set_room_opt_in(uuid, boolean).
+--
+-- diffed against: 20260821120000_p1114_public_roster_reversal.sql, which already
+--   contains `DROP FUNCTION IF EXISTS public.set_room_opt_in(uuid, boolean);` on
+--   line 75. This migration re-issues that same drop. Nothing else changes.
+--
+-- client-safe: removes an overload no client calls. The live 3-arg form
+--   set_room_opt_in(uuid, boolean, smallint) is untouched. Every caller in src/
+--   passes three arguments (p_member_id, p_opted_in, p_comprehension) — the 2-arg
+--   form has had no call site since P1114's roster reversal on 2026-08-21.
+--
+-- WHY IT IS STILL HERE. Measured 2026-09-07 while verifying that P1256's grace
+-- change had reached every room RPC:
+--
+--   test (gfjcty…): set_room_opt_in(uuid,boolean)          <- still present, 5h literal
+--                   set_room_opt_in(uuid,boolean,smallint) <- correct
+--   prod (besjtu…): set_room_opt_in(uuid,boolean,smallint) <- only this one
+--
+-- So this is TEST-ONLY drift: the 2026-08-21 drop took on prod and did not on test.
+-- It matters beyond tidiness. Postgres resolves overloads by argument list, so the
+-- stale 2-arg function was a live, callable copy of the freeze boundary that the
+-- P1256 migration did not update and could not have — it rewrites the four bodies
+-- the repo knows about, and this one is in no migration's CREATE. On test it would
+-- have gone on enforcing a 5-hour room freeze while everything else moved to 12.
+--
+-- It also means the two environments could not be compared by function NAME. The
+-- check that found it compared full signatures; a name-level check returns
+-- "set_room_opt_in exists" for both and looks identical.
+--
+-- Idempotent, and a no-op on prod (IF EXISTS, and prod does not have it).
+
+DROP FUNCTION IF EXISTS public.set_room_opt_in(uuid, boolean);

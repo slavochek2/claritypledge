@@ -10,7 +10,7 @@
  * them survives into a rendered `to`.
  */
 import { describe, it, expect } from 'vitest';
-import { buildLinksMenu, isSafeTag, stakePath, STANDARD_STAKE_TAGS } from '@/app/data/event-links';
+import { buildLinksMenu, isSafeTag, stakePath, STANDARD_STAKE_TAGS, STANDARD_TOOL_ENTRIES } from '@/app/data/event-links';
 
 const HOSTILE = [
   'https://evil.com',
@@ -41,8 +41,11 @@ describe('P1179 DW-3 — an entry can never carry an external destination', () =
   it('DROPS a hostile extra rather than throwing — the room menu must not fail closed mid-event', () => {
     const extras = HOSTILE.map(tag => ({ tag }));
     const entries = buildLinksMenu(extras, 'cm-1');
-    // Exactly the four standard entries survive; every hostile extra is gone.
-    expect(entries).toHaveLength(4);
+    // Exactly the standard entries survive; every hostile extra is gone.
+    // Derived, not a literal: P1256 grew the standard set from 4 to 7, and a
+    // hardcoded count here would have to be edited on every such change while
+    // proving nothing extra — what this asserts is "no hostile extra got in".
+    expect(entries).toHaveLength(STANDARD_STAKE_TAGS.length + STANDARD_TOOL_ENTRIES.length);
     expect(entries.every(e => e.group !== 'event')).toBe(true);
   });
 
@@ -64,7 +67,7 @@ describe('P1179 DW-3 — an entry can never carry an external destination', () =
       [null, undefined, 'cmp7', 42, [], { label: 'no tag' }] as never,
       'cm-1'
     );
-    expect(entries).toHaveLength(4);
+    expect(entries).toHaveLength(STANDARD_STAKE_TAGS.length + STANDARD_TOOL_ENTRIES.length);
   });
 
   it('stakePath encodes the event slug rather than concatenating it raw', () => {
@@ -82,6 +85,9 @@ describe('P1179 DW-3 — an entry can never carry an external destination', () =
   it('an extra tag colliding with a standard stake tag is dropped, not duplicated', () => {
     const entries = buildLinksMenu([{ tag: 'cmp7', label: 'Tonight' }], 'cm-1');
     expect(entries.filter(e => e.to.startsWith('/stake/cmp7'))).toHaveLength(1);
-    expect(entries.map(e => e.label)).toEqual(['cmp7', 'cmp3', 'Transcribe', 'Start a Clarity Session']);
+    expect(entries.map(e => e.label)).toEqual([
+      ...STANDARD_STAKE_TAGS,
+      ...STANDARD_TOOL_ENTRIES.map(t => t.label),
+    ]);
   });
 });

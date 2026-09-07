@@ -5,6 +5,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
  *
  * Events should stay in "upcoming" for EVENT_GRACE_HOURS after their start time.
  * This prevents latecomers from losing the event during/after the run.
+ *
+ * P1256 (2026-09-07): grace widened 5h → 12h. These tests pinned 5 as a literal,
+ * so they are updated rather than deleted — the behaviour they guard (a cutoff
+ * measured back from now, future events unaffected, a hard boundary in both
+ * directions) is unchanged; only the number moved. The boundary cases are
+ * re-picked around 12h so they still sit just inside and just outside it: an
+ * event 6h old is now INSIDE grace, which is the whole point of the change —
+ * that is the case the 2026-09-06 hike failed.
  */
 
 // Mock Supabase client — capture the datetime cutoff passed to .gte() and .or()
@@ -59,14 +67,14 @@ describe('P494: Event grace period', () => {
   });
 
   describe('getUpcomingEvents — grace period cutoff', () => {
-    it('uses a cutoff 5 hours before now (not now itself)', async () => {
+    it('uses a cutoff 12 hours before now (not now itself)', async () => {
       // Set "now" to 2026-03-12T15:00:00Z
       const now = new Date('2026-03-12T15:00:00Z');
       vi.setSystemTime(now);
 
       await realEventsService.getUpcomingEvents();
 
-      // The .gte('datetime', cutoff) call should use now - 5 hours
+      // The .gte('datetime', cutoff) call should use now - 12 hours
       expect(mockGte).toHaveBeenCalledWith(
         'datetime',
         expect.any(String)
@@ -74,15 +82,15 @@ describe('P494: Event grace period', () => {
 
       const cutoffArg = mockGte.mock.calls[0][1] as string;
       const cutoffDate = new Date(cutoffArg);
-      const expectedCutoff = new Date('2026-03-12T10:00:00.000Z');
+      const expectedCutoff = new Date('2026-03-12T03:00:00.000Z');
 
-      // Cutoff should be ~5 hours before "now"
+      // Cutoff should be ~12 hours before "now"
       const diffMs = Math.abs(cutoffDate.getTime() - expectedCutoff.getTime());
       expect(diffMs).toBeLessThan(1000); // within 1 second tolerance
     });
 
     it('event started 2 hours ago still appears in upcoming', async () => {
-      // "Now" = 15:00, event started at 13:00 → 2h ago, well within 5h grace
+      // "Now" = 15:00, event started at 13:00 → 2h ago, well within 12h grace
       const now = new Date('2026-03-12T15:00:00Z');
       vi.setSystemTime(now);
 
@@ -92,12 +100,12 @@ describe('P494: Event grace period', () => {
       const cutoffDate = new Date(cutoffArg);
       const eventStart = new Date('2026-03-12T13:00:00Z');
 
-      // Event datetime (13:00) should be >= cutoff (10:00) → included
+      // Event datetime (13:00) should be >= cutoff (03:00) → included
       expect(eventStart.getTime()).toBeGreaterThanOrEqual(cutoffDate.getTime());
     });
 
-    it('event started 4.5 hours ago still appears in upcoming', async () => {
-      // "Now" = 15:00, event at 10:30 → 4.5h ago, still within 5h grace
+    it('event started 11.5 hours ago still appears in upcoming', async () => {
+      // "Now" = 15:00, event at 03:30 → 11.5h ago, still inside the 12h grace
       const now = new Date('2026-03-12T15:00:00Z');
       vi.setSystemTime(now);
 
@@ -105,14 +113,14 @@ describe('P494: Event grace period', () => {
 
       const cutoffArg = mockGte.mock.calls[0][1] as string;
       const cutoffDate = new Date(cutoffArg);
-      const eventStart = new Date('2026-03-12T10:30:00Z');
+      const eventStart = new Date('2026-03-12T03:30:00Z');
 
-      // Event datetime (10:30) >= cutoff (10:00) → included
+      // Event datetime (03:30) >= cutoff (03:00) → included
       expect(eventStart.getTime()).toBeGreaterThanOrEqual(cutoffDate.getTime());
     });
 
-    it('event started 6 hours ago does NOT appear in upcoming', async () => {
-      // "Now" = 15:00, event at 09:00 → 6h ago, past the 5h grace
+    it('event started 13 hours ago does NOT appear in upcoming', async () => {
+      // "Now" = 15:00, event at 02:00 → 13h ago, past the 12h grace
       const now = new Date('2026-03-12T15:00:00Z');
       vi.setSystemTime(now);
 
@@ -120,7 +128,7 @@ describe('P494: Event grace period', () => {
 
       const cutoffArg = mockGte.mock.calls[0][1] as string;
       const cutoffDate = new Date(cutoffArg);
-      const eventStart = new Date('2026-03-12T09:00:00Z');
+      const eventStart = new Date('2026-03-12T02:00:00Z');
 
       // Event datetime (09:00) < cutoff (10:00) → excluded
       expect(eventStart.getTime()).toBeLessThan(cutoffDate.getTime());
@@ -142,7 +150,7 @@ describe('P494: Event grace period', () => {
   });
 
   describe('getPastEvents — grace period cutoff', () => {
-    it('uses a cutoff 5 hours before now in the past filter', async () => {
+    it('uses a cutoff 12 hours before now in the past filter', async () => {
       const now = new Date('2026-03-12T15:00:00Z');
       vi.setSystemTime(now);
 
@@ -155,13 +163,13 @@ describe('P494: Event grace period', () => {
 
       const orFilter = mockOr.mock.calls[0][0] as string;
 
-      // The filter should contain a datetime from ~5 hours ago (10:00), not 15:00
+      // The filter should contain a datetime from ~12 hours ago (03:00), not 15:00
       // Extract ISO datetime: YYYY-MM-DDTHH:MM:SS.mmmZ
       const datetimeMatch = orFilter.match(/datetime\.lt\.(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
       expect(datetimeMatch).not.toBeNull();
 
       const filterDate = new Date(datetimeMatch![1]);
-      const expectedCutoff = new Date('2026-03-12T10:00:00.000Z');
+      const expectedCutoff = new Date('2026-03-12T03:00:00.000Z');
 
       const diffMs = Math.abs(filterDate.getTime() - expectedCutoff.getTime());
       expect(diffMs).toBeLessThan(1000);
@@ -180,11 +188,11 @@ describe('P494: Event grace period', () => {
       const cutoffDate = new Date(datetimeMatch![1]);
       const recentEvent = new Date('2026-03-12T13:00:00Z');
 
-      // Event at 13:00 is NOT < cutoff (10:00) → excluded from past
+      // Event at 13:00 is NOT < cutoff (03:00) → excluded from past
       expect(recentEvent.getTime()).toBeGreaterThanOrEqual(cutoffDate.getTime());
     });
 
-    it('event started 6 hours ago appears in past (grace expired)', async () => {
+    it('event started 13 hours ago appears in past (grace expired)', async () => {
       const now = new Date('2026-03-12T15:00:00Z');
       vi.setSystemTime(now);
 
@@ -195,18 +203,18 @@ describe('P494: Event grace period', () => {
       expect(datetimeMatch).not.toBeNull();
 
       const cutoffDate = new Date(datetimeMatch![1]);
-      const oldEvent = new Date('2026-03-12T09:00:00Z');
+      const oldEvent = new Date('2026-03-12T02:00:00Z');
 
-      // Event at 09:00 < cutoff (10:00) → included in past
+      // Event at 02:00 < cutoff (03:00) → included in past
       expect(oldEvent.getTime()).toBeLessThan(cutoffDate.getTime());
     });
   });
 
   describe('Grace period constant', () => {
-    it('EVENT_GRACE_HOURS should be exported and equal 5', async () => {
+    it('EVENT_GRACE_HOURS should be exported and equal 12', async () => {
       const module = await import('@/app/data/events-service-real');
       // The constant should be exported for other consumers
-      expect((module as Record<string, unknown>).EVENT_GRACE_HOURS).toBe(5);
+      expect((module as Record<string, unknown>).EVENT_GRACE_HOURS).toBe(12);
     });
   });
 });

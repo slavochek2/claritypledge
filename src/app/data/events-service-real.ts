@@ -13,7 +13,26 @@ import { slugifyName } from './api';
 
 // P494: Events stay in "upcoming" for this many hours after their start time.
 // Covers running events, latecomers, and post-event registrations.
-export const EVENT_GRACE_HOURS = 5;
+//
+// P1256: 5 → 12. Two problems, one number.
+//
+// (a) 5h was shorter than the events we actually run. The 2026-09-06 hike was a
+//     4h walk that ran long; the list dropped it out of "upcoming" at 14:00 while
+//     the group was still on the trail. A hike can occupy most of a day, and the
+//     event should stay live for the whole of it.
+//
+// (b) It was not the only clock. EventDetail computed its own `isPast` from
+//     `datetime + durationMinutes`, closing RSVP at 13:00 — an hour BEFORE the
+//     same event left the "upcoming" list. Two surfaces, two answers, on the same
+//     event. EventDetail now reads this constant too, so there is exactly one
+//     definition of "this event is over" in the product. `durationMinutes` keeps
+//     its real job there: the displayed time range and the calendar export.
+//
+// Measured from the start time, not from start+duration, deliberately: the list
+// query is a SQL `.gte('datetime', cutoff)` and cannot add a per-row duration
+// without a computed column. One rule both surfaces can evaluate beats a more
+// precise rule only one of them can.
+export const EVENT_GRACE_HOURS = 12;
 
 /** Returns an ISO string for `now - EVENT_GRACE_HOURS`. */
 function getGraceCutoff(): string {

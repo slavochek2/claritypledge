@@ -20,7 +20,12 @@ import { describe, it, expect } from 'vitest';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 
 describe('P1114 Decision 4: EVENT_GRACE_HOURS SQL/TS cross-reference canary', () => {
-  it('EVENT_GRACE_HOURS is 5 — if this changes, the P1114 freeze-boundary SQL literal (join_event_room, set_room_opt_in, set_room_readiness) must change in the SAME migration, per the cross-reference comment Architecture Decision 4 requires on each RPC', () => {
-    expect(EVENT_GRACE_HOURS).toBe(5);
+  it('EVENT_GRACE_HOURS is 12 — if this changes, public.event_grace_interval() must change in the SAME migration, per the cross-reference comment Architecture Decision 4 requires on each RPC', () => {
+    // P1256 (2026-09-07): 5 -> 12. This canary did its job — flipping the TS
+    // constant failed HERE, which is what surfaced the four SQL bodies still
+    // carrying `interval '5 hours'`. Those four now call a single
+    // public.event_grace_interval(), so the SQL side has one definition; this
+    // test still pins the TS side against it.
+    expect(EVENT_GRACE_HOURS).toBe(12);
   });
 });
