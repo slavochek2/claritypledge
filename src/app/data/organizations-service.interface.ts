@@ -99,7 +99,13 @@ export interface OrganizationsService {
   /** The org's roster (organizer-first), via the PII-safe SECURITY DEFINER RPC. */
   getMembers(slug: string): Promise<OrgMember[]>;
   /** The authenticated caller's own membership in this org, or null. */
-  getMyMembership(orgId: string): Promise<{ role: OrgRole } | null>;
+  /**
+   * The caller's own membership row. Returns the COA version they ACCEPTED and
+   * when — not the current one: `membership.terms_version` is pinned per row and
+   * never backfilled (coa-versions.ts), so this is the only way a surface can show
+   * a member the document they actually agreed to rather than today's.
+   */
+  getMyMembership(orgId: string): Promise<{ role: OrgRole; termsVersion: number; acceptedAt: string } | null>;
   /**
    * Accept the COA and join as a plain member. Idempotent (duplicate = no-op) —
    * `joined: false` means no row was created (already a member); callers should

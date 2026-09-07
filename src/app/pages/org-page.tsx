@@ -462,7 +462,10 @@ function AboutSection({
 
         {org.description ? (
           org.description.split(/\n{2,}/).map((paragraph) => (
-            <p key={paragraph.slice(0, 40)} className="text-base leading-relaxed">
+            /* break-words: a founder-authored body can carry a bare URL, which is one
+               unbreakable line box. At 320px the repo link overflowed its own column by
+               ~49px and stopped 4px short of the viewport edge (viewport QA). */
+            <p key={paragraph.slice(0, 40)} className="text-base leading-relaxed break-words">
               {renderWithLinks(paragraph)}
             </p>
           ))

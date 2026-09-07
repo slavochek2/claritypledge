@@ -17,7 +17,7 @@ import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
 import { FocusHeader } from "@/app/components/layout/focus-header";
 import { CertificateFrame, CertificateOathBody } from "@/app/components/agreements/certificate-frame";
-import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
+import { COA_VERSIONS, CURRENT_COA_VERSION, type CoaVersion } from "@/app/content/coa-versions";
 import { organizationsService } from "@/app/data/organizations-service";
 import type { Organization } from "@/app/data/organizations-service.interface";
 import { isValidUUID } from "@/lib/auth-gate-utils";
@@ -35,7 +35,9 @@ export function OrgJoinPage() {
   const [membershipChecked, setMembershipChecked] = useState(false);
   // Members are no longer bounced off this page (see the membership effect below):
   // this flag turns it into the group's read-only terms surface for them.
-  const [alreadyMember, setAlreadyMember] = useState(false);
+  // null = not a member (or not yet known). Non-null = the member's OWN accepted
+  // terms, which is what this page renders for them — never the current version.
+  const [myTerms, setMyTerms] = useState<{ version: number; acceptedAt: string } | null>(null);
 
   const orgPath = `/groups/${slug}`;
   const orgId = org?.id ?? null;
@@ -89,7 +91,7 @@ export function OrgJoinPage() {
   // read the terms freely, per the existing unauthenticated flow.
   useEffect(() => {
     // Signed out, or the org is not loaded yet: nobody is a member of anything here.
-    if (!orgId || !userId) { setAlreadyMember(false); return; }
+    if (!orgId || !userId) { setMyTerms(null); return; }
     let cancelled = false;
     setMembershipChecked(false); // re-check if orgId/userId changes under an existing mount
     // Must be cleared with it. This page does not remount when the slug changes
@@ -97,7 +99,7 @@ export function OrgJoinPage() {
     // `true` would (a) show an anonymous visitor "You are a member", and (b) leave
     // a DIFFERENT signed-in user permanently unable to join, since the read-only
     // branch renders no accept action.
-    setAlreadyMember(false);
+    setMyTerms(null);
     async function checkExistingMembership() {
       try {
         const mine = await organizationsService.getMyMembership(orgId);
@@ -115,7 +117,7 @@ export function OrgJoinPage() {
           navigate(orgPath, { replace: true });
           return;
         }
-        setAlreadyMember(true);
+        setMyTerms({ version: mine.termsVersion, acceptedAt: mine.acceptedAt });
       } catch (err) {
         console.error("Failed to check existing membership", err);
       } finally {
@@ -178,7 +180,15 @@ export function OrgJoinPage() {
     );
   }
 
-  const coa = COA_VERSIONS[CURRENT_COA_VERSION];
+  // A member reads the version they accepted; everyone else reads the current one.
+  // The registry keeps every version forever precisely so this is possible
+  // (coa-versions.ts) — rendering CURRENT to a member pinned to an older version
+  // would show them a document they never agreed to, under their own acceptance.
+  // Falls back to CURRENT if a row somehow holds a version the registry lost.
+  const coaVersion = (myTerms && (myTerms.version in COA_VERSIONS)
+    ? (myTerms.version as CoaVersion)
+    : CURRENT_COA_VERSION);
+  const coa = COA_VERSIONS[coaVersion];
   const sections = [coa.yourRight, coa.myPromise, coa.exception];
 
   return (
@@ -192,7 +202,7 @@ export function OrgJoinPage() {
         <FocusHeader onBack={() => navigate(orgPath)} />
         <div>
           <h1 className="text-center text-2xl font-bold md:text-3xl">
-            {alreadyMember ? `${org.name} — terms` : `Join ${org.name}`}
+            {myTerms ? `${org.name} — terms` : `Join ${org.name}`}
           </h1>
           {/* The COA intro is the page subtitle, NOT a line inside the certificate.
               Stating "not legally binding" within the document made the document
@@ -218,22 +228,43 @@ export function OrgJoinPage() {
               the frame read as unrelated page chrome; here the act of accepting
               is visibly part of the document being accepted. */}
           <div className="space-y-2 pt-2">
-            {alreadyMember ? (
+            {myTerms ? (
               /* Read-only for members. No accept action: they already accepted, and a
                  second Accept would be an idempotent no-op wearing a primary button.
-                 Deliberately NOT captioned "the terms you accepted" — three COA
-                 versions exist and each membership is pinned to its own, but
-                 getMyMembership returns only `role`, so this page cannot yet tell
-                 WHICH one this member holds. Showing the current text under that
-                 caption would be a claim we cannot support. */
+                 The certificate above renders THEIR version (see coaVersion), so the
+                 caption can name the date and version honestly. The one case it
+                 cannot is a row holding a version the registry no longer has: there
+                 the document shown is not theirs, so the copy drops back to the
+                 neutral form rather than dating a claim about a document nobody
+                 can produce. */
               <>
                 <p className="text-center text-sm text-muted-foreground">
-                  You are a member of {org.name}. These are the terms this group runs on.
+                  {coaVersion === myTerms.version ? (
+                    <>
+                      You accepted these terms on{" "}
+                      {new Date(myTerms.acceptedAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                      . This is version {myTerms.version}, the one you agreed to
+                      {coaVersion !== CURRENT_COA_VERSION
+                        ? `; the group's current terms are version ${CURRENT_COA_VERSION}.`
+                        : "."}
+                    </>
+                  ) : (
+                    <>
+                      You are a member of {org.name}. These are the terms this group
+                      runs on; the version you accepted is no longer on record here.
+                    </>
+                  )}
                 </p>
+                {/* min-h-11 to match the primary Accept button on the non-member
+                    branch: viewport QA measured Back at 44px and Accept at 40px, so
+                    the secondary control was the taller of the two. */}
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="w-full"
+                  className="min-h-11 w-full"
                   onClick={() => navigate(orgPath)}
                 >
                   Back to {org.name}
@@ -245,7 +276,7 @@ export function OrgJoinPage() {
               onClick={handleAccept}
               disabled={accepting}
               size="lg"
-              className="w-full bg-[#002B5C] py-4 text-base font-semibold text-white hover:bg-[#001f45] md:py-6 md:text-lg"
+              className="min-h-11 w-full bg-[#002B5C] py-4 text-base font-semibold text-white hover:bg-[#001f45] md:py-6 md:text-lg"
             >
               {accepting ? "Joining…" : "Accept terms & join"}
             </Button>

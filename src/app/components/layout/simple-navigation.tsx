@@ -238,15 +238,26 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   //     the only thing the founder pointed at. Hidden on pricing AND on event detail.
   //   · the SESSION cta is product navigation, not an offer. It stays hidden on event
   //     detail (P844: it competes with RSVP there) but returns on pricing.
-  // A group detail page carries its own CTAs (Join / Manage membership in the
-  // header, Join as member at the foot of About). BOTH nav CTAs are suppressed
-  // here, marketing and session alike, so a logged-out visitor arriving on an
-  // invite link sees exactly one thing to do. The /groups index is untouched —
-  // it is a directory with no competing action of its own.
+  // Matches the whole /groups/:slug SUBTREE, join page included — deliberate, and
+  // wider than "detail page" reads. The group page carries its own CTAs (Join /
+  // Manage membership in the header, Join this group at the foot of About) and the
+  // join page is a commitment gate, so a free-call offer is a rival on both.
+  // The MARKETING cta is suppressed
+  // here for the P1087 reason: it offers a free call, a rival offer beside the
+  // page's own ask, and it is what a logged-out invite recipient sees.
+  //
+  // The SESSION cta deliberately is NOT — a first revision hid both and an
+  // adversarial review caught it. It re-created exactly the defect the two-flag
+  // split above exists to prevent: the bottom nav carries no /live entry
+  // (bottom-nav.tsx), so hiding it leaves a signed-in user with NO route to the
+  // core product from anywhere in the chrome — on what is now the app's primary
+  // events surface, since /events redirects into a group page. A membership button
+  // and a session button are not the same offer, so nothing is being overridden.
+  // The /groups index is untouched: a directory with no competing action.
   const isGroupDetailPage = location.pathname.split('/').filter(Boolean).length >= 2
     && location.pathname.startsWith('/groups/');
   const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage;
-  const hideSessionCta = isEventDetailPage || isGroupDetailPage;
+  const hideSessionCta = isEventDetailPage;
 
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
