@@ -158,7 +158,11 @@ behind it.
   visit; read its reasoning in `detect_cospecs`/`detect_filed_cospecs` before changing either.
 - [P1237](done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) — went looking for the spend
   cap P1162 claims to have built, found nothing, recorded the absence.
-- [P1162](p1162_cap_claritypledge_gemini_spend.md) — reopened by this work.
+- [P1162](done/2026-06-10/p1162_cap_claritypledge_gemini_spend.md) — reopened by this work on
+  2026-09-05, then **built and properly closed 2026-09-07** by another session: 13 of 13 items
+  ticked, via the direct-to-main path with a `ready for QA` stamp. That is the outcome this spec
+  exists to make normal — the wrongly-closed spec, once reopened, turned out to be real work
+  someone then did. It is no longer an open example; the historical closure remains the evidence.
 - P1251 — folded in as part 3 and archived; its outside-git search is now a Non-Goal here.
 - [P1252](p1252_merged_multiphone_audio_is_never_time_aligned.md) — the one concrete code defect
   from the March set; separate because it is an audio fix, not a record fix.
