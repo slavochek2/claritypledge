@@ -6,6 +6,97 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: A cron job failed 328 times in a row and nothing was watching — the outage was loud, not silent (P1256)
+
+**Context:** Nobody received the post-hike feedback form after the 2026-09-06 hike. The
+8 RSVPs all carried a correctly-computed `feedback_scheduled_at` and an empty
+`mailgun_message_ids`.
+
+**First diagnosis, and it was wrong.** `supabase/config.toml` has no schedule block for
+`dispatch-event-emails`, and no migration carries a `cron.schedule` for it. Both true.
+The conclusion drawn — *nothing has ever invoked it* — did not follow, and was written
+into a spec, a commit and a summary to the founder before it was checked. **A cron job
+did exist on prod**, `active: true`, `0 */6 * * *`, created out-of-band and living only
+in prod's `cron.job` — exactly as `tx_jobs_enqueue` did before P1064. The search was over
+the repo; the object was not in the repo.
+
+**The actual defect,** from `cron.job_run_details`: **328 runs, 0 succeeded, 2026-06-17
+to 2026-09-07.** Every one failed with `ERROR: column "Authorization" does not exist`.
+The command builds its header as `json_build_object("Authorization", "Bearer <token>")`
+— double quotes are *identifier* quotes in Postgres, so the planner looked for a column
+named `Authorization` and aborted before any HTTP request left the database. Single
+quotes would have worked.
+
+**The lesson is not the typo.** 328 identical error rows sat in a table for three months
+and nothing ever read it. A hard, loud, recorded, correctly-logged error was
+operationally indistinguishable from silence — because "no email was sent" produces no
+error anywhere else, no Sentry event, and no failed row. **Absence of a complaint is not
+evidence of delivery for any fire-and-forget path.** `/day` now reads
+`cron.job_run_details` directly.
+
+**Two process findings that outrank the fix:**
+
+1. **"Not in the repo" is not "does not exist."** Infrastructure created out-of-band is
+   invisible to every grep, and this repo already knew that — P1064 exists *because* of
+   one such object. The check that would have caught it (`SELECT * FROM cron.job` on both
+   projects) costs one command and was not run until a hostile review of the *fix*
+   prompted it. Ask it of any scheduler, webhook or trigger before concluding one is absent.
+
+2. **The monitoring nearly shipped permanently alarmed.** The first version of the `/day`
+   check counted every overdue-unsent row with no lower bound. The outage's own rows are
+   deliberately unrecoverable (a "your event is tomorrow" email for a past event is worse
+   than silence), so the counter could never return to zero — the check would have shipped
+   inside its own documented alarm state, and a real future outage would have added +1 to
+   a number already being ignored. Caught in review. **A new alarm whose baseline is not
+   demonstrably zero is not an alarm.**
+
+**References:** P1256 · `supabase/migrations/20260907140000` (Vault-based replacement,
+30-min cadence) · `20260907160000` (unschedules the broken job) ·
+`.claude/commands/slava/maintain/day-cp.md` (`=== EVENT EMAIL HEALTH ===`)
+
+**Consequence — rotate the CRON_SECRET.** The legacy job carried its bearer token as a
+plaintext literal in `cron.job.command`, readable by anything that can read `cron.job`
+and present in every `pg_dump` since June. Unscheduling removes the row, not the exposure.
+
+---
+
+## 2026-09-07 [technical]: One event, two clocks — and widening the window moved a control that should not have moved (P1256)
+
+**Context:** RSVP closed on the 2026-09-06 hike at 13:00 while the group was still
+walking. The founder asked for the window to be ~12 hours.
+
+**Decision:** `EVENT_GRACE_HOURS` 5 → 12, measured from event START, and `EventDetail`
+now reads that constant instead of computing its own `datetime + durationMinutes`. Before
+this the two surfaces disagreed on the same event: the detail page closed RSVP at 13:00,
+the `/events` list kept it "upcoming" until 14:00. Measuring from start rather than
+start+duration is deliberate — the list query is a SQL `.gte('datetime', cutoff)` and
+cannot add a per-row duration without a computed column. **One rule both surfaces can
+evaluate beats a more precise rule only one of them can.**
+
+**What review caught, and it is the transferable part:** routing *every* gate through the
+widened flag was wrong at the other end of the range. Real durations on prod run 90–480
+min, so a 90-minute event would have kept the host's Edit and **Cancel** live for ten and
+a half hours after it ended — and Cancel mails every attendee a cancellation for an event
+they already attended. **Widening a permissive window silently widens every control that
+shares its flag.** Split into `isPast` (generous: RSVP, "Event Ended", where staying open
+costs nothing) and `hasEnded` (real end: the host's destructive controls).
+
+**The duplication tax was paid three times, and only one copy was pinned.** Changing the
+constant tripped the P1114 canary, which is exactly what Decision 4 built it for — four
+room RPCs each carried their own `interval '5 hours'`. They now call one
+`public.event_grace_interval()`. But two e2e specs *also* carried the literal, with
+"frozen" fixtures at `now - (5+2)h` that stop being frozen under a 12h window; the canary
+pins the TS constant, not the copies of it, so it did not catch them. Both now read the
+value from source. Verifying the SQL side also turned up a stale 2-arg `set_room_opt_in`
+alive on test with the old boundary — visible only by comparing full **signatures**, since
+by name the two environments looked identical.
+
+**References:** P1256 · `src/app/data/events-service-real.ts` (EVENT_GRACE_HOURS) ·
+`src/tests/p1256-event-end-gating.test.ts` (pins the isPast/hasEnded split; run against
+the reintroduced regression) · `supabase/migrations/20260907130000`
+
+---
+
 ## 2026-09-07 [technical]: Prod was 36 migrations and 5 functions behind — three separate-looking findings, one cause
 
 **Context:** `/day` flagged three things that looked independent: 5 unresolved Sentry issues
