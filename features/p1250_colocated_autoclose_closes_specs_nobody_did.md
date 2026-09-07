@@ -5,8 +5,9 @@ rank: 1000070
 workstream: infrastructure
 created_date: '2026-09-05'
 tags: [process, ship, kanban, cost-control]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+flow: inline
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
