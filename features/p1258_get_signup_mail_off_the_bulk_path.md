@@ -92,7 +92,8 @@ question stays off the critical path. Note this does not escape blocker A-1.
   records that the existing three have no rate limit at all.
 - **SPF/DKIM/DNS changes.** Settled by evidence, not argument: `compauth=pass reason=100` on the
   junked message. P608 rejected this on reasoning in 2026-03-30; the header capture proves it.
-- **Google sign-in only.** Would have blocked the exact Hotmail user who triggered this.
+- **Google sign-in only.** Would have blocked the very person who triggered this — they have no
+  Google account.
 
 ## Done-When
 

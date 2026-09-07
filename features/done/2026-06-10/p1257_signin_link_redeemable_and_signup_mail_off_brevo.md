@@ -22,11 +22,14 @@ completed_at: 2026-09-07
 
 ## Problem
 
-**Situation:** A person tried repeatedly to register for the 2026-09-06 hike and never got in. The
+**Situation:** Someone tried repeatedly to register for a recent event and never got in. The
 founder's report, 2026-09-07:
 
-> "she tried to register once or multiple times for the event, for the hike, and it seems that she
-> says that she didn't find the registration link, not even in the spam"
+> "[they] tried to register once or multiple times for the event [...] and it seems that [they]
+> [say they] didn't find the registration link, not even in the spam"
+>
+> *(pronouns and the event replaced with brackets — see `.claude/rules/pii.md`; the unedited
+> report is in the private incident file referenced below.)*
 
 > "Login registration should work and if it doesn't, then we should catch it, check it."
 
@@ -185,7 +188,7 @@ ship reaches main and the hook is re-synced — the script itself is shipped and
 - **Add `include:spf.brevo.com`.** Rejected with proof rather than argument: `spf=pass`,
   `dkim=pass`, `dmarc=pass`, `compauth=pass reason=100` on the junked message. P608 rejected this
   in 2026-03-30 on reasoning; this session's header capture settles it.
-- **Google sign-in only.** Rejected — the affected person is on Hotmail. This option would have
+- **Google sign-in only.** Rejected — the affected person has no Google account. This would have
   blocked the exact user who triggered the investigation.
 - **Numeric code instead of a link.** Does not address Junk placement; the person still has to find
   the message. Keeps the door open as a later addition, not a substitute.

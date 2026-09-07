@@ -5,13 +5,13 @@
 # Finds people who started signup and never got in: an auth user whose
 # email_confirmed_at is still NULL more than GRACE_HOURS after they were created.
 #
-# WHY THIS EXISTS. On 2026-09-05 a person tried to register for an event three
-# times. Every send was accepted by the receiving mail server, so nothing in our
-# stack looked wrong: Brevo showed Sent -> Delivered, Supabase showed the user row,
-# and the UI had shown her a green "Check Your Email" screen. She simply never found
-# the mail — it was in Junk with its links disabled. We only learned about it because
-# she told the founder in person, and by then Brevo's 7-day log retention had already
-# erased six older cases beyond recovery.
+# WHY THIS EXISTS. Someone tried to register for an event three times and never got
+# in. Every send was accepted by the receiving mail server, so nothing in our stack
+# looked wrong: the provider showed Sent -> Delivered, Supabase showed the user row,
+# and the UI had shown a green "Check Your Email" screen. The mail was simply never
+# found — it was in Junk with its links disabled. We only learned about it because
+# they told the founder in person, and by then the provider's 7-day log retention had
+# already erased six older cases beyond recovery.
 #
 # So this check does not test whether mail was ACCEPTED — that signal is what misled
 # everyone. It tests the only thing that actually matters: did the person get in.
