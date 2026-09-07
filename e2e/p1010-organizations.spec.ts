@@ -78,7 +78,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     // Founder-confirmed name: "Clarity Practice Community · Chiang Mai". Matched on the
     // distinguishing words rather than verbatim so a punctuation/locale tweak to the
     // separator does not fail a smoke test whose subject is "the page renders at all".
-    await expect(page.getByRole('heading', { name: /clarity practice community/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /communication activism/i })).toBeVisible({ timeout: 10000 });
     expect(errors, `Console errors on /org/cm: ${errors.join(', ')}`).toEqual([]);
   });
 
@@ -108,7 +108,10 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     await page.getByRole('tab', { name: /about/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('heading', { name: /^About / })).toBeVisible({ timeout: 10000 });
+    // Was: the "About {org name}" heading. Deleted from the page — it restated the
+    // page's own H1 one row below it. The terms banner is the About tab's first
+    // element and renders only there, so it is the replacement anchor.
+    await expect(page.getByText('This group runs on the')).toBeVisible({ timeout: 10000 });
     // About NAMES the terms and links to the join gate — but never renders their body.
     await expect(page.getByRole('link', { name: 'Clarity Group Terms' }))
       .toHaveAttribute('href', `/groups/${noEventsOrg.slug}/join`);

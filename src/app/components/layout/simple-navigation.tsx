@@ -238,8 +238,15 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   //     the only thing the founder pointed at. Hidden on pricing AND on event detail.
   //   · the SESSION cta is product navigation, not an offer. It stays hidden on event
   //     detail (P844: it competes with RSVP there) but returns on pricing.
-  const hideMarketingCta = isEventDetailPage || isPricingPage;
-  const hideSessionCta = isEventDetailPage;
+  // A group detail page carries its own CTAs (Join / Manage membership in the
+  // header, Join as member at the foot of About). BOTH nav CTAs are suppressed
+  // here, marketing and session alike, so a logged-out visitor arriving on an
+  // invite link sees exactly one thing to do. The /groups index is untouched —
+  // it is a directory with no competing action of its own.
+  const isGroupDetailPage = location.pathname.split('/').filter(Boolean).length >= 2
+    && location.pathname.startsWith('/groups/');
+  const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage;
+  const hideSessionCta = isEventDetailPage || isGroupDetailPage;
 
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {

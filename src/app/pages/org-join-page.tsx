@@ -33,6 +33,9 @@ export function OrgJoinPage() {
   const [notFound, setNotFound] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [membershipChecked, setMembershipChecked] = useState(false);
+  // Members are no longer bounced off this page (see the membership effect below):
+  // this flag turns it into the group's read-only terms surface for them.
+  const [alreadyMember, setAlreadyMember] = useState(false);
 
   const orgPath = `/groups/${slug}`;
   const orgId = org?.id ?? null;
@@ -76,21 +79,43 @@ export function OrgJoinPage() {
     return () => { cancelled = true; };
   }, [slug]);
 
-  // Done-When: "Opening the invite link as an existing member shows a sane state,
-  // not an error" — route straight to the org page instead of re-showing terms
-  // they've already accepted. Skipped entirely for a signed-out visitor (nothing to
-  // check yet — they read the terms freely, per the existing unauthenticated flow).
+  // Was: route an existing member straight back to the org page, so the invite link
+  // never re-showed terms they had already accepted. That solved the confusing
+  // re-accept screen by removing the page — which left members with NO way to read
+  // what they had committed to, and made the About tab's "Clarity Group Terms" link
+  // a silent bounce (click, return, nothing shown). REVERSED deliberately: the same
+  // problem is better solved by rendering the terms READ-ONLY, with the accept
+  // action replaced by a way back. Signed-out visitors are unaffected — they still
+  // read the terms freely, per the existing unauthenticated flow.
   useEffect(() => {
-    if (!orgId || !userId) return;
+    // Signed out, or the org is not loaded yet: nobody is a member of anything here.
+    if (!orgId || !userId) { setAlreadyMember(false); return; }
     let cancelled = false;
     setMembershipChecked(false); // re-check if orgId/userId changes under an existing mount
+    // Must be cleared with it. This page does not remount when the slug changes
+    // (same route pattern) and survives sign-out and user switches, so a stale
+    // `true` would (a) show an anonymous visitor "You are a member", and (b) leave
+    // a DIFFERENT signed-in user permanently unable to join, since the read-only
+    // branch renders no accept action.
+    setAlreadyMember(false);
     async function checkExistingMembership() {
       try {
         const mine = await organizationsService.getMyMembership(orgId);
-        if (!cancelled && mine) {
+        if (cancelled || !mine) return;
+        // Two ways a member reaches this page, and they want opposite things.
+        //   · WITH ?from= — they followed an invite, or the signup callback just
+        //     auto-joined them and bounced them through here. The invite is spent;
+        //     sending them to the group is the completion of that journey (and the
+        //     post-join banner lives there). Redirect, as before.
+        //   · WITHOUT ?from= — they deliberately opened the terms, almost always
+        //     via the About tab's "Clarity Group Terms" link. Show them.
+        // Collapsing these two was the original bug: the redirect served the invite
+        // case and made the terms link a silent no-op for everyone else.
+        if (fromProfileId) {
           navigate(orgPath, { replace: true });
-          return; // navigating away — no need to flip membershipChecked
+          return;
         }
+        setAlreadyMember(true);
       } catch (err) {
         console.error("Failed to check existing membership", err);
       } finally {
@@ -99,7 +124,7 @@ export function OrgJoinPage() {
     }
     checkExistingMembership();
     return () => { cancelled = true; };
-  }, [orgId, userId, navigate, orgPath]);
+  }, [orgId, userId, navigate, orgPath, fromProfileId]);
 
   const handleAccept = useCallback(async () => {
     if (!org || accepting) return;
@@ -166,7 +191,9 @@ export function OrgJoinPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <FocusHeader onBack={() => navigate(orgPath)} />
         <div>
-          <h1 className="text-center text-2xl font-bold md:text-3xl">Join {org.name}</h1>
+          <h1 className="text-center text-2xl font-bold md:text-3xl">
+            {alreadyMember ? `${org.name} — terms` : `Join ${org.name}`}
+          </h1>
           {/* The COA intro is the page subtitle, NOT a line inside the certificate.
               Stating "not legally binding" within the document made the document
               argue about its own force; above it, it frames what the reader is
@@ -191,6 +218,29 @@ export function OrgJoinPage() {
               the frame read as unrelated page chrome; here the act of accepting
               is visibly part of the document being accepted. */}
           <div className="space-y-2 pt-2">
+            {alreadyMember ? (
+              /* Read-only for members. No accept action: they already accepted, and a
+                 second Accept would be an idempotent no-op wearing a primary button.
+                 Deliberately NOT captioned "the terms you accepted" — three COA
+                 versions exist and each membership is pinned to its own, but
+                 getMyMembership returns only `role`, so this page cannot yet tell
+                 WHICH one this member holds. Showing the current text under that
+                 caption would be a claim we cannot support. */
+              <>
+                <p className="text-center text-sm text-muted-foreground">
+                  You are a member of {org.name}. These are the terms this group runs on.
+                </p>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={() => navigate(orgPath)}
+                >
+                  Back to {org.name}
+                </Button>
+              </>
+            ) : (
+            <>
             <Button
               onClick={handleAccept}
               disabled={accepting}
@@ -202,6 +252,8 @@ export function OrgJoinPage() {
             <p className="text-center text-[10px] text-[#1A1A1A]/60 md:text-xs">
               Accept the terms to join {org.name}.
             </p>
+            </>
+            )}
           </div>
         </CertificateFrame>
       </div>

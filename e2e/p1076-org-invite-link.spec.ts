@@ -123,21 +123,31 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
 
     // Context a direct /join landing never had: About content and the terms
     // citation, proving they landed on the org page, not the terms gate.
-    await expect(page.getByText(`About ${org.name}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('This group runs on the')).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Join as member' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Join as member' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}/join\\?from=${member.user.id}$`), { timeout: 10000 });
   });
 
-  test('existing member opening the invite link lands on the org page, not the terms page', async ({ page }) => {
+  // REWRITTEN, not deleted. The original asserted the member was REDIRECTED to the
+  // org page. That behaviour was reversed by founder decision: bouncing members off
+  // this page left them with no way to read the terms they had accepted, and made
+  // the About tab's "Clarity Group Terms" link a silent no-op for exactly the people
+  // most entitled to read it. The invariant the original protected — a member is
+  // never shown an accept action for terms they already hold — is unchanged and is
+  // still asserted below; only the means of honouring it moved from redirect to
+  // read-only render.
+  test('existing member opening the TERMS link (no ?from=) sees them read-only, never an accept action', async ({ page }) => {
     await setTestSession(page, member.email);
     await page.goto(`/groups/${org.slug}/join`);
-    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
-    // The About tab legitimately links to "Clarity Group Terms" (org-page.tsx),
-    // so that text is not a safe negative-assertion anchor here — the certificate's
-    // Accept button is unambiguous: it only ever renders on the join page itself.
+    // Stays on the join path — no redirect.
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}/join$`), { timeout: 10000 });
+    // The certificate is rendered...
+    await expect(page.getByRole('region', { name: 'Clarity Group Terms' })).toBeVisible();
+    // ...and the way out is a way BACK, never a second accept.
     await expect(page.getByRole('button', { name: 'Accept terms & join' })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: `Back to ${org.name}` })).toBeVisible();
   });
 
   test('auto-join: signed-out visitor completes signup via magic link and is already a member, no second tap', async ({ page, baseURL }) => {
@@ -223,10 +233,17 @@ test.describe('P1076: Org invite link — post-join banner', () => {
       await supabaseAdmin.from('membership').insert({ org_id: org.id, user_id: alreadyMember.user.id });
       await setTestSession(page, alreadyMember.email);
       await page.goto(`/groups/${org.slug}/join`);
-      await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
+      await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}/join$`), { timeout: 10000 });
 
-      // The join-page's already-member guard redirects without justJoined state —
-      // distinct from a real join (Done-When: "not an error", not a re-celebration).
+      // Reaching the terms as an existing member is not a join, so nothing may
+      // celebrate one. Previously guaranteed by a redirect that carried no
+      // justJoined state; now guaranteed because no join ever fires. Asserted on
+      // the join page itself, and again after walking Back to the org page —
+      // the banner is rendered THERE, so checking only this page would pass
+      // vacuously and prove nothing.
+      await expect(page.getByText('Welcome! Know someone who might want to join too?')).not.toBeVisible();
+      await page.getByRole('button', { name: `Back to ${org.name}` }).click();
+      await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
       await expect(page.getByText('Welcome! Know someone who might want to join too?')).not.toBeVisible();
     } finally {
       await supabaseAdmin.from('membership').delete().eq('org_id', org.id).eq('user_id', alreadyMember.user.id);
