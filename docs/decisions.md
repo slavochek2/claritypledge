@@ -6,6 +6,59 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: An importer that reads one field of a growing format loses the deliverables silently
+
+**Context:** Claude.ai's data export changed shape: one `data-*-batch-*.zip` became five
+single-use downloads (`conversations`, `projects`, `memories`, `design_chats`,
+`light_metadata`) plus a manifest. The importer behind `/slava:script:claude-sync-download`
+globbed only the old name — run against the current `~/Downloads` it printed
+`❌ No export folders found` and exited 0. The most recent sync had appeared to succeed only
+because the archive had been staged by hand.
+
+The louder problem was older and had never failed at all. The importer wrote `msg['text']` and
+nothing else. The export's `content` block array carries, across 655 conversations,
+**201 `artifacts` and 115 `create_file` calls** — the documents Claude actually handed over —
+plus 2726 `thinking` and 1929 `tool_result` blocks, per-conversation summaries (571/655), and
+165 attachments. **499 of 655 conversations contained non-text blocks.** Every deliverable that
+was handed over as a document rather than typed into the prose was absent from the archive, so
+`/slava:maintain:claude-conversations-to-cp` and `/claude-conversations-to-pp` had been mining a
+history with its conclusions removed. Measured, not inferred: artifact content appears inside
+`text` in **0** of 316 cases.
+
+**Decision:** Discovery reads `manifest-*.json` first, then `conversations-*.zip` and its
+siblings, falling back to the legacy layout. Conversation markdown keeps `text` as the prose —
+verified a superset of the text blocks (17.6M vs 12.1M chars, and zero messages where `text` was
+empty while a block held text), so the change cannot regress what already worked — and
+**appends** artifacts, created files, edits, attachments and one-line tool notes. `projects/`,
+`memories/` and `design-chats/` import as current state, overwritten each run rather than dated.
+A `--rebuild` flag re-renders in place, which backfilled the existing archive: 83 conversation
+files recovered content they had never held.
+
+**Alternatives rejected:** Persisting everything, including `thinking` and `tool_result`
+payloads — roughly triples the archive, and the raw reasoning about personal conversations is
+the most sensitive material in the export for the least retrieval value. It is skipped, but a
+`<!-- thinking: N block(s) omitted -->` marker records the count so the omission is legible
+rather than invisible. Also rejected: rendering prose from the text blocks instead of `text` —
+`text` is longer in 2505 messages, so that swap would have silently truncated.
+
+**Consequences:** Three collision bugs surfaced only because the rebuild wrote all 655 files at
+once, and each was caught by counting IDs on disk against IDs in the export rather than by
+trusting the run's own success message — a memory path whose extension the filename sanitizer
+ate, two design chats both titled "Chat" on one day, and six same-title conversations that
+collapsed into one file. **The general lesson: an importer that projects a growing external
+format onto a fixed field cannot report the loss, because nothing it reads is missing.** The
+number that made this visible was not an error — it was `201 artifacts` counted directly out of
+the export. Any future consumer of an external export should count what the source contains
+before trusting what the importer produced.
+
+**References:** [.claude/commands/slava/script/claude-sync-download.md](../.claude/commands/slava/script/claude-sync-download.md) ·
+[scripts/generated/claude-sync-download.sh](../scripts/generated/claude-sync-download.sh) ·
+[.claude/commands/slava/maintain/claude-conversations-to-cp.md](../.claude/commands/slava/maintain/claude-conversations-to-cp.md) ·
+`~/projects/private/claude-conversations/import-conversations.py` (private repo) ·
+this file, 2026-07-29 `[process]` "Record the non-recording"
+
+---
+
 ## 2026-09-07 [technical]: A liveness monitor must ping the DEPLOYED credential, and prove it is the deployed one before pinging
 
 **Context:** `/day` has pinged "the production Gemini key" since 2026-08-27. It reads
