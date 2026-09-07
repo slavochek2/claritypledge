@@ -6,6 +6,117 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: Two defects behind one symptom — fixing the visible one would have shipped a still-broken thing (P1256)
+
+**Context:** The event-email cron had failed 328 consecutive runs on a Postgres quoting bug
+(double quotes read as an identifier). That was found, fixed, deployed. The natural next
+move was to call it done — the cause was identified, the fix was in, the tests were green.
+
+**What actually happened:** the first repaired tick returned **401
+`UNAUTHORIZED_INVALID_JWT_FORMAT`**. `dispatch-event-emails` is deployed WITH gateway JWT
+verification (`deploy-functions.sh` passes `--no-verify-jwt` to `create-and-sign` and to
+nothing else), so Supabase's gateway parses `Authorization` and rejects anything that is
+not a well-formed JWT *before* the function runs. `CRON_SECRET` is a 64-character hex
+string. **`Authorization: Bearer <CRON_SECRET>` could therefore never have reached that
+function from anywhere, ever** — the original design was unreachable independently of the
+typo.
+
+So repairing the quoting alone would have converted 328 Postgres errors into 328 gateway
+401s and sent exactly as many emails: none. The fix would have "shipped", the tests would
+have stayed green, and the next hike would also have gone without its form.
+
+**Decision:** the caller sends the anon key (a real JWT, public by design) in
+`Authorization` to satisfy the gateway, and the real secret in `x-cron-secret`, which the
+function now also accepts. `Authorization` was never the security boundary here;
+`CRON_SECRET` is.
+
+**The transferable rule: a root cause that explains the symptom is not the same as the
+only thing wrong.** Both defects produced the identical observable — "no email arrives" —
+and the first one fully accounted for it. Nothing about finding it suggested a second.
+The only thing that separated them was **invoking the repaired path against production and
+reading the response**, rather than reasoning that it must now work. `epistemic.md` gate 7
+says a gate you have not watched fail is unproven; this is the mirror image — **a fix you
+have not watched succeed is unproven**, and a plausible root cause is the most dangerous
+place to stop looking, because it feels like an ending.
+
+**References:** P1256 · `supabase/migrations/20260907170000` · `net._http_response`
+(401 → 200 transition is visible in consecutive rows)
+
+---
+
+## 2026-09-07 [process]: The deploy manifest is filesystem-driven and symlink-resolved — stamping from the wrong root silently drops your own entries (P1256)
+
+**Context:** `supabase/deploy-manifest.json` cost more of this session than any code in it,
+across four failed attempts, and each failure looked like a different problem.
+
+**Three mechanisms, none of them obvious from the scripts' names:**
+
+1. **`stamp-deploy-manifest.sh` builds the migration list from the files on disk**, not
+   from a database or a diff. Migrations authored in a worktree are not on the main
+   checkout's disk. Stamping from main therefore wrote a manifest that **omitted the very
+   migrations just applied** — and it does this silently, because "list what is present"
+   cannot distinguish absent-because-elsewhere from absent-because-never-existed. Recovery
+   is to place every relevant file at the main root *first*, then stamp once.
+2. **`check-deploy-manifest.sh --env prod` reads its baseline from `origin/main`, by
+   design** (P820, so post-branch stamp commits do not read as drift). With 38 unpushed
+   commits it reported a dozen migrations as "not deployed to prod" that were verifiably
+   applied. **Nothing in its output says the baseline is the pushed branch**, so the report
+   reads as a deployment gap rather than an unpushed-backlog artifact.
+3. Both scripts resolve `SCRIPT_DIR` through symlinks and therefore always act on the
+   **main** repo, whichever worktree you invoke them from. Editing the worktree's copy and
+   re-running the checker compares the file you did not edit.
+
+**Decision / rule:** treat the manifest as **derived state with a single valid production
+procedure** — stage all migration files at the main checkout root, stamp once, verify the
+result against the database's own `supabase_migrations.schema_migrations`, and never
+hand-edit it. Every hand-edit this session (dedupe, strip, merge) produced a *new* wrong
+state that took another probe to detect.
+
+**The generalisable half:** a checker whose baseline is a *remote* ref will report drift
+that reflects your push state, not your deploy state. Before acting on any drift report,
+ask what it is comparing against — and confirm the underlying system directly. Here the
+authority was one query against `schema_migrations`; it disagreed with the tool every time
+and was right every time.
+
+**References:** P1256 · `scripts/stamp-deploy-manifest.sh` (`build_functions_json`,
+filesystem glob) · `scripts/check-deploy-manifest.sh:44-60` (the `origin/main` read)
+
+---
+
+## 2026-09-07 [process]: A version-prefix collision is broken by construction, and it blocks the other session's merge, not its own (P1256/P1042)
+
+**Context:** A concurrent session created `20260907130000_online_group_fuller_about.sql`
+while P1256 already held version `20260907130000` — applied to prod under that version.
+
+**Two properties that make this worse than a naming annoyance:**
+
+- **The loser is already dead, silently.** `schema_migrations` is keyed on the version
+  prefix, so the second file is reported "already applied, skipping" forever and its SQL
+  never runs — on any environment. It is not a conflict to resolve later; it is a change
+  that cannot execute until renumbered. Confirmed by querying the version: the row's `name`
+  was the *other* migration's.
+- **It blocks the innocent party's merge.** `pre-commit-checks.sh` refuses a commit whose
+  staged migration shares a prefix with an existing file — including an **untracked** file
+  belonging to someone else's working tree. So the collision surfaced as a hard failure in
+  the middle of P1256's cherry-pick, on shared `main`, where a paused sequence blocks every
+  other session.
+
+**Decision:** renamed the untracked file to a free timestamp, content byte-identical
+(checksum verified), and reported it. Justification: it was in **no commit on any branch**,
+it could never have run as numbered, and leaving `main` mid-cherry-pick to ask about it
+would have blocked every concurrent session for the duration.
+
+**What would prevent it:** the P-number allocator reserves numbers; nothing reserves
+migration timestamps, and `next-p-number.sh` has no migration equivalent. Until it does,
+check `ls supabase/migrations/ | tail` immediately before naming one — and note that the
+duplicate-version pre-commit gate fires at *commit* time, which on this repo's shared-main
+workflow can be long after the collision was created.
+
+**References:** P1256 · P1042 · `scripts/pre-commit-checks.sh` (duplicate-version gate) ·
+`supabase/migrations/.duplicate-version-allowlist`
+
+---
+
 ## 2026-09-07 [technical]: A cron job failed 328 times in a row and nothing was watching — the outage was loud, not silent (P1256)
 
 **Context:** Nobody received the post-hike feedback form after the 2026-09-06 hike. The
