@@ -385,10 +385,32 @@ async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: numb
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 serve(async (req: Request) => {
-  // CRON_SECRET authorization — no user JWT
+  // CRON_SECRET authorization — no USER jwt, but see the header note below.
+  //
+  // P1256: the secret may arrive in EITHER of two headers, and the second one is not a
+  // convenience — it is the only one that can work from pg_cron.
+  //
+  // This function is deployed WITH gateway JWT verification (deploy-functions.sh gives
+  // --no-verify-jwt to create-and-sign alone). So Supabase's gateway parses
+  // `Authorization` and rejects anything that is not a well-formed JWT *before* this
+  // handler ever runs. CRON_SECRET is a 64-char hex string, not a JWT — so the original
+  // design, `Authorization: Bearer <CRON_SECRET>`, could never have reached this code
+  // from anywhere. It answers 401 UNAUTHORIZED_INVALID_JWT_FORMAT at the gateway.
+  //
+  // That is a SECOND defect behind the quoting bug that broke the cron job for three
+  // months: fixing the quotes alone would have turned 328 Postgres errors into 328
+  // gateway 401s, and the emails still would not have sent. Measured, not reasoned —
+  // the first repaired tick returned exactly that.
+  //
+  // So the caller now sends the anon key (a real JWT, public by design) in
+  // `Authorization` to satisfy the gateway, and the actual secret in `x-cron-secret`.
+  // The `Authorization` form is still accepted so the existing authz regression test and
+  // any manual `curl` keep working unchanged.
   const authHeader = req.headers.get('Authorization');
-  const expectedAuth = `Bearer ${CRON_SECRET}`;
-  if (!CRON_SECRET || authHeader !== expectedAuth) {
+  const cronHeader = req.headers.get('x-cron-secret');
+  const authorized = !!CRON_SECRET &&
+    (authHeader === `Bearer ${CRON_SECRET}` || cronHeader === CRON_SECRET);
+  if (!authorized) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
