@@ -572,9 +572,25 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
         # reference (process.env.X / import.meta.env.X are NAMES, common in config files like
         # playwright.config.ts — they tripped a false positive). This keeps EVERY config file
         # in scope (no file-level hole when gitleaks is absent) while filtering the env-name FP.
+        #
+        # `${{ secrets.X }}` is the same class in GitHub Actions syntax: a NAME the runner
+        # substitutes at execution time, never a value in the file. .github/workflows/ is not
+        # in the path-exclusion list above (deliberately — a workflow can leak a real value),
+        # so without this a workflow could not reference a secret whose NAME happens to match
+        # a pattern above. P1257: stranded-signups.yml needs PROD_SUPABASE_SERVICE_ROLE_KEY,
+        # which matches `SUPABASE_SERVICE`. Only the reference form is filtered — a literal
+        # value pasted beside it is still on a line of its own and still caught.
+        #
+        # Do NOT reintroduce `-q` on the second grep. The agent shell's grep is ugrep,
+        # where `-vq` exits 1 whenever ANY line matches the pattern — not "no line was
+        # selected". A file holding one benign reference AND one hardcoded secret was
+        # therefore reported CLEAN. That was a live hole in this scanner under the
+        # original process.env-only filter; found 2026-09-07 while adding the secrets.
+        # case, by running a mixed known-good+known-bad file through the pipeline.
+        # Testing the filtered OUTPUT for emptiness is correct under every grep.
         for f in $GREP_SCAN_FILES; do
-            if grep -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' "$f" 2>/dev/null \
-                 | grep -ivqE '(process\.env\.|import\.meta\.env\.)'; then
+            if [ -n "$(grep -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' "$f" 2>/dev/null \
+                 | grep -ivE '(process\.env\.|import\.meta\.env\.|\$\{\{ *secrets\.)')" ]; then
                 SECRETS_FOUND="${SECRETS_FOUND}${f}"$'\n'
             fi
         done
