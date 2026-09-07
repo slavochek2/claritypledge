@@ -1100,7 +1100,7 @@ is what produced this list.
 | p1047 | `2e52944c8` | delivered | reopened by `d6a0b2fa8`, then legitimately re-closed; 9/9 ticked, `all-done` |
 | p1048 | `bfcacf467` | delivered | same shape as p1047; 4/4 ticked, `all-done` |
 | p1057 | `a16ca1afa` | delivered | 10/10 ticked, `all-done` |
-| p1096 | `fef0df4ae` | **wrongly closed — REOPEN** | 0/10 ticked; no pipeline artifact exists — `grep -rln "felt disagreement" src/ .claude/commands/` returns nothing. (Scope excludes `docs/`: once this audit was written, the row's own text matched there. Title-phrase matching is a weak oracle anyway — epistemic gate 9 — so the verdict rests on the absent code, not the absent phrase.) |
+| p1096 | `fef0df4ae` | **CORRECTED same day — delivered, re-closed** | First classified "wrongly closed" on `grep -rln "felt disagreement"` returning nothing. That is a title-phrase search, and this row's own caveat had already called it a weak oracle. The mechanism shipped as the disagreement pipeline (`select`/`prepare`/`positions`/`story-draft`/`publish`/`provision-agent`), satisfies the Done-When line for line, and has been run live several times. Closed co-located with **p1156**, which built the chain contract — a genuine co-implementation |
 | p1152 | `2c226cd5c`, `68b016450` | wrongly closed — **already reopened** | closed TWICE, a week apart, by two different ships — the mechanism cannot see it has already fired on a spec; now `in-progress` |
 | p1162 | `43c46d6f9` | wrongly closed — **reopened 2026-09-05, then built and closed properly 2026-09-07** | 0/7 at close time; 13/13 today. The cost was real: P1237 searched for the spend cap this spec claimed to have built and found nothing |
 | p1241 | `ae92afe66` | wrongly closed — **already reopened** | `c4e6ceb68` "wrongly auto-closed as co-located with p1234"; now `backlog` |
@@ -1112,10 +1112,17 @@ is what produced this list.
 | p919 | `7d7b78600` | delivered | 5/5 ticked in its completion section, `all-done` |
 | p929 | `c01031dfa` | wrongly closed — **already reverted** | `af43a6519` reverted the close; now `rejected` in `archive/` |
 
-**Totals.** 17 specs. 6 delivered (p1047, p1048, p1057, p836, p843, p919) — these are exactly the
-cases the new report-don't-close rule costs one manual `ship pN` each. 11 not delivered, of which 6
-had already been caught and reversed by hand, 1 (p1162) was caught by this work, 1 (p558) is
-superseded by measurement, and **3 are reopened here: p1096, p572, p828.**
+**Totals, corrected 2026-09-07.** 17 specs. **7 delivered** (p1047, p1048, p1057, p836, p843, p919,
+p1096) — exactly the cases the new report-don't-close rule costs one manual `ship pN` each. **10 not
+delivered**, of which 6 had already been caught and reversed by hand, 1 (p1162) was caught by this
+work, 1 (p558) is superseded by measurement, and **2 are reopened: p572 and p828.**
+
+**The correction is the finding.** p1096 was reopened and re-closed within hours, because the first
+verdict rested on grepping the spec's own title phrase — the weak oracle this table's caveat had
+already named. An audit built to stop bad closures produced a bad *re-opening* by the same
+mechanism: matching a name instead of testing the claim. The verdict column's rule is therefore
+strengthened: **grep for the artifact the spec says it builds, and if the spec names no artifact,
+the verdict is `indeterminate`, never `wrongly closed`.**
 
 **p843 is the interesting one.** Its work shipped and its boxes were never ticked, so a
 box-counting rule reads it as undelivered. That is the false-positive shape, and it is why the
