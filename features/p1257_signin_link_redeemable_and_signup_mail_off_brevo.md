@@ -13,7 +13,12 @@ exec_effort: medium
 driver: anomaly
 ---
 
-# P1257: No sign-in link we mint is redeemable, and the ones Supabase sends land in Outlook Junk with links disabled
+# P1257: No sign-in link we mint is redeemable, and nothing tells us when someone is stranded
+
+> **Scope note (title corrected at ship time).** This spec originally also covered the Outlook
+> junk-mail defect, and the filename still carries that history. That half shipped nothing and
+> moved to **P1258** — do not read this spec as having fixed deliverability. The junk-mail
+> evidence stays below because it is the same investigation, and P1258 depends on it.
 
 ## Problem
 
@@ -186,9 +191,18 @@ ship reaches main and the hook is re-synced — the script itself is shipped and
 
 ## Rollback Strategy
 
-Each piece reverts independently and none replaces a working path: the new route can be removed
-without touching `/auth/callback`; the Mailgun send path runs alongside GoTrue's and is switched
-off by not calling it; Google sign-in is untouched throughout. Work happens on a branch.
+Both shipped pieces revert independently and neither replaces a working path:
+
+- The `/auth/verify` route can be removed without touching `/auth/callback` — it is additive, and
+  no existing flow routes through it.
+- The stranded-signup check is a standalone script plus (later) a scheduled workflow. Deleting
+  either changes no application behaviour; it reads and reports, and writes nothing.
+- Google sign-in and the existing signup path are untouched throughout.
+
+**No mail-sending change ships here**, so there is nothing to roll back on that axis — the earlier
+version of this section described a Mailgun path that was never built. Its rollback question now
+belongs to P1258, where it is a live concern: the design rejected there could NOT be rolled back
+cleanly, which is part of why it was rejected.
 
 ## Open Questions
 

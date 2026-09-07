@@ -578,8 +578,14 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
         # in the path-exclusion list above (deliberately — a workflow can leak a real value),
         # so without this a workflow could not reference a secret whose NAME happens to match
         # a pattern above. P1257: stranded-signups.yml needs PROD_SUPABASE_SERVICE_ROLE_KEY,
-        # which matches `SUPABASE_SERVICE`. Only the reference form is filtered — a literal
-        # value pasted beside it is still on a line of its own and still caught.
+        # which matches `SUPABASE_SERVICE`.
+        #
+        # LIMIT, stated precisely because an earlier version of this comment overstated it:
+        # every exclusion here applies PER LINE, so a hardcoded value sharing a line with a
+        # legitimate reference is filtered out along with it and NOT caught by this layer.
+        # That is equally true of the pre-existing process.env / import.meta.env exclusions —
+        # it is a property of the design, not of this addition. Layer 1 (gitleaks) is the
+        # real backstop for a same-line value; treat Layer 2 as defence in depth, not proof.
         #
         # Do NOT reintroduce `-q` on the second grep. The agent shell's grep is ugrep,
         # where `-vq` exits 1 whenever ANY line matches the pattern — not "no line was

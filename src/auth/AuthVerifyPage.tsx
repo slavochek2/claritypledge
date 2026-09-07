@@ -22,8 +22,14 @@
  * `AuthCallbackPage` is the single Writer for that transaction and says so in its own
  * header; duplicating it here would create exactly the race that header exists to prevent.
  * This page establishes the session and hands off to `/auth/callback`, forwarding every
- * query param except the token so `redirect`/`action` post-auth intent keeps working and
- * the redirect allowlist stays the one in `redirect-allowlist.ts`.
+ * query param except the token so `redirect`/`action` post-auth intent keeps working.
+ *
+ * **This page is NOT a validation boundary and must not be treated as one.** It does no
+ * filtering of the params it forwards — it merely declines to strip them. The redirect
+ * allowlist (`redirect-allowlist.ts`) is enforced downstream by `AuthCallbackPage`, which
+ * re-validates `redirect` with `isSafeRedirectPath` before navigating. If that downstream
+ * check is ever removed or weakened, this page becomes an open-redirect vector; it is not
+ * a second line of defence.
  *
  * INVARIANT: this route is ADDITIVE. `/auth/callback` is untouched and PKCE stays on.
  * docs/decisions.md 2026-09-03 rejected converting the callback itself to token_hash while

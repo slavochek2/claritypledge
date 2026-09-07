@@ -36,6 +36,14 @@
 
 set -euo pipefail
 
+# WINDOW_DAYS is deliberately narrow, and the consequence is worth stating: a person who
+# signs up and never confirms shows up for roughly WINDOW_DAYS minus GRACE_HOURS, then
+# ages out of the count silently. Widening it is not the fix — a wide window re-includes
+# every historical abandonment and the check would alert forever, which is how a monitor
+# stops being read. Persistence is meant to come from the alert, not from this window:
+# the scheduled workflow opens ONE issue and appends to it, so a fired alert stays open
+# after the row leaves the window. Until that workflow ships, this script is manual and
+# has no long-tail escalation — do not assume an unreported stranded signup was seen.
 GRACE_HOURS="${GRACE_HOURS:-24}"
 WINDOW_DAYS="${WINDOW_DAYS:-7}"
 WRITE_EMAILS=0
