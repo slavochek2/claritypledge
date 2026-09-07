@@ -1127,3 +1127,29 @@ the verdict is `indeterminate`, never `wrongly closed`.**
 **p843 is the interesting one.** Its work shipped and its boxes were never ticked, so a
 box-counting rule reads it as undelivered. That is the false-positive shape, and it is why the
 verdict column required grepping for the artifact rather than trusting the checkboxes alone.
+
+## 2026-09-07 — open question: does anyone read session transcripts? (P1252 ranking depends on it)
+
+`due: month`
+
+**The gap.** `my-sessions-page.tsx` shows each transcript segment under a speaker's name, and 52 of
+the 60 transcripts on prod carry more than one speaker — so 52 records can display a name above
+words the other person said. The affected set is measured. **Whether anyone opens them is not**, and
+it cannot be without Mixpanel (prod-only).
+
+**Why it matters.** It is the single fact that moves [P1252](../features/p1252_merged_multiphone_audio_is_never_time_aligned.md)
+between two rankings, and the two are far apart:
+
+- **Nobody reads them** → the defect harms nobody, the 52 are static (no transcript produced since
+  2026-07-05), and P1252 stays backlog until P1236 restores recording.
+- **Participants read them routinely** → 52 wrong session records are a live credibility problem in
+  a product about who understood whom, and the ranking changes today.
+
+**The check.** One Mixpanel query for views of the transcript surface on `/my-sessions`, over the
+life of the feature. If the event was never instrumented, that is itself the answer for now and the
+instrumentation is the smaller task.
+
+**Caveat that survives either answer.** Fixing P1252 alone would not correct what a reader sees.
+P1237 measured attribution at 59.5% against physics on correctly-aligned, well-separated audio,
+below the 75.0% naive rate, and 0 of 10 on the minority speaker. Alignment is necessary, not
+sufficient — so a "yes, they read them" answer argues for attacking attribution, not only alignment.

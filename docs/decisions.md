@@ -51,6 +51,44 @@ is *not delivered*, in the same run that removed its ability to guess. (Status: 
 **References:** [p1250](../features/done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md) ·
 `scripts/git-ops.sh` (`detect_cospecs`, Phase 2b) · `docs/process-learnings.md` 2026-09-07 audit
 
+## 2026-09-07 [process]: Third occurrence, and the first that was self-inflicted — a raw `git commit` on main after `commit-to-main` had already told me what was wrong
+
+**Context:** A `git mv` re-close staged only the add half; `commit-to-main` reported *"requested 3
+path(s); the commit records 2 file(s)"* — an accurate signal that the delete half had not landed.
+Instead of reading it, I retried the same commit with a **raw `git commit` on the shared main
+checkout**, which [git.md](../.claude/rules/git.md) bans outright. `git diff --cached --name-only`
+showed exactly one file immediately before. The resulting commit `6bedc1436` carries **five of a
+co-tenant's files** — event skills and a series doc — under a message about p1096, and the
+deletion I was trying to record was still not in it.
+
+**Decision:** Recorded as a third instance of the shared-index race and the first caused by
+bypassing the tool rather than by the tool losing. The two prior entries (2026-09-04 below,
+2026-06-06) both describe `commit-to-main` or a bystander-checked plain commit failing *despite*
+following the rule. This one required breaking it. Repaired by committing the deletion through the
+locked path; the co-tenant's content is committed and safe, only the message is wrong.
+
+**Not rewriting `6bedc1436`.** It is unpushed, so a rebase is technically available — and a
+co-tenant was actively committing to this checkout throughout, which is exactly the condition under
+which a rebase destroys someone else's work. A mislabeled commit is strictly cheaper.
+
+**Alternatives rejected:** *Blame the race* — the race is real and documented, but it is the reason
+the locked path exists; choosing not to use it is not the race's fault. *Treat "the check passed a
+second ago" as sufficient* — that is precisely the non-atomic window git.md spends its length on,
+and this session had already written an entry about it, one day earlier, in this same file.
+
+**Consequences:** The rule that failed was not missing, unclear, or unenforced — it was written,
+cited in this session, and violated anyway, under the specific pressure of a retry after a
+confusing partial result. **A partial-success message is a decision point, not a prompt to re-run
+the same intent by other means.** `commit-to-main`'s "requested N, recorded M" line had already
+diagnosed the problem correctly; the failure was reading it as noise. Worth pairing with the
+2026-09-04 entry's conclusion — verify by content, not by count — with the addition: when the count
+line disagrees with what you asked for, **stop and read it**, rather than reaching for a tool that
+does not check. (Status: proposed.)
+
+**References:** `scripts/git-ops.sh` (`commit_staged_exact`, the requested/recorded line) ·
+[git.md](../.claude/rules/git.md) "Always use explicit file names on `git add`" ·
+decisions.md 2026-09-04 [process] (second occurrence) · 2026-06-06 (first)
+
 ## 2026-09-07 [technical]: The four March transcription artifacts — verdicts (P1250 part 3)
 
 **Context:** [P1237](../features/done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) proved
