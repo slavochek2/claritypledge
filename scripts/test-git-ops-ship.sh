@@ -1103,25 +1103,43 @@ if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p120_colocated_a.md" ]]; then
   echo "$Z2_OUT" >&2
   fail "Z2: p120 spec not moved to done/ — primary spec close failed"
 fi
-# Co-located spec auto-closed.
-if [[ ! -f "$SCRATCH/main/features/done/2026-04-22/p121_colocated_b.md" ]]; then
+# P1250 INVERTED. This assertion used to require p121 to be auto-closed. It now
+# requires the opposite: a spec this branch merely EDITED must be left alone and
+# NAMED, because editing a spec is not delivering it. The predicate cannot tell
+# "I implemented this" from "I fixed a link in it on my way past", and it guessed
+# wrong 5 times in 18 on real history.
+if [[ -f "$SCRATCH/main/features/done/2026-04-22/p121_colocated_b.md" ]]; then
   echo "$Z2_OUT" >&2
-  fail "Z2: p121 spec not moved to done/ — co-located auto-close failed"
+  fail "Z2 (P1250): p121 was auto-closed — an edited co-located spec must NOT be closed"
 fi
-if [[ -f "$SCRATCH/main/features/p121_colocated_b.md" ]]; then
+if [[ ! -f "$SCRATCH/main/features/p121_colocated_b.md" ]]; then
   echo "$Z2_OUT" >&2
-  fail "Z2: p121 spec still in features/ after co-located close"
+  fail "Z2 (P1250): p121 is no longer in features/ — it must be left exactly where it was"
 fi
-# Frontmatter rewritten on co-located spec.
-if ! grep -q '^status: all-done$' "$SCRATCH/main/features/done/2026-04-22/p121_colocated_b.md"; then
-  fail "Z2: p121 status not rewritten to all-done by co-located close"
+# Left untouched, not merely unmoved: its frontmatter must be byte-identical.
+if ! grep -q '^status: qa$' "$SCRATCH/main/features/p121_colocated_b.md"; then
+  echo "$Z2_OUT" >&2
+  fail "Z2 (P1250): p121 frontmatter was rewritten — an unclosed spec must not be modified at all"
+fi
+# And the operator must be TOLD, by name — a silent skip is as bad as a silent close.
+if ! grep -q 'were EDITED by' <<<"$Z2_OUT"; then
+  echo "$Z2_OUT" >&2
+  fail "Z2 (P1250): ship did not print the co-located report header"
+fi
+if ! grep -q 'p121' <<<"$Z2_OUT"; then
+  echo "$Z2_OUT" >&2
+  fail "Z2 (P1250): the report did not name p121"
+fi
+if ! grep -q 'git-ops.sh ship pNNNN' <<<"$Z2_OUT"; then
+  echo "$Z2_OUT" >&2
+  fail "Z2 (P1250): the report did not tell the operator how to close it by name"
 fi
 # Branch deleted.
 if ( cd "$SCRATCH/main" && git rev-parse --verify feature/p120-colocated >/dev/null 2>&1 ); then
   echo "$Z2_OUT" >&2
   fail "Z2: feature/p120-colocated branch was not deleted after ship"
 fi
-pass "Z2: co-located spec p121 auto-closed alongside primary p120 ship"
+pass "Z2 (P1250): an edited co-located spec is left untouched and reported by name, not auto-closed"
 
 # -----------------------------------------------------------------------------
 # Z3 (P1105 reproduce). A spec FILED on the branch — never present on main
@@ -2558,14 +2576,27 @@ if [[ -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p164.json" ]]; then
   echo "$UU_OUT" >&2
   fail "UU: journal p164.json survived a completed ship (rc=$UU_RC)"
 fi
-# The skipped co-spec must be reported, not silently dropped.
-# Must match the SKIP line specifically. A bare `grep p165` also matches ship's
-# pre-attempt announce ("co-located specs on branch ...: p165 -> auto-closing"),
-# which is printed before anything can fail — so the assertion passed even when
-# the skip message named no P-number at all.
-if ! grep -q 'skipped co-located close of p165' <<<"$UU_OUT"; then
+# P1250 RE-POINTED, not retired. The original hazard — a malformed co-spec
+# aborting the script mid-move and stranding the branch + worktree — is now
+# structurally unreachable, because Phase 2b no longer moves anything. The
+# assertions above still pin that outcome and are the ones that matter.
+#
+# What still needs pinning is that a malformed co-spec is NAMED rather than
+# silently dropped: the report reads the file to show its status, and a spec
+# with absent frontmatter is exactly the input that could make that read fail
+# open. It must degrade to "unknown", not to silence.
+if ! grep -q 'were EDITED by' <<<"$UU_OUT"; then
   echo "$UU_OUT" >&2
-  fail "UU: the skip message did not name p165 — the co-spec was dropped without saying which"
+  fail "UU (P1250): no co-located report was printed at all"
+fi
+if ! grep -qE '^  p165 ' <<<"$UU_OUT"; then
+  echo "$UU_OUT" >&2
+  fail "UU (P1250): the report did not name p165 on its own line — a malformed co-spec was dropped silently"
+fi
+# And it must still be sitting untouched where it started.
+if [[ ! -f "$SCRATCH/main/features/p165_broken.md" ]]; then
+  echo "$UU_OUT" >&2
+  fail "UU (P1250): p165 was moved — a malformed co-spec must be left exactly where it was"
 fi
 if [[ "$UU_RC" != "0" ]]; then
   echo "$UU_OUT" >&2
@@ -2573,7 +2604,7 @@ if [[ "$UU_RC" != "0" ]]; then
 fi
 ( cd "$SCRATCH/main" && git worktree prune ) >/dev/null 2>&1 || true
 scratch_reset p164
-pass "UU: a malformed co-located spec does not strand Phase 3 branch/worktree cleanup"
+pass "UU (P1250): a malformed co-located spec is named in the report, left in place, and does not strand Phase 3"
 
 # -----------------------------------------------------------------------------
 # VV. Stranded-state signal. Phase 3 (branch + worktree cleanup) runs LAST, so
@@ -2846,50 +2877,45 @@ rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p170.json" \
 pass "ZZ-a: a failed co-located close leaves the other P-number's spec byte-identical"
 
 # -----------------------------------------------------------------------------
-# ZZ-b. EVERY bail-out arm after the co-spec `git mv` must restore the move.
+# ZZ-b (P1250). Phase 2b must MUTATE NOTHING.
 #
-#   ZZ-a drives only the frontmatter arm. The doc-link arm can only fail on a
-#   path-math bug (it raises before its single write, so it cannot be triggered
-#   by fixture data), and the git-add arm needs a contended .git/index.lock,
-#   which cannot be staged without breaking the ship's own index. Both are
-#   therefore unreachable behaviourally in this harness — and both SURVIVED
-#   mutation testing: delete their ship_undo_cospec_move call and the suite
-#   stayed green while the co-spec was left moved-but-unstaged in
-#   features/done/, the exact state the fix exists to prevent, with ship still
-#   printing "its spec is back at <path>".
+#   This scan used to require that every bail-out arm after the co-spec `git mv`
+#   restored the move — three arms, two of which were behaviourally unreachable
+#   in this harness and had survived mutation testing, hence a structural bind.
 #
-#   So bind the invariant structurally instead of leaving two of three arms
-#   unbound: inside the Phase 2b loop, once the `git mv` has run, no path may
-#   reach `continue` without calling ship_undo_cospec_move first.
+#   P1250 removed the move. Phase 2b now only reports, so there is no arm to
+#   restore from and the old invariant has no referent. Retiring the scan
+#   outright would leave nothing preventing a future change from reintroducing
+#   the write path — so the structural bind is INVERTED rather than deleted:
+#   the Phase 2b block must contain no mutation at all.
+#
+#   This is the stronger assertion. The old one policed the cleanup of a
+#   dangerous operation; this one asserts the dangerous operation is absent.
 # -----------------------------------------------------------------------------
 
-ZZ_B_REPORT="$( awk '
-  /Phase 2b: close co-located specs/ { inblock = 1 }
-  inblock && /git mv "\$cospec_file" "\$cospec_dest"/ { moved = 1; next }
-  inblock && moved && /ship_undo_cospec_move/ { undone = 1 }
-  inblock && moved && /^[[:space:]]*continue[[:space:]]*$/ {
-      if (!undone) print "unrestored-continue at line " NR
-      undone = 0
-  }
+ZZ_B_MUTATIONS="$( awk '
+  /# Phase 2b: REPORT co-located specs/ { inblock = 1 }
   inblock && /^  # Phase 3/ { exit }
+  inblock && /git mv|git add|git commit|commit_staged_exact|ship_rewrite_frontmatter|ship_rebase_doc_links|ship_undo_cospec_move/ {
+      print "mutation at line " NR ": " $0
+  }
 ' "$GIT_OPS" )"
 
-if [[ -n "$ZZ_B_REPORT" ]]; then
-  echo "$ZZ_B_REPORT" >&2
-  fail "ZZ-b: a Phase 2b bail-out reaches 'continue' after the git mv without calling ship_undo_cospec_move — that co-spec is left moved-but-unstaged while ship reports it restored"
+if [[ -n "$ZZ_B_MUTATIONS" ]]; then
+  echo "$ZZ_B_MUTATIONS" >&2
+  fail "ZZ-b (P1250): Phase 2b performs a mutation — it must only report. Closing a co-located spec is the defect P1250 removed; reintroducing a write here brings back the stranded-worktree and modified-foreign-spec incidents with it."
 fi
-# Fail if the scan matched nothing, so a rename or refactor cannot turn this
-# into a silently vacuous pass.
-ZZ_B_ARMS="$( awk '
-  /Phase 2b: close co-located specs/ { inblock = 1 }
-  inblock && /ship_undo_cospec_move/ { n++ }
-  inblock && /^  # Phase 3/ { exit }
-  END { print n + 0 }
-' "$GIT_OPS" )"
-if (( ZZ_B_ARMS < 3 )); then
-  fail "ZZ-b: found only ${ZZ_B_ARMS} restore call(s) in the Phase 2b loop, expected 3 (frontmatter, doc-link, git add) — the scan is not seeing the block it is meant to check"
+
+# And the block must still exist and still be reached — an empty or deleted
+# Phase 2b would pass the scan above vacuously.
+if ! grep -q '# Phase 2b: REPORT co-located specs' "$GIT_OPS"; then
+  fail "ZZ-b (P1250): the Phase 2b report block is gone entirely — the scan above would pass vacuously"
 fi
-pass "ZZ-b: all ${ZZ_B_ARMS} Phase 2b bail-out arms restore the co-spec before continuing"
+if ! grep -q 'were EDITED by' "$GIT_OPS"; then
+  fail "ZZ-b (P1250): Phase 2b no longer emits the co-located report line"
+fi
+
+pass "ZZ-b (P1250): Phase 2b mutates nothing and still emits the report"
 
 # -----------------------------------------------------------------------------
 # XX. The abort report must not be gated on $?, and must keep "count unknown"

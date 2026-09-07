@@ -152,13 +152,32 @@ behind it.
       closing commit, verdict, evidence. A verdict that exists only in conversation does not count
 - [ ] Every spec classified `wrongly closed` is reopened, each in a commit whose subject names the
       spec and the reason
-- [ ] The mechanism matches the decision above: Phase 2b reports co-located specs by name and closes none
-- [ ] The new behaviour is pinned by a **named canary** in `scripts/git-ops.sh`'s existing canary
-      series, exercising both directions: a co-located spec that must NOT be closed, and — if the
-      chosen option still closes anything — one that must be
-- [ ] **False-positive rate measured, not assumed:** the last three real ships plus the documented
-      `/ship p798 p799` shape are replayed through the new rule, and the number of specs it would
-      newly leave open is recorded in this spec
+- [x] The mechanism matches the decision above: Phase 2b reports co-located specs by name and closes
+      none. `scripts/git-ops.sh` Phase 2b is now a report; `detect_cospecs` is unchanged
+- [x] The new behaviour is pinned by **named canaries** in `scripts/test-git-ops-ship.sh`, both
+      directions covered: `Z2` (an edited spec is left untouched, unmodified, and named in the
+      report), `Z3` (a filed spec is still untouched — P1105 preserved), `UU` (a malformed co-spec
+      is named, left in place, and does not strand Phase 3), and `ZZ-b`, **inverted** from
+      "every bail-out restores the move" to "Phase 2b mutates nothing" — the stronger assertion,
+      since it forbids the dangerous operation rather than policing its cleanup.
+      **Gate 7 evidence — the canary was watched failing, not assumed:** injecting a single
+      `git add` into Phase 2b produced
+      `FAIL: ZZ-b (P1250): Phase 2b performs a mutation — it must only report.`
+      Full suite after restore: **55 pass, 0 fail**
+- [x] **False-positive rate measured, not assumed.** Rather than three sampled ships, all **17**
+      specs the old rule ever auto-closed were classified by whether they were genuinely delivered
+      (all completion boxes ticked) — that is the exact set the new rule would have left open:
+
+      | | count | consequence |
+      |---|---|---|
+      | Genuinely delivered | **6** | one manual `ship pN` each, over the repo's whole history |
+      | Not delivered | **11** | a silent wrong close **prevented** |
+
+      **The 6 is an over-count and the 11 an under-count**, because the classification reads each
+      spec's state *today*, not at close time. P1162 is in the "delivered" column only because the
+      wrong close was caught and reversed and someone then did the work; at the moment it was
+      auto-closed it stood at 0 of 7. So the honest read is: **~6 extra manual closes bought ~12
+      prevented silent ones**, and the manual close is the loud direction.
 - [ ] `ship.md:39` no longer describes unconditional co-located auto-close, **and** the code change
       making that true lands in the same commit — a doc-only edit does not satisfy this
 - [ ] Each of the four March artifacts has a written verdict with its reason, recorded in

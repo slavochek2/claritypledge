@@ -2538,21 +2538,24 @@ The branch is authoritative for shipped migrations. Compare each file with
 'git show ${branch}:FILE', keep the right content, rm the untracked copy, re-ship."
   fi
 
-  # Guard: detect co-located specs — other P-number specs delivered (existed
-  # on main, edited) by branch commits. These would be orphaned after branch
-  # deletion if not closed here. Specs the branch only FILED (created, never
-  # on main) are excluded — see detect_cospecs/detect_filed_cospecs (P1105)
-  # — and named below instead so the skip is auditable from the log alone.
-  # Warn only (not die) — Phase 2b handles the actual close.
+  # Detect co-located specs — other P-number specs EDITED by this branch's
+  # commits. Specs the branch only FILED (created, never on main) are excluded
+  # (P1105) and named separately below.
+  #
+  # P1250: these are REPORTED, never closed. Editing a spec is not delivering
+  # it — the predicate cannot tell "I implemented this" from "I fixed a link in
+  # this on my way past", and it guessed wrong 5 times in 18 (the reversals are
+  # in the log; one reads "reopen — ship closed a live bug spec as a side
+  # effect"). A spec wrongly left OPEN is visible on the board and gets closed;
+  # a spec wrongly marked DONE is invisible forever. P1162 sat closed with 0 of
+  # 7 items ticked until P1237 went looking for the thing it claimed to have
+  # built and found nothing.
   local cospecs cospecs_filed=""
   if ! cospecs="$(detect_cospecs "$pn" "$branch")"; then
     cospecs=""
-    echo "ship: co-located spec detection on branch ${branch} could not resolve the commit range — closing no co-located specs (fail-closed). Review and close any by hand." >&2
+    echo "ship: co-located spec detection on branch ${branch} could not resolve the commit range — no co-located specs will be listed. Review by hand." >&2
   else
     cospecs_filed="$(detect_filed_cospecs "$pn" "$branch" || true)"
-  fi
-  if [[ -n "$cospecs" ]]; then
-    echo "ship: co-located specs on branch ${branch}: $(echo "$cospecs" | tr '\n' ' ') — auto-closing alongside ${pn}." >&2
   fi
   if [[ -n "$cospecs_filed" ]]; then
     echo "ship: specs filed (not delivered) on branch ${branch}: $(echo "$cospecs_filed" | tr '\n' ' ') — left untouched, not auto-closed." >&2
@@ -2958,79 +2961,38 @@ The branch is authoritative for shipped migrations. Compare each file with
     fi
   fi
 
-  # Phase 2b: close co-located specs (other P-numbers on the same branch).
-  # Use the Phase 1 detection result ($cospecs) — it runs before cherry-picks
-  # and is not subject to the git object-resolution race that can make a
-  # post-cherry-pick git log return empty when called in quick succession
-  # after Phase 2's spec-close commit. The branch hasn't changed since Phase 1
-  # ran, so the result is identical and deterministic.
-  local cospecs_2b
-  cospecs_2b="$cospecs"
-  if [[ -n "$cospecs_2b" ]]; then
-    local cospec_sprint_dir
-    cospec_sprint_dir="${sprint_dir:-$(resolve_ship_sprint_dir)}"
-    mkdir -p "$REPO_ROOT/$cospec_sprint_dir"
-    for cospec_pn in $cospecs_2b; do
-      local cospec_file cospec_base cospec_dest
-      cospec_file="$(resolve_ship_spec "$cospec_pn" 2>/dev/null || true)"
-      [[ -z "$cospec_file" ]] && continue   # already moved on a prior --resume
-      cospec_base="$(basename "$cospec_file")"
-      cospec_dest="${cospec_sprint_dir}/${cospec_base}"
-      if [[ -f "$REPO_ROOT/$cospec_file" ]]; then
-        ( cd "$REPO_ROOT" && git mv "$cospec_file" "$cospec_dest" ) || continue
-        # Same depth change as Phase 2, so the same re-base (P1094 item 1). This
-        # loop is best-effort by design — a co-located spec belongs to another
-        # P-number, and a hard die here would block this ship on someone else's
-        # file. So on failure: unstage the partial rename (never leave it for a
-        # co-tenant's plain `git commit` to sweep up), warn, and move on.
-        # ORDER IS LOAD-BEARING: frontmatter first, doc-links second. Both can
-        # fail, but only the frontmatter rewrite validates before it writes —
-        # the doc-link re-base WRITES the file and only then can fail on a later
-        # check. Running the re-base first meant a frontmatter failure undid a
-        # move whose file had already been re-based, restoring a spec whose
-        # links were now wrong for its original depth while telling the operator
-        # it was "unchanged" — a false claim about another P-number's file, left
-        # modified in the shared checkout. Reversing the two costs nothing:
-        # neither reads the other's output. Canary ZZ pins it.
-        #
-        # BOTH MUST STAY GUARDED. Under `set -euo pipefail` an unguarded call
-        # here aborts the whole script, and Phase 3 (branch + worktree cleanup)
-        # runs AFTER this loop — so one malformed spec belonging to ANOTHER
-        # P-number stranded this ship's branch and worktree while main already
-        # looked shipped. That is the p1057/w1 incident; canary UU pins it.
-        if ! ship_rewrite_frontmatter "$REPO_ROOT/$cospec_dest"; then
-          if ship_undo_cospec_move "$cospec_dest" "$cospec_file"; then
-            echo "ship: skipped co-located close of ${cospec_pn} — frontmatter rewrite failed (malformed or absent frontmatter); its spec is back at $cospec_file, unchanged. Close it by hand once its frontmatter is valid." >&2
-          else
-            echo "ship: skipped co-located close of ${cospec_pn} — frontmatter rewrite failed (malformed or absent frontmatter). Its spec could NOT be restored; it is at $cospec_dest. Move it back by hand." >&2
-          fi
-          continue
-        fi
-        if ! ship_rebase_doc_links "$REPO_ROOT" "$cospec_file" "$cospec_dest"; then
-          if ship_undo_cospec_move "$cospec_dest" "$cospec_file"; then
-            echo "ship: skipped co-located close of ${cospec_pn} — doc-link re-base failed; its spec is back at $cospec_file (its frontmatter was rewritten in place — check it before closing by hand)." >&2
-          else
-            echo "ship: skipped co-located close of ${cospec_pn} — doc-link re-base failed. Its spec could NOT be restored; it is at $cospec_dest. Move it back by hand." >&2
-          fi
-          continue
-        fi
-        # Also guarded: a co-tenant holding .git/index.lock makes this exit 128,
-        # and an unguarded abort one line below the guard above would strand the
-        # worktree by the very path this fix closes.
-        if ! ( cd "$REPO_ROOT" && git add -- ":(literal)$cospec_dest" ) >/dev/null 2>&1; then
-          if ship_undo_cospec_move "$cospec_dest" "$cospec_file"; then
-            echo "ship: skipped co-located close of ${cospec_pn} — git add failed (a co-tenant may hold .git/index.lock); its spec is back at $cospec_file." >&2
-          else
-            echo "ship: skipped co-located close of ${cospec_pn} — git add failed (a co-tenant may hold .git/index.lock). Its spec could NOT be restored; it is at $cospec_dest. Move it back by hand." >&2
-          fi
-          continue
-        fi
-        # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
-        # (held for this whole block); see its own comment for why.
-        commit_staged_exact "chore: close ${cospec_pn} (co-located with ${pn})" \
-          "$cospec_dest" "$cospec_file" || true
+  # Phase 2b: REPORT co-located specs. Never close them (P1250).
+  #
+  # This block used to move each co-located spec to done/, rewrite its
+  # frontmatter, re-base its doc links and commit it. That is gone, and with it
+  # two whole classes of incident that only existed because this loop wrote to
+  # another P-number's file mid-ship:
+  #   - a malformed co-spec aborting the script and stranding this ship's
+  #     branch and worktree (the p1057/w1 bug, previously guarded by canary UU);
+  #   - a failed close leaving someone else's spec modified in the shared
+  #     checkout (previously guarded by canary ZZ).
+  # Neither is reachable now: nothing is moved, so nothing can fail halfway.
+  # The canaries are retired in test-git-ops-ship.sh with this reasoning; the
+  # protection is structural rather than guarded.
+  #
+  # What replaces it is a named list the operator acts on. Closing a spec stays
+  # an explicit act: `git-ops.sh ship pM`, which runs pM's own gates.
+  if [[ -n "$cospecs" ]]; then
+    echo "" >&2
+    echo "ship: these specs were EDITED by ${branch} and were NOT closed:" >&2
+    for cospec_pn in $cospecs; do
+      local cospec_file_r cospec_status_r
+      cospec_file_r="$(resolve_ship_spec "$cospec_pn" 2>/dev/null || true)"
+      if [[ -n "$cospec_file_r" ]]; then
+        cospec_status_r="$( ( cd "$REPO_ROOT" && sed -n 's/^status:[[:space:]]*//p' "$cospec_file_r" 2>/dev/null | head -1 ) || true )"
+        echo "  ${cospec_pn}  [status: ${cospec_status_r:-unknown}]  ${cospec_file_r}" >&2
+      else
+        echo "  ${cospec_pn}  [already closed or not found]" >&2
       fi
     done
+    echo "  Editing a spec is not delivering it. If one of these is genuinely done," >&2
+    echo "  close it by name:  ./scripts/git-ops.sh ship pNNNN" >&2
+    echo "" >&2
   fi
 
   # Phase 3: branch + worktree cleanup (idempotent — skip if already done).

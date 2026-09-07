@@ -1,4 +1,25 @@
 #!/bin/bash
+# ENV HYGIENE — MUST STAY FIRST. This canary builds throwaway fixture repos and runs
+# `git add` / `git commit` inside them. When it is invoked from a git hook (which is the
+# only way it runs in anger — pre-commit-checks.sh runs it whenever scripts/git-ops.sh is
+# staged), git exports GIT_INDEX_FILE, GIT_DIR and friends into the hook environment.
+# Those are inherited by every child process and OVERRIDE `cd`, so each fixture `git add`
+# wrote into the CALLER'S index instead of the fixture's.
+#
+# Two symptoms, one cause, both observed 2026-09-07 while committing P1250:
+#   1. Five junk paths (base.txt, f, f2, f3, src.txt, docs/d1.md, docs/d2.md) appeared
+#      staged in the caller's index — on the shared main checkout that is precisely the
+#      stray-staged-file hazard .claude/rules/git.md exists to prevent, since the next
+#      commit sweeps them up under someone else's message.
+#   2. The canary's own assertions failed 13 of 32, reporting a false alarm about the
+#      push path, because its fixtures were never really isolated.
+#
+# Reproduced and confirmed by control: with a clean index,
+#   GIT_INDEX_FILE=$(git rev-parse --git-path index) bash scripts/test-push-snapshot-pinning.sh
+# left 5 junk entries staged; without it, 0. Standalone runs pass 31/0, which is why this
+# went unnoticed — the bug is invisible except in the one context that matters.
+unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX GIT_COMMON_DIR
 # Canary: the push/deploy paths must promote a PINNED snapshot SHA, never the live
 # branch `main`.
 #
