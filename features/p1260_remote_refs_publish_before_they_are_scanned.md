@@ -78,6 +78,33 @@ branch is visible to the founder only if it has a worktree. `/weekly` and `/mont
 occurrences of "branch" or "remote". Every staging branch, every abandoned branch, every ref on the
 remote is structurally absent from the only board anyone looks at.
 
+## Second confirmed occurrence — 2026-09-07, P1257
+
+Added by the P1257 session as evidence, not as a change to this spec's design.
+
+A spec carrying re-identifying detail about a real person (a role, plus a dated public event with a
+small attendee list, plus a mail provider) reached `origin/main` and a `staging/` branch on this
+**public** repo. The staging push behaved exactly as this spec describes: the ref landed, *then*
+`audit-privacy` scanned it, and the scan passed — because the pattern-based gate does not detect an
+arbitrary third-party characterization, only known identifiers. `.claude/rules/pii.md` already says
+so: *"A green gate is not evidence that this rule was followed."*
+
+Two details worth carrying into the design:
+
+1. **The privacy review ran after the push, not before.** Nothing in the push path required it
+   first; the operator remembered. This spec's ordering fix would have made the sequence moot.
+2. **Remediation was mis-scoped for hours by a bad probe.** The blast-radius check used a path
+   (`features/done/…`) that only exists after a spec closes locally, so `git show` returned "path
+   does not exist" for a file that was public at its *unclosed* path — and that absence was reported
+   as safety. Any reclaim tooling this spec produces should answer "is this published?" by searching
+   the tree (`git grep <token> origin/main`), never by addressing a guessed path.
+
+Both refs were deleted and the text is gone from the current tree; history still holds it, which is
+this spec's point about refs being reclaimed by nothing.
+
+**References:** `docs/decisions.md` 2026-09-07 [process] "A probe aimed at the wrong path returns
+absence" · features/done/*/p1257_*.md
+
 ## Appetite
 
 **Blast radius: high** — touches the push path, which this repo's log records breaking under change
