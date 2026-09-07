@@ -6,6 +6,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [product]: The two Clarity Groups differ by what membership MEANS, not by medium
+
+**Context:** `· Chiang Mai` and `· Online` carried near-identical About copy. Diagnosed as a naming problem; it was not. Both descriptions described the same mechanic and the only stated difference was location, while the actual divergence had already happened elsewhere: `· Online` is where the paid level lives, and `· Chiang Mai` is free, non-commercial, and exists to spread the norm. The founder had also written a public purpose statement the day before whose framing (communication activism) no product surface carried.
+
+**Decision:** `· Chiang Mai` is renamed **Communication Activism Community · Chiang Mai** and rewritten around what joining means: practise it, carry it outward, say when it does not work. The retired `· Chiang Mai` About body — stronger prose than `· Online` had — moves to `· Online` with its closing paragraph rewritten for a cross-field online room. **The Clarity Group Terms are NOT touched.** They are generic across every group by design; a group's purpose belongs to its own description. That single distinction resolved the whole question: a group can be an activist chapter, a paid programme, a team inside a company, or hikers whose organiser happens to be an activist, all on one commitment.
+
+**Alternatives rejected:** (1) Rewrite the descriptions only, keep both names — leaves the name pointing at a place while the join gate filters for something else. (2) Add a "carry it outward" clause to the Terms — would have forced a new terms version and pinned members to a document whose scope is deliberately group-agnostic. (3) Defer the rename until after the first Forum event — retired when the founder established the rename costs nothing (the group page is reached only by a link he sends; what he promotes is event registration pages) and that two of six people on a hike had already said yes to the word "activists".
+
+**Consequences:** Membership now means something a free room can filter on, and the two group pages stop competing. **Status: proposed** — the falsifier is that members join and, after ~2 months, none has done anything outward; then membership meant "I liked the evening" and the activist framing is decoration. Two open items with no owner: `· Online` is still named "Clarity Practice Community" while `· Chiang Mai` now owns the word Community (Program was recommended); and the groups directory subtitle still reads "Communities practising calibrated communication together", vocabulary both pages have moved away from.
+
+**References:** `supabase/migrations/20260907120000_cm_activist_group_copy.sql` · `supabase/migrations/20260907180000_online_group_fuller_about.sql` · [goals.md](goals.md) 2026-08-19 naming resolution (kind / instance / level) — this entry renames an instance, it does not move a rung
+
+---
+
+## 2026-09-07 [technical]: A redirect that prevents a confusing screen can be the thing that hides a needed one
+
+**Context:** The join page redirected existing members away, to satisfy a Done-When that an invite link "shows a sane state, not an error". Correct for the invite case. But the About tab links to "Clarity Group Terms" at that same address, so for every member that link was a silent bounce: click, return, nothing shown — and members had no way anywhere in the product to re-read what they had accepted.
+
+**Decision:** The redirect is now conditional on `?from=`. **With** the param the visitor followed an invite (or the signup callback auto-joined them and bounced them through) — the invite is spent, redirect to the group, which is where the post-join banner lives. **Without** it they deliberately opened the terms — render them read-only, no accept action, a "Back to {group}" way out. The two cases wanted opposite things and the original collapsed them.
+
+**Alternatives rejected:** (1) A new `/groups/:slug/terms` route — a second surface beside a broken one rather than a fix to it. (2) Unconditional read-only — breaks the auto-join journey, which relies on this page forwarding a fresh member to the group. Caught by an e2e run, not by review.
+
+**Consequences:** The read-only page shows the CURRENT terms text, not the version the member is pinned to — `getMyMembership` returns only `role`. Captioned "the terms this group runs on", never "the terms you accepted", because the second is a claim the data cannot support. Harmless today (both prod members hold v5, whose body is identical to v6 — only the title differs), and it becomes real the first time a version changes wording, as 4→5 did. **Follow-up needed:** surface each member's own version. **Status: proposed.**
+
+**References:** `src/app/pages/org-join-page.tsx` · `src/app/content/coa-versions.ts` · `e2e/p1076-org-invite-link.spec.ts`
+
+---
+
+## 2026-09-07 [process]: A green gate is only evidence for the surfaces it actually renders
+
+**Context:** A second "Join as member" button was added at the foot of the About tab, duplicating the header CTA's exact label and colour. Asked whether this violated the one-primary-action rule, the P955 UI gate was run directly: 12 checks, exit 0. That result was reported to the founder as the rule agreeing. An adversarial reviewer then showed `src/tests/p955-gate.test.ts` contains **zero** references to OrgPage or AboutSection — it is a fixture suite, and the page in question is not one of its fixtures. The pass was true and answered nothing.
+
+**Decision:** Before citing any gate as evidence about a specific surface, grep the gate for that surface. A pass over fixtures that do not include the thing under test is not a finding about the thing under test. The duplicate was resolved on its own merits: the foot button keeps the action and takes a distinct label ("Join this group"), since two buttons sharing an accessible name are both a duplicate to a reader and an ambiguous locator to every e2e spec addressing the header one by role and name.
+
+**Alternatives rejected:** Keeping both labels identical on the argument that they are seven paragraphs apart and never co-visible — the visual argument survives, but it does not survive Playwright strict mode, which the same reviewer demonstrated would break five existing assertions.
+
+**Consequences:** Extends [epistemic.md](../.claude/rules/epistemic.md) gate 7b (green bounds what was MODELLED) to a case the gate's own wording did not reach: not an input the fixture cannot emit, but a *component the fixture never mounts*. The same session produced the counterpart lesson: an e2e failure blamed on this change was proved pre-existing by reverting one file to HEAD and re-running the single test, which is the control the "same verdict for everything" rule asks for.
+
+**References:** `src/tests/p955-gate.test.ts` · [.claude/rules/visual-qa.md](../.claude/rules/visual-qa.md) · [epistemic.md](../.claude/rules/epistemic.md) gates 7b, 9
+
+---
+
+## 2026-09-07 [process]: Three copy reviewers converged on a fix that was wrong, and the author caught it
+
+**Context:** A draft of the new group description was sent to three independent reviewers (Fable, Codex, Gemini). Their unanimous central finding was that the copy asked people to "practise this" without ever saying what the practice was, and that it must state the explain-back mechanic. It was applied. The founder then rejected it: the Clarity Group Terms commit a member to **revealing** a gap (an honest 0-10), not to bridging it. Explaining back is one way to bridge, and bridging is case by case. The reviewers' fix would have published a commitment nobody makes — and one of them had cited the repo while getting it wrong.
+
+**Decision:** Reviewer consensus is not evidence about an artifact whose author defined it. On any claim about what a commitment, term, or protocol *means*, the source of truth is the artifact and the person who wrote it, not agreement between readers. Their genuine value that session was elsewhere and was real: a live-defect find (a linkifier swallowing a sentence's full stop into the href, producing a 404 on the public repo link) that no amount of reading would have surfaced.
+
+**Alternatives rejected:** Treating 3-of-3 agreement as strong evidence. Independence at fan-out does not make three readers right about a definition none of them owns; it makes them three instances of the same misreading.
+
+**Consequences:** Sharpens [epistemic.md](../.claude/rules/epistemic.md) gate 9b, which counts reports received against agents spawned. Counting is necessary and not sufficient: 3-of-3 reported here, and the convergent finding was still wrong. **The count says whether you were told; it never says whether it is true.**
+
+**References:** [epistemic.md](../.claude/rules/epistemic.md) gate 9, 9b · `src/app/content/verified-understanding-oath.ts` · `src/app/pages/org-page.tsx` (URL_RUN)
+
+---
+
 ## 2026-09-07 [technical]: Two defects behind one symptom — fixing the visible one would have shipped a still-broken thing (P1256)
 
 **Context:** The event-email cron had failed 328 consecutive runs on a Postgres quoting bug
