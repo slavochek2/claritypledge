@@ -29,3 +29,29 @@ describe('P1210 DW-22 — two callers per predicate', () => {
     ])
   })
 })
+
+describe('DW-22 — a CLI caller that cannot run is not a caller (found 2026-09-04)', () => {
+  // room-split.mjs was invoked as a command by select.md and imported by a test —
+  // both callers present, contract green — while having NO `import.meta.url`
+  // block at all. The documented command exited 0 printing nothing: a gate wired
+  // into Gate 2 that could never fail. Tests exercised the module; nothing
+  // exercised the command.
+  const FX = 'src/tests/fixtures/p1210/two-callers'
+
+  it('a module a skill invokes as a command, with no CLI entry point, is FLAGGED', () => {
+    const r = run({
+      modulesDir: `${FX}/nocli`,
+      skillFiles: [`${FX}/skill-nocli.md`],
+      testFiles: [`${FX}/test-nocli.ts`],
+      harness: new Set(),
+    })
+    expect(r.ok).toBe(false)
+    expect(r.verdict).toBe('FLAG')
+    expect(r.detail).toMatch(/NO CLI entry point/)
+  })
+
+  it('7c: the real repo still passes — every live predicate has a runnable command', () => {
+    const r = run({})
+    expect(r.verdict).toBe('PASS')
+  })
+})

@@ -75,8 +75,22 @@ export function run(input = {}) {
     if (harness.has(m)) continue
     const invoked = skillCommandText.includes(`node scripts/points/${m}`)
     const imported = new RegExp(`points/${m.replaceAll('.', '\\.')}`).test(testText)
-    if (invoked && imported) { wired.push(m); continue }
-    const missing = [!invoked && 'no skill file invokes it', !imported && 'no p1210 test imports it'].filter(Boolean)
+    // A CLI CALLER THAT CANNOT RUN IS NOT A CALLER (added 2026-09-04, on the first
+    // predicate that had this defect). This check verified that a skill file
+    // REFERENCES the module and a test IMPORTS it — both true of room-split.mjs,
+    // which had no `import.meta.url === file://process.argv[1]` block at all. The
+    // documented command therefore exited 0 printing nothing: a gate wired into
+    // Gate 2 that could never fail. Tests exercised the module; nothing exercised
+    // the command. Epistemic gate 7 — an artifact you have not watched FAIL is
+    // unproven, and the CLI path had never been run.
+    const src = existsSync(path.join(modulesDir, m)) ? readFileSync(path.join(modulesDir, m), 'utf8') : ''
+    const hasCli = src.includes('import.meta.url') && src.includes('process.argv')
+    if (invoked && imported && hasCli) { wired.push(m); continue }
+    const missing = [
+      !invoked && 'no skill file invokes it',
+      !imported && 'no p1210 test imports it',
+      invoked && !hasCli && 'a skill invokes it as a command but it has NO CLI entry point — the command exits 0 printing nothing',
+    ].filter(Boolean)
     findings.push({ module: m, missing })
   }
 

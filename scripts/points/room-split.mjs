@@ -107,3 +107,12 @@ export const FIXTURES = {
     ],
   },
 }
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const file = process.argv[2]
+  if (!file) { console.error('usage: room-split.mjs <points.json>'); process.exit(2) }
+  const { readFileSync } = await import('node:fs')
+  const r = run(JSON.parse(readFileSync(file, 'utf8')))
+  console.log(r.detail)
+  process.exit(r.ok ? 0 : 1)
+}
