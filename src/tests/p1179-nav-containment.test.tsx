@@ -13,7 +13,9 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import userEvent from '@testing-library/user-event';
 import { EventLinksMenu, EventLinksButton } from '@/app/components/layout/event-links-menu';
+import { buildLinksMenu, STANDARD_STAKE_TAGS, STANDARD_TOOL_ENTRIES } from '@/app/data/event-links';
 
 vi.mock('@/app/data/events-service', () => ({
   eventsService: { getEventBySlug: vi.fn(async () => ({ links: [] })) },
@@ -41,9 +43,42 @@ describe('P1179 DW-1 — the button does not leak outside the room', () => {
     expect(screen.queryByTestId('event-links-button')).toBeNull();
   });
 
+  it.each(['/ready/extra', '/readyx', '/meet/extra', '/meetings'])(
+    'the standalone widening is exact — %s still renders nothing',
+    (path) => {
+      const { container } = render(
+        <MemoryRouter initialEntries={[path]}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>
+      );
+      expect(container).toBeEmptyDOMElement();
+    }
+  );
+
   it('the assertion has teeth — the SAME component does render inside the room', async () => {
     render(<MemoryRouter initialEntries={['/events/cm-1/room']}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>);
     expect(await screen.findByTestId('event-links-button')).toBeInTheDocument();
+  });
+});
+
+describe('2026-09-07 — the standalone /ready and /meet carry the same menu', () => {
+  it.each(['/ready', '/ready/', '/meet', '/meet/'])('renders the trigger on %s', async (path) => {
+    render(
+      <MemoryRouter initialEntries={[path]}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>
+    );
+    expect(await screen.findByTestId('event-links-button')).toBeInTheDocument();
+  });
+
+  it('off-event the menu carries the standard entries with NO event group and NO ?event=', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/ready']}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>
+    );
+    await user.click(await screen.findByTestId('event-links-button'));
+    const labels = (await screen.findAllByTestId('event-links-entry')).map(e => e.textContent);
+    expect(labels).toEqual([...STANDARD_STAKE_TAGS, ...STANDARD_TOOL_ENTRIES.map(t => t.label)]);
+    expect(screen.queryByText('This event')).toBeNull();
+    // No event to carry, so the stake paths must be bare — a dangling `?event=`
+    // would point the stake surface at an event that is not in play.
+    expect(buildLinksMenu(null, null).every(e => !e.to.includes('?event='))).toBe(true);
   });
 });
 
@@ -62,20 +97,30 @@ describe('P1179 DW-2 — the nav centre slot is untouched', () => {
   });
 
   it('the TRIGGER is mounted in BOTH right-hand groups, so it holds one position at every width', () => {
-    // The two mounts are no longer identical: since 2026-08-31 the desktop group
+    // The mounts are no longer identical: since 2026-08-31 the desktop group
     // passes variant="dropdown" (the sheet stays the phone shape). The invariant
     // being guarded is the PLACEMENT — one trigger per group — not the props, so
     // the pattern matches any prop list rather than a bare self-closing tag.
+    //
+    // The DESKTOP group is one slot rendered by one of three mutually exclusive
+    // auth/compact branches (logged in / compact+logged out / logged out), so the
+    // source carries one mount per branch that needs the button while only ever
+    // rendering one of them. Counting source occurrences therefore cannot be
+    // pinned to 2; what must hold is that the mobile group has exactly one and
+    // every desktop mount is a dropdown — asserted below.
     const mounts = NAV_SRC.match(/<EventLinksButton\b[^>]*\/>/g) ?? [];
-    expect(mounts).toHaveLength(2);
+    expect(mounts.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('exactly one of the two mounts is the desktop dropdown', () => {
-    // Both on "sheet" would put the phone shape on a monitor (the defect founder
-    // reported); both on "dropdown" would put a top-anchored menu out of thumb
-    // reach on a phone, which is the case the control was built for.
+  it('exactly one mount is the phone sheet; every other mount is the desktop dropdown', () => {
+    // A sheet on a monitor is the defect the founder reported; a top-anchored
+    // dropdown on a phone puts the control out of thumb reach, which is the case
+    // it was built for. So: one sheet (the single `lg:hidden` group) and nothing
+    // but dropdowns in the desktop branches.
     const mounts = NAV_SRC.match(/<EventLinksButton\b[^>]*\/>/g) ?? [];
-    expect(mounts.filter(m => m.includes('variant="dropdown"'))).toHaveLength(1);
+    const dropdowns = mounts.filter(m => m.includes('variant="dropdown"'));
+    expect(mounts.length - dropdowns.length).toBe(1);
+    expect(dropdowns.length).toBeGreaterThanOrEqual(1);
   });
 
   it('the PROVIDER is mounted exactly ONCE — two instances meant two states and two fetches', () => {

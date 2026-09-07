@@ -579,7 +579,16 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            ) : compact ? null : (
+            ) : compact ? (
+              /* Compact + logged out: the marketing chrome is deliberately gone, but the
+                 Links menu is page chrome, not marketing — /ready and /meet are handed to
+                 people who are not signed in, and the desktop dropdown lives only in this
+                 branch (the mobile group below already renders it for both states). It
+                 returns null off a Links route, so this stays empty everywhere else. */
+              <div className="flex items-center gap-3">
+                <EventLinksButton variant="dropdown" />
+              </div>
+            ) : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
                 <UseCasesMenu pathname={location.pathname} />

@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: The Links menu is scoped to a surface, not to an event — and the test that guarded it counted mounts instead of stating the invariant
+
+**Context:** P1179 built the room's "Links" menu as an *event* feature: `eventSlugFromLocation` matched `/events/:slug/room|ready|meet` and `/stake/:tag?event=`, and the provider returned its children unwrapped anywhere else. But the standalone `/ready` and `/meet` run the same ritual outside an event, and they are handed to people who are not signed in. Founder, verbatim: *"can we please add the links exactly like we have in the events also for /ready and /meet for both logged in and not logged in users."*
+
+**Decision:** The gate is now `linksMenuAppliesTo(pathname, search)` — the standalone `/ready` and `/meet` plus everything `eventSlugFromLocation` already matched. Off-event the menu is built with `null` extras and a `null` slug, so it renders the standing instruments and the two tools with **bare `/stake/:tag` paths and no "This event" group**. Nothing new reaches the destination: the open-redirect invariant still holds by construction (an entry never carries a URL), and a `null` slug is exactly the bare-stake case Resolved Decision 2 already specified.
+
+The logged-out half was a separate defect in the nav, not in the menu. The desktop right-hand group is three mutually exclusive branches, and the compact + logged-out one rendered `null` outright — so the dropdown existed only for signed-in visitors, while the single mobile group had been serving both states all along.
+
+**Alternatives rejected:** Widening `eventSlugFromLocation` to return a sentinel slug for `/ready` and `/meet` — it would have put a fake `?event=` on every stake path, pointing the stake surface at an event that is not in play. Keeping the surface list inside the menu component instead of `event-links.ts` — the routing predicate belongs next to the one module allowed to turn data into a path, and the entry-safety suite already scans that file.
+
+**Consequences:** `/ready` and `/meet` now carry the same index at every width and both auth states (verified in a browser, logged out: dropdown at desktop, bottom sheet at 375px). A future room-shaped route still has to be added in two places — `App.tsx` and `event-links.ts` — and no test ties those lists together; that gap is unchanged and still documented in `eventSlugFromLocation`'s own comment.
+
+**The reusable half is the test.** Two DW-2 tests read the nav's source and asserted `mounts).toHaveLength(2)` and "exactly one is a dropdown". Both broke on a legitimate extension, and neither was measuring what it claimed to: the invariant is *one trigger per breakpoint group, phone shape on the phone* — but the desktop slot is rendered by three mutually exclusive branches, so the number of `<EventLinksButton />` occurrences in the source was never the same quantity as the number of triggers on screen. A source-occurrence count is a proxy for a render-time property, and it silently stops tracking it the moment the component gains a branch. Restated as "exactly one mount is the sheet, every other mount is a dropdown", which is breach-detecting and branch-count-independent. Both new-behaviour tests were checked against gate 7 by reverting the provider gate: 5 fail, restored after.
+
+**References:** [src/app/data/event-links.ts](../src/app/data/event-links.ts) · [src/app/components/layout/event-links-menu.tsx](../src/app/components/layout/event-links-menu.tsx) · [src/tests/p1179-nav-containment.test.tsx](../src/tests/p1179-nav-containment.test.tsx) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7 / 7b
+
+---
+
 ## 2026-09-07 [technical]: A credential broker raises the theft bar by lowering the misuse bar — P1261 rejected on review
 
 **Context:** A founder conversation about how peers run agents (containers plus a proxy that
