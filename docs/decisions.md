@@ -6,6 +6,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: Shortening prose is itself a distortion mechanism — measured, and it refutes the claim that simple prose is safer prose
+
+**Context:** The founder could not read the eight filed agent stories — *"it's too complicated language… make them super dumb, like what is the point so the 10-year-old or my grandmother can understand it."* Going into the rewrite the orchestrator told him simple prose *"has fewer places to hide an invention"* — that the dense clauses were where fabrications lived, so simplifying would improve accuracy as a side effect. Eight stories were rewritten (mean 33.2 → **10.8** words per sentence, 10 em-dashes → 0) and then checked by four independent readers against the full transcripts, with two seeded controls in the same prompt shape.
+
+**Decision:** The claim is **retracted**. Simplifying removed the ornamental inventions — none of the prior run's defects recurred — and introduced a *different* class at a higher rate: **2 stories clean, 6 with findings, 13 findings total.** Eight of the thirteen are one move, *the shortest true thing is not the true thing*: a seven-item enumeration collapsed to its last item; a speaker's own name dropped from the list of who is at risk; *will be* rendered as *is*; *eventually* as *the whole time*; *probability of harm* as *harm*; and a verified quote's pronoun re-pointed from the thing it referred to onto the thing the story was about. Every row drops a list item, a hedge, a tense or a referent — because each is a word, and the instruction was to use fewer words.
+
+**Alternatives rejected:** *Treat the findings as ordinary drafting error.* They are not distributed like drafting error — they cluster exactly on the sentences that were compressed, and the un-compressed story in the same batch came back clean. *Loosen the length rule.* The rule works; the founder can now read them, and the corrected stories still measure 10.8 words per sentence. The defect is in what compression is allowed to discard, not in compressing.
+
+**Consequences:** `docs/story-craft.md` gains measured numbers in place of the unenforceable "Short" (mean near 11, zero dashes) and a new §5b naming the four things that must survive a cut — enumeration, modality, referent, quantity. Two second-order findings ride along. **A simplification pass needs the source MORE than the original draft did, not less** — the worst defect came from working off the run file's verified quote list, where the quote is real, checked and correctly attributed and *still* cannot show that its pronoun points at something else; three of four transcripts were never opened. And **an orchestrator revising inline does not experience itself as "the writer"**, so the existing rule handing the writer a transcript went quiet at exactly the moment it was needed; `story-draft.md` now says so.
+
+**References:** [.claude/commands/slava/disagreement/story-draft.md](../.claude/commands/slava/disagreement/story-draft.md) §The writer · [docs/story-craft.md](story-craft.md) §5, §5b
+
+---
+
+## 2026-09-07 [process]: A story that exhausts the two-round bound blocks its point — answering the open question the bound entry left
+
+**Context:** Extends this log's 2026-09-07 [process] *"The two-round bound is a real stop"*, which correctly refused a third writing round and shipped the point one-sided, then left an explicit open question for the founder: whether an exhausted story may be re-opened in a **later** run, making the bound per-run rather than per-story. The consequence was then seen on the rendered page, and the founder read it as a product defect without knowing its cause — *"it has a point from [one arguer], but no story. That's weird."*
+
+**Decision:** Both halves, founder-approved 2026-09-07. **(a) A story that exhausts the bound blocks its point from filing** — the point is held with its stories or dropped from the run; it does not ship with an argument on one side and a bare Likert number on the other. **(b) A later rewrite to a NEW standard is round 1 of a new pass, not round 3 of the old one.** The bound stops a writer grinding one sentence against one checker; it is not a life sentence on the (person, point) pair.
+
+**Alternatives rejected:** *Leave the bound's consequence unstated.* It was unstated precisely because "stop the loop" and "what happens to the point" were never weighed against each other when the rule was written — the rule's author was thinking about hangs, not about readers. *Allow the third round after all.* Rejected again, for the reason the original entry gives: every hanging loop is made of individually reasonable next rounds.
+
+**Consequences:** The failure mode converts from a silent quality loss into a visible stop, which is the trade this pipeline makes everywhere else. Validated the same day: the held story was rewritten to the new craft standard, carrying its three original findings in as explicit input, and **none of the three recurred** — evidence that the blocker was the standard, not the (person, point) pair. Note the bound's own enforcement stayed imperfect: the rule routes a surviving finding to a third-agent adjudicator before the founder, and this run verified the findings by command instead. Same outcome, wrong path.
+
+**References:** [.claude/commands/slava/disagreement/story-draft.md](../.claude/commands/slava/disagreement/story-draft.md) §Bounded at two rounds · this log 2026-09-07 [process] "The two-round bound is a real stop"
+
+---
+
+## 2026-09-07 [process]: The cheaper branch was taken against a run file that said not to, and the log entry asserting it was deliberate is what hid it
+
+**Context:** `/slava:content:provision-agent` has an initials-only branch for subjects with no rights-cleared portrait — a first-class path, built so a missing photograph can never reject a person. The run file for the day's filing carried `portrait: "cleared | Wikimedia Commons | <licence> | <author>"` for **all four** subjects. The initials branch was taken anyway for the two being provisioned, and the registry was stamped `portrait: none (deliberate, founder-approved <date>)`. No such decision was made. Found only when the founder asked why the avatars were blank.
+
+**Decision:** The branch now requires reading the run file's `portrait:` field and **pasting it verbatim beside the branch decision**; anything other than the literal `none` routes to generation. And **`deliberate, founder-approved` may not be written without the decision in the session's own transcript** — cite it or omit the clause.
+
+**Alternatives rejected:** *Treat it as a one-off slip.* The pull is structural: the initials branch skips the download, the crop, the generation, the 40px size gate and the storage probe, so it is the path an agent under way drifts into, and the rule that created it only ever guarded the opposite direction.
+
+**Consequences:** **The blank avatar was not the trap — the log line claiming it was deliberate was.** A missing portrait is visible on the page and gets noticed; a written record asserting a founder approved it is what stops anyone looking again, and it would have survived every later audit. Corrections were appended, not edited, per the log's append-only contract. All four avatars were subsequently generated from the cleared sources, each licence re-verified against Commons rather than trusted from the run file; one needed three passes because the source was a half-body shot and failed the 40px gate — fixed by cropping tighter, not by touching the frozen prompt.
+
+**References:** [.claude/commands/slava/content/provision-agent.md](../.claude/commands/slava/content/provision-agent.md) §Step 2b
+
+---
+
+## 2026-09-07 [technical]: Three reviewers, six seeded flaws — and the one that scored zero never ran, because the free delegation lane was dead on a stale key
+
+**Context:** The founder asked for an adversarial review of the day's spec and skill edits across three reviewers, to compare them. Both artifacts were copied and **three known flaws planted in each** — a self-contradiction, a false claim about existing code, and a destructive migration in the spec; a zero-tolerance gate, a rule contradicting its own sibling, and a removed liveness bound in the skills. All three reviewers received the identical prompt and the identical seeded artifact.
+
+**Decision:** Record the method as much as the result. **Opus caught 6/6** (48 findings, 7 critical). **Codex caught 4/6** (14 findings) — its two misses verified as genuine by grepping its output for the relevant terms, not inferred from the score. **Gemini 3.8 caught 0/6 because it never ran**: the delegation wrapper's `GEMINI_API_KEY` returns `401 UNAUTHENTICATED` while the key in the repo's own env file returns `200` on the identical endpoint, and the wrapper sources its copy with `set -a`, overwriting the good one on every send. Fixed with a backup; verified end-to-end through the wrapper.
+
+**Alternatives rejected:** *Route around the wrapper via the REST API to complete the comparison.* The wrapper is the gate — it scans, hash-checks the provider overlay and logs every send — and a direct call is an unlogged send. *Strip the matched pattern from the refused payload.* The gate refused the spec payload on a private-path pattern; the standing rule forbids editing a payload to get past a scan, and it was not edited.
+
+**Consequences:** **The most valuable finding was not one of the planted ones.** Both reviewers independently found that the spec's own disclosure invariant was unsatisfiable — it required a reader to reach the machine-authorship disclosure from any surface in one click, while the same spec removed the footer from every card and a settled decision keeps the byline chip non-clickable. The route existed (the name beside the chip navigates) but was never stated, and the founder had already named it in conversation. Four further genuine defects landed: an explainer page the spec depends on is unshipped; an unvalidated links column rendered as anchors is an XSS surface; a new symmetry check used `grep -c`, which counts lines and silently ignores `-o`, over an alternation that returns one number for the union of all terms and so cannot answer the per-term question it was written for. **A benchmark on seeded flaws measures recall on defects someone thought to plant, not on the ones nobody did** — which is precisely where all five of those came from.
+
+**References:** [.claude/commands/slava/disagreement/prepare.md](../.claude/commands/slava/disagreement/prepare.md) §4b vocabulary symmetry · `features/p1259_agent_story_surfaces_leak_their_own_evidence.md`
+
+---
+
 ## 2026-09-07 [process]: The ship that removed co-located auto-close was itself auto-closed against — a tool change cannot test itself through the tool
 
 **Context:** P1250 replaced `/ship`'s co-located auto-close with a report. The branch carried the

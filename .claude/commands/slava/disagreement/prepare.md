@@ -206,6 +206,28 @@ Every synthesized point carries its **inference chain**: quote → what that quo
 
 > **Threshold: no source may supply more than 60% of the framings.** Over that, the set is rebuilt before anything is shown, and the pre-rebuild tally is stated in the output. Run 1 scored 5/6 = 83% and shipped, because the rule then said "state the tally, whatever it says" — a check with no threshold is a label.
 
+**Vocabulary symmetry — grep the point's load-bearing nouns against EVERY arguer's transcript.** The tally above asks *whose claim* supplied the framing, which is a judgment call made by the agent that built the point. This is the mechanical half, it costs one command, and it catches the case the tally misses: a point whose *wording* only one side ever uses.
+
+```sh
+# ONE NOUN PER COLUMN, never an alternation — a union returns a single number and an arguer who
+# uses noun2 ten times and noun1 never scores non-zero, which is the exact case this check exists
+# to catch. And count OCCURRENCES, not lines: `grep -c` counts matching LINES and silently ignores
+# `-o`, so two occurrences on one line read as one.
+for id in <video-id>...; do
+  printf '%-14s' "$id"
+  for n in <noun1> <noun2>; do
+    printf ' %-12s=%s' "$n" "$(grep -owiE "$n" "$YT_STORE/$id/en.clean.txt" | wc -l | tr -d ' ')"
+  done
+  printf ' [control the=%s]\n' "$(grep -owiE 'the' "$YT_STORE/$id/en.clean.txt" | wc -l | tr -d ' ')"
+done
+# Control, same probe: a token that must be present ('the') and one that cannot be.
+# All-zero or all-equal across arguers means the probe is broken, not that the point is balanced.
+```
+
+> **A load-bearing noun scoring 0 for an arguer who holds a position on that point is a REBUILD, not a note.** That arguer is being made to answer in someone else's words, which is the exact defect 4b exists to prevent — it has simply entered through the vocabulary rather than through the claim. Reword the point in terms every arguer actually uses, or drop the point.
+
+Measured 2026-09-07 (`ai-power-remedies-d`, caught only after filing, by an accuracy checker looking at something else): **"Frontier AI labs should release their model weights openly."** `weights` scores **0 in 4,759 words** for the arguer sitting at `+3` on it, and 3 and 4 for two arguers on the other side. `open source` scores 7 / 2 / 8 — a wording all three use. The framing-origin tally passed this set; the vocabulary check would have failed it in one command.
+
 *(A "swap test" — would this point exist if you read the sources in the other order? — was written here and deleted 2026-08-17. It is answered from imagination, produces no artifact, and cannot fail. It was decoration.)*
 
 ### 4b-ii. Axis diversity — a set on one axis is worth one point

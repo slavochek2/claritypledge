@@ -189,6 +189,24 @@ It must not appear in the output. Rejected phrasings, for concreteness:
 The third is banned for a second reason as well: it is comparative, and a writer only knows it if it
 has read another arguer's material — see the isolation rule below.
 
+**The CLOSING sentence is where this rule actually gets broken — measured 2026-09-07.** No writer
+opens with *"X strongly agrees"*; the examples above are the form nobody produces. What writers
+produce is a **last sentence that resolves the story**, and resolving a story about a position means
+stating the position. Both PS-1 failures in that run were final sentences, and both were reached for
+because a short story wants a punchy ending:
+
+```
+✗  <Full Name> answers for the first and sets the second aside.
+✗  Not in some future moment when the technology gets away from its makers.
+✗  <Full Name> calls the idea nonsense.        ← a paraphrase of a dismissal is a named stance;
+                                                  the verbatim quote of it is not
+```
+
+**Apply the staleness test to the LAST sentence first, and say in the output that you did.** If it
+would become false when the Likert value moves a step, cut it and end on what the person actually
+spends the answer on. A story is allowed to stop without a verdict — the point above it supplies the
+verdict, and the reader arrived through it.
+
 **The placeholders above are not squeamishness.** This file is public. A worked example spelling out
 *"<real person> comes down firmly against X"* is itself a published imputation of a position to a
 named person, which is the thing the rule forbids — writing it as a counter-example does not undo
@@ -290,6 +308,21 @@ afterwards.
 - every point that arguer holds a position on — the point statement, the position value, and the
   inference-strength label;
 - `docs/story-craft.md`, and the Voice and Person-safety sections of this file.
+
+> **"The writer" is never the orchestrator, and a REWRITE is not exempt — 2026-09-07.** This block
+> reads as setup for a fan-out, so it goes quiet exactly when no fan-out happens: an orchestrator
+> revising stories inline, on the founder's request, does not experience itself as "the writer" and
+> therefore does not hand itself these inputs. That is what happened. Eight stories were rewritten
+> from the run file's **verified quote list**, which is short, correct, and sitting in the context
+> already — and the full transcripts, three of which were never opened, are the only artifact that
+> shows a quote's pronoun pointing somewhere other than where the story puts it. Six of eight failed
+> the independent check; five of thirteen findings were exactly that referent/scope error.
+>
+> **A story revised without its transcript open is a first draft, whoever typed it.** Either spawn
+> the writer, or read the transcript yourself before touching a sentence — and say in the output
+> which of the two you did. "It is only a simplification" is the sentence that precedes this defect:
+> shortening moves meaning (`docs/story-craft.md` §5b), so a simplification pass needs the source
+> *more* than the original draft did, not less.
 
 **Give the writer NOTHING about the other arguers, and nothing from the orchestrating session** — no
 other transcript, no other arguer's positions, no other story, no draft, no prior attempt, no
@@ -408,6 +441,23 @@ is judging, which is the property this whole shape exists to preserve.
 **Bounded at two rounds, because "return it to the writer" with no limit is how a run hangs.** Round 1
 write → check. Round 2 fix → re-check. A writer making cosmetic edits while preserving a disputed
 sentence, or going silent, ends the rounds immediately. **Record the round count per story.**
+
+> **What exhausting the bound COSTS — corrected 2026-09-07, after the consequence was paid.**
+> The bound stops the writing loop. It never said what happens to the *point*, and the first run to
+> hit it filed the point anyway with a story on one side and a bare Likert number on the other.
+> That shipped. On the rendered page the founder read it as a defect in the product — *"it has a
+> point from [one arguer], but no story. That's weird."* — which is the correct reading: a
+> disagreement with the reasoning shown for only one side is a worse artifact than no disagreement.
+>
+> **A story that exhausts the bound BLOCKS ITS POINT from filing. It does not ship the point
+> one-sided.** The point is held with its stories until the story lands, or it is dropped from the
+> run. This converts a silent quality loss into a visible stop, which is the trade this pipeline
+> makes everywhere else.
+>
+> **A later rewrite of that story to a NEW standard is round 1 of a new pass, not round 3 of the old
+> one.** The bound exists to stop a writer grinding the same sentence against the same checker; it
+> is not a life sentence on the (person, point) pair. Carry the earlier findings in as explicit
+> input — the 2026-09-07 rewrite did, and none of the three original defects recurred.
 
 **A finding surviving round 2 goes to a THIRD agent before it goes to the founder — an adjudicator,
 not a rewriter.** Give it only: the disputed sentence, the checker's finding, the writer's cited
