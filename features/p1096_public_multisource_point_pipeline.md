@@ -1,5 +1,5 @@
 ---
-status: all-done
+status: backlog
 type: story
 rank: 3
 workstream: events
@@ -7,7 +7,6 @@ created_date: '2026-08-17'
 tags: [points, events, youtube, agents]
 pipeline_ran: [create-spec]
 driver: heuristic
-completed_at: 2026-09-07
 ---
 
 # P1096: Manufacture felt disagreement from public material

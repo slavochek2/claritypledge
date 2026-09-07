@@ -6,6 +6,51 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: The ship that removed co-located auto-close was itself auto-closed against — a tool change cannot test itself through the tool
+
+**Context:** P1250 replaced `/ship`'s co-located auto-close with a report. The branch carried the
+code, inverted canaries, and an audit that had just **reopened p1096, p572 and p828** as wrongly
+closed. Shipping it printed:
+
+> `ship: co-located specs on branch feature/p1250-colocated-report: p1096 p572 p828 — auto-closing alongside p1250.`
+
+and closed all three again. `/ship` runs the **main checkout's** `git-ops.sh`, not the branch's, so
+the last execution of the removed code was against the change that removes it — and its inputs were
+the three specs that exist as reopened *because* that same code had closed them wrongly before.
+
+**Decision:** Repair by re-reopening the three, and record the general rule rather than the
+anecdote: **a change to a tool cannot be validated by the run that ships it, because that run
+executes the pre-change tool.** The canaries were right, complete, and irrelevant to this — they
+exercise `$GIT_OPS` in a scratch fixture, which is the *branch's* copy; the ship path is the only
+place the *main* copy runs, and by construction it runs the old one.
+
+Two consequences worth carrying:
+
+1. **When shipping a change to `git-ops.sh`, `ship-gates.sh` or `pre-commit-checks.sh`, predict
+   what the OLD tool will do to this branch and check it after the ship.** Here the prediction was
+   available in advance — `detect_cospecs` selects specs the branch edited, and the branch edited
+   three spec files — and it was not made.
+2. **Reopening a spec is not durable while the mechanism that closed it is still live.** The audit
+   reopened three specs and shipped the fix in one branch; the ordering guaranteed they would be
+   re-closed. Either reopen after the fix is on main, or expect to do it twice.
+
+**Alternatives rejected:** *Leave them closed and reopen later* — they were reopened on written
+evidence that the work does not exist; leaving them closed re-asserts the false claim this whole
+spec exists to remove. *Treat it as a P1250 defect* — it is not: the shipped code is correct and
+now live on main (`grep` confirms the report block present and "auto-closing alongside" gone). The
+defect is in the sequencing of the ship, not the change. *Add a guard to git-ops.sh for
+self-modifying ships* — not proposed here; the honest first step is the prediction habit, and one
+incident is a thin basis for a mechanism.
+
+**Consequences:** The new behaviour is live on `main` as of this ship, so the next ship that edits
+another spec will report rather than close — the first real-world exercise is the next multi-spec
+ship, not this one. Worth noting that the incident is also the cleanest possible demonstration of
+the defect: the tool guessed "edited means delivered" about three specs whose whole recorded status
+is *not delivered*, in the same run that removed its ability to guess. (Status: proposed.)
+
+**References:** [p1250](../features/done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md) ·
+`scripts/git-ops.sh` (`detect_cospecs`, Phase 2b) · `docs/process-learnings.md` 2026-09-07 audit
+
 ## 2026-09-07 [technical]: The four March transcription artifacts — verdicts (P1250 part 3)
 
 **Context:** [P1237](../features/done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) proved
