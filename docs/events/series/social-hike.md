@@ -122,6 +122,10 @@ Coffee or lunch after for anyone who feels like it.
   subject doing the acting ("the mountain decides") over the abstraction ("adapt to the
   environment"). Cut hedges that add no information. Shorter is the test: the 2026-09-07 rewrite
   said more in 65 words than its predecessor did in 95.
+  The commonest offender is a sentence whose only subject is the sentence before it. *"Turn back
+  whenever you like. That is a choice, not a problem."* — the second adds no fact and quietly
+  implies someone might have thought it was a problem. Founder, 2026-09-07: *"not sure what is its
+  value."* Give the permission once, plainly, and stop.
 - **The description does NOT mention the group chat at all. The terms line ends it.** `EventDetail`
   renders the group-chat block immediately after the description and before the RSVP block, and
   that block ships its own copy in both states — the locked one reads *"Register and you'll get an
