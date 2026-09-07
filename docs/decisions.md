@@ -68,6 +68,51 @@ errors that day, each caught by re-running a command rather than by reasoning ha
 
 ---
 
+## 2026-09-07 [process]: A cleanup step may not delete what it cannot re-obtain, and "the file is present" is not "this run downloaded it"
+
+**Context:** The rewritten Claude.ai importer deleted the export manifest once every file it
+listed was present in `~/Downloads`. That manifest is 1.5KB and holds the **only** local copy of
+the export's download URLs, each usable exactly once. Two hostile reviews (one on the code, one on
+the real 85MB export) were run and every load-bearing claim re-run by command before acceptance —
+the code review named this as CRITICAL and it fired **within the hour**, on the reviewer's exact
+scenario.
+
+The mechanism: a rebuild needed source zips, so copies of a **three-day-old** export were written
+into `~/Downloads` under the canonical names (`conversations-000.zip` and siblings) while the
+founder was, unobserved, mid-download of a **fresh** export into the same folder. The manifest's
+completeness check saw all five filenames present, concluded the export was fully downloaded, and
+deleted the manifest. The four fresh zips were overwritten, imported as stale content, and
+removed. Timestamps: founder's manifest 12:54, `light_metadata-000.zip` 13:11, the destructive
+run 13:15.
+
+**Decision:** The manifest is **never** deleted — not on success, not on a complete download.
+There is no archive size at which deleting it pays for the one case where it was still
+redeemable. A zip modified within the last two minutes is skipped as possibly still being written.
+Any per-item failure now keeps **every** source file and exits non-zero, instead of deleting the
+source after a partial import.
+
+**Alternatives rejected:** Keeping the "delete when complete" rule and tightening the completeness
+check. The check was not wrong about what it measured — all five filenames genuinely were present.
+It was wrong about what that **meant**: a filename match cannot distinguish a file this export
+downloaded from a same-named file another process wrote a minute earlier. No refinement of a
+presence test recovers that distinction, so the test was removed rather than improved.
+
+**Consequences:** The general rule is narrower than "be careful with deletes": **a cleanup step may
+delete only what it could obtain again.** Single-use URLs, one-shot tokens, and the sole local copy
+of anything remote all fail that test regardless of how confident the success check looks. The
+second, sharper lesson is about the *agent's* conduct rather than the code: writing fixture files
+under real, canonical names into a shared user directory is a mutation of the founder's workspace,
+and it was done without checking what was already there or announcing it. `~/Downloads` is not
+scratch space. Fixtures belong in a scratch directory; a rebuild that needs source data should be
+pointed at it explicitly, never by seeding the location the real tool watches.
+(Status: proposed — the workspace-mutation half has no mechanical guard yet.)
+
+**References:** the conversations-archive importer (private repo), commit `534d4e4` · this file, the 2026-09-07 `[process]` entry directly below ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 2b (a diagnostic that writes
+destroys its own evidence — this is the same failure with a fixture instead of a probe)
+
+---
+
 ## 2026-09-07 [process]: An importer that reads one field of a growing format loses the deliverables silently
 
 **Context:** Claude.ai's data export changed shape: one `data-*-batch-*.zip` became five
