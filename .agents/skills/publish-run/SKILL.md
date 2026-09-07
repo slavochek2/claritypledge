@@ -245,6 +245,22 @@ a database row. A Google Maps URL is matched first and passed through untouched,
 labelled "View on Maps". The place name belongs in the description's meeting-point
 line, where a human reads it. Never hardcode a city; derive from the trail.
 
+First resolve the community this event belongs to. Use the trail coordinates from
+step 2 — the venue's own position is what decides it, never the place name:
+
+```bash
+npx tsx scripts/resolve-event-org.ts "$PIN_URL" "$LAT" "$LNG"
+```
+
+`ORG_ID=` on stdout → put it in the payload below. A hike anywhere in the Chiang Mai
+orbit resolves silently to `cm`; you will not be asked.
+
+**Exit 1 with `ASK:` → stop and ask the founder which community, then pass the slug
+they name.** That happens when the trailhead is more than 150 km from Chiang Mai —
+i.e. this is not a Chiang Mai hike at all. Never pick one to keep the run moving: an
+event filed into the wrong community is silent, and is found weeks later by noticing
+a group page looks wrong. Rule and rationale: `docs/events/org-defaults.md`.
+
 POST to `/rest/v1/events` using Python (not shell heredoc — interpolation fails):
 ```python
 import json, subprocess
@@ -258,7 +274,11 @@ payload = {
     "location": PIN_URL,   # the Google Maps pin URL itself — see the note above; never plain text
     "host_id": "a99042ef-e740-446a-8734-389c8589cc17",
     "max_attendees": None,
-    "status": "upcoming"
+    "status": "upcoming",
+    # Without this the event is "loose": it shows on no group's Events tab. That was
+    # missed once, on the 2026-09-13 hike. Use the ORG_ID printed above — never a
+    # UUID pasted from memory. See docs/events/org-defaults.md.
+    "org_id": "<ORG_ID from the resolver above>",
 }
 subprocess.run(["curl", "-s", "-X", "POST", url, "-H", ..., "-d", json.dumps(payload)], ...)
 ```

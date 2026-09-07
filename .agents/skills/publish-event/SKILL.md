@@ -65,7 +65,17 @@ Open `https://claritypledge.com` via claude-in-chrome. Verify the session is log
 
 ### 3. Fill the form
 
-Navigate to `https://claritypledge.com/events/new`. Read the page (`read_page` with `filter: "interactive"`) and fill:
+Navigate to `https://claritypledge.com/events/new?org=<slug>` — **the `?org=` parameter is
+what files the event under a community; without it the event is created loose and appears
+on no group's Events tab.** Pick the slug from the venue: `cm` for an in-person event,
+`online` for a meeting link (Meet, Zoom, Teams, Discord). Full rule and rationale:
+`docs/events/org-defaults.md`.
+
+The form shows a context line naming the organization once it resolves. If it does not
+appear, the operator is not an organizer of that org — say so rather than submitting, or
+the event silently files loose.
+
+Read the page (`read_page` with `filter: "interactive"`) and fill:
 
 | Field | Element | How to set |
 |---|---|---|
