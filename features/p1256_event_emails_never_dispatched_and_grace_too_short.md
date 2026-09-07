@@ -8,10 +8,7 @@ tags:
   - email
   - infrastructure
 delivery_stage: ship
-pipeline_ran:
-  - create-spec
-  - dev
-  - ship
+pipeline_ran: [create-spec, dev, ship]
 ---
 
 # P1256: event emails were never dispatched, and the grace window closed mid-event
