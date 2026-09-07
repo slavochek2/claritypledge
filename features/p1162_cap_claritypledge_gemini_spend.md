@@ -294,8 +294,18 @@ would have been testing the wrong credential, which is precisely the error this 
       wording: *"This is a claim to be falsified by `--report`, not a verified fact."* The registry
       records that someone said a cap exists; the console detail pages above are the actual
       evidence.
-- [ ] A tripped cap produces a generic user-facing message — verified by inspecting what the
+- [x] A tripped cap produces a generic user-facing message — verified by inspecting what the
       browser receives, with no project id, service name, or Google error text present
+      — **measured 2026-09-07**, with the inference stated rather than hidden. What a caller
+      actually received from prod's two functions when Gemini refused:
+      `{"error":"Image generation failed","code":"GENERATION_FAILED"}`, HTTP 502 — asserted against
+      a regex for `project`, `generativelanguage`, `Spend cap`, `API_KEY`. No project id, no
+      service name, no Google text. Google's detail stayed in `console.error`.
+      **The refusal measured was a dead key (400), not a tripped cap (403)** — and that is the same
+      branch by construction, not by hope: `generateImage()` returns `null` on any `!res.ok` after
+      the fallback model also fails, and the handler's 502 is unconditional on the reason. A 403
+      cap and a 400 auth failure converge one line earlier. Inspecting the code is what closes the
+      gap between the two; nothing in the response path can distinguish them.
 - [x] `/day` pings the **deployed** ClarityPledge Gemini key(s) — not an ambient environment
       variable — and warns on failure, distinguishing cap-breach from auth failure from timeout
       — `scripts/check-gemini-prod-key.sh`, wired into `day-cp.md` as `=== GEMINI PROD KEY (P1162) ===`
@@ -364,7 +374,15 @@ private-path pattern on `.env`. Policy is to do the work inline rather than resh
 pass a security scan, so that lens was run inline instead; it produced the argv finding and one
 hypothesis (that the liveness ping bills for a generated image) that measurement **refuted** —
 the ping returns `totalTokenCount: 1` and produces no image bytes.
-- [ ] `/day` reports spend against the recorded budget for **each** of the two keys
+- [x] `/day` reports spend against the recorded budget for **each** of the two keys
+      — already wired and verified by running it: `/day` (`~/.claude/commands/day.md:353-363`) runs
+      `ai-keys --collect-spend` then `--report --spend-tsv --projects-file`, and the report names
+      both keys against their recorded budgets. Today both read
+      `NO_BILLING_DATA:cp-prod-interactive` / `NO_BILLING_DATA:cp-batch` — the correct, honest state
+      for two projects that have billed nothing yet, and pointedly **not** a green "under budget".
+      The report also flags `DRIFT_PROJECT_ONLY` on the old shared project. Re-check once the
+      billing export has a day of data on the new projects; that reading is also what the spec's
+      deferred "tighten the caps against real load" step needs.
 - [x] Both banner functions verified working in prod afterwards (`story-guide-chat` is retired —
       see Problem), and `.private/docs/edge-function-secrets.md` updated in the same change
       — **done 2026-09-07.** Prod `GEMINI_API_KEY` now holds `cp-prod-interactive`
