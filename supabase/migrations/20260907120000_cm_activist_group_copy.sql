@@ -27,10 +27,18 @@
 -- revealing are named; the cost argument (established cognitive science made
 -- cheap) and the organizer's home motivation are in.
 --
--- Every UPDATE is guarded on the exact superseded value so a re-apply can never
--- revert a later founder edit (.claude/rules/database.md — seeds must not
--- override user-set state). If any guard no-ops, prod has drifted from what these
--- migrations record: read the live row before re-running anything.
+-- Every UPDATE is guarded on the superseded value so a re-apply cannot revert a
+-- later founder edit (.claude/rules/database.md — seeds must not override user-set
+-- state). PRECISION: `name` and `blurb` are guarded by equality; `description` is a
+-- LIKE PREFIX, so an edit that only rewrites the tail of that body would still match
+-- and be reverted.
+--
+-- The statements are independent, so a partial apply is possible and is NOT detected:
+-- if `description` has drifted but `name` has not, the rename lands and the body does
+-- not, leaving the group renamed under its old copy — worse than either endpoint.
+-- Nothing here raises on that; the run exits 0. Before applying to prod, read the
+-- live row and confirm all three guards will match. Follow-up: a ROW_COUNT assertion
+-- per statement would make this fail loudly instead of silently.
 --
 -- NAME: founder decision, taken 2026-09-07. 'Communication Activism Community ·
 -- Chiang Mai' names the field rather than labelling each member an activist.

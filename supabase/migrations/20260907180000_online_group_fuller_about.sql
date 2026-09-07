@@ -18,8 +18,13 @@
 -- own understanding" is qualified to "cognitive understanding", matching the
 -- precision applied to · Chiang Mai the same day.
 --
--- Guarded on the exact superseded opening so a re-apply can never revert a later
--- founder edit (.claude/rules/database.md).
+-- Guarded on the superseded text so a re-apply cannot revert a later founder edit
+-- (.claude/rules/database.md). NOTE the guard below is a LIKE PREFIX, not equality:
+-- it protects against a re-apply after the copy has been fully replaced, and does
+-- NOT protect against an edit that only appends to or rewrites the TAIL of this
+-- body — that would still match the prefix and be reverted. Prefix rather than
+-- equality because the body is long and multi-paragraph; tighten to `=` if this
+-- text ever becomes founder-editable outside migrations.
 
 UPDATE public.organization
    SET blurb = 'Practise revealing and bridging gaps in cognitive understanding with people across different interests, opinions, values and industries.'

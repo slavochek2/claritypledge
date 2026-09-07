@@ -29,6 +29,7 @@ import { EventsList } from "@/app/prototypes/events/components/EventsList";
 import { organizationsService } from "@/app/data/organizations-service";
 import type { Organization, OrgMember, OrgParticipation, OrgRole } from "@/app/data/organizations-service.interface";
 import { safeLinkHref } from "@/app/prototypes/events/location-utils";
+import { URL_RUN, splitTrailingPunctuation } from "@/lib/linkify";
 
 type OrgTab = "about" | "members" | "events";
 
@@ -403,35 +404,24 @@ export function OrgPage() {
   );
 }
 
-/**
- * Founder-authored group descriptions carry bare URLs (the public repo link on
- * · Chiang Mai). Rendering the body as plain text left them as dead text a reader
- * had to retype. Split on http(s) runs and anchor them; every href goes through
- * safeLinkHref, since `description` is DB-derived (.claude/rules/src.md —
- * user-controlled URL sinks).
- */
-// The trailing char class is deliberately narrower than the body one: a URL that
-// ends a sentence would otherwise swallow the full stop into its href
-// ("…/claritypledge." 404s, since a repo name cannot end in a dot). Verified as a
-// real defect on the live · Chiang Mai body before this guard existed.
-const URL_RUN = /(https?:\/\/[^\s<>"')\]]*[^\s<>"')\].,;:!?])/g;
-
 function renderWithLinks(text: string) {
-  return text.split(URL_RUN).map((chunk, i) =>
-    i % 2 === 1 ? (
-      <a
-        key={`${chunk}-${i}`}
-        href={safeLinkHref(chunk)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 underline underline-offset-2 hover:text-blue-700"
-      >
-        {chunk.replace(/^https?:\/\//, "")}
-      </a>
-    ) : (
-      chunk
-    )
-  );
+  return text.split(URL_RUN).map((chunk, i) => {
+    if (i % 2 === 0) return chunk;
+    const [href, tail] = splitTrailingPunctuation(chunk);
+    return (
+      <span key={`${chunk}-${i}`}>
+        <a
+          href={safeLinkHref(href)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline underline-offset-2 hover:text-blue-700"
+        >
+          {href.replace(/^https?:\/\//, "")}
+        </a>
+        {tail}
+      </span>
+    );
+  });
 }
 
 /**
