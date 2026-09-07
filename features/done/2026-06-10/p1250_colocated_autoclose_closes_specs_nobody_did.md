@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000070
 workstream: infrastructure
 created_date: '2026-09-05'
 tags: [process, ship, kanban, cost-control]
 flow: inline
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-07
 ---
 
 # P1250: `/ship` reads "this branch edited the spec" as "this branch delivered the spec"
@@ -49,9 +49,9 @@ because a person noticed — one commit says so outright: *"reopen — ship clos
 side effect"* (`cd5d11340`). Nothing detects the ones nobody notices.
 
 **The cost is not hypothetical.** P1162 **is the Gemini spend cap**.
-[P1237](done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) went looking for a spend cap on
+[P1237](p1237_batch_pipeline_gemini_vs_six_steps.md) went looking for a spend cap on
 2026-09-04, found none, and recorded its absence — with no idea a spec sitting in `done/` claimed to
-have built it. [decisions.md](../docs/decisions.md) L5117 calls P1162 *"open, untouched by this
+have built it. [decisions.md](../../../docs/decisions.md) L5117 calls P1162 *"open, untouched by this
 work"*, written before the auto-close moved the file. P558 is the spec P1237's Related section names
 as *"should be superseded by whatever this concludes"* — closed 2026-09-03, before P1237 concluded
 anything. And **P1152 was closed twice**, a week apart, by two different ships: the mechanism cannot
@@ -200,13 +200,13 @@ behind it.
 
 - **P1105** — narrowed this same predicate once already (filed-vs-delivered). This is the second
   visit; read its reasoning in `detect_cospecs`/`detect_filed_cospecs` before changing either.
-- [P1237](done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) — went looking for the spend
+- [P1237](p1237_batch_pipeline_gemini_vs_six_steps.md) — went looking for the spend
   cap P1162 claims to have built, found nothing, recorded the absence.
-- [P1162](done/2026-06-10/p1162_cap_claritypledge_gemini_spend.md) — reopened by this work on
+- [P1162](p1162_cap_claritypledge_gemini_spend.md) — reopened by this work on
   2026-09-05, then **built and properly closed 2026-09-07** by another session: 13 of 13 items
   ticked, via the direct-to-main path with a `ready for QA` stamp. That is the outcome this spec
   exists to make normal — the wrongly-closed spec, once reopened, turned out to be real work
   someone then did. It is no longer an open example; the historical closure remains the evidence.
 - P1251 — folded in as part 3 and archived; its outside-git search is now a Non-Goal here.
-- [P1252](p1252_merged_multiphone_audio_is_never_time_aligned.md) — the one concrete code defect
+- [P1252](../../p1252_merged_multiphone_audio_is_never_time_aligned.md) — the one concrete code defect
   from the March set; separate because it is an audio fix, not a record fix.
