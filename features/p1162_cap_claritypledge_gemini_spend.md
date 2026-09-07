@@ -384,6 +384,24 @@ the ping returns `totalTokenCount: 1` and produces no image bytes.
         test. Pre-existing and unrelated to this work; test was verified through the already-deployed
         functions instead, since secrets are read at runtime.
 - [ ] Raising the cap restores service — proven, not assumed
+      — **BLOCKED on console access, 2026-09-07.** Everything scriptable is staged and its plumbing
+      proven; the remaining step is two clicks that only the founder can make. Spend caps are
+      console-only, the console needs the billing-capable account, and switching to it returns
+      Google's *"Verify it's you"* password challenge — which an agent must never answer.
+      - **Do not burn to EUR 75.** That is ~1,900 image calls and hours of wall time against the
+        credit runway, to learn one string. Lower the `cp-batch` cap to **EUR 1** (~25 calls),
+        trip it, then **raise it back to 75** — raising is what restores service; a bare lift
+        leaves the project uncapped until the 1st.
+      - No free refusal was available to substitute: all five live registry keys were pinged and
+        every one returned `KEY_PING_OK`, so no cap has already tripped anywhere.
+      - Ready to run the moment the cap is lowered: `~/.agents/bin/ai-keys --burn --name cp-batch`
+        to reach the refusal, then a capture that fires one live call and feeds Google's **actual**
+        response body through the very `classify()` function in `scripts/check-gemini-prod-key.sh`.
+        The extraction plumbing is already proven against a synthetic 403 and correctly separates
+        `KEY_CAP_TRIPPED` from `KEY_PING_FORBIDDEN` from `KEY_PING_OK`.
+      - **If the real 403 does not contain `Spend cap breached`, that is the finding** — the branch
+        is then a false negative in production and the match string is wrong. Record the body
+        verbatim rather than adjusting the test to fit.
 
 ## Execution steps — part 1 (founder; the agent cannot do these)
 
@@ -446,6 +464,28 @@ Registry missing or silent is therefore exit 2, "did not run". Exercised, all re
 `digest OK` + `KEY_PING_OK` (0); registry returning a wrong key → `KEY_DIGEST_MISMATCH` (1);
 registry unreachable → `GEMINI-PROD-KEY-CHECK-DID-NOT-RUN` (2); a stale ambient `GEMINI_API_KEY`
 exported → **ignored**, still green off the registry. `--self-test` still passes 8/8.
+
+
+### The superseded prod key is revoked (2026-09-07)
+
+The spec's Rollback Strategy says to keep the old key alive until the new one is verified in prod,
+*then* revoke it. Both banner functions were verified on the new key, so the old one
+(`Gemini API Key`, uid `0bab40ed-…`, the last remaining key in the shared project
+`gen-lang-client-0869694595`) was deleted.
+
+Swept for remaining consumers first, by digest, rather than by memory: both Supabase projects, the
+`ai-keys` registry, `~/.env`, `~/.zshrc`, and the `.env.local` of every project on this machine.
+None held it. GCP Secret Manager's copy of the *other* dead key was already gone, and Cloud Run no
+longer mounts anything Gemini-shaped.
+
+`gcloud services api-keys delete` is a soft delete — `undelete` is available for 30 days, which is
+the real rollback window now. After the revoke, `check-gemini-prod-key.sh` still reports
+`digest OK` + `KEY_PING_OK`, and both prod banner functions were exercised again end-to-end
+(200 + a real JPEG each). The shared project now holds **zero** API keys.
+
+This also closes the accepted risk recorded against commit `7b9be354c`, which published 8-character
+SHA-256 prefixes of that key. The prefixes remain in history — rewriting history over them was
+explicitly rejected — but they now fingerprint a credential that no longer exists.
 
 ## Pre-deploy Checklist
 
