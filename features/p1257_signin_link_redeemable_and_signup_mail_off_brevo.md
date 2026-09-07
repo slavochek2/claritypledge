@@ -195,6 +195,35 @@ off by not calling it; Google sign-in is untouched throughout. Work happens on a
    that judgement predates the Outlook reproduction and should be re-taken on the new evidence,
    not inherited.
 
+## Adversarial review outcome — the Send Email Hook is WITHDRAWN as the recommendation
+
+One reviewer spawned, one reported. Findings re-verified by command before being recorded here.
+
+**A-1 (blocker), the reason this changed.** The hook has a 5-second deadline, and its documented
+failure mode is not "the mail is late" — it is `supabase.auth.signUp` failing with **no
+`auth.users` row created**, while the person may still receive a working-looking confirmation mail
+(supabase/supabase discussions #34199, issue #29270). That is strictly worse than today: the
+current failure at least leaves a row with `confirmation_sent_at`, which is the only reason this
+incident was diagnosable at all, and is exactly what the new reconciliation check keys on. The hook
+would create a failure class **structurally invisible** to the monitoring built in the same spec.
+There is no documented fall-back-to-SMTP path, so the Appetite section's "nothing is switched off"
+is **false for the hook** and true for everything else here.
+
+**A-2 (blocker).** "Route mail through Mailgun" and "change the link shape to `token_hash`" are two
+changes, and bundling them puts the **untested** prefetch hypothesis on the critical path for 100%
+of logins on day one, with no partial rollout.
+
+**Corrected verdict.** Do not adopt the hook now, and do not adopt the rejected fourth-anon-function
+either. Split the work: (1) the `/auth/verify` page and the reconciliation check ship as they are —
+both additive, neither touches how mail is sent; (2) **run the prefetch falsifier first**, since it
+is cheap, decisive, and already gates the design; (3) choose transport only afterwards.
+
+**Also recorded, unresolved:** `mg.claritypledge.com` carries Ghost newsletters and has live MX
+(`decisions.md` 2026-06-17, P942) — putting signup mail there risks the reputation contagion that
+killed P942. A dedicated auth subdomain should be priced in before any transport move. And the
+prefetch hypothesis is weaker than `decisions.md` 2026-09-03 states: Microsoft Defender Safe Links
+**executes JavaScript**, so a test that does not run against a Defender tenant is a false pass.
+
 ## Related
 
 - `features/p1086_e2e_magic_link_tests_timeout_authcallback_missing_pattern_b.md` — same root
