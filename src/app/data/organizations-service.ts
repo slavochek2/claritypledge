@@ -110,6 +110,13 @@ export const organizationsService: OrganizationsService = {
       .from('organization')
       .select('id, slug, name, blurb, description, visibility, has_events')
       .eq('visibility', 'public')
+      // Founder-owned rank first, name only as the tiebreak among unranked orgs.
+      // Ordering by name ALONE was an accident waiting to happen: renaming
+      // · Chiang Mai to "Communication Activism Community · Chiang Mai"
+      // (20260907120000) silently demoted it below "Clarity Practice Community ·
+      // Online", because "Cl" < "Co". Copy edits must not reorder the directory.
+      // nullsFirst: false — an unranked org sorts AFTER every ranked one.
+      .order('display_order', { ascending: true, nullsFirst: false })
       .order('name', { ascending: true });
     if (error) throw new Error(`Failed to list organizations: ${error.message}`);
     return ((data ?? []) as OrgRow[]).map(mapOrg);
