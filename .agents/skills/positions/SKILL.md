@@ -74,7 +74,14 @@ Two consequences, both load-bearing:
    and speaker-attributed, but not heard by a human. Step 4b and the audio-at-timecode check are
    unchanged, and on a source whose audio never reached the store they are the *only* guarantee.
 
-> **Verification is a STEP with an artifact, not a promise.** `grep -F` proves a quote is in the transcript; the audio check below proves the caption robot heard it right; **neither proves the right person said it** — that is the attribution-basis label's job. Prose saying "checked" is the sentence that lets the check silently not happen. Also check the surviving quotes against the audio at their timecodes and record **who ran it and when**.
+> **Verification is a STEP with an artifact, not a promise.** `grep -F` proves a quote is in the transcript; the audio check below proves the caption robot heard it right; **neither proves the right person said it** — that is the attribution-basis label's job. Prose saying "checked" is the sentence that lets the check silently not happen — **and that sentence was in this file until 2026-09-07, which is why no run before it ever performed this check.** The audio comparison is now CODE with an exit code:
+
+```sh
+node scripts/points/audio-check.mjs <check.json>   # {quote, asr, threshold?} -> CONFIRM | REJECT | REFUSE
+node scripts/points/audio-check.mjs --controls     # the Step 2a control set; exit 1 if any control is wrong
+```
+
+**Run `--controls` FIRST and read the exit code.** A non-zero exit means the harness is broken and every verdict it produced in this run carries no weight (Step 2a). Then, per quote: cut the audio at the resolved timecode, transcribe it with an ASR that is **not** the caption robot that produced the transcript (`~/.whisper-env/bin/mlx_whisper --model mlx-community/whisper-large-v3-mlx`), and pass the quote plus that transcription to `audio-check.mjs`. Record **who ran it and when** in the run file. A REJECT is handled by the replacement rule above; a REFUSE is an infrastructure failure and is never recorded as evidence against the quote.
 
 > **Do this HERE, and act on it HERE — do not carry an unverified quote forward for `publish` to
 > reject.** This line used to end *"`/slava:disagreement:publish` requires both artifacts as a hard

@@ -38,6 +38,7 @@ export const PREDICATE_MODULES = [
   'cast-controls.mjs', 'seal.mjs', 'verify-fixture.mjs', 'candidate-sweep.mjs',
   'source-binding.mjs',
   'room-split.mjs',
+  'audio-check.mjs',
 ]
 
 /** Modules that are harness, not predicates — the ONLY sanctioned reason for a
