@@ -1,0 +1,194 @@
+---
+status: week
+type: task
+rank: 1000075
+workstream: C1
+created_date: '2026-09-07'
+tags: [auth, email, deliverability, magic-link]
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+drafted_by: opus
+exec_model: opus
+exec_effort: medium
+driver: anomaly
+---
+
+# P1257: No sign-in link we mint is redeemable, and the ones Supabase sends land in Outlook Junk with links disabled
+
+## Problem
+
+**Situation:** A person tried repeatedly to register for the 2026-09-06 hike and never got in. The
+founder's report, 2026-09-07:
+
+> "she tried to register once or multiple times for the event, for the hike, and it seems that she
+> says that she didn't find the registration link, not even in the spam"
+
+> "Login registration should work and if it doesn't, then we should catch it, check it."
+
+**Complication:** the 2026-09-07 investigation found **two independent, separately-proven defects**,
+neither previously named. Full evidence: `.private/incidents/2026-09-07-magic-link-outlook-junk.md`.
+
+**Defect A — no minted sign-in link is redeemable.** `admin.generateLink` returns an implicit-flow
+`#access_token=` URL. `src/lib/supabase.ts` sets `flowType: 'pkce'`, and auth-js
+(`GoTrueClient.js`, `callbackUrlType === 'implicit'`) throws `AuthPKCEGrantCodeExchangeError`
+rather than consuming it. Verified end-to-end this session: a freshly minted, unexpired link
+rendered "Link Expired or Invalid" with **zero** Supabase keys in `localStorage`. Three pages
+redeem `?token_hash=` (`letter-response-confirm`, `accept-agreement`, `letter-reading`); grep of
+`src/` for `auth/verify` returns nothing — **there is no generic sign-in landing page**, so we
+cannot hand a stranded person a working link at all.
+
+**Defect B — Brevo-sent signup mail is junked with its links disabled.** Reproduced on prod
+through the real UI with an aged Outlook account: the confirmation mail landed in **Junk Email**
+and Outlook **disabled its links** ("Show blocked content and enable links"), so the Confirm
+button is dead until the reader takes a second action. Microsoft's own verdict header on that
+message: `spf=pass`, `dkim=pass header.d=claritypledge.com`, `dmarc=pass`, `compauth=pass
+reason=100`. Authentication is definitively not the cause. What remains is a shared bulk IP plus
+**bulk-marketing headers on transactional mail** — `List-Unsubscribe-Post: One-Click`,
+`Feedback-ID`, `x-csa-complaints`, added by Brevo.
+
+**Question:** make a sign-in link we mint actually redeemable, and get self-service signup mail off
+the bulk path — without touching the PKCE mitigation P608 exists to provide.
+
+## Appetite
+
+Blast radius: **high** — signup is the front door; a regression strands everyone, not one person.
+Reversibility: **high by construction** — every change here is additive (a new route, a new send
+path alongside the existing one); nothing is switched off. Decision density: **low for this spec**
+(one copy decision). The guest-RSVP-for-events question raised the same session is a separate
+product call and is **not** in scope here.
+
+## Invariants
+
+- **`flowType: 'pkce'` stays.** P608 enabled it so link pre-fetchers could not consume single-use
+  tokens, after a real signup-blocking incident (`decisions.md` 2026-03-30). Nothing in this work
+  may change, bypass or conditionally disable it.
+- **`/auth/callback` is not converted to `token_hash`.** `decisions.md` 2026-09-03 rejected exactly
+  that, on the grounds that the prefetch question is unresolved and getting it wrong reproduces a
+  signup-blocking incident. The new page is **additive and on its own route**; the existing
+  callback is untouched.
+- **No bulk-sender headers on transactional mail.** `decisions.md` 2026-06-17 already ruled that
+  `List-Unsubscribe` is a bulk-sender signal that pushes mail toward Promotions. Any new send path
+  must not add it.
+- **The anonymous signup surface must not become an email-enumeration oracle.** P684/P877 closed
+  it; `request-letter-response-signin` mints a link on **both** branches specifically to equalise
+  timing. Nothing here may surface "no such account" or a bounce to an unauthenticated caller.
+
+## Solution
+
+Three additive pieces.
+
+1. **A generic `/auth/verify?token_hash=` page.** Calls
+   `supabase.auth.verifyOtp({ token_hash, type: 'magiclink' })`, modelled on
+   `src/app/pages/letter-response-confirm-page.tsx` (the same mechanism already running in
+   production for letter responses). Routed in `src/App.tsx`. On success, hand off to the existing
+   post-auth path; on failure, an honest error with a route back to signup that does not loop.
+   This is what makes an operator-minted recovery link work, and it is the missing half of P1086.
+
+2. **Route self-service signup mail through Mailgun** (`mg.claritypledge.com`, the transactional
+   path event and letter mail already use), following
+   `supabase/functions/request-letter-response-signin/index.ts` — mint via `generateLink`, take
+   `properties.hashed_token`, send our own message linking to `/auth/verify?token_hash=`. Runs
+   **alongside** the Brevo/GoTrue path, not instead of it, until measured against the Outlook rig.
+
+3. **Reconciliation monitoring.** A scheduled check for auth users with `email_confirmed_at IS
+   NULL` older than 24h, so a stranded person surfaces without waiting for someone to tell the
+   founder. Output goes to a **private** channel — never a GitHub issue; the repo is public and
+   the payload is user email addresses.
+
+Also in scope, cheap and evidence-backed: the confirmation email copy — the literal brackets in
+`Confirm Your Email - [ClarityPledge]`, the grammar error `If you didn't signed up`, and the
+`Infrastructure powered by Supabase` footer.
+
+[FOUNDER DECISION: subject line and body wording for the new Mailgun-sent confirmation email. The
+three defects above are objective; the replacement copy is a tone call.]
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| Owning the send path moves failure ownership from Supabase to us | ACCEPT | We already own event and letter mail on this exact path; and today's failure is invisible, which is worse |
+| A new sign-in page is a security-sensitive surface | MITIGATE | Copy `letter-response-confirm-page.tsx` rather than inventing; single-use `token_hash`, no user-controlled redirect target |
+| A `token_hash` link in an inbox may be consumed by a scanner before the human clicks | MITIGATE | This is the **UNTESTED** hypothesis recorded in `decisions.md` 2026-09-03, whose named falsifier is "send a token_hash link to a Microsoft 365 mailbox and check whether the token is consumed before a human clicks." We now have that mailbox. Run the falsifier **before** any user is switched to the new path |
+| Mailgun mail could be junked too | ACCEPT, then measure | Unproven either way. The Outlook rig makes it measurable before rollout; if it junks identically we have lost nothing and learned the cause is not Brevo |
+| Deliverability fix cannot be proven for the affected person's specific mailbox | ACCEPT | Mailbox-level rules are not observable from outside; the rig is the closest available proxy |
+| Monitoring output leaks user emails | MITIGATE | Private channel only. All 6 existing scheduled gates route to GitHub issues; this one must not |
+
+**Non-Goals**
+- Do NOT change `src/lib/supabase.ts` or the PKCE flow type.
+- Do NOT modify `/auth/callback` or `AuthCallbackPage.tsx` in this spec (it carries a
+  do-not-modify-without-E2E-approval header; P1086 owns that decision).
+- Do NOT add SPF/DNS changes — `compauth=pass reason=100` proves authentication is not the cause.
+- Do NOT surface bounces or "no such account" on the anonymous signup screen — that rebuilds the
+  enumeration oracle P684/P877 closed.
+- Do NOT decide guest RSVP for events here.
+- Do NOT contact the stranded users in bulk — at least one is an edge-function-created letter
+  recipient, not a signup, so blanket outreach would be unsolicited contact.
+
+## Done-When
+
+- [ ] A link of the form `/auth/verify?token_hash=…`, minted by hand for a real account, establishes
+      a session and lands the person signed in — verified by opening it and reading `localStorage`
+- [ ] The same link, replayed a second time, does not establish a session and shows an honest error
+      with a route out that is not the failing loop
+- [ ] The prefetch falsifier has been run: a `token_hash` link sent to the Outlook test mailbox is
+      still redeemable by a human after delivery — result recorded either way before rollout
+- [ ] A confirmation email sent through the new Mailgun path carries no `List-Unsubscribe`,
+      `List-Unsubscribe-Post` or `Feedback-ID` header — verified by reading the raw source of a
+      received message, not by reading the sending code
+- [ ] That message's placement in the Outlook test mailbox is recorded (Inbox or Junk, links live
+      or disabled), alongside the Brevo baseline already captured in the incident file
+- [ ] Signup through the existing UI still works end-to-end after the change — the p1010/p1076
+      regression suites stay green
+- [ ] The reconciliation check reports a known-stranded account when run against a seeded fixture,
+      and reports nothing when there is nothing to report (both directions exercised, per
+      epistemic gate 7c)
+- [ ] Founder copy decision recorded in this spec
+
+## Pre-deploy Checklist
+
+- [ ] `MAILGUN_API_KEY` confirmed present on prod (`decisions.md` 2026-05-15 records it as
+      previously missing on prod and saved only by a `?? ''` fallback — verify, do not assume)
+- [ ] `MAILGUN_FROM` / `APP_URL` values confirmed for the new function rather than inherited from a
+      hardcoded fallback
+- [ ] New edge function deployed to test and exercised before prod
+- [ ] Private destination for the reconciliation output chosen and configured
+
+## Alternatives Considered
+
+- **Leave it and fix only the wording.** Cheapest, and the wording defects are real — but the mail
+  still leaves a shared bulk IP with bulk headers, which is the part Microsoft's own header points
+  at. Not sufficient alone; folded in as a sub-change instead.
+- **Add `include:spf.brevo.com`.** Rejected with proof rather than argument: `spf=pass`,
+  `dkim=pass`, `dmarc=pass`, `compauth=pass reason=100` on the junked message. P608 rejected this
+  in 2026-03-30 on reasoning; this session's header capture settles it.
+- **Google sign-in only.** Rejected — the affected person is on Hotmail. This option would have
+  blocked the exact user who triggered the investigation.
+- **Numeric code instead of a link.** Does not address Junk placement; the person still has to find
+  the message. Keeps the door open as a later addition, not a substitute.
+- **Convert `/auth/callback` to `token_hash`.** Rejected by `decisions.md` 2026-09-03 and preserved
+  as an invariant above.
+
+## Rollback Strategy
+
+Each piece reverts independently and none replaces a working path: the new route can be removed
+without touching `/auth/callback`; the Mailgun send path runs alongside GoTrue's and is switched
+off by not calling it; Google sign-in is untouched throughout. Work happens on a branch.
+
+## Open Questions
+
+1. Does an Outlook/Microsoft 365 scanner consume a `?token_hash=` link before the human clicks?
+   **UNTESTED** — the falsifier is a Done-When above and gates rollout.
+2. Should the existing GoTrue/Brevo confirmation mail be disabled once Mailgun is proven, or should
+   both send? Deliberately deferred until the rig produces a measurement.
+
+## Related
+
+- `features/p1086_e2e_magic_link_tests_timeout_authcallback_missing_pattern_b.md` — same root
+  cause (PKCE vs implicit-flow links), scoped to the E2E helper. This spec fixes the production
+  half; P1086's own decision (fix helper vs Pattern B) stays open.
+- `features/p1240_mobile_session_loss_measure_before_building.md` — source of the `token_hash`
+  invariant and the untested prefetch hypothesis.
+- `features/done/2026-03-30/p608_magic_link_reliability.md` — the PKCE mitigation this must not
+  undo; also rejected SPF changes, now proven correct to have done so.
+- `.private/incidents/2026-09-07-magic-link-outlook-junk.md` — all evidence, including user
+  addresses (private).
