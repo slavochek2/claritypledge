@@ -6,6 +6,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: I rejected a reviewer's finding partly on a cost I never measured — and the measurement refutes me, not them (P1162)
+
+**Context:** A code reviewer said the liveness ping does not match what production sends and should
+be changed to match. I rejected it for two reasons. The first was measured and correct: the
+reviewer's premise was that the current ping returns 400, and it demonstrably returns 200. **The
+second reason I made up.** I wrote, in a commit message, that the proposed change "would make the
+daily check generate a real billed image on every run".
+
+**Decision:** Retract that second reason. Measured afterwards, on the real API, both shapes: the
+current ping and the reviewer's proposed ping return **byte-for-byte the same thing** —
+`totalTokenCount: 1`, zero image bytes. The change would have cost nothing.
+
+**The technical correction matters more than the retraction.** What keeps the ping cheap is
+**`maxOutputTokens: 1`**, not the absence of `responseModalities`. Production sends
+`responseModalities: ['IMAGE']` with **no** token cap, which is why production generates an image
+and the ping does not. I attributed the safety to the wrong parameter. Anyone later "aligning the
+ping with production" by copying prod's `generationConfig` **and dropping the token cap** would
+start billing for a real image on every run — the failure I wrongly claimed was already present.
+That is the thing to guard.
+
+**Alternatives rejected:** *Commission external reviews to settle it* — the founder offered exactly
+that, and it would have been the wrong spend: the question was answerable by one command in about
+ten seconds, and a panel of reviewers is at least as likely to nod along to a confident,
+plausible-sounding, false claim as to catch it. *Rewrite the commit* — history rewriting is refused
+here, so the correction lives in this entry instead. The commit body stays wrong on the record;
+this is the pointer.
+
+**Consequences:** The asymmetry is the lesson and it is uncomfortable: I verified the *reviewer's*
+claim by command and did not verify my own counter-claim, in the same breath, in the same commit —
+one hour after committing an entry titled *"a hand-written fixture ... is fiction"*. [epistemic.md](../.claude/rules/epistemic.md)
+gate 9 binds an agent's claim; nothing binds the rejection. **A reason given for rejecting a
+finding is a claim and needs the same command the finding needed** — and it is the more dangerous
+of the two, because a rejection ends the conversation while a finding invites scrutiny. It also
+propagated: the false claim became the lead item of a `/kdd` meta-reflection presented to the
+founder as a recurring problem worth fixing, and survived until he asked how confident I was.
+`Status: proposed` — no rule added; this is n=1 and `.claude/rules/` changes go through their own
+gate.
+
+**References:** commit 22e48be34 (body carries the retracted claim) ·
+[scripts/check-gemini-prod-key.sh](../scripts/check-gemini-prod-key.sh) ·
+`supabase/functions/generate-banner/index.ts:249-252`
+
 ## 2026-09-07 [technical]: A hand-written fixture for a third-party error body is fiction — rent the real condition on a throwaway and capture it (P1162)
 
 **Context:** `check-gemini-prod-key.sh` classifies a tripped spend cap by matching the string

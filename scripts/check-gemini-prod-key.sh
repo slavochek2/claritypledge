@@ -211,6 +211,12 @@ chmod 600 "$PING_CFG" "$PING_BODY_FILE" 2>/dev/null
   echo "url = https://generativelanguage.googleapis.com/v1beta/${PING_MODEL}:generateContent"
   echo "header = \"x-goog-api-key: ${LOCAL_KEY}\""
   echo 'header = "content-type: application/json"'
+  # maxOutputTokens:1 is what makes this ping free — NOT the absence of responseModalities.
+  # Measured 2026-09-07: with and without `responseModalities:["IMAGE"]`, this returns
+  # totalTokenCount 1 and zero image bytes, identically. Production (generate-banner/index.ts)
+  # sends responseModalities WITHOUT a token cap, which is why prod generates an image.
+  # So if you ever "align this ping with production", keep the cap. Copying prod's
+  # generationConfig wholesale would bill for a real image on every /day run.
   echo 'data = {"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":1}}'
   echo "output = ${PING_BODY_FILE}"
   echo 'silent'
