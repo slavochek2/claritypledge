@@ -6,6 +6,91 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: Every control in the delivery pipeline is advisory — and two root causes published before measuring were both refuted (P1246)
+
+**Context:** Investigating why the pipeline cannot tell a finished spec from an unfinished one.
+Measured: `scripts/ship-gates.sh` decides delivery correctly and has **zero call sites** in
+`scripts/git-ops.sh`, the code that actually closes specs — it is reachable only from prose in
+`ship.md`. Scored against that script's own gate 2.5 **at the moment of each close**, 15 of 18
+co-located closes (83%) and at least 19 of 40 sampled ordinary closes (>=48%) would have been
+refused. One spec sits in `features/done/` stamped `all-done` while its own body reads *"PARKED —
+the decided architecture was never built."* Quality steps run at 6-9%; the founder-framing rule at
+35% since it existed. Anthropic's AI-native SDLC playbook (21 Aug 2026) states the mechanism:
+*"A skill is a control, though an advisory one... nothing forces a session to comply with it."*
+
+**Decision:** Filed P1246 at `severity: high`. Two hostile reviews produced 24 findings including
+three blockers, and both reviewers independently converged on the same cut: **wire the gate into
+the three close routes and remove the `status:` read, and drop the other three proposed gates.**
+The blockers are why — an equivalent blocking hook shipped 2026-08-19 and was unregistered the
+same day (it blocked a documented recovery, named no escape, and was bypassable); hooks fail
+**open** on a missing script, not closed; and a local settings flag disables all of them untraceably.
+
+**The method lesson, which is the transferable half.** Two root causes were published and then
+refuted, both for the same reason: **the metric scored whether a human had complained, not whether
+the artifact was correct.** "Was this spec later reopened by hand" certified as correct five closes
+that fail the pipeline's own test — including the PARKED one. Rescoring against the artifact moved
+the co-located figure from 53% to 83% and the ordinary-close figure from ~1% to >=48%, which
+collapsed a claimed 53x spread into 83-vs-48 and dissolved the three-independent-defects account
+built on it. A third error was the same shape one level down: the framing rule was reported at 4%
+against a denominator of ~892 specs predating the rule, when the honest split is 1% before and 35%
+after. **Every figure that moved was corrected by re-measuring, never by reasoning harder.**
+
+**Alternatives rejected:** *A richer machine-checkable spec format* — refuted; a spec was closed
+carrying four unticked criteria and no implementation record, so a better format would have sat
+equally unread. *Discipline rules* — tried three times in eight days and recurred each time; two of
+nine known false closes were caused by the **repair** of a previous false close, which no discipline
+rule reaches. *Buying an orchestrator* — surveyed; nothing in a ~450-tool census models "done", and
+none preserves the founder-decision markers or epistemic gates.
+
+**Consequences:** P1246 is filed and committed but **not yet cut down or built** (Status: proposed).
+It sat untracked for three days while 170 commits landed around it — a sibling spec filed 30 minutes
+later was committed the same day and has advanced twice since, which is the whole difference. The
+measured pattern: every gate fix that shipped in this repo was filed and closed **in the session
+that hit the defect**; twelve open pipeline specs have sat in backlog since June and none has
+shipped from there. P931 remains mislabelled at `severity: medium`, which is why it has not moved in
+three months — re-triage is part of P1246. One cheap check both this session's specs would have been
+caught by, and neither proposed: **a scan for scripts that exist and are never called.**
+
+**References:** [p1246](../features/p1246_pipeline_controls_are_advisory.md) ·
+[p931](../features/p931_ship_phase2b_coclose_false_close.md) · `scripts/ship-gates.sh` ·
+`scripts/git-ops.sh` · this log 2026-09-04 [process] (the both-directions entry this supersedes)
+
+## 2026-09-07 [process]: Two reviewers on DIFFERENT lenses both delivered — the open bake-off question, answered on the lens variable rather than the model family
+
+**Context:** This log's 2026-08-28 entry adopted a cross-family second lens and left the comparison
+explicitly **unresolved**, asking to settle it by running both on the next few reviews and scoring
+findings the other missed. Separately, an A/B of `/slava:think:adversarial-review` had measured **no
+advantage** — 11 findings vs 10 with the skill removed — with the caveat that both arms received a
+detailed brief, so it measured the skill on top of a good brief.
+
+**Decision:** Run the two arms on **different lenses**, not the same brief. Opus took mechanism
+(bypasses, fail-open, day-one blocking, gate interaction); Fable took whether-this-is-the-right-work
+(evidence for the steps being enforced, solo-founder role collapse, sequencing, whether the result
+delivers what was asked). **Both delivered, 24 findings, near-zero overlap.** Opus found a
+rolled-back prior attempt that reversed the spec's central premise; Fable found the spec's headline
+number was computed against the wrong denominator and that binding the gate converts *"didn't
+finish"* into *"tick the box"*. Neither arm would have found the other's.
+
+**The variable that mattered was the lens, not the family.** Same-family, different-lens produced 24
+findings where same-lens produced 11-vs-10. That is a partial explanation of the earlier null result
+rather than a refutation of it: an adversarial reviewer adds little when it repeats the brief's own
+frame, and a great deal when it is given a frame the author did not use.
+
+**Alternatives rejected:** *A third arm* — the free Gemini lane refused the payload (a private-path
+pattern), and the refusal was **not** worked around by stripping the citation; a third arm was
+judged to duplicate rather than extend. *Running both on the same brief* — that is the arrangement
+already measured at no advantage.
+
+**Consequences:** Proposed change to `/slava:think:adversarial-review`: assign each reviewer a named,
+**distinct** lens and require it to state which lens went uncovered, rather than handing N reviewers
+one brief. Status: proposed — not yet applied to the skill, and n=1 on one spec. Also worth keeping:
+the delegation gate refusing a payload mid-review is itself a working instance of the deterministic
+control P1246 argues for, observed on the agent rather than described.
+
+**References:** this log 2026-08-28 [process] (the unresolved bake-off) ·
+[p1246](../features/p1246_pipeline_controls_are_advisory.md) ·
+`.claude/commands/slava/think/adversarial-review.md`
+
 ## 2026-09-07 [process]: P1263's mechanism was right and its attribution was wrong — the guard it blamed had been in place for four months
 
 **Context:** P1263 named `scripts/test-git-ops-extensions.sh:75` as the cause of four `core.bare`
