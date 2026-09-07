@@ -91,13 +91,26 @@ fix it proposed:
    worktree (the P1057 incident). Any refusal must move to the **Phase-1 pre-lock guard**, before
    anything is committed.
 
-`[FOUNDER DECISION: what closes a co-located spec.]`
+**DECIDED 2026-09-07 — option (a). This was never a founder decision and should not have carried
+the marker.** The founder pushed back: *"i dont understand what is loadbearing in this decision and
+why i make it? does it have any influence on business, user or me?"* The honest answer is no on the
+first two and marginally on the third, so the criteria for `[FOUNDER DECISION]` — CTA text, pricing,
+tone, naming, value propositions — are not met. It is an internal tooling trade-off with a
+reversible, script-level fix, which CLAUDE.md's "Decisive Action — No False Choices" says to take
+rather than ask about. Two independent analyses (the draft's own recommendation and the hostile
+review's, reached separately) converged on (a).
 
-- **(a) Nothing — report instead.** Phase 2b stops closing and prints *"these specs were edited by
+The operator cost is the only real one and it is small: after a ship that edited another spec, the
+operator sees a line naming it and runs `/ship pM` if that spec is genuinely done. On the measured
+history that is 18 occurrences across the repo's life — roughly once every few weeks.
+
+**(a) CHOSEN — Nothing; report instead.** Phase 2b stops closing and prints *"these specs were edited by
   this branch and were NOT closed: pM, pN — close them by name if they are done."* Closure becomes
   an explicit act. **Recommended:** it addresses the cause rather than stacking a second guess on
   it, it cannot strand a branch, it needs no gate refactor, and its failure mode is a spec left open
-  with a line in the log saying so.
+  with a line in the log saying so — the loud direction, not the silent one.
+Rejected, and why:
+
 - **(b) Close, but stamp `closed_as: co-located-with-pNNNN`** in frontmatter, so the kanban can
   surface unaudited closes. Keeps today's convenience and makes the guess visible.
 - **(c) Apply an evidence check** — subject to the three constraints above; in practice this is (a)
@@ -139,7 +152,7 @@ behind it.
       closing commit, verdict, evidence. A verdict that exists only in conversation does not count
 - [ ] Every spec classified `wrongly closed` is reopened, each in a commit whose subject names the
       spec and the reason
-- [ ] The founder decision above is answered here, and the mechanism changed to match
+- [ ] The mechanism matches the decision above: Phase 2b reports co-located specs by name and closes none
 - [ ] The new behaviour is pinned by a **named canary** in `scripts/git-ops.sh`'s existing canary
       series, exercising both directions: a co-located spec that must NOT be closed, and — if the
       chosen option still closes anything — one that must be
