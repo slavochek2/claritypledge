@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: `commit-to-main`'s "this warning cannot fire today" tripwire fired — a co-tenant file entered the commit between the exact-match guard and `git commit`
+
+**Context:** Committing five files through `./scripts/git-ops.sh commit-to-main` produced `requested 5 path(s); the commit records 6 file(s)` plus the WARNING beneath it. The sixth was `scripts/test-git-ops-extensions.sh` — a co-tenant's in-flight edit, unrelated to this change, and almost certainly belonging to the P1260 `/weekly` commit that landed as this commit's own parent.
+
+**What the evidence supports.** `git status --short` minutes earlier showed that file as ` M` — modified, **not** staged. `commit_staged_exact` compares `git diff --cached --name-only --no-renames` against the requested paths and returns 1 on any mismatch, so at guard time the index held exactly the five requested paths. The commit then recorded six. The only interval between those two facts is the gap between the guard and the `git commit` on the next line. The file was therefore staged by something not holding `main.lock` — which the lock permits by construction, since it serializes git-ops *callers* only and a co-tenant running raw `git add` is not one.
+
+**Decision:** No change to the script this session (it is a co-tenant's file, actively being edited, and the fix is not one line). What changes is the standing claim in its own comments: `commit_staged_exact`'s block says the count-mismatch warning "CANNOT FIRE TODAY … a TRIPWIRE for a future change that weakens that guard." That is now falsified — the guard is intact and the warning fired anyway, because the guard checks a moment and the commit reads a later one. It is a live detector, not a tripwire, and the WARNING must be treated as a real finding every time it appears rather than as evidence that someone weakened the code.
+
+**Alternatives rejected:** Treating the warning as noise and pushing — the commit genuinely misattributed a co-tenant's work under this session's message, which is the 2026-09-03 incident's exact shape. Amending — a history rewrite on the shared main checkout, which `git-ops.sh` refuses for good reason.
+
+**Consequences:** Recovery is the documented one and it worked: `git reset <parent-sha-resolved-absolutely>` (never `HEAD~1` — a co-tenant commit sat directly beneath mine, which is precisely the case that rule exists for), confirm the bystander is back to unstaged, re-run `commit-to-main` with the same five paths. The retry recorded exactly five. **So: after every `commit-to-main`, read `git show --stat --no-renames HEAD` — do not trust the "committed N files" line, and do not trust the guard's silence either.** The residual race is unresolved and is the second observed occurrence (2026-09-01 is the first, same file's comment records it); closing it needs the staged set re-verified *inside* the same command as the commit, which no pathspec form can provide safely (`git commit -- <paths>` re-reads the worktree — `.claude/rules/git.md`).
+
+**References:** [scripts/git-ops.sh](../scripts/git-ops.sh) `commit_staged_exact` · [.claude/rules/git.md](../.claude/rules/git.md) "Any uncommitted file on the shared checkout is exposed"
+
+---
+
 ## 2026-09-07 [technical]: The Links menu is scoped to a surface, not to an event — and the test that guarded it counted mounts instead of stating the invariant
 
 **Context:** P1179 built the room's "Links" menu as an *event* feature: `eventSlugFromLocation` matched `/events/:slug/room|ready|meet` and `/stake/:tag?event=`, and the provider returned its children unwrapped anywhere else. But the standalone `/ready` and `/meet` run the same ritual outside an event, and they are handed to people who are not signed in. Founder, verbatim: *"can we please add the links exactly like we have in the events also for /ready and /meet for both logged in and not logged in users."*
