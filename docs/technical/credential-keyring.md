@@ -72,9 +72,22 @@ It is detectable, and that is what `verify` is for:
 ```
 $ ./scripts/keyring.sh verify
 cp.keyring.PROD_SUPABASE_SERVICE_ROLE_KEY    OK gate-intact
-cp.keyring.MAILGUN_API_KEY                   DEFEATED trusted_apps=1 ['/usr/bin/security']
+cp.keyring.MAILGUN_API_KEY                   DEFEATED trusted_apps=['/usr/bin/security']
 FAIL — at least one item has a trusted application: the gate is a NO-OP for it.
 ```
+
+It judges by comparing each item's ACL structure against a throwaway item created
+through the enrollment path itself, so it self-calibrates rather than hard-coding
+what a locked item looks like. Two subtleties are worth knowing, because both
+produced wrong verdicts before they were understood:
+
+- An **empty** application list means *no* application is trusted, so every read
+  needs a human. A **NULL** list means *every* application is trusted — the gate
+  is absent. They are opposites, and the second one reports as
+  `DEFEATED wide-open ACLs=N`.
+- macOS does not return an item's ACLs in a stable order, so the comparison is on
+  an order-independent multiset. A verdict that flickers between runs is a bug,
+  not noise — `keyring-selftest.sh` asserts stability over 8 consecutive runs.
 
 `verify` reads each item's ACL without decrypting it, so it never prompts and can
 be run any time. Exit codes: `0` all intact · `1` something not enrolled ·
