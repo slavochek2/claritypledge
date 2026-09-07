@@ -63,7 +63,7 @@ We walk at the pace of the slowest person, so nobody who wants to keep going get
 
 **Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash.
 
-[WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
+Plan for [QUOTED] of hiking, likely more. I have blocked until [END TIME] so nobody has to watch the clock, and we will almost certainly finish earlier. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
 Coffee or lunch after for anyone who feels like it.
 
@@ -100,9 +100,13 @@ Coffee or lunch after for anyone who feels like it.
   hands the group to every visitor and defeats the gate. The description carries only the one-line
   pointer above, which is also a reason to register. That line is not invented here — it is the
   wording the founder shipped by hand on the 2026-09-06 event; keep it.
-- **Duration is AllTrails' walk time × 1.4, plus 30 min for coffee, rounded up.** The group stops,
-  waits and leaves nobody behind; publishing the bare AllTrails estimate makes the end time a lie.
-  Say why in the description, in one clause.
+- **Two duration numbers, and they are not the same number.** The description quotes AllTrails'
+  walk time × 1.4 plus 30 min for coffee, rounded up. The event's stored duration is that plus an
+  hour of slack, rounded up to the next full hour — the OUTER bound, what someone should keep
+  free. A hard end time equal to a figure the copy calls "likely more" contradicts itself, and the
+  calendar invite is the version people actually plan around (founder, 2026-09-07: *"if its 6.5
+  hours then end is probably 17:00?"*). Name both in one sentence and let finishing early be the
+  good outcome.
 - **Flexibility is the promise, not a fixed route.** Replace any "we turn back whenever people have
   had enough" phrasing with the adapt-to-the-mountain framing above, and always name the
   shorter-walk option explicitly. Founder, 2026-09-07: *"we try to walk around the distance we

@@ -107,12 +107,23 @@ question the founder answered ten minutes ago is the friction this pipeline exis
   stops for coffee, takes breaks, waits at junctions and leaves nobody behind — it is reliably
   ~40% slower, and the founder asked for that to stop being a surprise (2026-09-07).
 - Add 30 min for the coffee stop at the meeting point, before walking starts
-- Round UP to the nearest 30 min
-- Example: 3.5 hr trail → 3.5 × 60 × 1.4 = 294, + 30 = 324 → **330 min**
+- Round UP to the nearest 30 min. **This is the number the description quotes**, not the event length.
+- **Then add an hour of slack and round up to the next full hour — THAT is `duration_minutes`.**
+  Example: a 3.5–4 hr trail → 4 × 60 × 1.4 = 336, + 30 coffee = 366 → 390 min quoted in the
+  description ("6.5 hours"), then 390 + 60 = 450 → rounded up to **480 min** stored on the event,
+  so a 09:00 start ends 17:00.
 
-**The multiplier goes in the description too, with its reason**, so the end time reads as
-deliberate rather than optimistic: *"Plan for about [TOTAL] in all. AllTrails says [WALK TIME] of
-walking, but we go slowly, take breaks and wait for each other, so it usually runs longer."*
+**Why two numbers.** The description says "6.5 hours, likely more" while the event page prints a
+single hard end time from `duration_minutes`. If that end time equals the quoted figure exactly,
+the page contradicts its own description and the calendar invite tells people they are free at
+15:30 when the copy just told them not to count on it. The stored duration is the OUTER bound —
+what someone should keep free — and finishing early is the good outcome. Founder caught this on
+2026-09-07: *"if its 6.5 hours then end is probably 17:00?"*
+
+**Say both in the description, in one sentence**, so the end time on the page reads as deliberate:
+*"Plan for [QUOTED] of hiking, likely more. I have blocked until [END TIME] so nobody has to watch
+the clock, and we will almost certainly finish earlier."*
+
 Never publish the bare AllTrails figure as the event length.
 
 **Point-to-point / long out & back (time-capped turn-around):**
@@ -188,7 +199,7 @@ We walk at the pace of the slowest person, so nobody who wants to keep going get
 
 **Bring:** trail shoes, [2L water / 1L], snacks, rain jacket, cap, mosquito spray, some cash.
 
-[WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
+Plan for [QUOTED] of hiking, likely more. I have blocked until [END TIME] so nobody has to watch the clock, and we will almost certainly finish earlier. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
 [Coffee or lunch after for anyone who feels like it.]
 
