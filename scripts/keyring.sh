@@ -41,15 +41,27 @@ if [ ! -r "${KEYRING_ROOT}/keyring-critical.txt" ]; then
   fi
 fi
 KEYRING_PY="${KEYRING_ROOT}/lib/keychain.py"
-KEYRING_REGISTRY="${KEYRING_ROOT}/keyring-critical.txt"
+# The registry names which credentials are critical — a target list — so it
+# lives in the gitignored private half, not in this public repo. Resolved via
+# git-common-dir so it is found identically from the main checkout and from any
+# worktree (worktrees do not get .private/). Template: keyring-critical.txt.example
+KEYRING_REGISTRY="${KEYRING_REGISTRY:-}"
+if [ -z "$KEYRING_REGISTRY" ]; then
+  _keyring_common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+  if [ -n "$_keyring_common" ]; then
+    KEYRING_REGISTRY="$(dirname "$_keyring_common")/.private/docs/keyring-critical.txt"
+  fi
+fi
 KEYRING_SERVICE_PREFIX="cp.keyring."
 
 keyring_service_name() { printf '%s%s' "$KEYRING_SERVICE_PREFIX" "$1"; }
 
 # Registered critical key names, comments and blanks stripped.
 keyring_keys() {
-  [[ -r "$KEYRING_REGISTRY" ]] || {
-    echo "keyring: missing registry $KEYRING_REGISTRY" >&2
+  [[ -n "$KEYRING_REGISTRY" && -r "$KEYRING_REGISTRY" ]] || {
+    echo "keyring: cannot read the critical-key registry." >&2
+    echo "  expected: ${KEYRING_REGISTRY:-<could not resolve the repo root>}" >&2
+    echo "  create it from scripts/keyring-critical.txt.example" >&2
     return 1
   }
   sed -e 's/#.*//' -e 's/[[:space:]]//g' "$KEYRING_REGISTRY" | grep -v '^$'

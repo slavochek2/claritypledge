@@ -55,8 +55,15 @@ plaintext copy, and neither proceeds with an empty value.
 | `./scripts/keyring-selftest.sh` | 19 non-interactive checks | no |
 | `./scripts/keyring-gate-proof.sh [KEY]` | interactive Allow/Allow/Deny proof | **yes, 3** |
 
-The registered set lives in [`scripts/keyring-critical.txt`](../../scripts/keyring-critical.txt)
-— names only; values are never committed.
+The registered set lives in `.private/docs/keyring-critical.txt`, which is **gitignored on
+purpose**: it names, in one place, exactly which credentials are worth stealing, and the plaintext
+copies still exist. The public repo carries only
+[`scripts/keyring-critical.txt.example`](../../scripts/keyring-critical.txt.example) — categories,
+no names. Values appear in neither.
+
+`keyring.sh` resolves the private path through git's common directory, so it is found identically
+from the main checkout and from any worktree (worktrees do not get `.private/`). Override with
+`KEYRING_REGISTRY=/some/path` if you need to.
 
 ## Never click "Always Allow"
 

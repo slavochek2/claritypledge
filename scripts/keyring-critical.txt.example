@@ -1,0 +1,25 @@
+# P1239 — template for the critical-credential registry.
+#
+# The real list is NOT in this repo. It names which credentials are worth
+# stealing, which is a target list, so it lives in the gitignored private half:
+#
+#     .private/docs/keyring-critical.txt
+#
+# Copy this file there and replace the categories below with the actual
+# environment-variable names for your deployment, one per line. Comments and
+# blank lines are ignored. Values never appear in either file — only names.
+#
+# The test for inclusion is "would losing this be unrecoverable or expensive?",
+# not "is it a secret". Most credentials should stay in the plaintext half:
+# friction spent on low-value keys is what gets the whole scheme switched off.
+
+# <the production database master key>
+# <the direct database connection string>
+# <the operations mailbox password>
+# <the transactional mail-sending key>
+# <the blog admin key>
+# <the social-publishing tokens>
+# <the platform management token>
+# <the source-control access token>
+# <the hosting / FTP password>
+# <the payments key>

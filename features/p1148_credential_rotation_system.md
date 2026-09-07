@@ -194,6 +194,45 @@ Argv exposure (`cmd --token "$VALUE"` is visible in `ps`), shell history, `sourc
 (the 2026-08-21 incident mechanism, still present in 11 files), verbatim error capture, and the
 vault's own retention tail inside backup snapshots.
 
+### Rotation must write the locked half, not just the plaintext file (P1239 coupling)
+
+[P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) moves the
+highest-value credentials into a store that demands a human authorization per read, while leaving
+the plaintext copy in place during migration. Rotation is the only thing in this repo that writes
+new credential values, so the ordering hazard that creates belongs to this spec:
+
+- A rotator that updates only the plaintext file leaves the locked copy holding the **old** value.
+  Consumers already migrated to the locked path then authenticate with a credential the provider
+  has just revoked. It presents as a broken gate rather than as a stale value, which is the
+  expensive kind of wrong.
+- Once the plaintext copies are removed, a rotator that writes only the plaintext file writes
+  nothing any consumer reads. The rotation reports success and changes nothing.
+
+So a rotator for a credential in the locked set must write **both** copies while both exist, and
+the locked copy alone afterwards, verifying by reading the value back. The read-back costs one
+human authorization per rotated credential — consistent with this spec's existing position that
+mint and paste are human-only steps anyway.
+
+Two consequences:
+
+- **The registry needs a "locked" flag.** The driver cannot infer it: whether a credential sits in
+  the locked store is machine-local state, not a property of the credential.
+- **"Vault" now names two unrelated things.** This spec's vault is a short-lived rollback escrow
+  held during a swap; P1239's is a durable at-rest store. They must not be merged — an escrow that
+  demanded a human authorization per read would be unusable mid-swap, which is exactly when it is
+  needed.
+
+### A second local store the inventory does not yet reach
+
+Scope here has assumed a single env file. A second local configuration store holds four live
+secrets outside it, one of them already duplicated across both. Identifiers and paths are in the
+private security log, not in this file.
+
+Whatever P1239 decides about *guarding* those four, **this spec must still rotate them**: a
+credential that cannot be rotated because the inventory never listed it is precisely the failure
+this spec exists to prevent. Raised 2026-09-04, carried here 2026-09-07 as the open inventory item
+rather than left in P1239, whose scope is guarding rather than rotating.
+
 ## Risks / Non-Goals
 
 ### Non-Goals
@@ -221,6 +260,10 @@ credential P1214 marked retired is either retired here with evidence, or its ver
 - [ ] Adding one credential requires one rotator file and one registry row, no driver edit —
       demonstrated by doing it
 - [ ] No secret value in the ledger, the terminal, `ps` output, shell history, or any commit
+- [ ] Rotating a credential that is in the locked set updates the locked copy too — proven by
+      reading the new value back, not by the rotator reporting success
+- [ ] A rotator that writes only the plaintext copy for a locked credential is **refused**, not
+      silently accepted — demonstrated by attempting one
 
 ## Related
 

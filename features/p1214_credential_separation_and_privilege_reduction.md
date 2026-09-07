@@ -253,6 +253,12 @@ for values; this applies it to the registry.
   2026-08-28 and is verified dead (401 on 5/5, re-probed 2026-09-01).
 - Do NOT sandbox or containerize the interactive agent session — evaluated 2026-09-01 and
   rejected: it needs the repo, MCP servers and browser, and would still hold the same credentials.
+  **Narrowed 2026-09-07, deferred not dropped.** A syscall-level read block on a few named paths is
+  not confinement, and half the objection above — "would still hold the same credentials" — is
+  precisely what P1239 removes for the locked set. Whether the narrow form falls inside this
+  rejection is a founder call, not an implementer's. Do not relitigate the two mechanisms already
+  ruled out by measurement; they are recorded in
+  [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) Open Question 4.
 - Do NOT change RLS policies. This is credential scope and lifetime only.
 
 ## Done-When

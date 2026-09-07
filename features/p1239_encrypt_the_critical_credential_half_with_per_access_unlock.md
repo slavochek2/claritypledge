@@ -233,8 +233,12 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
    biometric variant it had in mind is paywalled while a better-than-expected non-biometric variant
    works today.
 2. **What counts as critical.** Resolved to all five proposed categories plus the local
-   the direct-DB credential — the two zero-use categories are free to include. **Still needs a
-   founder pass** over the full key list for anything the proposed set missed.
+   the direct-DB credential — the two zero-use categories are free to include. **CLOSED 2026-09-07** by the founder pass, over a
+   freshly enumerated list rather than the stale count in this spec (see question 6). Four
+   categories were added: the platform management token — which can do anything to the database,
+   including things the prod master key cannot — plus source-control write access, the hosting
+   password, and the payments key. Twelve credentials are now locked. Identifiers live in the
+   private registry, not here.
 3. ~~**Does the window need to be visible while open?**~~ **CLOSED** — no window, nothing to display.
 
 4. **Which mechanism guards the locked half at READ time — and one that is now ruled out.**
@@ -271,12 +275,21 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
    credentials") is exactly what THIS spec removes. Whether the narrow form is in or out of P1214's
    rejection is unresolved and is a founder call, not an implementer's.
 
+   **Routed 2026-09-07** to P1214's Non-Goal, where the rejection it contests actually lives.
+   Deferred, not dropped; the two ruled-out mechanisms above stay recorded here so the next reader
+   does not re-measure them.
+
 5. **A second credential location this spec does not cover.** Scope is `.env.local`, but another
    local config store holds four live secrets outside it — two OAuth values, a mail app password
    and a bot token; the file and variable names are in `.private/docs/security-log.md`. One of the
    four is duplicated across both stores, so a copy is already redundant. The founder proposed
    folding these into `.env.local` on 2026-09-04; that was **not** done, because it would move four
    secrets from a comparatively guarded store into the unguarded one. Open: do these join the critical half, get their own guard, or stay put?
+
+   **Routed 2026-09-07** to [P1148](p1148_credential_rotation_system.md) as an inventory item.
+   Guarding them is still open here; *rotating* them is unambiguously P1148's, and a credential
+   that cannot be rotated because no inventory ever listed it is the failure that spec exists to
+   prevent.
 
 6. **Key-count drift.** This spec says 72 keys; the file held **78** on 2026-09-04. The founder pass
    in question 2 should work from a freshly enumerated list, not the number recorded here.
