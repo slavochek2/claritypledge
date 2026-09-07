@@ -90,6 +90,28 @@ scheduler tables hold nothing relevant to this repo.
 > `.private/docs/security-log.md` (gitignored), per this repo's rule on keeping unpatched
 > infra mechanics out of public files. The reasoning above does not depend on them.
 
+### A second env file holds a second copy of the same authority (found 2026-09-07)
+
+The scope of this spec is one env file. The prod-tier env file — a separate, gitignored file that
+worktrees do not receive — carries its **own, different** copy of the platform management token.
+Verified live: the copy inside this spec's scope can enumerate and manage **both** the test and the
+production project. Management tokens of this kind are account-wide, not project-scoped, so
+"test-tier" describes which file a token sits in, not what it can reach.
+
+Two consequences, and the second is the one that bites:
+
+1. Locking the in-scope copy was still correct — it is genuinely account-wide authority.
+2. **It does not remove standing production admin access.** The other file grants the same thing to
+   anything that can read it, unguarded. This is the same shape as the CI-side copy described
+   above: a second location holding equivalent authority that this spec does not reach.
+
+So the honest claim for this spec remains the one already stated for the CI copy — it removes the
+*guarded* file's standing readability, not standing production access as such. Whether the
+prod-tier file joins the locked half, gets its own guard, or is reduced in privilege instead is
+unresolved; the privilege-reduction framing belongs to
+[P1214](p1214_credential_separation_and_privilege_reduction.md). Identifiers are in the private
+security log.
+
 ## Appetite
 
 **Blast radius: high** — a bug that loses the encrypted half loses production access. **Reversibility:
