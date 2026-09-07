@@ -6,6 +6,103 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: P1263's mechanism was right and its attribution was wrong — the guard it blamed had been in place for four months
+
+**Context:** P1263 named `scripts/test-git-ops-extensions.sh:75` as the cause of four `core.bare`
+flips, on the strength of a sandbox reproduction. The mechanism reproduced cleanly and is real:
+with `GIT_DIR` set, `git init --bare` with no path flips `core.bare` to `true` on whatever repo
+`GIT_DIR` names; with an explicit path it does not; a plain `git init` does not either. Three
+discriminating controls, one verdict each — the probe was not blind.
+
+**What the reproduction could not see is whether that mechanism could fire at the accused call
+site.** Line 32 of the very same file runs
+`unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR`, unconditionally,
+in the same process, about forty lines above the accused `git init`. It has been there since
+`3dc1bdb32` (2026-04-22) — the commit that created the file, four and a half months before the
+incident. `GIT_DIR` was already empty at that call site, so the no-path form had nothing to
+redirect it.
+
+**A repo-wide audit found no writer at all.** Every `git init`/`git clone` under `scripts/` was
+checked: three `--bare` sites, two already path-explicit, the third guarded by that unset. And
+`grep -rn 'core\.bare'` across all `.sh`/`.py`/`.mjs` returns no writer. **No code path in this
+repository can currently set `core.bare = true` on the main checkout.** The four flips came from
+somewhere outside that surface.
+
+**Decision:** Ship the P1263 fix as **hardening plus a detector, not as the cure**, and say so in
+the spec and the commit message rather than closing the incident as solved. The call site is now
+path-explicit (safe on its own terms, not dependent on a guard forty lines away) and the canary
+asserts it did not mutate the invoking repo — so a recurrence *names the culprit* instead of
+costing an hour of misattributed debugging. The 2026-09-07 [technical] entry above states the
+cause as found; **it is superseded on that point** and its rule (name the path explicitly) still
+stands.
+
+**Alternatives rejected:** Closing P1263 as fixed — the ACs all pass, and passing them proves the
+canary is now safe, not that it ever was the cause. Skipping the fix because it is not the cause —
+the call site was one careless edit away from real, and the detector is the part that pays off.
+
+**Consequences:** A generalisable check for accepting any root cause that names a call site: the
+sandbox proves the *mechanism*; it says nothing about whether the *preconditions hold at that
+line*. Read the guards between the entry point and the accused statement, and date them against
+the incident. This is the read-only half of epistemic gate 2 — the cheapest disproof of "line N did
+it" was `grep -n GIT_DIR <file>`, which costs one command and was never run.
+
+A masking effect worth recording, because it would send a future investigator the wrong way:
+restoring the full pre-P1263 shape (unset removed **and** the no-path form) does **not** leave
+`core.bare = true`. The canary's later no-path `git init -q` is redirected by the same `GIT_DIR`
+and re-initialises the victim as non-bare, resetting the flag. The intermediate damage is real (the
+scratch `origin.git` is never created, and the run dies later at an unrelated-looking push error),
+but any reproduction that checks `core.bare` only at the end reads "not reproduced".
+
+**References:** [decisions.md](decisions.md) 2026-09-07 [technical] "`cd` does not scope git",
+2026-08-20 and 2026-08-11 `core.bare` entries, `features/p1263_bare_init_in_canary_flips_core_bare_on_the_real_repo.md`
+
+---
+
+## 2026-09-07 [technical]: A second `trap ... EXIT` silently replaces the first — a guard present in the source and absent at runtime
+
+**Context:** P1263 added invariant M to `scripts/test-git-ops-extensions.sh`: an assertion that the
+canary has not mutated the invoking repository's git config. It was installed as a single
+`trap ... EXIT` near the top of the file. The file re-arms `trap ... EXIT` twice further down
+(around lines 391 and 435) — so the top-level trap was replaced and never ran. Nothing failed; the
+suite went green. The only signal was the *absence* of the expected `PASS: M` line from an
+otherwise-complete run.
+
+**Decision:** The assertion is a named function called from **every** trap body in the file, with a
+comment at the definition instructing future editors to keep the call in any new trap. Two further
+corrections came from an adversarial review, both verified by command before acting:
+
+- **The affirmative PASS is gated on a `CANARY_COMPLETED` flag**, not on `$?`. On SIGTERM the trap's
+  `rc=$?` reads `0` (the last command succeeded), so an aborted run printed
+  `PASS: M: invoking repo config untouched` for a suite that died at invariant J. Verified:
+  `TERM exit=143`, suite-completed count `0`, `PASS: M` count `1` before the fix and `0` after. The
+  FAIL path is deliberately **not** gated — a mutation must be reported however the run ends.
+- **Scope is the `core.`/`extensions.` config namespace, not all of `config --list --local`.** The
+  broader hash was proposed and rejected: a concurrent session setting branch upstream tracking
+  writes `branch.<name>.{remote,merge}` into the same shared config while the canary runs, so it
+  would fail on other people's legitimate work. Verified both directions — a simulated concurrent
+  `branch.*` write during a run exits 0, a `core.bare` flip exits 1. The accepted trade-off is that
+  a stray `git remote add` slips past; no routine workflow writes `core.*`, which is what a rogue
+  `git init` touches.
+
+**Alternatives rejected:** One trap at the top (silently replaced). Hashing the whole local config
+(false positives on concurrent sessions — epistemic gate 7c: a new gate must be run against the
+workflows that already exist, not only against inputs it should reject). Printing
+`config core.bare unset` as the recovery hint when the pre-state was unset — that command
+*succeeds* (`rc=0`) writing the literal string `unset`, after which every read fails with
+`fatal: bad boolean config value`; it now emits `config --unset core.bare`.
+
+**Consequences:** When adding a guard to an existing shell script, `grep -n '^\s*trap ' <file>`
+before assuming an EXIT trap installed at the top will run. This is the same defect class as P1263
+itself — a guard that is present in the source and absent at runtime — which is why it is worth a
+line here rather than a comment in one file. Complements the 2026-05-30 entry on EXIT traps not
+gating on `$?` and referencing only defaulted script-scope names.
+
+**References:** `scripts/test-git-ops-extensions.sh` (invariant M),
+`features/p1263_bare_init_in_canary_flips_core_bare_on_the_real_repo.md`,
+[decisions.md](decisions.md) 2026-09-07 [process] "P1263's mechanism was right"
+
+---
+
 ## 2026-09-07 [process]: `commit-to-main`'s "this warning cannot fire today" tripwire fired — a co-tenant file entered the commit between the exact-match guard and `git commit`
 
 **Context:** Committing five files through `./scripts/git-ops.sh commit-to-main` produced `requested 5 path(s); the commit records 6 file(s)` plus the WARNING beneath it. The sixth was `scripts/test-git-ops-extensions.sh` — a co-tenant's in-flight edit, unrelated to this change, and almost certainly belonging to the P1260 `/weekly` commit that landed as this commit's own parent.
