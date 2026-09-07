@@ -1,5 +1,5 @@
 ---
-status: uat
+status: all-done
 type: bug
 rank: 5
 created_date: '2026-09-07'
@@ -7,8 +7,8 @@ tags:
   - events
   - email
   - infrastructure
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
+completed_at: 2026-09-07
 ---
 
 # P1256: event emails were never dispatched, and the grace window closed mid-event
