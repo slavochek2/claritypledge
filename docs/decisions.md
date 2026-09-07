@@ -161,7 +161,7 @@ before trusting what the importer produced.
 **References:** [.claude/commands/slava/script/claude-sync-download.md](../.claude/commands/slava/script/claude-sync-download.md) ·
 [scripts/generated/claude-sync-download.sh](../scripts/generated/claude-sync-download.sh) ·
 [.claude/commands/slava/maintain/claude-conversations-to-cp.md](../.claude/commands/slava/maintain/claude-conversations-to-cp.md) ·
-`~/projects/private/claude-conversations/import-conversations.py` (private repo) ·
+the conversations-archive importer (private repo) ·
 this file, 2026-07-29 `[process]` "Record the non-recording"
 
 ---
