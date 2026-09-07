@@ -180,6 +180,20 @@ off by not calling it; Google sign-in is untouched throughout. Work happens on a
    **UNTESTED** — the falsifier is a Done-When above and gates rollout.
 2. Should the existing GoTrue/Brevo confirmation mail be disabled once Mailgun is proven, or should
    both send? Deliberately deferred until the rig produces a measurement.
+3. **How the Mailgun path is wired — found during implementation, not anticipated by this spec.**
+   Following `request-letter-response-signin` literally means adding a **fourth**
+   anonymously-callable mail-sending edge function. `features/p1225_no_rate_limit_on_anon_mail_sending_functions.md`
+   (open, severity medium, filed 2026-09-01) records that the existing three have **no per-IP or
+   per-target rate limit at all**, so this would knowingly widen a live security defect.
+
+   The alternative is Supabase's **Send Email Hook**: GoTrue calls our function for every auth
+   email and we send it via Mailgun. It adds no anon-callable endpoint, keeps GoTrue's own rate
+   limits in front, and covers login/signup/recovery in one place rather than signup only.
+   Its cost is that it **replaces** GoTrue's sending rather than running beside it, which
+   contradicts the "nothing is switched off" property this spec leans on — so it is a founder
+   call, not an agent one. P608 rejected this hook in 2026-03-30 as "overkill at current volume";
+   that judgement predates the Outlook reproduction and should be re-taken on the new evidence,
+   not inherited.
 
 ## Related
 
