@@ -267,43 +267,51 @@ shared invariant is named here because neither spec previously owned it.
       Scenarios 1-3 and 4-8 use the **same** fake SHAs, so "allowed" is a discriminating result
       rather than a uniform pass.
 
-- [~] An aborted `push-docs` run leaves no `staging/*` ref on `origin`. **Structurally verified,
-      not live.** A live run needs a real push to `origin`, which needs founder authorization.
-      `scripts/test-push-snapshot-pinning.sh` test 9 asserts, in **both** promote functions, that
-      the declined-promote branch deletes the staging ref **before** `release_main_lock` — the
-      ordering is the assertion, because main.lock is what makes the delete safe. Watched to fail:
-      removing the delete from `cmd_push_docs` alone turns the run red (exit 1) while
-      `cmd_ship_to_prod` still passes.
+- [x] An aborted `push-docs` run leaves no `staging/*` ref on `origin`. The literal verification
+      command now passes:
 
-      **Scope correction, deliberate:** the timeout and red-CI paths still KEEP their ref. Those
-      messages tell the operator to promote manually *using that ref*, so deleting it would break
-      the documented recovery. The spec allowed either "delete or record it somewhere a sweep will
-      find it" — those four sites now take the second branch, and test 9 pins the asymmetry so it
-      cannot be quietly erased.
+      ```
+      $ git ls-remote origin 'refs/heads/staging/*'
+      (empty)
+      $ git ls-remote --heads origin
+      1b104d1ac...  refs/heads/main
+      ```
+
+      **Read this honestly: the empty result is post-D2 cleanup, not the output of a deliberately
+      aborted run.** The declined-promote path cannot be reached non-interactively — it sits behind
+      a TTY read — so it is asserted structurally instead (`test-push-snapshot-pinning.sh` test 9:
+      in BOTH promote functions the delete precedes `release_main_lock`, watched to fail).
+
+      **Investigating that unreachability found the actual defect, which no test would have.**
+      Both promote functions push the staging ref and only *afterwards* discover they cannot
+      prompt, so **the no-TTY abort leaked a ref on every agent-driven run** — silently: not one of
+      the four deliberate "left for inspection" sites, and printing no message at all. It is the
+      most likely origin of the two `staging/doc-*` refs measured on `origin`. `cmd_push_docs` died
+      at its `[[ -t 0 ]]` guard without reclaiming; `cmd_ship_to_prod` had no guard at all, so
+      `exec < /dev/tty` failed under `set -e` and leaked `staging/pN`. Both now reclaim while
+      `main.lock` is held.
 
 - [ ] `/weekly` prints the branch-and-remote-refs report in its Evidence Picture — one real run.
       **Step 2.4.6 is written and committed to `main` (`774dca871`)**; the command it runs is the
       one whose output is pasted above. A full `/weekly` is the founder's periodic ritual (it hits
       Search Console, analytics and GCP spend) and was not triggered from inside `/dev`.
 
-- [ ] The three refs currently on `origin` are resolved per D2. **D2 answered: delete all three.**
-      Blocked on push authorization — deleting a remote ref is a push. Commands staged below.
+- [x] The three refs currently on `origin` are resolved per D2 — **all three deleted**
+      2026-09-07, after `push-on`. Two independent checks agreed immediately beforehand: the
+      sweep classified each `MERGED`, and `git rev-list --count origin/main..<sha>` returned 0
+      for each. `origin` now holds only `refs/heads/main`.
+
+      Incidental live confirmation: Layer 0 allowed all three deletions, exercising the
+      deletion-allowance branch against the real remote rather than a fixture.
 
 - [x] The Withdrawn Mechanism paragraph is filed in `docs/decisions.md` — 2026-09-07 [technical],
       "Publish-then-scan on a public remote is ACCEPTED; the control moves from content to ref
       class". A second entry records the oracle's design and the three defects found building it.
 
-### Not done — needs a push, which needs you
+### Still open
 
-D2's deletions. Each ref classifies MERGED, so no content is lost:
-
-```
-git push origin --delete staging/doc-20e894b89
-git push origin --delete staging/doc-d7eb148d
-git push origin --delete presi/habit-slide-3step
-```
-
-Deleting them does **not** un-publish anything (Invariants) — this is cleanup debt, not remediation.
+- **One real `/weekly` run.** Step 2.4.6 is committed to `main` (`774dca871`) and the command it
+  runs is the one whose output is pasted above; the ritual itself has not been run.
 
 ## Alternatives Considered
 
