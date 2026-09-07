@@ -34,6 +34,33 @@ Chat does not say: a two-paragraph pitch for each trail.
 
 ## Steps
 
+### 0. Read the standing preferences — do not re-interrogate
+
+Read `.private/hike-preferences.json` FIRST. It holds what the founder has already decided and
+does not want to be asked again: the day and meet time, the distance band, how far from the city,
+the cafe gate's thresholds, the never-re-offer rule, the banner requirement, and what this skill
+may do without checking in. Each entry carries the date and the words it came from.
+
+> *"improve the skills so next time the next hike will not need me to repeat and I am less in the
+> loop if needed"* — founder, 2026-09-07
+
+**Ask only what the file does not cover**, and ask it in ONE message at a moment he is already
+deciding — never as a separate interruption. In a normal week that is zero questions, or one:
+the banner photo, if the file's answer has gone stale.
+
+**A contradicted preference is updated here in the same turn.** When he says "too long", "further
+out", "not that one again", write it into the file with his words and today's date before
+continuing. A preference obeyed for one run and then forgotten is the interrogation rebuilding
+itself.
+
+**What the file does not do is remove decisions.** He still picks the trail from open tabs, picks
+the cafe from open tabs, approves the description, and clicks Create. What it removes is
+everything that used to happen before those four moments.
+
+If a preference looks wrong for this particular week — a public holiday, he is away, he has asked
+for something unusual — say so in one line and proceed on the exception. Do not silently override
+the file, and do not stop for permission to follow it.
+
 ### 1. Load the exclusions — before searching, not after
 
 Read `.private/event-exclusions.json` (gitignored; create from the schema below if absent).
@@ -69,11 +96,19 @@ the founder want this?" and never expires. `trail-status.json` answers "is this 
 safe right now?" and **always** expires — that is why every entry carries `checked_on` and
 `recheck_after`.
 
+- **Test `areas[]` too, not only `trails[]`.** Match a candidate's name, URL **and its park or
+  reserve name** against `areas[].match`. An `areas` verdict of `blocked` drops the candidate
+  exactly like a trail verdict — that is the only thing standing between a cached park closure and
+  a brand-new trail inside the same closed park, which by definition is absent from `trails[]`.
 - `verdict: blocked` → drop before opening a tab, exactly like an exclusion.
 - `verdict: conditional` → drop unless the named `condition` has been met. Do not offer it "with a
-  caveat"; a caveat in chat is not a permit.
+  caveat"; a caveat in chat is not a permit. **Only the founder lifts a `conditional`, in the same
+  turn, and the lift is written back as a new `findings` line carrying the date and the source.**
+  You cannot satisfy the condition by deciding a forum post counts.
 - `verdict: clear` **and** today is before `recheck_after` → no re-verification needed. This is the
   whole point of the file: a trail checked in September should not cost five searches in October.
+  **Exception: an entry whose `findings` contain an UNVERIFIED or ungraded item is re-checked
+  regardless of the date** — otherwise "clear" quietly carries an open question for 90 days.
 - `clear` but **past** `recheck_after`, or **absent from the file entirely** → run the check below,
   then write the result back before the candidate is offered.
 
@@ -125,33 +160,6 @@ announcement, its access required registration starting at park headquarters 100
 weeks earlier the department had published a statement about hikers being threatened on that exact
 route. The cafe gate built the same day worked perfectly. Nothing checked the trail.
 
-### 2. Read the standing preferences — do not re-interrogate
-
-Read `.private/hike-preferences.json` FIRST. It holds what the founder has already decided and
-does not want to be asked again: the day and meet time, the distance band, how far from the city,
-the cafe gate's thresholds, the never-re-offer rule, the banner requirement, and what this skill
-may do without checking in. Each entry carries the date and the words it came from.
-
-> *"improve the skills so next time the next hike will not need me to repeat and I am less in the
-> loop if needed"* — founder, 2026-09-07
-
-**Ask only what the file does not cover**, and ask it in ONE message at a moment he is already
-deciding — never as a separate interruption. In a normal week that is zero questions, or one:
-the banner photo, if the file's answer has gone stale.
-
-**A contradicted preference is updated here in the same turn.** When he says "too long", "further
-out", "not that one again", write it into the file with his words and today's date before
-continuing. A preference obeyed for one run and then forgotten is the interrogation rebuilding
-itself.
-
-**What the file does not do is remove decisions.** He still picks the trail from open tabs, picks
-the cafe from open tabs, approves the description, and clicks Create. What it removes is
-everything that used to happen before those four moments.
-
-If a preference looks wrong for this particular week — a public holiday, he is away, he has asked
-for something unusual — say so in one line and proceed on the exception. Do not silently override
-the file, and do not stop for permission to follow it.
-
 ### 3. Search AllTrails via Chrome
 
 Use `claude-in-chrome`. Search AllTrails filtered to the city and the constraint band from
@@ -196,12 +204,23 @@ every platform, and a wrong or closed one strands people on a mountain.
    ```
 
    Read `total-time` (seconds) from the response. **≤ 900 s passes.** `track-length` gives metres
-   for the description. Note the argument order is lon,lat — reversed coordinates return a
-   plausible-looking route through the wrong country.
+   for the description.
+
+   **No `total-time` in the response — empty body, an error object, a timeout — means the cafe
+   FAILS**, and say plainly that the router was unreachable. Never fall back to straight-line
+   distance or an estimate; that is the measurement this gate exists to replace.
+
+   **Reject any result with `track-length` > 3000 m even if the time passes.** The argument order
+   is lon,lat, and a reversed pair returns a *successful* route through the wrong country — so the
+   warning alone catches nothing. A walk of 15 minutes cannot cover 3 km; a continent-scale
+   track-length is the reversed-coordinate signature.
 
 2. **Open at the meet time, on the event's weekday, per Google.** Open the place page and read the
    day's `aria-label` (e.g. `"Sunday, 8 AM to 5 PM"`). **A cafe with no published hours fails**,
-   however good its rating — "probably open" is not a meeting point. OpenStreetMap's
+   however good its rating — "probably open" is not a meeting point. **And check the place page for
+   a "Temporarily closed" or "Permanently closed" label: either fails regardless of the hours row**,
+   which a closed business keeps publishing. Step 1b already demands this of the trailhead POI;
+   the meeting point earns it more, because it is the address printed on five platforms. OpenStreetMap's
    `opening_hours` tag is a lead for finding candidates, never the verdict.
 
 **Prove the gate both ways before trusting it.** Run one cafe you expect to pass and one you
@@ -210,7 +229,12 @@ verdict means nothing.
 
 Then:
 
-1. Get the trailhead coordinates (AllTrails schema.org JSON — `publish-run` step 2 has the extraction).
+1. Get the coordinate people actually start from. **This is the access point identified in step
+   1b question 3, not the AllTrails geo point** — they differ, and the difference is the whole
+   failure: the status file already records a trail whose treks must begin at park headquarters
+   while its AllTrails pin sits a valley away. Fall back to the schema.org geo (`publish-run` step
+   2 has the extraction) only when 1b found no separate access point, and **print which one you
+   used** next to the measured minutes.
 2. Search Google Maps for cafes **and restaurants** near those coordinates, biased to the **start**
    of the route unless the founder asked for one at the **end** (a one-way hike ending at a cafe was
    an explicit ask on 2026-08-31 — honour which end he named).
@@ -268,6 +292,9 @@ Shape:   <distance> <type>, <elevation>m climb, ~<time>
 Meet:    <cafe name as Google spells it> — <maps pin url>, <time>
 Date:    <date, time, Asia/Bangkok>
 Photo:   <local path | skipped>
+Status:  <trail-status verdict, checked_on, and any finding publish-run must disclose>
+Walk:    <measured minutes cafe → access point, and which coordinate was used>
+Hours:   <the cafe's hours on the event's weekday, as Google states them>
 Excluded this run: <name (reason)>, ...
 ```
 

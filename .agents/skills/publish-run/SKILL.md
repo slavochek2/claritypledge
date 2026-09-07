@@ -168,7 +168,7 @@ and what must not come back:
 
 - The "**How this works**" philosophy paragraph ("this is about time on the
   trail, not distance or finishing a route"). One clause does the same job:
-  *"Relaxed pace, we turn back whenever people have had enough."*
+  *"We walk at the pace of the slowest person. If you would rather do a shorter day, turn back whenever you like."*
 - Section headers for their own sake — "**The direction**", "the full route, we
   won't necessarily do all of it", "Come if you're up for it".
 - **Entrance fees.** Do NOT mention a fee, an amount, or a range, even when
@@ -179,32 +179,12 @@ and what must not come back:
   "expect mosquitos"). Keep a hazard only if it changes what someone packs or
   whether they come. Rain probability: keep. Real closure: keep.
 
-Facts stay; framing goes. Template:
+Facts stay; framing goes.
 
-```
-Morning [hike/run] this [DAY]. Everyone welcome.
-
-**[TRAIL NAME]**, [PARK NAME]
-[DISTANCE] [TYPE], [ELEVATION]m climb, about [TIME] of walking. [2-3 HIGHLIGHTS]. [ONE LINE ON CHARACTER, e.g. "One of the gentler trails up there."]
-[View on AllTrails]([ALLTRAILS_URL])
-
-**Meet [TIME] at [VERIFIED PLACE NAME]**, [AREA].
-[Directions]([PIN_URL])
-
-[ONE LINE: what happens at the meeting point, parking.]
-
-We aim for the full loop, but the mountain decides. There are many paths here, and when one does not work we take another. That is usually the best part of the day.
-
-We walk at the pace of the slowest person, so nobody who wants to keep going gets dropped. If you would rather do a shorter day, turn back whenever you like.
-
-**Bring:** trail shoes, [2L water / 1L], snacks, rain jacket, cap, mosquito spray, some cash.
-
-Plan for [QUOTED] of hiking, likely more. I have blocked until [END TIME] so nobody has to watch the clock, and we will almost certainly finish earlier. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
-
-[Coffee or lunch after for anyone who feels like it.]
-
-*Not a commercial or guided hike. Nobody charges and nobody leads. I walk it like everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
-```
+**There is no template here on purpose.** The description base lives in
+`docs/events/series/social-hike.md` and nowhere else — a second copy in this file drifted from it
+within one session and silently dropped the reviewer quotes the series doc calls a rule that must
+not be undone. Fill the base from that file; do not reconstruct it from memory or from this skill.
 
 If the founder supplied a post-activity topic, add one line for it. If not, omit
 the section entirely — do not invent one.
@@ -265,7 +245,7 @@ payload = {
     "datetime": "[ISO 8601 UTC]",
     "duration_minutes": COMPUTED_DURATION,
     "timezone": "Asia/Bangkok",
-    "location": "[PLACE NAME], [CITY], Thailand",
+    "location": PIN_URL,   # the Google Maps pin URL itself — see the note above; never plain text
     "host_id": "a99042ef-e740-446a-8734-389c8589cc17",
     "max_attendees": None,
     "status": "upcoming"
@@ -331,8 +311,13 @@ WhatsApp group", coloured and labelled per provider, derived from the link's hos
 registering they see a locked state that says the link exists and why to register, never the link
 itself.
 
-If no link was supplied, skip this step. Do not invent one and do not carry over the previous
-event's group link without asking — a stale invite sends people to last month's chat.
+If no link was supplied, skip this step and do not invent one.
+
+**Reusing the previous event's link is the default, but never silently.** Fetch it from the
+previous event's `event_private_info` row, **open it and confirm it still resolves to a live
+invite** (WhatsApp invites can be rotated or revoked), then state in one line which event it came
+from and let the founder confirm. A dead invite gives registered attendees a broken button and no
+cancellation channel — worse than no link at all, because it looks like it works.
 
 **Verify before promoting.** Read the row back and confirm `group_chat_url` is set:
 

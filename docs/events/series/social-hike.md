@@ -173,7 +173,7 @@ ONLY platform formatting. Edit here to change all platforms at once. Placeholder
   {short_url}     → claritypledge.com/events/hike  (auto-redirects to the latest hike)
   {register_cta}  → the register_cta frontmatter value
   {trail_name} {park} {distance} {type} {elevation} {walk_time} {highlights}
-  {cafe_name} {area} {meet_time} {date} {altitude_clause}
+  {cafe_name} {area} {meet_time} {date} {altitude_clause} {duration}
 Keep it plain text (no markdown) — the most restrictive platform wins.
 -->
 
@@ -184,7 +184,7 @@ Morning hike this Sunday, {date}. Everyone welcome, no experience needed.
 
 {trail_name}, in {park}
 Meet {meet_time} at {cafe_name}, {area}. Coffee first, then we walk to the trailhead. Plan for about {duration} total.
-{distance} {type}, {elevation}m of climb, about {walk_time} of walking. Relaxed pace, we turn back whenever people have had enough.
+{distance} {type}, {elevation}m of climb, about {walk_time} of walking. Relaxed pace. We wait for whoever is slowest, and you can cut it short whenever you like.
 {highlights}
 Bring trail shoes, 2L of water, snacks, {altitude_clause}a rain jacket, a cap, mosquito spray and some cash.
 Coffee or lunch after for anyone who feels like it.
