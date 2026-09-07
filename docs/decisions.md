@@ -6,6 +6,142 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: Every operator-minted sign-in link was unredeemable, and the 2026-08-16 "test-infrastructure-only" verdict was wrong
+
+**Context:** Someone tried three times to register for an event and never got in. Investigating, a
+fresh `admin.generateLink({type:'magiclink'})` link was minted and opened: it rendered "Link Expired
+or Invalid" on a valid, unexpired token, with **zero** Supabase keys in `localStorage`. Mechanism,
+read from `node_modules/@supabase/auth-js` rather than inferred: `generateLink` returns an
+**implicit-flow** `#access_token=` URL, and `GoTrueClient` throws `AuthPKCEGrantCodeExchangeError`
+("Not a valid PKCE flow url") for an implicit callback URL whenever `flowType` is `'pkce'` —
+which `src/lib/supabase.ts` sets. So the refusal is by construction, not a race or an expiry.
+
+**This corrects the 2026-08-16 [technical] entry above**, which concluded P1086 was *"very likely
+test-infrastructure-only… not a latent production bug."* That grep asked whether any production
+code path calls `generateLink` **and redirects to `/auth/callback`** — no path did, so the check
+passed. But the defect is not about `/auth/callback`: it is that **no link this project can mint is
+redeemable anywhere**, so no operator can hand a stranded person a way in. The question the grep
+asked was narrower than the defect, and a passing narrow check read as an all-clear.
+
+**Decision:** Add a generic `/auth/verify?token_hash=` route (`src/auth/AuthVerifyPage.tsx`) that
+redeems the `hashed_token` half via `verifyOtp` — the mechanism already in production for letter
+responses (P684/P527) — then hands off to `/auth/callback`, which stays the **only** writer of
+profiles. Additive by construction: PKCE stays on, `/auth/callback` is untouched, and no existing
+flow routes through the new page. Verified end-to-end in a real browser before merge (real token →
+session established → landed signed in; replay → honest error, existing session preserved) and the
+route confirmed live on prod afterwards.
+
+**Alternatives rejected:** Adding "Pattern B" `setSession()` handling to `AuthCallbackPage` — it
+carries a do-not-modify-without-E2E header and the fix does not need it. Converting `/auth/callback`
+itself to `token_hash` — already rejected 2026-09-03 while the prefetch question is open; that
+rejection is about the callback and does not extend to a separate additive route beside it.
+
+**Consequences:** P1086's open fix-direction choice is unaffected — this closes the production half
+only. Two defects found in review of the new page are worth carrying as patterns: stripping the
+token from the URL **before** `verifyOtp` burns a still-unspent link on a network error and then
+tells the user it was already used (strip only after GoTrue answers); and an OTP-type allowlist that
+is a subset of the SDK's real `EmailOtpType` union silently downgrades valid types to `magiclink`,
+so GoTrue rejects a good link. **The prefetch hypothesis remains UNTESTED** and now gates P1258:
+Defender Safe Links executes JavaScript, so a test not run against a Defender tenant is a false pass.
+
+**References:** features/done/2026-06-10/p1257_signin_link_redeemable_and_signup_mail_off_brevo.md ·
+features/p1258_get_signup_mail_off_the_bulk_path.md · features/p1086_e2e_magic_link_tests_timeout_authcallback_missing_pattern_b.md ·
+decisions.md 2026-08-16 [technical] (the entry this corrects) · 2026-09-03 [technical] (P1240)
+
+---
+
+## 2026-09-07 [technical]: Outlook junks our signup mail while every authentication check passes — so SPF/DKIM/DMARC is settled, by evidence rather than argument
+
+**Context:** Reproduced on prod through the real signup UI using an aged Outlook account: the
+confirmation mail landed in **Junk Email** with its links **disabled** ("Show blocked content and
+enable links"), so the Confirm button is dead until the reader takes a second action. Microsoft's
+own verdict header on that message: `spf=pass`, `dkim=pass header.d=claritypledge.com`,
+`dmarc=pass`, `compauth=pass reason=100`.
+
+**Decision:** Record that **authentication is not the cause and no DNS change will help.** P608
+rejected SPF changes in 2026-03-30 on reasoning; this reproduction settles it on evidence, and the
+question should not be reopened without new evidence of the same kind. What remains as the live
+hypothesis — **unproven** — is a shared bulk sending IP plus bulk-marketing headers on transactional
+mail (`List-Unsubscribe-Post: One-Click`, `Feedback-ID`, `x-csa-complaints`), which the 2026-06-17
+entry already independently ruled a Promotions-tab signal.
+
+**Alternatives rejected:** Adding `include:spf.brevo.com` — refuted by `compauth=pass reason=100`
+on the junked message. Google-sign-in-only — would have blocked the very person who triggered this,
+who has no Google account. Supabase's Send Email Hook — its documented failure mode is `signUp`
+failing with **no `auth.users` row created** while mail may still send, which is strictly worse than
+today: that row is the only reason this incident was diagnosable and is what the new monitoring keys
+on. A fourth anonymously-callable send function — P1225 records the existing three as un-rate-limited.
+
+**Consequences:** (Status: proposed) The transport question is open in P1258 with pre-registered
+decision criteria; an aged Outlook mailbox now exists as a measurement rig with a baseline captured.
+Also unassessed and carried there: the transactional domain also sends Ghost newsletters and has
+live MX, so the reputation-contagion argument that killed P942 applies to putting signup mail on it.
+
+**References:** features/p1258_get_signup_mail_off_the_bulk_path.md ·
+features/done/2026-03-30/p608_magic_link_reliability.md · decisions.md 2026-06-17 · P942 entry
+
+---
+
+## 2026-09-07 [technical]: The secret scanner's second layer reported CLEAN on a file holding a real hardcoded secret
+
+**Context:** Found while widening the Layer-2 grep scan in `pre-commit-checks.sh` to allow a
+workflow to reference a secret **by name**. Probing the widened filter with a mixed known-good +
+known-bad file — one benign reference and one hardcoded value — returned **clean**. The cause is not
+the widening: the agent shell's `grep` is **ugrep**, where `grep -vq PATTERN` exits 1 whenever *any*
+line matches, rather than meaning "no line was selected". The pre-existing `process.env.` /
+`import.meta.env.` exclusions carried the identical defect.
+
+**Decision:** Test the filtered output for emptiness instead of relying on `-vq`; that is correct
+under every grep. Five controls now score correctly, including both mixed cases the old form missed,
+with 0 false positives across all 335 tracked files the layer scans. A second, narrower limit is now
+stated in the code rather than overclaimed: every exclusion applies **per line**, so a value sharing
+a line with a legitimate reference is filtered out with it — gitleaks (Layer 1) is the real backstop,
+and Layer 2 is defence in depth, never proof.
+
+**Consequences:** This is the second ugrep-semantics defect in this repo's gates (see the
+`${pipestatus}` note in `.claude/rules/epistemic.md` gate 7). **Any gate whose verdict depends on a
+`grep` flag's exit-code semantics should be probed with a known-good AND a known-bad control before
+being trusted** — a single-direction test passes on a blind gate. `.git/hooks/pre-commit` is a byte
+**copy** of the script, not the documented symlink, so a scanner fix does not reach the hook until
+someone re-syncs it; that gap blocked a legitimate commit for the length of a session.
+
+**References:** scripts/pre-commit-checks.sh (Layer 2 grep scan) · .claude/rules/epistemic.md gate 7
+
+---
+
+## 2026-09-07 [process]: A probe aimed at the wrong path returns absence, and absence was reported to the founder as safety
+
+**Context:** A spec containing re-identifying detail about a real person — a role plus a dated
+public event with a small attendee list, plus a mail provider — was pushed to a **public** repo.
+Checking the blast radius, `git show <sha>:features/done/2026-06-10/p1257_….md` was run against
+`origin/main` and returned *"path does not exist"*. That was read as **"the text is not public"**
+and reported to the founder as such. It was false: on `origin/main` the spec lived at the
+**unclosed** path `features/p1257_….md`, because the move to `done/` only happens locally at close.
+The text had been public for hours, not the fifteen minutes reported, and the mistaken all-clear
+delayed the remediation.
+
+**Decision:** For any exposure question, **search the tree, never a guessed path** —
+`git grep -i <token> origin/main` answers "is this published?" without depending on where the file
+sits. A path-addressed probe answers a different question ("is it at *this* location?") and its
+negative is not evidence of absence.
+
+**Alternatives rejected:** Rewriting public history to purge it — disproportionate for a role plus a
+mail provider, and the remediation push already removed the text from the current tree.
+
+**Consequences:** Generalises `.claude/rules/epistemic.md` gate 1 ("grep before asserting absence")
+to a case the gate does not currently name: a grep **was** run, and still produced a false negative,
+because the *locator* was wrong rather than the search missing. The tell is a probe whose negative
+result is indistinguishable from "I looked in the wrong place". Related and structural: P1260
+records that every push transits an ephemeral `staging/` branch that is published **before** the
+privacy check can run — this incident is a second occurrence of that hole, and the ordering, not
+operator care, is what needs fixing. Second-order note: the privacy review that caught the content
+was run **after** the push; running it before would have made the whole sequence unnecessary.
+
+**References:** features/p1260_remote_refs_publish_before_they_are_scanned.md ·
+.claude/rules/pii.md · .claude/rules/epistemic.md gate 1 · decisions.md 2026-09-04 [process]
+
+---
+
 ## 2026-09-07 [process]: Shortening prose is itself a distortion mechanism — measured, and it refutes the claim that simple prose is safer prose
 
 **Context:** The founder could not read the eight filed agent stories — *"it's too complicated language… make them super dumb, like what is the point so the 10-year-old or my grandmother can understand it."* Going into the rewrite the orchestrator told him simple prose *"has fewer places to hide an invention"* — that the dense clauses were where fabrications lived, so simplifying would improve accuracy as a side effect. Eight stories were rewritten (mean 33.2 → **10.8** words per sentence, 10 em-dashes → 0) and then checked by four independent readers against the full transcripts, with two seeded controls in the same prompt shape.
