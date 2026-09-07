@@ -6,6 +6,41 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: Closing a spec silently falsifies the blocker claims other OPEN specs make about it, and nothing looks (P1162/P1236)
+
+**Context:** P1162 closed today. P1236 — open, actively being edited in another session — carries a
+⚠️ item reading *"Gemini spend cap does not exist and the key is currently dead in prod"*, citing
+P1162 by filename, and calling it **"a hard blocker for the Gemini execution path, not a
+nice-to-have"**. All three of its factual legs are now false: the caps exist and are verified, the
+prod key is live on a capped project, and P1162 is not *"currently `status: week`, unshipped"*.
+Nothing in the close path noticed, because nothing looks.
+
+**Decision:** When closing a spec, grep the open specs for references to it and to the state it
+just changed — `grep -rln "pNNNN" features/*.md` plus the nouns of the thing that moved. Fix what
+you can; where the file belongs to live work in another session, say so to that session rather than
+editing underneath it. Here the referencing file had ~482 lines of a co-tenant's uncommitted edits,
+so it was flagged over the session channel instead of touched.
+
+**Alternatives rejected:** *Edit the other spec anyway* — it would have collided with in-flight
+work and, on the shared checkout, risked absorbing it. *Leave it — the reader will re-derive* —
+that is the 2026-09-05 rule below, which binds whoever eventually *acts* on the stale claim. It is
+the right backstop and it is not enough on its own: a false **hard blocker** does its damage before
+anyone acts, by making the spec look unstartable. Nobody re-derives a blocker they have decided to
+respect. *Add a gate to the close path* — not proposed: two open specs currently carry blocker
+cross-references, so recurrence is low and a gate would be mostly false positives.
+
+**Consequences:** This is the **producer** half of [decisions.md](decisions.md) 2026-09-05
+*"a parked spec's recorded root cause is a hypothesis that has decayed"* — that entry binds the
+consumer of a decayed claim; this one says the act of closing is what decays it, and the closer is
+the only party who knows. The asymmetry that makes it bite: a spec's blocker section is written to
+be **trusted and not re-checked** — that is its whole function — so it is the worst place in the
+repo for a fact to go stale. `Status: proposed`; the open loop is real and named, not closed:
+P1236 still carries the false blocker.
+
+**References:** features/done/2026-06-10/p1162_cap_claritypledge_gemini_spend.md ·
+features/p1236_server_side_live_transcription_for_rooms.md:557 ·
+[.claude/rules/git.md](../.claude/rules/git.md) "Volatile state decays"
+
 ## 2026-09-07 [process]: I rejected a reviewer's finding partly on a cost I never measured — and the measurement refutes me, not them (P1162)
 
 **Context:** A code reviewer said the liveness ping does not match what production sends and should
