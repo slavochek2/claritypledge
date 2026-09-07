@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000075
 workstream: C1
 created_date: '2026-09-07'
 tags: [auth, email, deliverability, magic-link]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-09-07
 ---
 
 # P1257: No sign-in link we mint is redeemable, and nothing tells us when someone is stranded
