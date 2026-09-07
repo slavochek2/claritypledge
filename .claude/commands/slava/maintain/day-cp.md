@@ -344,12 +344,21 @@ curl -s -X POST "https://api.supabase.com/v1/projects/besjtuodziykmjidubzw/datab
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
   --data-binary "$(python3 -c "import json,sys;print(json.dumps({'query':sys.argv[1]}))" "$CRON_SQL")" 2>/dev/null || echo "cron check FAILED — needs SUPABASE_ACCESS_TOKEN"
 
+EMAIL_FLOOR="2026-09-07T00:00:00Z"
 EMAIL_OVERDUE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
-echo -n "overdue_unsent_feedback: "; curl -s "${PROD_URL}/event_rsvps?select=id&feedback_scheduled_at=lt.${EMAIL_OVERDUE}&mailgun_message_ids-%3E%3Efeedback=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
-echo -n "overdue_unsent_reminder: "; curl -s "${PROD_URL}/event_rsvps?select=id&reminder_scheduled_at=lt.${EMAIL_OVERDUE}&mailgun_message_ids-%3E%3Ereminder=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+echo -n "overdue_unsent_feedback(since ${EMAIL_FLOOR}): "; curl -s "${PROD_URL}/event_rsvps?select=id&feedback_scheduled_at=lt.${EMAIL_OVERDUE}&feedback_scheduled_at=gt.${EMAIL_FLOOR}&mailgun_message_ids-%3E%3Efeedback=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+# LOWER BOUND, not decoration. Every row from the 2026-06→09 outage has a past
+# reminder_scheduled_at and an empty mailgun_message_ids, and those rows are
+# deliberately NOT recoverable — a "your event is tomorrow" email for an event that
+# already happened is worse than silence. Without a floor this counter would sit
+# permanently non-zero, i.e. permanently in its own documented alarm state, and a real
+# future outage would add +1 to a number already being ignored. That is the alert-fatigue
+# failure, in a check written because the last outage hid for three months. The floor is
+# the P1256 deploy date: only rows scheduled AFTER the cron was fixed can indict it.
+echo -n "overdue_unsent_reminder(since ${EMAIL_FLOOR}): "; curl -s "${PROD_URL}/event_rsvps?select=id&reminder_scheduled_at=lt.${EMAIL_OVERDUE}&reminder_scheduled_at=gt.${EMAIL_FLOOR}&mailgun_message_ids-%3E%3Ereminder=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
 # Stuck PENDING = the dispatcher claimed a row and then died before writing the Mailgun id
 # back. Distinct from the above: the cron IS running, but a send is failing mid-flight.
-echo -n "stuck_pending_feedback: "; curl -s "${PROD_URL}/event_rsvps?select=id&mailgun_message_ids-%3E%3Efeedback=eq.PENDING&feedback_attempted_at=lt.${EMAIL_OVERDUE}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
+echo -n "stuck_pending_feedback: "; curl -s "${PROD_URL}/event_rsvps?select=id&mailgun_message_ids-%3E%3Efeedback=eq.PENDING&feedback_attempted_at=lt.${EMAIL_OVERDUE}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
 
 echo -e "\n=== FUNNEL CSV ==="
 # Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
@@ -419,12 +428,15 @@ delivery time, so a row should never still be unclaimed after its moment has pas
   (`cron.job_run_details`), and both Vault secrets (`dispatch_event_emails_url`,
   `dispatch_event_emails_cron_secret`) — a missing secret makes the tick a logged no-op, which
   looks exactly like a healthy quiet run from the outside.
-- **These counts do not drain on their own.** `runDispatch` filters `scheduled_at > now()`, so
-  an overdue row is invisible to every future tick — fixing the cron does NOT clear the
-  backlog. Feedback rows are recoverable with the backfill
-  (`POST {"backfill_event_id":"<uuid>"}` to dispatch-event-emails with the CRON_SECRET);
-  missed reminders are not recoverable and should be left alone, since a "your event is
-  tomorrow" email for a past event is worse than silence.
+- **Both counters are floored at the P1256 deploy date, and that floor is load-bearing.**
+  `runDispatch` filters `scheduled_at > now()`, so an overdue row is invisible to every
+  future tick — fixing the cron does NOT drain the backlog. Feedback rows are recoverable
+  with the backfill (`POST {"backfill_event_id":"<uuid>"}` with the CRON_SECRET); missed
+  REMINDERS are deliberately never recoverable, since a "your event is tomorrow" email for
+  a past event is worse than silence. Without the floor those permanently-unclaimable rows
+  would hold this check in its own alarm state forever, which is how the second outage
+  hides behind the first. If you ever raise the floor, say so here — an unexplained floor
+  is indistinguishable from a check that was quietly muted.
 - `stuck_pending_feedback > 0` → different failure: the cron IS running, but a send died
   between claiming the row and writing back the Mailgun id. Check the function logs and
   Mailgun. The dispatcher re-claims rows stuck past its own threshold, so a count that

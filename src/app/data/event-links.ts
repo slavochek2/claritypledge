@@ -60,10 +60,17 @@ export function isSafeTag(tag: unknown): tag is string {
  * explicit SYSTEM_TAG_VALUES) and query the right column. Verified before
  * adding — a tag that needed a third code path would not belong in this list.
  *
- * Five entries is the design's stated ceiling territory: the module caps
- * nothing, and the auto-hide probe in event-links-menu.tsx is what enforces the
- * hard fan-out cap. If a sixth standing instrument is ever proposed, check that
- * probe before adding it rather than after.
+ * NOTHING CAPS THIS LIST — and in particular the auto-hide probe in
+ * event-links-menu.tsx does not, though an earlier draft of this comment claimed it
+ * did. That probe's PROBE_CAP is scoped to the `event` group (the per-event extras)
+ * and never sees the standard tags, which are the framework's permanent surfaces and
+ * are deliberately never hidden when empty. So the check that was cited as the
+ * safety net for growing this list could not have fired at any size. Caught in
+ * hostile review, in the same change that grew the set from 2 to 5.
+ *
+ * A sixth standing instrument is therefore a judgement call with no mechanical
+ * backstop: the design assumes a short list under the thumb, and the only thing
+ * enforcing that is this comment.
  */
 export const STANDARD_STAKE_TAGS = ['cmp7', 'cmp3', 'cmp10', 'understanding', 'misunderstanding'] as const;
 

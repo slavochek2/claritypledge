@@ -48,13 +48,35 @@
  * does not re-test standalone `/ready`/`/meet` — that coverage stays unmodified in
  * e2e/p1077-ready.spec.ts and e2e/p1083-ready-distribution.spec.ts.
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test, expect, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, generateTestEmail, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
 import { createTestOrganization, createTestMembership, deleteTestOrganization, type TestOrganization } from './helpers/test-organization';
 import { seedRoomMember, deleteRoomMembers, readRoomAnswers } from './helpers/test-event-room';
 
-const EVENT_GRACE_HOURS = 5; // P494 / events-service-real.ts:16 — see src/tests/p1114-grace-hours-sync.test.ts
+/**
+ * P1256: READ from the source rather than hardcoded. e2e/ has no `@/` path-alias
+ * resolution, which is why this was a literal `5` — but a literal is a second copy of
+ * the number, and when EVENT_GRACE_HOURS went 5 -> 12 these fixtures silently stopped
+ * being "frozen": an event started 7h ago is INSIDE a 12h window, so the room is open
+ * and every freeze assertion below inverts. The P1114 canary did not catch it, because
+ * it pins the TS constant, not the copies of it out here.
+ *
+ * A regex over the file needs no bundler and fails loudly if the declaration is renamed.
+ */
+function readGraceHours(): number {
+  const src = readFileSync(
+    fileURLToPath(new URL('../src/app/data/events-service-real.ts', import.meta.url)),
+    'utf8',
+  );
+  const m = src.match(/export const EVENT_GRACE_HOURS = (\d+);/);
+  if (!m) throw new Error('EVENT_GRACE_HOURS not found in events-service-real.ts — renamed?');
+  return Number(m[1]);
+}
+
+const EVENT_GRACE_HOURS = readGraceHours();
 
 const roster = (page: Page) => page.getByTestId('room-roster');
 

@@ -22,6 +22,8 @@
  * asserts on `error` alone — same discipline as p1053-claim-joiner-seat.spec.ts.
  */
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
@@ -31,11 +33,27 @@ import { seedRoomMember, readRoomMember, readRoomAnswers, deleteRoomMembers, typ
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
 
-// P494's EVENT_GRACE_HOURS (src/app/data/events-service-real.ts:16) is 5.
-// Hardcoded here rather than imported — e2e/ has no `@/` path-alias resolution.
-// The unit canary in src/tests/p1114-grace-hours-sync.test.ts is what actually
-// pins the TS constant's value; this file only needs a boundary PAST it.
-const EVENT_GRACE_HOURS = 5;
+/**
+ * P1256: READ from the source rather than hardcoded. e2e/ has no `@/` path-alias
+ * resolution, which is why this was a literal `5` — but a literal is a second copy of
+ * the number, and when EVENT_GRACE_HOURS went 5 -> 12 these fixtures silently stopped
+ * being "frozen": an event started 7h ago is INSIDE a 12h window, so the room is open
+ * and every freeze assertion below inverts. The P1114 canary did not catch it, because
+ * it pins the TS constant, not the copies of it out here.
+ *
+ * A regex over the file needs no bundler and fails loudly if the declaration is renamed.
+ */
+function readGraceHours(): number {
+  const src = readFileSync(
+    fileURLToPath(new URL('../../src/app/data/events-service-real.ts', import.meta.url)),
+    'utf8',
+  );
+  const m = src.match(/export const EVENT_GRACE_HOURS = (\d+);/);
+  if (!m) throw new Error('EVENT_GRACE_HOURS not found in events-service-real.ts — renamed?');
+  return Number(m[1]);
+}
+
+const EVENT_GRACE_HOURS = readGraceHours();
 
 function makeAnonClient() {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { autoRefreshToken: false, persistSession: false } });

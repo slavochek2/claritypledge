@@ -45,7 +45,16 @@
 -- projects without a project ref landing in this public repo.
 
 CREATE EXTENSION IF NOT EXISTS pg_net;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- NO `CREATE EXTENSION pg_cron` here, deliberately. pg_cron must be in
+-- shared_preload_libraries and can only be created in the cron-enabled database; where
+-- it is not preloaded, CREATE EXTENSION RAISES rather than skipping, which would abort
+-- this whole migration and make the `IF EXISTS (SELECT 1 FROM pg_extension ...)` guard
+-- below dead code — the statement that guard tests for would already have failed the
+-- transaction. Both prior cron migrations in this repo (20260414100002_p703 and
+-- 20260816120000_p1083) avoid it for exactly this reason and say so. The P1064
+-- precedent cited in the header covers pg_net only. Caught in hostile review; the first
+-- draft had the CREATE and contradicted the pattern its own header called established.
 
 -- Wrapped in a function rather than inlined into cron.schedule's command string
 -- so the Vault lookup happens at RUN time, not at schedule time. Inlining would

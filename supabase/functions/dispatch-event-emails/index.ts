@@ -30,6 +30,29 @@ const MAX_TIME_DRIFT_MS = 30 * 60 * 1000; // 30 minutes
 
 // A PENDING row older than this is treated as stuck and retried.
 /** P1256: the backfill target is interpolated into a PostgREST filter — pin its shape. */
+/**
+ * P1256: why dispatchFeedback reports an outcome instead of returning void.
+ *
+ * It has five silent bail-outs (no email, not scheduled, host not gated, time drift,
+ * already claimed). While it returned void, the backfill could only count how many rows
+ * it had HANDED to it — so a run in which all 8 were skipped on the drift check reported
+ * `dispatched: 8, errors: 0`, identical to a run in which 8 emails went out. logEmailSend
+ * is skipped on a bail too, so the send log was empty either way, and empty is exactly
+ * what it looked like before the backfill ran. The operator's only signal agreed with
+ * both worlds.
+ *
+ * That mattered specifically for this feature's whole purpose: a one-shot send to 8 real
+ * people, where "did it work?" has to be answerable from the response.
+ */
+type FeedbackOutcome =
+  | 'sent'
+  | 'failed:mailgun'
+  | 'skipped:no-email'
+  | 'skipped:not-scheduled'
+  | 'skipped:host-not-gated'
+  | 'skipped:time-drift'
+  | 'skipped:already-claimed';
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const STUCK_PENDING_THRESHOLD_MS = 7 * 60 * 60 * 1000; // 7 hours
@@ -130,13 +153,14 @@ async function dispatchFeedback(
    * Every other guard (host gate, drift check, atomic claim, send log) is shared.
    */
   immediate = false,
-): Promise<void> {
+): Promise<FeedbackOutcome> {
   const { events: event, profile_id: profileId, profiles: profileData } = rsvp;
   const email = profileData?.email;
-  if (!email || !rsvp.feedback_scheduled_at) return;
+  if (!email) return 'skipped:no-email';
+  if (!rsvp.feedback_scheduled_at) return 'skipped:not-scheduled';
 
   // Gate: only dispatch feedback for gated host
-  if (event.host_id !== FEEDBACK_HOST_ID) return;
+  if (event.host_id !== FEEDBACK_HOST_ID) return 'skipped:host-not-gated';
 
   // Validate stored time
   const expectedFeedback = new Date(
@@ -144,7 +168,7 @@ async function dispatchFeedback(
   );
   if (!withinDrift(rsvp.feedback_scheduled_at, expectedFeedback)) {
     console.warn(`Skipping feedback for rsvp ${rsvp.id}: stored time drifts >30min from expected`);
-    return;
+    return 'skipped:time-drift';
   }
 
   const currentIds = rsvp.mailgun_message_ids ?? {};
@@ -161,7 +185,7 @@ async function dispatchFeedback(
     .select('id')
     .maybeSingle();
 
-  if (!claimed) return;
+  if (!claimed) return 'skipped:already-claimed';
 
   // Fetch host name for feedbackFrom sender
   const { data: host } = await supabase
@@ -189,6 +213,8 @@ async function dispatchFeedback(
     messageId,
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });
+
+  return messageId ? 'sent' : 'failed:mailgun';
 }
 
 /**
@@ -225,7 +251,13 @@ async function dispatchFeedback(
 async function runFeedbackBackfill(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<{ dispatched: number; errors: number; skipped: number }> {
+): Promise<{
+  eligible: number;
+  sent: number;
+  skipped: number;
+  errors: number;
+  outcomes: Record<string, number>;
+}> {
   const now = new Date();
 
   const { data: rows, error } = await supabase
@@ -248,34 +280,41 @@ async function runFeedbackBackfill(
 
   if (error) {
     console.error('backfill query error:', error.message);
-    return { dispatched: 0, errors: 1, skipped: 0 };
+    return { eligible: 0, sent: 0, skipped: 0, errors: 1, outcomes: { 'error:query': 1 } };
   }
   if (!rows || rows.length === 0) {
     console.log(`backfill: no eligible rows for event ${eventId}`);
-    return { dispatched: 0, errors: 0, skipped: 0 };
+    return { eligible: 0, sent: 0, skipped: 0, errors: 0, outcomes: {} };
   }
 
   console.log(`backfill: ${rows.length} eligible row(s) for event ${eventId}`);
 
-  let dispatched = 0;
+  let sent = 0;
+  let skipped = 0;
   let errors = 0;
+  const outcomes: Record<string, number> = {};
 
   // Sequential, not Promise.all: this is a human-triggered send to real people and
   // the row count is small. Serial keeps the log readable and cannot burst Mailgun.
   for (const rsvp of rows as unknown as RsvpRow[]) {
     try {
-      await dispatchFeedback(supabase, rsvp, now, true);
-      dispatched++;
+      const outcome = await dispatchFeedback(supabase, rsvp, now, true);
+      outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
+      if (outcome === 'sent') sent++;
+      else if (outcome === 'failed:mailgun') errors++;
+      else skipped++;
+      console.log(`backfill rsvp ${rsvp.id}: ${outcome}`);
     } catch (err) {
       console.error(`backfill error for rsvp ${rsvp.id}:`, err);
+      outcomes['error:threw'] = (outcomes['error:threw'] ?? 0) + 1;
       errors++;
     }
   }
 
-  // dispatchFeedback returns void whether it sent or bailed on a gate, so
-  // `dispatched` counts ATTEMPTS. The send log and mailgun_message_ids are the
-  // record of what actually left.
-  return { dispatched, errors, skipped: 0 };
+  // `sent` counts emails Mailgun accepted — NOT rows handed to dispatchFeedback.
+  // `outcomes` names every skip reason so a run that mailed nobody says WHY, in the
+  // response, rather than reading identically to a run that mailed everyone.
+  return { eligible: rows.length, sent, skipped, errors, outcomes };
 }
 
 async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: number; errors: number }> {
@@ -389,7 +428,10 @@ serve(async (req: Request) => {
   try {
     if (backfillEventId) {
       const result = await runFeedbackBackfill(supabase, backfillEventId);
-      console.log(`backfill complete for ${backfillEventId}: ${result.dispatched} attempted, ${result.errors} errors`);
+      console.log(
+        `backfill complete for ${backfillEventId}: ${result.sent} SENT of ${result.eligible} eligible, ` +
+        `${result.skipped} skipped, ${result.errors} errors — ${JSON.stringify(result.outcomes)}`,
+      );
       return new Response(JSON.stringify({ ok: true, mode: 'backfill', event_id: backfillEventId, ...result }), {
         headers: { 'Content-Type': 'application/json' },
       });
