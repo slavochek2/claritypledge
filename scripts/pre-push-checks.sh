@@ -4,10 +4,21 @@
 # Edit THIS file, not .git/hooks/pre-push. The live hook is a symlink to this file,
 # so a fresh `bash scripts/install-hooks.sh` recreates it on any clone / worktree / CI.
 #
-# Three layers, in order — each strictly more bypassable than the one above it:
+# Four layers, in order — each strictly more bypassable than the one above it:
+#   0. Ref-class refusal       — NON-bypassable by any file. Refuses to publish feature/* and
+#                                fix/* refs to a PUBLIC remote. Escape is a per-ref env var.
 #   1. PII content scan        — NON-bypassable. Not by push-enable, not by any agent file.
 #   2. Privacy judgment gate   — requires a /maintain:privacy stamp. push-enable does NOT waive it.
 #   3. Prod TTY confirm         — human-only. push-enable DOES waive this (and only this).
+#
+# Why Layer 0 exists (P1260): a required GitHub check is bound to a commit SHA, so the ref must
+# EXIST on origin before CI can scan it. On a public repo a ref that has landed is published, and
+# no later check can un-publish it. Layer 1 is measured BLIND on the class of leak that actually
+# occurs here (0 of 6 real redactions, twice, with controls), and P1248 refused to build a detector
+# that would cover them. So the only control available for a ref class that must stay private is to
+# refuse to publish the class at all — independent of what any scanner recognises. This is what
+# makes P1255's branch-born security specs an ENFORCED property rather than the observed habit it
+# was (verified 2026-09-07: this repo has never published a feature/* or fix/* ref).
 #
 # Why the gate sits ABOVE push-enable (P917): authorizing a push (`push-enable`) is not the
 # same as having done the privacy review. push-enable means "I, a human, accept this push" —
@@ -48,6 +59,74 @@ PUSH_REFS=()
 while IFS= read -r line; do
   [ -n "$line" ] && PUSH_REFS+=("$line")
 done
+
+# ── Layer 0: ref-class publication refusal (P1260) ───────────────────────────
+# Refuses to CREATE OR UPDATE a feature/* or fix/* ref on a public remote.
+#
+# Scope decisions, each deliberate:
+#   * PUBLIC remotes only. "Public" = the remote URL points at github.com. A private mirror or a
+#     local remote is not a publication boundary, so sending a work branch there is fine.
+#   * Matches EITHER side of the refspec. Pushing `fix/p1-x:refs/heads/harmless` publishes the same
+#     content under an innocent name, so the local ref name is checked too.
+#   * DELETIONS ARE ALLOWED. Deleting a ref sends an all-zero LOCAL sha. Deletion is reclamation,
+#     which P1260 is trying to encourage — never block it.
+#
+# The escape is an env var that must NAME THE EXACT REF, and it is logged. It is deliberately not a
+# file: the touch-able `.allow-pii-next-push` one-shot was removed because an agent could create it
+# silently. An env var has to appear on the command line, where a human approving that command sees
+# it, and naming the ref means it can never be a blanket waiver.
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+_remote_url="$(git remote get-url "$remote" 2>/dev/null || echo "$remote")"
+case "$_remote_url" in
+  *github.com*) _remote_is_public=1 ;;
+  *)            _remote_is_public=0 ;;
+esac
+
+if [[ "$_remote_is_public" == "1" ]]; then
+  for line in "${PUSH_REFS[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<< "$line"
+
+    # A deletion carries an all-zero LOCAL sha. Allow it.
+    [[ "$local_sha" == "$ZERO_SHA" ]] && continue
+
+    _blocked_ref=""
+    for _candidate in "$local_ref" "$remote_ref"; do
+      _short="${_candidate#refs/heads/}"
+      case "$_short" in
+        feature/*|fix/*) _blocked_ref="$_short"; break ;;
+      esac
+    done
+    [[ -z "$_blocked_ref" ]] && continue
+
+    if [[ "${CP_ALLOW_BRANCH_PUBLISH:-}" == "$_blocked_ref" ]]; then
+      _reason="${CP_ALLOW_BRANCH_PUBLISH_REASON:-<none given>}"
+      GIT_COMMON="$(git rev-parse --git-common-dir)"
+      [[ "$GIT_COMMON" != /* ]] && GIT_COMMON="$(git rev-parse --show-toplevel)/$GIT_COMMON"
+      printf '{"ts":"%s","ref":"%s","sha":"%s","remote":"%s","reason":"%s"}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_blocked_ref" "$local_sha" "$remote" "$_reason" \
+        >> "$GIT_COMMON/.branch-publish-log"
+      echo "  ⚠️  Layer 0 waived for $_blocked_ref — reason: $_reason (logged to .branch-publish-log)" >&2
+      continue
+    fi
+
+    echo ""
+    echo "  ❌ PUSH BLOCKED: refusing to publish '$_blocked_ref' to the public remote '$remote'."
+    echo ""
+    echo "  feature/* and fix/* refs are a private class here. A ref that lands on a public remote"
+    echo "  is published — CI scans it AFTER it exists, and deleting it does not un-publish it."
+    echo "  Security specs are filed branch-born (P1255) precisely so they are not public until"
+    echo "  they ship; publishing the branch defeats that."
+    echo ""
+    echo "  What you almost certainly want instead:"
+    echo "    /ship pN                        — merges the branch into main, then pushes main"
+    echo "    ./scripts/git-ops.sh push-docs  — the staging hop for docs"
+    echo ""
+    echo "  If this branch genuinely must be published, name it explicitly (this is logged):"
+    echo "    CP_ALLOW_BRANCH_PUBLISH=$_blocked_ref CP_ALLOW_BRANCH_PUBLISH_REASON=\"why\" <your push command>"
+    exit 1
+  done
+fi
 
 # ── Layer 1: PII content scan ────────────────────────────────────────────────
 # Runs for ALL branches. NOT bypassable by push-enable, and NOT bypassable by any

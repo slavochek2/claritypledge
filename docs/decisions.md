@@ -677,6 +677,101 @@ gate 7.
 **References:** features/p1263_bare_init_in_canary_flips_core_bare_on_the_real_repo.md ·
 features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md ·
 scripts/test-git-ops-extensions.sh · scripts/test-hook-sha-gate.sh
+## 2026-09-07 [technical]: Publish-then-scan on a public remote is ACCEPTED; the control moves from content to ref class (P1260)
+
+**Context:** Every push here transits an ephemeral branch on `origin` and CI scans it *after* it
+exists. The order is structural — a GitHub required check binds to a commit SHA, so the ref must
+exist before the check can, and pre-receive hooks are unavailable on public-cloud GitHub (P919).
+On a public repo, a ref that has landed is published; the check gates promotion to `main` and
+cannot un-publish what it just scanned.
+
+**The content control that exists is measured blind.** `pre-push-checks.sh` runs `audit-privacy.sh`
+over the exact range being pushed. Run against the commits that introduced the six things this repo
+redacted between 2026-08-28 and 2026-09-07 — a person's name, a credential inventory,
+live-vulnerability reproduction steps — it passes **all six**. Two independent measurements agree,
+the second having re-committed each redaction's *removed* lines into a scratch repo and re-scanned
+(0 hit-lines, exit 0, six for six). Both runs carried controls through the identical probe (a canary
+commit and a `/Users/…` path each produce exit 1), so the probe discriminates and the zeros are true
+negatives. The scanner's pattern space is personal emails, one handle, one absolute path, a canary
+sentinel, and third-party emails; the six leaks are not in it. P1248 (2026-09-04) already refused to
+build a detector that would cover them — the detector's own reference data would be more sensitive
+than what it detects.
+
+**Decision:** Accept publish-then-scan on `origin` as a property of a public repo with no
+pre-receive hook. **Stop trying to solve leak content at push time.** Three rival mechanisms are
+recorded dead so they are not re-derived: (1) a local pre-push content scan — already built, already
+running, measured blind on all six; (2) scanning on a private self-hosted remote first — that host
+has Actions disabled by design and rejects settings changes, so it cannot run the workflow; (3)
+"shorten the window" — not a rival mechanism, it is the reclamation work.
+
+What replaces it is a control that does not depend on recognising content: **refuse to publish a ref
+class.** `pre-push-checks.sh` gains a Layer 0 that blocks `feature/*` and `fix/*` refs to any
+github.com remote, with a per-ref, logged env-var escape. This is what turns P1255's branch-born
+security specs from an observed habit into an enforced property — verified 2026-09-07 that this repo
+has never published such a ref, so the refusal costs nothing today.
+
+**The control that actually caught all six is a person reading a diff**, and it is written down
+nowhere as a control. `.claude/rules/pii.md` already says the gate is not evidence
+(*"A green gate is not evidence that this rule was followed"*); that authoring-time discipline plus
+P1255's routing is the whole prevention layer. Naming it is P1255's, not P1260's.
+
+**Consequences:** Deleting a published ref is still not a remedy and must never be offered as one.
+The six already-published leaks stay published; the rewrite is settled No for the third time.
+
+---
+
+## 2026-09-07 [technical]: A merged-ness oracle needs three signals, and two of the three bugs found building it were `set -e`/`pipefail` artifacts (P1260)
+
+**Context:** `git-ops.sh gc` decides whether a branch may be deleted. Before P1260 it selected on
+age and worktree-exclusion alone — no merged-ness check of any kind — and enumerated `git branch`
+only, so nothing on the remote was ever a candidate.
+
+**Decision:** A commit counts as absorbed only when three signals agree — patch-id (`git cherry`),
+subject presence, and a revert scan — and any commit that fails any signal keeps the whole branch.
+Measured on this repo, each oracle is individually wrong: on `backup/p1165-orig-20260827` patch-id
+says 3 unmatched and subject match says 1, and `c431d2ec` subject-matches `main`'s `eb56d6e3` while
+their patches differ by 382 lines across 5 files.
+
+**Two design corrections worth keeping, both found by a fixture with a known answer:**
+
+- **Reachability is not absorption, but ancestry is not evidence of a revert either.** The first
+  implementation scanned an ancestor branch's tip window for reverted work; because a `staging/*`
+  ref is literally a snapshot of `main`, that swept up unrelated reverted history and reported KEEP
+  on two refs each measured to carry zero unique commits. The resolution: an ancestor of the base
+  needs no oracle at all — its commits stay reachable from the base forever, so deleting the ref
+  cannot lose work. **The revert trap lives in the non-ancestor case**, where a shipped branch keeps
+  its own SHAs after a cherry-pick. Testing *ancestry* to order a commit against a revert therefore
+  reported MERGED on the fixture; author-date ordering (preserved across cherry-picks, unlike
+  committer date) is what works.
+- **Reverts here are not machine-readable.** The governing case (2026-09-05 [technical]) is
+  `95036cca3`, reverted by `37984ff00` four minutes later and re-landed as `06dad4d3e` two days on.
+  That revert has neither `Revert "<subject>"` nor a `This reverts commit <sha>` trailer — it is
+  conventional-commit `revert(p1220):` with a free-prose body. On `main`, 4 commits use git's form,
+  3 use the conventional one, and only 4 carry the trailer, so a parser keyed on either spelling
+  misses a third of this repo's reverts including the one that matters. Detection is file overlap
+  plus author-date ordering, with a re-land check so a revert that was later re-landed does not
+  disqualify forever (without it, one revert anywhere makes every branch KEEP and the gate stops
+  meaning anything).
+
+**`set -e` and `pipefail` produced two silent wrong answers, in opposite directions.** Both are the
+class gate 7 already names, met from the other side:
+
+- **`producer | grep -q x` returns 141 on a SUCCESSFUL match.** `grep -q` exits at the first hit,
+  the producer dies of SIGPIPE, and `pipefail` surfaces that as the pipeline's status — so the
+  condition reads "not found" on exactly the inputs it was meant to find. This broke the re-land
+  check and inflated `p1165`'s unmatched count from 3 to 8. Fix: read from a **process
+  substitution**, never the right-hand side of a pipe.
+- **`grep` exiting 1 on no match aborts the script under `set -e`.** A repo with no reverts, or no
+  `origin`, is the normal case and not an error; without a guard `gc` died with no output at all in
+  every scratch repo the canary builds — which is why the pre-existing canary reported a missing
+  branch rather than a crash.
+
+**Consequences:** `gc` now reports every local and remote ref with worktree, age and verdict;
+deletion still needs both flags, only ever removes LOCAL branches classified MERGED, and never
+touches a remote ref. The pre-existing canary's scenario A asserted the *old* contract — that a
+stale branch appears in the deletable list, with no merge check — and was rewritten to assert the
+inverse, plus a both-directions revert test: an oracle hardwired to KEEP passes a one-directional
+one.
 
 ---
 

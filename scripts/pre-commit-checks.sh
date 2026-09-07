@@ -226,6 +226,23 @@ else
 fi
 echo ""
 
+# 4.65. pre-push Layer 0 canary (P1260) — the ref-class publication refusal. Runs when the
+# hook or its canary is staged. Asserts BOTH halves: that the refusal fires on feature/* and
+# fix/* (gate 7), and that the repo's own documented ref shapes -- main, staging/doc-*,
+# staging/pN, deletions -- still pass it untouched (gate 7c). A refusal whose fixture holds
+# only inputs it should reject has an unmeasured false-positive rate.
+PREPUSH_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(pre-push-checks|test-pre-push-refclass)\.sh$' || true)
+if [ -n "$PREPUSH_STAGED" ]; then
+    if [ -f "scripts/test-pre-push-refclass.sh" ]; then
+        if ! run_quiet "pre-push ref-class refusal canary (P1260)" bash scripts/test-pre-push-refclass.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+else
+    echo ">>> pre-push ref-class canary skipped (no pre-push scripts staged)"
+fi
+echo ""
+
 # 4.7. git-ops.sh extensions canary (P787) — runs when git-ops.sh or its test
 # canary is staged. Hermetic (~3s: 2s contention timeout + setup). Proves the
 # six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
@@ -255,6 +272,15 @@ if [ -n "$GIT_OPS_STAGED" ]; then
     # --continue` instead of issuing a fresh pick that re-conflicts and loops.
     if [ -f "scripts/test-p972-resume-cherry-pick-head.sh" ]; then
         if ! run_quiet "git-ops.sh ship resume-continue canary (P972)" bash scripts/test-p972-resume-cherry-pick-head.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # P1260 — the gc merged-ness oracle decides whether a branch may be deleted, so a wrong
+    # MERGED destroys work. Runs the revert trap in BOTH directions against this repo's real
+    # history (KEEP while reverted, MERGED once re-landed); a one-directional test would pass
+    # on an oracle hardwired to KEEP.
+    if [ -f "scripts/test-git-ops-gc.sh" ]; then
+        if ! run_quiet "git-ops.sh gc oracle canary (P1260)" bash scripts/test-git-ops-gc.sh; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
