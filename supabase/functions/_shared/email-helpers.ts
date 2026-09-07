@@ -19,6 +19,15 @@ function mailgunApiKey(): string {
   return Deno.env.get('MAILGUN_API_KEY') ?? '';
 }
 
+/**
+ * P1256: recorded in place of a Mailgun message id when Mailgun accepted the message
+ * (2xx) but returned no id. It means SENT — it exists so that "sent" and "never
+ * attempted" stop sharing the value `null`. Anything that decides whether to (re)send
+ * must treat it as sent; anything that calls Mailgun back about the message (cancel,
+ * reschedule) must skip it, since it is not an addressable id.
+ */
+export const SENT_NO_ID = 'SENT_NO_ID';
+
 const TALLY_FORM_ID = Deno.env.get('TALLY_FORM_ID') ?? 'QKDN91';
 
 export const FROM = `Clarity Pledge Events <events@${Deno.env.get('MAILGUN_DOMAIN') ?? ''}>`;
@@ -357,7 +366,14 @@ export async function sendEmail(opts: {
   }
 
   const json = await res.json() as { id?: string };
-  return json.id ?? null;
+  // P1256: 2xx WITHOUT an id is a SENT email, and must not be reported as `null` —
+  // null is the caller's signal for "not sent", and a send recorded as not-sent gets
+  // retried. That is harmless on the forward-looking cron path (the row falls out of
+  // its `scheduled_at > now()` window anyway) but not on the backfill path, which is
+  // explicitly re-runnable and selects on `mailgun_message_ids->>feedback IS NULL` —
+  // there, a missing id means the attendee is mailed again on the next invocation.
+  // Found by hostile review before deploy, not in production.
+  return json.id ?? SENT_NO_ID;
 }
 
 export async function cancelScheduledEmail(messageId: string): Promise<void> {

@@ -318,6 +318,29 @@ echo -n "counts: "; curl -s "${PROD_URL}/transcription_jobs?select=status" -H "$
 echo -n "stale_processing(>30m): "; curl -s "${PROD_URL}/transcription_jobs?select=id&status=eq.processing&updated_at=lt.${TX_STALE}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
 echo -n "lost_pending(>5m): "; curl -s "${PROD_URL}/transcription_jobs?select=id&status=eq.pending&created_at=lt.${TX_LOST}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
 
+echo -e "\n=== EVENT EMAIL HEALTH ==="
+# P1256 tier-0. This is the check that would have caught a THREE-MONTH outage on day one:
+# dispatch-event-emails shipped 2026-06-10 and nothing ever invoked it, so every reminder
+# and every feedback email silently never sent. Nothing anywhere reported that, because
+# "no email was sent" produces no error, no Sentry event and no failed row — the rows just
+# sit there correct and unread.
+#
+# The signal is OVERDUE-AND-UNSENT: a scheduled_at in the past with no Mailgun id. Under a
+# working cron this is structurally 0 — the dispatcher hands Mailgun a FUTURE delivery time,
+# so it claims every row before its moment arrives. Any non-zero count means the cron is not
+# running (or is erroring), and it is also unrecoverable by the cron itself: runDispatch
+# filters `scheduled_at > now()`, so a row that goes overdue is invisible to every later run.
+# Recover with the backfill (feedback only): POST {"backfill_event_id":"<uuid>"}.
+#
+# A 30-minute grace on "overdue" absorbs the cron's own */30 cadence, so a row that is merely
+# waiting for the next tick does not read as a fault.
+EMAIL_OVERDUE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
+echo -n "overdue_unsent_feedback: "; curl -s "${PROD_URL}/event_rsvps?select=id&feedback_scheduled_at=lt.${EMAIL_OVERDUE}&mailgun_message_ids-%3E%3Efeedback=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+echo -n "overdue_unsent_reminder: "; curl -s "${PROD_URL}/event_rsvps?select=id&reminder_scheduled_at=lt.${EMAIL_OVERDUE}&mailgun_message_ids-%3E%3Ereminder=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+# Stuck PENDING = the dispatcher claimed a row and then died before writing the Mailgun id
+# back. Distinct from the above: the cron IS running, but a send is failing mid-flight.
+echo -n "stuck_pending_feedback: "; curl -s "${PROD_URL}/event_rsvps?select=id&mailgun_message_ids-%3E%3Efeedback=eq.PENDING&feedback_attempted_at=lt.${EMAIL_OVERDUE}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
+
 echo -e "\n=== FUNNEL CSV ==="
 # Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
 # under .claude/worktrees/wN has no shared file; writing there silently forks the metric.
@@ -362,6 +385,34 @@ If response is a JSON object with `message` key (not array): `⚠ User activity:
 - `lost_pending(>5m) > 0` → a trigger was lost (webhook/Cloud Tasks miss); the sweeper is the backstop — same two-run rule applies.
 - All zeros (or only `completed`) = healthy / idle. Pre-P858-deploy this is mostly zeros + historical rows — that's the expected baseline.
 - Once P858's migration is on prod, add an `attempts` distribution here (`attempts>=3` = retries exhausted → permanent failure).
+
+**Event email health (P1256 tier-0) — read `=== EVENT EMAIL HEALTH ===`.**
+
+The healthy reading is **all three zero**, and that is not a soft expectation — under a
+working cron it is structural. The dispatcher claims each row and hands Mailgun a *future*
+delivery time, so a row should never still be unclaimed after its moment has passed.
+
+- `overdue_unsent_feedback > 0` or `overdue_unsent_reminder > 0` → **the cron is not running.**
+  Report as `⚠ EVENT EMAILS NOT DISPATCHING: N feedback / M reminder overdue — the pg_cron job
+  `dispatch_event_emails` is not firing`. Check, in this order: the job exists
+  (`SELECT * FROM cron.job WHERE jobname='dispatch_event_emails'`), its recent runs
+  (`cron.job_run_details`), and both Vault secrets (`dispatch_event_emails_url`,
+  `dispatch_event_emails_cron_secret`) — a missing secret makes the tick a logged no-op, which
+  looks exactly like a healthy quiet run from the outside.
+- **These counts do not drain on their own.** `runDispatch` filters `scheduled_at > now()`, so
+  an overdue row is invisible to every future tick — fixing the cron does NOT clear the
+  backlog. Feedback rows are recoverable with the backfill
+  (`POST {"backfill_event_id":"<uuid>"}` to dispatch-event-emails with the CRON_SECRET);
+  missed reminders are not recoverable and should be left alone, since a "your event is
+  tomorrow" email for a past event is worse than silence.
+- `stuck_pending_feedback > 0` → different failure: the cron IS running, but a send died
+  between claiming the row and writing back the Mailgun id. Check the function logs and
+  Mailgun. The dispatcher re-claims rows stuck past its own threshold, so a count that
+  persists across two `/day` runs is a real fault, not a race.
+- **A count that is non-zero and NOT FALLING across consecutive runs is the alarm**, whatever
+  its cause — that is precisely the shape the 2026-06→09 outage had, and nothing reported it
+  for three months because a never-sent email produces no error, no Sentry event and no failed
+  row. Silence here was indistinguishable from health, which is why this check exists.
 
 Cross-reference: user IDs in activity but NOT in new signups = **returning users**.
 

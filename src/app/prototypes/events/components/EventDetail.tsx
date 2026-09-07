@@ -187,6 +187,16 @@ export function EventDetail() {
   // disagree again — before this, a 4h hike closed RSVP a full hour before it
   // left the upcoming list. See EVENT_GRACE_HOURS for why it measures from start.
   const isPast = Date.now() >= eventDate.getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000;
+  // P1256: `isPast` is the GENEROUS window — it governs RSVP and the "Event Ended"
+  // button, where staying open too long costs nothing. `hasEnded` is the event's ACTUAL
+  // end, and it governs the host's destructive controls.
+  //
+  // They have to be separate. Hostile review caught that folding host controls into the
+  // 12h window means a 90-minute event (the shortest real duration on prod; the range is
+  // 90–480) keeps Edit and Cancel live for ten and a half hours after it finishes — and
+  // Cancel is not cosmetic, it mails every attendee a cancellation for an event they
+  // already attended. Widening the RSVP window must not widen that.
+  const hasEnded = Date.now() >= endDate.getTime();
   const isCancelled = event.status === 'cancelled';
   const isFull = eventsService.isEventFull(event);
 
@@ -446,7 +456,8 @@ export function EventDetail() {
                           ? 'You cancelled this event. Attendees have been notified.'
                           : 'The organizer cancelled this event. We apologize for any inconvenience.'}
                       </p>
-                      {isHost && !isPast && (
+                      {/* hasEnded, not isPast — host affordance on a finished event. */}
+                      {isHost && !hasEnded && (
                         <div className="mt-3 flex justify-end">
                           <Button
                             variant="outline"
@@ -466,7 +477,9 @@ export function EventDetail() {
               )}
 
               {/* Host Controls - right after title for immediate visibility */}
-              {isHost && !isPast && !isCancelled && (
+              {/* hasEnded, NOT isPast — see the note at their declaration. Cancelling a
+                  finished event emails every attendee. */}
+              {isHost && !hasEnded && !isCancelled && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-blue-900">You're hosting this event</span>

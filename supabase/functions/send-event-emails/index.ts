@@ -10,8 +10,22 @@ import {
   FEEDBACK_HOST_ID,
   logEmailSend,
   sendEmail,
+  SENT_NO_ID,
   type SupabaseClient,
 } from '../_shared/email-helpers.ts';
+
+/**
+ * P1256: is this stored value an id Mailgun can actually be asked to cancel?
+ *
+ * Three non-id values can sit in `mailgun_message_ids.<kind>`: absent/null (never
+ * attempted), 'PENDING' (claimed, in flight), and SENT_NO_ID (Mailgun took it but
+ * returned no id). Only a real id is cancellable. Before this, the guard excluded
+ * 'PENDING' alone, so SENT_NO_ID would have been handed to Mailgun's DELETE as if it
+ * were a message id.
+ */
+function isCancellableId(id: string | null | undefined): id is string {
+  return !!id && id !== 'PENDING' && id !== SENT_NO_ID;
+}
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -97,9 +111,13 @@ async function handleCancel(supabase: SupabaseClient, eventId: string) {
 
   await Promise.all(rsvps.map(async (rsvp) => {
     const ids = rsvp.mailgun_message_ids as Record<string, string> | null;
-    // Only cancel real Mailgun IDs — not PENDING (no Mailgun ID to cancel yet)
-    if (ids?.reminder && ids.reminder !== 'PENDING') await cancelScheduledEmail(ids.reminder);
-    if (ids?.feedback && ids.feedback !== 'PENDING') await cancelScheduledEmail(ids.feedback);
+    // Only cancel real Mailgun IDs — not PENDING (no Mailgun ID to cancel yet), and
+    // not SENT_NO_ID (P1256: sent, but Mailgun returned nothing to cancel it by).
+    // Bound to locals so the type guard narrows without a non-null assertion.
+    const reminderId = ids?.reminder;
+    const feedbackId = ids?.feedback;
+    if (isCancellableId(reminderId)) await cancelScheduledEmail(reminderId);
+    if (isCancellableId(feedbackId)) await cancelScheduledEmail(feedbackId);
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
@@ -178,9 +196,13 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
   await Promise.all(rsvps.map(async (rsvp) => {
     const ids = rsvp.mailgun_message_ids as Record<string, string> | null;
 
-    // Cancel already-dispatched Mailgun IDs — skip PENDING (no real ID to cancel)
-    if (ids?.reminder && ids.reminder !== 'PENDING') await cancelScheduledEmail(ids.reminder);
-    if (ids?.feedback && ids.feedback !== 'PENDING') await cancelScheduledEmail(ids.feedback);
+    // Only cancel real Mailgun IDs — not PENDING (no Mailgun ID to cancel yet), and
+    // not SENT_NO_ID (P1256: sent, but Mailgun returned nothing to cancel it by).
+    // Bound to locals so the type guard narrows without a non-null assertion.
+    const reminderId = ids?.reminder;
+    const feedbackId = ids?.feedback;
+    if (isCancellableId(reminderId)) await cancelScheduledEmail(reminderId);
+    if (isCancellableId(feedbackId)) await cancelScheduledEmail(feedbackId);
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
