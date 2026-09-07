@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000073
 workstream: infrastructure
 created_date: '2026-09-04'
 tags: [infrastructure, multi-agent, codex, skills]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -250,17 +250,44 @@ guarantees recurrence regardless of what else ships.
 
 ## Done-When
 
-- [ ] The suite is split by tier, and **only Tier A** is on the commit path; a commit touching
-      nothing harness-related makes zero `dsh` calls, shown by a trace or a timing comparison
-- [ ] Failure path exercised, not asserted (epistemic gate 7): a deliberately broken adapter makes
-      the wired gate exit non-zero; the exit code is pasted as evidence
-- [ ] False-positive path exercised (epistemic gate 7c) **against fixtures, not against the live
+- [x] The suite is split by tier, and **only Tier A** is on the commit path; a commit touching
+      nothing harness-related makes zero `dsh` calls, shown by a trace or a timing comparison.
+      **DONE (Phase 1):** `scripts/test-multi-harness-routing.sh` now takes `[a|b|c|d|all]`; only
+      Tier A is wired into `pre-commit-checks.sh`. Proof: a PATH shim that logs every `dsh`
+      invocation recorded 0 calls for `--tier a` and 3 calls for `--tier d` run with the identical
+      shim (positive control confirming the shim itself works).
+- [x] Failure path exercised, not asserted (epistemic gate 7): a deliberately broken adapter makes
+      the wired gate exit non-zero; the exit code is pasted as evidence.
+      **DONE (Phase 1):** appended a `CLAUDE_CODE_` line to `.codex/config.toml` and re-ran the
+      actual `./scripts/pre-commit-checks.sh` (not just the tier script standalone) — exit 1,
+      "commit blocked", Tier A line shown red. Restored and re-ran green (exit 0) to confirm no
+      collateral damage.
+- [x] False-positive path exercised (epistemic gate 7c) **against fixtures, not against the live
       adapters** — a fixture representing legitimate adapter-local content passes. Live adapters are
-      re-checked *after* Phase 2 converts them, never before; the two runs are separate evidence
-- [ ] `absent()` fails on a missing file, and every file any retained assertion reads is in the
-      suite's precondition list — proven by deleting each and observing a non-zero exit
-- [ ] The live tier reports **0 failures** on the machine that runs it, with each formerly-failing
-      assertion classified from current command output — not a count copied from this spec
+      re-checked *after* Phase 2 converts them, never before; the two runs are separate evidence.
+      **DONE (Phase 1):** 3 fixtures under `/tmp/p1247-fixtures/` (legit / bad-env / bad-hook), run
+      through `run_tier_a` via `TIER_A_CODEX_CONFIG`/`TIER_A_ROUTE_HOOK` overrides (the script is
+      sourceable — no duplicated assertion logic). legit: 2/2 PASS. bad-env (injected
+      `CLAUDE_CODE_`): 1 FAIL. bad-hook (injected `.claude/rules/model-effort.md` leak): 1 FAIL.
+- [x] `absent()` fails on a missing file, and every file any retained assertion reads is in the
+      suite's precondition list — proven by deleting each and observing a non-zero exit.
+      **DONE (Phase 1):** `absent()`/`contains()` now check file existence before concluding
+      anything. Proven by deleting, one at a time (each backed up and restored), the 4 files whose
+      absence previously fell through the old fail-open path or Tier A's hard precondition:
+      `~/.codex/AGENTS.md` (exit 1), `~/.codex/config.toml` (exit 1), `.codex/config.toml` repo copy
+      (exit 1, Tier A never skips), `.codex/hooks/route-brief.sh` (exit 1). The 3 core adapter files
+      (`~/.agents/model-routing.md`, `~/.codex/model-routing.md`, `~/.dsh/model-routing.md`) keep
+      their existing, correct SKIP-not-silent-pass behavior when genuinely absent (unchanged —
+      that was never the bug; the bug was two files outside that list falling through `absent()`).
+- [x] The live tier reports **0 failures** on the machine that runs it, with each formerly-failing
+      assertion classified from current command output — not a count copied from this spec.
+      **DONE (Phase 1):** `./scripts/test-multi-harness-routing.sh all` -> 31 passed, 0 failed (was
+      29/2 before this session's fix). Both prior failures were the stale `gemini-3.7-flash` pin
+      against a live `gemini-3.8-flash` config; fixed by asserting `provider: google` +
+      `model: gemini-<version>-flash` shape instead of the literal string. Falsified by simulating a
+      further bump to a synthetic `gemini-4.0-flash`: both version-blind assertions still passed
+      (a third, unrelated assertion failed only because the synthetic version isn't a real `dsh`
+      route — an artifact of the test value, not the fix).
 - [ ] `diff` of shared-policy rules between `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` returns
       empty, or returns only lines the canary asserts as deliberately harness-local
 - [ ] `grep -n "Codex --help\|Codex-guide" ~/.codex/AGENTS.md` returns nothing

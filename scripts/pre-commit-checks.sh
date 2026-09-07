@@ -1823,6 +1823,25 @@ else
 fi
 echo ""
 
+# Multi-harness routing contract 2, Tier A only (P1247 Phase 1). Contract 2's
+# canary (scripts/test-multi-harness-routing.sh) was deliberately NOT wired
+# (P1221) because most of its 31 assertions read per-machine $HOME files no CI
+# runner or second machine has, and it makes a live `dsh` call. P1247 split it:
+# Tier A is the 2 assertions whose subject is a repo file (.codex/config.toml,
+# .codex/hooks/route-brief.sh) -- no $HOME dependency, no network, never skips.
+# Tiers B/C/D stay off the commit path; run them via
+# `./scripts/test-multi-harness-routing.sh {b|c|d|all}` for machine-local or
+# integration verification.
+if [ -f "./scripts/test-multi-harness-routing.sh" ]; then
+    if ! run_quiet "Multi-harness routing, Tier A (P1247)" ./scripts/test-multi-harness-routing.sh a; then
+        echo -e "${YELLOW}  → Run ./scripts/test-multi-harness-routing.sh a to see which case regressed${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ scripts/test-multi-harness-routing.sh not found — skipping multi-harness Tier A gate${NC}"
+fi
+echo ""
+
 # CLAUDE.md line budget check
 if echo "$STAGED_FILES" | grep -q "^CLAUDE.md$"; then
     CLAUDE_LINES=$(git show :CLAUDE.md 2>/dev/null | wc -l)
