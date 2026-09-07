@@ -55,7 +55,11 @@ Morning hike this [DAY]. Everyone welcome.
 **Meet [TIME] at [CAFE NAME]**, [AREA].
 [Directions]([CAFE_PIN_URL])
 
-Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we walk to the trailhead. Relaxed pace, we turn back whenever people have had enough.
+Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we walk to the trailhead.
+
+We aim for roughly that distance, but we stay flexible. There are many paths up here, and if a section does not work we simply take another one. Come expecting to adapt to the mountain rather than to follow a fixed route. It is usually the better part of the day.
+
+Want a shorter walk? Completely fine. Turn back whenever you have had enough, on your own or with whoever else feels the same. Nobody minds and nobody is left behind.
 
 **Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash.
 
@@ -63,9 +67,7 @@ Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we
 
 Coffee or lunch after for anyone who feels like it.
 
-Reserve a seat below — you'll get an invitation to the group chat, where we sort last-minute changes and rides up the mountain.
-
-*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. No fixed schedule and nothing guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
+*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 **Rules that survived founder edits — do not undo them.**
@@ -101,6 +103,20 @@ Reserve a seat below — you'll get an invitation to the group chat, where we so
 - **Duration is AllTrails' walk time × 1.4, plus 30 min for coffee, rounded up.** The group stops,
   waits and leaves nobody behind; publishing the bare AllTrails estimate makes the end time a lie.
   Say why in the description, in one clause.
+- **Flexibility is the promise, not a fixed route.** Replace any "we turn back whenever people have
+  had enough" phrasing with the adapt-to-the-mountain framing above, and always name the
+  shorter-walk option explicitly. Founder, 2026-09-07: *"we try to walk around the distance we
+  want. If there are sections that are not working well we just take a slightly different path.
+  There are many paths, so expect to be flexible. We adapt to the environment."* And: *"if there
+  are people who want to make a shorter hike that's totally ok with me, they can cut it short any
+  time if tired."* Frame it as a feature of the walk, never as an apology or a warning.
+- **The description does NOT mention the group chat at all. The terms line ends it.** `EventDetail`
+  renders the group-chat block immediately after the description and before the RSVP block, and
+  that block ships its own copy in both states — the locked one reads *"Register and you'll get an
+  invitation to our private WhatsApp group, right here — last-minute changes, cancellations, and
+  coordinating rides to the mountain."* A pointer line in the description is that same sentence
+  twice, back to back, which is how it read on 2026-09-07 before it was removed. Let the component
+  speak; end the description with the terms.
 - No em dashes in the prose. Short sentences. Facts stay, framing goes.
 
 ## Promo blurb (external platforms)

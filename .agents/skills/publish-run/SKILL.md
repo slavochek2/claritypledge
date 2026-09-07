@@ -180,7 +180,11 @@ Morning [hike/run] this [DAY]. Everyone welcome.
 **Meet [TIME] at [VERIFIED PLACE NAME]**, [AREA].
 [Directions]([PIN_URL])
 
-[ONE LINE: what happens at the meeting point, parking, pace.]
+[ONE LINE: what happens at the meeting point, parking.]
+
+We aim for roughly that distance, but we stay flexible. There are many paths up here, and if a section does not work we simply take another one. Come expecting to adapt to the mountain rather than to follow a fixed route.
+
+Want a shorter walk? Completely fine. Turn back whenever you have had enough. Nobody minds and nobody is left behind.
 
 **Bring:** trail shoes, [2L water / 1L], snacks, rain jacket, cap, mosquito spray, some cash.
 
@@ -188,9 +192,7 @@ Morning [hike/run] this [DAY]. Everyone welcome.
 
 [Coffee or lunch after for anyone who feels like it.]
 
-Reserve a seat below — you'll get an invitation to the group chat, where we sort last-minute changes and rides up the mountain.
-
-*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. No fixed schedule and nothing guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
+*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 If the founder supplied a post-activity topic, add one line for it. If not, omit
@@ -202,6 +204,11 @@ themselves; there is no schedule and no guarantee; goodwill is an intention, not
 Keep it to the two sentences above — short enough to read, plain enough not to sound like a waiver
 someone must sign. Do not soften it away, do not expand it into a legal notice, and do not let the
 150-word ceiling be the reason it gets cut: cut a highlight instead.
+
+**Do not mention the group chat in the description at all** — not the link, not a pointer to it.
+The group-chat component renders right below the description and already says, in its locked
+state, that registering gets you the WhatsApp invite and what the group is for. A line in the
+description repeats it verbatim. End the description with the terms line instead.
 
 **Never put the WhatsApp invite link in the description.** It goes in the registration-gated field
 (step 8c) and renders as a button for registered attendees only. A raw link in the public
