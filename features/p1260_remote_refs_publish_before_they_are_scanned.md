@@ -205,23 +205,105 @@ shared invariant is named here because neither spec previously owned it.
 
 ## Done-When
 
-- [ ] One command enumerates local branches **and** `git ls-remote origin`, and for every ref
+- [x] One command enumerates local branches **and** `git ls-remote origin`, and for every ref
       reports: has-worktree, age, and a merged verdict of `MERGED` / `KEEP — unmatched: <shas>`
-- [ ] Run against `backup/p1165-orig-20260827`, that command reports **`KEEP`** and names the
-      unmatched commits — it must NOT report merged, because 1–3 commits are absent depending on
-      oracle. Output pasted in the spec
-- [ ] Replaying the 2026-09-03→05 `p1220` revert window, the command reports `KEEP` for a branch
-      whose commits were reverted on `main`. Output pasted (this is the case both naive oracles get
-      wrong)
-- [ ] The `feature/*`/`fix/*` push refusal is shown **blocking** a push to public `origin`, exit
-      code pasted (gate 7), **and** shown not blocking `/ship`, `push-docs --resume` and
-      `commit-to-main` in the same run (gate 7c)
-- [ ] An aborted `push-docs` run leaves no `staging/*` ref on `origin`, verified by `git ls-remote
-      origin 'refs/heads/staging/*'` returning empty after a deliberately aborted run
-- [ ] `/weekly` prints the branch-and-remote-refs report in its Evidence Picture — one real run
-- [ ] The three refs currently on `origin` are resolved per D2
-- [ ] The Withdrawn Mechanism paragraph is filed in `docs/decisions.md` — this holds whether or not
-      the rest ships
+
+      ```
+      $ ./scripts/git-ops.sh gc
+      git-ops gc: ref report (base: main, stale cutoff: 30d)
+
+        WHERE    REF                              WORKTREE  AGE   VERDICT
+        -----    ---                              --------  ---   -------
+        local    backup/p1165-orig-20260827       no        11d   KEEP — unmatched: b6d425dc0(patch-absent) c431d2ec0(patch-absent) 68d6156f2(reverted-by-63eac1e66) 49e07b91f(patch-absent)
+        origin   presi/habit-slide-3step          no        84d   MERGED
+        origin   staging/doc-20e894b89            no        3d    MERGED
+        origin   staging/doc-d7eb148d             no        6d    MERGED
+      ```
+      The three refs on `origin` each classify MERGED, independently reproducing the spec's
+      measurement that none carries a commit absent from `origin/main`.
+
+- [x] Run against `backup/p1165-orig-20260827`, that command reports **`KEEP`** and names the
+      unmatched commits. Output above. Note it reports **3 patch-absent** commits, matching the
+      spec's own `git cherry` measurement exactly — an earlier count of 8 was a `pipefail`
+      artifact, not a real disagreement (see below).
+
+- [x] Replaying the 2026-09-03→05 `p1220` revert window, the command reports `KEEP` for a branch
+      whose commits were reverted on `main`.
+
+      **The fixture had to be rebuilt to be meaningful.** Pointing a branch straight at
+      `95036cca3` makes it an *ancestor* of the revert, so `base..ref` is empty and reachability
+      alone answers it — that tests nothing. The trap's real shape is work that shipped by
+      **cherry-pick**, so the branch keeps its own SHAs. Built that way, and run in **both**
+      directions, because an oracle hardwired to KEEP would pass a one-directional test:
+
+      ```
+      base=37984ff00 (revert landed, not yet re-landed)
+        local  p1260-canary-revert   no  0d  KEEP — unmatched: 8a7e53d37(reverted-by-37984ff00)
+      base=main (re-landed as 06dad4d3e on 2026-09-05)
+        local  p1260-canary-revert   no  0d  MERGED
+      ```
+      Permanent as `scripts/test-git-ops-gc.sh`, wired into pre-commit.
+
+- [x] The `feature/*`/`fix/*` push refusal is shown **blocking** (gate 7) **and** shown not
+      blocking the existing workflows (gate 7c) in the same run — `scripts/test-pre-push-refclass.sh`,
+      10 scenarios, exit 0:
+
+      ```
+      -- gate 7: the refusal must actually fire --
+        PASS  1. feature/* to public origin (exit 1, Layer 0 refused)
+        PASS  2. fix/* to public origin (the P1255 embargo case) (exit 1, Layer 0 refused)
+        PASS  3. feature/* renamed to an innocent remote ref (exit 1, Layer 0 refused)
+      -- gate 7c: the workflows that already exist must still pass --
+        PASS  4. main -> main (/ship, commit-to-main, plain push)
+        PASS  5. staging/doc-* (push-docs staging hop)
+        PASS  6. staging/pN (ship-to-prod staging hop)
+        PASS  7. DELETING a feature ref is reclamation, never publication
+        PASS  8. feature/* to a NON-public remote is not a publication boundary
+      -- the escape hatch: explicit, per-ref, and logged --
+        PASS  9. named ref is waived AND appended to .branch-publish-log
+        PASS 10. waiver naming a different ref does not generalize
+      === 10 passed, 0 failed ===
+      ```
+      Scenarios 1-3 and 4-8 use the **same** fake SHAs, so "allowed" is a discriminating result
+      rather than a uniform pass.
+
+- [~] An aborted `push-docs` run leaves no `staging/*` ref on `origin`. **Structurally verified,
+      not live.** A live run needs a real push to `origin`, which needs founder authorization.
+      `scripts/test-push-snapshot-pinning.sh` test 9 asserts, in **both** promote functions, that
+      the declined-promote branch deletes the staging ref **before** `release_main_lock` — the
+      ordering is the assertion, because main.lock is what makes the delete safe. Watched to fail:
+      removing the delete from `cmd_push_docs` alone turns the run red (exit 1) while
+      `cmd_ship_to_prod` still passes.
+
+      **Scope correction, deliberate:** the timeout and red-CI paths still KEEP their ref. Those
+      messages tell the operator to promote manually *using that ref*, so deleting it would break
+      the documented recovery. The spec allowed either "delete or record it somewhere a sweep will
+      find it" — those four sites now take the second branch, and test 9 pins the asymmetry so it
+      cannot be quietly erased.
+
+- [ ] `/weekly` prints the branch-and-remote-refs report in its Evidence Picture — one real run.
+      **Step 2.4.6 is written and committed to `main` (`774dca871`)**; the command it runs is the
+      one whose output is pasted above. A full `/weekly` is the founder's periodic ritual (it hits
+      Search Console, analytics and GCP spend) and was not triggered from inside `/dev`.
+
+- [ ] The three refs currently on `origin` are resolved per D2. **D2 answered: delete all three.**
+      Blocked on push authorization — deleting a remote ref is a push. Commands staged below.
+
+- [x] The Withdrawn Mechanism paragraph is filed in `docs/decisions.md` — 2026-09-07 [technical],
+      "Publish-then-scan on a public remote is ACCEPTED; the control moves from content to ref
+      class". A second entry records the oracle's design and the three defects found building it.
+
+### Not done — needs a push, which needs you
+
+D2's deletions. Each ref classifies MERGED, so no content is lost:
+
+```
+git push origin --delete staging/doc-20e894b89
+git push origin --delete staging/doc-d7eb148d
+git push origin --delete presi/habit-slide-3step
+```
+
+Deleting them does **not** un-publish anything (Invariants) — this is cleanup debt, not remediation.
 
 ## Alternatives Considered
 
