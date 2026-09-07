@@ -45,7 +45,20 @@ import type { EmailOtpType } from "@supabase/supabase-js";
  * 'signup' and 'email' cover the confirmation link a self-service signup produces;
  * 'recovery' covers a password-reset-shaped link; 'magiclink' is the plain sign-in case.
  */
-const ALLOWED_OTP_TYPES = ['magiclink', 'signup', 'email', 'recovery'] as const;
+// This is the COMPLETE EmailOtpType union as of @supabase/auth-js in node_modules
+// (lib/types.d.ts: 'signup' | 'invite' | 'magiclink' | 'recovery' | 'email_change' | 'email').
+// Listing a subset is worse than it looks: an omitted-but-valid type silently falls back to
+// 'magiclink', GoTrue rejects the mismatch, and the page tells the user their perfectly good
+// link "can't be used". The first version of this list omitted 'invite' and 'email_change'.
+// If you narrow this list, narrow it deliberately and say why — do not let it drift.
+const ALLOWED_OTP_TYPES = [
+  'magiclink',
+  'signup',
+  'email',
+  'recovery',
+  'invite',
+  'email_change',
+] as const;
 
 function parseOtpType(raw: string | null): EmailOtpType {
   return (ALLOWED_OTP_TYPES as readonly string[]).includes(raw ?? '')
@@ -56,6 +69,9 @@ function parseOtpType(raw: string | null): EmailOtpType {
 export function AuthVerifyPage() {
   const navigate = useNavigate();
   const [failed, setFailed] = useState(false);
+  // Distinguishes "GoTrue rejected this token" from "we never reached GoTrue". Only the
+  // second is retryable, and only the second leaves the link still usable.
+  const [networkError, setNetworkError] = useState(false);
 
   // Guard against React StrictMode's double-invoke and any re-render: a token_hash is
   // single-use, so a second verifyOtp with the same token fails and would flip a
@@ -85,13 +101,17 @@ export function AuthVerifyPage() {
       return;
     }
 
-    // Strip the token from the address bar before redeeming it, so it does not linger in
-    // history, referrers, or a screenshot. Same treatment as letter-response-confirm.
-    window.history.replaceState(null, '', window.location.pathname);
+    // Strip the token from the address bar so it does not linger in history, referrers or a
+    // screenshot — but only once we know its fate.
+    const stripToken = () =>
+      window.history.replaceState(null, '', window.location.pathname);
 
     supabase.auth
       .verifyOtp({ token_hash: tokenHash, type: otpType })
       .then(({ error }) => {
+        // Either outcome here is DEFINITIVE: GoTrue answered. On success the token is spent;
+        // on an auth error it is rejected. Nothing is lost by removing it from the URL now.
+        stripToken();
         if (error) {
           console.error('[auth-verify] verifyOtp failed:', error.message);
           setFailed(true);
@@ -102,7 +122,13 @@ export function AuthVerifyPage() {
         navigate(callbackUrl, { replace: true });
       })
       .catch((err: unknown) => {
+        // NOT definitive — the request never reached GoTrue (offline, DNS, TLS, CORS), so the
+        // token is still UNSPENT. Deliberately do not strip it: leaving it in the URL means a
+        // refresh retries, which is the one recovery a person can find on their own. Stripping
+        // here would destroy a working link from their side and then tell them it was already
+        // used — the exact dead end this page exists to remove.
         console.error('[auth-verify] verifyOtp threw:', err);
+        setNetworkError(true);
         setFailed(true);
       });
   }, [navigate]);
@@ -117,15 +143,24 @@ export function AuthVerifyPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold">This link can't be used</h1>
             {/*
-              Deliberately does NOT say "valid for 1 hour" — a used link and an expired
-              link are indistinguishable from here, and AuthCallbackPage's version of this
-              copy states a cause it cannot know (noted in docs/decisions.md 2026-09-03).
+              Two genuinely different situations, and conflating them is what strands people.
+              A network failure leaves the link UNSPENT and still in the address bar, so the
+              honest instruction is "try again" — telling that person to request a new link
+              would be advice to abandon a link that still works.
+            */}
+            <h1 className="text-3xl font-bold">
+              {networkError ? "We couldn't reach the server" : "This link can't be used"}
+            </h1>
+            {/*
+              The non-network branch deliberately does NOT say "valid for 1 hour" — a used
+              link and an expired link are indistinguishable from here, and AuthCallbackPage's
+              version of this copy states a cause it cannot know (docs/decisions.md 2026-09-03).
             */}
             <p className="text-lg text-muted-foreground">
-              It may already have been used, or it may have expired. Sending yourself a new
-              one will work.
+              {networkError
+                ? 'Your link is still good. Check your connection and reload this page to try again.'
+                : 'It may already have been used, or it may have expired. Sending yourself a new one will work.'}
             </p>
           </div>
           {/*
@@ -134,12 +169,22 @@ export function AuthVerifyPage() {
             docs/decisions.md 2026-09-03 flagged as "a loop with no exit".
           */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-            <Link
-              to="/login"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              Send me a new link
-            </Link>
+            {networkError ? (
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Try again
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Send me a new link
+              </Link>
+            )}
             <Link
               to="/"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent hover:text-accent-foreground"

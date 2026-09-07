@@ -75,14 +75,59 @@ describe('P1257 — /auth/verify redeems a token_hash link', () => {
     );
   });
 
-  it('strips the token from the address bar before redeeming it', async () => {
+  it('strips the token from the address bar once its fate is known', async () => {
     atUrl('?token_hash=secret-token');
     renderPage();
 
-    await waitFor(() => expect(verifyOtp).toHaveBeenCalled());
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
     expect(window.location.search).toBe('');
     expect(window.location.pathname).toBe('/auth/verify');
   });
+
+  it('strips the token when GoTrue definitively rejects it', async () => {
+    verifyOtp.mockResolvedValue({ error: { message: 'expired' } });
+    atUrl('?token_hash=stale');
+    renderPage();
+
+    await screen.findByText(/this link can't be used/i);
+    expect(window.location.search).toBe('');
+  });
+
+  // Adversarial review finding B-1. Stripping the token before the call meant a dropped
+  // connection burned a still-unspent link from the user's side, and then told them it was
+  // already used — the dead end this whole page exists to remove.
+  it('KEEPS the token in the URL when the request never reached the server', async () => {
+    verifyOtp.mockRejectedValue(new Error('network down'));
+    atUrl('?token_hash=unspent-token');
+    renderPage();
+
+    await screen.findByText(/couldn't reach the server/i);
+    expect(window.location.search).toContain('unspent-token');
+  });
+
+  it('tells the user the link still works, and offers retry rather than a new link', async () => {
+    verifyOtp.mockRejectedValue(new Error('network down'));
+    atUrl('?token_hash=unspent-token');
+    renderPage();
+
+    expect(await screen.findByText(/your link is still good/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /send me a new link/i })).not.toBeInTheDocument();
+  });
+
+  // Adversarial review finding B-2, corrected: `reauthentication` is NOT an EmailOtpType.
+  // The real union in node_modules/@supabase/auth-js is
+  // signup | invite | magiclink | recovery | email_change | email.
+  it.each(['invite', 'email_change', 'recovery', 'email', 'signup', 'magiclink'])(
+    'passes the real OTP type %s straight through instead of mislabelling it magiclink',
+    async (type) => {
+      atUrl(`?token_hash=abc123&type=${type}`);
+      renderPage();
+
+      await waitFor(() => expect(verifyOtp).toHaveBeenCalled());
+      expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'abc123', type });
+    }
+  );
 
   it('forwards post-auth intent to the callback but never the token', async () => {
     atUrl('?token_hash=abc123&redirect=%2Fevents%2Fhike&action=rsvp');
@@ -161,7 +206,10 @@ describe('P1257 — /auth/verify redeems a token_hash link', () => {
     atUrl('?token_hash=abc123');
     renderPage();
 
-    expect(await screen.findByText(/this link can't be used/i)).toBeInTheDocument();
+    // Superseded by B-1: a rejected request is a NETWORK failure, not a dead link, so this
+    // asserts the retry copy. It previously asserted "this link can't be used", which was
+    // the defect — the message told the truth about the request and lied about the link.
+    expect(await screen.findByText(/couldn't reach the server/i)).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
   });
 });
