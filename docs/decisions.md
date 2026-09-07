@@ -6,6 +6,97 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: A stable short link cannot carry a weekly-changing link preview
+
+**Context:** A Telegram post announcing the Sep 13 hike ("Ban Mai Viewpoint Loop, Mon Cham")
+unfurled a card titled "Doi Pui – Ban Khun Chang Khian" with the previous week's group photo.
+The server was innocent: `curl` with a bot user-agent against `claritypledge.com/hike` returned
+the correct new title and banner throughout. The stale card was Telegram's cached preview, keyed
+to the URL string in the message.
+
+`/hike` and `/events/hike` are deliberately *stable* series short links — they 307 through
+`api/series-redirect` to whichever event is next. That stability is the whole point of the short
+link, and it is also exactly what breaks the preview: a platform that caches the unfurl per posted
+URL keeps serving the first event ever cached under it. Nothing server-side can expire that cache.
+
+**Decision:** Every series short link posted anywhere carries a per-event cache-buster:
+`claritypledge.com/hike?d=260913` (`?d=<YYMMDD>`, event date in `Asia/Bangkok`). The query survives
+the Vercel redirect and `api/series-redirect` reads only `series`, so the link resolves to the same
+event; only the cache key changes. Bare-domain form (`/hike`) where `vercel.json` defines one, else
+`/events/<short_link>`.
+
+`YY` is not optional. A bare `MMDD` recurs annually and these caches outlive twelve months, so the
+2027 hike would post a URL Telegram already has a 2026 preview for — the same bug on an annual
+period.
+
+**Which platforms this affects is NOT uniform, and the difference is measurable.** `api/og.ts` sets
+`og:url` to the resolved per-event slug — verified: `/hike?d=<anything>` returns
+`og:url = /events/social-hike-...-945871`, unchanged by the query. A platform that canonicalizes a
+shared object by `og:url` (Facebook's documented behaviour) was therefore already keying on a
+per-event-unique URL and would never have shown a stale card. A platform keying on the posted URL
+(Telegram, per this incident) is the one that breaks. **One platform observed failing, none of the
+others tested** — `?d=` is applied everywhere as cheap insurance, not because each was measured.
+An earlier draft of this entry claimed Facebook/WhatsApp/Sola had the same defect; that was an
+overclaim and the `og:url` evidence points the other way.
+
+**Alternatives rejected:**
+- *Post the canonical per-event slug instead.* Strictly simpler — unique by construction, no query
+  param, no guard clauses, no character accounting. Rejected by the founder in favour of keeping the
+  short link readable in posted copy; the slug remains the fallback when no series doc exists.
+- *Platform cache-refresh APIs.* Telegram's is a manual bot interaction, and there is no equivalent
+  covering WhatsApp/Sola/Eventbrite. Not automatable from the pipeline.
+- *Shorter `?d=MMDD`.* Founder's first choice for character economy; overruled on the annual-collision
+  argument above, at a cost of two characters.
+
+**Consequences:** The stale-preview class is now guarded at post time rather than trusted to
+attention. `promote-groups` hard-stops on (a) an unresolved placeholder, (b) a missing or wrong
+`?d=<YYMMDD>` token — a *stale* suffix copied from last week is a live, correctly-shaped URL that
+passes every liveness check, so only this token comparison catches it — and (c) a short link whose
+crawler-fetched `og:title` does not name the event being promoted. `promote-whatsapp` gained the
+same check, since its free-text DM path resolves no placeholders and nothing upstream would add the
+suffix.
+
+**The load-bearing premise is still unverified.** `api/series-redirect` drops the query on its final
+hop, so the OG tags are fetched from a URL without `?d=`. The fix assumes each platform keys its
+preview cache on the *posted* URL, not the resolved one. That is the documented behaviour of major
+unfurlers and is almost certainly right, but it has not been observed here — the crawler `curl` the
+pipeline runs verifies OG *content*, never the cache key. Proof costs one minute and needs Beeper
+(a `cf` session): post the same event into a scratch chat under two `?d=` values and confirm two
+distinct cards. Until then a correct unfurl is evidence, not proof.
+
+**Consequences (process):** Hardcoded copy is where this class of bug actually lives. The skills
+had elaborate staleness guards for blurb *text* and none for the *link*, and the four group blurbs
+in `.private/event-channels.json` hardcoded a bare short link twice each — so fixing the runbooks
+alone would have changed nothing. All eight are now `{short_url}`, resolved at post time. Same pass
+found the German blurb still describing the previous week's trail, date, cafe, distance and
+elevation.
+
+**Meta (Status: proposed).** Four frictions; an Opus critic falsified two as gaps. Both are
+**non-compliance with rules this repo already carries**, recorded here rather than as duplicate
+rules — the useful signal for a future auditor is that these rules are being read past, not that
+they are missing. (1) The link-liveness guard was shipped shape-matched on
+`claritypledge.com/events/<series>` while the group blurbs use the bare-domain
+`claritypledge.com/hike`, so it could not fire on the only input that matters — a clean
+[epistemic.md](../.claude/rules/epistemic.md) **gate 7c** miss ("run the tool's own documented
+workflows through it"; the tool's own workflow input is the config blurb). (2) Facebook, WhatsApp
+and Sola were asserted to the founder as having the same defect, twice, with none of them tested —
+CLAUDE.md **"Falsify Before You Rely"** verbatim. The `og:url` evidence later contradicted the
+claim outright, so it was wrong on the code and not merely unverified.
+
+The two that survived shared one root cause and were fixed as one edit to
+[.claude/rules/skills.md](../.claude/rules/skills.md): "trace before editing" bound the START of a
+skill edit and reached neither the DATA a skill posts verbatim (the gitignored config file that
+actually emitted the bug) nor the END (declaring done without tracing consumers — a founder
+question then surfaced four further defects in under a minute).
+
+**References:** [api/series-redirect.ts](../api/series-redirect.ts) · [api/og.ts](../api/og.ts) ·
+`.claude/commands/slava/events/promote-all.md` § "Short-link cache-buster" (canonical rule) ·
+[2026-03-06 Dynamic OG tags via Vercel serverless function](#2026-03-06-technical-dynamic-og-tags-via-vercel-serverless-function--ssr-lite-for-link-previews)
+
+---
+
+---
+
 ## 2026-09-07 [technical]: Every operator-minted sign-in link was unredeemable, and the 2026-08-16 "test-infrastructure-only" verdict was wrong
 
 **Context:** Someone tried three times to register for an event and never got in. Investigating, a
