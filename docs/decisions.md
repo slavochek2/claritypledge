@@ -6,6 +6,80 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: I nearly reported a number that measured the log, not the world — and two plausible causes died to one cheap control (P1256)
+
+**Context:** One of nine hike RSVPs received no feedback email. Asked why, and whether it
+mattered.
+
+**Two hypotheses, both plausible, both dead.** The founder's: the person never confirmed
+their email. Checked — confirmed, and they had signed in. Mine: the RSVP happened 22
+seconds after signup, so the auto-RSVP-after-signup path must not fire the email call. That
+felt strong until the control: **three other people RSVP'd 2–3 seconds after signing up and
+got their emails**, and one at 24 seconds succeeded where the 22-second one failed. No
+pattern in the flow, no pattern in the timing. Both explanations were killed by one query
+that cost nothing, and neither would have survived contact with it.
+
+**The near-miss, which is the actual lesson.** Widening the question, a count came back:
+**43 of 46 RSVPs have no confirmation email recorded.** That is an alarming number and it
+was one sentence away from reaching the founder as a finding. It is not one. Reading
+`logEmailSend` first: it is documented *"Never throws — logging failures must not break the
+email flow"* and swallows its own insert errors. **A missing row in a best-effort log is not
+evidence the event did not happen** — it is evidence of nothing at all.
+
+**The rule:** before a count becomes a finding, establish that the thing being counted is
+*required* to exist. A best-effort writer, a fire-and-forget sender, a cache, a metric with
+a documented drop path — absence there is unfalsifiable, and a large number of absences is
+unfalsifiable at scale, which reads as *more* convincing rather than less. The existing
+control-probe rule in the global CLAUDE.md covers a probe that returns the same verdict for
+every candidate; this is its neighbour — **a probe that returns a dramatic verdict for
+almost every candidate**, which is equally a signal to inspect the instrument.
+
+The reliable signal here was on the RSVP row itself (`reminder_scheduled_at` /
+`feedback_scheduled_at`, written by the same code path that must not skip), not in the log
+about it. Same session, same shape as the deploy manifest: **the derived record disagreed
+with the system of record, and the system of record was right every time.**
+
+**References:** P1256 · `supabase/functions/_shared/email-helpers.ts` (`logEmailSend`) ·
+`docs/decisions.md` 2026-09-07 deploy-manifest entry (the other instance)
+
+---
+
+## 2026-09-07 [technical]: Fire-and-forget with no reconciler is a silent loss channel — and the new monitoring cannot see it (P1256)
+
+**Context:** The 9th RSVP had no reminder and no feedback time set, so nothing was ever
+scheduled for that person. The cause is not a code path; it is the delivery model.
+
+**The shape:** `rsvpToEvent` calls `invokeEventEmails(...)` **without awaiting it**, and
+that function catches every error and writes it to a browser console. So a single transient
+failure loses the confirmation *and* both scheduled emails, with **no error surfaced, no
+row written, and no retry**. Nothing server-side ever reconciles "this RSVP exists but has
+no scheduled emails".
+
+**Why this is the same bug as the outage it sits next to.** P1256 spent a day on a cron
+that failed 328 times into a table nobody read. This is the same failure class one layer
+up — and the monitoring added *by* P1256 cannot see it. That check looks for rows whose
+scheduled time has passed and never sent; these rows have **no scheduled time at all**, so
+they are invisible to it by construction. A monitor built around one silent-failure shape
+does not generalise to its sibling.
+
+**Decision: measure before fixing.** Not filed as a fix, because the honest state is *one
+confirmed instance and an unknown rate* — and the raw counts are contaminated by RSVPs
+made after an event (legitimately unscheduled) and by the feedback email's host gate. The
+next step is a real rate using the reliable per-row signal, not a fix built on a plausible
+cause. This session already showed twice that a plausible cause is where you stop too early.
+
+**A naming correction worth keeping:** an RSVP is not attendance. This product has **no
+attendance concept at all** — the only related column in the database is `max_attendees`,
+a capacity limit. "Everyone who attended got the form" was said in this session and was
+wrong twice over: it was 8 of 9 people who *RSVP'd*, and who actually walked on Sunday is
+not knowable from the data. Walk-ups are invisible; the group chat is the only way to
+reach them.
+
+**References:** P1256 · `src/lib/event-emails.ts` (`invokeEventEmails`) ·
+`src/app/data/events-service-real.ts` (`rsvpToEvent`, the un-awaited call)
+
+---
+
 ## 2026-09-07 [process]: A control that is both wrong-shaped and false proves nothing — Q3 passed a false negative through all ten checkers
 
 **Context:** Stage 4 of the `ai-power-remedies-d` disagreement run spawned 14 agents: 4 writers, 4 story checkers, 5 controls, and one round-2 re-checker. The checker's question Q3 asks whether a story **names** a stance, and its test is a staleness test — *would this sentence become FALSE if the position moved one step or flipped sign?* The rule already required a control beside any all-pass verdict, and told the checker to *"construct one sentence that SHOULD fail"*.
