@@ -35,20 +35,43 @@ echo "[3] the gate is intact on every enrolled item (ACL read, no dialog)"
 if ./scripts/keyring.sh verify >/dev/null 2>&1; then ok "no item has a trusted application"
 else bad "verify reported a defeated or missing gate — run ./scripts/keyring.sh verify"; fi
 
-echo "[4] the ACL detector actually discriminates (known-good vs known-bad)"
-security delete-generic-password -s p1239-selftest-bad >/dev/null 2>&1
+echo "[4] the ACL detector discriminates across all three ACL shapes"
+# Three controls, because two were not enough. An item created with -A has a
+# NULL application list, reads with NO prompt at all, and was reported as
+# "gate-intact" by the first version of the detector. A two-control suite
+# (locked vs one trusted app) passed while that hole was wide open.
+for c in good bad allapps; do
+  python3 "$KEYRING_PY" delete "p1239-selftest-$c" >/dev/null 2>&1
+  security delete-generic-password -s "p1239-selftest-$c" >/dev/null 2>&1
+done
 printf 'DUMMY' | python3 "$KEYRING_PY" add p1239-selftest-good >/dev/null 2>&1
 security add-generic-password -a "$USER" -s p1239-selftest-bad -w DUMMY \
   -T /usr/bin/security >/dev/null 2>&1
-good_v=$(python3 "$KEYRING_PY" acl p1239-selftest-good >/dev/null 2>&1; echo $?)
-bad_v=$(python3 "$KEYRING_PY" acl p1239-selftest-bad  >/dev/null 2>&1; echo $?)
-check "$good_v" "0" "locked canary reports gate-intact"
+security add-generic-password -a "$USER" -s p1239-selftest-allapps -w DUMMY \
+  -A >/dev/null 2>&1
+good_v=$(python3 "$KEYRING_PY" acl p1239-selftest-good    >/dev/null 2>&1; echo $?)
+bad_v=$(python3  "$KEYRING_PY" acl p1239-selftest-bad     >/dev/null 2>&1; echo $?)
+all_v=$(python3  "$KEYRING_PY" acl p1239-selftest-allapps >/dev/null 2>&1; echo $?)
+check "$good_v" "0" "locked canary (empty ACL) reports gate-intact"
 check "$bad_v"  "2" "trusted-app canary reports DEFEATED"
-if [ "$good_v" = "$bad_v" ]; then
-  bad "detector returned the same verdict for both controls — it is blind"
+check "$all_v"  "2" "all-applications canary reports DEFEATED"
+if [ "$good_v" = "$bad_v" ] || [ "$good_v" = "$all_v" ]; then
+  bad "detector cannot separate a locked item from an open one — it is blind"
 fi
-python3 "$KEYRING_PY" delete p1239-selftest-good >/dev/null 2>&1
-security delete-generic-password -s p1239-selftest-bad >/dev/null 2>&1
+# The verdict must also be STABLE. SecAccessCopyACLList returns ACLs in an
+# unstable order, and an order-sensitive comparison reported a correctly locked
+# item as DEFEATED roughly one run in five — intermittent enough to be dismissed
+# as noise, which is how a real defeat would get dismissed too.
+verdicts=""
+for i in 1 2 3 4 5 6 7 8; do
+  verdicts="${verdicts}$(python3 "$KEYRING_PY" acl p1239-selftest-good >/dev/null 2>&1; echo $?)"
+done
+check "$verdicts" "00000000" "locked canary verdict is stable over 8 runs"
+
+for c in good bad allapps; do
+  python3 "$KEYRING_PY" delete "p1239-selftest-$c" >/dev/null 2>&1
+  security delete-generic-password -s "p1239-selftest-$c" >/dev/null 2>&1
+done
 
 echo "[5] an empty value is refused rather than stored"
 rc=$(printf '' | python3 "$KEYRING_PY" add p1239-selftest-empty >/dev/null 2>&1; echo $?)

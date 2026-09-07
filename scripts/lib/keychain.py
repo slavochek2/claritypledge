@@ -129,20 +129,17 @@ def _empty_access():
     return access, 0
 
 
-def cmd_add(service):
-    value = sys.stdin.buffer.read()
-    if value.endswith(b"\n"):
-        value = value[:-1]
-    if not value:
-        sys.stderr.write("keychain: refusing to store an empty value for %s\n" % service)
-        return 1
-    st, item, _, _ = _find(service, want_password=False)
-    if st == 0:
-        sec.SecKeychainItemDelete(item)      # replace: delete then re-create
+def _create_locked(service, value):
+    """Create a generic-password item whose ACL trusts no application.
+
+    Creating the item and setting its ACL in one call is deliberate: doing it in
+    two steps reads to macOS as *modifying* an existing item and prompts for
+    authorization (measured: OSStatus -128), which would make enrollment
+    interactive for no security gain.
+    """
     access, ast = _empty_access()
     if access is None:
-        sys.stderr.write("keychain: could not build empty ACL (OSStatus %d)\n" % ast)
-        return 3
+        return ast if ast != 0 else -1
     svc = service.encode()
     acct = ACCOUNT.encode()
     svc_buf = ctypes.create_string_buffer(svc)
@@ -154,13 +151,22 @@ def cmd_add(service):
                                     ctypes.cast(acct_buf, c_void_p))
     attr_list = SecKeychainAttributeList(2, attrs)
     new_item = c_void_p()
-    # Create the item WITH its empty ACL in a single call. Creating it first and
-    # setting the ACL afterwards reads to macOS as *modifying* an existing item,
-    # which prompts for authorization (measured: OSStatus -128) and would make
-    # enrollment interactive for no security gain.
-    st = _signed(sec.SecKeychainItemCreateFromContent(
+    return _signed(sec.SecKeychainItemCreateFromContent(
         CLASS_GENERIC_PASSWORD, byref(attr_list), len(value), value,
         None, access, byref(new_item)))
+
+
+def cmd_add(service):
+    value = sys.stdin.buffer.read()
+    if value.endswith(b"\n"):
+        value = value[:-1]
+    if not value:
+        sys.stderr.write("keychain: refusing to store an empty value for %s\n" % service)
+        return 1
+    st, item, _, _ = _find(service, want_password=False)
+    if st == 0:
+        sec.SecKeychainItemDelete(item)      # replace: delete then re-create
+    st = _create_locked(service, value)
     if st != 0:
         sys.stderr.write("keychain: create failed for %s (OSStatus %d)\n" % (service, st))
         return 3
@@ -193,10 +199,22 @@ def cmd_exists(service):
     return 0 if st == 0 else 1
 
 
-def trusted_apps(service):
-    """Names of applications allowed to read this item without a prompt.
-    Empty list == the gate is intact. Non-empty == 'Always Allow' was clicked
-    (or the item was created wrong)."""
+REFERENCE_SERVICE = "cp.keyring.__shape_reference__"
+
+
+def _acl_entries(service):
+    """Per-ACL description of an item: for each ACL, either None (the
+    application list is NULL, which Security.framework defines as *every*
+    application being trusted) or the list of trusted application paths.
+
+    The distinction matters and is the opposite of what it looks like: an EMPTY
+    list means no application is trusted, so every read needs a human; a NULL
+    list means the gate is wide open. An earlier version of this function
+    skipped NULL lists and consequently reported an item created with
+    `security add-generic-password -A` — which reads with no prompt at all — as
+    "gate-intact". That is the exact false clean bill of health this tool exists
+    to prevent.
+    """
     st, item, _, _ = _find(service, want_password=False)
     if st != 0:
         return None
@@ -206,7 +224,7 @@ def trusted_apps(service):
     acls = c_void_p()
     if _signed(sec.SecAccessCopyACLList(access, byref(acls))) != 0:
         return None
-    names = []
+    entries = []
     for i in range(cf.CFArrayGetCount(acls)):
         acl = cf.CFArrayGetValueAtIndex(acls, i)
         applist = c_void_p()
@@ -214,30 +232,99 @@ def trusted_apps(service):
         selector = c_uint32()
         if _signed(sec.SecACLCopyContents(acl, byref(applist), byref(desc),
                                           byref(selector))) != 0:
+            entries.append(None)
             continue
         if not applist:
+            entries.append(None)
             continue
+        names = []
         for j in range(cf.CFArrayGetCount(applist)):
             app = cf.CFArrayGetValueAtIndex(applist, j)
             blob = c_void_p()
             if _signed(sec.SecTrustedApplicationCopyData(app, byref(blob))) == 0 and blob:
-                raw = ctypes.string_at(cf.CFDataGetBytePtr(blob), cf.CFDataGetLength(blob))
+                raw = ctypes.string_at(cf.CFDataGetBytePtr(blob),
+                                       cf.CFDataGetLength(blob))
                 names.append(raw.rstrip(b"\x00").decode("utf-8", "replace"))
-    return names
+        entries.append(names)
+    return entries
+
+
+def _shape(entries):
+    """Canonical, ORDER-INDEPENDENT fingerprint of an item's ACL list.
+
+    SecAccessCopyACLList does not return ACLs in a stable order — measured on
+    one unchanged item: (None, 0, None, None, 0) four times and
+    (0, None, None, None, 0) on the fifth read. Comparing positionally
+    therefore reported a perfectly locked key as DEFEATED at random, which is
+    the failure that makes a security check get ignored. Compare the multiset:
+    how many ACLs are wide open, plus the sorted sizes of the rest.
+
+      locked  (-T "")  -> (3, (0, 0))
+      default          -> (3, (0, 1))     one trusted application
+      -A  all-apps     -> (4, (0,))       one fewer restricted ACL
+    """
+    if entries is None:
+        return None
+    wide = sum(1 for e in entries if e is None)
+    sizes = tuple(sorted(len(e) for e in entries if e is not None))
+    return (wide, sizes)
+
+
+def _reference_shape():
+    """The ACL shape produced by our own enrollment path, measured live.
+
+    An item carries several ACLs and the one that gates reading is NOT at a
+    fixed index (measured: a default item's trusted app lands at index 0, a
+    `-T ""` item's empty list at index 1). Rather than guess which ACL governs
+    decryption, create a throwaway item exactly the way enrollment does and
+    compare against its shape. This self-calibrates: if a macOS update changes
+    the layout, the reference moves with it instead of turning every enrolled
+    key into a false alarm.
+    """
+    st, item, _, _ = _find(REFERENCE_SERVICE, want_password=False)
+    if st == 0:
+        sec.SecKeychainItemDelete(item)
+    if _create_locked(REFERENCE_SERVICE, b"reference") != 0:
+        return None
+    shape = _shape(_acl_entries(REFERENCE_SERVICE))
+    st, item, _, _ = _find(REFERENCE_SERVICE, want_password=False)
+    if st == 0:
+        sec.SecKeychainItemDelete(item)
+    return shape
+
+
+def trusted_apps(service):
+    """Flat list of every application trusted to read this item without a
+    prompt. Kept for diagnostics; `cmd_acl` decides pass/fail on shape."""
+    entries = _acl_entries(service)
+    if entries is None:
+        return None
+    return [n for e in entries if e for n in e]
 
 
 def cmd_acl(services):
+    reference = _reference_shape()
+    if reference is None:
+        sys.stderr.write("keychain: could not build a reference item — cannot "
+                         "judge whether the gate is intact; refusing to guess\n")
+        return 3
     worst = 0
     for service in services:
-        names = trusted_apps(service)
-        if names is None:
+        entries = _acl_entries(service)
+        shape = _shape(entries)
+        if shape is None:
             print("%-44s MISSING" % service)
             worst = max(worst, 1)
-        elif names:
-            print("%-44s DEFEATED trusted_apps=%d %s" % (service, len(names), names))
-            worst = 2
-        else:
+        elif shape == reference:
             print("%-44s OK gate-intact" % service)
+        else:
+            names = [n for e in entries if e for n in e]
+            wide = sum(1 for e in entries if e is None)
+            detail = ("trusted_apps=%s" % names) if names else \
+                     ("wide-open ACLs=%d (a correctly locked item has %d)"
+                      % (wide, reference[0]))
+            print("%-44s DEFEATED %s" % (service, detail))
+            worst = 2
     return worst
 
 
