@@ -2,7 +2,7 @@
 name: promote-todo-today
 description: "Promote a ClarityPledge event on todo.today"
 when_to_use: "After event is published on claritypledge.com."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Promote Event on todo.today
@@ -51,7 +51,16 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 
 ### 3. Open todo.today
 
-Use Claude-in-Chrome: new tab → navigate to `https://todo.today/my-events/` → click **Create Event +**.
+Use Claude-in-Chrome: new tab → navigate to `https://todo.today/my-events/` → click **Submit**.
+
+**A type picker comes first (added by todo.today before 2026-09-07).** A "WHAT ARE YOU HOSTING?"
+dialog appears with Event / Class or Workshop / Daily Special / Retreat / 1:1 Session. Choose
+**Event** — a hike is not a guided class, and the wrong choice changes which fields the form
+shows. Only after that does the Create Event form open.
+
+**If the page redirects to `/join/`, the session is logged out.** Stop and tell the operator to
+sign in themselves; the login is a WhatsApp OTP, a Google account or an email code, and entering
+any of those is never the agent's job.
 
 ### 4. Upload photo
 
@@ -68,9 +77,15 @@ When the media library opens, select the just-uploaded image and click **Add**.
 | Field | Value |
 |-------|-------|
 | Event Title | verbatim from DB (max 80 chars) |
-| Event Date | MM/DD/YYYY — **write→wait→re-read** after entry |
+| Event Date | click the field → a month calendar opens → click the day. Not typeable. **write→wait→re-read** |
 | Start Time | local time (Asia/Bangkok) — **write→wait→re-read** |
 | End Time | start + duration_minutes — **write→wait→re-read** |
+
+**The time fields are scroll-only listboxes in 15-minute steps — typing into them does nothing
+and reports no error.** Typing "9:00 AM" leaves the field empty while the dropdown stays parked
+wherever it opened (it opens near the current wall-clock time, often PM). Scroll the list to the
+value and click it. The End Time list starts at start-time + 15 min, so set Start first. Always
+re-read both fields afterwards: a failed type looks identical to a field you have not reached yet.
 | Host | the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski) |
 | More Details | see description template below |
 | Tags | by event type — see tag table + resolution pattern below |
@@ -82,10 +97,23 @@ When the media library opens, select the just-uploaded image and click **Add**.
 #### Tag selection (display names, resolved at runtime)
 
 Choose by event type:
+- **Hike:** `Hiking`, `Nature Walk`, `Community`, `Coffee` (category: `Sports & Fitness`)
 - **Trail run:** `Sports`, `Hiking`, `running`, `Nature Trip`
 - **AI Run / talk / coffee session:** `Coffee`, `Networking`, `running`, `Community`, `Communication`
 
 **Why names, not IDs:** todo.today's `<option>` IDs are server-generated and change on deploy. Names are stable.
+
+**But names are not permanent either — the tag list is the site's, not ours.** On 2026-09-07 the
+saved hike tag `Outdoors` returned "No matching tags found"; `Nature Walk` was the live
+equivalent. Treat a no-match as a *renamed or retired tag*, search for the nearest live one, and
+update the series-doc `todo_today_tags` in the same session — a saved tag that silently matches
+nothing degrades every future run by one tag, and nothing reports it.
+
+Both the category and the tag field are **type-to-search comboboxes, not `<select>` elements**, so
+the `javascript_tool` snippet above will not find a `select`. Type the name, then click the
+matching row. Confirm each tag landed as a **chip** below the field — the counter reads
+`Search Tags (N/5)` — because a typed name that was never clicked leaves the text in the box and
+adds nothing.
 
 **Resolution pattern (run via `javascript_tool` for each tag name):**
 

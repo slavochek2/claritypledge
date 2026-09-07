@@ -10,11 +10,12 @@ duration_minutes: 270
 host_id: a99042ef-e740-446a-8734-389c8589cc17
 default_location: "{cafe_pin_url}"
 short_link: hike
+sola_group: 4seas
 register_cta: "RSVP:"
 promo_summary: "Morning hike near Chiang Mai. Coffee at the meeting point first, then a relaxed walk. Everyone welcome. RSVP: claritypledge.com/hike"
 todo_today_join_type: walk-in
 todo_today_exchange: free
-todo_today_tags: ["hiking", "Outdoors", "Community", "Coffee"]
+todo_today_tags: ["Hiking", "Nature Walk", "Community", "Coffee"]
 todo_today_category: "Sports & Fitness"
 ---
 
