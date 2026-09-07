@@ -7,10 +7,11 @@ tags:
   - events
   - email
   - infrastructure
-delivery_stage: dev
+delivery_stage: ship
 pipeline_ran:
   - create-spec
   - dev
+  - ship
 ---
 
 # P1256: event emails were never dispatched, and the grace window closed mid-event
@@ -97,11 +98,12 @@ Small. Three contained fixes plus one prod recovery action.
 
 ## Risks / Non-Goals
 
-- **ROTATE THE CRON_SECRET.** The legacy job embedded its bearer token as a plaintext
-  literal in `cron.job.command`, readable by anything that can read `cron.job` and present
-  in every `pg_dump` taken since 2026-06-17. Unscheduling the job removes the row but does
-  not undo the exposure. The replacement reads the value from Vault, so rotating it is a
-  Vault update plus the edge function's `CRON_SECRET` secret — no code change.
+- **CRON_SECRET rotation — DONE 2026-09-07, recorded here because the exposure window is
+  still a fact about the past.** The legacy job embedded its bearer token as a plaintext
+  literal in `cron.job.command`, readable by anything that could read `cron.job` and
+  present in every `pg_dump` from 2026-06-17 until the job was dropped. Unscheduling
+  removed the row; it did not undo the exposure, which is why the value was rotated rather
+  than merely relocated. The new value lives only in Vault and the function's secret store.
 
 - **Vault prerequisite.** The cron migration is inert until
   `dispatch_event_emails_url` and `dispatch_event_emails_cron_secret` exist in that
@@ -135,8 +137,13 @@ Small. Three contained fixes plus one prod recovery action.
 - [x] Tick returns 200 `{"ok":true,"mode":"cron"}`, and the schedule then fired unprompted
 - [x] Backfill run: `{"eligible":8,"sent":8,"skipped":0,"errors":0}`; 8 rows carry real
       Mailgun ids; `email_send_log` independently shows feedback/sent = 8
-- [ ] **CRON_SECRET rotated** — still outstanding, see Risks
-- [ ] Backfill invoked for `77756d40-…`; the 8 rows show a real `mailgun_message_ids.feedback`
+- [x] **CRON_SECRET rotated** (2026-09-07). New 32-byte value set as the edge function
+      secret and updated in Vault; the June value that sat in plaintext in
+      `cron.job.command` is retired. Verified both directions rather than one: the tick
+      returns 200 with the new secret, and a deliberately wrong `x-cron-secret` still
+      returns 401 — so the rotation took AND the gate still bites.
+- [x] Backfill invoked for `77756d40-…`; the 8 rows carry real `mailgun_message_ids.feedback`
+      (08:29:55-59), and `email_send_log` independently shows feedback/sent = 8
 
 ## Invariants
 
