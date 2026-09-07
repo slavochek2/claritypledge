@@ -6,6 +6,99 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: A liveness monitor must ping the DEPLOYED credential, and prove it is the deployed one before pinging
+
+**Context:** `/day` has pinged "the production Gemini key" since 2026-08-27. It reads
+`$GEMINI_API_KEY` from the **ambient shell** of whatever machine runs it — which is no deployed
+ClarityPledge secret. On the founder's machine that variable is unset, so the check had exited 2
+("could not be checked") every run since it shipped, and its coverage of this repo's keys was zero.
+Separately, a key stored in the test environment and in GCP Secret Manager had stopped
+authenticating in March and nothing reported it: a dead key spends nothing, so every spend check
+reads it as calm.
+
+**Decision:** The check pings the credential that is actually deployed. Supabase never returns a
+secret's value, only its SHA-256 digest, so `scripts/check-gemini-prod-key.sh` compares the digest
+of a locally-held copy against the digest the platform reports for the deployed secret, and pings
+the copy **only if they match**. A mismatch is itself a reported finding, not a fallback.
+
+**Alternatives rejected:** Ping the ambient env var (the status quo — tests a credential that is
+not in production, and reports green while prod is broken). Ping whatever is in `.env.local`
+without the digest check (same failure one step later: a stale local copy passes forever). Call the
+deployed edge function end-to-end (truest signal, but it mutates user-visible content and needs
+auth).
+
+**Consequences:** The digest assertion is the load-bearing half, not the ping. Any future
+"is the deployed thing healthy" check in this repo must answer *how it knows the thing it tested is
+the thing that is deployed* — an identity proof first, a liveness probe second. Applies to any
+platform that exposes a digest but not a value. One branch, `KEY_CAP_TRIPPED`, is still matched
+only against a synthetic response because no cap had yet been tripped; re-verify it against a real
+refusal.
+
+**References:** [scripts/check-gemini-prod-key.sh](../scripts/check-gemini-prod-key.sh) ·
+`.claude/commands/slava/maintain/day-cp.md` · features/p1162
+
+---
+
+## 2026-09-07 [process]: A spec's own "Measured" section is not evidence — this one read the test environment and called it production
+
+**Context:** P1162 carried a section headed *"Measured — the key IS dead, and prod image generation
+is failing now"*, with a comparison table, HTTP status codes, and a date. It was wrong. The
+measurement had read the **test** project's secret and reported it as production's. Production's
+key was, and is, healthy — it returns an image from the exact call the edge function constructs.
+Every downstream claim inherited the error: that two stores held one key, the stale update date,
+"prod banner generation is failing right now", and a whole "rotation does double duty" framing that
+justified touching a production secret.
+
+**Decision:** Re-derive a spec's load-bearing measurements by command before building on them, even
+when the spec presents them as measured, dated and tabulated. Confidence markers in the artifact —
+a table, a status code, a SHA — are not independent of the error; they were produced by the same
+pass that got the environment wrong.
+
+**Alternatives rejected:** Trust the spec (it is the repo's own record, written to be trusted — and
+that is exactly why the error survived). Re-measure only when something looks wrong (nothing looked
+wrong; the table was internally consistent and pointed at a real dead key, just not production's).
+
+**Consequences:** Extends [epistemic.md](../.claude/rules/epistemic.md) gate 9 — which binds a
+*subagent's* claim — to the repo's own written record. The tell here was cheap and general: an
+environment-scoped claim with no environment named in the command that produced it. When a finding
+says "prod", check that the probe addressed prod. Cost of not doing so: a spec that recommended a
+production secret rotation to fix a problem production did not have.
+
+**References:** features/p1162 · [.claude/rules/db-access.md](../.claude/rules/db-access.md)
+(State Environment Before Any Live Call)
+
+---
+
+## 2026-09-07 [technical]: Split the Gemini spend cap by workload, and skip the separate alert budget
+
+**Context:** A GCP spend cap covers exactly one project x one service. Every Gemini consumer here —
+user-facing image generation, and the batch transcription P1237 recommends — is the same service,
+and Vertex is ruled out by P1236's invariant. One project therefore means one fuse: a background
+batch run can pause the service that renders banners for every visitor.
+
+**Decision:** Two projects, two keys, two caps — one for prod-interactive (the banner functions),
+one for batch (transcription and agent tooling). Sizing is deliberately generous because caps count
+**gross** cost with credits excluded, and measured credit coverage on this service runs 97-99%: the
+ceiling bounds credit runway, which is the scarce resource, not euros. The separate alert-only
+budget originally specified was **dropped as redundant** — a spend-cap budget already carries its
+own notification thresholds at 50/80/100% of the cap, emailed to billing admins and project owners.
+
+**Alternatives rejected:** One project with a single cap (couples batch to user-facing). Alert-only
+budgets with no cap (an alert does not stop spend). Sizing the caps against real load (not
+available — the prod key and the local agent key were the same credential in the same project, so
+no query could separate them; the split is what makes prod's own figure observable).
+
+**Consequences:** Caps are console-only — no API on any `gcloud` track, and a created cap does not
+appear in `budgets list`, so **a cap that was never set looks identical to one that works**. The
+compensating control is the recorded budget in the key registry plus a monitor that flags spend
+past it. Recovery is asymmetric and worth knowing before an incident: a cap lifted within the same
+billing month does not re-enforce unless the amount is **raised first**, so a bare lift removes the
+budget for the rest of the month.
+
+**References:** features/p1162 · `pp/docs/infra/gcp-spend-caps.md` (private — mechanics)
+
+---
+
 ## 2026-09-05 [technical]: Rebasing work that was previously REVERTED silently drops commits — patch-id matches the revert's history, and every gate stays green
 
 **Context:** P1220 was reverted off main on 2026-09-03 (entry below) and parked. Shipping it two days later meant replaying 11 commits onto a main that was 314 commits ahead. `git rebase` reported `warning: skipped previously applied commit 9d405894e` and dropped it. That commit was M9 — the entire interaction layer: press feedback, 150ms ease-out, and the `prefers-reduced-motion` guard at the primitives.
