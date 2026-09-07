@@ -43,6 +43,18 @@ still handled by the importer as a fallback.
 
 ---
 
+## Step 0: Confirm Chrome auto-downloads (once per machine)
+
+Downloads only complete unattended if Chrome's **"Ask where to save each file before
+downloading"** setting is OFF (Settings → Downloads). If it's on, every single-use export
+URL opened below stalls as a hidden `.com.google.Chrome.XXXXXX` temp file behind a native
+macOS Save dialog that no browser-automation tool (Claude in Chrome, chrome-devtools) can
+click through — it lives outside the page DOM. Since navigating automation tools to
+`chrome://` URLs is banned ([browser.md](../../../rules/browser.md)), this is a **one-time
+manual step for the founder**: ask them to open `chrome://settings/downloads` themselves
+and flip the toggle off. Confirmed once, it stays off — never re-check it after the first
+successful run on a machine. See P1257 (2026-09-07) for the full failure trace.
+
 ## Step 1: Trigger export on claude.ai  *(inline — Chrome MCP)*
 
 Use **Claude in Chrome** (authenticated real browser):
@@ -74,8 +86,10 @@ export format claude.ai may return:
 - **Legacy** — one `data-*.zip`; copied to `~/Downloads`.
 - **Manifest** (current, since ~2026-09) — a `manifest-*.json` listing N **single-use**
   per-category zip URLs (`conversations`, `projects`, `memories`, `design_chats`,
-  `light_metadata`). The script opens each in Chrome and extracts all parts into
-  `~/Downloads/data-<ts>-batch-0/`, the layout `import-conversations.py` globs for.
+  `light_metadata`). The script opens each in Chrome; each lands directly in
+  `~/Downloads/` (flat, not a subfolder — `import-conversations.py` globs `DOWNLOADS/*.zip`
+  directly). Don't move them into a `data-*-batch-*/` folder — that pattern is the legacy
+  single-zip fallback only, and the importer never looks for per-category files there.
 
 Then it runs `claude-sync`.
 
@@ -104,3 +118,21 @@ handshake never completes, so the Gmail MCP reports a connect timeout that reads
 dead server. `route -n get default` naming a `utun*` interface is the tell. Fix is a
 split-tunnel bypass for the mail host. The ops mailbox reader is affected the same way.
 Mechanism, probe and bypass list: `pp/docs/infra/surfshark-vpn.md`.
+
+**Script's `open <url>` produced no zip, but the link now says "Expired link — this link
+has been used"?** `open` on macOS launches the URL in whatever app/browser macOS resolves
+it to, not necessarily the authenticated Chrome tab from Step 1 — if it lands anywhere
+without the claude.ai session cookie, the page 403s, no zip lands, and the single-use URL
+is burned anyway. **Skip the shell script's `open` step entirely and drive each
+`export_url` through `mcp__claude-in-chrome__navigate` on the SAME authenticated tab used
+in Step 1** — inline, one URL at a time, ~3s apart. This is the reliable path; treat the
+generated script as reference only until it's fixed to do the same.
+
+**`import-conversations.py` says "modified seconds ago, may still be downloading" for
+minutes after the file finished?** It uses the file's OS mtime, not wall-clock progress —
+if the download briefly re-touches the file (or you `mv` it after landing), the settle
+timer restarts. Don't `mv` downloaded zips into any subfolder before running `claude-sync`
+(see the flat-`~/Downloads/` note above) — that alone resets the "seconds ago" clock and
+costs a redundant wait. Just re-run `claude-sync` again after ~60s; it imports whatever has
+settled and reports per-category counts, so a second pass with zero new bystanders is
+harmless.

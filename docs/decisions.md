@@ -6,6 +6,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: Prod was 36 migrations and 5 functions behind — three separate-looking findings, one cause
+
+**Context:** `/day` flagged three things that looked independent: 5 unresolved Sentry issues
+including `column events.org_id does not exist` and a missing `event_private_info` table on public
+event pages (JAVASCRIPT-REACT-32/33/34), an open "Deploy drift detected on prod" ops issue, and the
+P1207 privilege-floor check newly reporting 1,210 `REFERENCES` violations (`anon`/`authenticated`
+holding `REFERENCES` on ~1,200 prod tables).
+
+**Decision:** Investigate before dispatching a fix agent. Confirmed with direct anon-key REST reads
+against prod that `org_id` and `event_private_info` already work today — the Sentry errors are 5-6
+days stale, from a PostgREST schema-cache staleness window right after `p1060`/`p1193` landed, and
+self-resolved once the cache reloaded. No code fix needed there. The privilege-floor finding is not
+new drift: the remediation migration (`20260901100000_p1207_revoke_truncate_class.sql`) was already
+written and merged — it was just one of the 36 migrations sitting undeployed in the drift issue.
+Ran `./scripts/migrate.sh --env prod --yes` (36 migrations, all coupling checks passed, prod smoke
+8/8 after) and `./scripts/deploy-functions.sh <name> --env prod` for the 5 stale functions
+(`create-and-open-letter`, `create-and-sign`, `gcs-signed-url`, `generate-banner`,
+`request-letter-response-signin`). Re-ran the privilege-floor check post-deploy: 0 violations.
+
+**Why this matters beyond the fix:** `check-p1207-privilege-floor.py` has no baseline/suppression
+file (unlike the RLS-drift and function-grant-drift checks, which do) — it reports the full
+violation count fresh on every run. A finding that "wasn't flagged before" from this script is not
+evidence of new drift; it may just be the first time in a while prod was checked while behind. Read
+its output as a live snapshot, not a delta.
+
+**Consequences:** Sentry issues JAVASCRIPT-REACT-32/33/34 should be marked resolved manually (no
+issue-resolution tool was exposed via the connected Sentry MCP this session). The "Deploy drift"
+ops issue should close on its next scheduled run once it re-checks prod. `supabase/deploy-manifest.json`
+stamped and committed alongside this entry.
+
+---
+
 ## 2026-09-05 [process]: History rewriting on this repo is refused for the third time — and the reason has never once been the mechanism
 
 **Context:** Seven unpushed commits carried credential identifiers and a written assessment of which
