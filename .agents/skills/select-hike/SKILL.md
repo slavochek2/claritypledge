@@ -100,6 +100,13 @@ strength of its description, and only a second look showed it is inside Doi Suth
 AND carries a live partial-closure alert (a fallen tree since July 2026). Neither fact was
 disqualifying; both belonged in the record and one belongs in the event description. Open the alert.
 
+**Grade the evidence before it reaches the founder or the description.** An AllTrails alert is a
+claim, not a fact: check whether the source it cites actually carries the notice, whether any
+official announcement corroborates it, and whether anyone has reviewed the trail since. An
+uncorroborated alert is worth recording in the status file and worth a heads-up in the group chat.
+It does not belong in the public event description, which by the series rules carries a hazard only
+when it changes what someone packs or whether they come.
+
 **A source has to be official.** DNP (`dnp.go.th`, `portal.dnp.go.th`), the park's own page, or a
 provincial authority. AllTrails, a blog, and a tour operator are leads, never the verdict — and a
 review that says "we did it without a guide" proves someone broke a rule, not that the rule is
