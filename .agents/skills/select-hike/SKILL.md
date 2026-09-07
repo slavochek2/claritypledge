@@ -57,6 +57,60 @@ it, this is because its too close to chiang mai"* — append it to `trails` with
 in his own words and today's date, in the same turn, before continuing the selection.
 A rejection reason that lives only in a transcript is a decision he will have to make again.
 
+### 1b. Trail status — the world's decisions, not the founder's taste
+
+Step 1 drops trails the founder has ruled out. This step drops trails **someone else** has ruled
+out: a national park that is closed for the season, ground that needs a permit or a local guide,
+or a route carrying a live safety advisory. Read `.private/trail-status.json` (schema is in the
+file; create from it if absent).
+
+**Two files, two different questions. Do not merge them.** `event-exclusions.json` answers "does
+the founder want this?" and never expires. `trail-status.json` answers "is this legal, open and
+safe right now?" and **always** expires — that is why every entry carries `checked_on` and
+`recheck_after`.
+
+- `verdict: blocked` → drop before opening a tab, exactly like an exclusion.
+- `verdict: conditional` → drop unless the named `condition` has been met. Do not offer it "with a
+  caveat"; a caveat in chat is not a permit.
+- `verdict: clear` **and** today is before `recheck_after` → no re-verification needed. This is the
+  whole point of the file: a trail checked in September should not cost five searches in October.
+- `clear` but **past** `recheck_after`, or **absent from the file entirely** → run the check below,
+  then write the result back before the candidate is offered.
+
+**The check, for any trail not already cleared.** Read the AllTrails description in full — not the
+title, not the stats row. Then search in **Thai**, because a Thai park closure is announced in Thai
+and the English web will not carry it. Look for four things:
+
+1. **Is it inside a national park or wildlife sanctuary?** Most Thai parks run an annual closure,
+   commonly 1 May – 31 Oct, and publish it through DNP. A park name in the description is the
+   trigger, not a detail.
+2. **Permit, registration, or local guide required?** Phrases like *"contact the National Park for
+   a guided tour"* or *"you will need a local guide"* are disqualifying for a free drop-in hike,
+   however good the trail is.
+3. **Where does access actually start?** Some parks require the trek to begin at park headquarters.
+   A trailhead pin that is not that place is not an entrance.
+4. **Any safety advisory?** Search the Thai trail name plus `เตือนภัย` (warning), `ถูกคุกคาม`
+   (threatened) and `ปิด` (closed), and check the Google Maps trailhead POI for a "Temporarily
+   closed" label.
+
+**A source has to be official.** DNP (`dnp.go.th`, `portal.dnp.go.th`), the park's own page, or a
+provincial authority. AllTrails, a blog, and a tour operator are leads, never the verdict — and a
+review that says "we did it without a guide" proves someone broke a rule, not that the rule is
+absent.
+
+**Write the result back the same turn, pass or fail.** An entry that only lives in the transcript
+is a check the next run pays for again. Record `verdict`, `checked_on`, `recheck_after`, the
+`authority` and its `authority_contact` (a phone number the founder can use), the official
+`sources`, and one `findings` line per independent fact. Set `recheck_after` to whichever comes
+first: the end of a known closure period, or 90 days.
+
+**Why this step exists.** 2026-09-07: Doi Langka Noi Loop was recommended to the founder on
+distance, rating and a passing cafe check. Its AllTrails description said, unread, *"you will need
+a local guide to go with you on the trail."* Its park had been closed since 1 May by DNP
+announcement, its access required registration starting at park headquarters 100 km away, and five
+weeks earlier the department had published a statement about hikers being threatened on that exact
+route. The cafe gate built the same day worked perfectly. Nothing checked the trail.
+
 ### 2. Collect the founder's constraints — one message, then go
 
 Ask once, together, and only for what wasn't already said:
@@ -75,11 +129,16 @@ Use `claude-in-chrome`. Search AllTrails filtered to the city and the constraint
 step 2. Gather candidates with: name, URL, distance, elevation gain, route type, difficulty,
 rating, review count, and drive time from the city centre.
 
-Apply step 1's exclusions. Then **rank by fit to the stated constraints, and cut to 3–5** —
+Apply step 1's exclusions **and step 1b's trail status** — a `blocked` or unmet-`conditional` trail never reaches the ranking. Then **rank by fit to the stated constraints, and cut to 3–5** —
 enough to choose from, few enough to actually look at. Ranking factors, in order: matches the
 stated shape (distance/difficulty/route type), rating and review count high enough to trust,
 drive time reasonable, and — when the founder asked for a cafe at the end — a plausible cafe
 near the finish (confirmed in step 4, not assumed here).
+
+**A trail with no qualifying cafe is not a candidate.** Step 5's cafe gate is a precondition of
+the offer, not a follow-up to it: run it against each shortlisted trail BEFORE any tab opens,
+and drop the trails that fail. The founder should never be shown a hike whose meeting point
+does not exist yet.
 
 ### 4. Open every trail candidate in its own tab
 
@@ -91,19 +150,57 @@ Then stop and wait. The founder picks by number or by name.
 
 **If he rejects one with a reason, go straight to step 1's capture rule** before moving on.
 
-### 5. Find the meeting cafe — same rule, Google Maps tabs
+### 5. Find the meeting cafe — and gate it on walking distance and opening hours
 
 Once the trail is chosen, find where the group meets. The cafe is a real operational
 decision: it is the meeting point printed in the description, in the group blurbs, and on
 every platform, and a wrong or closed one strands people on a mountain.
 
+**The gate — both halves, or the cafe does not count.**
+
+1. **Within 15 minutes on foot of the trailhead.** Measured, never estimated, and never from
+   straight-line distance — mountain roads switchback and the climb slows walking to a crawl.
+   Use OSM foot routing:
+
+   ```bash
+   curl -s "https://brouter.de/brouter?lonlats=<cafeLon>,<cafeLat>|<headLon>,<headLat>&profile=hiking-mountain&alternativeidx=0&format=geojson"
+   ```
+
+   Read `total-time` (seconds) from the response. **≤ 900 s passes.** `track-length` gives metres
+   for the description. Note the argument order is lon,lat — reversed coordinates return a
+   plausible-looking route through the wrong country.
+
+2. **Open at the meet time, on the event's weekday, per Google.** Open the place page and read the
+   day's `aria-label` (e.g. `"Sunday, 8 AM to 5 PM"`). **A cafe with no published hours fails**,
+   however good its rating — "probably open" is not a meeting point. OpenStreetMap's
+   `opening_hours` tag is a lead for finding candidates, never the verdict.
+
+**Prove the gate both ways before trusting it.** Run one cafe you expect to pass and one you
+expect to fail through the identical command. If both score alike, the probe is blind and the
+verdict means nothing.
+
+Then:
+
 1. Get the trailhead coordinates (AllTrails schema.org JSON — `publish-run` step 2 has the extraction).
-2. Search Google Maps for cafes near those coordinates, biased to the **start** of the route unless the founder asked for one at the **end** (a one-way hike ending at a cafe was an explicit ask on 2026-08-31 — honour which end he named).
+2. Search Google Maps for cafes **and restaurants** near those coordinates, biased to the **start**
+   of the route unless the founder asked for one at the **end** (a one-way hike ending at a cafe was
+   an explicit ask on 2026-08-31 — honour which end he named).
 3. Drop anything in `venues` in the exclusions file.
-4. **Open every candidate as its own Google Maps tab.** Never a chat list of cafe names.
-5. Post the numbered index: name, rating, review count, distance from the trailhead, and whether the hours cover the meet time.
+4. Apply the two-part gate above. **Open only survivors as tabs** — one Google Maps tab each, never
+   a chat list of cafe names.
+5. Post the numbered index: name, rating, review count, **measured walking minutes**, and the
+   day's opening hours.
 
 Then stop. The founder picks.
+
+**Report the failures in one line too**, the way step 1 reports exclusions — otherwise a short list
+reads as a thin area rather than as a gate doing its job: `Rejected: Lake View Cafe (22 min walk),
+ร้านกาแฟผ่อห้วย (opens 10:00 Sunday)`.
+
+**Why this gate exists.** The 2026-08-31 hike met at Cafe Leng Doi Pui, which measures **46 minutes**
+on foot from its own trailhead — nobody had measured it. Asked to add the rule on 2026-09-07, the
+first pass of it rejected five of nine candidate trails outright, including two whose only nearby
+cafe opened at 09:30 for a 09:00 meet.
 
 **Verify the chosen cafe's name the way Google spells it** — read the `h1` back from its
 Maps page and use that exact string. `publish-run` step 4 explains why: a name Google cannot

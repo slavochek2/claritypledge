@@ -61,9 +61,11 @@ Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we
 
 [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
-[WhatsApp group]([WHATSAPP_LINK]) for questions and cancellations.
-
 Coffee or lunch after for anyone who feels like it.
+
+The WhatsApp group link appears on this page once you register.
+
+*Not a commercial or guided hike. I do not charge and I do not lead. Everyone walks at their own risk and looks after themselves. No fixed schedule and nothing guaranteed. I do my best to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 **Rules that survived founder edits — do not undo them.**
@@ -81,6 +83,20 @@ Coffee or lunch after for anyone who feels like it.
 - **Warm jacket only when the trail gains real altitude** (founder added it for Doi Pui:
   *"bring warm jacket because on higher altitude its usually a bit colder"*). Drop the
   clause on low trails.
+- **The terms line ships on every hike and is not optional.** Free, unguided, unled; attendees
+  responsible for themselves; no schedule, no guarantees; goodwill stated as an intention rather
+  than an obligation. Founder's framing, 2026-09-07: *"out of goodwill I try to make sure people
+  feel happy, but this is my personal ambition and not an official responsibility."* Two sentences,
+  no more — it must read as a plain statement, not a waiver. If the 150-word ceiling bites, cut a
+  highlight, never the terms.
+- **The WhatsApp invite link never appears in the description.** It is written to the
+  registration-gated field (`event_private_info.group_chat_url`, P1194) and renders as a
+  "Join WhatsApp group" button for registered attendees only. A raw link in the public description
+  hands the group to every visitor and defeats the gate. The description carries only the one-line
+  pointer above, which is also a reason to register.
+- **Duration is AllTrails' walk time × 1.4, plus 30 min for coffee, rounded up.** The group stops,
+  waits and leaves nobody behind; publishing the bare AllTrails estimate makes the end time a lie.
+  Say why in the description, in one clause.
 - No em dashes in the prose. Short sentences. Facts stay, framing goes.
 
 ## Promo blurb (external platforms)

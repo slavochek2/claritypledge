@@ -93,7 +93,7 @@ reader is sitting, not a place. (The site-side version of this bug was fixed in
 Ask all in one message, and **skip any part `select-hike` already resolved** — re-asking a
 question the founder answered ten minutes ago is the friction this pipeline exists to remove:
 1. **Date & time?** (e.g. "Sunday 21 Jun, 9:00 AM") — skip if already provided
-2. **WhatsApp group link?** (for coordination — paste invite link or skip; check prod DB for a recent event in the same city if the user says "same as last time")
+2. **WhatsApp group link?** (paste invite link or skip; check prod DB for a recent event in the same city if the user says "same as last time"). It goes into the registration-gated field in step 8c and renders as a button for registered attendees — **never into the description**.
 3. **Post-activity idea?** (optional — breakfast topic, discussion theme, or skip)
 4. **Banner photo?** — ask ONLY if `select-hike` did not run. A path uploads via step 8b; "skip" means the auto-generated banner stands and the photo is not raised again this run.
 
@@ -101,11 +101,19 @@ question the founder answered ten minutes ago is the friction this pipeline exis
 
 **First, branch on route type.** A **loop** brings you back to the start, so completing it is the plan. A **point-to-point** (and any **out & back** whose one-way estimate is > ~4 hr) does NOT — there's no shuttle, so completing it means doubling the distance to get back to the cars. For those, the group walks out to a self-imposed time cap, turns around wherever it is, and returns the same way — it does NOT reach the official endpoint.
 
-**Loop (or short out & back):** derive from AllTrails estimated time:
+**Loop (or short out & back):** derive from AllTrails estimated time, then apply the group multiplier:
 - Parse the upper bound of the range (e.g. "5.5–6 hr" → 6 hrs)
-- Add 60 min buffer for optional after-activity
-- Round to nearest 30 min
-- Example: 6 hr trail → 6 × 60 + 60 = 420 min
+- **Multiply by 1.4.** AllTrails estimates one fit walker moving steadily. This is a group that
+  stops for coffee, takes breaks, waits at junctions and leaves nobody behind — it is reliably
+  ~40% slower, and the founder asked for that to stop being a surprise (2026-09-07).
+- Add 30 min for the coffee stop at the meeting point, before walking starts
+- Round UP to the nearest 30 min
+- Example: 3.5 hr trail → 3.5 × 60 × 1.4 = 294, + 30 = 324 → **330 min**
+
+**The multiplier goes in the description too, with its reason**, so the end time reads as
+deliberate rather than optimistic: *"Plan for about [TOTAL] in all. AllTrails says [WALK TIME] of
+walking, but we go slowly, take breaks and wait for each other, so it usually runs longer."*
+Never publish the bare AllTrails figure as the event length.
 
 **Point-to-point / long out & back (time-capped turn-around):**
 - Ask the user for a walking cap (e.g. "6 hr max walking, then we turn around"). AllTrails' one-way estimate is NOT the trail time here.
@@ -178,13 +186,26 @@ Morning [hike/run] this [DAY]. Everyone welcome.
 
 [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
-[WhatsApp group]([WHATSAPP_LINK]) for questions and cancellations.
-
 [Coffee or lunch after for anyone who feels like it.]
+
+The WhatsApp group link appears on this page once you register.
+
+*Not a commercial or guided hike. I do not charge and I do not lead. Everyone walks at their own risk and looks after themselves. No fixed schedule and nothing guaranteed. I do my best to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 If the founder supplied a post-activity topic, add one line for it. If not, omit
 the section entirely — do not invent one.
+
+**The terms line is mandatory and is not editorial.** It ships on every hike, in the founder's own
+framing (2026-09-07): the hike is free, unguided and unled; attendees are responsible for
+themselves; there is no schedule and no guarantee; goodwill is an intention, not an obligation.
+Keep it to the two sentences above — short enough to read, plain enough not to sound like a waiver
+someone must sign. Do not soften it away, do not expand it into a legal notice, and do not let the
+150-word ceiling be the reason it gets cut: cut a highlight instead.
+
+**Never put the WhatsApp invite link in the description.** It goes in the registration-gated field
+(step 8c) and renders as a button for registered attendees only. A raw link in the public
+description hands the group to anyone who opens the page and defeats the gate entirely.
 
 **Prose style:** no em dashes. Commas and full stops. Short sentences.
 
@@ -258,6 +279,52 @@ Note `event-photo-prep.sh` skips the upload when an object already exists at tha
 dimensions actually changed rather than trusting the script's success line.
 
 If no photo was supplied, skip this step entirely.
+
+### 8c. Group chat link — the gated field, never the description
+
+If the founder supplied a WhatsApp (or Telegram / Signal / Discord) invite link in step 5, write
+it to `public.event_private_info`, keyed by the new event's `id`:
+
+```python
+import json, subprocess
+payload = {"event_id": EVENT_ID, "group_chat_url": GROUP_CHAT_URL}
+subprocess.run([
+    "curl", "-s", "-X", "POST",
+    f"{URL}/rest/v1/event_private_info",
+    "-H", f"apikey: {SERVICE_KEY}",
+    "-H", f"Authorization: Bearer {SERVICE_KEY}",
+    "-H", "Content-Type: application/json",
+    "-H", "Prefer: resolution=merge-duplicates",
+    "-d", json.dumps(payload),
+], check=True)
+```
+
+`event_id` is the table's primary key, so `merge-duplicates` makes a re-run an update rather than
+a duplicate-key error.
+
+**Why a side table and not a column.** `public.events` is world-readable and every read runs
+`select('*')`, so a link stored there ships to every visitor's browser whether the UI renders it or
+not. `event_private_info` has its own RLS: it returns zero rows to anyone who is not the host or a
+registered attendee. **The gate is the database, not the UI** — which is exactly why the link must
+not also appear in the public description.
+
+**What the attendee sees.** After registering, the event page shows a branded button — "Join
+WhatsApp group", coloured and labelled per provider, derived from the link's host. Before
+registering they see a locked state that says the link exists and why to register, never the link
+itself.
+
+If no link was supplied, skip this step. Do not invent one and do not carry over the previous
+event's group link without asking — a stale invite sends people to last month's chat.
+
+**Verify before promoting.** Read the row back and confirm `group_chat_url` is set:
+
+```bash
+curl -s "$URL/rest/v1/event_private_info?event_id=eq.$EVENT_ID&select=event_id,group_chat_url" \
+  -H "apikey: $SERVICE_KEY" -H "Authorization: Bearer $SERVICE_KEY"
+```
+
+An empty array means the write silently failed and the button will not render — a successful curl
+exit code is not evidence the row exists.
 
 ### 9. Open the event page
 
