@@ -6,6 +6,68 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-05 [process]: History rewriting on this repo is refused for the third time — and the reason has never once been the mechanism
+
+**Context:** Seven unpushed commits carried credential identifiers and a written assessment of which
+credentials were unguarded. The current files had been redacted; the old blobs had not. A rewrite
+was scoped, a full mirror backup taken, and one hostile reviewer commissioned to falsify the plan
+before it ran. **Verdict: DO-NOT-PROCEED**, on grounds that killed the plan twice over.
+
+**Decision:** No rewrite. Push as-is. **The specs stay in the public repo with their reasoning
+intact** — the sentences a scrub would have removed are the Problem sections of P1214 and P1239, so
+removing them deletes the argument and keeps the conclusions.
+
+**Why the premise was already dead:** 14 of the 15 identifier tokens are on `origin/main` already,
+some in 174 files — published long before these specs. This repo had *already measured that*: commit
+`7df90485c`, the day before, records *"secret-bearing names not already on origin/main = 0."* The
+plan re-opened a closed question.
+
+**Four mechanism findings, none of which the author (me) had checked before proposing the plan:**
+
+1. **It could not have been scoped to three files.** `--blob-callback` and `--replace-text` operate
+   on *content*, never paths. Measured in a scratch copy: **7,134 of 7,221 commits** got new IDs and
+   `origin/main`'s tip ceased to exist — turning the planned fast-forward into a **force-push over
+   ~6,700 published commits**. The plan was described to the founder as a 178-commit local operation.
+2. **It silently reverts uncommitted tracked edits in the main checkout.** Reproduced: dirty file
+   → gone, exit 0, no warning. Never in the object database, so no reflog and no dangling blob.
+   With ~15 concurrent sessions writing here, a pre-run file backup is stale the moment it is taken.
+3. **Linked worktrees end holding the pre-rewrite blob STAGED** while HEAD holds the scrubbed one —
+   so the next co-tenant `git commit` in any worktree silently re-commits the original text.
+4. **A blob callback does not touch commit messages.** The redaction commits' own messages enumerate
+   what was redacted, so the end state would scrub the files and publish the roadmap in the log —
+   **worse than doing nothing**, because the redaction advertises what was hidden.
+
+**Alternatives rejected:** *Interactive rebase over the 7 commits* — the only defensible rewrite, and
+still buys only the prose, across 253 commits on a checkout 15 sessions are writing to. *Fresh clone,
+rewrite, swap* — sidesteps findings 2 and 3, inherits 1 and 4. *Not pushing the specs* — they are
+416 commits deep and entangled with unrelated work.
+
+**Consequences: this is the THIRD recorded refusal, and the pattern is the finding.**
+`2026-02-28 [process]` deferred a `filter-repo` + force-push on leaked collaborator docs as
+*"complexity and low marginal risk"* and moved the content to `.private/` going forward.
+`2026-08-28 [process]` records a rewrite chosen as a recovery on the shared checkout when a second
+commit was the safe move. **Each time the mechanism was available and each time it lost to the same
+two facts: the content was already published, and the checkout is shared.** Treat "rewrite the
+history" here as answered — the burden is on showing why this instance differs, not on re-deriving
+the refusal.
+
+**The remedy is the same one 2026-02-28 already chose, and it is still not written down as a rule:**
+sensitive-topic material is authored in `.private/` **from the start**, with a public stub carrying
+the reasoning. Prevention at authoring time, no list to maintain, nothing published, nothing to
+rewrite later. **Status: proposed** — it is a CLAUDE.md change and belongs through
+`/slava:maintain:claude-md`, not a spec. That it has now been independently arrived at twice, seven
+months apart, is the argument for finally writing it down.
+
+**Also worth keeping:** commissioning the review was correct and the evidence says so — every one of
+the four mechanism findings was unknown to the author, and finding 1 alone would have force-pushed
+over published history. The session's own track record was the reason for running it: four confident
+errors that day, each caught by re-running a command rather than by reasoning harder.
+
+**References:** `docs/decisions.md` 2026-02-28 [process] · 2026-08-28 [process] · commit `7df90485c`
+(P1248 closure) · `features/p1248_*` · `.private/docs/security-log.md`
+
+---
+
 ## 2026-09-07 [process]: An importer that reads one field of a growing format loses the deliverables silently
 
 **Context:** Claude.ai's data export changed shape: one `data-*-batch-*.zip` became five
