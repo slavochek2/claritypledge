@@ -76,13 +76,21 @@ export function run(input) {
     }
   }
 
+  // "DIVIDED" IS NOT A LEAN — it is the absence of one, and it is the outcome this
+  // gate wants. Found 2026-09-07 on the first real point set: five points all
+  // marked "divided" tripped the all-lopsided finding and printed "every point
+  // leans the same way … the evening may not divide at all", which is the exact
+  // opposite of what the data said. The check must fire only when every point
+  // leans in the same actual DIRECTION.
+  const NEUTRAL = new Set(['divided', 'split', 'even', 'unknown', 'contested'])
   const leans = points.map(p => txt(p.room_split.lean)).filter(Boolean)
-  const allLopsided = leans.length === points.length && new Set(leans.map(norm)).size === 1 && leans.length > 1
+  const directional = leans.filter(l => !NEUTRAL.has(norm(l)))
+  const allLopsided = directional.length === points.length && new Set(directional.map(norm)).size === 1 && directional.length > 1
   return {
     ok: true,
     verdict: allLopsided ? 'ASSESSED-ALL-LOPSIDED' : 'ASSESSED',
     offenders: [],
-    detail: `${allLopsided ? 'ASSESSED-ALL-LOPSIDED' : 'ASSESSED'} — ${points.length} point(s) name two groups in "${room}".${allLopsided ? ` FINDING for the founder: every point leans the same way ("${leans[0]}"), so the evening may not divide at all. Not an auto-drop — conditions 8 and 9 are unmeasured by design.` : ''}\n${lines.join('\n')}`,
+    detail: `${allLopsided ? 'ASSESSED-ALL-LOPSIDED' : 'ASSESSED'} — ${points.length} point(s) name two groups in "${room}".${allLopsided ? ` FINDING for the founder: every point leans the same way ("${directional[0]}"), so the evening may not divide at all. Not an auto-drop — conditions 8 and 9 are unmeasured by design.` : ''}\n${lines.join('\n')}`,
   }
 }
 

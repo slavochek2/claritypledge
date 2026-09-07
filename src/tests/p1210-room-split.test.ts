@@ -69,3 +69,34 @@ describe('room-split: the objective is the ROOM, not the arguers', () => {
     expect(r.verdict).toBe('ASSESSED')
   })
 })
+
+describe('room-split: "divided" is not a lean (found 2026-09-07, first real point set)', () => {
+  const ROOM2 = 'people interested in AI safety among expats and digital nomads in Chiang Mai'
+  const mk = (lean: string) => ({
+    room: ROOM2,
+    points: [1, 2, 3].map(n => ({
+      id: `P${n}`,
+      room_split: { for_who: `group-a-${n}`, against_who: `group-b-${n}`, lean },
+    })),
+  })
+
+  it('7c: every point "divided" is the BEST case and must not trip the lopsided finding', () => {
+    // It did. Five points all marked "divided" printed "every point leans the same
+    // way ... the evening may not divide at all" — the exact opposite of the data.
+    const r = run(mk('divided'))
+    expect(r.verdict).toBe('ASSESSED')
+    expect(r.detail).not.toMatch(/may not divide at all/)
+  })
+
+  it('other neutral spellings are treated the same', () => {
+    for (const n of ['split', 'even', 'unknown', 'contested', 'DIVIDED']) {
+      expect(run(mk(n)).verdict).toBe('ASSESSED')
+    }
+  })
+
+  it('a genuine one-directional lean across every point STILL flags', () => {
+    const r = run(mk('leans against'))
+    expect(r.verdict).toBe('ASSESSED-ALL-LOPSIDED')
+    expect(r.detail).toMatch(/leans against/)
+  })
+})
