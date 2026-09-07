@@ -265,10 +265,11 @@ guarantees recurrence regardless of what else ships.
 - [x] False-positive path exercised (epistemic gate 7c) **against fixtures, not against the live
       adapters** — a fixture representing legitimate adapter-local content passes. Live adapters are
       re-checked *after* Phase 2 converts them, never before; the two runs are separate evidence.
-      **DONE (Phase 1):** 3 fixtures under `/tmp/p1247-fixtures/` (legit / bad-env / bad-hook), run
-      through `run_tier_a` via `TIER_A_CODEX_CONFIG`/`TIER_A_ROUTE_HOOK` overrides (the script is
-      sourceable — no duplicated assertion logic). legit: 2/2 PASS. bad-env (injected
-      `CLAUDE_CODE_`): 1 FAIL. bad-hook (injected `.claude/rules/model-effort.md` leak): 1 FAIL.
+      **DONE (Phase 1):** `scripts/test-multi-harness-routing-tierA-fixtures.sh` (committed, not
+      throwaway shell) builds 3 fixtures (legit / bad-env / bad-hook) and runs each through the real
+      `run_tier_a()` via `TIER_A_CODEX_CONFIG`/`TIER_A_ROUTE_HOOK`. legit: 2/2 PASS. bad-env
+      (injected `CLAUDE_CODE_`): 1 FAIL. bad-hook (injected `.claude/rules/model-effort.md` leak):
+      1 FAIL. `./scripts/test-multi-harness-routing-tierA-fixtures.sh` reproduces this on demand.
 - [x] `absent()` fails on a missing file, and every file any retained assertion reads is in the
       suite's precondition list — proven by deleting each and observing a non-zero exit.
       **DONE (Phase 1):** `absent()`/`contains()` now check file existence before concluding
@@ -406,3 +407,48 @@ time*.
 known-bad controls both behaved correctly, missing file returned PASS); which of the five harness
 directories are git repos; the live suite count; P1221's deferral paragraph; Tier A's two
 assertions. Tiers B/C/D counts remain the reviewer's, labelled as such in Phase 1.
+
+**Phase 1 implementation review (this session) — VERDICT: 2 HIGH, 3 MEDIUM, all fixed and
+re-verified by reproduction (epistemic gate 9 — every claim tested by command, not taken on
+report).**
+
+- **HIGH — Tier A read the working tree, not the git index.** A commit's actual content is the
+  staged index, not whatever the working tree currently holds. Reproduced: stage a `CLAUDE_CODE_`
+  leak, then clean the working copy without re-staging — the old check read the clean working file
+  and PASSed while `git show :.codex/config.toml` still carried the leak. Fixed: `run_tier_a()` now
+  snapshots `git show :.codex/config.toml` / `:.codex/hooks/route-brief.sh` into temp files when
+  using the real repo paths (fixture overrides are read as-is, since they're outside git by
+  design). Re-verified: same repro now exits 1.
+- **HIGH — the `TIER_A_CODEX_CONFIG`/`TIER_A_ROUTE_HOOK` fixture-override env vars were honored
+  unconditionally.** An override left exported in a shell from earlier fixture testing would
+  silently redirect the real wired gate. Reproduced: staged a leak, exported the override to a
+  clean fixture, ran `./scripts/pre-commit-checks.sh` — PASSed on a leak it should have caught.
+  Fixed: overrides are honored only when the script is *sourced*; when *executed* (the real
+  commit-time path), both variables are forced back to the repo defaults regardless of the ambient
+  environment. Re-verified: the identical repro now exits 1 (fails on the real leak, ignores the
+  stale override).
+- **MEDIUM — `absent()`/`contains()` checked `-e`, not "is a regular file."** A same-named directory
+  satisfies `-e`, then `grep` fails with "Is a directory" (exit 2), which the old fail-open path
+  read as "no match" → PASS — the exact bug this phase exists to close, via a different filesystem
+  object type. Fixed: both helpers and every tier's precondition check now use `-f`. Re-verified:
+  replacing `.codex/config.toml` with a directory now exits 1.
+- **MEDIUM — Tier A's routing-hook assertion had an undeclared `jq` dependency.**
+  `.codex/hooks/route-brief.sh` hardcodes `JQ=/usr/bin/jq` and no-ops silently if absent there; Tier
+  A's own `jq -e` call is PATH-resolved. On a machine without `jq` at that exact path, the check
+  would fail with a misleading "pattern absent" and block every commit — a false-positive risk none
+  of this phase's original fixtures exercised. Fixed: `command -v jq` added to Tier A's
+  precondition list. Not independently reproduced (this machine has `jq` at `/usr/bin/jq`); verified
+  by source read and by confirming the precondition line is now present and exercised by the
+  existing "missing tool" precondition path.
+- **MEDIUM — the fixture-test evidence for epistemic gate 7c was not reproducible from the repo.**
+  The script's own header comment cited `scripts/test-multi-harness-routing-tierA-fixtures.sh`,
+  which did not exist — the original evidence was ad hoc shell, not a committed artifact — and
+  sourcing the script directly threw `TMP_ROOT: unbound variable` (it was only initialized inside
+  the direct-execution guard). Fixed: `TMP_ROOT` is now initialized unconditionally at the top of
+  the file (safe whether sourced or executed), and the named fixture script now exists, is
+  committed, and reproduces all three fixture outcomes on demand.
+
+Not flagged by the reviewer, and separately confirmed sound: the tier split itself (all 31 original
+assertions accounted for, none dropped or duplicated — A=2, B=19, C=6, D=4); `pre-commit-checks.sh`
+wiring's control flow (`run_quiet` exit-code capture, no `set -e` interaction); the version-blind
+DSH regex's primary (`awk`) anchor.

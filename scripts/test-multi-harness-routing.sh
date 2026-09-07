@@ -4,7 +4,9 @@
 # P1247 Phase 1 split this suite by what each assertion TOUCHES, per
 # features/p1247_harness_agnostic_contract_2_has_no_gate.md:
 #   Tier A - repo files only (.codex/config.toml, .codex/hooks/route-brief.sh).
-#            No $HOME dependency, NEVER skips. Wired to the commit path.
+#            No $HOME dependency, NEVER skips. Wired to the commit path. Reads
+#            the STAGED git-index content, never the working tree -- a
+#            pre-commit gate must check what will actually be committed.
 #   Tier B - per-machine $HOME adapter files. Machine-local check; SKIPs (exit 0)
 #            when this machine's adapters aren't installed (fresh clone / CI).
 #   Tier C - executes delegate-gemini (no network, inferred not instrumented).
@@ -19,6 +21,11 @@
 # no tier runs -- this lets a fixture-based test harness reuse the exact
 # assertion logic (contains/absent/run_tier_a) against synthetic paths instead
 # of the live adapters (see scripts/test-multi-harness-routing-tierA-fixtures.sh).
+# TIER_A_CODEX_CONFIG/TIER_A_ROUTE_HOOK overrides are honored ONLY when
+# sourced -- when this file is EXECUTED (the real commit-time path), they are
+# forced back to the repo defaults regardless of the ambient environment, so
+# a fixture override exported earlier in the same shell can never silently
+# redirect what the wired gate actually checks.
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -30,10 +37,22 @@ CODEX_GLOBAL_CONFIG="$HOME/.codex/config.toml"
 WRAPPER="$HOME/.agents/bin/delegate-gemini"
 DSH_PATCH="$HOME/.claude/dsh-gemini.patch.yml"
 DSH_SETTINGS="$HOME/.dsh/settings.yaml"
-# Tier A subjects are overridable so a fixture test can point them at synthetic
-# files instead of the live repo copies, without duplicating the assertions.
-TIER_A_CODEX_CONFIG="${TIER_A_CODEX_CONFIG:-$ROOT/.codex/config.toml}"
-TIER_A_ROUTE_HOOK="${TIER_A_ROUTE_HOOK:-$ROOT/.codex/hooks/route-brief.sh}"
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  # Executed directly: this is (or stands in for) the real commit-time path.
+  # Never trust an ambient override here.
+  TIER_A_CODEX_CONFIG="$ROOT/.codex/config.toml"
+  TIER_A_ROUTE_HOOK="$ROOT/.codex/hooks/route-brief.sh"
+else
+  # Sourced: a fixture-test harness may point these at synthetic files.
+  TIER_A_CODEX_CONFIG="${TIER_A_CODEX_CONFIG:-$ROOT/.codex/config.toml}"
+  TIER_A_ROUTE_HOOK="${TIER_A_ROUTE_HOOK:-$ROOT/.codex/hooks/route-brief.sh}"
+fi
+
+# Always available, whether sourced or executed, so a sourced fixture harness
+# doesn't need to know this file's internal setup to call run_tier_a().
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/p1157-routing.XXXXXX")"
+trap 'rm -rf "$TMP_ROOT"' EXIT
 
 pass=0
 fail=0
@@ -43,7 +62,11 @@ bad() { echo "FAIL  $1${2:+: $2}"; fail=$((fail + 1)); }
 
 contains() {
   local label="$1" file="$2" pattern="$3"
-  if [[ ! -e "$file" ]]; then bad "$label" "required file missing: $file"; return; fi
+  # -f, not -e: a directory satisfies -e and then makes grep fail with "Is a
+  # directory" (exit 2), which the fail-open path below would misread as "no
+  # match" -- reproducing the exact bug this suite exists to close, via a
+  # different filesystem-object type than "missing".
+  if [[ ! -f "$file" ]]; then bad "$label" "required regular file missing: $file"; return; fi
   if grep -qEi -- "$pattern" "$file"; then ok "$label"; else bad "$label" "pattern absent"; fi
 }
 
@@ -54,7 +77,7 @@ contains() {
 # suite was written about.
 absent() {
   local label="$1" file="$2" pattern="$3"
-  if [[ ! -e "$file" ]]; then bad "$label" "required file missing: $file"; return; fi
+  if [[ ! -f "$file" ]]; then bad "$label" "required regular file missing: $file"; return; fi
   if grep -qEi -- "$pattern" "$file"; then bad "$label" "unexpected pattern present"; else ok "$label"; fi
 }
 
@@ -69,19 +92,43 @@ run_exit() {
 # --- Tier A: repo files only. No $HOME dependency, never SKIPs. -------------
 run_tier_a() {
   echo "=== Tier A - repo-only, commit-gated ==="
+  local cfg="$TIER_A_CODEX_CONFIG" hook="$TIER_A_ROUTE_HOOK"
+
   local missing=()
-  [[ -e "$TIER_A_CODEX_CONFIG" ]] || missing+=("$TIER_A_CODEX_CONFIG")
-  [[ -e "$TIER_A_ROUTE_HOOK" ]] || missing+=("$TIER_A_ROUTE_HOOK")
+  [[ -f "$cfg" ]] || missing+=("$cfg")
+  [[ -f "$hook" ]] || missing+=("$hook")
+  command -v jq >/dev/null 2>&1 || missing+=("jq (not on PATH)")
   if (( ${#missing[@]} > 0 )); then
-    bad "Tier A precondition" "required repo file(s) missing: ${missing[*]}"
+    bad "Tier A precondition" "required file(s)/tool(s) missing: ${missing[*]}"
     return
   fi
 
-  absent "project Codex config has no Claude environment variables" "$TIER_A_CODEX_CONFIG" 'CLAUDE_CODE_'
+  # A pre-commit gate must check what will actually be COMMITTED -- the
+  # staged index content -- never whatever the working tree currently holds.
+  # Reproduced pre-fix: stage a Claude-env-var leak, then "clean" the working
+  # copy without re-staging -- the working-tree read passed while the staged
+  # (about-to-be-committed) content still carried the leak. Scoped to the two
+  # real default paths only; a sourced fixture-test override points at
+  # synthetic files outside git and is read as-is.
+  if [[ "$cfg" == "$ROOT/.codex/config.toml" ]]; then
+    local staged_cfg="$TMP_ROOT/staged-config.toml"
+    if git -C "$ROOT" show ":.codex/config.toml" >"$staged_cfg" 2>/dev/null; then
+      cfg="$staged_cfg"
+    fi
+  fi
+  if [[ "$hook" == "$ROOT/.codex/hooks/route-brief.sh" ]]; then
+    local staged_hook="$TMP_ROOT/staged-route-brief.sh"
+    if git -C "$ROOT" show ":.codex/hooks/route-brief.sh" >"$staged_hook" 2>/dev/null; then
+      chmod +x "$staged_hook"
+      hook="$staged_hook"
+    fi
+  fi
+
+  absent "project Codex config has no Claude environment variables" "$cfg" 'CLAUDE_CODE_'
 
   local route_output
   route_output="$(printf '%s' '{"hook_event_name":"UserPromptSubmit","prompt":"Sol or Terra, and which effort?"}' |
-    ROUTE_BRIEF_LOG_DIR="$TMP_ROOT/logs" "$TIER_A_ROUTE_HOOK")"
+    ROUTE_BRIEF_LOG_DIR="$TMP_ROOT/logs" "$hook")"
   if printf '%s' "$route_output" | jq -e '.hookSpecificOutput.additionalContext | contains("~/.codex/model-routing.md") and (contains(".claude/rules/model-effort.md") | not)' >/dev/null; then
     ok "Codex model ask injects the Codex adapter"
   else
@@ -103,7 +150,7 @@ run_tier_b() {
   # absent()'s old fail-open logic and reported PASS.
   local missing=()
   for f in "$UNIVERSAL" "$CODEX_ADAPTER" "$DSH_ADAPTER"; do
-    [[ -e "$f" ]] || missing+=("$f")
+    [[ -f "$f" ]] || missing+=("$f")
   done
   if (( ${#missing[@]} > 0 )); then
     echo "SKIP  Tier B: this machine has no adapter set installed."
@@ -132,18 +179,18 @@ run_tier_b() {
   absent "Codex global instructions do not own Claude quota" "$CODEX_GLOBAL_AGENTS" 'quota-cache|Claude subscription'
   absent "global Codex config has no Claude environment variables" "$CODEX_GLOBAL_CONFIG" 'CLAUDE_CODE_'
   contains "Codex skill importer is disabled" "$CODEX_GLOBAL_CONFIG" 'external-agent-import-sync-enabled = false'
-  if awk '/\[plugins\."security-guidance@claude-plugins-official"\]/{getline; if ($0 == "enabled = false") found=1} END{exit !found}' "$CODEX_GLOBAL_CONFIG"; then
+  if [[ -f "$CODEX_GLOBAL_CONFIG" ]] && awk '/\[plugins\."security-guidance@claude-plugins-official"\]/{getline; if ($0 == "enabled = false") found=1} END{exit !found}' "$CODEX_GLOBAL_CONFIG"; then
     ok "unsupported security plugin is disabled"
   else
-    bad "unsupported security plugin is disabled"
+    bad "unsupported security plugin is disabled" "required regular file missing or plugin not disabled: $CODEX_GLOBAL_CONFIG"
   fi
 }
 
 # --- Tier C: executes delegate-gemini. SKIPs if not installed. -------------
 run_tier_c() {
   local missing=()
-  [[ -e "$WRAPPER" ]] || missing+=("$WRAPPER")
-  [[ -e "$DSH_PATCH" ]] || missing+=("$DSH_PATCH")
+  [[ -f "$WRAPPER" ]] || missing+=("$WRAPPER")
+  [[ -f "$DSH_PATCH" ]] || missing+=("$DSH_PATCH")
   if (( ${#missing[@]} > 0 )); then
     echo "SKIP  Tier C: delegation wrapper not installed on this machine."
     printf '        missing: %s\n' "${missing[@]}"
@@ -168,8 +215,8 @@ run_tier_c() {
 run_tier_d() {
   local missing=()
   command -v dsh >/dev/null 2>&1 || missing+=("dsh (not on PATH)")
-  [[ -e "$DSH_SETTINGS" ]] || missing+=("$DSH_SETTINGS")
-  [[ -e "$DSH_PATCH" ]] || missing+=("$DSH_PATCH")
+  [[ -f "$DSH_SETTINGS" ]] || missing+=("$DSH_SETTINGS")
+  [[ -f "$DSH_PATCH" ]] || missing+=("$DSH_PATCH")
   if (( ${#missing[@]} > 0 )); then
     echo "SKIP  Tier D: live DSH route oracle not available on this machine."
     printf '        missing: %s\n' "${missing[@]}"
@@ -219,8 +266,6 @@ run_tier_d() {
 # functions above against synthetic paths (see file header).
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   TIER="${1:-all}"
-  TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/p1157-routing.XXXXXX")"
-  trap 'rm -rf "$TMP_ROOT"' EXIT
 
   case "$TIER" in
     a) run_tier_a ;;
