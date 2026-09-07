@@ -40,6 +40,13 @@ driver: heuristic
 > right now", and the rotation-does-double-duty framing — inherited the error. Re-measured below by
 > command, against both Supabase projects and GCP Secret Manager.
 
+> **SUPERSEDED 2026-09-07 — this table describes the state BEFORE the migration.** Every row has
+> since changed: prod holds `cp-prod-interactive`, `.env.local` holds `cp-batch`, test holds
+> `cp-batch`, and the GCP Secret Manager row no longer exists. Kept because the *method* (compare
+> stored SHA-256 digests rather than key values) is the reusable part and because this section is
+> the record of a wrong measurement. **Do not read any row here as current** — run
+> `scripts/check-gemini-prod-key.sh` and `npx supabase secrets list --output-format json`.
+
 **There are two different Gemini keys, not one.** Confirmed by SHA-256 over each stored value
 (Supabase's `secrets list` returns the SHA-256 digest of the secret, which is what makes the
 comparison possible without ever printing a key). **Key A** and **key B** below are labels, not
@@ -295,8 +302,27 @@ would have been testing the wrong credential, which is precisely the error this 
 - [x] The check verifies the locally-held copy still matches the deployed secret's SHA-256 digest
       before pinging it, and reports a mismatch as a finding rather than pinging the wrong key
       — exercised: a wrong local key produces `KEY_DIGEST_MISMATCH`, exit 1, and no ping is sent
-- [ ] The dead 39-character key (test Supabase + GCP Secret Manager `gemini-api-key`) is rotated or
+- [x] The dead 39-character key (test Supabase + GCP Secret Manager `gemini-api-key`) is rotated or
       explicitly retired, and `transcribe-session` re-verified afterwards
+      — **retired 2026-09-07.** Re-derived first rather than trusting this spec: the Secret Manager
+      value is 39 chars, digest `5062b658…` (identical to what test Supabase held), and returns
+      HTTP 400 `API_KEY_INVALID` against `models.list`. Independently re-confirmed that nothing
+      reads it — no `generativelanguage`/`GEMINI` reference anywhere under `services/`, and
+      `config.py` reads no such variable, though Cloud Run mounted it as an env var.
+      - **The mount had to go before the secret could**, and there was a trap: traffic on
+        `transcribe-session` was **pinned to revision 00030**, so removing the mount created
+        revision 00031 that served nothing. Deleting the secret at that point would have broken the
+        serving revision on its next cold start. Confirmed by exporting both revisions and diffing:
+        the *only* difference is the five removed `GEMINI_API_KEY` lines — same image, GPU,
+        concurrency, service account.
+      - Promoted 00031 to 100% traffic (and repointed the `candidate` tag), verified `/health` 200
+        and a clean cold start in the logs, then deleted Secret Manager `gemini-api-key`, then
+        re-verified `/health` 200 with no ERROR-severity logs.
+      - Test Supabase now holds **`cp-batch`**, not the prod-interactive key: an e2e or QA run that
+        generated banners must not be able to trip the fuse that renders banners for real visitors.
+        Verified by exercising both functions against test on the new value (200 + real JPEG each).
+      - **Rollback note:** revisions ≤ 00030 still reference the deleted secret and would now fail
+        to start. 00031 is the rollback target.
 - [x] The ping's failure path has been exercised — warning confirmed to fire, not merely assumed.
       Evidence, all real non-zero exits:
       - digest mismatch → `KEY_DIGEST_MISMATCH`, **exit 1**
@@ -339,8 +365,24 @@ pass a security scan, so that lens was run inline instead; it produced the argv 
 hypothesis (that the liveness ping bills for a generated image) that measurement **refuted** —
 the ping returns `totalTokenCount: 1` and produces no image bytes.
 - [ ] `/day` reports spend against the recorded budget for **each** of the two keys
-- [ ] Both banner functions verified working in prod afterwards (`story-guide-chat` is retired —
+- [x] Both banner functions verified working in prod afterwards (`story-guide-chat` is retired —
       see Problem), and `.private/docs/edge-function-secrets.md` updated in the same change
+      — **done 2026-09-07.** Prod `GEMINI_API_KEY` now holds `cp-prod-interactive`
+      (digest `93544c01…`, was `8faaf692…`). Order per the Pre-deploy Checklist: test first,
+      exercised, then prod. Both functions redeployed to prod and exercised once each — HTTP 200
+      and a real JPEG in storage from `generate-banner` (own-profile path, which persists no
+      `banner_url`) and from `generate-event-banner` (a past-dated event, excluded from the public
+      list by `getUpcomingEvents`' `.gte('datetime', graceCutoff)`); every fixture and storage
+      object deleted in the same run.
+      - **Known-bad control run first**, before anything was changed: the same harness against test
+        on the dead key returned **502 `GENERATION_FAILED`** from both functions. So the probe was
+        shown able to fail before its pass was believed.
+      - `check-edge-function-secrets.sh --env prod` passes; the registry row and a new
+        two-keys/two-projects section were written in the same change.
+      - **Reported, not silently fixed:** the *test* project is missing `CRON_SECRET`,
+        `GCP_ENQUEUER_SA_KEY` and `WEBHOOK_SECRET`, so `deploy-functions.sh` refuses every deploy to
+        test. Pre-existing and unrelated to this work; test was verified through the already-deployed
+        functions instead, since secrets are read at runtime.
 - [ ] Raising the cap restores service — proven, not assumed
 
 ## Execution steps — part 1 (founder; the agent cannot do these)
@@ -369,24 +411,49 @@ both verified answering (`models.list` -> HTTP 200). Key strings are recoverable
 3. Create a second, **alert-only** budget per project at roughly a tenth of the cap.
 4. `~/.agents/bin/ai-keys --mark-cap-set --name <name>` for each — the registry is the only place
    a cap's existence is recorded, because nothing can read one back.
-5. Move the prod banner secret onto `cp-prod-interactive`: **test Supabase first**, verify, then
-   prod. Update `.private/docs/edge-function-secrets.md` in the same change and re-run
-   `scripts/check-edge-function-secrets.sh --env prod`.
-6. Re-run `./scripts/check-gemini-prod-key.sh` — it must print `digest OK` against the **new**
-   deployed secret. A `KEY_DIGEST_MISMATCH` here means step 5 updated one store and not the other.
-7. Rotate or retire the dead 39-character key (test Supabase + GCP Secret Manager
-   `gemini-api-key`), and re-verify `transcribe-session` afterwards.
+5. **DONE 2026-09-07.** Moved the prod banner secret onto `cp-prod-interactive`: test Supabase
+   first, verified, then prod. Registry updated in the same change;
+   `scripts/check-edge-function-secrets.sh --env prod` passes.
+6. **DONE 2026-09-07.** `./scripts/check-gemini-prod-key.sh` prints
+   `digest OK … (sha256 93544c01f71dc8b2…, source: ai-keys registry (cp-prod-interactive))` +
+   `KEY_PING_OK`, exit 0.
+7. **DONE 2026-09-07.** Dead 39-character key retired from both stores; `transcribe-session`
+   re-verified before and after. See the Done-When entry for the traffic-pin trap.
 8. Once a cap exists, exercise a real trip on the **batch** project (never prod-interactive) and
    confirm the `KEY_CAP_TRIPPED` branch fires on a genuine 403 — the one classifier branch still
    verified only against a synthetic body.
 
+
+### The local copy now comes from the registry, not `.env.local` (2026-09-07)
+
+`check-gemini-prod-key.sh` originally compared prod's digest against `.env.local`'s
+`GEMINI_API_KEY`. That variable is what **local agent tooling** spends — `/gen-image`,
+`/gen-poster`, `/story-to-image`, `/gen-agent-avatar` all read it — and the whole point of the
+two-project split is that tooling must not share a fuse with the user-facing banner functions. So
+`.env.local` holds `cp-batch` and prod holds `cp-prod-interactive`, and the old comparison would
+have reported a permanent, expected `KEY_DIGEST_MISMATCH`.
+
+The check now resolves the prod copy from the `ai-keys` registry **by name**
+(`cp-prod-interactive`). Both fallbacks were **removed rather than kept**:
+
+- `$GEMINI_API_KEY` from the ambient shell is the exact defect this spec exists to fix — reinstating
+  it as a fallback re-opens the door that made `--ping-prod` useless for six months;
+- a `.env.local` fallback would manufacture a *fake finding* every time the registry happened to be
+  unreachable. A monitor that cries wolf during its own outage is worse than one that says plainly
+  it could not run.
+
+Registry missing or silent is therefore exit 2, "did not run". Exercised, all real exits: live run
+`digest OK` + `KEY_PING_OK` (0); registry returning a wrong key → `KEY_DIGEST_MISMATCH` (1);
+registry unreachable → `GEMINI-PROD-KEY-CHECK-DID-NOT-RUN` (2); a stale ambient `GEMINI_API_KEY`
+exported → **ignored**, still green off the registry. `--self-test` still passes 8/8.
+
 ## Pre-deploy Checklist
 
-- [ ] If the key is rotated, the new value is set in **test** Supabase secrets, verified, then
+- [x] If the key is rotated, the new value is set in **test** Supabase secrets, verified, then
       **prod** — never prod first
-- [ ] `scripts/check-edge-function-secrets.sh --env prod` passes after any secret change
-- [ ] `.private/docs/edge-function-secrets.md` reflects the new key's project and provenance
-- [ ] Both consuming banner functions redeployed and exercised once each against prod
+- [x] `scripts/check-edge-function-secrets.sh --env prod` passes after any secret change
+- [x] `.private/docs/edge-function-secrets.md` reflects the new key's project and provenance
+- [x] Both consuming banner functions redeployed and exercised once each against prod
 
 ## Alternatives Considered
 
