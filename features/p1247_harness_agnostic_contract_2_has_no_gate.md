@@ -179,7 +179,7 @@ splitting: extend the precondition list to every file any retained assertion rea
 so it has nothing to teach. Today the bump skill and the assertion are unaware of each other, and
 that is the mechanism by which a wired gate would fail on ordinary maintenance.
 
-**Phase 2 — convert the fork into a pointer.**
+**Phase 2 — convert the fork into a generated file.**
 Reduce `~/.codex/AGENTS.md` to adapter-local content plus a pointer to the shared policy, on the
 `~/.dsh/AGENTS.md` pattern. Extract the shared half into `~/.agents/` alongside the routing and
 history-store files already there. Same treatment for `~/.gemini/GEMINI.md`, which is seven months
