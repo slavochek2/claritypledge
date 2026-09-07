@@ -60,6 +60,40 @@ path**, not of one recipient's filter.
 **Consequence for scope:** the founder's expectation is explicit — signup mail should land in the
 inbox. That is the whole of this spec and none of it has shipped.
 
+## A/B experiment run 2026-09-07 — Mailgun mail was accepted and then vanished. PROVISIONAL.
+
+Two messages sent through Mailgun (`mg.claritypledge.com`, EU) to the aged Outlook test mailbox,
+identical bodies, differing **only** in the bulk headers — deliberately controlled, because changing
+transport and content together produces an uninterpretable result:
+
+| | Subject | Bulk headers | Mailgun event |
+|---|---|---|---|
+| A | `Confirm your email address (test A)` | none | **delivered** |
+| B | `Confirm Your Email - [ClarityPledge] (test B)` | `List-Unsubscribe`, `List-Unsubscribe-Post`, `Feedback-ID` | **delivered** |
+
+Click/open tracking disabled on both (`o:tracking=no`), so no link rewriting.
+
+**Result: neither message could be found anywhere in the mailbox.** Not Focused, not Other, not
+Junk — and an all-folders search for `mg.claritypledge.com` returned *"We didn't find anything."*
+The two items in Junk were the older Brevo messages, unchanged.
+
+**Read this against the incident file's own warning:** *"Delivered = receiving MTA returned 250,
+≠ inbox placement."* Mailgun's `delivered` means Microsoft accepted the message; it does not mean a
+human can reach it. On this evidence Microsoft accepted and then silently discarded both.
+
+**If it holds, it inverts this spec's premise.** Brevo mail is junked but *findable* — the founder
+extracted one from Junk himself. Mail from `mg.claritypledge.com` appears to be **discarded
+outright**, which is strictly worse: there is nothing for the user to rescue and nothing for us to
+observe. The header hypothesis is also untouched — A and B behaved identically, so the bulk headers
+are not what is driving placement on this path.
+
+**PROVISIONAL — do not act on this yet.** The mailbox was checked 2-4 minutes after delivery, and
+Outlook's search index can lag new mail. **Falsifier:** re-check the same mailbox and re-run the
+all-folders search at least 30 minutes after send. If the messages appear, this entry is wrong about
+the drop and only the placement question stands. If they are still absent, `mg.claritypledge.com`
+is disqualified as an auth-mail sender without further testing, and the dedicated-auth-subdomain
+option (Research Question 3) becomes the leading candidate rather than a refinement.
+
 ## Appetite
 
 Blast radius: **high** — signup and login mail for everyone. Reversibility: depends entirely on
