@@ -6,6 +6,50 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [process]: A control that is both wrong-shaped and false proves nothing — Q3 passed a false negative through all ten checkers
+
+**Context:** Stage 4 of the `ai-power-remedies-d` disagreement run spawned 14 agents: 4 writers, 4 story checkers, 5 controls, and one round-2 re-checker. The checker's question Q3 asks whether a story **names** a stance, and its test is a staleness test — *would this sentence become FALSE if the position moved one step or flipped sign?* The rule already required a control beside any all-pass verdict, and told the checker to *"construct one sentence that SHOULD fail"*.
+
+**The measurement:** every one of the ten checkers built a control that was stance-naming **and false**, then flagged it **for being false** — i.e. ran a truth test (*is this contradicted by the transcript?*), not the staleness test. On a stance-naming sentence that is also false the two tests agree, so the substitution produced no visible symptom: ten confident PASS verdicts, each with a control, each proving nothing about the rule they were meant to prove. One checker demonstrated the failure outright, reporting *"the control does not flag, which is the expected behavior"* on a control that was stance-naming and **true** — which is exactly the sentence Q3 exists to catch, waved through in writing.
+
+**Decision:** the control's specification must pin **both** properties — stance-naming **AND true of the speaker** — and must state that a non-flagging control means the wrong test was applied, so the failure self-reports. The question itself now also names the wrong test to forbid it (*"never ask whether the sentence is contradicted by the transcript"*), alongside the existing ban on *"does it imply a position"*. Q3 verdicts from the ten checkers were **not promoted**; Q3 was re-run by hand over all 8 stories — `grep -nEi` for stance-naming constructions plus the staleness test per sentence — and zero named a stance.
+
+**Alternatives rejected:** (a) **Accept the ten PASS verdicts.** They are unproven, not wrong — but `epistemic.md` gate 9 binds the consumer of agent output to test the claim, and here the claim's own instrument was the thing that failed. (b) **Re-run the ten checkers with better wording.** Re-running until the answers come out right is the manufacture of agreement, and the by-hand check is cheaper and stronger. (c) **Treat it as ten independent agent errors.** Ten of ten from one prompt is a defect in the prompt, not in the agents; independence at fan-out does not make a shared instruction ten observations.
+
+**Consequences:** this is the second instance **in the same day's work** of the same shape — a control set that returns the right verdict for the wrong reason. Hours earlier, the new caption-vs-audio harness's semantically inverted control scored **0.800, above its own 0.75 threshold**, and was rejected only by the polarity guard added because the near-miss had been planted; a ratio threshold alone would have reported CONFIRM. The generalisation now has two data points from one session and deserves stating: **a control discriminates only if the correct test and the plausible wrong test give DIFFERENT answers on it.** A control on which both agree is a formatter. The corrected wording was given to the round-2 re-checker in the same run and its control flagged, so the fix is measured rather than assumed (`epistemic.md` gate 7).
+
+**References:** [.claude/commands/slava/disagreement/story-draft.md](../.claude/commands/slava/disagreement/story-draft.md) Q3 · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7, 7b, 9 · run file `.private/points-runs/ai-power-remedies-d.md` §Story Drafts
+
+---
+
+## 2026-09-07 [process]: The two-round bound is a real stop — it cost a story, and that is the bound working
+
+**Context:** `/slava:disagreement:story-draft` bounds writer/checker iteration at two rounds, *"because 'return it to the writer' with no limit is how a run hangs."* One story (Leahy on P4) drew a round-1 finding — a fused connection wiring two passages ~28 minutes apart into an argument the speaker never makes. The writer accepted it, re-read the source, and rewrote it well. The round-2 re-check then returned **three new** defects in different sentences: a framing the speaker never uses, an audience list substituted for the one he actually gave, and a contrast absent from the source. All three were verified against the transcript by command and all three stand.
+
+**Decision:** the story does not ship in this run. The bound counts **rounds spent**, not **findings carried** — a third writing round for a story that had already failed twice is the rule quietly not applying to the case it was written for. The stage's other 7 stories ship.
+
+**Alternatives rejected:** (a) **A third round**, on the grounds that each remaining defect is a single clause with an obvious repair. That is true and is exactly the reasoning the bound exists to refuse; every hanging loop is made of individually reasonable next rounds. (b) **Ship it with the defects noted.** The subject is a real named person and the defects are misattributions of what he said — the one class this stage's person-safety rules exist to stop. (c) **Send the three findings to an adjudicator.** The adjudicator settles a finding the *writer disputes*; here the writer never saw them and the findings were confirmed against the source directly.
+
+**Consequences:** P4 now carries a story on one side only. The **position** is unaffected — positions live in the `point_positions` link, not in stories, and nothing requires every (person, point) pair to carry one — so what the reader loses on P4 is the reconstruction of one arguer's reasoning, not his side of the disagreement. Open question for the founder, deliberately not decided by the agent: whether a story that exhausts its rounds should be re-opened in a **later** run rather than abandoned, which would make the bound per-run rather than per-story. Status: proposed.
+
+**References:** [.claude/commands/slava/disagreement/story-draft.md](../.claude/commands/slava/disagreement/story-draft.md) §The writer / checker shape · run file `.private/points-runs/ai-power-remedies-d.md` §Story Drafts
+
+---
+
+## 2026-09-07 [technical]: A comment recording a past review's finding is the only test that finding has
+
+**Context:** `simple-navigation.tsx` splits CTA suppression into two flags, `hideMarketingCta` and `hideSessionCta`, with a comment above them explaining that an earlier P1087 revision used ONE flag, which hid the session CTA on the pricing page and left a signed-in user with no route to `/live` from anywhere in the chrome — because the bottom nav carries no `/live` entry. That was found by adversarial review and fixed. This session, asked to suppress the nav CTA on group pages "for logged-in users too", both flags were set. The comment was read and edited past.
+
+**Decision:** Only `hideMarketingCta` is set on group detail pages. A membership CTA and a session CTA are not the same offer, so nothing was being overridden; only the marketing CTA (a free call) is a rival offer to the page's own ask. Group detail pages matter more here than pricing did — `/events` now redirects into them, so they are the app's primary events surface.
+
+**Alternatives rejected:** Honouring the instruction literally. The founder asked for both, and the request was reasonable on its face; what changed it was a fact he did not have — that the bottom nav offers no route to the core product. Surfaced as a decision with the evidence rather than reverted silently, and he chose the narrower suppression.
+
+**Consequences:** **A regression that a prior review already found and fixed has no test — it has a comment.** Nothing failed when both flags were set: the full suite passed, the P955 gate passed, and a browser verifier confirmed the suppression "worked" and specifically reported no leak, because it was checking that the CTA was absent, which is exactly what the defect looks like. The class of finding is: when a code comment cites a specific past review or incident as the reason a structure exists, changing that structure re-opens that finding, and no gate will say so. Read such a comment as a failing test you are about to delete. **Follow-up:** a test asserting the session CTA is reachable from every route class that has no bottom-nav entry would convert this comment into a gate.
+
+**References:** `src/app/components/layout/simple-navigation.tsx` · `src/app/components/layout/bottom-nav.tsx` · decisions.md 2026-09-07 [process] "A green gate is only evidence for the surfaces it actually renders"
+
+---
+
 ## 2026-09-07 [product]: The two Clarity Groups differ by what membership MEANS, not by medium
 
 **Context:** `· Chiang Mai` and `· Online` carried near-identical About copy. Diagnosed as a naming problem; it was not. Both descriptions described the same mechanic and the only stated difference was location, while the actual divergence had already happened elsewhere: `· Online` is where the paid level lives, and `· Chiang Mai` is free, non-commercial, and exists to spread the norm. The founder had also written a public purpose statement the day before whose framing (communication activism) no product surface carried.
@@ -28,7 +72,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Alternatives rejected:** (1) A new `/groups/:slug/terms` route — a second surface beside a broken one rather than a fix to it. (2) Unconditional read-only — breaks the auto-join journey, which relies on this page forwarding a fresh member to the group. Caught by an e2e run, not by review.
 
-**Consequences:** The read-only page shows the CURRENT terms text, not the version the member is pinned to — `getMyMembership` returns only `role`. Captioned "the terms this group runs on", never "the terms you accepted", because the second is a claim the data cannot support. Harmless today (both prod members hold v5, whose body is identical to v6 — only the title differs), and it becomes real the first time a version changes wording, as 4→5 did. **Follow-up needed:** surface each member's own version. **Status: proposed.**
+**Consequences:** First shipped showing the CURRENT terms text with the caption "the terms this group runs on", never "the terms you accepted", because `getMyMembership` returned only `role` and the second phrasing was a claim the data could not support. **Closed the same session** rather than deferred: the lookup now returns `terms_version` and `accepted_at`, the page renders the version from the member's own row, and the caption states the date and version and says so explicitly when the group's current version differs. The registry keeps every version forever precisely to make this possible; rendering CURRENT to a member pinned to an older one would show them a document they never agreed to, under their own acceptance. **Why not deferred:** it was cheap at two members and it stops being cheap, and stops being honest, the moment members are spread across versions. The trigger written down at the time was "before the next wording change"; doing it immediately retires the trigger. **Status: proposed.**
 
 **References:** `src/app/pages/org-join-page.tsx` · `src/app/content/coa-versions.ts` · `e2e/p1076-org-invite-link.spec.ts`
 
