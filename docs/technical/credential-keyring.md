@@ -96,6 +96,17 @@ be run any time. Exit codes: `0` all intact · `1` something not enrolled ·
 **Repair:** `./scripts/keyring.sh enroll <KEY>` re-creates the item with an empty
 ACL, which discards the recorded trust.
 
+## Debugging a consumer
+
+`keyring_get` and `keyring_require` suspend `xtrace` around the read and restore
+it afterwards, because bash traces every expanded argument and would otherwise
+print the decrypted value to stderr — measured at four copies per call before the
+guard. So `bash -x ./scripts/some-consumer.sh` is safe.
+
+What is still on you: do not `echo`, log, or interpolate a critical value into
+output yourself. The guard covers the library, not what a caller does with the
+value once it has it.
+
 ## Recovery
 
 The plaintext copy in `.env.local` is the recovery source and **has not been

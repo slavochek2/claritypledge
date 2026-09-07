@@ -54,14 +54,17 @@ fi
 echo
 
 echo "--- read 3 of 3 — please click DENY ---"
-t0=$(now_ms); v3="$(keyring_get "$KEY" 2>/tmp/keyring-deny.err)"; r3=$?; t3=$(( $(now_ms) - t0 ))
+# mktemp, not a fixed path: a predictable name under /tmp can be pre-empted
+# with a symlink so the redirection writes through it somewhere else.
+errf="$(mktemp -t keyring-deny)"
+t0=$(now_ms); v3="$(keyring_get "$KEY" 2>"$errf")"; r3=$?; t3=$(( $(now_ms) - t0 ))
 if [ $r3 -ne 0 ] && [ -z "$v3" ]; then
   echo "PASS  declining fails closed: rc=$r3, empty stdout (${t3}ms)"
-  echo "      stderr: $(head -1 /tmp/keyring-deny.err)"
+  echo "      stderr: $(head -1 "$errf")"
 else
   echo "FAIL  declining did not fail closed: rc=$r3, stdout_len=${#v3}"; rc_all=1
 fi
-unset v3; rm -f /tmp/keyring-deny.err
+unset v3; rm -f "$errf"
 echo
 
 echo "--- consumer-level fail-closed (keyring_require) ---"

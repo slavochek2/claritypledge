@@ -102,6 +102,29 @@ echo "[8] the plaintext half is not group- or world-readable"
 mode=$(stat -L -f '%OLp' ./.env.local 2>/dev/null)
 check "$mode" "600" ".env.local mode is 600"
 
+echo "[9] a decrypted value does not leak under \`bash -x\`"
+# Running a failing script with -x is ordinary debugging, and bash traces every
+# expanded argument. Before the guard in keyring_require this leaked the value
+# four times, into the very channel Done-When claims is closed.
+leak=$(bash -c '
+  source ./scripts/keyring.sh
+  keyring_get() { printf "CANARY-XTRACE-VALUE"; }
+  set -x
+  keyring_require XTRACE_CANARY_KEY
+' 2>&1 | grep -c "CANARY-XTRACE-VALUE")
+check "$leak" "0" "no decrypted value in xtrace output"
+
+# ...and the guard must put xtrace back, or it silently disables tracing for the
+# rest of the caller's script.
+restored=$(bash -c '
+  source ./scripts/keyring.sh
+  keyring_get() { printf "CANARY-XTRACE-VALUE"; }
+  set -x
+  keyring_require XTRACE_CANARY_KEY
+  echo AFTER
+' 2>&1 | grep -c "^+ echo AFTER")
+check "$restored" "1" "xtrace is restored after the guarded read"
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]

@@ -62,12 +62,32 @@ keyring_is_registered() {
 # Print one key's value from the keychain. Triggers the authorization dialog.
 # Returns non-zero (and prints nothing on stdout) if the human declines.
 keyring_get() {
+  local _kr_x="" _kr_rc
+  case "$-" in *x*) _kr_x=1; set +x ;; esac
   python3 "$KEYRING_PY" get "$(keyring_service_name "$1")"
+  _kr_rc=$?
+  [ -n "$_kr_x" ] && set -x
+  return $_kr_rc
 }
 
 # Export each named key, or fail closed and loud. Never falls back to a
 # plaintext copy and never proceeds with an empty value (P1239 Invariants).
+# Bash xtrace expands and prints every argument, so a decrypted value goes
+# straight to stderr under `bash -x` or `set -x` — an entirely ordinary thing to
+# do when debugging a failing script. Measured before this guard: one
+# keyring_require call leaked the value four times, into exactly the channel
+# P1239 Done-When claims is closed. xtrace is suspended across the read and
+# restored to however the caller had it.
 keyring_require() {
+  local _kr_x="" _kr_rc
+  case "$-" in *x*) _kr_x=1; set +x ;; esac
+  _keyring_require_impl "$@"
+  _kr_rc=$?
+  [ -n "$_kr_x" ] && set -x
+  return $_kr_rc
+}
+
+_keyring_require_impl() {
   local key val
   for key in "$@"; do
     if ! val="$(keyring_get "$key")"; then

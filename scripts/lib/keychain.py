@@ -33,7 +33,6 @@ cf = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
 KCF_UTF8 = 0x08000100
 ERR_USER_CANCELED = -128        # errSecUserCanceled — the human clicked Deny
 ERR_ITEM_NOT_FOUND = -25300
-ERR_DUPLICATE_ITEM = -25299
 ERR_AUTH_FAILED = -25293
 
 cf.CFArrayGetCount.restype = c_long
