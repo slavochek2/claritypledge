@@ -97,6 +97,30 @@ if [[ "$_remote_is_public" == "1" ]]; then
         feature/*|fix/*) _blocked_ref="$_short"; break ;;
       esac
     done
+
+    # TAGS ARE THE SAME PUBLICATION, UNDER A DIFFERENT NAME. Blocking branch names alone leaves
+    # `git tag t fix/pN-x && git push origin t` publishing the identical commit, so the branch
+    # rule would enforce P1255's embargo against everything except the one-word workaround.
+    #
+    # The test is reachability, not the tag's name: a tag whose commit is already on origin/main
+    # publishes nothing new (that is what a release tag is), while a tag pointing anywhere else
+    # carries content the remote does not have. Measured 2026-09-07 — this repo has pushed ZERO
+    # tags, and SIX local tags point off origin/main, among them `backup/pre-name-scrub-20260613`,
+    # `backup/pre-scrub-orig-d12e1dde` and `backup-before-effy-scrub-2026-07-09`. Those are
+    # pre-redaction snapshots: a single `--tags` push would republish precisely the content this
+    # repo redacted. So the refusal costs nothing today and the thing it prevents has already
+    # been staged on disk.
+    if [[ -z "$_blocked_ref" && "$remote_ref" == refs/tags/* ]]; then
+      if git rev-parse --verify origin/main >/dev/null 2>&1; then
+        if ! git merge-base --is-ancestor "${local_sha}^{commit}" origin/main 2>/dev/null; then
+          _blocked_ref="${remote_ref#refs/}"
+        fi
+      else
+        # No origin/main to compare against — fail closed.
+        _blocked_ref="${remote_ref#refs/}"
+      fi
+    fi
+
     [[ -z "$_blocked_ref" ]] && continue
 
     if [[ "${CP_ALLOW_BRANCH_PUBLISH:-}" == "$_blocked_ref" ]]; then
@@ -113,10 +137,20 @@ if [[ "$_remote_is_public" == "1" ]]; then
     echo ""
     echo "  ❌ PUSH BLOCKED: refusing to publish '$_blocked_ref' to the public remote '$remote'."
     echo ""
-    echo "  feature/* and fix/* refs are a private class here. A ref that lands on a public remote"
-    echo "  is published — CI scans it AFTER it exists, and deleting it does not un-publish it."
-    echo "  Security specs are filed branch-born (P1255) precisely so they are not public until"
-    echo "  they ship; publishing the branch defeats that."
+    case "$_blocked_ref" in
+      tags/*)
+        echo "  This tag points at a commit that is NOT on origin/main, so pushing it publishes"
+        echo "  content the remote does not have — the same publication a branch push would make."
+        echo "  Several local tags here are pre-redaction snapshots; publishing one would undo a"
+        echo "  redaction that has already happened. A release tag on a merged commit is allowed."
+        ;;
+      *)
+        echo "  feature/* and fix/* refs are a private class here. A ref that lands on a public remote"
+        echo "  is published — CI scans it AFTER it exists, and deleting it does not un-publish it."
+        echo "  Security specs are filed branch-born (P1255) precisely so they are not public until"
+        echo "  they ship; publishing the branch defeats that."
+        ;;
+    esac
     echo ""
     echo "  What you almost certainly want instead:"
     echo "    /ship pN                        — merges the branch into main, then pushes main"

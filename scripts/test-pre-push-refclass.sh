@@ -82,6 +82,25 @@ expect_layer0_pass "8. feature/* to a NON-public remote is not a publication bou
   "refs/heads/feature/p1234-x abc123 refs/heads/feature/p1234-x $ZERO"
 
 echo
+echo "-- tags publish the same commit under a different name --"
+# Blocking branch names alone leaves tagging a fix/ branch tip and pushing the tag as a one-word
+# bypass. The test is reachability, not the tag's name. Fixtures come from this repo's own tags:
+# measured 2026-09-07, ZERO tags have ever been pushed and SIX local tags point off origin/main,
+# including pre-redaction snapshots whose publication would undo a completed redaction.
+SCRUB_TAG=backup/pre-name-scrub-20260613
+if git rev-parse --verify --quiet "${SCRUB_TAG}^{commit}" >/dev/null \
+   && git rev-parse --verify --quiet origin/main >/dev/null; then
+  SCRUB_SHA="$(git rev-parse "${SCRUB_TAG}^{commit}")"
+  MAIN_SHA="$(git rev-parse origin/main)"
+  expect_block "11. a tag off origin/main (a real pre-redaction snapshot)" "$PUBLIC_REMOTE" \
+    "refs/tags/$SCRUB_TAG $SCRUB_SHA refs/tags/$SCRUB_TAG $ZERO"
+  expect_layer0_pass "12. a release tag ON origin/main publishes nothing new" "$PUBLIC_REMOTE" \
+    "refs/tags/v1.0.0 $MAIN_SHA refs/tags/v1.0.0 $ZERO"
+else
+  echo "  SKIP  tag fixtures unavailable in this clone"
+fi
+
+echo
 echo "-- the escape hatch: explicit, per-ref, and logged --"
 LOG="$(git rev-parse --git-common-dir)"
 [[ "$LOG" != /* ]] && LOG="$(git rev-parse --show-toplevel)/$LOG"
