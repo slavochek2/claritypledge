@@ -5,8 +5,8 @@ rank: 1000075
 workstream: C1
 created_date: '2026-09-07'
 tags: [auth, email, deliverability, magic-link]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -84,11 +84,10 @@ Three additive pieces.
    post-auth path; on failure, an honest error with a route back to signup that does not loop.
    This is what makes an operator-minted recovery link work, and it is the missing half of P1086.
 
-2. **Route self-service signup mail through Mailgun** (`mg.claritypledge.com`, the transactional
-   path event and letter mail already use), following
-   `supabase/functions/request-letter-response-signin/index.ts` — mint via `generateLink`, take
-   `properties.hashed_token`, send our own message linking to `/auth/verify?token_hash=`. Runs
-   **alongside** the Brevo/GoTrue path, not instead of it, until measured against the Outlook rig.
+2. ~~Route self-service signup mail through Mailgun.~~ **MOVED TO P1258 — not shipped here.**
+   Both candidate designs carried blockers under adversarial review, so this is now a research
+   question with pre-registered decision criteria rather than an implementation task. Nothing in
+   this spec changes how a single email is sent.
 
 3. **Reconciliation monitoring.** A scheduled check for auth users with `email_confirmed_at IS
    NULL` older than 24h, so a stranded person surfaces without waiting for someone to tell the
@@ -124,34 +123,51 @@ three defects above are objective; the replacement copy is a tone call.]
 - Do NOT contact the stranded users in bulk — at least one is an edge-function-created letter
   recipient, not a signup, so blanket outreach would be unsolicited contact.
 
+## Scope, narrowed at ship time
+
+This spec now covers **only** the two halves that were built and verified: the redeemable sign-in
+link, and monitoring for people who never get in. Changing how mail is sent moved to
+**P1258** — not deferred casually, but because adversarial review found both candidate designs
+carried blockers (see "Adversarial review outcome" below). Neither half here touches how mail is
+sent, so nothing in P1258 gates anything here.
+
 ## Done-When
 
-- [ ] A link of the form `/auth/verify?token_hash=…`, minted by hand for a real account, establishes
-      a session and lands the person signed in — verified by opening it and reading `localStorage`
-- [ ] The same link, replayed a second time, does not establish a session and shows an honest error
-      with a route out that is not the failing loop
-- [ ] The prefetch falsifier has been run: a `token_hash` link sent to the Outlook test mailbox is
-      still redeemable by a human after delivery — result recorded either way before rollout
-- [ ] A confirmation email sent through the new Mailgun path carries no `List-Unsubscribe`,
-      `List-Unsubscribe-Post` or `Feedback-ID` header — verified by reading the raw source of a
-      received message, not by reading the sending code
-- [ ] That message's placement in the Outlook test mailbox is recorded (Inbox or Junk, links live
-      or disabled), alongside the Brevo baseline already captured in the incident file
-- [ ] Signup through the existing UI still works end-to-end after the change — the p1010/p1076
-      regression suites stay green
-- [ ] The reconciliation check reports a known-stranded account when run against a seeded fixture,
-      and reports nothing when there is nothing to report (both directions exercised, per
-      epistemic gate 7c)
-- [ ] Founder copy decision recorded in this spec
+- [x] A link of the form `/auth/verify?token_hash=…`, minted by hand for a real account, establishes
+      a session and lands the person signed in — **verified in a real browser** against the test
+      project: minted a live `hashed_token`, opened it, `localStorage` held
+      `sb-<project>-auth-token` with the expected user, and the app landed signed in on `/feed`
+- [x] The same link, replayed a second time, does not establish a session and shows an honest error
+      with a route out that is not the failing loop — **verified in the same browser session**:
+      heading "This link can't be used", token stripped from the URL, and the existing session was
+      **not** destroyed
+- [x] A network failure does not burn an unspent link — added after review found the opposite
+      (the token was stripped before the call). Covered by unit tests asserting the token survives
+      and the page offers retry rather than telling the user to request a new link
+- [x] Signup through the existing UI still works end-to-end after the change — full unit suite
+      **3725 passed, 0 failed**; the change is additive (a new route) and touches neither
+      `signup-page.tsx` nor `AuthCallbackPage.tsx`
+- [x] The reconciliation check reports a known-stranded account and reports nothing when there is
+      nothing to report — **both directions exercised against live prod data**: default run exits 1
+      (`stranded_signups=2` of 145 users), and with the grace window widened it exits 0
+      (`stranded_signups=0`). The missing-credential path exits 2 rather than reporting clean.
+- [x] The OTP type list matches the SDK's real union — verified against
+      `node_modules/@supabase/auth-js` rather than from memory, after review found two valid types
+      missing
+
+Moved to **P1258** (all belong to the mail-transport half): the prefetch falsifier, the
+`List-Unsubscribe`/`Feedback-ID` header check, Outlook placement measurement, and the founder copy
+decision.
 
 ## Pre-deploy Checklist
 
-- [ ] `MAILGUN_API_KEY` confirmed present on prod (`decisions.md` 2026-05-15 records it as
-      previously missing on prod and saved only by a `?? ''` fallback — verify, do not assume)
-- [ ] `MAILGUN_FROM` / `APP_URL` values confirmed for the new function rather than inherited from a
-      hardcoded fallback
-- [ ] New edge function deployed to test and exercised before prod
-- [ ] Private destination for the reconciliation output chosen and configured
+**N/A — this spec ships no new edge function, no new API key and no new third-party service.**
+The Mailgun credential items that stood here moved to P1258 with the work that needed them.
+
+One operational note, not a blocker: the scheduled workflow for the stranded-signup check is
+**not** in this ship. `.git/hooks/pre-commit` is a byte copy of main's script, so it still runs the
+pre-fix secret scanner and rejects a workflow naming a service-role secret. It lands once this
+ship reaches main and the hook is re-synced — the script itself is shipped and runnable by hand.
 
 ## Alternatives Considered
 
