@@ -6,6 +6,69 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: A hand-written fixture for a third-party error body is fiction — rent the real condition on a throwaway and capture it (P1162)
+
+**Context:** `check-gemini-prod-key.sh` classifies a tripped spend cap by matching the string
+`Spend cap breached` in a 403. That branch had only ever been tested against a body written by
+hand, because "no cap exists yet to trip". The self-test passed, 8/8, and the classifier looked
+proven.
+
+**Decision:** Get the real body. A cap was created at **EUR 1** on an existing throwaway project,
+scoped to the one service, with its own disposable key, and burned until refused — then the budget
+and key were deleted. The real bodies are now the fixtures, and the branch is verified against what
+Google actually sends. **Do not trip a live key to test a branch**: the same evidence is obtainable
+from a project nothing depends on, for about a euro.
+
+**The invented fixture was wrong in two ways nobody predicted.** It said
+`for project: 123 for service: x`. The real message names the project as `projects/<number>` —
+**prefixed**, not a bare id — and carries a trailing `Correlation id:`. A match string tightened
+around the invented shape would have passed the self-test and failed silently in production, which
+is the precise failure the monitor exists to prevent. Two real bodies from *different* services are
+kept side by side, because that pair is the evidence the message is parameterised by service rather
+than hardcoded per API.
+
+**Alternatives rejected:** *Trip the real key* — same evidence, but it pauses a credential other
+things depend on and recovery is asymmetric. *Reason from the docs* — the two details that were
+wrong are exactly the ones documentation omits. *Leave it synthetic and note the caveat* — the
+caveat would have been "this branch is untested", which is what the spec already said for months.
+
+**Consequences:** Generalises past spend caps to any branch that fires only on a rare external
+condition — a provider's rate-limit body, a quota refusal, a payment decline. Renting the condition
+on a throwaway is usually cheap and always more honest than inventing the response. Also measured
+while there: the cap refused only after **79 successful calls and 5.57M billable tokens in 10m25s**
+against a EUR 1 ceiling, and lifting it resumed service in **64s and 102s** against Google's
+documented "up to one hour" — so overshoot is set by burn rate, not by the size of the ceiling.
+
+**References:** [scripts/check-gemini-prod-key.sh](../scripts/check-gemini-prod-key.sh) ·
+features/done/2026-06-10/p1162_cap_claritypledge_gemini_spend.md
+
+---
+
+## 2026-09-07 [technical]: Removing a mounted secret from a service whose traffic is pinned creates a revision that serves nothing (P1162)
+
+**Context:** Retiring a dead credential meant removing its env mount from a Cloud Run service and
+then deleting the secret. The mount was removed, the command reported success, and a new revision
+was created and reported Ready.
+
+**Decision:** Check **which revision actually serves traffic** before treating a config change as
+applied, and before deleting anything the old revision still references. Traffic here was **pinned
+to an older revision**, so the new one served nothing: the secret was still mounted by the revision
+handling every request, and deleting it would have broken that service on its next cold start —
+with the deploy having reported success. The safe order is: change config, confirm the new revision
+is actually serving, then delete the resource the old one referenced.
+
+**Alternatives rejected:** *Trust the deploy output* — it said "deployed and is serving", naming a
+revision number that was in fact the OLD one, which is exactly how the pin hides. *Delete the
+secret and watch for errors* — the failure would not appear until an unrelated cold start, possibly
+hours later, and would look like an unrelated outage.
+
+**Consequences:** A revision diff is the cheap confirmation — exporting both and diffing showed the
+only change was the removed mount, which is what made promoting it safe. Note the residue: older
+revisions now reference a deleted secret and would fail to start, so the rollback target is the new
+revision, not the previously-pinned one. Worth knowing before an incident, not during.
+
+**References:** features/done/2026-06-10/p1162_cap_claritypledge_gemini_spend.md
+
 ## 2026-09-07 [process]: I nearly reported a number that measured the log, not the world — and two plausible causes died to one cheap control (P1256)
 
 **Context:** One of nine hike RSVPs received no feedback email. Asked why, and whether it
