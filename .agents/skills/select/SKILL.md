@@ -709,6 +709,12 @@ raw marker count (106 on this source) counts those repeats and is not the turn c
 
   ```sh
   node scripts/points/source-binding.mjs <arguers.json>   # REFUSE = STALE, UNBOUND, or ZERO
+# arguers.json = {arguers:[{arguer, position, selected_source_id,
+#   claim_match:{measured_against_source_id, terms:{"<term>": <count>, ...}}}]}
+# The key is `measured_against_source_id` — NOT `measured_against_id`. Getting it wrong
+# reports every arguer as STALE against "undefined", which reads like a real finding.
+# Same gap as the sweep above: the command was documented and its input shape was not
+# (both found 2026-09-04, on the first run that actually invoked them).
   ```
 
   `STALE` = the match was measured against a different id than the one carried. `UNBOUND` = no match
