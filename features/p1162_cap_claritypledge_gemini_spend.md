@@ -1,15 +1,17 @@
 ---
-status: week
+status: qa
 type: task
 rank: 1000068
 workstream: infrastructure
 created_date: '2026-08-26'
 tags: [infrastructure, cost-control, edge-functions, gemini]
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+flow: inline
+delivery_stage: ship
 ---
 
 # P1162 — Cap ClarityPledge's Gemini spend, and alert when the key stops answering
