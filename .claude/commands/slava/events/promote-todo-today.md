@@ -135,7 +135,7 @@ If the page uses a chip/combobox widget instead of `<select>`, fall back to typi
 ### 6. Description (max 1000 chars)
 
 **Primary source: the canonical promo blurb passed from `promote-all` (step 3b).** It already
-includes the register CTA + series short link (`claritypledge.com/events/<short_link>`) and the
+includes the register CTA + series short link (`claritypledge.com/events/<short_link>?d=<YYMMDD event date>`, cache-buster mandatory — see `promote-all.md` § "Short-link cache-buster") and the
 moderated-discussion line. Paste it verbatim into More Details.
 
 **Rules:**

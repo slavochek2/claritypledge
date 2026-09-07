@@ -53,7 +53,12 @@ If the header shows a login prompt instead of the profile name, ask the user to 
 | Description | "Overview" section → click → rich-text editor → click the body and type the **full** promo blurb. **The CDP type call may report a 30s timeout — the text usually still lands. Screenshot to confirm before retrying** (a blind retry double-pastes) |
 
 **Two description forms:**
-- **Summary** (≤140 chars): the series `promo_summary` frontmatter if present; else derive a one-liner from the blurb's first line + `Register: claritypledge.com/events/<short_link>`. Verify ≤140.
+- **Summary** (≤140 chars): the series `promo_summary` frontmatter if present — **resolve its
+  placeholders first** (`{short_url}` at minimum; `promo_summary` is a static string and will
+  otherwise post a literal `{short_url}` to Eventbrite). After resolving, scan with
+  `/\{[a-z_]+\}/` and STOP on any surviving token.
+
+  If there is no `promo_summary`, derive a one-liner from the blurb's first line + `Register: claritypledge.com/events/<short_link>?d=<YYMMDD event date>`. The `?d=` cache-buster is mandatory and counts against the limit — see `promote-all.md` § "Short-link cache-buster"; if the summary overruns, shorten the prose, never the link. Verify ≤140.
 - **Overview** (full): the canonical promo blurb passed from `/promote-all` (step 3b) verbatim.
 
 ### 4. Stop — user adds tickets and publishes
@@ -87,7 +92,7 @@ Screenshot the form and the Preview. Quote date/time read from the screen vs exp
 ## Conventions
 
 - **Account**: the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski) — verify the Eventbrite session is the operator's.
-- **One link in description**: the series short link (`claritypledge.com/events/<short_link>`).
+- **One link in description**: the series short link (`claritypledge.com/events/<short_link>?d=<YYMMDD event date>`, cache-buster mandatory — see `promote-all.md` § "Short-link cache-buster").
 - **Free event**: ticket type set Free in the Add tickets step by the user.
 - **Time zone**: `Asia/Bangkok` for CNX / Ko Phangan events.
 

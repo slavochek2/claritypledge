@@ -12,7 +12,10 @@ default_location: "Fernpresso at Lake, Chiang Mai, Thailand"
 short_link: ai-run
 register_cta: "IMPORTANT please register to secure your seat:"
 sola_group: 4seas
-promo_summary: "Morning lake run, then an AI discussion round I moderate over coffee. All levels welcome. Register: claritypledge.com/events/ai-run"
+# 140-char Eventbrite cap, measured WITH the resolved {short_url} incl. its ?d= suffix (133).
+# Original wording preserved: the bare-domain short link form fits it. Do not re-lengthen
+# without re-measuring the RESOLVED string.
+promo_summary: "Morning lake run, then an AI discussion round I moderate over coffee. All levels welcome. Register: {short_url}"
 todo_today_join_type: walk-in
 todo_today_exchange: free
 todo_today_tags: ["running", "Networking", "Coffee", "Community"]
@@ -54,7 +57,10 @@ Single source of truth for todo.today / Facebook / Luma descriptions. promote-al
 this block, resolves placeholders, and passes the result to each platform sub-skill, which
 applies ONLY platform formatting (char limit, plain vs markdown). Edit here to change all
 platforms at once. Placeholders:
-  {short_url}     → claritypledge.com/events/{short_link}   (auto-resolves to the latest event in the series)
+  {short_url}     → claritypledge.com/events/{short_link}?d=<YYMMDD event date>   (auto-resolves
+                    to the latest event in the series; the ?d= cache-buster is MANDATORY — a bare
+                    short link unfurls a cached preview of an older event on Telegram/WhatsApp/FB/
+                    Sola. Canonical rule: promote-all.md § "Short-link cache-buster")
   {register_cta}  → the register_cta frontmatter value
 Keep it plain text (no markdown) — the most restrictive platform (Luma contenteditable) wins.
 -->
@@ -93,5 +99,5 @@ Guys, AI Running Club #{n} this coming Sunday, {date} 🏃
 Run together (20 or 45 min, your pace), then coffee — we go round on what you're building with AI, where you're stuck, what you're sure about.
 
 All levels — just show up.
-claritypledge.com/events/ai-run
+{short_url}
 ```

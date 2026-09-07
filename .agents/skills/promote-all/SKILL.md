@@ -144,7 +144,7 @@ This is what makes every platform's description consistent — no per-platform d
 1. Read the fenced code block inside `## Promo blurb`.
 2. Read `short_link` and `register_cta` from the series-doc frontmatter.
 3. Resolve placeholders:
-   - `{short_url}` → `claritypledge.com/events/<short_link>` (the series short link auto-redirects to the latest event — never hardcode a per-event slug here)
+   - `{short_url}` → `claritypledge.com/events/<short_link>?d=<YYMMDD event date>` (the series short link auto-redirects to the latest event — never hardcode a per-event slug here). **The `?d=` suffix is not decoration and is never dropped** — see "Short-link cache-buster" below.
    - `{register_cta}` → the `register_cta` value
 4. The result is the **canonical promo blurb**. Pass it verbatim to every platform sub-skill in step 4.
 
@@ -162,6 +162,74 @@ Register: claritypledge.com/events/<slug>
 Pass this as the canonical promo blurb to every platform sub-skill in step 4, same as the series case.
 
 **Link discipline (both branches):** the claritypledge event page is the ONLY destination ever linked — and it appears **twice**: right after the hook AND as the closing Register CTA. "One link only" in the platform skills means one *destination*, not one occurrence.
+
+**Short-link cache-buster (`?d=`) — canonical rule, referenced by every platform sub-skill.**
+
+Every series short link posted anywhere carries `?d=<YYMMDD event date>`, e.g.
+`claritypledge.com/events/hike?d=260913`.
+
+**Which URL form.** Use the bare-domain short link `claritypledge.com/<short_link>` whenever
+`vercel.json` defines that bare source (grep it: currently `/hike` and `/ai-run`); otherwise use
+`claritypledge.com/events/<short_link>` (e.g. `experiment`, which has no bare-domain route).
+Both forms route to `api/series-redirect` and resolve identically — the bare form is 7 characters
+shorter and is what the group blurbs have always used, so switching them to the `/events/` form
+would be an unrequested change to the founder's posted copy. Check `vercel.json`; do not guess.
+
+**The date is the event's date in `Asia/Bangkok`**, the same timezone `{date}` uses — never the
+raw UTC date off the `datetime` column. For an evening event the two differ by a day, which
+produces a `?d=` that disagrees with the date written in the blurb body and trips the staleness
+check for a reason that looks like nothing.
+
+**The format is `YYMMDD` — six digits, and the year is not optional.** Founder chose the short
+form over the ISO date (2026-09-07) to buy back characters against Eventbrite's 140-char
+Summary cap. The `YY` stays because these preview caches outlive twelve months: a bare `MMDD`
+recurs every year, so the 2027-09-13 hike would post `?d=0913` — a URL Telegram already has a
+2026 preview cached for — and unfurl last year's card. That is the original bug on an annual
+period. Do not shorten further. The direct-slug branch above needs no suffix — a
+per-event slug is already unique.
+
+**Why.** Some platforms cache the link preview (OG title, description and image) **per posted
+URL, effectively forever**. A series short link is a *stable* URL whose OG content
+changes every week, so the second and every later post of `/events/hike` unfurls the **first** hike
+ever cached under it — right link, wrong photo, wrong trail name, wrong date, in a card the reader
+trusts more than the message body. Nothing on our side can expire that cache; only a distinct URL
+gets a fresh fetch. Observed 2026-09-07: a Telegram post announcing "Ban Mai Viewpoint Loop (Mon
+Cham)" unfurled a card titled "Doi Pui – Ban Khun Chang Khian" with the previous week's group photo,
+while the server was serving the correct new OG tags the whole time.
+
+**Which platforms this actually affects is NOT uniform, and the difference is measurable.**
+`api/og.ts` sets `og:url` to the resolved per-event slug — verified 2026-09-07:
+`/hike?d=<anything>` returns `og:url = /events/social-hike-...-945871`, unchanged by the query.
+A platform that canonicalizes a shared object by `og:url` (Facebook's documented behaviour)
+therefore already keys on a URL that is unique per event and would never have shown a stale
+card. A platform that keys on the URL as posted (Telegram, per the incident) is the one that
+breaks. **We have observed exactly one platform failing and have tested none of the others** —
+so `?d=` is applied everywhere as cheap insurance, not because each platform was measured. Do
+not write that Facebook/WhatsApp/Sola had this bug; that is unverified and the `og:url` evidence
+points the other way.
+
+**No SEO cost.** `?d=` never reaches a content page — the short link 307s to the canonical slug,
+and that page's `og:url` is the slug. There is no second indexable URL serving the same content,
+so no duplicate-content split to worry about.
+
+**The suffix is inert to routing.** `/events/<series>` and `/hike` both preserve the query string
+through the Vercel redirect into `api/series-redirect`, which reads only `series` — verified live,
+2026-09-07. So the link resolves to exactly the same event with or without it; the only thing `?d=`
+changes is the cache key.
+
+**One premise here is UNVERIFIED, and it is the load-bearing one.** `api/series-redirect.ts`
+drops the query string on its final hop (`res.redirect(307, '/events/' + slug)`), so the OG tags
+are fetched from a URL that no longer carries `?d=`. The fix therefore assumes each platform
+keys its preview cache on the **posted** URL, not the final resolved one. That is the documented
+behaviour of every major unfurler and is almost certainly right, but it has NOT been observed
+failing or succeeding here — the crawler `curl` in `promote-groups` verifies OG *content*, never
+the cache key. Cheapest real proof, still to run: post the same event twice into a scratch chat
+under two different `?d=` values and confirm two distinct previews. Until then, treat a correct
+unfurl as evidence and do not claim the mechanism is proven.
+
+**Guard:** any resolved blurb containing `claritypledge.com/events/<series>` **without** a `?d=`
+query is a hard stop — re-resolve `{short_url}` before posting. Copy a short link out of a previous
+week's post and you have reintroduced the bug.
 
 ### 4. Fan out — fill every platform, publish none, then ONE review sweep
 

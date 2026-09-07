@@ -100,7 +100,7 @@ Read with `find` (resilient when `read_page` is flaky). Behaviors observed:
 | Meeting URL | text | leave blank for in-person |
 | Event Description | **contenteditable editor** | `form_input` fails — click into the editor body, then `type`. Paste the canonical promo blurb verbatim |
 | Tags | toggle chips | click each relevant chip (e.g. AI, Technology, Digital Nomad) |
-| Cover | — | **auto-unfurls** from the `claritypledge.com/events/<short_link>` link in the description (the event banner appears on its own). If it doesn't, "Upload Cover" needs a manual drag (`file_upload` is blocked) |
+| Cover | — | **auto-unfurls** from the series short link in the description (`claritypledge.com/events/<short_link>?d=<YYMMDD event date>`; the `?d=` cache-buster is mandatory and is what makes Sola fetch THIS event's banner instead of a cached older one — see `promote-all.md` § "Short-link cache-buster"). The event banner appears on its own; if it doesn't, "Upload Cover" needs a manual drag (`file_upload` is blocked) |
 | Host | — | defaults to your profile — leave |
 | **Display** | radio (in form / More Settings) | **select "Public Event"** so it's open to the public, not just group members |
 
@@ -139,7 +139,7 @@ Screenshot the form. Quote back the date/time read from the screen vs expected (
 ## Conventions
 
 - **Host group**: from `sola_group` frontmatter — never a bare profile.
-- **One link in description**: the series short link (`claritypledge.com/events/<short_link>`) — also what triggers cover auto-unfurl.
+- **One link in description**: the series short link (`claritypledge.com/events/<short_link>?d=<YYMMDD event date>`, cache-buster mandatory — see `promote-all.md` § "Short-link cache-buster") — also what triggers cover auto-unfurl.
 - **Visibility**: always select **Public Event**.
 - **Time zone**: `Asia/Bangkok` for CNX / Ko Phangan events.
 

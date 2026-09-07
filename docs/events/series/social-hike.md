@@ -12,7 +12,12 @@ default_location: "{cafe_pin_url}"
 short_link: hike
 sola_group: 4seas
 register_cta: "RSVP:"
-promo_summary: "Morning hike near Chiang Mai. Coffee at the meeting point first, then a relaxed walk. Everyone welcome. RSVP: claritypledge.com/hike"
+# 140-char Eventbrite cap. Measured WITH the resolved {short_url} incl. its ?d= suffix: 135.
+# The link used to be hardcoded and bare (132 chars) — which unfurled a cached preview of an
+# OLDER hike on any platform that caches by posted URL (observed: Telegram). See promote-all.md § "Short-link cache-buster".
+# Only "first" was dropped from the original wording: keeping it measures 141, one char over.
+# Do not re-lengthen without re-measuring the RESOLVED string.
+promo_summary: "Morning hike near Chiang Mai. Coffee at the meeting point, then a relaxed walk. Everyone welcome. RSVP: {short_url}"
 todo_today_join_type: walk-in
 todo_today_exchange: free
 todo_today_tags: ["Hiking", "Nature Walk", "Community", "Coffee"]
@@ -177,7 +182,7 @@ no person is cropped out; a successful upload is not evidence of that.
 Single source of truth for todo.today / Facebook / Luma descriptions. promote-all reads this
 block, resolves placeholders, and passes the result to each platform sub-skill, which applies
 ONLY platform formatting. Edit here to change all platforms at once. Placeholders:
-  {short_url}     → claritypledge.com/events/hike?d=<YYYY-MM-DD event date>  (auto-redirects to
+  {short_url}     → claritypledge.com/hike?d=<YYMMDD event date>  (bare-domain form; auto-redirects to
                     the latest hike; the ?d= cache-buster is MANDATORY — a bare short link
                     unfurls a cached preview of an older hike on Telegram/WhatsApp/FB/Sola.
                     Canonical rule: promote-all.md § "Short-link cache-buster")
@@ -211,7 +216,8 @@ month's trail. A stale blurb has zero unresolved placeholders and passes every o
 
 ## Link discipline
 
-`claritypledge.com/hike` is the only destination, and it appears twice — once at the top,
+`{short_url}` (which resolves to `claritypledge.com/hike?d=<YYMMDD>`) is the only
+destination, and it appears twice — once at the top,
 once as the closing CTA. The short link auto-redirects to the newest hike, so never hardcode
 a per-event slug in saved copy. Three things match this series by its exact title prefix
 (`/hike` resolution, the group-chat mapping, and the short-link redirect) and all three fail
