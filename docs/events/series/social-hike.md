@@ -59,7 +59,7 @@ Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we
 
 We aim for the full loop, but the mountain decides. There are many paths here, and when one does not work we take another. That is usually the best part of the day.
 
-We walk at the pace of the slowest person, so nobody who wants to keep going gets dropped. If you would rather do a shorter day, turn back whenever you like. That is a choice, not a problem.
+We walk at the pace of the slowest person, so nobody who wants to keep going gets dropped. If you would rather do a shorter day, turn back whenever you like.
 
 **Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash.
 
