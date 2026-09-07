@@ -15,6 +15,21 @@
 # Only SHA-256 prefixes are printed. No secret reaches stdout, the terminal
 # scrollback, or an agent transcript.                          [Done-When 7]
 set -uo pipefail
+
+# This script refuses to be traced, and that is deliberate. It handles raw
+# plaintext values throughout — it compares a keychain read against the
+# plaintext half — so `bash -x` on it would print credentials to stderr.
+#
+# The xtrace guard inside keyring.sh cannot help here. `v="$(keyring_get KEY)"`
+# forks a subshell; the subshell's `set +x` mutates only its own copy of `$-`
+# and cannot reach back into this shell, so THIS shell still traces
+# `v=<the secret>` after the substitution returns. Measured, not assumed.
+#
+# Suppressing globally rather than wrapping the four capture lines is the point:
+# a per-line guard leaves the fifth line someone adds later unprotected, and
+# that is exactly the structural gap this is closing.
+set +x
+
 cd "$(dirname "$0")/.."
 source ./scripts/keyring.sh
 

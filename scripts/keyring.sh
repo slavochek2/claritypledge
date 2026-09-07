@@ -61,6 +61,13 @@ keyring_is_registered() {
 
 # Print one key's value from the keychain. Triggers the authorization dialog.
 # Returns non-zero (and prints nothing on stdout) if the human declines.
+#
+# WARNING for callers: capturing this with `v="$(keyring_get KEY)"` REINTRODUCES
+# the xtrace leak that keyring_require guards against. Command substitution forks
+# a subshell, and the `set +x` below mutates only that subshell — your shell still
+# traces `v=<the secret>`. Prefer `keyring_require KEY`, which exports in your own
+# frame with tracing suspended. If you genuinely need the raw value, suspend
+# xtrace yourself around the capture (see scripts/keyring-gate-proof.sh).
 keyring_get() {
   local _kr_x="" _kr_rc
   case "$-" in *x*) _kr_x=1; set +x ;; esac

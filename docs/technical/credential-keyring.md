@@ -107,6 +107,22 @@ What is still on you: do not `echo`, log, or interpolate a critical value into
 output yourself. The guard covers the library, not what a caller does with the
 value once it has it.
 
+### If every key reports DEFEATED at once
+
+Suspect ACL-layout drift before compromise, particularly just after a macOS
+update. `verify` compares each item against a throwaway item created fresh
+through the enrollment path, but an already-enrolled item keeps the shape it was
+given when *it* was enrolled — an OS update does not rewrite stored keychain
+structures. If Apple changes the layout a freshly created empty-ACL item gets,
+every previously enrolled key would start comparing unequal simultaneously.
+
+A genuine "Always Allow" affects **one** key — the one whose dialog was answered
+that way. All keys failing together is the signature of drift. Distinguish them
+by re-enrolling a single key and re-running `verify`: if that key goes green
+while the others stay red, it is drift, and `./scripts/keyring.sh enroll`
+re-enrolls the rest. This is a reasoned expectation, not something that has been
+observed — no macOS layout change has been available to test against.
+
 ## Recovery
 
 The plaintext copy in `.env.local` is the recovery source and **has not been

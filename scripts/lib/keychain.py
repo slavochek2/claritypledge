@@ -276,9 +276,17 @@ def _reference_shape():
     fixed index (measured: a default item's trusted app lands at index 0, a
     `-T ""` item's empty list at index 1). Rather than guess which ACL governs
     decryption, create a throwaway item exactly the way enrollment does and
-    compare against its shape. This self-calibrates: if a macOS update changes
-    the layout, the reference moves with it instead of turning every enrolled
-    key into a false alarm.
+    compare against its shape.
+
+    Limit of that claim, unverified: the reference reflects what macOS does
+    *now*, but an already-enrolled item keeps the ACL shape it was given at ITS
+    enrollment time — persisted keychain structures are not rewritten by an OS
+    update. So if Apple ever changes the layout a fresh empty-list item gets,
+    every key enrolled before that change would compare unequal to a
+    freshly-created reference and report DEFEATED at once. That direction is a
+    false positive, not a fail-open hole, and simultaneous DEFEATED across ALL
+    keys right after an OS update is the signature — re-enroll one key and
+    re-run verify to tell drift from compromise.
     """
     st, item, _, _ = _find(REFERENCE_SERVICE, want_password=False)
     if st == 0:

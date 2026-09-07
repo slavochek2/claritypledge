@@ -125,6 +125,21 @@ restored=$(bash -c '
 ' 2>&1 | grep -c "^+ echo AFTER")
 check "$restored" "1" "xtrace is restored after the guarded read"
 
+echo "[10] the interactive proof script refuses to be traced"
+# It captures values via $(...), which no guard inside keyring.sh can protect:
+# the subshell's `set +x` cannot reach the parent's trace of the assignment.
+# This is a structural check — the script cannot be run here, it needs dialogs.
+if grep -qE '^set \+x$' ./scripts/keyring-gate-proof.sh; then
+  ok "keyring-gate-proof.sh suppresses xtrace globally"
+else
+  bad "keyring-gate-proof.sh can be traced — it would print plaintext values"
+fi
+if grep -q "REINTRODUCES" ./scripts/keyring.sh; then
+  ok "keyring_get warns callers that \$(...) capture reopens the leak"
+else
+  bad "no caller warning on keyring_get about capture-pattern tracing"
+fi
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]
