@@ -329,10 +329,13 @@ is happening.
 2. Does the text invert or shift **modality, chronology, causal direction, or scope** anywhere
    relative to what the transcript says?
 3. Does the text **NAME** a stance on any of these points — is there a sentence that would become
-   FALSE if that position moved one step or flipped sign? **Never ask "does it imply a position."**
-   The reasoning is required to be present, so a faithful story always lets a stance be inferred, and
-   a checker asked the broad question fails every good story — measured, first run, three of four.
-   Quote the sentence and say what would falsify it.
+   FALSE if that position moved one step or flipped sign? **Never ask "does it imply a position"**
+   and **never ask "is this sentence contradicted by the transcript".** The first fails every good
+   story — the reasoning is required to be present, so a faithful story always lets a stance be
+   inferred (measured, first run, three of four). The second passes every stance-naming sentence
+   that happens to be **true**, which is the whole failure class (measured, 2026-09-07, ten of ten).
+   A sentence can be perfectly accurate about the speaker and still fail Q3 by naming where they
+   stand. Quote the sentence and say what would falsify it.
 
    > **An all-pass verdict on Q3 requires a control, in the same answer.** A rule this narrow can
    > return PASS on every story either because no story names a stance *or* because the checker
@@ -342,6 +345,29 @@ is happening.
    > control beside it is not evidence and does not clear the stories.** *(Added 2026-09-01 after a
    > re-check returned 4 of 4 PASS and supplied this control unprompted; the rule did not ask for it,
    > so the next agent would not have.)*
+   >
+   > **The control must be stance-naming AND TRUE of the speaker — corrected 2026-09-07, after the
+   > sentence above produced a measured false negative in every checker of a 10-checker run.** Told
+   > only to build a sentence that "SHOULD fail", all ten built one that was stance-naming *and
+   > false*, then flagged it **for being false**. On such a sentence a truth test and the staleness
+   > test agree, so the substitution is invisible in the output — and a checker running the truth
+   > test **passes a stance-naming sentence that happens to be true**, which is precisely what Q3
+   > exists to catch. One checker demonstrated it outright, reporting *"the control does not flag,
+   > which is the expected behavior"* on a true stance-naming control.
+   >
+   > **So state both halves to the checker, and make the failure self-reporting:**
+   > *"Construct a control that is BOTH stance-naming AND true of this speaker — e.g. "on this point
+   > <Full Name> lands firmly with the <X> camp", where <X> is the camp they are actually in. Run it
+   > through the identical staleness test: it must survive a one-step move and become false on a
+   > sign flip, therefore it must FLAG. **If your control does NOT flag, you applied the wrong test —
+   > say so explicitly and redo Q3.**"* Also tell it, in the question itself, **"do not ask whether
+   > the sentence is contradicted by the transcript"** — that is the wrong test by name, and naming
+   > it is what stopped the substitution when the corrected wording was run.
+   >
+   > **Measured, not assumed:** the corrected wording was given to the round-2 re-checker in the
+   > same run and its control flagged. The orchestrator re-ran Q3 by hand over all 8 stories
+   > (`grep -nEi` for stance-naming constructions, plus the staleness test per sentence) rather than
+   > promote ten unproven verdicts — `epistemic.md` gate 9.
 4. Are there proper nouns, dates, numbers or named institutions with no source in the transcript?
 5. **Does the story assert a CONNECTION the source contradicts or does not support at both ends?**
    For every *"X, so Y"*, *"which is why"*, *"that reframes"*, *"on this account"*, apply **two tests
