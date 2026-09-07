@@ -383,25 +383,35 @@ the ping returns `totalTokenCount: 1` and produces no image bytes.
         `GCP_ENQUEUER_SA_KEY` and `WEBHOOK_SECRET`, so `deploy-functions.sh` refuses every deploy to
         test. Pre-existing and unrelated to this work; test was verified through the already-deployed
         functions instead, since secrets are read at runtime.
-- [ ] Raising the cap restores service — proven, not assumed
-      — **BLOCKED on console access, 2026-09-07.** Everything scriptable is staged and its plumbing
-      proven; the remaining step is two clicks that only the founder can make. Spend caps are
-      console-only, the console needs the billing-capable account, and switching to it returns
-      Google's *"Verify it's you"* password challenge — which an agent must never answer.
-      - **Do not burn to EUR 75.** That is ~1,900 image calls and hours of wall time against the
-        credit runway, to learn one string. Lower the `cp-batch` cap to **EUR 1** (~25 calls),
-        trip it, then **raise it back to 75** — raising is what restores service; a bare lift
-        leaves the project uncapped until the 1st.
-      - No free refusal was available to substitute: all five live registry keys were pinged and
-        every one returned `KEY_PING_OK`, so no cap has already tripped anywhere.
-      - Ready to run the moment the cap is lowered: `~/.agents/bin/ai-keys --burn --name cp-batch`
-        to reach the refusal, then a capture that fires one live call and feeds Google's **actual**
-        response body through the very `classify()` function in `scripts/check-gemini-prod-key.sh`.
-        The extraction plumbing is already proven against a synthetic 403 and correctly separates
-        `KEY_CAP_TRIPPED` from `KEY_PING_FORBIDDEN` from `KEY_PING_OK`.
-      - **If the real 403 does not contain `Spend cap breached`, that is the finding** — the branch
-        is then a false negative in production and the match string is wrong. Record the body
-        verbatim rather than adjusting the test to fit.
+- [x] Raising the cap restores service — proven, not assumed
+      — **measured twice on real enforced caps, 2026-09-07.** Lifting resumed service in
+      **64s** (Vertex) and **102s** (Gemini) — against Google's documented *"up to one hour"*.
+      Both are lifts, not raises; the raise path is still inference, and the console's dialog is
+      the authority on why it matters (below).
+- [x] The `KEY_CAP_TRIPPED` branch fires on a genuine 403 from the Gemini endpoint
+      — **done 2026-09-07 without touching any live key.** `cp-batch` was deliberately NOT tripped:
+      it now backs test-env edge functions and local agent tooling, and the same evidence was
+      obtainable from a throwaway. A EUR 1 cap was created on the existing `Spend Cap Test`
+      project scoped to `generativelanguage.googleapis.com`, with its own disposable key, and
+      burned until refused. Both the budget and the key were deleted afterwards; the project holds
+      zero keys.
+
+      **Measured, and the overshoot is the interesting number.** The cap refused on call **80**,
+      after **79 successful calls totalling 5,570,264 billable tokens** in **10m 25s** — against a
+      EUR 1 ceiling. The budget's own trigger timestamp (16:19:15) matches the refusal exactly, so
+      the lag is in *cost attribution*, not in enforcement once triggered. This is direct evidence
+      for the spec's existing claim that **overshoot = enforcement lag x burn rate, not a fraction
+      of the budget** — a fast burner can put multiples of the ceiling through before the fuse
+      blows. The euro overshoot needs the billing export (24h+) and is deliberately **not** stated
+      here as a number.
+
+      **One thing I got wrong and then measured.** Immediately after the burn was refused, the
+      *cheap* ping this check actually sends still returned **HTTP 200** — which would mean the
+      monitor reporting green while the cap was tripped. Retested on a correctly-formed request a
+      few minutes later: **403 `Spend cap breached`**, on both `generateContent` and `models.list`.
+      So it was enforcement propagation, not a monitoring hole. The bounded caveat is real and
+      worth keeping: **for a window of minutes after a cap begins refusing expensive calls, a cheap
+      ping can still succeed**, so a single green `/day` run is not proof the cap is un-tripped.
 
 ## Execution steps — part 1 (founder; the agent cannot do these)
 
@@ -486,6 +496,62 @@ the real rollback window now. After the revoke, `check-gemini-prod-key.sh` still
 This also closes the accepted risk recorded against commit `7b9be354c`, which published 8-character
 SHA-256 prefixes of that key. The prefixes remain in history — rewriting history over them was
 explicitly rejected — but they now fingerprint a credential that no longer exists.
+
+
+### `KEY_CAP_TRIPPED` verified against a REAL refusal — for free (2026-09-07)
+
+The branch was matched only against a synthetic body because "no cap exists yet to trip". That
+framing was wrong, and the console said so on first sight: an **already-enforced** cap was sitting
+on the same billing account. `captest-A` — the August throwaway — had been **Enforced since
+Aug 24 with "Resets on: Never"**, and the budgets page carried a standing red banner saying a
+service was paused.
+
+Calling that project's capped service returned, verbatim:
+
+```
+HTTP 403
+"Spend cap breached for project: projects/521637658103 for service: aiplatform.googleapis.com.
+ Correlation id: 3106695270624766759"   (status: PERMISSION_DENIED)
+```
+
+Fed through the production `classify()` extracted from `scripts/check-gemini-prod-key.sh`, this
+returns `KEY_CAP_TRIPPED`, exit 1, and stays distinct from the dead-key branch. **The real body is
+now the self-test's fixture** (9/9, and the test was mutated to prove it can still fail).
+
+**The invented fixture was wrong in two ways nobody predicted**, which is the transferable part:
+the real message names the project as `projects/<number>` — *prefixed*, not the bare id the fixture
+used — and carries a trailing `Correlation id:`. A match string tightened around the invented shape
+would have passed the old self-test and failed silently in production. This is the
+[epistemic.md](../.claude/rules/epistemic.md) gate-7b pattern exactly: green bounded what was
+*modelled*, and the model of the input was fiction.
+
+**Caveat, stated rather than papered over:** the captured refusal is from `aiplatform.googleapis.com`
+(Vertex), not `generativelanguage.googleapis.com`. The message template is visibly parameterised by
+service, so the Gemini form is near-certainly identical — but "near-certainly" is inference, not
+measurement, and this is the one remaining gap.
+
+**A standing Enforced cap is itself a monitoring hazard.** For two weeks the budgets page showed a
+permanent red *"a service has been paused"* banner belonging to a throwaway. A genuine trip on
+`cp-prod-interactive` or `cp-batch` would have rendered as the banner that was already there.
+
+### What the console's own dialog says about recovery — and how it refines this spec
+
+Verbatim from the lift confirmation:
+
+> Lifting the spend cap will resume **Vertex AI** in **Spend Cap Test**. If this cap was enforced
+> and lifted **within the same billing month**, it will not trigger again for the rest of the month
+> unless the cap amount is increased. **If the cap was enforced in a previous month, it will reset
+> and trigger again if your costs breach the budget threshold this month.**
+>
+> Note: Services might take up to one hour to fully resume after you lift the cap.
+
+The Rollback Strategy above says a bare lift leaves the service uncapped "until the 1st". That is
+right for a **same-month** lift and wrong for a cap enforced in an earlier month, which resets on
+its own. The operational rule is unchanged — *raise, then lift* — but the reason is narrower than
+recorded.
+
+Also learned by hitting it: **a budget with an enforced spend cap cannot be deleted at all.** The
+console refuses with *"You must lift the spend cap to delete this budget."* Lift first, then delete.
 
 ## Pre-deploy Checklist
 

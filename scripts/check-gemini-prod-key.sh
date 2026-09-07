@@ -85,14 +85,27 @@ if [[ "${1:-}" == "--self-test" ]]; then
   }
   echo "self-test: classifier"
   check "alive"            200 ''                                              KEY_PING_OK                0
-  check "cap tripped"      403 'Spend cap breached for project: 123 for service: x' KEY_CAP_TRIPPED       1
+  # VERBATIM from Google, captured 2026-09-07 off a genuinely enforced EUR 0.50 cap
+  # (budget "captest-A", service Vertex AI in project "Spend Cap Test"). Do not "tidy" this
+  # string: the invented fixture it replaced said "for project: 123 for service: x", and the real
+  # message differs in two ways nobody predicted — the project is PREFIXED ("projects/<number>",
+  # not a bare id) and there is a trailing "Correlation id:". Both are exactly the kind of detail a
+  # hand-written fixture gets wrong, and a tighter match string would have passed the old test and
+  # failed in production.
+  # Both REAL bodies, captured 2026-09-07 off genuinely enforced caps on a throwaway project.
+  # The first is the one that matters — same service this check actually calls. The second is the
+  # same template from a different service, which is the evidence that the message is parameterised
+  # by service rather than hardcoded per API.
+  check "cap tripped (REAL, gemini)" 403 'Spend cap breached for project: projects/521637658103 for service: generativelanguage.googleapis.com. Correlation id: 7181903108680028651' KEY_CAP_TRIPPED 1
+  check "cap tripped (REAL, vertex)" 403 'Spend cap breached for project: projects/521637658103 for service: aiplatform.googleapis.com. Correlation id: 3106695270624766759' KEY_CAP_TRIPPED 1
+  check "cap tripped (synthetic)"  403 'Spend cap breached for project: 123 for service: x' KEY_CAP_TRIPPED       1
   check "403 not a cap"    403 'PERMISSION_DENIED: api restricted'              KEY_PING_FORBIDDEN         1
   check "dead key"         400 '{"reason":"API_KEY_INVALID"}'                   KEY_PING_FAILED            1
   check "retired model"    404 ''                                              KEY_PING_MODEL_UNAVAILABLE 1
   check "rate limited"     429 ''                                              KEY_PING_RATE_LIMITED      1
   check "never completed"  000 ''                                              KEY_PING_UNKNOWN           2
   # The discrimination that matters most: these two must not collapse into each other.
-  a="$(classify 403 'Spend cap breached for project: 1 for service: x')"
+  a="$(classify 403 'Spend cap breached for project: projects/521637658103 for service: generativelanguage.googleapis.com. Correlation id: 7181903108680028651')"
   b="$(classify 400 '{"reason":"API_KEY_INVALID"}')"
   if [[ "${a%%$'\n'*}" == "${b%%$'\n'*}" ]]; then
     echo "  FAIL cap-vs-dead are indistinguishable"; fails=$((fails+1))
