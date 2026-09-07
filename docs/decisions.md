@@ -6,6 +6,95 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: Two correct controls can still leave the gap between them — a gate detector called a wide-open credential "intact" (P1239)
+
+**Context:** P1239 locks critical credentials behind a per-access macOS authorization dialog.
+Its top risk is that answering that dialog with "Always Allow" silently turns the gate into a
+no-op — no error, nothing visibly different. So the spec required a one-command check reporting
+whether the gate still fires. That check is the only thing standing between "protected" and
+"believes it is protected."
+
+**Decision:** Judge each item by comparing its full access-control **shape** against a throwaway
+item created through the enrollment path itself, rather than by trying to identify which
+individual entry governs reading. The governing entry is not at a fixed position, and the OS
+returned no usable labels for it, so any positional or label-based rule was guesswork.
+
+**Alternatives rejected:** identifying the read-governing entry directly (position varies between
+otherwise identical items); a hardcoded expected shape (an OS update would make every enrolled
+credential alarm at once); trusting the platform's own dump tooling (it prompts per item).
+
+**Consequences:** Two defects were found in the detector *by falsifying it*, not by it failing —
+both would have shipped as passing.
+
+1. **The worst state reported as the best.** The check had two controls: a correctly locked item
+   and an item trusting one named application. Both scored correctly, and the suite was green. But
+   a third shape exists — "every application trusted" — which neither control constructed, and
+   which the detector reported as intact. That shape has no gate at all. **This refines the
+   blind-probe pattern rather than repeating it:** the recorded form fires when a known-good and a
+   known-bad control return the *same* verdict. Here they returned *different, correct* verdicts
+   and the probe was still blind, because both controls sat on the same side of a distinction
+   neither of them crossed. The generalizable move is to enumerate the failure **shapes** the
+   artifact can meet — from the platform's own documentation of the states it can be in — not the
+   failure **cases** you happened to have lying around. This is epistemic gate 7b ("green bounds
+   what was MODELLED") applied to controls rather than to fixtures.
+
+2. **A security check that flickers gets ignored.** The comparison was position-sensitive, and the
+   OS does not return these entries in a stable order: one unchanged item produced one arrangement
+   four times and a different one on the fifth, so a correctly locked credential reported as
+   defeated roughly one run in five. Intermittent enough to be written off as noise — which is
+   precisely how a genuine defeat would have been written off. Comparison is now order-independent,
+   and the suite asserts verdict stability over consecutive runs, because "it disagrees with itself
+   sometimes" is a failure mode a pass/fail assertion does not catch.
+
+Both defects share a root: the check was written against the shape the code *produces*, and never
+against the shapes the platform *permits*. Test coverage for a detector means covering the states
+of the thing detected, not the paths of the detector.
+
+**References:** [epistemic.md](../.claude/rules/epistemic.md) gates 7b and the blind-probe note in
+gate 2 · [credential-keyring.md](technical/credential-keyring.md) · P1239
+
+## 2026-09-07 [process]: Knowledge that must outlive its spec belongs in a path-triggered rule — specs move to done/ (P1239)
+
+**Context:** Asked directly where the credential-handling setup should be documented "so next time
+agents who deal with key management and rotation know." The work had produced three specs, a
+technical doc and a private registry. Specs move to `features/done/` when they ship, so anything
+living only in a spec becomes archaeology the moment it succeeds.
+
+**Decision:** Four layers, split by *who reads it and how they find it*: the operating contract to
+a new path-triggered `.claude/rules/credentials.md` (auto-loads on the paths where credentials are
+actually touched); the operator how-to to `docs/technical/`; identifiers to `.private/`; the
+rotation coupling to the rotation spec that owns it. The rule carries **reasoning, not just
+prohibitions** — why the grant is per-key, why a fallback to the plaintext copy is worse than a
+hard failure, why a time window was rejected — so a future agent can decide rather than
+pattern-match, and so the rejected alternatives are not relitigated by someone who only encounters
+the friction.
+
+**Alternatives rejected:** leaving it in the specs (archaeology on ship); putting it in `CLAUDE.md`
+(fails the >80% universality test — it is file-specific, which is what the rules layer is for, and
+the file was already exactly at its line budget).
+
+**Consequences:** Complements 2026-08-07 `[process]` rather than contradicting it. That entry
+established a path-triggered rule **cannot** bind behaviour that touches no file path; this is the
+case it *is* right for — work that always begins by opening a file under known directories. Route
+by trigger first, then by topic.
+
+Two things worth carrying forward. First, `CLAUDE.md`'s statement that secret values live in the
+env file had quietly become false for the credentials this work moved; the stale sentence was
+amended to carry the pointer rather than a new line added, which fixed an error and stayed inside
+the budget. **A doc line that a change makes false is a better place to put the pointer than a new
+line is.** Second, and the reason the rule was needed at all: during a coexistence migration both
+halves hold the same values, so the **unguarded path keeps working and nothing signals that you
+took it.** A migration whose old path fails loudly needs no rule; one whose old path silently
+succeeds needs exactly this.
+
+**Known gap, not yet closed:** a rule committed on a feature branch is inactive on the main
+checkout until that branch merges, while the credential store it describes is already live
+machine-wide. Pre-commit warns about this; it is not yet resolved.
+
+**References:** [.claude/rules/credentials.md](../.claude/rules/credentials.md) ·
+[credential-keyring.md](technical/credential-keyring.md) · decisions.md 2026-08-07 `[process]` ·
+P1239 · P1148
+
 ## 2026-09-07 [technical]: Two defects behind one symptom — fixing the visible one would have shipped a still-broken thing (P1256)
 
 **Context:** The event-email cron had failed 328 consecutive runs on a Postgres quoting bug
