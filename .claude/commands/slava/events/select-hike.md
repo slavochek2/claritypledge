@@ -93,6 +93,13 @@ and the English web will not carry it. Look for four things:
    (threatened) and `ปิด` (closed), and check the Google Maps trailhead POI for a "Temporarily
    closed" label.
 
+**Read the ALERT panel, not just the description.** AllTrails shows park attribution in the header
+and active conditions behind a "Caution / N alert" button — neither appears in the short description
+that a plain fetch returns. On 2026-09-07 Mon Cham was seeded into the status file as clean on the
+strength of its description, and only a second look showed it is inside Doi Suthep-Pui National Park
+AND carries a live partial-closure alert (a fallen tree since July 2026). Neither fact was
+disqualifying; both belonged in the record and one belongs in the event description. Open the alert.
+
 **A source has to be official.** DNP (`dnp.go.th`, `portal.dnp.go.th`), the park's own page, or a
 provincial authority. AllTrails, a blog, and a tour operator are leads, never the verdict — and a
 review that says "we did it without a guide" proves someone broke a rule, not that the rule is

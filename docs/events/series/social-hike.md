@@ -63,9 +63,9 @@ Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we
 
 Coffee or lunch after for anyone who feels like it.
 
-The WhatsApp group link appears on this page once you register.
+Reserve a seat below — you'll get an invitation to the group chat, where we sort last-minute changes and rides up the mountain.
 
-*Not a commercial or guided hike. I do not charge and I do not lead. Everyone walks at their own risk and looks after themselves. No fixed schedule and nothing guaranteed. I do my best to make it a good morning because I want to, not because I am responsible for it.*
+*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. No fixed schedule and nothing guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 **Rules that survived founder edits — do not undo them.**
@@ -86,14 +86,18 @@ The WhatsApp group link appears on this page once you register.
 - **The terms line ships on every hike and is not optional.** Free, unguided, unled; attendees
   responsible for themselves; no schedule, no guarantees; goodwill stated as an intention rather
   than an obligation. Founder's framing, 2026-09-07: *"out of goodwill I try to make sure people
-  feel happy, but this is my personal ambition and not an official responsibility."* Two sentences,
+  feel happy, but this is my personal ambition and not an official responsibility"* and
+  *"I'm one of them, equal. We are all adults taking care of ourselves."* The equality clause
+  is the load-bearing half — the line must read as a participant describing a walk, never as an
+  organiser disclaiming liability. Two sentences,
   no more — it must read as a plain statement, not a waiver. If the 150-word ceiling bites, cut a
   highlight, never the terms.
 - **The WhatsApp invite link never appears in the description.** It is written to the
   registration-gated field (`event_private_info.group_chat_url`, P1194) and renders as a
   "Join WhatsApp group" button for registered attendees only. A raw link in the public description
   hands the group to every visitor and defeats the gate. The description carries only the one-line
-  pointer above, which is also a reason to register.
+  pointer above, which is also a reason to register. That line is not invented here — it is the
+  wording the founder shipped by hand on the 2026-09-06 event; keep it.
 - **Duration is AllTrails' walk time × 1.4, plus 30 min for coffee, rounded up.** The group stops,
   waits and leaves nobody behind; publishing the bare AllTrails estimate makes the end time a lie.
   Say why in the description, in one clause.

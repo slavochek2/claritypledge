@@ -188,9 +188,9 @@ Morning [hike/run] this [DAY]. Everyone welcome.
 
 [Coffee or lunch after for anyone who feels like it.]
 
-The WhatsApp group link appears on this page once you register.
+Reserve a seat below — you'll get an invitation to the group chat, where we sort last-minute changes and rides up the mountain.
 
-*Not a commercial or guided hike. I do not charge and I do not lead. Everyone walks at their own risk and looks after themselves. No fixed schedule and nothing guaranteed. I do my best to make it a good morning because I want to, not because I am responsible for it.*
+*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. No fixed schedule and nothing guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 If the founder supplied a post-activity topic, add one line for it. If not, omit
