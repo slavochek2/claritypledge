@@ -103,19 +103,22 @@ Also in scope, cheap and evidence-backed: the confirmation email copy — the li
 `Confirm Your Email - [ClarityPledge]`, the grammar error `If you didn't signed up`, and the
 `Infrastructure powered by Supabase` footer.
 
-[FOUNDER DECISION: subject line and body wording for the new Mailgun-sent confirmation email. The
-three defects above are objective; the replacement copy is a tone call.]
+~~[FOUNDER DECISION: subject line and body wording for the confirmation email.]~~ **MOVED TO
+P1258** — carried there verbatim, still open. Left struck-through rather than deleted so a reader
+of this closed spec does not conclude the decision was made; it was not.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Owning the send path moves failure ownership from Supabase to us | ACCEPT | We already own event and letter mail on this exact path; and today's failure is invisible, which is worse |
 | A new sign-in page is a security-sensitive surface | MITIGATE | Copy `letter-response-confirm-page.tsx` rather than inventing; single-use `token_hash`, no user-controlled redirect target |
 | A `token_hash` link in an inbox may be consumed by a scanner before the human clicks | MITIGATE | This is the **UNTESTED** hypothesis recorded in `decisions.md` 2026-09-03, whose named falsifier is "send a token_hash link to a Microsoft 365 mailbox and check whether the token is consumed before a human clicks." We now have that mailbox. Run the falsifier **before** any user is switched to the new path |
-| Mailgun mail could be junked too | ACCEPT, then measure | Unproven either way. The Outlook rig makes it measurable before rollout; if it junks identically we have lost nothing and learned the cause is not Brevo |
 | Deliverability fix cannot be proven for the affected person's specific mailbox | ACCEPT | Mailbox-level rules are not observable from outside; the rig is the closest available proxy |
 | Monitoring output leaks user emails | MITIGATE | Private channel only. All 6 existing scheduled gates route to GitHub issues; this one must not |
+
+*Two rows removed at close: they weighed risks of owning the mail send path, which this spec
+never shipped. Both moved with the work to P1258 — do not read their absence as a decision
+that those risks are gone.*
 
 **Non-Goals**
 - Do NOT change `src/lib/supabase.ts` or the PKCE flow type.
