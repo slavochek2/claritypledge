@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: The deploy manifest is written from a directory glob, so a green drift check proves only that someone ran the stamper
+
+**Context:** Adversarial review of [p1211](../features/p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md), whose Fix Approach candidate 1 wires `check-deploy-manifest.sh` into the pre-push hook. Both halves of that machinery were measured. `check-deploy-manifest.sh` never contacts prod — `grep -c` for `supabase.com|schema_migrations|curl|psql|SUPABASE_ACCESS_TOKEN` returns **0**; its `--env prod` verdict is `git show origin/main:supabase/deploy-manifest.json` compared against a glob of the working-tree migrations directory (`:19-23`, `:45-60`, `:127`). `stamp-deploy-manifest.sh` returns **0** for the same grep and builds the `migrations` array by globbing `$MIGRATIONS_DIR/*.sql` (`:236-250`). Neither program has ever asked the database anything.
+
+**Decision:** Treat a passing deploy-drift check as evidence that the manifest was stamped, never as evidence that prod holds the schema. The existing advice in this log (2026-06-10: *"verify prod state directly rather than trusting the manifest check"*) is upgraded from *the stamp can be stale* to **the stamp is forgeable in one advertised command**: `./scripts/stamp-deploy-manifest.sh --env prod --migrations-only` (its own header, `:11`) turns the pre-push gate **and** `check-deploy-drift.yml`'s daily issue green with prod untouched, and per the workflow's find-or-append logic would auto-*close* an open drift issue.
+
+**Alternatives rejected:** *Wire candidate 1 in as specified.* It replaces self-attested prose with self-attested JSON — the same trust model P1246 identifies as the defect, one layer down. *Read the manifest at `$local_sha` instead of `origin/main` to fix the false positive.* That is the only computable discriminator at pre-push time, and it works by trusting a file inside the range being gated. P1211's AC1 (fires when a migration is unapplied) and AC4 (does not fire on an unpushed stamp) are therefore **jointly unsatisfiable by any manifest-based design**: read `origin/main` and you block 100% of migration-carrying `/ship` pushes, because `ship.md:66`'s merge-first flow applies the migration and commits the stamp locally before pushing.
+
+**Consequences:** Any gate that must know prod's real schema state has to query `supabase_migrations.schema_migrations` through the Management API, as `migrate.sh` already does — which makes it network-dependent and therefore a fail-open/fail-closed decision the spec has not made. Two further measured holes in the same evidence base: `check-deploy-manifest.sh` globs the **working tree**, so a co-tenant's uncommitted `.sql` on the shared checkout would block an unrelated docs push; and a failed `origin/main` fetch falls back to the *local* manifest with a stdout-only warning (`:48-59`) — fail-open in exactly the state the gate exists to catch. **Status: proposed** — P1211's Fix Approach needs revision before implementation; nothing was built this session. Full review: 12 findings, of which one (a claim that 40 migrations were pending) was **refuted** by querying the ledger directly — 0 were.
+
+**References:** [p1211](../features/p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md) · [p1246](../features/p1246_pipeline_controls_are_advisory.md) · `scripts/stamp-deploy-manifest.sh:11,236-250` · `scripts/check-deploy-manifest.sh:19-23,45-60,127` · this log 2026-06-10 [technical] (stale-stamp entry, which this extends)
+
+---
+
+## 2026-09-07 [technical]: Organization copy lives in the database, and ordering it by `name` made a copy edit silently reorder the public directory
+
+**Context:** The founder reported *"we improved the copies of descriptions and namings etc. of our groups but prod is not what it should be."* Group `name`, `blurb` and `description` are rows in `public.organization`, read live by `organizations-service.ts`; they are changed only by a migration, so committing and pushing the `.sql` delivers nothing. Two copy migrations were on `origin/main` and had never been applied — prod served the superseded text. Applying them exposed a second defect: `listPublicOrganizations()` ordered by `name` ascending, so renaming the group to *"**Co**mmunication Activism Community · Chiang Mai"* demoted it below *"**Cl**arity Practice Community · Online"*.
+
+**Decision:** Directory order becomes explicit — a nullable `organization.display_order`, ordered `display_order asc nulls last, name asc`. Ordering that is an accident of the copy will break again on the next copy edit, and the failure is silent: no error, no test, nothing to notice except the page.
+
+**Alternatives rejected:** *`NOT NULL DEFAULT`.* An unranked org must sort *after* every ranked one; a numeric default ties them all at one rank and lets `name` decide again — the original bug, reintroduced. *Rename the group so it sorts first.* Subordinates the copy to the sort. Note this does **not** contradict this log's earlier rejection of a `display_order` column for Points (*"unnecessary schema change for 7 records with stable ordering"*) — there the ordering was stable and content-derived; here it is founder-owned and was demonstrably unstable.
+
+**Consequences:** Copy changes to a group now need `./scripts/migrate.sh --env prod` as a distinct step after the push, and the spelling of a name can no longer move a card in the directory. The general trap is wider than this table: **any user-visible string stored in the database is invisible to the frontend deploy**, so "it's pushed" is not "it's live". This log's 2026-08-28 entry records the cousin failure — reading a group's copy off the seed migration when prod had moved on. Today's gap was surfaced by `check-deploy-drift.yml` (issue #11, 12:01Z) ~10h before the founder found it by eye; that consumption failure is [p1155](../features/p1155_correct_alarm_rang_into_an_empty_room.md)'s subject and is owned by another session, not restated here.
+
+**References:** `src/app/data/organizations-service.ts` · `supabase/migrations/20260907190000_org_display_order.sql` · [p1155](../features/p1155_correct_alarm_rang_into_an_empty_room.md) · this log 2026-08-28 [product] (seed-vs-live blurb)
+
+---
+
 ## 2026-09-07 [process]: Every control in the delivery pipeline is advisory — and two root causes published before measuring were both refuted (P1246)
 
 **Context:** Investigating why the pipeline cannot tell a finished spec from an unfinished one.
