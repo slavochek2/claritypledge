@@ -6,6 +6,41 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: The four March transcription artifacts — verdicts (P1250 part 3)
+
+**Context:** [P1237](../features/done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) proved
+by `git log --all -S` that four artifacts recorded as done, shipped or production-ready have never
+existed in this repository on any branch. P1250 part 3 owes a verdict on each. Searching outside git
+for the lost code is a Non-Goal there and remains undone — these verdicts rest on evidence in hand.
+
+**Decision:**
+
+| Artifact | Recorded as | Verdict | Reason |
+|---|---|---|---|
+| `get_separate_wavs()` | P552, `all-done` 2026-03-19 | **ABANDON** | P1237 measured the premise false for the conditions actually recorded: 83% of sessions sit below the 10 dB separation the design needs, and separate-channel scored 1 of 10 on the minority speaker. Untested — not refuted — for P1236's lavalier-per-phone setup, which is P1236's RQ2, not a rebuild of this |
+| `llm_merge.py` | P556, closed *"deployed to prod"* | **SUPERSEDE, and keep the number** | It is the only path ever measured to attribute the minority speaker (8 of 10 on R8FUEQ, reproduced from the ground-truth file's own flags). But n=1, on one session, by a pipeline nobody can inspect. Superseded by whatever the conditional design in P1237 consequence 4 becomes; the 8/10 is recorded as the bar any replacement must clear, not as a reason to rebuild blind |
+| `energy_validator.py` | decisions.md 2026-03-22, *"complete with adaptive gates"* | **ABANDON** | Its own filing entry already blocked it on P568 phone placement, which never happened. P1237's corpus-wide margin measurement (median 4.4 dB) is the same signal measured better and settles what it was for |
+| cross-correlation alignment in `audio.py` | decisions.md 2026-03-22, *"production-ready"* | **REBUILD — already specced** | This one is real and still needed: `_merge_wavs()` mixes from t=0 while the phones start a median 2.2 s (max 51.7 s) apart. [P1252](../features/p1252_merged_multiphone_audio_is_never_time_aligned.md) owns it and carries the reference implementation from `scripts/p1237-crosstalk-scan.py` |
+
+**Alternatives rejected:** *Rebuild `llm_merge.py` on the 8/10* — over-reads n=1 from a pipeline
+that cannot be inspected; the figure is a bar, not a mandate. *Abandon the alignment work too, since
+the batch pipeline currently produces nothing* — the defect is upstream of every attribution result
+and the fix is cheap and specced; dormancy is a scheduling fact, not a reason to discard a known
+correctness bug. *Search prod containers for the lost code first* — deliberately out of scope: three
+of four verdicts are abandon/supersede, so the search would change nothing.
+
+**Consequences:** P552 and P556 are corrected so they no longer assert outcomes their code did not
+deliver. Nothing is rebuilt from this entry; the only live thread is P1252. The 8-of-10 figure is
+the one thing worth carrying forward — it is the only evidence in the corpus that per-speaker
+attribution was ever achieved at all, and it belongs in the acceptance bar of any future
+attribution work. (Status: proposed.)
+
+**References:** [p1237](../features/done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md) ·
+[p1250](../features/p1250_colocated_autoclose_closes_specs_nobody_did.md) ·
+[p1252](../features/p1252_merged_multiphone_audio_is_never_time_aligned.md) ·
+[p552](../features/done/23_mar_26/p552_separate_channel_transcription.md) ·
+[p556](../features/done/22_mar_26/p556_energy_speaker_attribution.md)
+
 ## 2026-09-07 [process]: Closing a spec silently falsifies the blocker claims other OPEN specs make about it, and nothing looks (P1162/P1236)
 
 **Context:** P1162 closed today. P1236 — open, actively being edited in another session — carries a

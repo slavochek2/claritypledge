@@ -12,6 +12,16 @@ completed_at: 2026-09-03
 
 # P558: Gemini Post-Processing for Transcript Speaker Correction
 
+> **Correction 2026-09-07 (P1250).** Closed by `08b425d86` "close p558 (co-located with p803)" —
+> an auto-close triggered by this spec's file being *edited* on that branch, not by anyone
+> delivering it. All 5 completion items are unticked and none of the work was done.
+>
+> Verdict: **SUPERSEDED, not reopened.** P1237 measured Gemini 3.5 Transcribe on the same audio
+> and it tied the naive baseline — 0 of 10 on the minority speaker, 3 turns for a 9-minute
+> two-person conversation. Reopening would restart work the measurement retired. Audit row:
+> `docs/process-learnings.md` 2026-09-07.
+
+
 > **PARKED 2026-08-14 — gated, not actionable.** [decisions.md](../../../docs/decisions.md) 2026-03-22 promoted this from post-processing layer to **the core attribution mechanism**, but this spec's Dependencies still say *"P556 must ship first"* — and P556 is marked done while the decided architecture was never built. This is the seed of the transcription redesign, not an independent task. **Unpark triggers:** (a) letter audio explain-backs need transcribing, (b) sessions should auto-produce a letter, (c) transcription cost bites. Prior art waiting: `.private/docs/research/live-transcription-stt-models-2026-08.md`.
 
 ## Problem

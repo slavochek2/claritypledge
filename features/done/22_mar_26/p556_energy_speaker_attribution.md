@@ -12,6 +12,19 @@ created_date: 2026-03-21
 
 # P556: Energy-Based Speaker Attribution for Multi-Phone Sessions
 
+> **Correction 2026-09-07 (P1250).** This spec was closed with the note *"deployed to prod
+> 2026-03-22"*, and **`llm_merge.py` has never existed in this repository on any branch**
+> (`git log --all --name-only -- '*llm_merge*'` returns nothing — note `-S'llm_merge'` returns 7
+> commits and proves nothing, since specs and KDD entries mention the name). Whatever ran in prod was not committed, so the closure asserts an outcome
+> the repository cannot show.
+>
+> Verdict: **SUPERSEDED**, with one figure carried forward. The LLM-merge path is the only approach
+> ever measured to attribute the minority speaker — 8 of 10 on R8FUEQ, reproduced from the
+> ground-truth file's own flags — against 0 of 10 for everything P1237 could actually run. That
+> number is recorded as the bar a replacement must clear, not as a reason to rebuild an
+> uninspectable pipeline from n=1. Reasoning: decisions.md 2026-09-07 [technical].
+
+
 > **Record correction, 2026-08-14 — this is marked done, and the approach it describes was replaced four days after it closed.**
 >
 > [decisions.md](../../../docs/decisions.md) 2026-03-22 [technical] superseded the energy approach outright: *"Multi-phone pipeline = align via cross-correlation, Whisper each phone separately, LLM merge for attribution. **No amix. No pyannote for multi-phone. No energy comparison.**"* That entry named its own consequence — *"P556 spec needs rewrite"* — and the rewrite never happened.

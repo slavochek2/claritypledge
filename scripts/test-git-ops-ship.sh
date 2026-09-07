@@ -1107,7 +1107,8 @@ fi
 # requires the opposite: a spec this branch merely EDITED must be left alone and
 # NAMED, because editing a spec is not delivering it. The predicate cannot tell
 # "I implemented this" from "I fixed a link in it on my way past", and it guessed
-# wrong 5 times in 18 on real history.
+# wrong on 11 of the 17 specs it ever closed this way (audited 2026-09-07,
+# docs/process-learnings.md).
 if [[ -f "$SCRATCH/main/features/done/2026-04-22/p121_colocated_b.md" ]]; then
   echo "$Z2_OUT" >&2
   fail "Z2 (P1250): p121 was auto-closed — an edited co-located spec must NOT be closed"
@@ -1126,9 +1127,14 @@ if ! grep -q 'were EDITED by' <<<"$Z2_OUT"; then
   echo "$Z2_OUT" >&2
   fail "Z2 (P1250): ship did not print the co-located report header"
 fi
-if ! grep -q 'p121' <<<"$Z2_OUT"; then
+# ANCHORED (2026-09-07). This was `grep -q 'p121'`, which the co-located spec's
+# own FILE PATH satisfies — so the assertion passed while the report named no
+# P-number at all. Proven: replacing ${cospec_pn} with a literal in the report
+# left Z2 green and only UU (already anchored) red. The pre-P1250 UU comment had
+# written down this exact trap; anchoring UU and not Z2 walked straight into it.
+if ! grep -qE '^  p121 ' <<<"$Z2_OUT"; then
   echo "$Z2_OUT" >&2
-  fail "Z2 (P1250): the report did not name p121"
+  fail "Z2 (P1250): the report did not name p121 on its own line"
 fi
 if ! grep -q 'git-ops.sh ship pNNNN' <<<"$Z2_OUT"; then
   echo "$Z2_OUT" >&2
@@ -2817,64 +2823,20 @@ rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p169.json" \
 pass "YY: a paused cherry-pick is reported as a conflict to resolve, not as a stranded ship"
 
 # -----------------------------------------------------------------------------
-# ZZ. A failed co-located close must leave the co-spec byte-identical. The
-#     doc-link re-base WRITES the file and can only fail afterwards, while the
-#     frontmatter rewrite validates before writing — so the frontmatter check
-#     must run FIRST. With the old order, a spec whose links re-based fine but
-#     whose frontmatter was malformed got restored to features/ carrying links
-#     re-based for a depth it no longer sits at, while ship claimed "unchanged".
-#     It is another P-number's file, left modified in the shared checkout.
-# -----------------------------------------------------------------------------
+# ZZ-a. RETIRED 2026-09-07 (P1250) — it was vacuous, and had been since before this
+#       branch. Its fixture created features/p171_zz.md AFTER `git checkout -b`
+#       (line ordering: branch at the checkout, spec two commits later), so p171 sat
+#       in the branch's --diff-filter=A add-set and detect_cospecs excluded it as a
+#       FILED spec under P1105. The frontmatter-failure close path it claimed to
+#       drive was therefore never reached on any run, green or red — it was asserting
+#       that a spec it had made unreachable stayed unchanged.
+#
+#       P1250 removed the close path entirely, so re-fixturing it onto main would only
+#       duplicate coverage that already exists: UU drives a malformed co-spec (p165,
+#       no frontmatter) through the report, and Z3 pins the P1105 filed-spec exclusion
+#       this fixture accidentally exercised. Deleting rather than repairing avoids a
+#       third canary whose green means the same thing as two others'.
 
-mkdir -p "$SCRATCH/main/docs"
-echo "# target" > "$SCRATCH/main/docs/zz_target.md"
-cat > "$SCRATCH/main/features/p170_demo.md" <<'EOF'
----
-status: qa
-type: task
-rank: 1
-tags: [demo]
-delivery_stage: fix
-pipeline_ran: [fix]
----
-# p170: ZZ primary
-Problem: zz.
-EOF
-( cd "$SCRATCH/main" && git add docs/zz_target.md features/p170_demo.md \
-  && git commit -qm "chore: add p170 spec" ) >/dev/null
-( cd "$SCRATCH/main" && git checkout -q -b feature/p170-demo ) >/dev/null
-echo "fix" > "$SCRATCH/main/p170_fix.txt"
-( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:00:00" GIT_COMMITTER_DATE="2024-01-01T10:00:00" \
-  git add p170_fix.txt && git commit -qm "p170: fix" ) >/dev/null
-# Co-spec: a re-basable relative link, and NO frontmatter (rewrite must fail).
-cat > "$SCRATCH/main/features/p171_zz.md" <<'EOF'
-# p171: co-located, no frontmatter
-See [target](../docs/zz_target.md).
-EOF
-( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
-  git add features/p171_zz.md && git commit -qm "p171: add spec" ) >/dev/null
-( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
-
-ZZ_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p170)" || true
-
-if [[ ! -f "$SCRATCH/main/features/p171_zz.md" ]]; then
-  echo "$ZZ_OUT" >&2
-  fail "ZZ: co-spec p171 was not restored to features/ after its close failed"
-fi
-if ! grep -Fq '](../docs/zz_target.md)' "$SCRATCH/main/features/p171_zz.md"; then
-  echo "--- restored co-spec ---" >&2
-  cat "$SCRATCH/main/features/p171_zz.md" >&2
-  fail "ZZ: the restored co-spec's link was re-based for a depth it no longer sits at — ship wrote to another P-number's file and then called it 'unchanged'"
-fi
-ZZ_DIRTY="$( cd "$SCRATCH/main" && git status --short -- features/p171_zz.md )"
-if [[ -n "$ZZ_DIRTY" ]]; then
-  echo "$ZZ_DIRTY" >&2
-  fail "ZZ: co-spec p171 left modified in the shared working tree after a failed close — a co-tenant's plain 'git commit' would sweep it up"
-fi
-( cd "$SCRATCH/main" && git branch -D feature/p170-demo ) >/dev/null 2>&1 || true
-rm -f "$SCRATCH/main/.claude/worktrees/.ship-journal/p170.json" \
-      "$SCRATCH/main/.claude/worktrees/main.lock"
-pass "ZZ-a: a failed co-located close leaves the other P-number's spec byte-identical"
 
 # -----------------------------------------------------------------------------
 # ZZ-b (P1250). Phase 2b must MUTATE NOTHING.
@@ -2893,10 +2855,28 @@ pass "ZZ-a: a failed co-located close leaves the other P-number's spec byte-iden
 #   dangerous operation; this one asserts the dangerous operation is absent.
 # -----------------------------------------------------------------------------
 
+# WIDENED 2026-09-07. The first version grepped 7 tokens and called itself a
+# mutation ban. It was neither: injecting `mv "$REPO_ROOT/$f" /tmp/stolen.md`
+# into the block passed clean, as do rm, cp, tee, sed -i, python3 and a bare
+# redirect. It also scanned COMMENT lines, so any future comment in this block
+# containing the words "git add" would hard-fail the suite — and the block's
+# whole job is explaining what it used to do, which makes such a comment likely.
+#
+# Now: strip comments first, then match any WRITE — command or redirect.
 ZZ_B_MUTATIONS="$( awk '
-  /# Phase 2b: REPORT co-located specs/ { inblock = 1 }
+  /# Phase 2b: REPORT co-located specs/ { inblock = 1; next }
   inblock && /^  # Phase 3/ { exit }
-  inblock && /git mv|git add|git commit|commit_staged_exact|ship_rewrite_frontmatter|ship_rebase_doc_links|ship_undo_cospec_move/ {
+  !inblock { next }
+  { line = $0; sub(/[[:space:]]*#.*$/, "", line) }        # drop comments
+  line ~ /^[[:space:]]*$/ { next }
+  line ~ /\/tmp\// { next }                               # scratch files are not repo writes
+  line ~ /git[[:space:]]+(add|commit|mv|rm|checkout|restore|reset|update-index|apply)/ ||
+  line ~ /(^|[[:space:];(])(mv|rm|cp|install|truncate|tee|dd)[[:space:]]/ ||
+  line ~ /sed[[:space:]]+-i/ ||
+  line ~ /(python3?|perl|ruby|node)[[:space:]]/ ||
+  line ~ /commit_staged_exact|ship_rewrite_frontmatter|ship_rebase_doc_links/ ||
+  line ~ />[[:space:]]*"?\$/ ||                             # redirect into a path variable
+  line ~ />>/ {
       print "mutation at line " NR ": " $0
   }
 ' "$GIT_OPS" )"

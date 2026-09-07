@@ -148,10 +148,17 @@ behind it.
 
 ## Done-When
 
-- [ ] The at-risk auto-closures are classified in `docs/process-learnings.md`, one line each: spec,
-      closing commit, verdict, evidence. A verdict that exists only in conversation does not count
-- [ ] Every spec classified `wrongly closed` is reopened, each in a commit whose subject names the
-      spec and the reason
+- [x] All **17** auto-closures classified in `docs/process-learnings.md` (2026-09-07 section) —
+      spec, closing commit, verdict, evidence. Verdicts rest on grepping for the claimed artifact,
+      not on the checkboxes: **6 delivered, 11 not**, of which 6 were already reversed by hand,
+      p1162 was caught by this work, p558 is superseded by measurement, and 3 are reopened below
+- [x] The three still-closed `wrongly closed` specs are reopened to `backlog`: **p1096** (0/10, no
+      "felt disagreement" pipeline anywhere), **p572** (no completion section, no point-extraction
+      code), **p828** (0/21, no "agentic" code in `src/`). p558 is **superseded** rather than
+      reopened — P1237 retired the work it describes. **p843 was NOT reopened** despite 0/14: its
+      `cohort-table.tsx` exists and carries the avatar/full-name/suppress handling, so the work
+      landed and only the boxes were never ticked — the false-positive shape, caught by grepping
+      for the artifact instead of trusting the count
 - [x] The mechanism matches the decision above: Phase 2b reports co-located specs by name and closes
       none. `scripts/git-ops.sh` Phase 2b is now a report; `detect_cospecs` is unchanged
 - [x] The new behaviour is pinned by **named canaries** in `scripts/test-git-ops-ship.sh`, both
@@ -178,11 +185,15 @@ behind it.
       wrong close was caught and reversed and someone then did the work; at the moment it was
       auto-closed it stood at 0 of 7. So the honest read is: **~6 extra manual closes bought ~12
       prevented silent ones**, and the manual close is the loud direction.
-- [ ] `ship.md:39` no longer describes unconditional co-located auto-close, **and** the code change
-      making that true lands in the same commit — a doc-only edit does not satisfy this
-- [ ] Each of the four March artifacts has a written verdict with its reason, recorded in
-      `docs/decisions.md`
-- [ ] P552 and P556 no longer assert outcomes their code did not deliver
+- [x] `ship.md` no longer describes unconditional auto-close (line 39 rewritten, plus a new step
+      3.8 telling the operator to read and act on the report), and the `git-ops.sh` change landed in
+      the same commit `62c0a2a7b`
+- [x] Four verdicts recorded in `docs/decisions.md` 2026-09-07 [technical]: `get_separate_wavs()`
+      ABANDON, `llm_merge.py` SUPERSEDE (carrying its 8-of-10 as the bar any replacement must
+      clear), `energy_validator.py` ABANDON, cross-correlation alignment **REBUILD** — the one live
+      thread, already specced as P1252
+- [x] P552 and P556 both carry a correction block naming the missing artifact, the `git log
+      --all -S` evidence, and the verdict
 
 ## Related
 

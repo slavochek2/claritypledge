@@ -1873,29 +1873,6 @@ PYCOUNT
   return 0
 }
 
-# Undo a co-located spec's `git mv` so a failed co-located close is a genuine
-# no-op rather than leaving the spec moved-but-unstaged in the working tree (a
-# state no later step recognises, and which a co-tenant's plain `git commit`
-# could sweep up). Unstage both paths back to HEAD, then move the file back on
-# disk. Best-effort throughout: this runs on an error path and must never be
-# able to abort the ship it is cleaning up after.
-# Returns 0 only when the spec is genuinely back at its original path; 1 when it
-# could not be restored, so the caller can tell the operator the truth instead of
-# claiming "unchanged" about a file it left somewhere else. Never aborts.
-#
-# `:(literal)` on both pathspecs: git treats a reset pathspec as a GLOB, so a
-# spec filename containing `*`, `?` or `[` would unstage a DIFFERENT file. No
-# spec is named that way today, which is precisely why nothing would notice.
-ship_undo_cospec_move() {
-  local dest_rel="$1" src_rel="$2"
-  ( cd "$REPO_ROOT" && git reset -q HEAD -- ":(literal)$dest_rel" ":(literal)$src_rel" 2>/dev/null ) || true
-  if [[ -f "$REPO_ROOT/$dest_rel" && ! -e "$REPO_ROOT/$src_rel" ]]; then
-    mv "$REPO_ROOT/$dest_rel" "$REPO_ROOT/$src_rel" 2>/dev/null || true
-  fi
-  [[ -f "$REPO_ROOT/$src_rel" && ! -e "$REPO_ROOT/$dest_rel" ]] || return 1
-  return 0
-}
-
 # Rewrite the moved spec's frontmatter: status: all-done, add completed_at
 # (YYYY-MM-DD UTC), drop delivery_stage. Leaves pipeline_plan / pipeline_ran /
 # pipeline_skipped intact for audit.
@@ -2544,9 +2521,11 @@ The branch is authoritative for shipped migrations. Compare each file with
   #
   # P1250: these are REPORTED, never closed. Editing a spec is not delivering
   # it — the predicate cannot tell "I implemented this" from "I fixed a link in
-  # this on my way past", and it guessed wrong 5 times in 18 (the reversals are
-  # in the log; one reads "reopen — ship closed a live bug spec as a side
-  # effect"). A spec wrongly left OPEN is visible on the board and gets closed;
+  # this on my way past". Audited 2026-09-07 (docs/process-learnings.md): of the
+  # 17 specs it ever closed this way, 11 were NOT delivered — 6 of those had
+  # already been reopened by hand, one commit reading "reopen — ship closed a
+  # live bug spec as a side effect". A spec wrongly left OPEN is visible and
+  # gets closed;
   # a spec wrongly marked DONE is invisible forever. P1162 sat closed with 0 of
   # 7 items ticked until P1237 went looking for the thing it claimed to have
   # built and found nothing.
@@ -2556,6 +2535,13 @@ The branch is authoritative for shipped migrations. Compare each file with
     echo "ship: co-located spec detection on branch ${branch} could not resolve the commit range — no co-located specs will be listed. Review by hand." >&2
   else
     cospecs_filed="$(detect_filed_cospecs "$pn" "$branch" || true)"
+  fi
+  if [[ -n "$cospecs" ]]; then
+    # Announce here, BEFORE the cherry-picks, as well as in the Phase 2b report.
+    # Phase 2b runs after the primary close, so a ship that dies on a cherry-pick
+    # conflict would otherwise print nothing at all about co-located specs — and an
+    # aborted ship is exactly when a human is reading this output most closely.
+    echo "ship: specs edited by ${branch}, none will be auto-closed: $(echo "$cospecs" | tr '\n' ' ')" >&2
   fi
   if [[ -n "$cospecs_filed" ]]; then
     echo "ship: specs filed (not delivered) on branch ${branch}: $(echo "$cospecs_filed" | tr '\n' ' ') — left untouched, not auto-closed." >&2
@@ -2982,12 +2968,21 @@ The branch is authoritative for shipped migrations. Compare each file with
     echo "ship: these specs were EDITED by ${branch} and were NOT closed:" >&2
     for cospec_pn in $cospecs; do
       local cospec_file_r cospec_status_r
-      cospec_file_r="$(resolve_ship_spec "$cospec_pn" 2>/dev/null || true)"
+      # Keep resolve_ship_spec's own diagnostic. It distinguishes three cases the
+      # operator must act on differently — already closed, AMBIGUOUS (several files
+      # match), and present on a branch but never committed to main (its die carries
+      # a recovery recipe). Swallowing stderr collapsed all three into one wrong line.
+      local cospec_err_r=""
+      cospec_file_r="$(resolve_ship_spec "$cospec_pn" 2>/tmp/cospec_err.$$ || true)"
+      cospec_err_r="$(head -1 /tmp/cospec_err.$$ 2>/dev/null || true)"
+      rm -f /tmp/cospec_err.$$ 2>/dev/null || true
       if [[ -n "$cospec_file_r" ]]; then
         cospec_status_r="$( ( cd "$REPO_ROOT" && sed -n 's/^status:[[:space:]]*//p' "$cospec_file_r" 2>/dev/null | head -1 ) || true )"
         echo "  ${cospec_pn}  [status: ${cospec_status_r:-unknown}]  ${cospec_file_r}" >&2
+      elif [[ -n "$cospec_err_r" ]]; then
+        echo "  ${cospec_pn}  [unresolved] ${cospec_err_r}" >&2
       else
-        echo "  ${cospec_pn}  [already closed or not found]" >&2
+        echo "  ${cospec_pn}  [already closed]" >&2
       fi
     done
     echo "  Editing a spec is not delivering it. If one of these is genuinely done," >&2

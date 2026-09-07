@@ -1085,3 +1085,38 @@ the conditional design in P1237 consequence 4 (measure the per-session margin an
 specced and adopted instead, since that removes the need for an unconditional winner.
 
 ---
+## 2026-09-07 — P1250 audit: the 17 specs `/ship` auto-closed as co-located
+
+One line per spec: closing commit, verdict, and the evidence behind it. Method: a spec is
+`delivered` only if every box in its own completion section is ticked; otherwise the artifact it
+claims is grepped for. `indeterminate` is an allowed verdict and leaves the spec closed — guessing
+is what produced this list.
+
+| Spec | Closing commit | Verdict | Evidence |
+|---|---|---|---|
+| p1043 | `8d4a24fd3` | wrongly closed — **already reopened** | `cd5d11340` "reopen — ship closed a live bug spec as a side effect"; now `backlog` |
+| p1044 | `626ac8307` | wrongly closed — **already reopened** | `d6a0b2fa8`; now `backlog`, 0/8 ticked |
+| p1045 | `b83686c45` | wrongly closed — **already reopened** | `d6a0b2fa8`; now `backlog`, 0/5 ticked |
+| p1047 | `2e52944c8` | delivered | reopened by `d6a0b2fa8`, then legitimately re-closed; 9/9 ticked, `all-done` |
+| p1048 | `bfcacf467` | delivered | same shape as p1047; 4/4 ticked, `all-done` |
+| p1057 | `a16ca1afa` | delivered | 10/10 ticked, `all-done` |
+| p1096 | `fef0df4ae` | **wrongly closed — REOPEN** | 0/10 ticked; no pipeline artifact exists — `grep -rln "felt disagreement" src/ .claude/commands/` returns nothing. (Scope excludes `docs/`: once this audit was written, the row's own text matched there. Title-phrase matching is a weak oracle anyway — epistemic gate 9 — so the verdict rests on the absent code, not the absent phrase.) |
+| p1152 | `2c226cd5c`, `68b016450` | wrongly closed — **already reopened** | closed TWICE, a week apart, by two different ships — the mechanism cannot see it has already fired on a spec; now `in-progress` |
+| p1162 | `43c46d6f9` | wrongly closed — **reopened 2026-09-05, then built and closed properly 2026-09-07** | 0/7 at close time; 13/13 today. The cost was real: P1237 searched for the spend cap this spec claimed to have built and found nothing |
+| p1241 | `ae92afe66` | wrongly closed — **already reopened** | `c4e6ceb68` "wrongly auto-closed as co-located with p1234"; now `backlog` |
+| p558 | `08b425d86` | **wrongly closed, but SUPERSEDE rather than reopen** — correction block added to the spec | 0/5 ticked. P1237 measured Gemini tying the naive baseline (0 of 10 on the minority speaker) and its Related section already names P558 as "should be superseded by whatever this concludes". Reopening would restart work the measurement retired |
+| p572 | `e0982a026` | **wrongly closed — REOPEN** | no completion section at all; `grep -rln "extractPoints\|extract_points"` across `src/` and `supabase/functions/` returns nothing |
+| p828 | `93972fa91` | **wrongly closed — REOPEN** | 0/21 ticked; `grep -rln "agentic" src/` returns nothing |
+| p836 | `2a8a81783` | delivered | 12/12 ticked, `all-done` |
+| p843 | `bb58f31ef` | delivered, boxes never ticked | 0/14 ticked, BUT `src/app/components/letters/cohort-table.tsx` exists and carries avatar / full_name / suppress handling. The work landed; the spec was never updated. Leave closed — correction block added to the spec |
+| p919 | `7d7b78600` | delivered | 5/5 ticked in its completion section, `all-done` |
+| p929 | `c01031dfa` | wrongly closed — **already reverted** | `af43a6519` reverted the close; now `rejected` in `archive/` |
+
+**Totals.** 17 specs. 6 delivered (p1047, p1048, p1057, p836, p843, p919) — these are exactly the
+cases the new report-don't-close rule costs one manual `ship pN` each. 11 not delivered, of which 6
+had already been caught and reversed by hand, 1 (p1162) was caught by this work, 1 (p558) is
+superseded by measurement, and **3 are reopened here: p1096, p572, p828.**
+
+**p843 is the interesting one.** Its work shipped and its boxes were never ticked, so a
+box-counting rule reads it as undelivered. That is the false-positive shape, and it is why the
+verdict column required grepping for the artifact rather than trusting the checkboxes alone.
