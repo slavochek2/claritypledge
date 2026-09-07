@@ -27,7 +27,14 @@ set -uo pipefail
 
 PROD_REF="besjtuodziykmjidubzw"
 PING_MODEL="models/gemini-3.1-flash-image-preview"   # what generate-banner actually calls
-ENV_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env.local"
+# P1162 step 5: the local copy is sourced from the ai-keys registry BY NAME, not from .env.local.
+# Reason: .env.local's GEMINI_API_KEY is what local agent tooling (gen-image, gen-poster,
+# story-to-image, gen-agent-avatar) spends, and the two-project split exists precisely so that
+# tooling does NOT share a fuse with the user-facing banner functions. Local tooling therefore
+# holds the `cp-batch` key while prod holds `cp-prod-interactive`, and a check that compared
+# .env.local against prod would report a permanent, expected KEY_DIGEST_MISMATCH.
+KEY_NAME="cp-prod-interactive"
+AI_KEYS="${AI_KEYS_BIN:-$HOME/.agents/bin/ai-keys}"
 
 die_cannot_run() { echo "GEMINI-PROD-KEY-CHECK-DID-NOT-RUN — $1"; exit 2; }
 
@@ -100,11 +107,19 @@ fi
 # ---- live run -------------------------------------------------------------------------------
 command -v curl >/dev/null 2>&1 || die_cannot_run "curl is not available"
 
-LOCAL_KEY="${GEMINI_API_KEY:-}"
-if [ -z "$LOCAL_KEY" ] && [ -f "$ENV_FILE" ]; then
-  LOCAL_KEY="$(grep -E '^[[:space:]]*(export )?GEMINI_API_KEY=' "$ENV_FILE" | head -1 | sed 's/.*=//; s/^["'"'"']//; s/["'"'"']$//')"
-fi
-[ -n "$LOCAL_KEY" ] || die_cannot_run "no local copy of GEMINI_API_KEY (env or .env.local) — the deployed key could NOT be checked. This is not a pass."
+# The registry is the ONLY source, deliberately — there is no env or .env.local fallback.
+# Two reasons, both learned the hard way:
+#   * $GEMINI_API_KEY from the ambient shell is the exact defect this spec exists to fix
+#     (`ai-keys --ping-prod` pinged it and had therefore never checked a deployed key at all);
+#   * .env.local now holds the `cp-batch` key by design, so falling back to it would report
+#     KEY_DIGEST_MISMATCH — a real-looking finding with no real cause — every time the registry
+#     happened to be unreachable. A monitor that cries wolf on its own outage is worse than one
+#     that says plainly it could not run.
+# So: registry missing or silent => exit 2, "did not run". Never a green, never a fake finding.
+[ -x "$AI_KEYS" ] || die_cannot_run "ai-keys is not executable at ${AI_KEYS} — the prod key could NOT be retrieved, so the deployed secret could NOT be checked. This is not a pass."
+LOCAL_KEY="$("$AI_KEYS" --key-string --name "$KEY_NAME" 2>/dev/null | tr -d '\n')"
+LOCAL_SOURCE="ai-keys registry (${KEY_NAME})"
+[ -n "$LOCAL_KEY" ] || die_cannot_run "ai-keys returned no key string for '${KEY_NAME}' — the deployed key could NOT be checked. This is not a pass."
 
 LOCAL_DIGEST="$(printf '%s' "$LOCAL_KEY" | shasum -a 256 | awk '{print $1}')"
 
@@ -137,12 +152,15 @@ if [ "$LOCAL_DIGEST" != "$DEPLOYED_DIGEST" ]; then
   echo "KEY_DIGEST_MISMATCH — the local copy is NOT the deployed prod key."
   echo "  local    sha256 ${LOCAL_DIGEST:0:16}…"
   echo "  deployed sha256 ${DEPLOYED_DIGEST:0:16}…"
+  echo "  local copy source: ${LOCAL_SOURCE}"
   echo "  Pinging the local copy would test the wrong credential and report a false green."
-  echo "  Refresh .env.local from the deployed secret, or rotate deliberately and update both."
+  echo "  Either the deployed secret was rotated without updating the ai-keys registry entry"
+  echo "  '${KEY_NAME}', or it was set from a different key entirely. Reconcile before trusting"
+  echo "  any later green run — do NOT 'fix' this by pointing the check at whatever matches."
   echo "gemini_prod_key_exit=1"
   exit 1
 fi
-echo "digest OK — local copy matches deployed prod secret (sha256 ${LOCAL_DIGEST:0:16}…)"
+echo "digest OK — local copy matches deployed prod secret (sha256 ${LOCAL_DIGEST:0:16}…, source: ${LOCAL_SOURCE})"
 
 # The key never becomes a process argument. Anything on any process's argv is world-readable via
 # `ps auxww` for the life of that process — and that includes the process FEEDING a pipe, not just
