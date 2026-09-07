@@ -57,9 +57,9 @@ Morning hike this [DAY]. Everyone welcome.
 
 Coffee first — "[BEST CAFE QUOTE]" ([CAFE RATING]★, [N] reviews) — then we walk to the trailhead.
 
-We aim for roughly that distance, but we stay flexible. There are many paths up here, and if a section does not work we simply take another one. Come expecting to adapt to the mountain rather than to follow a fixed route. It is usually the better part of the day.
+We aim for the full loop, but the mountain decides. There are many paths here, and when one does not work we take another. That is usually the best part of the day.
 
-Want a shorter walk? Completely fine. Turn back whenever you have had enough, on your own or with whoever else feels the same. Nobody minds and nobody is left behind.
+We walk at the pace of the slowest person, so nobody who wants to keep going gets dropped. If you would rather do a shorter day, turn back whenever you like. That is a choice, not a problem.
 
 **Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash.
 
@@ -67,7 +67,7 @@ Want a shorter walk? Completely fine. Turn back whenever you have had enough, on
 
 Coffee or lunch after for anyone who feels like it.
 
-*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
+*Not a commercial or guided hike. Nobody charges and nobody leads. I walk it like everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 **Rules that survived founder edits — do not undo them.**
@@ -110,6 +110,18 @@ Coffee or lunch after for anyone who feels like it.
   There are many paths, so expect to be flexible. We adapt to the environment."* And: *"if there
   are people who want to make a shorter hike that's totally ok with me, they can cut it short any
   time if tired."* Frame it as a feature of the walk, never as an apology or a warning.
+- **Keep the two promises separate — they are about different people.** "We wait" applies to
+  whoever wants to keep walking; "leave early" is a free choice for whoever doesn't. Collapsing
+  them into one line like *"turn back whenever you like, nobody is left behind"* contradicts
+  itself: it offers you the exit and then calls taking it abandonment (founder, 2026-09-07 — *"we
+  dont leave behind those who want to walk, not those who want to make shorter path"*). Two
+  sentences, one per promise, and let leaving read as a decision rather than a failure.
+- **Write it the way Pinker's *The Sense of Style* asks: classic prose, a window onto the thing.**
+  Point at the mountain, not at the writing. Cut every "come expecting to", "it is worth noting",
+  "we stay flexible" — metadiscourse about the walk instead of the walk. Prefer the concrete
+  subject doing the acting ("the mountain decides") over the abstraction ("adapt to the
+  environment"). Cut hedges that add no information. Shorter is the test: the 2026-09-07 rewrite
+  said more in 65 words than its predecessor did in 95.
 - **The description does NOT mention the group chat at all. The terms line ends it.** `EventDetail`
   renders the group-chat block immediately after the description and before the RSVP block, and
   that block ships its own copy in both states — the locked one reads *"Register and you'll get an

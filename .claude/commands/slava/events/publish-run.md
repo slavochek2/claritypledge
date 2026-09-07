@@ -182,9 +182,9 @@ Morning [hike/run] this [DAY]. Everyone welcome.
 
 [ONE LINE: what happens at the meeting point, parking.]
 
-We aim for roughly that distance, but we stay flexible. There are many paths up here, and if a section does not work we simply take another one. Come expecting to adapt to the mountain rather than to follow a fixed route.
+We aim for the full loop, but the mountain decides. There are many paths here, and when one does not work we take another. That is usually the best part of the day.
 
-Want a shorter walk? Completely fine. Turn back whenever you have had enough. Nobody minds and nobody is left behind.
+We walk at the pace of the slowest person, so nobody who wants to keep going gets dropped. If you would rather do a shorter day, turn back whenever you like. That is a choice, not a problem.
 
 **Bring:** trail shoes, [2L water / 1L], snacks, rain jacket, cap, mosquito spray, some cash.
 
@@ -192,7 +192,7 @@ Want a shorter walk? Completely fine. Turn back whenever you have had enough. No
 
 [Coffee or lunch after for anyone who feels like it.]
 
-*Not a commercial or guided hike. Nobody charges and nobody leads. I am walking it too, the same as everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
+*Not a commercial or guided hike. Nobody charges and nobody leads. I walk it like everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
 ```
 
 If the founder supplied a post-activity topic, add one line for it. If not, omit
