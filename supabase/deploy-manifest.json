@@ -17,7 +17,7 @@
       "send-event-emails": "ab1041f1264758481f4f63d7454437ec698501a75181f643caef617543744e64",
       "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717"
     },
-    "functions_deployed_at": "2026-09-07T08:30:54Z",
+    "functions_deployed_at": "2026-09-07T08:40:05Z",
     "migrations": [
       "20250101",
       "20250117",
