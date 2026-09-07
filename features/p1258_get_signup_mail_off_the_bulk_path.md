@@ -33,6 +33,33 @@ shared bulk IP plus bulk-marketing headers on transactional mail (`List-Unsubscr
 
 Full evidence: `.private/incidents/2026-09-07-magic-link-outlook-junk.md`.
 
+## Second independent confirmation — 2026-09-07, founder's own signup
+
+The founder registered end-to-end from localhost: the confirmation email arrived, the link worked,
+and **the message landed in Junk**. His words: *"landded in junk but i said it should land in
+inbox"*.
+
+**This counts as a real measurement, not a sandbox artifact.** Verified against the Supabase
+management API: the **test and prod projects use the identical sender** — `smtp_host =
+smtp-relay.brevo.com`, same sender name, same admin address. So a localhost signup exercises the
+same relay and the same From identity that a prod signup does.
+
+Two independent mailboxes have now junked this mail (an aged Outlook account on prod, and the
+founder's own here), which raises confidence that the placement is a property of the **sending
+path**, not of one recipient's filter.
+
+**What it does NOT test, and must not be read as testing:**
+
+- **The prefetch question (Research Question 1) is still UNTESTED.** The link in that email is
+  GoTrue's standard `/auth/v1/verify?token=` URL, not the `?token_hash=` link this spec is
+  considering. A working click here says nothing about whether a scanner would consume a
+  `token_hash` link.
+- **Mailgun is unmeasured.** Nothing about the send path has changed, so this is another
+  observation of the *current* behaviour — it is baseline, not progress.
+
+**Consequence for scope:** the founder's expectation is explicit — signup mail should land in the
+inbox. That is the whole of this spec and none of it has shipped.
+
 ## Appetite
 
 Blast radius: **high** — signup and login mail for everyone. Reversibility: depends entirely on
