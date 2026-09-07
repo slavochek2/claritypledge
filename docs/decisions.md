@@ -6,6 +6,184 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-07 [technical]: A credential broker raises the theft bar by lowering the misuse bar — P1261 rejected on review
+
+**Context:** A founder conversation about how peers run agents (containers plus a proxy that
+injects tokens) reopened two settled questions: why we are not sandboxing interactive sessions, and
+whether a proxy is an alternative or a complement to encrypting credentials at rest (P1239). The
+answer required correcting a claim made earlier in the same conversation. The 2026-09-03 rejection
+of sandboxed interactive sessions rested partly on *"a container holding the same keys exfiltrates
+exactly as well as the laptop does"* — that argument **does not apply** to a broker design, where
+the container holds no keys. The other half of that rejection (an interactive session needs the
+repo, the servers, the browser and the git identity, and session transfer breaks) is untouched and
+is why no sandbox was proposed. P1261 was drafted to test the broker on its own merits.
+
+**Decision:** Reject the credential broker (P1261, `status: rejected`). Ship P1214 then P1239, and
+accept the hand-off gap — roughly 14 moments a month where an approved read puts a live production
+credential inside a running process — as a documented residual risk.
+
+**Alternatives rejected:** (A) **Secretless broker** — a local process holding web-facing
+credentials in memory and attaching them to outbound requests. Rejected on four converging findings
+from two independent hostile reviewers. Its address is by design not a secret, so it is an
+unauthenticated local capability: against the stated adversary it *raises* the bar for stealing a
+credential and *lowers* the bar for using one, since the same adversary that would have needed a
+human-answered dialog now needs only an address. A long-lived broker also reintroduces the
+time-window failure P1239 explicitly rejected — P1239's invariant is that the unlock gates an
+access, not a state, and a running process is a state. The readable-vs-usable distinction offered
+in its defence does not hold: usable-by-everything delivers the attacker's objective without the
+value ever being read. Finally, host-granular egress allowlisting is a confused deputy when the
+allowed host is production itself. (B) **Short-lived tokens** — still put a real secret in the
+consumer's hands. (C) **Broker plus sandbox** — not refuted, but it pays the full 2026-09-03
+workflow cost and is a different decision.
+
+**Consequences:** The decisive finding is a dependency, not a security argument: P1214 Phase 2's
+success condition is the production master credential no longer living in the local env file, with
+write consumers collapsed into operation-scoped functions whose callers authorize *an operation,
+never the database*. That both removes the one credential carrying all of the broker's value (the
+other three in-scope credentials measured 0–1 uses per 30 days) and is a better answer to the
+misuse risk the broker accepted. **Kill-condition recorded in the spec:** if P1214 Phase 2
+completes, P1261 closes rather than shrinks; it is reconsidered only if Phase 2 is abandoned as
+immovable *and* a design exists that authenticates individual local clients — which on this machine
+means the sandbox question the spec was written to avoid. Ordering stands: P1214 → P1239 → P1148.
+Sandboxing remains open and is a workflow decision, not a security one. Method note: three hostile
+reviewers were launched in parallel and **2 of 3 reported** — the third lane was refused by the
+delegation gate before sending, so that lens is uncovered rather than clean.
+
+**References:** [features/p1261_credential_broker_so_agents_never_receive_secrets.md](../features/p1261_credential_broker_so_agents_never_receive_secrets.md) · [features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md](../features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) · [features/p1214_credential_separation_and_privilege_reduction.md](../features/p1214_credential_separation_and_privilege_reduction.md)
+
+---
+
+## 2026-09-07 [technical]: A stable short link cannot carry a weekly-changing link preview
+
+**Context:** A Telegram post announcing the Sep 13 hike ("Ban Mai Viewpoint Loop, Mon Cham")
+unfurled a card titled "Doi Pui – Ban Khun Chang Khian" with the previous week's group photo.
+The server was innocent: `curl` with a bot user-agent against `claritypledge.com/hike` returned
+the correct new title and banner throughout. The stale card was Telegram's cached preview, keyed
+to the URL string in the message.
+
+`/hike` and `/events/hike` are deliberately *stable* series short links — they 307 through
+`api/series-redirect` to whichever event is next. That stability is the whole point of the short
+link, and it is also exactly what breaks the preview: a platform that caches the unfurl per posted
+URL keeps serving the first event ever cached under it. Nothing server-side can expire that cache.
+
+**Decision:** Every series short link posted anywhere carries a per-event cache-buster:
+`claritypledge.com/hike?d=260913` (`?d=<YYMMDD>`, event date in `Asia/Bangkok`). The query survives
+the Vercel redirect and `api/series-redirect` reads only `series`, so the link resolves to the same
+event; only the cache key changes. Bare-domain form (`/hike`) where `vercel.json` defines one, else
+`/events/<short_link>`.
+
+`YY` is not optional. A bare `MMDD` recurs annually and these caches outlive twelve months, so the
+2027 hike would post a URL Telegram already has a 2026 preview for — the same bug on an annual
+period.
+
+**Which platforms this affects is NOT uniform, and the difference is measurable.** `api/og.ts` sets
+`og:url` to the resolved per-event slug — verified: `/hike?d=<anything>` returns
+`og:url = /events/social-hike-...-945871`, unchanged by the query. A platform that canonicalizes a
+shared object by `og:url` (Facebook's documented behaviour) was therefore already keying on a
+per-event-unique URL and would never have shown a stale card. A platform keying on the posted URL
+(Telegram, per this incident) is the one that breaks. **One platform observed failing, none of the
+others tested** — `?d=` is applied everywhere as cheap insurance, not because each was measured.
+An earlier draft of this entry claimed Facebook/WhatsApp/Sola had the same defect; that was an
+overclaim and the `og:url` evidence points the other way.
+
+**Alternatives rejected:**
+- *Post the canonical per-event slug instead.* Strictly simpler — unique by construction, no query
+  param, no guard clauses, no character accounting. Rejected by the founder in favour of keeping the
+  short link readable in posted copy; the slug remains the fallback when no series doc exists.
+- *Platform cache-refresh APIs.* Telegram's is a manual bot interaction, and there is no equivalent
+  covering WhatsApp/Sola/Eventbrite. Not automatable from the pipeline.
+- *Shorter `?d=MMDD`.* Founder's first choice for character economy; overruled on the annual-collision
+  argument above, at a cost of two characters.
+
+**Consequences:** The stale-preview class is now guarded at post time rather than trusted to
+attention. `promote-groups` hard-stops on (a) an unresolved placeholder, (b) a missing or wrong
+`?d=<YYMMDD>` token — a *stale* suffix copied from last week is a live, correctly-shaped URL that
+passes every liveness check, so only this token comparison catches it — and (c) a short link whose
+crawler-fetched `og:title` does not name the event being promoted. `promote-whatsapp` gained the
+same check, since its free-text DM path resolves no placeholders and nothing upstream would add the
+suffix.
+
+**The load-bearing premise is still unverified.** `api/series-redirect` drops the query on its final
+hop, so the OG tags are fetched from a URL without `?d=`. The fix assumes each platform keys its
+preview cache on the *posted* URL, not the resolved one. That is the documented behaviour of major
+unfurlers and is almost certainly right, but it has not been observed here — the crawler `curl` the
+pipeline runs verifies OG *content*, never the cache key. Proof costs one minute and needs Beeper
+(a `cf` session): post the same event into a scratch chat under two `?d=` values and confirm two
+distinct cards. Until then a correct unfurl is evidence, not proof.
+
+**Consequences (process):** Hardcoded copy is where this class of bug actually lives. The skills
+had elaborate staleness guards for blurb *text* and none for the *link*, and the four group blurbs
+in `.private/event-channels.json` hardcoded a bare short link twice each — so fixing the runbooks
+alone would have changed nothing. All eight are now `{short_url}`, resolved at post time. Same pass
+found the German blurb still describing the previous week's trail, date, cafe, distance and
+elevation.
+
+**Meta (Status: proposed).** Four frictions; an Opus critic falsified two as gaps. Both are
+**non-compliance with rules this repo already carries**, recorded here rather than as duplicate
+rules — the useful signal for a future auditor is that these rules are being read past, not that
+they are missing. (1) The link-liveness guard was shipped shape-matched on
+`claritypledge.com/events/<series>` while the group blurbs use the bare-domain
+`claritypledge.com/hike`, so it could not fire on the only input that matters — a clean
+[epistemic.md](../.claude/rules/epistemic.md) **gate 7c** miss ("run the tool's own documented
+workflows through it"; the tool's own workflow input is the config blurb). (2) Facebook, WhatsApp
+and Sola were asserted to the founder as having the same defect, twice, with none of them tested —
+CLAUDE.md **"Falsify Before You Rely"** verbatim. The `og:url` evidence later contradicted the
+claim outright, so it was wrong on the code and not merely unverified.
+
+The two that survived shared one root cause and were fixed as one edit to
+[.claude/rules/skills.md](../.claude/rules/skills.md): "trace before editing" bound the START of a
+skill edit and reached neither the DATA a skill posts verbatim (the gitignored config file that
+actually emitted the bug) nor the END (declaring done without tracing consumers — a founder
+question then surfaced four further defects in under a minute).
+
+**References:** [api/series-redirect.ts](../api/series-redirect.ts) · [api/og.ts](../api/og.ts) ·
+`.claude/commands/slava/events/promote-all.md` § "Short-link cache-buster" (canonical rule) ·
+[2026-03-06 Dynamic OG tags via Vercel serverless function](#2026-03-06-technical-dynamic-og-tags-via-vercel-serverless-function--ssr-lite-for-link-previews)
+
+---
+
+---
+
+## 2026-09-07 [technical]: `cd` does not scope git — a canary's `git init --bare` rewrote the real repo's config
+
+**Context:** `core.bare` flipped to `true` on the shared main checkout four times in one session.
+While flipped, `git rev-parse --show-toplevel` fails, so every tool deriving paths from it breaks
+with errors naming unrelated files: a `git-ops.sh ship` aborted mid-run with
+`audit-privacy.sh missing` after 7 commits had already been cherry-picked, and a push failed with
+`/scripts/audit-privacy.sh missing` — the leading slash being an empty toplevel interpolated into a
+path. None of the errors named the cause, so it read four times as a broken tool.
+
+**Root cause, reproduced rather than inferred.** `scripts/test-git-ops-extensions.sh:75` runs
+`( cd "$SCRATCH/origin.git" && git init --bare -q )` — **no path argument**. `git init --bare` with
+no path operates on `$GIT_DIR` when that is set, and `cd` does not override it. Canaries invoked
+from a git hook inherit `GIT_DIR` as an absolute path, which this log already recorded for a
+different script (P1131, the "fourth surface" entry). Sandbox proof: a throwaway repo went
+`core.bare: false` → `true` and `is-inside-work-tree: false` from that one command.
+
+**Decision:** Filed as **P1263**. Every `git init` / `git clone` in a test or canary must name its
+target path explicitly, and canary scripts run from hooks should clear the inherited environment
+(`env -u GIT_DIR -u GIT_WORK_TREE`) rather than trusting every future git call in the file to be
+path-explicit. `scripts/test-hook-sha-gate.sh:20` already uses the explicit-path form and is the
+model.
+
+**Alternatives rejected:** Resetting `core.bare` when it is noticed — that is what happened four
+times, and it treats a repo-corrupting write as an operational chore. Trusting `cd` to scope the
+subshell — the sandbox shows it does not.
+
+**Consequences:** This is the **second** instance of the same class: a canary inheriting `GIT_DIR`
+and acting on the real repository instead of its fixture. The generalisable rule is broader than
+either instance — **a test that can write to the repository that invoked it is not isolated**, and
+`cd` is not isolation. Worth checking the remaining `--bare` call sites
+(`scripts/test-push-snapshot-pinning.sh` is **UNVERIFIED**) and adding an assertion that the
+invoking repo's config is unchanged after a canary runs — exercised to fail first, per epistemic
+gate 7.
+
+**References:** features/p1263_bare_init_in_canary_flips_core_bare_on_the_real_repo.md ·
+features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md ·
+scripts/test-git-ops-extensions.sh · scripts/test-hook-sha-gate.sh
+
+---
+
 ## 2026-09-07 [technical]: Every operator-minted sign-in link was unredeemable, and the 2026-08-16 "test-infrastructure-only" verdict was wrong
 
 **Context:** Someone tried three times to register for an event and never got in. Investigating, a
@@ -195,243 +373,6 @@ was run **after** the push; running it before would have made the whole sequence
 **Consequences:** **The most valuable finding was not one of the planted ones.** Both reviewers independently found that the spec's own disclosure invariant was unsatisfiable — it required a reader to reach the machine-authorship disclosure from any surface in one click, while the same spec removed the footer from every card and a settled decision keeps the byline chip non-clickable. The route existed (the name beside the chip navigates) but was never stated, and the founder had already named it in conversation. Four further genuine defects landed: an explainer page the spec depends on is unshipped; an unvalidated links column rendered as anchors is an XSS surface; a new symmetry check used `grep -c`, which counts lines and silently ignores `-o`, over an alternation that returns one number for the union of all terms and so cannot answer the per-term question it was written for. **A benchmark on seeded flaws measures recall on defects someone thought to plant, not on the ones nobody did** — which is precisely where all five of those came from.
 
 **References:** [.claude/commands/slava/disagreement/prepare.md](../.claude/commands/slava/disagreement/prepare.md) §4b vocabulary symmetry · `features/p1259_agent_story_surfaces_leak_their_own_evidence.md`
-
----
-
-## 2026-09-07 [technical]: A stable short link cannot carry a weekly-changing link preview
-
-**Context:** A Telegram post announcing the Sep 13 hike ("Ban Mai Viewpoint Loop, Mon Cham")
-unfurled a card titled "Doi Pui – Ban Khun Chang Khian" with the previous week's group photo.
-The server was innocent: `curl` with a bot user-agent against `claritypledge.com/hike` returned
-the correct new title and banner throughout. The stale card was Telegram's cached preview, keyed
-to the URL string in the message.
-
-`/hike` and `/events/hike` are deliberately *stable* series short links — they 307 through
-`api/series-redirect` to whichever event is next. That stability is the whole point of the short
-link, and it is also exactly what breaks the preview: a platform that caches the unfurl per posted
-URL keeps serving the first event ever cached under it. Nothing server-side can expire that cache.
-
-**Decision:** Every series short link posted anywhere carries a per-event cache-buster:
-`claritypledge.com/hike?d=260913` (`?d=<YYMMDD>`, event date in `Asia/Bangkok`). The query survives
-the Vercel redirect and `api/series-redirect` reads only `series`, so the link resolves to the same
-event; only the cache key changes. Bare-domain form (`/hike`) where `vercel.json` defines one, else
-`/events/<short_link>`.
-
-`YY` is not optional. A bare `MMDD` recurs annually and these caches outlive twelve months, so the
-2027 hike would post a URL Telegram already has a 2026 preview for — the same bug on an annual
-period.
-
-**Which platforms this affects is NOT uniform, and the difference is measurable.** `api/og.ts` sets
-`og:url` to the resolved per-event slug — verified: `/hike?d=<anything>` returns
-`og:url = /events/social-hike-...-945871`, unchanged by the query. A platform that canonicalizes a
-shared object by `og:url` (Facebook's documented behaviour) was therefore already keying on a
-per-event-unique URL and would never have shown a stale card. A platform keying on the posted URL
-(Telegram, per this incident) is the one that breaks. **One platform observed failing, none of the
-others tested** — `?d=` is applied everywhere as cheap insurance, not because each was measured.
-An earlier draft of this entry claimed Facebook/WhatsApp/Sola had the same defect; that was an
-overclaim and the `og:url` evidence points the other way.
-
-**Alternatives rejected:**
-- *Post the canonical per-event slug instead.* Strictly simpler — unique by construction, no query
-  param, no guard clauses, no character accounting. Rejected by the founder in favour of keeping the
-  short link readable in posted copy; the slug remains the fallback when no series doc exists.
-- *Platform cache-refresh APIs.* Telegram's is a manual bot interaction, and there is no equivalent
-  covering WhatsApp/Sola/Eventbrite. Not automatable from the pipeline.
-- *Shorter `?d=MMDD`.* Founder's first choice for character economy; overruled on the annual-collision
-  argument above, at a cost of two characters.
-
-**Consequences:** The stale-preview class is now guarded at post time rather than trusted to
-attention. `promote-groups` hard-stops on (a) an unresolved placeholder, (b) a missing or wrong
-`?d=<YYMMDD>` token — a *stale* suffix copied from last week is a live, correctly-shaped URL that
-passes every liveness check, so only this token comparison catches it — and (c) a short link whose
-crawler-fetched `og:title` does not name the event being promoted. `promote-whatsapp` gained the
-same check, since its free-text DM path resolves no placeholders and nothing upstream would add the
-suffix.
-
-**The load-bearing premise is still unverified.** `api/series-redirect` drops the query on its final
-hop, so the OG tags are fetched from a URL without `?d=`. The fix assumes each platform keys its
-preview cache on the *posted* URL, not the resolved one. That is the documented behaviour of major
-unfurlers and is almost certainly right, but it has not been observed here — the crawler `curl` the
-pipeline runs verifies OG *content*, never the cache key. Proof costs one minute and needs Beeper
-(a `cf` session): post the same event into a scratch chat under two `?d=` values and confirm two
-distinct cards. Until then a correct unfurl is evidence, not proof.
-
-**Consequences (process):** Hardcoded copy is where this class of bug actually lives. The skills
-had elaborate staleness guards for blurb *text* and none for the *link*, and the four group blurbs
-in `.private/event-channels.json` hardcoded a bare short link twice each — so fixing the runbooks
-alone would have changed nothing. All eight are now `{short_url}`, resolved at post time. Same pass
-found the German blurb still describing the previous week's trail, date, cafe, distance and
-elevation.
-
-**Meta (Status: proposed).** Four frictions; an Opus critic falsified two as gaps. Both are
-**non-compliance with rules this repo already carries**, recorded here rather than as duplicate
-rules — the useful signal for a future auditor is that these rules are being read past, not that
-they are missing. (1) The link-liveness guard was shipped shape-matched on
-`claritypledge.com/events/<series>` while the group blurbs use the bare-domain
-`claritypledge.com/hike`, so it could not fire on the only input that matters — a clean
-[epistemic.md](../.claude/rules/epistemic.md) **gate 7c** miss ("run the tool's own documented
-workflows through it"; the tool's own workflow input is the config blurb). (2) Facebook, WhatsApp
-and Sola were asserted to the founder as having the same defect, twice, with none of them tested —
-CLAUDE.md **"Falsify Before You Rely"** verbatim. The `og:url` evidence later contradicted the
-claim outright, so it was wrong on the code and not merely unverified.
-
-The two that survived shared one root cause and were fixed as one edit to
-[.claude/rules/skills.md](../.claude/rules/skills.md): "trace before editing" bound the START of a
-skill edit and reached neither the DATA a skill posts verbatim (the gitignored config file that
-actually emitted the bug) nor the END (declaring done without tracing consumers — a founder
-question then surfaced four further defects in under a minute).
-
-**References:** [api/series-redirect.ts](../api/series-redirect.ts) · [api/og.ts](../api/og.ts) ·
-`.claude/commands/slava/events/promote-all.md` § "Short-link cache-buster" (canonical rule) ·
-[2026-03-06 Dynamic OG tags via Vercel serverless function](#2026-03-06-technical-dynamic-og-tags-via-vercel-serverless-function--ssr-lite-for-link-previews)
-
----
-
-## 2026-09-07 [technical]: A credential broker raises the theft bar by lowering the misuse bar — P1261 rejected on review
-
-**Context:** A founder conversation about how peers run agents (containers plus a proxy that
-injects tokens) reopened two settled questions: why we are not sandboxing interactive sessions, and
-whether a proxy is an alternative or a complement to encrypting credentials at rest (P1239). The
-answer required correcting a claim made earlier in the same conversation. The 2026-09-03 rejection
-of sandboxed interactive sessions rested partly on *"a container holding the same keys exfiltrates
-exactly as well as the laptop does"* — that argument **does not apply** to a broker design, where
-the container holds no keys. The other half of that rejection (an interactive session needs the
-repo, the servers, the browser and the git identity, and session transfer breaks) is untouched and
-is why no sandbox was proposed. P1261 was drafted to test the broker on its own merits.
-
-**Decision:** Reject the credential broker (P1261, `status: rejected`). Ship P1214 then P1239, and
-accept the hand-off gap — roughly 14 moments a month where an approved read puts a live production
-credential inside a running process — as a documented residual risk.
-
-**Alternatives rejected:** (A) **Secretless broker** — a local process holding web-facing
-credentials in memory and attaching them to outbound requests. Rejected on four converging findings
-from two independent hostile reviewers. Its address is by design not a secret, so it is an
-unauthenticated local capability: against the stated adversary it *raises* the bar for stealing a
-credential and *lowers* the bar for using one, since the same adversary that would have needed a
-human-answered dialog now needs only an address. A long-lived broker also reintroduces the
-time-window failure P1239 explicitly rejected — P1239's invariant is that the unlock gates an
-access, not a state, and a running process is a state. The readable-vs-usable distinction offered
-in its defence does not hold: usable-by-everything delivers the attacker's objective without the
-value ever being read. Finally, host-granular egress allowlisting is a confused deputy when the
-allowed host is production itself. (B) **Short-lived tokens** — still put a real secret in the
-consumer's hands. (C) **Broker plus sandbox** — not refuted, but it pays the full 2026-09-03
-workflow cost and is a different decision.
-
-**Consequences:** The decisive finding is a dependency, not a security argument: P1214 Phase 2's
-success condition is the production master credential no longer living in the local env file, with
-write consumers collapsed into operation-scoped functions whose callers authorize *an operation,
-never the database*. That both removes the one credential carrying all of the broker's value (the
-other three in-scope credentials measured 0–1 uses per 30 days) and is a better answer to the
-misuse risk the broker accepted. **Kill-condition recorded in the spec:** if P1214 Phase 2
-completes, P1261 closes rather than shrinks; it is reconsidered only if Phase 2 is abandoned as
-immovable *and* a design exists that authenticates individual local clients — which on this machine
-means the sandbox question the spec was written to avoid. Ordering stands: P1214 → P1239 → P1148.
-Sandboxing remains open and is a workflow decision, not a security one. Method note: three hostile
-reviewers were launched in parallel and **2 of 3 reported** — the third lane was refused by the
-delegation gate before sending, so that lens is uncovered rather than clean.
-
-**References:** [features/p1261_credential_broker_so_agents_never_receive_secrets.md](../features/p1261_credential_broker_so_agents_never_receive_secrets.md) · [features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md](../features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) · [features/p1214_credential_separation_and_privilege_reduction.md](../features/p1214_credential_separation_and_privilege_reduction.md)
-
----
-
-## 2026-09-07 [technical]: The pre-push privacy gate is measured blind on every leak this repo has actually had — content scanning is a closed remedy class, and the enforceable lever is the ref, not the content (P1260)
-
-**Context:** Filing P1260 on branch hygiene surfaced that six commits between 2026-08-28 and
-2026-09-07 exist only to remove something already published — a third party's name (twice),
-credential identifiers, and reproduction detail for a then-unpatched defect. The obvious remedy,
-and P1260's own first draft, was "scan content locally before the push."
-
-**That remedy is already built and already failing.** `.git/hooks/pre-push` →
-`scripts/pre-push-checks.sh` runs `scripts/audit-privacy.sh` over the exact push range and blocks
-on a hit. Measured against the commits that *introduced* each of the six: **0 of 6 detected.**
-Two independent methods agree — direct range scans, and re-committing each redaction's removed
-lines into a scratch repo and rescanning (0 hit-lines, exit 0, six for six). Both runs carried
-controls through the identical probe (a canary commit and a `/Users/…` path each produce exit 1),
-so the probe discriminates and the six zeros are true negatives. `HARD_PATTERNS` covers personal
-emails, one handle, one absolute path, a canary sentinel, and third-party emails. The six are
-outside that space by construction.
-
-**Decision:** Treat **content scanning before publication as a closed remedy class** for this leak
-type. Do not propose "add a scan", "widen the patterns", or "scan on a private remote first" — the
-first exists and fails, the second is P1248's rejected detector under a new name (2026-09-04: the
-detector's own reference data is more sensitive than what it detects), and the third was measured
-dead this session (that host has CI disabled by a recorded hardening decision). The enforceable
-lever is **the ref class, not the content**: refuse to publish a category of branch, which requires
-recognising nothing about what is inside it.
-
-**This generalises P936** (2026-06-15 [technical], *"Third-party PII detection splits by
-enforceability — emails server-enforced, names authoring-layer"*). P936 scoped the scanner blind
-spot to names. It is wider: names, credential identifiers and defect-reproduction detail are all
-outside it, and the remedy P936 chose for names — prevent-at-write — is the remedy for all three.
-
-**Alternatives rejected:** *Widening `HARD_PATTERNS`* — the pattern list would have to encode what
-is sensitive, which is P1248's rejection verbatim. *Detect-not-prevent* — on a public remote a
-deleted ref is still published. *Rewriting history to remove the six* — refused three times
-(2026-02-28, 2026-08-28, 2026-09-05), never on mechanism grounds.
-
-**Consequences:** The control that actually caught all six was **a person reading the diff** — the
-only mechanism here with a six-of-six record, and it is written down nowhere as a control. A
-seventh redaction (`a81ebac1c`, de-identifying a person in public files) landed from a concurrent
-session while this entry was being written, so the rate is current, not historical. **Status:
-proposed** — P1260 Solution item 1 (refuse `feature/*`/`fix/*` pushes to the public remote) is the
-enforcement half and is founder decision D1; it is also the only thing that makes P1255's
-branch-born mechanism enforced rather than merely observed, since `pre-push-checks.sh` today
-carries zero branch-name restrictions.
-
-**References:** `features/p1260_remote_refs_publish_before_they_are_scanned.md` ·
-`features/p1255_security_specs_publish_before_the_defect_is_fixed.md` · `.claude/rules/pii.md` ·
-decisions 2026-06-15 [technical] (P936) · 2026-09-04 [technical] (P1248) · 2026-09-04 [process]
-("not pushed yet" is not a safety property).
-
----
-
-## 2026-09-07 [process]: A spec reproduced the defect it described, the harvest missed a ruling two days old, and one of three reviewers refused rather than went silent (P1260)
-
-**Context:** P1260's first draft was reviewed by three adversarial reviewers on different model
-families. Two reported; both returned REJECT-AND-RESPEC on the same two grounds, reached
-independently.
-
-**Three findings worth keeping, none about the spec's subject:**
-
-1. **The spec reproduced its own defect.** The draft wrote a private mirror host's name, script
-   path and network posture into this public repo — while arguing that sensitive material must not
-   reach public files. `audit-privacy.sh` passed it at **exit 0**; a reviewer caught it, and so did
-   a plain `grep` afterwards. A spec about a blind spot is not exempt from the blind spot.
-
-2. **The rulings-harvest ran and still missed the governing ruling.** `/create-spec`'s job-2 pass
-   (grep `decisions.md` for the nouns the Solution touches) was executed, returned results, and
-   missed 2026-09-05 [technical] (*"Rebasing work that was previously REVERTED silently drops
-   commits — patch-id matches the revert's history"*) — written **two days earlier** and directly
-   fatal to the draft's proposed merged-ness oracle. The harvest grepped tool nouns (`cmd_gc`,
-   `kanban`) and never the mechanism nouns (`patch-id`, `revert`). **Grep the nouns of the
-   mechanism you are proposing, not only the tools you are changing.**
-
-3. **A refusal is not a silent agent, and the ratio must say which.** The third reviewer never ran:
-   its delegation wrapper refused at exit 2 on a private-path pattern before the model saw the
-   payload. That is a *wrapper* refusal — a known, reportable outcome — unlike the silent-subagent
-   failure that epistemic gate 9b exists for. Reported as "2 of 3 reported, 1 refused at its
-   wrapper", with that reviewer's lens run inline rather than dropped.
-
-**Decision:** Record all three. The fix for (1) and (2) is procedural and already applied to P1260;
-(3) is a reporting convention: **state the fan-out ratio and distinguish refused from silent**,
-because the two have different remedies — a refusal is re-runnable or substitutable, a silence is
-not.
-
-**Alternatives rejected:** *Retrying the refused reviewer with the pattern stripped* — the wrapper's
-own message forbids it and the rule is explicit; the lens was run inline instead. *Dropping the
-inline lens* — it found three real defects, including a completion criterion that would have
-deadlocked the merge gate.
-
-**Consequences:** Cross-model review earned its cost here in a specific way: the two reporting
-reviewers agreed on the verdict but contributed **different decisive findings** — one measured the
-scanner blind (killing the draft's mechanism), the other found that nothing stops a private branch
-being pushed (supplying the replacement). Neither alone produced the rewrite. This is the first
-recorded instance in this repo of a fan-out where the second reviewer's marginal value is
-demonstrable rather than assumed; it does not generalise to fan-out being cheap.
-
-**References:** `features/p1260_remote_refs_publish_before_they_are_scanned.md` (Adversarial review
-section) · `.claude/rules/epistemic.md` gates 9, 9b · decisions 2026-09-05 [technical] (reverted
-work defeats patch-id).
 
 ---
 
