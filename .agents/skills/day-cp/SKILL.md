@@ -334,6 +334,16 @@ echo -e "\n=== EVENT EMAIL HEALTH ==="
 #
 # A 30-minute grace on "overdue" absorbs the cron's own */30 cadence, so a row that is merely
 # waiting for the next tick does not read as a fault.
+# CRON JOB HEALTH comes FIRST, because it is the DIRECT signal and the rows below are
+# only a proxy for it. The 2026-06→09 outage was not a silent one: prod's cron job fired
+# on schedule 328 times and FAILED all 328, logging an identical `column "Authorization"
+# does not exist` into cron.job_run_details each time. A hard, loud, recorded error —
+# operationally identical to silence, because nothing ever read that table. Read it.
+CRON_SQL="SELECT j.jobname, j.active, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'failed'"'"' AND d.start_time > now() - interval '"'"'24 hours'"'"') AS failed_24h, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'succeeded'"'"' AND d.start_time > now() - interval '"'"'24 hours'"'"') AS ok_24h, (SELECT d.return_message FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'failed'"'"' ORDER BY d.start_time DESC LIMIT 1) AS last_error FROM cron.job j ORDER BY j.jobname;"
+curl -s -X POST "https://api.supabase.com/v1/projects/besjtuodziykmjidubzw/database/query" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+  --data-binary "$(python3 -c "import json,sys;print(json.dumps({'query':sys.argv[1]}))" "$CRON_SQL")" 2>/dev/null || echo "cron check FAILED — needs SUPABASE_ACCESS_TOKEN"
+
 EMAIL_OVERDUE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
 echo -n "overdue_unsent_feedback: "; curl -s "${PROD_URL}/event_rsvps?select=id&feedback_scheduled_at=lt.${EMAIL_OVERDUE}&mailgun_message_ids-%3E%3Efeedback=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
 echo -n "overdue_unsent_reminder: "; curl -s "${PROD_URL}/event_rsvps?select=id&reminder_scheduled_at=lt.${EMAIL_OVERDUE}&mailgun_message_ids-%3E%3Ereminder=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
@@ -387,6 +397,16 @@ If response is a JSON object with `message` key (not array): `⚠ User activity:
 - Once P858's migration is on prod, add an `attempts` distribution here (`attempts>=3` = retries exhausted → permanent failure).
 
 **Event email health (P1256 tier-0) — read `=== EVENT EMAIL HEALTH ===`.**
+
+**Read the cron rows FIRST — they are the direct signal; the counts below are a proxy.**
+Any job with `failed_24h > 0` is broken NOW, and `last_error` says how. A job with
+`ok_24h = 0` **and** `failed_24h = 0` is not firing at all — check `active`. Report as
+`⚠ CRON JOB FAILING: <jobname> — <last_error>`. **Never treat a scheduled job as healthy
+because nothing else looks wrong**: prod's `dispatch-event-emails` job was `active: true`
+on a correct schedule and failed all 328 of its runs over three months on a one-character
+SQL quoting bug (double quotes around a string literal, so Postgres read it as a column
+name). Nothing downstream complained, because a job that dies before its HTTP request
+sends no email and writes no failed row anywhere except here.
 
 The healthy reading is **all three zero**, and that is not a soft expectation — under a
 working cron it is structural. The dispatcher claims each row and hands Mailgun a *future*

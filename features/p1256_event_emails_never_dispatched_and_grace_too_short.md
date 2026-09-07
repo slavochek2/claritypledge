@@ -19,15 +19,39 @@ pipeline_ran:
 
 Three defects, found together after the 2026-09-06 hike.
 
-**1. No reminder or feedback email has ever been sent.** `dispatch-event-emails` has
-been deployed since P947 (2026-06-10), but nothing has ever invoked it. P947's
-deployment plan called for a `[functions.dispatch-event-emails]` `schedule` block in
-`supabase/config.toml`; that block was never added, and it would not have worked
-anyway — `config.toml` drives the local stack, and P947's own trade-off note records
-that `supabase start` does not run cron schedules. There is no `cron.schedule` for it
-either. Measured on prod before any change: the 2026-09-06 hike's 8 RSVPs each carry a
-correctly-computed `reminder_scheduled_at` AND `feedback_scheduled_at`, with
-`mailgun_message_ids = {}` and both `*_attempted_at` NULL.
+**1. No reminder or feedback email has ever been sent — because the cron job that sends
+them has failed on every single run since it was created.**
+
+Measured on prod: the 2026-09-06 hike's 8 RSVPs each carry a correctly-computed
+`reminder_scheduled_at` AND `feedback_scheduled_at`, with `mailgun_message_ids = {}` and
+both `*_attempted_at` NULL.
+
+> **ROOT CAUSE CORRECTED MID-SPEC — the first answer was wrong.** This spec originally
+> concluded that *nothing had ever invoked* the dispatcher, on the evidence that
+> `supabase/config.toml` has no schedule block and no migration carries a `cron.schedule`
+> for it. Both of those are true, and the conclusion drawn from them was still false. A
+> cron job **did** exist on prod — `dispatch-event-emails`, `active: true`, `0 */6 * * *`
+> — invisible to the repo because it was created out-of-band and lives only in prod's
+> `cron.job`, exactly as `tx_jobs_enqueue` did before P1064. The search was over the
+> repo; the object was not in the repo. It was found only when a hostile review of the
+> *fix* prompted a check of `cron.job` on both projects before deploying.
+
+The actual defect, from `cron.job_run_details`:
+
+```
+328 runs · 0 succeeded · first 2026-06-17 · last 2026-09-07 06:00Z
+ERROR:  column "Authorization" does not exist
+```
+
+The job builds its auth header as `json_build_object("Authorization", "Bearer <token>")`.
+**Double quotes are identifier quotes in Postgres**, so the planner looked for a column
+named `Authorization`, found none, and aborted before any HTTP request left the database.
+Single quotes would have worked. One character class, ~3 months, every email.
+
+**The failure was loud and unread.** 328 identical error rows sat in
+`cron.job_run_details`. Nothing ever read that table, so a hard error was operationally
+indistinguishable from silence — which is the actual lesson, and why the monitoring in
+this spec reads that table directly rather than only inferring from unsent rows.
 
 **2. The miss is unrecoverable by cron alone.** `runDispatch` selects on
 `scheduled_at > now()` (it hands Mailgun a future `o:deliverytime`), so it only looks
@@ -47,11 +71,16 @@ Small. Three contained fixes plus one prod recovery action.
 
 ## Solution
 
-- **Schedule it.** `20260907140000_p1256_dispatch_event_emails_cron.sql` — pg_cron
-  every 30 min calling a `SECURITY DEFINER` helper that reads its URL and the
-  `CRON_SECRET` from Vault, matching the existing P1064 `tx_jobs_enqueue` pattern.
-  30 min rather than P947's 6h because the look-ahead window makes any gap between
-  runs an irrecoverable hole; 30 min shrinks it from 6 hours.
+- **Replace the broken job.** `20260907140000_p1256_dispatch_event_emails_cron.sql` —
+  pg_cron every 30 min calling a `SECURITY DEFINER` helper that reads its URL and the
+  `CRON_SECRET` from Vault, matching the existing P1064 `tx_jobs_enqueue` pattern. 30 min
+  rather than the old 6h because the look-ahead window makes any gap between runs an
+  irrecoverable hole. Building the header in PL/pgSQL with `jsonb_build_object` and real
+  string literals is also what makes the original quoting bug unrepresentable here.
+- **Unschedule the broken one.** `20260907160000_p1256_unschedule_legacy_broken_cron.sql`.
+  The replacement has a different job name (`dispatch_event_emails`, underscore), so
+  without this a deploy leaves BOTH scheduled — the new one working, the old one going on
+  erroring every 6 hours forever.
 - **Recover the miss.** An opt-in `backfill_event_id` body on the same edge
   function: `runDispatch`'s feedback branch with the forward-only time filter
   replaced by an explicit event id. Not wired into the cron — a scheduled job that
@@ -67,6 +96,12 @@ Small. Three contained fixes plus one prod recovery action.
   `public.event_grace_interval()`.
 
 ## Risks / Non-Goals
+
+- **ROTATE THE CRON_SECRET.** The legacy job embedded its bearer token as a plaintext
+  literal in `cron.job.command`, readable by anything that can read `cron.job` and present
+  in every `pg_dump` taken since 2026-06-17. Unscheduling the job removes the row but does
+  not undo the exposure. The replacement reads the value from Vault, so rotating it is a
+  Vault update plus the edge function's `CRON_SECRET` secret — no code change.
 
 - **Vault prerequisite.** The cron migration is inert until
   `dispatch_event_emails_url` and `dispatch_event_emails_cron_secret` exist in that
@@ -87,7 +122,12 @@ Small. Three contained fixes plus one prod recovery action.
 - [x] Backfill row-selection filter verified against prod: returns exactly the 8
       unsent rows, excluding the 9th RSVP that has no `feedback_scheduled_at`
 - [x] Full suite green (3794 passed), `tsc --noEmit` clean, `deno check` clean
+- [x] Legacy broken job identified and an unschedule migration written + applied to test
+- [x] `/day` reads `cron.job_run_details` directly; verified against prod with both
+      controls in one output — a healthy job (288 ok / 0 failed) and the broken one
+      (0 ok / 4 failed, error text shown)
 - [ ] Edge function + migrations deployed to prod (founder approval)
+- [ ] CRON_SECRET rotated after deploy
 - [ ] Backfill invoked for `77756d40-…`; the 8 rows show a real `mailgun_message_ids.feedback`
 
 ## Invariants
