@@ -18,6 +18,7 @@
 #   H. sync runs git pull --ff-only on local-only branches.
 #   I. All new subcommands' output free of `>`, `<`, `|` (P783 shell-safety).
 #   J. All --help outputs reference P781 or P787.
+#   M. The canary leaves the INVOKING repo's core.bare untouched (P1263).
 #
 # Hermetic: scratch main repo in /tmp, scratch commits, no network.
 # Uses a bare origin repo to satisfy sync's upstream-tracking check (G).
@@ -49,7 +50,65 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # repo's scripts/ is where git-ops.sh lives for copying into the scratch repo.
 MAIN_REPO="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
 SCRATCH="$(mktemp -d)"
-trap 'rm -rf "$SCRATCH"' EXIT
+
+# P1263 - invariant M: this canary must not be able to mutate the repository that
+# invoked it. A stray `git init` / `git init --bare` redirected by an inherited
+# GIT_DIR rewrites the invoking repo's `core.*` namespace - core.bare=true being
+# the damaging case, since it makes `git rev-parse --show-toplevel` fail repo-wide
+# and surfaces as misleading "file missing" errors in unrelated tooling.
+#
+# Scope is the `core.`/`extensions.` namespace, not the whole local config, and
+# that is deliberate: a concurrent session setting branch upstream tracking
+# legitimately writes `branch.<name>.{remote,merge}` into the SAME shared config
+# while this canary runs, so hashing all of `config --list --local` would fail
+# spuriously on other people's normal work. The trade-off is that a stray
+# `git remote add` slips past M; no routine workflow writes `core.*`, which is
+# exactly what a rogue init touches.
+#
+# Captured AFTER the env-var unset above so it reads the real invoking repo.
+# `git -C` does NOT override an inherited GIT_DIR (verified: GIT_DIR wins), so
+# these reads follow the same repo a stray command's write would land in.
+invoker_core_config() {
+  { git -C "$ORIGINAL_CWD" config --list --local 2>/dev/null || true; } \
+    | grep -E '^(core|extensions)\.' | sort | shasum | awk '{print $1}'
+}
+INVOKER_BARE_PRE="$(git -C "$ORIGINAL_CWD" config --get core.bare 2>/dev/null || echo unset)"
+INVOKER_CORE_PRE="$(invoker_core_config)"
+
+# Set immediately before the final summary line. The PASS below is gated on it so
+# that a run killed mid-suite (SIGTERM leaves $? at 0) cannot print an affirmative
+# invariant confirmation for a suite that never finished.
+CANARY_COMPLETED=0
+
+# Called from EVERY EXIT trap in this file. The script re-arms `trap ... EXIT`
+# twice further down; a single trap installed here would be silently replaced -
+# which is the same class of defect as the one P1263 fixes (a guard that looks
+# present but does not run). Keep this call in any future trap body.
+assert_invoker_unmutated() {
+  aiu_rc="${1:-0}"
+  aiu_bare="$(git -C "$ORIGINAL_CWD" config --get core.bare 2>/dev/null || echo unset)"
+  if [ "$(invoker_core_config)" != "$INVOKER_CORE_PRE" ]; then
+    echo "FAIL: M. canary mutated the invoking repo's core git config" >&2
+    if [ "$aiu_bare" != "$INVOKER_BARE_PRE" ]; then
+      echo "      core.bare: ${INVOKER_BARE_PRE} -> ${aiu_bare}" >&2
+      if [ "$INVOKER_BARE_PRE" = "unset" ]; then
+        echo "      Reset with: git -C '$ORIGINAL_CWD' config --unset core.bare" >&2
+      else
+        echo "      Reset with: git -C '$ORIGINAL_CWD' config core.bare ${INVOKER_BARE_PRE}" >&2
+      fi
+    else
+      echo "      core.bare unchanged; another core.* key moved." >&2
+      echo "      Inspect: git -C '$ORIGINAL_CWD' config --list --local" >&2
+    fi
+    exit 1
+  fi
+  if [ "$aiu_rc" -eq 0 ] && [ "$CANARY_COMPLETED" -eq 1 ]; then
+    echo "PASS: M: invoking repo core config untouched (core.bare=${aiu_bare})"
+  fi
+  exit "$aiu_rc"
+}
+
+trap 'rc=$?; rm -rf "$SCRATCH"; assert_invoker_unmutated "$rc"' EXIT
 
 # All human-readable diagnostic output from the test goes to stdout so
 # `run_quiet` in pre-commit-checks.sh can capture it.
@@ -72,7 +131,14 @@ mkdir -p "$SCRATCH/origin.git" \
          "$SCRATCH/main/.claude/worktrees" \
          "$SCRATCH/main/features" \
          "$SCRATCH/main/supabase/migrations"
-( cd "$SCRATCH/origin.git" && git init --bare -q )
+# P1263 — name the target path explicitly. `git init --bare` with NO path operates
+# on $GIT_DIR when that variable is set, regardless of cwd: `cd` does not scope
+# git. A hook-invoked canary inherits GIT_DIR from the outer worktree (P1131), so
+# the no-path form can set core.bare=true on the REAL repo, breaking git for every
+# concurrent session. The `unset GIT_DIR` above already guards this, but a guard
+# 40 lines away is one careless edit from silent catastrophe — the path argument
+# makes the call safe on its own terms.
+git init --bare -q "$SCRATCH/origin.git"
 
 # Copy the subject under test (current worktree's git-ops.sh — this is what
 # the engineer is about to commit). Copy BEFORE the seed commit so both scripts
@@ -354,7 +420,7 @@ pass "D: commit-to-main commits listed files and releases main.lock"
 sleep 30 &
 SLEEPER_PID=$!
 cleanup_sleeper() { kill "$SLEEPER_PID" 2>/dev/null || true; }
-trap 'cleanup_sleeper; rm -rf "$SCRATCH"' EXIT
+trap 'rc=$?; cleanup_sleeper; rm -rf "$SCRATCH"; assert_invoker_unmutated "$rc"' EXIT
 
 SLEEPER_START="$(ps -o lstart= -p "$SLEEPER_PID" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]][[:space:]]*/ /g')"
 mkdir -p "$SCRATCH/main/.claude/worktrees"
@@ -398,7 +464,7 @@ pass "E: concurrent commit-to-main serializes via main.lock (contention detected
 # Release the held lock and kill the sleeper for the next test.
 rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
 cleanup_sleeper
-trap 'rm -rf "$SCRATCH"' EXIT
+trap 'rc=$?; rm -rf "$SCRATCH"; assert_invoker_unmutated "$rc"' EXIT
 
 # -----------------------------------------------------------------------------
 # F. switch-safe refuses when main has uncommitted bystander changes.
@@ -636,4 +702,5 @@ fi
 rm -f "$SCRATCH/main/l_good.txt"
 pass "L: a rejected commit-to-main leaves the index untouched"
 
-echo "PASS: all git-ops.sh extension invariants (A-L) hold"
+CANARY_COMPLETED=1
+echo "PASS: all git-ops.sh extension invariants (A-M) hold"
