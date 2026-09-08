@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000074
 workstream: infra
@@ -174,14 +174,15 @@ dead. A detector for credential content stays rejected (P1248, 2026-09-04).
       exercised, not asserted), AND a legitimate link to a normal spec still passes in the
       same run (gate 7c — the false-positive side is measured, not assumed)
       → see **Gate evidence** below; both directions pasted, re-run after rebase onto main.
-- [ ] **BLOCKED (needs a push + a real embargoed spec).** A security-tagged spec filed after
-      this change does not appear in `git ls-tree -r --name-only origin/main features/`
-      after a push. Cannot be discharged in this run: pushes require the founder in the same
-      turn, and no genuine embargoed spec exists yet. Discharge on the first real one.
-- [ ] **BLOCKED (needs a prod apply).** `/ship` on that spec makes it public in the same
-      commit range as its fix. `publish-spec` hard-asserts the prod manifest AND the live
-      smoke test, neither of which can be exercised against a fixture without a real
-      migration on prod. Discharge on the first real embargoed spec.
+- [x] **Re-scoped to [P1266](p1266_prove_the_embargo_end_to_end_on_the_first_real_security_spec.md), not
+      abandoned.** Two claims here assert what happens to a REAL embargoed spec across a
+      real push and a real prod apply: that it stays out of
+      `git ls-tree -r --name-only origin/main features/`, and that `publish-spec` then makes
+      it public alongside its fix. Neither is falsifiable against a fixture — the first needs
+      a push, the second needs a migration actually applied to production — and
+      manufacturing one would reproduce exactly the fixture-shaped confidence the check is
+      meant to replace. P1266 carries both, with the failure direction named as the half
+      that matters. This is the deferral gate 3.65 requires to name a P-number.
 - [x] The kanban renders embargoed specs identically to today (founder's board is unchanged)
       → `tools/kanban/server/api.ts:64-105` already enumerates every worktree's own
       `features/` dir, so a branch-born spec renders from its worktree board today. No code
@@ -301,7 +302,7 @@ mechanism; D1 and D3 should be decided against it, not against tag-scoping.**
    no referrer enforcement today and part 3 is net-new work, not a freebie. Folded into
    Solution part 3.
 
-## Adjacent gap — NOT in scope, needs its own spec
+## Adjacent gap — NOT in scope; FILED as P1260 (closed 2026-09-08)
 
 The staging-branch hop (`docs/technical/git-workflow.md:97-113`) pushes commits to
 `origin` as `staging/pN` **before** the server-side privacy check runs on them. On a public
@@ -840,7 +841,17 @@ into this one's Build Sequence.**
 
 **Disclosure-Channel Analysis (feature-specific):**
 
-- ⚠️ **Open — the `/ship` close-commit message echoes the spec's title on `main`, even under the "not-at-`/ship`" promotion design.** Read `scripts/git-ops.sh:2930-2944` (the branch-based close path) and `:2380-2399` (the no-branch/direct-to-main close path): both extract `title="$(ship_extract_title ...)"` from the spec's own first `# ` heading and commit with `"chore: close $pn — $title"` (or `"chore: close $pn (direct-to-main) — $title"`). This commit is made **on `main`**, because merging to `main` is what `/ship` does. The spec's own Alternative-3 discussion states plainly that "the title alone often names the component and the hole" (e.g. `…_insertable_directly`, `…_keyed_only_by_session_id`). So even if the *body* of the spec never lands on `main` until the promotion trigger fires, the **title fires at `/ship` time — before the deploy-manifest-gated promotion the spec calls for.** The Solution section states "Promotion trigger — NOT `/ship`" and then, two paragraphs later, cites the *same* `/ship` branch-born close code (`git-ops.sh:2602-2626`) as "already supported, not new machinery." Those two claims are in direct tension: reusing the existing close path unmodified means `/ship` **is** the promotion event for the title, regardless of what the design intends for the body. Nothing in the Solution proposes gating the close commit itself on the manifest check. This needs to be resolved explicitly (either the close path is modified to hold the commit until the manifest condition is met, or the spec accepts title-level disclosure at `/ship` time as a residual and says so).
+- ✅ **RESOLVED (2026-09-08) — the `/ship` close-commit message echoes the spec's title on `main`, even under the "not-at-`/ship`" promotion design.** Read `scripts/git-ops.sh:2930-2944` (the branch-based close path) and `:2380-2399` (the no-branch/direct-to-main close path): both extract `title="$(ship_extract_title ...)"` from the spec's own first `# ` heading and commit with `"chore: close $pn — $title"` (or `"chore: close $pn (direct-to-main) — $title"`). This commit is made **on `main`**, because merging to `main` is what `/ship` does. The spec's own Alternative-3 discussion states plainly that "the title alone often names the component and the hole" (e.g. `…_insertable_directly`, `…_keyed_only_by_session_id`). So even if the *body* of the spec never lands on `main` until the promotion trigger fires, the **title fires at `/ship` time — before the deploy-manifest-gated promotion the spec calls for.** The Solution section states "Promotion trigger — NOT `/ship`" and then, two paragraphs later, cites the *same* `/ship` branch-born close code (`git-ops.sh:2602-2626`) as "already supported, not new machinery." Those two claims are in direct tension: reusing the existing close path unmodified means `/ship` **is** the promotion event for the title, regardless of what the design intends for the body. Nothing in the Solution proposes gating the close commit itself on the manifest check. This needs to be resolved explicitly (either the close path is modified to hold the commit until the manifest condition is met, or the spec accepts title-level disclosure at `/ship` time as a residual and says so).
+
+  **Resolved as the second branch, explicitly.** The close path is NOT modified — it is the
+  code a dozen incidents have hardened, and gating it would reintroduce the R1 deadlock at a
+  different point. The spec accepts title-level disclosure at `/ship` time as a residual, and
+  the remedy is a wording rule rather than a gate, because a commit subject is prose and no
+  glob reaches it (`.claude/rules/pii.md` makes exactly this argument for names). That rule
+  now lives in [.claude/rules/features.md](../.claude/rules/features.md) — Disclosure, final
+  paragraph: *write commit subjects for an embargoed spec in roles, not specifics*. It covers
+  both channels R4 named — `/ship`'s `chore: close pN — <title>` and the branch's own commit
+  subjects, which cherry-pick to `main` verbatim.
 
 - ⚠️ **Open — commit messages more broadly are not addressed.** Beyond the close-commit title above, no part of the Solution constrains what commit *subjects* on the embargoed `fix/pN-*` branch may say once that branch's commits are cherry-picked/replayed to `main` as part of the actual code fix (separate from the spec-file seed commit). `scripts/git-ops.sh` ship flow cherry-picks the branch's commits verbatim (existing behavior, unrelated to this spec) — commit messages authored during the fix work land on `main` in full, on the *same push* that (per the design) is supposed to be the trigger for making the spec public. If an agent writes a commit message on the branch that names the vulnerability class, it publishes at the same moment the code fix does, independent of the spec file's own embargo status. This is outside this spec's stated scope (it only governs the *spec file*), but the spec's Problem statement frames the goal as "close the disclosure window," and a commit-message channel for the same content is not called out as a Non-Goal or Open Question. Recommend adding it explicitly as a stated residual.
 
