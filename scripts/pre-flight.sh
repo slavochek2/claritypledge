@@ -28,7 +28,31 @@ NC='\033[0m'
 
 # ---------------------------------------------------------------------------
 # Helpers (shared with git-ops.sh — duplicated to keep pre-flight standalone)
+#
+# P1268: this copy and git-ops.sh's MUST classify identically. The duplication is
+# deliberate (pre-flight runs from a scratch copy in scripts/test-preflight.sh and
+# cannot source a lib), so agreement is mechanized by scripts/test-lock-state-parity.sh
+# rather than left to whoever edits one of them next. Before this, only git-ops.sh
+# parsed HEARTBEAT at all — this copy silently dropped the field.
 # ---------------------------------------------------------------------------
+
+LOCK_TTL_SECONDS="${CP_LOCK_TTL_SECONDS:-43200}"
+
+iso_to_epoch() {
+  local stamp="$1"
+  [[ -n "$stamp" ]] || return 1
+  TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$stamp" +%s 2>/dev/null
+}
+
+heartbeat_fresh() {
+  local hb="$1" hb_epoch now_epoch age
+  hb_epoch="$(iso_to_epoch "$hb")" || return 1
+  [[ -n "$hb_epoch" ]] || return 1
+  now_epoch="$(date -u +%s)"
+  age=$(( now_epoch - hb_epoch ))
+  [[ $age -lt 0 ]] && age=$(( -age ))
+  [[ $age -le $LOCK_TTL_SECONDS ]]
+}
 
 pid_alive() {
   kill -0 "$1" 2>/dev/null
@@ -42,7 +66,7 @@ pid_start_time() {
 load_lockfile() {
   local lockfile="$1"
   LOCK_PID=""; LOCK_PID_START_TIME=""; LOCK_SESSION_ID=""
-  LOCK_SLOT=""; LOCK_BRANCH=""; LOCK_P_NUMBER=""
+  LOCK_SLOT=""; LOCK_BRANCH=""; LOCK_P_NUMBER=""; LOCK_HEARTBEAT=""
   if [[ ! -f "$lockfile" ]]; then
     return 1
   fi
@@ -58,6 +82,7 @@ load_lockfile() {
       SLOT)           LOCK_SLOT="$value" ;;
       BRANCH)         LOCK_BRANCH="$value" ;;
       P_NUMBER)       LOCK_P_NUMBER="$value" ;;
+      HEARTBEAT)      LOCK_HEARTBEAT="$value" ;;
     esac
   done < "$lockfile"
   return 0
@@ -68,17 +93,25 @@ classify_lock_state() {
     echo "NO_LOCK"
     return
   fi
-  if ! pid_alive "$LOCK_PID"; then
-    echo "ORPHAN"
+  if pid_alive "$LOCK_PID"; then
+    local now_start
+    now_start="$(pid_start_time "$LOCK_PID")"
+    if [[ -n "$now_start" && "$now_start" == "$LOCK_PID_START_TIME" ]]; then
+      echo "LIVE"
+      return
+    fi
+    if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
+      echo "LIVE"
+      return
+    fi
+    echo "STALE"
     return
   fi
-  local now_start
-  now_start="$(pid_start_time "$LOCK_PID")"
-  if [[ -z "$now_start" || "$now_start" != "$LOCK_PID_START_TIME" ]]; then
-    echo "STALE"
-  else
+  if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
     echo "LIVE"
+    return
   fi
+  echo "ORPHAN"
 }
 
 # Redirect-safe output helpers (P786 / shell-safety.md).

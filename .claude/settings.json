@@ -133,6 +133,11 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/report-strandings.sh",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/adopt-worktree-slot.sh",
+            "timeout": 10
           }
         ]
       }
@@ -150,6 +155,11 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint-after-edit.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/heartbeat-worktree-slot.sh",
+            "timeout": 5
           }
         ]
       }

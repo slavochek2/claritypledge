@@ -222,13 +222,27 @@ echo ""
 # setup or env-file handling is staged. Hermetic, ~1 second. Proves three
 # invariants: env files survive the script, no redirect-parseable output,
 # adversarial eval cannot wipe a sandbox file.
-WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup|test-git-ops-extensions|pre-flight|test-preflight)\.sh$' || true)
+WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup|test-git-ops-extensions|pre-flight|test-preflight|test-git-ops-adopt|test-lock-state-parity)\.sh$' || true)
 if [ -n "$WORKTREE_SETUP_STAGED" ]; then
     if ! run_quiet "Worktree setup canary (P783)" bash scripts/test-worktree-setup.sh; then
         ERRORS=$((ERRORS + 1))
     fi
     if [ -f "scripts/test-preflight.sh" ]; then
         if ! run_quiet "Pre-flight regression test (P786)" bash scripts/test-preflight.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # P1268. Two suites, two different jobs — neither subsumes the other.
+    # The parity canary exists because pre-flight.sh carries a DELIBERATE standalone
+    # copy of the lock classification (it runs from a scratch copy and cannot source
+    # a lib), and the two copies had already drifted once, silently.
+    if [ -f "scripts/test-lock-state-parity.sh" ]; then
+        if ! run_quiet "Lock-state parity: git-ops vs pre-flight (P1268)" bash scripts/test-lock-state-parity.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    if [ -f "scripts/test-git-ops-adopt.sh" ]; then
+        if ! run_quiet "git-ops adopt/heartbeat canary (P1268)" bash scripts/test-git-ops-adopt.sh; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
