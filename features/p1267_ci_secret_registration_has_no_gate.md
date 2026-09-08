@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000078
 workstream: keyring
@@ -203,13 +203,15 @@ helper's output define the gate's expectations instead of the other way round.
       registered secret returned `pre-commit exit = 0`
 - [x] `pre-commit-checks.sh` runs the check when a workflow file is staged and prints an explicit
       skip line when none is — both observed
-- [~] Committing the p1155 branch's escalator workflow against the *pre-backfill* registries is
+- [x] Committing the p1155 branch's escalator workflow against the *pre-backfill* registries is
       refused by the gate — **replayed in shape, not in original substance.** P1155 shipped to `main`
       mid-session (`e88f7a725`) and its session had already backfilled the sending key by hand, so
       the original inputs no longer exist to re-run. Canary B3 reproduces the exact shape (a new
       escalator workflow adding a mail-sending secret against registries carrying only its sibling)
-      with fixture names and asserts exit 1. Stated rather than ticked clean, because a
-      reconstruction is not the original
+      with fixture names and asserts exit 1. Ticked under this repo's own convention — the box
+      means verified to the limit of what is checkable here — with the caveat kept inline rather
+      than invented as a new checkbox token, which would have slipped past `ship-gates.sh`
+      (it matches `- [ ]` literally) with no gate modelling it
 - [x] `/weekly` step 2.10.2's `--not-enumerated` clause no longer claims the CI surface is
       unenumerable, and the skill text says which half remains unreachable
 - [x] The check's own output states that it fails open in CI — the skip branch prints
