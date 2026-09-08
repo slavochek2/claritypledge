@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000078
 workstream: keyring
@@ -8,7 +8,6 @@ tags: [credentials, pre-commit, ci, drift-audit]
 related: [p1147, p1153, p1155, p1214, p1239, p1248]
 disclosure: public
 flow: dev
-delivery_stage: ship
 pipeline_plan: [create-spec, dev]
 pipeline_ran: [create-spec, dev, ship]
 pipeline_skipped: ["challenge-prd -- founder asked for an inline critique instead; five findings folded into Solution and Risks", "architect -- the one architectural call (extend vs rebuild) is argued in Alternatives Considered and was verified in critique C4", "generate-tests -- /dev runs TDD and the fixture shape is pinned by Done-When", "ux/ui/verify -- no user-visible surface; the output is a shell exit code", "decompose -- four files", "adversarial-review -- WILL RUN after /dev, kept out of pipeline_plan because the skill does not stamp pipeline_ran and would deadlock the plan"]
@@ -16,12 +15,13 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-08
 ---
 
 # P1267: A credential referenced only by CI is invisible to every control this repo has
 
 > **Credentials are named generically throughout**, per
-> [.claude/rules/credentials.md](../.claude/rules/credentials.md) § Identifiers ("public files —
+> [.claude/rules/credentials.md](../../../.claude/rules/credentials.md) § Identifiers ("public files —
 > specs, docs, commit messages — describe credentials generically"). The two specific variable
 > names behind "the unregistered pair" below belong in `.private/docs/security-log.md`. None of the
 > reasoning here depends on them.
