@@ -86,13 +86,29 @@ const POSITIONS_BY_USER: Record<string, Array<{ id: string; point_id: string; us
   [AUTHOR_NO_POSITION]: [],
 };
 
+/** The column list `getPointsForStories` actually asked `story_points` for. */
+let selectedColumns = '';
+
 function mockSupabaseTables() {
+  selectedColumns = '';
   mockFrom.mockImplementation((table: string) => {
     if (table === 'story_points') {
       // stories-service-real.ts getPointsForStories — no further chain after `.in()`.
+      //
+      // P1270 — `selectedColumns` EXISTS BECAUSE THIS MOCK MASKED A REAL BUG. It returned
+      // `author_id` on every row no matter what the SELECT asked for, so the test passed
+      // green while the production query never requested the column at all: the fix had been
+      // applied to `getStoriesByAuthorWithPoints`, a DIFFERENT function whose SELECT block is
+      // byte-identical. A green run proved the mapping logic and said nothing about whether
+      // the data would ever arrive (epistemic gate 7b — the fixture cannot emit the failure).
+      // Caught by adversarial review of the diff, not by this suite.
       return {
-        select: vi.fn().mockReturnThis(),
-        in: vi.fn().mockResolvedValue({ data: STORY_POINT_ROWS, error: null }),
+        select: vi.fn((cols: string) => {
+          selectedColumns = cols;
+          return {
+            in: vi.fn().mockResolvedValue({ data: STORY_POINT_ROWS, error: null }),
+          };
+        }),
       };
     }
     if (table === 'point_positions') {
@@ -159,6 +175,22 @@ describe('P1270 §4 — getPointsForStories supplies the story author\'s stance'
       pointsForAgreesStory?.[0].profileSubjectPosition,
       'stories-service.interface.ts:105 says this is "deliberately NOT supplied" today — §4 supplies it',
     ).toBe('agree');
+  });
+
+  /**
+   * THE ASSERTION THAT WOULD HAVE CAUGHT THE REAL BUG, added after adversarial review found
+   * it. The mapping test above is necessary and insufficient: it proves the service uses
+   * `author_id` correctly once it has it, and is completely silent on whether the query ever
+   * requests it. Those are two different failures and only one of them was covered.
+   */
+  it('actually REQUESTS author_id from story_points — not just uses it', async () => {
+    await realStoriesService.getPointsForStories([STORY_AGREES]);
+    expect(
+      selectedColumns,
+      'getPointsForStories must select author_id. The identical SELECT block in ' +
+        'getStoriesByAuthorWithPoints is why this needs asserting: a fix applied to the wrong ' +
+        'one is invisible to every other test in this file.',
+    ).toContain('author_id');
   });
 
   it('leaves profileSubjectPosition falsy for a story whose author holds no position on the point', async () => {

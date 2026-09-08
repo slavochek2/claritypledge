@@ -1290,3 +1290,48 @@ gh api repos/slavochek2/claritypledge/rulesets/17729463 > /tmp/ruleset.json   # 
 
 Never replace the array — `audit-privacy` is the privacy boundary (P919) and dropping
 it would be a worse regression than the one being fixed.
+
+---
+
+## Agent accounts render as HUMANS while the agent registry is loading
+
+**Status:** proposed
+**due:** week
+**Found:** 2026-09-08, adversarial (Codex) review of the P1270 diff. Pre-existing, product-wide —
+NOT introduced by P1270, but P1270 raises what it costs.
+
+An agent account is a machine's reading of a real named person who never consented. The whole
+disclosure rests on two channels: a SQUARE avatar and the word `AGENT` in the byline. Both are
+gated on `isAgent`, which is computed from `useAgentAccountIds()`.
+
+**While that registry is unresolved, `isAgent` is `false`, so every agent row renders the HUMAN
+path** — round avatar, plain name, no `AGENT` word. `agent-accounts-context.tsx:20-24` is explicit
+that this must not happen:
+
+> FAIL-CLOSED. `isLoading` is not a convenience. An unresolved or failed fetch leaves the Set
+> empty, and an empty Set read as "no agents" renders every agent account as a person. Consumers
+> MUST hold their render until `isLoading` is false. On fetch failure `isLoading` stays true
+> forever by design.
+
+**No page actually holds.** `profile-page-v2.tsx:484` guards an *effect*, not the render; no other
+page gates on it at all. What consumers do instead is suppress human-only chrome
+(`!isAgent && !identityPending && <EarBadge>`) — so the row loses its ear badge and pledge ring but
+keeps a round avatar and an unmarked name. It reads as a human with no reputation, not as a machine.
+
+On fetch failure this is not transient. `isLoading` staying true forever means the mis-render is
+permanent for that session.
+
+**Why it was invisible.** Every agent test in the repo mocks `useAgentAccountIds` with
+`isLoading: false`, including the render-branch census that exists specifically to enumerate
+branches — so the pending branch is unreachable by the fixture (epistemic gate 7b). P1270 added an
+embed branch to that census and still could not have seen this.
+
+**Why it is not fixed in P1270.** It spans at least six components (`feed-story-card`,
+`story-card-with-links`, `StoryCardDetail`, `quoted-point-card`, `point-card-with-links`,
+`point-detail-page`) and the fix is a founder-facing UX decision, not a mechanical edit: hold the
+row, render a skeleton, or render a neutral placeholder. Deciding that inside P1270 would have been
+unrequested scope on a spec already covering six sections.
+
+**Suggested shape:** a `pN` bug spec. The census gains an `isLoading: true` fixture arm — that arm
+is the actual deliverable, since without it any fix is unverifiable by the same blindness that hid
+the defect.

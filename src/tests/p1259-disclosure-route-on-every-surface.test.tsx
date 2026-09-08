@@ -313,6 +313,29 @@ describe('P1259 change 2 — the disclosure moved to the profile, and every surf
   });
 
   /**
+   * P1270 §6 — NO DEAD CONTROLS ON THE BRANCH WITH NO ROUTE. Found by adversarial review of
+   * the implementation diff, not by this file: the first version kept the avatar's
+   * `role="button"` wrapper unconditionally, so the embed branch rendered a focusable element
+   * with no accessible name whose handler resolved to nothing.
+   *
+   * Asserted as a COUNT over the byline row rather than "the name is not a button", because
+   * the defect was the avatar and the name was already handled — checking only the element
+   * that was already correct is how the first version passed review by inspection.
+   */
+  it('the embed branch renders the marker with NO dead controls in the byline', () => {
+    EMBED_NO_AUTHOR[1]();
+    const byline = screen.getByTestId('agent-byline');
+    const row = byline.parentElement as HTMLElement;
+
+    const controls = row.querySelectorAll('[role="button"], button');
+    expect(
+      controls.length,
+      'a focusable control with no name and nowhere to go is the dead-control defect ' +
+        '`agent-byline.tsx` note 2 exists to forbid',
+    ).toBe(0);
+  });
+
+  /**
    * The negative control, carried over from P1212 and still load-bearing: without it every
    * assertion above would pass on a card that rendered the agent contract unconditionally,
    * putting a machine byline on a human's story.

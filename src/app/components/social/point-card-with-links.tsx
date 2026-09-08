@@ -780,6 +780,14 @@ export function QuotedStory({
           than no marker; the name is additive when the lookup succeeds (spec, ACCEPT). */}
       {(author || isAgent) && (
         <div className="flex items-center gap-2 mb-1.5">
+          {/* P1270 §6 — THE AVATAR WRAPPER IS ONLY A CONTROL WHEN THERE IS SOMEWHERE TO GO.
+              Same rule already applied to the name below, and the same rule `agent-byline.tsx`
+              note 2 states: rendering a focusable `role="button"` whose handler resolves to
+              nothing invites a click that answers no question and adds a phantom stop to
+              keyboard tab order — on a row that has no accessible name to announce, because
+              the name is precisely what failed to resolve. Found by adversarial review of the
+              diff; the first version of this section kept the wrapper unconditionally. */}
+          {author ? (
           <span
             role="button"
             tabIndex={0}
@@ -812,6 +820,18 @@ export function QuotedStory({
               className="!w-6 !h-6 !text-[11px]"
             />
           </span>
+          ) : (
+            /* No author resolved: the avatar still carries the SQUARE channel, but as inert
+               presentation rather than a control that goes nowhere. */
+            <GravatarAvatar
+              name=""
+              size="sm"
+              isPledger={false}
+              isAgent={isAgent}
+              identityPending={identityPending}
+              className="!w-6 !h-6 !text-[11px]"
+            />
+          )}
           {/* P1259 change 2 — THE AGENT BRANCH NO LONGER WRAPS THE BYLINE IN THIS SPAN.
               Two reasons, and the second is new to this spec.
 

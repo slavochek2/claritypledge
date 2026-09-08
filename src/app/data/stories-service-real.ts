@@ -441,7 +441,6 @@ export const realStoriesService: StoriesService = {
       .select(`
         story_id,
         point_id,
-        author_id,
         point:points!story_points_point_id_fkey (
           id,
           statement,
@@ -886,6 +885,7 @@ export const realStoriesService: StoriesService = {
       .select(`
         story_id,
         point_id,
+        author_id,
         point:points!story_points_point_id_fkey (
           id,
           statement,
