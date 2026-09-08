@@ -1248,3 +1248,45 @@ low" (fail) and starts enforcing by itself.
 steps earning their place?" to evals rather than to opinion, after one benchmarked
 skill showed no measurable advantage and another was void. That question is still
 open and nothing else answers it.
+
+## 2026-09-08 — turn the closure backstop into a required check (P1246), once it has a REAL green
+
+`due: week`
+
+**State.** `.github/workflows/closure-gate.yml` is on `origin/main` and runs. It is
+**not** a required status check — `gh api repos/slavochek2/claritypledge/rulesets/17729463`
+shows `audit-privacy` as the only one. Until it is added, the local closure gate and
+its hook are accident prevention with nothing behind them.
+
+**Do not enable it on any green.** Three defects shipped in this one workflow on
+2026-09-08, all the same shape — a check reporting success without having looked:
+
+1. The trusted gate copy ran from `/tmp`, where `ship-gates.sh` resolves its repo root
+   to `/`; every spec scored "not found" (run 34209536521).
+2. The self-check added to catch (1) asserted only that a `GATE 2.5` line appeared —
+   which the broken configuration also prints. Blind probe; would have passed it.
+3. The selection range was `origin/main...HEAD`, which is **empty by construction**
+   once a push to main lands, so the gating step was skipped and the job went green
+   having examined nothing (run 34211142337). The single run that ever selected a spec
+   did so through a fetch-timing race.
+
+**The enabling condition — check this, not "is it green":**
+
+```bash
+# 1. Find a run whose commit ACTUALLY closed a spec, then confirm the work happened:
+gh run view <run-id> --json jobs \
+  --jq '.jobs[].steps[] | select(.name|startswith("Gate each closure")) | .conclusion'
+# Must print "success". "skipped" means it examined nothing — NOT an enabling green.
+```
+
+A closure lands naturally on the next `/ship`.
+
+**Then, and only then:**
+
+```bash
+gh api repos/slavochek2/claritypledge/rulesets/17729463 > /tmp/ruleset.json   # READ FIRST
+# add "closure-gate" alongside audit-privacy in required_status_checks, then PATCH.
+```
+
+Never replace the array — `audit-privacy` is the privacy boundary (P919) and dropping
+it would be a worse regression than the one being fixed.
