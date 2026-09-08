@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000082
 severity: high
@@ -278,3 +278,39 @@ before throwing, and the `.catch(() => null)` around it swallowed that as "no er
 24s of a 30s budget and surfaced as a timeout on the next assertion. `allTextContents()` resolves
 against what matches now and returns `[]`. Step timing found it in one run after three hypotheses
 (VPN, dev-server adoption, project mismatch) had each been raised and killed.
+
+## Review
+
+**1 of 1 spawned reviewers reported: 0.** The `/finish code` subagent was spawned, went idle without
+delivering, and did not answer a direct request for its report. Per the fan-out rule the lenses were
+re-run inline rather than by spawning replacements, and the miss is recorded rather than papered
+over with "a reviewer was spawned".
+
+Inline review, 1 issue found and fixed (both counted in `.finish-reviewed`):
+
+- **MEDIUM — the anon-grant test was vacuous.** Detailed in the acceptance criteria above. Fixed and
+  watched fail.
+
+Checked and clean:
+
+- **search_path.** Every table reference in the function body is `public.`-qualified, so a
+  `pg_temp` object cannot shadow one. `SET search_path = public` matches the repo's dominant
+  convention (177 uses) including both sibling definer functions.
+- **Identity.** `profile_id` comes from `auth.uid()` and is not a parameter. The `session_id` guard
+  is stricter than the policy it supersedes, which never checked it.
+- **23505 propagation.** Verified empirically, not assumed — PostgREST does surface the unique
+  violation as `error.code === '23505'`, which the integration test asserts.
+- **Migration safety.** Zero policy statements (grepped); `client-safe` annotation present and
+  accepted by the P887 pre-commit check.
+
+Known and accepted, not fixed:
+
+- **An orphan `clarity_sessions` row is possible.** `createRoom` mints the session before calling
+  the RPC, so a failing call leaves the session behind. `joinRoom` has had the identical shape since
+  P1149; the row is inert and carries no transcript. Restructuring is not available — the RPC needs
+  `session_id` as input, so the session must exist first. Named here rather than left for someone to
+  rediscover.
+- **`member.profileId` in the returned object comes from the caller's own argument**, not from the
+  server. It cannot diverge (the argument and `auth.uid()` come from the same session), and closing
+  it would mean changing the function's return type, which requires a `DROP FUNCTION` — an
+  ask-first operation for no reachable defect. Declined deliberately.
