@@ -55,6 +55,7 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
   let host: TestUser;
   let seatedUser: TestUser;
   const createdSessionIds: string[] = [];
+  const createdEventIds: string[] = [];
 
   async function seedRoom(
     label: string,
@@ -108,7 +109,13 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
 
   test.afterAll(async () => {
     if (createdSessionIds.length > 0) {
+      // event_practice_rooms.session_id is ON DELETE SET NULL, so practice rooms must go
+      // first or they linger pointing at nothing.
+      await supabaseAdmin.from('event_practice_rooms').delete().in('session_id', createdSessionIds);
       await supabaseAdmin.from('clarity_sessions').delete().in('id', createdSessionIds);
+    }
+    if (createdEventIds.length > 0) {
+      await supabaseAdmin.from('events').delete().in('id', createdEventIds);
     }
     if (host) await deleteTestUser(host.user.id);
     if (seatedUser) await deleteTestUser(seatedUser.user.id);
@@ -273,6 +280,108 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
         'ended_at is what claim_joiner_seat gates on, so the room is now permanently unjoinable',
     ).toBeNull();
     expect(data!.status, 'an anon caller marked a live session completed').not.toBe('completed');
+  });
+
+  // ── 7. THE FIX: the code is what authorizes an anonymous release ───────────────────────
+  //
+  // Everything above asserts a REFUSAL. A gate whose whole fixture is inputs it should reject
+  // has an unmeasured false-positive rate (epistemic.md 7c) — and the failure mode that costs
+  // most here is not a surviving exploit, it is a guest who can no longer leave a room. The
+  // next three tests are the positive controls: the legitimate flows must still work.
+
+  test('POSITIVE CONTROL: a guest holding the room code CAN release their own seat', async () => {
+    const room = await seedRoom('fix-positive', { guestName: 'Legitimate Guest' });
+
+    const anon = makeAnonClient();
+    const { error } = await anon.rpc('release_joiner_seat', {
+      p_session_id: room.id,
+      p_code: room.code,
+    });
+
+    const after = await readRow(room.id);
+    expect(
+      after.joiner_seat_claimed_at,
+      `GUEST LEAVE IS BROKEN: a guest passing the correct code could not vacate their own ` +
+        `seat (rpc error: ${error?.message ?? 'none'}). This is the P886 shape — a gate ` +
+        'narrower than the flow it guards.',
+    ).toBeNull();
+    expect(after.joiner_name, 'the guest name should be cleared by a legitimate release').toBeNull();
+  });
+
+  // The SIGNED-IN arm's positive control deliberately lives elsewhere. It needs an
+  // authenticated client, and this file's whole point is that it performs zero sign-ins (see
+  // the header — the P1053 suite exhausted the per-project auth rate limit once already).
+  // p1053-claim-joiner-seat.spec.ts already releases a signed-in joiner's seat with
+  // p_session_id alone and asserts it succeeds; that is the regression guard for the arm
+  // P1058 leaves untouched, and the P1058 Done-When requires that suite to stay green.
+
+  test('a WRONG code is refused — the code is checked, not merely required', async () => {
+    // Without this, a fix that accepted any non-null string would pass every other test here.
+    const room = await seedRoom('fix-wrong-code', { guestName: 'Guest' });
+    const wrong = room.code === 'AAAAAA' ? 'BBBBBB' : 'AAAAAA';
+
+    const anon = makeAnonClient();
+    await anon.rpc('release_joiner_seat', { p_session_id: room.id, p_code: wrong });
+
+    const after = await readRow(room.id);
+    expect(
+      after.joiner_seat_claimed_at,
+      'a WRONG room code released the seat — p_code is being required but not verified',
+    ).not.toBeNull();
+  });
+
+  // ── 8. ACCEPTED RESIDUE: event practice rooms publish their codes ───────────────────────
+
+  test('RESIDUE (accepted): an event practice room code is anon-readable, so F4 survives there', async () => {
+    // Recorded, not fixed. get_practice_room_codes is granted to anon and returns codes to
+    // every visitor of a public event page — a standing founder decision (P1057 D-A: "a
+    // stranger can still join one"). For that room class the code is not a secret, so keying
+    // release on it buys nothing and an attacker can still evict a seated guest.
+    //
+    // This test asserts the residue EXISTS rather than asserting it is closed. If it ever
+    // starts failing, event-room codes stopped being public and this note should be revisited
+    // — a green-turned-red here is good news, not a regression.
+    const { data: event, error: eventError } = await supabaseAdmin
+      .from('events')
+      .insert({
+        slug: `p1058-residue-${Date.now()}`,
+        title: 'P1058 residue canary',
+        description: 'Event practice rooms publish their room codes by design (P1057 D-A).',
+        datetime: new Date(Date.now() + 86_400_000).toISOString(),
+        location: 'Test Location',
+        host_id: host.user.id,
+      })
+      .select('id')
+      .single();
+    expect(eventError, `event seed failed: ${eventError?.message}`).toBeNull();
+    createdEventIds.push(event!.id);
+
+    const room = await seedRoom('residue', { guestName: 'Event Guest' });
+    const { error: roomError } = await supabaseAdmin.from('event_practice_rooms').insert({
+      event_id: event!.id,
+      creator_id: host.user.id,
+      session_id: room.id,
+      status: 'waiting',
+    });
+    expect(roomError, `practice room seed failed: ${roomError?.message}`).toBeNull();
+
+    // Step 1 — an anon visitor learns the code from the public event page RPC.
+    const anon = makeAnonClient();
+    const { data: codes } = await anon.rpc('get_practice_room_codes', { p_event_id: event!.id });
+    const learned = (codes as Array<{ code: string }> | null)?.find((c) => c.code === room.code);
+    expect(
+      learned,
+      'get_practice_room_codes did not publish the code — the residue premise no longer holds',
+    ).toBeDefined();
+
+    // Step 2 — holding that published code, the eviction still works.
+    await anon.rpc('release_joiner_seat', { p_session_id: room.id, p_code: learned!.code });
+
+    const after = await readRow(room.id);
+    expect(
+      after.joiner_seat_claimed_at,
+      'event-room residue is CLOSED — update the P1058 spec and this comment',
+    ).toBeNull();
   });
 
   test('a release never moves joiner_profile_id — the column every transcript policy keys on', async () => {
