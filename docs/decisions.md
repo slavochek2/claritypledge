@@ -46,6 +46,33 @@ scenario A · decisions.md 2026-09-08 [process] (`core.bare = true`)
 
 ---
 
+## 2026-09-08 [process]: Self-review found none of the three fail-open holes an independent reviewer found in one pass (P1155)
+
+**Context:** P1155's implementation was reviewed by its own author. The spawned Claude
+reviewer died mid-run (`ENOTFOUND`, 0 of 1 reported), so the inline self-review stood alone.
+It did find a real bug. An independent Codex review was then run on the explicit grounds
+that author-reviews-own-work is not an independent pass. Codex ran the suites itself — 31/31
+green — and returned **REJECT** with three findings, all reproduced by command afterwards.
+
+**Decision:** When the author is also the reviewer, that is an unreviewed change. Run an
+independent pass on a different harness before treating it as reviewed, and record the
+spawned-versus-reported count rather than the spawn count.
+
+**Alternatives rejected:** Treating a green suite as the review — all three findings sat
+behind passing tests. Re-spawning the same reviewer type — the failure was the *lens*, not
+the instance.
+
+**Consequences:** Two of the three were the reviewed change reproducing the very defect it
+was built to fix, one layer in: a manual workflow run made a dead cron read as alive, and a
+registry whose promise is *"adding a check is a data edit, no code"* accepted a typed-wrong
+data edit that validated cleanly and could then never fire. The generalisable rule: **a
+validator that checks structure but not element types turns a data-only edit into a silent
+no-op**, and a check that exists, runs, and can never fire is indistinguishable from a quiet
+system. Also: raising a page limit moves a truncation cliff without removing it — when
+completeness cannot be proven, fail loudly rather than reporting "nothing found".
+
+**References:** [features/p1155_correct_alarm_rang_into_an_empty_room.md](../features/p1155_correct_alarm_rang_into_an_empty_room.md) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7b, 9b · `~/.agents/bin/codex-review`
+
 ## 2026-09-08 [technical]: The same identity has two spellings, and verifying through the wrong one fails closed and silent (P1155)
 
 **Context:** P1155's escalator must ignore GitHub issues not authored by the Actions bot.
