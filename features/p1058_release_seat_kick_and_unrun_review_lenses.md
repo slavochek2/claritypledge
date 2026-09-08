@@ -330,7 +330,24 @@ what makes EvalPlanQual re-read the committed row version.
   requests away.
 - **Lock contention surfaces as HTTP 500 / `57014`**, not a clean refusal (`anon` has
   `statement_timeout=3s`) — the loser of a race sees a server error.
-- **A guest who signs in mid-session satisfies neither release arm.**
+- **A guest who signs in mid-session satisfies neither release arm.** Their seat has
+  `joiner_profile_id IS NULL` but they now have an `auth.uid()`, so the signed-in arm's equality
+  fails and the guest arm's `auth.uid() IS NULL` fails. **Pre-existing, not introduced** — the
+  P1053 predicate had the same shape.
+- **The authoring gate never required either coupling marker, and cannot.** Verified directly:
+  `scripts/check-migration-client-safety.sh:27`'s `BREAKING_SHAPES` covers `REVOKE … FROM
+  (anon|authenticated)`, `DROP POLICY`, `ALTER TABLE … DROP COLUMN` and `ALTER COLUMN … TYPE`. It
+  has **no `DROP FUNCTION` and no notion of a signature change**, and both P1058 migrations revoke
+  `FROM PUBLIC`, which the regex does not match. So the most client-breaking shape in this whole
+  feature — changing an RPC's signature out from under a deployed client — is invisible to the gate,
+  and every marker here was voluntary. Filed to the task inbox.
+- **P1057's own ban on `SETOF clarity_sessions` / `RETURNING *` is violated by `claim_joiner_seat`,
+  and the rule is now false as written** (`20260817140000:71-77`). The ban exists for exactly the
+  "a future ADD COLUMN joins the output" case — which is precisely the mechanism that let the
+  reverted token reach the claimer, and precisely why the next column added to this table publishes
+  itself to every claimer, anonymous ones included. The exception should be named in that rule
+  rather than left contradicted.
+- **`get_practice_room_codes` has no publish or attendance check** — carried into P1269.
 
 #### Refuted
 
