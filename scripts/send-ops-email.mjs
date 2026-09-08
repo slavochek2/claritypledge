@@ -125,7 +125,7 @@ export async function sendOpsEmail({ subject, body, to = process.env.OPS_EMAIL }
       { expect: 250, send: `RCPT TO:<${to || user}>` },
       { expect: 250, send: 'DATA' },
       { expect: 354, send: `${message}\r\n.`, secret: false },
-      { expect: 250, send: 'QUIT' },
+      { expect: 250, send: null },   // final 250: message queued; QUIT is sent below
     ];
     let i = 0;
     const fail = (msg) => { socket.destroy(); reject(new SendError(msg)); };
@@ -136,10 +136,22 @@ export async function sendOpsEmail({ subject, body, to = process.env.OPS_EMAIL }
     socket.on('error', (e) =>
       fail(`SMTP socket error connecting to ${HOST}:${PORT}: ${e.code || e.message || e}`));
     socket.on('data', (chunk) => {
+      // Past the last step the exchange is settled; the server's 221 reply to QUIT
+      // still arrives and must not be dispatched against steps[i] (which is undefined).
+      if (i >= steps.length) return;
       buf += chunk.toString('utf8');
       if (!/\r\n$/.test(buf)) return;
       const lines = buf.trim().split('\r\n');
       const last = lines[lines.length - 1];
+      // RFC 5321 §4.2: a multi-line reply marks continuation with "250-" and the FINAL
+      // line with "250 " (space). EHLO's reply is always multi-line. Treating any
+      // CRLF-terminated buffer as complete means a reply split across TCP segments —
+      // routine on a real network — is read as finished at its first continuation line,
+      // and the next command goes out early. That failure is intermittent and
+      // environment-dependent: it passes against a fast local server every time.
+      // Proven by scripts/test-smtp-handshake.mjs's split-EHLO case, which failed here
+      // before this check existed.
+      if (!/^\d{3} /.test(last)) return;   // continuation — wait for the final line
       buf = '';
       const code = parseInt(last.slice(0, 3), 10);
       const step = steps[i];
@@ -148,8 +160,15 @@ export async function sendOpsEmail({ subject, body, to = process.env.OPS_EMAIL }
         return fail(`SMTP step ${i} expected ${step.expect}, got ${code}: ${last}`);
       }
       i++;
-      if (i >= steps.length) { socket.end(); return resolve(true); }
-      socket.write(steps[i - 1].send === 'QUIT' ? '' : `${steps[i - 1].send}\r\n`);
+      if (i >= steps.length) {
+        // Final 250 seen: the message is queued. Say QUIT properly rather than
+        // dropping the connection — the previous code could never reach its own
+        // QUIT branch, so it always half-closed instead.
+        socket.write('QUIT\r\n');
+        socket.end();
+        return resolve(true);
+      }
+      socket.write(`${steps[i - 1].send}\r\n`);
     });
     socket.on('close', () => { if (i < steps.length) fail(`SMTP closed after step ${i}`); });
   });

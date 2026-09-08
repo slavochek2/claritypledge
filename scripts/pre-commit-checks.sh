@@ -249,7 +249,7 @@ echo ""
 # the alarm is diverted silently. Hermetic (jq against fixtures, no network).
 # The canary extracts the jq filter FROM the workflows rather than restating it,
 # so a drift between test and code fails rather than passing quietly.
-ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs)|\.github/alert-registry\.json)$' || true)
+ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs|test-smtp-handshake\.mjs)|\.github/alert-registry\.json)$' || true)
 if [ -n "$ALERT_PRODUCER_STAGED" ]; then
     if ! run_quiet "Alert-producer author-bind canary (P1155)" bash scripts/test-producer-author-bind.sh; then
         ERRORS=$((ERRORS + 1))
@@ -257,6 +257,19 @@ if [ -n "$ALERT_PRODUCER_STAGED" ]; then
     if [ -f "scripts/test-alert-escalator.mjs" ]; then
         if ! run_quiet "Alert-escalator fixture suite (P1155)" node scripts/test-alert-escalator.mjs; then
             ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # Hand-rolled SMTP is the riskiest file in this feature and its failure mode is
+    # intermittent, so it gets a real handshake against a fake server (multi-line EHLO
+    # split across writes) rather than fixture-only coverage. Needs openssl for the
+    # throwaway cert; skipped with a warning rather than silently if absent.
+    if [ -f "scripts/test-smtp-handshake.mjs" ]; then
+        if command -v openssl >/dev/null 2>&1; then
+            if ! run_quiet "SMTP handshake canary (P1155)" node scripts/test-smtp-handshake.mjs; then
+                ERRORS=$((ERRORS + 1))
+            fi
+        else
+            echo -e "${YELLOW}⚠ SMTP handshake canary skipped: openssl not found${NC}"
         fi
     fi
 else
