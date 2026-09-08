@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [product]: Keep the group named for what it does, not for why it matters to a member
+
+**Context:** The founder asked whether "Communication Activism Community · Chiang Mai" (renamed 2026-09-07, this log) should instead be named around Ikigai — reasoning that communication activism is a means, and the result members actually get is progress toward their own life's work. Considered: rename to something like "Ikigai Mutual Help Group," or a compound name.
+
+**Decision:** Keep the current name. A group name should state what the group asks of a member (practise revealing gaps, carry it outward) so it filters joiners; why that matters to the reader (it helps them get further on whatever they're pursuing) belongs in the description, not the name. Ikigai is the founder's own frame for why spreading this norm matters to him — it is not what the group produces, and it isn't the same for every member, so it can't honestly be promised in a name. The 2026-09-07 rename's own falsifier (do members act outward after ~2 months, or is the framing decoration) depends on the name asking something specific; a purpose-sounding name like Ikigai asks nothing and would erase the filter that made two of six hikers' "yes" to the word "activists" a real signal.
+
+**Alternatives rejected:** *Rename to an Ikigai-branded name.* Loses the join filter (the exact effect this log's 2026-09-07 entry credits with real signal), collapses into a crowded, non-differentiated "purpose community" category, and has no measurable falsifier the way outward action does. *Blend both into one name* (e.g. "Ikigai Communication Activists") — considered but not chosen this session; no evidence gathered on whether a compound name keeps the filter.
+
+**Consequences:** The gap this surfaced was in the description, not the name, and it is now closed in prod on **both** groups: a founder-authored paragraph naming six personal benefits (avoid preventable mistakes, accelerate your learning, build trust faster, increase your own trustworthiness, reduce conflicts that get emotionally stuck, strengthen your professional and personal relationships). On `· Chiang Mai` the same statement **removes** the clause that had carried those benefits as the tail of the definition paragraph, where they read as part of a definition rather than as a promise. Note the benefits paragraph says "revealing **and bridging**" while the Terms commit a member to revealing only — that is intended (the benefit does come from bridging), but it is the one surface where both words sit together, so re-read it if the Terms are ever revised. Cheapest falsifier before any further naming change: ask the next 5 link recipients which of the two names they would join and why.
+
+**References:** this log 2026-09-07 [product] (Chiang Mai rename, open items) · `supabase/migrations/20260908100000_org_about_personal_benefits.sql` · `supabase/migrations/20260907120000_cm_activist_group_copy.sql` · [lean-canvas.md](lean-canvas.md) (Ikigai governing frame)
+
+---
+
 ## 2026-09-07 [technical]: The deploy manifest is written from a directory glob, so a green drift check proves only that someone ran the stamper
 
 **Context:** Adversarial review of [p1211](../features/p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md), whose Fix Approach candidate 1 wires `check-deploy-manifest.sh` into the pre-push hook. Both halves of that machinery were measured. `check-deploy-manifest.sh` never contacts prod — `grep -c` for `supabase.com|schema_migrations|curl|psql|SUPABASE_ACCESS_TOKEN` returns **0**; its `--env prod` verdict is `git show origin/main:supabase/deploy-manifest.json` compared against a glob of the working-tree migrations directory (`:19-23`, `:45-60`, `:127`). `stamp-deploy-manifest.sh` returns **0** for the same grep and builds the `migrations` array by globbing `$MIGRATIONS_DIR/*.sql` (`:236-250`). Neither program has ever asked the database anything.
