@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000073
 workstream: infrastructure
 created_date: '2026-09-04'
 tags: [infrastructure, multi-agent, codex, skills]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-08
 ---
 
 # P1247: Contract 2's canary is split by tier, and only the repo-only half is gated
@@ -18,7 +18,7 @@ driver: anomaly
 **Phase 1 of a multi-phase effort — closes here.** Phase 2 (convert `~/.codex/AGENTS.md` into a
 generated file instead of a hand-maintained fork), Phase 3 (the rules-layer-reach founder
 decision), and Phase 4 (pp/ladischenski-com projection cleanup) continue in
-[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md) — split off because `/ship`'s
+[P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md) — split off because `/ship`'s
 completion gate checks every `## Done-When` box in one spec, and this spec's original Done-When
 mixed all four phases. Read this spec in full for the Problem/Invariants/Risks that bind every
 phase; P1265 carries the not-yet-done Solution/Risks/Alternatives/Open-Questions text forward
@@ -26,14 +26,14 @@ rather than restating it here.
 
 ## Problem
 
-**Situation:** [decisions.md](../docs/decisions.md) 2026-08-25 settled multi-harness support as
+**Situation:** [decisions.md](../../../docs/decisions.md) 2026-08-25 settled multi-harness support as
 **three separately verified contracts**: (1) one canonical skill source with a closed-world
 projection writer, (2) a vendor-neutral capability policy mapped by harness-specific adapters,
 (3) native lifecycle hooks on each harness's documented event schema. Contracts 1 and 3 each got
 a pre-commit gate — `pre-commit-checks.sh:1689` runs `sync-agent-skills.sh --check`, and `:1704`
 runs `test-codex-native-hooks.sh`. Contract 2 got a canary too, `scripts/test-multi-harness-routing.sh`,
 and **it is deliberately not wired to any caller** — recorded in
-[P1221](done/2026-06-10/p1221_repo_structure_cleanup_and_order_gate.md):103-110 as
+[P1221](p1221_repo_structure_cleanup_and_order_gate.md):103-110 as
 *"REAL CHECK, NOT wired, NOT archived — deliberate"*, for two reasons that are still true: it
 makes a live `dsh` call, so wiring it puts network and spend on every commit in the repo; and
 most of its 31 assertions read per-machine files under `$HOME` that no CI runner or second
@@ -142,7 +142,7 @@ call already made in conversation (adopt the pointer pattern, not a re-sync).
   file is, it is plain text at a path a harness can be pointed at directly. No build step stands
   between a harness and the rules it must obey.
 - **`.agents/skills/` is a generated projection and is never hand-edited or named as a target**
-  ([decisions.md](../docs/decisions.md) 2026-09-03).
+  ([decisions.md](../../../docs/decisions.md) 2026-09-03).
 - **A structural assertion is never accepted as a runtime one.** That a file exists, resolves, or
   contains a pointer does not establish that any harness loads it. Every claim that a harness
   *obeys* a rule must rest on a fresh-session behavioral canary that observes the rule taking
@@ -191,7 +191,7 @@ that is the mechanism by which a wired gate would fail on ordinary maintenance.
 `model: gemini-<version>-flash` shape, never the literal version string) — there is nothing left
 for `/slava:util:model-bump` to know about. See Done-When evidence below.
 
-**Phase 2 onward — continues in [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md).**
+**Phase 2 onward — continues in [P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md).**
 That spec carries forward, verbatim from this spec's original draft: converting
 `~/.codex/AGENTS.md` (and, if measured to support it, `~/.gemini/GEMINI.md`) from a hand-maintained
 fork into a generated file; the byte-budget requirement for the generator; the rules-layer-reach
@@ -210,7 +210,7 @@ Invariants and Risks sections first — they bind every phase, not just this one
 
 **Phase 2+ risks (pointer-vs-generation, byte budget, global-file editing, rollback ordering,
 universal-table collapse, `.claude/rules/` projection) carry forward to
-[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md)'s own Risks table — not restated
+[P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md)'s own Risks table — not restated
 here.**
 
 **Non-Goals**
@@ -269,7 +269,7 @@ here.**
 **All 5 Done-When items above are this spec's complete scope.** The 9 items originally listed here
 for Phase 2/3/4 (rules diff, Codex fork content, behavioral canaries, pp projection, `CLAUDE.md`
 pointer, `/slava:maintain:claude-md` profile) moved to
-[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md)'s own Done-When, unchecked —
+[P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md)'s own Done-When, unchecked —
 `/ship`'s gate 2.5 counts every unticked box in one spec's Done-When section, and this spec's
 original list mixed all four phases, which would have blocked shipping Phase 1 indefinitely.
 
@@ -286,7 +286,7 @@ and shape, never the version string.** Done — see Done-When evidence.
 
 The founder-decision question (which rules earn a place in a cross-harness hard-stops block) and
 the ladischenski-com/sbx-demo projection question both belong to later phases and moved to
-[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md)'s Open Questions.
+[P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md)'s Open Questions.
 
 ## Rollback Strategy
 
@@ -295,19 +295,19 @@ Phase 1 (this spec) is a call site in `pre-commit-checks.sh` plus text edits in
 `bb924ba1e` and `1cee65ffb` returns the repo to the unwired, undrifted-detection state (contract 2
 had before this spec: 29/2 on the live suite, zero commit-path coverage). No global (`~`) files were
 touched in this phase. Later phases' rollback strategy (global-file backups, two-phase add/remove
-ordering) moved to [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md).
+ordering) moved to [P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md).
 
 ## Related
 
-- [P1151](done/2026-06-10/p1151_universal_multi_harness_architecture.md) — established the
+- [P1151](p1151_universal_multi_harness_architecture.md) — established the
   architecture; superseded where it inferred runtime behavior from structure
-- [P1157](done/2026-06-10/p1157_make_multi_harness_projection_runtime_correct.md) — established the
+- [P1157](p1157_make_multi_harness_projection_runtime_correct.md) — established the
   three contracts and built this spec's canary
-- [P1163](p1163_orphaned_skill_sweep.md) — orphaned *skills*; this spec's canary is an orphaned
+- [P1163](../../p1163_orphaned_skill_sweep.md) — orphaned *skills*; this spec's canary is an orphaned
   *gate*, the same shape one layer up
-- [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md) — continues Phase 2/3/4 of this
+- [P1265](../../p1265_codex_agents_md_becomes_a_generated_projection.md) — continues Phase 2/3/4 of this
   spec's original plan
-- [decisions.md](../docs/decisions.md) 2026-08-25 (three contracts) · 2026-09-03 (projection is a
+- [decisions.md](../../../docs/decisions.md) 2026-08-25 (three contracts) · 2026-09-03 (projection is a
   mirror)
 
 ## Review Record
