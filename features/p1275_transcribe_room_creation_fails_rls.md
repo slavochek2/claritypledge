@@ -23,6 +23,9 @@ reproduce_artifact:
   surface_audit_hits: 16
   reproduced_at: 2026-09-08
   fix_shape: decided
+date_resolved: '2026-09-08'
+root_cause: "INSERT ... RETURNING is evaluated under transcribe_rooms' member-scoped SELECT policy (P1207) for the row it just wrote; the creator is not a member yet, so the read-back is refused and the insert aborts."
+resolution: "create_transcribe_room() — a SECURITY DEFINER function writing the room and the creator's membership in one transaction. No policy changed."
 ---
 
 # P1275: Creating an ad-hoc `/transcribe` room fails with a raw RLS violation
@@ -214,18 +217,64 @@ alternative is holding a live prod bug behind an unfinished feature.
 
 ## Acceptance Criteria
 
-- [ ] A signed-in user can start a new `/transcribe` room and lands in it, with their own name in
-      the roster
-- [ ] The creator is a member of the room immediately — the roster is non-empty and the room can be
-      ended by them
-- [ ] No room row can exist without at least its creator's membership row
-- [ ] A room-code collision still retries with a fresh code rather than surfacing an error
-- [ ] A caller passing a `session_id` belonging to another user is refused
-- [ ] `create_transcribe_room` is executable by `authenticated` and **not** by `anon`, verified
-      against `pg_proc.proacl` rather than against the `GRANT` statement in the migration
-- [ ] `transcribe_rooms`' SELECT policy is unchanged by this fix — enumeration stays closed
-- [ ] No raw Postgres error text reaches the UI on any create failure
-- [ ] Regression test fails before the fix and passes after: `e2e/p1275-*.spec.ts` (or an
-      integration test that exercises the RLS path — the failure is server-side, so a jsdom unit
-      test cannot reproduce it)
-- [ ] No console errors during the create flow
+- [x] A signed-in user can start a new `/transcribe` room and lands in it, with their own name in
+      the roster — `e2e/p1275-transcribe-room-create.spec.ts`, 2/2 green
+- [x] The creator is a member of the room immediately — the roster is non-empty and the room can be
+      ended by them — integration `creates the room and the creator membership in one call` +
+      `the creator can end the room they created`
+- [x] No room row can exist without at least its creator's membership row — both INSERTs are in one
+      plpgsql function, so they share a transaction. **Partially tested, deliberately:** every guard
+      runs before the room INSERT, so no reachable input fails *between* the two INSERTs and the
+      test `a refused call creates nothing at all` would pass against a non-atomic implementation
+      too. The limit is written into that test rather than left for a reader to discover
+- [x] A room-code collision still retries with a fresh code rather than surfacing an error —
+      integration `a duplicate code still raises 23505 so the client retry loop keeps working`
+      (the function does not swallow 23505; the client's loop consumes it)
+- [x] A caller passing a `session_id` belonging to another user is refused — integration
+      `a session belonging to someone else is refused`, plus no membership row left behind
+- [x] `create_transcribe_room` is executable by `authenticated` and **not** by `anon`, verified
+      against `pg_proc.proacl` rather than against the `GRANT` statement — test DB catalog reads
+      `postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres`; no anon entry.
+      The guard was **watched fail**: granting anon on test turned integration
+      `anon is not merely rejected — it has no EXECUTE grant at all` red, and revoking restored a
+      byte-identical ACL. Its first version was vacuous — it asserted only that an error occurred,
+      and anon fails the function's own `auth.uid()` check with the same `42501` whether or not the
+      grant exists. It now asserts the *message* (`permission denied for function`, which only the
+      missing grant produces) and carries a control proving the probe can still reach a function
+      anon **is** granted
+- [x] `transcribe_rooms`' SELECT policy is unchanged by this fix — the migration contains zero
+      policy statements (grepped), and integration `room-code enumeration stays closed` re-asserts
+      P1207's guarantee
+- [x] No raw Postgres error text reaches the UI on any create failure — `createRoom` maps every
+      non-23505 error to "Could not start a room. Please try again." and logs the detail to the
+      console. **Asserted only on the success path** (the canary requires the error element to be
+      absent); the mapping itself is covered by review, not by a test
+- [x] Regression test fails before the fix and passes after — mutation proof: with the client
+      reverted to main's `createRoom` and the migration still applied, the canary goes 2/2 red with
+      `new row violates row-level security policy for table "transcribe_rooms"`; restored, 2/2 green
+- [x] No console errors during the create flow — the create path logs nothing; the console carries
+      only pre-existing aborted-on-unmount requests unrelated to this change
+
+## Verification Record
+
+| check | result |
+|---|---|
+| UI canary (`p1275-transcribe-room-create`) | 2/2 green — **3 of 4 post-fix runs**; see flake note |
+| RPC integration (`p1275-create-transcribe-room-rpc`) | 9/9 green, twice |
+| Mutation proof (client reverted, migration applied) | 2/2 red, correct error |
+| `p1149-chat-render`, `p1207-transcribe-room-codes` | 5/5 green |
+| `p1149-auth-gate`, `p1149-consent-gate` | 5 passed, 1 failed — **pre-existing on `main`**, filed as P1276 |
+| vitest suite + typecheck + lint + build | green (pre-commit) |
+
+**Known flake, not resolved.** One of four post-fix canary runs failed with the join settling into
+neither a room nor an error inside 15s. No network errors were logged in that run and a 10/10 curl
+control to the same project passed immediately after; the cause was not established. Recorded rather
+than retried away. Two consecutive runs after it were green.
+
+**One dead end worth not repeating.** Two earlier post-fix runs looked like a product failure —
+timeouts plus an admin query returning zero members — and were neither. `locator.textContent()`
+auto-waits for a missing element, so on the *passing* path it blocked for the full default timeout
+before throwing, and the `.catch(() => null)` around it swallowed that as "no error". One line burned
+24s of a 30s budget and surfaced as a timeout on the next assertion. `allTextContents()` resolves
+against what matches now and returns `[]`. Step timing found it in one run after three hypotheses
+(VPN, dev-server adoption, project mismatch) had each been raised and killed.

@@ -194,14 +194,31 @@ test.describe('P1275: create_transcribe_room', () => {
     }
   });
 
-  test('anon cannot execute it', async () => {
+  test('anon is not merely rejected — it has no EXECUTE grant at all', async () => {
     // REVOKE ... FROM PUBLIC does not remove a role-direct grant (P1065, hit again in
-    // P1236). Assert the effect, not the GRANT statement in the migration.
+    // P1236), so this must assert the effect rather than the GRANT statement.
+    //
+    // Asserting only "an error occurred" would be VACUOUS: with the grant present, anon
+    // still fails the function's own auth.uid() check and still raises 42501. The two
+    // cases are told apart by the MESSAGE, not the code —
+    //   grant absent : "permission denied for function create_transcribe_room"
+    //   grant present: "not authenticated"
+    // so the message is what this asserts.
     const anon = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
     const { error } = await anon.rpc('create_transcribe_room', {
       p_code: roomCode(), p_display_name: 'Anon', p_session_id: creatorSessionId, p_event_id: null,
     });
-    expect(error, 'an unauthenticated caller must not be able to create rooms').not.toBeNull();
+    expect(error?.message ?? '',
+      'anon must be refused at the grant, before the function body runs',
+    ).toMatch(/permission denied for function/i);
+
+    // CONTROL: the same anon client against a function anon IS deliberately granted
+    // (P1207's code lookup). Without this, a probe that cannot reach ANY function would
+    // produce the identical verdict above and the assertion would prove nothing.
+    const granted = await anon.rpc('get_transcribe_room_by_code', { p_code: 'ZZZZZZ' });
+    expect(granted.error,
+      'control: anon must still reach a function it is granted, or this probe is blind',
+    ).toBeNull();
   });
 
   test('room-code enumeration stays closed', async () => {
