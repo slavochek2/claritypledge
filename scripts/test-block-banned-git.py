@@ -26,6 +26,31 @@ import subprocess
 import sys
 import tempfile
 
+# Hermetic-fixture guard (found 2026-09-08, P1246; the bug is PRE-EXISTING and
+# unrelated to that spec's changes).
+#
+# This canary builds a scratch repo and asks `git rev-parse --git-path sequencer`
+# where it lives. When git itself invokes us — i.e. whenever pre-commit-checks.sh
+# runs as the pre-commit HOOK, which happens on any commit that stages a
+# .claude/hooks/ file — git exports GIT_DIR and GIT_INDEX_FILE. Those override
+# `cwd`, so rev-parse answers for the OUTER repo and returns an absolute path;
+# the fixture check then reports "FIXTURE BROKEN: sequencer dir not resolvable"
+# and blocks the commit.
+#
+# Measured both ways before fixing:
+#   python3 scripts/test-block-banned-git.py                -> 77 cases, exit 0
+#   GIT_DIR=... GIT_INDEX_FILE=... python3 (same script)    -> 75 cases, exit 1
+# and identically on the unmodified copy in the main checkout, which is what
+# establishes it as pre-existing rather than introduced.
+#
+# The canary was only ever exercised standalone, so the environment that breaks
+# it is precisely the one it runs in for real. Scrub git's repo-scoping vars once
+# here rather than per-subprocess: every child of this script — the fixture's git
+# calls AND the hook under test — must see the scratch repo, never the caller's.
+for _v in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE",
+           "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR", "GIT_PREFIX"):
+    os.environ.pop(_v, None)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, ".claude/hooks/block-banned-git.py")
 

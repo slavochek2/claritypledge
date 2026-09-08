@@ -39,6 +39,12 @@ pass() { echo "PASS: $*"; }
 mkdir -p "$SCRATCH/main/scripts" \
          "$SCRATCH/main/features/done/2026-04-22"
 cp "$REPO_ROOT/scripts/git-ops.sh" "$SCRATCH/main/scripts/git-ops.sh"
+# P1246: ship runs scripts/ship-gates.sh from the closing path and fails CLOSED
+# when it is absent, so a scratch repo without it cannot ship at all.
+mkdir -p "$SCRATCH/main/scripts/lib"
+cp "$REPO_ROOT/scripts/ship-gates.sh" "$SCRATCH/main/scripts/ship-gates.sh"
+cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$SCRATCH/main/scripts/lib/gate-override.sh"
+chmod +x "$SCRATCH/main/scripts/ship-gates.sh"
 touch "$SCRATCH/main/features/done/2026-04-22/.gitkeep"
 
 (
@@ -49,7 +55,7 @@ touch "$SCRATCH/main/features/done/2026-04-22/.gitkeep"
   git config commit.gpgsign false
   echo "base" > shared.txt
   echo "seed" > README.md
-  git add README.md shared.txt scripts/git-ops.sh features/done/2026-04-22/.gitkeep
+  git add README.md shared.txt scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh features/done/2026-04-22/.gitkeep
   git commit -qm "seed"
   git branch -M main
 ) >/dev/null
@@ -82,8 +88,17 @@ pipeline_ran: [fix]
 # p972: Demo
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion checkboxes)
 EOF
 ( cd "$SCRATCH/main" && git add features/p972_demo.md && git commit -qm "chore: add p972 spec" ) >/dev/null
+# P1246 gate 2.7 fixture: /finish does not exist inside a scratch repo, so supply
+# the artifact it would have written. The gate still runs and still reads it.
+printf '{"type": "code", "pn": "p972", "branch": "feature/p972-demo", "sha": "%s", "timestamp": "%s", "issues_found": 0, "issues_fixed": 0}\n' \
+  "$( cd "$SCRATCH/main" && git rev-parse HEAD )" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  >> "$SCRATCH/main/.git/.finish-reviewed"
 
 # main diverges on shared.txt after the branch point → guarantees c2 conflict.
 echo "main version" > "$SCRATCH/main/shared.txt"
@@ -183,6 +198,10 @@ trap 'rm -rf "$SCRATCH" "$SCRATCH2"' EXIT
 
 mkdir -p "$SCRATCH2/main/scripts" "$SCRATCH2/main/features/done/2026-04-22"
 cp "$REPO_ROOT/scripts/git-ops.sh" "$SCRATCH2/main/scripts/git-ops.sh"
+mkdir -p "$SCRATCH2/main/scripts/lib"
+cp "$REPO_ROOT/scripts/ship-gates.sh" "$SCRATCH2/main/scripts/ship-gates.sh"
+cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$SCRATCH2/main/scripts/lib/gate-override.sh"
+chmod +x "$SCRATCH2/main/scripts/ship-gates.sh"
 touch "$SCRATCH2/main/features/done/2026-04-22/.gitkeep"
 
 (
@@ -193,7 +212,7 @@ touch "$SCRATCH2/main/features/done/2026-04-22/.gitkeep"
   git config commit.gpgsign false
   echo "base" > shared.txt
   echo "seed" > README.md
-  git add README.md shared.txt scripts/git-ops.sh features/done/2026-04-22/.gitkeep
+  git add README.md shared.txt scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh features/done/2026-04-22/.gitkeep
   git commit -qm "seed"
   git branch -M main
   git checkout -q -b feature/p972-demo
@@ -220,8 +239,17 @@ pipeline_ran: [fix]
 # p972: Demo
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion checkboxes)
 EOF
 ( cd "$SCRATCH2/main" && git add features/p972_demo.md && git commit -qm "chore: add p972 spec" ) >/dev/null
+# P1246 gate 2.7 fixture: /finish does not exist inside a scratch repo, so supply
+# the artifact it would have written. The gate still runs and still reads it.
+printf '{"type": "code", "pn": "p972", "branch": "feature/p972-demo", "sha": "%s", "timestamp": "%s", "issues_found": 0, "issues_fixed": 0}\n' \
+  "$( cd "$SCRATCH2/main" && git rev-parse HEAD )" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  >> "$SCRATCH2/main/.git/.finish-reviewed"
 echo "main version" > "$SCRATCH2/main/shared.txt"
 ( cd "$SCRATCH2/main" && git add shared.txt && git commit -qm "chore: main edits shared.txt (conflict base)" ) >/dev/null
 

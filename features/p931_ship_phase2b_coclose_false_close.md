@@ -2,7 +2,7 @@
 status: backlog
 type: bug
 rank: 72
-severity: medium
+severity: low
 date_reported: '2026-06-11'
 created_date: '2026-06-11'
 tags:
@@ -16,6 +16,41 @@ pipeline_ran:
 ---
 
 # P931: `git-ops.sh ship` Phase 2b co-located auto-close can close the WRONG spec
+
+> **RE-TRIAGED 2026-09-08 (P1246), severity medium -> low. Read this before the body:
+> the mechanism described below no longer exists.**
+>
+> P1246 was filed expecting to raise this to `high` — "a defect that silently marks
+> security specs complete at an 83% wrong rate is not medium." That reasoning was
+> written 2026-09-04. [P1250](done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md)
+> shipped on 2026-09-07 and **deleted Phase 2b's auto-close entirely**: it now
+> prints a list and closes nothing.
+>
+> Re-derived by command rather than from either spec's prose. `detect_cospecs`
+> survives, but every remaining caller is a REPORT:
+>
+> ```
+> $ grep -n 'cospecs' scripts/git-ops.sh
+> 2662:  if ! cospecs="$(detect_cospecs "$pn" "$branch")"     # compute
+> 2673:    echo "ship: specs edited by ${branch}, none will be auto-closed: ..."   # report
+> 3095:  if [[ -n "$cospecs" ]]; then                          # report
+> ```
+>
+> Nothing moves a file, rewrites frontmatter, or commits. Every acceptance
+> criterion below ("does NOT close a different spec") is therefore satisfied
+> structurally — not by a guard that could regress, but because the closing code
+> is gone.
+>
+> **The residual, which is what `low` now scores:** the set arithmetic can still
+> name the wrong P-number in that printed list, and the list ends with "if one of
+> these is genuinely done, close it by name". A wrong entry can therefore still
+> mislead a human into a manual close — but a human decides, and since P1246 that
+> manual close runs `ship-gates.sh` first. Two layers stand between this bug and a
+> false close where previously there were none.
+>
+> **Not closed**, because the arithmetic is genuinely still wrong and the report is
+> still consumed. Re-scored to match what it can now cost.
+
 
 ## Summary
 

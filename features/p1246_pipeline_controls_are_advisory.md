@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000072
 severity: high
@@ -7,8 +7,8 @@ workstream: infrastructure
 date_reported: '2026-09-04'
 created_date: '2026-09-04'
 tags: [pipeline, ship, hooks, gates, tooling]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -129,14 +129,42 @@ Four gates, one mechanism:
 confirmed available on this machine, with a built-in no-plugin baseline arm. Approved
 by the founder this session.
 
-**[FOUNDER DECISION: what does the override look like when a gate blocks legitimate
-work?]** At least 48% of historical closes would fail today, so a hard gate with no
-escape blocks work on day one. The escape must be auditable and not agent-writable —
-its shape is a product call about how much friction is acceptable.
+### Founder decisions, recorded 2026-09-08
 
-**[FOUNDER DECISION: may a gate block *you*, not only agents?]** If not, the layer can
-only advise the founder while binding agents, which is a different design and should be
-settled before building.
+**D1 — the override is a TTY-only prompt plus an audit trail.** Chosen over a flag
+file (`~/.push-enabled`-style), over no escape at all, and over a warn-only phase.
+
+Measured this session from the agent Bash tool:
+
+```
+stdin tty: NO   stdout tty: NO   stderr tty: NO
+/dev/tty: "Device not configured"   <- not redirected, ABSENT
+```
+
+A controlling terminal is the one thing in this environment an agent structurally
+cannot obtain, so "was a human present at this invocation?" is answerable and
+cannot be spoofed by setting a variable, touching a file, or passing a flag. This
+satisfies the Invariant *"No override is writable by the agent being gated"* —
+which the flag-file option does not, by the founder's own global rule
+(*"authorization the agent can forge is not authorization"*). There is deliberately
+no test-mode env var; the canary proves the allow-path through a real pty via
+`script(1)`.
+
+The reason typed at the prompt is recorded twice: in
+`git-common-dir/gate-overrides.log`, and — the one that matters — as a
+`Gate-Override-Reason:` trailer on the closure commit, which is pushed, permanent,
+and greppable across history.
+
+**D2 — yes, a gate may block the founder.** One code path, no actor detection.
+The gate refuses everyone; only a human at a terminal can pass it. This makes
+"agent vs founder" a structural property (TTY presence) rather than something a
+session self-declares, and it means an agent can never reach the state where work
+is closed unverified — the 83% failure this spec measures.
+
+**D3 — the intent gate is scoped to feature/story/task; bug specs are exempt.**
+A bug's authoritative artifact is its reproduction, not a stated intent, and
+`/create-bug` already skips `/problemify` for that reason. Forcing a quote onto a
+spec whose honest origin is "the alarm fired" would manufacture ceremony.
 
 ## Risks / Non-Goals
 
@@ -195,27 +223,150 @@ which closes *succeed* — revert it together with the wiring, never alone.
 
 ## Done-When
 
-- [ ] `ship-gates.sh` is invoked from the closing code on all three close routes, shown
+- [x] `ship-gates.sh` is invoked from the closing code on all three close routes, shown
       by call sites in `git-ops.sh` (or a hook it cannot bypass)
-- [ ] A spec with an unticked completion box cannot be closed — the `p1043` case replayed
+- [x] A spec with an unticked completion box cannot be closed — the `p1043` case replayed
       against the new code, with the non-zero exit pasted
-- [ ] Phase 2b refuses to close a co-located spec that fails the gate, shown on a fixture
-- [ ] A ship that fails before cleanup leaves no stranded worktree, **or** the stranding
+- [x] Phase 2b refuses to close a co-located spec that fails the gate, shown on a fixture
+- [x] A ship that fails before cleanup leaves no stranded worktree, **or** the stranding
       is reported without anyone asking — demonstrated by killing a ship mid-sequence
-- [ ] A spec created from a conversation without the founder's verbatim framing is
+- [x] A spec created from a conversation without the founder's verbatim framing is
       refused, with the exit code pasted
-- [ ] `git-ops.sh` no longer reads `status:` to decide whether a close may proceed
-- [ ] The `p1113` case replayed: a spec whose frontmatter reads `status: done` with work
+- [x] `git-ops.sh` no longer reads `status:` to decide whether a close may proceed
+- [x] The `p1113` case replayed: a spec whose frontmatter reads `status: done` with work
       on main can be closed rather than dying
-- [ ] Every gate's **failure path** exercised with a pasted exit code — unreadable spec,
+- [x] Every gate's **failure path** exercised with a pasted exit code — unreadable spec,
       missing script, unresolvable branch (epistemic gate 7)
-- [ ] **False-positive pass:** the repo's own documented ship and dev workflows run
+- [x] **False-positive pass:** the repo's own documented ship and dev workflows run
       end-to-end against the wired gates and still complete. Name which were run
       (epistemic gate 7c)
 - [ ] `claude plugin eval` runs as a merge check on changes to `CLAUDE.md`, skills or
       hooks, with the threshold and baseline arm recorded
-- [ ] Both founder decisions above recorded in this spec
-- [ ] `p931` re-triaged to a severity matching its measured impact
+- [x] Both founder decisions above recorded in this spec
+- [x] `p931` re-triaged to a severity matching its measured impact
+
+## Implementation Record (2026-09-08)
+
+### What was built
+
+| Gate | Mechanism | Where |
+|---|---|---|
+| 1. Closure | `ship_run_gates` called from the closing code before any mutation | `git-ops.sh:2329` (direct-to-main), `git-ops.sh:2530` (branch route) |
+| 1b. Closure, second layer | `PreToolUse` deny on a hand-rolled `git mv` / `Write` into `features/done/` | `.claude/hooks/block-manual-spec-close.py` |
+| 1c. Closure, server-side | Re-derives the verdict from pushed commits, gate script fetched from `origin/main` | `.github/workflows/closure-gate.yml` |
+| 2. Cleanup | `ship_on_abort` (in-session, pre-existing) + a standing unasked-for report | `scripts/pipeline-strandings.sh`, `SessionStart` hook |
+| 4. Intent | One script, three call sites: `PreToolUse` Write, pre-commit on the staged blob, CI | `scripts/spec-intent-gate.sh` |
+| Override | TTY-only prompt, no test-mode backdoor | `scripts/lib/gate-override.sh` |
+
+`status:` gating removed from `git-ops.sh` — it was the last violation of
+[features.md](../.claude/rules/features.md)'s *"no skill, script or hook may gate
+a merge, a close or a deploy on this field"*.
+
+### Three assumptions in this spec were falsified before building
+
+1. **`WorktreeCreate`/`WorktreeRemove` cannot see this repo's worktrees.** They fire
+   only for Claude Code's own worktree mechanism (`--worktree`, `isolation:
+   "worktree"`, background sessions) — never for `git-ops.sh claim`'s plain
+   `git worktree add`. The cleanup gate is in `git-ops.sh` and a `SessionStart`
+   report instead.
+2. **`TaskCompleted` is the wrong hook for the closure gate.** It fires on
+   *task-list* completion, which this spec's own Risks table calls unreliable
+   ("agent teams sometimes fail to mark tasks complete"). Gating a close on it
+   would have made the gate depend on the least reliable signal available.
+3. **Phase 2b no longer closes anything.** [P1250](done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md)
+   shipped 2026-09-07 and removed the auto-close. Done-When 3 is satisfied more
+   strongly than it asked: Phase 2b cannot close a co-located spec that fails the
+   gate because it cannot close one at all. This is also why `p931` was re-triaged
+   **down** to `low` rather than up — its high-impact path no longer exists.
+
+### Gate 3 (step-ran) was not built, deliberately
+
+The spec proposed reading the session transcript to check a required prior step
+ran. Gates 2.5 and 2.7 already assert the *artifacts* those steps produce —
+completion checkboxes, `pipeline_ran`, a `.finish-reviewed` entry naming the spec.
+Adding a transcript scan would gate on evidence *that the agent authored*, which is
+the self-attestation class this spec's Invariants forbid, and would duplicate a
+check already made against artifacts. Reported rather than silently dropped.
+
+### Evidence
+
+Failure paths, exit codes read directly (never through a pipe — zsh's `$?` after
+`cmd | head` is `head`'s, and `${PIPESTATUS[0]}` expands empty in zsh, both of
+which produced wrong readings during this session before being caught):
+
+```
+B1  unticked box blocks a close ......................... exit 1, spec not moved
+C1  ship-gates.sh deleted -> close DENIED ............... exit 1  (deleting the gate is not a way past it)
+D1  --spec-file on an unreadable path ................... exit 1  (no silent fall-back)
+E1  task spec with no verbatim framing .................. exit 1
+E5  intent gate on an unreadable file ................... exit 1  (fail-closed)
+F1  hand-rolled `git mv` into features/done/ ............ exit 2  (PreToolUse deny)
+A1  override attempted from an agent shell .............. refused (no /dev/tty)
+A3  override at a real pty with a 2-char reason ......... refused
+G3  --strict with a strand present ...................... exit 1
+```
+
+False-positive pass (epistemic gate 7c — the arm with no natural prompt):
+
+```
+scripts/test-git-ops-ship.sh ....... 55 PASS / 0 FAIL, exit 0
+```
+
+That is every documented ship workflow in the repo — K through ZZ — re-run
+end-to-end with the gate armed. It found a real false positive in the first
+version of this gate: canary QQ (P1094 item 2) crashes a ship between Phase 2's
+`git mv` and the journal flag write, then resumes. The gate looked for a spec that
+had already moved, reported "spec not found", and hard-failed a recovery path
+whose entire purpose is surviving that crash. Fixed by widening the skip predicate
+to "the spec has already left `features/`", not just "the journal says closed".
+Nothing prompted that discovery except running the existing workflows — which is
+the whole content of gate 7c.
+
+Allow-arms also asserted, so the gates are measured in both directions:
+`B3` (a fully-ticked spec still ships), `E2`/`E3`/`E4` (framing present, bug
+exempt, cold-start declared), `F3`/`F4` (the sanctioned close path and ordinary
+reads are untouched), `G1` (the report is silent when there is nothing to act on).
+
+The canary suite was itself mutation-tested: breaking gate 2.5's unticked-box
+comparison turns `B1`/`B2` red and the suite exits 1.
+
+Intent-gate blast radius, measured against the live corpus: 87 of 116 non-bug
+open specs would fail it, but only 10 were created after the rule landed
+(2026-08-26) — and the gate fires **at creation only**, so no existing spec is
+ever re-gated.
+
+### Not delivered — `claude plugin eval` merge check
+
+**Blocked on an account capability, not on this work.** The spec recorded it as
+"confirmed available on this machine". The subcommand exists and `--help` prints
+in full, but every invocation refuses:
+
+```
+$ claude plugin eval . ; echo $?
+`plugin eval` is currently in early access
+1
+```
+
+Reproduced with and without `--threshold`, `--eval-dir`, and a target path. So the
+merge check cannot be made to enforce anything today, and wiring it naively would
+put a permanently-red required check in front of every skill change — which is how
+a control becomes something people route around.
+
+Delivered instead, so that only the account flag remains:
+
+- `evals/` — three real cases (closure gate respected, intent gate respected,
+  override not forgeable), each with graders.
+- `.github/workflows/plugin-eval.yml` — runs with `--ablation with-without` (the
+  no-plugin baseline arm) at threshold 1.0; distinguishes "capability unavailable"
+  (warn, pass) from "eval ran and scored low" (fail); and asserts an
+  `aggregate-result.json` was actually written, so a future silent no-op cannot
+  report a vacuous pass.
+
+**This Done-When box is deliberately left unticked**, which means `ship-gates.sh`
+will refuse to close this spec — correctly. The founder's call: enable early
+access and set `ANTHROPIC_API_KEY`, or retire the criterion in prose (the gate's
+own comment is explicit that a retired criterion is *removed with its reason
+recorded*, never marked with a novel glyph).
 
 ## Open Questions
 

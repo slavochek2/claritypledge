@@ -29,15 +29,67 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GREP=/usr/bin/grep
 [[ -x "$GREP" ]] || GREP=grep
 
-pn="${1:-}"
+# ── Arguments ───────────────────────────────────────────────────────────────
+# P1246 adds two flags, both for callers that cannot use the default resolution:
+#
+#   --spec-file <path>  Gate the spec AT THIS PATH instead of resolving it from
+#                       the feature branch or from features/ on disk. The CI
+#                       closure check (.github/workflows/closure-gate.yml) needs
+#                       this because by the time a commit is pushed, the spec it
+#                       closed has already MOVED to features/done/<sprint>/ —
+#                       where the normal resolver deliberately does not look
+#                       (`! -path "features/done/*"`). Without this flag the
+#                       server-side check could only ever report "spec not
+#                       found", i.e. it could never actually gate anything.
+#
+#   --only <list>       Run only the named gates (comma-separated: "2.5,3.5").
+#                       CI runs 2.5 alone: gate 2.7 reads .finish-reviewed, which
+#                       lives in git-common-dir and is untracked, so it does not
+#                       exist on a runner. Running it there would fail every
+#                       commit for a reason unrelated to the commit — a gate that
+#                       always fails teaches people to ignore gates.
+#
+# Neither flag can weaken a local ship: git-ops.sh calls this script with the
+# P-number alone, and --only can only ever run a SUBSET, never relax a gate that
+# does run.
+pn=""
+spec_file_override=""
+only_gates=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --spec-file)
+      spec_file_override="${2:-}"
+      [[ -n "$spec_file_override" ]] || { echo "Error: --spec-file needs a path" >&2; exit 1; }
+      shift 2 ;;
+    --only)
+      only_gates="${2:-}"
+      [[ -n "$only_gates" ]] || { echo "Error: --only needs a gate list" >&2; exit 1; }
+      shift 2 ;;
+    -*)
+      echo "Error: unknown flag '$1'" >&2; exit 1 ;;
+    *)
+      [[ -z "$pn" ]] || { echo "Usage: $0 pN [--spec-file PATH] [--only 2.5,3.5]" >&2; exit 1; }
+      pn="$1"; shift ;;
+  esac
+done
+
 if [[ -z "$pn" ]]; then
-  echo "Usage: $0 pN" >&2
+  echo "Usage: $0 pN [--spec-file PATH] [--only 2.5,3.5]" >&2
   exit 1
 fi
 if [[ ! "$pn" =~ ^p[0-9]+$ ]]; then
   echo "Error: pN must match p[0-9]+ (got: $pn)" >&2
   exit 1
 fi
+
+# gate_enabled <id> — true when --only was not given, or names this gate.
+gate_enabled() {
+  [[ -z "$only_gates" ]] && return 0
+  case ",${only_gates}," in
+    *",$1,"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 fail=0
 
@@ -49,7 +101,21 @@ feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head 
 spec_content=""
 spec_source=""
 
-if [[ -n "$feature_branch" ]]; then
+# --spec-file short-circuits resolution entirely (P1246). Fails CLOSED: an
+# unreadable or empty path is a FAIL below, never a silent fall-through to the
+# branch/disk resolver — a caller that named a path meant that path, and quietly
+# gating a DIFFERENT spec than the one asked for is the worst outcome available.
+if [[ -n "$spec_file_override" ]]; then
+  _sfo="$spec_file_override"
+  [[ "$_sfo" = /* ]] || _sfo="${REPO_ROOT}/${_sfo}"
+  if [[ -r "$_sfo" ]]; then
+    spec_content="$(cat "$_sfo")"
+    spec_source="--spec-file (${spec_file_override})"
+  fi
+  # Do NOT fall back. Leaving spec_content empty here makes gate 2.5 report
+  # "spec not found", which is the correct fail-closed answer.
+  feature_branch=""
+elif [[ -n "$feature_branch" ]]; then
   spec_path="$(cd "$REPO_ROOT" && git ls-tree -r --name-only "$feature_branch" 2>/dev/null \
     | $GREP -E "^features/${pn}_[^/]+\.md$" | head -1)"
   if [[ -n "$spec_path" ]]; then
@@ -58,7 +124,7 @@ if [[ -n "$feature_branch" ]]; then
   fi
 fi
 
-if [[ -z "$spec_content" ]]; then
+if [[ -z "$spec_content" && -z "$spec_file_override" ]]; then
   spec_file="$(cd "$REPO_ROOT" && find features -maxdepth 3 -type f -name "${pn}_*.md" \
     ! -path "features/done/*" ! -path "features/archive/*" ! -path "features/uat/*" \
     2>/dev/null | sort | head -1)"
@@ -183,6 +249,7 @@ collect_completion() {
   '
 }
 
+if gate_enabled "2.5"; then
 if [[ -z "$spec_content" ]]; then
   echo "[GATE 2.5] FAIL: spec not found for ${pn} on branch or disk"
   fail=1
@@ -244,6 +311,8 @@ else
   fi
 fi
 
+fi
+
 # ── Gate 2.7: code review artifact ─────────────────────────────────────────
 # Shared across the main repo and every worktree via git-common-dir (mirrors
 # .privacy-reviewed, P950) so the writer and this gate can never resolve to
@@ -270,6 +339,7 @@ fi
 # no single source and no test (decisions.md 2026-08-28 [process]). Both arms
 # now tolerate the optional space.
 
+if gate_enabled "2.7"; then
 git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --path-format=absolute --git-common-dir)"
 finish_file="${git_common_dir}/.finish-reviewed"
 
@@ -358,12 +428,15 @@ elif [[ -n "$matching_entries" ]]; then
   fi
 fi
 
+fi
+
 # ── Gate 3.5: pre-deploy checklist ──────────────────────────────────────────
 # A "Pre-deploy Checklist" heading (any level) with an unchecked "- [ ]" item
 # means an infra step is unconfirmed. Ticked items ([x]) or a prose "N/A" section
 # (no checkboxes) pass. This replaces /ship's mid-run y/n ask: the ticked box IS
 # the acknowledgement — mechanical and auditable, cannot be silently self-attested.
 
+if gate_enabled "3.5"; then
 if [[ -n "$spec_content" ]]; then
   # Extract the checklist section. Start on a heading containing "pre-deploy checklist"
   # (hyphen optional; extra words allowed). End only on a heading at the SAME or
@@ -392,6 +465,8 @@ if [[ -n "$spec_content" ]]; then
   fi
 fi
 
+fi
+
 # ── Gate 3.65: deferrals should name a P-number (WARN, never blocks) ─────────
 # Every "defer / out-of-scope / follow-up" phrase should trace to a filed P-number
 # — named inline, or introduced as a NEW spec in the feature branch's commits (the
@@ -404,6 +479,7 @@ fi
 # its result is ALWAYS in the gate report — the agent cannot silently skip it and claim
 # a clean spec. The human judges whether a flagged phrase is a real scope-drop.
 
+if gate_enabled "3.65"; then
 if [[ -n "$spec_content" ]]; then
   deferral_hits="$(printf '%s\n' "$spec_content" | $GREP -n -iE 'file separately|track separately|out[- ]of[- ]scope( for| here| unless|:|\b)|punt(ed|ing)? to|left to a separate|separate spec|follow[- ]up (spec|ticket|bug)|defer(red)? (to|until|for now)|future spec|not in scope for this|acknowledged but (out of scope|separate)' || true)"
   if [[ -z "$deferral_hits" ]]; then
@@ -426,6 +502,8 @@ if [[ -n "$spec_content" ]]; then
       echo "[GATE 3.65] PASS: deferral phrases present, all trace to a P-number"
     fi
   fi
+fi
+
 fi
 
 # ── Result ──────────────────────────────────────────────────────────────────

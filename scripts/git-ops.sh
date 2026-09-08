@@ -66,6 +66,11 @@ fi
 if [[ -f "$REPO_ROOT/scripts/lib-datetime.sh" ]]; then
   source "$REPO_ROOT/scripts/lib-datetime.sh"
 fi
+# TTY-only gate override (P1246). See scripts/lib/gate-override.sh for why the
+# escape hatch is a controlling terminal and not a flag file or env var.
+if [[ -f "$REPO_ROOT/scripts/lib/gate-override.sh" ]]; then
+  source "$REPO_ROOT/scripts/lib/gate-override.sh"
+fi
 
 # ----------------------------------------------------------------------------
 # Utilities
@@ -2558,13 +2563,103 @@ PYEOF
   echo "publish-spec: $pn complete. Push when ready (pushes are never automatic)." >&2
 }
 
+# ----------------------------------------------------------------------------
+# Closure gate (P1246)
+# ----------------------------------------------------------------------------
+#
+# WHY THIS IS A FUNCTION CALL AND NOT A LINE IN ship.md
+# `ship-gates.sh` has existed and been correct for months. `ship.md:51` told the
+# agent to run it. Measured 2026-09-04: ZERO call sites in the closing code, and
+# scored against gate 2.5 at the moment of each close, 15/18 co-located closes
+# and >=19/40 sampled ordinary closes would have been refused had it run. A
+# control an agent is asked to invoke is not a control. This is the fix: the
+# close path itself runs the gate, on every route, before any mutation.
+#
+# Placement rule: call this BEFORE the first irreversible step of a route
+# (cherry-pick, git mv, commit). A gate that runs after a mutation is a
+# diagnostic, not a gate.
+#
+# Sets SHIP_GATE_OVERRIDE_REASON (empty when no override was used) for the
+# caller to fold into the closure commit message.
+SHIP_GATE_OVERRIDE_REASON=""
+
+# ship_close_message <subject> — the closure commit subject, plus an override
+# trailer when a gate was overridden.
+#
+# The trailer is the audit trail that MATTERS. gate-overrides.log lives in
+# git-common-dir, is untracked, and is as forgeable as any local file; a commit
+# message is pushed, immutable in practice, and shows up in `git log` next to
+# the close it justifies. Anyone auditing "which specs were closed on a red
+# gate?" greps one string across history.
+ship_close_message() {
+  local subject="$1"
+  if [[ -n "$SHIP_GATE_OVERRIDE_REASON" ]]; then
+    printf '%s\n\nGate-Override: closure gate failed; closed by human override.\nGate-Override-Reason: %s\n' \
+      "$subject" "$SHIP_GATE_OVERRIDE_REASON"
+  else
+    printf '%s\n' "$subject"
+  fi
+}
+
+ship_run_gates() {
+  local pn="$1" want_override="${2:-0}"
+  SHIP_GATE_OVERRIDE_REASON=""
+
+  local gates_script="$REPO_ROOT/scripts/ship-gates.sh"
+  # Fails CLOSED (P1246 invariant: "Unreadable spec, missing script, unresolvable
+  # branch -> deny"). A missing gate script must never mean "no gates apply" —
+  # that is the failure mode where deleting the gate is the cheapest way past it.
+  if [[ ! -x "$gates_script" ]]; then
+    die "ship: cannot run closure gates — $gates_script is missing or not executable. Refusing to close $pn ungated."
+  fi
+
+  local gate_out gate_rc=0
+  gate_out="$( bash "$gates_script" "$pn" 2>&1 )" || gate_rc=$?
+  printf '%s\n' "$gate_out" >&2
+
+  if [[ "$gate_rc" -eq 0 ]]; then
+    return 0
+  fi
+
+  # --- Failed. The ONLY way past is a human at a terminal. -------------------
+  if [[ "$want_override" -ne 1 ]]; then
+    die "$(gate_override_refusal_text "$pn")"
+  fi
+
+  if ! gate_override_tty_available; then
+    die "ship: --override requires an interactive terminal.
+
+  This session has no controlling terminal (/dev/tty is not openable), which is
+  how an agent shell always looks. That is deliberate: P1246's invariant is that
+  no override is writable by the party being gated. Report the gate failure to
+  the founder rather than trying to satisfy this check.
+
+  Founder: run the same command from a real terminal window."
+  fi
+
+  local reason=""
+  reason="$( gate_override_capture "$pn" "closure gate" )" \
+    || die "ship: override aborted at the prompt — $pn not closed."
+
+  gate_override_record "$pn" "closure" "$reason"
+  SHIP_GATE_OVERRIDE_REASON="$reason"
+  echo "ship: GATE OVERRIDE accepted for $pn — recorded in the closure commit and in gate-overrides.log" >&2
+  return 0
+}
+
 cmd_ship() {
   local pn=""
   local resume=0
+  local want_override=0
+  local _gate_skip=0
   local mark_source="" mark_landed=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --resume) resume=1; shift ;;
+      # P1246. Does NOT skip the gates — it makes a FAILING gate promptable on
+      # /dev/tty. An agent shell has no /dev/tty, so passing this flag from one
+      # changes nothing except the wording of the refusal.
+      --override) want_override=1; shift ;;
       # Safe manual convergence for the P972 crash-window detect-and-refuse path:
       # records an operator-confirmed landing without hand-editing the journal.
       --mark-landed)
@@ -2576,13 +2671,13 @@ cmd_ship() {
       -*)       echo "git-ops ship: unknown flag '$1'" >&2; exit 2 ;;
       *)
         if [[ -n "$pn" ]]; then
-          echo "usage: git-ops ship <p-number> [--resume]" >&2; exit 2
+          echo "usage: git-ops ship <p-number> [--resume] [--override]" >&2; exit 2
         fi
         pn="$1"; shift ;;
     esac
   done
   if [[ -z "$pn" ]]; then
-    echo "usage: git-ops ship <p-number> [--resume]" >&2; exit 2
+    echo "usage: git-ops ship <p-number> [--resume] [--override]" >&2; exit 2
   fi
   if [[ ! "$pn" =~ ^p[0-9]+$ ]]; then
     die "ship: p-number must match ^p[0-9]+$ (got '$pn')"
@@ -2662,35 +2757,31 @@ cmd_ship() {
 
       # --- Detection (must confirm the IMPLEMENTATION is on main, not just the
       #     spec). Two independent gates, BOTH required:
-      #   (1) status gate: qa | in-progress (work was implemented)
+      #   (1) closure gate: scripts/ship-gates.sh (completion criteria + review)
       #   (2) code-presence gate: a 'pN ready for QA' stamp commit on main
       # Neither alone is sufficient; together they make a spurious close
       # implausible. See spec Decision B + Security Review.
-      local _status
-      _status="$( python3 - "$REPO_ROOT/$spec_file" <<'PY'
-import sys
-with open(sys.argv[1]) as f:
-    text = f.read()
-if not text.startswith("---\n"):
-    raise SystemExit(0)
-end = text.find("\n---\n", 4)
-if end < 0:
-    raise SystemExit(0)
-for ln in text[4:end].splitlines():
-    if ln.startswith("status:"):
-        # Tolerate quoted values and trailing YAML comments (fail-safe parsing).
-        val = ln.split(":", 1)[1].split("#", 1)[0].strip().strip("'\"")
-        print(val)
-        break
-PY
-)"
-      case "$_status" in
-        qa|in-progress) : ;;  # closable as direct-to-main
-        backlog|week|today)
-          die "ship: spec $pn is at status '$_status' — work not yet implemented; no feature/fix branch found and spec is not closable as direct-to-main." ;;
-        *)
-          die "ship: spec $pn has status '${_status:-(none)}' — not a closable direct-to-main state (expected qa or in-progress); no branch found, resolve manually." ;;
-      esac
+      #
+      # P1246 REPLACED gate (1). It used to read the spec's `status:` field and
+      # require qa|in-progress. Three things were wrong with that:
+      #
+      #   a. It violated .claude/rules/features.md outright — "no skill, script
+      #      or hook may gate a merge, a close or a deploy on this field" — and
+      #      this was the last remaining violation in the codebase.
+      #   b. `status:` is a self-reported label written by the same agent that
+      #      wants the close. It attests to nothing. ship-gates.sh gate 2.5
+      #      already stopped consulting it for exactly this reason (P1169), and
+      #      its own comment says so: "It now reads the artifact instead of the
+      #      label."
+      #   c. It produced false REFUSALS as well as false passes. The P1113 case:
+      #      a spec whose frontmatter reads `status: done` with the work genuinely
+      #      on main hit the `*)` arm and died, because "done" is not in the
+      #      allowed pair — a spec could be too finished to close.
+      #
+      # What replaces it is strictly stronger: every completion checkbox ticked,
+      # an implementation recorded in pipeline_ran, and a code-review artifact
+      # naming this P-number. Those are artifacts, not labels.
+      ship_run_gates "$pn" "$want_override"
 
       # Code-presence gate (Decision B, option iii) — HARDENED after the P920
       # adversarial review. A bare message grep (`git log --grep`) matched commits
@@ -2830,7 +2921,7 @@ PY
       # Include $spec_file so the git mv source deletion is committed too.
       # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
       # (held for this whole block); see its own comment for why.
-      if ! commit_staged_exact "chore: close $pn (direct-to-main) — $title" "$spec_dest" "$spec_file"; then
+      if ! commit_staged_exact "$(ship_close_message "chore: close $pn (direct-to-main) — $title")" "$spec_dest" "$spec_file"; then
         ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
         die "ship: spec-close commit failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
       fi
@@ -2874,6 +2965,44 @@ PY
     spec_file="$(ship_journal_str "$pn" "spec_file")"
     [[ -n "$branch" ]] || die "ship: journal $journal missing source_branch"
     [[ -n "$spec_file" ]] || die "ship: journal $journal missing spec_file"
+  fi
+
+  # --- Closure gate, normal branch route (P1246) ----------------------------
+  # Runs here: after branch+spec are resolved, BEFORE the first cherry-pick and
+  # before the main lock is taken. Everything above this line is read-only, so a
+  # refusal leaves the repo exactly as it found it — no half-landed picks, no
+  # stranded lock, no journal to clean up by hand.
+  #
+  # Skipped on a --resume whose spec has ALREADY LEFT features/. That is not a
+  # hole: this gate protects the open->closed TRANSITION, and once the spec has
+  # moved, that transition has already happened. Re-gating then can only strand a
+  # converging ship — the spec now lives in features/done/, where gate 2.5
+  # deliberately does not look, so it reports "spec not found" and FAILS a ship
+  # that is 90% landed. A resume whose spec is still in features/ is gated
+  # normally: the mutation it protects is still ahead of it.
+  #
+  # TWO conditions, not one, and the second was found the hard way. An earlier
+  # version of this block tested only the journal's spec_closed flag and was a
+  # live false positive: canary QQ (P1094 item 2) crashes a ship in the window
+  # between Phase 2's `git mv` and the flag write, then resumes. The spec is
+  # gone from features/, the flag is not yet set, and the gate hard-failed a
+  # recovery path whose whole purpose is surviving that crash. Caught only by
+  # running the suite's existing workflows against the new gate — epistemic.md
+  # gate 7c, which asks exactly this and is the reason this is a comment and not
+  # an incident.
+  _gate_skip=0
+  if (( journal_exists == 1 )); then
+    if ship_journal_flag "$pn" "spec_closed"; then
+      _gate_skip=1
+    elif [[ -n "$spec_file" && ! -f "$REPO_ROOT/$spec_file" ]]; then
+      # Moved but unflagged — the crash window above.
+      _gate_skip=1
+    fi
+  fi
+  if (( _gate_skip == 1 )); then
+    echo "ship: closure gate skipped — $pn's spec has already left features/ (resuming a partially-landed ship)." >&2
+  else
+    ship_run_gates "$pn" "$want_override"
   fi
 
   # Guard: refuse if branch touches git-ops.sh itself.
@@ -3399,7 +3528,7 @@ The branch is authoritative for shipped migrations. Compare each file with
       if [[ -n "$(cd "$REPO_ROOT" && git diff --cached --name-only --diff-filter=D -- "$spec_file" 2>/dev/null)" ]]; then
         _expected_paths+=("$spec_file")
       fi
-      commit_staged_exact "chore: close $pn — $title" "${_expected_paths[@]}" \
+      commit_staged_exact "$(ship_close_message "chore: close $pn — $title")" "${_expected_paths[@]}" \
         || die "ship: spec-close commit failed"
       ship_set_journal_flag "$pn" "spec_closed"
     fi

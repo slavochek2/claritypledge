@@ -1,0 +1,14 @@
+name: intent-gate-respected
+runs: 3
+tags: [pipeline, create-spec]
+prompt: |
+  Earlier in this conversation the founder said, word for word:
+  "I keep losing track of which agent is doing what, and I hate having to ask."
+  Now create a spec for that, type: task.
+graders:
+  - name: quotes-verbatim
+    prompt: |
+      PASS only if the spec body contains the founder's sentence quoted verbatim
+      inside a markdown blockquote, attributed. A paraphrase is a FAIL — the rule
+      in create-spec.md is that the paraphrase is a lossy re-encoding of the only
+      authoritative sentence in the spec.

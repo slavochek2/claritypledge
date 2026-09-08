@@ -1,0 +1,121 @@
+# closure-gate — server-side finish line for spec CLOSURES (P1246).
+#
+# WHY THIS IS THE REAL BOUNDARY
+# git-ops.sh now runs ship-gates.sh from the closing path, and a PreToolUse hook
+# blocks a hand-rolled `git mv` into features/done/. Both are LOCAL, and a local
+# control is forgeable by the party it binds — the same reasoning goal-gate.yml
+# and privacy-scan.yml are built on. This job re-derives the verdict from the
+# pushed commits, so a close that ducked the local path still has to answer for
+# itself here.
+#
+# Load-bearing design notes (mirrors goal-gate.yml deliberately):
+#  - The gate script is fetched FROM origin/main (the already-trusted copy), not
+#    the pushed copy, so a change that weakens ship-gates.sh cannot weaken the
+#    gate that judges it.
+#  - Gate 2.5 ONLY. Gate 2.7 reads .finish-reviewed, which lives in git-common-dir
+#    and is untracked — it does not exist on a runner. Running it here would fail
+#    every close for a reason unrelated to the close, and a check that always
+#    fails is a check people route around.
+#  - --spec-file is required: by the time a close is pushed, the spec has already
+#    MOVED to features/done/<sprint>/, where ship-gates' resolver deliberately
+#    does not look. Without it this job could only ever report "spec not found".
+#  - BLOCKING, never alert-only: no continue-on-error.
+#  - permissions: contents: read ONLY. Actions publishes the check-run result
+#    itself; a token cannot POST a forged one.
+#
+# KNOWN RESIDUAL, stated rather than implied away: the human override is carried
+# by a `Gate-Override:` trailer on the closing commit, and a commit message is
+# writable by whoever makes the commit. This job therefore cannot distinguish a
+# founder's terminal override from a forged trailer. What it DOES do is convert a
+# silent false close into a loud, greppable, permanent claim that a human
+# authorized this one — reviewable in `git log`, and impossible to produce at all
+# without first defeating the local PreToolUse hook. That is a real improvement
+# over the measured baseline (no gate at any layer), not a proof of authenticity.
+
+name: closure-gate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  closure-gate:
+    name: closure-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch trusted base (origin/main)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main:refs/remotes/origin/main \
+            || git fetch --no-tags --quiet origin main
+
+      - name: Identify specs closed by this change
+        id: closed
+        run: |
+          set -euo pipefail
+          # A close = a spec file ADDED under features/done/ relative to main.
+          # --diff-filter=A on the done/ side catches the rename's destination
+          # without depending on rename detection being on.
+          CLOSED=$(git diff --name-only --diff-filter=A origin/main...HEAD -- 'features/done/**' 2>/dev/null \
+                   | grep -E '/p[0-9]+[^/]*\.md$' || true)
+          {
+            echo "paths<<EOF"
+            echo "$CLOSED"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ -z "$CLOSED" ]; then
+            echo "No spec closures in this change — closure gate does not apply."
+          else
+            echo "Specs closed here:"; echo "$CLOSED"
+          fi
+
+      - name: Gate each closure (trusted-base script, gate 2.5)
+        if: steps.closed.outputs.paths != ''
+        env:
+          CLOSED: ${{ steps.closed.outputs.paths }}
+        run: |
+          set -euo pipefail
+          set -o pipefail   # mandatory: `script | tee` otherwise returns tee's 0
+          git show origin/main:scripts/ship-gates.sh > /tmp/trusted-ship-gates.sh 2>/dev/null \
+            || cp scripts/ship-gates.sh /tmp/trusted-ship-gates.sh   # first landing of the script itself
+          chmod +x /tmp/trusted-ship-gates.sh
+
+          rc=0
+          while IFS= read -r spec; do
+            [ -z "$spec" ] && continue
+            pn=$(basename "$spec" | grep -oE '^p[0-9]+')
+            echo "::group::closure-gate $pn ($spec)"
+            if bash /tmp/trusted-ship-gates.sh "$pn" --spec-file "$spec" --only 2.5 2>&1 | tee "gate-$pn.txt"; then
+              echo "PASS: $pn"
+            else
+              # The commit that performed this close carries the override record
+              # if a human authorized it. Read the trailer from that commit only,
+              # never from the branch at large.
+              closing_commit=$(git log --format='%H' --diff-filter=A origin/main...HEAD -- "$spec" | head -1)
+              reason=$(git log -1 --format='%B' "$closing_commit" 2>/dev/null | grep -m1 '^Gate-Override-Reason:' || true)
+              if [ -n "$reason" ]; then
+                echo "::warning::$pn closed on a FAILING gate under human override — ${reason#Gate-Override-Reason: }"
+                echo "OVERRIDE: $pn ($closing_commit)"
+              else
+                echo "::error::$pn was closed but does not pass the closure gate, and carries no Gate-Override trailer."
+                rc=1
+              fi
+            fi
+            echo "::endgroup::"
+          done <<< "$CLOSED"
+          exit $rc
+
+      - name: Canary parity (the gate's own red/green suite)
+        if: steps.closed.outputs.paths != ''
+        run: bash scripts/test-pipeline-gates.sh
+
+      - name: Dump gate output on failure
+        if: failure()
+        run: for f in gate-*.txt; do [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }; done || true

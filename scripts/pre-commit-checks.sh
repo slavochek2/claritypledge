@@ -864,6 +864,46 @@ fi
 echo ""
 
 # 13b. UAT scorecard gate — warn if feature moved to done/ with ALL scenarios untested
+# 13a2. Spec intent gate (P1246) — a NEW spec must carry the founder's verbatim
+# framing. This is the second of two layers; .claude/hooks/spec-intent-gate.py is
+# the first. The hook only sees the Write tool, so a spec created with a heredoc
+# or `cat >` walks straight past it — this layer closes that, because it reads
+# the git INDEX and does not care which tool produced the bytes.
+#
+# NEW files only (--diff-filter=A). The ~890 existing specs are never re-gated:
+# 87 of them would fail, all created before the rule existed (2026-08-26), and
+# retro-fitting framing onto them is not this gate's job.
+#
+# Not a boundary — a local hook is forgeable by whoever it binds. The boundary is
+# the same check re-run server-side in .github/workflows/closure-gate.yml.
+echo ">>> Checking new specs carry the founder's verbatim framing (P1246)..."
+INTENT_BLOCKED=0
+NEW_SPECS=$(git diff --cached --name-only --diff-filter=A 2>/dev/null | grep -E '^features/p[0-9]+[^/]*\.md$' || true)
+if [ -n "$NEW_SPECS" ] && [ -x scripts/spec-intent-gate.sh ]; then
+    while IFS= read -r spec_path; do
+        [ -z "$spec_path" ] && continue
+        # Read the STAGED blob, not the working tree — they can differ, and the
+        # commit is made of the index.
+        _tmp_spec="$(mktemp -t specintent)"
+        if git show ":${spec_path}" > "$_tmp_spec" 2>/dev/null; then
+            if bash scripts/spec-intent-gate.sh "$_tmp_spec" > /tmp/intent-gate.txt 2>&1; then
+                echo -e "${GREEN}✓ ${spec_path}: framing present${NC}"
+            else
+                echo -e "${RED}✗ ${spec_path}: no verbatim founder framing${NC}"
+                sed "s#$_tmp_spec#$spec_path#g" /tmp/intent-gate.txt | sed 's/^/    /'
+                INTENT_BLOCKED=$((INTENT_BLOCKED + 1))
+            fi
+        fi
+        rm -f "$_tmp_spec"
+    done <<< "$NEW_SPECS"
+fi
+if [ "$INTENT_BLOCKED" -gt 0 ]; then
+    ERRORS=$((ERRORS + INTENT_BLOCKED))
+elif [ -z "$NEW_SPECS" ]; then
+    echo -e "${GREEN}✓ No new specs in this commit${NC}"
+fi
+echo ""
+
 echo ">>> Checking UAT coverage for features moving to done/..."
 STAGED_DONE_FILES=$(git diff --cached --name-only 2>/dev/null | grep -E '^features/done/' | grep -oE '[^/]+\.md$' | grep -E '^p[0-9]+' || true)
 UAT_WARNING_COUNT=0

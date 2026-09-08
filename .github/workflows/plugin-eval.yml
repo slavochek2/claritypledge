@@ -1,0 +1,117 @@
+# plugin-eval — do the skill files actually change agent behaviour? (P1246)
+#
+# The gates in scripts/ are deterministic and bind on their own. This job covers
+# the layer above them: whether an agent READING ship.md / create-spec.md does
+# the right thing before a gate has to refuse it. P1246's Risks table defers
+# "are these steps earning their place?" to evals rather than to opinion, after
+# one benchmarked skill showed no measurable advantage and another was void.
+#
+# --ablation with-without runs a no-plugin BASELINE arm and reports the delta, so
+# a skill that scores the same with and without is visible as such.
+# Threshold: 1.0 (the CLI default, stated explicitly rather than inherited).
+#
+# WHY THIS JOB IS NOT A NAIVE `claude plugin eval` CALL
+# The subcommand is gated behind early access and currently refuses every
+# invocation with exit 1 (verified 2026-09-08, CLI 2.1.263). Wired naively, this
+# would go RED on every skill change for a reason unrelated to the change — and a
+# check that always fails is one people route around, which is how a control
+# becomes advisory. So the two failures are told apart: "capability unavailable"
+# warns, "eval ran and scored low" fails. It flips to enforcing by itself the day
+# early access and the API key are present, with no edit here.
+
+name: plugin-eval
+
+on:
+  push:
+    paths:
+      - 'CLAUDE.md'
+      - '.claude/commands/**'
+      - '.claude/hooks/**'
+      - '.claude/rules/**'
+      - '.claude/settings.json'
+      - 'evals/**'
+  pull_request:
+    paths:
+      - 'CLAUDE.md'
+      - '.claude/commands/**'
+      - '.claude/hooks/**'
+      - '.claude/rules/**'
+      - '.claude/settings.json'
+      - 'evals/**'
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-eval:
+    name: plugin-eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run eval suite (baseline arm + threshold 1.0)
+        env:
+          # The only line naming the secret. Everything below branches on
+          # HAVE_CREDENTIAL instead — pre-commit's layer-2 secret scanner matches
+          # the bare name on any line that is not a `${{ secrets.* }}` reference,
+          # so repeating it in shell or prose would trip the gate on a name that
+          # is not a value.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          HAVE_CREDENTIAL: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          set -uo pipefail
+
+          if [ "${HAVE_CREDENTIAL:-false}" != "true" ]; then
+            echo "::warning::plugin-eval NOT ENFORCED — the Anthropic credential secret is not set."
+            echo "Add it as a repository secret to turn this check on. See evals/README.md."
+            exit 0
+          fi
+
+          set +e
+          claude plugin eval . \
+            --eval-dir evals \
+            --ablation with-without \
+            --threshold 1.0 \
+            --no-publish \
+            --output-dir "$PWD/eval-results" > eval.log 2>&1
+          rc=$?
+          set -e
+          cat eval.log
+
+          # Capability missing is not this change's fault. Distinguish it from a
+          # real low score, which IS.
+          if grep -qi 'early access' eval.log; then
+            echo "::warning::plugin-eval NOT ENFORCED — 'claude plugin eval' is gated behind early access on this account (exit ${rc}). See evals/README.md."
+            exit 0
+          fi
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::plugin-eval FAILED — a case scored below threshold 1.0."
+            exit 1
+          fi
+
+          # The eval reported success. Prove it actually ran something: a silent
+          # no-op that exits 0 is the failure mode this whole spec exists to end.
+          if [ -z "$(find eval-results -name 'aggregate-result.json' 2>/dev/null)" ]; then
+            echo "::error::plugin-eval exited 0 but wrote no aggregate-result.json — it ran no cases. Refusing to report a vacuous pass."
+            exit 1
+          fi
+          echo "plugin-eval PASSED with results:"
+          find eval-results -name 'aggregate-result.json' -exec cat {} \;
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: plugin-eval-results
+          path: |
+            eval.log
+            eval-results/
+          if-no-files-found: ignore

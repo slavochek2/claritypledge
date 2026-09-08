@@ -117,6 +117,21 @@ mkdir -p "$SCRATCH/main/scripts" \
 cp "$REPO_ROOT/scripts/git-ops.sh" "$SCRATCH/main/scripts/git-ops.sh"
 chmod +x "$SCRATCH/main/scripts/git-ops.sh"
 
+# P1246: `ship` now runs scripts/ship-gates.sh from the closing path itself, and
+# fails CLOSED when it is absent. A scratch repo without it is not a smaller
+# version of this repo — it is a repo where shipping is impossible. Copy the real
+# gate (plus the override library it sources) so these 26 canaries exercise the
+# ACTUAL closing path, gate included.
+#
+# That also makes this whole suite the false-positive pass epistemic.md gate 7c
+# demands: 26 documented ship workflows, run end-to-end with the gate armed. If
+# the gate ever refuses well-formed work, they go red here rather than in the
+# founder's session.
+mkdir -p "$SCRATCH/main/scripts/lib"
+cp "$REPO_ROOT/scripts/ship-gates.sh" "$SCRATCH/main/scripts/ship-gates.sh"
+cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$SCRATCH/main/scripts/lib/gate-override.sh"
+chmod +x "$SCRATCH/main/scripts/ship-gates.sh" "$SCRATCH/main/scripts/lib/gate-override.sh"
+
 : > "$SCRATCH/main/features/done/2026-04-22/.gitkeep"
 
 (
@@ -126,7 +141,7 @@ chmod +x "$SCRATCH/main/scripts/git-ops.sh"
   git config user.name canary
   git config commit.gpgsign false
   echo "seed" > README.md
-  git add README.md scripts/git-ops.sh features/done/2026-04-22/.gitkeep
+  git add README.md scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh features/done/2026-04-22/.gitkeep
   git commit -qm "seed"
   git branch -M main
 ) >/dev/null
@@ -140,7 +155,38 @@ SAFETY_LOG="$SCRATCH/safety.log"
 R_SCOPED_LOG="$SCRATCH/r-scoped.log"
 : > "$R_SCOPED_LOG"
 
+# P1246: seed the code-review artifact gate 2.7 requires.
+#
+# Deliberately a FIXTURE, not a bypass. Gate 2.7 asks "did /finish run on this
+# branch?"; /finish does not exist inside a hermetic scratch repo, so the canary
+# supplies the artifact /finish would have written. The gate still runs and still
+# reads the artifact — nothing here weakens it. What it does NOT do is let a spec
+# with unticked boxes through: gate 2.5 is untouched, and the red arms in
+# scripts/test-pipeline-gates.sh prove both gates still refuse.
+scratch_review_stamp() {
+  local pn="$1"
+  local br sha
+  br="$( cd "$SCRATCH/main" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *+' )"
+  sha="$( cd "$SCRATCH/main" && git rev-parse HEAD 2>/dev/null || echo 0 )"
+  printf '{"type": "code", "pn": "%s", "branch": "%s", "sha": "%s", "timestamp": "%s", "issues_found": 0, "issues_fixed": 0}\n' \
+    "$pn" "$br" "$sha" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    >> "$SCRATCH/main/.git/.finish-reviewed"
+}
+
 capture_r() {
+  # Auto-seed the review artifact for `... ship pN` invocations so each canary
+  # does not have to. Matching on the argv shape keeps it out of the way of the
+  # non-ship commands that also flow through here (claim, status, gc, ...).
+  local _a
+  for _a in "$@"; do :; done
+  if [[ " $* " == *" ship "* ]]; then
+    local _tok _pn=""
+    for _tok in "$@"; do
+      [[ "$_tok" =~ ^p[0-9]+$ ]] && { _pn="$_tok"; break; }
+    done
+    [[ -n "$_pn" ]] && scratch_review_stamp "$_pn"
+  fi
+
   local tmp="$SCRATCH/last-capture.log"
   local rc=0
   ( "$@" ) >"$tmp" 2>&1 || rc=$?
@@ -178,6 +224,11 @@ pipeline_ran: [fix]
 # ${pn}: Demo
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
   ( cd "$SCRATCH/main" && git add "features/${pn}_demo.md" && git commit -qm "chore: add ${pn} spec" ) >/dev/null
 }
@@ -311,6 +362,7 @@ scratch_feature p102 4  # 4 commits widens the SIGTERM window
 # SHIP_DEBUG_SLEEP_SECS inserts a pause between cherry-picks so the SIGTERM
 # window is deterministic (no flaky timing).
 (
+  scratch_review_stamp p102
   cd "$SCRATCH/main" && SHIP_DEBUG_SLEEP_SECS=1 bash "$GIT_OPS" ship p102
 ) >"$SCRATCH/m-ship.log" 2>&1 &
 SHIP_PID=$!
@@ -584,6 +636,11 @@ pipeline_ran: [fix]
 # p106: Subdir spec
 
 Problem: subdir.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add "features/bugs_and_debt/p106_subdir.md" \
   && git commit -qm "chore: add p106 spec" ) >/dev/null
@@ -618,6 +675,7 @@ pass "S: spec in features/bugs_and_debt/ ships through resolve_ship_spec"
 cat > "$SCRATCH/main/features/p107_demo.md" <<'EOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: []
@@ -625,6 +683,11 @@ tags: []
 # p107: Collision
 
 Problem: collision.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p107_demo.md && git commit -qm "chore: add p107" ) >/dev/null
 
@@ -691,11 +754,17 @@ pass "R: no redirect-parseable tokens in ship output (canaries up to this point)
 cat > "$SCRATCH/main/features/p108_sprint_routing.md" <<'EOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: []
 ---
 # p108: CURRENT_SPRINT routing test
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p108_sprint_routing.md && git commit -qm "chore: add p108" ) >/dev/null
 
@@ -737,11 +806,17 @@ pass "U: CURRENT_SPRINT file routes spec to correct sprint, not uat/"
 cat > "$SCRATCH/main/features/p109_fallback_routing.md" <<'EOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: []
 ---
 # p109: fallback routing test (no CURRENT_SPRINT)
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p109_fallback_routing.md && git commit -qm "chore: add p109" ) >/dev/null
 
@@ -782,6 +857,11 @@ delivery_stage: fix
 pipeline_ran: [fix]
 ---
 # p110: self-mod guard test
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add "features/p110_demo.md" && git commit -qm "chore: add p110 spec" ) >/dev/null
 # Capture HEAD after all setup commits; ship must not advance it further.
@@ -831,11 +911,17 @@ cp "$REPO_ROOT/scripts/next-p-number.sh" "$W_SCRATCH/scripts/"
   cat > features/p200_test.md <<'SPECEOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: []
 ---
 # p200: deleted spec
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add features/p200_test.md
   git commit -qm "chore: add p200"
@@ -870,6 +956,11 @@ delivery_stage: fix
 pipeline_ran: [fix]
 ---
 # p113: untracked guard test
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   echo "c1" > p113-c1.txt
   git add features/p113_demo.md p113-c1.txt
@@ -888,6 +979,11 @@ delivery_stage: fix
 pipeline_ran: [fix]
 ---
 # p113: untracked guard test
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 X_MAIN_HEAD_PRE="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
 
@@ -933,6 +1029,11 @@ delivery_stage: fix
 pipeline_ran: [fix]
 ---
 # p113: untracked guard test (resume)
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF2
   echo "c1" > p113-c1.txt
   git add features/p113_demo.md p113-c1.txt
@@ -954,6 +1055,11 @@ delivery_stage: fix
 pipeline_ran: [fix]
 ---
 # p113: untracked guard test (resume)
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 
 set +e
@@ -997,6 +1103,11 @@ delivery_stage: fix
 pipeline_ran: [fix]
 ---
 # p114: diagnostic output test
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 ( cd "$SCRATCH/main" && git add "features/p114_demo.md" \
   && git commit -qm "chore: add p114 spec" ) >/dev/null
@@ -1056,16 +1167,27 @@ pipeline_ran: [fix]
 ---
 # p120: Co-located A
 Problem: co-located test A.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 cat > "$SCRATCH/main/features/p121_colocated_b.md" <<'EOF'
 ---
 status: today
+pipeline_ran: [fix]
 type: task
 rank: 2
 tags: [demo]
 ---
 # p121: Co-located B
 Problem: co-located test B, pre-existing on main.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p120_colocated_a.md features/p121_colocated_b.md \
   && git commit -qm "chore: add p120 + p121 specs" ) >/dev/null
@@ -1091,6 +1213,11 @@ pipeline_ran: [fix]
 ---
 # p121: Co-located B
 Problem: co-located test B, delivered on this branch.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
   git add features/p121_colocated_b.md && git commit -qm "p121: deliver fix" ) >/dev/null
@@ -1170,6 +1297,11 @@ pipeline_ran: [fix]
 ---
 # p122: Primary
 Problem: P1105 reproduce primary.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p122_primary.md \
   && git commit -qm "chore: add p122 spec" ) >/dev/null
@@ -1183,12 +1315,18 @@ echo "fix_a" > "$SCRATCH/main/p122_fix.txt"
 cat > "$SCRATCH/main/features/p123_followup.md" <<'EOF'
 ---
 status: backlog
+pipeline_ran: [fix]
 type: task
 rank: 2
 tags: [demo]
 ---
 # p123: Followup
 Problem: filed mid-branch, not implemented.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && GIT_AUTHOR_DATE="2024-01-01T10:01:00" GIT_COMMITTER_DATE="2024-01-01T10:01:00" \
   git add features/p123_followup.md && git commit -qm "p123: file follow-up spec" ) >/dev/null
@@ -1249,6 +1387,11 @@ pipeline_ran: [dev]
 # ${pn}: Demo direct-to-main
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
   ( cd "$SCRATCH/main" && git add "features/${pn}_demo.md" \
       && git commit -qm "chore: file ${pn} spec" ) >/dev/null
@@ -1343,7 +1486,18 @@ if ! echo "$CC_OUT" | grep -qF 'no feature/p199-* or fix/p199-* branch found'; t
 fi
 pass "CC: no branch + no spec still produces the original 'no branch found' error"
 
-# DD. Status gate ------------------------------------------------------------
+# DD. Un-implemented spec on the no-branch route ------------------------------
+#
+# REWRITTEN BY P1246. This canary used to assert the `status:` gate's message
+# ("status 'week'", "not yet implemented", "not closable"). That gate is GONE —
+# .claude/rules/features.md forbids gating a close on `status:`, and git-ops.sh
+# was the last violation. Asserting a removed refusal would have pinned the
+# defect in place, so the canary now asserts what actually protects the route.
+#
+# `week` was never the evidence. The evidence is that nothing on main implements
+# p132: no 'ready for QA' stamp commit. That is an artifact, not a self-reported
+# label, and it cannot be flipped by editing one line of frontmatter — which is
+# precisely the substitution P1246 exists to make.
 scratch_direct_to_main p132 week 0
 set +e
 DD_OUT=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p132 )
@@ -1351,16 +1505,47 @@ DD_EXIT=$?
 set -e
 if [[ $DD_EXIT -eq 0 ]]; then
   echo "$DD_OUT" >&2
-  fail "DD: ship closed a 'week' spec — status gate did not fire"
+  fail "DD: ship closed an unimplemented spec on the no-branch route"
 fi
-if ! echo "$DD_OUT" | grep -qiE "status 'week'|not yet implemented|not closable"; then
+if ! echo "$DD_OUT" | grep -qiE "no qualifying|ready for QA' stamp commit found"; then
   echo "$DD_OUT" >&2
-  fail "DD: status-gate refusal message missing the expected status diagnostic"
+  fail "DD: refusal message missing the code-presence diagnostic"
+fi
+if echo "$DD_OUT" | grep -qiE "status 'week'|not yet implemented|not closable"; then
+  echo "$DD_OUT" >&2
+  fail "DD: the removed status: gate is still firing (features.md forbids it)"
 fi
 if [[ ! -f "$SCRATCH/main/features/p132_demo.md" ]]; then
-  fail "DD: 'week' spec was moved despite the status gate refusal"
+  fail "DD: spec was moved despite the refusal"
 fi
-pass "DD: status gate STOPs a 'week' spec with no branch"
+pass "DD: no-branch route STOPs an unimplemented spec on code-presence, not on status:"
+
+# DD2. P1246 Done-When 7 — the P1113 case ------------------------------------
+#
+# A spec whose frontmatter reads `status: done`, with the work genuinely landed
+# on main, used to DIE here: the old gate's case arm accepted only qa|in-progress,
+# so "done" fell to the `*)` branch and was refused as "not a closable state". A
+# spec could be too finished to close, and the recovery was to hand-edit the
+# label back to a less-finished value — teaching exactly the habit the label was
+# supposed to detect. With the status read gone, the artifacts decide: ticked
+# criteria, a review entry, and a stamp commit on main. All three are present, so
+# it closes.
+scratch_direct_to_main p1113 done 1
+set +e
+DD2_OUT=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p1113 )
+DD2_EXIT=$?
+set -e
+if [[ $DD2_EXIT -ne 0 ]]; then
+  echo "$DD2_OUT" >&2
+  fail "DD2: a 'done' spec with work on main was refused (P1113 regression)"
+fi
+if [[ -f "$SCRATCH/main/features/p1113_demo.md" ]]; then
+  fail "DD2: spec did not move out of features/"
+fi
+if ! ls "$SCRATCH/main/features/done/"*/p1113_demo.md >/dev/null 2>&1; then
+  fail "DD2: spec is not in features/done/<sprint>/"
+fi
+pass "DD2: a 'status: done' spec with work on main now closes (P1113 case replayed)"
 
 # EE. in-progress status closes too (the case accepts qa|in-progress) ---------
 scratch_direct_to_main p133 in-progress 1
@@ -1395,6 +1580,11 @@ pipeline_ran: [dev]
 # p134: Demo direct-to-main
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add "features/p134_demo.md" && git commit -qm "chore: file p134 spec" ) >/dev/null
 # Tokens ONLY in the body; generic subject (sibling-stamp / chat-paste shape).
@@ -1425,6 +1615,7 @@ pass "FF: a body-only 'ready for QA' mention does NOT qualify as a stamp (subjec
 # the stale spec). Deterministic via SHIP_DEBUG_NOBRANCH_SLEEP_SECS.
 scratch_direct_to_main p135 qa 1   # qa spec + stamp, NO branch at start
 (
+  scratch_review_stamp p135
   cd "$SCRATCH/main" && SHIP_DEBUG_NOBRANCH_SLEEP_SECS=3 bash "$GIT_OPS" ship p135
 ) >"$SCRATCH/gg-ship.log" 2>&1 &
 GG_PID=$!
@@ -1481,6 +1672,7 @@ scratch_branch_born_spec() {
     cat > "features/${pn}_bborn.md" <<SPECEOF
 ---
 status: in-progress
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: [demo]
@@ -1488,6 +1680,11 @@ tags: [demo]
 # ${pn}: Branch-born stub
 
 Initial stub.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
     git add "features/${pn}_bborn.md"
     git commit -qm "${pn}: start feature"
@@ -1504,6 +1701,11 @@ pipeline_ran: [fix]
 # ${pn}: Branch-born final
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
     git add "features/${pn}_bborn.md"
     git commit -qm "chore: ${pn} ready for QA"
@@ -1522,6 +1724,11 @@ pipeline_ran: [fix]
 # ${pn}: Branch-born final
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   ( cd "$SCRATCH/main" && git add "features/${pn}_bborn.md" && \
     git commit -qm "seed ${pn} final spec for ship" ) >/dev/null
@@ -1574,6 +1781,7 @@ pass "HH: branch-born AA ship completes cleanly (seed-to-match prevention works)
 cat > "$SCRATCH/main/features/p141_uu.md" <<'SPECEOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: [demo]
@@ -1581,6 +1789,11 @@ tags: [demo]
 # p141: UU anti-widen test
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 ( cd "$SCRATCH/main" && git add features/p141_uu.md && git commit -qm "chore: add p141 spec" ) >/dev/null
 
@@ -1610,6 +1823,7 @@ pass "II-a: non-spec UU conflict still dies (Layer 2 did not widen to non-spec p
   cat > "features/p142_bm.md" <<'SPECEOF'
 ---
 status: in-progress
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: [demo]
@@ -1617,6 +1831,11 @@ tags: [demo]
 # p142: Body-mismatch stub
 
 Initial stub.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add "features/p142_bm.md"
   git commit -qm "p142: start feature"
@@ -1632,6 +1851,11 @@ pipeline_ran: [fix]
 # p142: Body-mismatch final
 
 Problem: branch body.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add "features/p142_bm.md"
   git commit -qm "chore: p142 ready for QA"
@@ -1641,6 +1865,7 @@ SPECEOF
 cat > "$SCRATCH/main/features/p142_bm.md" <<'SPECEOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: [demo]
@@ -1648,6 +1873,11 @@ tags: [demo]
 # p142: Body-mismatch final
 
 Problem: WRONG main body.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 ( cd "$SCRATCH/main" && git add "features/p142_bm.md" && \
   git commit -qm "seed p142 wrong final spec" ) >/dev/null
@@ -1685,6 +1915,7 @@ pass "II-b: body-mismatch AA still dies (Layer 2 did not auto-resolve diverged c
 cat > "$SCRATCH/main/features/p143_jj.md" <<'SPECEOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: [demo]
@@ -1692,6 +1923,11 @@ tags: [demo]
 # p143: JJ guard test
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 ( cd "$SCRATCH/main" && git add features/p143_jj.md && git commit -qm "chore: add p143 spec" ) >/dev/null
 
@@ -1713,6 +1949,7 @@ pass "JJ-a: per-iteration guard allows a normal ship (no spurious CHERRY_PICK_HE
 cat > "$SCRATCH/main/features/p144_jjb.md" <<'SPECEOF'
 ---
 status: qa
+pipeline_ran: [fix]
 type: task
 rank: 1
 tags: [demo]
@@ -1720,6 +1957,11 @@ tags: [demo]
 # p144: JJ-b guard test
 
 Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 ( cd "$SCRATCH/main" && git add features/p144_jjb.md && git commit -qm "chore: add p144 spec" ) >/dev/null
 # Inject a fake MERGE_HEAD before running ship.
@@ -1764,6 +2006,11 @@ pipeline_ran: [fix]
 # p1082: P1082 regression fixture
 
 BASE - do not diverge.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add "features/p1082_demo.md"
   git commit -qm "chore: add p1082 spec (base)"
@@ -1780,6 +2027,11 @@ pipeline_ran: [fix]
 # p1082: P1082 regression fixture
 
 BRANCH RESOLVED VALUE - should never reach main verbatim.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   echo "other-file-content" > p1082-other.txt
   git add "features/p1082_demo.md" p1082-other.txt
@@ -1797,6 +2049,11 @@ pipeline_ran: [fix]
 # p1082: P1082 regression fixture
 
 MAIN DIVERGED VALUE - stale pre-pick content.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add "features/p1082_demo.md"
   git commit -qm "chore: diverge p1082 spec on main"
@@ -1827,6 +2084,11 @@ pipeline_ran: [fix]
 # p1082: P1082 regression fixture
 
 RESOLVED-BY-OPERATOR - the actual merge decision.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 ( cd "$SCRATCH/main" && git add "features/p1082_demo.md" ) >/dev/null
 
@@ -1910,6 +2172,11 @@ pipeline_ran: [fix]
 # p1092: P1082 AC5 fixture
 
 BASE - do not diverge.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add "features/p1092_demo.md"
   git commit -qm "chore: add p1092 spec (base)"
@@ -1926,6 +2193,11 @@ pipeline_ran: [fix]
 # p1092: P1082 AC5 fixture
 
 BRANCH RESOLVED VALUE - should never reach main verbatim.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add "features/p1092_demo.md"
   git commit -qm "p1092: commit 1"
@@ -1942,6 +2214,11 @@ pipeline_ran: [fix]
 # p1092: P1082 AC5 fixture
 
 MAIN DIVERGED VALUE - stale pre-pick content.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
   git add "features/p1092_demo.md"
   git commit -qm "chore: diverge p1092 spec on main"
@@ -1968,6 +2245,11 @@ pipeline_ran: [fix]
 # p1092: P1082 AC5 fixture
 
 RESOLVED-BY-OPERATOR-MM - the actual merge decision.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 SPECEOF
 ( cd "$SCRATCH/main" && git add "features/p1092_demo.md" ) >/dev/null
 
@@ -2134,6 +2416,11 @@ scratch_feature p160 1
 cat >> "$SCRATCH/main/features/p160_demo.md" <<'EOF'
 
 See [decisions](../docs/decisions.md) for the rationale.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p160_demo.md && \
     git commit -qm "p160: add relative doc link" ) >/dev/null
@@ -2258,6 +2545,11 @@ Templated: [t](${VAR}/x.md)
 ```
 Fenced: [f](../docs/decisions.md)
 ```
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p162_demo.md && \
     git commit -qm "p162: link-scoping fixture" ) >/dev/null
@@ -2327,6 +2619,11 @@ cat > "$SS_ROOT/features/done/2026-04-22/ss_demo.md" <<'EOF'
 
 Up: [d](../docs/decisions.md)
 Sibling: [s](p999_other.md)
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 
 # shellcheck source=/dev/null
@@ -2369,6 +2666,11 @@ scratch_feature p163 1
 cat >> "$SCRATCH/main/features/p163_demo.md" <<'EOF'
 
 See [decisions](../docs/decisions.md) for the rationale.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p163_demo.md && \
     git commit -qm "p163: add relative doc link" ) >/dev/null
@@ -2452,6 +2754,11 @@ cat > "$AB_ROOT/features/done/2026-06-10/ab_demo.md" <<'EOF'
 # ab demo
 
 See [sibling](p_sibling.md) for details.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 
 # shellcheck source=/dev/null
@@ -2538,10 +2845,20 @@ pipeline_ran: [fix]
 ---
 # p164: Strand demo
 Problem: strand demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 cat > "$SCRATCH/main/features/p165_broken.md" <<'EOF'
 # p165: co-located spec with no frontmatter at all
 Problem: pre-existing on main, never got frontmatter, edited on the branch.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p164_demo.md features/p165_broken.md \
   && git commit -qm "chore: add p164 + p165 specs" ) >/dev/null
@@ -2781,6 +3098,11 @@ pipeline_ran: [fix]
 ---
 # p169: Conflict demo
 Problem: conflict demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
 EOF
 ( cd "$SCRATCH/main" && git add features/p169_demo.md && git commit -qm "chore: add p169 spec" ) >/dev/null
 ( cd "$SCRATCH/main" && git checkout -q -b feature/p169-demo ) >/dev/null
