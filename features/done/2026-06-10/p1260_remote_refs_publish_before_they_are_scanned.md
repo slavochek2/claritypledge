@@ -1,16 +1,16 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 1000078
 workstream: infra
 created_date: '2026-09-07'
 tags: [git, privacy, push, branches, tooling]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-08
 ---
 
 # P1260: Ref-class publication is unguarded, and no ref this pipeline creates is reclaimed
