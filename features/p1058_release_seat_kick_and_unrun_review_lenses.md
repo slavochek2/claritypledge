@@ -349,6 +349,51 @@ what makes EvalPlanQual re-read the committed row version.
   rather than left contradicted.
 - **`get_practice_room_codes` has no publish or attendance check** — carried into P1269.
 
+#### Phase 3b — independent Codex review (non-Claude reviewer), 2026-09-08
+
+Run via `~/.agents/bin/codex-review` in an isolated clone, primed with what the three Claude
+lenses had already found so it would go beyond them. **Verdict: DO NOT SHIP** — and its top
+finding is one all three Claude lenses missed, because it read the *deploy script* rather than
+only the SQL.
+
+**[HIGH] A known-broken migration must never enter prod's sequence, even with its own undo behind
+it.** `scripts/migrate.sh` does **not** abort on a failed migration: it increments `FAIL_COUNT`,
+continues the loop, and only exits non-zero at the end (verified at `scripts/migrate.sh:580-590`).
+So shipping `20260908120000` (the token) plus `20260908130000` (its revert) means prod transiently
+enters the broken state, and if the revert fails or the run is interrupted, **it stays there** —
+every pre-existing anonymous seat unreleasable, exactly the defect the revert exists to undo.
+
+**Acted on: both files removed from the branch** (`git rm`, history retained). Only
+`20260908114500` ships. Prod therefore never receives the column or the token function. The
+residue is that the **test** database keeps an inert `joiner_seat_token` column created by a
+migration file that no longer exists on any branch — cosmetic, test-only, and an instance of the
+class cp P1054 already tracks.
+
+**[MEDIUM] The coupling marker cannot reach an already-loaded browser tab.** A tab that loaded the
+pre-P1058 bundle keeps calling `clearSessionJoiner(sessionId)` with no code, so that guest's
+release is refused until they reload. The client catches it and still does local cleanup, so the
+visible effect is a seat not freed server-side, self-healing on reload. Bounded; recorded rather
+than fixed.
+
+**[LOW] `claim_joiner_seat` remains `RETURNS SETOF clarity_sessions` with `RETURNING *`**, so any
+column added later is published to every successful anonymous claimer. Independently found by the
+fail-open lens (F10). Now moot for prod — the column never ships — but the return-shape hazard
+stands for the next column anyone adds.
+
+**Two corrections to my own reporting, both fair:**
+
+- I told the reviewer the suite has **13** canaries. Post-revert it has **11** — 13 described the
+  pre-revert state and I carried a stale number into the prompt.
+- The revert migration claimed the restored bodies were "byte-for-byte" identical. They match on
+  **executable SQL after comment stripping**, not byte-for-byte. Moot now (file removed), but the
+  wording was overclaimed.
+
+**Weigh its evidence accordingly:** Codex did not run the integration suite (no external network in
+its sandbox) and Vitest would not start in the clone, so its verdict rests on reading plus
+`tsc --noEmit` (exit 0). That is thinner evidence than the three Claude lenses, which actually ran
+exploits — but the HIGH finding is a reasoning defect in the deploy sequence, which is exactly the
+kind of thing reading catches and running does not.
+
 #### Refuted
 
 - **Realtime does NOT leak the code.** `clarity_sessions` is in the `supabase_realtime` publication
