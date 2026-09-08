@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000072
 severity: high
@@ -281,8 +281,6 @@ which closes *succeed* — revert it together with the wiring, never alone.
 - [x] **False-positive pass:** the repo's own documented ship and dev workflows run
       end-to-end against the wired gates and still complete. Name which were run
       (epistemic gate 7c)
-- [ ] `claude plugin eval` runs as a merge check on changes to `CLAUDE.md`, skills or
-      hooks, with the threshold and baseline arm recorded
 - [x] Both founder decisions above recorded in this spec
 - [x] `p931` re-triaged to a severity matching its measured impact
 
@@ -406,11 +404,20 @@ Delivered instead, so that only the account flag remains:
   `aggregate-result.json` was actually written, so a future silent no-op cannot
   report a vacuous pass.
 
-**This Done-When box is deliberately left unticked**, which means `ship-gates.sh`
-will refuse to close this spec — correctly. The founder's call: enable early
-access and set `ANTHROPIC_API_KEY`, or retire the criterion in prose (the gate's
-own comment is explicit that a retired criterion is *removed with its reason
-recorded*, never marked with a novel glyph).
+**CRITERION RETIRED 2026-09-08, founder decision.** The Done-When line has been
+*removed* from the list, not ticked and not marked with a glyph — `ship-gates.sh`
+scores any box that is not `[x]` as open precisely so that inventing a "[~]
+RETIRED" notation cannot pass, and its comment says a retired criterion is
+removed with its reason recorded in prose. This paragraph is that reason.
+
+It was left unticked first, and the gate duly refused to close this spec — on its
+own author, which is the behaviour the spec asked for. Retiring it is a decision
+about scope, taken with the evidence in hand, not a way around the refusal.
+
+The work is not abandoned: the eval cases and the workflow are committed and
+inert, and the follow-up is filed in `docs/process-learnings.md` so it does not
+live in anyone's memory. Nothing further is needed here the day early access is
+switched on — the workflow flips from warning to enforcing by itself.
 
 ## Open Questions
 

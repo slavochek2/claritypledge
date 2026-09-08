@@ -1215,3 +1215,36 @@ exists to remove.
 agent relays its output; keep the manual invocation only as a pre-flight
 convenience; document `--override` as founder-only (it prompts on `/dev/tty`,
 which an agent session does not have). Land it on `main` as its own commit.
+
+## 2026-09-08 — the skill-eval merge check is authored but inert (P1246 retired criterion)
+
+`due: month`
+
+**State.** `evals/` holds three real cases (closure gate respected, intent gate
+respected, override not reached for) and `.github/workflows/plugin-eval.yml` is
+committed and wired: `--ablation with-without` for the no-plugin baseline arm,
+threshold 1.0, and an assertion that results were actually written so a silent
+no-op cannot report a vacuous pass.
+
+**Why it does nothing today.** `claude plugin eval` is gated behind early access
+on this account and refuses every invocation. Measured 2026-09-08 on CLI 2.1.263,
+exit code read directly rather than through a pipe:
+
+```
+$ claude plugin eval . ; echo $?
+`plugin eval` is currently in early access
+1
+```
+
+It fails closed, which is the right direction, but it means a naive merge check
+would be red on every skill change for a reason unrelated to the change.
+
+**What flips it on.** Enable early access for the account, then add the Anthropic
+credential as a repository secret. No edit to the workflow is required — it
+distinguishes "capability unavailable" (warn, pass) from "eval ran and scored
+low" (fail) and starts enforcing by itself.
+
+**Why it is worth returning to.** P1246's Risks table defers "are these pipeline
+steps earning their place?" to evals rather than to opinion, after one benchmarked
+skill showed no measurable advantage and another was void. That question is still
+open and nothing else answers it.
