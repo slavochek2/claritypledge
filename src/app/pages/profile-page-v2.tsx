@@ -182,7 +182,9 @@ export function ProfilePageV2() {
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
 
   // P115: Stories/Points/Calibration state — all from real services
-  const [contentTab, setContentTab] = useState<ContentTab>('points');
+  // Stories lead: a visitor on a profile is asking "who is this person", and the
+  // media-carrying stories answer that better than a list of points.
+  const [contentTab, setContentTab] = useState<ContentTab>('stories');
   const [realStories, setRealStories] = useState<StoryWithPoints[]>([]);
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
@@ -442,6 +444,16 @@ export function ProfilePageV2() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- currentUserId is derived from currentUser?.id which is already tracked
   }, [profile, currentUser?.id]);
+
+  /** Stories lead, unless there are none. Same ruling the stake page already
+   *  carries ("a tab is only visible if stories are there", stake-page.tsx):
+   *  a profile with points but no stories must not open on an empty tab.
+   *  Runs once per load — after this the visitor's own tab choice stands. */
+  useEffect(() => {
+    if (contentLoading) return;
+    if (realStories.length === 0 && realPoints.length > 0) setContentTab('points');
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- decide once when the load settles, never override a later click
+  }, [contentLoading]);
 
   // Load ears count separately
   useEffect(() => {
@@ -1081,25 +1093,8 @@ export function ProfilePageV2() {
 
           {/* Content tab selector */}
           <div className="bg-card border border-border mt-3 rounded-lg overflow-hidden">
-            {/* Points / Stories tabs */}
+            {/* Stories / Points tabs */}
             <div className="flex" role="tablist" aria-label="Profile content tabs">
-              <button
-                id="points-tab"
-                role="tab"
-                aria-selected={contentTab === 'points'}
-                aria-controls="points-panel"
-                onClick={() => setContentTab('points')}
-                className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
-                  contentTab === 'points'
-                    ? 'text-blue-600'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Points ({userPoints.length})
-                {contentTab === 'points' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-                )}
-              </button>
               <button
                 id="stories-tab"
                 role="tab"
@@ -1114,6 +1109,23 @@ export function ProfilePageV2() {
               >
                 Stories ({userStories.length})
                 {contentTab === 'stories' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
+              </button>
+              <button
+                id="points-tab"
+                role="tab"
+                aria-selected={contentTab === 'points'}
+                aria-controls="points-panel"
+                onClick={() => setContentTab('points')}
+                className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                  contentTab === 'points'
+                    ? 'text-blue-600'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Points ({userPoints.length})
+                {contentTab === 'points' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
                 )}
               </button>

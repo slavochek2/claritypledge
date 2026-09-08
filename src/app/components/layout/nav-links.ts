@@ -6,6 +6,7 @@ import {
   LandmarkIcon,
   AwardIcon,
   ScrollTextIcon,
+  NewspaperIcon,
   BookOpenIcon,
   InfoIcon,
 } from "lucide-react";
@@ -104,6 +105,10 @@ export const PUBLIC_NAV_GROUPS = [
   {
     label: "Product",
     items: [
+      // The feed is public and needs no account, so the menu says so. It was the one
+      // public product surface with no entry here — reachable only by typing /feed or
+      // following a tag link, which meant first-time visitors never met it.
+      { to: "/feed", label: "Feed", Icon: NewspaperIcon },
       { to: "/pricing", label: "Pricing", Icon: TagIcon },
       { to: EVENTS_NAV_TO, label: "Groups", Icon: LandmarkIcon },
       { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },

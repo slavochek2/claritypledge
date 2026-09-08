@@ -16,7 +16,7 @@
  * PASSES after fix (viewerStoryCount=1, counted via linksByPoint which ignores visibility).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ProfilePageV2 } from '@/app/pages/profile-page-v2';
 import * as auth from '@/auth';
@@ -112,6 +112,13 @@ vi.mock('@/lib/mixpanel', () => ({
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** The profile now opens on the Stories tab (stories lead — profile-page-v2.tsx).
+ *  These assertions are about the point card's pill, so switch to Points first. */
+async function openPointsTab() {
+  const tab = await screen.findByRole('tab', { name: /^Points/ });
+  await act(async () => { fireEvent.click(tab); });
+}
 
 function makeStoryPointsChain(rows: Array<{ point_id: string; story_id: string }>, authorId: string) {
   return {
@@ -223,6 +230,8 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
       expect(screen.getByText('Test User')).toBeInTheDocument();
     });
 
+    await openPointsTab();
+
     // Wait for the point card to finish loading (async supabase mocks resolve)
     await waitFor(() => {
       expect(screen.getByText('Test claim about the world')).toBeInTheDocument();
@@ -275,6 +284,7 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
       </MemoryRouter>
     );
 
+    await openPointsTab();
     await waitFor(() => expect(screen.getByText('Test claim about the world')).toBeInTheDocument());
     await new Promise(r => setTimeout(r, 50));
 
@@ -294,6 +304,7 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
       </MemoryRouter>
     );
 
+    await openPointsTab();
     await waitFor(() => expect(screen.getByText('Test claim about the world')).toBeInTheDocument());
     await new Promise(r => setTimeout(r, 50));
 

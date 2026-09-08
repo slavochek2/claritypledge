@@ -2,7 +2,8 @@
  * @file feed-page.tsx
  * @description P491/P499: Home — public content discovery with creation CTA.
  *
- * Two tabs (Points default, Stories), tag cloud, search bar, URL-driven tag filter.
+ * Two tabs (Stories first, Points default when no ?tab= param), tag cloud, search
+ * bar, URL-driven tag filter.
  * Logged-in users see "Share a Story" button. Internal tags (st1, st2...) hidden from cloud.
  * Accessible to both authenticated and anonymous users (public content only).
  */
@@ -401,21 +402,6 @@ export function FeedPage() {
         <div role="tablist" className="flex items-center gap-0 border-b border-border mb-4">
           <button
             role="tab"
-            aria-selected={activeTab === 'points'}
-            onClick={() => handleTabChange('points')}
-            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
-              activeTab === 'points'
-                ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Points
-            {activeTab === 'points' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-            )}
-          </button>
-          <button
-            role="tab"
             aria-selected={activeTab === 'stories'}
             onClick={() => handleTabChange('stories')}
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
@@ -426,6 +412,21 @@ export function FeedPage() {
           >
             Stories
             {activeTab === 'stories' && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
+            )}
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'points'}
+            onClick={() => handleTabChange('points')}
+            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+              activeTab === 'points'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Points
+            {activeTab === 'points' && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
             )}
           </button>
