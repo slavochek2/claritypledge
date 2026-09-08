@@ -46,9 +46,37 @@ fail() { echo "FAIL: $*" >&2; FAILURES=$((FAILURES + 1)); }
 # The sleeps let the pty settle before and after the line is delivered; without
 # them the read races and returns EOF, which looks exactly like a refusal and
 # would make this canary lie in the SAFE direction.
+# PORTABILITY, and why it is not cosmetic. script(1) takes different arguments on
+# BSD (macOS: `script -q <file> <cmd> <args...>`) and util-linux (CI:
+# `script -q -c "<cmd>" <file>`). This helper was written on macOS only, so on the
+# Linux runner all three override cases died with "script: unexpected number of
+# arguments" — and A4's failure text reads "the bypass no longer works — GOOD
+# NEWS", i.e. a broken helper announced itself as a security improvement. That is
+# the canary lying in the UNSAFE direction, which is the one direction it must
+# never lie in.
+#
+# So: detect the flavour, and if neither form works, fail loudly rather than let
+# any case interpret an unrunnable helper as a verdict.
+# `</dev/null` on BOTH probes is load-bearing: script(1) runs tcgetattr on stdin,
+# and in an agent shell stdin is a SOCKET, so the probe dies with
+# "tcgetattr/ioctl: Operation not supported on socket" and reports the platform as
+# unsupported — on the very platform it works on. Measured 2026-09-08: identical
+# probe returns 1 with inherited stdin and 0 with </dev/null.
+PTY_FLAVOUR=""
+if script -q -c true /dev/null </dev/null >/dev/null 2>&1; then
+  PTY_FLAVOUR="util-linux"
+elif script -q /dev/null true </dev/null >/dev/null 2>&1; then
+  PTY_FLAVOUR="bsd"
+fi
+
+# pty_feed <reason> <shell command string>
 pty_feed() {
-  local reason="$1"; shift
-  { sleep 0.4; printf '%s\n' "$reason"; sleep 0.3; } | script -q /dev/null "$@" 2>&1 | tr -d '\r'
+  local reason="$1" cmd="$2"
+  case "$PTY_FLAVOUR" in
+    util-linux) { sleep 0.4; printf '%s\n' "$reason"; sleep 0.3; } | script -q -c "$cmd" /dev/null 2>&1 | tr -d '\r' ;;
+    bsd)        { sleep 0.4; printf '%s\n' "$reason"; sleep 0.3; } | script -q /dev/null bash -c "$cmd" 2>&1 | tr -d '\r' ;;
+    *)          echo "PTY_UNAVAILABLE" ;;
+  esac
 }
 
 # ── A. Override ─────────────────────────────────────────────────────────────
@@ -61,6 +89,12 @@ if r="$(gate_override_capture p9999 "closure gate")"; then echo "CAPTURED=[$r]";
 EOF
 chmod +x "$SCRATCH/ovr.sh"
 
+if [[ -z "$PTY_FLAVOUR" ]]; then
+  fail "A0: no usable script(1) on this platform — the override cases below cannot run, and must not be read as verdicts"
+else
+  pass "A0: pty helper available (flavour: $PTY_FLAVOUR)"
+fi
+
 out="$("$SCRATCH/ovr.sh" "$REPO_ROOT" 2>/dev/null)"
 if [[ "$out" == *"AVAIL=no"* && "$out" == *"REFUSED"* ]]; then
   pass "A1: no controlling terminal (agent shell) — override refused"
@@ -68,14 +102,14 @@ else
   fail "A1: override did not refuse without a tty: $out"
 fi
 
-out="$(pty_feed "criteria 3-6 retired, reason in prose" "$SCRATCH/ovr.sh" "$REPO_ROOT")"
+out="$(pty_feed "criteria 3-6 retired, reason in prose" "'$SCRATCH/ovr.sh' '$REPO_ROOT'")"
 if [[ "$out" == *"AVAIL=yes"* && "$out" == *"CAPTURED=[criteria 3-6 retired, reason in prose]"* ]]; then
   pass "A2: prompt mechanics — a pty + substantive reason is accepted"
 else
   fail "A2: override did not accept at a real pty: $out"
 fi
 
-out="$(pty_feed "ok" "$SCRATCH/ovr.sh" "$REPO_ROOT")"
+out="$(pty_feed "ok" "'$SCRATCH/ovr.sh' '$REPO_ROOT'")"
 if [[ "$out" == *"AVAIL=yes"* && "$out" == *"REFUSED"* ]]; then
   pass "A3: prompt mechanics — a 2-char reason is refused even at a pty"
 else
@@ -110,13 +144,16 @@ mk_repo_a4() {
   printf '{"type": "code", "pn": "p777", "branch": "feature/p777-demo", "sha": "x", "timestamp": "t"}\n' >> "$1/.git/.finish-reviewed"
 }
 mk_repo_a4 "$A4_R"
-{ sleep 0.5; printf 'agent typed this, no human present\n'; sleep 0.5; } \
-  | script -q /dev/null bash -c "cd $A4_R && bash scripts/git-ops.sh ship p777 --override" \
-  >"$SCRATCH/a4.log" 2>&1
+pty_feed "agent typed this, no human present" \
+  "cd '$A4_R' && bash scripts/git-ops.sh ship p777 --override" >"$SCRATCH/a4.log" 2>&1
 if ls "$A4_R"/features/done/*/p777_demo.md >/dev/null 2>&1; then
   pass "A4: KNOWN LIMITATION holds — an agent CAN pass the override via script(1); this prompt is friction + audit, not a boundary"
 else
-  fail "A4: the script(1) bypass no longer works — GOOD NEWS, but gate-override.sh's documented limitation is now stale; update it and this case"
+  if grep -q 'PTY_UNAVAILABLE\|unexpected number of arguments' "$SCRATCH/a4.log" 2>/dev/null; then
+    fail "A4: the pty helper could not run — this is a BROKEN CANARY, not evidence the bypass is closed"
+  else
+    fail "A4: the script(1) bypass no longer works — GOOD NEWS, but gate-override.sh's documented limitation is now stale; update it and this case"
+  fi
 fi
 
 # ── Scratch repo for the ship-path cases ────────────────────────────────────
@@ -350,5 +387,5 @@ if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A1-A4, B1-B4, C1, D1-D3, E1-E6, F1-F5, G1-G3)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A4, B1-B4, C1, D1-D3, E1-E6, F1-F5, G1-G3)"
 exit 0
