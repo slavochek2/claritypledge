@@ -131,16 +131,27 @@ any finding is reported as real.
 
 ## Done-When
 
-- [ ] F4 is either **reproduced** with a canary showing an anon caller evicting a seated guest, or
-      **closed** with a written explanation of why the claim does not hold
-- [ ] If reproduced: fixed, with the AD3 trade-off decided explicitly by the founder and recorded
-- [ ] The fail-open audit table exists — every boolean condition in the three functions, its
-      NULL-reachable operands, its construct (`IF` vs `WHERE` vs policy), and its fail direction
-- [ ] Every fail-OPEN condition found is either fixed or recorded as accepted with a reason
-- [ ] All three unrun lenses have been run, each reporting concrete attempted attacks and outcomes
-- [ ] Every new finding is reproduced on test before being written up as real
-- [ ] `.private/docs/security-log.md` updated with anything found
-- [ ] P1053's Group F canaries and both integration suites still green
+**Scope note (2026-09-08):** Phase 3 — the three unrun adversarial lenses — is split out to
+**P1274** so this finished, tested fix ships rather than ageing on a branch behind an open-ended
+review. That is precisely how it stranded the first time. The lens criteria below are restated as
+delivered-here / moved-there rather than ticked, because ticking them would be untrue.
+
+- [x] F4 is either **reproduced** with a canary showing an anon caller evicting a seated guest, or
+      **closed** — REPRODUCED: 3 failed / 5 passed before the fix, the three failures being exactly F4
+- [x] If reproduced: fixed, with the AD3 trade-off decided explicitly by the founder and recorded —
+      fixed by binding release to the room code, then to a per-seat capability token; both founder
+      decisions recorded under "Founder decisions — TAKEN 2026-09-08"
+- [x] The fail-open audit table exists — every boolean condition in the three functions, its
+      NULL-reachable operands, its construct, and its fail direction
+- [x] Every fail-OPEN condition found is either fixed or recorded as accepted with a reason — one
+      found (`complete_clarity_session`), recorded as accepted, closed only by the ACL
+- [x] Every new finding is reproduced on test before being written up as real — applies to every
+      finding this spec reports; nothing here rests on an unreproduced claim
+- [x] `.private/docs/security-log.md` updated with anything found
+- [x] P1053's Group F canaries and both integration suites still green — re-run on this branch
+      2026-09-08: **59 passed, 0 failed, exit 0** (P1058 + P1053 + P1063 + P1047)
+- [x] All three unrun lenses — **MOVED to P1274, not done here.** No lens has run against this
+      spec's own two migrations either; P1274 scopes them in explicitly.
 
 ## Findings
 
