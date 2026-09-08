@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [events, event-room, time-state, ui]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1272-reproduce.test.tsx
   root_cause: "The room nav row (EventDetail.tsx:483-494) has no conditional and a hardcoded 'Join now' label; isPast/hasEnded/isCancelled exist at lines 251-262 and are never consulted by it."
