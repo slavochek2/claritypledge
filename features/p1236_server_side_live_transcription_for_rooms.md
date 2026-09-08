@@ -1103,6 +1103,8 @@ step is a finding nobody builds.
 | `privacy.md` does not disclose room audio or transcripts as a Gemini destination; consent copy names no third party | Addendum, Data Protection | **Step 15**, gating prod |
 | Gemini's training/retention terms for submitted audio are UNVERIFIED at this tier | Addendum, Data Protection | Pre-deploy checklist — confirm before prod; no code closes it |
 | Live Gemini caller must pull the key from a secret store and register it per P834 | Addendum, API Key Handling | Step 8 |
+| Bucket ACL / retention for `gs://claritypledge-ml-training` unverified — no lifecycle or retention rule exists anywhere in the repo, and room audio is pseudonymous, not anonymous | Engine-independent, Data Protection | **Step 14** — `gsutil iam get` + `gsutil lifecycle get`, with the retention period recorded in the Pre-deploy Checklist |
+| No server-side authentication artifact exists yet for the new ingest endpoint | Engine-independent, Authentication | Step 7 — `handler.ts` opens JWT → membership → consent; refusals asserted in `handler.test.ts` |
 | The EUR 75 monthly cap is a shared fuse, not a rate limit; no per-room or per-member bound exists | Addendum, Spend | Decision 6's three ceilings (room hard-stop, per-member slice counter, per-user concurrent rooms) |
 | Batch cap headroom is unmeasured against concurrent P1237 runs sharing the project | Addendum, Spend | **Step 17** — nothing above closed this |
 | RQ5: with diarization off Gemini accepts long audio, bills in full, returns ~5 minutes silently | Addendum, RQ5 | Decision 8's hard constraint; step 7 (`validate.ts` max duration) + the assertion that the request builder cannot be handed more than one slice |
