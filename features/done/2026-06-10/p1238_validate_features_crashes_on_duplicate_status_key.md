@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 1000067
@@ -11,7 +11,6 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 tags: [specs, tooling, validation]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: tools/kanban/scripts/__tests__/validate-features.test.ts
@@ -20,6 +19,7 @@ reproduce_artifact:
   surfaces_in_scope: [validate-features.ts]
   surfaces_deferred: []
   reproduced_at: '2026-09-08'
+completed_at: 2026-09-08
 ---
 
 # P1238: `validate-features.sh` crashes on a duplicate `status:` key and validates nothing after it
