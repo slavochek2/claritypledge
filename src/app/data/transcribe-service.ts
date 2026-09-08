@@ -199,6 +199,65 @@ export async function joinRoom(roomId: string, profileId: string, displayName: s
   return mapMember(row);
 }
 
+/** P1236 Decision 2: the live transcription ingest. Not the GCS signed-URL route — see
+ *  the decision for why four hops and ~900 signed-URL mints per member-hour was the wrong
+ *  shape for a path with a ~6 s end-to-end budget. */
+const TRANSCRIBE_SLICE_EDGE_FUNCTION = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/transcribe-slice`;
+
+/** Chunked because String.fromCharCode(...bytes) on a ~160 KB slice exceeds the argument
+ *  limit and throws — on the phone, mid-conversation, with no other symptom. */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+async function postSlicePayload(body: Record<string, unknown>): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('Not signed in');
+
+  const response = await fetch(TRANSCRIBE_SLICE_EDGE_FUNCTION, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(`transcribe-slice ${response.status}: ${(detail as { error?: string }).error ?? 'unknown'}`);
+  }
+}
+
+/**
+ * The wake-on-join POST (Decision 3/6). Carries no audio at all.
+ *
+ * It is an OPTIMISATION, not a mitigation, and should not be described as one: after the
+ * engine decision there is no ~30 s GPU cold start to hide, only a sub-second edge-function
+ * one. It costs a single request and takes the first real slice off the cold path. It runs
+ * after joinRoom resolves — so it is gated on the authenticated join, never on a
+ * client-callable "start" endpoint.
+ */
+export async function prewarmSlicePath(roomId: string): Promise<void> {
+  await postSlicePayload({ roomId, warmup: true });
+}
+
+/**
+ * Sends one 5-second WAV slice for transcription.
+ *
+ * Note what is NOT in the payload: no member id, no spoken_at, no text. The server derives
+ * attribution from (roomId, auth.uid()) and lets the column DEFAULT assign spoken_at, which
+ * is the de-duplication ordering key. The ingest function validates against an allow-list,
+ * so adding any of them here would be rejected rather than quietly honoured — deliberately.
+ *
+ * `sequence` bounds and rejects replays. It is NOT the ordering key and must not become one.
+ */
+export async function sendAudioSlice(roomId: string, sequence: number, wav: Uint8Array): Promise<void> {
+  await postSlicePayload({ roomId, sequence, audio: bytesToBase64(wav) });
+}
+
 export async function getRoomMembers(roomId: string): Promise<TranscribeRoomMember[]> {
   const { data, error } = await supabase
     .from('transcribe_room_members')
@@ -222,17 +281,19 @@ export async function getRoomMessages(roomId: string): Promise<TranscribeMessage
 }
 
 /**
- * Writes one finalized utterance. Interim (not-yet-final) text must NEVER be passed here —
- * the DB's is_final CHECK constraint enforces that as a second line of defense (A4, DW-4).
+ * P1236 removed `sendFinalMessage`.
+ *
+ * It was the client's insert path onto transcribe_messages, driven by the browser
+ * recognizer. Decision 7 removes the recognizer, and Decision 2 makes the SERVER the
+ * writer: transcribe-slice derives member_id from (room_id, auth.uid()) and inserts through
+ * record_transcribe_slice() under the service role. This file now has zero writes to that
+ * table, which is the property `p1149-interim-never-persists.test.ts` asserts.
+ *
+ * NOT closed by this: transcribe_messages still carries P1149's "room members can send
+ * their own messages" INSERT policy, so a client could still write a row attributed to its
+ * own seat by calling PostgREST directly. That predates P1236 and removing it is a
+ * separate decision — deleting our own wrapper does not close a policy.
  */
-export async function sendFinalMessage(roomId: string, memberId: string, text: string): Promise<void> {
-  const trimmed = text.trim();
-  if (!trimmed) return;
-  const { error } = await supabase
-    .from('transcribe_messages')
-    .insert({ room_id: roomId, member_id: memberId, text: trimmed, is_final: true });
-  if (error) throw new Error(error.message);
-}
 
 /**
  * Full-refetch-on-event subscription, modeled on event-room-service.ts's

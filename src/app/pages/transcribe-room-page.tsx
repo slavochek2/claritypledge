@@ -14,16 +14,16 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
-import { MicOff, Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
+import { Sparkles, ShieldOff, Loader2, Users, LogOut } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
-import { useSpeechToText } from '@/hooks/useSpeechToText';
-import { useStickToBottom } from '@/hooks/useStickToBottom';
+import { createSliceRecorder, type SliceRecorder } from '@/lib/audio/slice-recorder';
 import {
   createRoom,
   getRoomByCode,
   joinRoom,
   endRoom,
-  sendFinalMessage,
+  prewarmSlicePath,
+  sendAudioSlice,
   subscribeToRoomMembers,
   subscribeToRoomMessages,
   type TranscribeRoomMember,
@@ -41,18 +41,26 @@ function formatTime(iso: string): string {
 }
 
 /**
- * P1152/PV-1 (2026-09-01): on Android, holding a MediaRecorder on the mic starves
- * SpeechRecognition — it opens, receives silence, and closes at ~5.3s with no error
- * of any kind, then auto-restarts forever. Measured on a physical Galaxy S22 over adb:
- * with the recorder running the recognizer heard nothing 14 consecutive times; with the
- * recorder off, the SAME page on the SAME device transcribed "windows for you 1 2 3"
- * on the first attempt.
+ * P1152/PV-1 (2026-09-01): on Android, holding a MediaRecorder on the mic starved
+ * SpeechRecognition — it opened, received silence, and closed at ~5.3 s with no error of
+ * any kind, 14 consecutive times on a physical Galaxy S22 measured over adb. That is why
+ * recording was dead code behind RECORD_AUDIO_WHILE_LIVE = false.
  *
- * Live text is the room's whole purpose, so recording yields until audio capture is
- * unified server-side (one mic stream, both transcribed and stored). Flip to true only
- * to reproduce the starvation.
+ * P1236 Decision 7 removes the contention BY CONSTRUCTION rather than by scheduling the
+ * two: SpeechRecognition is the half that cannot share a stream (the Web Speech API opens
+ * its own capture and takes no MediaStream argument), so it is gone from this page. One
+ * getUserMedia stream now feeds BOTH a Web Audio tap (live slices, sent to the server for
+ * transcription) and a MediaRecorder (30 s archival chunks, unchanged path). Re-measured
+ * on the same physical S22 2026-09-08: the tap held exactly 48000 frames/second in every
+ * second including the one where the recorder attached, and the recorder produced 12
+ * non-empty chunks — no degradation at all. Probe: scripts/p1236-stagea-probe/.
+ *
+ * The flag is deleted rather than flipped: a boolean guarding a hazard that no longer
+ * exists is an invitation to re-litigate it.
+ *
+ * `useSpeechToText` itself is NOT deleted — /chat still uses its default (non-autoRestart)
+ * behaviour and is unaffected.
  */
-const RECORD_AUDIO_WHILE_LIVE = false;
 
 export function TranscribeRoomPage() {
   const navigate = useNavigate();
@@ -63,7 +71,9 @@ export function TranscribeRoomPage() {
   const [view, setView] = useState<ViewState>('loading');
   const [consentGiven, setConsentGiven] = useState(false);
   const [room, setRoom] = useState<TranscribeRoom | null>(null);
-  const [member, setMember] = useState<TranscribeRoomMember | null>(null);
+  // No `member` state: the caller's own membership was only ever read by the
+  // sendFinalMessage effect, which is gone with the recognizer. The join result is handed
+  // straight to startCapture, and everything rendered comes from the roster subscription.
   const [members, setMembers] = useState<TranscribeRoomMember[]>([]);
   const [messages, setMessages] = useState<TranscribeMessage[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -73,46 +83,14 @@ export function TranscribeRoomPage() {
   // listening indicator instead (P1149 finish-review MEDIUM).
   const [micError, setMicError] = useState<string | null>(null);
 
-  // Gate 0 / Risks: opt-in auto-restart, so a dropped recognizer recovers instead of
-  // dying silently. The dedicated "dropped and restarting" UI state below is what makes
-  // a dead recognizer visible rather than silent (spec UX Notes).
-  const {
-    transcript,
-    interimTranscript,
-    isListening,
-    isSupported: speechSupported,
-    startListening,
-    stopListening,
-    liveTextStopped,
-    lastRecognitionError,
-  } = useSpeechToText('en-US', { autoRestart: true });
-
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const chunkNumberRef = useRef(0);
   const chunkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // How much of the hook's cumulative `transcript` has already been sent as a message —
-  // only the newly-appended (finalized) suffix is ever sent, one utterance at a time.
-  const sentLengthRef = useRef(0);
-
-  // P1294: the list follows new lines, and stops following the moment the reader scrolls up.
-  // Keyed on a SCALAR, never on `messages` itself — the subscription replaces that array
-  // wholesale on every realtime event and on a 15s reconciliation poll, so array identity
-  // would re-scroll on a timer and fight the reader. Interim text is in the key too: it grows
-  // under the last message while someone is mid-sentence, and not following it would leave
-  // the words being spoken just off-screen.
-  const {
-    containerRef: chatRef,
-    onScroll: onChatScroll,
-    isAtBottom,
-    scrollToBottom,
-  } = useStickToBottom<HTMLDivElement>(
-    // Length ALONE can collide: a removal and an arrival in the same update leave the count
-    // unchanged, and the list would silently stop following while new content is on screen.
-    // The newest id makes that unrepresentable. Interim length is in the key so the words
-    // being spoken right now stay visible instead of sitting just below the fold.
-    `${messages.length}:${messages[messages.length - 1]?.id ?? ''}:${interimTranscript.length}`,
-  );
+  // Decision 7: ONE getUserMedia stream, teed to the Web Audio tap and the MediaRecorder.
+  // Held so teardown can stop the tracks exactly once, after both consumers are done.
+  const streamRef = useRef<MediaStream | null>(null);
+  const sliceRecorderRef = useRef<SliceRecorder | null>(null);
 
   // ── Auth gate (DW-1) ────────────────────────────────────────────────────
   useEffect(() => {
@@ -135,64 +113,91 @@ export function TranscribeRoomPage() {
     };
   }, [room]);
 
-  // ── Broadcast finalized utterances only — interim text never leaves the browser (DW-4) ──
-  // `transcript` only grows when the hook commits a FINAL result (see onresult in
-  // useSpeechToText.ts); interimTranscript is read only for local display above and is
-  // never passed to sendFinalMessage anywhere in this file.
-  useEffect(() => {
-    if (!room || !member) return;
-    const newText = transcript.slice(sentLengthRef.current).trim();
-    if (newText) {
-      sentLengthRef.current = transcript.length;
-      void sendFinalMessage(room.id, member.id, newText);
-    }
-  }, [transcript, room, member]);
+  // ── Live text now arrives the same way everyone else's does ─────────────
+  // There is no local transcript state and no interim text on this page any more. Slices
+  // go to the server; the server's rows come back through subscribeToRoomMessages, which
+  // this component already renders. That makes Invariant 1 ("interim text never leaves the
+  // browser") true by construction rather than by discipline — there is no interim text
+  // anywhere in this file to leak.
+  //
+  // The cost is latency: ~6 s instead of the recognizer's sub-second. The spec accepts it
+  // ("slower and working beats instant and absent"), on the founder's answer that "read
+  // while talking is not really the case at all".
 
+  /**
+   * Decision 7: ONE getUserMedia call, teed two ways.
+   *
+   * The MediaRecorder branch below is byte-for-byte the archival path that already
+   * existed — same 30 s cadence, same uploadRoomAudioChunk, same chunk_NNN.webm object
+   * names — it is simply no longer behind a dead flag. Nothing downstream of it changes,
+   * which is what keeps ROOM_FILE_NAME_RE and the batch pipeline working.
+   *
+   * The slice recorder is the new half. It attaches a Web Audio tap to the SAME stream and
+   * emits a 5 s WAV every 4 s. Both consumers share one stream because Stage A measured
+   * that they can — and because two getUserMedia calls would be two microphone sessions,
+   * which is the contention this feature exists to remove.
+   */
   const startCapture = useCallback(async (roomForCapture: TranscribeRoom, memberForCapture: TranscribeRoomMember) => {
     try {
-      if (RECORD_AUDIO_WHILE_LIVE) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
-        mediaRecorderRef.current = recorder;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      // ── Archival: unchanged 30 s WebM chunks to GCS ───────────────────────
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      chunkNumberRef.current = 0;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      const flush = async (isLast: boolean) => {
+        if (audioChunksRef.current.length === 0) return;
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         audioChunksRef.current = [];
-        chunkNumberRef.current = 0;
+        const num = chunkNumberRef.current++;
+        try {
+          await uploadRoomAudioChunk(roomForCapture.code, memberForCapture.displayName, memberForCapture.id, blob, num, isLast);
+        } catch (err) {
+          console.error('[transcribe] chunk upload failed:', err);
+        }
+      };
 
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunksRef.current.push(e.data);
-        };
+      recorder.start();
+      chunkIntervalRef.current = setInterval(() => {
+        recorder.requestData();
+        void flush(false);
+      }, CHUNK_INTERVAL_MS);
 
-        const flush = async (isLast: boolean) => {
-          if (audioChunksRef.current.length === 0) return;
-          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          audioChunksRef.current = [];
-          const num = chunkNumberRef.current++;
-          try {
-            await uploadRoomAudioChunk(roomForCapture.code, memberForCapture.displayName, memberForCapture.id, blob, num, isLast);
-          } catch (err) {
-            console.error('[transcribe] chunk upload failed:', err);
-          }
-        };
+      // The recorder owns stopping the tracks, because it is the consumer with an
+      // explicit end-of-stream obligation (the final chunk must be flushed with
+      // isLast=true). The slice recorder is stopped first, in handleEndSession.
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        void flush(true);
+      };
 
-        recorder.start();
-        chunkIntervalRef.current = setInterval(() => {
-          recorder.requestData();
-          void flush(false);
-        }, CHUNK_INTERVAL_MS);
-
-        recorder.onstop = () => {
-          stream.getTracks().forEach((t) => t.stop());
-          void flush(true);
-        };
-      }
-
-      if (speechSupported) {
-        startListening();
-      }
+      // ── Live: 5 s WAV slices to transcribe-slice ──────────────────────────
+      // A failed slice is logged and dropped, never retried and never queued. A retry
+      // would re-send audio the server may already have transcribed, and a queue would
+      // grow unbounded on a phone that has lost its radio — while the archival upload
+      // above still carries every second of the audio, so nothing is actually lost from
+      // the record. Live text degrading on a bad connection is the acceptable failure.
+      sliceRecorderRef.current = await createSliceRecorder(stream, {
+        onSlice: (wav, sequence) => {
+          void sendAudioSlice(roomForCapture.id, sequence, wav).catch((err) => {
+            console.error('[transcribe] slice upload failed:', err);
+          });
+        },
+        onError: (err) => console.error('[transcribe] slice recorder error:', err),
+      });
     } catch (err) {
       console.error('[transcribe] failed to start capture:', err);
       setMicError('Could not access your microphone. You can still read the chat.');
     }
-  }, [speechSupported, startListening]);
+  }, []);
 
   /**
    * The consent screen's escape hatch is a BACK button, not a "Leave" (founder,
@@ -236,8 +241,17 @@ export function TranscribeRoomPage() {
       }
 
       setRoom(joinedRoom);
-      setMember(joinedMember);
       setView('room');
+
+      // Wake-on-join (Decision 3/6): one no-audio POST, issued AFTER joinRoom resolves and
+      // BEFORE startCapture. Gated on the authenticated join rather than on a
+      // client-callable "start" endpoint, which is what the Security Review asked for.
+      // It is an optimisation — there is no ~30 s GPU cold start left to hide — so a
+      // failure here is logged and ignored rather than blocking the room.
+      void prewarmSlicePath(joinedRoom.id).catch((err) => {
+        console.warn('[transcribe] pre-warm failed (non-fatal):', err);
+      });
+
       void startCapture(joinedRoom, joinedMember);
     } catch (err) {
       console.error('[transcribe] join failed:', err);
@@ -248,7 +262,11 @@ export function TranscribeRoomPage() {
 
   const handleEndSession = useCallback(async () => {
     if (chunkIntervalRef.current) clearInterval(chunkIntervalRef.current);
-    stopListening();
+    // Order matters: the slice recorder stops first, then the MediaRecorder — whose
+    // onstop stops the shared stream's tracks and flushes the final archival chunk. The
+    // other order would pull the tracks out from under a tap that is mid-quantum.
+    sliceRecorderRef.current?.stop();
+    sliceRecorderRef.current = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -260,15 +278,23 @@ export function TranscribeRoomPage() {
       }
     }
     setView('ended');
-  }, [room, stopListening]);
+  }, [room]);
 
   useEffect(() => () => {
     // Navigating away without clicking "End Session" (SPA route change, browser back) must
-    // stop the mic the same way handleEndSession does — otherwise recording continues past
-    // what the consent screen promised. recorder.onstop already stops the raw stream tracks.
+    // stop the mic the same way handleEndSession does — otherwise capture continues past
+    // what the consent screen promised, and that promise is now also a server-side record.
+    // Same order as handleEndSession; recorder.onstop stops the shared stream's tracks.
     if (chunkIntervalRef.current) clearInterval(chunkIntervalRef.current);
+    sliceRecorderRef.current?.stop();
+    sliceRecorderRef.current = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
+    } else if (streamRef.current) {
+      // The recorder never started (getUserMedia resolved, MediaRecorder threw), so its
+      // onstop will never fire and nothing else would release the microphone.
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     }
   }, []);
 
@@ -420,80 +446,29 @@ export function TranscribeRoomPage() {
           >
             {micError}
           </p>
-        ) : !speechSupported ? (
-          <p className="text-xs text-muted-foreground text-center py-3" data-testid="transcribe-unsupported">
-            Live text isn't available on this browser. Your audio is still being recorded — the
-            corrected transcript will arrive the same as everyone else's.
-          </p>
         ) : (
+          /* P1236 Decision 7: three states collapse into one.
+             The old indicator had to distinguish "listening", "reconnecting" and the
+             terminal "live text stopped — tap to resume", because the browser recognizer
+             could die silently and on iOS could only be restarted by a user gesture. None
+             of those states exist now: there is no recognizer to drop, and no gesture that
+             could revive one. Capture is a Web Audio tap on a stream we hold, and if that
+             fails at all it fails at getUserMedia — which is the micError branch above.
+
+             So this is a plain status line, not a state machine. Blue, matching /live's own
+             RecordingIndicator: design-system.md reserves red for destructive actions, and
+             a passive recording status is not one. */
           <div
-            className={`flex items-center gap-1.5 mb-3 text-xs ${
-              isListening
-                ? 'text-muted-foreground'
-                : 'flex-wrap py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500'
-            }`}
+            className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground"
             data-testid="transcribe-listening-indicator"
             role="status"
           >
-            {isListening ? (
-              <>
-                {/* design-system.md reserves red for destructive actions — a passive
-                    "listening" status isn't one, and it collided with the End Session
-                    control below. Blue matches /live's own recording indicator
-                    (live-mode-view.tsx RecordingIndicator: "Session recorded for AI
-                    Insights", bg-blue-50/text-blue-700/text-blue-500 dot) — same
-                    passive-recording concept, same color, now genuinely consistent
-                    with the one precedent that already exists for it. */}
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shrink-0" aria-hidden="true" />
-                Listening — your words are going in
-              </>
-            ) : liveTextStopped ? (
-              <>
-                {/* P1196: the terminal state. Automatic restarts are exhausted — on iOS
-                    they cannot succeed at all, because Safari only lets recognition
-                    start from a user gesture. This tap IS that gesture, and it is the
-                    only thing that can bring live text back on a phone. Audio upload is
-                    unaffected either way, which the copy says so nobody stops the
-                    session believing the recording died with the live text. */}
-                <MicOff className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>Live text stopped. Your audio is still recording.</span>
-                <button
-                  type="button"
-                  onClick={startListening}
-                  className="ml-auto min-h-10 px-3 rounded-lg border-2 border-red-500 bg-white text-red-800 font-semibold"
-                  data-testid="transcribe-resume-live-text"
-                >
-                  Resume live text
-                </button>
-                {lastRecognitionError && (
-                  <span className="w-full font-normal opacity-80" data-testid="transcribe-speech-error">
-                    ({lastRecognitionError})
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                {/* Bordered/light fill, not solid — a STATUS message, deliberately never
-                    solid-filled red like a destructive button, so the two can't be
-                    confused for each other. Kept at full prominence (unlike the calm
-                    "Listening" state above) because a dropped connection is the one
-                    state that must stay unmissable. */}
-                <MicOff className="w-4 h-4" />
-                Reconnecting microphone...
-              </>
-            )}
+            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shrink-0" aria-hidden="true" />
+            Listening — your words appear here a few seconds after you say them
           </div>
         )}
 
-        {/* `relative` anchors the return button to this list, not the page — the button
-            belongs to the transcript and must not float over the controls below it. */}
-        <div className="relative flex-1 min-h-0 mb-4">
-        <div
-          ref={chatRef}
-          onScroll={onChatScroll}
-          className="h-full overflow-y-auto space-y-3"
-          data-testid="transcribe-chat"
-        >
+        <div className="flex-1 overflow-y-auto space-y-3 mb-4" data-testid="transcribe-chat">
           {messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8" data-testid="transcribe-empty-room">
               You're first here. Words will appear as people speak.
@@ -510,27 +485,6 @@ export function TranscribeRoomPage() {
               );
             })
           )}
-          {interimTranscript && (
-            <p className="text-sm italic text-muted-foreground" data-testid="transcribe-interim">
-              {interimTranscript}
-            </p>
-          )}
-        </div>
-
-        {/* Only while detached. A control that is always present but does nothing half the
-            time teaches the reader to ignore it. Not a primary action and never full-width
-            (P955): the primary action on this screen is ending the session. */}
-        {!isAtBottom && (
-          <button
-            type="button"
-            onClick={() => scrollToBottom()}
-            aria-label="Jump to newest"
-            data-testid="transcribe-jump-to-newest"
-            className="absolute bottom-2 right-2 w-11 h-11 rounded-full border bg-background shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground"
-          >
-            <ArrowDown className="w-5 h-5" aria-hidden="true" />
-          </button>
-        )}
         </div>
       </div>
     </div>
