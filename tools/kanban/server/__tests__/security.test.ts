@@ -8,6 +8,10 @@ let server: ReturnType<typeof createServer>
 let API_BASE_URL: string
 
 beforeAll(async () => {
+  // /api/open really shells out to `code -r`, which raises the user's VS Code
+  // window. Dry-run keeps this suite off the screen; the allowlist verdict
+  // (403 vs not-403) is what these tests assert, and that runs before it.
+  process.env.KANBAN_OPEN_DRY_RUN = 'true'
   server = app.listen(0)
   const port = (server.address() as AddressInfo).port
   API_BASE_URL = `http://localhost:${port}`
@@ -16,6 +20,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   server.close()
+  delete process.env.KANBAN_OPEN_DRY_RUN
 })
 
 // ---------------------------------------------------------------------------
@@ -41,8 +46,10 @@ describe('Security: /api/open path traversal', () => {
       body: JSON.stringify({ path: realFeaturePath }),
     })
 
-    // 200 (code opened) or 500 (code not in PATH) are both acceptable —
-    // what matters is NOT 403 (path check passed)
+    // Asserts the allowlist verdict only: NOT 403 means the path check passed.
+    // Under dry-run the editor spawn is skipped, so this no longer covers the
+    // execFile path or its 500-when-`code`-is-missing branch — that code is
+    // currently untested. See the dry-run note in beforeAll.
     expect(res.status).not.toBe(403)
     const body = await res.json()
     expect(body).not.toHaveProperty('error', 'Path not allowed')

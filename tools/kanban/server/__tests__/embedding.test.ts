@@ -32,6 +32,8 @@ beforeAll(async () => {
   process.env.KANBAN_DISABLE_WORKTREES = 'true'
   process.env.KANBAN_HIDE_PAGES = 'goals,content'
   process.env.KANBAN_HIDE_COLUMNS = 'qa'
+  // Keep /api/open from raising the user's real VS Code window (see security.test.ts)
+  process.env.KANBAN_OPEN_DRY_RUN = 'true'
 
   // Dynamic import — env must be set before module-load resolves the constants
   const mod = await import('../api')
@@ -51,6 +53,10 @@ afterAll(async () => {
   delete process.env.KANBAN_DISABLE_WORKTREES
   delete process.env.KANBAN_HIDE_PAGES
   delete process.env.KANBAN_HIDE_COLUMNS
+  // Don't rely on vitest's fork-per-file isolation to contain this — if the
+  // pool is ever set to isolate:false, a leaked flag would silently disable
+  // /api/open's real exec path in suites that never opted in.
+  delete process.env.KANBAN_OPEN_DRY_RUN
 })
 
 describe('Embedding: env-var config surface', () => {
