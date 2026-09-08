@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 1000073
 workstream: infrastructure
@@ -13,7 +13,16 @@ exec_effort: high
 driver: anomaly
 ---
 
-# P1247: Shared policy reaches other harnesses by generation, not by pointing — measured
+# P1247: Contract 2's canary is split by tier, and only the repo-only half is gated
+
+**Phase 1 of a multi-phase effort — closes here.** Phase 2 (convert `~/.codex/AGENTS.md` into a
+generated file instead of a hand-maintained fork), Phase 3 (the rules-layer-reach founder
+decision), and Phase 4 (pp/ladischenski-com projection cleanup) continue in
+[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md) — split off because `/ship`'s
+completion gate checks every `## Done-When` box in one spec, and this spec's original Done-When
+mixed all four phases. Read this spec in full for the Problem/Invariants/Risks that bind every
+phase; P1265 carries the not-yet-done Solution/Risks/Alternatives/Open-Questions text forward
+rather than restating it here.
 
 ## Problem
 
@@ -178,64 +187,31 @@ splitting: extend the precondition list to every file any retained assertion rea
 **Phase 1b — teach `/slava:util:model-bump` about this canary**, or make the canary version-blind
 so it has nothing to teach. Today the bump skill and the assertion are unaware of each other, and
 that is the mechanism by which a wired gate would fail on ordinary maintenance.
+**DONE (Phase 1):** made the canary version-blind (asserts `provider: google` +
+`model: gemini-<version>-flash` shape, never the literal version string) — there is nothing left
+for `/slava:util:model-bump` to know about. See Done-When evidence below.
 
-**Phase 2 — convert the fork into a generated file.**
-Reduce `~/.codex/AGENTS.md` to adapter-local content plus a pointer to the shared policy, on the
-`~/.dsh/AGENTS.md` pattern. Extract the shared half into `~/.agents/` alongside the routing and
-history-store files already there. Same treatment for `~/.gemini/GEMINI.md`, which is seven months
-stale and actively contradicts current rules (it directs the agent to prefer Chrome DevTools MCP
-with Playwright as backup). **Superseded by measurement — do not build the pointer shape.** Codex does not expand includes,
-so `~/.codex/AGENTS.md` becomes a **generated file**: shared policy from `~/.agents/` plus its own
-adapter-local section, emitted by a closed-world writer with the same never-hand-edit contract as
-`.agents/skills/`. Drift then becomes structurally impossible rather than merely detectable, which
-is the whole point.
-
-**Every harness must be measured before conversion, with the harness's own assembled-prompt oracle
-— never with a file check.** Codex: done (above). DSH and Gemini: not done; `~/.dsh/AGENTS.md` is a
-shape reference and has never been tested for whether DSH reads what it points at, and the Gemini
-CLI could not be exercised. A harness with no oracle does not get converted.
-
-**Budget the generator in bytes.** The target is a ~32 KiB per-file cap that truncates in silence;
-cp is at 78% of it today. The generator must fail loudly when its output would exceed the cap —
-a silent cut here removes rules while every structural check stays green.
-
-**Phase 3 — resolve the rules-layer reach.** See Q1. Either project `.claude/rules/*.md` so
-non-Claude harnesses receive them, or state in `AGENTS.md` that they do not apply outside Claude
-Code and accept the reviewer running without them. Both are defensible; shipping neither is not.
-
-**Phase 4 — close the projection inconsistency in the other repos.** pp projects via symlinks —
-the shape P1157 replaced because a harness did not discover them — and carries two divergent
-copies of one skill (`fix` symlinked at 7672 bytes, `source-command-pp-fix` a real 7313-byte fork,
-both stamped 2026-08-28 14:39, and `source-command-*` is the canary naming from
-`sync-agent-skills.test.sh`). ladischenski-com has an `AGENTS.md` symlink and no projection at all.
-sbx-demo's `AGENTS.md` is an empty regular file, not a symlink.
-
-**Add the missing pointer in cp.** `grep -niE "AGENTS\.md|\.agents/|harness|codex" CLAUDE.md`
-returns zero matches, so no agent can learn from the instructions that the projection exists —
-which is the mechanism behind the 2026-09-03 mirror incident.
-
-**Teach the rule-writing gate about the shared file.** `/slava:maintain:claude-md` has repo
-profiles for `cp/`, `pp/`, `bankruptcy_2026/` and `~/.claude/CLAUDE.md`, and none for any
-`AGENTS.md`. Every rule written through the gate therefore lands in the Claude-only file by
-default. This is the mechanism that produced the drift in Phase 1, and leaving it unchanged
-guarantees recurrence regardless of what else ships.
+**Phase 2 onward — continues in [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md).**
+That spec carries forward, verbatim from this spec's original draft: converting
+`~/.codex/AGENTS.md` (and, if measured to support it, `~/.gemini/GEMINI.md`) from a hand-maintained
+fork into a generated file; the byte-budget requirement for the generator; the rules-layer-reach
+founder decision (Q1); and the pp/ladischenski-com projection cleanup. Read this spec's Problem,
+Invariants and Risks sections first — they bind every phase, not just this one.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Wiring the whole suite puts a live `dsh` call — network and spend — on every commit | MITIGATE | Only Tier A (2 repo-only assertions) reaches the commit path. This is P1221's recorded blocker and the reason Phase 1 is a split, not a wiring change |
-| The SKIP path exits 0, so a missing adapter reports success after verifying nothing | MITIGATE | Tier A has no `$HOME` dependency and never skips. Tiers B-D move to a machine-local check where a missing adapter is a distinct *coverage failure*, not a pass |
-| `absent()` returns PASS on a deleted file, and `:73-74` read a file the guard does not check | MITIGATE | Measured this session with known-good and known-bad controls. Fixed in Phase 1 before anything is gated |
-| A harness never actually follows the pointer, so policy silently stops applying | MITIGATE | Phase 2's behavioral canary is a precondition for removing any content; no canary, no conversion |
-| A dangling `AGENTS.md` symlink is silent — reviewer measured `codex debug prompt-input` exiting 0 with a prompt still built and nothing on stderr | MITIGATE | The Phase 2 oracle reads the harness's own assembled prompt, not the filesystem. A `diff` cannot see this and neither can an existence check |
-| Instruction files are silently truncated at ~32 KiB — measured: markers past the cut vanish with no notice | MITIGATE | Budget in **bytes**, not lines. `cp/CLAUDE.md` is already 25,428 B (77%); cp's own guard counts lines and would not catch this |
-| The 2 current canary failures are a real DSH regression, not a stale assertion | MITIGATE | Diagnose in Phase 1 before wiring — a gate wired while red teaches everyone to ignore it |
-| The new pointer-shape assertion false-positives on legitimate adapter-local content | MITIGATE | Epistemic gate 7c — run the existing per-harness files through the new assertion and confirm each still passes before shipping it |
-| Collapsing shared policy re-introduces the rejected universal-table design | MITIGATE | Invariant 1; the canary's existing roster/quota assertions (lines 69-74) stay and must keep passing |
-| Projecting `.claude/rules/` is real work that may buy nothing | DEFER | Blocked on Q1 — do not build it before the answer |
-| Editing global files under `~` is outside the repo and unreviewable by cp's gates | MITIGATE | `~/.agents` and `~/.claude` are git repos — commit there. **`~/.codex`, `~/.dsh` and `~/.gemini` are NOT versioned** (verified), so each needs a timestamped backup copy taken before it is touched and named in the spec's evidence |
-| Reverting the shared file while a pointer still targets it silently empties that harness's policy | MITIGATE | Two-phase order: add shared file and prove the canary before removing any adapter content; on rollback, restore adapter content before removing the shared file |
+| Wiring the whole suite puts a live `dsh` call — network and spend — on every commit | RESOLVED | Only Tier A (2 repo-only assertions) reaches the commit path, proven with a `dsh`-call trace: 0 for Tier A, 3 for Tier D under an identical logging shim |
+| The SKIP path exits 0, so a missing adapter reports success after verifying nothing | RESOLVED | Tier A has no `$HOME` dependency and never skips. Tiers B-D moved to a machine-local check where a missing adapter is a distinct *coverage failure*, not a pass |
+| `absent()` returns PASS on a deleted file, and `:73-74` read a file the guard does not check | RESOLVED | Fixed and proven by deleting each affected file and observing a non-zero exit — see Done-When evidence |
+| The 2 current canary failures are a real DSH regression, not a stale assertion | RESOLVED | Diagnosed as the stale `gemini-3.7-flash` pin, not a regression; fixed to assert route+shape. Live suite now 31/0 |
+| The new Tier A logic false-positives on legitimate adapter-local content, or has gaps a review would catch | RESOLVED | Epistemic gate 7c fixture harness (legit/bad-env/bad-hook) plus one adversarial code review this session, which found and fixed 2 HIGH + 3 MEDIUM real gaps (working-tree-vs-index read, ambient env-var override, `-e` vs `-f`, undeclared `jq` dependency, dangling fixture-script reference) — see Review Record |
+
+**Phase 2+ risks (pointer-vs-generation, byte budget, global-file editing, rollback ordering,
+universal-table collapse, `.claude/rules/` projection) carry forward to
+[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md)'s own Risks table — not restated
+here.**
 
 **Non-Goals**
 - Do NOT re-open the direction of truth for cp's skill projection. Contract 1 measures 0 drift; it
@@ -289,82 +265,37 @@ guarantees recurrence regardless of what else ships.
       further bump to a synthetic `gemini-4.0-flash`: both version-blind assertions still passed
       (a third, unrelated assertion failed only because the synthetic version isn't a real `dsh`
       route — an artifact of the test value, not the fix).
-- [ ] `diff` of shared-policy rules between `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` returns
-      empty, or returns only lines the canary asserts as deliberately harness-local
-- [ ] `grep -n "Codex --help\|Codex-guide" ~/.codex/AGENTS.md` returns nothing
-- [ ] For each harness converted: a fresh-session behavioral canary shows a directive present only
-      in the shared file taking effect in that harness. A harness that fails this canary is NOT
-      converted, and the spec records which mechanism it got instead
-- [ ] `~/.codex/AGENTS.md` and `~/.gemini/GEMINI.md` each point at the shared policy file rather
-      than restating it; a rule added to the shared file changes both harnesses' behavior without a
-      second edit — verified behaviorally, not by reading the files
-- [ ] Q1 answered and the chosen branch implemented — either the rules reach non-Claude harnesses,
-      or `AGENTS.md` states in one sentence that they do not
-- [ ] pp projects through the same generator cp uses, and its two divergent `fix` copies resolve to
-      one; `ls pp/.agents/skills | grep source-command` returns nothing
-- [ ] cp `CLAUDE.md` names `.agents/skills/` as generated-never-hand-edited in ≤3 lines, within the
-      350-line budget
-- [ ] `/slava:maintain:claude-md` has a repo profile for the shared policy file, and routes a
-      cross-harness rule there rather than to `~/.claude/CLAUDE.md`
-- [ ] `~/.agents` carries a commit for every change made under it — nothing left only on disk
+
+**All 5 Done-When items above are this spec's complete scope.** The 9 items originally listed here
+for Phase 2/3/4 (rules diff, Codex fork content, behavioral canaries, pp projection, `CLAUDE.md`
+pointer, `/slava:maintain:claude-md` profile) moved to
+[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md)'s own Done-When, unchecked —
+`/ship`'s gate 2.5 counts every unticked box in one spec's Done-When section, and this spec's
+original list mixed all four phases, which would have blocked shipping Phase 1 indefinitely.
 
 ## Open Questions
 
-1. **[FOUNDER DECISION] — narrowed by measurement to one workable shape.** `.claude/rules/*.md`
-   totals **123,005 bytes** against roughly **7 KB** of remaining headroom in a per-file ~32 KiB
-   channel that truncates silently. Projecting the rules is therefore impossible, and there is no
-   include mechanism to escape it — both measured, not inferred. The only workable form is a short
-   curated **hard-stops block** carried in the generated shared policy: the non-negotiables that
-   must hold in any harness (never push or deploy unasked, never install unasked, stop at a CAPTCHA,
-   the banned destructive git commands). Everything else stays Claude-only and says so.
-   **The remaining call is yours and is only: which rules earn a place in that block.** Proposed
-   starting set above; nothing is built until you name it. The git firewall
-   and the epistemic gates live there, and `codex-review` — the adversarial reviewer this repo
-   leans on, cited throughout `decisions.md` — currently runs without them. Projecting them is real
-   work; the honest alternative is one sentence in `AGENTS.md` saying they are Claude-only. Both
-   are defensible. Not answerable from the code.
-2. **ANSWERED — a stale hard-coded model pin, not a regression.** `:88` and `:100` assert the
-   literal string `gemini-3.7-flash`; the live config is `gemini-3.8-flash` (verified this session).
-   Both failures are that one pin. The consequence is the reason this must be fixed *before* any
-   wiring: `/slava:util:model-bump` exists to bump pinned models across surfaces — including dsh
-   settings — and contains **no reference to this canary** (verified). So a routine model bump
-   breaks the assertion by design; had the suite been on the commit path, the bump would have
-   red-lined every commit in the repo until someone hand-edited two lines. **Fix: assert the route
-   and shape, never the version string.** Both assertions move to Tier D regardless.
-3. Should ladischenski-com and sbx-demo get projections at all, or is `AGENTS.md` alone correct for
-   repos with no skills of their own? sbx-demo's empty regular `AGENTS.md` is wrong either way.
+**ANSWERED — a stale hard-coded model pin, not a regression.** `:88` and `:100` assert the
+literal string `gemini-3.7-flash`; the live config is `gemini-3.8-flash` (verified this session).
+Both failures are that one pin. The consequence is the reason this must be fixed *before* any
+wiring: `/slava:util:model-bump` exists to bump pinned models across surfaces — including dsh
+settings — and contains **no reference to this canary** (verified). So a routine model bump
+breaks the assertion by design; had the suite been on the commit path, the bump would have
+red-lined every commit in the repo until someone hand-edited two lines. **Fix: assert the route
+and shape, never the version string.** Done — see Done-When evidence.
 
-## Alternatives Considered
-
-**Re-sync the forked files and move on.** Rejected: this is the third occurrence of the same
-divergence, and re-syncing restores the state that decays. It leaves the operator holding a
-recurring manual obligation that has already been missed twice.
-
-**Give the Codex fork its own gate that diffs it against the Claude file.** Rejected: a diff gate
-must encode which divergences are legitimate, so it becomes a second hand-maintained list of
-exceptions — the same failure one level up. The pointer shape has no exception list because there
-is nothing to diverge.
-
-**Make `~/.claude/CLAUDE.md` the shared file and point Codex at it.** Rejected: it is Claude's own
-adapter, carrying the Opus session-start check and the Claude quota path that the 2026-08-25 ruling
-requires stay harness-local. Pointing another harness at it re-imports exactly what P1157 removed.
-
-**Invert cp to match global (`.agents/` as source, `.claude/` as symlinks).** Rejected for now: cp's
-direction is gated and measures 0 drift across 125 skills. Changing the one layer that works, to
-match layers that do not, is not supported by any evidence in this spec.
+The founder-decision question (which rules earn a place in a cross-harness hard-stops block) and
+the ladischenski-com/sbx-demo projection question both belong to later phases and moved to
+[P1265](p1265_codex_agents_md_becomes_a_generated_projection.md)'s Open Questions.
 
 ## Rollback Strategy
 
-Each phase is independently revertible. Phase 1 is a call site in `pre-commit-checks.sh` plus text
-edits — `git revert`. Phase 2 replaces file contents under `~`, and **three of those directories are not version
-controlled** — `~/.codex`, `~/.dsh`, `~/.gemini` (verified 2026-09-04; `~/.agents` and `~/.claude`
-are repos). Their pre-change contents are recoverable only from a timestamped backup taken before
-the edit, so that backup is a precondition of the phase, not a courtesy. Order matters in both
-directions: the shared file is added and proven before any adapter content is removed, and on
-rollback adapter content is restored before the shared file is withdrawn — otherwise a harness is
-left pointing at nothing, which reads as "no rules" rather than as an error. Phase 4 touches pp and ladischenski-com independently of cp. If the wired canary
-proves noisy in daily use, unwiring it is a one-line revert that returns to today's state rather
-than to a worse one.
+Phase 1 (this spec) is a call site in `pre-commit-checks.sh` plus text edits in
+`scripts/test-multi-harness-routing.sh` and a new fixture-test script — a plain `git revert` of
+`bb924ba1e` and `1cee65ffb` returns the repo to the unwired, undrifted-detection state (contract 2
+had before this spec: 29/2 on the live suite, zero commit-path coverage). No global (`~`) files were
+touched in this phase. Later phases' rollback strategy (global-file backups, two-phase add/remove
+ordering) moved to [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md).
 
 ## Related
 
@@ -374,6 +305,8 @@ than to a worse one.
   three contracts and built this spec's canary
 - [P1163](p1163_orphaned_skill_sweep.md) — orphaned *skills*; this spec's canary is an orphaned
   *gate*, the same shape one layer up
+- [P1265](p1265_codex_agents_md_becomes_a_generated_projection.md) — continues Phase 2/3/4 of this
+  spec's original plan
 - [decisions.md](../docs/decisions.md) 2026-08-25 (three contracts) · 2026-09-03 (projection is a
   mirror)
 
