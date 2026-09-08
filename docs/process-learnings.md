@@ -1392,3 +1392,23 @@ unrequested scope on a spec already covering six sections.
 **Suggested shape:** a `pN` bug spec. The census gains an `isLoading: true` fixture arm — that arm
 is the actual deliverable, since without it any fix is unverifiable by the same blindness that hid
 the defect.
+## Teach the migration client-safety gate to see a changed RPC signature
+
+**Date:** 2026-09-08
+**Status:** proposed
+**due:** week
+
+`scripts/check-migration-client-safety.sh`'s `BREAKING_SHAPES` covers `REVOKE … FROM
+(anon|authenticated)`, `DROP POLICY`, `ALTER TABLE … DROP COLUMN` and `ALTER COLUMN … TYPE`, but
+has no `DROP FUNCTION` and no notion of an RPC signature change — and a migration whose only
+revoke is `FROM PUBLIC` matches none of it. Found during P1058: three migrations that dropped and
+recreated `release_joiner_seat` under a changed signature passed the gate with no annotation
+required, so their `requires-frontend` markers were purely voluntary. A signature change is
+precisely what breaks a deployed client (PGRST202, or 42501 on every call), which is the P886
+incident class the gate exists for. Fix: add a `DROP FUNCTION` shape and broaden the revoke arm to
+include `FROM PUBLIC`. **Done when** the gate refuses a signature-changing migration that carries
+no marker — and, per epistemic gate 7c, when it has been run against the existing migration corpus
+to measure how many legitimate files it newly flags. **Drop it** if that run shows the false-positive
+rate makes the gate unusable and no narrower shape separates the two.
+
+---
