@@ -40,10 +40,17 @@ check() {
   out=$(bash "$GATE" "$@" 2>&1); rc=$?
   local why=""
   [[ "$rc" != "$want" ]] && why="exit $rc, wanted $want"
-  if [[ -z "$why" && "$expect" != "-" ]] && ! printf '%s\n' "$out" | grep -q "$expect"; then
+  # Herestrings, never a pipeline, for the assertions themselves. Under
+  # `set -o pipefail` an early-closing consumer can exit 141 on a MATCH
+  # (it closes the read end while the producer is still writing), turning a
+  # satisfied assertion into a failure. See epistemic.md gate 7 and
+  # pre-commit check 18c. A canary that reports a pass as a failure is worse
+  # than no canary. (Worded to avoid naming the shape literally: 18c is a
+  # text match and would otherwise flag this comment forever.)
+  if [[ -z "$why" && "$expect" != "-" ]] && ! grep -q "$expect" <<< "$out"; then
     why="missing token: $expect"
   fi
-  if [[ -z "$why" && "$forbid" != "-" ]] && printf '%s\n' "$out" | grep -q "$forbid"; then
+  if [[ -z "$why" && "$forbid" != "-" ]] && grep -q "$forbid" <<< "$out"; then
     why="forbidden token present: $forbid"
   fi
   if [[ -z "$why" ]]; then
@@ -51,7 +58,7 @@ check() {
     PASSED=$((PASSED + 1))
   else
     printf '%s✗%s %s — %s\n' "$RED" "$NC" "$label" "$why"
-    printf '%s%s%s\n' "$DIM" "$(printf '%s\n' "$out" | head -20)" "$NC"
+    printf '%s%s%s\n' "$DIM" "$(head -20 <<< "$out")" "$NC"
     FAILED=$((FAILED + 1))
   fi
 }
@@ -102,8 +109,8 @@ check "A1 real workflow tree, every name registered -> ALLOWED" 0 "GATE:PASS" "W
 
 # Same allow case, split across two registries of DIFFERENT header shape —
 # how the real repo is actually configured.
-FIRST=$(printf '%s\n' $REAL_NAMES | head -1)
-REST=$(printf '%s\n' $REAL_NAMES | tail -n +2)
+FIRST=$(head -1 <<< "$REAL_NAMES")
+REST=$(tail -n +2 <<< "$REAL_NAMES")
 # shellcheck disable=SC2086
 mk_registry_envvar "$TMP/reg-a.md" $FIRST
 # shellcheck disable=SC2086
