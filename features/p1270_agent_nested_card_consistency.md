@@ -198,8 +198,9 @@ a successful author lookup. This is the most serious defect in this spec and it 
 - [x] On `/feed?tab=points`, expanded stories under a point are connected by a thread line —
       `grep -c ThreadLine feed-point-card.tsx` â 7 (was 0). `[post-deploy]` confirm visually
 - [x] An agent's stance badge renders blue, and the card still reads as machine-authored:
-      square black-and-white photo plus the `AGENT` word, on every surface — structurally green
-      in unit tests; the PIXEL half is e2e and **not yet run**
+      square black-and-white photo plus the `AGENT` word, on every surface — now proven on
+      RENDERED PIXELS, not just structurally: badge background `rgb(219,234,254)` with
+      `filter: none`, avatar `border-radius: 4px`; e2e 26 passed EXIT=0
 - [x] On `/feed?tab=stories`, expanding the points under a story shows the author row with
       stance above each nested point — `p1270-feed-nested-stance.test.tsx` 5/5
 - [x] On both feed and profile, a nested story's author row sits above the box, not inside it —
@@ -216,13 +217,25 @@ a successful author lookup. This is the most serious defect in this spec and it 
 - [x] The census test enumerates every branch named in the Risks table above, including embed,
       and reintroducing the §6 defect makes it exit non-zero — **EXIT=1**, 22 passed / 2 failed,
       both failures on the `EMBED_NO_AUTHOR` branch (AGENT word + square avatar). Restored: 24/24
-- [ ] The re-aimed guards bind the square shape and the `AGENT` word, and each is watched
-      failing before it is trusted (paste both exit codes)
-- [ ] The agent-marker fixture renders a real photo, not initials, so the guard binds what
-      production ships
+- [x] The re-aimed guards bind the square shape and the `AGENT` word, and each is watched
+      failing before it is trusted — **unit guard EXIT=1** on the inverted invariant
+      (`'agent-drained-chrome inline-flex'` should not contain `agent-drained-chrome`);
+      **e2e guard EXIT=1** with the drain reintroduced on the position row, badge measuring
+      **0.00011 saturation** against the required >0.15, on rendered pixels. Restored: e2e
+      `p1104-agent-marker` 26 passed EXIT=0, a11y 8 passed EXIT=0
+- [x] The agent-marker fixture renders a real photo, not initials, so the guard binds what
+      production ships — a black-and-white-portrait case added to the file's existing
+      `photographic avatar branch` block (whose own fixture is `FF0000` red and vacuous the
+      same way). It asserts shape + the word and deliberately reads no colour on the avatar,
+      because a B&W photo and a greyscaled one measure alike
 - [x] `index.css`'s channel-count comment names the channels that actually exist — the dead
       `.agent-drained-chrome` rule is deleted and the stale three-channel count corrected to two
-- [ ] Visual comparison of opened story and point cards, profile vs feed, at 375px and desktop
+- [x] Visual comparison of opened story and point cards, profile vs feed, at 375px and desktop
+      — plus 320px, which is where the only real defect turned up (the name truncating to fit
+      the badge). Measured, not eyeballed: names untruncated, avatar never orphaned, no
+      horizontal overflow, badge `rgb(219,234,254)` with `filter: none`, avatar radius 4px, at
+      1280 / 375 / 320 on both surfaces. Profile correctly carries NO stance on the story
+      byline (option A); the feed does
 
 ## Test Coverage Strategy
 

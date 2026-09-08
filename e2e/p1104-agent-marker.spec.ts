@@ -224,7 +224,11 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
      */
     test('the stance badge renders COLOURED — §3, measured on rendered pixels', async ({ page }) => {
       const row = rowFor(page, agent.name);
-      const badge = row.locator('[data-testid="story-author-stance"]').first();
+      // `story-author-stance` is QuotedStory's testid and does NOT exist on this surface —
+      // PositionHolderCard renders `PositionBadge` directly. Target the badge's own colour
+      // classes, which is what this assertion is about anyway (`PositionBadge.tsx`:
+      // `const blueBadge = 'bg-blue-100 text-blue-700'`).
+      const badge = row.locator('span.bg-blue-100.text-blue-700').first();
       await expect(badge).toBeVisible();
 
       const sat = await meanSaturation(page, badge);
@@ -531,7 +535,7 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
 
         // AND THE POINT OF §3: with the photo carrying no colour, the badge is the only
         // coloured pixel on the card. Draining it left the reader nothing to read.
-        const badgeSat = await meanSaturation(page, row.locator('[data-testid="story-author-stance"]').first());
+        const badgeSat = await meanSaturation(page, row.locator('span.bg-blue-100.text-blue-700').first());
         expect(
           badgeSat,
           `on a B&W-portrait card the stance badge is the only colour there is, measured ${badgeSat}`,
