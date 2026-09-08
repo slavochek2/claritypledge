@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000080
 severity: medium
@@ -11,8 +11,18 @@ exec_model: sonnet
 exec_effort: medium
 tags: [events, event-room, time-state, ui]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p1272-reproduce.test.tsx
+  root_cause: "The room nav row (EventDetail.tsx:483-494) has no conditional and a hardcoded 'Join now' label; isPast/hasEnded/isCancelled exist at lines 251-262 and are never consulted by it."
+  confidence: high
+  surfaces_in_scope: [event-detail-room-row]
+  surfaces_deferred: []
+  surface_audit_anchor: "/room`"
+  surface_audit_hits: 6
+  reproduced_at: 2026-09-08
+  fix_shape: decided
 ---
 
 # P1272: The event-room nav row ignores the event's time state — "Join now" on cancelled and finished events
@@ -25,7 +35,9 @@ an event that is still three weeks away, where "now" is simply false.
 
 ## Root Cause
 
-Confirmed by reading the component, not inferred. The row at
+Confirmed by a failing canary (`src/tests/p1272-reproduce.test.tsx`), 3 of 5 cases red
+against current `main`; the 2 green cases are the two states that are already correct,
+which is what shows the canary is not simply asserting everything. The row at
 `EventDetail.tsx:483-494` is plain JSX with no surrounding condition and a hardcoded
 `Join now` label. Every value needed to make it state-aware is already computed 230 lines
 above it and is used elsewhere in the same file:
