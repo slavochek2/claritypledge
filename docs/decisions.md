@@ -6,6 +6,85 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [technical]: The same identity has two spellings, and verifying through the wrong one fails closed and silent (P1155)
+
+**Context:** P1155's escalator must ignore GitHub issues not authored by the Actions bot.
+The bot's identity was verified with `gh api repos/OWNER/REPO/issues/N --jq '.user.login'`,
+which returns `github-actions[bot]`, and that string was written into the implementation
+step. The code path that actually reads authorship is `gh issue list --json author`, which
+returns `{"is_bot": true, "login": "app/github-actions"}`. Two spellings, same identity,
+two different APIs.
+
+**Decision:** Author checks compare `author.is_bot === true && author.login ===
+"app/github-actions"`, and any fixture suite for a filter must contain an **accept** case,
+not only reject cases.
+
+**Alternatives rejected:** Matching on `is_bot` alone — any installed GitHub App is a bot.
+Matching on the REST spelling — it is simply not what the CLI returns.
+
+**Consequences:** A filter built on the wrong spelling matches nothing, so every genuine
+alarm is dropped and the output is "nothing due" — indistinguishable from a healthy system.
+This is the generalisable half: **a probe that reads through a different path than the code
+under test does not transfer.** The global rule already covers a probe writing through a
+transformed key; this is the read-side twin, and its failure direction is silence rather
+than error, so no control-probe check fires. It survived two re-verifications because both
+used the same wrong path. Caught by an adversarial reviewer, then confirmed by running both
+commands side by side.
+
+**References:** [features/p1155_correct_alarm_rang_into_an_empty_room.md](../features/p1155_correct_alarm_rang_into_an_empty_room.md) · `scripts/alert-escalator.mjs`
+
+## 2026-09-08 [technical]: Detection was never the problem — nothing on this machine consumed anything unattended (P1155)
+
+**Context:** Seven workflows detect prod problems and open GitHub issues (P866 alert-only
+pattern). They work: issue #10 ran five days straight, issue #11 three. Neither was read
+until a human stumbled on the symptom. The first instinct was to add another detector; the
+second was to email the founder after N days.
+
+**Decision:** Neither. `crontab -l` is empty and `~/.claude/routines` does not exist —
+**every** reader in the system (`/day`, `/ship`, `/weekly`) requires a human to type a
+command. The fix is one scheduled unattended reader plus a registry of checks, escalating
+to the agent-facing ops inbox. The seven producers were also author-bound so a producer
+only appends to an issue it created.
+
+**Alternatives rejected:** A second detector — feeds the same unread channel
+(2026-08-09/P1031 already routes detection to workflows). Notifying the founder — the
+workflow's own header says *"the agent watches this signal, not the founder's inbox"*, and
+the founder rejected it directly: *"this is not for me, is it?"* A push-time gate — cannot
+observe stale edge functions, which deploy out-of-band, and that was half of issue #11.
+
+**Consequences:** Adding a check is a registry row; a new *kind* of check is code. The
+escalator fails loudly where the detectors fail quietly — a silent escalator is this bug one
+level up. Known accepted residual: nothing watches the watcher, and it shares a substrate
+with what it watches. Also surfaced: only 2 of 7 producers self-heal-close, and GitHub
+disables `schedule:` after 60 days of repo inactivity — an undocumented liveness
+precondition for all seven.
+
+**References:** [features/p1155_correct_alarm_rang_into_an_empty_room.md](../features/p1155_correct_alarm_rang_into_an_empty_room.md) · `.github/alert-registry.json`
+
+## 2026-09-08 [process]: A locked-half credential cannot be handed to CI — automation needs its own (P1155/P1239)
+
+**Context:** P1155's escalator needs to send mail as the ops mailbox. The obvious move was
+to add the existing mailbox password to GitHub Actions secrets. P1239 had, five days
+earlier, moved that credential into the locked half: a keychain item trusting no
+application, so macOS demands a human answer on every read, because it is a full mailbox
+password whose loss rotation cannot undo.
+
+**Decision:** Automation gets a **separate send-only credential**. The send layer reads it
+from `OPS_SMTP_PASSWORD` and refuses to fall back to the locked credential when `CI` is set,
+rather than silently degrading.
+
+**Alternatives rejected:** Putting the locked credential in CI — it does not merely widen
+exposure, it removes the control, because CI has no human to answer the dialog. Doing it "just
+for now" — a temporary exception to a control shipped five days ago and still in flight is
+how the control quietly stops existing.
+
+**Consequences:** Any future automation wanting a locked-half credential faces the same
+choice, and the answer is the same: provision a scoped credential for the automation, never
+export the locked one. This blocks P1155's final Done-When items until the credential exists
+— correctly. The ship gate refuses the spec rather than letting it close on untested claims.
+
+**References:** [.claude/rules/credentials.md](../.claude/rules/credentials.md) · P1239 · [features/p1155_correct_alarm_rang_into_an_empty_room.md](../features/p1155_correct_alarm_rang_into_an_empty_room.md)
+
 ## 2026-09-08 [technical]: A gate that cannot say who is asking gets answered by guessing (P1239)
 
 **Context:** P1239's per-access dialog fired for the first time in real use. It said
