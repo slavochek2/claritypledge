@@ -3,7 +3,7 @@ status: backlog
 type: bug
 disclosure: public
 rank: 252
-severity: medium
+severity: high
 workstream: infra
 date_reported: '2026-09-01'
 created_date: '2026-09-01'
@@ -36,8 +36,40 @@ guest-joined" rather than on anything only that guest holds. There is no per-sea
 
 ## Reproduction Steps
 
-Not exercised — it is a write against another user's session. Confirmed by reading the
-function body in the TEST catalogue and the migration that last redefined it.
+**REPRODUCED 2026-09-08** on the test project, during P1058's Phase 3 adversarial review — this
+section previously read "Not exercised". An anonymous caller holding only an enumerated session id,
+no room code and no account, wrote to a guest-joined session's `live_state` and the write landed
+(HTTP 204, verified by reading the row back as anon). Independently reproduced twice: once by the
+review's evasion lens, once by the orchestrating session.
+
+**Severity raised medium -> high on that evidence.** The impact is not only "arbitrary keys in
+shared state": the keys that matter are read by `get_active_session_by_code`'s filter, so forging
+them makes the room stop resolving for *everyone* — an unauthenticated denial of service against
+any live room, product-wide by id enumeration. That is a strictly larger harm than the seat
+eviction P1058 was filed for.
+
+Exact predicate, the flags involved, the read paths that publish the id, and the request bodies:
+`.private/docs/security-log.md`, 2026-09-08 entry (mechanics deliberately not repeated in this
+public file, per the convention this spec already follows).
+
+## What P1058 learned that constrains the fix
+
+This spec's Expected Behavior already names the right shape — "presenting something minted at join
+time that nobody else has". **P1058 built exactly that and had to revert it**, which is direct
+evidence about how this fix must be sequenced:
+
+`claim_joiner_seat`'s guest-reclaim arm authorizes on `joiner_name`, and `joiner_name` is in the
+anon SELECT allowlist. So an attacker re-claims the seat under the seated guest's name and the
+function **mints a fresh secret and returns it to the attacker**. Any per-seat secret minted at
+join time is therefore void while that arm stands — reproduced 2026-09-08, two different tokens
+issued for the same seat seconds apart to two different callers.
+
+**So the reclaim arm has to be decided first, and it is a founder call, not an implementation
+detail**: closing it costs a guest the ability to rejoin from a new device or after clearing
+storage. Tracked with the event-room half in its own spec. Two further P1058 findings bind any
+implementation here: a nullable per-seat column with no backfill strands every seat that exists
+when it lands (200+ such rows measured on test), and the client must restore the secret after a
+page reload or the guest cannot act on their own session.
 
 ## Expected Behavior
 

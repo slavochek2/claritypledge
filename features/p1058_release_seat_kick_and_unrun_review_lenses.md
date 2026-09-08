@@ -258,6 +258,93 @@ exactly how this function acquired a PUBLIC grant once before (P1063's own heade
    **Still not closed, and out of scope:** a leaked code remains unrevocable (P1098), and whether
    event rooms should be attendee-only remains a product question.
 
+### Phase 3 — the three unrun lenses (2026-09-08). Reports received: **3 of 3**
+
+Run per `/slava:think:adversarial-review`, 3 hostile reviewers on opus, lenses: fail-open/operational,
+race/TOCTOU, evasion/blast-radius. Every finding below was **reproduced on test** by the reviewer and
+then **re-run independently by the orchestrator** before being recorded (epistemic gate 9).
+
+**The review broke the fix. That is the outcome, and it is the point of running it.**
+
+#### The decisive finding — the token closed nothing (found independently by TWO lenses)
+
+`claim_joiner_seat`'s guest-reclaim arm authorizes on `joiner_name`, which is the third column of
+P1057's 21-column anon allowlist. An attacker reads the seated guest's name, re-claims under it, and
+the function **mints a fresh token and returns it** via `RETURNING *`. Re-run by the orchestrator:
+victim token `96ec5ce1-…`, attacker token `30769e8c-…`, same seat, seconds apart, anon client.
+
+**This was self-inflicted by P1058.** Migration `20260812190000` justified the name-forgeable reclaim
+arm *explicitly on AD3* — "release-then-claim already bypasses any name check, so a name check on
+claim alone is not what is holding the attacker back." `20260908114500` removed AD3 and voided that
+justification without re-examining what rested on it. **This spec's own Non-Goal** ("do NOT change
+`claim_joiner_seat`'s guest-reclaim arm's name-forgeability… argued on the grounds that
+release-then-claim already bypasses any name check") inherited the same dead premise and is
+therefore no longer binding — its stated ground has evaporated.
+
+Two further defects in the same migration, both reproduced: it **stranded every pre-existing seat**
+(nullable column, no backfill, equality against NULL excludes → 42501 forever; 200+ such rows
+measured on test, prod has the same shape), and the client **could not survive a page reload**
+(`LiveSessionProvider` never restores from localStorage; `setActiveSession` runs only at the four
+join/create sites). A third: `handleExitMeeting` clears the active-session record *before* awaiting
+the release, so the token was destroyed ahead of the call that needed it.
+
+**Outcome: `20260908120000` reverted** by `20260908130000`. [FOUNDER DECISION 2026-09-08]
+
+**None of this was caught by the 13 canaries that passed against it.** They are DB-level and never
+simulate a reload, a pre-existing seat, or a second RPC — epistemic gate 7b, the fixture
+structurally could not emit the inputs that mattered.
+
+#### Research Question 3 — ANSWERED, and this spec's premise was wrong
+
+The spec asserts the `FOR UPDATE` lock "has never been proven to engage under contention" and that
+PostgREST "offers no way to hold a transaction open across two requests". **Both halves are false.**
+The Supabase management API (`POST /v1/projects/{ref}/database/query`) runs multi-statement SQL in
+one transaction, so `begin; … for update; pg_sleep(N); commit;` holds the lock while a separate
+PostgREST RPC races it. Needs no new infrastructure.
+
+| trial | holder | racer | result |
+|---|---|---|---|
+| CONTROL | `begin; select 1; pg_sleep(5); commit;` | anon `claim_joiner_seat` | returned **380 ms**, succeeded |
+| TEST-A | same, but `… for update` | anon `claim_joiner_seat` | **blocked 3145 ms**, then `57014` |
+| TEST-B | `begin; select * from claim_joiner_seat(...); pg_sleep(2); commit;` | anon `claim_joiner_seat` | **blocked 2025 ms**, then `42501`; loser re-read the new row version and REFUSED rather than overwriting |
+
+Control and TEST-A differ in exactly one thing — whether the holder took the row lock — and the
+racer's latency differs 8×. **The lock is PROVEN.** Supporting facts verified live:
+`clarity_sessions_code_key UNIQUE (code)` exists, so the locked row and the updated row are the same
+row (the "two rows share a code" attack does not exist), and isolation is READ COMMITTED, which is
+what makes EvalPlanQual re-read the committed row version.
+
+#### Findings that SURVIVE the revert — filed, not fixed here
+
+- **`patch_live_state` is the bigger lever.** It is granted to `anon` and carries the *byte-identical*
+  `auth.uid() IS NULL AND joiner_profile_id IS NULL AND joiner_name IS NOT NULL` predicate this spec
+  just retired from `release_joiner_seat`. Re-run by the orchestrator: an anon caller holding only an
+  enumerated id set `joinerEnded: true` — **HTTP 204, no code, no token**. `get_active_session_by_code`
+  filters on both `joinerEnded` and `sessionEnded`, so a forged flag makes the room unrejoinable by
+  its own code: a product-wide unauthenticated room-kill, strictly larger than the eviction this spec
+  targets. **The impact narrative in `20260908114500`'s header is therefore wrong** where it presents
+  the forged departure as closed by this work; it is closed only via `release_joiner_seat`.
+- **Event-room seat takeover remains open** — published codes plus the name-forgeable reclaim arm.
+- **`get_practice_room_codes` has no authorization beyond naming an event id** — no check that the
+  event is published or that the caller attends it, so every live practice-room code is two anon
+  requests away.
+- **Lock contention surfaces as HTTP 500 / `57014`**, not a clean refusal (`anon` has
+  `statement_timeout=3s`) — the loser of a race sees a server error.
+- **A guest who signs in mid-session satisfies neither release arm.**
+
+#### Refuted
+
+- **Realtime does NOT leak the code.** `clarity_sessions` is in the `supabase_realtime` publication
+  and was never dropped, which would have voided the fix's premise outright. The evasion lens flagged
+  this UNVERIFIED and correctly declared its own probe blind (0 events for both subject and control).
+  Re-probed by the orchestrator with a working subject: an anon subscriber received an UPDATE payload
+  of **exactly 21 columns with `code` absent** — precisely P1057's allowlist, out of 23 columns on the
+  table. Realtime column-filters. (The `service_role` control did not fire; the subject's result
+  stands on its own because the column *count* is self-validating — an unfiltered payload would carry 23.)
+- Read routes that held: `select=*`, `select=code`, `select=joiner_seat_token`, FK embedding,
+  RPC `select=` shaping, and direct PATCH of every seat column — all 42501. `code` is not obtainable
+  by reading. The token was obtainable only by asking the database to mint a new one.
+
 ## Research Questions
 
 1. Does F4 reproduce? Which grant and which policy actually make it reachable — `GRANT EXECUTE …
