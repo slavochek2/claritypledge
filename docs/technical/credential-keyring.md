@@ -91,6 +91,24 @@ Announcement never blocks the read. An attribution failure must not become an
 availability failure, so a closed stderr, an unwritable log or a missing notifier are all
 swallowed — the read proceeds and the dialog still appears.
 
+### Getting asked over and over
+
+One dialog per **read**, and every process is a fresh reader — macOS has no notion
+of "this agent already had permission", and there is deliberately no window. So a
+consumer that calls the helper five times gets five dialogs, and a session
+iterating with throwaway one-liners gets one per attempt.
+
+That is a consumer bug, not a gate bug. **Fetch once per process and reuse the
+value for the rest of the run:**
+
+```bash
+keyring_require SOME_KEY          # once, at the top
+# ... $SOME_KEY for the rest of the script
+```
+
+Repeated identical requests collapse in `requests` with an `[x5]` marker, so the
+pattern is visible rather than buried.
+
 ## Never click "Always Allow"
 
 The authorization dialog offers **Allow**, **Deny** and **Always Allow**.

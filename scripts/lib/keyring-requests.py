@@ -48,6 +48,7 @@ def main(path, limit):
         print("No credential requests recorded yet.")
         return 0
     print("%-10s %-26s %-8s %s" % ("WHEN", "KEY", "WORK", "WHY"))
+    rows = []
     for line in lines:
         f = {}
         parts = line.strip().split(" | ")
@@ -58,12 +59,36 @@ def main(path, limit):
                 f[k.strip()] = v.strip()
         why = f.get("reason", "")
         if why in ("(no reason given)", ""):
-            # Fall back to the calling command, which usually says enough.
-            caller = f.get("caller", "")
-            why = "· " + (os.path.basename(caller.split()[-1]) if caller else "no reason given")
-        print("%-10s %-26s %-8s %s" % (
-            age(stamp), f.get("key", "?")[:26],
-            spec_of(f.get("branch"), f.get("cwd"))[:8], why[:60]))
+            # Fall back to the PROGRAM, not the tail of its arguments. Taking the
+            # last token printed fragments of inline scripts ("FormData()",
+            # "Authorizatio") — noise where the answer should be.
+            caller = f.get("caller", "").split()
+            prog = os.path.basename(caller[0]) if caller else ""
+            script = ""
+            for tok in caller[1:4]:
+                # An inline script arrives as one long argument; keep only a
+                # filename-shaped fragment, never the code around it.
+                m = re.search(r"([\w.-]+\.(?:mjs|js|sh|py|ts))", tok)
+                if m:
+                    script = os.path.basename(m.group(1))
+                    break
+            why = "(no reason) " + " ".join(x for x in (prog, script) if x) if prog \
+                  else "(no reason given)"
+        rows.append((age(stamp), f.get("key", "?")[:26],
+                     spec_of(f.get("branch"), f.get("cwd"))[:8], why[:52]))
+
+    # Collapse a run of identical requests. Five prompts in five minutes for one
+    # key is the thing worth seeing, and five near-identical lines hide it.
+    out = []
+    for row in rows:
+        if out and out[-1][1:4] == list(row[1:]):
+            out[-1][4] += 1
+            out[-1][0] = row[0]
+        else:
+            out.append([row[0], row[1], row[2], row[3], 1])
+    for when, key, work, why, n in out:
+        print("%-10s %-26s %-8s %s%s" % (
+            when, key, work, why, ("   [x%d]" % n) if n > 1 else ""))
     return 0
 
 
