@@ -5,7 +5,7 @@
       "confirm-letter-response": "a594c8f32a800c35d30023cc7a7657a4a3d70f52434e0e2669e06a953d7e9fd7",
       "create-and-open-letter": "92e955a34bec3fd82bbc8e968b3b9de0c48da6dc6eb3bb817d37087d451f1694",
       "create-and-sign": "ad6f5944839eb5fb48333fe67a45c02e7fa03e7411d4efac729ca6e68d74e7a4",
-      "dispatch-event-emails": "88aa12ff3f3c5a84bda43ac943f3c08bf3bd1c366e79cbf0ffaa3d82d3f1e1dd",
+      "dispatch-event-emails": "c58e2607c7ba89e38794653b7149615701a0c7d9969e5564742c70a5b39602ea",
       "enqueue-transcription": "0290afe00f87b306774b378baf199e457fadcba7445e41ba3ad733634d68bb99",
       "explain-back-signed-url": "84583bb6269af9d7d9b74c4aa5305e76a91fbfc9f4d54e4af158222f706a12ad",
       "gcs-signed-url": "7c8984fe0938e0a400dcebf5955fdad3fbc0edfa7d18f0bd31ddab55af7a047f",
@@ -14,10 +14,10 @@
       "generate-story-image-url": "6cc90db497ed645a6caa9363cd3ce82511229d8291a6f32bf89b7928d37aeba6",
       "request-letter-response-signin": "45ecf2dd3366c4247014dc99e02e4f6c560350ef7e8561aa3d8877f3a458be25",
       "send-agreement-emails": "e9d6b6b12b029b7741c66efef7cc64499a614d4061b1522bc3d6c737920da3ae",
-      "send-event-emails": "ab1041f1264758481f4f63d7454437ec698501a75181f643caef617543744e64",
+      "send-event-emails": "98eefa92ea2980ef778565d9e8fc9ffe9f16179af9c399f65baf52749b4e4a13",
       "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717"
     },
-    "functions_deployed_at": "2026-09-07T08:40:05Z",
+    "functions_deployed_at": "2026-09-08T07:34:55Z",
     "migrations": [
       "20250101",
       "20250117",
@@ -661,8 +661,9 @@
       "20260907170000",
       "20260907180000",
       "20260907190000",
+      "20260908065003",
       "20260908100000"
     ],
-    "migrations_deployed_at": "2026-09-08T06:33:00Z"
+    "migrations_deployed_at": "2026-09-08T06:52:05Z"
   }
 }
