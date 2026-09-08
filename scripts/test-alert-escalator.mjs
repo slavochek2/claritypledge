@@ -168,6 +168,37 @@ t('LOUD: missing escalate_at_days throws', () => {
     { id: 'x', match_title: 'T' }, [], NOW), ReaderError);
 });
 
+// --- Codex review findings: fail-loud on registry TYPE errors, not just structure ---
+t('LOUD: a string threshold throws instead of silently never firing (F3)', () => {
+  assert.throws(() => validateRegistry({ checks: [{ id: 'x', kind: 'github-issue-age',
+    match_title: 'T', escalate_at_days: ['2'] }] }), ReaderError);
+});
+
+t('LOUD: a zero/negative threshold throws', () => {
+  assert.throws(() => validateRegistry({ checks: [{ id: 'x', kind: 'github-issue-age',
+    match_title: 'T', escalate_at_days: [0] }] }), ReaderError);
+});
+
+t('LOUD: a string max_age_hours throws', () => {
+  assert.throws(() => validateRegistry({ checks: [{ id: 'w', kind: 'workflow-last-run',
+    workflows: [{ file: 'a.yml', max_age_hours: '25' }] }] }), ReaderError);
+});
+
+t('LOUD: a missing match_title throws', () => {
+  assert.throws(() => validateRegistry({ checks: [{ id: 'x', kind: 'github-issue-age',
+    escalate_at_days: [2] }] }), ReaderError);
+});
+
+t('REGRESSION (F3): the exact registry Codex broke is now rejected before it can no-op', () => {
+  // Previously this validated, then dropped a 7-day-old matching issue and reported
+  // "nothing due" — a check that existed, ran, and could never fire.
+  let threw = false;
+  try { validateRegistry({ checks: [{ id: 'deploy-drift', kind: 'github-issue-age',
+    match_title: 'Deploy drift detected on prod', escalate_at_days: ['2'] }] }); }
+  catch { threw = true; }
+  assert.ok(threw, 'a string threshold must not validate');
+});
+
 t('ACCEPT: the real shipped registry validates', () => {
   const reg = JSON.parse(readFileSync('.github/alert-registry.json', 'utf8'));
   validateRegistry(reg);

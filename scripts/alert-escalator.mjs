@@ -172,6 +172,41 @@ export function validateRegistry(registry) {
         `registry: check "${check.id}" has unknown kind "${check.kind}" ` +
         `(known: ${Object.keys(KINDS).join(', ')})`);
     }
+    // Structure alone is not enough. The registry's whole promise is "adding a check
+    // is a data edit, no code" — so a data edit that TYPOS a type must fail loudly here.
+    // Before this, `escalate_at_days: ["2"]` (strings, not numbers) validated fine and
+    // then silently matched nothing: the check existed, ran, and could never fire.
+    // A check that can never fire is indistinguishable from a quiet system.
+    if (check.kind === 'github-issue-age') {
+      if (typeof check.match_title !== 'string' || !check.match_title) {
+        throw new ReaderError(`registry: check "${check.id}": match_title must be a non-empty string`);
+      }
+      if (!Array.isArray(check.escalate_at_days) || check.escalate_at_days.length === 0) {
+        throw new ReaderError(`registry: check "${check.id}": escalate_at_days must be a non-empty array`);
+      }
+      for (const d of check.escalate_at_days) {
+        if (typeof d !== 'number' || !Number.isFinite(d) || d <= 0) {
+          throw new ReaderError(
+            `registry: check "${check.id}": escalate_at_days must contain positive numbers, ` +
+            `got ${JSON.stringify(d)} (${typeof d})`);
+        }
+      }
+    }
+    if (check.kind === 'workflow-last-run') {
+      if (!Array.isArray(check.workflows) || check.workflows.length === 0) {
+        throw new ReaderError(`registry: check "${check.id}": workflows must be a non-empty array`);
+      }
+      for (const w of check.workflows) {
+        if (typeof w?.file !== 'string' || !w.file) {
+          throw new ReaderError(`registry: check "${check.id}": every workflow needs a file`);
+        }
+        if (typeof w.max_age_hours !== 'number' || !Number.isFinite(w.max_age_hours) || w.max_age_hours <= 0) {
+          throw new ReaderError(
+            `registry: check "${check.id}": ${w.file} max_age_hours must be a positive number, ` +
+            `got ${JSON.stringify(w.max_age_hours)} (${typeof w.max_age_hours})`);
+        }
+      }
+    }
   }
   return registry;
 }
@@ -238,15 +273,32 @@ function ghJson(args) {
 }
 
 export function fetchOpenIssues() {
-  return ghJson(['issue', 'list', '--state', 'open', '--limit', String(ISSUE_PAGE_LIMIT),
-                 '--json', 'number,title,createdAt,labels,author,url']);
+  const issues = ghJson(['issue', 'list', '--state', 'open', '--limit', String(ISSUE_PAGE_LIMIT),
+                         '--json', 'number,title,createdAt,labels,author,url']);
+  // gh returns newest-first, so a full page means the OLDEST open issues were cut —
+  // exactly the ones an ageing alarm lives in. Raising the limit only moves that cliff;
+  // it cannot remove it. If the page is full we cannot prove we saw everything, and
+  // "cannot prove" must never render as "nothing due".
+  if (issues.length >= ISSUE_PAGE_LIMIT) {
+    throw new ReaderError(
+      `open-issue page is full (${issues.length} >= ${ISSUE_PAGE_LIMIT}): the oldest open ` +
+      `issues were truncated, so no conclusion about aged alerts is possible. ` +
+      `Raise ISSUE_PAGE_LIMIT or paginate.`);
+  }
+  return issues;
 }
 
 export function fetchWorkflowRuns(files) {
   const out = {};
   for (const file of files) {
-    out[file] = { runs: ghJson(['run', 'list', '--workflow', file, '--limit', '1',
-                                '--json', 'createdAt,conclusion,status']) };
+    // --event schedule is load-bearing. Without it, the newest run of ANY event type
+    // counts as freshness, so a single manual `workflow_dispatch` inside the tolerance
+    // window makes a DEAD CRON look alive — indefinitely, and silently. Every one of the
+    // seven producers accepts workflow_dispatch, and this reader's own post-deploy check
+    // dispatches them. The question is not "did this workflow run", it is "is its
+    // schedule still firing".
+    out[file] = { runs: ghJson(['run', 'list', '--workflow', file, '--event', 'schedule',
+                                '--limit', '1', '--json', 'createdAt,conclusion,status,event']) };
   }
   return out;
 }
