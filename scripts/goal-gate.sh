@@ -393,7 +393,36 @@ CHECKS_RUN=$((CHECKS_RUN+1))
 #
 # This does NOT weaken evidence: no round file is ever edited, deleted or renumbered
 # to satisfy the check, and every screenshot hash is still re-derived here.
-MAX_ROUNDS=7
+#
+# ── P1277 (2026-09-09): two defects in the above, both measured ─────────────
+#
+# (a) THE HASH CHECK PUNISHED A CORRECT WORKFLOW. A round records the hashes of
+#     the renders it judged. A later round finds a real defect, the fix changes
+#     the UI, the renders are regenerated — and every EARLIER round is then
+#     reported as a hash mismatch. On P1141 rounds 1-4 all reported mismatches
+#     because round 5 legitimately replaced the images, and the only two ways to
+#     go green were the two forgeries this check exists to prevent.
+#
+#     The rule is now per-PATH rather than per-round: for each screenshot path,
+#     the LAST round that records it must hash-match the working tree exactly;
+#     an earlier round recording that same path may differ, because a later round
+#     re-judged it. Supersession is legal, tampering is not — garbage written
+#     over a render that no later round re-judged is still the last record of
+#     that path, so it still fails (canary 5a).
+#
+# (b) THE CEILING WAS DOING THE ANTI-RE-ROLL WORK, BADLY. A fixed bound both
+#     blocks honest convergence (the 5 -> 7 raise above) and only catches a
+#     re-roll by counting it. The property actually wanted is: a round that
+#     follows a FAIL must judge DIFFERENT PIXELS — something must have been
+#     fixed. That is now checked directly, so spinning rounds on unchanged
+#     renders is refused at round 2 instead of at round 8, and the count bound
+#     is left to catch pathology only.
+#
+#     Consequence: the bound is raised 7 -> 20. It is no longer load-bearing for
+#     re-roll detection. It also repairs the canary — case 5e (six identical
+#     rounds) had been silently GREEN since the 5 -> 7 raise on 2026-08-29,
+#     i.e. the ceiling had had no proven failure path for eleven days.
+MAX_ROUNDS=20
 # bash 3.2 (macOS default) has no `mapfile` — it would silently leave ROUNDS empty here
 # while working fine on CI's bash 5. Read the list the portable way.
 ROUNDS=()
@@ -410,29 +439,71 @@ elif [[ "$n_rounds" -gt "$MAX_ROUNDS" ]]; then
   fail "${n_rounds} reviewer rounds exceeds the bound of ${MAX_ROUNDS} — re-rolling until two passes land is not a pass"
 else
   hash_ok=1; verdicts=()
+
+  # One pass to collect every record, so the per-path "last round wins" rule and
+  # the re-roll comparison can both be answered without re-reading the files.
+  # bash 3.2 has no associative arrays — the ledger is a temp file of
+  # "<round index><TAB><path><TAB><claimed hash>" lines.
+  RLEDGER="$(mktemp "${TMPDIR:-/tmp}/goal-gate-rounds.XXXXXX")"
+  ri=0
   for r in "${ROUNDS[@]}"; do
+    ri=$((ri+1))
     v=$($GREP -m1 -oE '^VERDICT:[[:space:]]*(PASS|FAIL)' "$r" | awk '{print $2}')
     [[ -z "$v" ]] && { fail "$(basename "$r"): no 'VERDICT: PASS|FAIL' line"; hash_ok=0; v=FAIL; }
     verdicts+=("$v")
     n_shots=0
-    # Each 'SCREENSHOT: <sha256>  <path>' line is re-hashed here, not believed.
+    # Each 'SCREENSHOT: <sha256>  <path>' line is recorded here, never believed.
     while read -r _kw claimed path; do
       [[ -z "${path:-}" ]] && continue
       n_shots=$((n_shots+1))
-      if [[ ! -f "$path" ]]; then
-        fail "$(basename "$r"): screenshot missing on disk: ${path}"; hash_ok=0; continue
-      fi
-      actual=$(sha256_of "$path")
-      if [[ "$actual" != "$claimed" ]]; then
-        fail "$(basename "$r"): hash mismatch for ${path}"
-        echo "        recorded: ${claimed}"; echo "        actual:   ${actual}"
-        hash_ok=0
-      fi
+      printf '%s\t%s\t%s\n' "$ri" "$path" "$claimed" >> "$RLEDGER"
     done < <($GREP -E '^SCREENSHOT:' "$r" | sed 's/^SCREENSHOT:[[:space:]]*//' | awk '{print "S", $1, $2}')
     if [[ "$n_shots" -eq 0 ]]; then
       fail "$(basename "$r"): judged zero screenshots — an empty round is not a round"; hash_ok=0
     fi
   done
+
+  # ── the hash rule, per path (P1277a) ──────────────────────────────────────
+  # A path missing from disk fails for EVERY round that judged it: nothing can
+  # supersede a render that no longer exists.
+  while IFS=$'\t' read -r ri path claimed; do
+    [[ -z "${path:-}" ]] && continue
+    if [[ ! -f "$path" ]]; then
+      fail "$(basename "${ROUNDS[$((ri-1))]}"): screenshot missing on disk: ${path}"; hash_ok=0; continue
+    fi
+    # Is this the LAST round that records this path? Only that record is bound
+    # to the working tree; earlier ones were superseded by a later re-judging.
+    last_ri=$(awk -F'\t' -v p="$path" '$2 == p { m = $1 } END { print m + 0 }' "$RLEDGER")
+    actual=$(sha256_of "$path")
+    if [[ "$actual" != "$claimed" ]]; then
+      if [[ "$ri" -eq "$last_ri" ]]; then
+        fail "$(basename "${ROUNDS[$((ri-1))]}"): hash mismatch for ${path}"
+        echo "        recorded: ${claimed}"; echo "        actual:   ${actual}"
+        echo "        this is the LAST round that judged this render, so nothing superseded it"
+        hash_ok=0
+      else
+        echo "        ${DIM}superseded: $(basename "${ROUNDS[$((ri-1))]}") judged an earlier ${path}, re-judged in round ${last_ri}${NC}"
+      fi
+    fi
+  done < "$RLEDGER"
+
+  # ── the re-roll rule (P1277b) ─────────────────────────────────────────────
+  # A round that follows a FAIL must judge at least one render whose recorded
+  # hash differs from the previous round's record — a fix must have changed
+  # something. Re-running the reviewer on identical pixels until a PASS lands is
+  # the forgery the round ceiling used to approximate by counting.
+  if [[ "$n_rounds" -ge 2 ]]; then
+    for ((i=2; i<=n_rounds; i++)); do
+      [[ "${verdicts[$((i-2))]}" == FAIL ]] || continue
+      prev="$(awk -F'\t' -v n="$((i-1))" '$1 == n { print $2 "\t" $3 }' "$RLEDGER" | sort)"
+      cur="$(awk -F'\t' -v n="$i" '$1 == n { print $2 "\t" $3 }' "$RLEDGER" | sort)"
+      if [[ "$prev" == "$cur" ]]; then
+        fail "$(basename "${ROUNDS[$((i-1))]}"): follows a FAIL but judges byte-identical renders — a re-roll, not a fix"
+        hash_ok=0
+      fi
+    done
+  fi
+  rm -f "$RLEDGER"
   # two CONSECUTIVE passes, and they must be the last two
   consec=0
   if [[ "$n_rounds" -ge 2 ]]; then

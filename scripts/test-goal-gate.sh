@@ -238,7 +238,43 @@ m_hash_forged()    { printf 'TAMPERED\n' > "$1/features/verification/$PN/shot-32
 m_shot_missing()   { rm -f "$1/features/verification/$PN/shot-desktop.png"; }
 m_one_pass_only()  { sed -i.bak 's/^VERDICT: PASS/VERDICT: FAIL/' "$1/features/verification/$PN/review-round-1.md"; }
 m_no_rounds()      { rm -f "$1/features/verification/$PN"/review-round-*.md; }
-m_too_many_rounds(){ local i; for i in 3 4 5 6; do cp "$1/features/verification/$PN/review-round-2.md" "$1/features/verification/$PN/review-round-$i.md"; done; }
+# The bound is 20 since P1277 (it no longer carries the anti-re-roll property —
+# the pixel-change rule below does). Twenty-one rounds is pathology and is refused.
+# NOTE: review-round-*.md is enumerated with `ls | sort`, so double-digit rounds
+# must be zero-padded or round 10 sorts before round 2 and the verdict sequence
+# read by the gate is not the sequence on disk.
+m_too_many_rounds(){
+  local i
+  for i in $(seq 3 21); do
+    cp "$1/features/verification/$PN/review-round-2.md" \
+       "$1/features/verification/$PN/review-round-$(printf '%02d' "$i").md"
+  done
+}
+# P1277b — a round that FOLLOWS a FAIL must judge different pixels. Here round 1
+# fails, round 2 re-judges byte-identical renders and passes, round 3 confirms.
+# The trailing pair is PASS PASS and the count is 3, so nothing else can catch
+# this: the only signal that no fix happened is that the pixels did not move.
+m_reroll_same_pixels() {
+  sed -i.bak 's/^VERDICT: PASS/VERDICT: FAIL/' "$1/features/verification/$PN/review-round-1.md"
+  cp "$1/features/verification/$PN/review-round-2.md" "$1/features/verification/$PN/review-round-3.md"
+}
+# P1277a CONTROL — must stay GREEN. A late round finds a real defect, the fix
+# regenerates a render, and round 3 re-judges it. Rounds 1 and 2 now carry a hash
+# that no longer matches the working tree. That is supersession, not tampering:
+# the LAST round recording that path matches, so the gate must pass. Before the
+# fix this exact sequence was the one that stranded P1141 at qa.
+m_superseded_render() {
+  local d="$1/features/verification/$PN"
+  printf 'PNG-FIXTURE-320-REGENERATED\n' > "$d/shot-320.png"
+  {
+    echo "VERDICT: PASS"
+    echo "Reviewer was given renders only — never the diff, never the intent."
+    local n
+    for n in 320 375 desktop empty; do
+      echo "SCREENSHOT: $(sha_of "$d/shot-$n.png")  features/verification/$PN/shot-$n.png"
+    done
+  } > "$d/review-round-3.md"
+}
 m_empty_round()    { $GREP -v '^SCREENSHOT:' "$1/features/verification/$PN/review-round-2.md" > "$1/t" && mv "$1/t" "$1/features/verification/$PN/review-round-2.md"; }
 m_no_assumptions() { rm -f "$1/features/verification/$PN/assumptions.md"; }
 m_one_axis()       { $GREP -v 'turns consumed' "$1/features/verification/$PN/feedback.md" > "$1/t" && mv "$1/t" "$1/features/verification/$PN/feedback.md"; }
@@ -274,6 +310,8 @@ expect 1 "5c fewer than 2 consecutive PASS"           ci  m_one_pass_only "2 CON
 expect 1 "5d COMPARABLE rows but zero rounds"         ci  m_no_rounds "review-round-*.md is empty"
 expect 1 "5e re-rolled past the round bound"          ci  m_too_many_rounds "exceeds the bound"
 expect 1 "5f a round that judged zero screenshots"    ci  m_empty_round "judged zero screenshots"
+expect 1 "5g re-roll on byte-identical renders after a FAIL" ci m_reroll_same_pixels "re-roll, not a fix"
+expect 0 "5h superseded earlier round — control, must NOT go red" ci m_superseded_render "!hash mismatch"
 echo "${DIM}CHECK 6 — the instruments${NC}"
 expect 1 "6a assumptions.md absent"                   ci  m_no_assumptions "missing features/verification/p9001/assumptions.md"
 expect 1 "6b feedback.md carries only one axis"       ci  m_one_axis "one axis is a trap"
