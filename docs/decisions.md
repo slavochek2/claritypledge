@@ -6,6 +6,76 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [technical]: A gate that cannot say who is asking gets answered by guessing (P1239)
+
+**Context:** P1239's per-access dialog fired for the first time in real use. It said
+*"Python wants to use your confidential information"* — nothing else. The founder, with several
+sessions open, could not tell which one asked or why, and denied it: *"If Python requests me, who
+is Python? It could be anybody."* The request was almost certainly legitimate — the weekly routine
+reading the ops mailbox is currently the only shipped consumer of a locked credential.
+
+**Decision:** Every read announces itself **before** the dialog: a notification carrying the key,
+the reason, the session id and the branch; the same line on stderr in the asking session; and a
+durable request log. Callers supply the reason. Announcement is wrapped so it can never block the
+read — an attribution failure must not become an availability failure.
+
+**Alternatives rejected:** having the agent announce in chat first (discipline only, and it had
+already failed earlier the same day — four dialogs answered blind); a signed helper binary so the
+OS names the application (needs a paid developer membership, and would still not name the session
+or the task, which is the part that matters).
+
+**Consequences:** Attribution moves **ahead of** removing the plaintext copies in the sequencing,
+which is the opposite of how it was first scheduled. Two reasons. First, today a denial protects
+nothing — the plaintext copy is still readable, so the denied session could have taken it without
+any dialog; the founder's guess that it "circumvented it some other way" understates the case,
+since no circumvention was needed. Second, once the plaintext is gone a wrongly-denied prompt stops
+being free and starts breaking real work. The window in which unattributable prompts are merely
+confusing is exactly the window in which this had to be fixed.
+
+**The generalisable half:** a human-in-the-loop control is not finished when the prompt appears. It
+is finished when the person can tell *what they are approving*. A prompt that cannot be attributed
+trains the operator to click through it, which is strictly worse than no prompt — it manufactures
+consent while removing the friction that made the consent meaningful.
+
+**A second lesson, from the review that followed:** the gate detector had been comparing access
+lists without the authorization tags that say which operation each list governs, because an earlier
+attempt to read those tags through the CoreFoundation API returned nothing and was recorded as
+"no usable labels". The older numeric API returns them fine. **An API returning nothing is evidence
+about that call, not about the capability** — try the other spelling before designing around an
+absence. The tags are now part of the comparison, which closes a shape that compared equal to a
+locked item while permitting unprompted reads.
+
+**References:** [credential-keyring.md](technical/credential-keyring.md) ·
+[.claude/rules/credentials.md](../.claude/rules/credentials.md) · P1239
+
+## 2026-09-08 [process]: `core.bare = true` on the main checkout, one day after the same failure was written up
+
+**Context:** Mid-session every git command in the main checkout began failing with *"this operation
+must be run in a work tree"*. Cause: `core.bare` was set to `true` on a repository that plainly has
+one. `.git/config` had been modified minutes earlier. This is the failure recorded on 2026-09-07
+(a stray bare-init rewriting the real repository's config) — **recurring within a day of being
+documented**, which is the part worth keeping.
+
+**Decision:** Repaired in place (`core.bare false`); no work was lost, and uncommitted changes in
+the working tree were untouched throughout.
+
+**Consequences:** It broke *every* session on the shared checkout simultaneously, not just the one
+that noticed, and it presents as an unrelated argument error from whatever tool you happen to be
+running — the first symptom here was a repo script rejecting its own arguments. Worth knowing as a
+recognisable shape: **a git tool complaining it is "not in a repo" from a directory that obviously
+is one means the config, not the command.**
+
+Attribution was not established. The timing overlapped an external review tool that clones the
+repo, but that tool contains no git-config writes, and several sessions were live. Recorded without
+a culprit rather than with a guessed one.
+
+**The open item:** a documented incident that recurs the next day is telling you the documentation
+was not the control. A mechanical check — `core.bare` asserted false in the pre-commit or `/day`
+health block — would have caught it at the first git command instead of mid-session. Not built.
+**(Status: proposed)**
+
+**References:** decisions.md 2026-09-07 `[technical]` (the first occurrence)
+
 ## 2026-09-08 [product]: Keep the group named for what it does, not for why it matters to a member
 
 **Context:** The founder asked whether "Communication Activism Community · Chiang Mai" (renamed 2026-09-07, this log) should instead be named around Ikigai — reasoning that communication activism is a means, and the result members actually get is progress toward their own life's work. Considered: rename to something like "Ikigai Mutual Help Group," or a compound name.
