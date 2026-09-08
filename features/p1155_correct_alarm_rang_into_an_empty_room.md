@@ -261,7 +261,9 @@ fixture contains only inputs it should catch has an unmeasured false-positive ra
   "do NOT fix the detectors." Adversarial review finding A4 showed the reader cannot function while
   the producers' find-or-append is unauthored, so an author check is added to each of the seven.
   **Nothing else in those files changes** — not their schedule, not `continue-on-error`, not their
-  bodies, not the `--search`-vs-exact-title inconsistency (still out of scope, still flagged).
+  bodies. The `--search`-vs-exact-title inconsistency is not a separate item after all: author-binding
+  and exact-title matching are the same edit at the same ten call sites, so fixing A4 closed it. All
+  ten now use one canonical form; nothing about it remains outstanding.
 - **Do NOT make any detector fail the build.** Alert-only was deliberate after per-push alerting
   produced 20+ duplicate emails. This applies to the seven detectors only — the escalator itself
   deliberately fails loudly (§3).
@@ -403,6 +405,17 @@ one level up.**
 - [ ] Confirm `concurrency:` actually serialized the two runs (check the Actions log for a queued,
       not concurrent, second run) — the two back-to-back dispatches are themselves the race the
       guard exists to stop
+
+**The four P1155 canaries do not run at commit time in a worktree, and never have.**
+Every worktree's `.git/hooks/pre-commit` is a symlink to the **main checkout's**
+`scripts/pre-commit-checks.sh`, so the gating block added on this branch is invisible to
+the hook until the branch merges. Confirmed: `git show main:scripts/pre-commit-checks.sh
+| grep -c ALERT_PRODUCER_STAGED` returns `0`. Every green pre-commit run on this branch
+therefore proves nothing about these canaries — the passes reported during development
+came from invoking the script by hand, which is a different thing and was not
+distinguished at the time. The wiring itself is correct and starts working the moment
+this merges; the claim that had to be corrected is "wired and exercised", which was only
+half true. Worth knowing generally: a canary added on a branch cannot gate that branch.
 
 **If any item fails, the escalator is not working**, regardless of a green CI badge —
 the badge only proves the job ran, and a job that decides nothing is due exits `0` too.
