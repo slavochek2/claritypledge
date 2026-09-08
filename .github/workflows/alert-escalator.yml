@@ -1,0 +1,79 @@
+# P1155 — the unattended consumer.
+#
+# Seven workflows in this directory detect prod problems and open GitHub issues
+# (P866 alert-only pattern). Until this workflow existed, every reader of those
+# issues was human-initiated — /day, /ship, and /weekly all need someone to type
+# a command — so a correct alarm could sit unread for days. Twice it did: issue
+# #10 (2026-08-21, three days, unauthenticated write policies on prod) and issue
+# #11 (2026-09-05, three days, two missing migrations and two stale functions).
+#
+# INVERTED FAILURE MODE — deliberate, do not "fix" this to match the detectors.
+# The seven detectors are `continue-on-error` on purpose: a detector that fails
+# the build produces email floods (per-push alerting once generated 20+ duplicate
+# emails, which is why it was removed). This workflow is the opposite. It is the
+# thing that notices silence, so IT must never be silent: any failure here fails
+# the job and produces a red run.
+#
+# The reader's exit codes are load-bearing:
+#   0  nothing due          -> success, no output
+#   1  something due, sent  -> success (this is the ALARM path, not an error)
+#   2  reader could not run  -> FAIL the job, loudly
+# 2 must never collapse into 0. A broken reader exiting 0 reads as a healthy
+# system, which is the exact defect this workflow exists to remove.
+
+name: Alert Escalator
+
+on:
+  schedule:
+    - cron: '30 6 * * *'   # daily, after the 06:00/06:15 producers have reported
+  workflow_dispatch:
+
+# Read -> decide -> send -> label has no lock of its own, so two overlapping runs
+# would both see "not yet escalated" and both send. A schedule run can land on a
+# manual one, and the post-deploy check deliberately dispatches twice in a row.
+# Same shape as db-backup.yml. cancel-in-progress stays false: a run cancelled
+# mid-send is worse than a queued one.
+concurrency:
+  group: alert-escalator
+  cancel-in-progress: false
+
+permissions:
+  contents: read     # checkout
+  issues: write      # add the escalation label
+  actions: read      # read producer run history (workflow-last-run)
+
+jobs:
+  escalate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Full history: the reader asks git when each workflow file first appeared,
+          # so a workflow added minutes ago is not reported as a stalled producer.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      - name: Escalate aged alerts and stalled producers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPS_EMAIL: ${{ secrets.OPS_EMAIL }}
+          # A SEND-ONLY credential, provisioned for this workflow. NOT
+          # OPS_EMAIL_PASSWORD: that is a full mailbox password in P1239's locked
+          # half, held in a keychain item that demands a human answer on every
+          # read. Copying it here would delete that control, not merely widen it.
+          OPS_SMTP_PASSWORD: ${{ secrets.OPS_SMTP_PASSWORD }}
+        run: |
+          set -o pipefail
+          # No `set -x`: trace mode echoes every command, and GitHub masks only the
+          # verbatim secret — a re-encoded form would print in the clear.
+          set -e
+          rc=0
+          node scripts/alert-escalator.mjs || rc=$?
+          case "$rc" in
+            0) echo "No alerts due." ;;
+            1) echo "Escalation sent." ;;
+            *) echo "::error::alert-escalator could not run (exit $rc)"; exit "$rc" ;;
+          esac

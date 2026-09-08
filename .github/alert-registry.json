@@ -1,0 +1,81 @@
+{
+  "_readme": [
+    "P1155 alert escalation registry. Adding a check of an EXISTING kind is a row here and no code.",
+    "A new KIND is code in scripts/alert-escalator.mjs. Two kinds cover all seven alert-only producers.",
+    "escalate_at_days is a list of thresholds, each firing exactly once (label p1155-escalated-<N>d).",
+    "It is deliberately NOT a single boolean: a one-shot flag turns 'escalate once per crossing' into",
+    "'escalate once ever', which removes the daily re-append redundancy the current system has."
+  ],
+  "checks": [
+    {
+      "id": "deploy-drift",
+      "kind": "github-issue-age",
+      "produced_by": "check-deploy-drift.yml",
+      "match_title": "Deploy drift detected on prod",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "backup-staleness",
+      "kind": "github-issue-age",
+      "produced_by": "backup-staleness.yml",
+      "match_title": "Backup stale or unverified",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "db-backup-failing",
+      "kind": "github-issue-age",
+      "produced_by": "db-backup.yml",
+      "match_title": "Daily DB backup failing",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "auth-canary",
+      "kind": "github-issue-age",
+      "produced_by": "auth-canary.yml",
+      "match_title": "Auth canary failing — Google sign-in may be broken",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "csp-smoke",
+      "kind": "github-issue-age",
+      "produced_by": "csp-smoke.yml",
+      "match_title": "CSP smoke gate failing on prod",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "prod-health-smoke",
+      "kind": "github-issue-age",
+      "produced_by": "prod-health-smoke.yml",
+      "match_title": "Prod health smoke gate failing on prod",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "stranded-signups",
+      "kind": "github-issue-age",
+      "produced_by": "stranded-signups.yml",
+      "match_title": "Stranded signups — people started signup and never got in",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "stranded-signups-not-running",
+      "kind": "github-issue-age",
+      "produced_by": "stranded-signups.yml",
+      "match_title": "Stranded-signup check is not running",
+      "escalate_at_days": [2, 7, 30]
+    },
+    {
+      "id": "producer-freshness",
+      "kind": "workflow-last-run",
+      "_note": "A producer that stopped running makes silence read as health. Tolerance is per-workflow because the schedules differ: 6-hourly jobs get 8h, daily jobs get 25h.",
+      "workflows": [
+        { "file": "check-deploy-drift.yml",  "max_age_hours": 25 },
+        { "file": "backup-staleness.yml",    "max_age_hours": 25 },
+        { "file": "db-backup.yml",           "max_age_hours": 25 },
+        { "file": "stranded-signups.yml",    "max_age_hours": 25 },
+        { "file": "auth-canary.yml",         "max_age_hours": 8 },
+        { "file": "csp-smoke.yml",           "max_age_hours": 8 },
+        { "file": "prod-health-smoke.yml",   "max_age_hours": 8 }
+      ]
+    }
+  ]
+}
