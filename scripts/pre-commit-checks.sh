@@ -1441,7 +1441,12 @@ fi
 
 echo ""
 echo ">>> Checking for new migrations being committed..."
-STAGED_MIGRATIONS=$(git diff --cached --name-only 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+# --diff-filter=ACMR: a DELETED migration must not be checked for "is it applied".
+# Removing a migration file also removes it from deploy-manifest.json, so the check
+# could never pass — it demanded ./scripts/migrate.sh for a file that no longer
+# exists, and re-running migrate.sh cannot re-add a migration whose file is gone.
+# Found when a branch removed a migration it had superseded before shipping (P1264).
+STAGED_MIGRATIONS=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
 DEPLOY_MANIFEST="supabase/deploy-manifest.json"
 if [ -n "$STAGED_MIGRATIONS" ]; then
     UNAPPLIED=0

@@ -21,7 +21,7 @@ import {
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GroupChatBlock } from './GroupChatBlock';
-import { TrailLinkBlock } from './TrailLinkBlock';
+import { OrgFooterNote } from './OrgFooterNote';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
@@ -59,6 +59,9 @@ export function EventDetail() {
   // P1194: fetched separately from the event — the service returns null for anyone
   // who is not the host or registered, so this state never holds a value we hide.
   const [groupChatUrl, setGroupChatUrl] = useState<string | null>(null);
+  // P1264: the org's standing footer note. Public, so unlike the group chat link
+  // it is fetched regardless of RSVP state.
+  const [orgFooterNote, setOrgFooterNote] = useState<string | null>(null);
 
   // Fetch event and RSVP status
   useEffect(() => {
@@ -108,6 +111,22 @@ export function EventDetail() {
       });
     return () => { cancelled = true; };
   }, [eventId, isRsvpd, isHostOfEvent]);
+
+  // P1264: separate from the group-chat effect above — this one is public, so it
+  // depends only on the event, never on RSVP or host state.
+  useEffect(() => {
+    if (!eventId) {
+      setOrgFooterNote(null);
+      return;
+    }
+    let cancelled = false;
+    eventsService.getEventOrgFooterNote(eventId)
+      .then(note => { if (!cancelled) setOrgFooterNote(note); })
+      .catch(error => {
+        console.error('[EventDetail] Failed to fetch org footer note:', error);
+      });
+    return () => { cancelled = true; };
+  }, [eventId]);
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -650,36 +669,31 @@ export function EventDetail() {
                 </div>
               )}
 
-              {/* P1264: the route link, ABOVE the description rather than after it.
-                  It was below at first and read as orphaned — a blind visual-QA pass
-                  and the founder independently called the same thing: the button sat
-                  after the closing PS aside, ~900px from anything about the route,
-                  with nothing tying it back to the loop/climb/duration line it
-                  belongs to. Here it sits beside those stats, which is what someone
-                  still deciding whether to come is actually reading.
-                  Public by design, so it renders regardless of RSVP state and stays
-                  visible for past events too (unlike the group chat block below). */}
-              {/* The divider wraps BOTH, deliberately: put it on the trail block alone
-                  and an event without a route link renders an empty bordered box. The
-                  description always exists, so this element always has content. */}
-              <div className="pt-4 border-t border-border">
-                <TrailLinkBlock url={event.trailUrl ?? null} />
+              {/* P1194 block, MOVED ABOVE THE DESCRIPTION by P1264.
+                  It rendered after the description until now, which put it at the very
+                  bottom of a long itinerary. Both of its two states argue for the top:
+                  logged out, it is a REASON TO REGISTER, and a reason to register has to
+                  be visible where the decision is made, not after someone has scrolled
+                  the whole page. Registered, it is the next action after registering —
+                  measured ~700px below the confirmation card in the old position, which
+                  a hostile visual review read as two unrelated features that happened to
+                  share a colour.
 
-                {/* Description - Markdown rendered (safe renderer strips raw HTML to prevent XSS) */}
-                <div
-                  className="prose prose-sm max-w-none text-muted-foreground mb-6"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
-                />
-              </div>
+                  This also puts the description's closing PS aside AFTER the button,
+                  which is where the founder wanted it. Doing it this way rather than
+                  lifting the PS into its own org-level field is deliberate: one move
+                  buys both, with no new column and no new render path.
 
-              {/* P1194: the group chat, after the description and before the RSVP
-                  confirmation — a button rather than a link buried in the body copy. */}
-              {/* DELIBERATELY still isPast, unlike the calendar block just above (P1256).
-                  These two were flagged together in review for sharing the widened flag, but
-                  they are not the same case: a group chat is MOST useful just after the
-                  event — photos, "who has my jacket", where everyone went for food. Cutting
-                  it off the moment a hike ends is the opposite of what the block is for.
-                  Staying open longer is the feature here, not the leak. */}
+                  P1194's own reason for the old spot — "a button rather than a link
+                  buried in the body copy" — is preserved and strengthened here; it was
+                  never an argument for being last.
+
+                  DELIBERATELY still isPast, unlike the calendar block above (P1256).
+                  These two were flagged together in review for sharing the widened flag,
+                  but they are not the same case: a group chat is MOST useful just after
+                  the event — photos, "who has my jacket", where everyone went for food.
+                  Cutting it off the moment a hike ends is the opposite of what the block
+                  is for. Staying open longer is the feature here, not the leak. */}
               {!isPast && !isCancelled && (
                 <div className="mb-6">
                 <GroupChatBlock
@@ -688,6 +702,16 @@ export function EventDetail() {
                 />
                 </div>
               )}
+
+              {/* Description - Markdown rendered (safe renderer strips raw HTML to prevent XSS) */}
+              <div
+                className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
+                dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
+              />
+
+              {/* P1264: the organiser's standing note — the last block on the page,
+                  after the group-chat button, which is what an aside is for. */}
+              <OrgFooterNote note={orgFooterNote} />
 
               {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}
               {!isHost && !isCancelled && isRsvpd && (

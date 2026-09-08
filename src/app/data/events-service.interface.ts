@@ -18,6 +18,8 @@ export interface EventsService {
    * not a caller-side check, so an unauthorized caller never receives the URL.
    */
   getEventGroupChatUrl(eventId: string): Promise<string | null>;
+  /** P1264: the org's standing footer note for its event pages. Null when unset. */
+  getEventOrgFooterNote(eventId: string): Promise<string | null>;
   isEventFull(event: EventWithHost): boolean;
   getSpotsRemaining(event: EventWithHost): number | null;
 

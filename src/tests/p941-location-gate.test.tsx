@@ -35,6 +35,9 @@ vi.mock('@/app/data/events-service', () => ({
     // P1194: EventDetail asks for the group chat link once the viewer is host or
     // RSVP'd. These fixtures carry no group chat — null is the honest answer.
     getEventGroupChatUrl: vi.fn().mockResolvedValue(null),
+    // P1264: EventDetail also asks for the org's standing footer note on every
+    // event, regardless of RSVP state. These fixtures carry no org note.
+    getEventOrgFooterNote: vi.fn().mockResolvedValue(null),
     rsvpToEvent: vi.fn(),
     cancelRsvp: vi.fn(),
     cancelEvent: vi.fn(),

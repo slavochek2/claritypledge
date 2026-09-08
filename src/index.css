@@ -281,3 +281,114 @@ body {
  * channels are the square avatar, the MACHINE chip and the footer disclosure — still two
  * or more, so 1.4.1 holds. The argument changed; it was not quietly weakened.
  */
+
+/* P1264: external links inside an event description render as inline chips.
+ *
+ * The route link was originally a standalone pill below the description and read
+ * as orphaned — a blind visual-QA pass and the founder said the same thing
+ * independently. With the description now carrying section headings, the link
+ * belongs INSIDE its section ("The route"), next to the sentence describing it,
+ * rather than floating above the whole body.
+ *
+ * A React component cannot be placed inside the description: it is one markdown
+ * blob rendered through dangerouslySetInnerHTML. So the affordance is CSS on the
+ * rendered anchors instead. Every link from renderMarkdownSafe already carries
+ * target="_blank" (src/lib/markdown.ts), so no renderer change is needed — the
+ * spec's Non-Goals forbid touching it.
+ *
+ * Scoped to .event-description so this cannot leak to story/point/ToS prose,
+ * which render through the same .prose classes.
+ *
+ * Deliberately NOT the brand's own colour, unlike GroupChatBlock. That component
+ * carries WhatsApp green to say which app is about to open — a one-off exception
+ * to the design system's "never green action buttons" rule (.claude/rules/src.md).
+ * Spending that exception a second time would put two different saturated greens
+ * on one page and leave the blue RSVP competing with both. Neutral chips keep the
+ * one brand colour on the page meaningful.
+ */
+/* Height: a chip sits INSIDE a paragraph, so it cannot take the 40px the
+ * visual-QA touch-target rule asks of a standalone control without wrecking the
+ * line rhythm around it. Compromise, stated rather than hidden: ~34px where a
+ * cursor is doing the pointing, and the full 40px on touch devices, where the
+ * rule's reason actually applies. A plain markdown link — what this replaces —
+ * offered a ~20px target at every width, so both branches improve on it.
+ */
+.event-description a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.6875rem;
+  margin: 0 0.0625rem;
+  border: 1px solid hsl(var(--foreground));
+  border-radius: 9999px;
+  background-color: hsl(var(--foreground));
+  color: hsl(var(--background));
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1.6;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.event-description a:hover {
+  background-color: hsl(var(--foreground) / 0.85);
+  border-color: hsl(var(--foreground) / 0.85);
+}
+
+/* The outbound mark — drawn in CSS so a chip needs no per-link markup. */
+.event-description a::after {
+  content: "↗";
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+
+/* Touch devices get the full 40px the rule asks for — see the note above. */
+@media (pointer: coarse) {
+  .event-description a {
+    padding: 0.5rem 0.875rem;
+  }
+}
+
+/* A link inside an italic aside is prose, not an action.
+ *
+ * The chip treatment above says "this is a thing to go and do" — the route, the
+ * directions. The closing PS is a personal aside about something unrelated to the
+ * hike, and a solid pill inside it overclaims: it reads as an advert rather than
+ * a remark. Founder call: render that one as a normal link.
+ *
+ * Keyed on <em> because the aside is authored as italic markdown, which is the
+ * only signal the rendered HTML carries — renderMarkdownSafe emits no classes and
+ * the spec's Non-Goals forbid changing it. Scoped under .event-description, so an
+ * italic link anywhere else in the app is untouched.
+ */
+.event-description em a {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  color: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.event-description em a:hover {
+  background-color: transparent;
+  color: hsl(var(--foreground));
+}
+
+.event-description em a::after {
+  content: none;
+}
+
+/* P1264: the org footer note is prose, so its links stay plain links — the chip
+ * treatment above is scoped to .event-description and deliberately does not reach
+ * here. Stated as its own rule rather than left implicit: the note renders through
+ * the same markdown renderer, so it is a live question every time either changes. */
+.event-org-note a {
+  color: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

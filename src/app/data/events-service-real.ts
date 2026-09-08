@@ -62,8 +62,6 @@ interface DbEventWithHost {
   /** P1179: JSONB [{tag, label?}] — extra Links-menu entries, [] on every row by default. */
   links: { tag: string; label?: string }[] | null;
   has_group_chat?: boolean | null;
-  /** P1264: public external route link (AllTrails/Komoot/etc). No form writes this yet. */
-  trail_url?: string | null;
   host: {
     id: string;
     full_name: string | null;
@@ -155,7 +153,6 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     // standard entries rather than crash the room's menu.
     links: Array.isArray(row.links) ? row.links : [],
     hasGroupChat: row.has_group_chat ?? false, // P1194
-    trailUrl: row.trail_url ?? undefined, // P1264
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,
@@ -419,6 +416,41 @@ export const realEventsService: EventsService = {
     }
 
     return data?.group_chat_url ?? null;
+  },
+
+  // P1264: the organiser's standing note, rendered as the last block on the event
+  // page. Two flat queries rather than a nested select — src.md bans nested selects
+  // against PostgREST as unreliable, and this runs once per page view.
+  async getEventOrgFooterNote(eventId: string): Promise<string | null> {
+    log(' getEventOrgFooterNote:', eventId);
+
+    const { data: ev, error: evError } = await supabase
+      .from('events')
+      .select('org_id')
+      .eq('id', eventId)
+      .maybeSingle();
+
+    if (evError) {
+      logDbError('getEventOrgFooterNote(event)', evError);
+      return null;
+    }
+    if (!ev?.org_id) return null;
+
+    const { data: org, error: orgError } = await supabase
+      .from('organization')
+      .select('event_footer_note')
+      .eq('id', ev.org_id)
+      .maybeSingle();
+
+    if (orgError) {
+      logDbError('getEventOrgFooterNote(org)', orgError);
+      return null;
+    }
+
+    const note = org?.event_footer_note;
+    // Whitespace-only is "unset" as far as the render path is concerned, so a note
+    // cleared to spaces cannot produce an empty bordered block.
+    return note && note.trim().length > 0 ? note : null;
   },
 
   isEventFull(event: EventWithHost): boolean {
