@@ -2392,6 +2392,8 @@ Both directions failing is the finding. It means the pipeline cannot distinguish
 
 **Consequences:** No fix is applied yet; the auto-close remains a live trap at roughly a 40% wrong rate whenever a branch touches another spec's file. **Status: proposed** — the investigation spec is not yet filed.
 
+**CORRECTED 2026-09-07 — every rate in this entry is wrong low, and the method is why.** "8 of 19 auto-closed specs were later reopened by hand" scores whether a *human complained*, not whether the close was *correct*. Re-scored against `ship-gates.sh` gate 2.5's own logic at the moment of each close: **15 of 18 (83%)**, not 8 of 19 (~40%). Five closes this entry implicitly certified as correct are false closes on the pipeline's own test — one of them a spec whose own body reads *"PARKED — the decided architecture was never built."* The ordinary-close path, unmeasured here, fails the same gate at **>=48%**. The investigation spec was filed 2026-09-04 as [p1246](../features/p1246_pipeline_controls_are_advisory.md). See this log 2026-09-07 [process] (every pipeline control is advisory) for the corrected figures and the root cause.
+
 **References:** 2026-09-04 [process] co-located recurrence (below) · 2026-08-27 [process] · `scripts/git-ops.sh` (`detect_cospecs`) · `.claude/commands/slava/build/ship.md`
 
 ## 2026-09-04 [process]: A decision recorded as discipline-only recurred in eight days — and the trigger was not the rename it named, but the pipeline's own housekeeping step (P1234/P1241)
