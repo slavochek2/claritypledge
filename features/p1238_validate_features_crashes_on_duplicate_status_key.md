@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 tags: [specs, tooling, validation]
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: tools/kanban/scripts/__tests__/validate-features.test.ts
   root_cause: "validate-features.ts calls matter(content) with no try/catch per file; gray-matter/js-yaml throws YAMLException on features/archive/p821_letter_reading_progress_bar_disappears_on_scroll.md's duplicate status: key, killing the whole process before the summary prints"
