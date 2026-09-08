@@ -1658,6 +1658,71 @@ else
 fi
 echo ""
 
+# 18c. Early-pipe-close under pipefail (P1260) — a SUCCESS reported as a failure.
+#
+# `producer | grep -q X` exits 141 when it MATCHES: grep stops at the first hit and closes its
+# read end, the producer takes SIGPIPE, and `set -o pipefail` promotes that to the pipeline's
+# status. The condition then reads "not found" on exactly the inputs it was meant to find.
+#
+# Measured 2026-09-08, with controls, because the deciding factor is NOT what people assume:
+#   printf 'a\nb\nMATCH\nc\n' | grep -q MATCH          -> 0    (safe)
+#   {for i in $(seq 1 200000); do echo ...; done} | grep -q  -> 141  (a BUILTIN races)
+#   yes hello | grep -q hello                          -> 141
+# It is OUTPUT SIZE against the pipe buffer, not builtin-vs-process. So this check does NOT try
+# to exempt printf/echo producers: that heuristic is safe only by accident of output size and
+# would wave through a large builtin loop.
+#
+# Recurrence is why this is mechanical rather than prose. The repo has hit this family five
+# times — scripts/test-push-snapshot-pinning.sh (a suite returning 26/1, 26/1, 27/0 on three
+# consecutive runs), scripts/test-git-ops-ship.sh, scripts/git-ops.sh, and twice in
+# docs/decisions.md (2026-06-27 ship-gates.sh exiting 141 with zero output; the typecheck-gate
+# note) — and every fix was a comment in the file it bit. Nothing carried.
+#
+# ADDED LINES ONLY, and WARN not block. ~156 such pipelines already exist and the overwhelming
+# majority are safe small producers; refusing them would be a gate-7c violation (a new refusal
+# whose false-positive population was never measured). This flags only what is being written now.
+echo ">>> Checking for early-pipe-close pipelines (pipefail + grep -q / head)..."
+SIGPIPE_HITS=""
+# `while read` not `for f in $(...)`: a staged path containing a space would word-split into
+# several nonexistent paths and be silently skipped (Codex review, 2026-09-08).
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in *.sh) ;; *) continue ;; esac
+    # Read pipefail from the STAGED blob, not the working tree. With a partially staged file the
+    # two disagree, so testing the worktree can both miss a real hit and invent a false one
+    # (Codex review, 2026-09-08 — the one HIGH finding).
+    git show ":$f" 2>/dev/null | grep -qE 'set +-[a-zA-Z]*o +pipefail|set +-o +pipefail' || continue
+    ADDED=$(git diff --cached -U0 -- "$f" | grep -E '^\+' | grep -v '^+++' || true)
+    [ -n "$ADDED" ] || continue
+    # Right-hand sides that stop reading early. `grep -c` DRAINS the stream and is safe, so the
+    # pattern must not match it. Covers -q, -qE, --quiet and -m N, all confirmed to return 141
+    # against an unbounded producer.
+    #
+    # KNOWN LIMITS, accepted because this is advisory: a pipeline split across lines with a
+    # trailing backslash is missed (line-by-line matching), and `sed q` / `awk '...exit'` /
+    # `read` consumers are equally dangerous but too easily confused with safe uses to flag.
+    BAD=$(printf '%s\n' "$ADDED" \
+        | grep -nE '\|[[:space:]]*(grep([[:space:]]+-[a-zA-Z]*q[a-zA-Z]*|[[:space:]]+--quiet|[[:space:]]+-m([[:space:]]*[0-9]))|head([[:space:]]|$))' || true)
+    if [ -n "$BAD" ]; then
+        SIGPIPE_HITS="${SIGPIPE_HITS}${f}:"$'\n'"${BAD}"$'\n'
+    fi
+done <<< "$STAGED_FILES"
+if [ -n "$SIGPIPE_HITS" ]; then
+    echo -e "${YELLOW}⚠ New pipeline(s) that can report a MATCH as a failure:${NC}"
+    printf '%s\n' "$SIGPIPE_HITS" | sed 's/^/  /'
+    echo -e "${YELLOW}  Under pipefail these exit 141 when they SUCCEED, if the producer is${NC}"
+    echo -e "${YELLOW}  still writing. Prefer reading from a process substitution:${NC}"
+    echo -e "${YELLOW}    grep -q PATTERN < <(producer)${NC}"
+    echo -e "${YELLOW}  or grep -c, which drains the stream. sed q, awk with exit, and a read${NC}"
+    echo -e "${YELLOW}  consumer are equally unsafe but are not matched here. Ignore this if${NC}"
+    echo -e "${YELLOW}  the producer's${NC}"
+    echo -e "${YELLOW}  output is always small. See .claude/rules/epistemic.md gate 7${NC}"
+    WARNINGS=$((WARNINGS + 1))
+else
+    echo -e "${GREEN}✓ No new early-pipe-close pipelines${NC}"
+fi
+echo ""
+
 # 19. Zombie Vite server check — detect dev servers from deleted worktrees
 echo ">>> Checking for zombie Vite dev servers..."
 ZOMBIE_COUNT=0

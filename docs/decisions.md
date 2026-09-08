@@ -677,6 +677,54 @@ gate 7.
 **References:** features/p1263_bare_init_in_canary_flips_core_bare_on_the_real_repo.md ·
 features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md ·
 scripts/test-git-ops-extensions.sh · scripts/test-hook-sha-gate.sh
+## 2026-09-08 [process]: `pipefail` reporting a SUCCESS as a failure has bitten this repo five times, each fixed locally and never carried — now a check, not a comment
+
+**Context:** Under `set -o pipefail`, `producer | grep -q X` can exit **141** when it *matches*:
+`grep -q` stops at the first hit and closes its read end, the producer takes SIGPIPE, and pipefail
+promotes that to the pipeline's status. A condition that genuinely matched reads as "not found".
+It silently inverted a merged-ness oracle in `git-ops.sh` during P1260 — a fixture's unmatched
+count went 3 to 8, and a re-landed commit was reported as still-reverted.
+
+**The finding is the recurrence, not the bug.** Five instances: `ship-gates.sh` exiting 141 with
+zero output (2026-06-27, in this file); the typecheck-gate note (also in this file); a comment in
+`test-git-ops-ship.sh`; a comment in `test-push-snapshot-pinning.sh` recording a suite that
+returned 26/1, 26/1, then 27/0 on three consecutive runs; and this one. **Every fix was a comment
+in the file it bit, and `.claude/rules/` mentioned SIGPIPE zero times.** The knowledge existed five
+times and never travelled — the same shape as the `codex-review` wrapper's rationale.
+
+**Decision:** a check, not prose. `pre-commit-checks.sh` check 18c warns on **newly-added** lines
+in `.sh` files whose staged blob sets pipefail, matching a pipe into `grep -q`/`-qE`/`--quiet`/
+`-m N`/`head`. `.claude/rules/epistemic.md` gate 7 gains the explanation the warning points at,
+stated as the inverse of the masking list already there.
+
+**Why WARN and added-lines-only:** ~156 such pipelines already exist across ~51 pipefail files and
+the overwhelming majority are safe, because a small producer finishes before the reader exits.
+Blocking them would be a gate-7c violation — a new refusal whose false-positive population was
+never measured. Confirmed by control: `grep -c` (drains), a process substitution, and a full-drain
+pipe are all silent; a file without pipefail is silent.
+
+**Measured, because the intuitive rule is wrong:** a small `printf` into `grep -q` returns 0, but a
+200k-line **builtin** loop returns 141. The predictor is output size against the pipe buffer, not
+builtin-vs-process. An earlier design excluded `printf`/`echo` producers by name; that heuristic is
+safe only by accident of output size and was dropped.
+
+**Codex review (CHANGES REQUESTED, 1 HIGH / 3 MEDIUM / 2 LOW) — all acted on.** The HIGH was real:
+the check read pipefail from the **working tree** while matching content from the **index**, so a
+partially staged file could be both missed and falsely flagged; it now reads the staged blob. Also
+fixed: `grep -qE`/`--quiet`/`-m N` were not matched, and `for f in $(...)` word-split a filename
+containing a space. The rule text overclaimed ("exits 141 when it matches") and now says *can*,
+naming the race. Codex built its own fixture and ran every variant rather than reasoning from
+prose — the finding that mattered came from execution, not reading.
+
+**Accepted limits, stated in the code:** a pipeline split across lines with a trailing backslash is
+missed; `sed q`, `awk '...exit'` and `read` consumers are equally unsafe but too easily confused
+with safe uses to flag, so the warning names them instead. It is a prompt, not a proof.
+
+**References:** `scripts/pre-commit-checks.sh` (check 18c) · `.claude/rules/epistemic.md` gate 7 ·
+decisions.md 2026-06-27 [process] (`ship-gates.sh` SIGPIPE)
+
+---
+
 ## 2026-09-08 [technical]: A control scoped to a ref's NAME misses the other name for the same commit — and a correctly-proven abort was never asked what it left behind (P1260)
 
 **Context:** P1260 added a pre-push refusal for `feature/*` and `fix/*` refs, to make P1255's

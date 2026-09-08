@@ -68,6 +68,21 @@ A failure-detecting or alerting artifact (CI gate, smoke test, canary, lint/type
 
 This is "Falsify Before You Rely" (CLAUDE.md) applied to gate artifacts. Common masking mechanisms that make a broken gate look green: `script | tee` under `bash -e` without `pipefail` (tee's exit 0 masks the script's exit 1), `|| true`, swallowed exit codes, `continue-on-error` on the wrong step. Proof = paste the exit code from the simulated failure, not "it should fail because…". See [docs/decisions.md](../../docs/decisions.md) 2026-06-06 "Scheduled-gate alerts route to GitHub issues".
 
+**`pipefail` also runs the other way — it can report a SUCCESS as a failure.** `producer | grep -q X`
+**can exit 141 when it MATCHES**: `grep -q` stops at the first hit and closes its read end; if the
+producer is still writing it takes SIGPIPE, and `pipefail` promotes that to the pipeline's status.
+A condition that genuinely matched then reads as "not found". It is a race, not a certainty — the
+producer must still be writing when grep exits, so match position and scheduling matter too.
+Output size against the pipe buffer is the strongest predictor, **not** builtin-vs-process:
+measured 2026-09-08, a small `printf` into `grep -q` returns 0 while a 200k-line **builtin** loop
+and `yes` both return 141. `grep -qE`, `grep --quiet`, `grep -m1`, `sed q`, `awk '...exit'` and a
+`read` consumer behave identically; `grep -c` is safe because it drains the stream. Read from a
+process substitution instead — `grep -q X < <(producer)`.
+
+This repo has hit the family five times, each fixed with a local comment that carried nowhere.
+`pre-commit-checks.sh` check 18c now warns on newly-added instances — advisory only, `.sh` files,
+single-line pipelines, and the grep/head shapes above; it is a prompt, not a proof (P1260).
+
 **The agent shell is zsh, where `${PIPESTATUS[0]}` expands to EMPTY** — zsh's array is `$pipestatus` and is 1-indexed (`${pipestatus[1]}`). A failure proof that reads `PIPESTATUS` prints no exit code and reports nothing wrong, silently destroying the one artifact this gate demands. Paste a real non-zero status or the proof does not count.
 
 ## 7b. Green bounds what was MODELLED, not what is true
