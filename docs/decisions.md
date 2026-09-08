@@ -6,6 +6,98 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [process]: A merge commit stages all of main, so it fires every pre-existing violation on main at once
+
+**Context:** P1264's branch was 56 commits behind main and `git merge main` was run to
+resync before `/ship`. The merge itself was near-clean — one conflict, in
+`supabase/deploy-manifest.json`. Committing it was not: `pre-commit-checks.sh` is
+**staged-file scoped**, and a merge commit stages every file main touched (70 here), so
+six violations that live on `main` and belong to other sessions' specs all fired against
+this branch — three dead doc links, six specs missing `disclosure:`, two specs with no
+verbatim founder framing, and one edge function failing `deno check`. None was reachable
+from the branch's own diff (`git diff main -- <each>` returned 0 lines for all six).
+
+The branch could not commit the merge without either fixing other people's work or
+`--no-verify`, which is banned. The failure is not "main is broken" — main commits fine,
+because a normal commit stages only its own files. It is that **merging is the one
+operation that makes a repo's entire backlog of violations your problem.**
+
+Recovery then wedged. `git merge --abort` failed with `Entry '<path>' not uptodate` and
+kept failing as the path moved, because the blocked pre-commit run had regenerated the
+`.agents/` and `.claude/commands/` mirrors mid-attempt, so the worktree no longer matched
+the merge index. Staging the named files did not converge — each abort named a new one.
+Resolved by resetting to the branch tip by **absolute SHA** (`git reset --hard <sha>`,
+never `HEAD~n`), which was safe only because every piece of work was already committed and
+the one untracked file had been copied out first.
+
+**Decision:** Do not merge main into a feature branch here. `/ship` cherry-picks, so the
+resync buys nothing it needs — 2026-08-20 already says prefer rebase for the ship-time
+reason; this is a second, earlier reason with the same conclusion. When a branch needs one
+specific file from main, take that file (`git show main:<path> > <path>`) rather than the
+whole tree. Before any recovery reset, confirm the target SHA with `git log -1 <sha>` and
+copy out untracked work first.
+
+**Alternatives rejected:** Fixing main's six violations from this branch — unrequested
+scope on four other specs, and it puts unrelated work in a P1264 commit. `--no-verify` —
+banned, and it would have committed a merge nobody had checked. Continuing to stage files
+one at a time as `--abort` named them — this had already failed twice with a moving
+target, which is the "byte-identical retry is one observation" pattern.
+
+**Consequences:** A branch far behind main stays behind until it ships. That is fine for
+cherry-pick, and it means the pre-existing-violation backlog on main is surfaced only by
+whoever chooses to merge — so it stays invisible. Worth knowing that the disclosure and
+doc-link gates currently have six and three open violations respectively on main.
+
+Also corrected here: the 2026-08-20 entry says a `deploy-manifest.json` conflict resolves
+as "keep main (the superset)". **It was not a superset in this case** — main's `test` block
+had `20260908065003` and lacked `20260908093000`; the branch had the reverse. Keeping main
+would have silently dropped a migration that is genuinely applied. Resolved as a union and
+then **verified against the live test database** (both columns readable over REST), not
+inferred from either file.
+
+**References:** `scripts/pre-commit-checks.sh` · `supabase/deploy-manifest.json` ·
+[decisions.md](decisions.md) 2026-08-20 "`/ship` cannot cherry-pick a merge commit" ·
+[.claude/rules/git.md](../.claude/rules/git.md)
+
+---
+
+## 2026-09-08 [technical]: Per-entity state fetched in an effect must be cleared BEFORE the request, not written only on success
+
+**Context:** An external adversarial review (codex) of P1264 found that `EventDetail`'s
+new org-footer-note effect keys on `eventId` but writes state only inside `.then`. On a
+slug-to-slug navigation React Router keeps the same component instance and only changes
+the param, so between navigation and resolution the **previous event's** value is still
+rendered under the new event — and permanently if the new request rejects.
+
+The same shape was already present in the adjacent P1194 group-chat effect, where the
+stale value is an **RSVP-gated invite URL**. That makes the window a disclosure rather
+than a cosmetic flicker: event A's private group link rendered on event B's page.
+
+A 3872-test suite did not catch either. Nothing in it navigated between two events with
+different per-org values, so the input that reproduces it was never emitted — the gate-7b
+shape, where green bounds what was modelled.
+
+**Decision:** In any effect that fetches per-entity data, clear the state as the first
+statement after the guard, and clear it again on the error path. Writing only in `.then`
+is the defect. Regression test drives **real router navigation** with the second request
+left unsettled — re-rendering with a fresh `MemoryRouter` remounts the component, resets
+state, and hides the bug, so that shape is not a valid test of this.
+
+**Alternatives rejected:** Treating it as a flicker and accepting it — untenable once the
+same shape holds a gated URL. Clearing only in the error path — leaves the whole
+in-flight window wrong, which is the common case.
+
+**Consequences:** Applies to every existing effect of this shape, not just these two.
+The cost is a brief empty block instead of stale content, which is the correct trade for
+anything gated. Proven both ways: reverting only the clearing line fails the regression
+test (vitest exit 1); restored, exit 0.
+
+**References:** `src/app/prototypes/events/components/EventDetail.tsx` ·
+`src/tests/p1264-stale-org-note-on-navigation.test.tsx` ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7b
+
+---
+
 ## 2026-09-08 [technical]: A probe that reads through a different path than the code under test invents the wrong system (P1155)
 
 **Context:** P1155's send layer worked locally and then appeared to be talking to a Mailgun account
