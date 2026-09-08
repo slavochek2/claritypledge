@@ -11,12 +11,35 @@
 import { describe, it, expect } from 'vitest';
 import { RingBuffer, encodeWav, resampleTo, TARGET_SAMPLE_RATE } from './slice-recorder';
 import { parseWavHeader, validateSliceRequest, MAX_SLICE_DURATION_MS } from '../../../supabase/functions/transcribe-slice/validate';
+import { OVERLAP_SECONDS, MAX_WORDS_PER_OVERLAP_SECOND } from '../../../supabase/functions/transcribe-slice/dedup';
+import { LEAD_IN_MS, SLICE_INTERVAL_MS } from './slice-recorder';
 
 function ramp(n: number, from = 0): Float32Array {
   const out = new Float32Array(n);
   for (let i = 0; i < n; i++) out[i] = from + i;
   return out;
 }
+
+describe('the capture cadence and the server\'s de-dup window are one number, in two files', () => {
+  it('LEAD_IN_MS matches dedup.ts OVERLAP_SECONDS', () => {
+    // The capture side decides how much audio is re-sent; the server side decides how many
+    // words it is allowed to strip, and derives that from the same second. They live in
+    // different files, in different runtimes, on opposite sides of a network boundary, and
+    // nothing else couples them — so widening the lead-in without widening the window would
+    // silently start leaving duplicates in the transcript, and narrowing it would start
+    // deleting real speech. Neither shows up as a failure anywhere else.
+    expect(LEAD_IN_MS / 1000).toBe(OVERLAP_SECONDS);
+  });
+
+  it('the strip window stays derived from speech rate, not fitted to the corpus', () => {
+    // 3 words/second is conversational English (~2.5-3 w/s), measured against the P1236
+    // fixture at 0/2/3/4/6/8 words per overlap second. Bias is deliberately UNDER-strip: a
+    // surviving duplicate is visible and harmless, a deleted word is invisible and — since
+    // no per-slice audio is retained — unrecoverable.
+    expect(MAX_WORDS_PER_OVERLAP_SECOND).toBe(3);
+    expect(SLICE_INTERVAL_MS).toBe(4000);
+  });
+});
 
 describe('RingBuffer', () => {
   it('returns everything written while still under capacity', () => {
