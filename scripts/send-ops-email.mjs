@@ -27,8 +27,11 @@
  */
 import tls from 'node:tls';
 
-const HOST = 'w00dd4f1.kasserver.com';
-const PORT = 465;                 // SMTPS. 587 is filtered locally.
+// Overridable ONLY so the failure path can be exercised against a dead port without
+// hammering the real mail server with failed auths (gate 7 requires watching it fail).
+// Defaults are the real values; nothing in CI or prod sets these.
+const HOST = process.env.OPS_SMTP_HOST || 'w00dd4f1.kasserver.com';
+const PORT = Number(process.env.OPS_SMTP_PORT || 465);   // SMTPS. 587 is filtered locally.
 const MAX_LINE_OCTETS = 998;      // 1000 minus CRLF
 
 export class SendError extends Error {}
@@ -106,7 +109,9 @@ export async function sendOpsEmail({ subject, body, to = process.env.OPS_EMAIL }
   const message = buildMessage({ from: user, to: to || user, subject, body });
 
   return new Promise((resolve, reject) => {
-    const socket = tls.connect({ host: HOST, port: PORT, servername: HOST });
+    // servername must be a hostname; node rejects an IP literal outright.
+    const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(HOST) || HOST.includes(':');
+    const socket = tls.connect({ host: HOST, port: PORT, ...(isIp ? {} : { servername: HOST }) });
     let buf = '';
     const steps = [
       { expect: 220, send: `EHLO claritypledge.com` },
@@ -126,7 +131,10 @@ export async function sendOpsEmail({ subject, body, to = process.env.OPS_EMAIL }
     const fail = (msg) => { socket.destroy(); reject(new SendError(msg)); };
 
     socket.setTimeout(20_000, () => fail('SMTP timeout'));
-    socket.on('error', (e) => fail(`SMTP socket error: ${e.message}`));
+    // ECONNREFUSED and friends carry `code` with an empty `message`; printing only
+    // the message yields "SMTP socket error: " and tells a 3am reader nothing.
+    socket.on('error', (e) =>
+      fail(`SMTP socket error connecting to ${HOST}:${PORT}: ${e.code || e.message || e}`));
     socket.on('data', (chunk) => {
       buf += chunk.toString('utf8');
       if (!/\r\n$/.test(buf)) return;

@@ -310,50 +310,59 @@ the revert handled it.
 
 ## Done-When
 
-- [ ] An unattended consumer exists that reads the alert signal on a schedule with no session started
+- [x] An unattended consumer exists that reads the alert signal on a schedule with no session started
       and no human command typed
-- [ ] The check list is a registry file; adding a new check of an existing kind requires editing data
+- [x] The check list is a registry file; adding a new check of an existing kind requires editing data
       only, demonstrated by adding one check without touching the reader's code
-- [ ] All seven alert-only workflows are covered by the registry, verified by diffing the registry
+- [x] All seven alert-only workflows are covered by the registry, verified by diffing the registry
       against `grep -l "gh issue create" .github/workflows/*.yml`
-- [ ] All seven producers author-bind their find-or-append (and their close-on-recovery, where
+- [x] All seven producers author-bind their find-or-append (and their close-on-recovery, where
       present), so a producer cannot be induced to append to an issue it did not create — with a
       fixture proving a genuine bot-authored issue is still matched (A4)
 - [ ] An issue aged past the threshold produces exactly one email to ops@, **observed firing** in a
       simulated run — not asserted
-- [ ] The same issue on the following run produces **no** second email (once per threshold crossing)
-- [ ] An issue younger than the threshold produces no email — the no-false-alarm case is tested, not
+- [x] The same issue on the following run produces **no** second email (once per threshold crossing)
+- [x] An issue younger than the threshold produces no email — the no-false-alarm case is tested, not
       only the catch case (gate 7c)
-- [ ] An issue past the threshold opened by an account other than `github-actions[bot]` produces no
+- [x] An issue past the threshold opened by an account other than `github-actions[bot]` produces no
       email — the untrusted-author case is tested (Security required change #1)
-- [ ] A producer workflow that has not run in > 25h is itself reported
-- [ ] A send failure **fails the workflow** — proven by simulating an SMTP failure and pasting the
+- [x] A producer workflow that has not run in > 25h is itself reported
+- [x] A send failure **fails the workflow** — proven by simulating an SMTP failure and pasting the
       non-zero exit code (gate 7; note the agent shell is zsh, so `${pipestatus[1]}`, never
       `PIPESTATUS`), **and** the same simulation's output asserted free of the password
-- [ ] `OPS_EMAIL` / `OPS_EMAIL_PASSWORD` exist as repo secrets and a real send has succeeded once
+- [ ] `OPS_EMAIL` / `OPS_SMTP_PASSWORD` exist as repo secrets and a real send has succeeded once
+      (BLOCKED — see Pre-deploy Checklist; `OPS_EMAIL_PASSWORD` must NOT be used, it is P1239-locked)
 
 ## Pre-deploy Checklist
 
 ### Secrets to provision
 
-**Do this check FIRST — Security required change #3.** `OPS_EMAIL_PASSWORD` is a raw All-Inkl
-mailbox password, not a scoped token: it grants full **IMAP read** of the ops@ inbox, not merely
-send. ops@ is the registration address for service signups, so that inbox is the account-recovery
-destination for an unknown number of third-party services. A CI secret is reachable by more code
-paths than a laptop's `.env.local`, so this is a real increase in blast radius, not a hypothetical.
+**BLOCKED — needs a founder decision. Do not proceed by putting `OPS_EMAIL_PASSWORD` in CI.**
 
-- [ ] **Check All-Inkl / KAS for a send-only or app-specific SMTP credential** distinct from the
-      mailbox login password. If one exists, provision it and keep `OPS_EMAIL_PASSWORD` out of CI
-      entirely — this caps a leak at "can send as ops@" instead of "can read everything ops@ has
-      ever received." UNVERIFIED whether KAS offers this; nothing in the repo says either way.
-- [ ] If no scoped credential exists, record that explicitly here rather than defaulting silently,
-      and consider a GitHub **environment** with required reviewers gating this secret (no workflow
-      in this repo uses environments today — this would be new infrastructure, not an existing
-      pattern).
-- [ ] `OPS_EMAIL` — GitHub repo secret
-- [ ] `OPS_EMAIL_PASSWORD` (or the scoped replacement) — GitHub repo secret
+An earlier revision of this checklist said to provision `OPS_EMAIL` and `OPS_EMAIL_PASSWORD` as
+repo secrets. That was written before reading `scripts/read-ops-email.mjs:33` and
+`.claude/rules/credentials.md`, and it is wrong.
 
-Founder action — the agent PAT excludes Administration scope and cannot create repo secrets.
+`OPS_EMAIL_PASSWORD` is in **P1239's locked half**: a macOS keychain item that trusts no
+application, so macOS demands a human answer on *every read*, because it is a full mailbox
+password whose loss rotation cannot undo. Copying it into GitHub Actions secrets does not merely
+widen its exposure — it **deletes that control**. CI has no human to answer the dialog, and any
+workflow in the repo could then read it. P1239 is still in flight (`feature/p1239-keyring-critical-half`),
+so this would also be actively undoing work in progress.
+
+The send layer therefore reads `OPS_SMTP_PASSWORD` in CI and **refuses to fall back** to the locked
+credential when `CI` is set (`scripts/send-ops-email.mjs`, `credentials()`). Locally, where a human
+is present to answer the dialog, it uses the keyring path so a real send can be exercised today.
+
+- [ ] **Founder decision:** provision a dedicated send-only SMTP credential (an All-Inkl / KAS
+      submission credential, or a separate mailbox that can only send) and add it as
+      `OPS_SMTP_PASSWORD`. Do NOT reuse the mailbox password.
+- [ ] `OPS_EMAIL` — repo secret (the address, not a secret in any real sense, but the workflow
+      reads it from the same place)
+- [ ] `OPS_SMTP_PASSWORD` — repo secret, the dedicated credential above
+
+Founder action either way — the agent PAT excludes Administration scope and cannot create repo
+secrets.
 
 ### Post-deploy verification
 - [ ] One `workflow_dispatch` run against the live open issue #11 (aged 3+ days) delivers one email
