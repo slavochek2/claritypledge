@@ -10,8 +10,13 @@ import { useTerminateSession } from '@/hooks/use-terminate-session';
  */
 export function ActiveSessionBanner() {
   const navigate = useNavigate();
-  const { activeSessionCode, activeSessionPartnerName, activeSessionRole, clearActiveSession } =
-    useLiveSession();
+  const {
+    activeSessionCode,
+    activeSessionPartnerName,
+    activeSessionRole,
+    activeSessionSeatToken,
+    clearActiveSession,
+  } = useLiveSession();
   const terminate = useTerminateSession();
   const [isEnding, setIsEnding] = useState(false);
 
@@ -44,7 +49,7 @@ export function ActiveSessionBanner() {
         // the catch below, clear the banner locally, and leave the session untouched on the
         // server — a silent no-op that tells the user the opposite of what happened.
         if (activeSessionRole === 'joiner') {
-          await clearSessionJoiner(session.id, activeSessionCode);
+          await clearSessionJoiner(session.id, activeSessionCode, activeSessionSeatToken);
           clearActiveSession();
         } else {
           await terminate(session.id);

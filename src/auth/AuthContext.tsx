@@ -258,7 +258,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             sessionEndedAt: new Date().toISOString(),
           });
         } else {
-          await clearSessionJoiner(sessionId, sessionCode);
+          // Signed-in arm: authorized on auth.uid(), so neither the code nor the seat token
+          // is consulted. Both are passed as they are found, never fabricated.
+          await clearSessionJoiner(sessionId, sessionCode, null);
         }
       } catch {
         // Session cleanup is best-effort — proceed with sign-out regardless

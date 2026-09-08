@@ -354,7 +354,7 @@ export function ClarityLivePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
-  const { setIsLive, setActiveSession, clearActiveSession } = useLiveSession();
+  const { setIsLive, setActiveSession, clearActiveSession, activeSessionSeatToken } = useLiveSession();
   const terminate = useTerminateSession();
 
   // P124: Get event context from URL params
@@ -2945,7 +2945,10 @@ export function ClarityLivePage() {
       // Save to localStorage for rejoin
       saveSessionToStorage(joinedSession.code, joinName, false);
       // P511: Persist active session to localStorage for banner on other pages
-      setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? joinName : null);
+      // P1058: joinedSession carries joinerSeatToken ONLY here, on claim_joiner_seat's own
+      // result — no later read can select the column. If it is not captured now it is gone,
+      // and the guest can no longer release their seat.
+      setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? joinName : null, joinedSession.joinerSeatToken ?? null);
 
       analytics.track('live_session_joined', {
         session_code: joinedSession.code,
@@ -3567,7 +3570,12 @@ export function ClarityLivePage() {
           });
         } else {
           // Joiner leaving = clear their name so creator knows
-          await clearSessionJoiner(session.id, session.code ?? null).catch((err) => {
+          // P1058: read the seat token from the ACTIVE-SESSION record, not from `session`.
+          // `session` is replaced on every poll and realtime update (setSession is called
+          // from six refresh paths), and those rows come from ordinary reads that cannot
+          // carry joiner_seat_token — so by the time anyone leaves, session.joinerSeatToken
+          // is null. The context copy is written once at claim and survives.
+          await clearSessionJoiner(session.id, session.code ?? null, activeSessionSeatToken ?? null).catch((err) => {
             console.error('[Live] clearSessionJoiner failed on joiner exit:', err);
           });
           // P769: cancelLiveInvite (not completeClaritySession) — creator's session continues
@@ -3646,7 +3654,7 @@ export function ClarityLivePage() {
     sessionEndedRef.current = true;
     setSessionEnded(true);
     setIsExiting(false);
-  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting, updateLiveState, buildRoundHistoryEntry]);
+  }, [session, liveState.checksCount, liveState.sessionHistory, isCreator, isFromEvent, stopAndUploadRecording, clearActiveSession, isExiting, updateLiveState, buildRoundHistoryEntry, activeSessionSeatToken]);
 
   // P511: Exit directly — no confirmation dialog (session can be resumed via heartbeat)
   const handleExitMeeting = useCallback(() => {
@@ -3722,7 +3730,9 @@ export function ClarityLivePage() {
           setIsCreator(false);
           saveSessionToStorage(joinedSession.code, pendingJoin.joinName, false);
           // P511: Persist active session to localStorage for banner on other pages
-          setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? pendingJoin.joinName : null);
+          // P1058: see the note at the other join site — the seat token is available only on
+          // this claim result.
+          setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? pendingJoin.joinName : null, joinedSession.joinerSeatToken ?? null);
 
           analytics.track('live_session_joined', {
             session_code: joinedSession.code,
