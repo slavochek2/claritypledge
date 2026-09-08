@@ -38,6 +38,11 @@ import { earTooltip } from '@/components/ui/ear-tooltip';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
 
+/** P1272: how long before an event starts the room row switches from naming the
+ * destination ("Event Room") to inviting entry ("Join now"). Founder call,
+ * 2026-09-08. Label only — it never gates access to the room. */
+const ROOM_JOIN_WINDOW_MS = 60 * 60 * 1000;
+
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -260,6 +265,25 @@ export function EventDetail() {
   // already attended. Widening the RSVP window must not widen that.
   const hasEnded = Date.now() >= endDate.getTime();
   const isCancelled = event.status === 'cancelled';
+
+  // P1272: the room nav row is time-aware. Only its LABEL and its PRESENCE change —
+  // access to `/events/:slug/room` is never time-gated. A walk-in arrives by the
+  // projected link and never sees this row (decisions.md 2026-08-21), and the room's
+  // readiness slider + Clarity Meeting Principle are meant to be read days early
+  // ("an invitation to join early", below). Gating the route would break both.
+  //
+  // Hidden on `isPast`, NOT on `hasEnded` — see their declarations above. A 90-minute
+  // event hits `hasEnded` 90 minutes in; removing the room from a facilitator who is
+  // still debriefing is the wrong side of that trade, and every other user-facing
+  // affordance on this page keys on the generous window too.
+  const roomRowVisible = !isPast && !isCancelled;
+  // "Join now" only when "now" is true. Before that the row names the destination
+  // instead of issuing an invitation that is weeks premature (founder, 2026-09-08:
+  // "should appear only 1 hour before the event? … otherwise confusing?"). Derived
+  // from the absolute instant `eventDate`, so it is correct in every viewer's zone
+  // with no timezone arithmetic — `event.timezone` is display-only.
+  const roomRowLabel =
+    Date.now() >= eventDate.getTime() - ROOM_JOIN_WINDOW_MS ? 'Join now' : 'Event Room';
   const isFull = eventsService.isEventFull(event);
 
   const handleRsvp = async (trigger: 'sticky_bar' | 'card') => {
@@ -457,11 +481,19 @@ export function EventDetail() {
             "Join now" over "Start event": the room opens before the event too
             (docs/decisions.md 2026-08-21, "an invitation to join early") — "Start
             event" read as imperative and host-only to an attendee arriving days
-            early. "Join now" holds across all three time states (before/during/after)
-            without a host/participant mismatch, and avoids "room" entirely — the
+            early. P1272 REVISED: the claim that followed here — that "Join now"
+            holds across all three time states (before/during/after) — was wrong in
+            two of them. It read as an invitation weeks early and survived
+            cancellation and completion, so the row is now time-aware
+            (`roomRowVisible` / `roomRowLabel`, declared above). What survives from
+            round 4 is the reasoning, not the wording: "Event Room" REVERSES round
+            4's avoidance of the word "room" here (founder, 2026-09-08, choosing it
+            over "Prepare"). Round 4 avoided it because the
             Practice Rooms card one level down inside /meet already owns that word
-            ("+ Open a room"); reusing it here for the outer nav would collide (founder,
-            round 4 second pass). Using a
+            ("+ Open a room"); the collision is real and now accepted — "Event Room" is the
+            outer nav, "+ Open a room" is a control inside it, and they no longer sit on
+            the same screen. If that collision resurfaces in use, the label is the thing
+            to change, not the time logic. Using a
             Tabs/TabsTrigger for a same-page-selection widget to drive a real route
             change doesn't fit Radix's model: onValueChange double-fires per click
             (focus activation + click) with no way to suppress the second call once
@@ -477,17 +509,19 @@ export function EventDetail() {
             question, even for a first-time visitor (founder repro, 2026-08-21: a
             fresh account went straight to the principle page and never saw the
             slider). */}
-        <div className="mb-6 flex w-full items-center justify-start gap-6 overflow-x-auto border-b border-border">
-          <span className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-blue-500 px-1 pb-3 text-base font-medium text-foreground">
-            Details
-          </span>
-          <Link
-            to={`/events/${slug}/room`}
-            className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Join now
-          </Link>
-        </div>
+        {roomRowVisible && (
+          <div className="mb-6 flex w-full items-center justify-start gap-6 overflow-x-auto border-b border-border">
+            <span className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-blue-500 px-1 pb-3 text-base font-medium text-foreground">
+              Details
+            </span>
+            <Link
+              to={`/events/${slug}/room`}
+              className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {roomRowLabel}
+            </Link>
+          </div>
+        )}
 
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Column - Event Details */}

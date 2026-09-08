@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 1000080
 severity: medium
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [events, event-room, time-state, ui]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1272-reproduce.test.tsx
   root_cause: "The room nav row (EventDetail.tsx:483-494) has no conditional and a hardcoded 'Join now' label; isPast/hasEnded/isCancelled exist at lines 251-262 and are never consulted by it."
@@ -150,16 +150,50 @@ carries the same row, so there is no spread to fix. Also grepped `docs/decisions
 `Start event`, `EventDetail`, `P1114`: the entries found constrain the fix (recorded as
 Invariants above) and none rejects this approach.
 
+## Known limitation — accepted, not a defect
+
+`roomRowLabel` is computed during render from `Date.now()` with no timer. A viewer who
+leaves the page open across the T-1h boundary keeps seeing "Event Room" until something
+re-renders (navigation, RSVP, any state change). Accepted rather than fixed: an interval
+adds a live timer and a re-render loop to the page for a word, and the stale side is the
+harmless one — it under-promises ("Event Room") instead of inviting entry to something
+that has not started. The opposite staleness cannot occur, because every path that would
+show "Join now" too early requires the clock to have already passed the threshold.
+
+## Reviews
+
+- Code review subagent (sonnet) was spawned and went idle without delivering a report —
+  **0 of 1 reported**, chased once. Review performed inline instead; three findings,
+  all fixed before commit: the new module constant was declared between two import
+  statements; the round-4 comment block still asserted "Join now holds across all three
+  time states", which the fix makes false; and the chosen label reverses round 4's
+  deliberate avoidance of the word "room" in this position (Practice Rooms' "+ Open a
+  room" lives one level down inside `/meet`). The last is a founder call, recorded in
+  the code comment rather than silently reversed.
+- Browser check covered the upcoming state only (desktop, 375, 320 — `emulate`, after
+  `resize_page` silently no-opped at 500px). The cancelled and past states have no
+  fixture in the dev dataset and are covered at render level by the canary.
+
 ## Acceptance Criteria
 
-- [ ] On an event starting more than 1 hour from now, the row reads "Event Room"
-- [ ] Within 1 hour of the start, and while the event is running, the row reads "Join now"
-- [ ] On a cancelled event, no room row renders anywhere on the page
-- [ ] On an event more than 12 hours past its start (`isPast`), no room row renders
-- [ ] An event that ended 20 minutes ago (past `hasEnded`, before `isPast`) still shows
-      "Join now" — a just-finished room stays reachable for the facilitator
-- [ ] Both labels link to `/events/:slug/room` — never `/meet`
-- [ ] The room route itself remains reachable at every time state, including from a direct
-      or projected link on a past event
-- [ ] `src/tests/p1114-room-composition.test.tsx` still passes unmodified
-- [ ] No console errors on the event detail page in any of the four states
+- [x] On an event starting more than 1 hour from now, the row reads "Event Room"
+      — canary case 1; confirmed in a real browser against a Sept 13 event (`Event Room`,
+      44px tall, above the card)
+- [x] Within 1 hour of the start, and while the event is running, the row reads "Join now"
+      — canary case 2
+- [x] On a cancelled event, no room row renders anywhere on the page — canary case 4
+      (render-level, not browser: no cancelled event exists in the dev dataset)
+- [x] On an event more than 12 hours past its start (`isPast`), no room row renders
+      — canary case 5 (render-level, same reason)
+- [x] An event that ended 20 minutes ago (past `hasEnded`, before `isPast`) still shows
+      "Join now" — canary case 3
+- [x] Both labels link to `/events/:slug/room` — never `/meet` — the canary selects links
+      by `href === '/events/event-a/room'`, so every passing case asserts it
+- [x] The room route itself remains reachable at every time state, including from a direct
+      or projected link on a past event — the diff touches only `EventDetail.tsx`
+      (`git diff --stat`: 1 file); `EventRoomGate`/`EventRoomAccess` are unchanged, and no
+      time condition was added to any route
+- [x] `src/tests/p1114-room-composition.test.tsx` still passes unmodified — 19/19 green
+- [x] No console errors on the event detail page in any of the four states — browser check
+      returned zero error/warn messages; the other three states are covered by the canary,
+      which fails on a React error
