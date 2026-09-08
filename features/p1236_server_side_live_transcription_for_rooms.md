@@ -1091,6 +1091,12 @@ Every ⚠️ in `## Security Review` — both the engine-independent findings an
 `### Addendum — engine-specific (2026-09-08)` — mapped to the step that closes it. A finding with no
 step is a finding nobody builds.
 
+**Coverage: 17 ⚠️ findings in `## Security Review` → 17 rows, plus 1 row for the ✅ fail-open-VAD
+item so a resolved finding is recorded rather than silently dropped. 18 rows total.** Re-count both
+sides whenever either changes:
+`grep -c "^- ⚠️"` over the Security Review section, against the row count here. This table shipped
+once with two findings unmapped, and the gap was caught by luck rather than by anyone checking.
+
 | ⚠️ Finding | Source | Closed by |
 |---|---|---|
 | Server-side writer cannot satisfy the participant-JWT INSERT policy; must use service-role and re-derive `member_id` from the validated upload path, never a job payload | Engine-independent, RLS + Authorization | Decision 2; step 7 (`handler.ts` order ends in service-role insert with server-derived `member_id`) |
