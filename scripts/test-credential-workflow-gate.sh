@@ -259,5 +259,75 @@ check "E5 registered CI-only key is not a RETIREMENT_CANDIDATE (measured regress
   --audit --env-dir "$TMP/envdir" --registry "$TMP/reg-postincident.md" \
   --consumers-dir "$TMP/consumers" --workflows-dir "$TMP/wf-incident"
 
+# ===========================================================================
+# F. INPUT CLASSES THE FIXTURE COULD NOT EMIT BEFORE (epistemic gate 7b).
+#    Every one of these was found by review, not by this suite going red —
+#    which is the point: green bounded what had been MODELLED, not what is
+#    true. Each is now a real input the fixture can produce.
+# ===========================================================================
+mkdir -p "$TMP/wf-lookalike"
+cat > "$TMP/wf-lookalike/ci.yml" <<'EOF'
+name: fixture lookalike
+on: push
+jobs:
+  j:
+    runs-on: ubuntu-latest
+    steps:
+      - id: check-secrets
+        run: echo probing
+      - env:
+          FROM_STEP: ${{ steps.check-secrets.outputs.value }}
+          NOT_A_CONTEXT: mysecrets.STILL_NOT_ONE
+          NESTED: ${{ needs.job.outputs.secrets.NOR_THIS }}
+        run: echo done
+EOF
+# A step id ending in "-secrets" is ordinary Actions style. Before the left
+# boundary was fixed, this exact file hard-failed the gate with
+# WORKFLOW_UNREGISTERED:outputs -- refusing a workflow containing no secret at
+# all, the one failure mode this gate's risk table calls non-negotiable.
+check "F1 step id ending in -secrets is not read as a secret -> ALLOWED" 0 "GATE:PASS" "WORKFLOW_REF" -- \
+  --gate-workflows --workflows-dir "$TMP/wf-lookalike" --registry "$TMP/reg-empty.md"
+check "F2 the lookalikes are not silently counted as builtins either" 0 - "WORKFLOW_BUILTIN" -- \
+  --gate-workflows --workflows-dir "$TMP/wf-lookalike" --registry "$TMP/reg-empty.md"
+
+# A real suffix-form env file. list_env_files matches BOTH '*.env' and '.env*',
+# so a Location of `staging.env` names a real file and a wrong value like
+# `absent.env` is genuine drift -- it must be CHECKED, not waved through as a
+# non-file location.
+mkdir -p "$TMP/envdir2"
+printf 'FIXTURE_SUFFIX_KEY=abc\n' > "$TMP/envdir2/staging.env"
+cat > "$TMP/reg-suffix.md" <<'EOF'
+| Env var | Tier | Status | Location | Value (must be empty) |
+|---|---|---|---|---|
+| `FIXTURE_SUFFIX_KEY` | manual-only | active | `absent.env` | |
+EOF
+check "F3 a wrong suffix-form env Location is drift, not 'not a file'" 0 "REGISTRY_LOCATION_MISMATCH:FIXTURE_SUFFIX_KEY" "REGISTRY_LOCATION_NONFILE:FIXTURE_SUFFIX_KEY" -- \
+  --audit --env-dir "$TMP/envdir2" --registry "$TMP/reg-suffix.md"
+
+# A path containing a space must survive argument handling end to end.
+mkdir -p "$TMP/dir with space"
+cp "$TMP/reg-postincident.md" "$TMP/dir with space/reg.md"
+check "F4 a registry path containing a space is handled, not word-split" 0 "GATE:PASS" "ERROR:" -- \
+  --gate-workflows --workflows-dir "$TMP/wf-incident" --registry "$TMP/dir with space/reg.md"
+
+# THE BLIND SPOT, asserted as the current behaviour rather than left implicit.
+# NO_LOC_REGFILES is per FILE, not per table: one table without a Location
+# column disables the location check for every table in that file. Both real
+# registries are multi-table and both are in that set today, so
+# REGISTRY_LOCATION_NONFILE and _MISMATCH are BOTH unreachable in production.
+# Any future attempt to enforce "Location must name the CI store" has to fix
+# this first -- see the spec's Open Questions.
+cat > "$TMP/reg-multitable.md" <<'EOF'
+| Service | Env var | Purpose |
+|---|---|---|
+| Fixture | `FIXTURE_NO_LOC_TABLE` | a table carrying no Location column |
+
+| Env var | Tier | Status | Location | Value (must be empty) |
+|---|---|---|---|---|
+| `FIXTURE_SUFFIX_KEY` | manual-only | active | `absent.env` | |
+EOF
+check "F5 one table without a Location column disables the check FILE-WIDE" 0 "LOCATION_CHECK_SKIPPED" "REGISTRY_LOCATION_MISMATCH:FIXTURE_SUFFIX_KEY" -- \
+  --audit --env-dir "$TMP/envdir2" --registry "$TMP/reg-multitable.md"
+
 printf '\n%s passed, %s failed\n' "$PASSED" "$FAILED"
 [[ "$FAILED" -eq 0 ]] || exit 1

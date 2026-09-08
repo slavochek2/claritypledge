@@ -352,15 +352,32 @@ parse_workflow_refs() {
         # dot form would leave a one-character evasion that passes the gate
         # silently — not the same thing as the `env.X` indirection this spec
         # explicitly ACCEPTS as out of scope.
-        key="${match#secrets.}"
-        key="${key#secrets[}"; key="${key%]}"
-        key="${key#\'}"; key="${key%\'}"; key="${key#\"}"; key="${key%\"}"
+        #
+        # The match carries its left-boundary character (see the grep below), so
+        # strip through the LAST "secrets." / "secrets[" rather than a prefix.
+        # Patterns are quoted: an unquoted `secrets[` in a parameter expansion
+        # opens an unterminated bracket expression.
+        case "$match" in
+          *"secrets["*)
+            key="${match##*"secrets["}"; key="${key%\]}"
+            key="${key#\'}"; key="${key%\'}"; key="${key#\"}"; key="${key%\"}" ;;
+          *) key="${match##*secrets.}" ;;
+        esac
         if printf '%s\n' $WORKFLOW_BUILTINS | grep -Fxq "$key"; then
           _safe_echo "WORKFLOW_BUILTIN:${key}:${f}:${ln}"
         else
           _safe_echo "WORKFLOW_REF:${key}:${f}:${ln}"
         fi
-      done < <(/usr/bin/grep -noE "secrets\.[A-Za-z_][A-Za-z0-9_]*|secrets\[['\"][A-Za-z_][A-Za-z0-9_]*['\"]\]" "$f" 2>/dev/null || true)
+      # The left boundary excludes `.` and `-` as well as identifier characters,
+      # and `\b` is NOT sufficient: in `steps.check-secrets.outputs.value` there
+      # IS a word boundary before "secrets" (the hyphen), so `\bsecrets\.` matches
+      # `secrets.outputs` and hard-blocks a workflow containing no secret at all.
+      # Verified: `\b` rejects `mysecrets.FOO` but still accepts `check-secrets.
+      # outputs`, which is the realistic shape — a step id ending in "-secrets"
+      # is ordinary Actions style. This false positive would refuse a legitimate
+      # commit, the one failure mode this gate's own risk table calls
+      # non-negotiable.
+      done < <(/usr/bin/grep -noE "(^|[^A-Za-z0-9_.-])secrets\.[A-Za-z_][A-Za-z0-9_]*|(^|[^A-Za-z0-9_.-])secrets\[['\"][A-Za-z_][A-Za-z0-9_]*['\"]\]" "$f" 2>/dev/null || true)
     done < <(list_workflow_files "$d")
   done
 }
@@ -764,7 +781,14 @@ while IFS= read -r row; do
   # class the LOCATION_CHECK_SKIPPED sentinel above was added to prevent.
   # Reported as its own token rather than suppressed: "not checkable here" and
   # "checked, agrees" must not look alike.
-  if [[ ! "$loc" =~ (^|/)\.env ]]; then
+  # "Is this Location a file?" must use the SAME predicate list_env_files uses
+  # (-name '*.env' -o -name '.env*'), not a narrower ad hoc one. An earlier
+  # version tested `(^|/)\.env`, which calls a real suffix-form env file such as
+  # `staging.env` a non-file and skips it — silently swallowing the genuine
+  # location drift this script exists to catch, including the typo case
+  # (`wrong-file.env`) that is the likeliest real instance.
+  loc_base="${loc##*/}"
+  if [[ "$loc_base" != *.env && "$loc_base" != .env* ]]; then
     _safe_echo "REGISTRY_LOCATION_NONFILE:${key}:${regfile}:${loc}"
     continue
   fi

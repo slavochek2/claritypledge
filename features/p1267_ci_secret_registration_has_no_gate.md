@@ -164,6 +164,9 @@ helper's output define the gate's expectations instead of the other way round.
 | Backfilled rows manufacture `RETIREMENT_CANDIDATE` findings | MITIGATE | Workflow refs counted as consumers (Solution 3b). Found by measurement, canaried as E5. |
 | `secrets['NAME']` bracket syntax evades a dot-only regex | MITIGATE | Both spellings matched. Unused in this repo today — which is exactly why nothing would have noticed. |
 | The gate only fires when a workflow file is staged — deleting a registry row later goes uncaught | ACCEPT | `/weekly`'s audit covers the standing state; this gate covers the authoring moment. Same split as check 18c. |
+| A row satisfies the gate while documenting the credential as living elsewhere, or as retired | ACCEPT | Enforcing otherwise needs the per-file location skip fixed first (above). The gate's claim is narrowed to match. |
+| An edit made in the GitHub web editor or by a bot PR never runs this hook | ACCEPT | Local hooks are accident-prevention, not a boundary (git.md). Named so it is not mistaken for coverage. |
+| A reusable workflow called with `secrets: inherit`, or a composite action under `.github/actions/`, is never scanned | ACCEPT | Verified absent from this repo today: no `.github/actions`, no `workflow_call`, no `secrets: inherit`, no non-`.yml` workflow files. Revisit if any appears. |
 | A secret referenced via `${{ env.X }}` indirection or a composite action evades the regex | ACCEPT | Both absent from this repo today — verified: all references are direct `secrets.X`. Revisit if one appears. |
 | Registry row exists but the GitHub-side value does not | ACCEPT | Structurally undetectable (403). The gate's claim is registration, per the Invariant above. |
 
@@ -183,9 +186,12 @@ helper's output define the gate's expectations instead of the other way round.
       that: P1155 shipped between the two passes). Finding keys IDENTICAL across the pair;
       `CONSUMER_ONLY` 3->2 and `WORKFLOW_UNREGISTERED` 2->0 are the only changes
 - [x] A workflow referencing a platform built-in (`secrets.GITHUB_TOKEN`) is not flagged — canary C1
-- [x] Every `secrets.X` referenced by any workflow on `main` has a registry row with a `Location`
-      naming the CI store — `--gate-workflows` against the real tree and real registries returns
-      `GATE:PASS`, exit 0; `WORKFLOW_UNREGISTERED` count is 0
+- [x] Every `secrets.X` referenced by any workflow on `main` has a registry row — `--gate-workflows`
+      against the real tree and real registries returns `GATE:PASS`, exit 0; `WORKFLOW_UNREGISTERED`
+      count is 0. **This criterion was written as "with a `Location` naming the CI store" and has
+      been corrected to what is actually enforced.** See "What this gate does NOT prove" below: the
+      location half is not enforceable against these registries today, and shipping the stronger
+      wording over the weaker mechanism is precisely the gate-7b failure this spec cites others for
 - [x] The audit script reports the unregistered class when run against a fixture workflow, exit
       non-zero — canary B1/B3/B6 assert exit **1**; end-to-end, a staged workflow with an
       unregistered secret returned `pre-commit exit = 1` (captured via `$?`, not `PIPESTATUS`,
@@ -208,6 +214,30 @@ helper's output define the gate's expectations instead of the other way round.
       unenumerable, and the skill text says which half remains unreachable
 - [x] The check's own output states that it fails open in CI — the skip branch prints
       "This check fails OPEN by design (registries are gitignored). Not a pass."
+
+## What this gate does NOT prove
+
+Written after adversarial review demonstrated each of these against the real script.
+
+- **It proves a name string appears in some registry table. Nothing more.** Neither `Location` nor
+  `Status` is consulted. A row saying the credential lives in `.env.local`, or one marked
+  `retired 2020`, satisfies the gate for a `secrets.*` reference — both demonstrated, both
+  `GATE:PASS`, exit 0.
+- **The location half cannot currently be enforced, and that is a pre-existing limit, not a
+  shortcut.** `NO_LOC_REGFILES` is computed per FILE, not per table: one table without a `Location`
+  column disables the location check for every table in that file. Both real registries are
+  multi-table and both are in that set today (`LOCATION_CHECK_SKIPPED` fires twice for each). So
+  `REGISTRY_LOCATION_MISMATCH` **and** this spec's own new `REGISTRY_LOCATION_NONFILE` are
+  unreachable against production data — the C2 fix is correct code that currently never runs there.
+  Canary F5 asserts this rather than leaving it implicit. Enforcing "Location names the CI store"
+  requires fixing the per-file skip first; that belongs to P1147's parser, not here.
+- **It sees the commit, never the secrets store.** The real sequence is: a human creates the secret
+  in the GitHub web UI (this repo's credential has no Administration scope, by design), *then*
+  commits a workflow. The gate intervenes only at the second step. A credential sitting in the store
+  that no committed workflow references is invisible to it, permanently.
+- **Any edit path that does not run this hook is unaffected** — the GitHub web editor, a bot PR, a
+  machine without the hook installed. This is a broader bypass than `--no-verify` because it
+  requires no intent to bypass anything.
 
 ## Alternatives Considered
 
@@ -239,13 +269,18 @@ they are correct independent of whether the gate ships.
    backfill is Done-When #1 and lands before the gate is wired — there is no window to soften for.
 2. Does `github-actions-secret` as a `Location` value need a matching entry in the keyring status
    tooling, or is it inert there? Not checked.
-3. **Found in passing, belongs to P1155, not fixed here.** `docs/decisions.md` 2026-09-08 [process]
+3. **The unblocker for location enforcement.** `parse_registry` emits `__NO_LOCATION_COLUMN__` per
+   file rather than per table, so one Location-less table disables the check file-wide. Fixing that
+   would make `Location` trustworthy and let this gate enforce "the row says it lives in CI" — the
+   claim its first draft made and could not keep. Scoped to P1147's parser; not attempted here
+   because changing that resolution changes every existing location finding at once.
+4. **Found in passing, belongs to P1155, not fixed here.** `docs/decisions.md` 2026-09-08 [process]
    records that the escalator's send layer "reads it from `OPS_SMTP_PASSWORD`". That variable
    appears nowhere on the shipped P1155 code — the implementation moved to Mailgun's API
    (`d8fe087a0`, "delete the hand-rolled SMTP client") and reads a differently-named sending key.
    The decision record and the implementation disagree about which credential exists. Flagged, not
    edited: it is another spec's record.
-4. **The registry moved twice during this spec's own implementation.** The P1155 session backfilled
+5. **The registry moved twice during this spec's own implementation.** The P1155 session backfilled
    the sending key by hand while this was being built, and then shipped to `main` mid-measurement.
    Nothing was lost — the duplicate row was found and removed, and the measurement was re-run under
    a stability guard — but it is direct evidence for this spec's premise: registration currently

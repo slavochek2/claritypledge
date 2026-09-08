@@ -562,18 +562,30 @@ fi
 
 if [ -n "$P1267_WF_STAGED" ]; then
     P1267_MAIN_ROOT=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
-    P1267_REG_ARGS=""
+    # An ARRAY, not a string: the repo root comes from git and may contain a
+    # space (synced folders, some managed machines). An unquoted string expansion
+    # would word-split it into stray tokens, the audit script would exit 2 on an
+    # unknown arg, and the printed remediation ("add a registry row") would
+    # actively misdescribe the cause — a permanently broken gate on every
+    # workflow commit, blamed on the wrong thing.
+    P1267_REG_ARGS=()
     for reg in .private/docs/accounts.md .private/docs/edge-function-secrets.md; do
-        [ -f "$P1267_MAIN_ROOT/$reg" ] && P1267_REG_ARGS="$P1267_REG_ARGS --registry $P1267_MAIN_ROOT/$reg"
+        [ -f "$P1267_MAIN_ROOT/$reg" ] && P1267_REG_ARGS+=(--registry "$P1267_MAIN_ROOT/$reg")
     done
-    if [ -z "$P1267_REG_ARGS" ]; then
+    if [ ${#P1267_REG_ARGS[@]} -eq 0 ]; then
         # Loud, not silent: "could not check" and "checked, clean" must never
         # look alike (the false-clean class this script's siblings were fixed for).
         echo -e "${YELLOW}>>> CI-secret registration gate SKIPPED — no credential registry found under $P1267_MAIN_ROOT/.private/docs/.${NC}"
         echo    "    This check fails OPEN by design (registries are gitignored). Not a pass."
+        # Counted as a warning so the SUMMARY line differs from a real pass.
+        # Printing the caveat is not enough: anything reading only the exit code
+        # or the summary line — a wrapper, a /push chain, future CI — cannot tell
+        # "checked, clean" from "could not check", and both were exit 0 with
+        # "All checks passed". Not an ERROR: the fail-open is deliberate, and a
+        # hard failure would block every commit on a machine without .private/.
+        WARNINGS=$((WARNINGS + 1))
     else
-        # shellcheck disable=SC2086
-        if ! run_quiet "CI-secret registration gate (P1267)" bash scripts/audit-credential-drift.sh --gate-workflows --workflows-dir .github/workflows $P1267_REG_ARGS; then
+        if ! run_quiet "CI-secret registration gate (P1267)" bash scripts/audit-credential-drift.sh --gate-workflows --workflows-dir .github/workflows "${P1267_REG_ARGS[@]}"; then
             echo -e "${RED}✗ A staged workflow reads a secret that no credential registry documents.${NC}"
             echo    "  Add a row to .private/docs/accounts.md (or edge-function-secrets.md) with its"
             echo    "  Location and P1239 half, then re-commit. See features/p1267_*.md."
