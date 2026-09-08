@@ -29,6 +29,17 @@ export interface SessionRow {
 export interface RoomMembership {
   profileId: string;
   roomCode: string;
+  /**
+   * P1236 Decision 5: when this member agreed to be recorded, or null.
+   *
+   * NULL is not "unknown, probably fine" — it is a member row created before consent
+   * became server state, by a client that never told the server anything. Treat it as
+   * REFUSE. privacy.md promises "nothing is captured before you do", and until P1236 that
+   * promise held only because RECORD_AUDIO_WHILE_LIVE kept the capture branch dead; this
+   * function is the surface that turns a member JWT into a writable GCS URL, so it is
+   * where the promise has to be enforced rather than assumed.
+   */
+  consentGivenAt: string | null;
 }
 
 export interface HandlerDeps {
@@ -40,7 +51,7 @@ export interface HandlerDeps {
   getSession: (code: string) => Promise<SessionRow | null>;
   /** Service-role read: the caller's current profile display name (null if none). */
   getProfileName: (userId: string) => Promise<string | null>;
-  /** Service-role read: the member row (by id) joined to its room's code. */
+  /** Service-role read: the member row (by id) joined to its room's code, with consent. */
   getRoomMembership: (memberId: string) => Promise<RoomMembership | null>;
   /** POSTs the validated body to the Cloud Function; returns its raw response. */
   forward: (body: { sessionCode: string; fileName: string; contentType: string }) => Promise<Response>;
@@ -55,6 +66,7 @@ export const ERR = {
   badContentType: 'Invalid contentType',
   typeMismatch: 'contentType does not match fileName extension',
   notParticipant: 'Not a participant of this session',
+  noConsent: 'Recording consent has not been given for this room',
   notYourObject: 'fileName does not belong to the caller',
   upstream: 'Failed to get signed upload URL',
 } as const;
@@ -145,6 +157,12 @@ export async function handleGcsSignedUrl(req: Request, deps: HandlerDeps): Promi
     const m = await deps.getRoomMembership(target.memberId);
     const isMember = !!m && m.profileId === userId && m.roomCode === target.code;
     if (!isMember) return json(403, { error: ERR.notParticipant });
+    // Consent is checked AFTER membership deliberately. Collapsing the two into one 403
+    // would be tidier, but a caller who is not a member must not learn from the error
+    // whether the seat they guessed has consented — that is the probe the not-found /
+    // not-a-participant collapse above exists to prevent. A caller who IS the member is
+    // told plainly, because they are only learning about themselves.
+    if (!m.consentGivenAt) return json(403, { error: ERR.noConsent });
     // The member identity is already in the prefix; the only object the room client
     // writes there is chunk_NNN.webm.
     if (!ROOM_FILE_NAME_RE.test(fileName)) return json(400, { error: ERR.badFileName });

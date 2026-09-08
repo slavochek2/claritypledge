@@ -228,9 +228,9 @@ export function TranscribeRoomPage() {
           return;
         }
         joinedRoom = existing;
-        joinedMember = await joinRoom(existing.id, user.id, displayName);
+        joinedMember = await joinRoom(existing.id, user.id, displayName, consentGiven);
       } else {
-        const created = await createRoom(user.id, displayName);
+        const created = await createRoom(user.id, displayName, consentGiven);
         joinedRoom = created.room;
         joinedMember = created.member;
       }

@@ -12,6 +12,7 @@ const ALICE = '11111111-1111-4111-8111-111111111111';
 const BOB = '22222222-2222-4222-8222-222222222222';
 const MALLORY = '44444444-4444-4444-8444-444444444444';
 const MEMBER_ID = '33333333-3333-4333-8333-333333333333';
+const CONSENTED_AT = '2026-09-08T10:00:00.000Z';
 
 function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps & { forwarded: unknown[] } {
   const forwarded: unknown[] = [];
@@ -29,9 +30,9 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps & { forward
     // Profiles: Alice renamed herself after creating the session.
     getProfileName: (userId) =>
       Promise.resolve(userId === ALICE ? 'Alice Renamed' : userId === BOB ? "Bob O'Neil" : null),
-    // One room, ROOM77, with Alice as member MEMBER_ID.
+    // One room, ROOM77, with Alice as member MEMBER_ID, consented (P1236 Decision 5).
     getRoomMembership: (memberId) =>
-      Promise.resolve(memberId === MEMBER_ID ? { profileId: ALICE, roomCode: 'ROOM77' } : null),
+      Promise.resolve(memberId === MEMBER_ID ? { profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: CONSENTED_AT } : null),
     forward: (body) => {
       forwarded.push(body);
       return Promise.resolve(new Response(JSON.stringify({ uploadUrl: 'https://storage.example/signed', filePath: 'x' }), { status: 200 }));
@@ -241,6 +242,62 @@ Deno.test('room prefix: the named member is forwarded; anyone else is 403', asyn
   const wrongRoom = makeDeps();
   assertEquals((await status(wrongRoom, 'alice', { ...body, sessionCode: `rooms/OTHER1/alice-${MEMBER_ID}` })).status, 403);
   assertEquals(wrongRoom.forwarded.length, 0);
+});
+
+Deno.test('room prefix: a member who has not consented is refused, and nothing is forwarded', async () => {
+  // P1236 Decision 5, and epistemic.md gate 7: this gate is unproven until it has been
+  // WATCHED to refuse. Everything else about the request is valid — right user, right
+  // seat, right room, right object name — so the only thing standing between this caller
+  // and a writable GCS URL is consent_given_at.
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+
+  const noConsent = makeDeps({
+    getRoomMembership: (memberId) =>
+      Promise.resolve(memberId === MEMBER_ID ? { profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null } : null),
+  });
+  assertEquals(await status(noConsent, 'alice', body), { status: 403, error: ERR.noConsent });
+  assertEquals(noConsent.forwarded.length, 0);
+});
+
+Deno.test('room prefix: consent is checked AFTER membership — a non-member learns nothing about the seat', async () => {
+  // Ordering matters, not just presence. If the consent check ran first, the two 403
+  // messages would tell an outsider whether the member id they guessed has consented —
+  // re-opening the probe that the not-found/not-a-participant collapse closes.
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+
+  const outsiderOnUnconsented = makeDeps({
+    getRoomMembership: (memberId) =>
+      Promise.resolve(memberId === MEMBER_ID ? { profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null } : null),
+  });
+  assertEquals(await status(outsiderOnUnconsented, 'bob', body), { status: 403, error: ERR.notParticipant });
+  assertEquals(outsiderOnUnconsented.forwarded.length, 0);
+});
+
+Deno.test('room prefix: the archival upload that works today still works — the gate is not a regression', async () => {
+  // epistemic.md gate 7c. This is the sequence the SHIPPED client performs
+  // (api.ts uploadRoomAudioChunk → getSignedUploadUrl), consecutive chunks and the
+  // P809 _dev_ prefix included, run through the new gate unchanged. A gate whose
+  // fixture contains only inputs it should reject has an unmeasured false-positive rate.
+  const deps = makeDeps();
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  for (const fileName of ['chunk_000.webm', 'chunk_001.webm', '_dev_chunk_002.webm']) {
+    assertEquals(
+      (await status(deps, 'alice', { sessionCode: roomPrefix, fileName, contentType: 'audio/webm;codecs=opus' })).status,
+      200,
+      fileName,
+    );
+  }
+  assertEquals(deps.forwarded.length, 3);
+});
+
+Deno.test('session prefix is untouched by the consent gate', async () => {
+  // The room branch gained a gate; the /live session branch must not have. If a future
+  // refactor hoists the consent check above the target.kind split, this fails.
+  const deps = makeDeps({ getRoomMembership: () => Promise.resolve(null) });
+  assertEquals((await status(deps, 'alice', GOOD)).status, 200);
+  assertEquals(deps.forwarded, [GOOD]);
 });
 
 Deno.test('room prefix: only chunk_NNN.webm is a room object name', async () => {

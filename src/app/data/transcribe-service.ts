@@ -106,104 +106,42 @@ function generateTranscribeRoomCode(): string {
   return code;
 }
 
-/** One row of create_transcribe_room's result: the room and its creator's membership. */
-interface DbCreatedRoom {
-  room_id: string;
-  room_code: string;
-  room_event_id: string | null;
-  room_created_at: string;
-  room_ended_at: string | null;
-  member_id: string;
-  member_display_name: string;
-  member_session_id: string;
-  member_joined_at: string;
-}
-
 /**
  * Creates a new ad-hoc room (event_id null) and joins the caller as its first member.
  * The room field exists from day one, even for a single participant (spec §6).
- *
- * P1275: goes through create_transcribe_room(), a SECURITY DEFINER function, rather than
- * inserting the row here. `.insert(...).select().single()` compiles to INSERT ... RETURNING,
- * and RETURNING is evaluated under transcribe_rooms' SELECT policy for the row it just
- * wrote — which P1207 narrowed to members only. The creator is not a member yet at that
- * instant, so the read-back is refused and the whole insert aborts. Creating a room was
- * broken in production from 2026-09-01 until this landed.
- *
- * The insert-then-read split used by joinRoom() below does NOT work here: the creator
- * still cannot read the room back, for the same reason. The function writes the room and
- * the membership in one transaction, so a room whose creator can neither read nor end it
- * is not a representable state.
  */
-export async function createRoom(profileId: string, displayName: string, eventId?: string): Promise<{ room: TranscribeRoom; member: TranscribeRoomMember }> {
-  // One clarity_sessions row per participant — this seat's recording (A2). Minted here
-  // rather than inside the function for the same reason joinRoom mints it: createClaritySession
-  // owns that shape, and duplicating it in SQL would give it two definitions.
-  //
-  // This DOES introduce a failure mode the old code did not have. Before P1275 the session
-  // was only minted after the room insert had already succeeded (it lived inside joinRoom,
-  // called afterwards); now it is minted before a call that can fail, so a failure orphans
-  // it. The order is forced — the RPC takes session_id as input, so the session must exist
-  // first — and the remedy is to clean up on the way out rather than to leave the row.
-  const session = await createClaritySession(displayName, profileId, false);
-
-  // Best-effort, and honest about it: if this delete fails the row is merely orphaned, which
-  // is the state we were trying to avoid and not a reason to mask the original error. The
-  // caller's own RLS applies — this is their session.
-  const discardSession = async () => {
-    const { error } = await supabase.from('clarity_sessions').delete().eq('id', session.id);
-    if (error) console.error('[transcribe] could not discard the unused session:', error.message);
-  };
-
+export async function createRoom(profileId: string, displayName: string, consentGiven: boolean, eventId?: string): Promise<{ room: TranscribeRoom; member: TranscribeRoomMember }> {
+  let code = generateTranscribeRoomCode();
+  let attempts = 0;
   const maxAttempts = 5;
-  for (let attempts = 0; attempts < maxAttempts; attempts++) {
-    const { data, error } = await supabase.rpc('create_transcribe_room', {
-      p_code: generateTranscribeRoomCode(),
-      p_display_name: displayName,
-      p_session_id: session.id,
-      p_event_id: eventId ?? null,
-    });
+  let roomRow: DbRoom | null = null;
 
-    if (!error) {
-      const row = ((data ?? []) as unknown as DbCreatedRoom[])[0];
-      if (!row) {
-        await discardSession();
-        throw new Error('Could not start a room. Please try again.');
-      }
-      return {
-        room: mapRoom({
-          id: row.room_id,
-          code: row.room_code,
-          event_id: row.room_event_id,
-          created_at: row.room_created_at,
-          ended_at: row.room_ended_at,
-        }),
-        member: mapMember({
-          id: row.member_id,
-          room_id: row.room_id,
-          profile_id: profileId,
-          display_name: row.member_display_name,
-          session_id: row.member_session_id,
-          joined_at: row.member_joined_at,
-        }),
-      };
+  while (attempts < maxAttempts) {
+    const { data, error } = await supabase
+      .from('transcribe_rooms')
+      .insert({ code, event_id: eventId ?? null })
+      .select('id, code, event_id, created_at, ended_at')
+      .single();
+
+    if (!error && data) {
+      roomRow = data as unknown as DbRoom;
+      break;
     }
-
-    // 23505 = unique_violation on `code`. The function deliberately does not swallow it,
-    // so a collision is recoverable here with a fresh code.
-    if (error.code === '23505') continue;
-
-    // Anything else is real. The raw Postgres text used to reach the user directly —
-    // "new row violates row-level security policy for table \"transcribe_rooms\"" is what
-    // this bug looked like from the consent screen. Keep the detail in the console for us
-    // and give the participant a sentence they can act on.
-    console.error('[transcribe] createRoom failed:', error.message, error.code);
-    await discardSession();
-    throw new Error('Could not start a room. Please try again.');
+    if (error?.code === '23505') {
+      code = generateTranscribeRoomCode();
+      attempts++;
+      continue;
+    }
+    throw new Error(error?.message || 'Failed to create room');
   }
 
-  await discardSession();
-  throw new Error('Failed to generate unique room code after multiple attempts');
+  if (!roomRow) {
+    throw new Error('Failed to generate unique room code after multiple attempts');
+  }
+
+  const room = mapRoom(roomRow);
+  const member = await joinRoom(room.id, profileId, displayName, consentGiven);
+  return { room, member };
 }
 
 /** Looks up an existing room by its code. Returns null if not found.
@@ -224,39 +162,41 @@ export async function getRoomByCode(code: string): Promise<TranscribeRoom | null
 
 /**
  * Joins a room: mints one clarity_sessions row for this participant (A2 — "one person's
- * recording"), then inserts the membership row that references it.
+ * recording"), then records the membership through the join RPC.
+ *
+ * P1236 Decision 5: consent is a REQUIRED argument and is written by the server, in the
+ * same statement as the member row. Before this, `consentGiven` was a React useState
+ * boolean that never left the browser — so a valid member JWT replayed without ever
+ * rendering the consent screen was indistinguishable server-side from a consented one.
+ * That was survivable only while RECORD_AUDIO_WHILE_LIVE kept the capture branch dead;
+ * P1236 turns capture back on, so it stops being survivable.
+ *
+ * `profileId` is still needed here — createClaritySession takes it — but it is NOT passed
+ * to the RPC. The RPC derives the member's identity from auth.uid() itself, because a
+ * SECURITY DEFINER function that accepts the identity it is about to write is an
+ * impersonation primitive. Do not "helpfully" add it as an argument.
+ *
+ * The insert-then-read split this replaces existed because INSERT ... RETURNING is
+ * evaluated under the SELECT policy, which cannot see the row its own INSERT is still
+ * writing (42501 under `SET LOCAL ROLE authenticated`, reproduced in SQL). That reasoning
+ * now lives with the code that acts on it, in the RPC's own migration comment.
  */
-export async function joinRoom(roomId: string, profileId: string, displayName: string): Promise<TranscribeRoomMember> {
+export async function joinRoom(roomId: string, profileId: string, displayName: string, consentGiven: boolean): Promise<TranscribeRoomMember> {
   const session = await createClaritySession(displayName, profileId, false);
 
-  // Deliberately NOT `.insert(...).select().single()` — that compiles to INSERT ...
-  // RETURNING, and RETURNING is subject to the SELECT policy ("room members can see the
-  // roster"), evaluated for THIS row inside the SAME command as its own INSERT. That
-  // policy calls is_transcribe_room_member(), which queries transcribe_room_members
-  // itself — and within one command, that inner query cannot see the row this very
-  // INSERT is still writing, so RETURNING fails RLS even though the INSERT's own
-  // WITH CHECK passes. Reproduced directly via SQL (SET LOCAL ROLE authenticated): the
-  // identical INSERT with no RETURNING clause succeeds. Splitting into an insert, then a
-  // separate read, gives the read its own fresh snapshot where the row genuinely exists.
-  const { error: insertError } = await supabase
-    .from('transcribe_room_members')
-    .insert({ room_id: roomId, profile_id: profileId, display_name: displayName, session_id: session.id });
-
-  // 23505 = unique_violation on (room_id, profile_id) — a page refresh or double "Join
-  // room" click while already a member. Idempotent: fall through to the read below, which
-  // finds the existing row. Any other error is real and still throws (P1149 finish-review
-  // MEDIUM — this previously surfaced the raw Postgres constraint message to the user).
-  if (insertError && insertError.code !== '23505') throw new Error(insertError.message);
-
-  const { data, error } = await supabase
-    .from('transcribe_room_members')
-    .select('id, room_id, profile_id, display_name, session_id, joined_at')
-    .eq('room_id', roomId)
-    .eq('profile_id', profileId)
-    .single();
+  const { data, error } = await supabase.rpc('join_transcribe_room', {
+    p_room_id: roomId,
+    p_display_name: displayName,
+    p_session_id: session.id,
+    p_consent: consentGiven,
+  });
 
   if (error) throw new Error(error.message);
-  return mapMember(data as unknown as DbMember);
+  // RETURNS TABLE, so a set — the RPC upserts exactly one row, but an empty result would
+  // otherwise surface as `undefined.id` three frames away from the cause.
+  const row = ((data ?? []) as unknown as DbMember[])[0];
+  if (!row) throw new Error('Join did not return a membership row');
+  return mapMember(row);
 }
 
 export async function getRoomMembers(roomId: string): Promise<TranscribeRoomMember[]> {

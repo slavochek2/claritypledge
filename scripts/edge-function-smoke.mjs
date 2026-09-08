@@ -137,6 +137,15 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
+  // P1236. Deployed WITHOUT --no-verify-jwt (deploy-functions.sh gives that flag to
+  // create-and-sign alone), so an unauthenticated request never reaches the handler —
+  // the gateway refuses it, and the deny row below is the gateway's reply, not ours.
+  // The handler carries its own 401 'Unauthorized' behind that, which is belt-and-braces
+  // and is exercised by handler.test.ts rather than here.
+  'transcribe-slice': {
+    options: { status: 200, expectCors: true },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
 };
 
 /** Function directories on disk — the filesystem is the source of truth. */
