@@ -44,7 +44,7 @@ export function ActiveSessionBanner() {
         // the catch below, clear the banner locally, and leave the session untouched on the
         // server — a silent no-op that tells the user the opposite of what happened.
         if (activeSessionRole === 'joiner') {
-          await clearSessionJoiner(session.id);
+          await clearSessionJoiner(session.id, activeSessionCode);
           clearActiveSession();
         } else {
           await terminate(session.id);

@@ -323,7 +323,12 @@ describe('P740: joiner-leave closes letter-sourced invite', () => {
     await user.click(leaveButton);
 
     await waitFor(() => {
-      expect(mockClearSessionJoiner).toHaveBeenCalledWith('session-letter-abc');
+      // P1058: the room code is now a REQUIRED second argument — it is what authorizes an
+      // anonymous release server-side. Asserting it here (rather than loosening to
+      // toHaveBeenCalled) keeps this a contract test: if the live page ever stops threading
+      // the code through, a guest's leave starts failing 42501 against the real RPC and this
+      // is the test that says so.
+      expect(mockClearSessionJoiner).toHaveBeenCalledWith('session-letter-abc', 'ABC123');
     }, { timeout: 3000 });
   });
 

@@ -1346,7 +1346,7 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
  * (P511: pagehide no longer clears the joiner; the grace period handles departures.)
  * @param sessionId - The session UUID
  */
-export async function clearSessionJoiner(sessionId: string): Promise<void> {
+export async function clearSessionJoiner(sessionId: string, code: string | null): Promise<void> {
 
   // P1053: one RPC replaces the read-modify-write above.
   //
@@ -1360,7 +1360,22 @@ export async function clearSessionJoiner(sessionId: string): Promise<void> {
   // LEAVING joiner_profile_id set, so the departing participant keeps access to their own
   // transcript, transcription jobs and session history. Nulling it here is the naive fix
   // this design exists to avoid.
-  const { error } = await supabase.rpc('release_joiner_seat', { p_session_id: sessionId });
+  // P1058 F4: the room code is now REQUIRED to release an anonymously-held seat.
+  //
+  // Before this, release_joiner_seat authorized a guest release on possession of the SESSION
+  // ID alone. `id` is anon-SELECTable (P1057's allowlist grants 21 of 22 columns; `code` is
+  // the single exclusion), so any unauthenticated caller could enumerate ids and evict seated
+  // guests product-wide — then claim the seat the occupancy guard had just refused. Reproduced
+  // in e2e/integration/p1058-release-seat-authorization.spec.ts.
+  //
+  // The code is the one thing a real occupant holds and an enumerator does not, which is why
+  // claim_joiner_seat has always keyed on it. Passing it here makes release symmetric with
+  // claim. A SIGNED-IN joiner is still authorized on auth.uid() alone and may pass null —
+  // their arm never needed the code and is unchanged.
+  const { error } = await supabase.rpc('release_joiner_seat', {
+    p_session_id: sessionId,
+    p_code: code,
+  });
 
   if (error) {
     console.error('Error clearing session joiner:', error.message);

@@ -244,6 +244,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = useCallback(async (options: { scope?: 'global' | 'local' } = {}) => {
     // Fix B: Clean up active live session before signing out
     const sessionId = sessionStorage.getItem('clarity_live_session_id');
+    // P1058: release_joiner_seat needs the room code to authorize an ANONYMOUS release. This
+    // path only runs while signing OUT, so the caller is signed in and is authorized on
+    // auth.uid() alone — the code is read for symmetry with the other two call sites and is
+    // harmless when absent. clarity-live-page.tsx writes both keys to the same sessionStorage.
+    const sessionCode = sessionStorage.getItem('clarity_live_session_code');
     const isCreator = sessionStorage.getItem('clarity_live_is_creator') === 'true';
     if (sessionId) {
       try {
@@ -253,7 +258,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             sessionEndedAt: new Date().toISOString(),
           });
         } else {
-          await clearSessionJoiner(sessionId);
+          await clearSessionJoiner(sessionId, sessionCode);
         }
       } catch {
         // Session cleanup is best-effort — proceed with sign-out regardless

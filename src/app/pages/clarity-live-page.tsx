@@ -3567,7 +3567,7 @@ export function ClarityLivePage() {
           });
         } else {
           // Joiner leaving = clear their name so creator knows
-          await clearSessionJoiner(session.id).catch((err) => {
+          await clearSessionJoiner(session.id, session.code ?? null).catch((err) => {
             console.error('[Live] clearSessionJoiner failed on joiner exit:', err);
           });
           // P769: cancelLiveInvite (not completeClaritySession) — creator's session continues
