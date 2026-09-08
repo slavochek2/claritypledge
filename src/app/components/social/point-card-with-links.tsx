@@ -779,7 +779,29 @@ export function QuotedStory({
           can no longer be lost to a failed join. A marker with no name is strictly better
           than no marker; the name is additive when the lookup succeeds (spec, ACCEPT). */}
       {(author || isAgent) && (
-        <div className="flex items-center gap-2 mb-1.5">
+        /* `flex-wrap` — P1270 §5, found by measuring at 320px, not by reading the code.
+           The stance badge is `shrink-0`, so on a nested card (measured 179px wide at a 320px
+           viewport) it took the width the NAME needed and the name truncated to "Connor L…".
+           Confirmed by isolation rather than inference: hiding the badge in the live DOM took
+           the name's available width from 78px back to the 95px it needs, un-truncating it.
+           Pre-existing since P1259 put the badge here; §5 made it visible by putting this row
+           under scrutiny, and made it slightly better by moving the row out of the box's
+           padding.
+
+           Wrapping is the documented preference, not a guess. `agent-byline.tsx` reached the
+           same conclusion for the same reason one level down: "Two blind reviewers
+           independently called that the worst thing on the page — WHOSE reading this is, is
+           the one fact the byline exists to carry, and it was the only element being
+           sacrificed." A card naming a real person who never consented is the last place to
+           truncate that person's name to fit a badge. The badge drops to its own line
+           instead; nothing is lost, and `truncate` stays the backstop for a name too long
+           even for a full line. */
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
+          {/* AVATAR + BYLINE ARE ONE UNSPLITTABLE GROUP. The first attempt let the ROW wrap
+              with the avatar as its own flex item, which fixed the truncation and produced a
+              worse result: the avatar was orphaned alone on line 1 with the name on line 3 —
+              the "orphan sibling" the visual-QA checklist names. Only the BADGE may wrap. */}
+          <span className="flex items-center gap-2 min-w-0">
           {/* P1270 §6 — THE AVATAR WRAPPER IS ONLY A CONTROL WHEN THERE IS SOMEWHERE TO GO.
               Same rule already applied to the name below, and the same rule `agent-byline.tsx`
               note 2 states: rendering a focusable `role="button"` whose handler resolves to
@@ -849,6 +871,25 @@ export function QuotedStory({
 
               The human branch keeps the wrapper: there is no chip to protect, and its
               keyboard handling predates this change. */}
+          {/* P1270 §5 — BYLINE AND STANCE ARE ONE GROUP, matching `QuotedPointCard` and the
+              nine other byline sites, which all wrap `AgentByline` + the badge in a single
+              span. This site was the only one that left the badge as a bare sibling of the
+              row.
+
+              HONEST NOTE ON WHY THIS WAS ADDED. It came out of a 375px measurement that was
+              WRONG: badge-left minus name-right read 44-47px here against 6px in
+              QuotedPointCard, which looked like the two nesting directions disagreeing. They
+              do not. `AgentByline` sets `flex-wrap`, so at 375px it wraps to `[AGENT] on` /
+              `Connor Leahy` and the name's right edge sits ~41px inside the byline BOX's
+              right edge. The measurement was reading across a line break — comparing a
+              wrapping component with a non-wrapping one. Measured against the byline box, both
+              were already ~6-8px.
+
+              KEPT ANYWAY, on its own merit rather than the bad measurement: grouping makes
+              this row structurally identical to the nine sites and to QuotedPointCard, which
+              is precisely what §5 is for, and it removes a real difference in how a squeeze
+              is absorbed — as a bare sibling the badge could be separated from the name it
+              captions; as one group it cannot. */}
           {isAgent ? (
             <AgentByline
               name={author?.name ?? ''}
@@ -907,8 +948,9 @@ export function QuotedStory({
               the square black-and-white photo and the word AGENT were not already carrying.
               Those two are the channels now, and §6 shipped in the same change because one
               render branch was carrying neither. */}
+          </span>
           {authorPosition && (
-            <span data-testid="story-author-stance" className="inline-flex">
+            <span data-testid="story-author-stance" className="inline-flex shrink-0">
               <PositionBadge position={authorPosition} />
             </span>
           )}
