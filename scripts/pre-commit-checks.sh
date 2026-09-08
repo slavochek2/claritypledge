@@ -1,8 +1,3 @@
-    if [ -f "scripts/test-mailgun-send.mjs" ]; then
-        if ! run_quiet "Mailgun send canary (P1155)" node scripts/test-mailgun-send.mjs; then
-            ERRORS=$((ERRORS + 1))
-        fi
-    fi
 #!/bin/bash
 # Pre-commit checks for Clarity Pledge
 # Run manually: ./scripts/pre-commit-checks.sh
@@ -264,17 +259,13 @@ if [ -n "$ALERT_PRODUCER_STAGED" ]; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
-    # Hand-rolled SMTP is the riskiest file in this feature and its failure mode is
-    # intermittent, so it gets a real handshake against a fake server (multi-line EHLO
-    # split across writes) rather than fixture-only coverage. Needs openssl for the
-    # throwaway cert; skipped with a warning rather than silently if absent.
-    if [ -f "scripts/test-smtp-handshake.mjs" ]; then
-        if command -v openssl >/dev/null 2>&1; then
-            if ! run_quiet "SMTP handshake canary (P1155)" node scripts/test-smtp-handshake.mjs; then
-                ERRORS=$((ERRORS + 1))
-            fi
-        else
-            echo -e "${YELLOW}⚠ SMTP handshake canary skipped: openssl not found${NC}"
+    # The send layer is the riskiest file in this feature. Exercised against a local
+    # fake Mailgun endpoint: request shape, the credential never leaving the
+    # Authorization header, a 2xx-without-id counting as SENT (P1256), and both failure
+    # modes throwing without echoing the credential.
+    if [ -f "scripts/test-mailgun-send.mjs" ]; then
+        if ! run_quiet "Mailgun send canary (P1155)" node scripts/test-mailgun-send.mjs; then
+            ERRORS=$((ERRORS + 1))
         fi
     fi
 else
