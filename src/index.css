@@ -334,6 +334,16 @@ body {
   border-color: hsl(var(--foreground) / 0.85);
 }
 
+/* The chip drops the underline, so a keyboard user has no affordance left except
+   the focus ring — and the browser default draws it in a dark colour directly on
+   a near-black pill. Draw it in the background colour with an offset instead, so
+   it reads against the chip rather than inside it. */
+.event-description a:focus-visible {
+  outline: 2px solid hsl(var(--background));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px hsl(var(--foreground) / 0.45);
+}
+
 /* The outbound mark — drawn in CSS so a chip needs no per-link markup. */
 .event-description a::after {
   content: "↗";
