@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1000074
 workstream: infra
 created_date: '2026-09-07'
 tags: [security, disclosure, process, specs]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, architect, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-08
 ---
 
 # P1255: Security specs are published while the defect they describe is still open
@@ -174,7 +174,7 @@ dead. A detector for credential content stays rejected (P1248, 2026-09-04).
       exercised, not asserted), AND a legitimate link to a normal spec still passes in the
       same run (gate 7c — the false-positive side is measured, not assumed)
       → see **Gate evidence** below; both directions pasted, re-run after rebase onto main.
-- [x] **Re-scoped to [P1266](p1266_prove_the_embargo_end_to_end_on_the_first_real_security_spec.md), not
+- [x] **Re-scoped to [P1266](../../p1266_prove_the_embargo_end_to_end_on_the_first_real_security_spec.md), not
       abandoned.** Two claims here assert what happens to a REAL embargoed spec across a
       real push and a real prod apply: that it stays out of
       `git ls-tree -r --name-only origin/main features/`, and that `publish-spec` then makes
@@ -848,7 +848,7 @@ into this one's Build Sequence.**
   different point. The spec accepts title-level disclosure at `/ship` time as a residual, and
   the remedy is a wording rule rather than a gate, because a commit subject is prose and no
   glob reaches it (`.claude/rules/pii.md` makes exactly this argument for names). That rule
-  now lives in [.claude/rules/features.md](../.claude/rules/features.md) — Disclosure, final
+  now lives in [.claude/rules/features.md](../../../.claude/rules/features.md) — Disclosure, final
   paragraph: *write commit subjects for an embargoed spec in roles, not specifics*. It covers
   both channels R4 named — `/ship`'s `chore: close pN — <title>` and the branch's own commit
   subjects, which cherry-pick to `main` verbatim.
