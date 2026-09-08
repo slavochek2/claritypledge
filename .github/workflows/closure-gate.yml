@@ -83,16 +83,56 @@ jobs:
         run: |
           set -euo pipefail
           set -o pipefail   # mandatory: `script | tee` otherwise returns tee's 0
-          git show origin/main:scripts/ship-gates.sh > /tmp/trusted-ship-gates.sh 2>/dev/null \
-            || cp scripts/ship-gates.sh /tmp/trusted-ship-gates.sh   # first landing of the script itself
-          chmod +x /tmp/trusted-ship-gates.sh
+          # MUST live under the workspace's own scripts/ dir: ship-gates.sh resolves
+          # its repo root as `dirname "$0"/..`, so a copy in /tmp resolves to `/`.
+          TRUSTED="$GITHUB_WORKSPACE/scripts/.trusted-ship-gates.sh"
+          git show origin/main:scripts/ship-gates.sh > "$TRUSTED" 2>/dev/null \
+            || cp scripts/ship-gates.sh "$TRUSTED"   # first landing of the script itself
+          chmod +x "$TRUSTED"
+
+          # PROVE THE GATE CAN SEE THE REPO BEFORE TRUSTING ITS VERDICT.
+          # The first version of this step wrote the trusted copy to /tmp and ran it
+          # there. ship-gates.sh derives its repo root from its OWN location
+          # (`dirname "$0"/..`), so from /tmp that resolved to `/`: every git call
+          # printed "fatal: not a git repository" and gate 2.5 reported
+          # "spec not found" — a FAIL that had nothing to do with the spec. Measured
+          # on run 34209536521. That is decisions.md 2026-09-08 [process] exactly
+          # ("a gate proven in place is not proven through the path CI actually runs
+          # it from"), which this repeated three days later in a different workflow.
+          #
+          # Two changes: the copy now lives under the workspace's own scripts/ dir so
+          # the root resolves correctly, and a canary spec is run through it first. A
+          # gate that cannot find the repo must fail the JOB loudly, never quietly
+          # score every spec as non-compliant.
+          # The self-check must DISCRIMINATE. A first draft asserted only that a
+          # "GATE 2.5" line appeared — but the broken /tmp configuration prints
+          # "[GATE 2.5] FAIL: spec not found" too, so that probe returned the same
+          # verdict for the known-good and known-bad arms and would have waved the
+          # broken gate through. Same all-arms-agree blindness this session already
+          # hit once, grepping a binary without -a.
+          #
+          # Assert the symptom that actually differs: a gate that cannot resolve its
+          # repo emits git's "not a git repository". Output is captured, never piped
+          # into grep -q — an early-closing consumer under pipefail is its own trap
+          # (decisions.md 2026-09-08, pre-commit check 18c).
+          selfcheck="$(bash "$TRUSTED" p0 --spec-file /dev/null --only 2.5 2>&1 || true)"
+          if printf '%s' "$selfcheck" | grep -q 'not a git repository'; then
+            echo "::error::closure-gate self-check FAILED — the trusted gate cannot resolve the repository, so every spec would score as non-compliant for the wrong reason."
+            printf '%s\n' "$selfcheck"
+            exit 1
+          fi
+          if ! printf '%s' "$selfcheck" | grep -q 'GATE 2.5'; then
+            echo "::error::closure-gate self-check FAILED — the trusted gate produced no gate-2.5 verdict at all."
+            printf '%s\n' "$selfcheck"
+            exit 1
+          fi
 
           rc=0
           while IFS= read -r spec; do
             [ -z "$spec" ] && continue
             pn=$(basename "$spec" | grep -oE '^p[0-9]+')
             echo "::group::closure-gate $pn ($spec)"
-            if bash /tmp/trusted-ship-gates.sh "$pn" --spec-file "$spec" --only 2.5 2>&1 | tee "gate-$pn.txt"; then
+            if bash "$TRUSTED" "$pn" --spec-file "$spec" --only 2.5 2>&1 | tee "gate-$pn.txt"; then
               echo "PASS: $pn"
             else
               # The commit that performed this close carries the override record

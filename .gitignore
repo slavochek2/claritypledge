@@ -147,3 +147,6 @@ __pycache__/
 supabase/.deploy-manifest.lock
 supabase/.deploy-manifest.lock.*
 supabase/deploy-manifest.json.*
+
+# CI-only: closure-gate writes a trusted copy of ship-gates.sh here (P1246)
+scripts/.trusted-ship-gates.sh

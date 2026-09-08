@@ -40,6 +40,40 @@ SPEC_RE = re.compile(r"features/(?:[\w-]+/)*p\d+[\w.-]*\.md")
 DONE_RE = re.compile(r"features/done/")
 MOVE_RE = re.compile(r"(?:^|[;&|]|\s)(?:git\s+mv|mv|cp|rsync|install)\b")
 
+# A spec path that is ALREADY closed. Load-bearing for the false-positive fix.
+CLOSED_SPEC_RE = re.compile(r"features/done/(?:[\w-]+/)*p\d+[\w.-]*\.md")
+
+
+def is_close_shaped(cmd):
+    """True only when the command could actually MOVE a spec INTO the done tree.
+
+    The first version asked three independent questions -- is there a spec path?
+    a done-tree path? a copy-ish verb? -- and refused when all three were true
+    ANYWHERE in one command string. That is co-occurrence, not a move, and it
+    produced a live false positive within hours of shipping: a command that
+    copied a script to /tmp and then READ an already-closed spec by path was
+    refused. The copy matched MOVE_RE, and the already-closed spec path satisfied
+    SPEC_RE and DONE_RE simultaneously.
+
+    Being wrong here is expensive out of proportion to the catch: this hook sits
+    in front of EVERY Bash call in every session in this repo, so a false refusal
+    blocks unrelated work for everyone, including read-only diagnostics.
+
+    The discriminator: a close needs a source -- a spec NOT yet in the done tree.
+    When every spec path in the command is already closed, the move it would be
+    gating has already happened and there is nothing left to refuse.
+
+    Still deliberately crude, still fails OPEN, still accident prevention rather
+    than a boundary (see the module docstring).
+    """
+    if not (DONE_RE.search(cmd) and MOVE_RE.search(cmd)):
+        return False
+    specs = SPEC_RE.findall(cmd)
+    if not specs:
+        return False
+    return any(not CLOSED_SPEC_RE.fullmatch(m) for m in specs)
+
+
 # Invocations that legitimately close a spec, or that only READ the done/ tree.
 ALLOWED_RE = re.compile(
     r"git-ops(?:\.sh)?\s+ship\b"          # the sanctioned closing path
@@ -63,7 +97,7 @@ def main():
             sys.exit(0)
         if ALLOWED_RE.search(cmd):
             sys.exit(0)
-        if not (SPEC_RE.search(cmd) and DONE_RE.search(cmd) and MOVE_RE.search(cmd)):
+        if not is_close_shaped(cmd):
             sys.exit(0)
         offender = cmd.strip().splitlines()[0][:200]
         sys.stderr.write(

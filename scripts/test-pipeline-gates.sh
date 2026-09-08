@@ -300,6 +300,25 @@ hk() { printf '%s' "$1" | python3 "$HOOK" >/dev/null 2>&1; echo $?; }
 [[ "$(hk 'not json')" == "0" ]] \
   && pass "F5: unparseable input fails OPEN (this hook fronts every Bash call)" || fail "F5: hook failed closed on bad input"
 
+# F6. FALSE POSITIVE, measured live 2026-09-08 within hours of shipping this hook.
+# A command that copies a script and then READS an already-closed spec by path was
+# refused: the copy matched the move verb, and the already-closed spec path matched
+# both the spec pattern and the done-tree pattern at once. Three independent
+# questions answered "yes" in one string is co-occurrence, not a move. Being wrong
+# here blocks unrelated work in every session, because this hook fronts every Bash
+# call in the repo.
+_fp_cmd='{"tool_name":"Bash","tool_input":{"command":"cp scripts/ship-gates.sh /tmp/tg.sh \u0026\u0026 bash /tmp/tg.sh p1246 --spec-file features/done/2026-06-10/p1246_demo.md --only 2.5"}}'
+[[ "$(hk "$_fp_cmd")" == "0" ]] \
+  && pass "F6: copying a script while READING an already-closed spec is allowed (the shipped false positive)" \
+  || fail "F6: hook still refuses a read-only diagnostic that merely mentions a closed spec"
+
+# F7. The discriminator must not have opened the real hole: a source spec that is
+# NOT yet closed, moving into the done tree, is still refused.
+_tp_cmd='{"tool_name":"Bash","tool_input":{"command":"git mv features/p1099_thing.md features/done/2026-09-08/p1099_thing.md"}}'
+[[ "$(hk "$_tp_cmd")" == "2" ]] \
+  && pass "F7: an un-closed spec moving INTO the done tree is still BLOCKED (exit 2)" \
+  || fail "F7: the false-positive fix opened the real hole"
+
 # ── G. Stranding report ─────────────────────────────────────────────────────
 R4="$SCRATCH/r4"; mk_repo "$R4"
 cp "$REPO_ROOT/scripts/pipeline-strandings.sh" "$R4/scripts/"
