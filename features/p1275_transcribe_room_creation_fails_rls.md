@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 1000082
 severity: high
@@ -11,8 +11,18 @@ exec_model: opus
 exec_effort: high
 tags: [transcribe, rls, regression, migration]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p1275-transcribe-room-create.spec.ts
+  root_cause: "createRoom's `.insert().select().single()` compiles to INSERT ... RETURNING; RETURNING is evaluated under transcribe_rooms' member-scoped SELECT policy (P1207) for the row it just wrote, and the creator is not a member yet. Control arm proves the INSERT itself is permitted."
+  confidence: high
+  surfaces_in_scope: [transcribe-create-room]
+  surfaces_deferred: []
+  surface_audit_anchor: "pg_policy polcmd='r' with a cross-table USING clause"
+  surface_audit_hits: 16
+  reproduced_at: 2026-09-08
+  fix_shape: decided
 ---
 
 # P1275: Creating an ad-hoc `/transcribe` room fails with a raw RLS violation
@@ -48,9 +58,23 @@ It was found there, worked around there, and nobody checked the create path in t
 
 ### What is verified, and how
 
-- **Mechanism** — reproduced directly in SQL on the **test** database (2026-09-08, P1236 session):
-  same user, same table, same row, `SET LOCAL ROLE authenticated` — the insert **without**
-  `RETURNING` succeeds, the insert **with** it fails.
+- **Mechanism** — reproduced on the **test** database, two arms, one identity, one transaction
+  each, both rolled back (`SET LOCAL ROLE authenticated`, `request.jwt.claims` carrying a `sub`):
+
+  | arm | statement | result |
+  |-----|-----------|--------|
+  | A (control) | `INSERT INTO transcribe_rooms (code) VALUES (…)` | succeeds — no error raised |
+  | B (the app's) | the same INSERT `… RETURNING id` | `42501: new row violates row-level security policy for table "transcribe_rooms"` |
+
+  Arm A is the arm that matters: it kills the competing hypothesis that the INSERT policy is
+  the refusing one. The write is permitted; only the read-back is refused. A follow-up SELECT
+  confirmed neither code persisted, so the probe left the database as it found it.
+
+- **End to end through the real UI** — `e2e/p1275-transcribe-room-create.spec.ts` signs a user in,
+  clicks the consent toggle and "Join room" on `/transcribe`, and the app surfaces
+  `new row violates row-level security policy for table "transcribe_rooms"` in
+  `transcribe-join-error` — byte-identical to what the founder saw. 2 of 2 tests red, 4 of 4
+  attempts including Playwright's retries.
 - **Prod carries the identical policy** — read off prod's own `pg_policy` catalog on 2026-09-08.
   `transcribe_rooms` has exactly three policies: INSERT `WITH CHECK (true)`, UPDATE member-scoped,
   and SELECT `room members can read their rooms` (member-scoped). There is no `USING (true)` read
