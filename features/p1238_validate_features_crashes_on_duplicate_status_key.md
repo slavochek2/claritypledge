@@ -80,4 +80,23 @@ the loop.
 **Regression test:** `tools/kanban/scripts/__tests__/validate-features.test.ts` — exercises the
 real `features/archive/p821_letter_reading_progress_bar_disappears_on_scroll.md` fixture (the file
 that surfaced this bug), asserting the run completes, reports the malformed file by name and
-reason, and still validates files after it.
+reason, and walks past it in output order (not just presence — see hardening below).
+
+**Adversarial review (2026-09-08):** a hostile-lens pass found the original test's
+"still validates files after the malformed one" assertion checked three files that actually sort
+*before* `p821` in the walk — it would have passed even against the pre-fix crashing code, so it
+proved nothing about continuation. Corrected to an order-based assertion using `uat_p617.md` (the
+real next entry the walk visits after `p821`), and the original three-file check kept as a
+separately-labeled test for AC #4 specifically. The same review found two same-class gaps and one
+unrelated pre-existing issue:
+- `getMarkdownFiles()`'s directory walk (`readdirSync`/`statSync`) ran with no try/catch at all —
+  a broken symlink or unreadable subdirectory under `features/` would crash discovery itself,
+  before the per-file loop this fix hardened ever starts. Fixed with the same report-and-continue
+  pattern.
+- A missing closing `---` can make `gray-matter` return the frontmatter body as a string/array
+  instead of a mapping; `Object.keys()` on those is non-empty, so it slipped past the empty-object
+  guard and produced a misleading "Missing required fields" message instead of naming the real
+  cause. Fixed with an explicit type guard before the emptiness check.
+- A pre-existing, unrelated finding (gray-matter's language-tag engine selection can execute
+  embedded code on parse — not introduced or fixed by this commit) was filed separately as P1271;
+  out of scope here per the Non-Goals above.

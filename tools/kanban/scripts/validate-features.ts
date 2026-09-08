@@ -59,11 +59,30 @@ function isValidDate(dateString: string): boolean {
  * Recursively get all .md files in directory, respecting scanner-rules exclusions
  */
 function getMarkdownFiles(dir: string, fileList: string[] = []): string[] {
-  const files = readdirSync(dir);
+  // P1238: a broken symlink or unreadable entry must not abort discovery before
+  // the per-file loop even starts — same failure class as the parse crash below,
+  // one step earlier (readdirSync/statSync throw, not matter()).
+  let files: string[];
+  try {
+    files = readdirSync(dir);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.log(`${RED}✗ ${dir}: Cannot be read: ${reason}${NC}`);
+    errors++;
+    return fileList;
+  }
 
   for (const file of files) {
     const filePath = join(dir, file);
-    const stat = statSync(filePath);
+    let stat;
+    try {
+      stat = statSync(filePath);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.log(`${RED}✗ ${filePath}: Cannot be read: ${reason}${NC}`);
+      errors++;
+      continue;
+    }
 
     if (stat.isDirectory()) {
       // Use shouldSkipFolder from scanner-rules (single source of truth)
@@ -123,7 +142,12 @@ function validateFeatures(): number {
       continue;
     }
 
-    if (!frontmatter || Object.keys(frontmatter).length === 0) {
+    // Missing closing `---` can make gray-matter return the leftover body as a
+    // scalar/array instead of a mapping — Object.keys() on those is non-empty,
+    // so the type check must run before the emptiness check or the real cause
+    // (unterminated frontmatter) gets misreported as "missing fields".
+    if (!frontmatter || typeof frontmatter !== 'object' || Array.isArray(frontmatter) ||
+        Object.keys(frontmatter).length === 0) {
       console.log(`${RED}✗ ${file}: No frontmatter found${NC}`);
       errors++;
       continue;

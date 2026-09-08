@@ -38,11 +38,27 @@ describe('p1238: validate-features.ts on a duplicate frontmatter key', () => {
     expect(stdout).toMatch(/duplicate|cannot be parsed|parse error/i);
   });
 
-  it('still validates files after the malformed one (pre-existing invalid types surface)', () => {
+  it('walks past the malformed file to files that sort after it (does not stop mid-directory)', () => {
+    const { stdout } = runValidator();
+    const lines = stdout.split('\n');
+
+    // p821 sits alphabetically ahead of the rest of features/archive/ — uat_p617.md is the
+    // very next entry the walk visits in the same directory. Order (not mere presence) is
+    // what proves the loop advanced past the crash point, since a line can otherwise print
+    // before the crash and say nothing about what happens after it.
+    const crashIdx = lines.findIndex((l) => l.includes('p821_letter_reading_progress_bar_disappears_on_scroll.md'));
+    const nextIdx = lines.findIndex((l) => l.includes('uat_p617.md'));
+
+    expect(crashIdx).toBeGreaterThan(-1);
+    expect(nextIdx).toBeGreaterThan(crashIdx);
+  });
+
+  it('reports the three pre-existing invalid `type` values in features/archive/ (AC #4)', () => {
     const { stdout } = runValidator();
 
-    // These three were reported before the crash point on the old code path (per P1238 spec);
-    // proving they still appear confirms the loop didn't stop at the malformed file.
+    // These three sort ahead of p821 in the walk, so this proves AC #4 (existing errors
+    // must still be reported, not hidden) — it does NOT prove continuation past the crash
+    // point; the test above does that.
     expect(stdout).toContain('p577_uat.md');
     expect(stdout).toContain('p622_uat.md');
     expect(stdout).toContain('p624_understanding_agreement_grid.md');
