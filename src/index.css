@@ -220,66 +220,48 @@ body {
 }
 
 /* Design system mode: light */
-/* P1104 — the drained card.
+/* P1104 / P1270 §3 — THE DRAINED CARD, RETIRED.
  *
- * Every card belonging to a machine's reading of a person renders with its colour
- * drained: stance badge, story pill, chrome. It states something true — these accounts
- * hold no pledge, no oath and no reputation, and a card without colour is a card with
- * lower standing.
+ * `.agent-drained-chrome { filter: grayscale(1); }` lived here from P1104 until P1270. It is
+ * gone, along with all ten of its call sites. This note stays because the reasoning is worth
+ * more than the rule was, and because someone will propose reintroducing it.
  *
- * THE AVATAR MUST NOT BE DRAINED, and the way that is achieved is the decision.
+ * WHAT IT DID. Every card belonging to a machine's reading of a real person rendered with its
+ * colour drained, on the argument that "these accounts hold no pledge, no oath and no
+ * reputation, and a card without colour is a card with lower standing."
  *
- * A descendant `filter: grayscale(0)` CANNOT undo an ancestor's `filter: grayscale(1)`.
- * A filtered element rasterises its entire subtree as one group and filters the result;
- * grayscale(0) is the identity function applied before that, so it changes nothing.
- * Measured in headless Chromium against the exact nesting: declared filter on the
- * "exempt" child read `grayscale(0)` while its rendered pixel was rgb(54,54,54) from a
- * source of rgb(255,0,0). The first implementation of this rule shipped that bug, and the
- * test guarding it asserted `getComputedStyle(el).filter` — the DECLARED value, which is
- * true by construction — so it could not fail.
+ * WHY IT WENT. By the end it was acting on exactly one thing in the product: the stance
+ * badge. `MachineChip` is `text-gray-500` and already monochrome; the ear badge is gated
+ * `!isAgent` and can never co-occur with the class. And the stance badge is the one marker on
+ * the card carrying CONTENT rather than a standing claim — whether the machine read the
+ * subject as agreeing or disagreeing. So the rule made the single informative element the
+ * hardest to read, and nothing else.
  *
- * Two findings make the exemption mandatory rather than cosmetic:
- *   1. A blanket grayscale() kills the robot portrait's amber sensor accent, and the
- *      result reads as a DISABLED CONTROL rather than a machine-authored one.
- *   2. It also greys the VIEWER'S OWN live controls inside these cards — the position
- *      buttons carrying their recorded stance, and the destructive remove-position
- *      control that depends on staying red.
+ * The two arguments defending it were each checked and each false:
+ *   1. "colour signals standing." `PositionBadge.tsx` renders one hardcoded blue for every
+ *      human regardless of pledges or ear count. Colour never encoded standing on the human
+ *      side, so draining it invented a distinction rather than reflecting one.
+ *   2. "the avatar is exempt, so a colour channel survives." True of the TEST FIXTURE, which
+ *      seeds a saturated initials block on purpose. Production agent avatars are
+ *      black-and-white portraits — `e2e/p1104-agent-marker.spec.ts` records the measurement
+ *      at 0.00 saturation. The exemption protected a colour production never renders.
  *
- * So the filter is applied to the CONTENT SIBLING of the avatar, never to a common
- * ancestor. `.agent-card-drained` marks the card for identification; `.agent-drained-chrome`
- * is what actually carries the filter, and the avatar lives outside it.
- */
-.agent-drained-chrome {
-  filter: grayscale(1);
-}
-
-/* CLOSED 2026-08-24 (P1141 amendment). The residual recorded here — "controls inside the
- * drained content column are drained with it, including the viewer's own position buttons"
- * — is fixed, and the fix was the layout change this note said was out of scope.
+ * WCAG 1.4.1, CORRECTED. The note that stood here claimed "three non-colour-independent
+ * channels … the square avatar, the MACHINE chip and the footer disclosure". That count was
+ * already wrong before P1270 touched anything: `AgentStoryFooter` has exactly ONE production
+ * call site (`live-story-card-expanded.tsx`, a /live surface), so story surfaces had been
+ * running at two channels for some time under a comment claiming three.
  *
- * THE SCOPE WAS THE BUG, not the mechanism. The filter was applied to each card's CONTENT
- * COLUMN, which is a layout accident rather than a meaning. What it actually decoloured on
- * a story card was: the video (the source's own footage), the quote timecode pills
- * (controls — and quotes are the one part that genuinely IS the named person's words), and
- * the viewer's own controls including the destructive remove control that depends on
- * staying red. Everything else in that column was already monochrome.
+ * The disclosure now rests on TWO channels, neither of which involves colour at all:
+ *   - the SQUARE avatar silhouette (`rounded-sm` vs the human `rounded-full`), which survives
+ *     greyscale and survives 20px;
+ *   - the WORD `AGENT` in the byline, which is the only one assistive tech receives.
+ * Both are asserted directly — `e2e/a11y/p1104-agent-marker-accessibility.spec.ts` and
+ * `src/tests/p1259-stance-chip-in-feed.test.tsx`. Two is the FLOOR, not a target: P1270 §6
+ * shipped in the same change because the embed render branch was carrying neither.
  *
- * The rule now: DRAIN WHAT CLAIMS STANDING — the identity/stance cluster. Never drain
- * content, quotes, or controls.
- *
- * Consequence, stated rather than hidden: on STORY surfaces the class is now absent
- * entirely. Moving it to the byline row was considered and rejected — that row is already
- * monochrome, so the class would have been inert while still costing a compositing layer,
- * and `.agent-drained-chrome` would have stopped meaning "these pixels are grey", which is
- * what the pixel assertions in e2e/p1104-agent-marker.spec.ts rely on. On story surfaces
- * the standing signal is carried by REMOVAL — no pledge ring, no ear count, no Verify —
- * plus the machine chip. On POINT surfaces the class stays, where the stance badge is a
- * real colour target.
- *
- * WCAG 1.4.1: e2e/a11y/p1104-agent-marker-accessibility.spec.ts reasons that the drained
- * card is one of three non-colour-independent channels. On story surfaces the remaining
- * channels are the square avatar, the MACHINE chip and the footer disclosure — still two
- * or more, so 1.4.1 holds. The argument changed; it was not quietly weakened.
+ * `.agent-card-drained` REMAINS. It carries no filter and never did — it marks the card for
+ * identification and for `data-agent-row` targeting. Do not delete it as dead alongside this.
  */
 
 /* P1264: external links inside an event description render as inline chips.

@@ -177,17 +177,39 @@ test.describe('P1104 accessibility — agent marker in accessible names', () => 
   });
 
   test('the marker is not conveyed by colour alone', async ({ page }) => {
-    // WCAG 1.4.1. The drained card is a colour signal; the square silhouette and the
-    // "Agent ·" text prefix are the two non-colour channels. Both must be present, so a
-    // reader who cannot perceive the desaturation still receives the disclosure.
+    /**
+     * WCAG 1.4.1 — REASONING UPDATED BY P1270 §3, and the assertion widened to match what
+     * the comment always claimed.
+     *
+     * IT USED TO SAY: "The drained card is a colour signal; the square silhouette and the
+     * 'Agent ·' text prefix are the two non-colour channels. Both must be present."
+     *
+     * TWO THINGS WERE WRONG WITH THAT. First, there is no longer a colour signal at all:
+     * §3 removes the drain, because the only pixel it ever acted on was the stance badge —
+     * which carries CONTENT (how the machine read the subject), not a standing claim, and
+     * which `PositionBadge.tsx:70` renders identically for every human regardless of
+     * standing. Second, and worse: the sentence said BOTH channels must be present and then
+     * asserted exactly ONE. The word was never checked here by any assertion.
+     *
+     * That gap was survivable while a third channel existed. It is not survivable now — the
+     * two channels below ARE the disclosure, with nothing behind them. So both are asserted.
+     */
     await page.goto(`/point/${positionedPoint.id}`);
     await page.waitForLoadState('networkidle');
 
     const row = page.locator('[role="button"]').filter({ hasText: displayName(agent.name) }).first();
     await expect(row.getByText(displayName(agent.name)).first()).toBeVisible({ timeout: 15000 });
 
+    // CHANNEL 1 — shape.
     const avatar = row.locator('[data-testid="gravatar-avatar"]');
     const radius = await avatar.evaluate(el => parseInt(getComputedStyle(el).borderRadius, 10) || 0);
     expect(radius, 'shape must differ from the circular human default independently of colour').toBeLessThan(50);
+
+    // CHANNEL 2 — the word. The only one that reaches a screen reader, and the one this
+    // test claimed to cover for its whole life without ever asserting it.
+    await expect(
+      row.locator('[data-testid="agent-byline"]'),
+      'the AGENT word is the only non-colour channel assistive tech receives',
+    ).toContainText(/AGENT/i);
   });
 });

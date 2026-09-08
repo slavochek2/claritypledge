@@ -141,6 +141,43 @@ function mapPointSummaryFromDb(row: DbStoryPointWithPoint): PointSummary | null 
   };
 }
 
+/**
+ * P1270 §4 — every (point, author) stance in ONE query, keyed `${pointId}:${authorId}`.
+ *
+ * The feed shows several authors per point, so the profile's single-subject helper
+ * (`getMyPositionsForPoints`, which pins one `user_id`) does not fit. Filtering both columns
+ * with `.in()` returns the CROSS PRODUCT of the two lists, which is why the result is keyed on
+ * the pair rather than on the point: a row here means "this author holds this position on this
+ * point", and any other pairing in the response is a different story's business.
+ *
+ * Rows the caller did not ask about are harmless — they are simply never looked up. What would
+ * NOT be harmless is keying by point alone, which would attribute one author's stance to
+ * another author's story on the same point. That is the specific mistake this shape prevents.
+ */
+async function fetchAuthorPositions(
+  pointIds: string[],
+  authorIds: string[]
+): Promise<Map<string, PositionType>> {
+  if (pointIds.length === 0 || authorIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('point_positions')
+    .select('point_id, user_id, position')
+    .in('point_id', pointIds)
+    .in('user_id', authorIds);
+
+  if (error || !data) {
+    logDbError('fetchAuthorPositions', error);
+    return new Map();
+  }
+
+  const map = new Map<string, PositionType>();
+  for (const row of data as Array<{ point_id: string; user_id: string; position: PositionType }>) {
+    map.set(`${row.point_id}:${row.user_id}`, row.position);
+  }
+  return map;
+}
+
 export const realStoriesService: StoriesService = {
   // ============================================================================
   // CREATE
@@ -404,6 +441,7 @@ export const realStoriesService: StoriesService = {
       .select(`
         story_id,
         point_id,
+        author_id,
         point:points!story_points_point_id_fkey (
           id,
           statement,
@@ -866,27 +904,44 @@ export const realStoriesService: StoriesService = {
     }
 
     const result = new Map<string, PointSummary[]>();
-    for (const row of data as unknown as (DbStoryPointWithPoint & { story_id: string })[]) {
+    /* P1270 §4 — who authored each story, so the stance below can be attributed. Taken from
+       `story_points.author_id`, which is NOT NULL and UNIQUE(author_id, point_id) since P1034
+       and is bound to `auth.uid()` on insert — so it is the story's real author, not a
+       client-supplied value, and it costs no extra query because the row is already here. */
+    const authorByStory = new Map<string, string>();
+    for (const row of data as unknown as (DbStoryPointWithPoint & { story_id: string; author_id: string | null })[]) {
       const summary = mapPointSummaryFromDb(row);
       if (!summary) continue;
       // P800: show only current heads — a superseded point is not what the story argues now.
       if (summary.supersededBy) continue;
+      if (row.author_id) authorByStory.set(row.story_id, row.author_id);
       const existing = result.get(row.story_id) ?? [];
       result.set(row.story_id, [...existing, summary]);
     }
 
-    // Enrich exactly as `getStoriesByAuthorWithPoints` does — two batched calls, never
+    // Enrich exactly as `getStoriesByAuthorWithPoints` does — batched calls, never
     // per-point. Without this the shared QuotedPointCard renders a read-only slab here and an
     // interactive card on the profile: the component was shared, the DATA was not.
-    // `profileSubjectPosition` is deliberately absent — see the interface doc.
     const allPointIds = [...new Set([...result.values()].flat().map(p => p.id))];
     if (allPointIds.length === 0) return result;
 
-    const [countsMap, userPositionsMap] = await Promise.all([
+    /* P1270 §4 — `profileSubjectPosition` IS NOW SUPPLIED. The interface doc used to say it
+       was "deliberately NOT supplied … Open founder question, recorded in the P1212 spec
+       rather than decided here." The founder decided it: the feed is the ONE surface where a
+       point carries several stories by different authors at once, so it is the only place two
+       authors can visibly disagree with nothing saying so.
+
+       The cost objection in that note ("it would cost a per-author query") does not hold:
+       `story_points.author_id` arrives in the row above, so this is ONE additional batched
+       query over the union of authors and points — not per author, and not per point. */
+    const allAuthorIds = [...new Set([...authorByStory.values()])];
+
+    const [countsMap, userPositionsMap, authorPositions] = await Promise.all([
       pointsService.getPositionCountsForPoints(allPointIds),
       viewerId
         ? pointsService.getMyPositionsForPoints(allPointIds, viewerId)
         : Promise.resolve(new Map<string, { position: string }>()),
+      fetchAuthorPositions(allPointIds, allAuthorIds),
     ]);
 
     // Same order as the profile, which sorts newest-first (see getStoriesByAuthorWithPoints).
@@ -894,12 +949,19 @@ export const realStoriesService: StoriesService = {
     // points could list differently on two surfaces — parity of appearance is not parity if
     // the sequence disagrees. `createdAt` is selected for this and nothing else.
     result.forEach((points, storyId) => {
+      const authorId = authorByStory.get(storyId);
       result.set(storyId, [...points]
         .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
         .map(p => ({
         ...p,
         positionCounts: countsMap.get(p.id),
         userPosition: (userPositionsMap.get(p.id) as { position: string } | undefined)?.position as PositionType | null ?? null,
+        /* P1270 §4 — `null` where the author holds no position on this point, which is a
+           real and unremarkable state: nothing requires a filed story to carry one.
+           `QuotedPointCard` gates on truthiness, so null renders no row. */
+        profileSubjectPosition: authorId
+          ? (authorPositions.get(`${p.id}:${authorId}`) ?? null)
+          : null,
       })));
     });
 

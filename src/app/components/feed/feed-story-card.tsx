@@ -379,21 +379,29 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
                     authorHasPledged={story.authorHasPledged ?? false}
                     currentUserId={currentUserId}
                     onPositionSelect={(pos) => handlePointPosition(point.id, pos)}
-                    /* The six author props above are inert on THIS surface and that is not
-                       an oversight — but "inert" is not the same as "would be right if they
-                       rendered", and an earlier version of this comment stopped at the first
-                       claim. They caption a POSITION, and the position they would caption is
-                       the story author's; see the prop contract on QuotedPointCardProps before
-                       supplying profileSubjectPosition here from anyone else. QuotedPointCard gates its whole author header on
-                       `point.profileSubjectPosition`, which the feed's query deliberately
-                       does not supply (see stories-service.interface.ts) — so the feed
-                       shows the point and its controls, the profile additionally shows who
-                       holds a position on it and where they stand.
-                       SAY IT PLAINLY: the two surfaces share the component and do NOT
-                       render identically. "Rendered through QuotedPointCard" is what the
-                       parity test asserts and all it asserts. Whether the feed should carry
-                       the subject's stance is an OPEN FOUNDER QUESTION recorded in the
-                       spec, not a settled piece of §5. */
+                    /* P1270 §4 — THE SIX AUTHOR PROPS ABOVE ARE NO LONGER INERT, and the
+                       open question this comment used to record is closed.
+
+                       It said: "Whether the feed should carry the subject's stance is an
+                       OPEN FOUNDER QUESTION recorded in the spec, not a settled piece of
+                       §5." Founder decided it 2026-09-08 — the feed is the ONE surface
+                       where a point carries several stories by different authors at once,
+                       so it is the only place two authors can visibly disagree with nothing
+                       saying so. That makes it the surface that needs the stance most.
+
+                       The old comment's warning still holds and is why this needed no prop
+                       change: the header captions a POSITION, and the position it captions
+                       must be THE STORY AUTHOR'S. These six props are already
+                       `story.author*`, and `getPointsForStories` now fills
+                       `point.profileSubjectPosition` from `story_points.author_id` — the
+                       same person. Supplying the stance from anyone else would caption one
+                       author's identity with another's position, which is the mistake the
+                       prop contract on QuotedPointCardProps exists to prevent.
+
+                       The two surfaces now render the same header. The profile keeps its
+                       own stance-above-the-point layout unchanged (founder: "profile stay
+                       same"), so placement still differs by surface — only the missing
+                       information is restored. */
                   />
                 </ThreadLineItem>
               ))}

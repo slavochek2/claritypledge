@@ -8,20 +8,45 @@
  * front of a reader. Founder: "missing here to see position directly!" · "we need this in
  * feed too!" · "here we can put the positions above each story?"
  *
- * THE INVARIANT THIS TEST GUARDS HARDEST is not the chip's presence — it is its COLOUR.
- * From the spec: "An agent card's chrome renders with its colour drained; the avatar is
- * exempt. The new stance chip must live inside `.agent-drained-chrome` and therefore render
- * grey. A coloured stance badge is precisely the discriminator that marks a card as
- * *human-authored* … Colouring the agent's stance chip to make it legible would delete the
- * strongest disclosure marker on public readings of four real people who never consented."
+ * P1270 §3 REVERSED THE COLOUR HALF OF THIS FILE. The assertions were re-aimed, not
+ * deleted, and the original reasoning is kept below because knowing WHY it was wrong is
+ * what stops it being re-derived.
  *
- * WHAT THIS FIXTURE CANNOT REACH (epistemic gate 7b): jsdom computes no filters, so the
- * assertion below is that the chip is INSIDE an `.agent-drained-chrome` subtree — the
- * structural precondition — and NOT that its rendered pixels are grey. The pixel claim is
- * `e2e/p1104-agent-marker.spec.ts` (`meanSaturation < 0.05`), which runs in a real browser,
- * and it is the one that would actually catch a CSS regression. Neither is redundant: this
- * file fails if the chip is moved out of the drained wrapper, that one fails if the drain
- * stops working.
+ * WHAT THIS FILE USED TO ASSERT, and the spec text it quoted:
+ *   "An agent card's chrome renders with its colour drained; the avatar is exempt. The new
+ *    stance chip must live inside `.agent-drained-chrome` and therefore render grey. A
+ *    coloured stance badge is precisely the discriminator that marks a card as
+ *    *human-authored* … Colouring the agent's stance chip to make it legible would delete
+ *    the strongest disclosure marker on public readings of four real people who never
+ *    consented."
+ *
+ * BOTH LOAD-BEARING CLAIMS IN THAT PARAGRAPH ARE FALSE, and each was checked by command
+ * before the founder ruled (P1270 §3, 2026-09-08):
+ *
+ *   1. "a coloured stance badge is the discriminator that marks a card as human-authored."
+ *      `PositionBadge.tsx:70` is a single hardcoded `bg-blue-100 text-blue-700` for EVERY
+ *      human — identical for a founding pledger with 40 ear-verifications and an account
+ *      created this morning. Colour never encoded standing on the human side, so draining it
+ *      removed no signal an agent was falsely claiming. It invented a distinction instead.
+ *
+ *   2. "the avatar is exempt, so the card keeps a colour channel." True of the FIXTURE only.
+ *      `e2e/helpers/test-agent-account.ts:68-72` seeds a deliberately saturated `#0044CC`
+ *      avatar colour and no photo, so the exemption assertion measures a coloured initials
+ *      block. `e2e/p1104-agent-marker.spec.ts:97-98` records the production number:
+ *      "Measured mean saturation on a real product photo: 0.00." Production agent avatars
+ *      are black-and-white portraits. The badge was the only coloured pixel being drained.
+ *
+ * So the drain cost the reader the one marker carrying CONTENT — whether the machine read
+ * the subject as agreeing or disagreeing — and bought no disclosure that the square
+ * black-and-white photo and the word `AGENT` were not already carrying.
+ *
+ * WHAT THIS FILE GUARDS NOW: that the two channels which DO carry the disclosure are both
+ * present on an agent card, and that the stance chip is NOT drained. Two channels is the
+ * floor, and P1270 §6 ships in the same change because one render branch was at zero.
+ *
+ * WHAT THIS FIXTURE STILL CANNOT REACH (epistemic gate 7b): jsdom computes no filters, so
+ * everything here is structural — which classes and elements are present. The pixel claim
+ * lives in `e2e/p1104-agent-marker.spec.ts`, in a real browser. Neither is redundant.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -99,32 +124,77 @@ describe('P1259 change 4 — the stance chip beside the story byline', () => {
   });
 
   /**
-   * THE INVARIANT. The chip must sit inside `.agent-drained-chrome` on an agent story, which
-   * is what makes it render grey and keeps colour as the human/machine discriminator.
+   * THE INVARIANT, P1270 §3 — INVERTED FROM ITS PREDECESSOR. The chip must NOT be drained.
+   *
+   * Asserted on the chip element ITSELF rather than "no drained element exists anywhere" —
+   * the card legitimately carries `agent-card-drained` as its identification hook, and a
+   * subtree-absence check would fail on that even with the chip correctly undrained.
    */
-  it('an agent story renders the chip inside the drained-chrome subtree', () => {
+  it('an agent story renders the stance chip UNDRAINED', () => {
     renderStory({ authorPosition: 'disagree' }, AGENT_ID);
     const chip = screen.getByTestId('story-author-stance');
-    // Asserted on the chip element ITSELF rather than "somewhere a drained element exists" —
-    // the card already carries `agent-card-drained` elsewhere, so a subtree-existence check
-    // would pass with the chip entirely outside the filtered box.
     expect(
       chip.className,
-      'a coloured stance chip on an agent card would delete the strongest disclosure marker there is',
-    ).toContain('agent-drained-chrome');
+      'P1270 §3: the stance chip carries CONTENT (how the machine read the subject), not a ' +
+        'standing claim. Draining it made the one informative marker the hardest to read while ' +
+        'the photo and the word already carried the disclosure.',
+    ).not.toContain('agent-drained-chrome');
   });
 
   /**
-   * The negative control. Without it the wrapper could be applied unconditionally and the
-   * assertion above would still pass, while every HUMAN's stance chip rendered grey — which
-   * destroys the discriminator just as effectively, from the other side.
+   * THE RE-AIMED GUARD — and the reason §3 is safe rather than merely defensible.
+   *
+   * Removing the drain is only acceptable while the two NON-COLOUR channels are both
+   * present, so this asserts them directly instead of inferring them from a filter. These
+   * are the channels WCAG 1.4.1 actually counts: shape and text, neither of which depends on
+   * a reader distinguishing grey from blue.
+   *
+   * If a future change deletes either one, this fails and §3's premise is gone with it —
+   * which is exactly the coupling the old saturation assertion could not express.
    */
-  it('a human story renders the chip with no drained wrapper', () => {
-    renderStory({ authorPosition: 'disagree' }, HUMAN_ID);
-    const chip = screen.getByTestId('story-author-stance');
+  it('an agent card carries BOTH non-colour channels: the square avatar and the AGENT word', () => {
+    renderStory({ authorPosition: 'disagree' }, AGENT_ID);
+
+    const avatar = screen.getByTestId('gravatar-avatar');
     expect(
-      chip.className,
-      'draining a human stance chip would erase the same discriminator from the other side',
-    ).not.toContain('agent-drained-chrome');
+      avatar.className,
+      'the square silhouette is the channel that survives at 20px and in greyscale',
+    ).toContain('rounded-sm');
+    expect(avatar.className).not.toContain('rounded-full');
+
+    // `AgentByline` renders the MachineChip + the connective. The WORD is the second channel
+    // and it is the only one that reaches a screen reader.
+    const byline = screen.getByTestId('agent-byline');
+    expect(byline.textContent?.toUpperCase()).toContain('AGENT');
+  });
+
+  /**
+   * THE NEGATIVE CONTROL, ALSO RE-AIMED — and it had to be, which is the whole lesson.
+   *
+   * Its predecessor asserted a human chip is NOT drained. Under §3 no chip is drained on
+   * either side, so that assertion now passes unconditionally: it would go green against a
+   * build that stamped the agent markers onto every human card in the product. A control
+   * that cannot fail is not a control.
+   *
+   * So it is re-aimed at what still genuinely discriminates: a human card must carry
+   * NEITHER non-colour channel. Without this, the assertions above would pass on a component
+   * that rendered the square avatar and the AGENT word for everyone — destroying the
+   * distinction from the other side, exactly as the original control feared, just via a
+   * different mechanism.
+   */
+  it('a human story carries NEITHER agent channel — round avatar, no agent byline', () => {
+    renderStory({ authorPosition: 'disagree' }, HUMAN_ID);
+
+    const avatar = screen.getByTestId('gravatar-avatar');
+    expect(
+      avatar.className,
+      'a square avatar on a human card asserts machine authorship of a person\'s own words',
+    ).toContain('rounded-full');
+    expect(avatar.className).not.toContain('rounded-sm');
+
+    expect(screen.queryByTestId('agent-byline')).toBeNull();
+
+    // And the chip stays coloured for a human, as it always did.
+    expect(screen.getByTestId('story-author-stance').className).not.toContain('agent-drained-chrome');
   });
 });

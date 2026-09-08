@@ -102,10 +102,23 @@ export interface StoriesService {
    * same two fields `getStoriesByAuthorWithPoints` supplies. Without them the shared
    * `QuotedPointCard` renders a read-only slab on the feed and an interactive card on the
    * profile — one component, two behaviours, decided by which caller filled its props
-   * (adversarial review, 2026-09-04). `profileSubjectPosition` is deliberately NOT supplied:
-   * "where does the author stand" answers a question a single-subject profile asks and a
-   * multi-author feed does not, and it would cost a per-author query. Open founder question,
-   * recorded in the P1212 spec rather than decided here.
+   * (adversarial review, 2026-09-04).
+   *
+   * `profileSubjectPosition` IS supplied, since P1270 §4. This doc previously read
+   * "deliberately NOT supplied: 'where does the author stand' answers a question a
+   * single-subject profile asks and a multi-author feed does not, and it would cost a
+   * per-author query. Open founder question, recorded in the P1212 spec rather than decided
+   * here." Both halves are now settled:
+   *
+   *   - The founder decided it (2026-09-08). The feed is the one surface where a point
+   *     carries several stories by DIFFERENT authors at once, so it is the only place two
+   *     authors can visibly disagree with nothing saying so — which makes it the surface
+   *     that needs the stance most, not least.
+   *   - The cost objection was wrong. `story_points.author_id` already arrives in the
+   *     existing row (NOT NULL + UNIQUE since P1034), so this is ONE additional batched
+   *     query over the union of authors and points — not one per author.
+   *
+   * `null` means "fetched, this author holds no position on that point" and renders no row.
    */
   getPointsForStories(storyIds: string[], viewerId?: string): Promise<Map<string, PointSummary[]>>;
 

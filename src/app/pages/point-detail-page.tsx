@@ -482,16 +482,38 @@ export function PointDetailPage() {
             }
           }}
           getPointPositionCounts={() => toSevenPointCounts(point.positionCounts)}
+          /* P1270 §6 — SECOND HALF OF THE FIX, and the one that recovers the NAME.
+             `QuotedStory` now keeps its marker set even when this returns undefined, so the
+             disclosure can no longer vanish. But it was returning undefined far more often
+             than it needed to: it resolved ONLY against position holders, while
+             `embedStories` is built from every linked story. A story whose author holds no
+             position on the point they filed it under fell through the gap — and there is no
+             constraint requiring a filed story to carry a position.
+             The fallback below reads `authorName`/`authorSlug`/`authorAvatarUrl` off the
+             story itself. `linkedStories` is already `Map<string, StoryWithAuthor[]>`, so
+             this data was fetched, in memory, and discarded. */
           getStoryAuthor={(authorId) => {
             const holder = positions.find(p => p.userId === authorId);
-            if (!holder) return undefined;
+            if (holder) {
+              return {
+                id: holder.userId,
+                name: holder.userName,
+                hasPledged: holder.userHasPledged,
+                ear: holder.earCount,
+                avatarUrl: holder.userAvatarUrl,
+                avatarColor: holder.userAvatarColor,
+              };
+            }
+            const authored = allStories.find(st => st.authorId === authorId);
+            if (!authored) return undefined;
             return {
-              id: holder.userId,
-              name: holder.userName,
-              hasPledged: holder.userHasPledged,
-              ear: holder.earCount,
-              avatarUrl: holder.userAvatarUrl,
-              avatarColor: holder.userAvatarColor,
+              id: authorId,
+              name: authored.authorName,
+              slug: authored.authorSlug,
+              hasPledged: authored.authorHasPledged,
+              ear: authored.authorEarsCount,
+              avatarUrl: authored.authorAvatarUrl,
+              avatarColor: authored.authorAvatarColor,
             };
           }}
         />
@@ -796,7 +818,7 @@ function PositionHolderCard({
           name+badges still wrap at 320px, and the toggle stays a direct child of the outer
           flex row so its `ml-auto` still right-aligns against it. */}
       <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-        <span className={`flex min-w-0 flex-wrap items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+        <span className={"flex min-w-0 flex-wrap items-center gap-1.5"}>
           {/* P1141 amendment: an agent account is named the same way on every surface;
               the raw stored `Agent · {Name}` used to leak through here. */}
           {isAgent ? (
@@ -973,7 +995,7 @@ function PositionlessStoryRow({
           name+badges still wrap at 320px, and the toggle stays a direct child of the outer
           flex row so its `ml-auto` still right-aligns against it. */}
       <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-        <span className={`flex min-w-0 flex-wrap items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+        <span className={"flex min-w-0 flex-wrap items-center gap-1.5"}>
           {/* P1141 amendment: an agent account is named the same way on every surface;
               the raw stored `Agent · {Name}` used to leak through here. */}
           {isAgent ? (

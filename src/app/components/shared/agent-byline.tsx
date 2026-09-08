@@ -126,8 +126,18 @@ export function AgentByline({ name, onNameClick, size = 'sm', className = '' }: 
       data-byline-size={size}
     >
       <MachineChip size={s.chip} className="shrink-0" />
-      <span className={`shrink-0 font-normal text-muted-foreground ${s.connective}`}>on</span>
-      {onNameClick ? (
+      {/* P1270 §6 — THE CONNECTIVE IS SUPPRESSED WHEN THERE IS NO NAME.
+          `name` may now be empty: `QuotedStory`'s embed branch renders the marker set even
+          when the author lookup fails, because a marker with no name is strictly better than
+          no marker at all. But `AGENT on ` with nothing after it is a dangling preposition —
+          it reads as a truncation bug rather than as a disclosure, and note 4 below is
+          explicit that the connective exists to restore the account->subject RELATION. With
+          no subject to point at there is no relation to state, so the chip stands alone and
+          still says the one thing that must be said. */}
+      {fullName && (
+        <span className={`shrink-0 font-normal text-muted-foreground ${s.connective}`}>on</span>
+      )}
+      {!fullName ? null : onNameClick ? (
         <button
           type="button"
           onClick={onNameClick}

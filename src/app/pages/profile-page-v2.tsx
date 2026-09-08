@@ -108,6 +108,13 @@ interface AdaptedStory {
   understoodCount: number;
   tags: string[];
   linkedPointIds: string[];
+  /* P1270 §1 — optional, matching the prototype `Story` shape these objects are cast to
+     (`prototype-types.ts:44,51,52`). Without them here the `s is AdaptedStory` predicate at
+     the end of the mapper narrows the media straight back off, so the query and the mapper
+     would both be correct and the card would still render nothing. */
+  imageUrl?: string;
+  videoUrl?: string;
+  videoQuotes?: unknown;
 }
 interface AdaptedPoint {
   id: string;
@@ -336,10 +343,16 @@ export function ProfilePageV2() {
         const { data: linkedStoriesRaw } = allLinkedStoryIds.length > 0
           ? await supabase
               .from('stories')
-              .select('id, content, author_id, created_at, understood_count, tags, visibility')
+              // P1270 §1 — `image_url, video_url, video_quotes` added. THIRD instance of one
+              // omission: `feed-point-card.tsx` and `point-detail-page.tsx` both carry a P1212
+              // note reading "the conversion dropped them silently", and the profile was missed
+              // on both passes. `QuotedStory` renders media whenever it is given it, so this
+              // SELECT and the mapper below were the only reason a profile showed a story's
+              // argument with none of its evidence.
+              .select('id, content, author_id, created_at, understood_count, tags, visibility, image_url, video_url, video_quotes')
               .in('id', allLinkedStoryIds)
               .order('created_at', { ascending: false })
-          : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[]; visibility: string }> };
+          : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[]; visibility: string; image_url: string | null; video_url: string | null; video_quotes: unknown }> };
 
         const linkedStoriesById = new Map(
           (linkedStoriesRaw ?? []).map(s => [s.id, s])
@@ -380,6 +393,13 @@ export function ProfilePageV2() {
                 understoodCount: story.understood_count ?? 0,
                 tags: story.tags || [],
                 linkedPointIds: [point.id],
+                // P1270 §1 — the second half of the fix. Adding the columns to the SELECT
+                // above does nothing on its own: this mapper is what `QuotedStory` actually
+                // reads, and it silently dropped the media even when the query returned it.
+                // That split is exactly how the same defect survived two prior passes.
+                imageUrl: story.image_url ?? undefined,
+                videoUrl: story.video_url ?? undefined,
+                videoQuotes: story.video_quotes ?? undefined,
               };
             })
             .filter((s): s is AdaptedStory => s !== null);
@@ -1873,7 +1893,7 @@ function PointCardFull({
               identityPending={ownerIdentityPending}
               className="!w-5 !h-5 !text-[10px]"
             />
-            <span className={`inline-flex items-center gap-1.5${ownerIsAgent ? ' agent-drained-chrome' : ''}`}>
+            <span className={"inline-flex items-center gap-1.5"}>
             {/* P1141 amendment: an agent account is named the same way on every surface;
                 the raw stored `Agent · {Name}` used to leak through here. */}
             {ownerIsAgent ? (

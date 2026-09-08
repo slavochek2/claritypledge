@@ -19,6 +19,7 @@ import {
 } from '@/app/components/shared';
 import { adjustPositionCounts } from '@/app/utils/position-helpers';
 import { QuotedStory } from '@/app/components/social/point-card-with-links';
+import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
 import { InlineVisibilityIcon } from '@/app/components/shared';
 import type { PointWithUserPosition, PositionType, StoryWithAuthor } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
@@ -271,8 +272,17 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
                     its own truncation rule — which is the drift this spec exists to close,
                     reintroduced by the section meant to close it. */}
                 {storiesExpanded && linkedStories.length > 0 && (
-                  <div className="flex flex-col gap-2 mt-1.5">
-                    {linkedStories.map((linked) => (
+                  /* P1270 §2 — the thread line the other three surfaces already had.
+                     `ThreadLine` is the universal "belongs to" pattern (decisions.md
+                     2026-03-17), and `point-card-with-links.tsx:658` carries the rule this
+                     copies verbatim: "All stories get ThreadLine — even single items need
+                     the connecting line to visually anchor them to the parent card."
+                     This surface postdates that ruling and simply never adopted it, so an
+                     expanded story here floated with nothing tying it to its point. */
+                  <div className="mt-1.5">
+                    <ThreadLineGroup>
+                    {linkedStories.map((linked, index) => (
+                      <ThreadLineItem key={linked.id} isLast={index === linkedStories.length - 1}>
                       <QuotedStory
                         key={linked.id}
                         // Production -> prototype shape, the same conversion
@@ -322,7 +332,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
                            getStoriesForPoints, so `linked` is already scoped to THIS point. */
                         authorPosition={linked.authorPositionOnPoint}
                       />
+                      </ThreadLineItem>
                     ))}
+                    </ThreadLineGroup>
                   </div>
                 )}
               </div>

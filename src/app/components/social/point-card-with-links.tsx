@@ -304,7 +304,7 @@ export function PointCardWithLinks({
                 identityPending={identityPending}
                 className="!w-5 !h-5 !text-[10px]"
               />
-              <span className={`inline-flex items-center gap-1.5${isOwnerAgent ? ' agent-drained-chrome' : ''}`}>
+              <span className={"inline-flex items-center gap-1.5"}>
               {/* P1141 amendment: an agent account is named the same way on every surface;
                   the raw stored `Agent · {Name}` used to leak through here. */}
               {isOwnerAgent ? (
@@ -754,21 +754,31 @@ export function QuotedStory({
      on the page. See the note beside `authorPositionOnPoint` in stories-service-real.ts. */
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
-        }
-      }}
-      className={`group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
-      {...(isAgent ? { 'data-agent-row': 'true' } : {})}
-    >
-      {/* Author info at top */}
-      {author && (
+    /* P1270 §5 — THE BYLINE SITS ABOVE THE BOX, matching `QuotedPointCard`.
+       Founder, on the feed screenshot: "dont you think this should be outside for
+       consistency purpsose? like why we reinvient the wheel?"
+
+       These two components are the same idea in opposite directions — a point expanded to
+       its stories, and a story expanded to its points — and they had drifted on every axis.
+       `QuotedPointCard` renders `<div class="w-full text-left">` with the attribution row
+       first and the bordered box second; this one nested the attribution INSIDE the box.
+       Same shape now, so the remaining difference is props rather than structure, which is
+       what unblocks merging them later (deferred in the spec's risk table). */
+    <div className="w-full text-left" data-testid="quoted-story">
+      {/* Author info ABOVE the box.
+
+          P1270 §6 — THE GATE IS `author || isAgent`, NOT `author`, AND THAT IS THE FIX.
+          `getStoryAuthor` resolves against POSITION HOLDERS on the embed surface
+          (`point-detail-page.tsx`), and returns undefined whenever a story's author holds no
+          position on the point they filed it under. Nothing tied those two sets together, so
+          this whole block disappeared — avatar, AGENT chip, name and stance at once — and
+          `/point/:id?embed=true` shipped a machine-written reading of a real named person
+          with NO indication a machine wrote it and no route to the disclosure.
+
+          Gating on `isAgent` derives from `story.authorId` and needs no lookup, so the marker
+          can no longer be lost to a failed join. A marker with no name is strictly better
+          than no marker; the name is additive when the lookup succeeds (spec, ACCEPT). */}
+      {(author || isAgent) && (
         <div className="flex items-center gap-2 mb-1.5">
           <span
             role="button"
@@ -786,12 +796,17 @@ export function QuotedStory({
             }}
             className="hover:opacity-80 transition-opacity cursor-pointer"
           >
+            {/* P1270 §6 — every field is optional-chained because `author` is now allowed
+                to be undefined on the embed branch. `stripAgentPrefix` is applied by
+                GravatarAvatar itself for an agent, and the empty-string fallback renders the
+                initials placeholder rather than crashing — the SHAPE (square) is the channel
+                that matters here and it comes from `isAgent`, not from the name. */}
             <GravatarAvatar
-              name={author.name}
-              photoUrl={author.avatarUrl}
-              avatarColor={author.avatarColor}
+              name={author?.name ?? ''}
+              photoUrl={author?.avatarUrl}
+              avatarColor={author?.avatarColor}
               size="sm"
-              isPledger={author.hasPledged ?? false}
+              isPledger={author?.hasPledged ?? false}
               isAgent={isAgent}
               identityPending={identityPending}
               className="!w-6 !h-6 !text-[11px]"
@@ -816,11 +831,17 @@ export function QuotedStory({
               keyboard handling predates this change. */}
           {isAgent ? (
             <AgentByline
-              name={author.name}
-              onNameClick={(e) => {
+              name={author?.name ?? ''}
+              /* P1270 §6 — the handler is passed ONLY when there is an author to navigate
+                 to. `agent-byline.tsx` note 2: "no handler means no button", precisely so a
+                 dead control is never rendered. On the embed branch the disclosure route is
+                 genuinely absent, and rendering a button that goes nowhere would be a worse
+                 answer than rendering none — the marker still discloses, which is the floor
+                 this section exists to restore. */
+              onNameClick={author ? (e) => {
                 e.stopPropagation();
                 onAuthorClick?.(e);
-              }}
+              } : undefined}
             />
           ) : (
             /* Author name - clickable */
@@ -840,28 +861,57 @@ export function QuotedStory({
               }}
               className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
             >
-              {author.name}
+              {author?.name}
             </span>
           )}
           {/* Ear indicator - understanding credibility */}
-          {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
+          {!isAgent && !identityPending && author && <EarBadge count={author.ear ?? 0} name={author.name} />}
           {/* P1259 change 4 — this author's stance on the point above.
-              DRAINED FOR AN AGENT, and that is an invariant, not a style choice: a coloured
-              stance badge is exactly the discriminator that marks a card as human-authored
-              (`src/index.css`, `.agent-drained-chrome`), and `e2e/p1104-agent-marker.spec.ts`
-              asserts `meanSaturation < 0.05` on rendered pixels. Colouring it to make it
-              legible would delete the strongest disclosure marker on public readings of four
-              real people who never consented. */}
+
+              P1270 §3 REVERSED THE DRAIN THAT USED TO BE HERE, and the comment it replaces
+              called that drain "an invariant, not a style choice". It rested on two claims,
+              both checked by command and both false:
+
+                1. "a coloured stance badge is the discriminator that marks a card as
+                   human-authored." `PositionBadge.tsx` renders ONE hardcoded blue for every
+                   human — identical for a founding pledger with 40 ear-verifications and an
+                   account made this morning. Colour never encoded standing, so draining it
+                   removed no claim an agent was falsely making.
+                2. "the avatar is exempt, so the card keeps a colour channel." True of the
+                   test fixture, which seeds a saturated initials block. Production agent
+                   avatars are black-and-white portraits measuring 0.00 saturation — recorded
+                   in `e2e/p1104-agent-marker.spec.ts` itself.
+
+              So the drain cost the reader the one marker carrying CONTENT — whether the
+              machine read the subject as agreeing or disagreeing — and bought no disclosure
+              the square black-and-white photo and the word AGENT were not already carrying.
+              Those two are the channels now, and §6 shipped in the same change because one
+              render branch was carrying neither. */}
           {authorPosition && (
-            <span
-              data-testid="story-author-stance"
-              className={isAgent ? 'agent-drained-chrome inline-flex' : 'inline-flex'}
-            >
+            <span data-testid="story-author-stance" className="inline-flex">
               <PositionBadge position={authorPosition} />
             </span>
           )}
         </div>
       )}
+      {/* THE BOX — content only, from here down. The click target, the border, the hover
+          state and the focus ring all live on this element rather than on the outer
+          container, so the attribution row above is not part of the control: clicking a
+          name navigates to the profile, clicking the box navigates to the story, and the
+          two no longer overlap. `QuotedPointCard` has always been shaped this way. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
+          }
+        }}
+        className={`group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
+        {...(isAgent ? { 'data-agent-row': 'true' } : {})}
+      >
       {/* Story media — compact in quoted context.
           P1212 §4, second pass: this surface rendered `StoryImage` alone, so a story whose
           only media is a VIDEO rendered with no media at all. That was survivable while
@@ -948,6 +998,7 @@ export function QuotedStory({
       {(story.tags ?? []).length > 0 && (
         <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
       )}
+      </div>
     </div>
   );
 }

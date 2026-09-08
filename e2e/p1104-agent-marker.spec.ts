@@ -197,28 +197,53 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       await expect(rowFor(page, agent.name).locator('[data-testid="ear-badge"]')).toHaveCount(0);
     });
 
-    test('row chrome is drained of colour — measured on rendered pixels, not declared CSS', async ({ page }) => {
+    /**
+     * P1270 §3 — RE-AIMED, NOT DELETED. What this pair used to assert, and why both halves
+     * were unsound:
+     *
+     *   `row chrome is drained of colour`   — asserted meanSaturation < 0.05 on
+     *   `.agent-drained-chrome`. The class is REMOVED by §3 (it wrapped only the stance
+     *   badge in any visible sense; see the spec's ten-site reading), so this could only
+     *   ever fail from here on.
+     *
+     *   `the avatar is NOT drained`         — asserted meanSaturation > 0.15 on the avatar,
+     *   as proof the card retained a colour channel. IT MEASURED THE FIXTURE, NOT THE
+     *   PRODUCT. `test-agent-account.ts:68-72` seeds `avatar_color: '#0044CC'` and no photo,
+     *   deliberately saturated so the measurement "could tell the difference". Production
+     *   agent avatars are generated black-and-white portraits, and THIS FILE records the
+     *   number at :97-98 — "Measured mean saturation on a real product photo: 0.00." So the
+     *   assertion passed at 0.44 against a coloured initials block while the thing it
+     *   claimed to protect measured 0.00. A green run bounded the fixture, not the truth
+     *   (epistemic gate 7b).
+     *
+     * WHAT REPLACES THEM. §3's premise is that the disclosure rides on two channels that do
+     * not depend on colour at all — the SQUARE silhouette and the WORD. Those are now
+     * asserted directly, which is both stronger and honest about what a pixel measurement
+     * can and cannot see. The saturation helper stays in use below, where it still binds
+     * something real: that the badge is now genuinely coloured.
+     */
+    test('the stance badge renders COLOURED — §3, measured on rendered pixels', async ({ page }) => {
       const row = rowFor(page, agent.name);
-      const chrome = row.locator('.agent-drained-chrome').first();
-      await expect(chrome).toBeVisible();
+      const badge = row.locator('[data-testid="story-author-stance"]').first();
+      await expect(badge).toBeVisible();
 
-      const sat = await meanSaturation(page, chrome);
-      expect(sat, `agent row chrome should render desaturated, measured ${sat}`).toBeLessThan(0.05);
-    });
-
-    test('the avatar is NOT drained — the exemption asserted on rendered pixels', async ({ page }) => {
-      // The original assertion here read getComputedStyle().filter and was true by
-      // construction. This one renders the avatar and looks at its colours, so it fails
-      // if the avatar is ever nested inside the filtered subtree again.
-      const row = rowFor(page, agent.name);
-      const wrapper = row.locator('[data-testid="gravatar-avatar-wrapper"]');
-
-      const sat = await meanSaturation(page, wrapper);
+      const sat = await meanSaturation(page, badge);
       expect(
         sat,
-        `the agent avatar must keep its colour inside a drained card, measured saturation ${sat}`,
+        `the agent stance badge must render in colour like a human's, measured ${sat}. ` +
+          `Draining it hid the one marker carrying CONTENT while the photo and the word ` +
+          `already carried the disclosure (P1270 §3).`,
       ).toBeGreaterThan(0.15);
     });
+
+    test('the drain class is gone from the DOM entirely', async ({ page }) => {
+      // Not "the badge is outside it" — the class has no remaining purpose (MachineChip is
+      // text-gray-500; the ear badge is !isAgent-gated), so a surviving instance means a
+      // call site was missed. Counting is the assertion.
+      await expect(page.locator('.agent-drained-chrome')).toHaveCount(0);
+    });
+
+
 
     test('row aria-label carries the marker', async ({ page }) => {
       await expect(page.getByRole('button', { name: `${agent.name}'s profile` }).first()).toBeVisible();
@@ -450,6 +475,70 @@ test.describe('P1104 — agent accounts must never render as a person', () => {
       } finally {
         await deleteTestPoint(pointP.id);
         await deleteTestAgentAccount(withPhoto.profileId);
+      }
+    });
+
+    /**
+     * P1270 §3 — THE CASE THIS FILE HAS NEVER RUN, and the reason the assertion above is
+     * weaker than it looks.
+     *
+     * The fixture above uses `FF0000`. The one every other test uses is a `#0044CC` initials
+     * block (`test-agent-account.ts:68-72`, saturated ON PURPOSE so the measurement "could
+     * tell the difference"). Both make `meanSaturation > 0.15` easy. Production ships
+     * neither: this file's own comment at :97-98 records the real number — "Measured mean
+     * saturation on a real product photo: 0.00, greyer than the robotified portrait's 0.17."
+     *
+     * So every colour-based marker assertion in this file has been passing against an input
+     * production does not render, which is what let "the avatar keeps its colour, therefore
+     * the card retains a colour channel" stand for months as an argument for draining the
+     * stance badge. It was true of the fixture and false of the product (epistemic gate 7b).
+     *
+     * This test runs the 0.00 case. Saturation is USELESS here by construction — a B&W photo
+     * and a greyscale-filtered one measure the same, which is precisely why no assertion
+     * below reads a colour. What is asserted is the two channels that survive the absence of
+     * colour entirely: SHAPE and the WORD.
+     */
+    test('a BLACK-AND-WHITE portrait still carries both non-colour channels', async ({ page }) => {
+      const bwAgent = await createTestAgentAccount({
+        subject: 'P1270 BW Photo Subject',
+        avatarUrl: 'https://placehold.co/96x96/000000/FFFFFF.png?text=BW',
+      });
+      const pointBW = await createTestPoint(owner.user.id, { statement: `P1270 bw point ${Date.now()}` });
+
+      try {
+        await seedAgentPosition(pointBW.id, bwAgent.profileId, 'agree');
+        await page.goto(`/point/${pointBW.id}`);
+        await page.waitForLoadState('networkidle');
+
+        const row = rowFor(page, bwAgent.name);
+        const avatar = row.locator('[data-testid="gravatar-avatar"]');
+        await expect(avatar).toHaveAttribute('data-agent', 'true', { timeout: 15000 });
+
+        // Same load guard as the block above: an onError fallback to initials would render a
+        // SATURATED block, which would quietly turn this into the very test it replaces.
+        const img = avatar.locator('img');
+        const loaded = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
+        expect(loaded, 'the B&W portrait never loaded — this test would be measuring initials').toBeGreaterThan(0);
+
+        // CHANNEL 1 — shape. Survives greyscale, survives 20px.
+        expect(
+          await borderRadiusPx(avatar),
+          'a B&W-photo agent avatar must still read as square',
+        ).toBeLessThan(50);
+
+        // CHANNEL 2 — the word. The only channel a screen reader reaches.
+        await expect(row.locator('[data-testid="agent-byline"]')).toContainText(/AGENT/i);
+
+        // AND THE POINT OF §3: with the photo carrying no colour, the badge is the only
+        // coloured pixel on the card. Draining it left the reader nothing to read.
+        const badgeSat = await meanSaturation(page, row.locator('[data-testid="story-author-stance"]').first());
+        expect(
+          badgeSat,
+          `on a B&W-portrait card the stance badge is the only colour there is, measured ${badgeSat}`,
+        ).toBeGreaterThan(0.15);
+      } finally {
+        await deleteTestPoint(pointBW.id);
+        await deleteTestAgentAccount(bwAgent.profileId);
       }
     });
   });

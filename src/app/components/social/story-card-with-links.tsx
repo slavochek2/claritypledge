@@ -170,7 +170,7 @@ export function StoryCardWithLinks({
             identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+          <span className={"inline-flex items-center gap-1.5"}>
             {/* P1141 amendment: an agent account is named the same way on every surface;
                 the raw stored `Agent · {Name}` used to leak through here. */}
             {/* P1259 — THE ROUTE, added after adversarial review found this branch.
@@ -697,7 +697,7 @@ function QuotedPoint({
             identityPending={identityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
+          <span className={"inline-flex items-center gap-1.5"}>
             {/* P1141 amendment: an agent account is named the same way on every surface;
                 the raw stored `Agent · {Name}` used to leak through here. */}
             {/* P1259 — the route, same reason as the quote-pattern branch above. */}
