@@ -3,6 +3,7 @@ id: p710
 status: all-done
 completed_at: 2026-04-17
 type: story
+disclosure: public
 pipeline_ran: [fix, fix.2]
 created_at: 2026-04-15
 tags: []

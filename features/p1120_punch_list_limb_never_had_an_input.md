@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 99
 created_date: '2026-08-19'
 tags: [critique-ux, polish, dead-limb, skills, measurement]

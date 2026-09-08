@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 2
 created_date: '2026-08-13'
 tags: [security, grants, ci, drift]

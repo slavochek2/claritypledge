@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 2.364
 tags:
   - epic-story-first

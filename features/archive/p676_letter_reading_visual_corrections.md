@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: change-request
+disclosure: public
 rank: 1000063
 changes: p673
 superseded_by: p696

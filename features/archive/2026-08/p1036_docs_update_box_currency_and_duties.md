@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 1000962.0
 workstream: docs
 created_date: '2026-08-10'

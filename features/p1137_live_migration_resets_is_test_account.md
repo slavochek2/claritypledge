@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+disclosure: public
 rank: 227
 severity: medium
 workstream: analytics

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1
 workstream: foundation
 tags: []

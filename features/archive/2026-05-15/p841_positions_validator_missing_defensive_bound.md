@@ -3,6 +3,7 @@ status: rejected
 rejected_reason: 'Speculative defense-in-depth. No user impact (production client always sends -3..3 from POSITION_VALUES). Filed during P835 audit rabbit hole — no second incident justifies fixing. See decisions.md 2026-05-15 [process] N=1 entry. Two it.fails blocks in src/tests/p839-parity-positions.test.ts continue to document the gap if it ever matters.'
 rejected_date: '2026-05-15'
 type: bug
+disclosure: public
 rank: 1000772.0
 severity: medium
 workstream: infra

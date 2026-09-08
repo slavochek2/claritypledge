@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+disclosure: public
 rank: 207
 severity: medium
 workstream: security

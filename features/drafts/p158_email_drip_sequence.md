@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 workstream: C2
 priority: p2
 tags: [content, ghost, email, automation]

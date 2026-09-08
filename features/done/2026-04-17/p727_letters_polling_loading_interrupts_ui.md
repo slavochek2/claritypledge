@@ -2,6 +2,7 @@
 id: P727
 title: Letters polling replaces list with full loading screen on every background refresh
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 pipeline_plan: [reproduce, fix, ship]

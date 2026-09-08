@@ -1,6 +1,7 @@
 ---
 title: "Position removal on click has no visual feedback"
 type: bug
+disclosure: public
 status: done
 priority: medium
 created_date: 2026-03-16

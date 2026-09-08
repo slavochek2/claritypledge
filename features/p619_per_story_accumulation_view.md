@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 45
 workstream: C1
 created_date: 2026-04-02

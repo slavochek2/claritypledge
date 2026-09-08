@@ -1,6 +1,7 @@
 ---
 status: prepped
 type: bug
+disclosure: public
 prepped_date: 2026-01-22
 prepped_by: /prep-spec
 reviews:

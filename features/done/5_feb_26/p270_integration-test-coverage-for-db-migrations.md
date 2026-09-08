@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 2
 workstream: foundation
 tags:

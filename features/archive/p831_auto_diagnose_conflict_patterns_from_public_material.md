@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000764.0
 created_date: '2026-05-07'
 tags: [marketing, engineering-as-marketing, sifter, ai, story-points]

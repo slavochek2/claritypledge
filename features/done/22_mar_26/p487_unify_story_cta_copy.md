@@ -3,6 +3,7 @@ status: done
 delivery_stage: uat
 completed_at: "2026-03-07"
 type: change-request
+disclosure: public
 rank: 500004.5
 changes: p486
 tags:

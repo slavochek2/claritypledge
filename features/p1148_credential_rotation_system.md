@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 250
 workstream: keyring
 created_date: '2026-08-21'

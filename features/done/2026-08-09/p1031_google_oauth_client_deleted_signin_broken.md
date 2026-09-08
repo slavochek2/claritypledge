@@ -2,6 +2,7 @@
 status: done
 completed_at: '2026-08-09'
 type: bug
+disclosure: public
 rank: 1000959
 severity: critical
 workstream: infrastructure

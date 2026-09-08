@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 workstream: C1
 blocked_by:
   - p305

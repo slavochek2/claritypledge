@@ -1,6 +1,7 @@
 ---
 status: in-progress
 type: task
+disclosure: public
 rank: 1000068
 workstream: keyring
 created_date: '2026-09-03'

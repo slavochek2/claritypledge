@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1
 tags: [infra, multi-agent, dsh, claude-code, codex]
 drafted_by: gemini

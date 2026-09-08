@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 4.0
 milestone: M3
 tags: [connections, social-graph, clarity-partner, known-unknown]

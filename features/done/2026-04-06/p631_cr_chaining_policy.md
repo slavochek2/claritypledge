@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 flow: inline
 rank: 1000034
 tags:

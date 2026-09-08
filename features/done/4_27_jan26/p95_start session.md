@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 prep_status: ready
 prep_date: 2026-01-25
 prep_by: /prep-spec

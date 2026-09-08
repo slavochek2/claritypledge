@@ -2,6 +2,7 @@
 id: p451
 title: 'Guard: creator cannot accept their own agreement'
 type: bug
+disclosure: public
 status: all-done
 priority: high
 flow: fix

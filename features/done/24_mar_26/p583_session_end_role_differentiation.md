@@ -2,6 +2,7 @@
 title: Session end screen missing for creator, wrong CTA for joiner
 status: all-done
 type: bug
+disclosure: public
 priority: 2
 severity: medium
 date_reported: 2026-03-23

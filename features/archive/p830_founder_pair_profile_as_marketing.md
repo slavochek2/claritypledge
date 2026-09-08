@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000763.0
 created_date: '2026-05-07'
 tags: [marketing, outreach, brute-force, content, blog]

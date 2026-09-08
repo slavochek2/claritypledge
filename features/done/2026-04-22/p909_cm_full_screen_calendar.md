@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: change-request
+disclosure: public
 rank: 1000797.0
 changes: p906
 tags:

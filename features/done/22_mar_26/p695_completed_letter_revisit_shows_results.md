@@ -2,6 +2,7 @@
 id: p695
 title: Completed letter revisit shows reading flow instead of results
 type: bug
+disclosure: public
 status: all-done
 completed_at: '2026-04-20'
 severity: high

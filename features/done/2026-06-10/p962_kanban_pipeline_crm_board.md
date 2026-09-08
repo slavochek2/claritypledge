@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000937.0
 created_date: '2026-06-25'
 tags: [kanban, crm, pipeline, gtm]

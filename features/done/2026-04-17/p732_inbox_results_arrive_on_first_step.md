@@ -2,6 +2,7 @@
 id: P732
 title: Inbox results arrive on first step, not only on completion
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 pipeline_ran: [reproduce, fix]

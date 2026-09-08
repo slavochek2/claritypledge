@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 5
 workstream: letters
 created_date: '2026-06-17'

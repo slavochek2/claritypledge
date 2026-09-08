@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 58
 created_date: '2026-04-24'
 tags: [cleanup, dead-code, refactor, knip]

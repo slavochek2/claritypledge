@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 0.063
 workstream: infrastructure
 created_date: '2026-04-22'

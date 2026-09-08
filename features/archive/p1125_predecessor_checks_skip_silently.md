@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 102
 created_date: '2026-08-20'
 tags: [infrastructure, skills, pipeline, process]

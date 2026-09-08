@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 completed_at: '2026-02-05'
 reviews:
   ux: passed

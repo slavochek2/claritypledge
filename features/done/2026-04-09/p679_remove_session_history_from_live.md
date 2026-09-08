@@ -1,6 +1,7 @@
 ---
 id: P679
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-09
 severity: high

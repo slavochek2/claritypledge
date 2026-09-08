@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 severity: medium
 date_reported: 2026-02-15
 date_resolved: 2026-02-15

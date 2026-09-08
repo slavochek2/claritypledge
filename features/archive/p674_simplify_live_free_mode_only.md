@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 1
 severity: high
 date_reported: '2026-04-07'

@@ -2,6 +2,7 @@
 status: all-done
 delivery_stage: arch-review
 type: story
+disclosure: public
 rank: 8
 workstream: C1
 tags:

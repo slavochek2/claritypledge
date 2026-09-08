@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 24
 tags: [playwright, visual-qa, auth, tooling]
 flow: dev

@@ -2,6 +2,7 @@
 status: all-done
 completed_at: 2026-04-17
 type: task
+disclosure: public
 rank: 1000708.0
 workstream: C2
 created_date: '2026-04-15'

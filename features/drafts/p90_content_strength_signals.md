@@ -1,6 +1,7 @@
 ---
 status: draft
 type: story
+disclosure: public
 workstream: C1
 tags: []
 rank: 125374.0

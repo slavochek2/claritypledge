@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000699.0
 tags: [letters, results, ux, reading-flow]
 created_date: '2026-04-12'

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: feature
+disclosure: public
 rank: 62741.5
 workstream: live
 created_date: 2026-02-27T00:00:00.000Z

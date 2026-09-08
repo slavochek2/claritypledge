@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000964.0
 pipeline_ran: [create-spec, dev, finish, ship]
 severity: high

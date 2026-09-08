@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000954.0
 created_date: '2026-07-21'
 tags: [landing, copy, credibility, hero, p1004-followup]

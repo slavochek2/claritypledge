@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 73
 workstream: landing
 created_date: '2026-06-23'

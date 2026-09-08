@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000947.0
 created_date: '2026-06-17'
 tags: [email, mailgun, events, cron]

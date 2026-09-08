@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 2
 created_date: '2026-07-18'
 tags: [infrastructure, ship, worktrees, tooling]

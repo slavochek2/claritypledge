@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 36
 flow: medium
 workstream: C2

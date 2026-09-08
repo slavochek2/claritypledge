@@ -2,6 +2,7 @@
 id: P722
 title: Wrong user sees confetti (completed state) when clicking expired magic link
 type: bug
+disclosure: public
 status: all-done
 completed_at: '2026-04-20'
 pipeline_plan:

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 milestone: foundation
 tags:
   - information-architecture

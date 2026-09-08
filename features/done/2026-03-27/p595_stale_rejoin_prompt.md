@@ -3,6 +3,7 @@ title: "Stale rejoin prompt after session ends"
 status: done
 completed_at: "2026-03-27"
 type: bug
+disclosure: public
 p_number: 595
 severity: high
 date_reported: 2026-03-27

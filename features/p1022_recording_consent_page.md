@@ -1,6 +1,7 @@
 ---
 status: week
 type: story
+disclosure: public
 rank: 8
 created_date: '2026-07-31'
 tags: [consent, recording, legal, video]

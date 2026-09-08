@@ -1,6 +1,7 @@
 ---
 status: done
 type: bug
+disclosure: public
 rank: 750002.75
 tags:
   - live

@@ -1,6 +1,7 @@
 ---
 status: done
 type: task
+disclosure: public
 rank: 1000944
 severity: medium
 workstream: C1

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000977.0
 created_date: '2026-08-13'
 tags: [security, grants, audit, rls]

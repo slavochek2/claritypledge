@@ -1,6 +1,7 @@
 ---
 status: qa
 type: bug
+disclosure: public
 rank: 1000079
 severity: high
 workstream: infra

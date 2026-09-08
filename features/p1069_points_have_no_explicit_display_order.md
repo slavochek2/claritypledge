@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 92
 created_date: '2026-08-13'
 tags: [points, feed, ordering, tech-debt]

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 workstream: foundation
 tags: []
 rank: 125300.0

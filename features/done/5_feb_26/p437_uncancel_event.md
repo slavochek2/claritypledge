@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: feature
+disclosure: public
 rank: 125469
 workstream: E1
 created_date: 2026-02-25T00:00:00.000Z

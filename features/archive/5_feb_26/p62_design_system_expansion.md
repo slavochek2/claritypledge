@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: comment
+disclosure: public
 tags: []
 rank: 125407.0
 created_date: 2026-01-15

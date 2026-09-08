@@ -2,6 +2,7 @@
 status: all-done
 completed_at: "2026-03-19"
 type: change-request
+disclosure: public
 rank: 125002.375
 workstream: E1
 created_date: 2026-03-17T00:00:00.000Z

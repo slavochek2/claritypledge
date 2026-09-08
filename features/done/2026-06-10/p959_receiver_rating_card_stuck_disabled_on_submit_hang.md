@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 date_resolved: '2026-06-24'
 resolution: "Wrapped both real-receiver RPC awaits in submitStoryRating (token + deliveryId) in a 15s withTimeout helper; added a catch firing toast.error (leaving phase on story-rate so the card re-enables for an idempotent retry); guarded post-await setState with a mountedRef. Canary: src/tests/p959-reproduce.test.tsx (sanity + reject token + reject deliveryId + fake-timer hang)."
 rank: 1000935

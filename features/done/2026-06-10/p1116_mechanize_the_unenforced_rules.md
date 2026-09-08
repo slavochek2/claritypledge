@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 48.0
 created_date: '2026-08-19'
 tags: [claude-md, rules, hooks, mechanization, instruction-layer]

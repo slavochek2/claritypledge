@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 3
 created_date: '2026-08-13'
 tags: [security, rpc, anon, integrity]

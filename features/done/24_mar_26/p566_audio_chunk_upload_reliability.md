@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 5
 flow: dev
 completed_at: '2026-03-22'

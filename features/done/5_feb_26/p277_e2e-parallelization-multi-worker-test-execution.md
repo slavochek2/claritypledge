@@ -2,6 +2,7 @@
 status: all-done
 delivery_stage: implementation
 type: task
+disclosure: public
 rank: 277
 workstream: foundation
 tags:

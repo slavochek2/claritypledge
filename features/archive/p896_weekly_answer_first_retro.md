@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 1000785.0
 created_date: '2026-06-04'
 tags: [skills, weekly, day, retro]

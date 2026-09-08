@@ -1,6 +1,7 @@
 ---
 status: done
 type: task
+disclosure: public
 rank: 500005.5
 workstream: foundation
 created_date: 2026-03-06

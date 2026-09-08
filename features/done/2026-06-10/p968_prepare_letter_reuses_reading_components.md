@@ -1,5 +1,6 @@
 ---
 type: change-request
+disclosure: public
 rank: 1000938.0
 changes: p665
 chain_root: p581

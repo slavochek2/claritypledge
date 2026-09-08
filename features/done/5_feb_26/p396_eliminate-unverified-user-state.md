@@ -2,6 +2,7 @@
 status: done
 completed_at: "2026-02-19"
 type: task
+disclosure: public
 rank: 0.5
 tags:
   - auth

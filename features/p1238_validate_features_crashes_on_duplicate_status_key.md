@@ -1,6 +1,7 @@
 ---
 status: week
 type: bug
+disclosure: public
 rank: 1000067
 severity: medium
 workstream: spec-schema

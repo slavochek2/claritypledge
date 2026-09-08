@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 500392.5
 created_date: '2026-06-04'
 tags:

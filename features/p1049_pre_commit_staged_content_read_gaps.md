@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 209
 workstream: security
 created_date: '2026-08-11'

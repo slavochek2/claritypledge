@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 250010.75
 workstream: E1
 created_date: 2026-03-16

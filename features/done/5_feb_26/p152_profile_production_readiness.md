@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 147.0
 workstream: foundation
 tags: [profiles, calibration, ear-count, ux-alignment]

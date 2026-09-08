@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000936.0
 workstream: events
 created_date: '2026-06-16'

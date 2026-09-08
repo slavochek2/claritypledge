@@ -2,6 +2,7 @@
 status: all-done
 completed_at: 2026-04-12
 type: bug
+disclosure: public
 severity: medium
 date_reported: 2026-04-12
 date_resolved: 2026-04-12

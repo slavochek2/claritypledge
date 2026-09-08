@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 workstream: C1
 created: 2026-02-09T00:00:00.000Z
 prepped_date: null

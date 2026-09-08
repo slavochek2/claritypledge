@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 125488.0
 workstream: foundation
 created_date: 2026-02-26

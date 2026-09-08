@@ -1,6 +1,7 @@
 ---
 status: draft
 type: task
+disclosure: public
 workstream: foundation
 tags: []
 rank: 125369.0

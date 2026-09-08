@@ -3,6 +3,7 @@ status: done
 delivery_stage: done
 completed_at: '2026-03-07'
 type: change-request
+disclosure: public
 rank: 8.1
 workstream: C1
 changes: p483

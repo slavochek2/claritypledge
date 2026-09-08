@@ -2,6 +2,7 @@
 status: all-done
 completed_at: 2026-04-17
 type: bug
+disclosure: public
 rank: 1
 severity: high
 chain_root: p617

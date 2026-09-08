@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 6
 tags: [legal, ai, tos, stories]
 created_date: 2026-02-25

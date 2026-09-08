@@ -1,6 +1,7 @@
 ---
 status: done
 type: story
+disclosure: public
 workstream: C2
 rank: 1
 tags: []

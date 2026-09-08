@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 5
 flow: inline
 pipeline_ran: [ship]

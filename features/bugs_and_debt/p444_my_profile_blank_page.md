@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 125483.5
 workstream: foundation
 severity: medium

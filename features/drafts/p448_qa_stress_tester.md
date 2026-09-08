@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 125489.0
 workstream: foundation
 created_date: 2026-02-26

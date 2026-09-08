@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 69
 created_date: '2026-06-06'
 tags: [pre-commit, prod-health, csp, gates]

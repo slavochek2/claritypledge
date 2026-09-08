@@ -3,6 +3,7 @@ id: p629
 title: 'Points clarity rewrite — legibility, obvious truth, minimal jargon'
 status: all-done
 type: task
+disclosure: public
 priority: medium
 created: 2026-04-03T00:00:00.000Z
 thinking: t007

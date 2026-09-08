@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 0.001
 flow: dev
 completed_at: "2026-04-03"

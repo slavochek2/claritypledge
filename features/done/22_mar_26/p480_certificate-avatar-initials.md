@@ -2,6 +2,7 @@
 status: done
 completed_at: '2026-03-06'
 type: story
+disclosure: public
 rank: 3
 tags:
   - agreements

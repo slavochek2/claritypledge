@@ -1,6 +1,7 @@
 ---
 status: today
 type: task
+disclosure: public
 rank: 0.188
 workstream: infrastructure
 created_date: '2026-08-28'

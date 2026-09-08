@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: comment
+disclosure: public
 rank: 224
 created_date: '2026-08-20'
 tags: [previews, og, crawlers, survey]

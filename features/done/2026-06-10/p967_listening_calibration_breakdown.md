@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000937.0
 created_date: '2026-06-27'
 tags: [calibration, profile, listening, coaching]

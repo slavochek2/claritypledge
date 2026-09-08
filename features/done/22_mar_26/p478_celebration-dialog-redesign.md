@@ -2,6 +2,7 @@
 status: done
 completed_at: '2026-03-06'
 type: change-request
+disclosure: public
 rank: 1
 tags:
   - agreements

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 97
 created_date: '2026-08-19'
 tags: [p955, ui-gate, ci, gates, verification]

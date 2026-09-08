@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000686.0
 superseded_by: p873
 created_date: '2026-04-10'

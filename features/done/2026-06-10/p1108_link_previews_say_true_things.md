@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 40
 created_date: '2026-08-19'
 tags: [previews, og, truthfulness, crawlers]

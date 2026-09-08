@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: comment
+disclosure: public
 rank: 2
 created_date: '2026-06-02'
 tags:

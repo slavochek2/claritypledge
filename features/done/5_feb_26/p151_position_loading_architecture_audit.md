@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 145.0
 date_completed: 2026-02-16
 tags: [architecture, position-loading, refactoring, data-consistency]

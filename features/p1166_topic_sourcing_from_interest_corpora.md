@@ -1,6 +1,7 @@
 ---
 status: week
 type: task
+disclosure: public
 rank: 6
 workstream: gtm
 created_date: '2026-08-27'

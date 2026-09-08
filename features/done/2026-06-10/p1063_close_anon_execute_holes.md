@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 1000976.0
 created_date: '2026-08-13'
 tags: [security, rls, grants, letters, clarity-sessions]

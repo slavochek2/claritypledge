@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 63
 created_date: '2026-06-01'
 tags: [upgrade-oath, skills, process, discovery]

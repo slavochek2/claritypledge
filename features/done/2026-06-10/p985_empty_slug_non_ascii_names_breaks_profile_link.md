@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 date_resolved: '2026-07-09'
 root_cause: "generateSlug stripped non-ASCII via ASCII-only \\w → empty slug; AuthCallback persisted slug=\"\" → /p/ profile link unreachable."
 resolution: "Added slugifyName (lazy transliteration → romanized slug, 李明→li-ming) used at the signup path; made generateSlug Unicode-aware + accent-fold for the sync fallback; backfilled the one affected prod row."

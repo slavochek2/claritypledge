@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 severity: high
 rank: 0.5
 workstream: foundation

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 95
 created_date: '2026-08-17'
 tags: [tech-debt, points, schema]

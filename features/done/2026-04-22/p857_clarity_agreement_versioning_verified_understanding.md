@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 feature_type: backend
 rank: 0.006
 created_date: '2026-05-31'

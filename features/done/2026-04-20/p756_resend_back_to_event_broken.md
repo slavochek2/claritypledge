@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-04-20'
 type: bug
+disclosure: public
 severity: medium
 rank: 1000756.0
 tags: [live, invite, waiting-room, p745]

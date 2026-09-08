@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 100
 created_date: '2026-08-19'
 tags: [sim, skills, measurement, retirement]

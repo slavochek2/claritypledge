@@ -2,6 +2,7 @@
 title: 'P483: Existing User Invite Path Streamlining'
 status: done
 type: story
+disclosure: public
 rank: 8.0
 workstream: C1
 tags: [agreements, auth, ux, existing-users]

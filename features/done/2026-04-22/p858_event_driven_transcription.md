@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: change-request
+disclosure: public
 rank: 0.001
 changes: p495
 tags:

@@ -1,5 +1,6 @@
 ---
 type: bug
+disclosure: public
 rank: 1000727.0
 severity: high
 workstream: letters

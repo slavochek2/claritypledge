@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 workstream: C1
 prototype: /prototype/linkedin-like/live
 prepped_date: '2026-02-09'

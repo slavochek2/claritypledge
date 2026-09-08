@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 148.0
 workstream: foundation
 tags: [testing, validation, documentation, sustainability, kanban]

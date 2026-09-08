@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 0.002
 created_date: '2026-04-05'
 tags:

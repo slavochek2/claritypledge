@@ -4,6 +4,7 @@ title: "Private points must never appear in feed or profile"
 status: all-done
 priority: critical
 type: bug
+disclosure: public
 flow: fix
 delivery_stage: shipped
 completed_at: "2026-04-03"

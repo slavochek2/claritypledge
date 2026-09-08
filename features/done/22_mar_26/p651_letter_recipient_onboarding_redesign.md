@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: change-request
+disclosure: public
 rank: 0.25
 changes: p581
 delivery_stage: uat

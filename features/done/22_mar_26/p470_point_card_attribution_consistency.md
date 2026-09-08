@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-03-03'
 type: change-request
+disclosure: public
 rank: 31370.75
 changes: p465
 tags:

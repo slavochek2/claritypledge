@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 20
 created_date: '2026-08-31'
 tags: [events, privacy, rsvp, whatsapp]

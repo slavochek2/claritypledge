@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 31
 created_date: '2026-08-14'
 tags: [meet, ready, events, awareness, distribution]

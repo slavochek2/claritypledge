@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 51
 created_date: '2026-04-16'
 tags:

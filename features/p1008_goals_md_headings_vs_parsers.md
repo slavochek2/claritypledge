@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+disclosure: public
 rank: 80
 created_date: '2026-07-23'
 tags: [tooling, kanban, docs, goals]

@@ -3,6 +3,7 @@ status: rejected
 rejected_reason: 'Overfitting on N=1. /challenge-prd HQ-3 flagged the bias risk; the agent rationalized past it; the founder pushed back and surfaced the rabbit hole. See decisions.md 2026-05-15 [process] N=1 entry. Skill-rule edits reverted; the 3 backfill canaries (src/tests/p839-parity-*.test.ts) kept as free regression coverage.'
 rejected_date: '2026-05-15'
 type: task
+disclosure: public
 rank: 1000770.0
 workstream: infra
 created_date: '2026-05-15'

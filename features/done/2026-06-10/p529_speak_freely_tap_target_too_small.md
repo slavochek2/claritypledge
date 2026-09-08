@@ -1,6 +1,7 @@
 ---
 title: "Speak freely tap target too small for mobile users"
 type: bug
+disclosure: public
 status: done
 priority: medium
 created_date: 2026-03-16

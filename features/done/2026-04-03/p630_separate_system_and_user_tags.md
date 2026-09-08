@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 6.0
 workstream: C2
 tags: [tags, refactor, data-model]

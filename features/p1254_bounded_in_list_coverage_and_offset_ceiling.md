@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 1000091
 severity: low
 date_reported: '2026-09-05'

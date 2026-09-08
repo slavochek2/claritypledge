@@ -1,6 +1,7 @@
 ---
 status: week
 type: bug
+disclosure: public
 rank: 3
 created_date: '2026-08-18'
 tags: [security, letters, integrity, calibration, rls]

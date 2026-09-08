@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 229
 created_date: '2026-08-21'
 tags: [anti-point, model, docs, align]

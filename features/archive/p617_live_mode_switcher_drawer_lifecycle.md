@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: change-request
+disclosure: public
 rank: 4
 tags:
   - live

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 priority: p0
 milestone: C2
 tags:

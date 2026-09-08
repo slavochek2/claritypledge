@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 1000074
 severity: medium
 date_reported: '2026-09-05'

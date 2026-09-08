@@ -2,6 +2,7 @@
 status: all-done
 completed_at: "2026-04-03"
 type: change-request
+disclosure: public
 rank: 1000035.0
 changes: p621
 chain_root: p616

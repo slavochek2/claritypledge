@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 priority: p1
 workstream: C2
 tags:

@@ -1,6 +1,7 @@
 ---
 status: done
 type: task
+disclosure: public
 rank: 1000034
 created_date: '2026-04-04'
 tags:

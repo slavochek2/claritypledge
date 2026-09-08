@@ -2,6 +2,7 @@
 status: done
 completed_at: '2026-04-07'
 type: bug
+disclosure: public
 rank: 1000070.0
 severity: medium
 date_reported: '2026-04-06'

@@ -2,6 +2,7 @@
 status: all-done
 completed_at: 2026-04-17
 type: story
+disclosure: public
 rank: 1000683.0
 created_date: '2026-04-10'
 tags: [letters, compliance, gdpr, tos]

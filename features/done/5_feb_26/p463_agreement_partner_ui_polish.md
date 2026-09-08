@@ -1,6 +1,7 @@
 ---
 status: done
 type: feature
+disclosure: public
 rank: 15685.375
 workstream: E1
 created_date: 2026-02-28T00:00:00.000Z

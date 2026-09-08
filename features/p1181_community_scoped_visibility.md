@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 90
 workstream: infrastructure
 created_date: '2026-08-28'

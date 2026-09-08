@@ -2,6 +2,7 @@
 status: all-done
 completed_at: 2026-04-17
 type: bug
+disclosure: public
 severity: high
 rank: 1
 tags: [letters, rls, security-definer]

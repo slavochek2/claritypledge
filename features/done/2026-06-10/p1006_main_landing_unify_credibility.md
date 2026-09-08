@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000953.0
 created_date: '2026-07-21'
 tags: [founder, video, credibility, landing, p1005-followup]

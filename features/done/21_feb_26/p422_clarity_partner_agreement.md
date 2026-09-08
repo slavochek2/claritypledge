@@ -2,6 +2,7 @@
 status: all-done
 completed_at: "2026-02-28"
 type: story
+disclosure: public
 rank: 31370.75
 milestone: M2
 tags:

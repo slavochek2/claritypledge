@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: bug
+disclosure: public
 rank: 4
 created_date: '2026-08-17'
 completed_at: '2026-08-17'

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000748.0
 workstream: C2
 created_date: '2026-04-21'

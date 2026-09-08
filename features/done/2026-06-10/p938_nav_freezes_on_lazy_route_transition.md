@@ -4,6 +4,7 @@ date_resolved: '2026-06-16'
 root_cause: React Router 7.13 startTransition + shared Suspense boundary — already-revealed boundary never shows its fallback during a transition
 resolution: Key ChunkErrorBoundary (wrapping Suspense) by pathname in LazyRoute — each navigation mounts a fresh boundary that can show its ClarityPageLoader fallback
 type: bug
+disclosure: public
 rank: 1000932.0
 severity: high
 date_reported: '2026-06-15'

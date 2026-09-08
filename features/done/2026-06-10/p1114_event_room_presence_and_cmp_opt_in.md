@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 46
 created_date: '2026-08-19'
 tags: [events, cmp, meet, ready, opt-in, room]

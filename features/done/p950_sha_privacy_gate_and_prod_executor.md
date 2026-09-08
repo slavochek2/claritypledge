@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000950
 created_date: '2026-06-18'
 completed_at: '2026-06-18'

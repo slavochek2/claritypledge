@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: change-request
+disclosure: public
 rank: 0.5
 changes: p551
 delivery_stage: 3.5-ui-review

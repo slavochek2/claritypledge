@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+disclosure: public
 rank: 214
 severity: low
 date_reported: '2026-08-13'

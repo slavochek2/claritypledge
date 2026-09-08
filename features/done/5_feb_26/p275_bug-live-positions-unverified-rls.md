@@ -2,6 +2,7 @@
 status: all-done
 delivery_stage: implementation
 type: bug
+disclosure: public
 rank: 1
 workstream: C1
 severity: high

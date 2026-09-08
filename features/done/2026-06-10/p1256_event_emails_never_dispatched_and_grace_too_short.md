@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 5
 created_date: '2026-09-07'
 tags:

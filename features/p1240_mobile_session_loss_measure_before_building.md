@@ -1,6 +1,7 @@
 ---
 status: week
 type: story
+disclosure: public
 rank: 1000069
 workstream: C1
 created_date: '2026-09-03'

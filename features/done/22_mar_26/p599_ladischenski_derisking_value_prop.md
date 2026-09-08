@@ -2,6 +2,7 @@
 id: p599
 title: Update ladischenski.com de-risking package value prop
 type: task
+disclosure: public
 status: all-done
 priority: medium
 rank: 0.047

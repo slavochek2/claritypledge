@@ -2,6 +2,7 @@
 status: backlog
 feature: p523
 type: uat
+disclosure: public
 created_date: 2026-03-18
 tags: []
 rank: 1000024.0

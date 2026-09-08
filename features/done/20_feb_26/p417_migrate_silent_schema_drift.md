@@ -14,6 +14,7 @@ resolution: >-
   JSON object with message = SQL error even if HTTP 200; wired into
   apply_via_api() before recording in schema_migrations
 type: bug
+disclosure: public
 severity: critical
 date_reported: 2026-02-24T00:00:00.000Z
 tags: []

@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 14
 tags: [e2e, testing, multi-user, fixtures]
 flow: dev

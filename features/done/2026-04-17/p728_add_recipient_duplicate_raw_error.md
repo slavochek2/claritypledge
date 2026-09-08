@@ -2,6 +2,7 @@
 id: P728
 title: Add recipient shows raw DB constraint error on duplicate email
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 pipeline_plan: [reproduce, fix, ship]

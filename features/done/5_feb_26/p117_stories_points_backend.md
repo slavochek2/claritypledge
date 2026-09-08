@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 priority: p1
 completed_at: '2026-02-05'
 prepped_date: '2026-02-04'

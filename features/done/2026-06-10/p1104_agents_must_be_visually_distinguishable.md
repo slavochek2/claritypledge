@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 2
 workstream: events
 created_date: '2026-08-18'

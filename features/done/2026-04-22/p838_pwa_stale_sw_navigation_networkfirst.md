@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000768.0
 created_date: '2026-05-15'
 tags: [pwa, service-worker, infrastructure, deploy]

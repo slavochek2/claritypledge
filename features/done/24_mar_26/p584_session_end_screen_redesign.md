@@ -2,6 +2,7 @@
 status: all-done
 completed_at: "2026-03-24"
 type: feature
+disclosure: public
 rank: 1000026.0
 workstream: E
 created_date: 2026-03-24

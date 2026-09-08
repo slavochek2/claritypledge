@@ -3,6 +3,7 @@ id: P545
 title: ladischenski.com positioning update — values & alignment over de-risking
 status: all-done
 type: task
+disclosure: public
 rank: 0.5
 tags:
   - content

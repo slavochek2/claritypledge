@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: change-request
+disclosure: public
 rank: 250000.5
 changes: p455
 tags:

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+disclosure: public
 rank: 96
 created_date: '2026-08-19'
 tags: [verify, pipeline, prod-safety, delivery_stage]

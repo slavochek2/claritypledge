@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: bug
+disclosure: public
 rank: 125233.0
 workstream: C2
 severity: critical

@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000738.0
 created_date: '2026-04-17'
 tags: [letters, inbox, ux, grouping, threading]

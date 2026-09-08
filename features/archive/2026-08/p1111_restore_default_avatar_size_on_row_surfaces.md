@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 44
 created_date: '2026-08-19'
 tags: [avatar, identity, density, p1104]

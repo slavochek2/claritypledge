@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 0.5
 severity: high
 date_reported: '2026-04-07'

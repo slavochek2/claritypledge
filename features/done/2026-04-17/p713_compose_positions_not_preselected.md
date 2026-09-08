@@ -2,6 +2,7 @@
 id: p713
 title: Compose flow does not preselect author's existing point positions
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 severity: medium

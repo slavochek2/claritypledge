@@ -2,6 +2,7 @@
 id: p734
 title: Letter-sourced /live session lifecycle — banner + End Session
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 severity: high

@@ -3,6 +3,7 @@ id: p604
 title: "Remove +N more points truncation — show all linked points"
 status: all-done
 type: bug
+disclosure: public
 flow: dev
 priority: 1
 completed_at: "2026-03-29"

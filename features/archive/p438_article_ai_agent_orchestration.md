@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 priority: medium
 created_at: 2026-02-25T00:00:00.000Z
 rank: 4.5

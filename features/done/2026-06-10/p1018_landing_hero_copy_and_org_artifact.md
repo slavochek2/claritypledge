@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000957.0
 created_date: '2026-07-30'
 tags: [landing, copy, organizations, certificate]

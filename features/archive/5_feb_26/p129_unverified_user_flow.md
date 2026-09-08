@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: comment
+disclosure: public
 priority: p2
 milestone: C2
 depends_on:

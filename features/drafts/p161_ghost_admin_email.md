@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 workstream: C2
 tags:
   - ghost

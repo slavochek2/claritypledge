@@ -3,6 +3,7 @@ status: done
 delivery_stage: shipped
 completed_at: "2026-03-06"
 type: change-request
+disclosure: public
 rank: 500004.5
 changes: p459
 flow: dev

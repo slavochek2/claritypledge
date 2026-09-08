@@ -1,6 +1,7 @@
 ---
 status: today
 type: bug
+disclosure: public
 rank: 1
 created_date: '2026-08-18'
 tags: [security, process, drift, migrations]

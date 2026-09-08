@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000979.0
 created_date: '2026-08-13'
 tags: [points, cmp, positioning, content]

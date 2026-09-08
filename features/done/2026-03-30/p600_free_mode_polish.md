@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-03-30'
 type: story
+disclosure: public
 rank: 0.19
 tags:
   - epic-story-first

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000800.0
 created_date: '2026-06-10'
 tags: [coach-landing, copy, calibration, conversion]

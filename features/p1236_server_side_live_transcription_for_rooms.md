@@ -1,6 +1,7 @@
 ---
 status: week
 type: task
+disclosure: public
 rank: 1000066
 workstream: transcription
 created_date: '2026-09-03'

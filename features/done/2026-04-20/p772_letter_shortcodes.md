@@ -2,6 +2,7 @@
 id: p772
 title: Letter shortcode resolution
 type: story
+disclosure: public
 status: all-done
 pipeline_ran: [ship]
 created_at: 2026-04-20

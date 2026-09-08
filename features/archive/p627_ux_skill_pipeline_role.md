@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 0.003
 workstream: foundation
 created_date: 2026-04-02T00:00:00.000Z

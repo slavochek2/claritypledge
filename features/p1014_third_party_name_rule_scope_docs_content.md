@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 201
 created_date: '2026-07-30'
 tags: [privacy, audit-privacy, rules, pii]

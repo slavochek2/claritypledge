@@ -3,6 +3,7 @@ id: P549
 title: 1-to-many /live verification for events
 status: rejected
 type: story
+disclosure: public
 rank: 19
 tags:
   - live

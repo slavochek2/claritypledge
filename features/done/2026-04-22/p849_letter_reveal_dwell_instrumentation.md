@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000766.0
 workstream: letter
 created_date: '2026-05-19'

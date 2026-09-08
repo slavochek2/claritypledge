@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 flow: inline
 rank: 1000050
 created_date: 2026-04-04T00:00:00.000Z

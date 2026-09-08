@@ -2,6 +2,7 @@
 id: p954
 title: "Hardcode public Stripe payment links — fix prod checkout outage"
 type: bug
+disclosure: public
 status: all-done
 pipeline_ran: [dev, ship]
 completed_at: 2026-06-19

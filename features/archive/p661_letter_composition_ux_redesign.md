@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: change-request
+disclosure: public
 rank: 1000063
 changes: p581
 tags:

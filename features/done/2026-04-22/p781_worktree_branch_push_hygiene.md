@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000751.0
 created_date: '2026-04-21'
 tags: [infrastructure, worktrees, git, skills, process]

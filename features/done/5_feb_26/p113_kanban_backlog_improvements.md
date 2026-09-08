@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 priority: p1
 size: m
 tags:

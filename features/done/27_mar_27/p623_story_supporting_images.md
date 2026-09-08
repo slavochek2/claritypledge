@@ -2,6 +2,7 @@
 status: done
 completed_at: '2026-03-27'
 type: story
+disclosure: public
 rank: 2
 tags:
   - stories

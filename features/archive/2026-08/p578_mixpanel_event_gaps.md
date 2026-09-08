@@ -2,6 +2,7 @@
 title: "Mixpanel event gaps — P566 upload + 404 + transcript nudge"
 status: rejected
 type: task
+disclosure: public
 priority: low
 created: 2026-03-23
 tags: []

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 3
 tags: [design-system, ui]
 pipeline_ran: [create-spec, inline, park]

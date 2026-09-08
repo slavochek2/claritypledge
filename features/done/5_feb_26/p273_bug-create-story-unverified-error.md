@@ -2,6 +2,7 @@
 status: all-done
 delivery_stage: implementation
 type: task
+disclosure: public
 rank: 2
 workstream: C1
 tags:

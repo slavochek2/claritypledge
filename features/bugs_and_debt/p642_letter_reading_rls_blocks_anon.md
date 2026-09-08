@@ -8,6 +8,7 @@ resolution: >-
   Added SECURITY DEFINER RPC get_letter_for_reading(p_token) that validates
   token and returns all data in one call, bypassing RLS
 type: bug
+disclosure: public
 rank: 1
 tags:
   - letters

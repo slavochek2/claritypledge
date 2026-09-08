@@ -2,6 +2,7 @@
 id: p735
 title: Active session UX — replace disabled Start button with Rejoin + End
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 severity: high

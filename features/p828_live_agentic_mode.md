@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 61
 created_date: '2026-04-29'
 tags: [live, agentic, mode, ai-facilitator, comprehension, badge]

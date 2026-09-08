@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 priority: p1
 milestone: C1
 tags: [mcp, api, events, ai-assistant, infrastructure]

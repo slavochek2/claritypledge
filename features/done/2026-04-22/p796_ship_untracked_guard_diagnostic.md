@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1
 tags: [git-ops, ship, infrastructure]
 created_date: '2026-04-23'

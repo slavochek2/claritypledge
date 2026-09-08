@@ -2,6 +2,7 @@
 status: done
 completed_at: '2026-03-06'
 type: bug
+disclosure: public
 rank: 2
 tags:
   - agreements

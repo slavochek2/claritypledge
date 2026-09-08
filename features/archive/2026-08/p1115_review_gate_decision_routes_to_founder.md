@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 47.0
 created_date: '2026-08-19'
 tags: [process, gates, review, operator-load]

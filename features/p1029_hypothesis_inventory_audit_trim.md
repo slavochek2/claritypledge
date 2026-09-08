@@ -1,6 +1,7 @@
 ---
 status: week
 type: comment
+disclosure: public
 rank: 11
 created_date: '2026-08-06'
 tags:

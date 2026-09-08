@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+disclosure: public
 rank: 240
 workstream: transcription
 created_date: '2026-09-05'

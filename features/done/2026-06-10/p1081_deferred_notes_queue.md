@@ -1,5 +1,6 @@
 ---
 type: task
+disclosure: public
 rank: 30
 created_date: '2026-08-14'
 tags: [skills, weekly, monthly, process]

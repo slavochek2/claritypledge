@@ -1,6 +1,7 @@
 ---
 status: done
 type: bug
+disclosure: public
 rank: 1000941
 severity: high
 workstream: C1

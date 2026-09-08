@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: change-request
+disclosure: public
 rank: 1000072.0
 created_date: 2026-04-07T00:00:00.000Z
 changes: p617

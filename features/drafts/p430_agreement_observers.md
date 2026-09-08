@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 5.0
 milestone: M2
 tags: [clarity-partner, observers, witnesses, accountability]

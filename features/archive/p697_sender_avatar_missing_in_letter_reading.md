@@ -2,6 +2,7 @@
 id: p697
 title: Sender avatar missing when recipient reads a letter
 type: bug
+disclosure: public
 status: rejected
 completed_at: '2026-04-20'
 severity: medium

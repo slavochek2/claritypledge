@@ -5,6 +5,7 @@ date_resolved: 2026-04-03
 root_cause: handleMovePoint used stale pointConfig.order missing newly-linked point IDs
 resolution: Replaced with orderedPointIds which always includes all current points
 type: bug
+disclosure: public
 rank: 1000034
 workstream: E1
 severity: medium

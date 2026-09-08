@@ -1,6 +1,7 @@
 ---
 status: done
 type: change-request
+disclosure: public
 rank: 500001
 changes: p422
 tags:

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 125472.0
 workstream: C1
 tags: [live, filing, stories, calibration, position]

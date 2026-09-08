@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 completed_at: '2026-02-05'
 prepped_date: '2026-02-05'
 reviews:

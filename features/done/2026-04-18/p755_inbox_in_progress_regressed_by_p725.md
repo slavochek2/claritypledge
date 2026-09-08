@@ -2,6 +2,7 @@
 id: P755
 title: Inbox sender view loses in-progress state and progress fields after P725 migration
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-18
 pipeline_plan: [fix]

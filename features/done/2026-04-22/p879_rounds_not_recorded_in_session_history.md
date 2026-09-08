@@ -4,6 +4,7 @@ date_resolved: '2026-06-04'
 root_cause: Free-mode completion paths reset round state without appending to sessionHistory (guided paths do append)
 resolution: Added buildRoundHistoryEntry helper + sessionHistory append and currentRound increment to both free-mode reset sites (handleFreeDiscussAnother bothDone + free reactive safety-net useEffect)
 type: bug
+disclosure: public
 rank: 1000769
 severity: high
 workstream: C1

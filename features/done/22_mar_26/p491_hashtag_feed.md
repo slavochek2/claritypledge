@@ -3,6 +3,7 @@ title: "P491: Hashtag Feed — Public Content Discovery by Tag"
 status: all-done
 completed_at: '2026-03-12'
 type: feature
+disclosure: public
 rank: 8.0
 workstream: C2
 tags: [feed, hashtags, discovery, navigation]

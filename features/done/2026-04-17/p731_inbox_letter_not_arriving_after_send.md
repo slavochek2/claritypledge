@@ -2,6 +2,7 @@
 id: P731
 title: Sent letter doesn't appear in recipient inbox without claiming via email link
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 pipeline_plan: [reproduce, fix, ship]

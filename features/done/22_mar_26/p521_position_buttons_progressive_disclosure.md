@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: change-request
+disclosure: public
 rank: 250009.75
 changes: none
 superseded_by: p847

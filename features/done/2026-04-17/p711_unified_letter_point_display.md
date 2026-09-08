@@ -2,6 +2,7 @@
 status: all-done
 completed_at: 2026-04-17
 type: change-request
+disclosure: public
 rank: 1000711.0
 changes: p708
 tags:

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 54
 created_date: '2026-04-17'
 tags: [docs, auth, cleanup]

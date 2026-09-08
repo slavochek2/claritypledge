@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000932.0
 created_date: '2026-06-15'
 tags: [privacy, security, audit-privacy, pii]

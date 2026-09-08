@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 0.587
 created_date: '2026-04-06'
 tags:

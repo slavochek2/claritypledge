@@ -2,6 +2,7 @@
 id: p620
 title: 'Online workshop #1 — universal pitch + three-track payment + parallel channels'
 type: task
+disclosure: public
 status: all-done
 priority: high
 rank: 531668.032

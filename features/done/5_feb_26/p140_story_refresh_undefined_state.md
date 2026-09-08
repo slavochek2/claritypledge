@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 severity: high
 date_reported: '2026-02-09'
 date_resolved: '2026-02-15'

@@ -6,6 +6,7 @@ root_cause: Guest writes silently dropped — patch_live_state GRANT only covere
 resolution: Added guest OR branch to WHERE + GRANT EXECUTE to anon role; auto-reveal second UPDATE drops redundant auth re-check
 pipeline_ran: [fix, ship]
 type: bug
+disclosure: public
 rank: 1000071.0
 severity: high
 date_reported: '2026-04-06'

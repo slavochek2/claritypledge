@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 88
 created_date: '2026-08-12'
 tags: [measurement, norms, installs, instrument]

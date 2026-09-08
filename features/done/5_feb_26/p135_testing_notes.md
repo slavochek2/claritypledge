@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 tags: []
 rank: 125355.0
 created_date: 2026-02-10

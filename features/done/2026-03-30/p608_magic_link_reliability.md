@@ -3,6 +3,7 @@ status: all-done
 flow: dev
 completed_at: "2026-03-30"
 type: bug
+disclosure: public
 rank: 1000029.0
 workstream: foundation
 severity: medium

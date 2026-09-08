@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 226
 created_date: '2026-08-20'
 tags: [git-safety, goal-gate, tooling]

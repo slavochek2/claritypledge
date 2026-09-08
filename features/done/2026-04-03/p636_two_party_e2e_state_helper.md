@@ -2,6 +2,7 @@
 status: all-done
 completed_at: "2026-04-03"
 type: task
+disclosure: public
 rank: 0.008
 superseded_by: p644
 flow: dev

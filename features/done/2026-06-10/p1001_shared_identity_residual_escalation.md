@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 3
 created_date: '2026-07-17'
 tags: [infrastructure, security, gcp, service-accounts]

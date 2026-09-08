@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 13
 workstream: foundation
 tags: [development-process, skills, testing, automation]

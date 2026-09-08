@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 62741.5
 completed_at: "2026-02-28"
 tags:

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 76
 created_date: '2026-07-15'
 tags: [registration, agreement, pledge, front-door]

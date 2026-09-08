@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 1000090
 workstream: C1
 created_date: '2026-09-04'

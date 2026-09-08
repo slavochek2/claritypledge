@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+disclosure: public
 rank: 217
 created_date: '2026-08-17'
 tags: [security, letters, sealed-bid, integrity]

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 sort_order: 1000001
 completed_at: '2026-02-04'
 tags: []

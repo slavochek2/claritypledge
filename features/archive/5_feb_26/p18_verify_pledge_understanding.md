@@ -3,6 +3,7 @@ title: "P7: Golden Verification of Pledge Understanding"
 epic: "Enhanced Pledge Experience"
 status: "ready for development"
 type: comment
+disclosure: public
 author: "Architect"
 date: "2025-12-05"
 tags: []

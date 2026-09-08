@@ -1,6 +1,7 @@
 ---
 title: "Position history trigger blocked by RLS — positions don't persist"
 type: bug
+disclosure: public
 status: all-done
 priority: critical
 created_date: 2026-04-09

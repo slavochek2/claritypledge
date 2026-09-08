@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1
 pipeline_ran: [dev, ship]
 completed_at: "2026-04-06"

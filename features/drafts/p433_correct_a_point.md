@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 125474.0
 workstream: C1
 tags: [points, ux, positions, calibration]

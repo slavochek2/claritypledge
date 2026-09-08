@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: bug
+disclosure: public
 superseded_by: p650
 rank: 1000054.0
 severity: high

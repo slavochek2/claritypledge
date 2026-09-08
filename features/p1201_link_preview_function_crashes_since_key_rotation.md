@@ -1,6 +1,7 @@
 ---
 status: week
 type: bug
+disclosure: public
 rank: 90
 severity: critical
 workstream: infra

@@ -2,6 +2,7 @@
 status: all-done
 completed_at: "2026-03-13"
 type: bug
+disclosure: public
 rank: 250005.75
 workstream: E1
 created_date: 2026-03-13

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 44
 created_date: '2026-08-28'
 tags: [organizations, membership, events, pricing, schema]

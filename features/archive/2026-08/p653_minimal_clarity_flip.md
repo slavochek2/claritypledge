@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 47
 created_date: '2026-04-05'
 tags: [workshop, facilitation, clarity-flip, pre-event]

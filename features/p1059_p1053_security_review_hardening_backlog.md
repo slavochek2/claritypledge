@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 89
 created_date: '2026-08-12'
 tags: [security, hardening, clarity-sessions, rls]

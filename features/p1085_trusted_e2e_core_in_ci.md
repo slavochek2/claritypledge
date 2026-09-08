@@ -1,6 +1,7 @@
 ---
 status: today
 type: task
+disclosure: public
 rank: 0.032
 created_date: '2026-08-14'
 tags:

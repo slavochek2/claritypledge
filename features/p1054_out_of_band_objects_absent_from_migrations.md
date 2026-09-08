@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 210
 created_date: '2026-08-12'
 tags: [security, rls, drift, migrations]

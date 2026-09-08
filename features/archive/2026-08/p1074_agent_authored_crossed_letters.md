@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 5
 workstream: letters
 created_date: '2026-08-13'

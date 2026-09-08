@@ -1,6 +1,7 @@
 ---
 status: draft
 type: task
+disclosure: public
 workstream: C1
 tags: []
 rank: 125317.0

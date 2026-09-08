@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 47
 created_date: '2026-08-20'
 tags: [donations, stripe, landing, funding]

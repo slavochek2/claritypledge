@@ -2,6 +2,7 @@
 id: p718
 title: "Letter results — recipient position not shown (stored as numeric string)"
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 severity: high

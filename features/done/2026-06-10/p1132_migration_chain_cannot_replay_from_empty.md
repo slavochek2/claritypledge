@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 52
 created_date: '2026-08-20'
 tags: [migrations, ci, idempotency, e2e]

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: comment
+disclosure: public
 rank: 87
 workstream: letters
 created_date: '2026-08-11'

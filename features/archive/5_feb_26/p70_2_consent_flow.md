@@ -1,6 +1,7 @@
 ---
 status: prepped
 type: comment
+disclosure: public
 prepped_date: 2026-01-19
 prepped_by: /prep-spec
 reviews:

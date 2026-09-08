@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: bug
+disclosure: public
 rank: 1000027
 workstream: foundation
 severity: low

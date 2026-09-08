@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: comment
+disclosure: public
 priority: p1
 milestone: C1
 tags:

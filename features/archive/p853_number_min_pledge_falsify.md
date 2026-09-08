@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: comment
+disclosure: public
 rank: 0.011
 created_date: '2026-05-27'
 tags:

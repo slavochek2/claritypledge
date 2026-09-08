@@ -2,6 +2,7 @@
 p_number: 692
 title: 'Sent letters: forever-loading + mispositioned spinner'
 type: bug
+disclosure: public
 status: all-done
 completed_at: '2026-04-20'
 severity: high

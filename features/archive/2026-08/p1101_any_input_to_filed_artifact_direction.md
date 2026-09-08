@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: comment
+disclosure: public
 rank: 4
 workstream: content
 created_date: '2026-08-18'

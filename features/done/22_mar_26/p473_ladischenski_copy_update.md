@@ -1,6 +1,7 @@
 ---
 status: done
 type: feature
+disclosure: public
 rank: 1000004
 workstream: C2
 created_date: 2026-03-03

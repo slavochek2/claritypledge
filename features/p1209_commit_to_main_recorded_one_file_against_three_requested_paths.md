@@ -1,6 +1,7 @@
 ---
 status: week
 type: bug
+disclosure: public
 rank: 1000058
 workstream: infrastructure
 created_date: '2026-09-01'

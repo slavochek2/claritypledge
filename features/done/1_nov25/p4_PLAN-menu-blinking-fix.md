@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 tags: []
 rank: 125423.0
 created_date: 2025-12-01

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 date_resolved: '2026-07-15'
 root_cause: "No ignoreErrors pattern matched host-browser-injected throws (Telegram Mini Apps SDK, a browser extension); isChunkError lacked Vite's 'Unable to preload CSS for' string."
 resolution: "Added 3 anchored/specific ignore patterns + the Vite CSS-preload string, behind two pure predicates extracted to src/lib/ for testability."

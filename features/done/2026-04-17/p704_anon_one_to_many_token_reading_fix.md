@@ -1,6 +1,7 @@
 ---
 id: p704
 type: bug
+disclosure: public
 status: all-done
 completed_at: 2026-04-17
 severity: high

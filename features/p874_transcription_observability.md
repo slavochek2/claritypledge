@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 10
 created_date: '2026-06-02'
 tags: [observability, transcription, cost, p858]

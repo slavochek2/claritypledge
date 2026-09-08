@@ -1,6 +1,7 @@
 ---
 status: done
 type: story
+disclosure: public
 rank: 0.063
 tags:
   - epic-story-first

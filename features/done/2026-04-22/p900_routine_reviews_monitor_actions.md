@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000789.0
 created_date: '2026-06-05'
 tags: [skills, day, weekly, monthly, routine]

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 45
 created_date: '2026-08-28'
 tags: [organizations, events, roster, privacy]

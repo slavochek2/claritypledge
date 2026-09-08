@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 5
 workstream: events
 created_date: '2026-08-31'

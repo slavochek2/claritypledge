@@ -2,6 +2,7 @@
 status: all-done
 date_resolved: '2026-05-14'
 type: bug
+disclosure: public
 rank: 1000765.0
 severity: high
 workstream: C1

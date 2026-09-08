@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 81
 created_date: '2026-07-16'
 tags:

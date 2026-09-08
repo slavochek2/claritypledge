@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 workstream: C1
 prepped_date: '2026-02-06'
 reviews:

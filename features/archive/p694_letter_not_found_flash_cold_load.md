@@ -2,6 +2,7 @@
 id: p694
 title: '"Letter not found" flash on cold-load of letter reading page'
 type: bug
+disclosure: public
 status: rejected
 completed_at: '2026-04-20'
 severity: high

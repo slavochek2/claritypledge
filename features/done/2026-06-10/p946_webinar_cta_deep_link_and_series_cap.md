@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000939.0
 workstream: landing
 created_date: '2026-06-17'

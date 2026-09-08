@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 239
 workstream: spec-schema
 created_date: '2026-08-28'

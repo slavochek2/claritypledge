@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 8.0
 workstream: C1
 tags: [agreements, auth, new-users, friction]

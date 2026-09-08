@@ -50,10 +50,12 @@ def published_specs():
         ["git", "ls-tree", "-r", "--name-only", "origin/main", "features/"],
         cwd=REPO, capture_output=True, text=True, check=True,
     ).stdout
-    return {
-        line for line in out.splitlines()
-        if re.match(r"^features/(done/[^/]+/)?p\d+[^/]*\.md$", line)
-    }
+    # Exact-path membership, NOT a regex over path shapes. The first version
+    # matched only `features/pN.md` and `features/done/<sprint>/pN.md`, so
+    # `features/archive/2026-05-15/pN.md` — a real, published, three-level path —
+    # read as "not published" and was skipped. Caller tests the file's own
+    # relative path against this set, so no shape assumption is needed at all.
+    return set(out.splitlines())
 
 
 def stamp(path: pathlib.Path, apply: bool):

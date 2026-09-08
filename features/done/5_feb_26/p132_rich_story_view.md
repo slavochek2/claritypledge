@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-02-09'
 type: task
+disclosure: public
 priority: p1
 milestone: C1
 tags:

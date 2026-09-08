@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1
 workstream: gtm
 created_date: '2026-08-26'

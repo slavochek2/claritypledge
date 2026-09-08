@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 66
 created_date: '2026-06-05'
 tags: [skills, coaching, conversations-to, accountability]

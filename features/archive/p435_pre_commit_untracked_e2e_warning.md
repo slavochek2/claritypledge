@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 125468.0
 tags: [dx, pre-commit, testing]
 created_date: '2026-02-24'

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000963.0
 severity: high
 created_date: '2026-08-10'

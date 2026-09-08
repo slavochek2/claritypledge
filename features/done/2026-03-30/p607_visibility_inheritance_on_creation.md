@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: feature
+disclosure: public
 rank: 1000028.0
 workstream: foundation
 created_date: 2026-03-30

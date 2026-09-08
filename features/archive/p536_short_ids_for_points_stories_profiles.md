@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 500.0
 tags: [points, stories, profiles, ux]
 created_date: 2026-03-16

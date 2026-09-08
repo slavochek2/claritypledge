@@ -2,6 +2,7 @@
 id: P594
 title: Add "show more" expand/collapse to feed cards
 type: story
+disclosure: public
 status: all-done
 priority: medium
 flow: quick-feature

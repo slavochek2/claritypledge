@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 101
 created_date: '2026-08-19'
 tags: [docs, git-workflow, ship, push-safety, charter]

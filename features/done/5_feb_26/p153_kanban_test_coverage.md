@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-02-16'
 type: task
+disclosure: public
 rank: 147.0
 workstream: foundation
 tags: [testing, kanban, quality, automation, validation, documentation, sustainability]

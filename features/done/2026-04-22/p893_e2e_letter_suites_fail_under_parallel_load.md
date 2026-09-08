@@ -4,6 +4,7 @@ date_resolved: '2026-06-05'
 root_cause: stale e2e assertions (P725/P770/P852 shipped behavior) + Supabase auth rate limit under parallel load + duplicate history push per tab click on /letters
 resolution: tests updated to shipped behavior; per-worker session cache + rate-limit retry in test-user helper; handleTabChange dedupe guard + history canary
 type: bug
+disclosure: public
 rank: 1000783.0
 severity: medium
 workstream: letters

@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: comment
+disclosure: public
 rank: 90
 tags:
   - pledge

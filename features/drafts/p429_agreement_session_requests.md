@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 6.0
 milestone: M2
 tags: [clarity-partner, session-requests, compliance, fulfillment]

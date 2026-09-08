@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 8
 tags: [legal, tos, content, maintenance]
 created_date: 2026-03-04

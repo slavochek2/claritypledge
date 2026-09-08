@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-04-18'
 type: story
+disclosure: public
 rank: 1000745.0
 workstream: C2
 created_date: '2026-04-17'

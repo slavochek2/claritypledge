@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: comment
+disclosure: public
 rank: 49
 created_date: '2026-04-10'
 tags: [badge, habit-formation, journaling, retention]

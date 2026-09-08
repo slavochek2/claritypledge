@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-04-20'
 type: bug
+disclosure: public
 severity: high
 date_reported: 2026-04-11T00:00:00.000Z
 date_resolved: 2026-04-11T00:00:00.000Z

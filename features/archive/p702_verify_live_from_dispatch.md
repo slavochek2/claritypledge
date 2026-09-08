@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000702.0
 tags: [letters, live, verification, dispatch, notifications]
 created_date: '2026-04-13'

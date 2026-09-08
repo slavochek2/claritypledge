@@ -1,6 +1,7 @@
 ---
 title: "Mobile scroll bounce causes page refresh in /live"
 type: bug
+disclosure: public
 status: all-done
 priority: high
 created_date: 2026-03-16

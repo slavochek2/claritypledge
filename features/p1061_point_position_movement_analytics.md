@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 91
 created_date: '2026-08-13'
 tags: [points, positions, analytics, placeholder]

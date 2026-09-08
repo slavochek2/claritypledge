@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 1000071
 workstream: infrastructure
 created_date: '2026-09-03'

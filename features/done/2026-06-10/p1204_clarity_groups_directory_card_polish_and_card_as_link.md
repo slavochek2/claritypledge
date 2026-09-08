@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: change-request
+disclosure: public
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium

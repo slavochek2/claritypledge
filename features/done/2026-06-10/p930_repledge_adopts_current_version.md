@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000930.0
 created_date: '2026-06-11'
 tags: [pledge, versioning, oath, grandfathering]

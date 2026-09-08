@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000768
 created_date: '2026-06-01'
 tags: [ci, smoke, deploy, observability]

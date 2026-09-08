@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 98
 created_date: '2026-08-19'
 tags: [view, p748, dead-code, skills, spec-hygiene]

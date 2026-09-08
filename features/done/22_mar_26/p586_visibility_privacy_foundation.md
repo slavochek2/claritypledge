@@ -2,6 +2,7 @@
 status: all-done
 completed_at: "2026-03-25"
 type: story
+disclosure: public
 rank: 0.312
 tags:
   - privacy

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 0.01
 workstream: letter
 created_date: '2026-05-15'

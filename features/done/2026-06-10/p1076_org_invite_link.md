@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000989.0
 created_date: '2026-08-13'
 tags: [organizations, invite, auth, share]

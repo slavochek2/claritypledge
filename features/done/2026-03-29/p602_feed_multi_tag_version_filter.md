@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-03-29'
 type: story
+disclosure: public
 rank: 8.0
 workstream: C2
 tags: [feed, tags, filtering, version]

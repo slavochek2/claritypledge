@@ -1,6 +1,7 @@
 ---
 status: week
 type: story
+disclosure: public
 rank: 7
 workstream: landing
 created_date: '2026-08-19'

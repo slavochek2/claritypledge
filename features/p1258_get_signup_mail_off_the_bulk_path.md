@@ -1,6 +1,7 @@
 ---
 status: week
 type: task
+disclosure: public
 rank: 1000076
 workstream: C1
 created_date: '2026-09-07'

@@ -2,6 +2,7 @@
 id: p640
 title: Ghost 5→6 Security Upgrade
 type: task
+disclosure: public
 status: all-done
 priority: critical
 delivery_stage: done

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 50
 tags: [cleanup, dead-code, tooling, knip]
 delivery_stage: create-spec

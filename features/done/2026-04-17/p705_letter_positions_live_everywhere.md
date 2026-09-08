@@ -1,5 +1,6 @@
 ---
 type: task
+disclosure: public
 rank: 1000704.0
 workstream: C2
 created_date: '2026-04-14'

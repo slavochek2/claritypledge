@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 severity: critical
 rank: 1000783.0
 created_date: '2026-04-22'

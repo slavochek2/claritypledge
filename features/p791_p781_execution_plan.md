@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: comment
+disclosure: public
 rank: 56
 workstream: infrastructure
 created_date: '2026-04-22'

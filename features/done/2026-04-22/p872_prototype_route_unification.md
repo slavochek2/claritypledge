@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000900
 workstream: C1
 tags: [prototype-routes, dev-gating, refactor, security]

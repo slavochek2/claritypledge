@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000066
 workstream: content
 created_date: '2026-09-01'

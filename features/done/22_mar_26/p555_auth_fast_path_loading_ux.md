@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 250008.75
 workstream: foundation
 created_date: 2026-03-19

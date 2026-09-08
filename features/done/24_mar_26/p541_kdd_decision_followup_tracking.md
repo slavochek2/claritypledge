@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 0.875
 workstream: foundation
 created_date: 2026-03-17T00:00:00.000Z

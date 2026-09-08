@@ -1,6 +1,7 @@
 ---
 status: done
 type: task
+disclosure: public
 rank: 45.0
 created_date: '2026-08-19'
 tags: [claude-md, rules, contradictions, instruction-layer]

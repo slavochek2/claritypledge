@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 1000791.0
 created_date: '2026-06-05'
 tags: [infrastructure, transcription, p858, cost, cutover]

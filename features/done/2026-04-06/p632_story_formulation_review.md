@@ -3,6 +3,7 @@ id: p632
 title: "Story formulation review — ST2, ST3, ST6, ST7, ST8"
 status: all-done
 type: task
+disclosure: public
 priority: medium
 tags: []
 rank: 1000048.0

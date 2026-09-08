@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 rank: 57
 created_date: '2026-04-24'
 tags: [versioning, points, ui]

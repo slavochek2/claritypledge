@@ -2,6 +2,7 @@
 id: P966
 title: Centralize social links + add YouTube
 type: task
+disclosure: public
 status: all-done
 rank: 1
 tags: []

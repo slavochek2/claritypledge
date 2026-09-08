@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: story
+disclosure: public
 rank: 1000737.0
 created_date: '2026-04-17'
 tags: [letters, public-link, profile, signup, product, duplicate]

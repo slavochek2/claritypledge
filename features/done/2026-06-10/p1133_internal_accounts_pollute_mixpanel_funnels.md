@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 53
 workstream: analytics
 created_date: '2026-08-20'

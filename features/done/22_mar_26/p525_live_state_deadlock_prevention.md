@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: bug
+disclosure: public
 rank: 1
 completed_at: '2026-03-16'
 tags:

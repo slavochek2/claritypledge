@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: comment
+disclosure: public
 rank: 1000069
 workstream: transcription
 created_date: '2026-09-05'

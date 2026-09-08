@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 rank: 103
 created_date: '2026-08-21'
 tags: [migrations, rls, security, idempotency]

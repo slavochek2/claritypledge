@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 0.5
 workstream: events
 created_date: '2026-08-25'

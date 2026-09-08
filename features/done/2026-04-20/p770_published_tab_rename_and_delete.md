@@ -2,6 +2,7 @@
 status: all-done
 completed_at: '2026-04-20'
 type: story
+disclosure: public
 rank: 1000763.0
 workstream: letters
 created_date: '2026-04-20'

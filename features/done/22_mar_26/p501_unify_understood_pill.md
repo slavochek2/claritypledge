@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 rank: 250005.75
 workstream: E1
 flow: dev

@@ -2,6 +2,7 @@
 id: p411
 title: 'Position breakdown: show linked stories per holder'
 type: story
+disclosure: public
 status: done
 completed_at: '2026-02-22'
 delivery_stage: done

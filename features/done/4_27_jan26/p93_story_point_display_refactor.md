@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+disclosure: public
 prep_status: ready
 prep_date: 2026-01-23
 prep_by: /prep-spec

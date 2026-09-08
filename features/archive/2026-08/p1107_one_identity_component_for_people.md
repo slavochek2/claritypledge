@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: task
+disclosure: public
 rank: 39
 workstream: events
 created_date: '2026-08-18'

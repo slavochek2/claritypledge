@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+disclosure: public
 workstream: C2
 tags:
   - validation

@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: comment
+disclosure: public
 rank: 255
 workstream: transcription
 created_date: '2026-09-03'

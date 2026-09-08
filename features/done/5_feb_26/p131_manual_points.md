@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 workstream: E1
 tags:
   - stories

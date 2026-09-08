@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: task
+disclosure: public
 p_number: 701
 title: Points Restructure + Badge Display Fix
 pipeline_ran: [fix, ship]

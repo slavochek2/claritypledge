@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: story
+disclosure: public
 rank: 1000942.0
 created_date: '2026-07-13'
 tags: [landing, gtm, key-hire, front-door]

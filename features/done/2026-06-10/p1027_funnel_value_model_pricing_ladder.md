@@ -1,6 +1,7 @@
 ---
 status: all-done
 type: comment
+disclosure: public
 rank: 1
 created_date: '2026-08-06'
 completed_at: '2026-08-07'

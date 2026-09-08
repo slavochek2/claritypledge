@@ -1,6 +1,7 @@
 ---
 status: rejected
 type: bug
+disclosure: public
 rank: 4
 tags:
   - live
