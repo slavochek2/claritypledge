@@ -221,6 +221,117 @@ epistemic.md gate 7b
 
 ---
 
+## 2026-09-08 [product]: The agent stance badge is coloured again — both arguments for greying it were false (P1270)
+
+**Context:** Agent accounts are machine-authored readings of real named people who never
+consented. Since P1104 their cards rendered with `filter: grayscale(1)`, on the reasoning that
+"these accounts hold no pledge, no oath and no reputation, and a card without colour is a card
+with lower standing." The founder objected to the grey stance badge four separate times across
+several months and was declined each time; a promised legibility remedy was never built.
+
+**Decision:** Remove the drain. The badge renders blue like a human's, and `.agent-drained-chrome`
+is deleted along with all ten call sites and its CSS rule. Reverses 2026-09-01.
+
+**What actually settled it — two claims, each checked by command, each false:**
+
+1. *"Colour signals standing, and agents hold none."* `PositionBadge.tsx` renders ONE hardcoded
+   `bg-blue-100 text-blue-700` for every human — identical for a founding pledger with 40
+   ear-verifications and an account created that morning. Colour never encoded standing on the
+   human side, so draining it removed no claim an agent was falsely making. It invented a
+   distinction rather than reflecting one.
+2. *"The avatar is exempt, so the card keeps a colour channel."* True of the TEST FIXTURE only.
+   `test-agent-account.ts` seeds a deliberately saturated `#0044CC` initials block, while
+   production agent avatars are black-and-white portraits — a number recorded at 0.00 saturation
+   in the very file whose assertion depended on the exemption. The guard passed against an input
+   production does not render.
+
+Reading all ten sites also corrected the change itself: NINE wrap the whole byline row, not the
+badge. That made the class safe to delete outright — `MachineChip` is already `text-gray-500`
+and the ear badge is `!isAgent`-gated, so `PositionBadge` was the only pixel `grayscale(1)` ever
+acted on anywhere in the product.
+
+**Measured, on rendered pixels:** with the drain reintroduced the badge reads **0.00011
+saturation**; without it, `rgb(219,234,254)`. The drain took the one marker carrying CONTENT —
+whether the machine read the subject as agreeing or disagreeing — and made it the hardest thing
+on the card to read.
+
+**Alternatives rejected:** Keep grey (both premises falsified). Make it "legible without colour"
+via shape or weight (solves a problem that does not exist once the premises fall). Ratify two
+channels explicitly and then un-drain (the honest route, but the parity had been reached by
+accident under a channel count that was already wrong).
+
+**Consequences:** The disclosure now rests on exactly TWO channels, neither involving colour: the
+square avatar silhouette and the word `AGENT`. Two is the FLOOR, so it must hold on every render
+branch — which is why the embed branch fix shipped in the same change rather than after it. Both
+channels are now asserted directly in the render census and the a11y suite instead of being
+inferred from a filter. **A live gap remains and is filed:** while the agent registry is loading,
+`isAgent` is false and every agent row renders as a human, on all surfaces — pre-existing,
+product-wide, and invisible to every test because they all mock `isLoading: false`
+(`docs/process-learnings.md`).
+
+**References:** [features/done — p1270](../features/), `src/index.css`, `PositionBadge.tsx`
+
+## 2026-09-08 [technical]: Two functions had byte-identical SELECT blocks — the fix landed in the wrong one and the test stayed green (P1270)
+
+**Context:** A feed surface needed `story_points.author_id` so it could attribute a stance to a
+story's author. `getStoriesByAuthorWithPoints` and `getPointsForStories` contain SELECT blocks
+that are identical character-for-character. The edit was applied with an assertion that the
+pattern EXISTED, not that it was UNIQUE, so it matched the earlier function and the intended one
+was never touched.
+
+**Decision:** When editing one of N similar blocks, assert the OCCURRENCE COUNT, and scope the
+match to the enclosing function before replacing. When a query gains a column, assert that the
+query REQUESTS it — separately from asserting that the code uses it.
+
+**Why the test could not catch it:** the mock returned `author_id` on every row regardless of what
+the SELECT asked for. It proved the mapping logic and was completely silent on whether the data
+would ever arrive. Those are two different failures and only one was covered, so the feature was
+broken in production under a green suite. Found by adversarial review of the diff, not by the
+suite. The fix records the requested column list and asserts it; removing the column from the
+query now exits non-zero.
+
+**The count assertion earned its place twice in one session.** Later, a deliberate mutation meant
+to prove a gate could fail matched **0 of an expected 2** sites. The suite went green having
+tested nothing, and without the count that green would have been reported as a gate-7 proof —
+the exact inversion the gate exists to prevent.
+
+**Consequences:** Extends `epistemic.md` gate 7. A green run after a mutation is only evidence if
+the mutation is confirmed applied. Prefer `assert s.count(old) == N` over `assert old in s` for
+any edit to a repeated pattern.
+
+**References:** `src/app/data/stories-service-real.ts`, `src/tests/p1270-feed-nested-stance.test.tsx`
+
+## 2026-09-08 [technical]: A census that enumerates COMPONENTS while calling itself a list of BRANCHES (P1270)
+
+**Context:** `p1259-disclosure-route-on-every-surface.test.tsx` exists to guarantee every surface
+rendering an agent story carries the disclosure. It had four entries and had already been widened
+once, after review found a surface it could not see. It still could not see a live defect: on the
+embed route, an agent's story rendered with ZERO markers — no avatar, no `AGENT` word, no name, no
+route — because the component gated its entire byline on a successful author lookup and that
+route resolves authors against position holders, a different set.
+
+**Decision:** The unit of a census is the RENDER BRANCH, not the component. All four entries
+passed a `getStoryAuthor` that RESOLVES; the fixture, not the component list, was the thing never
+varied. Added an entry that passes exactly what the embed page returns — `undefined` — and split
+the contract into a marker FLOOR (every branch: square avatar + the `AGENT` word) and a ROUTE
+(branches where an author resolves: the name is a real control).
+
+**Second finding, from the same change — inverting an invariant silently converts its negative
+control into a tautology.** The guard asserting "an agent chip IS drained" had a control asserting
+"a human chip is NOT drained." When the invariant flipped, the positive assertion was rewritten
+and the control was left alone — where it now passes unconditionally, since nothing is drained on
+either side. It would go green against a build that stamped the agent markers onto every human in
+the product. Re-aimed at what still discriminates: a human card must carry NEITHER channel.
+
+**Consequences:** When flipping an invariant, re-aim its negative control in the same edit, and
+check the control can still FAIL. When a census claims completeness, enumerate the inputs the
+fixture structurally cannot emit — the same blindness (every agent test mocks `isLoading: false`)
+still hides the registry-loading disclosure gap filed in `docs/process-learnings.md`.
+
+**References:** `src/tests/p1259-disclosure-route-on-every-surface.test.tsx`,
+`src/tests/p1259-stance-chip-in-feed.test.tsx`, [epistemic.md](../.claude/rules/epistemic.md) 7b
+
+
 ## 2026-09-08 [product]: Stories lead the tabs; the feed's default stays with the links that point at it
 
 **Context:** The founder's read was that stories carry pictures and video and are the more
