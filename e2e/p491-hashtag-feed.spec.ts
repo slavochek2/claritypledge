@@ -11,7 +11,7 @@
 import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestStory, deleteTestStory, type TestStory } from './helpers/test-story';
-import { createTestPoint, deleteTestPoint, type TestPoint } from './helpers/test-point';
+import { createTestPoint, createTestPosition, deleteTestPoint, type TestPoint } from './helpers/test-point';
 
 test.describe('P491: Hashtag Feed — User Flows', () => {
   let author: TestUser;
@@ -39,6 +39,10 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
       statement: 'Fundraising is harder than building product.',
       tags: ['fundraising', 'startup-advice'],
     });
+
+    // Author takes a position — P543 hides zero-position points from every
+    // listing surface (feed included), so without this the fixture is invisible.
+    await createTestPosition(taggedPoint.id, author.user.id, 'agree');
   });
 
   test.afterEach(async () => {
@@ -98,7 +102,7 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await expect(page).toHaveURL(/tag=fundraising/);
 
     // Active tag filter should be visible
-    await expect(page.getByText('fundraising')).toBeVisible();
+    await expect(page.getByLabel('Remove tag filter for fundraising')).toBeVisible();
   });
 
   test('dismissing tag filter returns to unfiltered /feed', async ({ page }) => {
@@ -127,8 +131,8 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await page.goto('/feed?tag=nonexistent');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(/no content tagged nonexistent yet/i)).toBeVisible();
-    await expect(page.getByRole('link', { name: /browse all content/i })).toBeVisible();
+    await expect(page.getByText(/no content matching #nonexistent yet/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /browse all content/i })).toBeVisible();
   });
 
   // ==========================================================================
@@ -141,7 +145,7 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
 
     // Should see filtered content (not an auth wall)
     expect(page.url()).toContain('/feed');
-    await expect(page.getByText('fundraising')).toBeVisible();
+    await expect(page.getByLabel('Remove tag filter for fundraising')).toBeVisible();
   });
 
   // ==========================================================================
@@ -203,7 +207,7 @@ test.describe('P491: Authenticated User Flows', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page).toHaveURL(/\/feed/);
-    await expect(page.getByRole('heading', { name: /feed/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /home/i, level: 1 })).toBeVisible();
   });
 
   test('bottom nav shows Feed instead of History on mobile (UAT-9)', async ({ page }) => {

@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: bug
 disclosure: public
 rank: 213
@@ -7,8 +7,8 @@ severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [e2e, feed, points, test-debt]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1078: `e2e/p491-hashtag-feed.spec.ts` fails since P543 shipped — fixture never stakes a position
@@ -55,6 +55,43 @@ Add a `createTestPosition(taggedPoint.id, author.user.id, 'agree')` (or similar)
 
 ## Acceptance Criteria
 
-- [ ] `npx playwright test e2e/p491-hashtag-feed.spec.ts` passes with 0 failures
-- [ ] Fixture change is limited to `beforeEach`/`afterEach` staking/cleanup — no assertions weakened
-- [ ] No regression to the currently-passing "Authenticated User Flows" / "/live" tests in the same file
+- [ ] `npx playwright test e2e/p491-hashtag-feed.spec.ts` passes with 0 failures — **NOT YET RUN, and
+  deliberately left unticked so `ship-gates.sh` blocks the merge.** The
+  Playwright run needs a live dev server + browser and could not be executed in this session. Static
+  gates stand in: `npx eslint e2e/p491-hashtag-feed.spec.ts` exit 0, and `tsc --noEmit` over the spec
+  reports no error in this file. **The e2e run is still owed and must be executed before this merges.**
+- [x] Fixture change is limited to `beforeEach`/`afterEach` staking/cleanup — no assertions weakened —
+  `beforeEach` gains one `createTestPosition(taggedPoint.id, author.user.id, 'agree')` call, mirroring
+  `e2e/p503-profile-tag-pills.spec.ts:47`. No `afterEach` change needed: `point_positions.point_id` is
+  `REFERENCES points(id) ON DELETE CASCADE`
+  (`supabase/migrations/20260204_stories_points_calibration.sql:99`), so the existing `deleteTestPoint`
+  already removes the position.
+- [x] No regression to the currently-passing "Authenticated User Flows" / "/live" tests in the same file —
+  the `/live` test is untouched. The authenticated-redirect test's heading assertion was CORRECTED, not
+  weakened: it asserted a `/feed/i` heading while `src/app/pages/feed-page.tsx:323` renders `<h1>Home</h1>`.
+
+## Additional stale assertions found by adversarial review (same file, same root class)
+
+Codex review of the fix surfaced three further deterministic failures in this spec file that the
+P1078 report did not name. Each was verified against the source before changing anything:
+
+- [x] Empty-state test expected `no content tagged nonexistent yet` and a `link` named
+  "Browse all content". `src/app/pages/feed-page.tsx:478` renders
+  `No content matching #nonexistent yet` and `:480-489` renders a `<button>`. Test corrected to match.
+- [x] Authenticated-redirect test expected a heading matching `/feed/i`;
+  `src/app/pages/feed-page.tsx:323` renders `<h1>Home</h1>`. Test corrected to `/home/i`, level 1.
+- [x] Two `getByText('fundraising')` assertions become strict-mode ambiguous once the point is visible —
+  the active-filter chip (`src/app/components/feed/active-tag-filter.tsx:24`) and the card's tag pill
+  (`src/app/components/shared/tag-pills.tsx:85`) both carry the string. Both replaced with
+  `getByLabel('Remove tag filter for fundraising')`, which asserts the active-filter chip specifically
+  — a strictly stronger assertion, matching each site's own comment ("Active tag filter should be visible").
+
+One review finding was **rejected** after checking the source: codex claimed the tag-pill locator
+becomes ambiguous because the tagged story also carries `fundraising`. `feed-page.tsx` renders only
+`activeContent` for the active tab, and the Points tab is the default, so the story's pill is not in
+the DOM at that point. Before this fix the Points tab rendered ZERO such pills (the point was hidden);
+after it, exactly one.
+
+One review finding is **out of scope and unfixed**: the `/live` tag-pill requirement at
+`e2e/p491-hashtag-feed.spec.ts:250-256` is explicitly skipped, so a regression there stays green. That
+is a coverage gap, not a failing test, and P1078 is scoped to the failures.
