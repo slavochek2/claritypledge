@@ -3,7 +3,7 @@ status: backlog
 type: task
 disclosure: public
 rank: 90
-workstream: infrastructure
+workstream: problem-board
 created_date: '2026-08-28'
 tags: [visibility, privacy, rls, problem-board]
 blocked_by: [p1180]

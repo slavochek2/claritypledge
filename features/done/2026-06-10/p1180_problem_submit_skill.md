@@ -3,7 +3,7 @@ status: all-done
 type: task
 disclosure: public
 rank: 0.063
-workstream: infrastructure
+workstream: problem-board
 created_date: '2026-08-28'
 tags:
   - skills
