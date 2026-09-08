@@ -2002,26 +2002,36 @@ fi
 echo ""
 
 # 19. Zombie Vite server check — detect dev servers from deleted worktrees
-echo ">>> Checking for zombie Vite dev servers..."
+echo ">>> Checking for leaked vite/playwright processes..."
+# P1277: this check used to enumerate LISTENING node sockets and flag only a
+# vite whose cwd had been deleted. It reported CLEAN through a measured leak of
+# 8 vite servers (oldest 11 days) and 59 playwright processes, for three
+# reasons: it never looked at playwright at all; an orphan whose cwd still
+# exists was invisible; and its port pattern `5[1-7]00` matched only round
+# hundreds, so the default 5173 was outside the range it scanned.
+#
+# The classifier now lives in one place — scripts/reap-e2e-zombies.sh — so the
+# detector and the reaper cannot disagree about what counts as a zombie. Warn
+# only: killing something is never this hook's decision.
 ZOMBIE_COUNT=0
-# Check all Vite-range ports (5001, 5100-5700, 5800-5899)
-VITE_PIDS=$(lsof -i -P -n 2>/dev/null | grep 'LISTEN' | grep 'node' | awk '{print $2, $9}' | grep -E ':(50[0-9]{2}|5[1-7]00|58[0-9]{2})$' || true)
-if [ -n "$VITE_PIDS" ]; then
-    while IFS= read -r line; do
-        PID=$(echo "$line" | awk '{print $1}')
-        PORT_INFO=$(echo "$line" | awk '{print $2}')
-        CWD=$(lsof -p "$PID" 2>/dev/null | grep cwd | awk '{print $NF}' || true)
-        if [ -n "$CWD" ] && [ ! -d "$CWD" ]; then
-            echo -e "${YELLOW}⚠ Zombie Vite server: PID $PID on $PORT_INFO (cwd $CWD no longer exists)${NC}"
-            echo -e "${YELLOW}  → Kill with: kill $PID${NC}"
+if [ -x "./scripts/reap-e2e-zombies.sh" ]; then
+    ZOMBIE_LIST=$(./scripts/reap-e2e-zombies.sh --list 2>/dev/null || true)
+    if [ -n "$ZOMBIE_LIST" ]; then
+        while IFS= read -r zline; do
+            [ -z "$zline" ] && continue
+            Z_PID=$(echo "$zline" | cut -d: -f2)
+            Z_KIND=$(echo "$zline" | cut -d: -f3)
+            Z_WHY=$(echo "$zline" | cut -d: -f4-)
+            echo -e "${YELLOW}⚠ Leaked $Z_KIND process: PID $Z_PID — $Z_WHY${NC}"
             ZOMBIE_COUNT=$((ZOMBIE_COUNT + 1))
-        fi
-    done <<< "$VITE_PIDS"
+        done <<< "$ZOMBIE_LIST"
+        echo -e "${YELLOW}  → Review with ./scripts/reap-e2e-zombies.sh, then ./scripts/reap-e2e-zombies.sh --kill${NC}"
+    fi
 fi
 if [ "$ZOMBIE_COUNT" -gt 0 ]; then
     WARNINGS=$((WARNINGS + ZOMBIE_COUNT))
 else
-    echo -e "${GREEN}✓ No zombie Vite servers${NC}"
+    echo -e "${GREEN}✓ No leaked vite/playwright processes${NC}"
 fi
 echo ""
 
