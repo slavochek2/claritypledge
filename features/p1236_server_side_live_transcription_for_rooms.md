@@ -1398,10 +1398,39 @@ is not is the one option with no argument for it.
 
 Triggered by `.claude/rules/features.md` — a new edge function calling an external API.
 
+### The contract migration is held back deliberately — apply it LAST
+
+`supabase/migrations/20260908170100_p1236_b_drop_direct_member_insert.sql` exists in the `w5`
+worktree, **uncommitted and unapplied to any database**, and that is the correct state until deploy.
+It is the contract half of an expand/contract pair: it removes the `authenticated users can join as
+themselves` INSERT policy, which is what still lets a member row be created without consent.
+
+**Why not now.** `main`'s `transcribe-service.ts:180` still performs that direct insert (verified
+2026-09-08). The test database is shared, so applying this migration today breaks "Join room" for
+every session running `main` — including `e2e/p1149-chat-render.spec.ts`, which joins through the
+browser as a real user rather than seeding with the service role. That is not a hypothetical
+co-tenant inconvenience; it is a test in this repo that would start failing for a reason nobody
+touching it would recognise.
+
+**Why there is no exposure while it waits.** On prod, `/transcribe` still runs `main`'s code with
+`RECORD_AUDIO_WHILE_LIVE = false`, so the capture branch is dead and `privacy.md`'s "nothing is
+captured before you do" holds by construction today. The window this migration closes does not open
+until the client change deploys — and this migration deploys with it.
+
+- [ ] Apply `20260908170100_b` **after** the client cutover is on `main`, then commit it (the P270
+      pre-commit gate requires it applied to test first, which is why it is untracked until now).
+- [ ] Re-resolve its `requires-frontend: 26be25831` marker against `main` after `/ship` —
+      cherry-picking rewrites the sha, and P1053 records this exact marker blocking forever on a
+      commit its own pipeline had destroyed, stranding six unrelated migrations with it.
+
 ### Secrets to provision
-- [ ] `GEMINI_API_KEY` for `transcribe-slice`, from the **batch** project (`aikey-cp-batch-81413`,
-      EUR 75 cap) — not the prod-interactive key. Record in `.private/docs/edge-function-secrets.md`
+- [ ] `GEMINI_BATCH_API_KEY` for `transcribe-slice` — a **distinct variable name** holding the
+      existing batch key (`aikey-cp-batch-81413`, EUR 75 cap). Supabase edge-function secrets are
+      scoped to the PROJECT, not the function, and prod's `GEMINI_API_KEY` is already the
+      prod-interactive key that `generate-banner` reads; reusing that name would put every live
+      transcription slice on the user-facing fuse. Record in `.private/docs/edge-function-secrets.md`
       in the same step.
+      `npx supabase secrets set GEMINI_BATCH_API_KEY="$(~/.agents/bin/ai-keys --key-string --name cp-batch)" --project-ref <ref>`
 
 ### Deploy commands
 - [ ] `./scripts/deploy-functions.sh transcribe-slice` (test), then `--env prod`
