@@ -5,6 +5,7 @@ rank: 1000074
 workstream: infra
 created_date: '2026-09-07'
 tags: [security, disclosure, process, specs]
+disclosure: public
 delivery_stage: dev
 pipeline_ran: [create-spec, architect, dev]
 drafted_by: opus
