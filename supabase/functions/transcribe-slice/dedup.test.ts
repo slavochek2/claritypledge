@@ -84,8 +84,10 @@ Deno.test('matches spoken number words against digits across the boundary', () =
 });
 
 Deno.test('matches a normalised digit run against separated digits', () => {
-  const { strippedTokens } = dedupeSliceText('341113', '1 3 2 4');
-  assertGreater(strippedTokens, 0);
+  // `341113` normalises to six tokens; its tail `1`,`3` matches the candidate's head.
+  const { text, strippedTokens } = dedupeSliceText('341113', '1 3 2 4');
+  assertEquals(strippedTokens, 2);
+  assertEquals(text, '2 4');
 });
 
 // ---------------------------------------------------------------------------
@@ -116,6 +118,16 @@ Deno.test('surface form is preserved — normalisation never reaches the stored 
   const { text } = dedupeSliceText('one two', "Two, THREE — it doesn't work!");
   // "two" matched and was stripped; everything after keeps its own casing and punctuation.
   assertEquals(text, "THREE — it doesn't work!");
+});
+
+Deno.test('a punctuation-only token is never stripped on a vacuous match', () => {
+  // Regression: `"--"` normalises to NOTHING, so "every part of it is inside the match" is
+  // vacuously true and an earlier version stripped it even though it precedes the overlap
+  // and was never matched. Declining to strip is the correct direction — it leaves a
+  // duplicate rather than destroying content nothing verified.
+  const { text, strippedTokens } = dedupeSliceText('hello test test', '-- test test done');
+  assertEquals(strippedTokens, 0);
+  assertEquals(text, '-- test test done');
 });
 
 Deno.test('a raw token only partially inside the match is kept whole', () => {
@@ -149,6 +161,10 @@ Deno.test('the fixture reproduces the spec\'s own measured figures', () => {
   const overlapRaw = fixture.overlap_4s_1s.texts.reduce((n, t) => n + wordCount(t), 0);
   assertEquals(plain, fixture.plain_4s.expected_words); // 132
   assertEquals(overlapRaw, fixture.overlap_4s_1s.expected_words_raw); // 155
+  // Constrains the FIXTURE, not the algorithm: the harness can regenerate this file, and a
+  // regeneration that dropped or altered the reference the corpus tests are read against
+  // would otherwise be silent.
+  assertEquals(WHOLE_FILE_REFERENCE_WORDS, 134);
 });
 
 Deno.test('replaying the real corpus lands near the whole-file reference', () => {
@@ -157,7 +173,6 @@ Deno.test('replaying the real corpus lands near the whole-file reference', () =>
   // no-overlap 4s cut of 132. Under both, which is the intended direction: what is missing
   // is duplicate-adjacent material in the ambiguous "test test test" region, not sentences.
   assertEquals(words, 129);
-  assertGreater(WHOLE_FILE_REFERENCE_WORDS + 1, words);
 });
 
 Deno.test('the window bound is load-bearing — removing it deletes real speech', () => {

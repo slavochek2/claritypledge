@@ -63,6 +63,12 @@ import tempfile
 import time
 
 MODEL = "gemini-3.5-transcribe"
+
+WAV_NOTE = (
+    "gs://claritypledge-ml-training/p1236-measurement/input.wav — 168.24s of real /transcribe "
+    "room audio, catted from five sessions. NOT committed: this repo is public and that is "
+    "participant voice data."
+)
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 # P1237 RQ5 / Decision 8. Not a tuning knob — a spend and correctness guard.
@@ -96,9 +102,15 @@ def cut_slices(wav, out_dir, chunk_s, overlap_s=0.0):
     the boundary is destroyed ("doesn't" came back as "that"). Its cost is that the
     overlapped second is transcribed twice — which is what `dedup.ts` removes.
     """
-    if chunk_s > MAX_SLICE_SECONDS:
+    # Bound the REQUEST, not the cadence. Each slice carries `overlap_s` of lead-in on top of
+    # `chunk_s`, so checking chunk_s alone let `--chunk-seconds 29 --overlap-seconds 20` — both
+    # user-settable flags — emit a 49 s slice through a 30 s ceiling. The value that reaches
+    # Gemini is the sum, so the sum is what the guard has to see.
+    request_s = chunk_s + overlap_s
+    if request_s > MAX_SLICE_SECONDS:
         raise SystemExit(
-            f"refusing --chunk-seconds {chunk_s}: over the {MAX_SLICE_SECONDS}s ceiling. "
+            f"refusing --chunk-seconds {chunk_s} with --overlap-seconds {overlap_s}: each "
+            f"request would carry {request_s}s of audio, over the {MAX_SLICE_SECONDS}s ceiling. "
             "With diarization off Gemini accepts long audio, bills all of it, and returns "
             "only the opening minutes (P1237 RQ5). See Decision 8.")
     total = wav_duration_s(wav)
@@ -230,6 +242,61 @@ def mode_boundary(args, api_key, tmp):
     return out
 
 
+FIXTURE_PATH = "supabase/functions/transcribe-slice/__fixtures__/p1236-boundary-slices.json"
+
+
+def as_fixture(boundary_result, wav_note):
+    """Reshapes a `--mode boundary` result into the committed fixture's exact shape.
+
+    Without this the fixture could only be produced by hand-editing the harness's output, and
+    the file's own "regenerate with this script" instruction was not literally true — the
+    shapes differed in four ways and the documented flag did not exist. A regeneration path
+    nobody can follow is the same failure this whole harness exists to correct.
+    """
+    return {
+        "_provenance": {
+            "spec": "P1236 Finding 8 — regenerate with: "
+                    "GEMINI_API_KEY=<batch key> python3 scripts/p1236-gemini-slice-bench.py "
+                    "--wav input.wav --mode boundary --fixture",
+            "engine": f"{MODEL}, no gate and no normalisation on either side",
+            "audio": wav_note,
+            "whole_file_reference_words": 134,
+            "why_committed": "Decision 4's de-duplication is the highest-risk unproven "
+                             "component in the design and the spec requires it be built "
+                             "test-first against this data. The de-dup operates on TEXT, so "
+                             "the transcripts are the fixture it needs; the audio is only "
+                             "needed to regenerate them.",
+        },
+        "plain_4s": {
+            "description": "43 consecutive 4-second slices, no overlap. "
+                           "Reproduces the spec's 132-word figure.",
+            "n": boundary_result["plain_4s"]["n"],
+            "expected_words": 132,
+            "texts": boundary_result["plain_4s"]["texts"],
+        },
+        "overlap_4s_1s": {
+            "description": "The same 43 slices with 1 second of lead-in carried from the "
+                           "previous slice. Reproduces the spec's 155-word figure; the "
+                           "23-word rise is the duplication dedup.ts removes.",
+            "n": boundary_result["overlap_4s_1s"]["n"],
+            "expected_words_raw": 155,
+            "texts": boundary_result["overlap_4s_1s"]["texts"],
+        },
+    }
+
+
+def total_errors(result):
+    if result.get("mode") == "boundary":
+        return sum(v["errors"] for k, v in result.items() if isinstance(v, dict) and "errors" in v)
+    return sum(r["n_error"] for r in result.get("runs", []))
+
+
+def total_attempted(result):
+    if result.get("mode") == "boundary":
+        return sum(v["n"] for k, v in result.items() if isinstance(v, dict) and "n" in v)
+    return sum(r["n_ok"] + r["n_error"] for r in result.get("runs", []))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -240,6 +307,9 @@ def main():
     ap.add_argument("--concurrency", type=int, nargs="+", default=[1, 5, 10, 20])
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--json", help="write the result here instead of stdout")
+    ap.add_argument("--fixture", action="store_true",
+                    help=f"with --mode boundary: emit the exact shape of {FIXTURE_PATH} "
+                         "(the committed dedup fixture) rather than the raw harness output")
     args = ap.parse_args()
 
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -248,16 +318,35 @@ def main():
             "GEMINI_API_KEY is not set. Use the BATCH project key (aikey-cp-batch-81413), "
             "not the prod-interactive one — see P1236 Decision 8 and P1162.")
 
+    if args.fixture and args.mode != "boundary":
+        raise SystemExit("--fixture requires --mode boundary")
+
     with tempfile.TemporaryDirectory(prefix="p1236-bench-") as tmp:
         result = (mode_boundary if args.mode == "boundary" else mode_latency)(args, api_key, tmp)
 
-    text = json.dumps(result, indent=1, ensure_ascii=False)
+    emitted = result
+    if args.fixture:
+        emitted = as_fixture(result, WAV_NOTE)
+    text = json.dumps(emitted, indent=2 if args.fixture else 1, ensure_ascii=False)
     if args.json:
         with open(args.json, "w") as fh:
             fh.write(text + "\n")
         print(f"wrote {args.json}", file=sys.stderr)
     else:
         print(text)
+
+    # A run in which EVERY request failed used to exit 0 and print "wrote ...". Regenerating
+    # the committed fixture with an expired key then produces a file full of empty transcripts
+    # with no signal at the only place a caller looks — the exit code. An empty transcript is a
+    # legitimate RESULT here (Finding 6: 16 of 43 slices are silence), which is exactly why the
+    # error count, not the text, has to be what decides.
+    failed = total_errors(result)
+    if failed:
+        attempted = total_attempted(result)
+        print(f"WARNING: {failed} of {attempted} requests failed — see the errors fields.",
+              file=sys.stderr)
+        if failed == attempted:
+            raise SystemExit("every request failed; the output is not a measurement")
 
 
 if __name__ == "__main__":

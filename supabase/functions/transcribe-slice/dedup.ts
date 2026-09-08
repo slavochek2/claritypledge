@@ -209,15 +209,26 @@ export function dedupeSliceText(
   // Strip whole raw tokens only. A raw token that normalises to several parts (a digit run)
   // is removed only when EVERY one of its parts lies inside the matched region — a partial
   // match leaves it standing, which duplicates rather than corrupts.
+  //
+  // `contributes` is not redundant with `allPartsMatched`. A raw token that normalises to
+  // NOTHING — one made entirely of punctuation, `"--"` or a bare em-dash — satisfies
+  // "every part is inside the match" vacuously, and an earlier version stripped such a token
+  // even when it sat BEFORE the overlap and had never been matched by anything. Requiring at
+  // least one part makes the loop stop there instead, which is the module's stated bias:
+  // declining to strip leaves a duplicate, stripping on a vacuous truth destroys content
+  // nothing verified.
   const lastMatchedRawIndex = candidateNorm[k - 1].rawIndex;
-  const rawIsFullyMatched = (rawIndex: number) =>
+  const contributes = (rawIndex: number) =>
+    candidateNorm.some((t) => t.rawIndex === rawIndex);
+  const allPartsMatched = (rawIndex: number) =>
     candidateNorm.every((t, i) => t.rawIndex !== rawIndex || i < k);
 
   let strippedTokens = 0;
   while (
     strippedTokens <= lastMatchedRawIndex &&
     strippedTokens < candidateRaws.length &&
-    rawIsFullyMatched(strippedTokens)
+    contributes(strippedTokens) &&
+    allPartsMatched(strippedTokens)
   ) {
     strippedTokens++;
   }

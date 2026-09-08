@@ -1,11 +1,11 @@
 {
   "_provenance": {
-    "spec": "P1236 Finding 8 — services/transcribe/measurement + scripts/p1236-gemini-slice-bench.py",
-    "measured": "2026-09-04",
-    "engine": "gemini-3.5-transcribe, us-east4, no gate and no normalisation on either side",
-    "audio": "gs://claritypledge-ml-training/p1236-measurement/input.wav — 168.24s of real /transcribe room audio, catted from five sessions. NOT committed: this repo is public and that is participant voice data. Regenerate this file with scripts/p1236-gemini-slice-bench.py --boundary.",
+    "spec": "P1236 Finding 8 — regenerate with: GEMINI_API_KEY=<batch key> python3 scripts/p1236-gemini-slice-bench.py --wav input.wav --mode boundary --fixture",
+    "engine": "gemini-3.5-transcribe, no gate and no normalisation on either side",
+    "audio": "gs://claritypledge-ml-training/p1236-measurement/input.wav — 168.24s of real /transcribe room audio, catted from five sessions. NOT committed: this repo is public and that is participant voice data.",
     "whole_file_reference_words": 134,
-    "why_committed": "Decision 4's de-duplication is the highest-risk unproven component in the design and the spec requires it be built test-first against this data. The de-dup operates on TEXT, so the transcripts are the fixture it needs; the audio is only needed to regenerate them."
+    "why_committed": "Decision 4's de-duplication is the highest-risk unproven component in the design and the spec requires it be built test-first against this data. The de-dup operates on TEXT, so the transcripts are the fixture it needs; the audio is only needed to regenerate them.",
+    "measured": "2026-09-04"
   },
   "plain_4s": {
     "description": "43 consecutive 4-second slices, no overlap. Reproduces the spec's 132-word figure.",

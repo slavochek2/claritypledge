@@ -362,7 +362,15 @@ not when the first word is spoken — the consent and join screens supply the co
       "Credit-eligible execution paths")
 - [ ] Slice boundaries do not corrupt words: overlapping slices with de-duplication, verified by
       reconstructing a known sentence across boundaries and comparing to a whole-file transcript
-      (Finding 8 — without overlap, `"doesn't"` became `"that"`)
+      (Finding 8 — without overlap, `"doesn't"` became `"that"`). **Partly discharged 2026-09-08 and
+      deliberately left unticked.** The de-duplicator exists, is measured over all 43 real slices,
+      and `dedup.test.ts` asserts the reconstruction end to end: the no-overlap cut renders
+      *"…Galaxy S22 and still that work."* and overlap + de-dup recovers *"…still doesn't work."*
+      Two things this criterion asks for are still missing, and neither is cosmetic: (a) the
+      comparison is against the whole-file **word count** (134), because no whole-file transcript
+      TEXT was ever archived — only the count reached the spec; (b) nothing yet **produces**
+      overlapping slices, since the capture side is Stage F. This ticks when a real client emits
+      them and the sentence survives that path, not this one
 - [ ] `/transcribe` produces a stored recording again (by-product of the server-side stream),
       restoring what the `RECORD_AUDIO_WHILE_LIVE=false` mitigation currently gives up
 
@@ -1046,10 +1054,17 @@ re-derived here. This sequence builds the live path.
 
    **What is verified about the harness, and what is not.** Its slicer was run against that exact
    WAV and reproduces all three archived cuttings — 43 / 43 / 12 slices, 168.24 s, and the 1 s
-   lead-in visible as 4 s for slice 0 then 5 s thereafter. Both of its guards were exercised on
-   their failure paths and exit non-zero (missing key; `--chunk-seconds` over the 30 s RQ5 ceiling),
-   against a known-good control that passes, so the probe is not blind. **The Gemini call itself is
-   UNVERIFIED** — no `GEMINI_API_KEY` was available this session, so Findings 6 and 7 are
+   lead-in visible as 4 s for slice 0 then 5 s thereafter. Every guard was exercised on its failure
+   path and exits non-zero — missing key; a request over the 30 s RQ5 ceiling; `--fixture` without
+   `--mode boundary`; and a run in which every request failed — each against a known-good control
+   that passes, so the probe is not blind. `--mode boundary --fixture` was checked to emit the
+   committed fixture's exact key shape, so the file's own regeneration instruction is literally
+   executable rather than approximately true.
+
+   **The Gemini call is verified only as far as the wire.** With a deliberately invalid key the
+   request reaches `generativelanguage.googleapis.com` and is rejected on auth, so transport and
+   request construction are exercised. **Response parsing and the findings themselves are still
+   UNVERIFIED** — no valid `GEMINI_API_KEY` was available this session, so Findings 6 and 7 are
    re-runnable but have not been re-run.
 
 **Stage C — server state and the consent gate (no behaviour change yet).**
