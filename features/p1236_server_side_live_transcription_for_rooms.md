@@ -1248,7 +1248,69 @@ re-derived here. This sequence builds the live path.
   NOT touched: out of this spec's scope, and "revoking it looks free" is a claim about call sites
   this session did not trace. **Needs a founder decision** — revoke, or allowlist with a reason.
 
-**Stage G — verify, in this order.**
+**Stage G — PARTIALLY DONE 2026-09-08, on the physical S22, against TEST (not prod).**
+
+Run over the `adb reverse` tunnel, exactly as Stage A: the phone loaded the dev server as
+`localhost` (a secure origin, so `getUserMedia` works with no certificate), talking to the test
+Supabase project with `transcribe-slice` and `gcs-signed-url` deployed there. **The privacy-copy
+gate is a PROD gate, so nothing in this run required it.**
+
+*Two bugs were found only because a real slice was sent from a real phone, and both were in the
+Gemini call.* The spec had already recorded that the committed harness's Gemini call was
+"verified only as far as the wire" — this is what was behind that flag:
+
+1. **`systemInstruction` is rejected outright.** `gemini-3.5-transcribe` returns HTTP 400
+   `"Developer instruction is not enabled for this model"`. Every slice from the phone came back
+   502. Decision 8's "fixed instruction, zero interpolated variables" is therefore satisfied by
+   sending **no instruction at all** — audio and nothing else — which is strictly stronger: there
+   is no prompt for participant speech to be injected into. An instruction as a leading text part
+   also returns 200 and was rejected: it puts instruction text in the same content stream as
+   untrusted audio, and returned an identical transcript on the same sample.
+2. **The transcript is at `parts[0].audioTranscription.text`, not `parts[0].text`.** This is the
+   worse of the two, because it does not fail: reading the wrong key yields `undefined`, which is
+   indistinguishable from silence, so **every slice would have been recorded as a quiet room and
+   no error would ever have surfaced.** Fixed in the edge function and in the harness, which
+   carried both defects for the same reason: it had never been run against a valid key.
+
+*What the run establishes.* 14 messages, 13 slices from the phone, correct attribution and
+timestamps, on a ~4 s cadence, with **two members in the room** rendered with the right names:
+
+```
+[14:18:58] Vyacheslav  | Oh yes, it works. Finally.
+[14:19:07] Vyacheslav  | But it doesn't work very well.
+[14:19:39] Vyacheslav  | 38 минут слышно. Как меня слышно? Хорошо?
+```
+
+- **Decision 7 confirmed end-to-end.** One `getUserMedia` stream drove the tap AND a
+  `MediaRecorder` for ~9 minutes: 12+ archival chunks at 30 s intervals, 74-312 KB each, while
+  live slices flowed. The contention that produced 14 consecutive failures is gone.
+- **Decision 5 confirmed on hardware.** The member row carries a real server-written
+  `consent_given_at`; the client never sent it.
+- **A 16-second silence produced ZERO rows** rather than hallucinated filler — Finding 6's
+  behaviour, reproduced live.
+- **Language is not pinned.** With no instruction, Russian was transcribed unprompted. Worth a
+  founder decision: this is either a feature or a thing to constrain.
+
+*What it does NOT establish, stated rather than glossed.*
+
+- **Done-When 9 is NOT met as written.** The recording lands at
+  `sessions/roomsK99J4Jvyacheslav-<member>/chunk_NNN.webm`, **not** `rooms/{code}/{member}/`.
+  The downstream Cloud Function flattens the slashes and re-roots everything under `sessions/`.
+  The recording exists and is non-empty, so "recording restored" is true; the OBJECT LAYOUT the
+  spec asserts is not. This interacts with the `audio.py:88` `sessions/`-only prefix defect in a
+  way nobody has traced — possibly cancelling it out. **Do not tick this item without checking
+  whether the batch job actually succeeds.**
+- **Quality is the founder's call and the founder's verdict was "it doesn't work very well."**
+  The transcript fragments at slice boundaries mid-sentence ("It works with the"), and the
+  under-strip de-duplication bias leaves visible repeats ("Hello hello" / "Hello hello hello.").
+  Both are working as designed; whether the design is good enough is a product question this run
+  does not answer.
+- **Two devices, not two people.** The second member was a scripted probe, not a second human on
+  a second phone. Attribution across two members is demonstrated; a real two-way conversation is
+  not.
+- Billing (step 13) and bucket posture (step 14) are untouched — both need prod and a day's lag.
+
+**Stage G — remaining, in this order.**
 
 11. Two physical devices, two members, adb console: each sees the other's words, attributed
     correctly (Done-When items 5 and 6). Paste the logs.

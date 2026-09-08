@@ -41,19 +41,20 @@ const GEMINI_ENDPOINT =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /**
- * Decision 8, and the Security Review's "safest posture" line: a FIXED string with zero
- * interpolated variables. Not the display name (client-supplied, length-checked only), not
- * a prior transcribe_messages.text (other participants' speech), not the room code (a
- * bearer credential). None of them are sent to Gemini on this design, and the way that is
- * guaranteed is that there is no seam to interpolate into.
+ * Decision 8 asked for a fixed system instruction with zero interpolated variables. This
+ * model does not take one AT ALL — `gemini-3.5-transcribe` rejects `systemInstruction` with
+ * HTTP 400 `"Developer instruction is not enabled for this model"`. Measured against the
+ * live API 2026-09-08, after every slice from a real phone came back a 502.
  *
- * Byte-identical to SYSTEM_INSTRUCTION in scripts/p1236-gemini-slice-bench.py, which is
- * what produced Findings 6, 7 and 8. If this string drifts, the measurements stop
- * describing this code.
+ * So the request is **audio and nothing else**. That satisfies Decision 8 more strongly than
+ * the instruction ever did: there is no prompt for a participant's speech to be interpolated
+ * into, because there is no prompt. `display_name`, prior `transcribe_messages.text` and
+ * `transcribe_rooms.code` remain N/A by construction rather than by discipline.
+ *
+ * An instruction as a leading text PART also returns 200, and was rejected: it puts
+ * instruction text in the same content stream as untrusted participant audio for no measured
+ * benefit — both shapes returned the identical transcript on the same 5-second sample.
  */
-const SYSTEM_INSTRUCTION =
-  'Transcribe the speech in this audio verbatim. Return only the transcript text. ' +
-  'If there is no speech, return nothing.';
 
 function toBase64(bytes: Uint8Array): string {
   // Chunked: String.fromCharCode(...bytes) on ~160 KB blows the argument limit.
@@ -129,9 +130,8 @@ Deno.serve((req: Request) =>
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
           // The API's native audio content part — never base64 embedded into a text
-          // prompt (Security Review, AI Prompt Security).
+          // prompt (Security Review, AI Prompt Security). No systemInstruction: see above.
           contents: [{ parts: [{ inlineData: { mimeType: 'audio/wav', data: toBase64(audio) } }] }],
         }),
       });
@@ -139,10 +139,18 @@ Deno.serve((req: Request) =>
         throw new Error(`Gemini returned ${response.status}`);
       }
       const payload = await response.json();
-      // An empty candidate is a RESULT, not an error: Finding 6 measured Gemini returning
+      // THE TRANSCRIPT IS NOT AT `parts[0].text`. A transcription model returns it as
+      // `parts[0].audioTranscription.text`, and reading the wrong field is the worst
+      // possible bug here: it does not throw, it yields undefined, and undefined is
+      // indistinguishable from silence — so every slice would have been recorded as "the
+      // room was quiet" and no error would ever have surfaced. Measured against the live
+      // API 2026-09-08; `.text` is kept as a fallback in case the shape ever changes back.
+      //
+      // An empty candidate IS a legitimate result: Finding 6 measured Gemini returning
       // nothing on 16 of 43 silent slices rather than hallucinating filler. Collapsing
       // that into a throw would turn every silence into a 502.
-      const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const part = payload?.candidates?.[0]?.content?.parts?.[0];
+      const text = part?.audioTranscription?.text ?? part?.text;
       return typeof text === 'string' ? text.trim() : '';
     },
 

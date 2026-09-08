@@ -74,12 +74,17 @@ ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:gene
 # P1237 RQ5 / Decision 8. Not a tuning knob — a spend and correctness guard.
 MAX_SLICE_SECONDS = 30
 
-# Decision 8: a fixed instruction with zero interpolated variables. Nothing from a room, a
-# member, or a display name is ever concatenated into it.
-SYSTEM_INSTRUCTION = (
-    "Transcribe the speech in this audio verbatim. Return only the transcript text. "
-    "If there is no speech, return nothing."
-)
+# Decision 8 originally specified a fixed system instruction with zero interpolated
+# variables. THIS MODEL DOES NOT ACCEPT ONE. Measured against the live API 2026-09-08:
+# `systemInstruction` returns HTTP 400 "Developer instruction is not enabled for this
+# model". The request is audio and nothing else, which satisfies the decision more strongly
+# than an instruction did — there is no prompt for participant speech to be injected into.
+#
+# This file previously sent systemInstruction and read the transcript from parts[0].text.
+# Both were wrong, and both survived because the harness had never been run against a valid
+# key — the spec recorded its Gemini call as "verified only as far as the wire". Every
+# request would have 400'd, and had it not, the parser would have read `undefined` and
+# reported silence.
 
 
 def run(cmd):
@@ -138,7 +143,6 @@ def transcribe(path, api_key):
     with open(path, "rb") as fh:
         audio_b64 = base64.b64encode(fh.read()).decode("ascii")
     body = json.dumps({
-        "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
         "contents": [{"parts": [{"inlineData": {"mimeType": "audio/wav", "data": audio_b64}}]}],
     }).encode()
     req = urllib.request.Request(
@@ -151,7 +155,11 @@ def transcribe(path, api_key):
         payload = json.loads(resp.read())
     elapsed = time.time() - t0
     try:
-        text = payload["candidates"][0]["content"]["parts"][0]["text"].strip()
+        # A transcription model returns the text under `audioTranscription`, NOT `text`.
+        # Reading the wrong key does not raise — it yields nothing, which is
+        # indistinguishable from silence, so every slice would be recorded as a quiet room.
+        part = payload["candidates"][0]["content"]["parts"][0]
+        text = (part.get("audioTranscription", {}).get("text") or part["text"]).strip()
     except (KeyError, IndexError):
         # An empty candidate is a RESULT, not an error: Finding 6 measured Gemini returning
         # nothing on 16 of 43 silent slices rather than hallucinating filler. Collapsing that
