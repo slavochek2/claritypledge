@@ -126,7 +126,7 @@ registry (data — adding a check is a row, not code)
         scheduled reader  (GitHub Actions, daily)
                     ↓
      nothing due   → exit silently, no output
-     something due → one email to ops@ with the fix commands inline
+     something due → one email to ops@ — issue number, title, age, URL. NOT the body.
                      + label the issue `escalated` so it fires once, not daily
 ```
 
@@ -241,9 +241,10 @@ fixture contains only inputs it should catch has an unmeasured false-positive ra
 
 ### Non-Goals
 
-- **Do NOT auto-fix anything.** The escalation carries the fix commands (they are already in the
-  issue body) so the human decision shrinks from "investigate" to "run these three lines." It never
-  runs them. A prod deploy or migration is ALWAYS-ASK, and a workflow holding prod credentials that
+- **Do NOT auto-fix anything.** The escalation names the issue and links to it; the consumer is an
+  agent, which can run `gh issue view <n>` to read the fix commands itself. It never runs them.
+  *(Revised after adversarial review — an earlier draft inlined the issue body in the email. See
+  Adversarial Review Findings A1.)* A prod deploy or migration is ALWAYS-ASK, and a workflow holding prod credentials that
   deploys unattended is a far larger blast radius than this spec's appetite. *(This reverses a
   suggestion made mid-conversation that the reader "prepare the fix" — the fix commands are
   pre-existing output, not something the reader generates.)*
@@ -285,7 +286,20 @@ fixture contains only inputs it should catch has an unmeasured false-positive ra
 ### Rollback Strategy
 
 Revert the commit. Detection is untouched by this spec, so rollback returns to today's alert-only
-behaviour rather than to no monitoring. The `escalated` labels left on any issues are inert.
+behaviour rather than to no monitoring.
+
+**Correction — the labels are NOT inert, and an earlier revision of this section said they were.**
+The Post-deploy Checklist deliberately runs against **live issue #11**, which labels a real,
+still-unresolved alarm `escalated`. If the feature is later reverted and re-applied, that label
+permanently suppresses re-escalation of an alarm that was never fixed — silence again, caused by
+the rollback path of the fix for silence. Revert is therefore two steps:
+
+1. Revert the commit.
+2. `gh issue edit <n> --remove-label escalated` on every issue the escalator touched, and delete
+   the label (`gh label delete escalated`) so a later re-apply starts clean.
+
+Repo secrets also persist through a revert; leave or remove them deliberately rather than assuming
+the revert handled it.
 
 ## Done-When
 
@@ -334,6 +348,13 @@ Founder action — the agent PAT excludes Administration scope and cannot create
 ### Post-deploy verification
 - [ ] One `workflow_dispatch` run against the live open issue #11 (aged 3+ days) delivers one email
 - [ ] A second `workflow_dispatch` run delivers nothing (label suppression holds)
+- [ ] **Remove the `escalated` label from #11 afterwards.** The two runs above are a test, and #11
+      is a live unresolved alarm — leaving the label on it silences its own re-escalation. Do this
+      even if the feature stays: the label means "already escalated for this crossing", and the
+      crossing being tested is synthetic.
+- [ ] Confirm `concurrency:` actually serialized the two runs (check the Actions log for a queued,
+      not concurrent, second run) — the two back-to-back dispatches are themselves the race the
+      guard exists to stop
 
 ## Resolved Decisions
 
@@ -349,6 +370,134 @@ Founder action — the agent PAT excludes Administration scope and cannot create
 | 8 | /challenge-prd | [WARN] Nothing watches the producer | `workflow-last-run` check added (§6); the regress cut at one level, named as an accepted residual | Silence must stop reading as health — the reason `backup-staleness.yml` exists |
 | 9 | agent | Mid-conversation suggestion that the reader "prepare the fix" | Rejected before implementation | Fix commands are pre-existing output in the issue body; generating or running them needs prod credentials, exceeding this spec's appetite |
 | 10 | founder | New spec + reject P1155, vs. rewrite in place? | **Rewrite in place** | Never implemented (`status: backlog`, nothing built on it), so `/change-request` does not apply; `## Resolved Decisions` is the designed record for a premise change; a second P-number would require copying this Problem section and its evidence, which `Reference Over Duplication` forbids |
+
+## Adversarial Review Findings
+
+`/slava:think:adversarial-review`, 3 hostile reviewers (exploit / fail-open / forgeable), **3 of 3
+reported**, 21 findings before dedup. Every finding below was re-verified by command in the main
+session before being written here — the reviewers' claims are not the evidence, the commands are.
+
+### A1 — [CRITICAL] The author check does not close the injection path. Do not email the body.
+
+`gh api repos/<owner>/<repo>/collaborators` returns **two** collaborators: the owner (admin) and a
+**second collaborator holding `push` and `triage`**. Write permission allows editing any issue's
+body *without changing its author*, and triage allows adding and removing labels. So
+`author.is_bot === true` is satisfied while the content is attacker-controlled, and the `escalated`
+label is not trustworthy state either.
+
+*(The collaborator is deliberately unnamed here — public repo, `.claude/rules/pii.md`. The handle is
+one `gh api` call away for anyone who needs it.)*
+
+**Smallest fix, and it closes three findings at once:** the escalation email carries only issue
+number, title, age in days, and the issue URL. No body, no comments, no fix commands. This works
+*because the consumer is an agent* — it can run `gh issue view <n>` and read the untrusted content
+in a context where that content has no privilege. Inlining was only ever needed for a human reader,
+and the premise of this spec is that the reader is not human.
+
+This also resolves:
+- **A2 [LOW→moot]** — the escalator would have read `--json body`, frozen at creation time, while
+  the real per-day detail lands in **comments** (verified: issue #10 has **4** bot comments). The
+  email would have understated exactly the multi-day case this spec exists for.
+- **A3 [HIGH→reduced]** — SMTP dot-stuffing severity. Still required (Build Sequence 4a-bis), but a
+  title and URL are far smaller attack surface than a 65 KB attacker-editable body.
+
+### A4 — [CRITICAL] A decoy issue can make the producers stop producing. This is a Non-Goal collision.
+
+None of the seven producers author-check the issue they find before appending to it — verified:
+`grep -c "user.login\|author_association" .github/workflows/check-deploy-drift.yml` → 0, and the
+same find-or-append shape appears in all seven (`check-deploy-drift.yml:74`, `backup-staleness.yml:87`,
+`auth-canary.yml:54`, `csp-smoke.yml:61`, `db-backup.yml:191`, `prod-health-smoke.yml:77`,
+`stranded-signups.yml:66,91`).
+
+**Anyone** — no repo access needed, the repo is public with issues enabled — can open an issue with
+a producer's exact title (or, for the five `--search` producers, merely overlapping title words) and
+leave it open. Every subsequent real event then appends to that decoy. **No bot-authored issue is
+ever created**, so `github-issue-age` with its author check finds nothing, forever, and reports
+"nothing due" — which is the normal healthy output.
+
+This is P1155's own defect one layer down: *alarm rang into an empty room* becomes *alarm never
+rings*, and it is indistinguishable from health.
+
+**This collides with the Non-Goal "do NOT fix the detectors."** The reader cannot compensate: it
+cannot escalate an issue that was never created. Either the producers get an author check, or this
+spec's mechanism has a cheap, unprivileged, permanent off-switch. **FOUNDER DECISION — see the open
+question at the end of this section.**
+
+### A5 — [CRITICAL] "Escalate once per threshold crossing" is implemented as "escalate once, ever."
+
+Decision 5's `escalated` label is a permanent boolean. Once set, that issue never escalates again —
+whether it stays open 3 days or 300. This *removes* the one redundancy today's broken system has:
+the daily re-append. **Fix:** re-escalate on a cadence rather than never — carry the date in the
+label (`escalated-YYYY-MM-DD`) or re-fire at successive thresholds (2, 7, 30 days). A permanent
+suppression flag inside a spec about permanent silence is the wrong shape.
+
+### A6 — [CRITICAL] Unrecognized `kind` fails open and is untested.
+
+A typo'd or stale `kind` in the registry dispatches to nothing, returns exit 0, and reads as
+"nothing due." Same for a `match_title` that matches nothing forever. **Fix:** unknown `kind` is
+exit 2 (loud). Add a fixture. Consider warning on any check that has never matched anything.
+
+### A7 — [HIGH] Node's default crash exit code collides with "email sent."
+
+The 0/1/2 convention assigns **1** to "something due, email sent" — but Node exits **1** on an
+uncaught exception. A crash before the send (malformed registry JSON, a `gh` parse error) is
+therefore indistinguishable from a successful escalation. **Fix:** wrap `main()` and force
+`process.exit(2)` on any unhandled error. Fixture required.
+
+### A8 — [HIGH] `gh issue list` defaults to 30 results, newest first.
+
+Verified: `gh issue list --help` → `-L, --limit int  (default 30)`. The old, long-drifting issues
+this check exists to find are structurally the first to fall off that page as issue volume grows,
+and the result reads as "nothing due," not as an error. **Fix:** pass an explicit `--limit`, or
+query by title/state directly rather than listing and filtering client-side.
+
+### A9 — [MEDIUM] Only 2 of 7 producers self-heal-close.
+
+Verified: `grep -l "gh issue close" .github/workflows/*.yml` → `check-deploy-drift.yml`,
+`backup-staleness.yml` only. The other five depend on a human or agent closing the issue.
+`github-issue-age` evaluates **open** issues only, so a prematurely-closed alarm is invisible
+forever for five of seven signals. Recorded as a known limitation of the coverage claim.
+
+### A10 — [MEDIUM] Undocumented liveness precondition: GitHub disables `schedule:` after 60 days of repo inactivity.
+
+Not mentioned anywhere in this repo (grepped, zero hits). The current commit cadence masks it. It is
+a real precondition for every one of the seven producers *and* for the escalator itself, and
+"an Actions outage is loud elsewhere" does not cover it — a silently-disabled cron is not an outage.
+
+### A11 — [MEDIUM] `workflow-last-run` shares the substrate it watches.
+
+Already named as an accepted residual in §6, but the reviewers sharpened it: a correlated failure
+(billing/quota exhaustion, an org permission change, the 60-day disable above) takes down the
+escalator and all seven producers *together*, which is precisely when the watch is needed. The
+residual stands, but it is wider than §6 claimed.
+
+### A12 — [MEDIUM] The `escalated` label is writable by the triage tier.
+
+Same collaborator as A1. A label can be removed (forcing re-escalation) or pre-applied to a fresh
+real alarm (suppressing it before it ever fires). Follows from A1; no separate fix beyond A5's
+cadence, which bounds how long a pre-applied label can suppress.
+
+### A13 — [LOW] Gate 7b: the fixture suite cannot reach most of the above.
+
+The fixtures feed canned objects to pure evaluate functions. Pagination truncation (A8), unknown
+kind (A6), crash exit codes (A7) and every SMTP-layer behaviour live outside that boundary. Stated
+plainly rather than letting "observed firing" imply more coverage than it has.
+
+### Open question this review created
+
+**A4 forces a choice the spec had ruled out.** Adding an author check to the seven producers is
+currently a Non-Goal ("do NOT fix the detectors"). But without it, an unprivileged decoy issue
+disables this entire mechanism silently and permanently. Three ways out:
+
+1. **Harden the seven producers** — add the same author/exact-title check to their find-or-append.
+   Amends the Non-Goal. Touches files this spec promised not to touch.
+2. **Escalate on the condition, not the issue** — have the reader re-derive drift itself rather than
+   reading issues. Rejected on sight: that is a second detector, which a stronger Non-Goal forbids
+   and `decisions.md` 2026-08-09 (P1031) rules against.
+3. **Accept it** — record A4 as a known, unmitigated hole and ship the reader anyway. Defensible
+   only if nobody ever opens a decoy, which is not a security posture.
+
+Recommend **1**, scoped narrowly: an author check in the producers' find-or-append, nothing else.
 
 ## Related
 
@@ -822,11 +971,30 @@ alternative considered — the spec already resolved this.
    fetch code exists. TDD per the repo's `/dev` discipline.
 
    **2a. Author check — HARD REQUIREMENT, Security required change #1.** `evaluateGithubIssueAge`
-   MUST ignore any issue whose author is not the detector bot. Verified by command, so this is not
-   an assumption: `gh api repos/<owner>/<repo>/issues/11 --jq '{user:.user.login,type:.user.type}'`
-   → `{"user":"github-actions[bot]","type":"Bot"}`, same for #10. The fetch layer therefore requests
-   `--json number,title,createdAt,labels,author` and the pure function drops every issue where
-   `author.login != "github-actions[bot]"`. **Without this, any GitHub user can get arbitrary text
+   MUST ignore any issue whose author is not the detector bot.
+
+   **The identity string differs by API, and the wrong one fails CLOSED — silently.** Two probes
+   return two shapes for the same bot:
+
+   ```
+   gh api repos/<owner>/<repo>/issues/11 --jq '.user.login'
+     → "github-actions[bot]"          # REST
+   gh issue list --json number,title,author
+     → {"author":{"is_bot":true,"login":"app/github-actions"}}   # CLI  ← the fetch layer uses THIS
+   ```
+
+   An earlier revision of this step specified `author.login != "github-actions[bot]"`, verified via
+   REST while the fetch layer reads the CLI shape. That comparison matches **nothing**, so every
+   genuine alarm would be dropped and the escalator would never fire — this spec's own defect,
+   rebuilt inside its own fix, and silent because "no issues due" is the normal quiet output.
+
+   **Correct check:** `author.is_bot === true && author.login === "app/github-actions"`, against
+   `gh issue list --json number,title,createdAt,labels,author`. `is_bot` alone is insufficient (a
+   different installed App is also a bot); the login alone is the field that just proved
+   shape-dependent, so assert both. **A fixture asserting the check ACCEPTS a real detector issue
+   is mandatory** — the non-bot rejection fixture alone would pass while the check rejected
+   everything (gate 7c: a suite containing only inputs the gate should reject cannot measure
+   whether it wrongly rejects). **Without this, any GitHub user can get arbitrary text
    emailed to ops@ on a 2-day delay** — the repo is public with issues enabled
    (`gh api repos/... --jq '{private,has_issues}'` → `{"private":false,"has_issues":true}`), and
    no existing detector checks authorship (`grep -c "user.login\|author_association"
@@ -845,6 +1013,29 @@ alternative considered — the spec already resolved this.
    injection lands — an attacker-controlled title carrying CRLF could smuggle extra `To:`/`Bcc:`
    headers. Scope this to headers only: the issue **body** goes into the message body unmodified,
    because the fix commands the escalation exists to carry live there (Non-Goals).
+   **4a-bis. SMTP DATA-phase encoding — the IMAP precedent gives ZERO protection here.**
+   Verified: `grep -c "DATA\|dot" scripts/read-ops-email.mjs` → **0**. IMAP has no `DATA` phase, so
+   "mirror the existing raw-TLS script" transfers the socket handling and none of SMTP's content
+   rules. The message body is an issue body — attacker-influenced, and routinely containing fenced
+   code blocks and diffs. Required in the send script:
+   - **Dot-stuffing (RFC 5321 §4.5.2):** any body line beginning with `.` must be prefixed with a
+     second `.`, and the terminator is `\r\n.\r\n`. Without this, a body line that is exactly `.`
+     ends the message early — silent truncation, or a corrupted send. A diff or code block makes
+     this ordinary content, not a crafted attack.
+   - **Line length:** 1000 octets including CRLF. Fold or reject longer lines rather than emitting
+     them.
+   - **CRLF normalization:** GitHub bodies use bare `\n`; SMTP requires `\r\n`.
+   - **UTF-8:** declare `Content-Type: text/plain; charset=utf-8` and an appropriate
+     `Content-Transfer-Encoding`; issue bodies contain non-ASCII.
+   A fixture body containing a lone `.` line, a >1000-char line, and non-ASCII is a required test
+   case — this is not covered by any of the five scenarios in step 7.
+
+   **4c. Cap the sends per run.** A correlated failure — one GitHub Actions outage stales all seven
+   producers at once — makes every `workflow-last-run` check due simultaneously, firing N raw-SMTP
+   sends from one job. Send **one** email per run carrying all due checks, or cap and say how many
+   were suppressed. Unbounded per-check sending is the duplicate-flood failure §4 exists to prevent,
+   arriving by a different route.
+
    **4b. Never log the credential — Security required change #6.** Mirror
    `scripts/read-ops-email.mjs:62`, which builds `LOGIN ${USER} "${PASS}"` and writes it straight to
    the socket with no `console.log` (verified: `grep -n console.log scripts/read-ops-email.mjs |
@@ -858,6 +1049,34 @@ alternative considered — the spec already resolved this.
 6. **`.github/workflows/alert-escalator.yml`** — `permissions: contents: read, issues: write,
    actions: read` (the last is new for this repo — Technical Analysis). Detection call is NOT
    `continue-on-error` (§3 — inverted from the seven detectors); a send failure must fail the job.
+
+   **`concurrency:` block is REQUIRED, and the pattern already exists in this repo.** The reader
+   does read → decide → send → label with no lock, so two overlapping runs both see "not yet
+   escalated" and both send — the duplicate-email failure §4 exists to prevent. This is not
+   hypothetical: the Post-deploy Checklist itself mandates two back-to-back `workflow_dispatch`
+   runs, and a `schedule` run can land on top of a manual one. Reuse `db-backup.yml:12-14`
+   verbatim in shape — the only `concurrency:` block in the repo
+   (`grep -rn "concurrency:" .github/workflows/*.yml` → one hit):
+   ```yaml
+   concurrency:
+     group: alert-escalator
+     cancel-in-progress: false
+   ```
+   `cancel-in-progress: false` is the right half: a cancelled run mid-send is worse than a queued one.
+
+   **Ordering of send vs. label must be specified, because both orders fail differently and the
+   label permission is UNVERIFIED** (Technical Analysis flags that no workflow in this repo has ever
+   used a label, so `issues: write` covering `gh label create` is inference from docs, not an
+   observed pass):
+   - **Label first, then send** — a send failure leaves the issue marked escalated with no email
+     sent. Silence, permanently. Unacceptable: this is the spec's own defect.
+   - **Send first, then label** — a label failure after a successful send means the next run
+     re-sends. A duplicate email is the tolerable failure.
+
+   **Send first, then label**, and if the label step fails, the job must **fail loudly** (§3) rather
+   than exit 0, so a persistent label-permission problem surfaces as a repeated failure notification
+   instead of a silent daily duplicate. Step 7 must include a fixture where the label-add fails
+   after a successful send.
    First live run against a real issue exercises Decision 5's label-creation step — this is where
    the UNVERIFIED PAT/token-scope flag gets resolved one way or the other.
 7. **Simulate fires and non-fires locally** (epistemic gate 7 + 7c) — an issue aged past threshold
