@@ -5,8 +5,8 @@ rank: 1000078
 workstream: infra
 created_date: '2026-09-07'
 tags: [git, privacy, push, branches, tooling]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
