@@ -227,6 +227,27 @@ reverted immediately; `git status` shows `agreements-service-real.ts` unmodified
 
 ## Prod apply (founder procedure, post-ship)
 
+> **DONE — applied to production 2026-09-07, verified 2026-09-08. Do not run the steps below.**
+> The migrations went up inside the **P1256** `migrate.sh --env prod` run: that command applies
+> every pending migration in one pass, so an unrelated apply carried these with it. Re-running
+> the steps is the one action here that could break something.
+>
+> **Verified read-only against prod, with a discriminating control:** `rotate_invitation_token` → `42501` permission denied (exists). All three migrations stamped
+> applied in `deploy-manifest.json [prod]`. The privilege floor on prod also reads clean
+> (`check-p1207-privilege-floor.py prod` exit 0, was 1210 violations).
+> Negative control `definitely_not_a_function` → `404 PGRST202`, so the probe can return not-found.
+> Full evidence table: `.private/docs/security-log.md` § "Update 2026-09-08".
+>
+> **Note on the sha references below:** they name **branch** commits that `/ship` rewrote, so they
+> are not ancestors of `origin/main` and never will be. The `-- requires-frontend:` markers in the
+> migration files carry the correct post-ship shas (`c666aa473`) — all confirmed on
+> `origin/main`. The gate was never actually blocked; only this prose was wrong.
+>
+> **The step-3 verification in this section is not usable and must not be pasted as evidence.**
+> The anon `GET` expecting `[]` returns `[]` — *and so does a control selecting only `id`*. An
+> all-empty result cannot distinguish "policy fixed" from "no rows exist".
+
+
 Prod still carries the P422 UPDATE predicate. This is the whole remaining work, and it is **not**
 a branch completion criterion — every step needs the branch merged and `main` pushed first, which
 is what made it unsatisfiable while it sat in § Acceptance Criteria. Run from the MAIN repo root

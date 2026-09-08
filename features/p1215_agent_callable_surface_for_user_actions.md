@@ -262,6 +262,35 @@ quietly restore them.
 > **Do not read a later green `/day` privilege-floor run as this gate opening.** That check covers
 > F6's privilege class only. It is silent on F0a/F0b/F9, and it will alarm at 1210 violations until
 > the P1207 prod apply happens regardless.
+>
+> ---
+>
+> **Update 2026-09-08 — the prod apply happened; the verdict is still No, for a different reason.**
+> All P1207/P1222/P1230 migrations reached production on 2026-09-07, swept in by the **P1256**
+> `migrate.sh --env prod` run. Re-verified read-only against prod, not against test: privilege
+> floor **exit 0, clean** (was 1210; its failure path exercised via `--self-test` first), the D-1
+> edge function **404 NOT_FOUND** against a deployed-function control, and the P1222/P1230 RPCs
+> present against a `PGRST202` not-found negative control. Evidence table:
+> `.private/docs/security-log.md` § "Update 2026-09-08".
+>
+> **This does NOT flip Criterion 1 to Yes, and three things must land before anyone argues it does:**
+>
+> 1. **F2, F7, F10 and F11 were never independently re-probed.** Their only evidence is the deploy
+>    manifest — the same self-reported class of source that told this session, wrongly, that
+>    everything was still open. Six of ten classes were re-probed; four were not.
+> 2. **D-3 and F5 are still-open and were never delegated to anyone.** D-3 is a recorded test/prod
+>    grant divergence — *a migration the ledger recorded as applied that did not take effect* —
+>    which is precisely the failure mode that would make item 1's manifest evidence worthless.
+>    Clear D-3 before trusting the manifest for F2/F7/F10/F11.
+> 3. **The audit's verdict was about the surface, not only the ten findings.** Re-running the
+>    audit is what would answer Criterion 1, and no re-run has happened.
+>
+> **The stale-record trap this row warned about fired — in the opposite direction.** The rows above
+> correctly warn against reading three green spec statuses as remediation. On 2026-09-08 the
+> inverse happened: this file, the security log and the process-debt list all still said "live on
+> prod" a day after the fixes shipped, and an agent relayed that to the founder as current fact
+> while deciding whether to build on this surface. **Neither a spec status nor this prose is
+> evidence about production. Probe prod, or read the deploy manifest.**
 - [ ] `/architect` has produced the authorization architecture — AS, audience, exchange, callback,
       user binding, scope enforcement, `auth.uid()` derivation — and it has been adversarially
       reviewed **[REV] build blocker**
