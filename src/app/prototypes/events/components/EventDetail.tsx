@@ -21,6 +21,7 @@ import {
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GroupChatBlock } from './GroupChatBlock';
+import { TrailLinkBlock } from './TrailLinkBlock';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
@@ -649,11 +650,27 @@ export function EventDetail() {
                 </div>
               )}
 
-              {/* Description - Markdown rendered (safe renderer strips raw HTML to prevent XSS) */}
-              <div
-                className="prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
-                dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
-              />
+              {/* P1264: the route link, ABOVE the description rather than after it.
+                  It was below at first and read as orphaned — a blind visual-QA pass
+                  and the founder independently called the same thing: the button sat
+                  after the closing PS aside, ~900px from anything about the route,
+                  with nothing tying it back to the loop/climb/duration line it
+                  belongs to. Here it sits beside those stats, which is what someone
+                  still deciding whether to come is actually reading.
+                  Public by design, so it renders regardless of RSVP state and stays
+                  visible for past events too (unlike the group chat block below). */}
+              {/* The divider wraps BOTH, deliberately: put it on the trail block alone
+                  and an event without a route link renders an empty bordered box. The
+                  description always exists, so this element always has content. */}
+              <div className="pt-4 border-t border-border">
+                <TrailLinkBlock url={event.trailUrl ?? null} />
+
+                {/* Description - Markdown rendered (safe renderer strips raw HTML to prevent XSS) */}
+                <div
+                  className="prose prose-sm max-w-none text-muted-foreground mb-6"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
+                />
+              </div>
 
               {/* P1194: the group chat, after the description and before the RSVP
                   confirmation — a button rather than a link buried in the body copy. */}

@@ -62,6 +62,8 @@ interface DbEventWithHost {
   /** P1179: JSONB [{tag, label?}] — extra Links-menu entries, [] on every row by default. */
   links: { tag: string; label?: string }[] | null;
   has_group_chat?: boolean | null;
+  /** P1264: public external route link (AllTrails/Komoot/etc). No form writes this yet. */
+  trail_url?: string | null;
   host: {
     id: string;
     full_name: string | null;
@@ -153,6 +155,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     // standard entries rather than crash the room's menu.
     links: Array.isArray(row.links) ? row.links : [],
     hasGroupChat: row.has_group_chat ?? false, // P1194
+    trailUrl: row.trail_url ?? undefined, // P1264
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,
