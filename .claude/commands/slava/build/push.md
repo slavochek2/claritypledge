@@ -2,7 +2,7 @@
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 5.1.0
+version: 5.2.0
 ---
 
 # /push
@@ -59,9 +59,43 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 
 ## Decisions this skill makes for you (do NOT ask)
 
-- Commit tracked changes **you modified this session** → **yes**, no need to ask. Dirty files you did *not* touch → list them once and ask (`git.md`; `/push` gets no exemption from "only stage what you changed").
+- Commit tracked changes **you modified this session** → **yes**, no need to ask. Dirty files you did *not* touch → **classify first** (below), ask only what classification can't resolve.
 - Run `/maintain:privacy` → **yes, automatically — when the push range touches a watched path** (its stamp is required by `push-docs`; src-only pushes skip it). Never ask "ok to run privacy?".
 - Use the staging-branch hop → **yes** (it's the canonical and only path to main; `push-docs` owns it).
+
+### Bystander dirty files — classify before asking (P1264, 2026-09-08)
+
+A dirty file you didn't touch this session is not automatically a question. Run this
+classification per file (all read-only) before falling back to "list them once and ask"
+(`git.md` — still the default for anything the three checks below don't resolve):
+
+1. **Stale no-op index entry** — `git diff --no-renames HEAD -- <file>` empty AND
+   `git status --short --no-renames -- <file>` shows no collapsed rename → the staged
+   content already matches HEAD, unstage silently (`git reset HEAD -- <file>`), nothing to
+   ask. Use `--no-renames` on both checks — default rename detection can collapse a real
+   change into what looks like a no-op (`git.md`).
+2. **Live worktree's in-flight artifact** — `git worktree list`, then for each worktree
+   check `git -C <worktree> status --short` for the **same relative path** (not bare
+   filename — a shared basename like `README.md` or `deploy-manifest.json` matching two
+   unrelated worktrees is a coincidence, not ownership) staged or modified there, OR, for a
+   migration, the identical `<timestamp>_<slug>.sql` stem. A match — especially the
+   documented Supabase CLI migration exception (`git.md`: migration + deploy-manifest
+   stamped on main, run from the worktree) — means it belongs to that session's active
+   work. Leave it uncommitted, but **do not treat that as resolved**: `git.md` is explicit
+   that any uncommitted file on the shared main checkout is exposed regardless of whose it
+   is. State the exposure in the report line (below), not just the owner. A basename-only
+   match on a non-migration file downgrades to bucket 3 — don't attribute ownership on
+   filename alone.
+3. **Neither** → age it (`git log -1 --format=%cr -- <file>` if tracked; mtime if not) and
+   list it once with that age, per the existing rule.
+
+State the classification and its action **before** acting on buckets 1-2, then report the
+outcome — this is a report, not a retroactive log. One line per file, e.g.
+"`docs/process-learnings.md` staged, identical to HEAD — unstaging (no-op)" or
+"`supabase/deploy-manifest.json` matches active migration in w6 (`feature/p1264-...`) —
+leaving uncommitted; exposed on shared main until that session commits it." Never message
+peer sessions to ask before checking these three — reserve that for a genuine ambiguity a
+worktree/age check can't resolve.
 
 ## Genuine STOPs (surface these, do not auto-resolve)
 
