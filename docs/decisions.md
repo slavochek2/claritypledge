@@ -341,6 +341,145 @@ obstacle to route around when the index is "already right" — being already rig
 verifies.
 
 **References:** [features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md](../features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md) · `scripts/archive/migrations/20260908-backfill-disclosure-public.py` · [git.md](../.claude/rules/git.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 7c · commit `ffac5dfd3`
+## 2026-09-08 [technical]: Moving a guarantee out of a component means enumerating render BRANCHES, not files
+
+**Context:** P1259 removed the repeated two-sentence agent disclosure from every story card and
+relocated it to the agent profile, with the byline NAME as the only route there. I wired
+`onNameClick` on every file that renders an agent story, checked six surfaces in a live browser,
+and wrote a census test I named "the disclosure route on every surface". An adversarial code
+reviewer still found four surfaces with no route.
+
+The miss: `StoryCardDetail` takes an **early return** when `context === 'point-detail'` and an
+author position is present — the "quote pattern" a point page renders in its position sections.
+That branch renders the whole story, including `story.content`, and it never carried the footer:
+`main` had exactly one `AgentStoryFooter` call site in that file, in the *other* branch. While the
+footer existed elsewhere the branch was backstopped by product-wide redundancy. Removing the
+footer globally turned it into a machine-written reading of a real named person with no path to
+the disclosure at all. Three sibling branches had the same shape.
+
+**Decision:** When a guarantee is moved out of a component, the unit of enumeration is the RENDER
+BRANCH, not the file and not the component. A file already visited can still hide an early return
+that renders the same content down a different path — and grep for the component name finds it
+exactly once either way.
+
+Two checks that would have caught it, both cheap:
+1. Diff the **old** guarantee's call sites against the **new** one's. The footer had 5 call sites;
+   the route had 6. That asymmetry is the whole finding, and it is one `grep -c` per symbol.
+2. Make the census render each branch rather than each component. The test that claimed to be the
+   census rendered only the two components its predecessor rendered, so it could not have caught
+   this — and it silently failed to catch itself missing them.
+
+**Alternatives rejected:** Trusting the live browser sweep — it visited a point page whose data
+never triggered the quote pattern, so the branch was unreachable that afternoon and looked fine.
+Absence of a surface in test data is not absence of the surface.
+
+**Consequences:** A "verified per surface" claim now requires the branch count, not the file
+count. `p1259-disclosure-route-on-every-surface.test.tsx` renders four surfaces including the
+quote pattern, and the new case is proven to bind (reintroducing the defect exits 1 with
+`expected 'SPAN' to be 'BUTTON'`).
+
+**References:** `src/app/components/social/StoryCardDetail.tsx` (quote-pattern early return) ·
+`src/app/components/social/story-card-with-links.tsx` ·
+`src/tests/p1259-disclosure-route-on-every-surface.test.tsx` ·
+[p1259](../features/p1259_agent_story_surfaces_leak_their_own_evidence.md)
+
+---
+
+## 2026-09-08 [technical]: A Tailwind class outside the generated scale compiles to nothing, and the symptom looks like a logic bug
+
+**Context:** The agent profile's "Show more" toggle did nothing — founder: *"this button here does
+nothing! siwting it moves nothing!"* The spec diagnosed a threshold/clamp mismatch: visibility came
+from `strippedContent.length > 400` while truncation was `line-clamp-8`, two measures that never
+agree. That was true, and it was not the whole cause.
+
+`line-clamp-8` **is not a class Tailwind 3.4 emits.** Its default `lineClamp` scale is `{1..6}` and
+this repo does not extend it, so the profile's story text had never been clamped at all — the
+toggle could not possibly have had anything to reveal. Measured with the Tailwind CLI over a file
+containing all four classes, with `line-clamp-6` as a known-good control and `line-clamp-8` as
+known-bad: `line-clamp-6` generated, `line-clamp-8` absent, `line-clamp-[18]` and `line-clamp-[24]`
+generated.
+
+**Decision:** Above the generated scale, use the **arbitrary value** form `line-clamp-[N]`, which
+the JIT emits for any number and which therefore cannot silently vanish. This is distinct from the
+2026-03-02 entry in this log (two truncation systems conflicting, where the CSS always wins): here
+the CSS never existed.
+
+**Alternatives rejected:** Extending `theme.extend.lineClamp` — it fixes the instance and leaves the
+next bare `line-clamp-N` free to die the same way.
+
+**Consequences:** `p1259-clamp-classes-compile.test.ts` reads the scale from Tailwind's own stub
+config (so extending the theme relaxes the gate automatically) and fails on any bare `line-clamp-N`
+outside it. Proven to fire: exit 1 on a staged offender, exit 0 once removed. It strips comments
+before matching — its first run produced nine false positives from the prose explaining the bug,
+the mirror image of the lesson in `p1212-agent-surface-contract.test.ts`.
+
+**Generalization worth carrying:** a utility-class framework fails SILENTLY for values outside its
+configured scale. When a CSS-driven behaviour "does nothing", check that the class was generated
+before debugging the logic around it.
+
+**References:** `src/tests/p1259-clamp-classes-compile.test.ts` · `tailwind.config.js` ·
+`src/app/pages/profile-page-v2.tsx` · this log 2026-03-02 [technical] (the conflicting-systems case)
+
+---
+
+## 2026-09-08 [process]: A dev server left running made an e2e suite look like my regression
+
+**Context:** After P1259 I ran the related e2e specs and got failures. Re-running gave a *different*
+failure set each time; `main` ran 15/15 three times. I checked that `main`'s new commits touched
+zero product code, concluded the control was fair, and stated that the flakiness was caused by my
+change. That was wrong.
+
+The confound was a dev server I had started myself on the worktree's port and then driven for
+~40 minutes with a browser MCP session (mounting real YouTube embeds). `playwright.config.ts` sets
+`reuseExistingServer`, so every worktree run adopted that server while `main`'s runs started clean
+ones. With the port cleared, the same specs passed 15/15 twice.
+
+**Decision:** Before comparing an e2e result across branches, make the SERVER a controlled variable,
+not just the code. `lsof -ti:PORT` before the baseline and before the comparison run. A long-lived
+manually-started server is a difference between the two arms even when the diff is not.
+
+**Alternatives rejected:** Calling it flake after the first differing run — "different failures each
+time" is a real signal and deserved the extra probe; it just pointed at the environment, not the code.
+
+**Consequences:** The existing `reuseExistingServer` entries in this log cover run-vs-run cascades
+(one Playwright run adopting another's server). This is the manual-server case: it produces
+*misattribution* rather than a cascade, and the `infra-cascade` reporter does not label it because
+nothing crashed. Nothing was broken; a defect was nearly reported against correct code.
+
+**References:** `playwright.config.ts` · [tests.md](../.claude/rules/tests.md) ("Concurrent E2E runs
+need separate worktrees") · this log 2026-09-01 and the P1234 entry
+
+---
+
+## 2026-09-08 [process]: Stamping the deploy manifest from main prunes migrations that live on feature branches
+
+**Context:** `migrate.sh` applied a P1259 migration to test, then refused to stamp from a worktree
+and printed the remedy: run `stamp-deploy-manifest.sh --env local --migrations-only` from the main
+repo. Doing exactly that produced a manifest that was wrong in both directions — it **dropped** a
+co-tenant's in-flight `20260908065003` entry and never added mine.
+
+Cause: `--migrations-only` rebuilds the deployed list by globbing **main's** migrations directory.
+Neither migration was on main (one committed on another session's feature branch, one uncommitted
+in my worktree), so both were invisible and the previously-recorded entry was pruned as spurious.
+This is the disk-globbing mechanism already recorded in this log, reaching a new victim: another
+session's record.
+
+**Decision:** Do not run the manifest stamp from `main` while any migration is in flight on a
+branch. Append the entry by hand on the branch instead, and let the real stamp happen at `/ship`
+time once the file is actually on main.
+
+**Alternatives rejected:** Following the script's own printed remedy — it is correct only when every
+applied migration is on main, which on a repo with 8 concurrent worktrees is rarely true.
+
+**Consequences:** The damage is silent and cross-session: the pruned entry makes another branch's
+applied migration look unapplied, and its owner's next pre-commit will tell them to re-run
+`migrate.sh`. Recovered here with `git show HEAD:… > …` (a plain write, not `git restore`).
+
+**References:** `scripts/stamp-deploy-manifest.sh` · `scripts/migrate.sh` ·
+this log 2026-09-07 [technical] (functions/migrations disk-glob entry) and 2026-08-27 (P1173)
+
+---
+
 ## 2026-09-08 [technical]: A test that pins how a marker is DRAWN turns a UI defect into a contract
 
 **Context:** The agent marker (`MachineChip`) rendered as a bordered, fully-rounded pill on all
