@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 disclosure: public
 rank: 1000077
 workstream: C2
 created_date: '2026-09-07'
 tags: [agents, stories, feed, disclosure]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-08
 ---
 
 # P1259: Agent story surfaces leak their own evidence
@@ -72,10 +72,10 @@ remains open on exact disclosure wording.
   `src/index.css:244-254`, and enforced on rendered pixels by
   `e2e/p1104-agent-marker.spec.ts:199-206` (`meanSaturation < 0.05`). Colouring the agent's stance
   chip to make it legible would delete the strongest disclosure marker on public readings of four
-  real people who never consented. See [decisions.md](../docs/decisions.md) 2026-09-01.
+  real people who never consented. See [decisions.md](../../../docs/decisions.md) 2026-09-01.
 - **The byline string `AGENT · on {Full Name}` is settled and is not in scope.** Both `Agent · {Name}`
   and dropping the connective are recorded as tried and rejected — `agent-byline.tsx:65-76`,
-  [decisions.md](../docs/decisions.md) 2026-09-04. Do not reopen it while editing these surfaces.
+  [decisions.md](../../../docs/decisions.md) 2026-09-04. Do not reopen it while editing these surfaces.
 - **A reader must be able to reach, from any surface showing an agent story, the fact that the prose
   is machine-written and the quotes are not.** This spec moves where that lives; it may not remove it.
   **Moving it requires naming the ROUTE, not only the destination** — see the blocking founder
