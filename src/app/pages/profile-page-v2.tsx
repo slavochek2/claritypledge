@@ -1887,6 +1887,8 @@ function PointCardFull({
           <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
             <GravatarAvatar
               name={profileOwner.name}
+              photoUrl={profileOwner.avatarUrl ?? undefined}
+              avatarColor={profileOwner.avatarColor}
               size="sm"
               isPledger={profileOwner.hasPledged}
               isAgent={ownerIsAgent}

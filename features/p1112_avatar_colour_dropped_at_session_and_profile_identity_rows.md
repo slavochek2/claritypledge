@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: qa
 type: bug
 disclosure: public
 rank: 221
@@ -8,8 +8,8 @@ workstream: social
 date_reported: '2026-08-19'
 created_date: '2026-08-19'
 tags: [avatar, pledge-ring, gravatar-avatar, props-drilling]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 ---
 
 # P1112: Avatar colour dropped at two more `GravatarAvatar` call sites (session list, profile identity row)
@@ -61,7 +61,29 @@ At each site, pass `avatarColor={<the person's avatarColor field>}` alongside th
 
 ## Acceptance Criteria
 
-- [ ] `ClaritySessions.tsx`'s session-list avatar shows the person's real avatar colour, not the default blue
-- [ ] `profile-page-v2.tsx`'s identity row avatar shows the profile owner's real avatar colour, not the default blue
-- [ ] The pledge ring continues to render correctly at both sites (regression check — this fix must not touch `isPledger`)
-- [ ] No console errors during either flow
+- [x] `ClaritySessions.tsx`'s session-list avatar shows the person's real avatar colour, not the default blue — `avatarColor` (and `photoUrl`) now passed; `ClarityUser` gained the optional fields. Canary `src/tests/p1112-avatar-colour-call-sites.test.tsx` asserts `rgb(255, 87, 51)`; failed before the fix, passes after.
+- [x] `profile-page-v2.tsx`'s identity row avatar shows the profile owner's real avatar colour, not the default blue — `PointCardFull`'s `GravatarAvatar` now passes `avatarColor={profileOwner.avatarColor}` (the value was already threaded in at the call site, line ~1193) and `photoUrl`. `PointCardFull` is module-private and not exported, so the canary asserts at the source level that every `GravatarAvatar` in the file passes `avatarColor`; it failed on exactly this call site before the fix.
+- [x] The pledge ring continues to render correctly at both sites (regression check — this fix must not touch `isPledger`) — `isPledger` lines untouched in the diff; two canary cases assert `data-pledger="true"` for a pledger and its absence for a non-pledger. `src/tests/p1109-reproduce.test.tsx` still passes (3/3).
+- [x] No console errors during either flow — no console output in the vitest run (4/4 pass); `npm run lint` exit 0 and `./scripts/typecheck-gate.sh` exit 0. Note: both call sites live in components with no live importer today, so a browser check is still owed before this is called visually verified.
+
+## Code-review findings (codex, adversarial pass)
+
+Verdict: **REJECT** on the first pass, for two findings. Both were addressed:
+
+1. **`ClaritySessions` has no production importer.** Confirmed independently:
+   `grep -rn "ClaritySessions" src/` returns only the component's own file and this fix's canary.
+   The same is true of the profile call site — `PointCardFull` (profile-page-v2.tsx) is
+   module-private and already carries `// eslint-disable-next-line @typescript-eslint/no-unused-vars`.
+   So neither avatar is currently reachable by a user, and the render test cannot prove a
+   user-visible fix. The prop wiring is still correct and matches `.claude/rules/src.md`
+   (Avatar Usage), so it is kept: it removes the defect from both components before either is
+   wired up again. **No browser check was performed and none is possible for these two sites
+   while they have no route.**
+   [FOUNDER DECISION: both components are dead code. Delete them, or wire them back into a
+   surface? Deleting is outside this bug's scope and is not done here.]
+
+2. **The profile-page source assertion was a loose substring scan.** An earlier version accepted
+   any `avatarColor=` text inside the opening tag, so a JSX comment naming the prop would have
+   kept it green. Tightened to strip JSX comments and require the prop to be bound to a real
+   expression (`avatarColor={...}`). Failure path exercised: commenting out the real prop makes
+   the canary fail (1 failed), and restoring it makes it pass (4 passed).
