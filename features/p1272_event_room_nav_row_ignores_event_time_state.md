@@ -162,14 +162,20 @@ show "Join now" too early requires the clock to have already passed the threshol
 
 ## Reviews
 
-- Code review subagent (sonnet) was spawned and went idle without delivering a report —
-  **0 of 1 reported**, chased once. Review performed inline instead; three findings,
-  all fixed before commit: the new module constant was declared between two import
-  statements; the round-4 comment block still asserted "Join now holds across all three
-  time states", which the fix makes false; and the chosen label reverses round 4's
-  deliberate avoidance of the word "room" in this position (Practice Rooms' "+ Open a
-  room" lives one level down inside `/meet`). The last is a founder call, recorded in
-  the code comment rather than silently reversed.
+- Code review subagent (sonnet): **1 of 1 reported**, but only after two chases and
+  after the fix had already been reported as done. Verdict 0 HIGH, 1 MEDIUM. The MEDIUM
+  is the label staleness recorded above — independently reached, and it agreed the
+  once-per-render pattern matches `isPast`/`hasEnded` in the same file, so it is not a
+  new inconsistency. Its two LOW notes: the constant declared between imports (already
+  fixed inline before its report arrived) and no test at the T-1h boundary instant
+  (genuinely uncovered — two straddling cases added, T-1h exactly and T-61min).
+- Inline review performed while the subagent was silent found three issues, all fixed
+  before commit: the constant's placement between two import statements; the round-4
+  comment block still asserting "Join now holds across all three time states", which the
+  fix makes false; and the chosen label reversing round 4's deliberate avoidance of the
+  word "room" in this position (Practice Rooms' "+ Open a room" lives one level down
+  inside `/meet`). The last is a founder call, recorded in the code comment rather than
+  silently reversed.
 - Browser check covered the upcoming state only (desktop, 375, 320 — `emulate`, after
   `resize_page` silently no-opped at 500px). The cancelled and past states have no
   fixture in the dev dataset and are covered at render level by the canary.

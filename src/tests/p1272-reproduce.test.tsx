@@ -123,6 +123,21 @@ describe('P1272: the room nav row must reflect the event time state', () => {
     expect(links[0].textContent?.trim()).toBe('Join now');
   });
 
+  // The two cases below straddle the T-1h threshold itself. The 30-minute case above
+  // sits well inside the window and would still pass if the boundary were wrong by
+  // tens of minutes; these would not. Neither mocks the clock: at exactly T-1h the
+  // real clock advancing during render only pushes further INTO the window, and the
+  // 61-minute case has a full minute of margin before it could flip.
+  it('reads "Join now" at exactly the T-1h boundary instant', async () => {
+    await renderEvent(makeEvent({ datetime: new Date(Date.now() + 60 * MIN).toISOString() }));
+    expect(roomLinks()[0].textContent?.trim()).toBe('Join now');
+  });
+
+  it('still reads "Event Room" one minute before the window opens (T-61min)', async () => {
+    await renderEvent(makeEvent({ datetime: new Date(Date.now() + 61 * MIN).toISOString() }));
+    expect(roomLinks()[0].textContent?.trim()).toBe('Event Room');
+  });
+
   it('still reads "Join now" 20 minutes after a 90-minute event ended (past hasEnded, before isPast)', async () => {
     // Started 110 min ago, 90-min duration: hasEnded is true, isPast is not.
     // The room stays offered — a facilitator may still be debriefing.
