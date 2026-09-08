@@ -48,7 +48,12 @@ export function AgentProfileDisclosure({
       data-testid="agent-profile-disclosure"
       className={`mt-2 text-sm text-muted-foreground ${className}`}
     >
-      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 break-words">
+      {/* A NORMAL INLINE PARAGRAPH, not a flex row — corrected after looking at the render.
+          As `flex flex-wrap`, the sentence was ONE flex item, so it could not wrap around the
+          icon: the icon was pushed onto a line of its own and read as an orphaned control
+          rather than as part of the sentence (visual-QA checklist, "Sibling weight"). Inline
+          flow lets the icon sit immediately after the last word at every width. */}
+      <p className="break-words">
         {/* FOUNDER DECISION 2026-09-08. The brief was one clause carrying "machine-written
             prose, real quotes"; three candidates were put and this one chosen. It leads
             with what the machine did and names whose words the quotes are, which is the
@@ -64,9 +69,10 @@ export function AgentProfileDisclosure({
           aria-controls="agent-disclosure-detail"
           aria-label={expanded ? 'Hide the full agent-account disclosure' : 'What is an agent account?'}
           data-testid="agent-disclosure-toggle"
-          /* 40px tall and 40px wide: the visual-QA checklist's touch-target floor. An icon
-             this small is exactly the control that gets shipped as a 16px hit area. */
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center -my-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          /* 40x40 is the visual-QA checklist's touch-target floor — a 16px icon is exactly
+             the control that ships with a 16px hit area. `-my-2` + `align-middle` keep a
+             control that tall from stretching the line box it now sits inside. */
+          className="ml-1 inline-flex h-10 w-10 shrink-0 -my-2 items-center justify-center align-middle rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Info size={16} aria-hidden="true" />
         </button>
