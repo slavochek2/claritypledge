@@ -104,10 +104,18 @@ export function EventDetail() {
       return;
     }
     let cancelled = false;
+    // Clear FIRST, then fetch. Both of these effects key on eventId, so a
+    // slug-to-slug navigation inside EventDetail re-runs them with the previous
+    // event's value still in state — leaving it there renders event A's content
+    // under event B until B's request resolves, and forever if it rejects. For
+    // this one that stale value is an RSVP-GATED INVITE URL, so the window is a
+    // disclosure, not a cosmetic flicker.
+    setGroupChatUrl(null);
     eventsService.getEventGroupChatUrl(eventId)
       .then(url => { if (!cancelled) setGroupChatUrl(url); })
       .catch(error => {
         console.error('[EventDetail] Failed to fetch group chat link:', error);
+        if (!cancelled) setGroupChatUrl(null);
       });
     return () => { cancelled = true; };
   }, [eventId, isRsvpd, isHostOfEvent]);
@@ -120,10 +128,14 @@ export function EventDetail() {
       return;
     }
     let cancelled = false;
+    // Clear before fetching — see the note on the group-chat effect above. Two
+    // orgs run events here, so a stale note is the wrong organiser's words.
+    setOrgFooterNote(null);
     eventsService.getEventOrgFooterNote(eventId)
       .then(note => { if (!cancelled) setOrgFooterNote(note); })
       .catch(error => {
         console.error('[EventDetail] Failed to fetch org footer note:', error);
+        if (!cancelled) setOrgFooterNote(null);
       });
     return () => { cancelled = true; };
   }, [eventId]);
