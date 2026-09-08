@@ -227,8 +227,22 @@ export function StoryCardDetail({
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
             {/* P1141 amendment: an agent account is named the same way on every surface;
                 the raw stored `Agent · {Name}` used to leak through here. */}
+            {/* P1259 — THE ROUTE, added after adversarial review found this branch.
+                This is a whole agent STORY card (the quote-pattern early return renders
+                `story.content` below), and it never carried the footer even before this spec —
+                `main` had exactly one AgentStoryFooter call site, in the OTHER branch. So while
+                the footer existed elsewhere it was backstopped by redundancy; once P1259 removed
+                the footer globally, this became a surface rendering a machine-written reading of
+                a real named person with NO path to the disclosure at all. That is the Invariant
+                this spec is not allowed to break. */}
             {isAgent ? (
-              <AgentByline name={story.authorName} />
+              <AgentByline
+                name={story.authorName}
+                onNameClick={e => {
+                  e.stopPropagation();
+                  navigate(profileRoute(story.authorSlug));
+                }}
+              />
             ) : (
               <span className="font-medium">{story.authorName}</span>
             )}
@@ -694,8 +708,17 @@ function QuotedPoint({
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
           {/* P1141 amendment: an agent account is named the same way on every surface;
               the raw stored `Agent · {Name}` used to leak through here. */}
+          {/* P1259 — the route, same reason as the quote-pattern branch above. `profileRoute`
+              was already threaded into this component for LinkedStoryCard; this identity row
+              sat a few lines away from it and was missed on the first pass. */}
           {isAgent ? (
-            <AgentByline name={authorName} />
+            <AgentByline
+              name={authorName}
+              onNameClick={e => {
+                e.stopPropagation();
+                navigate(profileRoute(storyAuthorId));
+              }}
+            />
           ) : (
             <span className="font-medium">{authorName}</span>
           )}

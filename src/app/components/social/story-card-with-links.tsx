@@ -173,8 +173,22 @@ export function StoryCardWithLinks({
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
             {/* P1141 amendment: an agent account is named the same way on every surface;
                 the raw stored `Agent · {Name}` used to leak through here. */}
+            {/* P1259 — THE ROUTE, added after adversarial review found this branch.
+                This is a whole agent STORY card (the quote-pattern early return renders
+                `story.content` below), and it never carried the footer even before this spec —
+                `main` had exactly one AgentStoryFooter call site, in the OTHER branch. So while
+                the footer existed elsewhere it was backstopped by redundancy; once P1259 removed
+                the footer globally, this became a surface rendering a machine-written reading of
+                a real named person with NO path to the disclosure at all. That is the Invariant
+                this spec is not allowed to break. */}
             {isAgent ? (
-              <AgentByline name={author.name} />
+              <AgentByline
+                name={author.name}
+                onNameClick={(e) => {
+                  e.stopPropagation();
+                  embedNavigate(`/p/${author.id}`);
+                }}
+              />
             ) : (
               <span className="font-medium">{author.name}</span>
             )}
@@ -686,8 +700,15 @@ function QuotedPoint({
           <span className={`inline-flex items-center gap-1.5${isAgent ? ' agent-drained-chrome' : ''}`}>
             {/* P1141 amendment: an agent account is named the same way on every surface;
                 the raw stored `Agent · {Name}` used to leak through here. */}
+            {/* P1259 — the route, same reason as the quote-pattern branch above. */}
             {isAgent ? (
-              <AgentByline name={authorName} />
+              <AgentByline
+                name={authorName}
+                onNameClick={(e) => {
+                  e.stopPropagation();
+                  embedNavigate(`/p/${authorId}`);
+                }}
+              />
             ) : (
               <span className="font-medium">{authorName}</span>
             )}

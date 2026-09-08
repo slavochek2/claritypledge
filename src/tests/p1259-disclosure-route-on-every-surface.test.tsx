@@ -48,6 +48,8 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { StoryCardWithLinks } from '@/app/components/social/story-card-with-links';
+import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
+import { QuotedStory } from '@/app/components/social/point-card-with-links';
 import type { StoryWithAuthor } from '@/app/types';
 
 const AGENT_ID = 'agent-1';
@@ -111,6 +113,49 @@ const SURFACES: Array<[string, () => void]> = [
             name: 'Agent · Yann LeCun',
             slug: 'agent-yann-lecun',
           } as never}
+        />
+      </MemoryRouter>
+    );
+  }],
+
+  /**
+   * ADDED AFTER ADVERSARIAL REVIEW, which found this exact surface unrouted and pointed out
+   * that this file could not have caught it: the census claimed to be the census while
+   * rendering only the two components its predecessor rendered.
+   *
+   * `StoryCardDetail` takes an EARLY RETURN when `context === 'point-detail'` and an
+   * `authorPosition` is present — the "quote pattern" a point page uses in its position
+   * sections. That branch renders the whole agent story (its own `story.content`) and it never
+   * carried the footer, so once P1259 removed the footer globally it became a machine-written
+   * reading of a real named person with no path to the disclosure at all.
+   *
+   * The props below are the minimum that reaches that branch; getting them wrong renders the
+   * OTHER branch and the test passes without testing anything, which is the failure mode this
+   * whole file exists to avoid — so the assertion body also checks the branch was reached.
+   */
+  ['Story card detail — point-detail quote pattern', () => {
+    render(
+      <MemoryRouter>
+        <StoryCardDetail
+          story={agentStory()}
+          linkedPoints={[]}
+          positionCounts={new Map()}
+          userPositions={new Map()}
+          context="point-detail"
+          authorPosition="agree"
+        />
+      </MemoryRouter>
+    );
+  }],
+
+  ['Quoted story (feed point card / profile point card)', () => {
+    render(
+      <MemoryRouter>
+        <QuotedStory
+          story={{ ...agentStory(), text: 'Concentration of capability is the governance problem.' } as never}
+          onClick={() => {}}
+          onAuthorClick={() => navigate('/p/agent-yann-lecun')}
+          getStoryAuthor={() => ({ id: AGENT_ID, name: 'Agent · Yann LeCun', slug: 'agent-yann-lecun' } as never)}
         />
       </MemoryRouter>
     );

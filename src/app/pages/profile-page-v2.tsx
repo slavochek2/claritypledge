@@ -1287,8 +1287,18 @@ function StoryCardFull({
   const storyTextRef = useRef<HTMLParagraphElement>(null);
 
   /* P1259 change 6 — measured overflow replaces the character threshold that used to
-     decide this. See the note where STORY_THRESHOLD was removed. */
-  const storyOverflows = useTextOverflow(storyTextRef, [story.content, story.tags]);
+     decide this. See the note where STORY_THRESHOLD was removed.
+
+     `storyExpanded` IS A DEPENDENCY, and that is the whole fix for a race found in review.
+     Without it: clicking "Show less" flips `storyExpanded` to false synchronously, while
+     `storyOverflows` is still the stale `false` measured with the clamp OFF (nothing overflows
+     unclamped). The visibility condition `(storyOverflows || storyExpanded)` then evaluates
+     `false || false` and the control DISAPPEARS until the ResizeObserver happens to fire —
+     which is async, and does not fire at all in an environment without ResizeObserver. A
+     control that vanishes on collapse is the same class of defect this change exists to
+     remove. Listing it here re-measures in the effect after the clamp is back on the element,
+     synchronously with the render that put it there. */
+  const storyOverflows = useTextOverflow(storyTextRef, [story.content, story.tags, storyExpanded]);
 
   /* P1259 change 1 — the profile mounts a real player, lazily. Founder: "when I click on a
      timestamp, we stay on the same page in the same way we do that when we are on a story
