@@ -741,8 +741,16 @@ export const realEventsService: EventsService = {
       });
 
     if (error) {
-      // 23505 = unique violation (already RSVP'd)
-      logDbError('rsvpToEvent', error);
+      // P897: 23505 = unique violation (already RSVP'd). That is an expected,
+      // user-recoverable case — a double-click race or a re-invoke on stale
+      // state — so it must be classified BEFORE logDbError, not after. Logging
+      // first shipped a Sentry error event for every duplicate. Mirrors the
+      // guards in badge-service-real.ts:62 and stories-service-real.ts:613.
+      // Return value stays `false` (pinned by events-service-real.test.ts);
+      // only the Sentry report is suppressed.
+      if (error.code !== '23505') {
+        logDbError('rsvpToEvent', error);
+      }
       return false;
     }
 
