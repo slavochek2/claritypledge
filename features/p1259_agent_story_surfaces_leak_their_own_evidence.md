@@ -138,10 +138,20 @@ agent accounts work →" link behind an information icon.** This is the founder'
 one-line version drops the sentence that does the real work (*which parts are machine-written*) and
 the full block reproduces on the profile the wall of text being removed from the cards.
 
-[FOUNDER DECISION: the exact one-line disclosure that stays visible on the profile. It has to carry
-"machine-written prose, real quotes" in one clause. Current full text, for reference: "An agent
-account operated by ClarityPledge wrote this on {Name}. Everything except the quotes is
-machine-written; the quotes come from the linked video."]
+**RESOLVED — founder decision, 2026-09-08.** Three candidates were put; the chosen line is:
+
+> The prose here is machine-written. The quotes are {Name}'s own words, from the linked video.
+
+It leads with what the machine did and names whose words the quotes are, which is the half a reader
+is most likely to get wrong. The two rejected forms led with the operator ("An agent account
+operated by ClarityPledge: everything it writes about {Name} is machine-written except the quotes")
+and with two bare noun phrases ("Machine-written prose, real quotes — an agent account operated by
+ClarityPledge"); the operator is already named one line above by the existing `Operated by
+{operator}` row, so leading with it repeated rather than added.
+
+The text behind the info icon is the existing footer's, verbatim except "wrote this on {Name}" →
+"wrote these stories on {Name}", because on a profile "this" has no antecedent. Nothing else about
+that founder-decided 2026-09-04 string is reopened.
 
 **The ROUTE is the byline's name — DECIDED by the founder, 2026-09-07, verbatim:**
 
@@ -220,36 +230,107 @@ Two consequences the reviewers' objection makes explicit, and both are requireme
 
 ## Acceptance Criteria
 
-- [ ] On the feed, clicking a story's timecode plays the video from that second on the same page,
+Evidence below is from the running app on the test DB (w8, localhost:5800), not from reasoning
+about the code. Two items are deliberately NOT ticked — see "Open at handover".
+
+- [x] On the feed, clicking a story's timecode plays the video from that second on the same page,
       without opening a tab
-- [ ] Same on the agent profile and on a point card
-- [ ] A story shorter than the clamp shows no "Show more"; a story longer than it shows one, and
+      — feed timecodes render as `<button data-seconds>` (not anchors); measured on
+      `/p/agent-yann-lecun`, clicking `13:22` (802s) left `location.href` unchanged, the player
+      reported `data-player-ready="true"` and scrolled into view, and the screenshot shows that
+      player leaving its poster for a live mid-video frame while the second card's player still
+      shows its play button.
+- [x] Same on the agent profile and on a point card
+      — profile: 3 players mounted, 10 timecodes all BUTTON. Feed point card (`QuotedStory`):
+      players mounted, all timecodes BUTTON. `getStoriesForPoints` had never selected
+      `video_url`/`video_quotes`, so the point card had no video at all until this spec.
+- [x] A story shorter than the clamp shows no "Show more"; a story longer than it shows one, and
       clicking it reveals more text
-- [ ] In the feed, each agent story under a point shows that author's stance beside their byline
-- [ ] The profile's existing stance-above-point layout is unchanged
+      — at rest: 3 stories of 603/595/870 chars, `scrollHeight === clientHeight`, zero toggles.
+      With the text inflated: clientHeight 576 vs scrollHeight 1656, toggle appears, click →
+      "Show less" and clientHeight 1656 (clamp off), click again → back to 576 with the control
+      still present. The collapse cycle terminates and the control never vanishes.
+- [x] In the feed, each agent story under a point shows that author's stance beside their byline
+      — 8 chips rendered, all inside `.agent-drained-chrome`; one point carries
+      `Connor Leahy — Agrees+` directly above `Yann LeCun — Disagrees+`, which is the leak.
+- [x] The profile's existing stance-above-point layout is unchanged — untouched in the diff.
 - [ ] No story card on any surface renders the two-sentence agent footer
-- [ ] The agent profile shows the description, the subject's links, one disclosure line, and the
+      — **DEVIATION, founder call needed.** True on all five reader-facing surfaces (feed story
+      card, feed point card, profile, story detail, linked story card: 0 footers measured on each).
+      NOT true on the sealed-letter card, which keeps it. See "Open at handover" #1.
+- [~] The agent profile shows the description, the subject's links, one disclosure line, and the
       full disclosure behind an information icon
-- [ ] Every agent story on every surface still shows `AGENT · on {Full Name}`
-- [ ] A reader can reach "the prose is machine-written, the quotes are not" from any surface showing
+      — description, disclosure line and info icon verified on the rendered page. The LINKS ROW
+      is unverified against live data: no agent profile on test has `links` populated, and the
+      row is correctly absent rather than an empty placeholder. Component behaviour is covered by
+      `p1259-agent-profile-disclosure.test.tsx`; see "Open at handover" #2.
+- [x] Every agent story on every surface still shows `AGENT · on {Full Name}`
+      — measured on feed, profile, story detail and point detail; the stored `Agent · ` prefix
+      does not leak.
+- [x] A reader can reach "the prose is machine-written, the quotes are not" from any surface showing
       an agent story in one click, by clicking the person's name in the byline
-- [ ] On every surface where the footer was removed, the byline name is actually clickable —
+- [x] On every surface where the footer was removed, the byline name is actually clickable —
       verified per surface, not assumed. A surface rendering the name as plain text has no route
-- [ ] Agent card chrome still measures desaturated on rendered pixels — `e2e/p1104-agent-marker.spec.ts`
+      — per surface, by command rather than assumption:
+      feed story card `BUTTON`; feed point card / `QuotedStory` `BUTTON` (×8); profile story card
+      `BUTTON` (×3); story detail `BUTTON`; linked story card `BUTTON`
+      (`p1259-disclosure-route-on-every-surface.test.tsx`).
+      Point-detail story row: renders a `<span>` DELIBERATELY — the whole row is
+      `role="button" aria-label="…'s profile" tabindex="0"`, and clicking the name was measured
+      navigating `/point/709b0a25…` → `/p/agent-yann-lecun`. A nested button there would be the
+      dead-nested-button defect `agent-byline.tsx` note 2 records.
+      The profile HEADER byline is also a `<span>`, correctly: it is the page the route leads to.
+- [x] Agent card chrome still measures desaturated on rendered pixels — `e2e/p1104-agent-marker.spec.ts`
       passes unchanged, including for the new stance chip
+      — 25 passed, exit 0, with the stance chip live.
+
+### Open at handover
+
+1. **The sealed-letter card still renders the footer, and that is a judgement I made rather than
+   one the spec settled.** `letter-snapshot-mapper.ts:228` writes `authorSlug: ''`, so on a sealed
+   letter the byline name has nowhere to navigate. Removing the footer there too would satisfy the
+   AC literally while breaking this spec's own Invariant — "A reader must be able to reach, from any
+   surface showing an agent story, the fact that the prose is machine-written and the quotes are
+   not. This spec moves where that lives; it may not remove it" — on the one surface that is
+   physically SENT to another person, with no site chrome. I let the Invariant win. Three ways out,
+   founder's call: (a) accept the deviation and tick the AC; (b) remove it there too, accepting the
+   gap; (c) snapshot the author slug at seal time so that surface gains a route (a change to the
+   seal RPC, not to this spec's render work).
+2. **No agent profile carries `links` yet, so the row has never been seen with data.** Populating it
+   means writing real biographical links for four named living people — content work under the same
+   source discipline as story prose (this spec's own risk table: two of the four filed bios "would
+   have been wrong from memory"). Not something to invent. The column, the grant, the accessor and
+   the https-only render gate are all in place and tested.
 
 ## Done-When
 
-- [ ] Screenshots at 320px, 375px and desktop for feed, profile and point card, each with a player
+- [x] Screenshots at 320px, 375px and desktop for feed, profile and point card, each with a player
       mounted and a stance chip rendered
-- [ ] `p1212-footer-on-every-surface.test.tsx` rewritten to the new contract and passing
-- [ ] Migration applied on test; the four filed agent profiles carry a full description and links
+- [x] `p1212-footer-on-every-surface.test.tsx` rewritten to the new contract and passing
+      — `git mv`d to `p1259-disclosure-route-on-every-surface.test.tsx` and inverted: it now
+      asserts no footer, the byline still marks authorship, and the name is a real control that
+      navigates. Not deleted, per the risk table.
+- [~] Migration applied on test; the four filed agent profiles carry a full description and links
+      — migration applied and verified on test (`profiles_bio_length_check` now
+      `length(bio) <= 2000`, `profiles_links_is_array` present, `links` readable by anon, and
+      `get_profile_by_slug` returns it). The four profiles carrying descriptions and links is
+      open — see "Open at handover" #2.
 
 ## Open Questions
 
-1. The clamp multiplier is "maybe 3x" — a founder preference stated with a question mark. Once
-   change 6 lands, most agent stories fit whole regardless, so the exact number may not matter.
-   Pick 3× and confirm on the rendered page.
+1. ~~The clamp multiplier is "maybe 3x"~~ **Resolved by building it.** 3× applied everywhere a
+   story body is cut (`line-clamp-6`→`[18]` feed, `8`→`[24]` profile, `5`→`[15]` compact detail,
+   `4`→`[12]` linked preview, 200→600 QuotedStory, 280→840 story-card-with-links ×2). Confirmed on
+   the rendered page: filed agent stories of 603/595/870 chars now render whole, and no "Show more"
+   appears because none of them overflows — which is the prediction change 6 made.
+
+   **The number was never the real defect.** `line-clamp-8` is not a class Tailwind 3.4 generates
+   (its default `lineClamp` scale is 1-6 and this repo does not extend it), so the profile's story
+   text was NOT CLAMPED AT ALL — that, not a threshold mismatch, is why its "Show more" could not
+   move anything. Measured with the Tailwind CLI, `line-clamp-6` generated and `line-clamp-8`
+   absent, with `line-clamp-[18]`/`[24]` generated. Every clamp above 6 now uses the arbitrary form,
+   and `p1259-clamp-classes-compile.test.ts` fails on any bare `line-clamp-N` outside the generated
+   scale (proven to fail: exit 1 on a staged offender, exit 0 once removed).
 2. ~~Where do the social links live?~~ **Resolved while filing.** `p966` is ClarityPledge's *own*
    footer/schema links and is unrelated to per-subject links. The repo precedent for a links list on
    a row is `20260828120000_p1179_event_links.sql` — `ADD COLUMN links JSONB NOT NULL DEFAULT
