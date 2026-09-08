@@ -6,6 +6,52 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [process]: A multi-phase spec cannot ship one phase — gate 2.5 counts checkboxes, not phases (P1247/P1265)
+
+**Context:** P1247 was filed and drafted as one spec spanning four phases (canary tier-split + gate,
+then converting a hand-maintained fork into a generated file, then a founder decision on rules
+reach, then a cross-repo projection cleanup), with one `## Done-When` list mixing all fourteen
+completion items. Phase 1 was implemented, reviewed, and fixed in full — 5 items done, with
+evidence. Running `./scripts/ship-gates.sh p1247` to close it failed: `[GATE 2.5] FAIL: 9 unticked
+completion item(s)`. Gate 2.5 (2026-08-27, this log) reads every checkbox under `## Done-When` in
+one spec with no concept of "phase" — it cannot tell "not done yet, tracked elsewhere" from "not
+done, forgotten."
+
+**Decision:** Split the spec. P1247 was retitled to describe only what it actually shipped (its
+original title described the *conclusion* Phase 2 would build, not what Phase 1 delivered — the
+same headline-says-more-than-the-body defect this session separately fixed on the same file's
+Phase-2 subheading), trimmed to its 5 completed Done-When items, and its Phase-1-relevant Risks
+rows marked RESOLVED. [P1265](../features/p1265_codex_agents_md_becomes_a_generated_projection.md)
+was filed carrying the not-yet-done Solution phases, the founder-decision Open Question, the
+Phase-2+ Risks table, and Alternatives Considered forward **verbatim** (not paraphrased) — since a
+fresh session will execute it with no memory of this one, and P1247 (once shipped and frozen in
+`features/done/`) is a safe, unchanging thing to copy content out of. P1265 is told to read P1247
+in full first, for the shared Problem/Invariants background neither restates.
+
+**Alternatives rejected:** *Move the 9 items to a `## Next Steps` section*, the convention
+2026-09-01 (this log, P1197) established for exactly this gate. Rejected because that convention
+fits a **small number of items the repo can never mechanically verify** (a post-deploy operator
+action); it does not fit **four substantial phases with their own Solution, Risks and
+Alternatives** — cramming that into a prose "next steps" note would either lose the detail a fresh
+session needs or bloat a section that convention keeps deliberately thin. *Leave P1247 unshipped
+until all four phases land*, deferring Phase 1's already-working commit-path protection for as long
+as Phases 2-4 take — rejected because nothing coupled them: the tier-split gate and the
+generated-file conversion are independently revertible per the spec's own Rollback Strategy.
+
+**Consequences:** A spec drafted with multiple `Phase N —` subsections and one shared `Done-When`
+list is a ship-gate liability by construction, discovered only at close time. Filing separate specs
+per phase from the start avoids the split-and-retitle work this session did after the fact — worth
+naming explicitly the next time `/create-spec` or `/pick-flow` drafts a plan with more than one
+phase and any chance of shipping before the last one lands. Not proposed as a rule change here;
+recorded as the pattern to watch for.
+
+**References:** [P1247](../features/done/2026-06-10/p1247_harness_agnostic_contract_2_has_no_gate.md)
+· [P1265](../features/p1265_codex_agents_md_becomes_a_generated_projection.md) ·
+`scripts/ship-gates.sh` gate 2.5 · this log 2026-09-01 (Next Steps convention, P1197) · this log
+2026-08-27 (gate 2.5 itself, P1180)
+
+---
+
 ## 2026-09-08 [process]: Shipping a `git-ops.sh` change means landing the tool AND its canaries in one commit — the guard says "commit-to-main first" and stops one step short (P1260)
 
 **Context:** `git-ops.sh ship` refuses a branch that edits `git-ops.sh`, because bash parses
