@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { readdir, readFile, rename, mkdir } from 'fs/promises'
 import { writeFileSync, readFileSync, realpathSync } from 'fs'
-import { join, basename, extname, sep } from 'path'
+import { join, basename, extname, sep, resolve } from 'path'
 import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter'
 import { execFile, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Article, ArticleStatus, Opportunity, OpportunityStage, OpportunityType } from '../src/lib/types'
@@ -10,7 +10,14 @@ import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, 
 import { KANBAN_CONFIG } from '../config'
 
 const app = express()
-app.use(cors())
+// CORS is an ORIGIN ALLOWLIST, not a wildcard. Restored here after being lost:
+// 963da65f8 shipped `origin: http://localhost:<frontend port>` deliberately
+// ("Restrict CORS from wildcard to http://localhost:9050 only"), and e0a0d6eaf
+// (the p449 content-kanban branch, cut from a base that predated the hardening)
+// overwrote this file with its older copy. That commit's diff shows no cors line
+// at all, which is why the revert was invisible. Bound to KANBAN_CONFIG so the
+// port is never re-hardcoded — security.test.ts asserts all three arms.
+app.use(cors({ origin: `http://localhost:${KANBAN_CONFIG.ports.frontend}` }))
 app.use(express.json())
 
 // Project root + features dir — overrideable via env for embedding in other
@@ -76,6 +83,15 @@ function getWorktrees(): { path: string; branch: string; name: string; isCurrent
     const worktrees: { path: string; branch: string; name: string; isCurrent: boolean }[] = []
     const blocks = output.trim().split('\n\n')
 
+    // `git worktree list` always emits the repository's MAIN working tree first,
+    // whatever cwd it runs from. That, not DEFAULT_PROJECT_ROOT, is what "main"
+    // names here: the server itself is often served FROM a worktree, so keying on
+    // the project root would leave the list with no entry named main at all.
+    const mainWorktreePath = blocks[0]
+      ?.split('\n')
+      .find((l) => l.startsWith('worktree '))
+      ?.replace('worktree ', '') ?? ''
+
     for (const block of blocks) {
       const lines = block.split('\n')
       // Skip prunable worktrees — stale agent worktrees whose .git dir no longer exists
@@ -92,9 +108,17 @@ function getWorktrees(): { path: string; branch: string; name: string; isCurrent
       }
 
       if (path) {
-        // Extract slot name: .claude/worktrees/w1 → "w1", main repo → "main"
+        // Extract slot name: .claude/worktrees/w1 → "w1", main repo → "main".
+        // "main" is the PROJECT ROOT specifically, never "anything outside the wN
+        // slot layout" — that older rule labelled every ad-hoc checkout (a detached
+        // baseline clone under /private/tmp, say) "main" too, so /api/worktrees
+        // returned two entries named main and the UI could not tell them apart.
         const slotMatch = path.match(/\/worktrees\/(w\d+)$/)
-        const name = slotMatch ? slotMatch[1] : 'main'
+        const name = slotMatch
+          ? slotMatch[1]
+          : path === mainWorktreePath
+            ? 'main'
+            : basename(path)
         worktrees.push({
           path,
           branch: branch || 'detached',
@@ -854,27 +878,58 @@ app.post('/api/open', (req, res) => {
   // symlink planted inside an allowed dir can't smuggle the open to its target.
   // Open the resolved path, not the raw input, so the check and the action agree.
   const worktrees = getWorktrees()
+
+  // Every worktree contributes both its raw path and its realpath as allowlist
+  // bases. The realpath arm is what lets a legitimate file through when the
+  // worktree dir is itself a symlink (on macOS /var vs /private/var); the raw
+  // arm is what lets the pre-realpath check below run without false 403s.
+  const allowedBases: string[] = []
+  for (const wt of worktrees) {
+    allowedBases.push(wt.path)
+    try {
+      const real = realpathSync(wt.path)
+      if (real !== wt.path) allowedBases.push(real)
+    } catch { /* worktree gone; its raw path arm still applies */ }
+  }
+
+  const isAllowedPath = (candidate: string) =>
+    allowedBases.some((base) => {
+      const allowedFeatures = join(base, FEATURES_DIR_NAME) + sep
+      const allowedArticles = join(base, 'content', 'articles') + sep
+      const allowedOpps = join(base, '.private', 'crm', 'opportunities') + sep
+      return candidate.startsWith(allowedFeatures) ||
+             candidate.startsWith(allowedArticles) ||
+             candidate.startsWith(allowedOpps) ||
+             candidate === join(base, FEATURES_DIR_NAME)
+    })
+
+  // Stage 1 — AUTHORISE BEFORE TOUCHING THE FILESYSTEM. resolve() normalises the
+  // string (killing ../ segments) without asking whether the file exists.
+  //
+  // The order matters for more than the test that caught it. realpathSync used to
+  // run first and answer 404 for anything absent, which made /api/open an
+  // existence oracle for the whole filesystem: 404 meant "absent", 403 meant
+  // "present but not allowed", for any absolute path a caller cared to send.
+  // Answering 403 uniformly for everything outside the allowlist closes that, and
+  // it is also what makes the `+ sep` boundary observable — a request for
+  // <worktree>/features-evil/bad.sh is now refused as unauthorised rather than
+  // accidentally refused as missing.
+  if (!isAllowedPath(resolve(filePath))) {
+    return res.status(403).json({ error: 'Path not allowed' })
+  }
+
+  // Stage 2 — resolve symlinks, then re-check. resolve() only normalises the
+  // string, so without this a symlink planted inside an allowed dir could still
+  // smuggle the open to a target outside it. Open the resolved path, not the raw
+  // input, so the check and the action agree.
   let resolvedPath: string
   try {
     resolvedPath = realpathSync(filePath)
   } catch {
     return res.status(404).json({ error: 'File not found' })
   }
-  const isAllowedPath = worktrees.some((wt) => {
-    // realpath the worktree base too, so a symlinked worktree dir doesn't cause
-    // a legitimate file (whose realpath differs from the string-joined path) to fail.
-    let base: string
-    try { base = realpathSync(wt.path) } catch { return false }
-    const allowedFeatures = join(base, FEATURES_DIR_NAME) + sep
-    const allowedArticles = join(base, 'content', 'articles') + sep
-    const allowedOpps = join(base, '.private', 'crm', 'opportunities') + sep
-    return resolvedPath.startsWith(allowedFeatures) ||
-           resolvedPath.startsWith(allowedArticles) ||
-           resolvedPath.startsWith(allowedOpps) ||
-           resolvedPath === join(base, FEATURES_DIR_NAME)
-  })
 
-  if (!isAllowedPath) {
+  if (!isAllowedPath(resolvedPath)) {
     return res.status(403).json({ error: 'Path not allowed' })
   }
 
