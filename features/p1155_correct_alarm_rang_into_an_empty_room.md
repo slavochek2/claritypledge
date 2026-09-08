@@ -250,6 +250,13 @@ fixture contains only inputs it should catch has an unmeasured false-positive ra
   pre-existing output, not something the reader generates.)*
 - **Do NOT add a second detector anywhere, including `/push`.** The existing seven are correct and
   timely; duplicating them feeds the same channel. `decisions.md` 2026-08-09 (P1031) owns this.
+  This still stands — adding an author check to an existing producer is hardening, not a new
+  detector.
+- **AMENDED 2026-09-08 — the seven producers ARE in scope, narrowly.** This spec originally said
+  "do NOT fix the detectors." Adversarial review finding A4 showed the reader cannot function while
+  the producers' find-or-append is unauthored, so an author check is added to each of the seven.
+  **Nothing else in those files changes** — not their schedule, not `continue-on-error`, not their
+  bodies, not the `--search`-vs-exact-title inconsistency (still out of scope, still flagged).
 - **Do NOT make any detector fail the build.** Alert-only was deliberate after per-push alerting
   produced 20+ duplicate emails. This applies to the seven detectors only — the escalator itself
   deliberately fails loudly (§3).
@@ -309,6 +316,9 @@ the revert handled it.
       only, demonstrated by adding one check without touching the reader's code
 - [ ] All seven alert-only workflows are covered by the registry, verified by diffing the registry
       against `grep -l "gh issue create" .github/workflows/*.yml`
+- [ ] All seven producers author-bind their find-or-append (and their close-on-recovery, where
+      present), so a producer cannot be induced to append to an issue it did not create — with a
+      fixture proving a genuine bot-authored issue is still matched (A4)
 - [ ] An issue aged past the threshold produces exactly one email to ops@, **observed firing** in a
       simulated run — not asserted
 - [ ] The same issue on the following run produces **no** second email (once per threshold crossing)
@@ -379,14 +389,11 @@ session before being written here — the reviewers' claims are not the evidence
 
 ### A1 — [CRITICAL] The author check does not close the injection path. Do not email the body.
 
-`gh api repos/<owner>/<repo>/collaborators` returns **two** collaborators: the owner (admin) and a
-**second collaborator holding `push` and `triage`**. Write permission allows editing any issue's
-body *without changing its author*, and triage allows adding and removing labels. So
-`author.is_bot === true` is satisfied while the content is attacker-controlled, and the `escalated`
-label is not trustworthy state either.
-
-*(The collaborator is deliberately unnamed here — public repo, `.claude/rules/pii.md`. The handle is
-one `gh api` call away for anyone who needs it.)*
+Author identity alone is not sufficient to trust an issue's *content*: the repo has a collaborator
+tier that can alter issue content without altering its author, and can also alter the labels this
+design uses as state. Mechanics, tier, and the enumerating command are in
+`.private/docs/security-log.md` (P1155-A1) — not restated here, per CLAUDE.md's rule on unpatched
+vulnerability mechanics in public files.
 
 **Smallest fix, and it closes three findings at once:** the escalation email carries only issue
 number, title, age in days, and the issue URL. No body, no comments, no fix commands. This works
@@ -399,29 +406,29 @@ This also resolves:
   the real per-day detail lands in **comments** (verified: issue #10 has **4** bot comments). The
   email would have understated exactly the multi-day case this spec exists for.
 - **A3 [HIGH→reduced]** — SMTP dot-stuffing severity. Still required (Build Sequence 4a-bis), but a
-  title and URL are far smaller attack surface than a 65 KB attacker-editable body.
+  title and URL are far smaller attack surface than a large attacker-editable body.
 
-### A4 — [CRITICAL] A decoy issue can make the producers stop producing. This is a Non-Goal collision.
+### A4 — [CRITICAL] The producers' find-or-append is not author-bound. Non-Goal collision.
 
-None of the seven producers author-check the issue they find before appending to it — verified:
+None of the seven producers verify **who** authored the issue they append to — verified:
 `grep -c "user.login\|author_association" .github/workflows/check-deploy-drift.yml` → 0, and the
 same find-or-append shape appears in all seven (`check-deploy-drift.yml:74`, `backup-staleness.yml:87`,
 `auth-canary.yml:54`, `csp-smoke.yml:61`, `db-backup.yml:191`, `prod-health-smoke.yml:77`,
 `stranded-signups.yml:66,91`).
 
-**Anyone** — no repo access needed, the repo is public with issues enabled — can open an issue with
-a producer's exact title (or, for the five `--search` producers, merely overlapping title words) and
-leave it open. Every subsequent real event then appends to that decoy. **No bot-authored issue is
-ever created**, so `github-issue-age` with its author check finds nothing, forever, and reports
-"nothing due" — which is the normal healthy output.
+The consequence is that a producer can be induced to append to an issue it did not create, so no
+bot-authored issue is ever created and `github-issue-age` — with its author check — correctly finds
+nothing. Forever, reported as "nothing due," which is the normal healthy output. **The exploit path
+is in `.private/docs/security-log.md` (P1155-A4)** and is deliberately not spelled out here while
+the hole is open.
 
 This is P1155's own defect one layer down: *alarm rang into an empty room* becomes *alarm never
 rings*, and it is indistinguishable from health.
 
-**This collides with the Non-Goal "do NOT fix the detectors."** The reader cannot compensate: it
-cannot escalate an issue that was never created. Either the producers get an author check, or this
-spec's mechanism has a cheap, unprivileged, permanent off-switch. **FOUNDER DECISION — see the open
-question at the end of this section.**
+**This collides with the Non-Goal "do NOT fix the detectors."** The reader cannot compensate — it
+cannot escalate an issue that was never created. **Founder decision, taken 2026-09-08: harden the
+seven producers**, scoped narrowly to an author check in their find-or-append and nothing else. The
+Non-Goal is amended accordingly (see Non-Goals).
 
 ### A5 — [CRITICAL] "Escalate once per threshold crossing" is implemented as "escalate once, ever."
 
@@ -471,11 +478,11 @@ Already named as an accepted residual in §6, but the reviewers sharpened it: a 
 escalator and all seven producers *together*, which is precisely when the watch is needed. The
 residual stands, but it is wider than §6 claimed.
 
-### A12 — [MEDIUM] The `escalated` label is writable by the triage tier.
+### A12 — [MEDIUM] The `escalated` label is not trustworthy state.
 
-Same collaborator as A1. A label can be removed (forcing re-escalation) or pre-applied to a fresh
-real alarm (suppressing it before it ever fires). Follows from A1; no separate fix beyond A5's
-cadence, which bounds how long a pre-applied label can suppress.
+Follows from A1 — the same tier that can alter issue content can alter labels. A label can be
+cleared (forcing re-escalation) or pre-applied to a fresh alarm (suppressing it before it fires).
+No separate fix beyond A5's cadence, which bounds how long a pre-applied label can suppress.
 
 ### A13 — [LOW] Gate 7b: the fixture suite cannot reach most of the above.
 
@@ -483,21 +490,14 @@ The fixtures feed canned objects to pure evaluate functions. Pagination truncati
 kind (A6), crash exit codes (A7) and every SMTP-layer behaviour live outside that boundary. Stated
 plainly rather than letting "observed firing" imply more coverage than it has.
 
-### Open question this review created
+### Open question this review created — RESOLVED
 
-**A4 forces a choice the spec had ruled out.** Adding an author check to the seven producers is
-currently a Non-Goal ("do NOT fix the detectors"). But without it, an unprivileged decoy issue
-disables this entire mechanism silently and permanently. Three ways out:
+A4 forced a choice the spec had ruled out. Options were: harden the producers (amends a Non-Goal),
+re-derive the condition in the reader (rejected on sight — that is a second detector, which
+`decisions.md` 2026-08-09 forbids), or accept the hole (not a security posture).
 
-1. **Harden the seven producers** — add the same author/exact-title check to their find-or-append.
-   Amends the Non-Goal. Touches files this spec promised not to touch.
-2. **Escalate on the condition, not the issue** — have the reader re-derive drift itself rather than
-   reading issues. Rejected on sight: that is a second detector, which a stronger Non-Goal forbids
-   and `decisions.md` 2026-08-09 (P1031) rules against.
-3. **Accept it** — record A4 as a known, unmitigated hole and ship the reader anyway. Defensible
-   only if nobody ever opens a decoy, which is not a security posture.
-
-Recommend **1**, scoped narrowly: an author check in the producers' find-or-append, nothing else.
+**Founder decision 2026-09-08: harden the seven producers**, narrowly. Non-Goal amended above;
+Build Sequence step 0 added.
 
 ## Related
 
@@ -957,6 +957,23 @@ alternative considered — the spec already resolved this.
 **Worktree recommended:** touches `.github/` and `scripts/` — shared infrastructure.
 
 #### Build Sequence
+
+0. **Harden the seven producers' find-or-append (A4, founder-authorised 2026-09-08).** Add an
+   author check so each producer only appends to / closes an issue **it** created. Same edit in all
+   seven, nothing else changed in those files:
+   - Replace the `--search "$TITLE in:title"` form with the exact-title `jq` form in the five that
+     use it (`auth-canary:54`, `csp-smoke:61`, `db-backup:191`, `prod-health-smoke:77`,
+     `stranded-signups:66,91`) — required, because a token match cannot be author-bound
+     meaningfully.
+   - Extend the `--json` field list to include `author`, and add
+     `and .author.login=="app/github-actions"` to the `jq` select in all seven.
+   - Same change in the **close-on-recovery** steps (`check-deploy-drift.yml`,
+     `backup-staleness.yml`) — otherwise the bot still closes an issue it did not create.
+   - **Test the accept case, not only the reject case** (gate 7c): a fixture proving a genuine
+     bot-authored issue is still matched. A check that rejects everything looks identical to a
+     quiet system, and that is the failure this whole spec is about.
+   Do this **first**: until it lands, the reader is escalating a signal that can be diverted before
+   it is ever produced.
 
 1. **Registry file** — write `.github/alert-registry.json` with the 7 producers mapped to 2
    `github-issue-age` checks (`deploy-drift` matching `check-deploy-drift.yml`'s exact issue
