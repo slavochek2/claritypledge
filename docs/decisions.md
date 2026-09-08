@@ -6,6 +6,77 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [process]: A gate proven in place is not proven through the path CI actually runs it from (P1255)
+
+**Context:** P1255's embargo-link gate was exercised in both directions before commit — a doc
+linking to an embargoed spec exited 1, a doc linking to a normal spec exited 0, both re-run after
+a rebase. Epistemic gate 7 was satisfied on its own terms. An independent Codex review then found
+the CI half false-passed **totally and silently**: `disclosure-gate.yml` copied the checker to
+`/tmp` to run it from the trusted `origin/main` copy, but that checker derives its repo root from
+`__dirname`. From `/tmp` it resolved `/` as the repo, found zero tracked markdown files, and exited
+0. Measured with a real violation staged: *"Scope: 0 markdown files"*, exit 0.
+
+**Decision:** When a gate's deployment **relocates** the checker — copies it to a temp dir, runs it
+from a different working directory, ships it into a container — the location is part of its input,
+and the local run proves nothing about the deployed one. Exercise the **deployed invocation**, not
+the convenient one. Where a checker must be run from a trusted copy, place that copy where its own
+root-resolution still works (here: inside `scripts/`, not `/tmp`).
+
+**And assert the denominator, not just the verdict.** The gate now hard-fails unless it reports
+having scanned at least one file. A pass over an empty set is the signature failure of this class,
+it is indistinguishable from a real pass in the exit code, and one cheap assertion makes any future
+relocation fail loudly instead of waving every push through.
+
+**Alternatives rejected:** Trusting the pushed copy instead of `origin/main`'s — that reopens the
+hole the trusted-base pattern exists to close (a checker edit inside the push weakening its own
+scan). Dropping the trusted-base pattern for this gate only — inconsistent with `privacy-scan.yml`
+next door, and the reason that pattern exists applies here identically.
+
+**Consequences:** This is [epistemic.md](../.claude/rules/epistemic.md) gate 7b in a new shape —
+green bounded what was *modelled* (the in-place run), not what is true (the CI run) — and the
+existing gate-7 wording does not prompt for it, because the artifact under test really was watched
+failing. The prompt that is missing: *"which invocation does production use, and have I run THAT
+one?"* Corroborates today's P1155 entry on independent review from a different angle: the
+self-review here was thorough, ran both directions, and still could not see this, because the thing
+it failed to vary was not the input but the **environment**.
+
+**References:** [features/p1255_security_specs_publish_before_the_defect_is_fixed.md](../features/p1255_security_specs_publish_before_the_defect_is_fixed.md) · `.github/workflows/disclosure-gate.yml` · [epistemic.md](../.claude/rules/epistemic.md) gates 7, 7b · decisions.md 2026-09-08 [process] (P1155, independent review) · `~/.agents/bin/codex-review`
+
+---
+
+## 2026-09-08 [technical]: One frontmatter field, five readers, four re-implementations of the parse — three of them wrong in different directions (P1255)
+
+**Context:** P1255 added a `disclosure:` field read by five places: the pre-commit checker, the
+CI checker, `git-ops.sh`, `ship-gates.sh`, and the doc-link validator. Each re-implemented the
+same three-line parse. Four of the five were wrong, and — the part worth recording — **wrong in
+opposite directions for the same input**. `disclosure: embargo # pending fix` is valid YAML whose
+value is `embargo`; the link validator read it as *not* embargoed and would have let the spec be
+published (fail-OPEN), while the field checker read the whole string as an invalid value and
+blocked a legitimate commit (fail-CLOSED). A third stripped every quote character rather than a
+matched pair, so an invalid value passed as valid.
+
+**Decision:** A field with more than one reader gets **one parser**, and the readers call it. Where
+languages differ and a shared function is not available, the parse is written once and the identical
+shape is copied with a comment naming each step and the bug it prevents — so a future edit cannot
+"simplify" it back. Never `tr -d` quote characters; strip a matched surrounding pair or nothing.
+
+**Alternatives rejected:** A YAML library in each reader — three languages, one of them a
+pre-commit shell path where an import is a new failure mode. Regex-matching the whole line
+(`^disclosure:\s*embargo\s*$`) — that *is* the fail-open bug: it silently reclassifies anything it
+does not match.
+
+**Consequences:** The fail-open copy was the one the external reviewer did **not** examine; it was
+found by taking its finding and asking which other readers share the shape. **A reviewer's finding
+is a template, not an inventory** — the useful next move after any accepted finding is to enumerate
+the sibling call sites and check each, which cost one command here and turned two reported bugs
+into four fixed ones. Separately, and corroborating gate 7c: the new required-field check is scoped
+`--diff-filter=A` on top-level `features/` only, and that scoping is load-bearing — `/ship`'s
+`git mv` into `features/done/` registers as an **add** at the destination, so an unscoped check
+would have blocked shipping every one of the 163 specs that predate the field. Found by running the
+new refusal against the workflow the tool already documents, not by reasoning about it.
+
+**References:** [features/p1255_security_specs_publish_before_the_defect_is_fixed.md](../features/p1255_security_specs_publish_before_the_defect_is_fixed.md) · `scripts/check-disclosure.sh` · `scripts/validate-doc-links.cjs` · [epistemic.md](../.claude/rules/epistemic.md) gates 7c, 9 · decisions.md 2026-08-27 (P1173, gate 7c's origin)
+
 ## 2026-09-08 [process]: A multi-phase spec cannot ship one phase — gate 2.5 counts checkboxes, not phases (P1247/P1265)
 
 **Context:** P1247 was filed and drafted as one spec spanning four phases (canary tier-split + gate,
