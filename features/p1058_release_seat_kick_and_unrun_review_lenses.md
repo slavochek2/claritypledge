@@ -230,16 +230,33 @@ guard is one accidental grant, or one new overload, away from being live — and
 exactly how this function acquired a PUBLIC grant once before (P1063's own header records it).
 **Recorded, not fixed here** — it is outside P1058's three named functions. Filed for P1059.
 
-### Decisions needed from the founder
+### Founder decisions — TAKEN 2026-09-08
 
-1. **Ratify the AD3 narrowing** — "any anon id-holder may release" becomes "any anon CODE-holder
-   may". No guest-flow cost, so this is ratification rather than a trade-off.
-2. **Event practice rooms** — `get_practice_room_codes` publishes codes to any anon visitor
-   (P1057 D-A), so for that room class F4 survives: a visitor can evict a seated guest and take the
-   seat. Those rooms were already joinable by strangers by design, but **eviction is a larger harm
-   than joining**. Pinned by its own canary so it cannot be forgotten. Closing it means either
-   attendee-only event rooms (a product question) or per-seat capability tokens (P1098's territory,
-   which owns code revocability). Not decided here.
+1. **AD3 narrowing: RATIFIED.** "Any anon id-holder may release an anonymously-held seat" becomes
+   "any anon holder of the code AND the seat capability may". AD3's reasoning is untouched —
+   identity still cannot separate a guest from an attacker, and no identity is required. The
+   anonymous guest leave path works with no account.
+2. **Event practice rooms: FIXED HERE, not accepted.** The first fix bound the release to the room
+   code, which closed F4 wherever the code is shared 1:1 and left it open for event practice rooms,
+   whose codes `get_practice_room_codes` publishes to any anon visitor (P1057 D-A). Founder chose to
+   close that rather than file it: those rooms were already stranger-*joinable* by design, but
+   *eviction* is a strictly larger harm and P1057 D-A never accepted it.
+
+   `claim_joiner_seat` now mints a per-occupancy `joiner_seat_token`; the anonymous release arm
+   requires it alongside the code. The capability is unreadable and unforgeable by construction —
+   P1057's default-deny column grants mean a column added later is invisible to `anon` and
+   `authenticated` until named in a GRANT, and this one never is; the migration's DO block asserts
+   SELECT and UPDATE privilege on it for both roles rather than trusting that. The claimer still
+   receives it because a SECURITY DEFINER function's result is not filtered by the caller's column
+   privileges — **confirmed on test before the design depended on it**, by calling
+   `claim_joiner_seat` as anon and observing `code` (a column anon cannot SELECT) in the returned row.
+
+   Migration `20260908120000_p1058_per_seat_capability_token.sql`. The former "residue accepted"
+   canary now asserts the opposite: a visitor holding the **published** code cannot evict the seated
+   guest — while still asserting the code really is published, so it cannot pass for the wrong reason.
+
+   **Still not closed, and out of scope:** a leaked code remains unrevocable (P1098), and whether
+   event rooms should be attendee-only remains a product question.
 
 ## Research Questions
 
