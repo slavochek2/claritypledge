@@ -709,10 +709,6 @@ export function EventDetail() {
                 dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
               />
 
-              {/* P1264: the organiser's standing note — the last block on the page,
-                  after the group-chat button, which is what an aside is for. */}
-              <OrgFooterNote note={orgFooterNote} />
-
               {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}
               {!isHost && !isCancelled && isRsvpd && (
                 <div className="lg:hidden">
@@ -720,6 +716,16 @@ export function EventDetail() {
                 </div>
               )}
             </div>
+
+            {/* P1264: the organiser's standing note — its own block BELOW the event
+                card, not the last paragraph inside it. Inside the card it read as the
+                closing line of this hike's description; the words are the same on every
+                event the org runs, so the page should show that it is not about this
+                event. A sibling card says that structurally, with no extra copy.
+
+                Activation is the column itself: organization.event_footer_note is
+                nullable, so an org with no note renders nothing and needs no flag. */}
+            <OrgFooterNote note={orgFooterNote} />
           </div>
 
           {/* Right Column - Organizer & Participants */}
