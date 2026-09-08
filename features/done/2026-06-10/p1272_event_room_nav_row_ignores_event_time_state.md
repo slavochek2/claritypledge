@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000080
 severity: medium
@@ -11,7 +11,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [events, event-room, time-state, ui]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1272-reproduce.test.tsx
@@ -23,6 +22,7 @@ reproduce_artifact:
   surface_audit_hits: 6
   reproduced_at: 2026-09-08
   fix_shape: decided
+completed_at: 2026-09-08
 ---
 
 # P1272: The event-room nav row ignores the event's time state — "Join now" on cancelled and finished events
@@ -66,7 +66,7 @@ raised it as a suspected cause and a later reader would otherwise re-derive it.
   `src/tests/p1114-room-composition.test.tsx`.
 - **Access to the room is never time-gated — only the row's label and presence change.**
   A walk-in arrives by the projected link and never sees this row at all
-  ([decisions.md](../docs/decisions.md) 2026-08-21, "the walk-in arrives by the projected
+  ([decisions.md](../../../docs/decisions.md) 2026-08-21, "the walk-in arrives by the projected
   link and never sees the tab"). Gating the *route* on time would break that entry path
   and the pre-event prep path both.
 - **Pre-event access to the room must survive the fix.** The room holds the readiness
@@ -75,7 +75,7 @@ raised it as a suspected cause and a later reader would otherwise re-derive it.
   word "now" being wrong, not about the room opening too early.
 - **User-facing affordances key on `isPast`, not `hasEnded`.** `hasEnded` is reserved for
   the host's destructive controls; `isPast` is the generous window that governs RSVP and
-  the "Event Ended" button ([decisions.md](../docs/decisions.md) 2026-08-21,
+  the "Event Ended" button ([decisions.md](../../../docs/decisions.md) 2026-08-21,
   `EVENT_GRACE_HOURS`). A 90-minute event hits `hasEnded` 90 minutes in — removing the room
   from a facilitator who is still debriefing. This corrects the filing instruction, which
   said "hidden when isPast, hasEnded, or isCancelled".
