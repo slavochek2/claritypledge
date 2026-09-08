@@ -2072,12 +2072,19 @@ fi
 # Codex, ...). VERIFY ONLY — never regenerate before checking here. A
 # regenerate-then-check step would be vacuous by construction: the generator's
 # job is to make the check pass, so the failure branch would be unreachable.
-# Runs unconditionally (not staged-file-scoped) because the defect this catches
-# is a skill source added/edited/removed without regenerating — the source
-# edit may be staged while .agents/skills/ silently falls out of sync, or vice
-# versa. Cheap: scans ~130 files, no network, no build.
+# Scoped to the staged set since P1277 (--staged-only). It used to run against
+# the whole WORKING TREE, which meant any co-tenant session's in-progress,
+# unstaged edit under .claude/commands/slava/ failed every other session's
+# unrelated commit — three recorded occurrences, each "resolved" by polling
+# `git status` until a stranger stopped typing, and `commit-to-main`'s lock is
+# no help because it serializes committers, not editors. The defect this gate
+# catches is unchanged: a skill source added/edited/removed without
+# regenerating, in EITHER direction (source staged, projection stale; or
+# projection staged, source not) — both are in scope, because scoping is by
+# skill name across both trees. Drift in a skill this commit does not touch is
+# now someone else's commit to fix. D4/D8/D9 hard fails stay repo-wide.
 if [ -f "./scripts/sync-agent-skills.sh" ]; then
-    if ! run_quiet "Agent skills sync (P1151)" ./scripts/sync-agent-skills.sh --check; then
+    if ! run_quiet "Agent skills sync (P1151)" ./scripts/sync-agent-skills.sh --check --staged-only; then
         echo -e "${YELLOW}  → Run ./scripts/sync-agent-skills.sh (no flag) to regenerate, then re-stage .agents/skills/${NC}"
         ERRORS=$((ERRORS + 1))
     fi

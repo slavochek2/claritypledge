@@ -312,6 +312,94 @@ rm -f "${WORK}/${OUT}/flat-skill/extra-link"
 run_sync "check after closed-world canaries is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
 assert_out "case E: final check confirms 0 drift" "0 drift"
 
+# ══════════════════════════════════════════════════════════════════════════
+# case F — --staged-only (P1277)
+#
+# The defect it closes: --check cmp's the whole working tree, so a co-tenant's
+# unstaged edit anywhere under the source tree fails EVERY other session's
+# unrelated commit (docs/process-learnings.md, three occurrences).
+#
+# These cases need a REAL git repo, because the flag's whole job is to read
+# `git diff --cached`. The rest of this suite runs outside one on purpose, so
+# the fixture is built in its own subdirectory.
+#
+# Both directions are covered, which is what gate 7c asks for: the flag must
+# still CATCH drift the commit contains (F2, F4), not merely stop refusing.
+# ══════════════════════════════════════════════════════════════════════════
+echo "--- case F: --staged-only scopes drift to the commit ---"
+GITFIX="${WORK}/gitfix"
+mkdir -p "${GITFIX}/${SRC}" "${GITFIX}/${OUT}"
+cp "${WORK}/${SRC}/flat-skill.md" "${GITFIX}/${SRC}/flat-skill.md"
+cat > "${GITFIX}/${SRC}/other-skill.md" <<'EOF'
+---
+name: other-skill
+description: A synthetic second skill standing in for a CO-TENANT's file.
+---
+fixture body
+EOF
+(
+  cd "$GITFIX"
+  git init -q -b main
+  git config user.email t@t.t
+  git config user.name t
+)
+run_sync_in() {   # run_sync_in DIR NAME WANT -- ARGS...
+  local dir="$1" name="$2" want="$3"; shift 3
+  local got=0 out=""
+  out="$(cd "$dir" && "$SCRIPT" "$@" 2>&1)" || got=$?
+  LAST_OUT="$out"
+  if [[ "$got" == "$want" ]]; then
+    echo "PASS  ${name}: exit ${got}"; pass_count=$((pass_count + 1))
+  else
+    echo "FAIL  ${name}: expected exit ${want}, got ${got}"
+    echo "$out" | sed 's/^/        /'; fail_count=$((fail_count + 1))
+  fi
+}
+
+run_sync_in "$GITFIX" "gitfix: generate a clean projection" 0 --src-dir "$SRC" --out-dir "$OUT"
+(cd "$GITFIX" && git add "$SRC" "$OUT" >/dev/null 2>&1 && git commit -qm "fixture baseline")
+
+# F1 — the incident, reproduced: a co-tenant edits a file this commit never
+# touches. Plain --check refuses; --staged-only lets the commit through.
+printf 'a co-tenant is still typing\n' >> "${GITFIX}/${SRC}/other-skill.md"
+(cd "$GITFIX" && git add "${SRC}/flat-skill.md" >/dev/null 2>&1)
+run_sync_in "$GITFIX" "case F1a: plain --check refuses on a co-tenant's unstaged edit" 1 \
+  --check --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case F1a: names the co-tenant's skill" "DRIFT_CONTENT_MISMATCH:other-skill"
+run_sync_in "$GITFIX" "case F1b: --staged-only ignores it" 0 \
+  --check --staged-only --src-dir "$SRC" --out-dir "$OUT"
+
+# F2 — the control that makes F1 meaningful: drift in a file the commit DOES
+# contain must still be caught. Without this, F1 only proves the flag is inert.
+printf 'my own unsynced edit\n' >> "${GITFIX}/${SRC}/flat-skill.md"
+(cd "$GITFIX" && git add "${SRC}/flat-skill.md" >/dev/null 2>&1)
+run_sync_in "$GITFIX" "case F2: --staged-only still catches STAGED drift" 1 \
+  --check --staged-only --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case F2: names the staged skill" "DRIFT_CONTENT_MISMATCH:flat-skill"
+
+# F3 — a staged PROJECTION edit is in scope too, even when the source is not
+# staged: hand-editing .agents/skills/ is the other way the two diverge.
+run_sync_in "$GITFIX" "gitfix: regenerate to a clean state" 0 --src-dir "$SRC" --out-dir "$OUT"
+(cd "$GITFIX" && git add -- "$SRC" "$OUT" >/dev/null 2>&1 && git commit -qm "resync" >/dev/null 2>&1)
+printf 'hand-edited projection\n' >> "${GITFIX}/${OUT}/flat-skill/SKILL.md"
+(cd "$GITFIX" && git add -- "${OUT}/flat-skill/SKILL.md" >/dev/null 2>&1)
+run_sync_in "$GITFIX" "case F3: a staged projection edit is in scope" 1 \
+  --check --staged-only --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case F3: names the skill whose projection was staged" "DRIFT_CONTENT_MISMATCH:flat-skill"
+run_sync_in "$GITFIX" "gitfix: regenerate after F3" 0 --src-dir "$SRC" --out-dir "$OUT"
+(cd "$GITFIX" && git add -- "$OUT" >/dev/null 2>&1 && git commit -qm "resync F3" >/dev/null 2>&1)
+
+# F4 — outside a git work tree the flag must DEGRADE TO A FULL CHECK, never to
+# a silent pass. A gate that quietly does nothing where git is absent is worse
+# than no gate: it reports OK.
+printf 'drift with no git repo in sight\n' >> "${WORK}/${SRC}/flat-skill.md"
+run_sync "case F4: --staged-only outside a git repo still checks everything" 1 \
+  --check --staged-only --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case F4: says the flag was ignored" "--staged-only ignored"
+run_sync "regenerate to restore after case F4" 0 --src-dir "$SRC" --out-dir "$OUT"
+run_sync "check after case F4 is clean" 0 --check --src-dir "$SRC" --out-dir "$OUT"
+
+
 echo ""
 echo "=== ${pass_count} passed, ${fail_count} failed ==="
 [[ "$fail_count" -eq 0 ]] || exit 1

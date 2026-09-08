@@ -37,6 +37,9 @@
 #   scripts/sync-agent-skills.sh                     regenerate .agents/skills/ in place
 #   scripts/sync-agent-skills.sh --check              verify only; exit non-zero + print
 #                                                      drift; changes NOTHING on disk
+#   scripts/sync-agent-skills.sh --check --staged-only
+#                                                      as --check, but report only drift
+#                                                      the CURRENT COMMIT contains (P1277)
 #   scripts/sync-agent-skills.sh --src-dir D --out-dir D2 [--check]
 #                                                      override scan/output roots
 #                                                      (testability — see
@@ -49,10 +52,12 @@ set -u
 SRC_DIR=".claude/commands/slava"
 OUT_DIR=".agents/skills"
 CHECK_MODE=0
+STAGED_ONLY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check) CHECK_MODE=1; shift ;;
+    --staged-only) STAGED_ONLY=1; shift ;;
     --src-dir) SRC_DIR="$2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     *) echo "sync-agent-skills: unknown argument: $1" >&2; exit 2 ;;
@@ -223,9 +228,94 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
   DRIFT="$WORK/drift.txt"
   : > "$DRIFT"
 
+  # ── --staged-only: judge the COMMIT, not the working tree (P1277) ─────────
+  #
+  # Without this flag the drift scan `cmp`s every source in the tree. On a
+  # shared checkout with concurrent sessions that means any co-tenant's
+  # in-progress, unstaged edit anywhere under the source tree fails EVERY other
+  # session's unrelated commit — recorded three times in docs/process-learnings.md
+  # (2026-08-27, twice on 2026-08-28), each time resolved by polling `git status`
+  # until a stranger stopped typing. `git-ops.sh commit-to-main`'s lock cannot
+  # help: it serializes committers, not editors, and an Edit-tool write takes no
+  # git lock at all.
+  #
+  # So the pre-commit caller passes --staged-only and a drift line survives only
+  # if the commit actually contains the file it is about: the source, or the
+  # projection. Same class as P1273 — a gate must judge the tree it is gating.
+  #
+  # Deliberately scoped to the DRIFT scan. The hard fails above (D4 collisions,
+  # D8 name mismatch, D9 unsafe name) stay global: they are properties of the
+  # source of truth, they cannot be introduced by an unstaged edit without also
+  # being real, and a repo that cannot project its skills at all is worth
+  # stopping every commit for.
+  #
+  # Degrades to a full check, with a printed note, when there is no git repo to
+  # ask (the hermetic fixtures in sync-agent-skills.test.sh run outside one).
+  # abs_of PATH — absolute, SYMLINK-RESOLVED form of a path.
+  #
+  # `pwd -P`, not $PWD, and this is load-bearing on macOS: a fixture (or any
+  # repo) under /var/folders/... is reached through a symlink, so `git
+  # rev-parse --show-toplevel` returns the /private/var/... form while $PWD
+  # keeps the /var/... form. Comparing the two spellings matched nothing, every
+  # skill fell out of scope, and --staged-only reported a clean tree for a
+  # commit that genuinely contained drift — a gate that silently passes
+  # everything. Caught by case F2 in sync-agent-skills.test.sh, which exists
+  # precisely because F1 alone cannot distinguish "correctly scoped" from
+  # "inert".
+  abs_of() {
+    local p="$1" d b
+    case "$p" in /*) ;; *) p="${PWD}/${p#./}" ;; esac
+    if [[ -d "$p" ]]; then
+      ( cd "$p" && pwd -P )
+      return
+    fi
+    d="$(dirname "$p")"; b="$(basename "$p")"
+    if [[ -d "$d" ]]; then
+      printf '%s/%s\n' "$( cd "$d" && pwd -P )" "$b"
+    else
+      printf '%s\n' "$p"
+    fi
+  }
+
+  # The scope is a set of skill NAMES, not of paths: a commit that deletes a
+  # source and a commit that edits its projection are both about the same skill,
+  # and the orphan scan below only ever knows the name.
+  STAGED_NAMES="$WORK/staged-names.txt"
+  SCOPED=0
+  if [[ "$STAGED_ONLY" -eq 1 ]]; then
+    if GIT_TOP="$(git rev-parse --show-toplevel 2>/dev/null)" && [[ -n "$GIT_TOP" ]]; then
+      GIT_TOP="$( cd "$GIT_TOP" && pwd -P )"
+      : > "$STAGED_NAMES"
+      ABS_SRC="$(abs_of "${SRC_DIR%/}")"
+      ABS_OUT="$(abs_of "${OUT_DIR%/}")"
+      while IFS= read -r rel; do
+        [[ -z "$rel" ]] && continue
+        abs="${GIT_TOP}/${rel}"
+        case "$abs" in
+          "$ABS_SRC"/*) derive_name "$abs" >> "$STAGED_NAMES" ;;
+          "$ABS_OUT"/*) rest="${abs#"$ABS_OUT"/}"; printf '%s\n' "${rest%%/*}" >> "$STAGED_NAMES" ;;
+        esac
+      done < <(git diff --cached --name-only 2>/dev/null)
+      sort -u -o "$STAGED_NAMES" "$STAGED_NAMES"
+      SCOPED=1
+    else
+      echo "sync-agent-skills --check: --staged-only ignored (not inside a git work tree) — checking the whole tree" >&2
+    fi
+  fi
+
+  # name_in_commit NAME — true when scoping is off, or the commit touches this
+  # skill's source or its projection.
+  name_in_commit() {
+    [[ "$SCOPED" -eq 1 ]] || return 0
+    awk -v n="$1" '$0 == n { found = 1; exit } END { exit !found }' "$STAGED_NAMES"
+  }
+
   while IFS=$'\t' read -r name path; do
     [[ -z "$name" ]] && continue
     skill_file="${OUT_DIR}/${name}/SKILL.md"
+    # Neither this skill's source nor its projection is in the commit: whatever
+    # its state, this commit did not cause it and cannot be asked to fix it.
+    name_in_commit "$name" || continue
     if [[ ! -d "${OUT_DIR}/${name}" || -L "${OUT_DIR}/${name}" ]]; then
       echo "DRIFT_MISSING_DIR:${name}" >> "$DRIFT"
     elif [[ ! -f "$skill_file" || -L "$skill_file" ]]; then
@@ -246,6 +336,7 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
       [[ -z "$existing_path" ]] && continue
       existing_name="$(basename "$existing_path")"
       if ! manifest_has "$existing_name"; then
+        name_in_commit "$existing_name" || continue
         existing_type="$(path_type "$existing_path")"
         if [[ "$existing_type" == "directory" ]]; then
           echo "DRIFT_ORPHAN:${existing_name}" >> "$DRIFT"
