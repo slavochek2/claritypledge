@@ -58,12 +58,41 @@ jobs:
 
       - name: Identify specs closed by this change
         id: closed
+        env:
+          # Read through env, never interpolated into the script body.
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
         run: |
           set -euo pipefail
-          # A close = a spec file ADDED under features/done/ relative to main.
+          # A close = a spec file ADDED under features/done/.
           # --diff-filter=A on the done/ side catches the rename's destination
           # without depending on rename detection being on.
-          CLOSED=$(git diff --name-only --diff-filter=A origin/main...HEAD -- 'features/done/**' 2>/dev/null \
+          #
+          # THE RANGE IS THE WHOLE GATE. The first version used
+          # `origin/main...HEAD` for every event. On a push to main that is EMPTY
+          # BY CONSTRUCTION — once the push lands, origin/main IS HEAD — so the
+          # gating step was skipped and the job reported a green that had examined
+          # nothing. Verified on run 34211142337: "Gate each closure" skipped,
+          # conclusion success. The single run that DID find a spec (34209536521)
+          # only did so because the runner's origin/main ref briefly lagged the
+          # push: a race, not a design.
+          #
+          # A required check that is green because it looked at nothing is worse
+          # than no check — it is the advisory-control failure this whole spec
+          # exists to end, wearing a green tick. So: for a push, use the range the
+          # push actually delivered; for a PR, the merge-base form is correct.
+          if [ "$EVENT_NAME" = "push" ] \
+             && [ -n "${PUSH_BEFORE:-}" ] \
+             && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+            RANGE="${PUSH_BEFORE}..${PUSH_AFTER}"
+          else
+            # New branch, force-push with an unreachable base, or a pull_request.
+            RANGE="origin/main...HEAD"
+          fi
+          echo "Selection range: $RANGE (event: $EVENT_NAME)"
+          CLOSED=$(git diff --name-only --diff-filter=A "$RANGE" -- 'features/done/**' 2>/dev/null \
                    | grep -E '/p[0-9]+[^/]*\.md$' || true)
           {
             echo "paths<<EOF"
