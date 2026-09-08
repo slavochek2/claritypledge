@@ -254,10 +254,21 @@ about the code. Two items are deliberately NOT ticked — see "Open at handover"
       — 8 chips rendered, all inside `.agent-drained-chrome`; one point carries
       `Connor Leahy — Agrees+` directly above `Yann LeCun — Disagrees+`, which is the leak.
 - [x] The profile's existing stance-above-point layout is unchanged — untouched in the diff.
-- [ ] No story card on any surface renders the two-sentence agent footer
-      — **DEVIATION, founder call needed.** True on all five reader-facing surfaces (feed story
+- [x] No story card on any surface renders the two-sentence agent footer
+      — **DEVIATION, ACCEPTED 2026-09-08.** True on all five reader-facing surfaces (feed story
       card, feed point card, profile, story detail, linked story card: 0 footers measured on each).
-      NOT true on the sealed-letter card, which keeps it. See "Open at handover" #1.
+      The sealed-letter card keeps it, deliberately: option (a) of the three put to the founder.
+      A sealed letter is the one artifact physically SENT to a person with no site chrome around
+      it, and its byline has nowhere to navigate (`letter-snapshot-mapper.ts:228` writes
+      `authorSlug: ''`), so removing the footer there would deliver a machine-written story with
+      no route to that fact — breaking this spec's own Invariant on the one surface least able to
+      absorb it.
+      **The decision was unblocked by a fact, not by a preference.** `profiles` on PROD returns
+      **zero** rows for `slug=like.agent-*` — there are no agent accounts in production, so no
+      letter any user can receive contains an agent story, and this exception is unreachable
+      today. It becomes live only at the first prod publish, which is a separate deliberate act.
+      Founder: *"can it affect users in production when we ship?"* — no, and that is why this
+      stopped being a ship gate.
 - [x] The agent profile shows the description, the subject's links, one disclosure line, and the
       full disclosure behind an information icon
       — description, disclosure line and info icon verified on the rendered page. The LINKS ROW is
@@ -288,7 +299,13 @@ about the code. Two items are deliberately NOT ticked — see "Open at handover"
 
 ### Open at handover
 
-1. **The sealed-letter card still renders the footer, and that is a judgement I made rather than
+1. ~~**The sealed-letter card still renders the footer.**~~ **CLOSED 2026-09-08 — option (a),
+   accept the deviation.** Reasoning and the prod evidence that unblocked it are on the AC above.
+   Option (c) — snapshot the author slug at seal time so the letter surface gains a route — stays
+   available and is the right follow-up to file IF a letter is ever composed from agent stories.
+   Nothing forces it before the first prod publish. Original note follows.
+
+   **The sealed-letter card still renders the footer, and that is a judgement I made rather than
    one the spec settled.** `letter-snapshot-mapper.ts:228` writes `authorSlug: ''`, so on a sealed
    letter the byline name has nowhere to navigate. Removing the footer there too would satisfy the
    AC literally while breaking this spec's own Invariant — "A reader must be able to reach, from any

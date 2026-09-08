@@ -66,8 +66,8 @@ export function AgentProfileDisclosure({
             with what the machine did and names whose words the quotes are, which is the
             half a reader is most likely to get wrong. */}
         <span data-testid="agent-disclosure-line">
-          The stories below are written by a machine. The words in quotes are {fullName}'s
-          own.
+          The stories on this page are written by a machine. The words in quotes are{' '}
+          {fullName}'s own.
         </span>
         <button
           type="button"

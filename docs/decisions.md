@@ -480,6 +480,35 @@ this log 2026-09-07 [technical] (functions/migrations disk-glob entry) and 2026-
 
 ---
 
+## 2026-09-08 [process]: Ask whether the data exists before treating a policy question as a ship gate
+
+**Context:** P1259 finished with one acceptance criterion open and escalated to the founder as a
+blocker: the sealed-letter card still renders the agent disclosure footer that every other surface
+drops. Three options were put to him, twice, across two sessions. His reply was the question
+nobody had asked: *"can it affect users in production when we ship?"*
+
+**Decision:** Check the data first. `profiles` on prod returns **zero** rows matching
+`slug=like.agent-*` — there are no agent accounts in production, therefore no letter any user can
+receive contains an agent story, therefore the exception is unreachable and the question is not a
+ship gate. One read-only query, and a decision that had been carried across two sessions
+dissolved. The deviation was then accepted on its merits (a sealed letter is the one artifact sent
+to a person with no site chrome, so it is the worst surface to strip a disclosure from) and
+recorded as deliberate rather than left open.
+
+**Alternatives rejected:** *Keep escalating until the founder picks one of three.* The escalation
+was correct in form — it was a real judgement call, honestly flagged — and wrong in sequencing: it
+asked for a preference on a consequence that did not yet exist.
+
+**Consequences:** Before escalating a policy or design exception, establish its **blast radius in
+live data**, and put that number in the escalation. "This affects N production rows" turns a
+philosophical choice into an ordinary one, and N is very often zero on a surface reached only by a
+feature that has not launched. Distinct from the existing "verify against the artifact, not the
+prose about it" gates: those bind claims about how something *works*, this binds claims about how
+much something *matters*.
+
+**References:** `features/p1259_agent_story_surfaces_leak_their_own_evidence.md`
+
+
 ## 2026-09-08 [technical]: A test that pins how a marker is DRAWN turns a UI defect into a contract
 
 **Context:** The agent marker (`MachineChip`) rendered as a bordered, fully-rounded pill on all
