@@ -91,10 +91,26 @@ Specs are created on main but evolve on feature branches. The feature branch cop
 - Reconciliation: `/ship` merges branch to main
 
 **Read rule (all skills):**
-When resolving a spec by P-number for implementation:
-1. Check if any existing worktree contains `features/p{N}_*.md`
+When resolving a spec by P-number — **for any purpose, not only implementation**. Design and review
+skills (`/architect`, `/ux`, `/challenge-prd`, `/spec-review`, `/generate-tests`) brief subagents off
+whatever copy they resolve, so a stale read there costs a whole pass:
+1. Check whether any existing worktree is **on this feature's branch** — `git worktree list` and match
+   `feature/p{N}-*` or `fix/p{N}-*`.
 2. If found → enter that worktree, read the spec there
 3. If not found → read from main, create new worktree as usual
+
+**Match the BRANCH, never the spec file.** Testing `ls <worktree>/features/p{N}_*.md` matches in
+**every** worktree, because every checkout contains every spec committed to main — it selects
+whichever slot sorts first and reports "spec found here" with full confidence. Observed twice on
+2026-08-09/10 pointing at a co-tenant's slot mid-feature (`dev.md`, which carries the long form of
+this warning). A spec file proves nothing about a worktree; the branch is the only thing that
+identifies it.
+
+**Only `/dev` and `/fix` implement this today** (`dev.md`, `fix.md`) — verified by
+`grep -rln "Spec Location" .claude/commands/`. Every other spec-consuming skill reads from wherever
+its glob lands. 2026-09-08: `/architect` briefed two subagents off a copy 6 commits stale, and one
+agent's entire first pass was discarded. Wiring the remaining skills is outstanding work, so until
+that lands, **run the check by hand before invoking any spec-consuming skill on a P-number.**
 
 **Why worktree wins:** A feature branch is ahead of main by definition. Specs get rewritten, ACs get checked, invariants get added — all on the branch. Main's copy is frozen at creation time.
 
