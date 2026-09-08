@@ -1334,9 +1334,36 @@ once with two findings unmapped, and the gap was caught by luck rather than by a
 | The EUR 75 monthly cap is a shared fuse, not a rate limit; no per-room or per-member bound exists | Addendum, Spend | Decision 6's three ceilings (room hard-stop, per-member slice counter, per-user concurrent rooms) |
 | Batch cap headroom is unmeasured against concurrent P1237 runs sharing the project | Addendum, Spend | **Step 17** — nothing above closed this |
 | RQ5: with diarization off Gemini accepts long audio, bills in full, returns ~5 minutes silently | Addendum, RQ5 | Decision 8's hard constraint; step 7 (`validate.ts` max duration) + the assertion that the request builder cannot be handed more than one slice |
-| De-dup ordering must key on a server-assigned index, never a client-supplied one | Addendum, Finding 8 integrity | **Step 7**, tightened — `spoken_at` is DB-assigned and rejected from the payload; the client sequence number bounds and rejects replays only |
+| De-dup ordering must key on a server-assigned index, never a client-supplied one | Addendum, Finding 8 integrity | **Step 7** — `spoken_at` is DB-assigned and structurally unreadable from the payload (allow-list). **The "sequence bounds and rejects replays" half of this row was WRONG and is corrected**: `sequence` is range-checked and nothing more — no seen-set, no monotonicity check exists. See "Replay is bounded, not rejected" below |
 | The pre-dedup candidate text must never be persisted, even transiently | Addendum, Finding 8 integrity | **Step 7** — merge held in worker memory; insert is the deduplicated row only |
 | Fail-open VAD (P1242) | Addendum, Finding 5 | Moot on this engine — Finding 6 measured Gemini needing no gate. Reopens if a VAD dependency returns |
+
+#### Replay is bounded, not rejected — a claim this spec made and the code never implemented
+
+Found by the Stage C/E/F code review (2026-09-08) and verified by `grep -n "sequence"
+supabase/functions/transcribe-slice/*.ts`: `sequence` is parsed and range-checked in
+`validate.ts` and is never compared against anything. There is no per-member seen-sequence set
+and no monotonicity check. **A replayed slice is transcribed, billed to Gemini and inserted**,
+de-duplicated only by the text-overlap window — which catches an immediate repeat and not a
+replay minutes later.
+
+What actually bounds it: the per-member slice ceiling (3000) and the room hard stop
+(180 minutes). Both are cost bounds, and they are the same bounds that apply to a legitimate
+speaker, so a replaying client gets no more budget than an honest one. That is why this is
+recorded rather than treated as a hole.
+
+**A monotonic check was designed and rejected here rather than built at the end of a stage.**
+`sequence <= last_seen → reject` needs one column and one comparison, but the client's counter
+restarts at 0 on every `createSliceRecorder`, and a page refresh or a rejoin re-enters
+`startCapture` against the *same* member row. A strict check would then refuse every slice for
+the rest of that room — a gate whose false-positive case is "the user reloaded the page", which
+is exactly the failure `epistemic.md` gate 7c exists to catch. Making it correct needs a reset
+signal the server can trust (the pre-warm POST is the natural carrier), and that is a mechanism,
+not a one-liner.
+
+**[FOUNDER DECISION: implement the reset-plus-monotonic check, or leave replay bounded by the
+ceilings and delete the sequence field entirely?]** Keeping a field that looks like a defence and
+is not is the one option with no argument for it.
 
 #### Files to Create
 

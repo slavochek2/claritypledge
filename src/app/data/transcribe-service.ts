@@ -252,7 +252,20 @@ export async function prewarmSlicePath(roomId: string): Promise<void> {
  * is the de-duplication ordering key. The ingest function validates against an allow-list,
  * so adding any of them here would be rejected rather than quietly honoured — deliberately.
  *
- * `sequence` bounds and rejects replays. It is NOT the ordering key and must not become one.
+ * `sequence` is a BOUND, not a replay defence — corrected 2026-09-08 after review found the
+ * original wording ("bounds and rejects replays") described a check that does not exist.
+ * The server range-checks it (0..MAX_SEQUENCE) and nothing else: there is no per-member
+ * seen-sequence set and no monotonicity comparison anywhere in the ingest function. A
+ * replayed slice IS transcribed, billed and inserted, bounded only by the per-member slice
+ * ceiling and the room's hard stop.
+ *
+ * A monotonic check was considered and NOT built: rejoining a room restarts this counter at
+ * 0 against the same member row, so `sequence <= last_seen` would refuse every slice after
+ * a refresh. Making that work needs a reset signal the server can trust, which is a
+ * mechanism — and the threat it would close is already bounded by the two ceilings. Left as
+ * a founder decision rather than designed in at the end of a build.
+ *
+ * It is also NOT the ordering key and must not become one; `spoken_at` is DB-assigned.
  */
 export async function sendAudioSlice(roomId: string, sequence: number, wav: Uint8Array): Promise<void> {
   await postSlicePayload({ roomId, sequence, audio: bytesToBase64(wav) });

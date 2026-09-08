@@ -9,7 +9,7 @@
  * rather than in production.
  */
 import { describe, it, expect } from 'vitest';
-import { RingBuffer, encodeWav, resampleTo, TARGET_SAMPLE_RATE } from './slice-recorder';
+import { RingBuffer, createSerialSender, encodeWav, resampleTo, TARGET_SAMPLE_RATE } from './slice-recorder';
 import { parseWavHeader, validateSliceRequest, MAX_SLICE_DURATION_MS } from '../../../supabase/functions/transcribe-slice/validate';
 import { OVERLAP_SECONDS, MAX_WORDS_PER_OVERLAP_SECOND } from '../../../supabase/functions/transcribe-slice/dedup';
 import { LEAD_IN_MS, SLICE_INTERVAL_MS } from './slice-recorder';
@@ -162,5 +162,103 @@ describe('encodeWav', () => {
     const slice = new Float32Array(5 * TARGET_SAMPLE_RATE);
     const info = parseWavHeader(encodeWav(slice, TARGET_SAMPLE_RATE))!;
     expect(info.durationMs).toBeLessThanOrEqual(MAX_SLICE_DURATION_MS);
+  });
+});
+
+describe('createSerialSender — one slice in flight at a time', () => {
+  /** A send whose resolution the test controls, so overlap is observable. */
+  function deferredSender() {
+    const started: number[] = [];
+    const resolvers: Array<() => void> = [];
+    const rejecters: Array<(e: unknown) => void> = [];
+    const send = (_wav: Uint8Array, sequence: number) => {
+      started.push(sequence);
+      return new Promise<void>((resolve, reject) => {
+        resolvers.push(resolve);
+        rejecters.push(reject);
+      });
+    };
+    return { send, started, resolvers, rejecters };
+  }
+
+  const WAV = new Uint8Array(4);
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+
+  it('does not start slice N+1 until slice N resolves', async () => {
+    // The defect this exists to prevent: the server assigns spoken_at at INSERT and reads
+    // "previous text" before a ~2s Gemini call. Two overlapping requests from one member
+    // land in completion order, not speech order, and both dedupe against the same stale
+    // previous. Serialising on the client removes both without new server state.
+    const { send, started, resolvers } = deferredSender();
+    const enqueue = createSerialSender(send);
+
+    enqueue(WAV, 0);
+    enqueue(WAV, 1);
+    enqueue(WAV, 2);
+    await tick();
+    expect(started).toEqual([0]);
+
+    resolvers[0]();
+    await tick();
+    expect(started).toEqual([0, 1]);
+
+    resolvers[1]();
+    await tick();
+    expect(started).toEqual([0, 1, 2]);
+  });
+
+  it('a failed slice does not stall the ones behind it', async () => {
+    // A dropped radio must degrade live text, not end it. If a rejection broke the chain,
+    // one bad slice would silence the speaker for the rest of the session.
+    const { send, started, rejecters, resolvers } = deferredSender();
+    const errors: number[] = [];
+    const enqueue = createSerialSender(send, { onError: (_e, seq) => errors.push(seq) });
+
+    enqueue(WAV, 0);
+    enqueue(WAV, 1);
+    await tick();
+    rejecters[0](new Error('offline'));
+    await tick();
+
+    expect(errors).toEqual([0]);
+    expect(started).toEqual([0, 1]);
+    resolvers[1]();
+    await tick();
+  });
+
+  it('drops rather than growing without bound, and drops the NEWEST', async () => {
+    // Evicting the oldest would reorder the queue — re-creating the exact defect this
+    // function removes. The archival upload path still carries every second of audio, so a
+    // dropped slice costs live text and nothing from the record.
+    const { send, started, resolvers } = deferredSender();
+    const dropped: number[] = [];
+    const enqueue = createSerialSender(send, { maxPending: 2, onDrop: (seq) => dropped.push(seq) });
+
+    enqueue(WAV, 0);
+    enqueue(WAV, 1);
+    enqueue(WAV, 2);
+    enqueue(WAV, 3);
+    await tick();
+
+    expect(dropped).toEqual([2, 3]);
+    expect(started).toEqual([0]);
+
+    // Draining frees capacity again — the bound is on IN-FLIGHT work, not a lifetime quota.
+    resolvers[0]();
+    await tick();
+    resolvers[1]?.();
+    await tick();
+    enqueue(WAV, 4);
+    await tick();
+    expect(started).toContain(4);
+  });
+
+  it('preserves send order under the bound', async () => {
+    const { send, started, resolvers } = deferredSender();
+    const enqueue = createSerialSender(send, { maxPending: 10 });
+    for (let i = 0; i < 5; i++) enqueue(WAV, i);
+    for (let i = 0; i < 5; i++) { await tick(); resolvers[i]?.(); }
+    await tick();
+    expect(started).toEqual([0, 1, 2, 3, 4]);
   });
 });

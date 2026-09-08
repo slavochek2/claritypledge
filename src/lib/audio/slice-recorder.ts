@@ -160,6 +160,58 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array
   return bytes;
 }
 
+/**
+ * Serializes slice uploads, so slice N+1 is never in flight while slice N still is.
+ *
+ * **Why this is not over-engineering.** The server assigns `spoken_at` at INSERT time and
+ * de-duplicates against "this member's most recent row", read BEFORE a ~2 s Gemini call and
+ * written after it — a read-modify-write window with no lock across it. Two overlapping
+ * requests from the same member therefore (a) land in processing-completion order rather
+ * than speech order, so the transcript renders out of order, and (b) both dedupe against
+ * the same stale "previous", so the overlap survives.
+ *
+ * And overlap is not hypothetical. This spec's own measurement is p95 2.20-2.75 s, worst
+ * 3.70 s per slice against a 4 s cadence — and it says in the same table that the figure
+ * **excludes upload, queueing and render**. Add ~213 KB of base64 over a phone radio and
+ * the worst case crosses the cadence.
+ *
+ * Serializing on the client is the fix that needs no new server state and no lock: if only
+ * one request is ever in flight per member, "previous" is always genuinely previous and
+ * completion order is capture order. Audio is not delayed by it — the WAV is encoded on the
+ * cadence tick, from the ring buffer, and only its SEND waits.
+ *
+ * `maxPending` bounds the queue so a dead radio drops slices instead of growing without
+ * limit on a phone. Dropping is a real loss of live text, and it is the right trade: the
+ * archival upload path still carries every second of the audio, so the record is intact
+ * and only the live view degrades.
+ */
+export function createSerialSender(
+  send: (wav: Uint8Array, sequence: number) => Promise<void>,
+  options: {
+    maxPending?: number;
+    onError?: (err: unknown, sequence: number) => void;
+    onDrop?: (sequence: number) => void;
+  } = {},
+): (wav: Uint8Array, sequence: number) => void {
+  const maxPending = options.maxPending ?? 3;
+  let tail: Promise<void> = Promise.resolve();
+  let pending = 0;
+
+  return (wav, sequence) => {
+    if (pending >= maxPending) {
+      // Drop the NEWEST rather than evicting the oldest: the queue is already ordered, and
+      // reordering it here would re-create the exact defect this function exists to remove.
+      options.onDrop?.(sequence);
+      return;
+    }
+    pending++;
+    tail = tail
+      .then(() => send(wav, sequence))
+      .catch((err) => { options.onError?.(err, sequence); })
+      .finally(() => { pending--; });
+  };
+}
+
 export interface SliceRecorderOptions {
   /** Called with one encoded WAV per cadence tick. Sequence starts at 0 and only grows. */
   onSlice: (wav: Uint8Array, sequence: number) => void;
@@ -201,7 +253,16 @@ export async function createSliceRecorder(
   // Autoplay policy can hand back a suspended context even after a user gesture.
   if (context.state === 'suspended') await context.resume();
 
-  await context.audioWorklet.addModule('/audio/pcm-tap-worklet.js');
+  try {
+    await context.audioWorklet.addModule('/audio/pcm-tap-worklet.js');
+  } catch (err) {
+    // The worklet is fetched, not bundled, so this fails on a bad deploy or an offline
+    // first load. Close the context before rethrowing: the caller's catch only sets a UI
+    // message, and an abandoned AudioContext holds an audio hardware handle open for the
+    // life of the page.
+    await context.close().catch(() => {});
+    throw err;
+  }
 
   const captureRate = context.sampleRate;
   const ring = new RingBuffer(Math.ceil(BUFFER_SECONDS * captureRate));

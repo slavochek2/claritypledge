@@ -16,7 +16,7 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ShieldOff, Loader2, Users, LogOut } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
-import { createSliceRecorder, type SliceRecorder } from '@/lib/audio/slice-recorder';
+import { createSerialSender, createSliceRecorder, type SliceRecorder } from '@/lib/audio/slice-recorder';
 import {
   createRoom,
   getRoomByCode,
@@ -180,17 +180,26 @@ export function TranscribeRoomPage() {
       };
 
       // ── Live: 5 s WAV slices to transcribe-slice ──────────────────────────
-      // A failed slice is logged and dropped, never retried and never queued. A retry
-      // would re-send audio the server may already have transcribed, and a queue would
-      // grow unbounded on a phone that has lost its radio — while the archival upload
-      // above still carries every second of the audio, so nothing is actually lost from
-      // the record. Live text degrading on a bad connection is the acceptable failure.
-      sliceRecorderRef.current = await createSliceRecorder(stream, {
-        onSlice: (wav, sequence) => {
-          void sendAudioSlice(roomForCapture.id, sequence, wav).catch((err) => {
-            console.error('[transcribe] slice upload failed:', err);
-          });
+      // Sent SERIALLY, one in flight at a time. The server assigns spoken_at at insert
+      // time and de-duplicates against this member's most recent row, read before a ~2 s
+      // Gemini call and written after it — so two overlapping requests from the same
+      // member would land in completion order rather than speech order AND both dedupe
+      // against the same stale previous. Overlap is not hypothetical: measured p95 is
+      // 2.20-2.75 s against a 4 s cadence, and that figure excludes upload.
+      //
+      // A failed slice is logged and dropped, never retried: a retry would re-send audio
+      // the server may already have transcribed. The queue is bounded so a phone that has
+      // lost its radio drops slices rather than growing without limit — the archival
+      // upload above still carries every second, so only live text degrades.
+      const sendSlice = createSerialSender(
+        (wav, sequence) => sendAudioSlice(roomForCapture.id, sequence, wav),
+        {
+          onError: (err, sequence) => console.error(`[transcribe] slice ${sequence} upload failed:`, err),
+          onDrop: (sequence) => console.warn(`[transcribe] slice ${sequence} dropped — upload queue full`),
         },
+      );
+      sliceRecorderRef.current = await createSliceRecorder(stream, {
+        onSlice: sendSlice,
         onError: (err) => console.error('[transcribe] slice recorder error:', err),
       });
     } catch (err) {
@@ -269,6 +278,16 @@ export function TranscribeRoomPage() {
     sliceRecorderRef.current = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
+    } else if (streamRef.current) {
+      // The SAME fallback the unmount cleanup has, and it was missing here. startCapture
+      // assigns streamRef BEFORE constructing the recorder, so if `new MediaRecorder` or
+      // `recorder.start()` throws, the catch sets micError while the stream stays live and
+      // the recorder is null-or-inactive — and then nothing in this function stops the
+      // tracks. The user taps "End Session", sees "Session ended", and the microphone
+      // indicator stays lit until they navigate away. On a feature whose entire premise is
+      // that capture matches a recorded consent, that is the worst place to leave a gap.
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     }
     if (room) {
       try {
