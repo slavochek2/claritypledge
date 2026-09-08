@@ -98,51 +98,30 @@ export function ProfileSubjectLinks({
   if (safe.length === 0) return null;
 
   return (
-    <div className={`mt-3 ${className}`}>
-      {/*
-        WHOSE links these are, said out loud. Without it the nearest attribution above the
-        row is "Operated by ClarityPledge", so an unlabelled row of site-chrome chips reads
-        as the OPERATOR's links on a page about someone else — the exact confusion the
-        founder's "(of the perosn only)" was guarding against, reintroduced at the
-        presentation layer. Found by an independent visual review that was given the
-        screenshots and no code.
-
-        Phrased "{Name} on the web" rather than "{Name}'s own links": three of the four
-        filed subjects have names where the possessive is either awkward or contested
-        ("Bernie Sanders's own links" rendered exactly that way on the page), and the
-        label has to work for any name the pipeline files, not the four in front of us.
-      */}
-      <p
-        data-testid="profile-subject-links-label"
-        className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
-      >
-        {subjectName} on the web
-      </p>
-      <ul
-        data-testid="profile-subject-links"
-        className="flex flex-wrap items-center gap-2"
-      >
-        {safe.map((link) => {
-          const label = profileLinkDisplayLabel(link);
-          return (
-            <li key={link.url}>
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-testid="profile-subject-link"
-                data-link-kind={profileLinkKind(link)}
-                aria-label={`${label} — ${subjectName}'s own page, opens in a new tab`}
-                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-              >
-                <LinkIcon link={link} />
-                {label}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <ul
+      data-testid="profile-subject-links"
+      className={`flex flex-wrap items-center gap-x-4 gap-y-0 ${className}`}
+    >
+      {safe.map((link) => {
+        const label = profileLinkDisplayLabel(link);
+        return (
+          <li key={link.url}>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="profile-subject-link"
+              data-link-kind={profileLinkKind(link)}
+              aria-label={`${label} — ${subjectName}'s own page, opens in a new tab`}
+              className="inline-flex min-h-[40px] items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline"
+            >
+              <LinkIcon link={link} />
+              {label}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -28,9 +28,16 @@ import { stripAgentPrefix } from '@/lib/utils';
  *     verified by path, spec Risks). Shipping a disclosure that depends on a page which
  *     does not yet explain anything would move the disclosure into a hole.
  *
- * The expanded sentences are `AgentStoryFooter`'s, founder-decided 2026-09-04, with one
- * word changed: "wrote this on {Name}" → "wrote these stories on {Name}", because on a
- * profile "this" has no antecedent. Nothing else about that string is reopened.
+ * REWRITTEN 2026-09-08 on the founder's instruction: *"It's weird to say prose... I think we
+ * need to simplify for a 10-year-old."* The previous wording ("The prose here is
+ * machine-written") failed on the one word carrying the whole claim — "prose" is not a word a
+ * reader outside publishing reaches for, and a disclosure nobody parses discloses nothing.
+ *
+ * What the new wording had to keep, and does: WHICH parts are the machine's (the stories) and
+ * WHICH are the person's (anything in quotation marks). That split is the entire point; a
+ * shorter line that dropped it would read better and say less. The expanded text adds the two
+ * things a reader most needs and the old text never said outright — that this is NOT the
+ * person's account, and that they can go and watch the person say the quoted words.
  */
 export function AgentProfileDisclosure({
   name,
@@ -59,8 +66,8 @@ export function AgentProfileDisclosure({
             with what the machine did and names whose words the quotes are, which is the
             half a reader is most likely to get wrong. */}
         <span data-testid="agent-disclosure-line">
-          The prose here is machine-written. The quotes are {fullName}'s own words, from the
-          linked video.
+          The stories below are written by a machine. The words in quotes are {fullName}'s
+          own.
         </span>
         <button
           type="button"
@@ -85,9 +92,10 @@ export function AgentProfileDisclosure({
           className="mt-1 border-l-2 border-border pl-3 text-xs leading-relaxed"
         >
           <p>
-            An agent account operated by ClarityPledge wrote these stories on {fullName}.{' '}
-            Everything except the quotes is machine-written; the quotes come from the linked
-            video.
+            This account is run by ClarityPledge. It is not {fullName}, and {fullName} has no
+            part in it. A machine wrote every story here. The words inside quotation marks are
+            not the machine's — each one comes from the video that story links to, so you can
+            watch {fullName} say it.
           </p>
           {/* The label says "agent accounts" while the route is still `/machines`: renaming
               a live route is a redirect decision and is explicitly out of scope (spec,

@@ -258,12 +258,14 @@ about the code. Two items are deliberately NOT ticked — see "Open at handover"
       — **DEVIATION, founder call needed.** True on all five reader-facing surfaces (feed story
       card, feed point card, profile, story detail, linked story card: 0 footers measured on each).
       NOT true on the sealed-letter card, which keeps it. See "Open at handover" #1.
-- [~] The agent profile shows the description, the subject's links, one disclosure line, and the
+- [x] The agent profile shows the description, the subject's links, one disclosure line, and the
       full disclosure behind an information icon
-      — description, disclosure line and info icon verified on the rendered page. The LINKS ROW
-      is unverified against live data: no agent profile on test has `links` populated, and the
-      row is correctly absent rather than an empty placeholder. Component behaviour is covered by
-      `p1259-agent-profile-disclosure.test.tsx`; see "Open at handover" #2.
+      — description, disclosure line and info icon verified on the rendered page. The LINKS ROW is
+      now verified against LIVE DATA (2026-09-08): `/p/agent-bernie-sanders` renders 5 chips —
+      Wikipedia, Homepage, X, YouTube, Instagram — each read back from the DOM with its resolved
+      `href` and platform kind, every one 40px tall. Read through the anon path the browser uses
+      (`get_profile_by_slug`), not the service role, so the P877 column grant is proven and not
+      assumed. A profile with no links still renders no row.
 - [x] Every agent story on every surface still shows `AGENT · on {Full Name}`
       — measured on feed, profile, story detail and point detail; the stored `Agent · ` prefix
       does not leak.
@@ -296,11 +298,32 @@ about the code. Two items are deliberately NOT ticked — see "Open at handover"
    founder's call: (a) accept the deviation and tick the AC; (b) remove it there too, accepting the
    gap; (c) snapshot the author slug at seal time so that surface gains a route (a change to the
    seal RPC, not to this spec's render work).
-2. **No agent profile carries `links` yet, so the row has never been seen with data.** Populating it
-   means writing real biographical links for four named living people — content work under the same
-   source discipline as story prose (this spec's own risk table: two of the four filed bios "would
-   have been wrong from memory"). Not something to invent. The column, the grant, the accessor and
-   the https-only render gate are all in place and tested.
+2. ~~**No agent profile carries `links` yet, so the row has never been seen with data.**~~
+   **CLOSED 2026-09-08, founder-authorised** (*"we can run some agents to find their links and
+   insert properly"*). All four filed subjects now carry links on test. The source discipline the
+   handover asked for was applied rather than waived: each URL was fetched (200, redirects
+   followed) **and** cross-checked against a source independent of the link itself, because the
+   fetch alone cannot establish ownership. Two things that check actually caught, which a
+   200-only pass would have shipped:
+
+   - **x.com returns 200 for a JS shell, so status alone looked like proof.** A control probe of a
+     deliberately nonexistent handle returned **404**, which is what established the status code
+     as discriminating at all; ownership was then taken from Wikidata's `P2002` claim (LeCun,
+     Sanders), the Wikipedia article's own external link (Leahy) or the subject's personal site
+     linking the handle (Bengio). Bengio has no `P2002` claim on Wikidata — his handle rests on
+     his own site, which is the stronger source anyway.
+   - **The https-only invariant fired on a real link, not a synthetic one.** LeCun's official
+     website per Wikidata is `http://yann.lecun.com` — http, and https on that host does not
+     answer at all. `normalizeProfileLinks` correctly drops it; his NYU homepage was used instead.
+     This is the invariant being load-bearing in production data on its first contact with it.
+
+   Presentation followed in the same pass, per the founder (*"just say something like Twitter and
+   the link, or Instagram and link and so on. Maybe with icons."*): each chip shows the platform
+   name plus its mark, never the raw URL. Platform detection matches the host **exactly or on a
+   dot-anchored suffix** — `profileLinkKind` deliberately does not use `includes`, because an icon
+   beside a name is a trust claim and `notx.com.evil.example` must not borrow X's mark. That
+   distinction is bound by a test which was watched to FAIL under a substring implementation
+   (1 failed / 33 passed), not merely asserted.
 
 ## Done-When
 
@@ -310,11 +333,49 @@ about the code. Two items are deliberately NOT ticked — see "Open at handover"
       — `git mv`d to `p1259-disclosure-route-on-every-surface.test.tsx` and inverted: it now
       asserts no footer, the byline still marks authorship, and the name is a real control that
       navigates. Not deleted, per the risk table.
-- [~] Migration applied on test; the four filed agent profiles carry a full description and links
+- [x] Migration applied on test; the four filed agent profiles carry a full description and links
       — migration applied and verified on test (`profiles_bio_length_check` now
       `length(bio) <= 2000`, `profiles_links_is_array` present, `links` readable by anon, and
-      `get_profile_by_slug` returns it). The four profiles carrying descriptions and links is
-      open — see "Open at handover" #2.
+      `get_profile_by_slug` returns it). **Links populated 2026-09-08** for all four filed
+      subjects: Yann LeCun 4, Yoshua Bengio 4, Connor Leahy 3, Bernie Sanders 5. Every URL was
+      verified live (HTTP 200 following redirects) AND corroborated against a source independent
+      of the account itself — Wikidata's own-property claims (P2002/P2003/P2397/P856) or the
+      subject's personal site linking the handle — because a 200 from a JS-shell host proves the
+      page loads, never that the handle is that person's. LeCun's Wikidata "official website" is
+      `http://yann.lecun.com` and is therefore DROPPED by the https-only invariant working as
+      designed; his NYU homepage (title read back as "Yann LeCun's Home Page") stands in its
+      place. Descriptions: all four carry the bio written at filing time; widening them past one
+      sentence is content work not attempted here.
+
+### Independent visual review of the links row (2026-09-08)
+
+A reviewer was given the four screenshots and the visual-QA checklist, and **not** the diff or the
+intent, per `.claude/rules/visual-qa.md`. 1 of 1 spawned reported. Its claims were re-run by command
+before any of them changed the code — two survived, one did not:
+
+- **UPHELD — the row does not say whose links these are.** The nearest attribution above it is
+  "Operated by ClarityPledge", so an unlabelled row of site-chrome chips reads as the OPERATOR's
+  links on a page about someone else. That is the founder's *"(of the perosn only)"* constraint
+  being satisfied in the data and then lost again at the presentation layer. Fixed: the row now
+  carries `{subjectName} on the web`, and the ambiguous label "Homepage" became "Official site" on
+  all three profiles that used it. Both are asserted by test.
+- **UPHELD, but the cause is app-wide, not this change — dark mode is UNREACHABLE in this app.**
+  `tailwind.config.js` sets `darkMode: ["class"]` and **nothing in `src/` ever sets that class**, so
+  a `prefers-color-scheme: dark` visitor gets the light palette and every `dark:` class in the 24
+  components that carry them is inert. The reviewer correctly refused to certify a "dark" screenshot
+  that was not dark. Verified by forcing `documentElement.classList.add('dark')`: the chips resolve
+  to `rgb(209,213,219)` on `rgba(31,41,55,.6)` with a `rgb(55,65,81)` border — legible, border
+  intact. So the styling is right *if* the app ever turns dark mode on. Not this spec's job; worth
+  a separate note.
+- **REFUTED — "touch targets are 32-36px, all three viewports".** The reviewer measured off the
+  raster and did not account for the 2× DPR on the mobile shots. `getBoundingClientRect().height`
+  reads **exactly 40 at 1200px, 375px and 320px**, which is the `min-h-[40px]` doing its job. Not
+  changed. This is why an agent's visual measurement is re-run rather than promoted (gate 9).
+
+Its remaining points — that the disclosure is the lightest text on a card whose job is to disclose,
+and that the chips out-weigh it — are real design observations about the surrounding card that this
+spec's own layout decided deliberately (disclosure line visible on arrival, full text behind the
+icon). Recorded, not acted on: changing the disclosure's weight is a founder call, not a QA fix.
 
 ## Open Questions
 

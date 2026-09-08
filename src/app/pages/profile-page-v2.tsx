@@ -1027,25 +1027,41 @@ export function ProfilePageV2() {
                     />
                   </div>
                 )}
-                {profile.bio && (
-                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words whitespace-pre-line">
-                    {linkifyText(profile.bio)}
-                  </p>
-                )}
-                {/* P1259 change 3 — the SUBJECT's own links, then the disclosure, in that
-                    order: description, who the person is elsewhere, then what this account
-                    is. Both sit below the description, which is where the founder put them.
-                    The links row renders for any profile that has links; the disclosure is
-                    agent-only and is gated on identityPending like every other agent branch
-                    (the registry fails closed, and reading isAgent while it loads would
-                    print a machine disclosure on a human's profile). */}
-                <ProfileSubjectLinks
-                  links={profile.links}
-                  subjectName={stripAgentPrefix(profile.name) ?? profile.name}
-                />
+                {/* P1259, reordered 2026-09-08 on the founder's read of the rendered page:
+                    *"the thing about machine written probably has to live above descirption?
+                    (becaue its where it says operated by 'claritypledge' - and thats the pont
+                    of explanation?)"* — which is right. The disclosure answers WHAT THIS
+                    ACCOUNT IS, so it belongs with the operator line that raises the question,
+                    not stranded below a paragraph about the person. Read in the old order a
+                    visitor met three sentences about Connor Leahy before being told none of
+                    them were written by him. The rule reaches slightly further than the fix:
+                    everything about the ACCOUNT sits above the divider; everything about the
+                    PERSON sits below it. */}
                 {isAgent && !identityPending && (
                   <AgentProfileDisclosure name={profile.name} />
                 )}
+                {profile.bio && (
+                  <>
+                    {isAgent && !identityPending && (
+                      <hr className="mt-3 border-t border-border" aria-hidden="true" />
+                    )}
+                    <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-3 break-words whitespace-pre-line">
+                      {linkifyText(profile.bio)}
+                    </p>
+                  </>
+                )}
+                {/* P1259 change 3 — the SUBJECT's own links, directly under the description
+                    they belong to. The row renders for any profile that has links; it carries
+                    no heading of its own since the divider above already separates the person
+                    from the account. The disclosure MOVED above the description (see the
+                    comment there) and is gated on identityPending like every other agent
+                    branch — the registry fails closed, and reading isAgent while it loads
+                    would print a machine disclosure on a human's profile. */}
+                <ProfileSubjectLinks
+                  className="mt-2"
+                  links={profile.links}
+                  subjectName={stripAgentPrefix(profile.name) ?? profile.name}
+                />
               </div>
             </div>
           </div>

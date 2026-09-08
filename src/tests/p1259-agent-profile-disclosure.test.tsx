@@ -27,10 +27,14 @@ describe('P1259 change 2 — the disclosure on the agent profile', () => {
   it('shows the one-line summary without any interaction', () => {
     wrap(<AgentProfileDisclosure name="Agent · Yann LeCun" />);
     const line = screen.getByTestId('agent-disclosure-line').textContent ?? '';
-    // FOUNDER DECISION 2026-09-08 — the clause must carry machine-written prose AND real quotes.
-    expect(line).toContain('machine-written');
-    expect(line).toContain("Yann LeCun's own words");
-    expect(line).toContain('linked video');
+    // FOUNDER DECISION 2026-09-08, REWORDED the same day: *"It's weird to say prose... simplify
+    // for a 10-year-old."* The requirement did not change — the line must still say WHICH part
+    // the machine wrote and WHICH part is the person's — so these assert the split, not the
+    // old phrasing. Asserting the exact sentence would make every future wording change look
+    // like a regression while a sentence that dropped the split would still pass.
+    expect(line).toContain('written by a machine');
+    expect(line).toContain('quotes');
+    expect(line).toContain('Yann LeCun');
   });
 
   it('strips the stored `Agent · ` prefix, like every other surface', () => {
@@ -73,9 +77,13 @@ describe('P1259 change 2 — the disclosure on the agent profile', () => {
 
     const withoutLink = detail.textContent ?? '';
     expect(withoutLink).toContain('ClarityPledge');
-    expect(withoutLink).toContain('machine-written');
-    expect(withoutLink).toContain('except the quotes');
+    expect(withoutLink).toContain('machine wrote');
+    expect(withoutLink).toContain('quotation marks');
     expect(withoutLink).toContain('Yann LeCun');
+    // Added 2026-09-08 with the rewrite: the expanded text must now also disown the account
+    // on the subject's behalf. "It is not X, and X has no part in it" is the sentence a reader
+    // needs most and the one the old wording never said outright.
+    expect(withoutLink).toContain('is not Yann LeCun');
   });
 
   it('labels the link "agent accounts" while leaving the /machines route alone', () => {
@@ -136,5 +144,23 @@ describe('P1259 change 3 — the subject\'s own links', () => {
     const { container } = wrap(<ProfileSubjectLinks subjectName="Yann LeCun" links={links} />);
     expect(screen.queryByTestId('profile-subject-links')).toBeNull();
     expect(container.textContent).toBe('');
+  });
+
+  // WHOSE links these are is carried by the disclosure that now sits ABOVE the description
+  // ("This account is run by ClarityPledge. It is not {Name}..."), not by a label on the row.
+  // The label that briefly lived here was REMOVED on the founder's instruction 2026-09-08
+  // ("why do we need to say Connor Leahy on the web? ... can it be minimalistic"). The
+  // ambiguity it was added to fix is real, so this asserts the row no longer carries a label
+  // AND that nothing reintroduces one — if the disclosure ever moves back below the
+  // description, this pair is the reminder that the ownership question comes back with it.
+  it('carries no label of its own — ownership is stated above the description', () => {
+    wrap(
+      <ProfileSubjectLinks
+        subjectName="Bernie Sanders"
+        links={[{ url: 'https://en.wikipedia.org/wiki/Bernie_Sanders' }]}
+      />
+    );
+    expect(screen.getByTestId('profile-subject-links')).toBeTruthy();
+    expect(screen.queryByTestId('profile-subject-links-label')).toBeNull();
   });
 });
