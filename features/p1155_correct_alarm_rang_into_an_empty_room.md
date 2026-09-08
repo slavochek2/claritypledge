@@ -1,12 +1,12 @@
 ---
-status: backlog
+status: in-progress
 type: task
 rank: 231
 workstream: infrastructure
 created_date: '2026-08-24'
 tags: [monitoring, alerting, process, silent-skip]
-delivery_stage: architect
-pipeline_ran: [create-spec, challenge-prd, architect]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, architect, adversarial-review, dev]
 drafted_by: opus
 driver: anomaly
 feature_type: backend

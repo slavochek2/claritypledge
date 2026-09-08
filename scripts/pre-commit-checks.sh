@@ -242,6 +242,21 @@ else
     echo ">>> pre-push ref-class canary skipped (no pre-push scripts staged)"
 fi
 echo ""
+# 4.6.5. Alert-producer author-bind canary (P1155) — runs when any alert-only
+# workflow or the canary itself is staged. The seven producers must only append
+# to (or close) an issue the Actions bot created; without that, a producer can be
+# induced to append to an issue it did not create, so it never opens its own and
+# the alarm is diverted silently. Hermetic (jq against fixtures, no network).
+# The canary extracts the jq filter FROM the workflows rather than restating it,
+# so a drift between test and code fails rather than passing quietly.
+ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|alert-escalator)\.yml|scripts/test-producer-author-bind\.sh|\.github/alert-registry\.json)$' || true)
+if [ -n "$ALERT_PRODUCER_STAGED" ]; then
+    if ! run_quiet "Alert-producer author-bind canary (P1155)" bash scripts/test-producer-author-bind.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Alert-producer author-bind canary skipped (no alert workflows staged)"
+fi
 
 # 4.7. git-ops.sh extensions canary (P787) — runs when git-ops.sh or its test
 # canary is staged. Hermetic (~3s: 2s contention timeout + setup). Proves the

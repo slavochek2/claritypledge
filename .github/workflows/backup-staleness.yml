@@ -82,10 +82,18 @@ jobs:
             echo ""
             echo "Run: $RUN_URL"
           } > issue-body.md
-          # Exact-title match (NOT gh --search: `in:title` token-matches, so a
-          # different issue sharing title words could swallow the comment).
-          existing=$(gh issue list --state open --json number,title \
-            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty')
+          # Author-bound exact-title match (P1155). Two properties, both load-bearing:
+          #  - exact title, NOT `gh --search`: `in:title` token-matches, so an issue
+          #    merely sharing title words could swallow the comment.
+          #  - author == the Actions bot: without it this workflow can be induced to
+          #    append to an issue it did not create, so it never opens its own and the
+          #    alarm is diverted silently. `gh issue list --json author` reports the bot
+          #    as `app/github-actions` (the REST API spells the same identity
+          #    `github-actions[bot]` — the CLI shape is the one that applies here).
+          #  - explicit --limit: the default page is 30, newest-first, which drops the
+          #    oldest open issues — exactly the ones an ageing alarm lives in.
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body-file issue-body.md
           else
@@ -103,10 +111,18 @@ jobs:
           set -euo pipefail
           TITLE="Backup stale or unverified"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          # Exact-title match — closing a token-matched WRONG issue would be
-          # worse than a stale alert.
-          existing=$(gh issue list --state open --json number,title \
-            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty')
+          # Author-bound exact-title match (P1155). Two properties, both load-bearing:
+          #  - exact title, NOT `gh --search`: `in:title` token-matches, so an issue
+          #    merely sharing title words could swallow the comment.
+          #  - author == the Actions bot: without it this workflow can be induced to
+          #    append to an issue it did not create, so it never opens its own and the
+          #    alarm is diverted silently. `gh issue list --json author` reports the bot
+          #    as `app/github-actions` (the REST API spells the same identity
+          #    `github-actions[bot]` — the CLI shape is the one that applies here).
+          #  - explicit --limit: the default page is 30, newest-first, which drops the
+          #    oldest open issues — exactly the ones an ageing alarm lives in.
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
           if [ -n "$existing" ]; then
             gh issue close "$existing" --comment "Backup healthy again — today's check passed. Run: $RUN_URL"
           fi
