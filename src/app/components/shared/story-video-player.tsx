@@ -42,6 +42,23 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
   function StoryVideoPlayer({ videoUrl, durationSeconds, onBlockedChange, className = '' }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<{ seekTo?: (s: number, allowSeekAhead: boolean) => void; playVideo?: () => void; destroy?: () => void } | null>(null);
+    const readyRef = useRef(false);
+    /**
+     * P1259 — a seek requested before the embed is ready, held until it is.
+     *
+     * The old `seekTo` returned early when the YouTube player did not exist yet and said
+     * nothing. On the story detail page that gap was invisible: the player mounts with the
+     * page and a reader cannot reach a timecode before it is ready. P1259 mounts players on
+     * the feed, the profile and the point card, where a reader CAN — the first click after
+     * the card scrolls into view lands in exactly that window. A click that silently does
+     * nothing reproduces change 6's dead-control defect on a different control (spec, UX
+     * Notes: "the click must be honoured, not dropped").
+     *
+     * A single ref, never a queue: "a second click while pending replaces the queued value
+     * rather than queuing twice" (same UX note). Two queued seeks would play the first,
+     * then jump to the second a moment later, which is worse than either alone.
+     */
+    const pendingSeekRef = useRef<number | null>(null);
     const [blocked, setBlocked] = useState(false);
     const [ready, setReady] = useState(false);
 
@@ -50,9 +67,13 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
 
     useImperativeHandle(ref, () => ({
       seekTo: (seconds: number) => {
+        const target = Math.max(0, Math.floor(seconds));
         const player = playerRef.current;
-        if (!player?.seekTo) return;
-        player.seekTo(Math.max(0, Math.floor(seconds)), true);
+        if (!readyRef.current || !player?.seekTo) {
+          pendingSeekRef.current = target;
+          return;
+        }
+        player.seekTo(target, true);
         player.playVideo?.();
       },
       isBlocked: () => blocked,
@@ -82,8 +103,17 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
               onReady: () => {
                 if (cancelled) return;
                 window.clearTimeout(timeout);
+                readyRef.current = true;
                 setReady(true);
                 setBlocked(false);
+                // Flush a seek requested while the embed was still loading. Cleared
+                // before dispatch so a failure cannot leave it to fire again later.
+                const pending = pendingSeekRef.current;
+                if (pending !== null) {
+                  pendingSeekRef.current = null;
+                  playerRef.current?.seekTo?.(pending, true);
+                  playerRef.current?.playVideo?.();
+                }
               },
               onError: () => {
                 if (!cancelled) setBlocked(true);
@@ -98,6 +128,8 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
       return () => {
         cancelled = true;
         window.clearTimeout(timeout);
+        readyRef.current = false;
+        pendingSeekRef.current = null;
         playerRef.current?.destroy?.();
         playerRef.current = null;
       };

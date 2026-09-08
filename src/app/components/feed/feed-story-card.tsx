@@ -5,7 +5,7 @@
  * Blue left border. Clickable → navigates to /story/:id.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Share2, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,7 +23,8 @@ import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { stripAgentPrefix } from '@/lib/utils';
 import { AgentByline } from '@/app/components/shared/agent-byline';
-import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
+import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
+import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
 import { pointsService } from '@/app/data/points-service';
@@ -70,18 +71,19 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
   const textRef = useRef<HTMLParagraphElement>(null);
   const [textExpanded, setTextExpanded] = useState(false);
   const [pointsExpanded, setPointsExpanded] = useState(false);
-  const [isOverflowing, setIsOverflowing] = useState(false);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
 
-  const checkOverflow = useCallback(() => {
-    const el = textRef.current;
-    if (el) setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
-  }, []);
+  /* P1259 change 6 — measured overflow, via the shared hook rather than this card's own
+     one-shot effect. The old version measured on mount and on content change only, so a
+     viewport resize or a late webfont left the answer stale; change 5 raising the clamp
+     makes both of those far likelier to flip the result. */
+  const isOverflowing = useTextOverflow(textRef, [story.content]);
 
-  useEffect(() => {
-    checkOverflow();
-  }, [checkOverflow, story.content]);
+  /* P1259 change 1 — a real player on the feed, mounted lazily. Before this the timecodes
+     below were open-in-a-new-tab links: the reader who followed the evidence left the page
+     to do it. Enabled only when there is a video to mount. */
+  const player = useLazyStoryPlayer(!!story.videoUrl);
 
   const handleClick = () => {
     navigate(`/story/${story.id}`);
@@ -207,25 +209,40 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
 
             {/* Supporting image. P1141: video wins when present; the image path is untouched. */}
             {(story.videoUrl || story.imageUrl) && (
-              <StoryMedia
-                videoUrl={story.videoUrl}
-                durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
-                mode="thumbnail"
-                storyHref={`/story/${story.id}`}
-                className="mt-2 mb-2"
-                imageProps={story.imageUrl ? {
-                  src: story.imageUrl,
-                  authorName: story.authorName,
-                  onClick: () => navigate(`/story/${story.id}`),
-                  className: 'mt-2 mb-2',
-                } : undefined}
-              />
+              /* P1259 change 1 — `mode` comes from the lazy-mount hook: a thumbnail until
+                 the card approaches the viewport, a live embed after. The wrapper is the
+                 intersection target and the scroll anchor, so it cannot be dropped.
+                 `role="presentation"` + stopPropagation because the card root navigates to
+                 the story: without it, pressing play sends the reader to another page. */
+              <div ref={player.containerRef} role="presentation" onClick={(e) => e.stopPropagation()}>
+                <StoryMedia
+                  ref={player.playerRef}
+                  videoUrl={story.videoUrl}
+                  durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
+                  mode={player.mode}
+                  onBlockedChange={player.onBlockedChange}
+                  storyHref={`/story/${story.id}`}
+                  className="mt-2 mb-2"
+                  imageProps={story.imageUrl ? {
+                    src: story.imageUrl,
+                    authorName: story.authorName,
+                    onClick: () => navigate(`/story/${story.id}`),
+                    className: 'mt-2 mb-2',
+                  } : undefined}
+                />
+              </div>
             )}
 
             {/* Story text */}
             <p
               ref={textRef}
-              className={`text-foreground break-words text-sm ${textExpanded ? '' : 'line-clamp-6'}`}
+              /* P1259 change 5 — ~3x the old `line-clamp-6`. Bodies of 545-858 characters were
+                 being cut at roughly 190, so no one had yet read a filed agent story in place.
+                 ARBITRARY VALUE, deliberately: Tailwind 3.4's default `lineClamp` scale is
+                 1-6, so a bare `line-clamp-18` compiles to NOTHING and the clamp silently
+                 disappears. That is not hypothetical — `line-clamp-8` on the profile has never
+                 clamped anything, which is the real reason its "Show more" did nothing. */
+              className={`text-foreground break-words text-sm ${textExpanded ? '' : 'line-clamp-[18]'}`}
             >
               {/* P1212 §1 — the label is StoryVideoQuotes' own <h3>, never inline prose. */}
               {linkifyText(storyTextForDisplay(story.content, story.tags))}
@@ -262,23 +279,29 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
                   videoUrl={story.videoUrl}
                   quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
                   subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
+                  onSeek={player.onSeek}
+                  playerBlocked={player.playerBlocked}
                 />
               </div>
             )}
 
-            {/* P1212 §2, founder decision 2026-09-04 — attribution level 3 of 3, now on THIS
-                surface too. §4 put the video and the verbatim quotes on the feed; the
-                disclosure that frames them stayed on the two surfaces P1141 gave it, so a
-                feed reader got a real person's words with nothing saying who operates the
-                account writing around them. Gated on identityPending for the same reason
-                every other agent branch is: the registry fails closed, and reading isAgent
-                while it loads renders an agent story as a human one. */}
-            {isAgent && !identityPending && (
-              <AgentStoryFooter
-                name={story.authorName}
-                hasQuotes={normalizeVideoQuotes(story.videoQuotes).quotes.length > 0}
-              />
-            )}
+            {/* P1259 change 2 — the two-sentence agent footer USED TO RENDER HERE and no
+                longer does, on this surface and the five others. Founder, 2026-09-07:
+                "i would remove it from stories and put only below desiption on profile of
+                agents" — the repetition across every card in a feed is what stopped it
+                being read at all, and one line per card still repeats.
+
+                THE DISCLOSURE DID NOT MOVE WITHOUT A ROUTE. Two adversarial reviewers of
+                the spec independently objected that removing the footer, while the AGENT
+                chip is settled as deliberately not-a-link, would leave no clickable path
+                to the disclosure at all. The answer is the byline NAME above, which
+                navigates to the agent profile — where the disclosure now lives, visible on
+                arrival rather than behind the info icon. That is why `onNameClick` on
+                `AgentByline` is load-bearing on every one of these surfaces now and not a
+                nicety: a surface that renders the name as a plain span has no route.
+
+                What stays here is `AGENT · on {Full Name}`, so authorship is never
+                unmarked even for a reader who never clicks. */}
 
             {/* Tag pills */}
             <TagPills tags={story.tags} context="feed" activeTag={activeTag} className="mt-2" />

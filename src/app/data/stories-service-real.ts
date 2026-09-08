@@ -725,6 +725,10 @@ export const realStoriesService: StoriesService = {
           created_at,
           updated_at,
           tags,
+          system_tags,
+          image_url,
+          video_url,
+          video_quotes,
           author:profiles!stories_author_id_fkey (
             id,
             name,
@@ -758,6 +762,62 @@ export const realStoriesService: StoriesService = {
       const existing = result.get(row.point_id) ?? [];
       result.set(row.point_id, [...existing, story]);
     }
+
+    /**
+     * P1259 change 4 — where each story's AUTHOR stands on the point the story sits under.
+     *
+     * ONE extra query for the whole page, filtered on both axes, never one per card — the
+     * same batching contract the rest of this function already keeps. `point_positions` is
+     * readable by anon (getPointsFeed reads it unauthenticated on the public feed), so the
+     * chip renders for a signed-out reader too, which is the reader most likely to mistake
+     * two opposed agent stories for one voice.
+     *
+     * A pair with no row is left `null`, deliberately and visibly: `authorPositionOnPoint`
+     * is set on every returned story, so the render path can tell "no position recorded"
+     * apart from "this data was never fetched". Rendering "unsure" or an empty chip there
+     * would publish a stance nobody took.
+     */
+    const authorIds = [...new Set([...result.values()].flat().map((st) => st.authorId))];
+    if (authorIds.length > 0) {
+      const { data: positions, error: posError } = await supabase
+        .from('point_positions')
+        .select('point_id, user_id, position')
+        .in('point_id', pointIds)
+        .in('user_id', authorIds);
+
+      if (posError) {
+        // Not fatal: the stories are the payload, the stance is an enrichment. Report it
+        // rather than letting every chip vanish silently.
+        logDbError('getStoriesForPoints:positions', posError);
+      }
+
+      const byPair = new Map<string, PositionType>();
+      for (const row of positions ?? []) {
+        if (row.position) byPair.set(`${row.point_id}:${row.user_id}`, row.position as PositionType);
+      }
+      const unpositioned: Array<{ pointId: string; storyId: string; authorId: string }> = [];
+      result.forEach((stories, pointId) => {
+        result.set(
+          pointId,
+          stories.map((st) => {
+            const position = byPair.get(`${pointId}:${st.authorId}`) ?? null;
+            if (position === null) unpositioned.push({ pointId, storyId: st.id, authorId: st.authorId });
+            return { ...st, authorPositionOnPoint: position };
+          })
+        );
+      });
+
+      // A story whose author holds no position on the point it argues renders no chip —
+      // correct for the reader, and a SILENT HOLE IN THE FEATURE'S OWN PURPOSE: change 4
+      // exists to show disagreement and goes quiet exactly where the data is missing. The
+      // spec asks for it to be logged rather than swallowed. One line per fetch, not one
+      // per card, and no completeness constraint is implied — a filed story is not
+      // required to carry a position.
+      if (unpositioned.length > 0) {
+        log('getStoriesForPoints: no point_positions row for these (point, author) pairs — no stance chip rendered:', unpositioned);
+      }
+    }
+
     // Sort each point's stories newest first
     result.forEach((stories, pointId) => {
       stories.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));

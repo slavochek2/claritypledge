@@ -30,7 +30,6 @@ import { StoryMedia } from '@/app/components/shared/story-media';
 import { stripAgentPrefix } from '@/lib/utils';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
-import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
@@ -203,10 +202,14 @@ export function StoryCardWithLinks({
             {!hideActions && <> · <InlineVisibilityIcon visibility={story.visibility} /></>}
           </p>
 
-          {/* Story text */}
-          {compact && !textExpanded && displayText.length > 280 ? (
+          {/* Story text.
+              P1259 change 5 — 3x the old 280, the SAME raise as the standard branch below.
+              This file carries two copies of this block (quote pattern here, standard card
+              below) and raising only one would put the two halves of one card on different
+              truncation rules — the per-surface drift P1212 spent itself closing. */}
+          {compact && !textExpanded && displayText.length > 840 ? (
             <p className="text-sm text-gray-900 break-words">
-              {linkifyText(displayText.slice(0, 280))}
+              {linkifyText(displayText.slice(0, 840))}
               <span
                 data-testid="more-link"
                 role="button"
@@ -359,9 +362,11 @@ export function StoryCardWithLinks({
             )}
 
             {/* Story text - indented under author */}
-            {compact && !textExpanded && displayText.length > 280 ? (
+            {/* P1259 change 5 — 3x the old 280. Founder: "i think we can allow in all app
+                more chars before we cut of maybe 3x more?" */}
+            {compact && !textExpanded && displayText.length > 840 ? (
               <p className="text-sm text-gray-900 break-words">
-                {linkifyText(displayText.slice(0, 280))}
+                {linkifyText(displayText.slice(0, 840))}
                 <span
                   data-testid="more-link"
                   role="button"
@@ -399,15 +404,9 @@ export function StoryCardWithLinks({
               </div>
             )}
 
-            {/* P1212 §2 — attribution level 3 of 3. See feed-story-card.tsx for the reason
-                this arrived late: §4 propagated the evidence to this surface and the
-                disclosure that frames it did not follow. */}
-            {isAgent && !identityPending && (
-              <AgentStoryFooter
-                name={author.name}
-                hasQuotes={normalizeVideoQuotes(story.videoQuotes).quotes.length > 0}
-              />
-            )}
+            {/* P1259 change 2 — the agent footer used to render here. The disclosure now
+                lives once on the agent profile; the route is the byline name above, which
+                already passes `onNameClick`. See feed-story-card.tsx for the full note. */}
 
             {/* P491: Tag pills — after text, before stats */}
             {tags && tags.length > 0 && (

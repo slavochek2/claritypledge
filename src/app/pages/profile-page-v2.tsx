@@ -37,6 +37,10 @@ import {
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { AgentByline } from '@/app/components/shared/agent-byline';
+import { AgentProfileDisclosure } from '@/app/components/shared/agent-profile-disclosure';
+import { ProfileSubjectLinks } from '@/app/components/shared/profile-subject-links';
+import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
+import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { useAgentAccountIds } from "@/app/contexts/agent-accounts-context";
@@ -68,7 +72,6 @@ import {
 } from "@/app/components/shared";
 import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
-import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { stripAgentPrefix } from '@/lib/utils';
@@ -1025,9 +1028,23 @@ export function ProfilePageV2() {
                   </div>
                 )}
                 {profile.bio && (
-                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
+                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words whitespace-pre-line">
                     {linkifyText(profile.bio)}
                   </p>
+                )}
+                {/* P1259 change 3 — the SUBJECT's own links, then the disclosure, in that
+                    order: description, who the person is elsewhere, then what this account
+                    is. Both sit below the description, which is where the founder put them.
+                    The links row renders for any profile that has links; the disclosure is
+                    agent-only and is gated on identityPending like every other agent branch
+                    (the registry fails closed, and reading isAgent while it loads would
+                    print a machine disclosure on a human's profile). */}
+                <ProfileSubjectLinks
+                  links={profile.links}
+                  subjectName={stripAgentPrefix(profile.name) ?? profile.name}
+                />
+                {isAgent && !identityPending && (
+                  <AgentProfileDisclosure name={profile.name} />
                 )}
               </div>
             </div>
@@ -1214,8 +1231,19 @@ interface StoryCardFullProps {
   onUpdate?: (storyId: string, content: string) => void;
 }
 
-/** Char threshold to show the expand toggle — generous since CSS line-clamp-8 handles visual truncation */
-const STORY_THRESHOLD = 400;
+/* P1259 change 6 — `STORY_THRESHOLD = 400` LIVED HERE and is deliberately gone.
+ *
+ * It decided whether to render "Show more" from a CHARACTER COUNT while the truncation was
+ * a CSS line clamp. Founder, on a screenshot: "this button here does nothing! siwting it
+ * moves nothing!" Two measures of the same thing never agree, and this one had a second
+ * fault under it: the clamp was `line-clamp-8`, which Tailwind 3.4 does not generate (its
+ * default lineClamp scale stops at 6), so the text was not clamped AT ALL and the toggle
+ * could not possibly have anything to reveal.
+ *
+ * Both halves are fixed: an arbitrary-value clamp that actually compiles, and visibility
+ * decided by measured overflow (`useTextOverflow`). Do not reintroduce a character
+ * threshold beside a clamp — that is the shape of the bug, not an implementation detail.
+ */
 
 /** Hard character max for story editing (mirrors DB CHECK constraint) */
 const STORY_EDIT_CHAR_MAX = 10000;
@@ -1240,6 +1268,16 @@ function StoryCardFull({
   const [localImageUrl, setLocalImageUrl] = useState<string | undefined>(story.imageUrl ?? undefined);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const storyTextRef = useRef<HTMLParagraphElement>(null);
+
+  /* P1259 change 6 — measured overflow replaces the character threshold that used to
+     decide this. See the note where STORY_THRESHOLD was removed. */
+  const storyOverflows = useTextOverflow(storyTextRef, [story.content, story.tags]);
+
+  /* P1259 change 1 — the profile mounts a real player, lazily. Founder: "when I click on a
+     timestamp, we stay on the same page in the same way we do that when we are on a story
+     card." */
+  const player = useLazyStoryPlayer(!!story.videoUrl);
 
   // Sync localImageUrl when story prop changes (e.g., parent refetch)
   useEffect(() => {
@@ -1510,11 +1548,17 @@ function StoryCardFull({
                     keeps StoryImage deliberately: it owns upload/delete of `image_url`,
                     which is an image control, not a media renderer. */}
                 {(story.videoUrl || localImageUrl) && (
-                  <div className="mb-2">
+                  /* P1259 change 1 — `mode` comes from the lazy-mount hook. The wrapper is
+                     the intersection target and the scroll anchor; stopPropagation because
+                     the card root navigates to the story detail page and pressing play
+                     must not leave the page the founder asked us to stay on. */
+                  <div ref={player.containerRef} role="presentation" className="mb-2" onClick={(e) => e.stopPropagation()}>
                     <StoryMedia
+                      ref={player.playerRef}
                       videoUrl={story.videoUrl}
                       durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
-                      mode="thumbnail"
+                      mode={player.mode}
+                      onBlockedChange={player.onBlockedChange}
                       storyHref={detailRoutes.story(story.id)}
                       imageProps={localImageUrl ? {
                         src: localImageUrl,
@@ -1524,7 +1568,12 @@ function StoryCardFull({
                     />
                   </div>
                 )}
-                <p id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-8' : ''}`}>{linkifyText(strippedContent)}</p>
+                {/* P1259 change 5 + 6 — `line-clamp-8` compiled to NOTHING under Tailwind
+                    3.4 (default lineClamp scale is 1-6), so this text was never clamped and
+                    the toggle below had nothing to reveal. The arbitrary-value form is
+                    generated for any number and cannot silently vanish that way. ~3x the
+                    intended 8, per the founder's "maybe 3x more". */}
+                <p ref={storyTextRef} id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-[24]' : ''}`}>{linkifyText(strippedContent)}</p>
                 {/* P1212 §4 — the quotes travel with the story here too. Founder, on this exact
                     surface: "If I send a profile of Yann LeCun to somebody, it should render the
                     full card that we have, like with the video and the timestamps". §1 removed
@@ -1537,10 +1586,17 @@ function StoryCardFull({
                       videoUrl={story.videoUrl}
                       quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
                       subjectName={stripAgentPrefix(story.authorName ?? author.name) ?? author.name}
+                      onSeek={player.onSeek}
+                      playerBlocked={player.playerBlocked}
                     />
                   </div>
                 )}
-                {strippedContent.length > STORY_THRESHOLD && (
+                {/* P1259 change 6 — rendered only when the clamped text ACTUALLY overflows,
+                    or when it is expanded and therefore needs a way back. `storyOverflows`
+                    reads false while expanded (the clamp is off, so nothing is hidden), so
+                    both conditions are needed for the control to survive one full cycle.
+                    A story shorter than the clamp shows no control at all. */}
+                {(storyOverflows || storyExpanded) && (
                   <div role="presentation" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
@@ -1557,15 +1613,10 @@ function StoryCardFull({
               </>
             )}
 
-            {/* P1212 §2 — attribution level 3 of 3, on the surface most likely to be
-                mistaken for the subject's own page. Not shown while editing: the edit view
-                is the author's own working surface, not a reader's. */}
-            {!isEditing && storyIsAgent && !storyIdentityPending && (
-              <AgentStoryFooter
-                name={story.authorName ?? author.name}
-                hasQuotes={normalizeVideoQuotes(story.videoQuotes).quotes.length > 0}
-              />
-            )}
+            {/* P1259 change 2 — the agent footer used to render here. It now lives ONCE on
+                this page, below the profile description at the top, instead of once per
+                story card. See the disclosure block in ProfilePageV2 and the fuller note in
+                feed-story-card.tsx. */}
 
             {/* P503: Tag pills */}
             {!isEditing && ((story.tags?.length ?? 0) > 0 || (story.systemTags?.length ?? 0) > 0) && (

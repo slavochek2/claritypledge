@@ -95,16 +95,39 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
     expect(occurrences, 'the quote heading must render once — twice is the §1 defect returning').toBe(1);
   });
 
-  /** A timecode with nowhere to go is the thing §4's rule actually forbids. Off-detail there
-   *  is no player, so each one must be a link that opens the source AT that second. */
-  it('every timecode is a working link into the source at its second', () => {
+  /**
+   * A timecode with nowhere to go is the thing §4's rule actually forbids. THE RULE IS
+   * UNCHANGED; WHAT SATISFIES IT ON THIS SURFACE IS NOT.
+   *
+   * §4 shipped with "off-detail there is no player, so each one must be a link that opens
+   * the source AT that second" — correct then, and the leak P1259 exists to close. Founder,
+   * 2026-09-07: "when I click on a timestamp, we stay on the same page in the same way we do
+   * that when we are on a story card." The feed now mounts a real player, so each timecode is
+   * a SEEK BUTTON carrying its second, and the new-tab link is what it degrades to when the
+   * embed is blocked (StoryVideoQuotes' `playerBlocked` path, unchanged and still covered by
+   * p1141-video-seek.test.tsx).
+   *
+   * The seconds are asserted off `data-seconds` rather than an href because that attribute is
+   * on BOTH branches — so this assertion keeps holding whichever one a surface renders, which
+   * is exactly what went wrong the first time.
+   */
+  it('every timecode carries its second and seeks in place rather than leaving the page', () => {
     render(<MemoryRouter><FeedStoryCard story={agentStory()} /></MemoryRouter>);
     const block = screen.getByTestId('story-video-quotes');
-    const links = [...block.querySelectorAll('a[href]')].map(a => a.getAttribute('href') ?? '');
-    expect(links.length).toBeGreaterThanOrEqual(2);
-    expect(links.some(h => h.includes('42'))).toBe(true);
-    expect(links.some(h => h.includes('605'))).toBe(true);
-    for (const href of links) expect(href).toContain('abc12345678');
+    const timecodes = [...block.querySelectorAll('[data-testid="story-video-quote-timecode"]')];
+    expect(timecodes.length).toBeGreaterThanOrEqual(2);
+
+    const seconds = timecodes.map(el => el.getAttribute('data-seconds') ?? '');
+    expect(seconds).toContain('42');
+    expect(seconds).toContain('605');
+
+    for (const el of timecodes) {
+      expect(
+        el.tagName,
+        'a timecode on a surface with a player must seek it, not open a tab — that is the leak P1259 closes',
+      ).toBe('BUTTON');
+      expect(el.getAttribute('target')).toBeNull();
+    }
   });
 
   it('renders no quote block at all when the story has no quotes', () => {

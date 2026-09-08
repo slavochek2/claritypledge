@@ -32,6 +32,7 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
@@ -714,6 +715,7 @@ export function QuotedStory({
   onClick,
   onAuthorClick,
   getStoryAuthor,
+  authorPosition,
 }: {
   story: Story;
   onClick: (e: React.MouseEvent) => void;
@@ -721,12 +723,35 @@ export function QuotedStory({
   onAuthorClick?: (e: React.MouseEvent) => void;
   /** Get author info for the story */
   getStoryAuthor?: (authorId: string) => StoryAuthor | undefined;
+  /**
+   * P1259 change 4 — where THIS story's author stands on the point this card sits under.
+   *
+   * "a point with two opposed stories under it gives the reader no indication that the two
+   * authors disagree" (spec, Problem). The chip renders beside the byline, below the point
+   * rather than above it — founder, on the screenshot: "like we do in profile but below..
+   * (profile stay same).. talking about feed only."
+   *
+   * Undefined or null renders NO chip. Never an empty or "unknown" one: a story whose
+   * author holds no position on the point is a real state, and there is no completeness
+   * constraint requiring a filed story to carry a position (spec, UX Notes).
+   */
+  authorPosition?: PositionType | null;
 }) {
   const author = getStoryAuthor?.(story.authorId);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
   const [textExpanded, setTextExpanded] = useState(false);
   useEffect(() => { setTextExpanded(false); }, [story.id]);
+
+  /* P1259 change 1 — this card is the "point card" surface: it is what the feed point card
+     and the profile point card render for each linked story. Its timecodes used to be
+     open-in-a-new-tab links; they now seek a player mounted here. */
+  const player = useLazyStoryPlayer(!!story.videoUrl);
+
+  /* P1259 change 4 — a missing stance is LOGGED, not swallowed, but not from here.
+     `getStoriesForPoints` reports the (point, author) pairs it found no row for: once per
+     fetch, where the gap is actually discovered, rather than once per render of every card
+     on the page. See the note beside `authorPositionOnPoint` in stories-service-real.ts. */
 
   return (
     <div
@@ -772,37 +797,69 @@ export function QuotedStory({
               className="!w-6 !h-6 !text-[11px]"
             />
           </span>
-          {/* Author name - clickable */}
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAuthorClick?.(e);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                onAuthorClick?.(e as unknown as React.MouseEvent);
-              }
-            }}
-            className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
-          >
-            {/* P1212 §5 — the §4d defect, in the component §4d did not reach.
-                `author.name` is the STORED profile name, which on an agent account carries
-                the reserved `Agent · ` prefix the database enforces and `stripAgentPrefix`
-                exists to keep off screen. Verified leaking 4× on the feed before this fix.
+          {/* P1259 change 2 — THE AGENT BRANCH NO LONGER WRAPS THE BYLINE IN THIS SPAN.
+              Two reasons, and the second is new to this spec.
 
-                The spec's own risk table states the hazard for the sibling case: "§5 makes
-                this card MORE reachable, so §5 must not ship before §4d." §5 puts THIS
-                component on the feed, so the same sentence binds here. AgentByline is the
-                one place an agent account is named, and it carries the machine chip with
-                it — the same composition §4d used for LinkedStoryCard. */}
-            {isAgent ? <AgentByline name={author.name} /> : author.name}
-          </span>
+              1. `agent-byline.tsx` note 1: wrapping the whole component in the
+                 profile-navigation control makes the AGENT chip clickable, and a status
+                 marker that navigates invites a click answering no question. The component
+                 owns its own button, around the NAME alone, and call sites pass
+                 `onNameClick`. This call site was still wrapping.
+
+              2. P1259 removes the two-sentence footer from every story surface and makes
+                 the byline name the ONLY route to the disclosure. So "the name is
+                 clickable" stopped being a nicety and became an acceptance criterion, per
+                 surface, verified rather than assumed — which meant looking at how each
+                 surface actually renders it, and this one rendered a span inside a span.
+
+              The human branch keeps the wrapper: there is no chip to protect, and its
+              keyboard handling predates this change. */}
+          {isAgent ? (
+            <AgentByline
+              name={author.name}
+              onNameClick={(e) => {
+                e.stopPropagation();
+                onAuthorClick?.(e);
+              }}
+            />
+          ) : (
+            /* Author name - clickable */
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAuthorClick?.(e);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAuthorClick?.(e as unknown as React.MouseEvent);
+                }
+              }}
+              className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
+            >
+              {author.name}
+            </span>
+          )}
           {/* Ear indicator - understanding credibility */}
           {!isAgent && !identityPending && <EarBadge count={author.ear ?? 0} name={author.name} />}
+          {/* P1259 change 4 — this author's stance on the point above.
+              DRAINED FOR AN AGENT, and that is an invariant, not a style choice: a coloured
+              stance badge is exactly the discriminator that marks a card as human-authored
+              (`src/index.css`, `.agent-drained-chrome`), and `e2e/p1104-agent-marker.spec.ts`
+              asserts `meanSaturation < 0.05` on rendered pixels. Colouring it to make it
+              legible would delete the strongest disclosure marker on public readings of four
+              real people who never consented. */}
+          {authorPosition && (
+            <span
+              data-testid="story-author-stance"
+              className={isAgent ? 'agent-drained-chrome inline-flex' : 'inline-flex'}
+            >
+              <PositionBadge position={authorPosition} />
+            </span>
+          )}
         </div>
       )}
       {/* Story media — compact in quoted context.
@@ -812,18 +869,25 @@ export function QuotedStory({
           the quote bodies from `content` — so the reader got the argument, no video, and
           no evidence. `StoryMedia` is the same component the other five surfaces use. */}
       {story.videoUrl ? (
-        <StoryMedia
-          videoUrl={story.videoUrl}
-          durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
-          mode="thumbnail"
-          storyHref={`/story/${story.id}`}
-          className="mb-2"
-          imageProps={story.imageUrl ? {
-            src: story.imageUrl,
-            authorName: stripAgentPrefix(author?.name) || 'Author',
-            className: 'mb-2',
-          } : undefined}
-        />
+        /* P1259 change 1 — lazy-mounted live player; the wrapper is the intersection
+           target and the scroll anchor. stopPropagation because this whole card is a
+           button that navigates to the story. */
+        <div ref={player.containerRef} role="presentation" onClick={(e) => e.stopPropagation()}>
+          <StoryMedia
+            ref={player.playerRef}
+            videoUrl={story.videoUrl}
+            durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
+            mode={player.mode}
+            onBlockedChange={player.onBlockedChange}
+            storyHref={`/story/${story.id}`}
+            className="mb-2"
+            imageProps={story.imageUrl ? {
+              src: story.imageUrl,
+              authorName: stripAgentPrefix(author?.name) || 'Author',
+              className: 'mb-2',
+            } : undefined}
+          />
+        </div>
       ) : story.imageUrl ? (
         <div className="mb-2">
           <StoryImage
@@ -845,9 +909,12 @@ export function QuotedStory({
         // through a widening cast rather than changing the shape: callers that DO
         // spread a production object still get their hashtags stripped.
         const cleanText = storyTextForDisplay(story.text, (story as { tags?: string[] }).tags);
-        return !textExpanded && cleanText.length > 200 ? (
+        /* P1259 change 5 — 3x the old 200. Founder: "i think we can allow in all app more
+           chars before we cut of maybe 3x more?" Filed agent story bodies run 545-858
+           characters, so 200 cut every one of them before the argument arrived. */
+        return !textExpanded && cleanText.length > 600 ? (
           <p className="text-sm text-gray-800 break-words">
-            {linkifyText(cleanText.slice(0, 200))}
+            {linkifyText(cleanText.slice(0, 600))}
             <span
               data-testid="more-link"
               role="button"
@@ -873,6 +940,8 @@ export function QuotedStory({
             videoUrl={story.videoUrl}
             quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
             subjectName={stripAgentPrefix(author?.name) || 'Author'}
+            onSeek={player.onSeek}
+            playerBlocked={player.playerBlocked}
           />
         </div>
       )}

@@ -126,6 +126,16 @@ export function LiveStoryCardExpanded({
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
 
+  /**
+   * P1259 change 2 — where clicking the agent's name goes, or null when nowhere.
+   *
+   * Empty on a sealed snapshot by construction (`letter-snapshot-mapper.ts:228` writes
+   * `authorSlug: ''`), which is what decides between the byline route and the retained
+   * footer below. Trimmed rather than truthiness-checked: a whitespace slug would build
+   * `/p/%20`, a route that resolves to nothing and reads as a working link.
+   */
+  const agentProfileHref = story.authorSlug?.trim() ? `/p/${story.authorSlug.trim()}` : null;
+
   // P1212 §4b — the quote block, minus anything the frozen prose already prints.
   // `quotesAlreadyInContent` is the pre-§1 snapshot case: quote bodies baked into
   // `storyText` AND frozen again in `videoQuotes`. See `quotesNotInStoryText`.
@@ -186,7 +196,34 @@ export function LiveStoryCardExpanded({
                 trust affordance on a machine account. */}
             <div className="flex items-center gap-1.5 mb-0.5">
               {isAgent ? (
-                <AgentByline name={story.authorName} className="min-w-0 flex-1" />
+                /* P1259 change 2 — the name is the route to the disclosure now that the
+                   footer is off the story cards, so this surface has to offer one.
+
+                   A NEW TAB, not `navigate()`. This component renders inside a LIVE SESSION
+                   (live-mode-view has 13 call sites) and inside a sealed letter someone is
+                   reading. Routing away in place would drop a participant out of a session
+                   in progress to read a disclosure — the cure being worse than the leak.
+                   `noopener,noreferrer` because the opened page must not get a live
+                   `window.opener` handle back to the session.
+
+                   `agentProfileHref` is null on a SEALED SNAPSHOT: letter-snapshot-mapper
+                   writes `authorSlug: ''` (line 228), so there is genuinely nowhere to send
+                   the reader. The footer below is kept for exactly that case — see the note
+                   there. Never render the handler without the slug: `AgentByline` renders a
+                   `<span>` rather than a dead `<button>` when no handler is passed, which is
+                   the correct outcome and the reason the prop is spread conditionally. */
+                <AgentByline
+                  name={story.authorName}
+                  className="min-w-0 flex-1"
+                  {...(agentProfileHref
+                    ? {
+                        onNameClick: (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          window.open(agentProfileHref, '_blank', 'noopener,noreferrer');
+                        },
+                      }
+                    : {})}
+                />
               ) : (
                 <span className="font-semibold text-gray-900 text-sm">{story.authorName}</span>
               )}
@@ -265,12 +302,30 @@ export function LiveStoryCardExpanded({
           </div>
         )}
 
-        {/* P1212 §4b — level 2 of the three attribution levels, on the surface that had
-            none. `hasQuotes` asks whether the reader can see quotes ON THIS PAGE at all,
-            which includes the legacy case where they are inline in the prose — the
-            footer's "except the quotes" clause is true either way, and false only when the
-            story genuinely has none. */}
-        {isAgent && !identityPending && (
+        {/* P1259 change 2 — THE ONE PLACE THE FOOTER SURVIVES, and only when there is no
+            route to replace it.
+
+            The spec removes this footer from every story surface and relocates the
+            disclosure to the agent profile, reached by clicking the byline name. Its
+            Invariants section is stricter than its acceptance criteria and wins where they
+            pull apart: "A reader must be able to reach, from any surface showing an agent
+            story, the fact that the prose is machine-written and the quotes are not. This
+            spec moves where that lives; it may NOT remove it."
+
+            On a SEALED LETTER the story is a frozen snapshot and `letter-snapshot-mapper`
+            writes `authorSlug: ''`, so the byline name has nowhere to go. Removing the
+            footer here as well would delete the disclosure outright on the one surface that
+            is literally SENT TO ANOTHER PERSON, with no site chrome and the least
+            surrounding signal — for a machine-written reading of a real named person who
+            never consented. So: route where a route exists, footer where it does not. This
+            branch is expected to be dead for every live-session and round-summary render
+            (those carry a real slug) and live only for sealed snapshots.
+
+            `hasQuotes` asks whether the reader can see quotes ON THIS PAGE at all, which
+            includes the legacy case where they are inline in the prose — the footer's
+            "except the quotes" clause is true either way, and false only when the story
+            genuinely has none. */}
+        {isAgent && !identityPending && !agentProfileHref && (
           <div className="px-4 pl-4 sm:pl-[52px]">
             <AgentStoryFooter name={story.authorName} hasQuotes={allQuotes.length > 0} />
           </div>

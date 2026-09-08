@@ -31,7 +31,6 @@ import {
 } from '@/app/components/shared';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
-import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import type { StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { normalizeVideoQuotes } from '@/lib/video';
@@ -47,6 +46,16 @@ type LinkedStory = Pick<
   'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged' | 'authorAvatarColor'
 >;
 import { getPositionCTACopy, adjustPositionCounts, getPositionGroup } from '@/app/utils/position-helpers';
+
+/**
+ * Where a profile link goes when the embed context supplies no override.
+ *
+ * Promoted to module scope by P1259: `QuotedPoint` needs it too, now that its
+ * `LinkedStoryCard` rows must route to the author's profile (the agent disclosure moved
+ * there and the byline name is the only path to it). Two components in one file needing the
+ * same helper is the DRY trigger in `.claude/rules/src.md`.
+ */
+const defaultProfileRoute = (id: string) => `/p/${id}`;
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -175,7 +184,7 @@ export function StoryCardDetail({
   const playerRef = useRef<StoryVideoPlayerHandle>(null);
   const [playerBlocked, setPlayerBlocked] = useState(false);
   const videoQuotes = useMemo(() => normalizeVideoQuotes(story.videoQuotes), [story.videoQuotes]);
-  const profileRoute = routes.profile || ((id: string) => `/p/${id}`);
+  const profileRoute = routes.profile || defaultProfileRoute;
 
   const handleCardClick = () => {
     if (!isDetailView && !disableNavigation) {
@@ -248,7 +257,7 @@ export function StoryCardDetail({
           </p>
 
           {/* Story text */}
-          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
+          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-[15]' : 'text-base'}`}>
             {/* P1212 §1 — the quote label is StoryVideoQuotes' heading. This branch renders
                 no quote block, so it renders no heading. */}
             {linkifyText(storyTextForDisplay(story.content, story.tags))}
@@ -366,7 +375,7 @@ export function StoryCardDetail({
             )}
 
             {/* Story text - indented under author */}
-            <div className={`text-foreground break-words ${compact ? 'text-sm line-clamp-5' : 'text-base'}`}>
+            <div className={`text-foreground break-words ${compact ? 'text-sm line-clamp-[15]' : 'text-base'}`}>
               {/* P1212 §1 — the heading below comes from StoryVideoQuotes, which cannot render
                   it without bodies. Rendering it out of `content` too is the same-page duplicate. */}
               {renderStoryText(storyTextForDisplay(story.content, story.tags))}
@@ -424,13 +433,9 @@ export function StoryCardDetail({
               return effectiveTags.length > 0 || (story.systemTags?.length ?? 0) > 0 ? <TagPills tags={effectiveTags} systemTags={story.systemTags} context="detail" className="mt-2" /> : null;
             })()}
 
-            {/* P1141 RD-1: attribution level 2 of 3 — under every agent story. */}
-            {isAgent && !identityPending && (
-              <AgentStoryFooter
-                name={story.authorName}
-                hasQuotes={videoQuotes.quotes.length > 0}
-              />
-            )}
+            {/* P1259 change 2 — the agent footer used to render here. The disclosure now
+                lives once on the agent profile; the route is the byline name above, which
+                already passes `onNameClick`. See feed-story-card.tsx for the full note. */}
           </div>
         </div>
       </div>
@@ -515,6 +520,9 @@ export function StoryCardDetail({
                     point={point}
                     authorName={story.authorName}
                     storyAuthorId={story.authorId}
+                    /* P1259 — carries the embed's `routes.profile` override down to the
+                       LinkedStoryCard byline route. */
+                    profileRoute={profileRoute}
                     authorAvatarUrl={story.authorAvatarUrl}
                     authorHasPledged={story.authorHasPledged}
                     authorAvatarColor={story.authorAvatarColor}
@@ -588,6 +596,7 @@ function QuotedPoint({
   onUnlink,
   storyAuthorId,
   onClear,
+  profileRoute = defaultProfileRoute,
 }: {
   point: PointSummary;
   authorName: string;
@@ -609,6 +618,13 @@ function QuotedPoint({
   storyAuthorId: string;
   // P847: Wire onClear once at page level. Do not instantiate a per-row guard.
   onClear?: () => void;
+  /**
+   * P1259 — how to build a profile URL. Threaded from `StoryCardDetail` rather than rebuilt
+   * here, because that component honours a `routes.profile` override for the embed context;
+   * hardcoding `/p/:id` here would work everywhere except inside an embed, which is the one
+   * place nobody would notice it broken.
+   */
+  profileRoute?: (id: string) => string;
 }) {
   const navigate = useNavigate();
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
@@ -753,6 +769,10 @@ function QuotedPoint({
                     key={story.id}
                     story={story}
                     onClick={() => onStoryClick?.(story.id)}
+                    onAuthorClick={(e) => {
+                      e.stopPropagation();
+                      navigate(profileRoute(story.authorSlug));
+                    }}
                   />
                 ))}
               </div>
@@ -832,9 +852,16 @@ function QuotedPoint({
 function LinkedStoryCard({
   story,
   onClick,
+  onAuthorClick,
 }: {
   story: LinkedStory;
   onClick: () => void;
+  /**
+   * P1259 change 2 — navigate to the AUTHOR's profile, where the agent disclosure now
+   * lives. Supplied by the caller because `profileRoute` (which a `routes` prop can
+   * override for the embed context) is scoped to the outer component.
+   */
+  onAuthorClick?: (e: React.MouseEvent) => void;
 }) {
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
@@ -874,17 +901,31 @@ function LinkedStoryCard({
 
             AgentByline is deliberately the whole fix rather than a `stripAgentPrefix` call:
             it is "the one place an agent account is named", and it carries the MachineChip
-            with it, so this card gains the disclosure marker in the same change. No
-            `onNameClick` — the card root is itself the link, and a name-button inside it
-            would be the dead-nested-button defect that component's note 1 and 2 describe. */}
+            with it, so this card gains the disclosure marker in the same change.
+
+            P1259 REVERSED THE `onNameClick` DECISION RECORDED HERE. The old reasoning — the
+            card root is itself the link, so a name-button inside it is redundant — held
+            while a two-sentence footer under every agent story carried the disclosure. That
+            footer is gone from every surface, and the byline NAME is now the only route to
+            it, so a name that does not navigate leaves this surface with no route at all.
+            Nested is fine: `AgentByline` puts the button around the NAME only and the
+            handler stops propagation, so the card's own click still owns everywhere else.
+            The prop is spread conditionally, so a caller that cannot navigate still gets a
+            `<span>` rather than a dead `<button>` (that component's note 2). */}
         {isAgent ? (
-          <AgentByline name={story.authorName} className="min-w-0 flex-1" />
+          <AgentByline
+            name={story.authorName}
+            className="min-w-0 flex-1"
+            {...(onAuthorClick ? { onNameClick: onAuthorClick } : {})}
+          />
         ) : (
           <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
         )}
         {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />}
       </div>
-      <p className="text-sm text-foreground line-clamp-4 break-words">{linkifyText(story.content)}</p>
+      {/* P1259 change 5 — ~3x. Arbitrary value: Tailwind 3.4 generates line-clamp 1-6 only,
+          so a bare `line-clamp-12` would compile to nothing and silently unclamp this preview. */}
+      <p className="text-sm text-foreground line-clamp-[12] break-words">{linkifyText(story.content)}</p>
     </div>
   );
 }

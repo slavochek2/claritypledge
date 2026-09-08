@@ -189,14 +189,32 @@ describe('p1141 DW-7 / RD-1 — attribution level 2: the footer, verbatim', () =
     }
   });
 
-  it('the detail surface passes hasQuotes from the story, not a hardcoded true', async () => {
+  /**
+   * P1259 change 2 MOVED THIS ASSERTION, it did not weaken it.
+   *
+   * It used to read `StoryCardDetail.tsx`, which no longer renders the footer at all — the
+   * disclosure moved to the agent profile and the byline name is the route to it. Left
+   * pointing at that file the assertion would have failed for the right reason and been
+   * "fixed" by deletion, taking the defect class with it.
+   *
+   * `live-story-card-expanded.tsx` is now the ONE surviving call site: a sealed letter has
+   * `authorSlug: ''` (letter-snapshot-mapper.ts:228), so the byline name has nowhere to
+   * navigate and the footer stays there rather than leaving that surface — the one actually
+   * sent to another person — with no disclosure at all.
+   *
+   * The defect guarded is unchanged: a hardcoded `hasQuotes` republishes "except the
+   * quotes" over a story that has none.
+   */
+  it('the one surviving footer call site passes hasQuotes from the story, not a hardcoded true', async () => {
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
     const src = readFileSync(
-      join(__dirname, '..', 'app/components/social/StoryCardDetail.tsx'),
+      join(__dirname, '..', 'app/components/partners/live-story-card-expanded.tsx'),
       'utf8'
     );
-    expect(src).toMatch(/hasQuotes=\{videoQuotes\.quotes\.length > 0\}/);
+    expect(src).toMatch(/hasQuotes=\{allQuotes\.length > 0\}/);
+    expect(src, 'a literal `hasQuotes` would republish the quote clause over a story with none')
+      .not.toMatch(/hasQuotes(=\{true\})?\s*\/?>/);
   });
 
   it('the operator name is ClarityPledge — a founder decision already taken', () => {

@@ -313,6 +313,14 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
                           earsCount: linked.authorEarsCount,
                           hasPledged: linked.authorHasPledged,
                         })}
+                        /* P1259 change 4 — THE FEED ONLY. This is the surface where a point
+                           carries several stories at once, so it is the only one where two
+                           authors can disagree in front of the reader with nothing saying
+                           so. The profile's stance-above-the-point layout is deliberately
+                           untouched (founder: "profile stay same").
+                           `authorPositionOnPoint` is attached per (point, author) by
+                           getStoriesForPoints, so `linked` is already scoped to THIS point. */
+                        authorPosition={linked.authorPositionOnPoint}
                       />
                     ))}
                   </div>

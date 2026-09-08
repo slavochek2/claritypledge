@@ -51,7 +51,15 @@ export interface Profile {
   avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   pledgeVersion?: number; // 1=v1, 2=v2 ("without"), 3=v3 ("withholding"), 4=v4 (number-first)
   hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
-  bio?: string | null; // P414: Optional self-description, max 160 chars
+  bio?: string | null; // P414: self-description; widened to 2000 chars by P1259
+  /**
+   * P1259: the SUBJECT's own public profiles, raw from `profiles.links` JSONB.
+   * Deliberately `unknown` and not `ProfileLink[]`: it is operator-written data that
+   * reaches an `href`, so every reader must go through `normalizeProfileLinks`
+   * (src/lib/profile-links.ts), which applies the https-only scheme allowlist. A typed
+   * array here would let a call site render it directly and look correct doing it.
+   */
+  links?: unknown;
   bannerUrl?: string; // P504: AI-generated profile banner image
   bannerGenerationAttempted?: boolean; // P504: Whether banner generation was attempted
   isTestAccount?: boolean; // P1133: plumbed through for Mixpanel is_internal tagging
@@ -104,7 +112,8 @@ export interface DbProfile {
   avatar_provider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   pledge_version?: number;
   has_pledged?: boolean; // P50: false for /live registrations, true for /sign-pledge
-  bio?: string | null; // P414: Short self-description, max 160 chars
+  bio?: string | null; // P414: self-description; widened to 2000 chars by P1259
+  links?: unknown; // P1259: the subject's own public profiles, JSONB array — validate before render
   banner_url?: string | null; // P504: AI-generated profile banner image
   banner_generation_attempted?: boolean; // P504: Whether banner generation was attempted
   is_test_account?: boolean; // P571: Excludes account from public /pledgers listing
@@ -1122,6 +1131,18 @@ export interface StoryWithAuthor extends Story {
   authorRole?: string;
   authorEarsCount?: number; // P132: Credibility badge display
   authorHasPledged?: boolean;
+  /**
+   * P1259 change 4 — where this story's AUTHOR stands on the point this story is listed
+   * under. Point-relative, so it is only meaningful in a per-point list: it is set by
+   * `getStoriesForPoints`, whose result is already `Map<pointId, StoryWithAuthor[]>`, and
+   * is `undefined` everywhere else.
+   *
+   * `null` and `undefined` are NOT interchangeable here and the render path depends on the
+   * difference: `null` means "fetched, this author holds no position on that point" (render
+   * no chip, and say so in the log — spec, UX Notes: it is a silent hole in the feature's
+   * own purpose); `undefined` means "never fetched" (render no chip, say nothing).
+   */
+  authorPositionOnPoint?: PositionType | null;
 }
 
 /** Story with linked points */

@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 disclosure: public
 rank: 1000077
 workstream: C2
 created_date: '2026-09-07'
 tags: [agents, stories, feed, disclosure]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high

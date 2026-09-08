@@ -367,14 +367,20 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
       </MemoryRouter>
     );
 
-    const timecode = document.querySelector('a[href*="dQw4w9WgXcQ"]');
-    expect(timecode, 'the fixture must render a timecode link to press Enter on').toBeTruthy();
+    // P1259 change 1 — the feed now mounts a player, so a timecode is a SEEK BUTTON rather
+    // than an anchor into YouTube. The keyboard hazard this test guards is unchanged and if
+    // anything sharper: the card root's onKeyDown calls preventDefault() before navigating,
+    // which would cancel the button's own activation exactly as it used to cancel the
+    // anchor's. Selecting on the testid rather than the tag keeps the assertion pointed at
+    // the control instead of at whichever element type the surface currently renders.
+    const timecode = document.querySelector('[data-testid="story-video-quote-timecode"]');
+    expect(timecode, 'the fixture must render a timecode control to press Enter on').toBeTruthy();
 
     fireEvent.keyDown(timecode!, { key: 'Enter' });
 
     expect(
       navigate.mock.calls,
-      'Enter on a timecode must open the source, not cancel the anchor and navigate to the story',
+      'Enter on a timecode must act on the timecode, not bubble to the card and navigate to the story',
     ).toHaveLength(0);
   });
 
@@ -507,12 +513,16 @@ describe('P1212 §1 (eighth surface) — QuotedStory suppresses the quote label'
       </MemoryRouter>
     );
 
-    // The quote block, with a working timecode link into the source at that second.
-    const timecode = document.querySelector('a[href*="dQw4w9WgXcQ"]');
+    // The quote block, with a working timecode carrying that second. P1259 change 1 turned
+    // this surface's timecodes from new-tab anchors into seek buttons (it mounts a player
+    // now), so the assertion is on the timecode CONTROL and its `data-seconds` — both of
+    // which are present on either branch — rather than on an href that only one branch has.
+    const timecode = document.querySelector('[data-testid="story-video-quote-timecode"]');
     expect(
       timecode,
       'a story with quotes must render them here too — this surface is on the feed now',
     ).toBeTruthy();
+    expect(timecode!.getAttribute('data-seconds')).toBe('876');
     expect(document.body.textContent).toContain('the blocker is not size');
   });
 });
