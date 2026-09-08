@@ -22,9 +22,19 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 
 // Decision 8: the BATCH project key (P1162 split prod-interactive from batch precisely so
 // a background workload cannot fuse the user-facing one). A runaway room must not take
-// /chat and banner generation down with it. Registered per P834 in
-// .private/docs/edge-function-secrets.md.
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
+// /chat and banner generation down with it.
+//
+// A DISTINCT VARIABLE NAME, and this is load-bearing rather than tidy. Supabase edge
+// function secrets are scoped to the PROJECT, not to a function: prod's `GEMINI_API_KEY`
+// is already the prod-interactive key (EUR 50 cap) that generate-banner and
+// generate-event-banner read. Reading that same name here would silently put every live
+// transcription slice on the user-facing fuse — the exact coupling P1162 created two
+// projects to prevent — and nothing would report it until a runaway room took banner
+// generation down with it. The separation only exists if the name differs.
+//
+// Registered per P834 in .private/docs/edge-function-secrets.md;
+// scripts/check-edge-function-secrets.sh fails any deploy whose target project is missing it.
+const GEMINI_API_KEY = Deno.env.get('GEMINI_BATCH_API_KEY') ?? '';
 
 const GEMINI_MODEL = 'gemini-3.5-transcribe';
 const GEMINI_ENDPOINT =

@@ -68,3 +68,39 @@ GPU-backed transcription service for `/live` session recordings.
 - **Observability:** the `transcription_jobs` table tracks pipeline state (`pending → processing → completed/failed`). `_progress()` in `pipeline.py` writes step-level state to the `error_message` field at each stage (`downloading_audio`, `vad`, `whisper`, `diarization`, `merging`, `storing`). On crash, the last step is visible. The sweeper's `reset_stale_jobs()` resets jobs stuck in `processing` >30 min (the cutoff is now meaningful because `update_job_status` bumps `updated_at` on every write).
 - **`/poll` is DEPRECATED (P858 Decision 9):** the old 5-min Cloud Scheduler batch-drain held the GPU warm 24/7 (~€659/mo at 0 jobs). `transcribe-poll` was verified-then-DELETED (P902, 2026-06-05); `tx-job-janitor` is the only scheduler. `/transcribe-async` (claim path) supersedes it. Direct `/transcribe` calls without a `job_id` still bypass job tracking — manual/debug only.
 - **`session_transcripts` RLS:** the anon key silently returns `[]` (no anon read policy). Use `PROD_SUPABASE_SERVICE_ROLE_KEY` for admin/polling queries on this table.
+
+## Live room transcription: `transcribe-slice` (P1236)
+
+The live path for `/transcribe` rooms. Read this alongside the Cloud Run section above, because the
+contrast is the point: that service allocates a GPU, and **this one allocates nothing at all.**
+
+- **Nothing is allocated between slices, or between rooms.** The Gemini Developer API bills per
+  request; Supabase edge functions bill per invocation. There is no cold start to hide beyond the
+  edge runtime's own sub-second one, no idle-shutdown window, and no teardown on last-member-leave —
+  normal leave and abnormal termination (browser crash, dead radio) are the same case, because the
+  client simply stops POSTing and cost stops.
+- **What that changes about verification.** "A room that has ended leaves no GPU instance allocated"
+  is trivially true here and therefore proves nothing. The assertion that actually carries the
+  idle-cost invariant is: after `ended_at` is set, **zero further Gemini requests are attributable
+  to that room** — checked from the billing export over the window after `ended_at`, plus
+  `SELECT count(*) FROM transcribe_messages WHERE room_id = $1 AND spoken_at > ended_at` returning 0.
+- **The risk migrated rather than disappeared:** from denial-of-wallet by *allocation* (P858's
+  €659/mo idle GPU) to denial-of-wallet by *call volume*. Ten members at one 4-second slice each is
+  2.5 requests/second sustained. The controls are three server-side ceilings, none of them visible
+  or settable by a client: a 180-minute room hard stop (a constant in `transcribe-slice/handler.ts`,
+  deliberately not a column — see `database.md`), a per-member slice counter advanced inside the same
+  transaction as the message insert, and a per-user concurrent-room limit.
+- **Engine:** Gemini 3.5 Transcribe on `generativelanguage.googleapis.com`. Vertex AI stays disabled.
+  The key is the **batch** project's, never prod-interactive — P1162 split those precisely so a
+  background workload cannot fuse the user-facing one, and a runaway room must not take `/chat` and
+  banner generation down with it.
+- **Hard constraint, and it has no error to catch.** With diarization off, Gemini does not reject
+  over-long audio: it accepts it, bills it in full, and silently returns roughly the opening five
+  minutes (P1237 RQ5). **No code path may send a whole session or a long concatenation.** The
+  defence is refusing to construct the request — the ingest function derives each slice's duration
+  from the WAV header the audio itself carries, and its transcriber dependency takes exactly one
+  slice, so a "flush everything pending as one call" convenience cannot be added without changing
+  that type.
+- **The GPU is not removed from the product.** `endRoom()` still creates a batch `transcription_jobs`
+  row per member, which still wakes `transcribe-session` through the unchanged P858 path above. That
+  path's scale-to-zero remains real and remains what the existing billing check covers.

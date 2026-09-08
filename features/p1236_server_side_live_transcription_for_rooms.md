@@ -1109,15 +1109,40 @@ re-derived here. This sequence builds the live path.
 
 **Stage C — server state and the consent gate (no behaviour change yet).**
 
-3. Migration: `consent_given_at TIMESTAMPTZ` and the slice counter on `transcribe_room_members`; the
-   room-duration column or constant; index `(member_id, spoken_at)` on `transcribe_messages`; the
-   `SECURITY DEFINER` join RPC carrying the RLS-vs-`RETURNING` reasoning in a comment.
-4. `transcribe-service.ts`: `joinRoom` → the RPC, consent passed as a required argument.
-5. `gcs-signed-url/handler.ts`: extend the room branch's membership check with
-   `consent_given_at IS NOT NULL`. Exercise the **refusal** path in `handler.test.ts` and confirm a
-   non-zero/4xx result — a gate nobody has watched fail is unproven (`epistemic.md` gate 7). Also run
-   the existing archival-upload happy path through it unchanged and confirm it still passes
-   (gate 7c) — this gate sits on a path that works today.
+3. ~~Migration: `consent_given_at TIMESTAMPTZ` and the slice counter on `transcribe_room_members`;
+   the room-duration column or constant; index `(member_id, spoken_at)` on `transcribe_messages`;
+   the `SECURITY DEFINER` join RPC carrying the RLS-vs-`RETURNING` reasoning in a comment.~~
+   **DONE 2026-09-08**, as FOUR migrations rather than one, each split for a stated reason:
+   - `20260908170000` (expand) — the columns, the index, `join_transcribe_room()`.
+   - `20260908170100_b` (contract) — drops the direct member INSERT policy. **NOT APPLIED, NOT
+     COMMITTED**: it is a `DROP POLICY`, and CLAUDE.md's ALWAYS-ASK covers DROP on any DB in any
+     environment. Carries `requires-frontend: 26be25831`.
+   - `20260908170200_c` — `record_transcribe_slice()`, service_role only, so the message row and the
+     slice counter move in ONE transaction. Two PostgREST calls could not be that, and an
+     under-counting spend ceiling is not a ceiling.
+   - `20260908170300_d` — revokes the `anon` EXECUTE grant the first migration did not actually
+     remove. See "Two findings this stage produced" below.
+
+   **The room duration is a CONSTANT, not a column** (`ROOM_MAX_DURATION_MINUTES` in
+   `transcribe-slice/handler.ts`). The spec allowed either. A column implies per-room variability
+   nothing sets, and the first thing anyone would ask of it is an UPDATE policy — which is exactly
+   what Decision 6 exists to prevent. The migration records this so the decision is discoverable
+   from the schema.
+4. ~~`transcribe-service.ts`: `joinRoom` → the RPC, consent passed as a required argument.~~
+   **DONE.** `profileId` stays in the TypeScript signature (`createClaritySession` needs it) but is
+   NOT passed to the RPC — the RPC derives identity from `auth.uid()`, because a `SECURITY DEFINER`
+   function that accepts the identity it is about to write is an impersonation primitive. The RPC
+   also refuses a `clarity_sessions` row the caller does not own; the policy it replaces checked
+   only `profile_id = auth.uid()` and never looked at `session_id`, so attaching another user's
+   recording session to your own seat was reachable before this.
+5. ~~`gcs-signed-url/handler.ts`: extend the room branch's membership check with
+   `consent_given_at IS NOT NULL`. Exercise the **refusal** path ... (gate 7c).~~ **DONE — 24/24,
+   both gates discharged with pasted exit codes.** Gate 7: deleting the consent line makes the
+   suite exit 1; hoisting the check ABOVE the membership check also exits 1 (the ordering is
+   load-bearing — a non-member must not learn from the error whether the seat they guessed has
+   consented). Gate 7c: the archival upload the shipped client already performs, consecutive
+   chunks and the P809 `_dev_` prefix included, runs through the new gate unchanged, and the
+   `/live` session branch is asserted untouched.
 
 **Stage D — de-duplication, test-first, in isolation.**
 
@@ -1139,31 +1164,89 @@ re-derived here. This sequence builds the live path.
 
 **Stage E — the ingest function.**
 
-7. `transcribe-slice/{index,handler,validate}.ts` + `handler.test.ts`, mirroring `gcs-signed-url`'s
-   split. `validate.ts` bounds the payload the way `gcs-signed-url/validate.ts` bounds file names:
-   max slice bytes, exact sample rate, max duration, monotonic sequence number.
-   **The client's sequence number bounds and rejects replays — it is never the de-duplication
-   ordering key.** Decision 4 orders on `spoken_at`, so `spoken_at` MUST be DB-assigned
-   (`DEFAULT now()`, as `sendFinalMessage` relies on today at `transcribe-service.ts:226-233`) and
-   MUST NOT be read from the slice payload, however tempting the capture timestamp is for a
-   transcript — handing that column to the client hands it the merge order. Assert this in
-   `handler.test.ts`: a payload carrying `spoken_at` is rejected or ignored, never persisted.
-   `handler.ts` order: JWT → membership → **consent** → ceilings (Decision 6) → Gemini → dedup →
-   service-role insert with server-derived `member_id`. The pre-dedup candidate text is held in
-   worker memory only and is never written to `transcribe_messages`, not even transiently.
+7. ~~`transcribe-slice/{index,handler,validate}.ts` + `handler.test.ts` ... `handler.ts` order:
+   JWT → membership → **consent** → ceilings → Gemini → dedup → service-role insert with
+   server-derived `member_id`; the pre-dedup candidate held in worker memory only.~~
+   **DONE 2026-09-08 — 52/52 deno tests (34 handler + 18 dedup), three mutations each exit 1**
+   (consent gate removed; RQ5 duration bound removed; payload allow-list disabled).
+
+   Three things ended up STRUCTURAL rather than checked, which is stronger than the step asked for:
+   - **The payload is an ALLOW-list**, so `spoken_at`, `memberId` and `text` are not readable even
+     by accident, and are REFUSED rather than ignored. The step said "rejected or ignored"; ignoring
+     lets a client believe it was honoured. A deny-list has to be remembered every time the payload
+     grows, and the once it isn't is the once that ships.
+   - **`transcribe(audio: Uint8Array)` takes ONE slice.** Decision 8's "a test should assert the
+     request builder cannot be handed more than one slice" is satisfied by the type: a
+     flush-everything-pending convenience cannot be added without changing it. A test pins the call
+     count and the byte identity as well.
+   - **Duration is DERIVED from the WAV header**, not declared — there is no declared-duration field
+     to disagree with. `parseWavHeader` walks the chunk list rather than assuming `data` sits at
+     offset 36, and takes the MIN of the declared and actual data size, so an over-declared header
+     reads as truncation rather than as long audio.
+
+   **The tests found a dead guard before it shipped.** At `MAX_SLICE_BYTES = 262144` the byte cap
+   already capped duration at 8.19 s, so the 8 s RQ5 duration bound could only ever fire in a 0.19 s
+   band — for every well-formed 16 kHz mono slice it was unreachable code that read as a working
+   check. The cap was raised to 320000 so both bounds are live, and an assertion now pins the
+   inequality so changing either constant alone fails loudly.
+
 8. Deploy to **test** first: `./scripts/deploy-functions.sh transcribe-slice`. Set `GEMINI_API_KEY`
    from the batch project and record it in `.private/docs/edge-function-secrets.md` in the same step
    (P834 invariant; `check-edge-function-secrets.sh` is the deploy-time guard).
 
 **Stage F — the client.**
 
-9. `public/audio/pcm-tap-worklet.js` + `src/lib/audio/slice-recorder.ts`: ring buffer, 4 s cadence,
-   1 s lead-in, WAV encode.
-10. `transcribe-room-page.tsx`: remove `useSpeechToText` and the `liveTextStopped` / "Resume live
-   text" UI it drives; delete `RECORD_AUDIO_WHILE_LIVE` and un-dead the `MediaRecorder` branch; wire
-   the slice loop; pre-warm POST in `handleJoin`. The interim-text render
-   (`data-testid="transcribe-interim"`) goes away with the hook — Invariant 1 becomes true by
-   construction, since no interim text exists on this page any more.
+9. ~~`public/audio/pcm-tap-worklet.js` + `src/lib/audio/slice-recorder.ts`: ring buffer, 4 s cadence,
+   1 s lead-in, WAV encode.~~ **DONE 2026-09-08 — 14 unit tests on the pure half.**
+   The load-bearing one round-trips the encoder's output through the INGEST FUNCTION'S OWN
+   `parseWavHeader`: the two sit on opposite sides of a network boundary in different runtimes, so
+   asserting the encoder against its own idea of a WAV would prove nothing about what the server
+   accepts. Downsampling is a box average, not decimation — dropping every third sample of 48 kHz
+   audio folds everything above 8 kHz back into the speech band and hands a transcriber alias noise
+   as if it were speech. The context asks for 16 kHz directly so the browser resamples where it can.
+
+   **The tests found a ring-buffer bug**: the oversized-chunk path wrote the tail at offset 0 while
+   advancing the write pointer by the full chunk length, so `readLast` unwrapped from the wrong
+   place — right samples, right count, two halves of the slice swapped, and silent.
+
+   **`createSliceRecorder` itself is NOT tested and must not be reported as verified.** It needs
+   `AudioContext`, `audioWorklet.addModule` and a real microphone, none of which jsdom has. Its
+   shape is the one Stage A measured on the physical S22; two-device confirmation is step 11.
+10. ~~`transcribe-room-page.tsx`: remove `useSpeechToText` and the `liveTextStopped` UI; delete
+   `RECORD_AUDIO_WHILE_LIVE` and un-dead the `MediaRecorder` branch; wire the slice loop; pre-warm
+   POST in `handleJoin`.~~ **DONE.** The flag is deleted rather than flipped — a boolean guarding a
+   hazard that no longer exists is an invitation to re-litigate it. The three recognizer states
+   collapse into one status line: "Live text stopped — tap to resume" existed because the recognizer
+   could die silently and on iOS could only be revived by a user gesture, and a control promising to
+   revive something that no longer exists is a lie in the shape of a button.
+
+   Invariant 1 is now true by construction. `p1149-interim-never-persists.test.ts` was **updated,
+   not deleted** — its page-layer assertions checked that a specific effect body did not mention
+   `interimTranscript`, and that effect is gone, so they could only pass vacuously. The replacement
+   is stronger: the page neither imports nor calls the hook, and the service has ZERO inserts onto
+   `transcribe_messages` (was 1). `sendFinalMessage` is removed rather than left unused — an
+   exported writer with no callers is an invitation. Layer 1, the `is_final` CHECK, is untouched.
+   **Not closed by this:** `transcribe_messages` still carries P1149's "room members can send their
+   own messages" INSERT policy, so a client could still write a row attributed to its own seat via
+   PostgREST. That predates P1236; deleting our own wrapper does not close a policy.
+
+**Two findings this stage produced, neither of which the spec anticipated.**
+
+- **`join_transcribe_room` was `anon`-EXECUTABLE after its own migration ran.** The migration
+  carried `REVOKE ALL ... FROM PUBLIC` + `GRANT EXECUTE ... TO authenticated`, which reads as a
+  lockdown and is not one: Supabase's `ALTER DEFAULT PRIVILEGES` grants EXECUTE on every NEW
+  function to `anon` **role-directly**, and revoking from PUBLIC does not touch that. This is the
+  trap `docs/technical/database.md` §P1065 already documents, and the fifth instance here after
+  P1063's four. Caught only because the grant was read back from the live catalog rather than from
+  the migration text. **Not an incident** — the function refuses an anonymous caller on its first
+  line, verified live (`SET LOCAL ROLE anon` in a rolled-back transaction returned
+  `REFUSED: not authenticated`, against a control in the same probe that returned `PERMITTED`, so
+  the probe was not blind). Closed by migration D with a canary that distinguishes a grant refusal
+  from a body refusal — the obvious assertion would have passed against the unfixed grant.
+- **`get_transcribe_room_by_code` (P1207) is also `anon`-executable and unlisted** in
+  `scripts/anon-execute-allowlist.txt`. Recorded in `.private/docs/security-log.md`, deliberately
+  NOT touched: out of this spec's scope, and "revoking it looks free" is a claim about call sites
+  this session did not trace. **Needs a founder decision** — revoke, or allowlist with a reason.
 
 **Stage G — verify, in this order.**
 

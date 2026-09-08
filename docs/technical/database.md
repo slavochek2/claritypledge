@@ -354,6 +354,63 @@ Adds inbox-invite delivery for letter-sourced Clarity Sessions (pre-loaded basel
 
 **Migrations:** `supabase/migrations/20260414100001_p703_letter_sourced_live.sql`, `20260414100002_p703_live_invites_cron.sql`
 
+### transcribe_rooms / transcribe_room_members / transcribe_messages (P1149, P1207, P1236)
+
+`/transcribe` — a room of signed-in people, each on their own device, transcribing into one shared
+attributed chat while their audio lands in the ML bucket.
+
+**`transcribe_rooms`** — `id`, `code` (UNIQUE), `event_id` (nullable — an ad-hoc room has no event),
+`created_at`, `ended_at`.
+
+**`transcribe_room_members`** — one row per participant per room. `id`, `room_id`, `profile_id`,
+`display_name`, `session_id` (the participant's own `clarity_sessions` row), `joined_at`, plus P1236:
+
+| Column | Notes |
+|---|---|
+| `consent_given_at TIMESTAMPTZ` | When this member agreed to be recorded. **Nullable and deliberately NOT backfilled** — rows predating P1236 were written by a client that never told the server anything, and inventing a timestamp would fabricate the consent the column exists to record. Every server path reaching audio treats NULL as REFUSE. |
+| `slice_count INTEGER NOT NULL DEFAULT 0` | Live slices transcribed for this member. Advanced only by `record_transcribe_slice()` under the service role; no UPDATE policy exposes it to a client. |
+
+**`transcribe_messages`** — `room_id`, `member_id`, `text`, `spoken_at` (DEFAULT `now()`),
+`is_final BOOLEAN CHECK (is_final = true)`, `created_at`. Indexes: `(room_id, spoken_at)` (P1149)
+and `(member_id, spoken_at)` (P1236 — the de-duplication read, ~900 times per member-hour).
+
+**`spoken_at` is the de-duplication ordering key and is never client-supplied.** The ingest function
+validates its payload against an allow-list, so the column cannot be set from a request even by
+accident. A client that can set it chooses the merge order.
+
+**RPCs:**
+
+| Function | Grant | Purpose |
+|---|---|---|
+| `is_transcribe_room_member(uuid, uuid)` | `authenticated` | Breaks the roster SELECT policy's self-recursion (42P17). |
+| `get_transcribe_room_by_code(text)` | `authenticated` (**and `anon` — see below**) | P1207: `code` is a bearer credential, so it must be PRESENTED, never listed. Exact equality only — no LIKE, prefix, ordering or paging. |
+| `join_transcribe_room(uuid, text, uuid, boolean)` | `authenticated` | P1236: the only way a member row is created. Takes consent as a required argument and writes it in the same statement as the row. Derives `profile_id` from `auth.uid()` — **never add a `profile_id` argument**. Also refuses a `clarity_sessions` row the caller does not own. |
+| `record_transcribe_slice(uuid, uuid, text)` | `service_role` ONLY | P1236: one transaction for the transcript row and the member's slice counter. A client holding this could write an attributed transcript row with RLS bypassed. |
+
+**Two live P1065 notes on these functions, both found by reading the catalog rather than the
+migration text.** `join_transcribe_room` was `anon`-executable after its own migration ran, because
+`REVOKE ALL … FROM PUBLIC` does not remove the role-direct grant that `ALTER DEFAULT PRIVILEGES`
+hands every new function; fixed by `20260908170300_p1236_d_revoke_anon_join_rpc.sql`.
+`get_transcribe_room_by_code` is **still** `anon`-executable and is not in
+`scripts/anon-execute-allowlist.txt` — an open finding, written up in `.private/docs/security-log.md`.
+
+**`SECURITY DEFINER` is why `join_transcribe_room` exists at all.** `.insert(...).select().single()`
+compiles to `INSERT … RETURNING`, and RETURNING is evaluated under the SELECT policy for the row
+inside the same command as its own INSERT — that policy calls `is_transcribe_room_member()`, which
+cannot see the row the INSERT is still writing. Reproduced directly with `SET LOCAL ROLE
+authenticated`. Definer rights sidestep it, which is what lets consent and the row be written
+atomically.
+
+**Migrations:** `20260823190000_p1149_transcribe_room_tables.sql`,
+`20260823200000_p1149_fix_room_members_rls_recursion.sql`,
+`20260824000000_p1149_room_end_policy_column_guard.sql`,
+`20260901160000_p1207_transcribe_rooms_code_enumeration.sql`,
+`20260908170000_p1236_transcribe_consent_and_limits.sql`,
+`20260908170200_p1236_c_record_slice_rpc.sql`,
+`20260908170300_p1236_d_revoke_anon_join_rpc.sql`.
+
+---
+
 ---
 
 ## Row Level Security (RLS)
