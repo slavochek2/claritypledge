@@ -5,7 +5,8 @@
     "audio": "gs://claritypledge-ml-training/p1236-measurement/input.wav — 168.24s of real /transcribe room audio, catted from five sessions. NOT committed: this repo is public and that is participant voice data.",
     "whole_file_reference_words": 134,
     "why_committed": "Decision 4's de-duplication is the highest-risk unproven component in the design and the spec requires it be built test-first against this data. The de-dup operates on TEXT, so the transcripts are the fixture it needs; the audio is only needed to regenerate them.",
-    "measured": "2026-09-04"
+    "measured": "2026-09-04",
+    "redaction": "One token redacted for privacy, 2026-09-08: a spoken first name is replaced with the marker '[name]' in the two slices carrying it. A visible marker, not a plausible substitute — replacing it with the recogniser's own alternative rendering of the same moment ('man', from the adjacent slice) was tried first and REJECTED because it created a word-overlap against that neighbour that the original audio did not have, which moved the unbounded-window replay figure. The marker matches nothing adjacent and leaves every measured figure intact: 132 / 155 raw, 129 bounded, 122 unbounded. A regenerated fixture will differ from this file in exactly these two places."
   },
   "plain_4s": {
     "description": "43 consecutive 4-second slices, no overlap. Reproduces the spec's 132-word figure.",
@@ -13,7 +14,7 @@
     "expected_words": 132,
     "texts": [
       "Test, can you hear me?",
-      "All right All right, Ben. Come",
+      "All right All right, [name]. Come",
       "come let's let's go for a little bit of a walk. It doesn't it doesn't work.",
       "1 2 3 4 5 1 2 3 4 5",
       "1 1",
@@ -64,7 +65,7 @@
     "texts": [
       "Test, can you hear me?",
       "All right, all right, man. Come",
-      "All right, Ben. Come come. Let's uh let's go for a little bit of a walk. It doesn't It doesn't work.",
+      "All right, [name]. Come come. Let's uh let's go for a little bit of a walk. It doesn't It doesn't work.",
       "1 2 3 4 5 1 2 3 4 5",
       "3 4 5 1 2 3 4 5 1",
       "1 1",
