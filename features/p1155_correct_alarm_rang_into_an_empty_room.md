@@ -330,39 +330,37 @@ the revert handled it.
 - [x] A send failure **fails the workflow** — proven by simulating an SMTP failure and pasting the
       non-zero exit code (gate 7; note the agent shell is zsh, so `${pipestatus[1]}`, never
       `PIPESTATUS`), **and** the same simulation's output asserted free of the password
-- [ ] `OPS_EMAIL` / `OPS_SMTP_PASSWORD` exist as repo secrets and a real send has succeeded once
-      (BLOCKED — see Pre-deploy Checklist; `OPS_EMAIL_PASSWORD` must NOT be used, it is P1239-locked)
+- [ ] `MAILGUN_SENDING_KEY` / `MAILGUN_DOMAIN` / `OPS_EMAIL` exist as repo secrets
+      (BLOCKED on founder action — see Pre-deploy Checklist)
 
 ## Pre-deploy Checklist
 
 ### Secrets to provision
 
-**BLOCKED — needs a founder decision. Do not proceed by putting `OPS_EMAIL_PASSWORD` in CI.**
+**Founder decision taken 2026-09-08: use a dedicated Mailgun sending key.**
 
-An earlier revision of this checklist said to provision `OPS_EMAIL` and `OPS_EMAIL_PASSWORD` as
-repo secrets. That was written before reading `scripts/read-ops-email.mjs:33` and
-`.claude/rules/credentials.md`, and it is wrong.
+An earlier revision proposed provisioning an All-Inkl send-only SMTP credential, and the one
+before that proposed putting `OPS_EMAIL_PASSWORD` itself into CI. Both are superseded.
 
-`OPS_EMAIL_PASSWORD` is in **P1239's locked half**: a macOS keychain item that trusts no
-application, so macOS demands a human answer on *every read*, because it is a full mailbox
-password whose loss rotation cannot undo. Copying it into GitHub Actions secrets does not merely
-widen its exposure — it **deletes that control**. CI has no human to answer the dialog, and any
-workflow in the repo could then read it. P1239 is still in flight (`feature/p1239-keyring-critical-half`),
-so this would also be actively undoing work in progress.
+`OPS_EMAIL_PASSWORD` is in **P1239's locked half** — a keychain item trusting no application,
+human dialog on every read, because it is a full mailbox password granting IMAP read of an
+inbox that receives account-recovery mail. Putting it in CI does not widen a control, it
+**deletes** one. `MAILGUN_API_KEY` is enrolled in the locked half too, so it is equally
+ineligible.
 
-The send layer therefore reads `OPS_SMTP_PASSWORD` in CI and **refuses to fall back** to the locked
-credential when `CI` is set (`scripts/send-ops-email.mjs`, `credentials()`). Locally, where a human
-is present to answer the dialog, it uses the keyring path so a real send can be exercised today.
+The resolution is a **dedicated, domain-scoped, independently revocable Mailgun sending key**.
+It reuses a service already wired into five edge functions, it can only send, and provisioning
+it also let the hand-rolled SMTP client be deleted — that client produced two real defects in
+one session.
 
-- [ ] **Founder decision:** provision a dedicated send-only SMTP credential (an All-Inkl / KAS
-      submission credential, or a separate mailbox that can only send) and add it as
-      `OPS_SMTP_PASSWORD`. Do NOT reuse the mailbox password.
-- [ ] `OPS_EMAIL` — repo secret (the address, not a secret in any real sense, but the workflow
-      reads it from the same place)
-- [ ] `OPS_SMTP_PASSWORD` — repo secret, the dedicated credential above
+- [ ] **Founder action:** create a sending key in the Mailgun dashboard, scoped to
+      `mg.claritypledge.com`. Do NOT reuse the account API key.
+- [ ] `MAILGUN_SENDING_KEY` — GitHub repo secret, the key above
+- [ ] `MAILGUN_DOMAIN` — GitHub repo secret (`mg.claritypledge.com`; not secret in substance,
+      but the workflow reads it from the same place)
+- [ ] `OPS_EMAIL` — GitHub repo secret (the recipient address)
 
-Founder action either way — the agent PAT excludes Administration scope and cannot create repo
-secrets.
+The agent PAT excludes Administration scope and cannot create repo secrets.
 
 ### Post-deploy verification
 - [ ] One `workflow_dispatch` run against the live open issue #11 (aged 3+ days) delivers one email
@@ -679,7 +677,22 @@ history) share nothing beyond "a timestamp and a threshold," so a shared evaluat
 kind-dispatch inside it anyway; splitting at the top level is the same amount of code with a
 clearer boundary for "add a third kind" per the spec's own extensibility requirement (§2).
 
-**Decision 4 — Email is sent via a new zero-dependency raw-SMTP script
+**Decision 4 — SUPERSEDED 2026-09-08. Email goes through Mailgun's HTTP API, not raw SMTP.**
+The original decision (kept below for the reasoning trail) chose a hand-rolled zero-dependency
+SMTP client mirroring `read-ops-email.mjs`. That was wrong on two counts, both found by
+building it: the IMAP precedent transfers the socket handling and **none** of SMTP's content
+rules (dot-stuffing, 998-octet lines, CRLF, charset — `grep -c "DATA\|dot" read-ops-email.mjs`
+→ 0), and the client produced two real defects in one session (a mid-reply continuation line
+read as a complete response — intermittent and network-dependent; and an unreachable QUIT
+branch). Mailgun is already wired into five edge functions, so the API path is reuse rather
+than a new dependency, its credential is a scoped sending key rather than a mailbox password,
+and the entire SMTP content surface ceases to exist. `scripts/send-ops-email.mjs` now posts to
+`/<domain>/messages`; the handshake test is replaced by `scripts/test-mailgun-send.mjs`.
+A 2xx without a message id counts as **sent** (P1256) — reporting it as not-sent causes retries,
+i.e. duplicates.
+
+*Original reasoning, superseded:*
+**Decision 4 (superseded) — Email is sent via a new zero-dependency raw-SMTP script
 (`scripts/send-ops-email.mjs`), not nodemailer.** Chosen: a small Node module that speaks SMTP
 directly over `tls.connect()` to `w00dd4f1.kasserver.com:465` (SMTPS, confirmed in
 `.private/docs/accounts.md:154`), mirroring `scripts/read-ops-email.mjs`'s hand-rolled protocol

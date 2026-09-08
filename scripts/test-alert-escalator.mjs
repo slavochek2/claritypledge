@@ -18,7 +18,7 @@ import {
   evaluateGithubIssueAge, evaluateWorkflowLastRun, validateRegistry,
   composeMessage, sanitizeHeader, labelFor, BOT_LOGIN, ReaderError,
 } from './alert-escalator.mjs';
-import { dotStuff, foldLongLines, buildMessage, assertHeaderSafe, SendError } from './send-ops-email.mjs';
+import { assertHeaderSafe, SendError } from './send-ops-email.mjs';
 
 const NOW = Date.parse('2026-09-08T12:00:00Z');
 const daysAgo = (d) => new Date(NOW - d * 86_400_000).toISOString();
@@ -221,35 +221,9 @@ t('CONTENT: a CRLF-bearing title cannot reach the subject line', () => {
   assert.ok(!/[\r\n]/.test(dirty));
 });
 
-// --- SMTP content rules --------------------------------------------------------
-t('SMTP: a lone "." body line is dot-stuffed', () => {
-  assert.equal(dotStuff('a\n.\nb'), 'a\n..\nb');
-});
-
-t('SMTP: a leading-dot line is stuffed, an inner dot is untouched', () => {
-  assert.equal(dotStuff('.hidden\nno.dot'), '..hidden\nno.dot');
-});
-
-t('SMTP: an over-long line is folded under the octet limit', () => {
-  const folded = foldLongLines('x'.repeat(2500)).split('\n');
-  assert.ok(folded.length > 1);
-  assert.ok(folded.every((l) => Buffer.from(l, 'utf8').length <= 998));
-});
-
-t('SMTP: folding does not split a UTF-8 sequence', () => {
-  const folded = foldLongLines('é'.repeat(900), 100);
-  assert.ok(folded.split('\n').every((l) => !l.includes('�')));
-});
-
-t('SMTP: a CRLF header value is refused, not sanitized silently', () => {
-  assert.throws(() => assertHeaderSafe('Subject', 'a\r\nBcc: x'), SendError);
-});
-
-t('SMTP: built message uses CRLF and declares utf-8', () => {
-  const msg = buildMessage({ from: 'ops@example.invalid', to: 'ops@example.invalid',
-                             subject: 'hi', body: 'line1\nline2' });
-  assert.ok(msg.includes('charset=utf-8'));
-  assert.ok(!/[^\r]\n/.test(msg), 'bare LF found in the wire message');
+// --- header safety (the one send-layer rule that survived the Mailgun swap) ---
+t('SEND: a CRLF header value is refused, not sanitized silently', () => {
+  assert.throws(() => assertHeaderSafe('subject', 'a\r\nBcc: x'), SendError);
 });
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);

@@ -60,11 +60,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           OPS_EMAIL: ${{ secrets.OPS_EMAIL }}
-          # A SEND-ONLY credential, provisioned for this workflow. NOT
-          # OPS_EMAIL_PASSWORD: that is a full mailbox password in P1239's locked
-          # half, held in a keychain item that demands a human answer on every
-          # read. Copying it here would delete that control, not merely widen it.
-          OPS_SMTP_PASSWORD: ${{ secrets.OPS_SMTP_PASSWORD }}
+          MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
+          # A dedicated, domain-scoped, independently revocable Mailgun SENDING key.
+          # Deliberately NOT the Mailgun *account* key: that one sits in P1239's locked
+          # half, in a keychain item that demands a human answer on every read. CI has
+          # no human to answer it, so exporting it here would delete that control
+          # rather than widen it. The send layer refuses the account key when CI is set.
+          # (The account key's variable name is spelled out in the send script, not here
+          # — naming it in a workflow trips the secret scanner, which cannot tell a
+          # warning from an assignment. It is right not to try.)
+          MAILGUN_SENDING_KEY: ${{ secrets.MAILGUN_SENDING_KEY }}
         run: |
           set -o pipefail
           # No `set -x`: trace mode echoes every command, and GitHub masks only the
