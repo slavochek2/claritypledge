@@ -2,12 +2,12 @@
 name: promote-all
 description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, Eventbrite, and Social Layer in one pass"
 when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
-version: 1.6.0
+version: 1.7.0
 ---
 
 # Promote Event to All Platforms
 
-Wraps `promote-todo-today`, `promote-facebook-personal`, `promote-luma`, `promote-eventbrite`, and `promote-sola` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything. Social Layer runs only when the series has a `sola_group`.
+Wraps `promote-todo-today`, `promote-facebook-personal`, `promote-facebook` (groups), `promote-luma`, `promote-eventbrite`, and `promote-sola` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything. Social Layer runs only when the series has a `sola_group`.
 
 After all platforms are done, shows the series WhatsApp blurb (or generates a fallback) for the user to paste into chat groups. If the user edits it, the series doc is updated.
 
@@ -26,7 +26,7 @@ Read `.private/event-operator.json` (repo-relative, gitignored — each operator
 ```json
 {
   "operator_name": "<name the platform browser sessions are logged in as>",
-  "platforms": ["todo-today", "facebook-personal", "luma", "eventbrite", "sola"],
+  "platforms": ["todo-today", "facebook-personal", "facebook-groups", "luma", "eventbrite", "sola"],
   "facebook_groups": ["<optional — known groups for promote-facebook, grows run over run>"]
 }
 ```
@@ -71,6 +71,7 @@ Schema:
   "status": {
     "todo_today": "pending",
     "facebook_personal": "pending",
+    "facebook_groups": "pending",
     "luma": "pending",
     "eventbrite": "pending",
     "sola": "pending"
@@ -101,6 +102,7 @@ Report one table before proceeding:
 ```
 todo.today:        <logged in as <name> | NOT logged in>
 Facebook personal: <logged in as <name> | NOT logged in>
+Facebook groups:   <n eligible | NOT logged in>  (same session as Facebook personal)
 Luma:              <logged in as <name> | NOT logged in>
 Eventbrite:        <logged in as <name> | NOT logged in>
 Social Layer:      <logged in as <name> | NOT logged in | n/a — no sola_group>
@@ -142,7 +144,7 @@ This is what makes every platform's description consistent — no per-platform d
 1. Read the fenced code block inside `## Promo blurb`.
 2. Read `short_link` and `register_cta` from the series-doc frontmatter.
 3. Resolve placeholders:
-   - `{short_url}` → `claritypledge.com/events/<short_link>` (the series short link auto-redirects to the latest event — never hardcode a per-event slug here)
+   - `{short_url}` → `claritypledge.com/events/<short_link>?d=<YYMMDD event date>` (the series short link auto-redirects to the latest event — never hardcode a per-event slug here). **The `?d=` suffix is not decoration and is never dropped** — see "Short-link cache-buster" below.
    - `{register_cta}` → the `register_cta` value
 4. The result is the **canonical promo blurb**. Pass it verbatim to every platform sub-skill in step 4.
 
@@ -161,6 +163,74 @@ Pass this as the canonical promo blurb to every platform sub-skill in step 4, sa
 
 **Link discipline (both branches):** the claritypledge event page is the ONLY destination ever linked — and it appears **twice**: right after the hook AND as the closing Register CTA. "One link only" in the platform skills means one *destination*, not one occurrence.
 
+**Short-link cache-buster (`?d=`) — canonical rule, referenced by every platform sub-skill.**
+
+Every series short link posted anywhere carries `?d=<YYMMDD event date>`, e.g.
+`claritypledge.com/events/hike?d=260913`.
+
+**Which URL form.** Use the bare-domain short link `claritypledge.com/<short_link>` whenever
+`vercel.json` defines that bare source (grep it: currently `/hike` and `/ai-run`); otherwise use
+`claritypledge.com/events/<short_link>` (e.g. `experiment`, which has no bare-domain route).
+Both forms route to `api/series-redirect` and resolve identically — the bare form is 7 characters
+shorter and is what the group blurbs have always used, so switching them to the `/events/` form
+would be an unrequested change to the founder's posted copy. Check `vercel.json`; do not guess.
+
+**The date is the event's date in `Asia/Bangkok`**, the same timezone `{date}` uses — never the
+raw UTC date off the `datetime` column. For an evening event the two differ by a day, which
+produces a `?d=` that disagrees with the date written in the blurb body and trips the staleness
+check for a reason that looks like nothing.
+
+**The format is `YYMMDD` — six digits, and the year is not optional.** Founder chose the short
+form over the ISO date (2026-09-07) to buy back characters against Eventbrite's 140-char
+Summary cap. The `YY` stays because these preview caches outlive twelve months: a bare `MMDD`
+recurs every year, so the 2027-09-13 hike would post `?d=0913` — a URL Telegram already has a
+2026 preview cached for — and unfurl last year's card. That is the original bug on an annual
+period. Do not shorten further. The direct-slug branch above needs no suffix — a
+per-event slug is already unique.
+
+**Why.** Some platforms cache the link preview (OG title, description and image) **per posted
+URL, effectively forever**. A series short link is a *stable* URL whose OG content
+changes every week, so the second and every later post of `/events/hike` unfurls the **first** hike
+ever cached under it — right link, wrong photo, wrong trail name, wrong date, in a card the reader
+trusts more than the message body. Nothing on our side can expire that cache; only a distinct URL
+gets a fresh fetch. Observed 2026-09-07: a Telegram post announcing "Ban Mai Viewpoint Loop (Mon
+Cham)" unfurled a card titled "Doi Pui – Ban Khun Chang Khian" with the previous week's group photo,
+while the server was serving the correct new OG tags the whole time.
+
+**Which platforms this actually affects is NOT uniform, and the difference is measurable.**
+`api/og.ts` sets `og:url` to the resolved per-event slug — verified 2026-09-07:
+`/hike?d=<anything>` returns `og:url = /events/social-hike-...-945871`, unchanged by the query.
+A platform that canonicalizes a shared object by `og:url` (Facebook's documented behaviour)
+therefore already keys on a URL that is unique per event and would never have shown a stale
+card. A platform that keys on the URL as posted (Telegram, per the incident) is the one that
+breaks. **We have observed exactly one platform failing and have tested none of the others** —
+so `?d=` is applied everywhere as cheap insurance, not because each platform was measured. Do
+not write that Facebook/WhatsApp/Sola had this bug; that is unverified and the `og:url` evidence
+points the other way.
+
+**No SEO cost.** `?d=` never reaches a content page — the short link 307s to the canonical slug,
+and that page's `og:url` is the slug. There is no second indexable URL serving the same content,
+so no duplicate-content split to worry about.
+
+**The suffix is inert to routing.** `/events/<series>` and `/hike` both preserve the query string
+through the Vercel redirect into `api/series-redirect`, which reads only `series` — verified live,
+2026-09-07. So the link resolves to exactly the same event with or without it; the only thing `?d=`
+changes is the cache key.
+
+**One premise here is UNVERIFIED, and it is the load-bearing one.** `api/series-redirect.ts`
+drops the query string on its final hop (`res.redirect(307, '/events/' + slug)`), so the OG tags
+are fetched from a URL that no longer carries `?d=`. The fix therefore assumes each platform
+keys its preview cache on the **posted** URL, not the final resolved one. That is the documented
+behaviour of every major unfurler and is almost certainly right, but it has NOT been observed
+failing or succeeding here — the crawler `curl` in `promote-groups` verifies OG *content*, never
+the cache key. Cheapest real proof, still to run: post the same event twice into a scratch chat
+under two different `?d=` values and confirm two distinct previews. Until then, treat a correct
+unfurl as evidence and do not claim the mechanism is proven.
+
+**Guard:** any resolved blurb containing `claritypledge.com/events/<series>` **without** a `?d=`
+query is a hard stop — re-resolve `{short_url}` before posting. Copy a short link out of a previous
+week's post and you have reintroduced the bug.
+
 ### 4. Fan out — fill every platform, publish none, then ONE review sweep
 
 **The founder reviews the filled tabs, not text in chat.** *"i dont need to go toodo dotday,
@@ -168,11 +238,22 @@ then facebok, then luma. all three happen one after another and i just go and cl
 post"* (2026-08-31). The old shape stopped after each platform and waited — five separate
 returns to the keyboard for one hike. This shape produces one.
 
-**Phase A — fill, in this order, without stopping.** todo.today → Facebook (personal) → Luma
-→ Eventbrite → Social Layer. Rationale unchanged: todo.today has the highest UI friction (tag
-picker, character truncation), so fail-fast there; Facebook needs visual cover-photo review;
-Luma is stable; Eventbrite is a multi-step wizard; Social Layer is last and skipped entirely
-when the series has no `sola_group`.
+**Phase A — fill, in this order, without stopping.** todo.today → Facebook (personal) →
+**Facebook groups** → Luma → Eventbrite → Social Layer. Rationale unchanged: todo.today has the
+highest UI friction (tag picker, character truncation), so fail-fast there; Facebook needs visual
+cover-photo review; Facebook groups follows it because the personal-post tab is already open and
+logged in; Luma is stable; Eventbrite is a multi-step wizard; Social Layer is last and skipped
+entirely when the series has no `sola_group`.
+
+**Facebook groups is a platform here, not a separate errand.** It was absent from this list until
+2026-09-07, when the founder asked for it mid-run and it had to be added by hand — *"and facebook
+gorups also please (and make sure they are there next time)"*. The gap was invisible because
+`.private/event-operator.json` has carried a populated `facebook_groups` array since 2026-08-31,
+with eligibility and block reasons already researched: the data was there, and nothing read it.
+A config key nothing consumes looks exactly like a feature that works. Invoke
+`slava:events:promote-facebook` with the slug for every entry where `eligible: true`, and report
+each `eligible: false` entry with its reason rather than dropping it silently — an ineligible
+group that vanishes from the report is indistinguishable from one nobody checked.
 
 For each platform in turn:
 1. Skip if not in the operator config's `platforms` list (step 0) — mark `"skipped (not in operator config)"`.
@@ -281,6 +362,7 @@ Print a 3-line summary:
 ```
 todo.today:        <done | skipped>
 Facebook personal: <done | skipped>
+Facebook groups:   <done | skipped>  (list each group and its eligible/blocked reason)
 Luma:              <done | skipped>
 Eventbrite:        <done | skipped>
 Social Layer:      <done | skipped>

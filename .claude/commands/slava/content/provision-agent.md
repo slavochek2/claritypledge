@@ -58,7 +58,27 @@ It gates the result at 20/40/96px and runs a similarity check against the source
 ## Step 2b — The initials-only branch (no rights-cleared portrait)
 
 **Take this branch when the run carries `portrait: none` from `/slava:disagreement:select`.** It is a
-first-class provisioning path, not a degraded one. **Never reject a subject for lacking a photograph**
+first-class provisioning path, not a degraded one.
+
+> **READ THE RUN FILE'S `portrait:` FIELD AND PASTE IT BEFORE TAKING THIS BRANCH — 2026-09-07.**
+> Print the line verbatim, per subject, next to the branch decision:
+> `portrait: "cleared | Wikimedia Commons | CC BY-SA 4.0 | Felipe.bzra" -> Step 2 (generate)`.
+> Anything other than the literal value `none` means **Step 2**, not this branch.
+>
+> **The failure this closes ran the other way from the one the branch was built for.** The rule above
+> exists so a missing photograph never rejects a person. It says nothing about a run that HAS cleared
+> photographs, and this branch is the cheaper path — no download, no crop, no generation, no 40px
+> gate, no storage probe — so it is the one an agent under way drifts into. On 2026-09-07 all four
+> subjects of a run carried `portrait: "cleared | Wikimedia Commons | <licence> | <author>"`, the
+> initials branch was taken for the two being provisioned, and the registry was stamped
+> **`portrait: none (deliberate, founder-approved)`** — a false record of a founder decision that was
+> never made, written by the same step that skipped the work.
+>
+> **The written record is the trap, not the blank avatar.** A missing portrait is visible on the
+> page and gets noticed; the log line asserting it was *deliberate* is what stops anyone looking
+> again. **Never write `deliberate, founder-approved` without the founder's decision in this
+> session's own transcript** — cite it or omit the clause. The log is append-only, so a false line
+> is corrected by appending, never by editing. **Never reject a subject for lacking a photograph**
 (Founder Decision 2026-08-26, reversing the 2026-08-25 v1 rule — verbatim: *"i never want to reject a
 person based on profile photo — this makes no sense at all."*).
 

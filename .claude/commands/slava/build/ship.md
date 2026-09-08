@@ -36,7 +36,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
 
 **1b. Multi-P same-branch detection** — for multi-P invocations (`/ship p798 p799`): resolve branches for all P-numbers before running individual gates. If any two P-numbers resolve to the **same branch**, add this line to each of their gate reports:
-   `⚠ Shares branch feature/pXXX-... with pN (co-located specs auto-close — see git-ops.sh Phase 2b)`
+   `⚠ Shares branch feature/pXXX-... with pN (co-located specs are REPORTED, never auto-closed — P1250)`
 
    If P-numbers resolve to **different branches**, no note needed — the per-P branch name in the gate report already shows independence.
 
@@ -101,6 +101,22 @@ Cherry-picking...
    ./scripts/git-ops.sh ship pN --resume
    ```
    **Do not run `git cherry-pick --continue` yourself.** `--resume` runs it for you when `CHERRY_PICK_HEAD` is still set; a manual `--continue` clears that and forces the slower `--mark-landed` verify-then-record recovery path on the next `--resume` (still safe, just an extra step — see decisions.md 2026-06-28 [process] P972).
+
+3.8. **Co-located specs are reported, never closed (P1250).** `git-ops.sh ship` prints, after the
+   cherry-pick, any spec its branch commits *edited*:
+
+   ```
+   ship: these specs were EDITED by feature/pN-... and were NOT closed:
+     pM  [status: qa]  features/pM_....md
+     Editing a spec is not delivering it. If one of these is genuinely done,
+     close it by name:  ./scripts/git-ops.sh ship pNNNN
+   ```
+
+   **Read that list and act on it** — each named spec is either genuinely delivered (run `/ship pM`,
+   which puts it through its own gates) or it was merely touched in passing (leave it). Phase 2b
+   used to guess. Audited over its whole history (`docs/process-learnings.md` 2026-09-07): of the
+   17 specs it closed this way, **11 were not delivered** and 6 were — so the new rule costs 6
+   manual closes and prevents 11 silent wrong ones.
 
 4. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 

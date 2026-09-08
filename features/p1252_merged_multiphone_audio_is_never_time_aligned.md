@@ -48,6 +48,31 @@ The most recent transcript on prod is **2026-07-05**. Fixing alignment improves 
 currently produces nothing. It becomes urgent the moment [P1236](p1236_server_side_live_transcription_for_rooms.md)
 restores recording, and it should land **before** that, not after.
 
+### What a user actually sees, and why that still does not make this urgent
+
+This is not an internal artifact. `my-sessions-page.tsx` renders each transcript segment with a
+**person's name above the words** (`segment.speaker_label`), and offers a copy-to-clipboard of the
+same. Measured on prod: **52 of 60 stored transcripts carry more than one speaker**, so 52 are in
+the affected set. Where the phones were mixed out of step, a name can sit above words the other
+person said. In a product whose promise is *"did I understand what you meant"*, a session record
+that attributes your sentence to someone else is not cosmetic.
+
+**And fixing this spec would not fix that.** P1237 measured speaker attribution on audio that was
+correctly aligned *and* cleanly separated: 59.5% agreement with the physical channel oracle against
+a 75.0% naive rate, and **0 of 10** on the minority speaker of the one hand-labelled session.
+Misalignment is *a* cause of wrong names; diarization failure is the larger one. Anyone justifying
+this work by promising users better speaker labels is overselling it — that is why the risk table
+carries "Fixing alignment does not improve attribution | ACCEPT, and expect it".
+
+**The harm is static, not growing.** No transcript has been produced since 2026-07-05, so the 52
+are a fixed set. A defect that harms nobody new is the definition of not-urgent, and the trigger
+that changes it is an event (P1236 restoring recording), not a date.
+
+**What is NOT known, and would change the ranking:** whether anyone opens these transcripts. The
+affected set is measurable; reads are not, without Mixpanel (prod-only). If participants routinely
+read their session records, 52 wrong ones is a live credibility problem rather than a latent one.
+Tracked in `docs/process-learnings.md` rather than left to memory.
+
 ## Approach
 
 Align each recorder to a common timeline before `amix`, then mix with the offsets applied.

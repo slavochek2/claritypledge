@@ -110,6 +110,13 @@ export const organizationsService: OrganizationsService = {
       .from('organization')
       .select('id, slug, name, blurb, description, visibility, has_events')
       .eq('visibility', 'public')
+      // Founder-owned rank first, name only as the tiebreak among unranked orgs.
+      // Ordering by name ALONE was an accident waiting to happen: renaming
+      // · Chiang Mai to "Communication Activism Community · Chiang Mai"
+      // (20260907120000) silently demoted it below "Clarity Practice Community ·
+      // Online", because "Cl" < "Co". Copy edits must not reorder the directory.
+      // nullsFirst: false — an unranked org sorts AFTER every ranked one.
+      .order('display_order', { ascending: true, nullsFirst: false })
       .order('name', { ascending: true });
     if (error) throw new Error(`Failed to list organizations: ${error.message}`);
     return ((data ?? []) as OrgRow[]).map(mapOrg);
@@ -250,12 +257,22 @@ export const organizationsService: OrganizationsService = {
     const userId = await requireUserId();
     const { data, error } = await supabase
       .from('membership')
-      .select('role')
+      .select('role, terms_version, accepted_at')
       .eq('org_id', orgId)
       .eq('user_id', userId)
       .maybeSingle();
     if (error) throw new Error(`Failed to check membership: ${error.message}`);
-    return data ? { role: (data as { role: OrgRole }).role } : null;
+    if (!data) return null;
+    // terms_version is stored as TEXT with a CHECK allow-list ('4','5','6' —
+    // 20260724120000 widened by the P1193 migration), NOT as a number. Coerced once
+    // here so callers can index COA_VERSIONS with it; the registry is keyed by number.
+    // accepted_at is NOT NULL DEFAULT now(), so it is never absent on a real row.
+    const row = data as { role: OrgRole; terms_version: number | string; accepted_at: string };
+    return {
+      role: row.role,
+      termsVersion: Number(row.terms_version),
+      acceptedAt: row.accepted_at,
+    };
   },
 
   async joinOrganization(orgId, invitedBy) {

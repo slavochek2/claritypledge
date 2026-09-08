@@ -28,6 +28,8 @@ import { PledgerGrid } from "@/app/components/social/pledger-grid";
 import { EventsList } from "@/app/prototypes/events/components/EventsList";
 import { organizationsService } from "@/app/data/organizations-service";
 import type { Organization, OrgMember, OrgParticipation, OrgRole } from "@/app/data/organizations-service.interface";
+import { safeLinkHref } from "@/app/prototypes/events/location-utils";
+import { URL_RUN, splitTrailingPunctuation } from "@/lib/linkify";
 
 type OrgTab = "about" | "members" | "events";
 
@@ -139,7 +141,11 @@ export function OrgPage() {
           return;
         }
         setOrg(loadedOrg);
-        setActiveTab(loadedOrg.hasEvents ? "events" : "about");
+        // An invite link (?from=) is a pitch, not a listings visit: the sender is
+        // asking this person to JOIN, and the case for joining lives in About.
+        // Everyone else still lands on Events when the group has any.
+        const viaInvite = new URLSearchParams(window.location.search).has("from");
+        setActiveTab(viaInvite || !loadedOrg.hasEvents ? "about" : "events");
         // The roster is deliberately NOT awaited here. /events now redirects to
         // a group page, so this page is the app's primary Events surface — and if the
         // roster fetch shared this try/catch, a get_organization_members failure
@@ -351,7 +357,7 @@ export function OrgPage() {
           </TabsList>
 
           <TabsContent value="about" className="pt-4">
-            <AboutSection org={org} />
+            <AboutSection org={org} isMember={isMember} onJoin={handleJoin} />
           </TabsContent>
 
           {org.hasEvents && (
@@ -398,21 +404,69 @@ export function OrgPage() {
   );
 }
 
+function renderWithLinks(text: string) {
+  return text.split(URL_RUN).map((chunk, i) => {
+    if (i % 2 === 0) return chunk;
+    const [href, tail] = splitTrailingPunctuation(chunk);
+    return (
+      <span key={`${chunk}-${i}`}>
+        <a
+          href={safeLinkHref(href)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline underline-offset-2 hover:text-blue-700"
+        >
+          {href.replace(/^https?:\/\//, "")}
+        </a>
+        {tail}
+      </span>
+    );
+  });
+}
+
 /**
- * About tab — what this group IS. The Clarity Group Terms are NOT
+ * About tab — what this group IS. The Clarity Group Terms are NOT restated
  * here: they are the join gate and live on /groups/:slug/join (org-join-page.tsx).
- * The persistent header CTA is the single route to membership from this page —
- * no second Join button here (P955: one primary action per view).
+ * The banner below names them and links there; it sits directly under the heading
+ * rather than at the foot of the tab, because what a group runs on is the frame
+ * for the description, not a footnote to it (founder decision, annotated
+ * screenshot). The persistent header CTA is still the single route to membership
+ * from this page — the banner link is not a second primary action (P955).
  */
-function AboutSection({ org }: { org: Organization }) {
+function AboutSection({
+  org,
+  isMember,
+  onJoin,
+}: {
+  org: Organization;
+  isMember: boolean;
+  onJoin: () => void;
+}) {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {/* No "About {org.name}" heading: the org name is already the page H1 two
+          rows up and the About tab is already labelled, so the heading restated
+          the same words twice on one screen (founder decision, annotated
+          screenshot). The tab itself is the heading. */}
       <div className="space-y-4 rounded-lg border border-border bg-card p-6 md:p-8">
-        <h2 className="text-xl font-bold md:text-2xl">About {org.name}</h2>
+        <p className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-relaxed dark:border-blue-900 dark:bg-blue-950/40">
+          This group runs on the{" "}
+          <Link
+            to={`/groups/${org.slug}/join`}
+            className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400"
+          >
+            Clarity Group Terms
+          </Link>
+          . Every member accepts them on joining.
+        </p>
+
         {org.description ? (
           org.description.split(/\n{2,}/).map((paragraph) => (
-            <p key={paragraph.slice(0, 40)} className="text-base leading-relaxed">
-              {paragraph}
+            /* break-words: a founder-authored body can carry a bare URL, which is one
+               unbreakable line box. At 320px the repo link overflowed its own column by
+               ~49px and stopped 4px short of the viewport edge (viewport QA). */
+            <p key={paragraph.slice(0, 40)} className="text-base leading-relaxed break-words">
+              {renderWithLinks(paragraph)}
             </p>
           ))
         ) : (
@@ -422,13 +476,22 @@ function AboutSection({ org }: { org: Organization }) {
         )}
       </div>
 
-      <p className="text-base leading-relaxed">
-        This group runs on the{" "}
-        <Link to={`/groups/${org.slug}/join`} className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700">
-          Clarity Group Terms
-        </Link>
-        {" "}— every member accepts them on joining.
-      </p>
+      {/* A reader who came for the case to join finishes the case HERE, at the
+          bottom of a long body, with the header CTA scrolled off. Members see
+          nothing: their action lives in the header's Manage membership. */}
+      {/* Label is deliberately NOT "Join as member" — that is the header CTA's exact
+          label (org-header.tsx), and two buttons sharing an accessible name on one
+          page is both a duplicate to a reader and an ambiguous locator to every e2e
+          spec that addresses the header one by role+name. Same action, different
+          name, and the header keeps the canonical one. */}
+      {!isMember && (
+        <Button
+          onClick={onJoin}
+          className="min-h-11 w-full bg-blue-500 text-white hover:bg-blue-600"
+        >
+          Join this group
+        </Button>
+      )}
     </div>
   );
 }

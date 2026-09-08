@@ -11,6 +11,17 @@ completed_at: 2026-05-17
 
 # P843: Letter overview cohort table — hide suppressed points, show avatars + full names
 
+> **Correction 2026-09-07 (P1250).** Closed by `bb58f31ef` "close p843 (co-located with p700)",
+> an auto-close, with all 14 completion items unticked.
+>
+> Verdict: **delivered — left closed.** `src/app/components/letters/cohort-table.tsx` exists and
+> carries the avatar / full-name / suppressed-point handling this spec describes. The work landed
+> and only the checkboxes were never ticked. Recorded because a box-counting rule would read this
+> spec as undelivered: it is the false-positive shape, and it is why the P1250 audit grepped for
+> each claimed artifact rather than trusting the counts. Audit row:
+> `docs/process-learnings.md` 2026-09-07.
+
+
 ## Problem
 
 **Situation:** The letter overview cohort table (P700/P836) renders one column per point in `letter_story_snapshots.point_config.points`, and one row per delivery showing only a handle-stripped first name with no avatar.

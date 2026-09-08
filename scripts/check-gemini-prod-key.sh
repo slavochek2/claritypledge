@@ -21,7 +21,15 @@
 #
 # Exit contract, matching the other day-cp checks:
 #   0 — digest matches AND the key answered.
-#   1 — a finding: digest mismatch, key dead, or spend cap tripped.
+#   1 — a finding. The closed list, matching what day-cp.md documents for this check:
+#       digest mismatch, key dead, spend cap tripped, a 403 that is NOT a cap, a retired ping
+#       model, or a rate limit. The last two say nothing about the credential and day-cp says so
+#       per-token; they are still exit 1 because the CONSUMER routes on the token, not the code.
+#       (A reviewer proposed moving 404/429 to exit 2. Rejected here, not silently: day-cp.md
+#       enumerates both under exit 1 with correct per-token guidance, so the code and its only
+#       consumer already agree — it was this comment that was too narrow. Whether "the ping model
+#       is gone" is better modelled as did-not-run is a real question, but it is a change to a
+#       monitor's contract and its consumer together, not a tidy-up to slip into a ship.)
 #   2 — the check COULD NOT RUN. Never report this as clean. Never as "key is fine".
 set -uo pipefail
 
@@ -85,15 +93,27 @@ if [[ "${1:-}" == "--self-test" ]]; then
   }
   echo "self-test: classifier"
   check "alive"            200 ''                                              KEY_PING_OK                0
-  check "cap tripped"      403 'Spend cap breached for project: 123 for service: x' KEY_CAP_TRIPPED       1
+  # Both bodies below are VERBATIM from Google, captured 2026-09-07 off genuinely enforced caps
+  # on a throwaway project. The gemini one is the one that matters — same service this check
+  # actually calls; the vertex one is the same template from a different service, which is the
+  # evidence that the message is parameterised by service rather than hardcoded per API.
+  # Do not "tidy" these strings. The invented fixture they replaced said
+  # "for project: 123 for service: x", and the real message differs in two ways nobody predicted:
+  # the project is PREFIXED ("projects/<number>", not a bare id) and there is a trailing
+  # "Correlation id:". A match string tightened around the invented shape would have passed the
+  # old self-test and failed silently in production.
+  check "cap tripped (REAL, gemini)" 403 'Spend cap breached for project: projects/521637658103 for service: generativelanguage.googleapis.com. Correlation id: 7181903108680028651' KEY_CAP_TRIPPED 1
+  check "cap tripped (REAL, vertex)" 403 'Spend cap breached for project: projects/521637658103 for service: aiplatform.googleapis.com. Correlation id: 3106695270624766759' KEY_CAP_TRIPPED 1
+  check "cap tripped (synthetic)"  403 'Spend cap breached for project: 123 for service: x' KEY_CAP_TRIPPED       1
   check "403 not a cap"    403 'PERMISSION_DENIED: api restricted'              KEY_PING_FORBIDDEN         1
-  check "dead key"         400 '{"reason":"API_KEY_INVALID"}'                   KEY_PING_FAILED            1
+  # Also real, captured 2026-09-07 from the genuinely dead 39-char key before it was retired.
+  check "dead key (REAL)"  400 '{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"API_KEY_INVALID","domain":"googleapis.com"}]}}' KEY_PING_FAILED 1
   check "retired model"    404 ''                                              KEY_PING_MODEL_UNAVAILABLE 1
   check "rate limited"     429 ''                                              KEY_PING_RATE_LIMITED      1
   check "never completed"  000 ''                                              KEY_PING_UNKNOWN           2
   # The discrimination that matters most: these two must not collapse into each other.
-  a="$(classify 403 'Spend cap breached for project: 1 for service: x')"
-  b="$(classify 400 '{"reason":"API_KEY_INVALID"}')"
+  a="$(classify 403 'Spend cap breached for project: projects/521637658103 for service: generativelanguage.googleapis.com. Correlation id: 7181903108680028651')"
+  b="$(classify 400 '{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}')"
   if [[ "${a%%$'\n'*}" == "${b%%$'\n'*}" ]]; then
     echo "  FAIL cap-vs-dead are indistinguishable"; fails=$((fails+1))
   else
@@ -121,7 +141,12 @@ LOCAL_KEY="$("$AI_KEYS" --key-string --name "$KEY_NAME" 2>/dev/null | tr -d '\n'
 LOCAL_SOURCE="ai-keys registry (${KEY_NAME})"
 [ -n "$LOCAL_KEY" ] || die_cannot_run "ai-keys returned no key string for '${KEY_NAME}' — the deployed key could NOT be checked. This is not a pass."
 
+# Guarded like every other external call here. Unguarded, a shasum/awk failure yields an empty
+# digest, which then differs from the deployed one and reports KEY_DIGEST_MISMATCH — a specific,
+# actionable-sounding finding produced by the check breaking rather than by anything being wrong.
 LOCAL_DIGEST="$(printf '%s' "$LOCAL_KEY" | shasum -a 256 | awk '{print $1}')"
+[ ${#LOCAL_DIGEST} -eq 64 ] || die_cannot_run "could not compute a sha256 of the local key (shasum/awk gave '${LOCAL_DIGEST:-<empty>}') — the digest could NOT be compared. This is not a pass and not a mismatch."
+
 
 # --output-format json is passed EXPLICITLY. The installed CLI happens to emit JSON by default,
 # but its own --help documents `text` as the default, so the default is undocumented behaviour that
@@ -142,9 +167,12 @@ if len(rows) != 1:
     sys.exit(4)          # zero, or an ambiguous duplicate
 print(rows[0].get("value", ""))
 ' 2>/dev/null)"
-case $? in
+PARSE_RC=$?
+case "$PARSE_RC" in
   3) die_cannot_run "prod Supabase secrets did not parse as JSON — the CLI's output format changed; the deployed key could NOT be checked" ;;
   4) die_cannot_run "prod Supabase reports zero or duplicate GEMINI_API_KEY secrets — cannot compare digests" ;;
+  0) : ;;
+  *) die_cannot_run "the prod-secrets parser exited ${PARSE_RC} unexpectedly — the deployed digest could NOT be read" ;;
 esac
 [ -n "$DEPLOYED_DIGEST" ] || die_cannot_run "prod Supabase returned an empty digest for GEMINI_API_KEY — cannot compare"
 
@@ -169,15 +197,26 @@ echo "digest OK — local copy matches deployed prod secret (sha256 ${LOCAL_DIGE
 # printf, 2 hits; the config-file form below, 0 hits).
 # So both the config and the response body go to mode-600 mktemp files, created before they are
 # written to, and removed on every exit path.
+# The trap is armed after the FIRST mktemp, not after both: if the second fails, die_cannot_run
+# exits immediately and an unarmed trap would leak the first file. Nothing secret has been written
+# to it at that point, but the comment above promises removal on every exit path, and it should
+# be true rather than nearly true.
 PING_CFG="$(mktemp "${TMPDIR:-/tmp}/gemini-cfg.XXXXXX")" || die_cannot_run "could not create a temp file for the curl config"
+PING_BODY_FILE=""
+trap 'rm -f "$PING_CFG" "$PING_BODY_FILE"' EXIT INT TERM
 PING_BODY_FILE="$(mktemp "${TMPDIR:-/tmp}/gemini-ping.XXXXXX")" || die_cannot_run "could not create a temp file for the response"
 chmod 600 "$PING_CFG" "$PING_BODY_FILE" 2>/dev/null
-trap 'rm -f "$PING_CFG" "$PING_BODY_FILE"' EXIT INT TERM
 
 {
   echo "url = https://generativelanguage.googleapis.com/v1beta/${PING_MODEL}:generateContent"
   echo "header = \"x-goog-api-key: ${LOCAL_KEY}\""
   echo 'header = "content-type: application/json"'
+  # maxOutputTokens:1 is what makes this ping free — NOT the absence of responseModalities.
+  # Measured 2026-09-07: with and without `responseModalities:["IMAGE"]`, this returns
+  # totalTokenCount 1 and zero image bytes, identically. Production (generate-banner/index.ts)
+  # sends responseModalities WITHOUT a token cap, which is why prod generates an image.
+  # So if you ever "align this ping with production", keep the cap. Copying prod's
+  # generationConfig wholesale would bill for a real image on every /day run.
   echo 'data = {"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":1}}'
   echo "output = ${PING_BODY_FILE}"
   echo 'silent'

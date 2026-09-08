@@ -723,6 +723,17 @@ test.describe('Edge-fn authz regression — send-letter-emails sender guard', ()
 // 9. dispatch-event-emails — CRON_SECRET guard
 // ===========================================================================
 
+/**
+ * UNRUNNABLE ON THE TEST PROJECT (P1188): dispatch-event-emails is deployed to prod only,
+ * so every test in this describe returns 404 there — including the pre-existing one. That
+ * is P1188's documented gap, not a regression from P1256.
+ *
+ * The behaviour the two P1256 tests below assert was therefore verified BY HAND against
+ * prod on 2026-09-07, not by this file:
+ *   anon JWT + wrong x-cron-secret  -> 401
+ *   anon JWT + correct x-cron-secret -> 200 {"ok":true,"mode":"cron"}
+ * Treat them as pinned-but-unexercised until P1188 lands the function on test.
+ */
 test.describe('Edge-fn authz regression — dispatch-event-emails CRON_SECRET guard', () => {
   test.describe.configure({ timeout: 30000 });
 
@@ -734,6 +745,50 @@ test.describe('Edge-fn authz regression — dispatch-event-emails CRON_SECRET gu
 
     // Guard: authHeader !== expectedAuth → 401 (index.ts ~252-258)
     expect(status, 'Wrong CRON_SECRET must be rejected with 401').toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  /**
+   * P1256. The test above does NOT prove the handler's guard works, and review caught
+   * that: 'wrong-cron-secret-value' is not a well-formed JWT, so Supabase's gateway
+   * rejects it before the function is ever invoked. Delete the handler's secret check
+   * entirely and that test still passes — it is measuring the gateway.
+   *
+   * This one sends a VALID anon JWT so the gateway lets the request through, and a wrong
+   * secret in the header the handler actually reads. It is the only one of the two that
+   * fails if the guard is removed.
+   */
+  test('rejects a gateway-valid request carrying a wrong x-cron-secret (401 from the handler)', async () => {
+    const res = await fetch(fnUrl('dispatch-event-emails'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        // A real JWT — satisfies the gateway, carries no authority of its own here.
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'x-cron-secret': 'wrong-cron-secret-value',
+      },
+      body: JSON.stringify({}),
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+    expect(res.status, 'A wrong x-cron-secret must be rejected by the FUNCTION, not the gateway').toBe(401);
+    expect(body.error, 'A gateway rejection would not carry the function\'s own error body').toBe('Unauthorized');
+  });
+
+  test('rejects a gateway-valid request carrying NO secret header at all', async () => {
+    const res = await fetch(fnUrl('dispatch-event-emails'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({}),
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+    expect(res.status, 'Omitting the secret must not fall through to the cron path').toBe(401);
     expect(body.error).toBe('Unauthorized');
   });
 });

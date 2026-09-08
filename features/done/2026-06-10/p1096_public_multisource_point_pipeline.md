@@ -7,10 +7,28 @@ created_date: '2026-08-17'
 tags: [points, events, youtube, agents]
 pipeline_ran: [create-spec]
 driver: heuristic
-completed_at: 2026-08-25
 ---
 
 # P1096: Manufacture felt disagreement from public material
+
+> **Re-closed 2026-09-07 (P1250) — my reopen two hours earlier was WRONG.** The P1250 audit
+> classified this as wrongly auto-closed on the strength of `grep -rln "felt disagreement"`
+> returning nothing. That is a title-phrase search, which the audit's own p1096 row already warned
+> is a weak oracle (epistemic gate 9 — test the claim, not a quote). I wrote the warning and then
+> acted against it.
+>
+> The mechanism shipped. It is the disagreement pipeline — `select` / `prepare` / `positions` /
+> `story-draft` / `publish` / `run-pipeline`, plus `provision-agent` — which satisfies this spec's
+> Done-When almost line for line: opposed pair aimed at a named room, per-speaker quotes verified
+> against source rather than captions, sealed predictions, one agent reused per subject, no
+> first-person text for any person. It has been run live several times (decisions.md 2026-08-25,
+> 2026-08-27, 2026-08-28 all describe real `/slava:disagreement:select` runs).
+>
+> It was closed **co-located with P1156**, the spec that built the chain contract — a genuine
+> co-implementation, which is the case the P1250 report exists to let a human confirm rather than
+> the case it exists to prevent. This spec's own text is stale in the way decisions.md already
+> recorded: line 167 still asks what builds `/points-publish` and states "it does not exist".
+
 
 ## Problem
 

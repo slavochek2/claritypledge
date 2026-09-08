@@ -16,6 +16,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import { resolveOrg } from '../src/app/prototypes/events/org-defaults';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -51,6 +52,19 @@ interface EventInput {
   description: string;
   status?: string;
   max_attendees?: number | null;
+  /**
+   * Organization slug this event belongs to. Omit to take the venue default from
+   * docs/events/org-defaults.md. Pass null to create a deliberately unaffiliated
+   * ("loose") event.
+   */
+  org_slug?: string | null;
+  /**
+   * Venue coordinates. Supply them for any in-person event: they decide whether the
+   * event is inside the Chiang Mai radius, and without them the script stops and
+   * asks rather than assuming. /publish-run already has these from AllTrails.
+   */
+  lat?: number;
+  lng?: number;
 }
 
 const input: EventInput = JSON.parse(readFileSync(resolve(inputPath), 'utf8'));
@@ -75,6 +89,45 @@ function generateSlug(title: string): string {
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+/**
+ * Which community does this event belong to? — docs/events/org-defaults.md.
+ *
+ * The rule lives in src/app/prototypes/events/org-defaults.ts so the site and this
+ * script cannot disagree, and so it is covered by tests. Everything here is the
+ * database half: turn a slug into an id, or stop and ask.
+ */
+const decision = resolveOrg({
+  location: input.location,
+  ...(input.org_slug !== undefined ? { orgSlug: input.org_slug } : {}),
+  coords:
+    input.lat !== undefined && input.lng !== undefined
+      ? { lat: input.lat, lng: input.lng }
+      : null,
+});
+
+if (decision.kind === 'ask') {
+  // Stop rather than guess. An event filed into the wrong community is silent and is
+  // found weeks later by noticing a group page looks wrong; a refusal here is found
+  // now, by the person who knows the answer.
+  console.error(`ERROR: cannot decide which community this event belongs to — ${decision.why}`);
+  console.error('Add "lat" and "lng" for the venue, or set "org_slug" explicitly ("cm", "online", or null for none).');
+  process.exit(1);
+}
+
+let orgId: string | null = null;
+if (decision.kind === 'org') {
+  const { data: org, error: orgError } = await supabase
+    .from('organization')
+    .select('id')
+    .eq('slug', decision.slug)
+    .maybeSingle();
+  if (orgError || !org) {
+    console.error(`ERROR: organization "${decision.slug}" not found (${orgError?.message ?? 'no row'})`);
+    process.exit(1);
+  }
+  orgId = org.id;
+}
+
 const slug = generateSlug(input.title);
 
 const { data, error } = await supabase.from('events').insert({
@@ -88,6 +141,7 @@ const { data, error } = await supabase.from('events').insert({
   host_id: input.host_id,
   status: input.status ?? 'upcoming',
   max_attendees: input.max_attendees ?? null,
+  org_id: orgId,
 }).select('id, slug').single();
 
 if (error || !data) {
@@ -95,5 +149,6 @@ if (error || !data) {
   process.exit(1);
 }
 
+console.log(`ORG=${decision.kind === 'org' ? decision.slug : '(none — loose event)'}  # ${decision.why}`);
 console.log(`SLUG=${data.slug}`);
 console.log(`URL=https://claritypledge.com/events/${data.slug}`);

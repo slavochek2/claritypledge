@@ -1,4 +1,40 @@
 #!/bin/bash
+# ENV HYGIENE — MUST STAY FIRST. This canary builds throwaway fixture repos and runs
+# `git add` / `git commit` inside them. When it is invoked from a git hook (which is the
+# only way it runs in anger — pre-commit-checks.sh runs it whenever scripts/git-ops.sh is
+# staged), git exports part of its environment into the hook. Those vars are inherited by
+# every child process and OVERRIDE `cd`, so fixture git commands acted on the CALLER'S
+# repository.
+#
+# The list below is MEASURED, not guessed. On this machine's git, a pre-commit hook
+# receives exactly: GIT_AUTHOR_DATE, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME,
+# GIT_CONFIG_PARAMETERS, GIT_EDITOR, GIT_EXEC_PATH, GIT_INDEX_FILE, GIT_PREFIX.
+# Notably GIT_DIR is NOT among them — an earlier version of this block unset five vars
+# that never leak and missed three that do.
+#
+#   GIT_INDEX_FILE  — the live leak: fixture `git add` wrote into the caller's index.
+#   GIT_AUTHOR_*    — pins every fixture commit to one identity and TIMESTAMP, which is
+#                     the identical-SHA collision recorded in decisions.md as having
+#                     broken a canary before; this script does 16 rev-parse comparisons.
+#   GIT_PREFIX,
+#   GIT_CONFIG_PARAMETERS — path and config bleed from the invoking repo.
+#
+# GIT_EXEC_PATH and GIT_EDITOR are deliberately KEPT: git needs the former to find its
+# own subcommands. The remaining names are not hook-exported but are unset defensively,
+# since this script may also be run from other wrappers that do export them.
+#
+# Observed 2026-09-07 while committing P1250, two symptoms from this one cause: junk
+# paths staged into the caller's index (the stray-staged-file hazard .claude/rules/git.md
+# exists to prevent), and the canary's own assertions failing — a false alarm about the
+# push path. Control: with a clean index,
+#   GIT_INDEX_FILE=$(git rev-parse --git-path index) bash scripts/test-push-snapshot-pinning.sh
+# left junk staged and failed; with these unsets, 0 junk and 31/31. Standalone runs always
+# passed, which is why it went unnoticed — invisible except in the one context that matters.
+unset GIT_INDEX_FILE GIT_PREFIX GIT_CONFIG_PARAMETERS \
+      GIT_AUTHOR_DATE GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL \
+      GIT_COMMITTER_DATE GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL \
+      GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
+      GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE
 # Canary: the push/deploy paths must promote a PINNED snapshot SHA, never the live
 # branch `main`.
 #

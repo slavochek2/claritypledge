@@ -65,7 +65,8 @@ For each returned row, verify the title starts with the **exact** `title_prefix`
 Same query as step 3, plus `&order=datetime.desc&limit=1`. Filter to the row whose title starts with the exact `title_prefix`.
 
 - No rows → halt: *"No prior event in series `<slug>`. First event must be created manually via `scripts/create-event.ts`."*
-- Extract: `title`, `datetime`, `description`, `location`, `duration_minutes`.
+- Extract: `title`, `datetime`, `description`, `location`, `duration_minutes`, `org_id`.
+  (`select=title,slug` in step 3 does not return these — widen it to `select=*` for this query.)
 - Parse `#N` from title via regex `/#(\d+)/`. Regex failure → halt: *"Could not parse `#N` from title: `<title>`. Fix the prior event's title or update the series config."*
 
 ### 5. Compute proposal
@@ -138,7 +139,20 @@ npx tsx scripts/create-event.ts "$TMP"
 rm -f "$TMP"
 ```
 
-Capture `SLUG=` from stdout.
+Capture `SLUG=` and `ORG=` from stdout.
+
+**Organization.** A new occurrence belongs to the same community as the one it clones —
+read `org_id` from the source event (extracted in step 4) and pass the matching
+slug as `"org_slug"` in the JSON above. That is the whole rule for a series: the previous
+occurrence already answers it, so there is nothing to infer and nothing to ask.
+
+Only when the source event carries no `org_id` (the two 2026 Ko Phangan events, deliberately
+unaffiliated) do you omit `org_slug` and let the script decide — it files an online venue
+under `online`, and for an in-person one it needs `"lat"`/`"lng"`, stopping to ask you if the
+venue is more than 150 km from Chiang Mai. `"org_slug": null` keeps an occurrence
+deliberately unaffiliated. Rule: `docs/events/org-defaults.md`.
+
+**Check the printed `ORG=` line against the series before promoting.**
 
 Then, still under the step-8 `go` (no separate approval), upload the banner and set `banner_url` — unless the photo was skipped, in which case proceed to step 10 with no banner.
 

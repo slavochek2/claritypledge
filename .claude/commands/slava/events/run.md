@@ -2,7 +2,7 @@
 name: run
 description: "One-command orchestrator over the existing event-lifecycle skills — create, assets, promote (platforms), promote (groups) — with one combined resume view. Modeled on /video-publish."
 when_to_use: "Running the full event pipeline end to end in one pass, or checking combined status/resume state across a past run. Individual stages stay independently invocable — use this only when you want the sequenced view."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # /slava:events:run
@@ -226,6 +226,40 @@ Groups (promote-groups.json):
 ```
 
 **A read-only status check** (invoking this skill against a slug with an existing run record and no new work requested) never re-invokes any stage skill — it only reads the three files and reports. This is what satisfies "invoked against a past completed event, reports all four stages done, attempts no re-promotion."
+
+---
+
+## Runtime hazards measured on 2026-09-07 — read before the promote stages
+
+That run was executed stage-by-stage by hand instead of through this orchestrator, which is how
+three failures reached the founder that a sequenced run should absorb. None is a copy problem and
+none is caught by the mechanical checks above.
+
+- **"Never publishes" is not something every platform lets us honour.** On todo.today the event
+  went **live with no Create click by anyone** — the form was filled, the cover uploaded, and the
+  event existed and was public the next time the page was opened. The likely mechanism is that the
+  photo upload commits the event server-side, but that was never proven. So: after filling
+  todo.today, **read My Events back before saying it is ready for the founder's click** — if it is
+  already live, say so plainly rather than presenting a form that no longer needs approving. Treat
+  the no-publish guarantee as a *property of each platform*, verified per run, not a promise this
+  pipeline can make on their behalf.
+
+- **Browser permission is per-subdomain, and the failure looks like a broken site.** `sola.day`
+  being granted does not grant `app.sola.day`; the ungranted host raised no dialog and the granted
+  one rendered a blank page with **no console error**. Two hours went into "is Social Layer down?"
+  before the hostname was the answer. When a page renders empty and the console is clean, suspect
+  the host before the app — and never navigate a tab that holds a filled form to test a hypothesis
+  (that destroyed the completed todo.today form and it had to be rebuilt).
+
+- **The messaging bridge can die mid-fan-out.** Beeper Desktop quit after four of eight group
+  sends. Recovery is: confirm the process is actually gone (`pgrep -fl Beeper`) rather than
+  inferring an outage from one error, ask the founder to reopen it, then send **only the groups
+  whose state file does not already record them** — the run record is what prevents a double-post,
+  not memory of how far the loop got.
+
+**Verify a group send by reading the chat back, not by the send call's return.** `get_chat`'s
+`Last Activity` timestamp matching the send time is sufficient and cheap; a returned deeplink is
+not evidence the message landed.
 
 ---
 

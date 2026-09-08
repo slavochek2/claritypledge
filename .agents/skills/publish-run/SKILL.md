@@ -103,15 +103,25 @@ question the founder answered ten minutes ago is the friction this pipeline exis
 
 **Loop (or short out & back):** derive from AllTrails estimated time, then apply the group multiplier:
 - Parse the upper bound of the range (e.g. "5.5–6 hr" → 6 hrs)
-- **Multiply by 1.4.** AllTrails estimates one fit walker moving steadily. This is a group that
+- **Multiply by 1.35.** AllTrails estimates one fit walker moving steadily. This is a group that
   stops for coffee, takes breaks, waits at junctions and leaves nobody behind — it is reliably
-  ~40% slower, and the founder asked for that to stop being a surprise (2026-09-07).
+  ~35% slower, and the founder asked for that to stop being a surprise (2026-09-07; he revised
+  the figure from 1.4 to 1.35 the same day, after seeing it applied to a real trail).
 - Add 30 min for the coffee stop at the meeting point, before walking starts
 - Round UP to the nearest 30 min. **This is the number the description quotes**, not the event length.
 - **Then add an hour of slack and round up to the next full hour — THAT is `duration_minutes`.**
-  Example: a 3.5–4 hr trail → 4 × 60 × 1.4 = 336, + 30 coffee = 366 → 390 min quoted in the
-  description ("6.5 hours"), then 390 + 60 = 450 → rounded up to **480 min** stored on the event,
-  so a 09:00 start ends 17:00.
+
+**Compute both numbers from THIS trail. Never carry a previous run's figures.** The example below
+uses the Sept 13 hike because that is where the rule came from — it is arithmetic to copy, not
+values to reuse. A 3.5–4 hr trail: `4 × 60 × 1.35 = 324`, `+ 30` coffee `= 354` → round up to
+**360 min quoted** ("6 hours"); then `360 + 60 = 420` → round up to **420 min stored**, so a 09:00
+start ends **16:00**.
+
+**The end time in the description is DERIVED, not a constant.** Print `start + duration_minutes`
+for the trail in hand. "17:00" was correct for one hike on one day; a later hike with a shorter
+trail that still says 17:00 is simply wrong, and it is wrong in the direction nobody checks —
+the copy looks plausible and the calendar blocks an extra hour of someone's Sunday. Founder,
+2026-09-07: *"lets not fix for next time 17:00 specifically."*
 
 **Why two numbers.** The description says "6.5 hours, likely more" while the event page prints a
 single hard end time from `duration_minutes`. If that end time equals the quoted figure exactly,
@@ -235,6 +245,22 @@ a database row. A Google Maps URL is matched first and passed through untouched,
 labelled "View on Maps". The place name belongs in the description's meeting-point
 line, where a human reads it. Never hardcode a city; derive from the trail.
 
+First resolve the community this event belongs to. Use the trail coordinates from
+step 2 — the venue's own position is what decides it, never the place name:
+
+```bash
+npx tsx scripts/resolve-event-org.ts "$PIN_URL" "$LAT" "$LNG"
+```
+
+`ORG_ID=` on stdout → put it in the payload below. A hike anywhere in the Chiang Mai
+orbit resolves silently to `cm`; you will not be asked.
+
+**Exit 1 with `ASK:` → stop and ask the founder which community, then pass the slug
+they name.** That happens when the trailhead is more than 150 km from Chiang Mai —
+i.e. this is not a Chiang Mai hike at all. Never pick one to keep the run moving: an
+event filed into the wrong community is silent, and is found weeks later by noticing
+a group page looks wrong. Rule and rationale: `docs/events/org-defaults.md`.
+
 POST to `/rest/v1/events` using Python (not shell heredoc — interpolation fails):
 ```python
 import json, subprocess
@@ -248,7 +274,11 @@ payload = {
     "location": PIN_URL,   # the Google Maps pin URL itself — see the note above; never plain text
     "host_id": "a99042ef-e740-446a-8734-389c8589cc17",
     "max_attendees": None,
-    "status": "upcoming"
+    "status": "upcoming",
+    # Without this the event is "loose": it shows on no group's Events tab. That was
+    # missed once, on the 2026-09-13 hike. Use the ORG_ID printed above — never a
+    # UUID pasted from memory. See docs/events/org-defaults.md.
+    "org_id": "<ORG_ID from the resolver above>",
 }
 subprocess.run(["curl", "-s", "-X", "POST", url, "-H", ..., "-d", json.dumps(payload)], ...)
 ```

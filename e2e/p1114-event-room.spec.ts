@@ -71,7 +71,11 @@ function readGraceHours(): number {
     fileURLToPath(new URL('../src/app/data/events-service-real.ts', import.meta.url)),
     'utf8',
   );
-  const m = src.match(/export const EVENT_GRACE_HOURS = (\d+);/);
+  // ^-anchored with /m deliberately: an UNANCHORED match also accepts the literal sitting
+  // inside a COMMENT. Review caught that a stale comment carrying the old value would then
+  // silently supply the wrong boundary while the real export had changed shape — and the
+  // fixture would pass against a number nothing in the product uses.
+  const m = src.match(/^export const EVENT_GRACE_HOURS = (\d+);/m);
   if (!m) throw new Error('EVENT_GRACE_HOURS not found in events-service-real.ts — renamed?');
   return Number(m[1]);
 }

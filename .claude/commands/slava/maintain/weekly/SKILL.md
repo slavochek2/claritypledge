@@ -204,6 +204,50 @@ This is a 1-minute scan. Don't expand it. Purpose: the suppression log is the fa
 
 ---
 
+### 2.4.6 Branch and Remote Refs (P1260)
+
+**Why this lives in `/weekly` and not on the kanban.** The board reads branch names *out of
+worktree records* (`tools/kanban/server/api.ts` parses `git worktree list --porcelain`), so a
+branch is visible there only if it has a worktree. Every staging branch, every abandoned branch,
+and every ref on `origin` is structurally absent from the only board anyone looks at — not by
+oversight, by construction. Adding them to the kanban was rejected: it would make a
+permanently-populated surface out of a board whose value is brevity. This periodic review is where
+they have to appear instead.
+
+```bash
+./scripts/git-ops.sh gc 2>&1
+```
+
+The report lists every local branch and every head on `origin` with worktree, age and a verdict.
+Read it as follows:
+
+- **`MERGED`** — the ref's work is absorbed; it is reclaimable. Local ones are listed under
+  "Deletable" when also older than the cutoff. Remote refs are **never** auto-deleted.
+- **`KEEP — unmatched: <shas>`** — at least one commit could not be matched by all three signals.
+  This is fail-safe by design and over-keeps on purpose. Do **not** delete on a KEEP.
+- **`WARNING — could not reach origin`** — the remote half of the report did not run. Say so;
+  do not report the local rows as full coverage.
+
+Surface in Evidence Picture as:
+
+```
+REFS:         N local / M origin | K reclaimable | J KEEP (unmatched work)
+```
+
+**Any `staging/*` ref on `origin` is unreclaimed by definition** — those are ephemeral. A couple
+are expected between a stalled push and its cleanup; a growing count means aborts are outrunning
+reclamation, which is an ACTION, not a note. The timeout and red-CI paths in `push-docs` and
+`ship-to-prod` keep their staging ref deliberately (it is the handle for a manual promote), so
+this report is the only thing that comes back for them.
+
+Deletion is never automatic here. To act on the reclaimable local branches:
+
+```bash
+./scripts/git-ops.sh gc --yes --delete-branches   # LOCAL, MERGED, no worktree, past cutoff only
+```
+
+---
+
 ### 2.5 Process Friction Review — read, age-flag, and CLOSE
 
 The deferred-work inbox. This is the **only** step in `/weekly` that accepts founder input, and it

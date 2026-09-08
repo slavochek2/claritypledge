@@ -30,6 +30,16 @@ Report: "Ready to send to N contacts via WhatsApp."
 
 If `message` not provided: ask for it. Show the message with `[firstname]` resolved for the first contact as a preview.
 
+**Series short-link check (hard stop).** If the message contains a series short link —
+`claritypledge.com/<series>` or `claritypledge.com/events/<series>` (e.g. `/hike`, `/ai-run`) —
+it MUST carry `?d=<this event's date, Asia/Bangkok, YYMMDD>`. WhatsApp caches the link preview
+per URL, so a bare short link unfurls whichever event was cached first: the recipient sees last
+month's photo and trail name under this month's message. Rule and rationale: `promote-all.md`
+§ "Short-link cache-buster". A per-event slug URL is already unique and needs no suffix.
+
+This path takes free-text `message` rather than resolving `{short_url}`, so nothing upstream
+adds the suffix for you — check it here or it does not get checked.
+
 Ask: "Good to send, or any changes?"
 
 ### 3. Send test

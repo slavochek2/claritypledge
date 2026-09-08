@@ -1,0 +1,96 @@
+name: Stranded signups
+
+# Reports people who started signup and never got in — an auth user still
+# unconfirmed more than 24h after creation.
+#
+# Why (P1257): on 2026-09-05 someone tried to register for an event three times and
+# never got in. Nothing in our stack looked wrong — the mail was accepted by the
+# receiving server every time, the user row existed, and she had been shown a green
+# "Check Your Email" screen. It was in Junk with its links disabled. We found out
+# because she told the founder in person, by which point Brevo's 7-day log retention
+# had erased six older cases. No existing gate could see this: auth-canary watches
+# the Google OAuth chain, prod-health-smoke watches public routes, and neither can
+# tell "mail delivered" from "person got in".
+#
+# PRIVACY — this gate deliberately breaks the pattern of the other six. They all
+# open a GitHub issue on failure; this one's subject matter is user email addresses
+# and the repo is public, so the issue carries a COUNT ONLY. Addresses never leave
+# the founder's machine: `--emails` writes them under .private/ (gitignored) and is
+# never passed here. Do not "improve" this workflow by adding the list to the issue.
+#
+# ALERT-ONLY, matching auth-canary.yml: the check step is continue-on-error so a
+# finding cannot post a red X on the repo; the issue step reads the outcome instead.
+
+on:
+  schedule:
+    - cron: '40 7 * * *' # daily, offset off the 6-hourly jobs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  stranded-signups:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Check for stranded signups
+        id: check
+        continue-on-error: true
+        env:
+          PROD_SUPABASE_URL: https://besjtuodziykmjidubzw.supabase.co
+          PROD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Capture the count line for the issue body. The script prints the count
+          # on stdout and everything identifying on stderr, so stdout is safe to
+          # publish verbatim; stderr is dropped rather than forwarded.
+          set +e
+          summary="$(./scripts/check-stranded-signups.sh 2>/dev/null)"
+          status=$?
+          set -e
+          echo "summary=${summary}" >> "$GITHUB_OUTPUT"
+          exit $status
+
+      # Exit 2 means the check could NOT run (missing secret, API error). That is a
+      # different problem from "people are stranded" and must not be reported as one,
+      # or a broken credential would masquerade as a clean week.
+      - name: Report that the check itself could not run
+        if: steps.check.outcome == 'failure' && steps.check.outputs.summary == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Stranded-signup check is not running"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still not running — $RUN_URL"
+          else
+            gh issue create --title "$TITLE" \
+              --body "The daily stranded-signup check exited without producing a count, so signup failures are currently unmonitored. Usually the prod service-role secret is missing or was rotated, or the auth admin API refused the call. Triage: run \`./scripts/check-stranded-signups.sh\` locally — it names the missing variable. Run log: $RUN_URL"
+          fi
+
+      - name: Open a GitHub issue when people are stranded
+        if: steps.check.outcome == 'failure' && steps.check.outputs.summary != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUMMARY: ${{ steps.check.outputs.summary }}
+        run: |
+          TITLE="Stranded signups — people started signup and never got in"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          BODY="$SUMMARY
+
+          These people created an account and never confirmed. The most likely cause is that the confirmation mail was delivered but never found — see P1257 and the 2026-09-07 incident.
+
+          **Addresses are deliberately not listed here (public repo).** To see who, on the founder's machine:
+
+              ./scripts/check-stranded-signups.sh --emails
+
+          which writes them to \`.private/reports/\` (gitignored). Run log: $RUN_URL"
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

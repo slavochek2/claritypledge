@@ -108,8 +108,10 @@ Hey everyone 👋 I'd love to invite you on a morning hike this Sunday, July 5.
 ⛰️ Forest, mountain views and the Buddha Footprint. Some steep, slippery sections, so bring trail shoes, 2L of water, snacks and a rain jacket
 
 All welcome, no strings attached. Full details and RSVP:
-claritypledge.com/events/hike
+claritypledge.com/hike?d=260705
 ```
+
+(The `?d=` carries THIS event's date and is mandatory — never copy the suffix from a previous post. See the `{short_url}` rule below.)
 
 Because route, meeting point, duration, and difficulty change every event, the hike `blurbs` are **hand-written per event** in all four languages (translations, not one auto-translated from another — the operator writes/approves each). The `_note` field in the config records this.
 
@@ -126,7 +128,21 @@ Because route, meeting point, duration, and difficulty change every event, the h
 
 - `{date}` → event date in `Asia/Bangkok`, formatted **per the blurb's language** (an English "Jul 5" reading inside a Russian/German sentence is the wrong-language defect the per-lang split exists to avoid): `en` → "MMM D" ("Jul 5"); `es`/`ru`/`de` → language-neutral numeric day-dot-month ("5.7") to avoid an English month name. If a localized month name is preferred over numeric, provide it explicitly.
 - `{n}` → `#N` parsed from the event title via regex `/#(\d+)/` (e.g., `AI Running Club #7` → `7`)
-- `{short_url}` → `claritypledge.com/events/<short_link>` where `short_link` comes from the series-doc frontmatter, or falls back to the event slug. (Config blurbs may also hardcode a series short link like `claritypledge.com/events/hike` — those need no resolution.)
+- `{short_url}` → the series short link plus this event's cache-buster, e.g. `claritypledge.com/hike?d=260913`.
+  `short_link` comes from the series-doc frontmatter; with no series doc, fall back to the event slug
+  (a per-event slug is already unique and needs no `?d=`).
+  **URL form:** bare-domain `claritypledge.com/<short_link>` when `vercel.json` defines that bare
+  source (currently `/hike`, `/ai-run`), else `claritypledge.com/events/<short_link>`. Grep
+  `vercel.json` rather than guessing — the group blurbs have always used the bare form and
+  silently lengthening them is an unrequested copy change.
+  **Date:** the event's date in `Asia/Bangkok` as `YYMMDD` — the same timezone `{date}` above uses,
+  not the raw UTC date.
+
+  The `?d=` cache-buster is mandatory on every series short link — canonical rule and rationale in
+  `promote-all.md` § "Short-link cache-buster". **A config blurb that hardcodes a short link
+  without `?d=` (in either URL form) is NOT exempt** — rewrite it to `{short_url}` in
+  `.private/event-channels.json` so it resolves like everything else. A hardcoded bare short link
+  is precisely how the 2026-09-07 stale-preview bug happened.
 
 **Placeholder leak guard (hard stop):** After resolution, scan **each** blurb with `/\{[a-z_]+\}/`. If any unresolved token survives in any language:
 - STOP. Do NOT proceed to probe, approval, or sending.
@@ -138,7 +154,15 @@ Because route, meeting point, duration, and difficulty change every event, the h
 
 After placeholders are resolved, assert **each** resolved blurb text contains the current event's date string, formatted the way step 3's `{date}` resolution produced it for that language (e.g. `en` → "Jul 5"; `es`/`ru`/`de` → "5.7" or the explicit localized form). If the matched type entry in `.private/event-channels.json` also defines a `venue_token` (optional field — see schema note below), assert that token is present too. This is a plain substring test, run for every language, not an LLM read of "does this sound current."
 
-If any language's blurb is **missing** the required date/venue token(s): **STOP.** Do NOT proceed to the link-liveness check, probe, or approval. Report: "Staleness check failed for {lang}: expected date token `{token}` not found in the resolved blurb. This blurb may be reused from a past event — rewrite `blurbs.{lang}` in `.private/event-channels.json` before re-running." A stale hand-written blurb (correct format, wrong event — the July 5 failure) has zero unresolved `{placeholder}` tokens and would otherwise pass every other guard in this step.
+**Third mandatory token — the cache-buster.** Assert each resolved blurb contains the literal
+string `?d=<this event's date as YYMMDD>`. This is the same plain substring test, and it is
+what makes a **stale** `?d=` a hard stop rather than a judgment call: a blurb copied from last
+week carries `?d=260906`, which is a live, resolvable, correctly-shaped URL and therefore
+passes the link-liveness check below — only this token comparison catches it. Note the localized
+`{date}` token above (`"Jul 5"` / `"5.7"`) does NOT cover this: it is a different format and a
+different string, so matching it says nothing about the URL.
+
+If any language's blurb is **missing** the required date/venue/`?d=` token(s): **STOP.** Do NOT proceed to the link-liveness check, probe, or approval. Report: "Staleness check failed for {lang}: expected date token `{token}` not found in the resolved blurb. This blurb may be reused from a past event — rewrite `blurbs.{lang}` in `.private/event-channels.json` before re-running." A stale hand-written blurb (correct format, wrong event — the July 5 failure) has zero unresolved `{placeholder}` tokens and would otherwise pass every other guard in this step.
 
 **Schema note (no data change):** `.private/event-channels.json` type entries may optionally carry a `venue_token` string (e.g. a trail or venue name that must appear in every blurb for that type). This spec does not populate it — it only defines the field the check above reads if present.
 
@@ -146,11 +170,33 @@ If any language's blurb is **missing** the required date/venue token(s): **STOP.
 
 Before the probe, extract every URL from every resolved blurb (pattern `https?://\S+` and bare `claritypledge.com/\S+`). Check each distinct URL. **Important: claritypledge.com is a SPA — it returns HTTP `200` for every path, including nonexistent routes. A bare `200` proves nothing.** Check by URL shape:
 
-- **Series short link `claritypledge.com/events/<series>`** (e.g. `/events/hike`): resolve via the redirect API and confirm it points at a *specific event*, not the empty listing:
+- **Series short link — BOTH forms**: `claritypledge.com/events/<series>` **and the bare-domain
+  form `claritypledge.com/<series>`** (e.g. `claritypledge.com/hike?d=260913`). `vercel.json`
+  routes both to `api/series-redirect`, and the bare form is the one actually used in the group
+  blurbs — match `claritypledge\.com/(events/)?<series>`. Classifying a bare-domain short link as
+  "any other URL" (the last bullet below) skips every assertion here and lets it pass on a plain
+  `200`, which is how the 2026-09-07 stale-preview post got through. Two assertions, both hard stops.
+
+  1. **Cache-buster present.** The URL must carry `?d=<this event's date as YYMMDD>`. A bare
+     series short link FAILS here — it will unfurl a cached preview of an older event on every
+     platform that caches by URL. Rationale: `promote-all.md` § "Short-link cache-buster".
+  2. **Resolves to a specific event.** Resolve via the redirect API and confirm it points at a
+     *specific event*, not the empty listing:
+     ```bash
+     curl -s --max-time 10 -o /dev/null -w "%{redirect_url}" "https://claritypledge.com/api/series-redirect?series=<series>"
+     ```
+     PASS only if the redirect target matches `…/events/<slug>` with a non-empty slug segment. FAIL if it is bare `…/events` (no upcoming event for that series) or empty/timeout.
+
+  **Then verify the preview a human will actually see** — the redirect landing correctly does not
+  prove the OG card is right, and the card is what readers judge. Fetch as a crawler and assert the
+  title carries this event's name:
   ```bash
-  curl -s --max-time 10 -o /dev/null -w "%{redirect_url}" "https://claritypledge.com/api/series-redirect?series=<series>"
+  curl -sSL --max-time 15 -A "TelegramBot (like TwitterBot)" "https://claritypledge.com/events/<series>?d=<date>" \
+    | grep -iE 'og:(title|image)'
   ```
-  PASS only if the redirect target matches `…/events/<slug>` with a non-empty slug segment. FAIL if it is bare `…/events` (no upcoming event for that series) or empty/timeout.
+  FAIL if `og:title` names a different event than the one being promoted, or if `og:image` is the
+  generic `clarity-pledge-icon.png` fallback (the event has no banner yet — fix the banner, don't
+  post).
 - **Direct event slug `claritypledge.com/events/<slug>`**: query the events REST API for that slug (see Step 1's curl) and PASS only if a row is returned. A `200` from the SPA route is NOT sufficient.
 - **Any other URL**: follow redirects, require final `200` **and** non-empty body (`--max-time 10`).
 

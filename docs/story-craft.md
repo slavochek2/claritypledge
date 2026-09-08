@@ -150,6 +150,25 @@ Test each sentence: **if a reader with the quote list in front of them already k
 
 ## 5. Sentences
 
+**The numbers, measured 2026-09-07 on the `ai-power-remedies-d` rewrite.** "Short" was the rule here
+for a week and it is unenforceable prose — the run it was written for shipped at **33.2 words per
+sentence**, and the founder could not read it. These are the figures the rewrite that satisfied them
+actually hit, so they are a measured target and not a guess:
+
+| | before | after |
+|---|---|---|
+| words per sentence, mean | 33.2 | **10.8** |
+| em-dashes across 8 stories | 10 | **0** |
+| commas across 8 stories | 47 | 33 |
+
+- **Aim for a mean near 11 words per sentence, and paste the measured mean per story.** A story whose
+  mean is over ~15 has not been simplified, whatever it looks like.
+- **No em-dashes or en-dashes. Zero, not few.** They are the punctuation of a subordinate clause the
+  writer did not want to cut, which is exactly the clause the rule above is trying to remove. Hyphens
+  inside compound words are fine.
+- **Write for a reader who is ten years old.** Founder, 2026-09-07, on the shipped run: *"make them
+  super dumb, like what is the point so the 10-year-old or my grandmother can understand it."* The
+  claim being simplified is not simplified; the sentence carrying it is.
 - **Short.** A sentence carrying two subordinate clauses is carrying one of them for the writer's
   benefit.
 - **Concrete nouns, active verbs.** *"legal systems have recognised two kinds of person"* over
@@ -159,6 +178,62 @@ Test each sentence: **if a reader with the quote list in front of them already k
   carry it, turn it back.
 - **The passive is not banned; the agentless passive is the tell.** *"is described as"* hides who is
   describing. When the agent is the subject of the story, name them or drop the frame.
+
+---
+
+## 5b. Shortening is itself a distortion mechanism — measured, and it contradicts what was assumed
+
+**The assumption this section replaces, stated so it is not re-derived.** Going into the 2026-09-07
+rewrite, the orchestrator told the founder that simple prose *"has fewer places to hide an
+invention"* — that the dense clauses were where the fabrications lived, so simplifying would improve
+accuracy as a side effect. **That was half right and the wrong half was load-bearing.** Simplifying
+did remove the ornamental inventions. It then introduced a *different* defect class, at a higher
+rate, and the same run that fixed the readability failed six of eight stories on accuracy.
+
+**The measurement.** Eight stories, rewritten from prose that had already passed accuracy checks in
+its longer form, then checked by four independent readers against the full transcripts:
+
+```
+2 CLEAN · 6 with findings · 13 findings total
+```
+
+**Eight of those thirteen are the same move: the shortest true thing is not the true thing.**
+
+| what the source said | what the shortened sentence said |
+|---|---|
+| "most of what has been done in **machine learning**" | "most **safety work**" |
+| "writers, artists, musicians, journalists, teachers, scientists, and **ordinary citizens**" | "millions of **ordinary people**" |
+| "that includes you, that includes **me**, that includes your children" | "the interviewer and the interviewer's children" |
+| "in the near future … **will be** mediated" | "**are becoming**" |
+| "**and then eventually**, even if people are nominally still in charge" | "in charge on paper **the whole time**" |
+| "if the **probability** … is above a threshold" | "whether that answer would cause **harm** above a set line" |
+| "who will own **and control and determine** the future … who will benefit … who will be hurt" | "who ends up **owning** it" |
+| "**it** [the internet stack] will just not be adopted … a similar phenomenon is bound to occur for AI" | "**a model** that is not open will simply not get adopted" |
+
+Every row drops a list item, a hedge, a tense, or a referent — because each of those is a word, and
+the rule above is asking for fewer words. None of them introduces a new proper noun, so **none is
+visible to a check that reads the quote list instead of the transcript.**
+
+**THE RULE: when you shorten a sentence, four things must survive the cut.** They are the same four
+axes the consumer skill's PS-2 already names, applied to the act of compression rather than to the
+act of attribution — check them *at the moment you delete a word*, not afterwards:
+
+1. **The enumeration.** A list may be shortened only by writing *"and others"*, never by promoting
+   one member to stand for the whole. Dropping the speaker's own name from a list they put
+   themselves in is the worst case: it changes who they said was at risk.
+2. **The modality.** *will* is not *is*. *eventually* is not *the whole time*. *seems plausible* is
+   not *does not think*.
+3. **The referent.** Before shortening a sentence built on a quote, read what the quote's pronoun
+   points at **in the transcript**. Five of the eight rows above are a quote whose subject was
+   something other than what the story made it.
+4. **The quantity.** *probability of harm* is not *amount of harm*.
+
+**Corollary, and it is why this section exists at all: the writer needs the TRANSCRIPT, not the
+quote list.** The run file's verified quote list is what a writer naturally works from — it is short,
+it is checked, and every quote in it is real. It is also the direct cause of row 8 above: the quote
+*"If it's not open source, it will just not be adopted"* is verbatim, verified, correctly
+attributed, and **about the internet software stack**. Nothing inside the quote list can show that.
+Give the writer the transcript, and require the referent check above.
 
 ---
 

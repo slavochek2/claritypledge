@@ -5,7 +5,7 @@ import { isChunkErrorMessage } from "@/lib/chunk-error";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
-import { AuthCallbackPage, AuthProvider, useAuth } from "@/auth";
+import { AuthCallbackPage, AuthVerifyPage, AuthProvider, useAuth } from "@/auth";
 import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
@@ -659,6 +659,21 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <AuthCallbackPage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/*
+          P1257: redeems a `?token_hash=` sign-in link, then forwards to /auth/callback,
+          which stays the only writer of profiles. Eagerly imported, not lazy — this is an
+          inbox-delivered entry point, so a lazy chunk fetch is one more thing that can
+          fail between the tap and the session.
+        */}
+        <Route
+          path="/auth/verify"
+          element={
+            <ClarityLandingLayout>
+              <AuthVerifyPage />
             </ClarityLandingLayout>
           }
         />

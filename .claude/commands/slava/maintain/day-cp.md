@@ -339,6 +339,28 @@ echo -e "\n=== EVENT EMAIL HEALTH ==="
 # on schedule 328 times and FAILED all 328, logging an identical `column "Authorization"
 # does not exist` into cron.job_run_details each time. A hard, loud, recorded error —
 # operationally identical to silence, because nothing ever read that table. Read it.
+# THE CRON'S OWN STATUS IS NOT ENOUGH — and this is the correction that matters most.
+# net.http_post is ASYNCHRONOUS: it queues the request and returns, so the tick function
+# completes successfully whatever the HTTP outcome, and pg_cron records "succeeded".
+# Measured 2026-09-07: cron_status succeeded at 08:30 while the response arrived
+# separately in net._http_response. A 401 — a rotated secret, a wrong anon key, a missing
+# Vault entry — therefore produces a GREEN cron row.
+#
+# That is the P1256 outage's own failure mode reintroduced in a quieter form: the old
+# broken job at least errored loudly in SQL 328 times. The replacement cannot fail that
+# way, so cron status alone would report health while nothing was being delivered.
+# Caught in review, before it had a chance to hide a second outage.
+#
+# So assert POSITIVE evidence of delivery instead: the dispatcher's own 200 body is the
+# only thing in the database that emits "mode":"cron", which makes it unambiguous
+# attribution without a URL column (net._http_response has none). Absence of a recent one
+# covers BOTH failure shapes at once — no request queued (missing Vault config) and a
+# request that came back non-2xx.
+DISPATCH_SQL="SELECT max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%') AS last_ok_dispatch, round(extract(epoch FROM now()-max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%'))/60) AS mins_since_ok, count(*) FILTER (WHERE status_code<>200 AND created > now()-interval '6 hours') AS non_2xx_6h FROM net._http_response;"
+curl -s -X POST "https://api.supabase.com/v1/projects/besjtuodziykmjidubzw/database/query" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+  --data-binary "$(python3 -c "import json,sys;print(json.dumps({'query':sys.argv[1]}))" "$DISPATCH_SQL")" 2>/dev/null || echo "dispatch-delivery check FAILED — needs SUPABASE_ACCESS_TOKEN"
+
 CRON_SQL="SELECT j.jobname, j.active, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'failed'"'"' AND d.start_time > now() - interval '"'"'24 hours'"'"') AS failed_24h, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'succeeded'"'"' AND d.start_time > now() - interval '"'"'24 hours'"'"') AS ok_24h, (SELECT d.return_message FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'failed'"'"' ORDER BY d.start_time DESC LIMIT 1) AS last_error FROM cron.job j ORDER BY j.jobname;"
 curl -s -X POST "https://api.supabase.com/v1/projects/besjtuodziykmjidubzw/database/query" \
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
@@ -407,7 +429,16 @@ If response is a JSON object with `message` key (not array): `⚠ User activity:
 
 **Event email health (P1256 tier-0) — read `=== EVENT EMAIL HEALTH ===`.**
 
-**Read the cron rows FIRST — they are the direct signal; the counts below are a proxy.**
+**Read `last_ok_dispatch` FIRST — it is the only line that can detect a silent failure.**
+`mins_since_ok` should be under ~60 (the job runs every 30 min). Over ~90 minutes, or
+`last_ok_dispatch` null, means **nothing is being delivered** — report
+`⚠ EVENT EMAIL DISPATCH SILENT: no successful dispatch in N minutes`. `non_2xx_6h > 0`
+names the shape: an auth failure (rotated CRON_SECRET, wrong anon key) returns 401 here
+while pg_cron still reports success, because `net.http_post` is asynchronous and the tick
+returns before the response exists. **Never conclude the dispatcher is healthy from a green
+cron row alone** — that combination is precisely what a rotated secret looks like.
+
+**Then read the cron rows — they catch a different failure: the job not running at all.**
 Any job with `failed_24h > 0` is broken NOW, and `last_error` says how. A job with
 `ok_24h = 0` **and** `failed_24h = 0` is not firing at all — check `active`. Report as
 `⚠ CRON JOB FAILING: <jobname> — <last_error>`. **Never treat a scheduled job as healthy

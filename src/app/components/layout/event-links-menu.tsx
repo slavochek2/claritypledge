@@ -58,7 +58,7 @@ import { eventsService } from '@/app/data/events-service';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import { analytics } from '@/lib/mixpanel';
-import { buildLinksMenu, eventSlugFromLocation, isSafeTag, type LinksMenuEntry } from '@/app/data/event-links';
+import { buildLinksMenu, eventSlugFromLocation, linksMenuAppliesTo, isSafeTag, type LinksMenuEntry } from '@/app/data/event-links';
 import type { EventLinkEntry } from '@/app/types';
 
 /**
@@ -296,7 +296,10 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
     },
   }), [open, eventSlug, entries, navigate]);
 
-  if (!eventSlug) return <>{children}</>;
+  // Mounted on the room routes AND on the standalone /ready and /meet, which run
+  // the same ritual without an event (founder, 2026-09-07). Off both, the ~30
+  // other routes are untouched: no provider, and EventLinksButton renders null.
+  if (!linksMenuAppliesTo(location.pathname, location.search)) return <>{children}</>;
 
   return (
     <EventLinksContext.Provider value={ctxValue}>
@@ -305,9 +308,11 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
         <DrawerContent data-testid="event-links-menu" data-shape="sheet" className="px-4 pb-6">
           <DrawerTitle className="px-0 pt-4 pb-2 text-base font-semibold">Links</DrawerTitle>
           <DrawerDescription className="sr-only">
-            Destinations for this event. The list does not change during the event.
+            {eventSlug
+              ? 'Destinations for this event. The list does not change during the event.'
+              : 'Destinations for this session.'}
           </DrawerDescription>
-          <nav className="flex flex-col gap-2" aria-label="Event links">
+          <nav className="flex flex-col gap-2" aria-label={eventSlug ? 'Event links' : 'Links'}>
             {entries.map((entry, i) => {
               const prev = entries[i - 1];
               // The approved reference's separator falls before Transcribe —

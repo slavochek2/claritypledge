@@ -57,6 +57,9 @@ playwright-report/
 .mcp.json
 .mcp.json.bak-*
 
+# Local settings backups
+.claude/settings.local.json.bak-*
+
 # Agent orchestration state (ralph, local agent memory)
 .agent/
 .ralph/

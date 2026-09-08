@@ -158,3 +158,21 @@ export function eventSlugFromLocation(pathname: string, search: string): string 
   }
   return null;
 }
+
+/**
+ * The standalone (event-less) surfaces that also carry the Links menu.
+ *
+ * Founder, 2026-09-07: "add the links exactly like we have in the events also
+ * for /ready and /meet". These two pages are the same room ritual run outside
+ * an event, so they get the same index of standing instruments — the standard
+ * stake tags and the two tools. There is no event, so there are no "This event"
+ * extras and `buildLinksMenu` is called with `null`/`null`: the entries are
+ * bare `/stake/:tag` paths with no `?event=`, which is exactly what a bare
+ * stake surface expects (Resolved Decision 2).
+ */
+const STANDALONE_LINKS_PATHS = /^\/(?:ready|meet)\/?$/;
+
+/** Whether the nav should mount the Links menu at all on this location. */
+export function linksMenuAppliesTo(pathname: string, search: string): boolean {
+  return STANDALONE_LINKS_PATHS.test(pathname) || eventSlugFromLocation(pathname, search) !== null;
+}

@@ -13,6 +13,17 @@ tags:
 
 # P552: Separate-Channel Transcription — Skip Diarization for Multi-Phone Sessions
 
+> **Correction 2026-09-07 (P1250).** This spec is `all-done` and **its mechanism was never
+> committed**: `get_separate_wavs()` has never existed in this repository on any branch
+> (`git log --all --name-only -- '*get_separate_wavs*'` returns nothing). The status asserts an outcome the code did not deliver.
+>
+> Verdict: **ABANDON**, not reopen. P1237 measured the premise false for the audio actually
+> recorded — 83% of sessions fall below the 10 dB channel separation this design needs, and the
+> separate-channel path scored 1 of 10 on the minority speaker. It remains **untested rather than
+> refuted** for P1236's lavalier-per-phone setup, which is P1236's own research question.
+> Reasoning: decisions.md 2026-09-07 [technical].
+
+
 ## Problem
 
 Pyannote diarization takes 76 minutes for 30 min audio on L4 GPU (2.5x real-time, 100x slower than pyannote's own benchmark). Root cause: `_merge_wavs()` in `audio.py` mixes separate phone recordings into one mono stream via ffmpeg `amix`, then diarization spends 76 min trying to recover which speaker said what — information we already had.

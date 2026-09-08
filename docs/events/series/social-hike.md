@@ -10,11 +10,17 @@ duration_minutes: 270
 host_id: a99042ef-e740-446a-8734-389c8589cc17
 default_location: "{cafe_pin_url}"
 short_link: hike
+sola_group: 4seas
 register_cta: "RSVP:"
-promo_summary: "Morning hike near Chiang Mai. Coffee at the meeting point first, then a relaxed walk. Everyone welcome. RSVP: claritypledge.com/hike"
+# 140-char Eventbrite cap. Measured WITH the resolved {short_url} incl. its ?d= suffix: 135.
+# The link used to be hardcoded and bare (132 chars) — which unfurled a cached preview of an
+# OLDER hike on any platform that caches by posted URL (observed: Telegram). See promote-all.md § "Short-link cache-buster".
+# Only "first" was dropped from the original wording: keeping it measures 141, one char over.
+# Do not re-lengthen without re-measuring the RESOLVED string.
+promo_summary: "Morning hike near Chiang Mai. Coffee at the meeting point, then a relaxed walk. Everyone welcome. RSVP: {short_url}"
 todo_today_join_type: walk-in
 todo_today_exchange: free
-todo_today_tags: ["hiking", "Outdoors", "Community", "Coffee"]
+todo_today_tags: ["Hiking", "Nature Walk", "Community", "Coffee"]
 todo_today_category: "Sports & Fitness"
 ---
 
@@ -101,12 +107,18 @@ Coffee or lunch after for anyone who feels like it.
   pointer above, which is also a reason to register. That line is not invented here — it is the
   wording the founder shipped by hand on the 2026-09-06 event; keep it.
 - **Two duration numbers, and they are not the same number.** The description quotes AllTrails'
-  walk time × 1.4 plus 30 min for coffee, rounded up. The event's stored duration is that plus an
+  walk time × 1.35 plus 30 min for coffee, rounded up. The event's stored duration is that plus an
   hour of slack, rounded up to the next full hour — the OUTER bound, what someone should keep
   free. A hard end time equal to a figure the copy calls "likely more" contradicts itself, and the
   calendar invite is the version people actually plan around (founder, 2026-09-07: *"if its 6.5
   hours then end is probably 17:00?"*). Name both in one sentence and let finishing early be the
   good outcome.
+- **Recompute both numbers every run; never reuse last week's.** The multiplier is 1.35 (revised
+  down from 1.4 on 2026-09-07) and the end time is `start + duration_minutes` for the trail in
+  hand. The Sept 13 hike's "6.5 hours" and "17:00" belong to that trail alone. A shorter trail
+  that still quotes them reads perfectly plausibly and is silently wrong — nobody re-derives a
+  number that looks right, which is exactly why it has to be derived rather than carried. Founder,
+  2026-09-07: *"lets not fix for next time 17:00 specifically."*
 - **Flexibility is the promise, not a fixed route.** Replace any "we turn back whenever people have
   had enough" phrasing with the adapt-to-the-mountain framing above, and always name the
   shorter-walk option explicitly. Founder, 2026-09-07: *"we try to walk around the distance we
@@ -170,7 +182,10 @@ no person is cropped out; a successful upload is not evidence of that.
 Single source of truth for todo.today / Facebook / Luma descriptions. promote-all reads this
 block, resolves placeholders, and passes the result to each platform sub-skill, which applies
 ONLY platform formatting. Edit here to change all platforms at once. Placeholders:
-  {short_url}     → claritypledge.com/events/hike  (auto-redirects to the latest hike)
+  {short_url}     → claritypledge.com/hike?d=<YYMMDD event date>  (bare-domain form; auto-redirects to
+                    the latest hike; the ?d= cache-buster is MANDATORY — a bare short link
+                    unfurls a cached preview of an older hike on Telegram/WhatsApp/FB/Sola.
+                    Canonical rule: promote-all.md § "Short-link cache-buster")
   {register_cta}  → the register_cta frontmatter value
   {trail_name} {park} {distance} {type} {elevation} {walk_time} {highlights}
   {cafe_name} {area} {meet_time} {date} {altitude_clause} {duration}
@@ -201,7 +216,8 @@ month's trail. A stale blurb has zero unresolved placeholders and passes every o
 
 ## Link discipline
 
-`claritypledge.com/hike` is the only destination, and it appears twice — once at the top,
+`{short_url}` (which resolves to `claritypledge.com/hike?d=<YYMMDD>`) is the only
+destination, and it appears twice — once at the top,
 once as the closing CTA. The short link auto-redirects to the newest hike, so never hardcode
 a per-event slug in saved copy. Three things match this series by its exact title prefix
 (`/hike` resolution, the group-chat mapping, and the short-link redirect) and all three fail
