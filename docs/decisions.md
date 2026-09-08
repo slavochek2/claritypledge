@@ -6,6 +6,49 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+
+## 2026-09-08 [technical]: Pin a frontmatter parser's engine by rejecting the tag, not by overriding the table (P1271)
+
+**Context:** `gray-matter` selects its parse engine from a language tag on the opening `---` line,
+and one of its bundled engines evaluates the block as code. Every spec-reading script in this repo
+called it unpinned. Inputs are feature specs, which arrive through PRs to a public repo, so
+"repo-controlled input" was never a defense.
+
+**Decision:** One wrapper, `tools/kanban/lib/frontmatter.ts`, is now the only place `gray-matter`
+is imported for real use; all 15 call sites go through it. It **refuses any language tag outright**
+before the library sees the document, and keeps a hardened engine table as a second layer. The repo
+has no legitimate use for a non-YAML frontmatter engine, so refusing the whole feature is cheaper
+to reason about than deciding which tags are safe.
+
+**Alternatives rejected:**
+- *Pass `{ language: 'yaml' }`* — the fix this bug was filed with, and **it does not work**. The
+  library assigns the language from the option and then overwrites it with the inline tag. Filed
+  reasoning is a hypothesis; this one was falsified by reading the dependency's source.
+- *Override the engine table only* — insufficient, and this was the more interesting failure. Engine
+  lookup happens on a plain object, so a tag naming an inherited property resolves to a real
+  function and **parsing succeeds instead of throwing** — a fail-open hole inside the fix meant to
+  close a fail-open hole. A null-prototype table does not help; the library re-merges it.
+- *Allowlist or sanitize tags* — more surface, no benefit, since zero tags are legitimate here.
+
+**Consequences:**
+- **The generalizable rule, and the reason this entry exists:** when you put a guard *in front of* a
+  library instead of *inside* it, the guard must normalize its input **exactly as the library does**
+  — otherwise the disagreement about where the document starts *is* the bypass. Here a leading BOM
+  made the guard conclude "not frontmatter" while the library stripped it and parsed a tagged
+  document. Applies to any pre-check pattern: path guards before a filesystem call, URL checks
+  before a fetch, prefix tests before a parser.
+- Verification bar met by measurement, not reasoning: 399 real spec files round-trip byte-identical
+  through the old and new paths, and the regression fixture asserts the *unpinned* parse executes
+  the payload — so the test proves the gate fires, not merely that the happy path runs
+  (epistemic.md gate 7).
+- Both holes above were in the first version of my own fix. One I found by probing my own work; one
+  came from adversarial review and was reproduced locally before being acted on.
+- **Merge dependency:** P1238 (ready to ship in w4) edits the same lines of
+  `scripts/validate-features.ts` to add a try/catch. Whichever lands second must keep both changes.
+- Exploit mechanics stay out of this public file — see `.private/docs/security-log.md`.
+
+**References:** [features/p1271_gray_matter_frontmatter_parse_can_execute_embedded_code.md](../features/p1271_gray_matter_frontmatter_parse_can_execute_embedded_code.md)
+
 ## 2026-09-08 [product]: Stories lead the tabs; the feed's default stays with the links that point at it
 
 **Context:** The founder's read was that stories carry pictures and video and are the more

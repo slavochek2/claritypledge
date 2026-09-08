@@ -3,7 +3,7 @@ import cors from 'cors'
 import { readdir, readFile, rename, mkdir } from 'fs/promises'
 import { writeFileSync, readFileSync, realpathSync } from 'fs'
 import { join, basename, extname, sep } from 'path'
-import matter from 'gray-matter'
+import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter'
 import { execFile, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Article, ArticleStatus, Opportunity, OpportunityStage, OpportunityType } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
@@ -145,7 +145,7 @@ async function getCachedFeatures(worktreePath?: string): Promise<Feature[]> {
 async function parseFeatureFile(filePath: string): Promise<Feature | null> {
   try {
     const content = readFileSync(filePath, 'utf-8')
-    const { data, content: body } = matter(content)
+    const { data, content: body } = parseFrontmatter(content)
 
     // Extract title from first heading or filename
     const titleMatch = body.match(/^#\s+(.+)$/m)
@@ -272,7 +272,7 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
 async function parseArticleFile(filePath: string): Promise<Article | null> {
   try {
     const content = readFileSync(filePath, 'utf-8')
-    const { data, content: body } = matter(content)
+    const { data, content: body } = parseFrontmatter(content)
 
     const titleMatch = body.match(/^#\s+(.+)$/m)
     const filename = basename(filePath, extname(filePath))
@@ -364,7 +364,7 @@ app.patch('/api/articles/:id', async (req, res) => {
     if (!article) return res.status(404).json({ error: 'Article not found' })
 
     const content = await readFile(article.path, 'utf-8')
-    const { data, content: body } = matter(content)
+    const { data, content: body } = parseFrontmatter(content)
 
     if (status !== undefined) data.status = status
     if (rank !== undefined) data.rank = Math.round(rank * 1000) / 1000
@@ -372,7 +372,7 @@ app.patch('/api/articles/:id', async (req, res) => {
       data.published_at = new Date().toISOString().split('T')[0]
     }
 
-    writeFileSync(article.path, matter.stringify(body, data))
+    writeFileSync(article.path, stringifyFrontmatter(body, data))
 
     // Invalidate cache
     articlesCacheByWorktree.delete(worktreePath || DEFAULT_PROJECT_ROOT)
@@ -402,7 +402,7 @@ const opportunitiesCacheByWorktree: Map<string, Opportunity[]> = new Map()
 async function parseOpportunityFile(filePath: string): Promise<Opportunity | null> {
   try {
     const content = readFileSync(filePath, 'utf-8')
-    const { data, content: body } = matter(content)
+    const { data, content: body } = parseFrontmatter(content)
 
     const filename = basename(filePath, extname(filePath))
 
@@ -503,11 +503,11 @@ app.patch('/api/opportunities/:id', async (req, res) => {
     if (!opp) return res.status(404).json({ error: 'Opportunity not found' })
 
     const content = await readFile(opp.path, 'utf-8')
-    const { data, content: body } = matter(content)
+    const { data, content: body } = parseFrontmatter(content)
 
     if (stage !== undefined) data.stage = stage
 
-    writeFileSync(opp.path, matter.stringify(body, data))
+    writeFileSync(opp.path, stringifyFrontmatter(body, data))
 
     // Invalidate cache so the next GET rescans disk and reflects all field
     // changes (not just stage) — mirrors the article PATCH endpoint.
@@ -534,7 +534,7 @@ app.get('/api/opportunities/:id/content', async (req, res) => {
     }
 
     const rawContent = await readFile(opp.path, 'utf-8')
-    const { data: frontmatter, content } = matter(rawContent)
+    const { data: frontmatter, content } = parseFrontmatter(rawContent)
     res.json({ frontmatter, content })
   } catch (error) {
     console.error('GET /api/opportunities/:id/content error:', error)
@@ -632,7 +632,7 @@ app.patch('/api/features/:id', async (req, res) => {
 
     // Read current file
     const content = await readFile(feature.path, 'utf-8')
-    const { data, content: body } = matter(content)
+    const { data, content: body } = parseFrontmatter(content)
 
     const oldStatus = data.status
 
@@ -692,7 +692,7 @@ app.patch('/api/features/:id', async (req, res) => {
     }
 
     // Write to file
-    const newContent = matter.stringify(body, data)
+    const newContent = stringifyFrontmatter(body, data)
     writeFileSync(feature.path, newContent)
 
     // Invalidate content cache for this file
@@ -806,7 +806,7 @@ app.get('/api/features/:id/content', async (req, res) => {
 
     // Parse and cache
     const rawContent = await readFile(feature.path, 'utf-8')
-    const { data: frontmatter, content } = matter(rawContent)
+    const { data: frontmatter, content } = parseFrontmatter(rawContent)
     const result = { frontmatter, content }
     contentCache.set(feature.path, result)
     res.json(result)
@@ -832,7 +832,7 @@ app.get('/api/articles/:id/content', async (req, res) => {
     if (cached) return res.json(cached)
 
     const rawContent = await readFile(article.path, 'utf-8')
-    const { data: frontmatter, content } = matter(rawContent)
+    const { data: frontmatter, content } = parseFrontmatter(rawContent)
     const result = { frontmatter, content }
     contentCache.set(article.path, result)
     res.json(result)
@@ -876,6 +876,15 @@ app.post('/api/open', (req, res) => {
 
   if (!isAllowedPath) {
     return res.status(403).json({ error: 'Path not allowed' })
+  }
+
+  // Dry run: report the allowlist verdict without spawning an editor. Tests
+  // exercise this endpoint against a live server, and `code -r` reuses the
+  // user's real VS Code window AND raises it — so without this the suite
+  // hijacks the screen of whoever runs it. Read at request time, not
+  // module-load, so a statically-imported app can opt in from beforeAll.
+  if (process.env.KANBAN_OPEN_DRY_RUN === 'true') {
+    return res.json({ success: true, dryRun: true })
   }
 
   // VS Code only. The `code` CLI may not be symlinked onto PATH, so fall back

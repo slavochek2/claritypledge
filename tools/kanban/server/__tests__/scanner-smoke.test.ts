@@ -3,7 +3,7 @@ import { mkdir, writeFile, rm, readdir } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { readFileSync } from 'fs';
-import matter from 'gray-matter';
+import { parseFrontmatter } from '../../lib/frontmatter';
 import { shouldSkipFolder, isFeatureFile } from '../../lib/scanner-rules';
 
 /**
@@ -78,7 +78,7 @@ async function scanFeatures(featuresDir: string): Promise<any[]> {
           // Parse feature file (minimal - just extract ID)
           try {
             const content = readFileSync(fullPath, 'utf-8');
-            const { data } = matter(content);
+            const { data } = parseFrontmatter(content);
             const id = entry.name.replace('.md', '');
             features.push({ id, status: data.status, path: fullPath });
           } catch {

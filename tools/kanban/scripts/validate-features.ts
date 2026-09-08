@@ -18,7 +18,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import matter from 'gray-matter';
+import { parseFrontmatter } from '../lib/frontmatter.js';
 import {
   shouldSkipFolder,
   isValidStatus,
@@ -110,7 +110,7 @@ function validateFeatures(): number {
 
   for (const file of files) {
     const content = readFileSync(file, 'utf-8');
-    const { data: frontmatter } = matter(content);
+    const { data: frontmatter } = parseFrontmatter(content);
 
     if (!frontmatter || Object.keys(frontmatter).length === 0) {
       console.log(`${RED}✗ ${file}: No frontmatter found${NC}`);
