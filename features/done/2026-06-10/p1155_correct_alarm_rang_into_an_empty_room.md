@@ -1,11 +1,10 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 231
 workstream: infrastructure
 created_date: '2026-08-24'
 tags: [monitoring, alerting, process, silent-skip]
-delivery_stage: dev
 pipeline_ran: [create-spec, challenge-prd, architect, adversarial-review, dev]
 drafted_by: opus
 driver: anomaly
@@ -15,6 +14,7 @@ pipeline_plan: [create-spec, challenge-prd, architect, adversarial-review, dev]
 pipeline_skipped: ["ux -- no user-visible surface", "ui -- no components", "generate-tests -- /dev runs TDD; Done-When already requires observed firing plus the no-false-alarm case", "verify -- nothing to see in a browser", "decompose -- three files"]
 exec_model: sonnet
 exec_effort: medium
+completed_at: 2026-09-08
 ---
 
 # P1155: Every consumer of every alarm is human-initiated
