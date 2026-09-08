@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000072
 severity: high
@@ -7,12 +7,12 @@ workstream: infrastructure
 date_reported: '2026-09-04'
 created_date: '2026-09-04'
 tags: [pipeline, ship, hooks, gates, tooling]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-08
 ---
 
 # P1246: Every control in the delivery pipeline is advisory, and none is deterministic
@@ -64,11 +64,11 @@ controls actually bind?
 > ship or finish or whatever, and done."*
 
 **This defect has been correctly diagnosed three times in eight days and never
-fixed** — [decisions.md](../docs/decisions.md) 2026-08-27, 2026-09-01 and 2026-09-04.
+fixed** — [decisions.md](../../../docs/decisions.md) 2026-08-27, 2026-09-01 and 2026-09-04.
 The first two both ended in a discipline rule and both recurred. A fourth discipline
 entry is not worth writing.
 
-**Why the prior spec sat.** [p931](p931_ship_phase2b_coclose_false_close.md) was filed
+**Why the prior spec sat.** [p931](../../p931_ship_phase2b_coclose_false_close.md) was filed
 2026-06-11 with a correct root cause and a correct fix approach, at
 `severity: medium`, `status: backlog`. The founder triaged it from that label and it
 has not moved in three months. The severity was wrong, not the triage — a defect that
@@ -89,7 +89,7 @@ migration. But a gate that wrongly blocks costs a session each time.
   an instruction to a skill file is not a fix for this class — that is the defect.
 - **Every gate fails closed.** Unreadable spec, missing script, unresolvable branch →
   deny. `detect_cospecs` already sets this precedent (P1105).
-- **No gate reads `status:`.** [features.md](../.claude/rules/features.md): *"no skill,
+- **No gate reads `status:`.** [features.md](../../../.claude/rules/features.md): *"no skill,
   script or hook may gate a merge, a close or a deploy on this field."*
   `git-ops.sh:2240-2249` violates this today; the fix removes the violation.
 - **No override is writable by the agent being gated.** The repeated failure in this
@@ -211,12 +211,12 @@ spec whose honest origin is "the alarm fired" would manufacture ceremony.
 
 | Risk | Label | Note |
 |---|---|---|
-| Gates block legitimate work on day one (≥48% historical failure rate) | MITIGATE | Required: run the repo's own documented workflows through each gate and measure false positives before shipping — [epistemic.md](../.claude/rules/epistemic.md) gate 7c |
+| Gates block legitimate work on day one (≥48% historical failure rate) | MITIGATE | Required: run the repo's own documented workflows through each gate and measure false positives before shipping — [epistemic.md](../../../.claude/rules/epistemic.md) gate 7c |
 | "Would fail gate 2.5" over-counts non-delivery — a finished spec can carry a stale unticked line | ACCEPT | The gate's job is to force the question. The override absorbs this |
 | The override becomes the new self-attestation hole | MITIGATE | Named as an invariant above and as a founder decision |
 | Agent teams are documented as sometimes failing to mark tasks complete | MITIGATE | The hook is load-bearing; the task list is not. Gates must not assume the task list is reliable |
 | `TaskCompleted` ignores `continue: false` when a task update triggered it | ACCEPT | Exit code 2 still blocks; use the exit code, not the JSON form |
-| Founder framing quoted in a spec may carry personal context | MITIGATE | Specs are public; the existing privacy gate and [pii.md](../.claude/rules/pii.md) apply to the quoted line like any other |
+| Founder framing quoted in a spec may carry personal context | MITIGATE | Specs are public; the existing privacy gate and [pii.md](../../../.claude/rules/pii.md) apply to the quoted line like any other |
 | Enforcing steps that don't earn their place | DEFER | Of two skills benchmarked, one showed no measurable advantage and one was void. Evals (in scope) measure this; deleting skills is not this spec |
 
 **Non-Goals**
@@ -230,7 +230,7 @@ spec whose honest origin is "the alarm fired" would manufacture ceremony.
 - **Do NOT delete or rewrite `/dev`, `/architect` or `/adversarial-review` on current
   evidence.** The `/dev` A/B was declared **void**, not lost; `/architect` has never been
   benchmarked. Evals settle this later.
-- **Do NOT fix `detect_cospecs`' set arithmetic.** [p931](p931_ship_phase2b_coclose_false_close.md)
+- **Do NOT fix `detect_cospecs`' set arithmetic.** [p931](../../p931_ship_phase2b_coclose_false_close.md)
   owns it. Wire the gate into Phase 2b here; leave the detection logic there.
 - **Do NOT edit `.claude/commands/slava/build/*.md` while the concurrent session holds
   them.** Sequence or coordinate.
@@ -298,7 +298,7 @@ which closes *succeed* — revert it together with the wiring, never alone.
 | Override | TTY prompt + commit-trailer audit. **Friction, not a boundary** — defeatable via `script(1)`, pinned as canary A4 | `scripts/lib/gate-override.sh` |
 
 `status:` gating removed from `git-ops.sh` — it was the last violation of
-[features.md](../.claude/rules/features.md)'s *"no skill, script or hook may gate
+[features.md](../../../.claude/rules/features.md)'s *"no skill, script or hook may gate
 a merge, a close or a deploy on this field"*.
 
 ### Three assumptions in this spec were falsified before building
@@ -312,7 +312,7 @@ a merge, a close or a deploy on this field"*.
    *task-list* completion, which this spec's own Risks table calls unreliable
    ("agent teams sometimes fail to mark tasks complete"). Gating a close on it
    would have made the gate depend on the least reliable signal available.
-3. **Phase 2b no longer closes anything.** [P1250](done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md)
+3. **Phase 2b no longer closes anything.** [P1250](p1250_colocated_autoclose_closes_specs_nobody_did.md)
    shipped 2026-09-07 and removed the auto-close. Done-When 3 is satisfied more
    strongly than it asked: Phase 2b cannot close a co-located spec that fails the
    gate because it cannot close one at all. This is also why `p931` was re-triaged
@@ -429,12 +429,12 @@ switched on — the workflow flips from warning to enforcing by itself.
 
 ## Related
 
-- [p931](p931_ship_phase2b_coclose_false_close.md) — owns the co-located detection logic.
+- [p931](../../p931_ship_phase2b_coclose_false_close.md) — owns the co-located detection logic.
   Filed 2026-06-11, never implemented, still at `severity: medium`.
-- [p1211](p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md) — the same defect
+- [p1211](../../p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md) — the same defect
   one gate over; its Done-When already asks that a step be *"enforced by `ship-gates.sh`
   (or the hook), not by prose an agent may skip."*
-- [p1040](p1040_ship_gates_accept_matching_review_type.md) — gate 2.7 review-type
+- [p1040](../../p1040_ship_gates_accept_matching_review_type.md) — gate 2.7 review-type
   matching; presupposes the gate runs.
 - `docs/decisions.md` 2026-09-04, 2026-09-01, 2026-08-27 — the three discipline-only
   rulings this spec replaces.
