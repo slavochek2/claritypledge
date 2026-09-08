@@ -359,6 +359,38 @@ export the locked one. This blocks P1155's final Done-When items until the crede
 
 **References:** [.claude/rules/credentials.md](../.claude/rules/credentials.md) · P1239 · [features/p1155_correct_alarm_rang_into_an_empty_room.md](../features/p1155_correct_alarm_rang_into_an_empty_room.md)
 
+## 2026-09-08 [technical]: The daily drift checks get a weaker credential, not a per-access prompt (P1239 -> P1214)
+
+**Context:** With the critical credentials locked, the remaining question was how the daily health
+check obtains the platform management token it needs. Wiring it to the lock costs about two
+confirmations a day — roughly 14 a week against the ~10/week ceiling P1239 itself sets as the point
+to stop and reconsider. Measured this session and load-bearing here: that token is **account-wide**,
+not project-scoped. The copy the daily checks read can enumerate and manage the production project,
+while the job it does is a read-only comparison of security policies.
+
+**Decision (founder, 2026-09-08):** Reduce what the daily checks can do, rather than gate what they
+already hold. The daily path stays prompt-free; the over-permission is removed instead of guarded.
+
+**Alternatives rejected:** putting the daily checks behind the per-access lock — it would add
+friction above the founder's own stated ceiling, and the most likely outcome of a
+twice-daily prompt for a routine job is that it stops being read. More to the point, the lock would
+be **compensating for the over-permission instead of removing it**: the check would still be
+holding production-management authority, just with a dialog in front of it.
+
+**Consequences:** The work belongs to
+[P1214](../features/p1214_credential_separation_and_privilege_reduction.md) (privilege reduction), not to
+P1239 (guarding). **The first step is a check, not a build:** confirm the provider offers a
+read-only credential suitable for policy inspection. If it does not, the fallback is to accept the
+prompts or leave the daily path on the plaintext copy — and that fallback must be recorded rather
+than silently chosen. Until this lands, P1239's remaining Done-When items cannot complete, because
+the prompt-count measurement they require depends on which path the daily check takes.
+
+**The generalisable half:** friction added to protect a credential that the task should not be
+holding is a fix at the wrong layer. Ask what the job actually needs before asking who should
+approve it.
+
+**References:** P1239 · P1214 · [credential-keyring.md](technical/credential-keyring.md)
+
 ## 2026-09-08 [technical]: A gate that cannot say who is asking gets answered by guessing (P1239)
 
 **Context:** P1239's per-access dialog fired for the first time in real use. It said
