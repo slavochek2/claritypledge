@@ -535,6 +535,56 @@ else
 fi
 echo ""
 
+# 4.8b. CI-secret registration gate (P1267) — every `secrets.NAME` a workflow
+# reads must have a row in a credential registry. Runs the canary when the gate
+# or its canary is staged, and the real scan when a workflow file is staged.
+#
+# Registries resolve against the MAIN repo root, not $PWD: .private/ is
+# gitignored, so it exists only in the main checkout and a worktree would
+# otherwise always take the skip path — and worktrees are where feature work
+# happens, which is where the 2026-09-08 incident happened. Same
+# --git-common-dir pattern the .finish-reviewed stamp uses.
+#
+# THIS CONTROL IS LOCAL-ONLY AND FAILS OPEN. The registries are gitignored, so
+# a fresh CI checkout has neither file and this check cannot run there. It is
+# accident-prevention (git.md: "local hooks are accident-prevention, not the
+# boundary"), not a boundary. Do not describe it as one.
+P1267_GATE_STAGED=$(printf '%s\n' "$STAGED_FILES" | grep -E '^scripts/(audit-credential-drift|test-credential-workflow-gate)\.sh$' || true)
+P1267_WF_STAGED=$(printf '%s\n' "$STAGED_FILES" | grep -E '^\.github/workflows/.*\.(yml|yaml)$' || true)
+
+if [ -n "$P1267_GATE_STAGED" ]; then
+    if ! run_quiet "CI-secret registration gate canary (P1267)" bash scripts/test-credential-workflow-gate.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> CI-secret gate canary skipped (gate script not staged)"
+fi
+
+if [ -n "$P1267_WF_STAGED" ]; then
+    P1267_MAIN_ROOT=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+    P1267_REG_ARGS=""
+    for reg in .private/docs/accounts.md .private/docs/edge-function-secrets.md; do
+        [ -f "$P1267_MAIN_ROOT/$reg" ] && P1267_REG_ARGS="$P1267_REG_ARGS --registry $P1267_MAIN_ROOT/$reg"
+    done
+    if [ -z "$P1267_REG_ARGS" ]; then
+        # Loud, not silent: "could not check" and "checked, clean" must never
+        # look alike (the false-clean class this script's siblings were fixed for).
+        echo -e "${YELLOW}>>> CI-secret registration gate SKIPPED — no credential registry found under $P1267_MAIN_ROOT/.private/docs/.${NC}"
+        echo    "    This check fails OPEN by design (registries are gitignored). Not a pass."
+    else
+        # shellcheck disable=SC2086
+        if ! run_quiet "CI-secret registration gate (P1267)" bash scripts/audit-credential-drift.sh --gate-workflows --workflows-dir .github/workflows $P1267_REG_ARGS; then
+            echo -e "${RED}✗ A staged workflow reads a secret that no credential registry documents.${NC}"
+            echo    "  Add a row to .private/docs/accounts.md (or edge-function-secrets.md) with its"
+            echo    "  Location and P1239 half, then re-commit. See features/p1267_*.md."
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+else
+    echo ">>> CI-secret registration gate skipped (no workflow files staged)"
+fi
+echo ""
+
 # 4.9b. P955 strictness canary — anti-decay guard. Runs when dev.md/fix.md are
 # staged. Asserts the softening phrases stay ABSENT and the gate's strictness
 # tokens stay PRESENT, so the gate can't silently revert to advisory the way

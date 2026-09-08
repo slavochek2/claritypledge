@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000078
 workstream: keyring
@@ -8,9 +8,9 @@ tags: [credentials, pre-commit, ci, drift-audit]
 related: [p1147, p1153, p1155, p1214, p1239, p1248]
 disclosure: public
 flow: dev
-delivery_stage: create-spec
+delivery_stage: dev
 pipeline_plan: [create-spec, dev]
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 pipeline_skipped: ["challenge-prd -- founder asked for an inline critique instead; five findings folded into Solution and Risks", "architect -- the one architectural call (extend vs rebuild) is argued in Alternatives Considered and was verified in critique C4", "generate-tests -- /dev runs TDD and the fixture shape is pinned by Done-When", "ux/ui/verify -- no user-visible surface; the output is a shell exit code", "decompose -- four files", "adversarial-review -- WILL RUN after /dev, kept out of pipeline_plan because the skill does not stamp pipeline_ran and would deadlock the plan"]
 drafted_by: opus
 exec_model: opus
@@ -128,6 +128,13 @@ Three parts, in dependency order:
    way would be a false positive on an unregisterable credential. Mirror
    `check-edge-function-secrets.sh`, which already excludes the platform built-ins for the same
    reason.
+3b. **Count a workflow as a consumer.** Found by MEASUREMENT after the critique, not by it: the
+   first correct backfill against the real tree pushed `RETIREMENT_CANDIDATE` from 28 to 29, because
+   `_count_live_consumers` scans `--consumers-dir` only and `.github/workflows` is not one — nor can
+   it become one, since the markdown tier would then match the credential's own registry prose.
+   Same harm as C1 ("documented, nothing uses it") reached through a different function. This is why
+   the before/after diff is an acceptance criterion rather than a nicety.
+
 4. **Backfill.** Registry rows for the unregistered pair, each carrying a CI-store `Location` and
    its P1239 half. Safe only after 1–3; before them it manufactures findings.
 5. **A new refusal class** for "referenced by a workflow, present in no registry". Wire the surface
@@ -154,6 +161,8 @@ helper's output define the gate's expectations instead of the other way round.
 | Backfilled rows manufacture `REGISTRY_ONLY` findings in `/weekly` | MITIGATE | Widen `LIVE_KEYS` first (Solution 1). Ordering is the mitigation; reversing it reproduces P1173. |
 | Backfilled rows manufacture `REGISTRY_LOCATION_MISMATCH` findings | MITIGATE | Non-file `Location` values satisfied by construction (Solution 2). |
 | A platform built-in (`secrets.GITHUB_TOKEN`) is flagged though it cannot be registered | MITIGATE | Built-ins exclusion list (Solution 3). |
+| Backfilled rows manufacture `RETIREMENT_CANDIDATE` findings | MITIGATE | Workflow refs counted as consumers (Solution 3b). Found by measurement, canaried as E5. |
+| `secrets['NAME']` bracket syntax evades a dot-only regex | MITIGATE | Both spellings matched. Unused in this repo today — which is exactly why nothing would have noticed. |
 | The gate only fires when a workflow file is staged — deleting a registry row later goes uncaught | ACCEPT | `/weekly`'s audit covers the standing state; this gate covers the authoring moment. Same split as check 18c. |
 | A secret referenced via `${{ env.X }}` indirection or a composite action evades the regex | ACCEPT | Both absent from this repo today — verified: all references are direct `secrets.X`. Revisit if one appears. |
 | Registry row exists but the GitHub-side value does not | ACCEPT | Structurally undetectable (403). The gate's claim is registration, per the Invariant above. |
@@ -168,24 +177,37 @@ helper's output define the gate's expectations instead of the other way round.
 
 ## Done-When
 
-- [ ] Running the audit before and after the backfill produces **no new** `REGISTRY_ONLY` or
-      `REGISTRY_LOCATION_MISMATCH` lines — the C1/C2 regression, checked by diffing the two runs
-- [ ] A workflow referencing a platform built-in (`secrets.GITHUB_TOKEN`) is not flagged
-- [ ] Every `secrets.X` referenced by any workflow on `main` has a registry row with a `Location`
-      naming the CI store — the backfill, verifiable by re-running the audit and getting zero
-      unregistered findings
-- [ ] The audit script reports the unregistered class when run against a fixture workflow, exit
-      non-zero — **the failure path observed and its exit code pasted** (epistemic gate 7)
-- [ ] **The gate-7c case: a fixture containing only registered credentials passes, exit 0** —
-      including all four real registered names, so the allowed path is exercised by the same
-      fixture shape that exercises the refused one
-- [ ] `pre-commit-checks.sh` runs the check when a workflow file is staged and prints an explicit
-      skip line when none is
-- [ ] Committing the p1155 branch's escalator workflow against the *pre-backfill* registries is
-      refused by the gate — the incident that motivated this spec, replayed
-- [ ] `/weekly` step 2.10.2's `--not-enumerated` clause no longer claims the CI surface is
+- [x] Running the audit before and after the backfill produces **no new** `REGISTRY_ONLY` or
+      `REGISTRY_LOCATION_MISMATCH` lines — diffed at HEAD `92e32aff5` with a stability guard proving
+      HEAD and the workflow tree did not move mid-run (two earlier attempts were voided by exactly
+      that: P1155 shipped between the two passes). Finding keys IDENTICAL across the pair;
+      `CONSUMER_ONLY` 3->2 and `WORKFLOW_UNREGISTERED` 2->0 are the only changes
+- [x] A workflow referencing a platform built-in (`secrets.GITHUB_TOKEN`) is not flagged — canary C1
+- [x] Every `secrets.X` referenced by any workflow on `main` has a registry row with a `Location`
+      naming the CI store — `--gate-workflows` against the real tree and real registries returns
+      `GATE:PASS`, exit 0; `WORKFLOW_UNREGISTERED` count is 0
+- [x] The audit script reports the unregistered class when run against a fixture workflow, exit
+      non-zero — canary B1/B3/B6 assert exit **1**; end-to-end, a staged workflow with an
+      unregistered secret returned `pre-commit exit = 1` (captured via `$?`, not `PIPESTATUS`,
+      which is empty in the agent's zsh)
+- [x] **The gate-7c case: a fixture containing only registered credentials passes, exit 0** —
+      canary A1 runs the repo's REAL `.github/workflows/` tree through the gate and asserts exit 0;
+      A2 repeats it with the allow-set split across both registry header shapes; B5 is the pair to
+      B3 (identical workflow, one registry row apart). End-to-end: a staged workflow referencing a
+      registered secret returned `pre-commit exit = 0`
+- [x] `pre-commit-checks.sh` runs the check when a workflow file is staged and prints an explicit
+      skip line when none is — both observed
+- [~] Committing the p1155 branch's escalator workflow against the *pre-backfill* registries is
+      refused by the gate — **replayed in shape, not in original substance.** P1155 shipped to `main`
+      mid-session (`e88f7a725`) and its session had already backfilled the sending key by hand, so
+      the original inputs no longer exist to re-run. Canary B3 reproduces the exact shape (a new
+      escalator workflow adding a mail-sending secret against registries carrying only its sibling)
+      with fixture names and asserts exit 1. Stated rather than ticked clean, because a
+      reconstruction is not the original
+- [x] `/weekly` step 2.10.2's `--not-enumerated` clause no longer claims the CI surface is
       unenumerable, and the skill text says which half remains unreachable
-- [ ] The check's own output states that it fails open in CI
+- [x] The check's own output states that it fails open in CI — the skip branch prints
+      "This check fails OPEN by design (registries are gitignored). Not a pass."
 
 ## Alternatives Considered
 
@@ -215,5 +237,16 @@ they are correct independent of whether the gate ships.
    the commit or **warn**? Hard-fail is the point of the spec; warn-first is how check 18c was
    introduced (advisory, newly-added instances only). Recommendation: hard-fail, because the
    backfill is Done-When #1 and lands before the gate is wired — there is no window to soften for.
-2. Does `github-actions` as a `Location` value need a matching entry in the keyring status tooling,
-   or is it inert there? Not checked.
+2. Does `github-actions-secret` as a `Location` value need a matching entry in the keyring status
+   tooling, or is it inert there? Not checked.
+3. **Found in passing, belongs to P1155, not fixed here.** `docs/decisions.md` 2026-09-08 [process]
+   records that the escalator's send layer "reads it from `OPS_SMTP_PASSWORD`". That variable
+   appears nowhere on the shipped P1155 code — the implementation moved to Mailgun's API
+   (`d8fe087a0`, "delete the hand-rolled SMTP client") and reads a differently-named sending key.
+   The decision record and the implementation disagree about which credential exists. Flagged, not
+   edited: it is another spec's record.
+4. **The registry moved twice during this spec's own implementation.** The P1155 session backfilled
+   the sending key by hand while this was being built, and then shipped to `main` mid-measurement.
+   Nothing was lost — the duplicate row was found and removed, and the measurement was re-run under
+   a stability guard — but it is direct evidence for this spec's premise: registration currently
+   depends on whoever remembers, and two sessions independently reached for the same row.

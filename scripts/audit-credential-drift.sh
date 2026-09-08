@@ -15,6 +15,16 @@
 #       non-comment line produces CLASSIFIED:<KEY>:<file>:<line> or
 #       UNPARSEABLE:<file>:<line> — zero lines silently dropped. Exit 0.
 #
+#   scripts/audit-credential-drift.sh --gate-workflows \
+#       --workflows-dir DIR [--workflows-dir DIR ...] \
+#       --registry FILE [--registry FILE ...]
+#       CI-secret registration gate (P1267). Every `secrets.NAME` reference in
+#       every workflow file under the given dirs must have a row in some
+#       registry. Exit 1 if any does not. Hermetic: no network, no `gh`, no
+#       `supabase` — the GitHub secrets STORE is unreachable by design
+#       (the agent's token has no Administration scope), so this checks
+#       registration, never provisioning. Needs no --env-dir.
+#
 #   scripts/audit-credential-drift.sh --audit --env-dir DIR \
 #       --registry FILE [--registry FILE ...] [--consumers-dir DIR ...] \
 #       [--not-enumerated NAME:REASON ...]
@@ -29,6 +39,10 @@
 #   REGISTRY_ONLY:<KEY>:<registry-file>                                registry -> consumer, missing everywhere
 #   REGISTRY_LOCATION_MISMATCH:<KEY>:<registry-file>:claimed=<f>:found=<f>
 #   REGISTRY_MISMATCH:<KEY>:<reg-a>:tier=<v>:<reg-b>:tier=<v>          registry -> registry
+#   WORKFLOW_REF:<KEY>:<file>:<line>                                   every reference, none dropped
+#   WORKFLOW_BUILTIN:<KEY>:<file>:<line>                               platform-provided, unregisterable
+#   WORKFLOW_UNREGISTERED:<KEY>:<file>:<line>                          workflow -> registry (gate fails)
+#   REGISTRY_LOCATION_NONFILE:<KEY>:<registry-file>:<loc>              location is not a file path
 #   RETIREMENT_CANDIDATE:<KEY>:<registry-file>
 #   CONSUMER_LIST_STALE:<KEY>:<registry-file>:documented=<n>:live=<n>
 #   NOT_ENUMERATED:<surface>:<reason>                                  excluded from COVERAGE
@@ -183,7 +197,18 @@ _count_live_consumers() {
     "${CONSUMERS_DIRS[@]}" 2>/dev/null || true)
   md_hits=$(grep -rlE --include='*.md' \
     -- "$(_consumer_read_re "$k")" "${CONSUMERS_DIRS[@]}" 2>/dev/null || true)
-  printf '%s\n%s\n' "$code_hits" "$md_hits" | grep -v '^$' | sort -u | grep -c '' || true
+  # P1267 — a workflow that reads a secret IS a consumer of it. Without this,
+  # correctly registering a CI-only credential immediately reports it as a
+  # RETIREMENT_CANDIDATE ("documented, nothing uses it"), because
+  # .github/workflows is not a --consumers-dir and cannot become one: the
+  # markdown/code tiers above would then match the credential's own registry
+  # prose. Measured on the real tree — the first correct backfill under this
+  # spec pushed RETIREMENT_CANDIDATE from 28 to 29. Same harm as the is_live
+  # gap this spec fixes, reached through a different function, and the reason
+  # the before/after diff is one of its acceptance criteria.
+  wf_hits=$(printf '%s\n' "${WORKFLOW_FINDINGS:-}" \
+    | awk -F: -v k="$k" '$1=="WORKFLOW_REF" && $2==k {print $3}' | grep -v '^$' || true)
+  printf '%s\n%s\n%s\n' "$code_hits" "$md_hits" "$wf_hits" | grep -v '^$' | sort -u | grep -c '' || true
 }
 
 MODE=""
@@ -191,11 +216,27 @@ ENV_DIR=""
 CONSUMERS_DIRS=()
 REGISTRIES=()
 NOT_ENUM=()
+WORKFLOWS_DIRS=()
+WORKFLOW_FINDINGS=""
+
+# Platform-provided secrets: GitHub Actions injects these into every workflow
+# run. They have no registry row because there is nothing to register — no
+# human ever created the value and no rotation applies. Flagging one would be
+# a false positive on a credential that CANNOT be registered, which is the
+# false-positive class epistemic gate 7c exists to catch (P1267 critique C3).
+# This repo writes `github.token` today, so nothing here fires yet; the list
+# exists so the first workflow written the other way does not block a commit.
+# Same reasoning as check-edge-function-secrets.sh excluding the Supabase
+# built-ins from its required-secrets set.
+WORKFLOW_BUILTINS="GITHUB_TOKEN"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --parse-only) MODE="parse-only"; shift ;;
     --audit) MODE="audit"; shift ;;
+    --gate-workflows) MODE="gate-workflows"; shift ;;
+    --workflows-dir) WORKFLOWS_DIRS+=("$2"); shift 2 ;;
+    --workflows-dir=*) WORKFLOWS_DIRS+=("${1#--workflows-dir=}"); shift ;;
     --env-dir) ENV_DIR="$2"; shift 2 ;;
     --env-dir=*) ENV_DIR="${1#--env-dir=}"; shift ;;
     --registry) REGISTRIES+=("$2"); shift 2 ;;
@@ -219,13 +260,28 @@ if [[ -z "$MODE" ]]; then
   _safe_echo "ERROR: pass --parse-only or --audit" >&2
   exit 2
 fi
-if [[ -z "$ENV_DIR" || ! -d "$ENV_DIR" ]]; then
-  _safe_echo "ERROR: --env-dir DIR required and must exist" >&2
-  exit 2
+# --gate-workflows reads workflow files and registries only; it never looks at
+# an env file, so requiring --env-dir there would be ceremony that also makes
+# the gate unrunnable from a checkout that has no env files (CI, a fresh clone).
+if [[ "$MODE" != "gate-workflows" ]]; then
+  if [[ -z "$ENV_DIR" || ! -d "$ENV_DIR" ]]; then
+    _safe_echo "ERROR: --env-dir DIR required and must exist" >&2
+    exit 2
+  fi
 fi
 if [[ "$MODE" == "audit" && ${#REGISTRIES[@]} -eq 0 ]]; then
   _safe_echo "ERROR: --audit requires at least one --registry FILE" >&2
   exit 2
+fi
+if [[ "$MODE" == "gate-workflows" ]]; then
+  if [[ ${#REGISTRIES[@]} -eq 0 ]]; then
+    _safe_echo "ERROR: --gate-workflows requires at least one --registry FILE" >&2
+    exit 2
+  fi
+  if [[ ${#WORKFLOWS_DIRS[@]} -eq 0 ]]; then
+    _safe_echo "ERROR: --gate-workflows requires at least one --workflows-dir DIR" >&2
+    exit 2
+  fi
 fi
 # A missing/unreadable --registry path must abort loudly, not silently
 # degrade to "0 registered keys" (indistinguishable from an empty-but-
@@ -254,6 +310,60 @@ for c in "${CONSUMERS_DIRS[@]:-}"; do
     exit 2
   fi
 done
+
+# A missing --workflows-dir must abort, never scan-nothing-and-pass. A gate
+# that silently finds zero references reports "all registered" for a repo it
+# never read — the all-pass form of the false-clean this script was fixed for
+# (P1153), and the one a gate is least likely to have its failure path
+# exercised against.
+for w in "${WORKFLOWS_DIRS[@]:-}"; do
+  [[ -n "$w" ]] || continue
+  if [[ ! -e "$w" || ! -r "$w" ]]; then
+    _safe_echo "ERROR: --workflows-dir not found or unreadable: $w" >&2
+    exit 2
+  fi
+done
+
+# list_workflow_files DIR — every YAML file under DIR, sorted. A path may be a
+# single file as well as a directory, matching --consumers-dir's contract.
+list_workflow_files() {
+  find "$1" -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null | sort
+}
+
+# parse_workflow_refs — one line per `secrets.NAME` occurrence across every
+# --workflows-dir, in file order. Emits WORKFLOW_BUILTIN for platform-provided
+# names and WORKFLOW_REF for everything else, so no occurrence is silently
+# dropped (same contract as --parse-only: every reachable line accounted for).
+#
+# find|while rather than `grep -r --include`: on this platform /usr/bin/grep is
+# BSD grep, where an --include placed after grep's `--` terminator is read as a
+# FILENAME, the warning goes to a discarded stderr, and no filter is applied at
+# all — the exact defect P1153 found in this script's consumer scan. Not
+# reintroducing the shape is cheaper than re-deriving the flag order.
+parse_workflow_refs() {
+  local d f ln match key
+  for d in "${WORKFLOWS_DIRS[@]}"; do
+    while IFS= read -r f; do
+      [[ -n "$f" ]] || continue
+      while IFS=: read -r ln match; do
+        [[ -n "$match" ]] || continue
+        # Two spellings, both direct references: `secrets.NAME` and GitHub's
+        # equally valid `secrets['NAME']` / `secrets["NAME"]`. Covering only the
+        # dot form would leave a one-character evasion that passes the gate
+        # silently — not the same thing as the `env.X` indirection this spec
+        # explicitly ACCEPTS as out of scope.
+        key="${match#secrets.}"
+        key="${key#secrets[}"; key="${key%]}"
+        key="${key#\'}"; key="${key%\'}"; key="${key#\"}"; key="${key%\"}"
+        if printf '%s\n' $WORKFLOW_BUILTINS | grep -Fxq "$key"; then
+          _safe_echo "WORKFLOW_BUILTIN:${key}:${f}:${ln}"
+        else
+          _safe_echo "WORKFLOW_REF:${key}:${f}:${ln}"
+        fi
+      done < <(/usr/bin/grep -noE "secrets\.[A-Za-z_][A-Za-z0-9_]*|secrets\[['\"][A-Za-z_][A-Za-z0-9_]*['\"]\]" "$f" 2>/dev/null || true)
+    done < <(list_workflow_files "$d")
+  done
+}
 
 # list_env_files DIR — every file that looks like a local env file, sorted.
 list_env_files() {
@@ -432,7 +542,63 @@ fingerprint() {
   fi
 }
 
-ENV_FILES=$(list_env_files "$ENV_DIR")
+ENV_FILES=""
+[[ -n "$ENV_DIR" ]] && ENV_FILES=$(list_env_files "$ENV_DIR")
+
+# reg_keys_from_registries — the registered key set, sentinel rows removed.
+# Shared by --gate-workflows and --audit so the two modes can never disagree
+# about what "registered" means.
+reg_keys_from_registries() {
+  local r out raw=""
+  for r in "${REGISTRIES[@]}"; do
+    out="$(parse_registry "$r")"
+    [[ -n "$out" ]] || continue
+    raw="${raw}${raw:+$'\n'}${out}"
+  done
+  printf '%s\n' "$raw" \
+    | awk -F'\t' '$2!="__NO_VALUE_COLUMN__" && $2!="__NO_LOCATION_COLUMN__" && $2!="__MULTI_KEY_ROW__" {print $2}' \
+    | sort -u | grep -v '^$' || true
+}
+
+# ── gate-workflows mode (P1267) ─────────────────────────────────────────
+# The one enforced claim: every non-builtin `secrets.NAME` a workflow reads has
+# a row in some registry. It CANNOT claim the value exists in GitHub — that
+# store returns HTTP 403 to this repo's credential by design (P970/P919
+# deliberately withheld Administration scope), and making it readable would
+# mean the enforced party could administer its own gate. Registration is what
+# is checkable here, so registration is all this says.
+if [[ "$MODE" == "gate-workflows" ]]; then
+  GATE_REG_KEYS=$(reg_keys_from_registries)
+  GATE_REFS=$(parse_workflow_refs)
+  _safe_echo "$GATE_REFS" | grep -v '^$' || true
+
+  GATE_FAIL=0
+  GATE_SEEN=""
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    key=$(printf '%s' "$line" | awk -F: '{print $2}')
+    loc=$(printf '%s' "$line" | awk -F: '{print $3":"$4}')
+    if printf '%s\n' "$GATE_REG_KEYS" | grep -Fxq "$key"; then
+      # Report each registered name once, not once per reference — the
+      # allow-set is what gate 7c reads, and a count per call site would
+      # bury it.
+      if ! printf '%s\n' "$GATE_SEEN" | grep -Fxq "$key"; then
+        _safe_echo "WORKFLOW_OK:${key}"
+        GATE_SEEN="${GATE_SEEN}${GATE_SEEN:+$'\n'}${key}"
+      fi
+    else
+      _safe_echo "WORKFLOW_UNREGISTERED:${key}:${loc}"
+      GATE_FAIL=1
+    fi
+  done <<< "$(printf '%s\n' "$GATE_REFS" | grep '^WORKFLOW_REF:' || true)"
+
+  if [[ "$GATE_FAIL" -eq 1 ]]; then
+    _safe_echo "GATE:FAIL:a workflow reads a secret that no registry documents"
+    exit 1
+  fi
+  _safe_echo "GATE:PASS:every workflow-referenced secret has a registry row"
+  exit 0
+fi
 
 if [[ "$MODE" == "parse-only" ]]; then
   for f in $ENV_FILES; do
@@ -451,6 +617,28 @@ for f in $ENV_FILES; do
 done
 
 LIVE_CLASSIFIED=$(printf '%s\n' "$ENV_FINDINGS" | grep '^CLASSIFIED:' || true)
+
+# P1267 (critique C1) — a credential that lives only in the CI secrets store is
+# in no env file, so without this it fails the is_live test below and is
+# reported REGISTRY_ONLY: "documented credential that lives nowhere". It lives
+# somewhere; this script simply could not see there. Registering such a
+# credential correctly would therefore have ADDED a drift finding to /weekly
+# for every row added — the fix manufacturing the defect it exists to remove
+# (the P1173 shape). Widening the live set is also exactly what the
+# workflow-unregistered check needs, so one change serves both.
+if [[ ${#WORKFLOWS_DIRS[@]} -gt 0 ]]; then
+  WORKFLOW_FINDINGS="$(parse_workflow_refs)"
+  [[ -n "$WORKFLOW_FINDINGS" ]] && _safe_echo "$WORKFLOW_FINDINGS"
+  # Re-shaped as CLASSIFIED so the live set carries a real location: a
+  # CONSUMER_ONLY finding for a CI-only key then names the workflow and line
+  # that reads it, instead of an empty location cell.
+  WF_AS_CLASSIFIED=$(printf '%s\n' "$WORKFLOW_FINDINGS" \
+    | grep '^WORKFLOW_REF:' | sed 's/^WORKFLOW_REF:/CLASSIFIED:/' || true)
+  if [[ -n "$WF_AS_CLASSIFIED" ]]; then
+    LIVE_CLASSIFIED="${LIVE_CLASSIFIED}${LIVE_CLASSIFIED:+$'\n'}${WF_AS_CLASSIFIED}"
+  fi
+fi
+
 LIVE_KEYS=$(printf '%s\n' "$LIVE_CLASSIFIED" | awk -F: '{print $2}' | sort -u | grep -v '^$' || true)
 
 ALL_REG_ROWS_RAW=""
@@ -530,6 +718,22 @@ while IFS= read -r row; do
   _safe_echo "MULTI_KEY_ROW_BUNDLED:${regfile}:${bundled}"
 done <<< "$MULTI_KEY_ROWS"
 
+# WORKFLOW_UNREGISTERED — a workflow reads a secret no registry documents.
+# Informational HERE on purpose: --audit's single enforced guarantee is
+# PLAINTEXT_IN_REGISTRY, and /weekly reads that exit code. The blocking form of
+# this same check is --gate-workflows, which pre-commit runs. Two modes, one
+# definition of "registered" (reg_keys_from_registries), so they cannot drift.
+if [[ -n "$WORKFLOW_FINDINGS" ]]; then
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    wkey=$(printf '%s' "$line" | awk -F: '{print $2}')
+    wloc=$(printf '%s' "$line" | awk -F: '{print $3":"$4}')
+    if ! printf '%s\n' "$REG_KEYS" | grep -Fxq "$wkey"; then
+      _safe_echo "WORKFLOW_UNREGISTERED:${wkey}:${wloc}"
+    fi
+  done <<< "$(printf '%s\n' "$WORKFLOW_FINDINGS" | grep '^WORKFLOW_REF:' || true)"
+fi
+
 # CONSUMER_ONLY — live key, in no registry at all.
 CONSUMER_ONLY_KEYS=$(comm -23 <(printf '%s\n' "$LIVE_KEYS") <(printf '%s\n' "$REG_KEYS") 2>/dev/null | grep -v '^$' || true)
 for key in $CONSUMER_ONLY_KEYS; do
@@ -549,6 +753,19 @@ while IFS= read -r row; do
     continue
   fi
   if printf '%s\n' "$NO_LOC_REGFILES" | grep -Fxq "$regfile"; then
+    continue
+  fi
+  # P1267 (critique C2) — the comparison below resolves the Location cell
+  # against a real file under ENV_DIR. That is only meaningful for locations
+  # that ARE files. `github-actions`, `keyring`, `oauth`, `browser-auth`,
+  # `ai-keys registry` name stores this script cannot open, so comparing them
+  # to a basename yields a guaranteed non-match — a false REGISTRY_LOCATION_
+  # MISMATCH indistinguishable from real drift, which is precisely the defect
+  # class the LOCATION_CHECK_SKIPPED sentinel above was added to prevent.
+  # Reported as its own token rather than suppressed: "not checkable here" and
+  # "checked, agrees" must not look alike.
+  if [[ ! "$loc" =~ (^|/)\.env ]]; then
+    _safe_echo "REGISTRY_LOCATION_NONFILE:${key}:${regfile}:${loc}"
     continue
   fi
   claimed="${ENV_DIR}/${loc}"

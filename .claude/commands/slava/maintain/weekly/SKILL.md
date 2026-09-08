@@ -485,14 +485,26 @@ scripts/audit-credential-drift.sh --audit \
   --registry .private/docs/edge-function-secrets.md \
   --consumers-dir src --consumers-dir supabase/functions --consumers-dir scripts \
   --consumers-dir services --consumers-dir .claude/commands --consumers-dir vite.config.ts \
-  --not-enumerated "ci-secrets:GitHub Actions secrets store — agent's credential has no API access, HTTP 403 by design" \
+  --workflows-dir .github/workflows \
+  --not-enumerated "ci-secret-values:GitHub Actions secrets STORE — agent's credential has no API access, HTTP 403 by design. The workflow REFERENCES to it are enumerated (--workflows-dir); only the values are unreachable" \
   > "$AUDIT_OUT" 2>&1
 AUDIT_EXIT=$?
 chmod 600 "$AUDIT_OUT"
-grep -c '^CONSUMER_ONLY:\|^REGISTRY_ONLY:\|^REGISTRY_LOCATION_MISMATCH:\|^REGISTRY_MISMATCH:\|^PLAINTEXT_IN_REGISTRY:\|^PLAINTEXT_CHECK_SKIPPED:\|^TIER_UNCLASSIFIABLE:' "$AUDIT_OUT"
+grep -c '^CONSUMER_ONLY:\|^REGISTRY_ONLY:\|^REGISTRY_LOCATION_MISMATCH:\|^REGISTRY_MISMATCH:\|^PLAINTEXT_IN_REGISTRY:\|^PLAINTEXT_CHECK_SKIPPED:\|^WORKFLOW_UNREGISTERED:\|^TIER_UNCLASSIFIABLE:' "$AUDIT_OUT"
 grep '^COVERAGE:' "$AUDIT_OUT"
 echo "exit=$AUDIT_EXIT"
 ```
+
+**`--workflows-dir` closes the CI blind spot (P1267).** The `--not-enumerated` clause above used to
+read `ci-secrets:` and exclude the whole CI surface on the reasoning that the agent cannot reach the
+GitHub secrets API. That reasoning is true of the secrets **store** and false of the workflow files'
+**references** to it, which sit in the repo and need no network. One clause excluded both, and a
+mail-sending key referenced by a new workflow on 2026-09-08 was invisible to every direction of this
+audit as a result. Widening `LIVE_KEYS` to include workflow-referenced names is also what stops a
+correctly-registered CI-only credential from reporting as `REGISTRY_ONLY` ("lives nowhere") — it
+lives in a store this script cannot open, which is not the same thing. The blocking form of the same
+check is `audit-credential-drift.sh --gate-workflows`, run by pre-commit when a workflow file is
+staged; this weekly pass is the standing-state half.
 
 **The six `--consumers-dir` surfaces are load-bearing, not a list to trim** (P1153). Credentials are read at build time from the repo root (`vite.config.ts`), from service trees (`services/`), and by skill files (`.claude/commands/`) — none of which the original three covered. Dropping one silently converts every credential read only there into a retirement candidate; that under-scoping produced 11 false retirements on the first real run. A path that does not exist now aborts the audit with exit 2 rather than reporting everything as dead, so a renamed directory fails loudly here instead of quietly.
 
