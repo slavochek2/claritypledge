@@ -341,6 +341,87 @@ obstacle to route around when the index is "already right" — being already rig
 verifies.
 
 **References:** [features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md](../features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md) · `scripts/archive/migrations/20260908-backfill-disclosure-public.py` · [git.md](../.claude/rules/git.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 7c · commit `ffac5dfd3`
+## 2026-09-08 [technical]: A test that pins how a marker is DRAWN turns a UI defect into a contract
+
+**Context:** The agent marker (`MachineChip`) rendered as a bordered, fully-rounded pill on all
+six surfaces that name a machine account. Reading the profile page, the founder said: *"this
+thing, agent, looks like a button now. But it's not a button."* He is describing a real defect —
+`e2e/p1104-agent-marker.spec.ts` already asserts, in its own words, that "a status marker must not
+navigate" — so the mark was drawn in the page's button language and then refused the click it
+invited.
+
+Two artifacts stood in the way of fixing it, and both were wrong in the same way. A unit test
+asserted `className` contains `border-gray-300` and `rounded-full` literally, under a comment
+whose stated intent was *"the two sizes read as one marker"*. And a second comment claimed the
+border could not be removed at all: *"must stay a bordered pill: index.css counts it as one of
+three non-colour WCAG 1.4.1 channels."*
+
+**Decision:** Restyle the marker everywhere — icon plus grey capitals, no border, no pill — and
+rewrite the test to compare the two SIZES against each other rather than against a fixed class
+list, plus one assertion that the marker is still a word.
+
+The accessibility claim was checked against its own source rather than taken on trust. `index.css`
+names the channels as *"the square avatar, the MACHINE chip and the footer disclosure"* — the chip,
+not the chip's border. **The channel is the word "Agent", which the restyle never touches**, and a
+word is a stronger non-colour signal than a 1px grey outline that is the first thing lost on a
+dim display and carries no meaning a reader could name. The comment had escalated "the chip is a
+channel" into "the chip's border is the channel" and then into a prohibition.
+
+**Alternatives rejected:**
+- *Leave it.* Keeps a control-shaped element that is not a control, on the surface that is now
+  the product's only disclosure route.
+- *Restyle on the profile header only,* where the words "Operated by ClarityPledge" and the
+  machine disclosure already do the pill's job. Recommended, and the founder overruled it on a
+  better rule: *"it has to be everywhere the same because everywhere we use the name of people, if
+  it's an agent, it will say agent on the name."* A marker whose appearance is surface-dependent
+  is two marks, not one.
+
+**Consequences:** A test may pin a requirement; it may not pin a rendering. The tell is a test
+whose comment states an intent ("read as one marker") that is strictly weaker than what it
+asserts (two specific utility classes) — the gap between those two is where a defect gets
+preserved as a contract. Rewritten so the assertion says what the comment always meant; verified
+by making the two sizes drift and watching it fail.
+
+**References:** [machine-chip.tsx](../src/app/components/shared/machine-chip.tsx),
+[p1141-agent-story-chrome.test.tsx](../src/tests/p1141-agent-story-chrome.test.tsx),
+`features/p1259_agent_story_surfaces_leak_their_own_evidence.md`
+
+---
+
+## 2026-09-08 [technical]: A 200 proves a link resolves, never that the person owns it
+
+**Context:** P1259 gave agent profiles a `links` row carrying the SUBJECT's own public pages. A
+link there is a public claim that a named living person owns that account, published under a
+machine account they never consented to — so a wrong one attributes a stranger's posts to them.
+Four real people had to be filed.
+
+**Decision:** Two independent checks per link, and neither substitutes for the other. **(1) It
+resolves** — fetch, require 200 after redirects. **(2) It is theirs** — corroborate against a
+source independent of the link itself: Wikidata's own claims (`P2002` X, `P2003` Instagram,
+`P2397` YouTube, `P856` site), the subject's Wikipedia external links, or the subject's own site
+linking the account.
+
+Check 2 is not belt-and-braces. `x.com/<handle>` serves a JS shell, so **a 200 says the page
+loaded, not that the handle is that person's** — and its usefulness as a signal at all was only
+established by a control probe of a deliberately nonexistent handle, which returned 404. Without
+that control the status code was uninterpretable in either direction.
+
+**Alternatives rejected:** *Fetch-only verification.* It passes on any live handle, including
+someone else's; the failure is silent and lands on a real person's name.
+
+**Consequences:** Two things this caught that a fetch-only pass would have shipped. Yann LeCun's
+official site per Wikidata is `http://yann.lecun.com` — http only, and https on that host does not
+answer, so the https-only render gate correctly dropped it and his NYU homepage was filed instead
+(the invariant's first contact with production data). And a company homepage had been filed under
+the person who runs it; the founder's rule is now explicit — **personal presence only, never the
+organisation, unless the page is the person's own profile ON that organisation's site.** The test
+is whether the page is ABOUT the person or about the thing they work on. `/slava:content:provision-agent`
+now performs the description and the links at creation time rather than leaving them for later,
+which is how the first four accounts went a month with one-sentence bios and no links.
+
+**References:** [profile-links.ts](../src/lib/profile-links.ts),
+[provision-agent.md](../.claude/commands/slava/content/provision-agent.md)
+
 
 ## 2026-09-08 [process]: A gate proven in place is not proven through the path CI actually runs it from (P1255)
 
