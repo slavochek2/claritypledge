@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: qa
 type: bug
 disclosure: public
 rank: 219
@@ -8,8 +8,8 @@ workstream: infrastructure
 date_reported: 2026-08-18
 created_date: 2026-08-18
 tags: [migrations, deploy-manifest, worktrees, tooling]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1103: stamp-deploy-manifest rebuilds the migration list from the local checkout, silently deleting entries for migrations that live in another worktree
@@ -82,11 +82,59 @@ The same session hit a second defect with the same root environment. A migration
 
 ## Acceptance Criteria
 
-- [ ] A stamp run from the main checkout preserves an environment's manifest entry whose `.sql` file exists only in a worktree
-- [ ] A stamp run still adds the version(s) it just applied
-- [ ] Running `migrate.sh` twice in a row produces no manifest diff on the second run (idempotent)
-- [ ] The failure path is exercised before the fix is trusted: reproduce the deletion on a scratch copy, apply the fix, re-run the same reproduction, and paste both manifest diffs (epistemic gate 7)
-- [ ] `./scripts/check-deploy-manifest.sh --env test` reports no new drift after the change
+- [x] A stamp run from the main checkout preserves an environment's manifest entry whose `.sql` file exists only in a worktree — canary scenario 1: with `20260818090000` recorded and no file present, the stamped array is `20260101000000 20260818090000 20260901000000`
+- [x] A stamp run still adds the version(s) it just applied — canary scenario 2: `20260901000000` is present in that same array
+- [x] Running `migrate.sh` twice in a row produces no manifest diff on the second run (idempotent) — canary scenario 4 runs the stamp twice and compares the arrays; identical. The union is by multiplicity, so it cannot grow
+- [x] The failure path is exercised before the fix is trusted — `P1103_STAMP_SRC=<main copy> ./scripts/test-p1103-manifest-migration-union.sh` reports `11 passed, 3 failed`, exit 1 (worktree entry deleted, spurious entry deleted, and deleted silently). Against the fixed script: `14 passed, 0 failed`, exit 0
+- [x] `./scripts/check-deploy-manifest.sh --env test` reports no new drift — exit 1 with 8 drift lines, all `FUNCTION_STALE`/`FUNCTION_MISSING` and pre-existing; `grep -c '^MIGRATION_'` is 0, and `supabase/deploy-manifest.json` is byte-identical to `HEAD` (this change touches no manifest data)
+
+## Fix as shipped
+
+`scripts/stamp-deploy-manifest.sh`, one hunk inside the python merge block: the migrations array is
+now a **union by multiplicity** of what was already recorded for the environment and what this run
+enumerated. Each version is kept `max(prior_count, enumerated_count)` times and the result sorted,
+which preserves worktree-authored entries, keeps the grandfathered shared-version-prefix pairs that
+`decisions.md` 2026-08-25 forbids deduping, and makes a re-run a no-op (plain concatenation would
+pass the preservation test and grow the array without bound — canary scenario 4 exists to catch it).
+
+The cost the union creates is that a genuinely stale entry now survives forever. It is therefore
+**named on stderr**, not kept silently: keeping it quietly would mask exactly the drift
+`check-deploy-manifest.sh` exists to report, which is the risk of this fix direction. Canary
+scenario 5 asserts both halves — the spurious entry survives AND appears in the run output.
+
+Companion canary `scripts/test-p1103-manifest-migration-union.sh`: 14 assertions, hermetic
+(throwaway project dirs under `mktemp` holding a copy of the real script; no network, no database,
+no git operations against this repo), parameterised by `P1103_STAMP_SRC` so the pre-fix revision
+runs through identical fixtures. The existing P1173 stamp canary still passes 16/16.
+
+**Found by adversarial review, in this change:** a backtick inside the double-quoted
+`python3 -c "..."` block made bash run command substitution on it, printing
+`env[migrations]: command not found` while the merge still produced a plausible manifest. Every
+canary assertion passed through it, because a canary that only reads the resulting JSON cannot see
+that class of failure. The `stamp()` helper now asserts exit 0 **and** greps the run output for
+`command not found|Traceback|Error:|SyntaxError|IndentationError`; reintroducing the backtick makes
+6 assertions fail.
+
+## Related — separately fileable, not in this spec's scope
+
+Alongside the pre-existing collision defect already recorded above, adversarial review surfaced
+three more, all in `scripts/stamp-deploy-manifest.sh` and all untouched by this change (the diff is
+a single hunk inside the merge block, `git diff main -- scripts/stamp-deploy-manifest.sh` shows
+`@@ -281,7 +281,46 @@` and nothing else):
+
+- **TOCTOU between the P1173 dirty-manifest guard and the read it protects.** The guard validates
+  the on-disk manifest against `HEAD`, then the file is read some lines later; the lock serializes
+  stamp writers only, so a foreign edit landing in that window is merged and staged. Reproduced by
+  the reviewer in a scratch repo by pausing between the two points. This is the bystander-edit
+  absorption P1173 was built to prevent, reached through the gap rather than the check.
+- **The same guard cannot distinguish a legitimate prior stamp from a forged one.** It classifies
+  the diff's *shape* (only the four stamp fields changed), which is the deliberate P1173 decision
+  recorded in `decisions.md` 2026-08-27 — a hand-added bogus migration version passes it.
+- **The `--env` parser is permissive.** `--env production` creates a `production` key beside `prod`
+  and `test`, and `--env --migrations-only` consumes the mode flag as the environment name,
+  producing a full stamp under a `--migrations-only` key. Both exit 0.
+
+Each needs a founder decision on whether to file.
 
 ## Key Files
 

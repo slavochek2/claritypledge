@@ -281,7 +281,46 @@ if not functions_only:
     # is to check ls supabase/migrations/ | grep '^<timestamp>' before treating a repeat as
     # a bug. I added a sorted(set(...)) here on 2026-09-04 without running that check, which
     # would have made the documented error permanent and automatic. Reverted the same day.
-    env['migrations'] = json.loads(migrations_json)
+    #
+    # P1103: UNION, never assign. build_migrations_json() enumerates only THIS checkout's
+    # supabase/migrations/*.sql, so a migration authored and applied from a worktree has no
+    # file here — and the old assignment form of env[migrations] deleted its entry on every migrate.sh
+    # run from main, pre-staged for commit. The field records what was APPLIED to the
+    # environment, which running a different migration from a different checkout cannot
+    # falsify. Observed 2026-08-18, and twice before per decisions.md 2026-08-11 (Both were
+    # caught, neither by a gate).
+    #
+    # The union is by MULTIPLICITY, not by set: an entry is kept max(prior, enumerated) times,
+    # so the grandfathered shared-prefix pairs above survive and a re-run is idempotent
+    # (plain concatenation would grow the array without bound).
+    #
+    # The cost of unioning is that a genuinely stale entry now survives, so it is NAMED on
+    # stderr rather than kept silently — a silent keep would mask exactly the drift
+    # check-deploy-manifest.sh exists to report. Removal is deliberately manual.
+    enumerated = json.loads(migrations_json)
+    prior = env.get('migrations') or []
+
+    from collections import Counter
+    shortfall = Counter(prior) - Counter(enumerated)
+    preserved = []
+    for v in prior:
+        if shortfall[v] > 0:
+            preserved.append(v)
+            shortfall[v] -= 1
+
+    if preserved:
+        print(
+            'stamp-deploy-manifest: preserved %d %s entry(ies) recorded before this run '
+            'with no .sql file in this checkout: %s' % (
+                len(preserved), env_key, ', '.join(preserved)),
+            file=sys.stderr)
+        print(
+            '  These stay because an applied migration does not become un-applied (P1103). '
+            'If one is genuinely stale, remove it by hand; ./scripts/check-deploy-manifest.sh '
+            'reports drift in both directions.',
+            file=sys.stderr)
+
+    env['migrations'] = sorted(enumerated + preserved)
     env['migrations_deployed_at'] = now
 
 existing[env_key] = env
