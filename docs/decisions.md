@@ -70,8 +70,16 @@ the param, so between navigation and resolution the **previous event's** value i
 rendered under the new event — and permanently if the new request rejects.
 
 The same shape was already present in the adjacent P1194 group-chat effect, where the
-stale value is an **RSVP-gated invite URL**. That makes the window a disclosure rather
-than a cosmetic flicker: event A's private group link rendered on event B's page.
+stale value is an RSVP-gated invite URL — event A's group link rendered on event B's page.
+
+**Corrected during the privacy pass, before this shipped: that is NOT a disclosure**, and
+the first draft of this entry said it was. The effect's own guard clears the URL whenever
+the viewer is neither host nor RSVP'd on the *new* event, and RLS on `event_private_info`
+returns zero rows to an unauthorised caller regardless — the server is the boundary, not
+the client. So the stale value can only ever be seen by someone already entitled to both
+links. It is a correctness bug (you could tap through to the wrong group), not an
+escalation. Recorded because the overstatement was caught by reading the guard rather than
+by any gate, and an inflated severity in a public log is its own kind of wrong.
 
 A 3872-test suite did not catch either. Nothing in it navigated between two events with
 different per-org values, so the input that reproduces it was never emitted — the gate-7b
@@ -83,9 +91,10 @@ is the defect. Regression test drives **real router navigation** with the second
 left unsettled — re-rendering with a fresh `MemoryRouter` remounts the component, resets
 state, and hides the bug, so that shape is not a valid test of this.
 
-**Alternatives rejected:** Treating it as a flicker and accepting it — untenable once the
-same shape holds a gated URL. Clearing only in the error path — leaves the whole
-in-flight window wrong, which is the common case.
+**Alternatives rejected:** Treating it as a flicker and accepting it — the org note shows
+the wrong organiser's words and the group block offers the wrong group, both of which a
+user acts on. Clearing only in the error path — leaves the whole in-flight window wrong,
+which is the common case.
 
 **Consequences:** Applies to every existing effect of this shape, not just these two.
 The cost is a brief empty block instead of stale content, which is the correct trade for

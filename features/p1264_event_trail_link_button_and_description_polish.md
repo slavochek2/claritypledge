@@ -169,11 +169,13 @@ after a hike — photos, "who has my jacket", where everyone went to eat.
 - The event page has exactly one full-width primary action (P955). The description chips
   are inline and auto-width by construction.
 - Per-event state fetched in an effect must be CLEARED before the new request, not only
-  written in `.then`. Both the org note and the RSVP-gated group-chat URL key on `eventId`;
-  writing only on success leaves the previous event's value rendered under the new event
-  until the request resolves, and permanently if it rejects. For the group-chat URL that
-  stale value is a gated invite link. Regression:
-  `p1264-stale-org-note-on-navigation.test.tsx`.
+  written in `.then`. Both the org note and the group-chat URL key on `eventId`; writing
+  only on success leaves the previous event's value rendered under the new event until the
+  request resolves, and permanently if it rejects. For the group-chat URL this is a
+  correctness bug, **not** a disclosure — the effect's guard clears the URL when the viewer
+  is not host or RSVP'd on the new event, and RLS on `event_private_info` is the boundary
+  in any case, so the stale value is only visible to someone entitled to both links.
+  Regression: `p1264-stale-org-note-on-navigation.test.tsx`.
 
 ## Acceptance Criteria
 

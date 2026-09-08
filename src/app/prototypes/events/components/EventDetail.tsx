@@ -107,9 +107,15 @@ export function EventDetail() {
     // Clear FIRST, then fetch. Both of these effects key on eventId, so a
     // slug-to-slug navigation inside EventDetail re-runs them with the previous
     // event's value still in state — leaving it there renders event A's content
-    // under event B until B's request resolves, and forever if it rejects. For
-    // this one that stale value is an RSVP-GATED INVITE URL, so the window is a
-    // disclosure, not a cosmetic flicker.
+    // under event B until B's request resolves, and forever if it rejects.
+    //
+    // NOT a disclosure, and the first version of this comment wrongly said it
+    // was. The guard above clears the URL whenever the viewer is neither host
+    // nor RSVP'd on the NEW event, and RLS on event_private_info is the real
+    // boundary regardless (see getEventGroupChatUrl). So the stale value is only
+    // ever visible to someone already entitled to both links. It is a
+    // correctness bug — you could tap through to the wrong group — not an
+    // escalation.
     setGroupChatUrl(null);
     eventsService.getEventGroupChatUrl(eventId)
       .then(url => { if (!cancelled) setGroupChatUrl(url); })
