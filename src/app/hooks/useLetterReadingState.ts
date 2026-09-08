@@ -155,7 +155,9 @@ export function loadState(deliveryId: string): LetterReadingState | null {
 // P959: a rating submit must never strand the receiver. Without a timeout, a
 // hung RPC leaves isSubmitting stuck true forever (the `finally` never runs),
 // which permanently disables the comprehension-rating card with no recovery.
-const RATING_SUBMIT_TIMEOUT_MS = 15000;
+// P960: the point-position submit has the same shape and the same failure, so
+// the constant is submit-generic rather than rating-specific.
+const SUBMIT_TIMEOUT_MS = 15000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -537,10 +539,19 @@ export function useLetterReadingState(
             }
           }
           if (token) {
-            await submitPointResponseByToken(token, pointId, position);
+            await withTimeout(
+              submitPointResponseByToken(token, pointId, position),
+              SUBMIT_TIMEOUT_MS,
+              'Submit point position'
+            );
           } else if (deliveryId) {
-            await submitPointResponse(deliveryId, pointId, position);
+            await withTimeout(
+              submitPointResponse(deliveryId, pointId, position),
+              SUBMIT_TIMEOUT_MS,
+              'Submit point position'
+            );
           }
+          if (!mountedRef.current) return;
         }
 
         let willComplete = false;
@@ -590,11 +601,18 @@ export function useLetterReadingState(
       } catch (err) {
         if (err instanceof Error && err.message === 'Invalid or expired token') {
           setTokenExpired(true);
-        } else {
-          throw err;
+        } else if (mountedRef.current) {
+          // P960: the RPC rejected or timed out. Rethrowing used to escape to
+          // nobody — handleSubmitPosition (letter-flow-content.tsx) awaits this
+          // with no catch — so the receiver saw the controls re-enable with no
+          // explanation, and a hung RPC never got here at all. Surface feedback
+          // and leave the phase on point-engage so the retry is available.
+          // Retry is safe: the point-response RPCs are idempotent per
+          // (delivery, point).
+          toast.error('Could not save your position. Please check your connection and try again.');
         }
       } finally {
-        setIsSubmitting(false);
+        if (mountedRef.current) setIsSubmitting(false);
       }
     },
     [mode, deliveryId, token, previewMode, snapshots, updateCurrentStory]
@@ -636,8 +654,8 @@ export function useLetterReadingState(
               .then(() => { hasMarkedInProgress.current = true; })
               .catch(() => {});
           }
-          await withTimeout(submitRatingByToken(token, currentSnapshot.story_id, rating), RATING_SUBMIT_TIMEOUT_MS, 'Submit rating');
-          const prediction = await withTimeout(revealPredictionByToken(token, currentSnapshot.story_id), RATING_SUBMIT_TIMEOUT_MS, 'Reveal prediction');
+          await withTimeout(submitRatingByToken(token, currentSnapshot.story_id, rating), SUBMIT_TIMEOUT_MS, 'Submit rating');
+          const prediction = await withTimeout(revealPredictionByToken(token, currentSnapshot.story_id), SUBMIT_TIMEOUT_MS, 'Reveal prediction');
           if (!mountedRef.current) return;
           updateCurrentStory((prev) => ({
             ...prev,
@@ -651,8 +669,8 @@ export function useLetterReadingState(
               .then(() => { hasMarkedInProgress.current = true; })
               .catch(() => {});
           }
-          await withTimeout(submitRating(deliveryId, currentSnapshot.story_id, rating, senderId, currentSnapshot.version_id), RATING_SUBMIT_TIMEOUT_MS, 'Submit rating');
-          const prediction = await withTimeout(revealPrediction(deliveryId, currentSnapshot.story_id), RATING_SUBMIT_TIMEOUT_MS, 'Reveal prediction');
+          await withTimeout(submitRating(deliveryId, currentSnapshot.story_id, rating, senderId, currentSnapshot.version_id), SUBMIT_TIMEOUT_MS, 'Submit rating');
+          const prediction = await withTimeout(revealPrediction(deliveryId, currentSnapshot.story_id), SUBMIT_TIMEOUT_MS, 'Reveal prediction');
           if (!mountedRef.current) return;
           updateCurrentStory((prev) => ({
             ...prev,

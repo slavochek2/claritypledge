@@ -384,7 +384,16 @@ export async function submitPointResponse(
     position,
   });
 
-  if (error) {
+  // P960: 23505 on letter_point_responses_unique means this (delivery, point)
+  // already has a response — the answer landed. Treat it as success rather than
+  // an error, so a retry after the P960 submit timeout can succeed instead of
+  // dead-ending on a duplicate key. The timeout rejects locally without
+  // cancelling the request, so a server commit arriving after the client gave
+  // up is a real sequence, not a hypothetical. This matches what the token path
+  // already does: submit_point_response_by_token inserts
+  // ON CONFLICT ON CONSTRAINT letter_point_responses_unique DO NOTHING
+  // (20260403224331_p581_clarity_letters.sql:599).
+  if (error && error.code !== '23505') {
     throwDbError('submitPointResponse', error, `Failed to submit point response: ${error.message}`);
   }
 
