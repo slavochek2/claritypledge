@@ -25,6 +25,8 @@ import {
   isSafeProfileLinkUrl,
   normalizeProfileLinks,
   profileLinkLabel,
+  profileLinkDisplayLabel,
+  profileLinkKind,
 } from '@/lib/profile-links';
 
 describe('P1259 — profile links: the scheme allowlist', () => {
@@ -131,5 +133,49 @@ describe('P1259 — profile links: the visible label', () => {
   it('falls back to the host, without www.', () => {
     expect(profileLinkLabel({ url: 'https://www.wikipedia.org/wiki/X' })).toBe('wikipedia.org');
     expect(profileLinkLabel({ url: 'https://yann.lecun.com/ex/index.html' })).toBe('yann.lecun.com');
+  });
+});
+
+describe('P1259 — profile links: platform recognition (founder follow-up 2026-09-08)', () => {
+  it('names the platform when the operator gave no label', () => {
+    expect(profileLinkDisplayLabel({ url: 'https://x.com/ylecun' })).toBe('X');
+    expect(profileLinkDisplayLabel({ url: 'https://twitter.com/ylecun' })).toBe('X');
+    expect(profileLinkDisplayLabel({ url: 'https://www.instagram.com/berniesanders/' })).toBe(
+      'Instagram'
+    );
+    expect(profileLinkDisplayLabel({ url: 'https://www.youtube.com/@BernieSanders' })).toBe(
+      'YouTube'
+    );
+    expect(profileLinkDisplayLabel({ url: 'https://en.wikipedia.org/wiki/Yann_LeCun' })).toBe(
+      'Wikipedia'
+    );
+    expect(profileLinkDisplayLabel({ url: 'https://www.linkedin.com/in/yoshuabengio' })).toBe(
+      'LinkedIn'
+    );
+  });
+
+  it('lets the operator label win over the platform name', () => {
+    expect(
+      profileLinkDisplayLabel({ url: 'https://yoshuabengio.org/', label: 'Homepage' })
+    ).toBe('Homepage');
+  });
+
+  it('falls back to the host for a personal site with no label', () => {
+    expect(profileLinkDisplayLabel({ url: 'https://cims.nyu.edu/~yann/' })).toBe('cims.nyu.edu');
+  });
+
+  it('matches the host exactly or on a dot-anchored suffix — never a substring', () => {
+    // The whole point of the exact match: a lookalike host must NOT borrow X's mark.
+    expect(profileLinkKind({ url: 'https://notx.com.evil.example/ylecun' })).toBe('website');
+    expect(profileLinkKind({ url: 'https://xx.com/ylecun' })).toBe('website');
+    expect(profileLinkKind({ url: 'https://instagram.com.phish.example/' })).toBe('website');
+    // ...while a real subdomain still resolves.
+    expect(profileLinkKind({ url: 'https://en.wikipedia.org/wiki/X' })).toBe('wikipedia');
+    expect(profileLinkKind({ url: 'https://m.youtube.com/@BernieSanders' })).toBe('youtube');
+  });
+
+  it('gives an unrecognised host the neutral website kind rather than a guess', () => {
+    expect(profileLinkKind({ url: 'https://controlai.com/' })).toBe('website');
+    expect(profileLinkKind({ url: 'https://cims.nyu.edu/~yann/' })).toBe('website');
   });
 });

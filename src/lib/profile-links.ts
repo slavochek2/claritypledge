@@ -85,3 +85,85 @@ export function normalizeProfileLinks(raw: unknown): ProfileLink[] {
   }
   return out;
 }
+
+/**
+ * P1259 (founder follow-up, 2026-09-08) — recognise the PLATFORM behind a link so the row
+ * can read "X" / "Instagram" / "Wikipedia" with a matching icon, instead of a bare host.
+ *
+ * Founder: *"just say something like Twitter and the link, or Instagram and link and so on.
+ * Maybe with icons."*
+ *
+ * Host matching only, and only on an exact host or a `.`-anchored suffix — never a substring.
+ * `includes('x.com')` would match `notx.com.evil.example`, which is precisely the shape a
+ * malicious operator entry would take to borrow a trusted icon. The URL already passed the
+ * https gate before it reaches here; this decides presentation, so a miss is cosmetic (the
+ * host is shown) while a false positive is a trust claim.
+ *
+ * The kind is presentation only. It NEVER widens what may be rendered — an unrecognised
+ * host is still a perfectly valid link, it just carries the generic icon.
+ */
+export type ProfileLinkKind =
+  | 'wikipedia'
+  | 'x'
+  | 'youtube'
+  | 'instagram'
+  | 'linkedin'
+  | 'facebook'
+  | 'github'
+  | 'website';
+
+/** Host suffix → kind. Order is irrelevant; matching is exact-or-dot-anchored. */
+const HOST_KINDS: ReadonlyArray<readonly [string, ProfileLinkKind]> = [
+  ['wikipedia.org', 'wikipedia'],
+  ['x.com', 'x'],
+  ['twitter.com', 'x'],
+  ['youtube.com', 'youtube'],
+  ['youtu.be', 'youtube'],
+  ['instagram.com', 'instagram'],
+  ['linkedin.com', 'linkedin'],
+  ['facebook.com', 'facebook'],
+  ['fb.com', 'facebook'],
+  ['github.com', 'github'],
+];
+
+/** The default visible name per platform, used when the operator supplied no label. */
+const KIND_LABELS: Record<ProfileLinkKind, string | null> = {
+  wikipedia: 'Wikipedia',
+  x: 'X',
+  youtube: 'YouTube',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  facebook: 'Facebook',
+  github: 'GitHub',
+  // A personal site has no platform name to fall back on — the host is the honest label.
+  website: null,
+};
+
+/**
+ * Which platform a link points at. `website` for anything unrecognised, which is the
+ * correct answer for a personal homepage as much as for a host we simply do not know.
+ */
+export function profileLinkKind(link: ProfileLink): ProfileLinkKind {
+  let host: string;
+  try {
+    host = new URL(link.url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return 'website';
+  }
+  for (const [suffix, kind] of HOST_KINDS) {
+    if (host === suffix || host.endsWith(`.${suffix}`)) return kind;
+  }
+  return 'website';
+}
+
+/**
+ * The label to show: the operator's own label wins; otherwise the platform name; otherwise
+ * the host. Keeps `profileLinkLabel`'s contract intact — that function is still the host
+ * fallback, and this one only inserts the platform step between the two.
+ */
+export function profileLinkDisplayLabel(link: ProfileLink): string {
+  const explicit = typeof link.label === 'string' ? link.label.trim() : '';
+  if (explicit) return explicit;
+  const platform = KIND_LABELS[profileLinkKind(link)];
+  return platform ?? profileLinkLabel(link);
+}
