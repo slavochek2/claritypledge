@@ -7,6 +7,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-09-08 [product]: A navigation label that asserts a time ("Join now") has to be gated on that time — and the affordance's presence keys on the generous window, not the actual end (P1272)
+
+**Context:** The event page's room nav row rendered unconditionally with a hardcoded
+"Join now". It said that on an event three weeks away, on an event cancelled weeks ago,
+and on one finished last month. The founder read it as a timing question — *"should
+appear only 1 hour before the event? not before? or what (according to time zone selected
+of event) - otherwise confusing?"* — and suspected the timezone was involved.
+
+Two things had to be separated to answer it. **Timezone was a non-issue**: `eventDate` is
+an absolute instant and `event.timezone` only picks a display zone, so any threshold
+derived from it is already correct for every viewer. And **hiding the row until T-1h would
+have been the wrong fix**: the room holds the readiness slider, the Clarity Meeting
+Principle and the opt-in roster, all meant to be read days early ("an invitation to join
+early", 2026-08-21). Gating entry would have deleted the only in-app path to pre-event
+prep in order to fix a word.
+
+**Decision:** Gate the *label and the row's presence*, never the route. "Event Room" until
+T-1h, "Join now" from T-1h, row hidden when cancelled or past. Access to
+`/events/:slug/room` stays open at every time state — the walk-in arrives by the projected
+link and never sees this row at all.
+
+**Hidden on `isPast`, not `hasEnded`** — the distinction those two constants already
+encode (2026-08-21) extends to this row. `hasEnded` fires at the event's real end, so a
+90-minute event would lose its room 90 minutes in, while a facilitator may still be
+debriefing. Every user-facing affordance on this page keys on the generous 12h window;
+`hasEnded` stays reserved for the host's destructive controls. The filing instruction for
+this fix said "isPast, hasEnded, or isCancelled" and was corrected before implementation.
+
+**The reusable half is about the comment, not the row.** The code carried a justification
+asserting *"'Join now' holds across all three time states (before/during/after) without a
+host/participant mismatch"* — a claim about behaviour in states nothing rendered or tested.
+It was wrong in two of the three and survived 18 days because a comment asserting a
+property across N states is the one kind of claim no test binds. When a rationale comment
+enumerates states, that enumeration is a test case list that was never written.
+
+**Alternatives rejected:** *Hiding the row until T-1h* — kills pre-event prep, which is
+what the room is for. *Timezone-aware threshold arithmetic* — the founder's hypothesis;
+unnecessary, since the comparison already runs on an absolute instant. *A live timer that
+flips the label at the boundary* — adds a re-render loop to the page for a word, and the
+stale direction is the harmless one: it can only under-promise ("Event Room"), never
+invite entry to something that has not started.
+
+**Consequences:** "Event Room" reverses round 4's deliberate avoidance of the word "room"
+in this position — Practice Rooms' "+ Open a room" lives one level down inside `/meet`.
+The founder chose it over "Prepare" knowing that; the collision is accepted because the
+two no longer share a screen, and the code comment records the reversal rather than
+silently dropping the old reasoning. If it resurfaces in use, the label is the thing to
+change, not the time logic.
+
+**References:** `src/app/prototypes/events/components/EventDetail.tsx` ·
+`src/tests/p1272-reproduce.test.tsx` ·
+[features/done/2026-06-10/p1272_event_room_nav_row_ignores_event_time_state.md](../features/done/2026-06-10/p1272_event_room_nav_row_ignores_event_time_state.md)
+
+---
+
+
 ## 2026-09-08 [technical]: Pin a frontmatter parser's engine by rejecting the tag, not by overriding the table (P1271)
 
 **Context:** `gray-matter` selects its parse engine from a language tag on the opening `---` line,
