@@ -7,8 +7,15 @@
 -- description, which also forced it ABOVE the group-chat button, since anything
 -- inside the description renders before the blocks that follow it.
 --
--- Nullable with no default: an org without one renders no block at all. Public,
--- like the rest of `organization` — it is a footer note, never private detail.
+-- Nullable with no default: an org without one renders no block at all.
+--
+-- Visibility: this column inherits `organization`'s EXISTING gate, it does not
+-- widen it. RLS on `organization` is `USING (visibility = 'public')` (P1010), so
+-- a PRIVATE org's note is not world-readable — the row simply does not come back
+-- and getEventOrgFooterNote returns null with no explicit check of its own. An
+-- earlier draft of this comment said the column was "public like the rest of
+-- organization", which was wrong: organization is public-by-default, not
+-- public-unconditionally.
 ALTER TABLE organization
   ADD COLUMN IF NOT EXISTS event_footer_note TEXT;
 

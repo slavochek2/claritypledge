@@ -129,4 +129,42 @@ describe('P1264: org note does not survive navigation to another event', () => {
     await waitFor(() => expect(screen.getByText('Event B')).toBeInTheDocument());
     expect(screen.queryByTestId('org-footer-note')).toBeNull();
   });
+
+  it('does not keep rendering the previous event while the new one is still loading', async () => {
+    // Found by the adversarial code review AFTER the two block-level effects were
+    // fixed: the PRIMARY fetchEvent effect has the identical shape one level up —
+    // setEvent/setIsRsvpd are written only after the await, `loading` is never reset
+    // to true on a slug change, and nothing clears `event`. So the whole previous
+    // page (title, description, RSVP state) stays on screen under the new URL.
+    // Fixing two of the three instances and shipping was the real risk here.
+    mockUseAuth.mockReturnValue({ user: null, session: null });
+    mockGetOrgFooterNote.mockResolvedValue(null);
+
+    mockGetEventBySlug.mockImplementation((slug: string) =>
+      slug === 'event-a'
+        ? Promise.resolve(makeEvent('id-a', 'event-a', 'Event A'))
+        : new Promise(() => {})   // event B never settles — what is on screen now?
+    );
+
+    let go: (to: string) => void = () => {};
+    function Nav() {
+      go = useNavigate();
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/events/event-a']}>
+        <Nav />
+        <Routes><Route path="/events/:slug" element={<EventDetail />} /></Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Event A')).toBeInTheDocument());
+
+    await act(async () => { go('/events/event-b'); });
+
+    // Event A must be gone. Anything else means the user is looking at the wrong
+    // event's page under event B's URL.
+    expect(screen.queryByText('Event A')).toBeNull();
+  });
 });

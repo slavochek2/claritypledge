@@ -63,8 +63,30 @@ export function EventDetail() {
   // it is fetched regardless of RSVP state.
   const [orgFooterNote, setOrgFooterNote] = useState<string | null>(null);
 
+  // Which slug the currently-held `event` was loaded for. A ref, not state:
+  // reading it must not itself trigger a render, and it is only ever compared.
+  const loadedSlugRef = useRef<string | undefined>(undefined);
+
   // Fetch event and RSVP status
   useEffect(() => {
+    // P1264 follow-up: a slug change means `event` still holds the PREVIOUS event,
+    // and `loading` is already false from that load — so without this the whole old
+    // page (title, description, banner, RSVP state) renders under the new URL until
+    // the new fetch resolves, and indefinitely if it rejects. Same shape as the two
+    // block-level effects below; this one is the page itself, and it was missed when
+    // those were fixed because the grep used to look for other instances searched for
+    // `.then(...set` and this effect awaits inside an async function.
+    //
+    // Guarded on a slug CHANGE rather than on every run: the deps also include auth
+    // state, and a login landing must not blank a page the viewer is already reading.
+    if (loadedSlugRef.current !== undefined && loadedSlugRef.current !== slug) {
+      setEvent(null);
+      setIsRsvpd(false);
+      setLoading(true);
+    }
+    loadedSlugRef.current = slug;
+
+    let cancelled = false;
     async function fetchEvent() {
       if (!slug) {
         setLoading(false);
@@ -81,6 +103,7 @@ export function EventDetail() {
             console.error('[EventDetail] Failed to check RSVP status:', rsvpError);
           }
         }
+        if (cancelled) return;
         // Batch both updates: avoids a flash where RSVPed users on online events
         // see the gated prompt between setEvent and setIsRsvpd resolving (P941).
         setEvent(eventData);
@@ -88,9 +111,10 @@ export function EventDetail() {
       } catch (error) {
         console.error('[EventDetail] Failed to fetch event:', error);
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
     fetchEvent();
+    return () => { cancelled = true; };
   }, [slug, isLoggedIn, user?.id]);
 
   // P1194: group chat link. Separate effect (not folded into fetchEvent) so it

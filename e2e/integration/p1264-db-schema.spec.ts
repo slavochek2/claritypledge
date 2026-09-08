@@ -47,7 +47,20 @@ test.describe('Migration: P1264 — organization.event_footer_note', () => {
       process.env.VITE_SUPABASE_ANON_KEY!,
     );
 
-    const { error } = await anon.from(TABLE).select(COLUMN).limit(1);
+    // Pin to a PUBLIC org and assert a row actually comes back. Without both, this
+    // proves only "the query did not error" — and RLS filters rather than errors,
+    // so it would pass just as happily with the policy broken and zero rows
+    // returned, or against a database holding no public org at all.
+    const { data, error } = await anon
+      .from(TABLE)
+      .select(`id, visibility, ${COLUMN}`)
+      .eq('visibility', 'public')
+      .limit(1);
+
     expect(error, 'anonymous read of the org footer note must not error').toBeNull();
+    expect(
+      data?.length,
+      'no public organization returned to an anonymous reader — either RLS regressed or the fixture has no public org, and this test cannot tell the difference without a row',
+    ).toBeGreaterThan(0);
   });
 });
