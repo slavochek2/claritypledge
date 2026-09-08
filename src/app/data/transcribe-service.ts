@@ -106,42 +106,85 @@ function generateTranscribeRoomCode(): string {
   return code;
 }
 
+/** One row of create_transcribe_room's result: the room and its creator's membership. */
+interface DbCreatedRoom {
+  room_id: string;
+  room_code: string;
+  room_event_id: string | null;
+  room_created_at: string;
+  room_ended_at: string | null;
+  member_id: string;
+  member_display_name: string;
+  member_session_id: string;
+  member_joined_at: string;
+}
+
 /**
  * Creates a new ad-hoc room (event_id null) and joins the caller as its first member.
  * The room field exists from day one, even for a single participant (spec §6).
+ *
+ * P1275: goes through create_transcribe_room(), a SECURITY DEFINER function, rather than
+ * inserting the row here. `.insert(...).select().single()` compiles to INSERT ... RETURNING,
+ * and RETURNING is evaluated under transcribe_rooms' SELECT policy for the row it just
+ * wrote — which P1207 narrowed to members only. The creator is not a member yet at that
+ * instant, so the read-back is refused and the whole insert aborts. Creating a room was
+ * broken in production from 2026-09-01 until this landed.
+ *
+ * The insert-then-read split used by joinRoom() below does NOT work here: the creator
+ * still cannot read the room back, for the same reason. The function writes the room and
+ * the membership in one transaction, so a room whose creator can neither read nor end it
+ * is not a representable state.
  */
 export async function createRoom(profileId: string, displayName: string, eventId?: string): Promise<{ room: TranscribeRoom; member: TranscribeRoomMember }> {
-  let code = generateTranscribeRoomCode();
-  let attempts = 0;
+  // One clarity_sessions row per participant — this seat's recording (A2). Minted here
+  // rather than inside the function for the same reason joinRoom mints it: createClaritySession
+  // owns that shape, and duplicating it in SQL would give it two definitions.
+  const session = await createClaritySession(displayName, profileId, false);
+
   const maxAttempts = 5;
-  let roomRow: DbRoom | null = null;
+  for (let attempts = 0; attempts < maxAttempts; attempts++) {
+    const { data, error } = await supabase.rpc('create_transcribe_room', {
+      p_code: generateTranscribeRoomCode(),
+      p_display_name: displayName,
+      p_session_id: session.id,
+      p_event_id: eventId ?? null,
+    });
 
-  while (attempts < maxAttempts) {
-    const { data, error } = await supabase
-      .from('transcribe_rooms')
-      .insert({ code, event_id: eventId ?? null })
-      .select('id, code, event_id, created_at, ended_at')
-      .single();
+    if (!error) {
+      const row = ((data ?? []) as unknown as DbCreatedRoom[])[0];
+      if (!row) throw new Error('Could not start a room. Please try again.');
+      return {
+        room: mapRoom({
+          id: row.room_id,
+          code: row.room_code,
+          event_id: row.room_event_id,
+          created_at: row.room_created_at,
+          ended_at: row.room_ended_at,
+        }),
+        member: mapMember({
+          id: row.member_id,
+          room_id: row.room_id,
+          profile_id: profileId,
+          display_name: row.member_display_name,
+          session_id: row.member_session_id,
+          joined_at: row.member_joined_at,
+        }),
+      };
+    }
 
-    if (!error && data) {
-      roomRow = data as unknown as DbRoom;
-      break;
-    }
-    if (error?.code === '23505') {
-      code = generateTranscribeRoomCode();
-      attempts++;
-      continue;
-    }
-    throw new Error(error?.message || 'Failed to create room');
+    // 23505 = unique_violation on `code`. The function deliberately does not swallow it,
+    // so a collision is recoverable here with a fresh code.
+    if (error.code === '23505') continue;
+
+    // Anything else is real. The raw Postgres text used to reach the user directly —
+    // "new row violates row-level security policy for table \"transcribe_rooms\"" is what
+    // this bug looked like from the consent screen. Keep the detail in the console for us
+    // and give the participant a sentence they can act on.
+    console.error('[transcribe] createRoom failed:', error.message, error.code);
+    throw new Error('Could not start a room. Please try again.');
   }
 
-  if (!roomRow) {
-    throw new Error('Failed to generate unique room code after multiple attempts');
-  }
-
-  const room = mapRoom(roomRow);
-  const member = await joinRoom(room.id, profileId, displayName);
-  return { room, member };
+  throw new Error('Failed to generate unique room code after multiple attempts');
 }
 
 /** Looks up an existing room by its code. Returns null if not found.

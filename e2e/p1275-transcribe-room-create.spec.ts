@@ -59,6 +59,10 @@ test.describe('P1275: starting a new /transcribe room', () => {
     for (const m of memberships ?? []) {
       await supabaseAdmin.from('transcribe_rooms').delete().eq('id', m.room_id);
     }
+    // clarity_sessions.creator_profile_id has no ON DELETE CASCADE, so the session minted
+    // by createRoom blocks the profile delete with a 23503 the helper only warns about —
+    // leaving the auth user behind on the test project every run.
+    await supabaseAdmin.from('clarity_sessions').delete().eq('creator_profile_id', creator.user.id);
     await deleteTestUser(creator.user.id);
   });
 
@@ -83,8 +87,14 @@ test.describe('P1275: starting a new /transcribe room', () => {
     await expect(roomScreen.or(joinError),
       'the join attempt must settle into either a room or an error').toBeVisible({ timeout: 15000 });
 
-    const errorText = await joinError.textContent().catch(() => null);
-    expect(errorText, 'starting a room must not surface an error').toBeNull();
+    // allTextContents() resolves against whatever matches RIGHT NOW and returns [] for no
+    // match. textContent() does NOT: it auto-waits for the element, so on the passing path
+    // — where the error element correctly does not exist — it blocks for the full default
+    // timeout before throwing, and a .catch() around it swallows that as "no error". That
+    // burned 24s of a 30s test budget and surfaced as a timeout on the NEXT assertion,
+    // which is a very convincing way for a test to look like a product bug.
+    const joinErrors = await joinError.allTextContents();
+    expect(joinErrors, 'starting a room must not surface an error').toEqual([]);
 
     await expect(roomScreen,
       'the creator must land in the room they just started').toBeVisible();
@@ -100,8 +110,8 @@ test.describe('P1275: starting a new /transcribe room', () => {
     await expect(
       page.getByTestId('transcribe-room-screen').or(page.getByTestId('transcribe-join-error')),
     ).toBeVisible({ timeout: 15000 });
-    const joinError = await page.getByTestId('transcribe-join-error').textContent().catch(() => null);
-    expect(joinError, 'the room must be created without error').toBeNull();
+    const joinErrors = await page.getByTestId('transcribe-join-error').allTextContents();
+    expect(joinErrors, 'the room must be created without error').toEqual([]);
 
     // Read the server's own state with the service role: the UI can only show what it
     // holds in React state, which would render a room that was never committed.
