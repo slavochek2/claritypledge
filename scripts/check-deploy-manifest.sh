@@ -5,6 +5,22 @@
 # Returns 1 if drift is detected. Drift is bidirectional:
 #   local-not-deployed  → FUNCTION_MISSING / FUNCTION_STALE / MIGRATION_MISSING
 #   deployed-not-local  → FUNCTION_ORPHANED (source deleted, platform still serving)
+#   stamped-not-pushed  → FUNCTION_UNPUSHED_STAMP / MIGRATION_UNPUSHED_STAMP (P1277)
+#
+# The unpushed-stamp class exists because --env prod reads the manifest from
+# origin/main. When local main is ahead of origin, a stamp that HAS been applied
+# reads as never-deployed, and this script used to print "migrate prod" or
+# "redeploy the function" as the fix — the wrong action, at the moment the
+# operator is deciding. It misled at least four times (2026-08-18, 2026-08-28,
+# 2026-09-08, and an earlier migrate.sh disagreement). The function case is
+# worse than the migration case: deploy-functions.sh stamps only the LOCAL
+# manifest, so the printed fix loops forever — redeploy, re-stamp locally,
+# still diff against origin/main, still stale.
+#
+# So when the entry is present in the working-tree manifest and absent or stale
+# only on origin/main, the diagnosis is "the stamp has not reached origin/main"
+# and the remedy is to commit and push main. MISSING/STALE is reserved for an
+# entry that is absent from BOTH manifests.
 #
 # Manifest source:
 #   --env prod  → origin/main:supabase/deploy-manifest.json (avoids false positives
@@ -42,6 +58,7 @@ ENV_KEY="$ENV_NAME"
 # --- Resolve manifest source ---
 TMPFILE=$(mktemp)
 MANIFEST_TMPFILE=""
+LOCAL_MANIFEST_PATH=""
 if [ "$ENV_NAME" = "prod" ]; then
   # For prod: always read from origin/main so that stamp commits that landed on main
   # after the feature branch was cut don't appear as false "drift" (P820).
@@ -58,6 +75,10 @@ if [ "$ENV_NAME" = "prod" ]; then
     cp "$MANIFEST" "$MANIFEST_TMPFILE"
   fi
   MANIFEST_PATH="$MANIFEST_TMPFILE"
+  # The working-tree manifest, as the second opinion (P1277). Empty when there
+  # is no local file, in which case the unpushed-stamp branch cannot fire and
+  # the classification is exactly what it was before.
+  [ -f "$MANIFEST" ] && LOCAL_MANIFEST_PATH="$MANIFEST"
 else
   # For test/local: use the local file (feature branch migrations need local baseline)
   if [ ! -f "$MANIFEST" ]; then
@@ -71,13 +92,14 @@ else
 fi
 
 # --- Compare (write to temp file to avoid set -e issues) ---
-python3 << 'PYEOF' - "$MANIFEST_PATH" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" > "$TMPFILE"
+python3 << 'PYEOF' - "$MANIFEST_PATH" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" "$LOCAL_MANIFEST_PATH" > "$TMPFILE"
 import json, sys, hashlib, os, glob
 
 manifest_path = sys.argv[1]
 env_key = sys.argv[2]
 functions_dir = sys.argv[3]
 migrations_dir = sys.argv[4]
+local_manifest_path = sys.argv[5] if len(sys.argv) > 5 else ''
 
 with open(manifest_path) as f:
     manifest = json.load(f)
@@ -86,6 +108,21 @@ env = manifest.get(env_key, {})
 deployed_functions = env.get('functions', {})
 deployed_migrations = set(env.get('migrations', []))
 
+# The working-tree manifest for the same env. Only consulted when the reference
+# manifest came from origin/main and the two disagree — see the header note on
+# the unpushed-stamp class. A malformed or absent local file degrades to the
+# old behaviour rather than failing the check.
+local_functions, local_migrations = {}, set()
+if local_manifest_path and os.path.isfile(local_manifest_path) \
+        and os.path.abspath(local_manifest_path) != os.path.abspath(manifest_path):
+    try:
+        with open(local_manifest_path) as f:
+            local_env = json.load(f).get(env_key, {})
+        local_functions = local_env.get('functions', {}) or {}
+        local_migrations = set(local_env.get('migrations', []) or [])
+    except (ValueError, OSError):
+        pass
+
 issues = []
 
 # Check edge functions
@@ -93,14 +130,35 @@ for fn_dir in sorted(glob.glob(os.path.join(functions_dir, '*/'))):
     fn_name = os.path.basename(fn_dir.rstrip('/'))
     main_file = os.path.join(fn_dir, 'index.ts')
 
-    if fn_name not in deployed_functions:
-        issues.append(f'FUNCTION_MISSING: {fn_name} (not in manifest — never deployed to {env_key})')
-        continue
-
+    local_hash = None
     if os.path.isfile(main_file):
         with open(main_file, 'rb') as mf:
             local_hash = hashlib.sha256(mf.read()).hexdigest()
-        if deployed_functions[fn_name] != local_hash:
+
+    # The working-tree manifest agrees with the code on disk, so this function
+    # WAS deployed and stamped here; only the stamp is missing from origin/main.
+    stamped_locally = (
+        local_hash is not None
+        and local_functions.get(fn_name) == local_hash
+    )
+
+    if fn_name not in deployed_functions:
+        if stamped_locally:
+            issues.append(
+                f'FUNCTION_UNPUSHED_STAMP: {fn_name} (deployed and stamped locally; '
+                f'the stamp has not reached origin/main)'
+            )
+        else:
+            issues.append(f'FUNCTION_MISSING: {fn_name} (not in manifest — never deployed to {env_key})')
+        continue
+
+    if local_hash is not None and deployed_functions[fn_name] != local_hash:
+        if stamped_locally:
+            issues.append(
+                f'FUNCTION_UNPUSHED_STAMP: {fn_name} (deployed and stamped locally; '
+                f'the stamp has not reached origin/main)'
+            )
+        else:
             issues.append(f'FUNCTION_STALE: {fn_name} (local code changed since last deploy to {env_key})')
 
 # Check for functions the manifest still lists as deployed but whose local
@@ -135,7 +193,13 @@ for sql_file in sorted(glob.glob(os.path.join(migrations_dir, '*.sql'))):
         else:
             break
     if version and version not in deployed_migrations:
-        issues.append(f'MIGRATION_MISSING: {bn} (version {version} not deployed to {env_key})')
+        if version in local_migrations:
+            issues.append(
+                f'MIGRATION_UNPUSHED_STAMP: {bn} (applied and stamped locally; '
+                f'the stamp has not reached origin/main)'
+            )
+        else:
+            issues.append(f'MIGRATION_MISSING: {bn} (version {version} not deployed to {env_key})')
 
 if issues:
     for i in issues:
@@ -166,6 +230,12 @@ while IFS= read -r line; do
     echo "  supabase functions delete $fn --project-ref <$ENV_KEY ref>   # then ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME"
   elif [[ "$line" == MIGRATION_MISSING:* ]]; then
     echo "  ./scripts/migrate.sh --env $ENV_NAME"
+  elif [[ "$line" == MIGRATION_UNPUSHED_STAMP:* ]] || [[ "$line" == FUNCTION_UNPUSHED_STAMP:* ]]; then
+    # NOT migrate.sh and NOT deploy-functions.sh. The infra change already
+    # landed; what is missing is the record of it on origin/main. Redeploying
+    # re-stamps the local manifest only, so it never clears this (P1277).
+    echo "  git log origin/main..main -- supabase/deploy-manifest.json   # confirm the stamp is local-only"
+    echo "  commit supabase/deploy-manifest.json on main, then push main to origin"
   fi
 done < "$TMPFILE" | sort -u
 
