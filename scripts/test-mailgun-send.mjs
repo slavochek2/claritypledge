@@ -145,5 +145,41 @@ await t('a CRLF subject is refused before any request is made', async () => {
   assert.equal(hit, false, 'refusal must happen before the request');
 });
 
+// --- region routing. Mailgun is region-split and the account is EU. A send to the
+// --- US base 401s, and the US API reports "domain not found" for a live EU domain,
+// --- so the symptom points at the domain rather than the region. Both directions
+// --- are pinned here because the workflow supplies MAILGUN_REGION explicitly.
+await t('region=eu routes to the EU base', async () => {
+  envFor('', { MAILGUN_REGION: 'eu' });
+  delete process.env.MAILGUN_BASE;
+  const m = await load();
+  let err = null;
+  try { await m.sendOpsEmail({ subject: 's', body: 'b' }); } catch (e) { err = e; }
+  assert.ok(err, 'expected a failure against the real endpoint with a fixture key');
+  assert.match(err.message, /api\.eu\.mailgun\.net/);
+});
+
+await t('region unset falls back to the US base', async () => {
+  envFor('', {});
+  delete process.env.MAILGUN_BASE;
+  delete process.env.MAILGUN_REGION;
+  const m = await load();
+  let err = null;
+  try { await m.sendOpsEmail({ subject: 's', body: 'b' }); } catch (e) { err = e; }
+  assert.ok(err);
+  assert.match(err.message, /\/\/api\.mailgun\.net/);
+});
+
+await t('a failure names the region, so a wrong-region 401 is diagnosable', async () => {
+  const { s, base } = await server((req, res) => { res.writeHead(401); res.end('Forbidden'); });
+  envFor(base, { MAILGUN_REGION: 'eu' });
+  const m = await load();
+  let err = null;
+  try { await m.sendOpsEmail({ subject: 's', body: 'b' }); } catch (e) { err = e; }
+  s.close();
+  assert.ok(err);
+  assert.match(err.message, /region=eu/);
+});
+
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

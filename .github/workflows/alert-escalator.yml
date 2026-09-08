@@ -61,6 +61,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OPS_EMAIL: ${{ secrets.OPS_EMAIL }}
           MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
+          # REQUIRED. The account is in Mailgun's EU region, and the send layer picks
+          # its base URL from this variable — without it the default is US, where the
+          # domain does not exist and every send 401s. Not a secret (a region name),
+          # so it is a literal rather than a repo secret. Found the hard way: a
+          # diagnostic that hardcoded the US default returned "domain not found" for a
+          # domain that had just accepted a real message, because .env.local sets
+          # MAILGUN_REGION=eu and the working code reads it while the probe did not.
+          MAILGUN_REGION: eu
           # A dedicated, domain-scoped, independently revocable Mailgun SENDING key.
           # Deliberately NOT the Mailgun *account* key: that one sits in P1239's locked
           # half, in a keychain item that demands a human answer on every read. CI has

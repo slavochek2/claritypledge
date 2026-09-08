@@ -330,37 +330,34 @@ the revert handled it.
 - [x] A send failure **fails the workflow** — proven by simulating an SMTP failure and pasting the
       non-zero exit code (gate 7; note the agent shell is zsh, so `${pipestatus[1]}`, never
       `PIPESTATUS`), **and** the same simulation's output asserted free of the password
-- [ ] `MAILGUN_SENDING_KEY` / `MAILGUN_DOMAIN` / `OPS_EMAIL` exist as repo secrets
-      (BLOCKED on founder action — see Pre-deploy Checklist)
+- [x] `MAILGUN_SENDING_KEY` / `MAILGUN_DOMAIN` / `OPS_EMAIL` exist as repo secrets
 
 ## Pre-deploy Checklist
 
-### Secrets to provision
+### Secrets to provision — DONE 2026-09-08
 
-**Founder decision taken 2026-09-08: use a dedicated Mailgun sending key.**
+All three are live repo secrets, created in the browser (the agent PAT returns 403 on
+`actions/secrets`, so it cannot install them; the founder's logged-in session could).
 
-An earlier revision proposed provisioning an All-Inkl send-only SMTP credential, and the one
-before that proposed putting `OPS_EMAIL_PASSWORD` itself into CI. Both are superseded.
+- [x] `MAILGUN_SENDING_KEY` — a dedicated **domain-scoped sending key** on
+      `mg.claritypledge.com`, minted via the EU API. Send-only, independently revocable,
+      and distinct from the Mailgun **account** key, which is enrolled in P1239's locked
+      half and must never enter CI.
+- [x] `MAILGUN_DOMAIN` — `mg.claritypledge.com`
+- [x] `OPS_EMAIL` — the ops recipient
 
-`OPS_EMAIL_PASSWORD` is in **P1239's locked half** — a keychain item trusting no application,
-human dialog on every read, because it is a full mailbox password granting IMAP read of an
-inbox that receives account-recovery mail. Putting it in CI does not widen a control, it
-**deletes** one. `MAILGUN_API_KEY` is enrolled in the locked half too, so it is equally
-ineligible.
+`MAILGUN_REGION: eu` is a literal in the workflow, not a secret — a region name is not a
+credential, and hiding it caused enough confusion already (see below).
 
-The resolution is a **dedicated, domain-scoped, independently revocable Mailgun sending key**.
-It reuses a service already wired into five edge functions, it can only send, and provisioning
-it also let the hand-rolled SMTP client be deleted — that client produced two real defects in
-one session.
-
-- [ ] **Founder action:** create a sending key in the Mailgun dashboard, scoped to
-      `mg.claritypledge.com`. Do NOT reuse the account API key.
-- [ ] `MAILGUN_SENDING_KEY` — GitHub repo secret, the key above
-- [ ] `MAILGUN_DOMAIN` — GitHub repo secret (`mg.claritypledge.com`; not secret in substance,
-      but the workflow reads it from the same place)
-- [ ] `OPS_EMAIL` — GitHub repo secret (the recipient address)
-
-The agent PAT excludes Administration scope and cannot create repo secrets.
+**Region is load-bearing and was missing.** The account is in Mailgun's **EU** region.
+`.env.local` sets `MAILGUN_REGION=eu`, the send layer reads it, and the earlier local
+send therefore worked. The workflow did **not** pass it, so the first CI run would have
+defaulted to the US base and 401'd with a correct key. Worse, the US API answers
+`"domain not found"` for a live EU domain, so the symptom points at the domain rather
+than the region — a full diagnostic detour ran on that false trail before the cause was
+found. `MAILGUN_REGION` is now in the workflow env, both routes are pinned by fixtures,
+and a non-2xx now names the base URL, the domain and the region rather than just the
+status code.
 
 ### Post-deploy verification
 - [ ] One `workflow_dispatch` run against the live open issue #11 (aged 3+ days) delivers one email

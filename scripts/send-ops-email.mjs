@@ -86,7 +86,14 @@ export async function sendOpsEmail({ subject, body, to = process.env.OPS_EMAIL }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new SendError(`Mailgun returned ${res.status}: ${detail.slice(0, 300)}`);
+    // Name the BASE and the DOMAIN, not just the status. Mailgun is region-split, and
+    // a 401 from the wrong region is indistinguishable from a bad credential unless the
+    // message says which endpoint refused. That ambiguity cost a long debugging detour:
+    // the US endpoint reports "domain not found" for an EU domain that is live, so the
+    // symptom points at the domain rather than at the region.
+    throw new SendError(
+      `Mailgun ${res.status} from ${MAILGUN_BASE}/${domain} ` +
+      `(region=${process.env.MAILGUN_REGION || 'unset->us'}): ${detail.slice(0, 200)}`);
   }
 
   // P1256, learned the hard way in this repo: a 2xx WITHOUT an id is a SENT email.
