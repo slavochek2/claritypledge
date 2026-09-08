@@ -339,6 +339,11 @@ the revert handled it.
       only the catch case (gate 7c)
 - [x] An issue past the threshold opened by an account other than `github-actions[bot]` produces no
       email — the untrusted-author case is tested (Security required change #1)
+- [x] The registry's `match_title` values and the producers' `TITLE=` values are compared directly,
+      extracted from both files rather than restated in a test — exact matching means one character
+      of drift silently disables a check forever, and no fixture can catch it because fixtures
+      supply their own titles. Byte-exact today across all 8 titles; failure path exercised in both
+      directions (a retyped em-dash, and a renamed producer)
 - [x] A producer workflow that has not run in > 25h is itself reported
 - [x] A send failure **fails the workflow** — proven by simulating an SMTP failure and pasting the
       non-zero exit code (gate 7; note the agent shell is zsh, so `${pipestatus[1]}`, never
