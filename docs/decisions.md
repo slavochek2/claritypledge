@@ -6,6 +6,129 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [technical]: A response parser reading the wrong field does not fail — it returns nothing, and nothing is a legitimate answer (P1236)
+
+**Context:** P1236's ingest read a transcript from `candidates[0].content.parts[0].text`. The
+model returns it at `parts[0].audioTranscription.text`. Reading the wrong key threw nothing, logged
+nothing and returned `undefined` — and the handler, correctly, treats an empty transcript as
+silence and writes no row. **Every slice would have been recorded as "the room was quiet", for the
+life of the feature, with no error anywhere in the system.** It only surfaced because a second,
+louder bug (the API rejecting a system instruction with HTTP 400) forced a real request to be sent
+by hand from a real phone.
+
+**Decision:** When an empty result is a MEANINGFUL value in a domain — silence, no matches, no
+rows, nobody home — a parser must not be allowed to manufacture it. Read the field, and separately
+assert the shape you expected was actually present. In P1236's case the fallback chain is
+`audioTranscription?.text ?? text`, and the fix is paired with a live-API test rather than a fixture.
+
+**Alternatives rejected:** *Trust the API docs* — the committed harness encoded the same wrong
+shape and had never been executed, so the doc-derived belief and the code agreed with each other
+and both were wrong. *Assert non-empty* — that would break the genuine silence case, which Finding
+6 measured at 16 of 43 slices and which this design depends on.
+
+**Consequences:** This is the counterpart to the "empty result" family already in this log, one
+level nastier: those return nothing because nothing was there; this returns nothing because the
+CODE looked in the wrong place, and the two are indistinguishable at the call site. Whenever
+"empty" is a legitimate domain value, the empty path deserves the same scrutiny as the error path —
+usually a test that proves a NON-empty input produces a non-empty result through the real
+integration, which is the one thing a fixture cannot do.
+
+**References:** `supabase/functions/transcribe-slice/index.ts`, `scripts/p1236-gemini-slice-bench.py`
+
+---
+
+## 2026-09-08 [process]: A reproducibility artifact that has never been run against real credentials is prose, not evidence (P1236)
+
+**Context:** `scripts/p1236-gemini-slice-bench.py` was committed to make Findings 6, 7 and 8
+reproducible, and the spec honestly recorded that its API call was "verified only as far as the
+wire" — with an invalid key the request reached the endpoint and was rejected on auth, so transport
+and request construction were exercised and nothing else. That caveat was correct and it was still
+not enough: the harness carried TWO defects that only a real call reveals (an unsupported request
+field, and the wrong response field), and the new production code copied both faithfully, because
+copying a committed harness is exactly what a careful implementer does.
+
+**Decision:** An artifact whose purpose is reproducibility is not done until it has been run
+end-to-end against real credentials at least once. Where credentials are not available in the
+session, the artifact ships **labelled UNRUN in its own header** — not only in the spec that
+references it — because the next reader is someone opening the file, not someone re-reading the
+spec.
+
+**Alternatives rejected:** *Rely on the spec's caveat* — it was there, it was accurate, it was
+read, and the defects propagated anyway; a warning one document away from the code does not travel
+with the code. *Mock the API* — a mock encodes the same wrong belief as the parser, and would have
+passed.
+
+**Consequences:** The failure mode is specific and repeatable: an unrun artifact is MORE dangerous
+than no artifact, because it carries the authority of committed, reviewed code. Both P1236 defects
+lived in it for days and were reproduced verbatim into the feature. Where a real call is impossible
+this session, say so in the file itself and make the first real run a named build step.
+
+**References:** `scripts/p1236-gemini-slice-bench.py`, [features/p1236_server_side_live_transcription_for_rooms.md](../features/p1236_server_side_live_transcription_for_rooms.md) Stage B/G
+
+---
+
+## 2026-09-08 [technical]: Narrowing a SELECT policy silently breaks every `INSERT … RETURNING` on that table — second instance, and this one is live in prod (P1207/P1236)
+
+**Context:** P1207 correctly scoped `transcribe_rooms` reads to members only, closing a room-code
+enumeration hole. `INSERT … RETURNING` is evaluated under the SELECT policy for the row it just
+wrote — and at the instant a room is created its creator is not yet a member, so the read-back is
+refused and the whole insert fails. **Creating an ad-hoc `/transcribe` room has been broken since
+that migration shipped**, surfacing to the user as a raw `new row violates row-level security
+policy`. Joining an existing room is unaffected; it goes through a definer function.
+
+Verified rather than inferred: same user, same table, same row — insert without `RETURNING`
+succeeds, insert with it fails. The identical trap is already documented in a long comment on the
+*join* path from P1149, where it was found and worked around. Nobody checked the sibling call.
+
+**Decision:** Narrowing a SELECT policy is a breaking change to every write on that table that
+reads its own row back, not just to reads. When a SELECT policy is scoped to membership,
+ownership, or any relation established AFTER the insert, the create path must go through a
+`SECURITY DEFINER` function that writes the row and its qualifying relation together.
+
+**Alternatives rejected:** *Split into insert-then-read* — the fix used on the join path in P1149,
+and it does not work here: the creator still cannot read the room back, because they are still not
+a member. *Loosen the SELECT policy* — reintroduces the enumeration hole P1207 closed.
+
+**Consequences:** Two instances now, one of them shipped to production undetected for a week. The
+mechanical check is cheap and does not exist: when a migration changes a SELECT policy, grep the
+data layer for `.select(` chained onto `.insert(` against that table. Recorded here rather than
+fixed inline — it is outside P1236's scope and deserves a reproduction test that fails first.
+
+**References:** `src/app/data/transcribe-service.ts` (createRoom), `supabase/migrations/20260901160000_p1207_transcribe_rooms_code_enumeration.sql`
+
+---
+
+## 2026-09-08 [process]: When the end of a chain is silent, probe the MIDDLE before concluding anything about the start (P1236)
+
+**Context:** Live transcription produced no rows. Two observations — an empty results table and an
+empty storage prefix — both pointed at "the phone is sending nothing", and that was reported to the
+founder as a finding. It was wrong. The phone had been sending correctly the whole time; every
+request was failing at the external API, and the storage check had looked under a path the system
+does not actually use. Two independent signals, both consistent, both misleading, because **both
+measured the same end of the chain.**
+
+The probe that settled it in one shot — send a real audio slice to the deployed function by hand,
+with a real token — was available from the first minute and was run third.
+
+**Decision:** When a multi-hop pipeline produces nothing at its output, the first probe injects at
+a MIDDLE hop rather than inspecting the output again from another angle. Two views of the same
+endpoint are one observation, not two, however independent the tools feel.
+
+**Alternatives rejected:** *Add client-side logging first* — it was eventually added and told us
+nothing we could not get faster; instrumenting the least accessible end of the chain is the most
+expensive way to start. *Infer from the UI state* — the interface showed "Listening" throughout,
+which was true and useless, because it reports what the client attempted rather than what arrived.
+
+**Consequences:** Generalises the existing rule that N identical retries are one observation: N
+DIFFERENT probes of the same endpoint are also one observation. The distinguishing question before
+the next probe is "does this read a different HOP", not "does this use a different tool". Cost here
+was roughly twenty minutes and one confidently wrong statement to the founder while he sat talking
+to a phone that was working.
+
+**References:** [features/p1236_server_side_live_transcription_for_rooms.md](../features/p1236_server_side_live_transcription_for_rooms.md) Stage G, [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 2
+
+---
+
 ## 2026-09-08 [technical]: `REVOKE … FROM PUBLIC` does not lock down a NEW function on Supabase — read the grant back from the catalog, never from the migration text (P1236)
 
 **Context:** P1236 created a `SECURITY DEFINER` join RPC with `REVOKE ALL … FROM PUBLIC` followed by
