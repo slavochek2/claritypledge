@@ -6,6 +6,90 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [technical]: An exclusion clause that was true of half its scope hid a credential from every control (P1267)
+
+**Context:** Adding a credential depends on remembering four places, and nothing checked. On
+2026-09-08 a mail-sending key reached the CI secrets store and no registry. The cause was narrower
+and more interesting than "someone forgot": the P1147 credential drift audit is invoked by
+`/weekly` with `--not-enumerated` for the CI surface, justified by the agent's credential having no
+API access to that store — verified true, the API returns 403 by design (P970/P919 withheld
+Administration scope deliberately). But that reasoning covers the **store**; the clause excluded the
+**workflow files' references** to it, which sit in the repo and need no network. One sentence, two
+scopes, only one of them checked. Compounding it, the audit's live set is derived from env files, so
+a credential living only in CI was invisible to all three directions of a three-direction audit.
+
+**Decision:** Extend the existing audit rather than add a second grep — the registry parser handles
+two registries whose key columns are named differently (`Env var` vs `Secret`) and took two specs
+plus a false-clean incident to get right. `--gate-workflows` is the blocking form (pre-commit, when
+a workflow is staged); `--workflows-dir` on `--audit` is the standing-state form (`/weekly`). Both
+resolve "registered" through one function so they cannot drift apart. The `--not-enumerated` clause
+now names only the values as unreachable.
+
+**Alternatives rejected:** A standalone grep in `pre-commit-checks.sh` — P1248 was rejected partly
+for rebuilding in that script what an existing tool already did. A CI-side required check — the
+registries are gitignored, so it would fail open silently or require publishing the inventory, which
+P1248 established is a worse disclosure than the drift it prevents. Granting the agent's token
+Administration scope so the store becomes readable — the standing 2026-06-27 ruling is that the
+enforced party must not be able to administer its own gate.
+
+**Consequences:** The control is **local-only and fails open**: registries are gitignored, so a
+fresh checkout has neither file, and the check now counts that skip as a warning so the summary line
+differs from a real pass. It catches *used-but-undocumented*, never *exists-but-undocumented*. And
+it proves only that a name appears in some registry table — **not** its Location or Status. Enforcing
+the location half is currently impossible: `parse_registry` disables the location check per FILE when
+any single table lacks a Location column, and both real registries are in that state, which also
+means `REGISTRY_LOCATION_MISMATCH` is unreachable against production data today. That is a
+pre-existing P1147 limit surfaced here, and it is the higher-value follow-up
+(`.private/docs/process-learnings.md`, 2026-09-08).
+
+**References:** `scripts/audit-credential-drift.sh` · `scripts/test-credential-workflow-gate.sh` ·
+[features/done/2026-06-10/p1267_ci_secret_registration_has_no_gate.md](../features/done/2026-06-10/p1267_ci_secret_registration_has_no_gate.md) ·
+P1147 · P1153 · P1248 · decisions.md 2026-09-08 [process] "A locked-half credential cannot be handed to CI"
+
+---
+
+## 2026-09-08 [process]: Three times in one feature, the check that ran was not the check we thought had run (P1267)
+
+**Context:** P1267 built a gate and ran it through a canary, a measurement, and two independent
+reviews. Each stage found something the previous stage's green had covered.
+
+1. **The canary was green over a false positive that refused legitimate work.** The reference
+   pattern had no left word boundary, so the ordinary Actions idiom `steps.check-secrets.outputs.value`
+   matched as `secrets.outputs` and hard-failed a workflow containing no secret at all — the exact
+   failure mode the spec's own risk table called non-negotiable. 20 assertions did not see it,
+   because no fixture emitted a non-secret string containing "secrets.".
+2. **Measurement found what review did not.** Backfilling one correct registry row pushed
+   `RETIREMENT_CANDIDATE` from 28 to 29: a workflow was not counted as a consumer, so registering a
+   CI-only credential immediately reported it as documented-but-unused. Nothing in review predicted
+   this; a before/after diff did, which is why that diff was an acceptance criterion.
+3. **A reviewer's finding was right and its proposed fix was wrong.** The suggested `\b` boundary
+   does not work — a hyphen *is* a word boundary, so `\bsecrets\.` still matches inside
+   `check-secrets`. Applying it would have shipped the false positive while closing the ticket.
+
+**Decision:** Three practices, each cheap and each earned here. Run a **before/after measurement of
+the tool's own output** when a change alters what a shared analyser reports, and treat the diff as an
+acceptance criterion, not a nicety. **Re-run a reviewer's proposed fix before applying it** — gate 9
+already binds a reviewer's *claim*; the *remedy* needs the same treatment and had no rule. And when a
+gate's acceptance criterion turns out stronger than the mechanism, **correct the criterion**: do not
+ship the stronger wording over the weaker check.
+
+**Alternatives rejected:** Trusting a green suite as coverage — it bounded what had been modelled,
+which is epistemic gate 7b, and this feature was written by someone citing 7b at others. Applying
+the reviewer's fix on authority — it was specific, confident, and wrong in a way one probe exposed.
+
+**Consequences:** The canary now carries a section whose only purpose is input classes the fixture
+could not previously emit, including one asserting a blind spot rather than a behaviour. A second
+lesson worth its own note: **measurement under concurrency needs a stability guard.** Two of three
+before/after runs were void because another feature shipped to `main` mid-measurement; only a
+HEAD-and-tree hash captured either side of the run made that visible instead of producing a
+confidently wrong number.
+
+**References:** `scripts/test-credential-workflow-gate.sh` (sections E, F) ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7, 7b, 7c, 9 ·
+[features/done/2026-06-10/p1267_ci_secret_registration_has_no_gate.md](../features/done/2026-06-10/p1267_ci_secret_registration_has_no_gate.md)
+
+---
+
 ## 2026-09-08 [process]: A merge commit stages all of main, so it fires every pre-existing violation on main at once
 
 **Context:** P1264's branch was 56 commits behind main and `git merge main` was run to
