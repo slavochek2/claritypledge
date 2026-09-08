@@ -40,17 +40,28 @@ if [ -d "$WORKTREES_DIR" ]; then
   done
 fi
 
-highest=$(find $scan_dirs -name "p*.md" 2>/dev/null \
+# [pP] and grep -i: features/archive/5_feb_26/P55_INSIGHTS.md is a real spec
+# whose number is owned like any other, and it was invisible to a lowercase-only
+# scan while the deleted-spec scan below already matched [pP]. The two halves now
+# agree (P996 adversarial review).
+highest=$(find $scan_dirs -name "[pP]*.md" 2>/dev/null \
   | grep -v "/uat/" \
   | grep -v "_uat\.md" \
-  | grep -oE '/p[0-9]+' \
+  | grep -oiE '/p[0-9]+' \
   | grep -oE '[0-9]+' \
   | sort -n \
   | tail -1)
 
-# Include P-numbers from deleted specs so they can't be reused.
+# Include P-numbers from deleted specs so they can't be reused. features/archive/
+# is in the pathspec for the same reason the live scan above now covers it: a
+# rejected spec permanently owns its number, and deleting the archived file must
+# not hand that number back (P996 — found by adversarial review of the P996
+# canary, which only covered specs still present on disk). uat companions cannot
+# leak in: every pathspec is anchored on a leading [pP], and a companion is
+# named uat_pNNN.md.
 git_highest=$(git -C "$REPO_ROOT" log --all --diff-filter=D --name-only --format="" \
-  -- 'features/[pP]*.md' 'features/done/[pP]*.md' 'features/done/*/[pP]*.md' 2>/dev/null \
+  -- 'features/[pP]*.md' 'features/done/[pP]*.md' 'features/done/*/[pP]*.md' \
+     'features/archive/[pP]*.md' 'features/archive/*/[pP]*.md' 2>/dev/null \
   | grep -oiE '[pP][0-9]+' | grep -oE '[0-9]+' \
   | sort -n | tail -1)
 

@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: qa
 type: bug
 disclosure: public
 rank: 77
@@ -11,9 +11,8 @@ tags:
   - specs
   - p-numbers
   - silent-failure
-delivery_stage: create-bug
-pipeline_ran:
-  - create-bug
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P996: next-p-number.sh reissues P-numbers belonging to rejected specs
@@ -76,12 +75,48 @@ Then update `.claude/rules/features.md:57` (via `/slava:maintain:claude-md`) to 
 
 ## Acceptance Criteria
 
-- [ ] The bug is **seen to fire before the fix** — reproduce against the fixture from Reproduction Steps and paste the wrong output (epistemic gate 7: a fix never observed failing is unproven)
-- [ ] After the fix, the same fixture returns a number above the archived maximum
-- [ ] **Regression:** `uat/` companions still do not drive the sequence — prove `features/uat/p617` (and the `uat_p*` files inside `archive/`) do not push the max, both before and after
-- [ ] Running the script today still returns a free number — verified by hand against `features/`, `features/done/`, `features/archive/`, `.claude/worktrees/*/features/`, and `supabase/migrations/`
-- [ ] `.claude/rules/features.md:57` no longer certifies the archive exclusion as correct, and the edit routed through `/slava:maintain:claude-md`
-- [ ] The historical p994/p995 situation is left alone — P995 is correctly filed and must not be renumbered
+- [x] The bug is **seen to fire before the fix** — `SCRIPT_UNDER_TEST=<389cb0a95^ copy> ./scripts/test-p996-next-p-number-archive.sh` reports `5 passed, 5 failed`, exit 1; the archive scenario returns 11 where 21 is correct
+- [x] After the fix, the same fixture returns a number above the archived maximum — same canary against the current script: `10 passed, 0 failed`, exit 0 (archive scenario returns 21)
+- [x] **Regression:** `uat/` companions still do not drive the sequence — canary scenarios 2 and 3 (`features/uat/p50.md`, `features/archive/uat_p60.md`) return 11 both before and after the fix, plus a git-history scenario proving a deleted `uat_p*` reserves nothing
+- [x] Running the script today still returns a free number — `./scripts/next-p-number.sh` prints 1277; hand-computed maxima: features 1276, done 1272, archive 1251, worktrees 1276, migrations 1264
+- [x] `.claude/rules/features.md:57` no longer certifies the archive exclusion as correct — corrected by commit `389cb0a95` on 2026-07-15; the line (now 148) reads "it scans `archive/` because rejected specs permanently own their P-number (P996)". No further edit needed
+- [x] The historical p994/p995 situation is left alone — `features/archive/p994_infra_vuln_leak_precommit_gate.md` and `features/done/2026-06-10/p995_backup_staleness_alert_routing.md` both untouched
+
+## Fix as shipped
+
+The script change landed on 2026-07-15 in `389cb0a95` with **no regression test**, and the spec
+was never closed. This branch adds the missing canary
+(`scripts/test-p996-next-p-number-archive.sh`, 9 scenarios, parameterised by `SCRIPT_UNDER_TEST`
+so the pre-fix revision can be run through it) and closes two further holes the canary's
+adversarial review exposed, both the same defect reached by a different path:
+
+1. The `--diff-filter=D` scan that reserves **deleted** specs' numbers had no `features/archive/`
+   pathspec, so deleting a rejected spec handed its number back. 25 files have been deleted from
+   under `features/archive/` in this repo's history, and that directory is nested by date, so both
+   `features/archive/[pP]*.md` and `features/archive/*/[pP]*.md` were added.
+2. The live scan matched `p*.md` and a lowercase-only `/p[0-9]+`, while the deleted-spec scan
+   already matched `[pP]`. `features/archive/5_feb_26/P55_INSIGHTS.md` is a real uppercase spec
+   that was invisible to the allocator. Both halves now match case-insensitively.
+
+A third review pass then found that the archive-uat regression scenario did not bind the filter
+it named: `find -name "[pP]*.md"` never selects `uat_pNNN.md`, so that scenario stayed green with
+`grep -v "_uat\.md"` deleted. The other naming shape — `pNNN_uat.md`, of which
+`features/archive/p622_uat.md`, `p577_uat.md` and `5_feb_26/p97_uat.md` are real — is the one that
+filter actually catches, and it became load-bearing the moment archive/ started driving the
+sequence. Scenario 3b covers it: with the filter removed the allocator returns 601 instead of 11.
+The harness also now poisons its own result when the script under test exits non-zero, so a correct
+number printed by a failing run can no longer read as a pass.
+
+Not fixed, deliberately: the live scan greps P-tokens out of the whole path, so a
+directory-shaped token (`features/verification/p1210/`) contributes its number. That direction
+inflates the sequence rather than reissuing a used number, so it cannot cause the corruption this
+spec exists to prevent, and narrowing the match is a change to allocation behaviour that belongs
+in its own spec. Two further review findings are likewise out of this spec's scope and are
+recorded rather than fixed: allocation is read-only and non-atomic, so two concurrent callers can
+be handed the same number (a real gap, but a different defect from the archive exclusion, and one
+that needs a reservation mechanism rather than a scan change); and `find $scan_dirs` is unquoted,
+so a repo path containing a space would break the scan. Neither can be triggered by the situation
+P996 describes.
 
 ## Origin
 
