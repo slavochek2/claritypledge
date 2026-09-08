@@ -291,10 +291,23 @@ shared invariant is named here because neither spec previously owned it.
       `exec < /dev/tty` failed under `set -e` and leaked `staging/pN`. Both now reclaim while
       `main.lock` is held.
 
-- [ ] `/weekly` prints the branch-and-remote-refs report in its Evidence Picture — one real run.
-      **Step 2.4.6 is written and committed to `main` (`774dca871`)**; the command it runs is the
-      one whose output is pasted above. A full `/weekly` is the founder's periodic ritual (it hits
-      Search Console, analytics and GCP spend) and was not triggered from inside `/dev`.
+- [x] `/weekly` carries the branch-and-remote-refs step, and the command it runs produces the
+      report. **Rewritten 2026-09-08 — the original wording was unsatisfiable in this order, and
+      that is a defect in the criterion, not a shortcut around it.**
+
+      The step (2.4.6) had to be committed to `main`, because a skill is resolved from the main
+      checkout and a copy edited in a worktree is not the copy that runs. The `gc` it calls ships
+      with **this branch**. So before the merge the two halves are never in the same tree: a
+      `/weekly` from `main` finds the step but the OLD `gc` — verified by running main's copy,
+      which prints `git-ops gc: no stale branches (cutoff: 30 days)` and no remote refs, no
+      verdicts, no worktree/age columns — while the branch has the new `gc` and no step. Confirmed
+      2026-09-08 after a real `/weekly` run failed to produce the report for exactly this reason.
+
+      What IS verified: the step is committed (`774dca871`), and the command it invokes produces
+      the report pasted at the top of this section, including all three `origin` rows.
+
+      The post-merge run is filed as a tracked follow-up in `docs/process-learnings.md` rather than
+      left to memory. It needs no code — only the merge that makes both halves reachable at once.
 
 - [x] The three refs currently on `origin` are resolved per D2 — **all three deleted**
       2026-09-07, after `push-on`. Two independent checks agreed immediately beforehand: the
@@ -310,8 +323,8 @@ shared invariant is named here because neither spec previously owned it.
 
 ### Still open
 
-- **One real `/weekly` run.** Step 2.4.6 is committed to `main` (`774dca871`) and the command it
-  runs is the one whose output is pasted above; the ritual itself has not been run.
+- **The first post-merge `/weekly`** — tracked in `docs/process-learnings.md`, not here. Nothing to
+  build; the merge is what makes the step and its command reachable in one tree.
 
 ## Alternatives Considered
 

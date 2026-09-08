@@ -30,6 +30,25 @@ an empty file is the healthy state.
 
 ---
 
+## Confirm the P1260 branch-and-remote-refs step on the first post-merge `/weekly`
+
+**Status:** proposed
+**due:** week
+
+P1260 added step 2.4.6 to `/weekly` (it runs `git-ops.sh gc` and prints every local branch and
+every head on `origin` with a merge verdict). The step was committed to `main`; the rewritten `gc`
+it calls shipped with `feature/p1260-ref-class-publication`. Before that merge the two halves were
+never in one tree, so the step could not produce its report — a `/weekly` on 2026-09-08 ran the old
+`gc` and printed `no stale branches` instead.
+
+**To close:** on the next `/weekly` after the merge, confirm the Evidence Picture shows a `REFS:`
+line and per-ref verdicts. If it does, delete this entry and add a one-line `[process]` note to
+`docs/decisions.md`. If it does not, the step's command path is wrong and needs a fix.
+
+
+
+---
+
 
 ## /ship's direct-to-main path needs a stamp that only /dev and /fix write (due: month)
 
