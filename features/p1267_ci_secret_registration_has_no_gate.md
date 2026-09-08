@@ -146,7 +146,9 @@ Three parts, in dependency order:
    loudly when the registries are absent rather than passing silently.
 
 `scripts/new-credential.sh` — the founder's own framing: *"the gate is the load-bearing half; the
-helper is convenience."* Deferred to a follow-up, not built here. A helper that writes a row is
+helper is convenience."* Deferred deliberately and **filed to the task inbox rather than left in
+prose** (`.private/docs/process-learnings.md`, 2026-09-08, `due: month`) — a deferral that names no
+destination is the scope-drop this repo's own ship gate scans for. A helper that writes a row is
 worth having only once the gate defines what a valid row is, and building both together lets the
 helper's output define the gate's expectations instead of the other way round.
 
