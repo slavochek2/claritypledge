@@ -2630,9 +2630,13 @@ ship_run_gates() {
     die "ship: --override requires an interactive terminal.
 
   This session has no controlling terminal (/dev/tty is not openable), which is
-  how an agent shell always looks. That is deliberate: P1246's invariant is that
-  no override is writable by the party being gated. Report the gate failure to
-  the founder rather than trying to satisfy this check.
+  how an agent shell looks by default.
+
+  This check is friction and an audit trail, NOT a wall you are unable to climb:
+  a pty wrapper such as script(1) defeats it (verified 2026-09-08). Do not reach
+  for one. An override you obtain that way is indistinguishable in the log from a
+  founder's decision, which is precisely the self-attestation this gate exists to
+  end. Report the gate failure and let the founder decide.
 
   Founder: run the same command from a real terminal window."
   fi
@@ -2988,14 +2992,33 @@ cmd_ship() {
   # gone from features/, the flag is not yet set, and the gate hard-failed a
   # recovery path whose whole purpose is surviving that crash. Caught only by
   # running the suite's existing workflows against the new gate — epistemic.md
-  # gate 7c, which asks exactly this and is the reason this is a comment and not
-  # an incident.
+  # gate 7c.
+  #
+  # THE SECOND CONDITION MUST BE AN ON-DISK FACT, NOT A JOURNAL CLAIM. Its first
+  # form asked "is the journal's spec_file absent from features/?" — which an
+  # adversarial review defeated in one step, verified end-to-end 2026-09-08:
+  #
+  #   .ship-journal/pN.json is a plain unauthenticated file with a documented
+  #   schema. Write one naming a spec_file that never existed, run `ship pN
+  #   --resume`, and the "moved but unflagged" arm fires, the closure gate is
+  #   never called, and Phase 1 cherry-picks every commit in the journal's
+  #   `commits` array onto main. Measured: payload.txt from an unreviewed branch
+  #   landed on main with a deliberately-unticked spec and zero GATE lines in the
+  #   output. Phase 2 then died on the bogus path, so the SPEC stayed open — but
+  #   the CODE was already merged, ungated. That is the exact failure class this
+  #   spec exists to close, reached through the closing code it added.
+  #
+  # The fix is to ask the filesystem, not the journal: a spec has "already left
+  # features/" only if a closed copy is actually sitting in features/done/. That
+  # is true in the genuine P1094 crash window (Phase 2 git-mv'd it there before
+  # the crash) and false for any forged journal, because a forger would have to
+  # produce the closed artifact itself — at which point the close has happened.
   _gate_skip=0
   if (( journal_exists == 1 )); then
     if ship_journal_flag "$pn" "spec_closed"; then
       _gate_skip=1
-    elif [[ -n "$spec_file" && ! -f "$REPO_ROOT/$spec_file" ]]; then
-      # Moved but unflagged — the crash window above.
+    elif ( cd "$REPO_ROOT" && ls features/done/*/"${pn}"_*.md >/dev/null 2>&1 ); then
+      # Genuinely moved but unflagged — the P1094 crash window.
       _gate_skip=1
     fi
   fi

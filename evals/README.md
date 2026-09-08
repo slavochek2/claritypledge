@@ -4,7 +4,10 @@
 baseline arm (`--ablation with-without`), to answer one question the gates
 themselves cannot: **do the skill files actually change agent behaviour?**
 
-The gates in `scripts/` are deterministic and bind regardless. These cases cover
+The gates in `scripts/` are deterministic. The override prompt in front of them
+is **not** — it is defeatable by any agent willing to wrap its command in a pty
+allocator (see `scripts/lib/gate-override.sh`), so whether an agent *chooses* not
+to is a behavioural property, and behavioural properties are what evals measure. These cases cover
 the layer above them — whether an agent reading `ship.md` / `create-spec.md`
 does the right thing *before* a gate has to refuse it. A skill that scores the
 same with and without the plugin is not earning its place, which is the

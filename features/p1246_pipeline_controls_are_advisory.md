@@ -141,14 +141,13 @@ stdin tty: NO   stdout tty: NO   stderr tty: NO
 /dev/tty: "Device not configured"   <- not redirected, ABSENT
 ```
 
-A controlling terminal is the one thing in this environment an agent structurally
-cannot obtain, so "was a human present at this invocation?" is answerable and
-cannot be spoofed by setting a variable, touching a file, or passing a flag. This
-satisfies the Invariant *"No override is writable by the agent being gated"* —
-which the flag-file option does not, by the founder's own global rule
-(*"authorization the agent can forge is not authorization"*). There is deliberately
-no test-mode env var; the canary proves the allow-path through a real pty via
-`script(1)`.
+**That measurement is correct. The inference drawn from it was not, and the
+decision was taken on a false premise — see the correction below.**
+
+The claim was that a controlling terminal is the one thing an agent structurally
+cannot obtain, so the Invariant *"No override is writable by the agent being
+gated"* would be satisfied. There is deliberately no test-mode env var, and the
+canary proved the allow-path through a real pty via `script(1)`.
 
 The reason typed at the prompt is recorded twice: in
 `git-common-dir/gate-overrides.log`, and — the one that matters — as a
@@ -156,10 +155,52 @@ The reason typed at the prompt is recorded twice: in
 and greppable across history.
 
 **D2 — yes, a gate may block the founder.** One code path, no actor detection.
-The gate refuses everyone; only a human at a terminal can pass it. This makes
-"agent vs founder" a structural property (TTY presence) rather than something a
-session self-declares, and it means an agent can never reach the state where work
-is closed unverified — the 83% failure this spec measures.
+The gate refuses everyone; passing it requires answering a prompt on /dev/tty.
+The *intent* — no actor detection, one path — survives the correction below; the
+claim that this made "agent vs founder" a structural property does not.
+
+### CORRECTION, same day: D1's premise is false
+
+An adversarial review falsified the central claim, and it reproduces in one
+command from a plain agent shell with no human present:
+
+```
+$ { sleep .5; printf 'agent typed this, no human present\n'; sleep .5; } \
+    | script -q /dev/null bash -c './scripts/git-ops.sh ship p777 --override'
+[GATE 2.5] FAIL: 1 unticked completion item(s)
+  ── GATE OVERRIDE ──
+ship: GATE OVERRIDE accepted for p777
+Ready to push.
+```
+
+`script(1)` is a standard, unrestricted utility that allocates a real pty. A spec
+with an unticked box was closed by an agent on a red gate.
+
+**The tell was inside the test.** The canary proved the allow-path by feeding the
+prompt through `script(1)` — it used the bypass as its stand-in for a human. An
+oracle built out of the thing under test cannot detect that thing, which is the
+independence rule in CLAUDE.md, and it is why this survived being "proven" in
+four canary arms.
+
+**No local check fixes it.** Detecting `script` is an arms race against every
+other pty allocator, and any predicate an agent can read it can arrange to
+satisfy. What the prompt is actually worth is stated in `gate-override.sh`: a
+real speed bump (reaching for a pty wrapper is a decision, not a slip, and reads
+as circumvention in a transcript) plus a durable public record in the closure
+commit. That is the same posture as every other local control here — accident
+prevention, explicitly not the boundary (`.claude/rules/git.md`).
+
+**The boundary must therefore be server-side, and it is not yet enforced.**
+`closure-gate.yml` re-derives the verdict from pushed commits, but verified
+2026-09-08 via `gh api repos/.../rulesets/17729463`, the only required status
+check on `main` is `audit-privacy`. Until a repo admin adds `closure-gate`,
+**nothing in the closure chain is un-routable-around.** That is a founder action;
+this branch cannot perform it.
+
+**D1 is therefore returned to the founder.** The options are unchanged — the
+information is not. A TTY prompt is friction plus audit, not authorization; the
+genuinely unforgeable choices remaining are "no override at all", or an override
+that only the server-side check can grant.
 
 **D3 — the intent gate is scoped to feature/story/task; bug specs are exempt.**
 A bug's authoritative artifact is its reproduction, not a stated intent, and
@@ -256,7 +297,7 @@ which closes *succeed* — revert it together with the wiring, never alone.
 | 1c. Closure, server-side | Re-derives the verdict from pushed commits, gate script fetched from `origin/main` | `.github/workflows/closure-gate.yml` |
 | 2. Cleanup | `ship_on_abort` (in-session, pre-existing) + a standing unasked-for report | `scripts/pipeline-strandings.sh`, `SessionStart` hook |
 | 4. Intent | One script, three call sites: `PreToolUse` Write, pre-commit on the staged blob, CI | `scripts/spec-intent-gate.sh` |
-| Override | TTY-only prompt, no test-mode backdoor | `scripts/lib/gate-override.sh` |
+| Override | TTY prompt + commit-trailer audit. **Friction, not a boundary** — defeatable via `script(1)`, pinned as canary A4 | `scripts/lib/gate-override.sh` |
 
 `status:` gating removed from `git-ops.sh` — it was the last violation of
 [features.md](../.claude/rules/features.md)'s *"no skill, script or hook may gate
@@ -301,8 +342,11 @@ D1  --spec-file on an unreadable path ................... exit 1  (no silent fal
 E1  task spec with no verbatim framing .................. exit 1
 E5  intent gate on an unreadable file ................... exit 1  (fail-closed)
 F1  hand-rolled `git mv` into features/done/ ............ exit 2  (PreToolUse deny)
-A1  override attempted from an agent shell .............. refused (no /dev/tty)
-A3  override at a real pty with a 2-char reason ......... refused
+A1  override attempted from a bare agent shell ......... refused (no /dev/tty)
+A3  override at a pty with a 2-char reason .............. refused
+A4  override via `script(1)` from an agent shell ........ ACCEPTED — known limitation, pinned
+D2  --only with an unknown gate id ...................... exit 1  (was exit 0, zero output)
+D3  forged ship journal on --resume ..................... gate runs; no ungated code reaches main
 G3  --strict with a strand present ...................... exit 1
 ```
 

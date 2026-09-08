@@ -82,6 +82,10 @@ if [[ ! "$pn" =~ ^p[0-9]+$ ]]; then
   exit 1
 fi
 
+# Every gate id this script implements. --only is validated against this list
+# so a typo cannot silently disable everything.
+KNOWN_GATES="2.5 2.7 3.5 3.65"
+
 # gate_enabled <id> — true when --only was not given, or names this gate.
 gate_enabled() {
   [[ -z "$only_gates" ]] && return 0
@@ -90,6 +94,34 @@ gate_enabled() {
     *) return 1 ;;
   esac
 }
+
+# --only validation. WITHOUT THIS THE FLAG FAILS OPEN: an unrecognized id matches
+# no gate, every gate block is skipped, `fail` never leaves 0, and the script
+# exits 0 having checked NOTHING — silently, with no output at all. Measured
+# 2026-09-08 by an adversarial review: `ship-gates.sh p1246 --only 99.9` returned
+# exit 0 and zero bytes.
+#
+# Not reachable from git-ops.sh (which passes the P-number alone) and the one CI
+# caller hardcodes `--only 2.5`. But "not reachable today" is how a landmine is
+# described before it goes off, and this whole spec exists because a gate that
+# does not run looks exactly like a gate that passed. Fail closed on a bad id.
+if [[ -n "$only_gates" ]]; then
+  _bad=""
+  _IFS_save="$IFS"; IFS=','
+  for _g in $only_gates; do
+    _g="${_g#"${_g%%[![:space:]]*}"}"; _g="${_g%"${_g##*[![:space:]]}"}"
+    [[ -z "$_g" ]] && continue
+    case " $KNOWN_GATES " in
+      *" $_g "*) ;;
+      *) _bad="${_bad}${_bad:+, }${_g}" ;;
+    esac
+  done
+  IFS="$_IFS_save"
+  if [[ -n "$_bad" ]]; then
+    echo "Error: --only names unknown gate(s): ${_bad}. Known gates: ${KNOWN_GATES}" >&2
+    exit 1
+  fi
+fi
 
 fail=0
 

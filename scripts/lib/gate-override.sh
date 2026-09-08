@@ -1,32 +1,57 @@
 #!/usr/bin/env bash
 # gate-override.sh — the single escape hatch for a deterministic pipeline gate (P1246).
 #
-# WHY THIS SHAPE, AND NOT A FLAG FILE OR AN ENV VAR
-# Every previous override in this repo was writable by the party it gated:
-# `inline` in ship-gates' gate 2.5, the hand-written .finish-reviewed stamp, and
-# ~/.push-enabled (which the founder's own global CLAUDE.md describes as
-# "authorization the agent can forge is not authorization"). P1246's Invariants
-# forbid repeating that: "No override is writable by the agent being gated."
+# WHAT THIS IS — AND, IMPORTANTLY, WHAT IT IS NOT
 #
-# The only thing in this environment an agent structurally cannot obtain is a
-# controlling terminal. Measured 2026-09-08 from the agent Bash tool:
-#     stdin tty: NO   stdout tty: NO   stderr tty: NO   /dev/tty: not openable
-# ("Device not configured" — not merely redirected, ABSENT). A human in a
-# terminal window has one. So "was a human present at this exact invocation?"
-# is answerable by opening /dev/tty, and cannot be spoofed by setting a
-# variable, touching a file, or passing a flag.
+# **This is friction plus an audit trail. It is NOT a security boundary, and an
+# agent CAN defeat it.** That correction is the first thing in this file because
+# the first version of it claimed the opposite, in bold, and was wrong.
 #
-# There is deliberately NO test-mode env var here. A `GATE_OVERRIDE_TEST=1`
-# escape would reintroduce exactly the agent-writable hole this exists to close,
-# and would be the first thing a blocked agent found. The canary
-# (test-pipeline-gates.sh) exercises the allow-path through a REAL pty via
-# script(1) instead — see its "override" cases.
+# The original claim was: "the only thing in this environment an agent
+# structurally cannot obtain is a controlling terminal", resting on a real
+# measurement — from the agent Bash tool, /dev/tty is not merely redirected but
+# ABSENT ("Device not configured"). That measurement is correct and still holds.
+# The inference drawn from it does not.
 #
-# Consequence, accepted by the founder 2026-09-08 ("Yes — same gate, TTY override
-# is yours alone"): there is one code path, and it refuses everyone. The founder
-# passes it from a terminal; an agent cannot pass it at all and must report the
-# block instead. `!`-prefixed commands inside Claude Code run through the harness
-# and have no tty either, so the override needs a real terminal window.
+# `script(1)` is a standard, unrestricted utility, and it allocates a real pty.
+# An agent that wraps its own command in it gets a controlling terminal and can
+# answer this prompt. Demonstrated end-to-end 2026-09-08, from a plain agent
+# shell with no human anywhere:
+#
+#     { sleep .5; printf 'agent typed this, no human present\n'; sleep .5; } \
+#       | script -q /dev/null bash -c 'git-ops.sh ship p777 --override'
+#     -> [GATE 2.5] FAIL: 1 unticked completion item(s)
+#     -> GATE OVERRIDE accepted ... Ready to push.
+#
+# A spec with an unticked box was closed by an agent on a red gate. The escape
+# hatch this file exists to protect was opened by the party it was meant to
+# exclude.
+#
+# The tell was in the test, and it is worth naming because it is a general trap:
+# the canary proved the ALLOW path by feeding the prompt through `script(1)` —
+# i.e. it used the bypass as its stand-in for a human. An oracle built out of the
+# thing under test cannot detect that thing. There is no local check that fixes
+# this: detecting `script` specifically is an arms race against every other pty
+# allocator, and any predicate an agent can read, it can arrange to satisfy.
+#
+# SO WHAT IS IT FOR, HONESTLY:
+#   * It is a real speed bump. Passing it requires deliberately reaching for a
+#     pty wrapper — that is no longer a slip, it is a decision, and one that
+#     reads as circumvention in a transcript.
+#   * It produces a durable, public record. The typed reason lands in the closure
+#     commit message, so "which specs were closed on a red gate, and why?" is one
+#     grep over history, and a forged override is loud rather than silent.
+#   * It is the same posture as every other local control in this repo
+#     (block-banned-git.py, the privacy pre-commit hook): accident prevention,
+#     explicitly NOT the boundary. See .claude/rules/git.md — "Local hooks are
+#     accident-prevention, not the boundary."
+#
+# THE ACTUAL BOUNDARY is server-side: .github/workflows/closure-gate.yml re-derives
+# the verdict from pushed commits. As of 2026-09-08 that job is NOT yet a required
+# status check on main (the only required check is `audit-privacy`), so the
+# boundary is currently unenforced. Until a repo admin adds `closure-gate` to the
+# main-privacy-gate ruleset, nothing in the closure chain is un-routable-around.
+# Do not describe this file as a guarantee before then — or after.
 
 # --- Where the audit trail lives -------------------------------------------
 # Two records, deliberately:
@@ -125,7 +150,11 @@ gate_override_refusal_text() {
   Fix the artifact (tick the box, or delete the criterion and say why in prose),
   then re-run:            ./scripts/git-ops.sh ship ${pn}
 
-  Or override. This needs a real terminal window — it prompts on /dev/tty, which
-  an agent session does not have, and the reason you type is committed publicly:
-                          ./scripts/git-ops.sh ship ${pn} --override"
+  Or, if the refusal is wrong, the founder can override it. It prompts on
+  /dev/tty and the typed reason is committed publicly, in the closure commit:
+                          ./scripts/git-ops.sh ship ${pn} --override
+
+  Agents: this prompt is friction and an audit trail, not a wall you are unable
+  to climb — a pty wrapper defeats it. Do not reach for one. Report the gate
+  failure and let the founder decide."
 }

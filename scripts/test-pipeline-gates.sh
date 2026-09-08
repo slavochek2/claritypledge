@@ -29,11 +29,23 @@ FAILURES=0
 pass() { echo "PASS: $*"; }
 fail() { echo "FAIL: $*" >&2; FAILURES=$((FAILURES + 1)); }
 
-# A real pty, so the override's allow-path is proven without a test-mode env var
-# (which would be the agent-writable hole the override exists to close). The
-# sleeps let script(1)'s pty settle before and after the line is delivered —
-# without them the read races the pty and returns EOF, which looks exactly like
-# a refusal and would make this canary lie in the safe direction.
+# A real pty via script(1). READ THIS BEFORE TRUSTING WHAT IT PROVES.
+#
+# This helper was originally introduced as "a human at a terminal", and the A2
+# case below was read as evidence that only a human can pass the override. That
+# was wrong, and the error was structural: script(1) is exactly how an AGENT
+# obtains a pty, so this helper is the bypass, not the human. An oracle built out
+# of the mechanism under test cannot detect that mechanism (CLAUDE.md: "name the
+# oracle and check it is independent of the thing under test").
+#
+# What these cases actually establish is the mechanics of the prompt: it reads
+# from /dev/tty, accepts a substantive reason, rejects a junk one. That is worth
+# pinning. What they do NOT establish is that an agent cannot pass it — A4 below
+# pins the opposite, deliberately.
+#
+# The sleeps let the pty settle before and after the line is delivered; without
+# them the read races and returns EOF, which looks exactly like a refusal and
+# would make this canary lie in the SAFE direction.
 pty_feed() {
   local reason="$1"; shift
   { sleep 0.4; printf '%s\n' "$reason"; sleep 0.3; } | script -q /dev/null "$@" 2>&1 | tr -d '\r'
@@ -58,16 +70,53 @@ fi
 
 out="$(pty_feed "criteria 3-6 retired, reason in prose" "$SCRATCH/ovr.sh" "$REPO_ROOT")"
 if [[ "$out" == *"AVAIL=yes"* && "$out" == *"CAPTURED=[criteria 3-6 retired, reason in prose]"* ]]; then
-  pass "A2: real terminal + substantive reason — override accepted"
+  pass "A2: prompt mechanics — a pty + substantive reason is accepted"
 else
   fail "A2: override did not accept at a real pty: $out"
 fi
 
 out="$(pty_feed "ok" "$SCRATCH/ovr.sh" "$REPO_ROOT")"
 if [[ "$out" == *"AVAIL=yes"* && "$out" == *"REFUSED"* ]]; then
-  pass "A3: real terminal + junk reason — still refused"
+  pass "A3: prompt mechanics — a 2-char reason is refused even at a pty"
 else
   fail "A3: a 2-char reason was accepted: $out"
+fi
+
+# A4. KNOWN LIMITATION, pinned on purpose (2026-09-08 adversarial review).
+#
+# An agent CAN close a spec on a red gate by wrapping its own command in
+# script(1). This case asserts that the bypass WORKS, which is an unusual thing
+# to assert — the point is that the limitation is documented and regression-
+# tested rather than quietly believed away. If someone later devises a local
+# defence, this case goes red and forces the docs in gate-override.sh to be
+# updated with it, instead of the old false claim silently coming back.
+#
+# The real boundary is .github/workflows/closure-gate.yml, which must be a
+# REQUIRED status check on main to be worth anything. It is not one yet.
+A4_R="$SCRATCH/a4"; mkdir -p "$A4_R"
+mk_repo_a4() {
+  mkdir -p "$1/scripts/lib" "$1/features/done/2026-09-08"
+  cp "$REPO_ROOT/scripts/git-ops.sh" "$REPO_ROOT/scripts/ship-gates.sh" "$1/scripts/"
+  cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$1/scripts/lib/"
+  chmod +x "$1/scripts/git-ops.sh" "$1/scripts/ship-gates.sh"
+  : > "$1/features/done/2026-09-08/.gitkeep"
+  ( cd "$1" && git init -q && git config user.email c@t && git config user.name c \
+    && git config commit.gpgsign false && echo s > README.md && git add -A \
+    && git commit -qm seed && git branch -M main \
+    && git checkout -q -b feature/p777-demo && echo x > w.txt && git add w.txt \
+    && git commit -qm "p777: work" && git checkout -q main ) >/dev/null 2>&1
+  printf -- '---\nstatus: qa\ntype: task\npipeline_ran: [dev]\n---\n# p777\n## Done-When\n- [ ] UNTICKED\n' > "$1/features/p777_demo.md"
+  ( cd "$1" && git add features/p777_demo.md && git commit -qm "chore: add p777 spec" ) >/dev/null 2>&1
+  printf '{"type": "code", "pn": "p777", "branch": "feature/p777-demo", "sha": "x", "timestamp": "t"}\n' >> "$1/.git/.finish-reviewed"
+}
+mk_repo_a4 "$A4_R"
+{ sleep 0.5; printf 'agent typed this, no human present\n'; sleep 0.5; } \
+  | script -q /dev/null bash -c "cd $A4_R && bash scripts/git-ops.sh ship p777 --override" \
+  >"$SCRATCH/a4.log" 2>&1
+if ls "$A4_R"/features/done/*/p777_demo.md >/dev/null 2>&1; then
+  pass "A4: KNOWN LIMITATION holds — an agent CAN pass the override via script(1); this prompt is friction + audit, not a boundary"
+else
+  fail "A4: the script(1) bypass no longer works — GOOD NEWS, but gate-override.sh's documented limitation is now stale; update it and this case"
 fi
 
 # ── Scratch repo for the ship-path cases ────────────────────────────────────
@@ -127,10 +176,13 @@ else
   fail "B1: unticked spec was not blocked (exit $rc)"; sed 's/^/    /' "$SCRATCH/b1.log" >&2
 fi
 
-if grep -q 'real terminal' "$SCRATCH/b1.log"; then
-  pass "B2: the refusal names the override recipe rather than leaving it to be re-derived"
+# Names the recovery AND the override command. git.md records that an un-named
+# recovery recipe gets re-invented badly (a `git commit --amend` on the shared
+# checkout), so the refusal has to carry both.
+if grep -q -- '--override' "$SCRATCH/b1.log" && grep -q 'Fix the artifact' "$SCRATCH/b1.log"; then
+  pass "B2: the refusal names both the fix and the override recipe, rather than leaving them to be re-derived"
 else
-  fail "B2: refusal did not name the override path"
+  fail "B2: refusal did not name the fix and the override path"
 fi
 
 R2="$SCRATCH/r2"; mk_repo "$R2"
@@ -161,6 +213,37 @@ if [[ $rc -ne 0 ]] && grep -q 'spec not found' "$SCRATCH/d1.log"; then
   pass "D1: --spec-file on an unreadable path FAILS (exit $rc) — no silent fall-back to another spec"
 else
   fail "D1: --spec-file fell back or passed (exit $rc)"
+fi
+
+# ── D2. --only must FAIL CLOSED on an unknown gate id ───────────────────────
+# Before 2026-09-08 an unrecognized id matched no gate, every block was skipped,
+# and the script exited 0 having checked nothing — silently, zero bytes of output.
+( cd "$REPO_ROOT" && bash scripts/ship-gates.sh p9999 --only 99.9 ) >"$SCRATCH/d2.log" 2>&1; rc=$?
+if [[ $rc -ne 0 ]] && grep -q 'unknown gate' "$SCRATCH/d2.log"; then
+  pass "D2: --only with an unknown gate id FAILS (exit $rc) — it cannot silently disable every gate"
+else
+  fail "D2: --only 99.9 returned $rc — the flag still fails open"
+fi
+
+# ── D3. A forged ship journal must NOT skip the closure gate ────────────────
+# The journal is a plain unauthenticated file. Naming a spec_file that does not
+# exist used to hit the "moved but unflagged" arm, skip the gate entirely, and
+# still let Phase 1 cherry-pick the branch's commits onto main — ungated code,
+# measured landing on main 2026-09-08. The skip predicate now reads the
+# filesystem (is a closed copy actually in features/done/?) instead.
+R5="$SCRATCH/r5"; mk_repo "$R5"
+spec_fixture "$R5" p1046 unticked
+( cd "$R5" && echo PAYLOAD > payload.txt && git checkout -q feature/p1046-demo \
+  && git add payload.txt && git commit -qm "p1046: unreviewed" && git checkout -q main ) >/dev/null 2>&1
+mkdir -p "$R5/.claude/worktrees/.ship-journal"
+cat > "$R5/.claude/worktrees/.ship-journal/p1046.json" <<EOF
+{"pn":"p1046","source_branch":"feature/p1046-demo","spec_file":"features/DOES_NOT_EXIST.md","spec_closed":false,"commits":[{"source_sha":"$( cd "$R5" && git rev-parse feature/p1046-demo )","landed_sha":null}]}
+EOF
+( cd "$R5" && bash scripts/git-ops.sh ship p1046 --resume ) >"$SCRATCH/d3.log" 2>&1
+if grep -q 'GATE 2.5' "$SCRATCH/d3.log" && ! ( cd "$R5" && git cat-file -e main:payload.txt 2>/dev/null ); then
+  pass "D3: a forged journal does NOT skip the gate, and no ungated code reaches main"
+else
+  fail "D3: forged journal bypassed the closure gate (gate lines: $(grep -c 'GATE 2.5' "$SCRATCH/d3.log"), payload on main: $( cd "$R5" && git cat-file -e main:payload.txt 2>/dev/null && echo yes || echo no ))"
 fi
 
 # ── E. Intent gate ──────────────────────────────────────────────────────────
@@ -235,5 +318,5 @@ if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A1-A3, B1-B3, C1, D1, E1-E6, F1-F5, G1-G3)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A1-A4, B1-B3, C1, D1-D3, E1-E6, F1-F5, G1-G3)"
 exit 0
