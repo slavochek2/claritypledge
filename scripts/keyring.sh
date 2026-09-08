@@ -223,13 +223,7 @@ _keyring_cmd_status() {
 _keyring_cmd_requests() {
   local log
   log="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.private/logs/keyring-requests.log"
-  if [ ! -r "$log" ]; then
-    echo "No requests recorded yet ($log)"
-    return 0
-  fi
-  echo "Recent credential requests — newest last:"
-  echo
-  tail -n "${1:-20}" "$log"
+  python3 "${KEYRING_ROOT}/lib/keyring-requests.py" "$log" "${1:-10}"
   _keyring_live_requests
 }
 
@@ -238,26 +232,25 @@ _keyring_cmd_requests() {
 # then a dialog appears with nothing to explain it. So also look at what is asking
 # RIGHT NOW, which works regardless of which copy of the code is running.
 _keyring_live_requests() {
-  local pids pid line cwd key
+  local pids pid line cwd key spec
   # Match only the interpreter actually doing the read. A parent shell carries the
   # same string in its own argv and would otherwise be reported as a second request.
   pids=$(ps -Ao pid=,command= | grep '[k]eychain\.py get' \
          | awk '$2 ~ /[Pp]ython/ {print $1}')
   [ -n "$pids" ] || return 0
   echo
-  echo "LIVE — a dialog is open right now for:"
+  echo "ASKING RIGHT NOW — a dialog is open:"
   for pid in $pids; do
     line=$(ps -o command= -p "$pid" 2>/dev/null) || continue
-    key=$(echo "$line" | sed -n 's/.*keychain\.py get \([^ ]*\).*/\1/p')
+    key=$(echo "$line" | sed -n 's/.*keychain\.py get cp\.keyring\.\([^ ]*\).*/\1/p')
     cwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | tail -1)
-    echo "  key      : ${key:-?}"
-    echo "  asked by : $(ps -o command= -p "$(ps -o ppid= -p "$pid" | tr -d ' ')" 2>/dev/null | cut -c1-100)"
-    echo "  from     : ${cwd:-?}"
-    echo "  pid      : $pid"
+    spec=$(git -C "${cwd:-.}" rev-parse --abbrev-ref HEAD 2>/dev/null \
+           | sed -n 's|^\(feature\|fix\)/\(p[0-9]*\).*|\2|p')
+    printf '  now      %-28s %-16s %s\n' "${key:-?}" \
+      "${spec:-$(basename "${cwd:-?}")}" "$(ps -o command= -p "$(ps -o ppid= -p "$pid" | tr -d ' ')" 2>/dev/null | awk '{print $1, $2}')"
   done
   echo
-  echo "  Recognise it? Allow. Do not recognise it? Deny — nothing breaks that you"
-  echo "  cannot re-run."
+  echo "  Recognise it? Allow. Don't? Deny — nothing breaks that can't be re-run."
 }
 
 _keyring_cmd_withdraw() {
