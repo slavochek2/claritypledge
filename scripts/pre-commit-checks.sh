@@ -157,9 +157,15 @@ fi
 # silently muting another feature's active canary to clear pre-commit.
 #
 # P825 fix: skip the guard entirely when on a non-feature branch (typically
-# main). /reproduce commits canaries directly to main as its canonical flow,
-# and on main BRANCH_PNUM is empty, which made every pN canary look like a
-# "different feature" edit and structurally blocked /reproduce.
+# main). /reproduce used to commit canaries directly to main, and on main
+# BRANCH_PNUM is empty, which made every pN canary look like a "different
+# feature" edit and structurally blocked it. The guard still skips on non-feature
+# branches for that reason. (2026-09-08: /reproduce no longer commits VITEST
+# canaries to main — the Tests step above runs the whole suite on any staged
+# build-affecting file, so a deliberately-red src/tests canary can never land
+# there; it rides the fix branch instead, per decisions.md 2026-06-27. E2E specs
+# are excluded from that run and still commit to main. This guard is unaffected
+# either way.)
 STAGED_CANARY_TESTS=$(echo "$STAGED_FILES" | grep -E '^src/tests/p[0-9]+' || true)
 if [ -n "$STAGED_CANARY_TESTS" ]; then
     CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")

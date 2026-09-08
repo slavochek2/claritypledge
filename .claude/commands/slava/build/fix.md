@@ -213,6 +213,15 @@ After worktree setup (so CWD resolves to the correct branch):
 1. Read the spec frontmatter. Look for `reproduce_artifact:` block.
 2. **If `reproduce_artifact` exists:**
    - Read the `test_file` path — verify the canary test file exists on this branch.
+   - **A missing `src/tests/pN-*.test.ts(x)` canary is the normal handoff, not a fault.**
+     `/reproduce` leaves a vitest canary uncommitted in the main checkout's working tree, because
+     a deliberately-failing test cannot be committed to `main` (staging it runs the full suite —
+     see `/reproduce` Phase 0.0, and decisions.md 2026-06-27). Copy it from the main checkout into
+     this worktree at the same path, then continue; it lands in your fix commit, red-before/
+     green-after in one branch history. An `e2e/pN-*.spec.ts` canary IS committed to main and
+     should already be on the branch — if that one is missing, something is wrong. If a canary is
+     absent from BOTH the branch and the main checkout's working tree, stop and report: it was
+     lost, and the `reproduce_artifact` claim is unbacked.
    - If `reproduce_artifact` has `post_fix_timeout:`, update the canary test assertion timeout to that value before running it. The original tight timeout was a staleness sentinel written by /reproduce — it is expected to be wrong after the fix. This is not a test modification; it is applying the handoff contract between /reproduce and /fix.
    - Run the canary test — it MUST still fail (bug not yet fixed). If it passes, the bug may already be fixed or the test is stale. Report and stop.
    - Read `fix_shape`. **`open` → volunteer `bug fix p{N} → Opus, high — {fix_shape_why}` before Phase 3**, because a design choice remains and this is no longer spec execution. **Absent, `decided`, or any unrecognised value → say nothing and fall through to `/pick-flow`'s default row for `/fix`** (Sonnet, low/medium) — absence is the common case and is not a signal. `open` with an empty or missing `fix_shape_why` is malformed: ignore it, fall through, and note that it was dropped. This is a difficulty floor, not a quota decision — check `~/.claude/.quota-cache.json` and, if the lane is tight, recommend the downgrade out loud rather than applying it silently. You cannot flip `/model` or `/effort`; recommend only.

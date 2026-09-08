@@ -71,7 +71,39 @@ If inline description (no P-number): invoke `/create-bug` first from main (w0) t
 
 **Phase 0.0: Branch management**
 
-`/reproduce` does NOT create worktrees. It runs on the current branch (typically `main`). The canary test and spec updates are committed to `main`. When `/fix` later creates a worktree, it branches from `main` and picks up the canary test automatically.
+`/reproduce` does NOT create worktrees. It runs on the current branch (typically `main`).
+
+**Where the canary is committed depends on which suite it belongs to. Check before you
+stage it.**
+
+| Canary type | Commit to `main`? |
+|---|---|
+| **vitest** — `src/tests/pN-*.test.ts(x)` | **No.** Leave it uncommitted; it rides the fix branch. |
+| **Playwright E2E** — `e2e/pN-*.spec.ts` | Yes, as written below. |
+| Outside both suites — e.g. `tools/kanban/**` | Yes; `npm test` never runs it. |
+
+A vitest canary is build-affecting, so staging it makes `pre-commit-checks.sh` run `npm test`
+(the whole suite) — and a test that is failing on purpose fails that gate. It cannot land on
+`main` red, by construction. That is the gate working, not a hook to route around: a red
+`main` is exactly what it exists to prevent. E2E specs are excluded from the vitest run and
+do not hit this.
+
+For the vitest case: commit the spec (with its `reproduce_artifact` stamp) to `main` via
+`git-ops.sh commit-to-main`, and leave the canary file in the working tree. `/fix` claims the
+worktree in its Phase 0.0 — copy the canary in there and it lands in the fix commit, where it
+belongs anyway: red before the fix, green after, in one branch history.
+
+**This is not a new rule — it was decided on 2026-06-27 ([decisions.md](../../../../docs/decisions.md),
+"Unit/component reproduce canaries ride the fix branch, not main", from P969) and the matching
+skill edit was flagged then and never made.** The instruction below therefore contradicted a
+standing decision for over two months. Separately, P825 patched a *different* structural
+collision between this same flow and the commit gates (a cross-feature canary guard that fired
+on every canary while on `main`) — see the `STAGED_CANARY_TESTS` block in
+`pre-commit-checks.sh`. Two collisions, same seam: treat "commit the canary to main" as the
+claim that needs checking, not the default.
+
+When `/fix` later creates a worktree, it branches from `main` and picks up the spec stamp
+automatically.
 
 **Exception:** If you're already in a worktree for this bug (e.g., `/fix` was attempted and failed, sending you back to `/reproduce`), stay in the worktree.
 
@@ -329,13 +361,20 @@ reproduce_artifact:
 
 Update spec body — add or update `## Root Cause` section with the confirmed hypothesis.
 
-Commit: `chore(p{N}): reproduce — failing test + root cause confirmed`
+Commit — **what you stage depends on the canary type; see the table in Phase 0.0.**
+
+- **vitest canary (`src/tests/`)** — commit the SPEC ONLY:
+  `chore(p{N}): reproduce — root cause confirmed, canary rides the fix branch`, via
+  `./scripts/git-ops.sh commit-to-main --files features/pN_*.md`. Do NOT stage the canary;
+  leave it in the working tree for `/fix` to pick up.
+- **E2E canary (`e2e/`) or a test outside the vitest suite** — commit both spec and canary:
+  `chore(p{N}): reproduce — failing test + root cause confirmed`.
 
 **Tell user:**
 ```
 Reproduction complete for P{N}.
 - Root cause: [one-liner]
-- Canary test: [file path] (FAILS — proves bug exists)
+- Canary test: [file path] (FAILS — proves bug exists) [committed | uncommitted, rides the fix branch]
 - Surfaces in scope: [list]
 
 Next step: /fix p{N}
