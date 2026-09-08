@@ -6,6 +6,52 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [product]: Stories lead the tabs; the feed's default stays with the links that point at it
+
+**Context:** The founder's read was that stories carry pictures and video and are the more
+engaging surface, so the Points/Stories tabs should swap on both the profile and the feed —
+with the caveat that tag links (`/understanding`, `/cmp*`) must keep landing on points. Reading
+the code split the request into two independent changes that had been travelling as one: tab
+ORDER (visual) and DEFAULT tab (selection). Only the second has consequences.
+
+**Decision:** Stories lead in ORDER on both surfaces. Selection differs by surface:
+
+- **Feed** keeps Points as its no-param default. The tab is URL-derived (`?tab=`), and every
+  event/tag link arrives without that param — `/feed/:tag` redirects without one, `/stake/:tag`
+  is a separate page already pinned to points. Changing the fallback would mean appending
+  `&tab=points` to every link just to preserve today's behaviour, so a droppable param on many
+  links would govern what a bare `/feed` does.
+- **Profile** defaults to Stories — a visitor there is asking "who is this person", which
+  stories answer and a point list does not. Nothing deep-links into a profile tab.
+- **Profile falls back to Points when there are no stories.** This extends the ruling already
+  recorded on the stake page ("a tab is only visible if stories are there") rather than inventing
+  a second policy for the same question. Decided once when the load settles, so a visitor's own
+  later click stands.
+
+`/feed` also gains a public menu entry under Product. It was the only public product surface
+with none — reachable by typing the URL or following a tag link, so first-time visitors never
+met it.
+
+**Alternatives rejected:** Swapping the feed default too and pinning `&tab=points` on every
+deep link — the new default would then apply only to a bare `/feed` from the nav, while every
+link carries a param that a future edit can silently drop. Leaving the profile default on Points
+"for symmetry with the feed" — the two surfaces answer different questions, and the feed's
+constraint is its inbound links, which the profile does not have.
+
+**Consequences:** The engagement premise is UNTESTED — the profile default rests on reasoning,
+not on data. Falsifier: per-tab views and click-through in Mixpanel; if stories do not out-engage
+points on profiles, the default is a one-line revert. The order change is independent of that
+result. A test that asserted point-card behaviour (p824) had been silently relying on Points
+being the profile default; it now selects the tab explicitly — expect the same for any future
+test that renders a profile and asserts on point content.
+
+**References:** [profile-page-v2.tsx](../src/app/pages/profile-page-v2.tsx),
+[feed-page.tsx](../src/app/pages/feed-page.tsx),
+[nav-links.ts](../src/app/components/layout/nav-links.ts),
+[profile-tab-order.test.tsx](../src/tests/profile-tab-order.test.tsx)
+
+---
+
 ## 2026-09-08 [technical]: An exclusion clause that was true of half its scope hid a credential from every control (P1267)
 
 **Context:** Adding a credential depends on remembering four places, and nothing checked. On
