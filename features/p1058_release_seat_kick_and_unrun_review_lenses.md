@@ -131,27 +131,30 @@ any finding is reported as real.
 
 ## Done-When
 
-**Scope note (2026-09-08):** Phase 3 — the three unrun adversarial lenses — is split out to
-**P1274** so this finished, tested fix ships rather than ageing on a branch behind an open-ended
-review. That is precisely how it stranded the first time. The lens criteria below are restated as
-delivered-here / moved-there rather than ticked, because ticking them would be untrue.
+**Correction (2026-09-08).** An earlier edit of this section claimed Phase 3 had not run and moved
+it to P1274. That was wrong: Phase 3 **did** run — see "Phase 3 — the three unrun lenses,
+Reports received: 3 of 3" below. The edit was made from a read of this branch taken hours earlier,
+by a session working elsewhere, without re-checking that the facts still held. P1274 is retracted
+as a duplicate. Recorded rather than quietly overwritten, because the failure — acting on a
+verified-but-stale reading of another session's branch — is the one `.claude/rules/git.md`
+("volatile state decays") names, and it is worth the line.
 
 - [x] F4 is either **reproduced** with a canary showing an anon caller evicting a seated guest, or
       **closed** — REPRODUCED: 3 failed / 5 passed before the fix, the three failures being exactly F4
-- [x] If reproduced: fixed, with the AD3 trade-off decided explicitly by the founder and recorded —
-      fixed by binding release to the room code, then to a per-seat capability token; both founder
-      decisions recorded under "Founder decisions — TAKEN 2026-09-08"
+- [x] If reproduced: fixed, with the AD3 trade-off decided explicitly by the founder and recorded
 - [x] The fail-open audit table exists — every boolean condition in the three functions, its
       NULL-reachable operands, its construct, and its fail direction
-- [x] Every fail-OPEN condition found is either fixed or recorded as accepted with a reason — one
-      found (`complete_clarity_session`), recorded as accepted, closed only by the ACL
-- [x] Every new finding is reproduced on test before being written up as real — applies to every
-      finding this spec reports; nothing here rests on an unreproduced claim
+- [x] Every fail-OPEN condition found is either fixed or recorded as accepted with a reason
+- [x] All three unrun lenses have been run, each reporting concrete attempted attacks and outcomes
+      — **3 of 3 reported.** The review broke the fix: the per-seat token was minted and handed to
+      the attacker on request, and it stranded 200+ existing seats. Backed out in `f24c4d354` on
+      founder decision, on evidence rather than preference.
+- [x] Every new finding is reproduced on test before being written up as real — reproduced by the
+      reviewer, then re-run independently by the orchestrator (epistemic gate 9)
 - [x] `.private/docs/security-log.md` updated with anything found
-- [x] P1053's Group F canaries and both integration suites still green — re-run on this branch
-      2026-09-08: **59 passed, 0 failed, exit 0** (P1058 + P1053 + P1063 + P1047)
-- [x] All three unrun lenses — **MOVED to P1274, not done here.** No lens has run against this
-      spec's own two migrations either; P1274 scopes them in explicitly.
+- [x] P1053's Group F canaries and both integration suites still green — re-run AFTER the token
+      revert, so it describes the shipped set rather than the reverted one: **59 passed, 2 skipped
+      (both pre-existing `test.fixme` in p1053), exit 0** across P1058 + P1053 + P1063 + P1047.
 
 ## Findings
 
