@@ -140,6 +140,29 @@ else
   bad "no caller warning on keyring_get about capture-pattern tracing"
 fi
 
+echo "[11] every read announces who is asking, before the dialog"
+# The macOS dialog can only say "Python wants to use ...". An approval you cannot
+# attribute is one you cannot answer correctly — so the request must name itself.
+LOGF="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.private/logs/keyring-requests.log"
+before=$( [ -r "$LOGF" ] && wc -l < "$LOGF" || echo 0 )
+ann=$(KEYRING_REASON="selftest attribution check" keyring_get P1239_SELFTEST_ABSENT 2>&1 || true)
+case "$ann" in
+  *"selftest attribution check"*) ok "the reason reaches stderr in the asking session" ;;
+  *) bad "no reason announced on stderr: $ann" ;;
+esac
+after=$( [ -r "$LOGF" ] && wc -l < "$LOGF" || echo 0 )
+if [ "$after" -gt "$before" ]; then ok "the request was written to the request log"
+else bad "nothing was written to the request log"; fi
+last=$( [ -r "$LOGF" ] && tail -1 "$LOGF" || echo "" )
+case "$last" in
+  *session=*branch=*reason=*) ok "the log line carries session, branch and reason" ;;
+  *) bad "log line is missing attribution fields: $last" ;;
+esac
+case "$last" in
+  *P1239_SELFTEST_ABSENT*) ok "it names the key that was requested" ;;
+  *) bad "log line does not name the key" ;;
+esac
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]

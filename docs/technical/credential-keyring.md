@@ -65,6 +65,32 @@ no names. Values appear in neither.
 from the main checkout and from any worktree (worktrees do not get `.private/`). Override with
 `KEYRING_REGISTRY=/some/path` if you need to.
 
+## Knowing who is asking
+
+The macOS dialog can only say *"Python wants to use your confidential information
+stored in cp.keyring.X"*. It cannot name the session, the task, or the reason — and an
+approval you cannot attribute is one you cannot answer correctly: you either wave it
+through or block real work.
+
+So every read announces itself **before** the dialog appears:
+
+- a macOS notification naming the key, the reason, the session id and the branch;
+- the same line on stderr, in whichever session asked;
+- a durable record in `.private/logs/keyring-requests.log`.
+
+```bash
+./scripts/keyring.sh requests        # who asked for what, and why — newest last
+./scripts/keyring.sh requests 50
+```
+
+Callers should say why: `KEYRING_REASON="weekly ops mailbox check"`, or pass it as the
+second argument to `keyring_get` / `keyringGet` / `require`. A request with no reason is
+logged as such, which is itself a signal.
+
+Announcement never blocks the read. An attribution failure must not become an
+availability failure, so a closed stderr, an unwritable log or a missing notifier are all
+swallowed — the read proceeds and the dialog still appears.
+
 ## Never click "Always Allow"
 
 The authorization dialog offers **Allow**, **Deny** and **Always Allow**.

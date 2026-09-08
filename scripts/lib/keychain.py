@@ -23,7 +23,9 @@ Exit codes: 0 ok · 1 not found/usage · 2 denied or auth failure · 3 framework
 """
 import ctypes
 import ctypes.util
+import datetime
 import os
+import subprocess
 import sys
 from ctypes import POINTER, byref, c_char_p, c_long, c_uint32, c_void_p
 
@@ -88,6 +90,8 @@ sec.SecAccessCopyACLList.argtypes = [c_void_p, POINTER(c_void_p)]
 sec.SecACLCopyContents.restype = c_uint32
 sec.SecACLCopyContents.argtypes = [
     c_void_p, POINTER(c_void_p), POINTER(c_void_p), POINTER(c_uint32)]
+sec.SecACLGetAuthorizations.restype = c_uint32
+sec.SecACLGetAuthorizations.argtypes = [c_void_p, POINTER(c_uint32), POINTER(c_uint32)]
 sec.SecTrustedApplicationCopyData.restype = c_uint32
 sec.SecTrustedApplicationCopyData.argtypes = [c_void_p, POINTER(c_void_p)]
 
@@ -164,15 +168,144 @@ def cmd_add(service):
         return 1
     st, item, _, _ = _find(service, want_password=False)
     if st == 0:
-        sec.SecKeychainItemDelete(item)      # replace: delete then re-create
+        # Replace = delete then re-create. If the delete fails we must STOP: a
+        # second item under the same service/account would leave lookups
+        # resolving to whichever the keychain returns first, which may be the
+        # stale, ungated one — while enrollment reported success.
+        dst = _signed(sec.SecKeychainItemDelete(item))
+        if dst != 0:
+            sys.stderr.write("keychain: could not remove the existing %s (OSStatus %d); "
+                             "refusing to create a duplicate\n" % (service, dst))
+            return 3
     st = _create_locked(service, value)
     if st != 0:
         sys.stderr.write("keychain: create failed for %s (OSStatus %d)\n" % (service, st))
         return 3
+    # Verify what we just created is actually gated, and that nothing else is
+    # left under the same name. Enrollment that reports success on an ungated
+    # item is worse than enrollment that fails.
+    if service != REFERENCE_SERVICE:
+        reference = _reference_shape()
+        if reference is None or _shape(_acl_entries(service)) != reference:
+            sys.stderr.write("keychain: %s was created but its access control does "
+                             "not match a freshly locked item — removing it rather "
+                             "than reporting a gate that may not exist\n" % service)
+            vst, vitem, _, _ = _find(service, want_password=False)
+            if vst == 0:
+                sec.SecKeychainItemDelete(vitem)
+            return 3
+        dup_st, dup_item, _, _ = _find(service, want_password=False)
+        if dup_st != 0:
+            sys.stderr.write("keychain: %s does not resolve after creation\n" % service)
+            return 3
     return 0
 
 
-def cmd_get(service):
+def _request_context(service, reason):
+    """Who is asking, from where, and why — everything except the value itself.
+
+    The macOS dialog can only say "Python wants to use ...". It cannot name the
+    session, the task, or the reason, and an approval you cannot attribute is one
+    you cannot answer correctly: you either wave it through or block real work.
+    So the request announces itself before the dialog appears.
+    """
+    def run(cmd):
+        try:
+            out = subprocess.run(cmd, stdout=subprocess.PIPE,
+                                 stderr=subprocess.DEVNULL, timeout=3)
+            return out.stdout.decode("utf-8", "replace").strip()
+        except Exception:
+            return ""
+
+    ppid = os.getppid()
+    session = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+
+    def clean(text, limit=200):
+        """One log line per request, always. The reason is caller-supplied, so a
+        newline in it would forge a second record — and a forged audit line is
+        worse than none, because it is believed."""
+        text = "".join(" " if ord(c) < 32 or ord(c) == 127 else c for c in str(text))
+        # "|" is this log's field separator, so leaving it in a caller-supplied
+        # string lets that string forge extra fields on the same line — the same
+        # defect as the newline, one level down. Neutralise the separator too.
+        return text.replace("|", "/")[:limit].strip()
+    return {
+        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "key": clean(service[len("cp.keyring."):] if service.startswith("cp.keyring.") else service, 80),
+        "reason": clean(reason or os.environ.get("KEYRING_REASON", "") or "(no reason given)"),
+        "session": clean(session[:8] if session else "not-a-claude-session", 32),
+        "branch": clean(run(["git", "rev-parse", "--abbrev-ref", "HEAD"]) or "?"),
+        "cwd": clean(os.getcwd()),
+        "caller": clean(run(["ps", "-o", "command=", "-p", str(ppid)])[:160] or "?"),
+        "pid": os.getpid(),
+        "ppid": ppid,
+        "tty": clean(run(["tty"]) or os.environ.get("TERM_SESSION_ID", "?")),
+    }
+
+
+def _log_path():
+    """The request log lives in the gitignored half, resolved through git's
+    common directory so it is the same file from a worktree or the main repo."""
+    try:
+        common = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=3
+        ).stdout.decode().strip()
+        if common:
+            return os.path.join(os.path.dirname(common), ".private", "logs",
+                                "keyring-requests.log")
+    except Exception:
+        pass
+    return None
+
+
+def _announce(ctx):
+    """Record the request and put it on screen. Never blocks and never fails the
+    read: an attribution problem must not become an availability problem."""
+    line = ("%(time)s | key=%(key)s | session=%(session)s | branch=%(branch)s | "
+            "reason=%(reason)s | caller=%(caller)s | cwd=%(cwd)s | "
+            "pid=%(pid)s ppid=%(ppid)s | tty=%(tty)s" % ctx)
+    path = _log_path()
+    if path:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "a") as fh:
+                fh.write(line + "\n")
+        except Exception:
+            pass
+
+    # Printed to stderr as well, so it is visible in whichever session asked.
+    # Wrapped: with stderr closed this raised before the read was even attempted,
+    # turning a missing announcement into a missing credential.
+    try:
+        sys.stderr.write("keyring: requesting %(key)s — %(reason)s "
+                         "[session %(session)s · %(branch)s]\n" % ctx)
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+    body = "%(reason)s\nsession %(session)s · %(branch)s\n%(caller)s" % ctx
+    script = ('display notification %s with title %s subtitle %s'
+              % (_osa_str(body), _osa_str("Keyring: " + ctx["key"] + " requested"),
+                 _osa_str("Approve in the dialog only if you recognise this")))
+    try:
+        subprocess.Popen(["osascript", "-e", script],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def _osa_str(value):
+    """Quote a Python string as an AppleScript literal."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
+
+
+def cmd_get(service, reason=None):
+    try:
+        _announce(_request_context(service, reason))
+    except Exception:
+        # Never let attribution block the read it is describing.
+        pass
     st, item, length, data = _find(service, want_password=True)
     if st == ERR_USER_CANCELED:
         sys.stderr.write("keychain: authorization DENIED for %s\n" % service)
@@ -202,17 +335,21 @@ REFERENCE_SERVICE = "cp.keyring.__shape_reference__"
 
 
 def _acl_entries(service):
-    """Per-ACL description of an item: for each ACL, either None (the
-    application list is NULL, which Security.framework defines as *every*
-    application being trusted) or the list of trusted application paths.
+    """Per-ACL description of an item: which operations the ACL authorizes, and
+    which applications it trusts for them.
 
-    The distinction matters and is the opposite of what it looks like: an EMPTY
-    list means no application is trusted, so every read needs a human; a NULL
-    list means the gate is wide open. An earlier version of this function
-    skipped NULL lists and consequently reported an item created with
-    `security add-generic-password -A` — which reads with no prompt at all — as
-    "gate-intact". That is the exact false clean bill of health this tool exists
-    to prevent.
+    Two things this must get right, both of which produced wrong verdicts:
+
+    - An **empty** application list means no application is trusted, so every
+      read needs a human. A **NULL** list means *every* application is trusted —
+      the gate is absent. They are opposites.
+    - The authorization tags matter, not just the list sizes. Without them, an
+      ACL arrangement with the same list shapes but decryption attached to a
+      wide-open ACL compares equal to a properly locked item.
+
+    Any failure to extract a trusted application is recorded as an error rather
+    than skipped: dropping it would make a populated list look empty, which is
+    the exact false "gate-intact" this function exists to prevent.
     """
     st, item, _, _ = _find(service, want_password=False)
     if st != 0:
@@ -226,17 +363,26 @@ def _acl_entries(service):
     entries = []
     for i in range(cf.CFArrayGetCount(acls)):
         acl = cf.CFArrayGetValueAtIndex(acls, i)
+
+        count = c_uint32(64)
+        buf = (c_uint32 * 64)()
+        tags = None
+        if _signed(sec.SecACLGetAuthorizations(
+                acl, ctypes.cast(buf, POINTER(c_uint32)), byref(count))) == 0:
+            tags = tuple(sorted(buf[j] for j in range(min(count.value, 64))))
+
         applist = c_void_p()
         desc = c_void_p()
         selector = c_uint32()
         if _signed(sec.SecACLCopyContents(acl, byref(applist), byref(desc),
                                           byref(selector))) != 0:
-            entries.append(None)
+            entries.append({"tags": tags, "apps": None, "error": "contents"})
             continue
         if not applist:
-            entries.append(None)
+            entries.append({"tags": tags, "apps": None, "error": None})
             continue
         names = []
+        failed = False
         for j in range(cf.CFArrayGetCount(applist)):
             app = cf.CFArrayGetValueAtIndex(applist, j)
             blob = c_void_p()
@@ -244,7 +390,14 @@ def _acl_entries(service):
                 raw = ctypes.string_at(cf.CFDataGetBytePtr(blob),
                                        cf.CFDataGetLength(blob))
                 names.append(raw.rstrip(b"\x00").decode("utf-8", "replace"))
-        entries.append(names)
+            else:
+                # Do NOT drop it. A trusted app we cannot name is still a
+                # trusted app, and silently omitting it shrinks the list toward
+                # the "no applications trusted" shape.
+                failed = True
+                names.append("<unreadable trusted application>")
+        entries.append({"tags": tags, "apps": names,
+                        "error": "app-extract" if failed else None})
     return entries
 
 
@@ -264,9 +417,15 @@ def _shape(entries):
     """
     if entries is None:
         return None
-    wide = sum(1 for e in entries if e is None)
-    sizes = tuple(sorted(len(e) for e in entries if e is not None))
-    return (wide, sizes)
+    parts = []
+    for e in entries:
+        if e["error"]:
+            # An ACL we could not fully read can never be declared intact.
+            parts.append(("error", e["error"], e["tags"]))
+        else:
+            parts.append((e["tags"],
+                          "ALL-APPLICATIONS" if e["apps"] is None else len(e["apps"])))
+    return tuple(sorted(parts, key=repr))
 
 
 def _reference_shape():
@@ -306,7 +465,7 @@ def trusted_apps(service):
     entries = _acl_entries(service)
     if entries is None:
         return None
-    return [n for e in entries if e for n in e]
+    return [n for e in entries if e["apps"] for n in e["apps"]]
 
 
 def cmd_acl(services):
@@ -325,11 +484,16 @@ def cmd_acl(services):
         elif shape == reference:
             print("%-44s OK gate-intact" % service)
         else:
-            names = [n for e in entries if e for n in e]
-            wide = sum(1 for e in entries if e is None)
-            detail = ("trusted_apps=%s" % names) if names else \
-                     ("wide-open ACLs=%d (a correctly locked item has %d)"
-                      % (wide, reference[0]))
+            names = [n for e in entries if e["apps"] for n in e["apps"]]
+            wide = sum(1 for e in entries if e["apps"] is None and not e["error"])
+            broken = [e["error"] for e in entries if e["error"]]
+            if broken:
+                detail = "UNREADABLE ACL (%s) — cannot certify this gate" % ",".join(broken)
+            elif names:
+                detail = "trusted_apps=%s" % names
+            else:
+                detail = ("access-control layout differs from a freshly locked item "
+                          "(wide-open ACLs=%d)" % wide)
             print("%-44s DEFEATED %s" % (service, detail))
             worst = 2
     return worst
@@ -350,8 +514,8 @@ def main(argv):
     verb, args = argv[1], argv[2:]
     if verb == "add" and len(args) == 1:
         return cmd_add(args[0])
-    if verb == "get" and len(args) == 1:
-        return cmd_get(args[0])
+    if verb == "get" and len(args) in (1, 2):
+        return cmd_get(args[0], args[1] if len(args) == 2 else None)
     if verb == "exists" and len(args) == 1:
         return cmd_exists(args[0])
     if verb == "acl" and args:

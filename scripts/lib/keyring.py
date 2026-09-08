@@ -26,11 +26,19 @@ class KeyringError(RuntimeError):
     """A critical credential could not be read. Never swallow this."""
 
 
-def require(key):
-    """Return one critical credential, or raise. Triggers the OS dialog."""
+def require(key, reason=None):
+    """Return one critical credential, or raise. Triggers the OS dialog.
+
+    `reason` (or $KEYRING_REASON) is shown in the notification that accompanies
+    the dialog, so the person approving can tell what they are approving.
+    """
+    argv = ["python3", _KEYCHAIN, "get", _PREFIX + key]
+    reason = reason or os.environ.get("KEYRING_REASON")
+    if reason:
+        argv.append(reason)
     try:
         proc = subprocess.run(
-            ["python3", _KEYCHAIN, "get", _PREFIX + key],
+            argv,
             stdout=subprocess.PIPE,   # the value comes back on a pipe, never argv
             stderr=None,              # let the operator see why a read failed
             check=False,

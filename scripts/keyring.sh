@@ -17,7 +17,15 @@
 #     ./scripts/keyring.sh verify            report whether the gate still fires (no dialog)
 #     ./scripts/keyring.sh status            enrolled / not-enrolled per registered key
 #     ./scripts/keyring.sh list              registered critical key names
+#     ./scripts/keyring.sh requests [N]      who asked for what, and why — last N requests
 #     ./scripts/keyring.sh withdraw KEY      remove a key from the keychain (rollback)
+#
+# Every read announces itself BEFORE the dialog appears: a line in the request
+# log, a line on stderr, and a macOS notification naming the key, the reason, the
+# session and the branch. The dialog itself can only say "Python wants to use ..."
+# — it cannot name the caller, and an approval you cannot attribute is one you
+# cannot answer correctly. Pass a reason with $KEYRING_REASON or as the second
+# argument to keyring_get.
 #
 # `verify` is the answer to this spec's top risk: clicking "Always Allow" on the
 # dialog silently turns the gate into a no-op, with no error and nothing visible.
@@ -83,7 +91,7 @@ keyring_is_registered() {
 keyring_get() {
   local _kr_x="" _kr_rc
   case "$-" in *x*) _kr_x=1; set +x ;; esac
-  python3 "$KEYRING_PY" get "$(keyring_service_name "$1")"
+  python3 "$KEYRING_PY" get "$(keyring_service_name "$1")" "${2:-${KEYRING_REASON:-}}"
   _kr_rc=$?
   [ -n "$_kr_x" ] && set -x
   return $_kr_rc
@@ -212,6 +220,18 @@ _keyring_cmd_status() {
   done < <(keyring_keys)
 }
 
+_keyring_cmd_requests() {
+  local log
+  log="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.private/logs/keyring-requests.log"
+  if [ ! -r "$log" ]; then
+    echo "No requests recorded yet ($log)"
+    return 0
+  fi
+  echo "Recent credential requests — newest last:"
+  echo
+  tail -n "${1:-20}" "$log"
+}
+
 _keyring_cmd_withdraw() {
   [[ -n "$1" ]] || { echo "usage: keyring.sh withdraw KEY" >&2; return 1; }
   python3 "$KEYRING_PY" delete "$(keyring_service_name "$1")"
@@ -224,6 +244,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     verify)   _keyring_cmd_verify ;;
     status)   _keyring_cmd_status ;;
     list)     keyring_keys ;;
+    requests) shift; _keyring_cmd_requests "$@" ;;
     withdraw) shift; _keyring_cmd_withdraw "$@" ;;
     *) sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
   esac

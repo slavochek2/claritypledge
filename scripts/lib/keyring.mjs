@@ -17,8 +17,10 @@ const KEYCHAIN_PY = join(dirname(fileURLToPath(import.meta.url)), 'keychain.py')
 const SERVICE_PREFIX = 'cp.keyring.';
 
 /** Read one critical key. Triggers the OS authorization dialog. */
-export function keyringGet(key) {
-  const res = spawnSync('python3', [KEYCHAIN_PY, 'get', SERVICE_PREFIX + key], {
+export function keyringGet(key, reason) {
+  const args = [KEYCHAIN_PY, 'get', SERVICE_PREFIX + key];
+  if (reason || process.env.KEYRING_REASON) args.push(reason || process.env.KEYRING_REASON);
+  const res = spawnSync('python3', args, {
     encoding: 'utf8',
     // stderr passes through so the operator sees why a read failed; the value
     // itself only ever travels on the stdout pipe, never through argv.

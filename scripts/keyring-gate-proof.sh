@@ -64,7 +64,12 @@ elif [ $t2 -lt 300 ]; then
   echo "      A trusted application is almost certainly recorded on this item."
   echo "      Confirm with: ./scripts/keyring.sh verify"; rc_all=1
 else
-  echo "PASS  second read prompted again (${t2}ms) — no implicit window"
+  echo "OK    second read took ${t2}ms, consistent with a human answering"
+  echo "      NOTE: latency is corroborating, NOT proof. A read that was not"
+  echo "      prompted can still be slow under system load. The authoritative"
+  echo "      check that no implicit grant exists is the ACL verdict:"
+  echo "        ./scripts/keyring.sh verify"
+  echo "      What this step does prove is that you saw a second dialog."
 fi
 echo
 

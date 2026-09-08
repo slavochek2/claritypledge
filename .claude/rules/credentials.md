@@ -81,6 +81,22 @@ If you must capture a raw value, suspend tracing in your own shell frame around 
 the top of `scripts/keyring-gate-proof.sh`, which suppresses tracing globally for exactly
 this reason.
 
+## Say why you are asking
+
+The dialog cannot name you. It says "Python wants to use ...", which is why the founder
+denied a legitimate request on 2026-09-08 and had no way to find out whose it was.
+
+Every read now announces itself before the dialog — notification, stderr line, and a
+record in the request log — carrying the key, the session id, the branch and **the
+reason you supply**. Supply one:
+
+```bash
+KEYRING_REASON="weekly ops mailbox check" keyring_require OPS_EXAMPLE_KEY
+```
+
+`./scripts/keyring.sh requests` shows the log. A request with no reason still goes
+through; it just arrives as "(no reason given)", which the founder is entitled to deny.
+
 ## Never click "Always Allow"
 
 The dialog offers Allow, Deny and Always Allow. **Always Allow permanently disables the
