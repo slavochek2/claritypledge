@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 1000079
 workstream: events
 created_date: '2026-09-08'
 tags: [events, event-detail, ux, description]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
 disclosure: public
+completed_at: 2026-09-08
 ---
 
 # P1264: The trail link is buried in the hike description
