@@ -6,6 +6,96 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [technical]: A controlling terminal is not proof of a human — and the canary that "proved" it was built out of the bypass (P1246)
+
+**Context:** P1246 needed an escape hatch for its new closure gate that the gated party could not
+forge. The measurement looked decisive: from the agent Bash tool, `/dev/tty` is not merely
+redirected but **absent** — "Device not configured" — while a human in a terminal has one. The
+founder chose that design on the strength of it, over a flag file, on the reasoning in his own
+global rule that *"authorization the agent can forge is not authorization."*
+
+**Decision:** The claim is **false and is retracted**. `script(1)` is a standard, unrestricted
+utility that allocates a real pty. Reproduced end-to-end from a plain agent shell with no human
+present: a spec with an unticked completion box was closed on a red gate, ending "Ready to push."
+The measurement was correct; the inference from it was not. No local check repairs this —
+detecting `script` is an arms race against every other pty allocator, and any predicate an agent
+can read it can arrange to satisfy. The prompt is relabelled as what it is: friction plus a
+durable public record (the typed reason lands in the closure commit as a `Gate-Override-Reason:`
+trailer), the same posture as every other local control here. Canary A4 now asserts the **bypass
+works**, so the limitation is regression-tested rather than believed away.
+
+**The transferable half — the oracle was built out of the system under test.** The allow-path was
+"proven" by feeding the prompt through `script(1)`, i.e. the canary used the bypass as its stand-in
+for a human. Four green arms attested to a property none of them could see. CLAUDE.md already
+states the rule — *name the oracle and check it is independent of the thing under test* — and it
+was followed for the gate's own logic and skipped for the gate's authorization step. **The test for
+"is X unforgeable" cannot be written using the forgery.** Same shape as this log's 2026-08-14
+metric entry and the 2026-09-07 P1246 entry above: every figure and claim that moved this session
+moved by re-measuring, never by reasoning harder.
+
+**Alternatives rejected:** *Detect `script(1)` specifically* — an arms race, and it would restore a
+false sense of a boundary. *Keep the unforgeability claim and rely on the audit trail* — the claim
+was load-bearing for a founder decision, so leaving it standing would have made a second decision
+rest on it. *Remove the override entirely* — a live option, deliberately returned to the founder
+rather than taken unilaterally, because the premise of his original choice changed.
+
+**Consequences:** The real boundary must be server-side. `.github/workflows/closure-gate.yml` ships
+and re-derives the verdict from pushed commits, but verified via `gh api .../rulesets/17729463`,
+the only required status check on `main` is `audit-privacy`. **Until `closure-gate` is added to
+that ruleset, no layer in the closure chain is un-routable-around.** (Status: proposed — the
+ruleset edit is a founder action and must wait until the workflow has run once on main, because a
+required check that never reports blocks every merge.)
+
+**References:** [p1246](../features/done/2026-06-10/p1246_pipeline_controls_are_advisory.md) ·
+`scripts/lib/gate-override.sh` · `scripts/test-pipeline-gates.sh` (A1-A4) ·
+this log 2026-09-07 [process] (P1246 diagnosis, which this implements)
+
+---
+
+## 2026-09-08 [process]: A new gate's false positives are only visible by running the workflows that already existed (P1246)
+
+**Context:** Wiring `ship-gates.sh` into `git-ops.sh`'s closing code armed a refusal in front of
+every close. [epistemic.md](../.claude/rules/epistemic.md) gate 7c asks for the arm that has no
+natural prompt: not "can the gate fire?" but "does correct work still pass?"
+
+**Decision:** Run the repo's own documented workflows through the gate before shipping it. Doing so
+found two defects that nothing else would have, both in the gate's own author's code:
+
+1. **A stranded recovery path.** Canary QQ (P1094) crashes a ship between Phase 2's `git mv` and
+   the journal-flag write, then resumes. The first gate's skip predicate asked "is the journal's
+   `spec_file` still in `features/`?", so on resume it looked for a spec that had already moved,
+   reported "spec not found", and hard-failed the very recovery path that exists to survive that
+   crash. Fixed by asking the filesystem — *is a closed copy actually in `features/done/`?*
+2. **The gate manufacturing a false alarm in the monitoring this same spec added.**
+   `ship_init_journal` runs before the gate, so every refusal left a journal behind, which
+   `pipeline-strandings.sh` then reported as "INTERRUPTED SHIP — converge with `--resume`". Nothing
+   was interrupted, and the advice loops. Refusals now remove a journal they created.
+
+Both were invisible to the gate's own tests, which only ever asked whether it refuses.
+
+**The second-order finding.** Defect 1's first fix was *also* the security hole an adversarial
+review found next: trusting the journal's own `spec_file` field meant a hand-written journal (the
+file is plain, unauthenticated, documented) skipped the closure gate entirely while Phase 1 still
+cherry-picked the branch onto `main` — measured, with unreviewed code landing and zero gate lines
+printed. **A false-positive fix that reaches for the nearest available signal can install a
+false-negative.** The correct predicate was an artifact on disk that a forger would have to
+actually produce.
+
+**Alternatives rejected:** *Ship the gate and fix false positives as they surface.* The repo's own
+history says why not — a blocking hook shipped 2026-08-19 was unregistered the same day for
+exactly this. *Exempt the canaries from the gate.* That is the "gate everything except the tests"
+shape, and the 55-canary suite is the only place a false positive is cheap to find.
+
+**Consequences:** The ship canaries now carry the gate scripts and model shippable specs, so all 55
+double as the standing false-positive pass. A gate added to this pipeline in future should expect
+to change its test fixtures — if it does not, it is probably not armed where the work happens.
+
+**References:** [p1246](../features/done/2026-06-10/p1246_pipeline_controls_are_advisory.md) ·
+`scripts/test-git-ops-ship.sh` (QQ) · `scripts/test-pipeline-gates.sh` (B4, D3) ·
+[epistemic.md](../.claude/rules/epistemic.md) gate 7c
+
+---
+
 ## 2026-09-08 [process]: A gate proven in place is not proven through the path CI actually runs it from (P1255)
 
 **Context:** P1255's embargo-link gate was exercised in both directions before commit — a doc
