@@ -273,7 +273,16 @@ function isEmbargoedSpec(rel, abs) {
     try {
       const head = fs.readFileSync(abs, 'utf8').slice(0, 4096);
       const fm = head.startsWith('---\n') ? head.slice(4).split('\n---')[0] : '';
-      embargoed = /^disclosure:\s*['"]?embargo['"]?\s*$/m.test(fm);
+      // Parse the VALUE, don't pattern-match the whole line. The previous regex
+      // required the line to end right after the value, so `disclosure: embargo
+      // # pending fix` — valid YAML whose value is `embargo` — did not match and
+      // the spec was treated as publishable. Fail-open, found 2026-09-08.
+      const m = fm.match(/^disclosure:(.*)$/m);
+      let val = m ? m[1] : '';
+      val = val.replace(/\s#.*$/, '').trim();
+      // Strip only a MATCHED surrounding quote pair, never every quote character.
+      val = val.replace(/^'(.*)'$/, '$1').replace(/^"(.*)"$/, '$1');
+      embargoed = val === 'embargo';
     } catch {
       embargoed = false;
     }

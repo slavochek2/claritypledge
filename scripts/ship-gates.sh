@@ -89,7 +89,10 @@ disclosure_val="$(printf '%s\n' "$spec_content" \
   | sed -n '/^---$/,/^---$/p' \
   | { $GREP -E '^disclosure:' || true; } \
   | sed -n '1p' \
-  | sed "s/^disclosure://; s/^[[:space:]]*//; s/[[:space:]]*$//; s/[\"']//g")"
+  | sed 's/^disclosure://' \
+  | sed 's/[[:space:]]#.*$//' \
+  | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+  | sed "s/^'\\(.*\\)'$/\\1/; s/^\"\\(.*\\)\"$/\\1/")"
 
 if [[ "$disclosure_val" == "embargo" ]]; then
   echo "GATE 1.5 EMBARGO: ${pn} is disclosure: embargo — the code merges, the spec does NOT."

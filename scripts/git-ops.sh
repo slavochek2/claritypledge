@@ -2396,7 +2396,10 @@ ship_spec_disclosure() {
     | sed -n '/^---$/,/^---$/p' \
     | { /usr/bin/grep -E '^disclosure:' || true; } \
     | sed -n '1p' \
-    | sed "s/^disclosure://; s/^[[:space:]]*//; s/[[:space:]]*\$//; s/[\"']//g"
+    | sed 's/^disclosure://' \
+    | sed 's/[[:space:]]#.*$//' \
+    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+    | sed "s/^'\\(.*\\)'$/\\1/; s/^\"\\(.*\\)\"$/\\1/"
 }
 
 # ----------------------------------------------------------------------------
@@ -2459,9 +2462,13 @@ cmd_publish_spec() {
 
   # ── Gate 1/2: migrations present on prod ──────────────────────────────────
   local pnum="${pn#p}"
+  # The trailing boundary is load-bearing: a bare `p126` also matches p1268,
+  # p1260 and so on, which would demand THOSE specs' migrations be on prod before
+  # p126 could publish. Fail-closed rather than insecure, but wrong — verified by
+  # command 2026-09-08 against the repo's 253 pN-tokened migrations.
   local migs=""
   migs="$( cd "$REPO_ROOT" && git ls-tree -r --name-only "$branch" -- supabase/migrations 2>/dev/null \
-    | { /usr/bin/grep -E "p${pnum}" || true; } )" || migs=""
+    | { /usr/bin/grep -E "p${pnum}([^0-9]|\$)" || true; } )" || migs=""
   if [[ -n "$migs" ]]; then
     local manifest; manifest="$( cd "$REPO_ROOT" && git show origin/main:supabase/deploy-manifest.json 2>/dev/null )" \
       || die "publish-spec: cannot read origin/main:supabase/deploy-manifest.json"

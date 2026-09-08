@@ -102,11 +102,35 @@ jobs:
           # (empty scope in CI) — passing vacuously. Probe for flag support and
           # fall back to the pushed copy until it has landed, same reasoning as
           # the bootstrap above.
-          git show origin/main:scripts/validate-doc-links.cjs > /tmp/trusted-links.cjs 2>/dev/null || true
-          if [ -s /tmp/trusted-links.cjs ] && grep -q 'embargo-only' /tmp/trusted-links.cjs; then
+          # The trusted copy MUST live in scripts/, not /tmp. This validator derives
+          # REPO_ROOT as `path.join(__dirname, '..')` (validate-doc-links.cjs:72), so
+          # from /tmp it treats `/` as the repo root, finds zero tracked markdown
+          # files and exits 0 — a silent, total false pass. Measured 2026-09-08:
+          # "Scope: 0 markdown files (repo-wide)", exit 0, with a real violation
+          # staged. Caught by adversarial review, not by the gate's own tests,
+          # because those only ever ran the validator in place.
+          TRUSTED=scripts/.trusted-links.cjs
+          git show origin/main:scripts/validate-doc-links.cjs > "$TRUSTED" 2>/dev/null || true
+          if [ -s "$TRUSTED" ] && grep -q 'embargo-only' "$TRUSTED"; then
             echo "Using trusted link checker from origin/main."
           else
             echo "::warning::origin/main's validate-doc-links.cjs has no --embargo-only yet — running the PUSHED copy (bootstrap only)."
-            cp scripts/validate-doc-links.cjs /tmp/trusted-links.cjs
+            cp scripts/validate-doc-links.cjs "$TRUSTED"
           fi
-          node /tmp/trusted-links.cjs --embargo-only
+          set +e
+          node "$TRUSTED" --embargo-only | tee links-output.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          rm -f "$TRUSTED"
+
+          # Defence in depth against the exact bug above: a scan that examined
+          # nothing is not a pass. Assert it actually looked at files, so any
+          # future relocation of this checker fails loudly instead of silently
+          # waving every push through.
+          SCANNED=$(sed -n 's/^Scope: \([0-9][0-9]*\) markdown files.*/\1/p' links-output.txt | head -1)
+          if [ -z "$SCANNED" ] || [ "$SCANNED" -lt 1 ]; then
+            echo "::error::embargo-links scanned ${SCANNED:-no} files — the checker resolved the wrong repo root. Failing closed."
+            exit 1
+          fi
+          echo "embargo-links scanned $SCANNED markdown files."
+          exit "$rc"

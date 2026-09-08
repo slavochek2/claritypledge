@@ -350,7 +350,12 @@ def fix_file(file_path, max_rank_by_col):
     if disclosure_line is None:
         errors.append('missing disclosure: add public | embargo')
     else:
-        value = disclosure_line.split(':', 1)[1].strip().strip('\'"')
+        # Strip a whitespace-preceded YAML comment, then only a MATCHED
+        # surrounding quote pair — .strip('\'"') would turn the invalid value
+        # 'pub"lic' into a passing `public`.
+        value = re.sub(r'\s#.*$', '', disclosure_line.split(':', 1)[1]).strip()
+        if len(value) > 1 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
         if value not in ('public', 'embargo'):
             errors.append(
                 f'invalid disclosure: {value!r} — must be public | embargo')
