@@ -193,7 +193,10 @@ after a hike — photos, "who has my jacket", where everyone went to eat.
 - [x] Navigating from one event to another never shows the previous event's org note or
       group-chat URL — regression test drives real router navigation with the second
       request left unsettled.
-- [ ] Founder has opened the test-env mirror of the hike event and approved the result.
+- [x] Founder reviewed the test-env mirror across several rounds (label, colour, section
+      headings, quote attributions, block placement — the last round delivered as an
+      annotated screenshot) and authorised the ship in session on 2026-09-08. Recorded
+      as what happened rather than as a final reload, which was not separately confirmed.
 
 ## Done-When
 
