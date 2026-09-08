@@ -677,6 +677,55 @@ gate 7.
 **References:** features/p1263_bare_init_in_canary_flips_core_bare_on_the_real_repo.md ·
 features/p1131_banned_git_canary_fixture_leaks_git_dir_in_worktrees.md ·
 scripts/test-git-ops-extensions.sh · scripts/test-hook-sha-gate.sh
+## 2026-09-08 [technical]: A control scoped to a ref's NAME misses the other name for the same commit — and a correctly-proven abort was never asked what it left behind (P1260)
+
+**Context:** P1260 added a pre-push refusal for `feature/*` and `fix/*` refs, to make P1255's
+branch-born security specs an enforced property. Two defects in that control were found by probing
+it and by reading its neighbours — neither by a test, and neither by the code review.
+
+**Defect 1 — the class was defined by name, not by effect.** Blocking those two branch prefixes
+leaves tagging a `fix/` branch tip and pushing the tag as a one-word bypass publishing the identical
+commit. Not hypothetical here: measured 2026-09-07, **zero** tags have ever been pushed to `origin`,
+and **six** local tags point at commits not on `origin/main` — among them three named for
+pre-redaction snapshots. A single `--tags` push would have republished precisely the content this
+repo had already redacted, and nothing would have stopped it.
+
+**Decision:** the test is **reachability, not the ref's name**. A tag whose commit is already on
+`origin/main` publishes nothing new — that is what a release tag is — while a tag pointing anywhere
+else carries content the remote does not have. Generalises past the two prefixes the spec named.
+
+**Defect 2 — a previously-PROVEN abort path was proven for the wrong property.** Both promote
+functions push the staging ref and only *afterwards* discover they cannot prompt, so every
+agent-driven run leaked a ref: silently, with no "left for inspection" message and no cleanup.
+`cmd_push_docs` died at its `[[ -t 0 ]]` guard; `cmd_ship_to_prod` had no guard at all, so
+`exec < /dev/tty` failed under `set -e`. This is almost certainly how the two `staging/doc-*` refs
+measured on `origin` got there.
+
+**The instructive part is that this path was already tested.** The 2026-06 `PUSH_DOCS_ASSUME_YES`
+entry in this file records *"Both branches proven in isolation (env=1 → auto-confirm; unset+no-TTY →
+die)"* — and that proof is correct. It asked whether the abort **happens**. Nobody asked what the
+abort **leaves behind**, because the staging push is several steps earlier and out of frame. A
+green proof of "it refuses" is not a proof of "it refuses cleanly": when the failure point is
+downstream of a side effect, the test must assert the side effect was undone, not only that the
+refusal fired.
+
+**Alternatives rejected:** blocking *all* tag pushes (a release tag on a merged commit is
+legitimate, and this would have an unmeasured false-positive rate — gate 7c); deleting the ref on
+the timeout and red-CI aborts too (those messages tell the operator to promote manually *using that
+ref*, so deletion would break the documented recovery — they keep it deliberately and the sweep now
+reports them).
+
+**Consequences:** Any future ref-class control must be stated in terms of what reaches the remote,
+not which prefix is typed. And when reviewing an abort path, ask what was already pushed before the
+abort. Neither defect was found by the code review, which passed the branch clean twice; both came
+from probing the gate's own edges and from reading the sibling function.
+
+**References:** `scripts/pre-push-checks.sh` (Layer 0) · `scripts/git-ops.sh`
+(`reclaim_staging_and_die`) · `scripts/test-pre-push-refclass.sh` scenarios 11-12 ·
+`features/p1260_remote_refs_publish_before_they_are_scanned.md`
+
+---
+
 ## 2026-09-07 [technical]: Publish-then-scan on a public remote is ACCEPTED; the control moves from content to ref class (P1260)
 
 **Context:** Every push here transits an ephemeral branch on `origin` and CI scans it *after* it
