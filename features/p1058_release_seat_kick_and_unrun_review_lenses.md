@@ -142,6 +142,105 @@ any finding is reported as real.
 - [ ] `.private/docs/security-log.md` updated with anything found
 - [ ] P1053's Group F canaries and both integration suites still green
 
+## Findings
+
+### Phase 1 — F4 REPRODUCED, then fixed (2026-09-08)
+
+F4 was not a claim by the time this work started: the canaries committed with P1063
+(`e2e/integration/p1058-release-seat-authorization.spec.ts`) already reproduced it, and the P1063
+commit body says so. Re-run at the start of this session to confirm rather than inherit the claim
+— **3 failed / 5 passed**, the three failures being exactly F4:
+
+| Canary | Result before fix |
+|---|---|
+| anon holding only the id evicts a seated guest | FAILED — seat stamp and `joiner_name` cleared, rpc error: none |
+| the eviction raises `joinerEnded` | FAILED — a departure the guest never made |
+| release-then-claim defeats the occupancy guard | FAILED — `Expected "Original Guest"`, `Received "Attacker"` |
+| bound: signed-in seat holder | passed — not evictable |
+| bound: addressed session | passed — not touchable |
+| `joiner_profile_id` never moves | passed — **DoS, not disclosure** |
+
+**Classification: denial of service and a forged departure. No data disclosure.** The transcript
+SELECT policy keys on `joiner_profile_id`, and a release does not write it.
+
+**Fix — the code, not identity.** AD3's reasoning (identity cannot distinguish "the guest leaving"
+from "an attacker", because a guest has no `auth.uid()`) is correct and is *not* overturned. It is
+sidestepped: possession of the ROOM CODE distinguishes them, and a real occupant always holds one.
+`code` is the single column P1057 revoked from `anon` (21 of 22 granted) — verified two independent
+ways, by `has_column_privilege` inside `20260817140001` and by a live anon `select=code` returning
+42501 while `select=id` returned rows. `claim_joiner_seat` has always keyed on the code; release is
+now symmetric with it.
+
+**So the founder decision this spec braced for does not arise.** AD3 narrows from "any anon
+id-holder may release" to "any anon CODE-holder may". The anonymous guest leave path keeps working
+with no account and no UX change. *This narrowing is still a founder decision to ratify — see
+Decisions below.*
+
+Migration `20260908114500_p1058_release_seat_requires_code.sql`, client `7a801a3ef`.
+After: **P1058 11/11**, and **P1053 + P1063 + P1047 48/48** with no regressions.
+
+### Phase 2 — fail-open audit
+
+Classified by **construct**, not by predicate text, as the spec requires.
+
+| Function | Condition | Construct | NULL-reachable operand | Fail direction |
+|---|---|---|---|---|
+| `release_joiner_seat` (new) | `id = p_session_id` | WHERE | — | CLOSED |
+| | `joiner_seat_claimed_at IS NOT NULL` | WHERE | n/a (`IS` is NULL-safe) | CLOSED |
+| | `target_listener_id IS NULL OR target_listener_id = auth.uid()` | WHERE | `auth.uid()` | CLOSED — proven by the addressed-session bound canary |
+| | `auth.uid() IS NOT NULL AND joiner_profile_id = auth.uid()` | WHERE | both | CLOSED |
+| | `p_code IS NOT NULL AND code = upper(btrim(p_code))` | WHERE | `p_code`, `code` | CLOSED — proven by the wrong-code canary |
+| `claim_joiner_seat` | `p_code IS NULL OR length(btrim(p_code)) <> 6` | IF | `p_code` | CLOSED — the `IS NULL` arm short-circuits true |
+| | `p_joiner_name IS NULL OR btrim(...) = ''` | IF | `p_joiner_name` | CLOSED — same shape |
+| | `NOT FOUND` | IF | — | CLOSED |
+| | `ended_at IS NOT NULL` | IF | n/a | CLOSED |
+| | F3 `target_listener_id IS NOT NULL AND auth.uid() IS DISTINCT FROM ...` | IF | `auth.uid()` | CLOSED — `IS DISTINCT FROM` is NULL-safe |
+| | F2 `(joiner_profile_id IS NULL OR ... IS DISTINCT FROM auth.uid()) AND (EXISTS OR EXISTS)` | IF | `joiner_profile_id` | CLOSED |
+| | occupancy, arm (a) `IS NOT DISTINCT FROM auth.uid()` | IF | `joiner_profile_id` | CLOSED — this was **F5**, fixed in `20260812200000` |
+| | occupancy, arm (b) `joiner_name IS NOT DISTINCT FROM btrim(p_joiner_name)` | IF | `joiner_name` | CLOSED — fixed in `20260812210000` |
+| | F1 `joiner_profile_id IS NOT NULL AND ... IS DISTINCT FROM auth.uid()` | IF | — | CLOSED |
+| `complete_clarity_session` | `auth.uid() IS NOT NULL AND NOT EXISTS (...)` | IF | — | **OPEN BY DESIGN** — see below |
+| | inner `creator_profile_id = auth.uid()` etc. | WHERE (subquery) | `auth.uid()` | CLOSED |
+
+**One fail-OPEN condition found, and it is deliberate.** `complete_clarity_session`'s guard is
+skipped entirely whenever `auth.uid()` IS NULL — written that way to admit the trusted
+`service_role` path, but `anon` also has a NULL uid, and nothing in the body distinguishes them.
+**Only the ACL closes it.** Recorded as accepted rather than fixed: adding an `auth.uid() IS NULL`
+refusal would break the service_role caller the comment names, and that caller has not been
+enumerated here. The mitigation is the existing canary (P1058 suite, "complete_clarity_session is
+unreachable by anon"), which tests the *claim* rather than reading the ACL, and which passes.
+
+### Research Question 2 — is F5's class anywhere else?
+
+Scanned the **latest definition** of all 94 SECURITY DEFINER functions (later migrations override
+earlier ones) for an `IF` that RAISEs on a non-NULL-safe comparison against `auth.uid()`. A first
+scan returned 14 hits and was **wrong** — its regex ran across function boundaries, so most hits
+were fragments of neighbouring bodies. Re-run with dollar-quote-balanced extraction: 5 candidates,
+4 of them mitigated (P1066 added explicit `auth.uid() IS NULL` refusals; `retry_transcription` and
+`complete_clarity_session` put the comparison in a subquery WHERE, which is fail-CLOSED).
+
+**One unmitigated instance, outside this spec's three functions:**
+
+`seal_and_send_letter` (`20260904120000`, line 68) — `IF v_sender_id != auth.uid() THEN RAISE`.
+`v_sender_id` is guaranteed non-NULL four lines above, so for a NULL `auth.uid()` the condition is
+NULL, the branch is skipped, and the refusal never runs. Identical to F5. **Not exploitable today**
+— probed on test, anon gets `permission denied for function` (P1063's REVOKE survived P1212's
+`CREATE OR REPLACE`, which reused the same signature and therefore inherited the ACL). But the
+guard is one accidental grant, or one new overload, away from being live — and a new overload is
+exactly how this function acquired a PUBLIC grant once before (P1063's own header records it).
+**Recorded, not fixed here** — it is outside P1058's three named functions. Filed for P1059.
+
+### Decisions needed from the founder
+
+1. **Ratify the AD3 narrowing** — "any anon id-holder may release" becomes "any anon CODE-holder
+   may". No guest-flow cost, so this is ratification rather than a trade-off.
+2. **Event practice rooms** — `get_practice_room_codes` publishes codes to any anon visitor
+   (P1057 D-A), so for that room class F4 survives: a visitor can evict a seated guest and take the
+   seat. Those rooms were already joinable by strangers by design, but **eviction is a larger harm
+   than joining**. Pinned by its own canary so it cannot be forgotten. Closing it means either
+   attendee-only event rooms (a product question) or per-seat capability tokens (P1098's territory,
+   which owns code revocability). Not decided here.
+
 ## Research Questions
 
 1. Does F4 reproduce? Which grant and which policy actually make it reachable — `GRANT EXECUTE …
