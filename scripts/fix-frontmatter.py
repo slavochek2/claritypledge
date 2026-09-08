@@ -339,6 +339,22 @@ def fix_file(file_path, max_rank_by_col):
     if not has_field(new_lines, 'type'):
         errors.append('missing type: add story | bug | task | comment')
 
+    # Report: missing or invalid disclosure (P1255).
+    # Report-only, never auto-filled — same reasoning as `type` above: whether a
+    # spec describes a live, unfixed defect is a human judgement, and a wrong
+    # mechanical default here would be a lie about exposure, not a tidy-up.
+    # The hard gate lives in pre-commit-checks.sh check 12c, scoped to newly
+    # ADDED specs so the pre-P1255 corpus is structurally grandfathered.
+    disclosure_line = next(
+        (l for l in new_lines if re.match(r'^disclosure:', l)), None)
+    if disclosure_line is None:
+        errors.append('missing disclosure: add public | embargo')
+    else:
+        value = disclosure_line.split(':', 1)[1].strip().strip('\'"')
+        if value not in ('public', 'embargo'):
+            errors.append(
+                f'invalid disclosure: {value!r} — must be public | embargo')
+
     new_content = f'---\n{chr(10).join(new_lines)}{body}'
     if new_content != content:
         file_path.write_text(new_content)

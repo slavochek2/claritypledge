@@ -54,6 +54,13 @@ const args = process.argv.slice(2);
 const VERBOSE = args.includes('--verbose');
 const ALL = args.includes('--all');
 const REPORT_ONLY = args.includes('--report');
+// P1255 server-side mode: scan the WHOLE repo but fail ONLY on links to an
+// embargoed spec. Dead links are reported by the staged-scoped pre-commit check
+// (which is a ratchet, because the repo carries pre-existing dead-link debt that
+// would block every commit). An embargo violation has no such debt — there are
+// zero today — so it can be enforced repo-wide and absolutely, which is what
+// makes it a boundary rather than authoring discipline.
+const EMBARGO_ONLY = args.includes('--embargo-only');
 const SHOW_HELP = args.includes('--help') || args.includes('-h');
 
 const RED = '\x1b[0;31m';
@@ -243,6 +250,39 @@ function isIgnored(rel) {
 }
 
 /**
+ * True when `rel` is an OPEN spec whose own frontmatter declares
+ * `disclosure: embargo` (P1255).
+ *
+ * Scoped to top-level `features/pN_*.md` on purpose: `features/done/**` and
+ * `features/archive/**` hold closed and rejected specs, which are past the point
+ * an embargo protects — linking to them is always fine.
+ *
+ * Derives its scope from data the spec already carries, never from a committed
+ * list of embargoed paths. A checked-in index of what is sensitive would itself
+ * be the disclosure — the finding that rejected P1248 (2026-09-04) and P936's
+ * names watchlist before it.
+ *
+ * Memoised like isIgnored above; the validator already stats these paths, so
+ * this adds one readFileSync on an already-touched file, not a new I/O class.
+ */
+const _embargoCache = new Map();
+function isEmbargoedSpec(rel, abs) {
+  if (_embargoCache.has(rel)) return _embargoCache.get(rel);
+  let embargoed = false;
+  if (/^features\/p[0-9][^/]*\.md$/.test(rel)) {
+    try {
+      const head = fs.readFileSync(abs, 'utf8').slice(0, 4096);
+      const fm = head.startsWith('---\n') ? head.slice(4).split('\n---')[0] : '';
+      embargoed = /^disclosure:\s*['"]?embargo['"]?\s*$/m.test(fm);
+    } catch {
+      embargoed = false;
+    }
+  }
+  _embargoCache.set(rel, embargoed);
+  return embargoed;
+}
+
+/**
  * Classify a link target: 'live' | 'dead' | 'external'.
  *
  * Existence on disk is NOT sufficient (adversarial review, 2026-08-16). The gate
@@ -259,6 +299,12 @@ function isIgnored(rel) {
  *              sensitive detail. Calling those dead would punish following the rule.
  *   dead     — resolves to nothing, or to an untracked non-ignored file (the
  *              forgot-to-commit case this exists to catch).
+ *   embargoed— resolves to an OPEN spec carrying `disclosure: embargo` (P1255).
+ *              The file is tracked and on disk, so every existence- and
+ *              tracked-ness test passes; only its own frontmatter says it must
+ *              not be published yet. Fails the same way `dead` does, with its
+ *              own message, because the fix is different: don't commit the
+ *              file, versus don't publish the link.
  */
 function classifyTarget(fromFile, target) {
   const fsPath = toFsPath(target);
@@ -284,6 +330,17 @@ function classifyTarget(fromFile, target) {
       /* fall through to the file checks */
     }
 
+    // BEFORE the tracked check, not after (P1255). The case this catches is a
+    // public doc and an embargoed spec edited on the SAME branch — the realistic
+    // authoring flow. There the spec is tracked, so a check placed after the
+    // `trackedSet()` line below could never be reached and would be dead code.
+    // The cross-worktree case (spec absent from disk entirely) is already caught
+    // by the `dead` fallthrough and needs nothing here.
+    //
+    // A `disclosure: public` spec, or one predating the field, is untouched:
+    // isEmbargoedSpec returns false and it falls through to `live` exactly as
+    // before.
+    if (isEmbargoedSpec(rel, abs)) return 'embargoed';
     if (trackedSet().has(rel)) return 'live';
     if (isIgnored(rel)) return 'external';
     return 'dead'; // exists locally, not tracked, not ignored — would break on clone
@@ -293,7 +350,8 @@ function classifyTarget(fromFile, target) {
 
 /** Back-compat boolean wrapper: external counts as resolved (not our problem). */
 function targetResolves(fromFile, target) {
-  return classifyTarget(fromFile, target) !== 'dead';
+  const outcome = classifyTarget(fromFile, target);
+  return outcome !== 'dead' && outcome !== 'embargoed';
 }
 
 /**
@@ -370,7 +428,12 @@ function checkFileRatchet(file) {
     const key = `${target}@${line}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    introduced.push({ file: path.relative(REPO_ROOT, file), target, line });
+    introduced.push({
+      file: path.relative(REPO_ROOT, file),
+      target,
+      line,
+      why: classifyTarget(file, target)
+    });
   }
   return introduced;
 }
@@ -388,7 +451,12 @@ function checkFile(file) {
   for (const { target, line } of extractLinks(content)) {
     if (isSkippableTarget(target)) continue;
     if (!targetResolves(file, target)) {
-      dead.push({ file: path.relative(REPO_ROOT, file), target, line });
+      dead.push({
+        file: path.relative(REPO_ROOT, file),
+        target,
+        line,
+        why: classifyTarget(file, target)
+      });
     }
   }
   return dead;
@@ -420,7 +488,14 @@ function printDead(dead, limit) {
   for (const [source, entries] of Object.entries(bySource)) {
     console.log(`${RED}✗${NC} ${source}`);
     for (const e of entries) {
-      console.log(`    line ${e.line}: ${e.target}`);
+      // Same failure bucket as a dead link, different remedy — so say which.
+      // "target does not exist" would send the reader hunting for a missing
+      // file that is sitting right there.
+      const note =
+        e.why === 'embargoed'
+          ? `  ${YELLOW}← linked spec is under disclosure embargo (P1255); do not publish this link until the spec is promoted${NC}`
+          : '';
+      console.log(`    line ${e.line}: ${e.target}${note}`);
     }
   }
   if (!VERBOSE && dead.length > shown.length) {
@@ -443,7 +518,7 @@ function main() {
       .map(a => path.resolve(REPO_ROOT, a))
       .filter(f => fs.existsSync(f));
     scopeLabel = `${scope.length} file(s) named on the command line`;
-  } else if (ALL || REPORT_ONLY) {
+  } else if (ALL || REPORT_ONLY || EMBARGO_ONLY) {
     scope = allMarkdownFiles();
     scopeLabel = `${scope.length} markdown files (repo-wide)`;
   } else {
@@ -452,7 +527,7 @@ function main() {
   }
 
   // Default (pre-commit) mode is a ratchet against HEAD; explicit modes are absolute.
-  const RATCHET = filesFlagIndex === -1 && !ALL && !REPORT_ONLY;
+  const RATCHET = filesFlagIndex === -1 && !ALL && !REPORT_ONLY && !EMBARGO_ONLY;
 
   let dead;
   let linkCount;
@@ -470,6 +545,24 @@ function main() {
     }, 0);
   } else {
     ({ dead, linkCount } = checkFiles(scope));
+  }
+
+  if (EMBARGO_ONLY) {
+    dead = dead.filter(d => d.why === 'embargoed');
+    console.log(`Scope: ${scopeLabel}`);
+    console.log(`Mode: embargo-only (dead links are NOT gated here)`);
+    if (dead.length === 0) {
+      console.log(`${GREEN}✓ No public doc links to an embargoed spec${NC}`);
+      process.exit(0);
+    }
+    console.log(`${RED}✗ Links to embargoed spec(s): ${dead.length}${NC}\n`);
+    printDead(dead, 50);
+    console.log('');
+    console.log(`${RED}✗ A doc links to a spec under disclosure embargo (P1255).${NC}`);
+    console.log(`${YELLOW}  The spec is withheld from main until its defect is confirmed fixed`);
+    console.log(`  on prod. Remove the link, or publish the spec first:`);
+    console.log(`      ./scripts/git-ops.sh publish-spec pNNNN${NC}`);
+    process.exit(1);
   }
 
   console.log(`Scope: ${scopeLabel}`);

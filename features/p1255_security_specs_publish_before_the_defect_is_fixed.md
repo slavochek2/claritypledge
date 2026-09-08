@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 1000074
 workstream: infra
 created_date: '2026-09-07'
 tags: [security, disclosure, process, specs]
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: dev
+pipeline_ran: [create-spec, architect, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high

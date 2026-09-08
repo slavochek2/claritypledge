@@ -818,6 +818,40 @@ else
 fi
 echo ""
 
+# 12c. Disclosure field on NEWLY ADDED specs (P1255).
+#
+# Every new spec must declare `disclosure: public | embargo` -- whether it
+# describes a live, unfixed defect and must therefore stay branch-born until the
+# fix is confirmed on prod. The judgement is the author's; this check only
+# enforces that the judgement was made. It is deliberately NOT a content
+# detector -- see docs/decisions.md 2026-07-15 [security], which rejects that
+# class outright.
+#
+# --diff-filter=A (not AM, unlike the migration checks at ~L1226/1290): the
+# A-only scope IS the grandfathering mechanism. The 163 specs that predate this
+# field will show as M for the rest of their lives and must never trip this
+# gate; widening to AM would flag every one of them on the next unrelated edit.
+#
+# The `[^/]*` in the pattern excludes features/done/** and features/archive/**
+# on purpose. /ship `git mv`s a spec into features/done/DATE/, and when git does
+# not pair that as a rename (content is rewritten in the same commit) the
+# destination lands as A -- which would block shipping every legacy spec. A
+# closed spec is past the point this gate protects, so top-level only.
+# Single implementation, shared with the server-side required check
+# (.github/workflows/disclosure-gate.yml) so the local hook and the boundary
+# cannot drift. Local hooks are accident-prevention, not the boundary
+# (.claude/rules/git.md) — this call is the former.
+if [ -f "./scripts/check-disclosure.sh" ]; then
+    if ! run_quiet "Disclosure field" ./scripts/check-disclosure.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${RED}✗ scripts/check-disclosure.sh missing — blocking commit${NC}"
+    echo -e "${YELLOW}  A gate that vanishes silently is worse than no gate.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+echo ""
+
 # 13. Duplicate P-number check (prevents reused P-numbers)
 if [ -f "./scripts/check-duplicate-p-numbers.sh" ]; then
     if ! run_quiet "Duplicate P-numbers" ./scripts/check-duplicate-p-numbers.sh; then

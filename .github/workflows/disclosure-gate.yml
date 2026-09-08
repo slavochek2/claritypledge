@@ -1,0 +1,112 @@
+# Disclosure gate — server-side half of the P1255 publication control.
+#
+# Two independent checks, both BLOCKING:
+#   1. disclosure-field  — every spec ADDED in this range declares
+#                          `disclosure: public | embargo`.
+#   2. embargo-links     — no doc anywhere in the repo links to a spec carrying
+#                          `disclosure: embargo`.
+#
+# Why this exists at all (R2). Before it, both halves ran only from
+# scripts/pre-commit-checks.sh, which any `--no-verify` bypasses. Per
+# .claude/rules/git.md, local hooks are "accident-prevention, not the boundary";
+# the boundary for this repo's other disclosure control is the required
+# server-side privacy-scan check on main (P919). A publication control enforced
+# only by a bypassable local hook is authoring discipline wearing a gate's
+# clothing — so this workflow must be marked REQUIRED on main with an empty
+# bypass list, exactly as privacy-scan is, or it buys nothing.
+#
+# Load-bearing design notes, mirrored from privacy-scan.yml:
+#  - Checkers are fetched FROM origin/main (the already-trusted copy), NOT the
+#    pushed copy, so an edit to a checker inside the push being checked cannot
+#    weaken its own gate. Corollary: a change to either checker is only active in
+#    CI once it has landed on main.
+#  - BLOCKING, never alert-only: no continue-on-error. The job must exit non-zero
+#    to register a failed required check.
+#  - permissions: contents: read ONLY. Actions auto-publishes the check-run
+#    result; do NOT add statuses:write or checks:write.
+
+name: disclosure-gate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  disclosure:
+    name: disclosure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0 # full history — range computation needs origin/main reachable
+
+      - name: Fetch trusted base (origin/main)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main:refs/remotes/origin/main \
+            || git fetch --no-tags --quiet origin main
+
+      - name: Compute scan range
+        id: range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          ZERO=0000000000000000000000000000000000000000
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            RANGE="${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          elif [ "$BEFORE_SHA" = "$ZERO" ] || ! git rev-parse --verify --quiet "${BEFORE_SHA}^{commit}" >/dev/null 2>&1; then
+            RANGE="origin/main..${AFTER_SHA}"
+          else
+            RANGE="${BEFORE_SHA}..${AFTER_SHA}"
+          fi
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+          echo "Computed scan range: $RANGE"
+
+      - name: disclosure-field (trusted-base checker)
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: |
+          set -euo pipefail
+          # Bootstrap: on the PR that introduces the checker it does not exist on
+          # origin/main yet, and `git show` exits 128 — which would fail this gate
+          # on its own introducing change. Fall back to the pushed copy, loudly.
+          # This is safe precisely because there is no trusted version to weaken:
+          # the fallback can only ever run once, before the file lands on main.
+          if git show origin/main:scripts/check-disclosure.sh > /tmp/trusted-disclosure.sh 2>/dev/null; then
+            echo "Using trusted checker from origin/main."
+          else
+            echo "::warning::check-disclosure.sh is not on origin/main yet — running the PUSHED copy (bootstrap only). It becomes trusted-base once merged."
+            cp scripts/check-disclosure.sh /tmp/trusted-disclosure.sh
+          fi
+          chmod +x /tmp/trusted-disclosure.sh
+          bash /tmp/trusted-disclosure.sh --range "$RANGE"
+
+      - name: embargo-links (trusted-base checker, repo-wide)
+        run: |
+          set -euo pipefail
+          # Repo-wide and absolute, unlike the pre-commit doc-link ratchet: that
+          # one is staged-scoped because the repo carries pre-existing dead-link
+          # debt. --embargo-only ignores dead links entirely and fails only on a
+          # link to an embargoed spec, of which there are zero today — so there
+          # is no debt to grandfather and the check can be absolute.
+          # --embargo-only is new in this change, so origin/main's copy does not
+          # understand the flag yet and would scan in its default staged mode
+          # (empty scope in CI) — passing vacuously. Probe for flag support and
+          # fall back to the pushed copy until it has landed, same reasoning as
+          # the bootstrap above.
+          git show origin/main:scripts/validate-doc-links.cjs > /tmp/trusted-links.cjs 2>/dev/null || true
+          if [ -s /tmp/trusted-links.cjs ] && grep -q 'embargo-only' /tmp/trusted-links.cjs; then
+            echo "Using trusted link checker from origin/main."
+          else
+            echo "::warning::origin/main's validate-doc-links.cjs has no --embargo-only yet — running the PUSHED copy (bootstrap only)."
+            cp scripts/validate-doc-links.cjs /tmp/trusted-links.cjs
+          fi
+          node /tmp/trusted-links.cjs --embargo-only

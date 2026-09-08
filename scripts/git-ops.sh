@@ -2368,6 +2368,189 @@ ship_spec_creation_blob() {
   ( cd "$REPO_ROOT" && git show "${creation_sha}:${spec}" 2>/dev/null )
 }
 
+# ── P1255: disclosure embargo ────────────────────────────────────────────────
+# Return the spec's `disclosure:` value ("public", "embargo", or "" when the
+# field is absent — every spec predating P1255).
+#
+# Reads the BRANCH copy first, matching ship-gates.sh's own precedence: specs
+# evolve on the branch and main's copy is stale until ship completes. A spec that
+# is branch-born has no main copy at all, which is the whole point.
+ship_spec_disclosure() {
+  local branch="$1" spec="$2"
+  local content=""
+  if [[ -n "$branch" && -n "$spec" ]]; then
+    content="$( cd "$REPO_ROOT" && git show "${branch}:${spec}" 2>/dev/null )" || content=""
+  fi
+  if [[ -z "$content" && -n "$spec" && -f "$REPO_ROOT/$spec" ]]; then
+    content="$( cat "$REPO_ROOT/$spec" )"
+  fi
+  [[ -z "$content" ]] && return 0
+  # `|| true` is load-bearing, not defensive noise: this file runs under
+  # `set -euo pipefail` (L39), grep exits 1 whenever `disclosure:` is absent —
+  # every spec predating P1255, i.e. the common case — and a bare command-
+  # substitution assignment in the caller would abort the script before its own
+  # error message could run. `sed -n 1p` replaces `head -1` for the same reason:
+  # head closes the pipe early and SIGPIPEs the upstream grep (141), which
+  # pipefail promotes to the pipeline's status (epistemic.md gate 7, P1260).
+  printf '%s\n' "$content" \
+    | sed -n '/^---$/,/^---$/p' \
+    | { /usr/bin/grep -E '^disclosure:' || true; } \
+    | sed -n '1p' \
+    | sed "s/^disclosure://; s/^[[:space:]]*//; s/[[:space:]]*\$//; s/[\"']//g"
+}
+
+# ----------------------------------------------------------------------------
+# Subcommand: publish-spec  (P1255, Build Sequence step 6b)
+#
+# Publishes a spec that `ship` deliberately withheld because it carried
+# `disclosure: embargo`. This is the deferred half of a normal close: the code
+# already merged at ship time, the branch and worktree were retained, and the
+# spec file still exists only on its own branch.
+#
+# Why it is a separate step and not a pre-merge gate (R1): ship.md:66 mandates
+# merge-first-then-migrate, because stamp-deploy-manifest.sh refuses to run from
+# inside a worktree and migrating pre-merge dirties main's manifest into a
+# guaranteed cherry-pick conflict. So the prod stamp this step waits for cannot
+# exist until AFTER the merge. A gate placed before the merge would deadlock.
+#
+# Gates, all hard:
+#   1. Every migration carrying this spec's pN token is present in
+#      origin/main:supabase/deploy-manifest.json -> .prod.migrations.
+#   2. If the spec has NO migration, there is nothing a manifest can confirm —
+#      require an explicit --yes. Fails closed (toward non-disclosure).
+#   3. The authenticated prod smoke test passes RIGHT NOW. The manifest is a
+#      record, not the database: .private/docs/security-log.md 2026-08-10 has an
+#      incident where it recorded a migration as applied whose effects were
+#      absent. Manifest = trigger, live check = confirmation, never manifest alone.
+# ----------------------------------------------------------------------------
+cmd_publish_spec() {
+  local pn="" assume_yes=0 skip_smoke=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --yes)         assume_yes=1; shift ;;
+      --skip-smoke)  skip_smoke=1; shift ;;   # test-only knob; never in normal use
+      p[0-9]*)       pn="$1"; shift ;;
+      *)             die "publish-spec: unknown argument '$1'" ;;
+    esac
+  done
+  [[ -n "$pn" ]] || die "publish-spec: usage: git-ops.sh publish-spec pN [--yes]"
+  [[ "$pn" =~ ^p[0-9]+$ ]] || die "publish-spec: pN must match p[0-9]+ (got: $pn)"
+
+  # Must run from the main checkout: this commits to main, and the branch it
+  # tears down at the end may be the very worktree a caller is standing in.
+  local _top; _top="$( git rev-parse --show-toplevel )"
+  [[ "$_top" == "$REPO_ROOT" ]] || \
+    die "publish-spec: run from the main checkout ($REPO_ROOT), not $_top"
+
+  local branch; branch="$(resolve_ship_branch "$pn")"
+  [[ -n "$branch" ]] || die "publish-spec: no feature/${pn}-* or fix/${pn}-* branch — nothing to publish (already published?)"
+
+  # `local x=""` then `x="$(...)" || x=""` — the file's own safe idiom (L1380).
+  # `git ls-tree -r` emits the whole tree, so a `head -1` really would SIGPIPE
+  # the upstream grep; and grep exits 1 when the spec is absent.
+  local branch_spec=""
+  branch_spec="$( cd "$REPO_ROOT" && git ls-tree -r --name-only "$branch" 2>/dev/null \
+    | { /usr/bin/grep -E "^features/${pn}_[^/]+\.md$" || true; } | sed -n '1p' )" || branch_spec=""
+  [[ -n "$branch_spec" ]] || die "publish-spec: no features/${pn}_*.md on $branch"
+
+  local disc; disc="$(ship_spec_disclosure "$branch" "$branch_spec")"
+  [[ "$disc" == "embargo" ]] || \
+    die "publish-spec: $pn is 'disclosure: ${disc:-<absent>}', not embargo — a normal 'git-ops.sh ship $pn' publishes it"
+
+  # ── Gate 1/2: migrations present on prod ──────────────────────────────────
+  local pnum="${pn#p}"
+  local migs=""
+  migs="$( cd "$REPO_ROOT" && git ls-tree -r --name-only "$branch" -- supabase/migrations 2>/dev/null \
+    | { /usr/bin/grep -E "p${pnum}" || true; } )" || migs=""
+  if [[ -n "$migs" ]]; then
+    local manifest; manifest="$( cd "$REPO_ROOT" && git show origin/main:supabase/deploy-manifest.json 2>/dev/null )" \
+      || die "publish-spec: cannot read origin/main:supabase/deploy-manifest.json"
+    local missing=0
+    while IFS= read -r m; do
+      [[ -z "$m" ]] && continue
+      local base; base="$(basename "$m")"
+      if ! printf '%s' "$manifest" | python3 -c \
+        "import json,sys; d=json.load(sys.stdin); sys.exit(0 if '$base' in d.get('prod',{}).get('migrations',[]) else 1)"; then
+        echo "publish-spec: NOT applied to prod: $base" >&2
+        missing=$((missing + 1))
+      fi
+    done <<<"$migs"
+    (( missing == 0 )) || die "publish-spec: $missing migration(s) for $pn are absent from origin/main deploy-manifest [prod].migrations — apply to prod and stamp the manifest first"
+    echo "publish-spec: all $pn migrations present in origin/main [prod].migrations" >&2
+  else
+    if (( assume_yes == 0 )); then
+      die "publish-spec: $pn has no migration, so no manifest can confirm the fix is live on prod. Confirm the fix is deployed and re-run with --yes."
+    fi
+    echo "publish-spec: no migrations for $pn — proceeding on explicit operator ack (--yes)" >&2
+  fi
+
+  # ── Gate 3: live confirmation (the manifest is a record, not the database) ──
+  if (( skip_smoke == 0 )); then
+    echo "publish-spec: running authenticated prod smoke test..." >&2
+    ( cd "$REPO_ROOT" && node scripts/prod-smoke-test.mjs ) \
+      || die "publish-spec: prod smoke test FAILED — refusing to publish $pn while prod does not demonstrate the fixed behaviour"
+  else
+    echo "publish-spec: WARNING — prod smoke skipped (--skip-smoke); this is a test-only path" >&2
+  fi
+
+  # ── Publish under the main lock, serialized against ship / commit-to-main ──
+  acquire_main_lock 120 >/dev/null || die "publish-spec: could not acquire main.lock"
+  # shellcheck disable=SC2064 — expand now: the trap must name this exact lock.
+  trap "release_main_lock >/dev/null 2>&1 || true" EXIT
+
+  local _head; _head="$( cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD )"
+  [[ "$_head" == "main" ]] || die "publish-spec: HEAD is not main (got $_head)"
+  local _gd; _gd="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir )"
+  [[ -e "$_gd/CHERRY_PICK_HEAD" || -e "$_gd/rebase-merge" || -e "$_gd/rebase-apply" || -e "$_gd/MERGE_HEAD" ]] \
+    && die "publish-spec: operation in progress — refusing to commit inside another session's cherry-pick, rebase or merge"
+
+  local sprint_dir; sprint_dir="$(resolve_ship_sprint_dir)"
+  mkdir -p "$REPO_ROOT/$sprint_dir"
+  local dest="${sprint_dir}/$(basename "$branch_spec")"
+
+  # Write the BRANCH copy (the only complete one) to its closed location on main.
+  ( cd "$REPO_ROOT" && git show "${branch}:${branch_spec}" > "$dest" ) \
+    || die "publish-spec: could not extract $branch_spec from $branch"
+
+  ship_rewrite_frontmatter "$REPO_ROOT/$dest" || die "publish-spec: frontmatter rewrite failed"
+
+  # D4 (founder, 2026-09-08): the field reads `public` once published. Leaving
+  # `embargo` in features/done/ would publish a permanent, computable
+  # "this hole was open for completed_at - created_date days" figure for every
+  # security fix, forever — a per-spec exposure-duration index, which is close to
+  # the committed list of what is sensitive that Invariant 1 forbids.
+  python3 - "$REPO_ROOT/$dest" <<'PYEOF'
+import sys, re, pathlib
+p = pathlib.Path(sys.argv[1]); t = p.read_text()
+end = t.find("\n---\n", 4)
+fm, rest = t[4:end], t[end + 5:]
+fm = re.sub(r'^disclosure:.*$', 'disclosure: public', fm, count=1, flags=re.M)
+p.write_text("---\n" + fm + "\n---\n" + rest)
+PYEOF
+
+  ( cd "$REPO_ROOT" && git add -- "$dest" ) || die "publish-spec: git add failed"
+  commit_staged_exact "chore: publish $pn spec — embargo lifted, fix confirmed on prod" "$dest" \
+    || die "publish-spec: commit failed"
+  echo "publish-spec: $pn published at $dest" >&2
+
+  # ── Teardown: what ship's Phase 3 deliberately skipped ────────────────────
+  local wt_path=""
+  wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
+              awk -v br="refs/heads/${branch}" '
+                /^worktree / { path = substr($0, 10); next }
+                /^branch / { if ($2 == br) print path }
+              ' | sed -n '1p' )" || wt_path=""
+  if [[ -n "$wt_path" ]]; then
+    reap_worktree_servers "$wt_path"
+    ( cd "$REPO_ROOT" && git worktree remove --force "$wt_path" ) >/dev/null 2>&1 || true
+  fi
+  if ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
+    ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 || \
+      echo "publish-spec: WARNING — branch delete failed for $branch" >&2
+  fi
+  echo "publish-spec: $pn complete. Push when ready (pushes are never automatic)." >&2
+}
+
 cmd_ship() {
   local pn=""
   local resume=0
@@ -2444,6 +2627,10 @@ cmd_ship() {
   # read inside the post-lock seed block. Resume path always leaves these as "".
   local need_seed=0
   local branch_spec_file=""
+  # P1255: set when the spec carries `disclosure: embargo`. Suppresses the spec
+  # seed, the spec-close git mv, and Phase 3 teardown — the branch and worktree
+  # must survive so the spec stays branch-born until `publish-spec` runs.
+  local ship_embargoed=0
   if (( journal_exists == 0 )); then
     # Resolve the spec FIRST (it has no branch dependency) so the no-branch
     # closure path can reuse it. resolve_ship_branch now returns "" on zero
@@ -2830,6 +3017,20 @@ The branch is authoritative for shipped migrations. Compare each file with
   # Seeding the creation blob makes the creation cherry-pick identical-AA on both
   # sides → git auto-resolves it, benign arm skips, subsequent edit picks apply
   # cleanly. Common path (spec already on main): need_seed=0, this block is a no-op.
+  # P1255: an embargoed spec must NOT be seeded onto main. Seeding is what
+  # publishes a branch-born spec, and publication is deferred until the fix is
+  # confirmed live on prod (`git-ops.sh publish-spec pN`). The code cherry-picks
+  # above have already run — R1: this gates PUBLICATION, never the merge.
+  # Gating the merge would deadlock against ship.md:66, which mandates
+  # merge-first-then-migrate, so the prod stamp a pre-merge gate waits for cannot
+  # exist until after the merge it blocks.
+  local _disc_spec="${branch_spec_file:-$spec_file}"
+  if [[ "$(ship_spec_disclosure "$branch" "$_disc_spec")" == "embargo" ]]; then
+    ship_embargoed=1
+    need_seed=0
+    echo "ship: $pn is disclosure: embargo — spec withheld from main (code merges normally)." >&2
+  fi
+
   if (( need_seed == 1 )); then
     # Op-in-progress guard (mirror cmd_commit_to_main L999).
     local _gitdir_seed
@@ -3120,7 +3321,15 @@ The branch is authoritative for shipped migrations. Compare each file with
   done <<<"$pending"
 
   # Phase 2: spec close (idempotent — skip if journal.spec_closed=true).
-  if ! ship_journal_flag "$pn" "spec_closed"; then
+  #
+  # P1255: skipped entirely for `disclosure: embargo`. The close is what moves the
+  # spec into features/done/ and commits it to main — i.e. publication. It runs
+  # later, from `git-ops.sh publish-spec pN`, once the fix is confirmed live on
+  # prod. Deliberately NOT recorded as spec_closed: the spec genuinely is not
+  # closed, and a resume must be able to finish the job after publication.
+  if (( ship_embargoed == 1 )); then
+    echo "ship: $pn spec close deferred (disclosure: embargo) — run 'git-ops.sh publish-spec $pn' after the prod apply." >&2
+  elif ! ship_journal_flag "$pn" "spec_closed"; then
     # Op-in-progress guard (P1082, mirrors L1816 no-branch arm + L2038 seed block).
     # When `pending` is empty (all commits already landed) the per-sha loop above
     # never runs a single iteration, so its own foreign-op guard (~L2088) never
@@ -3233,7 +3442,14 @@ The branch is authoritative for shipped migrations. Compare each file with
   fi
 
   # Phase 3: branch + worktree cleanup (idempotent — skip if already done).
-  if ! ship_journal_flag "$pn" "branch_deleted"; then
+  #
+  # P1255: skipped for `disclosure: embargo`. The spec file lives ONLY on this
+  # branch until publication; deleting the branch here would destroy the only
+  # copy that exists anywhere. The branch and worktree are torn down by
+  # `publish-spec` instead, after the spec has landed on main.
+  if (( ship_embargoed == 1 )); then
+    echo "ship: $pn branch + worktree retained (disclosure: embargo) — the spec exists only on $branch until it is published." >&2
+  elif ! ship_journal_flag "$pn" "branch_deleted"; then
     local wt_path
     wt_path="$( cd "$REPO_ROOT" && git worktree list --porcelain | \
                 awk -v br="refs/heads/${branch}" '
@@ -4321,6 +4537,7 @@ main() {
     switch-safe)     cmd_switch_safe "$@" ;;
     sync)            cmd_sync "$@" ;;
     ship)            cmd_ship "$@" ;;
+    publish-spec)    cmd_publish_spec "$@" ;;
     ship-to-prod)    cmd_ship_to_prod "$@" ;;
     push-docs)       cmd_push_docs "$@" ;;
     help|-h|--help)  print_usage; exit 0 ;;

@@ -5,6 +5,7 @@
 # Exit 1: at least one hard gate failed (message explains which).
 #
 # Gates (all mechanical — /ship relays this output, never re-attests them):
+#   1.5   disclosure: embargo -> spec publication deferred (report only, P1255)
 #   2.5   completion criteria all ticked + dev/fix in pipeline_ran (P1169)
 #   2.7   code-review artifact present (git-common-dir/.finish-reviewed)
 #   2.7b  artifact freshness (warn only)
@@ -65,6 +66,43 @@ if [[ -z "$spec_content" ]]; then
     spec_content="$(cat "${REPO_ROOT}/${spec_file}")"
     spec_source="main disk (${spec_file})"
   fi
+fi
+
+# ── Gate 1.5: disclosure promotability (P1255) ──────────────────────────────
+# REPORT ONLY. It never sets `fail`, and that is the whole design.
+#
+# The architect's first form of this gate hard-blocked the merge until the spec's
+# migrations were present in origin/main's deploy-manifest [prod].migrations.
+# That deadlocks: ship.md:66 mandates merge-first-then-migrate, because
+# stamp-deploy-manifest.sh refuses to run inside a worktree and migrating
+# pre-merge dirties main's manifest into a guaranteed cherry-pick conflict. So
+# the prod stamp such a gate waits for cannot exist until after the merge it
+# blocks — epistemic.md gate 7c: a new refusal never run against the workflow
+# the tool already documents.
+#
+# What actually enforces the embargo is git-ops.sh, which for `disclosure:
+# embargo` merges the code and simply does not seed the spec onto main. The hard
+# prod assertions live in `git-ops.sh publish-spec`, which runs AFTER the prod
+# apply. This gate exists so the operator is told, at ship time, that the spec is
+# being withheld and what closes it out.
+disclosure_val="$(printf '%s\n' "$spec_content" \
+  | sed -n '/^---$/,/^---$/p' \
+  | { $GREP -E '^disclosure:' || true; } \
+  | sed -n '1p' \
+  | sed "s/^disclosure://; s/^[[:space:]]*//; s/[[:space:]]*$//; s/[\"']//g")"
+
+if [[ "$disclosure_val" == "embargo" ]]; then
+  echo "GATE 1.5 EMBARGO: ${pn} is disclosure: embargo — the code merges, the spec does NOT."
+  echo "  The spec stays branch-born; branch and worktree are retained by ship."
+  echo "  After the prod apply, publish it from the main checkout:"
+  echo "    ./scripts/git-ops.sh publish-spec ${pn}"
+  echo "  That step hard-asserts the spec's migrations are in origin/main"
+  echo "  deploy-manifest [prod].migrations AND that the authenticated prod smoke"
+  echo "  test passes — the manifest is a record, not the database."
+elif [[ -n "$disclosure_val" ]]; then
+  echo "GATE 1.5 PASS: ${pn} is disclosure: ${disclosure_val} — publishes normally."
+else
+  echo "GATE 1.5 SKIP: ${pn} carries no disclosure: field (predates P1255)."
 fi
 
 # ── Gate 2.5: completion criteria ───────────────────────────────────────────
