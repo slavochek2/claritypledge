@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 disclosure: public
 rank: 1000067
@@ -11,8 +11,15 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 tags: [specs, tooling, validation]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: tools/kanban/scripts/__tests__/validate-features.test.ts
+  root_cause: "validate-features.ts calls matter(content) with no try/catch per file; gray-matter/js-yaml throws YAMLException on features/archive/p821_letter_reading_progress_bar_disappears_on_scroll.md's duplicate status: key, killing the whole process before the summary prints"
+  confidence: high
+  surfaces_in_scope: [validate-features.ts]
+  surfaces_deferred: []
+  reproduced_at: '2026-09-08'
 ---
 
 # P1238: `validate-features.sh` crashes on a duplicate `status:` key and validates nothing after it
