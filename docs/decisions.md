@@ -5987,6 +5987,35 @@ of its hypothesis and says so in its own Open Questions.
 ---
 
 
+## 2026-09-08 [technical]: A column that is safe because nothing sets it is safe by accident, not by design
+
+**Context:** P1236's live-transcription design de-duplicates overlapping 4-second audio slices by
+reading a member's most recent message and stripping the repeated prefix. It ordered that read on
+`spoken_at DESC`. Reviewing the security findings against the build sequence surfaced that
+`transcribe_messages.spoken_at` is `DEFAULT now()` and today nothing ever supplies it — the only
+writer, `sendFinalMessage`, omits the column entirely. So the ordering key is server-controlled
+right now, and the design read as correct.
+
+**Decision:** State the invariant explicitly rather than inherit it. `spoken_at` is DB-assigned and
+must be rejected if present in an ingest payload, asserted by a test; any client-supplied sequence
+number is demoted to bounds-checking and replay rejection and is never the de-duplication ordering
+key. The pre-merge candidate text is held in worker memory and never written to the table, not even
+transiently.
+
+**Alternatives rejected:** Leave it implicit because the current code is correct — rejected. The new
+ingest function is precisely the place where setting `spoken_at` from the slice's capture timestamp
+is the natural, better-looking choice for a transcript, and doing so silently hands the merge order
+to the client. Trust the client sequence number and validate monotonicity — rejected; monotonic is
+not the same as truthful, and a replayed or reordered sequence still passes.
+
+**Consequences:** The general shape is worth carrying: when a design depends on a column's value
+being trustworthy, the question is not "who sets it today" but "who could set it once this feature
+lands". A `DEFAULT` clause protects a column only while every writer declines to name it. Look for
+this wherever a new writer is being added to a table that an existing writer has been using
+narrowly.
+
+**References:** [features/p1236_server_side_live_transcription_for_rooms.md](../features/p1236_server_side_live_transcription_for_rooms.md), `src/app/data/transcribe-service.ts`, `supabase/migrations/20260823190000_p1149_transcribe_room_tables.sql`
+
 ## 2026-09-03 [process]: The /dev A/B was defeated by its own scoreboard — the seven canaries were skipped, and green when un-skipped for the wrong reason
 
 **Context:** Founder asked whether `/dev` earns its cost. Two arms were run on P1212 from the
