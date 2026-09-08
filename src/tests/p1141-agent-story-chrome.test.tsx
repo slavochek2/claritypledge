@@ -134,13 +134,31 @@ describe('p1141 DW-7 — attribution level 1: the byline and the machine chip', 
     const { unmount } = wrap(<AgentByline name="Agent · Jane Doe" size="lg" />);
     const chip = screen.getByTestId('machine-chip');
     expect(chip.getAttribute('data-chip-size')).toBe('lg');
-    // Same border and palette at both sizes — a different-looking mark would read as a
-    // different claim.
-    expect(chip.className).toContain('border-gray-300');
-    expect(chip.className).toContain('rounded-full');
+    const lgClasses = chip.className;
     unmount();
     wrap(<AgentByline name="Agent · Jane Doe" />);
-    expect(screen.getByTestId('machine-chip').getAttribute('data-chip-size')).toBe('sm');
+    const small = screen.getByTestId('machine-chip');
+    expect(small.getAttribute('data-chip-size')).toBe('sm');
+
+    // The REQUIREMENT is that the two sizes read as one marker — not that the marker is
+    // drawn any particular way. Until 2026-09-08 this asserted `border-gray-300` and
+    // `rounded-full` literally, which pinned the pill styling the founder then read, on the
+    // rendered profile, as a control: "this thing, agent, looks like a button now. But it's
+    // not a button." Pinning the drawing made the defect look like the contract.
+    //
+    // So compare the two sizes against EACH OTHER instead. Everything except the
+    // size-derived classes must match, which is the actual claim ("a different-looking mark
+    // would read as a different claim") and stays true through any restyle that keeps both
+    // sizes in step.
+    const sizeDerived = /text-\[?\d|text-xs|shrink-0/;
+    const stable = (cls: string) =>
+      cls.split(/\s+/).filter((c) => c && !sizeDerived.test(c)).sort().join(' ');
+    expect(stable(small.className)).toBe(stable(lgClasses));
+
+    // And the marker must still be a WORD, not only a shape: the word is the non-colour
+    // channel `src/index.css` counts for WCAG 1.4.1 on story surfaces, where the agent card
+    // is deliberately desaturated. A restyle may move the border; it may not mute the noun.
+    expect(small.textContent).toContain('Agent');
   });
 });
 

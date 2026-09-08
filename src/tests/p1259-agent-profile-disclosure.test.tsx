@@ -33,8 +33,11 @@ describe('P1259 change 2 — the disclosure on the agent profile', () => {
     // old phrasing. Asserting the exact sentence would make every future wording change look
     // like a regression while a sentence that dropped the split would still pass.
     expect(line).toContain('written by a machine');
-    expect(line).toContain('quotes');
-    expect(line).toContain('Yann LeCun');
+    // OWNERSHIP, not just co-occurrence — tightened 2026-09-08 after an independent review
+    // caught the looser form. `toContain('quotes')` + `toContain('Yann LeCun')` as two
+    // separate assertions passes on "quotes ABOUT Yann LeCun", which is the opposite claim:
+    // the whole point of the sentence is that the quoted words are HIS, not the machine's.
+    expect(line).toContain("Yann LeCun's own");
   });
 
   it('strips the stored `Agent · ` prefix, like every other surface', () => {

@@ -1,6 +1,6 @@
 ---
 name: provision-agent
-description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, uploads it to the agent-avatars storage bucket, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Records the subject_key for the pipeline that will file under it."
+description: "Create ONE agent account — a persistent machine reading of one named person — or reuse the existing one for that subject. Runs the rights check, generates the avatar through /slava:content:gen-agent-avatar, uploads it to the agent-avatars storage bucket, mints the auth user, and calls the only sanctioned registration RPC so the profile and the registry row commit together. Files the subject description and the subject's OWN public links (personal presence only — never the organisation they work for), each verified against a source independent of the link. Records the subject_key for the pipeline that will file under it."
 when_to_use: "Before /slava:disagreement:publish can file anything for a speaker who has never been covered, and whenever an existing agent's avatar must be regenerated. Run it once per environment — test and prod are separate databases and an agent in one is not an agent in the other. This is the ONLY skill that creates an agent account. May be invoked inline by /slava:disagreement:publish at its halt point (P1135 decision (c)) — the gate below runs unmodified either way."
 version: 0.2.1
 ---
@@ -193,6 +193,90 @@ The RPC sets `is_verified = false`, `has_pledged = false`, `ears_count = 0` expl
 
 > **Reuse returns a DIFFERENT id than you passed.** If the subject was already registered, the function returns the existing `profile_id`. Compare it against the id you minted; when they differ, delete **your** freshly-minted auth user — after the check above.
 
+## Step 5b — The description and the subject's own links (REQUIRED, not optional)
+
+Founder, 2026-09-08: *"each agent we create should automatically create description and the
+links."* An account provisioned without them ships a profile that is the **only disclosure
+route in the product** (P1259 moved the disclosure here and took the footer off every story
+card) and that has nothing on it but a name and a robot portrait.
+
+Write both in the same run that mints the account. Do not defer them to "later" — later is how
+the first four agents went a month with one-sentence bios and no links at all.
+
+### The description
+
+Two or three plain sentences saying who the subject is and why they are worth listening to on
+the topic the pipeline will file under. `profiles.bio` caps at 2000 characters (widened by
+P1259 from 160); that is a ceiling, not a target.
+
+**Source discipline is the same as story prose: no fact from memory.** Take it from the
+subject's Wikipedia article, their own site, or their employer's staff page, and be ready to
+name which. Two of the first four bios written here "would have been wrong from memory" —
+that is recorded in P1259's own risk table, not hypothetical.
+
+### The links — PERSONAL ONLY
+
+`profiles.links` is `[{url, label?}]`. **`https:` only**; the render gate drops anything else
+(`src/lib/profile-links.ts`), so an `http:` link is silently no link at all — check the
+subject's site actually answers on https before filing it.
+
+**ADMIT — the person's own presence:**
+
+- their Wikipedia article
+- their personal site or personal blog
+- their own social accounts: X, Instagram, YouTube, LinkedIn, Facebook, Mastodon, Substack
+- **their own profile page on an organisation's site** — a faculty page, a staff bio. This is
+  a page ABOUT the person and is admitted for that reason.
+
+**REFUSE — the organisation itself:**
+
+- a company, lab, nonprofit or campaign homepage, even one the subject founded or runs
+- a product page, a press release, an article they are merely quoted in
+
+Founder, 2026-09-08, on finding ControlAI's homepage filed under Connor Leahy: *"we are
+talking only about personal links... We don't insert company links, that makes no sense.
+Unless it's a profile of the person on the company page, then maybe."*
+
+**The test that separates them: is this page ABOUT the person, or about the thing they work
+on?** `controlai.com` is about the organisation — it was removed. `cims.nyu.edu/~yann` is Yann
+LeCun's own homepage that happens to live on NYU's domain — it stays. The domain does not
+decide this; the page's subject does. When a founder's personal site and their company's site
+are literally the same page, file neither and say so.
+
+### Verify each link before filing it, twice over
+
+A link on this row is a **public claim that a named person owns that account**, published under
+a machine account they never consented to. Getting it wrong attributes a stranger's posts to
+them.
+
+1. **It resolves.** Fetch it; require a `200` after redirects.
+2. **It is THEIRS.** A `200` proves the page loads, never whose it is — and on a JS-shell host
+   it does not even prove the account exists in a useful sense. Corroborate against a source
+   that is independent of the link itself: Wikidata's own claims (`P2002` X, `P2003`
+   Instagram, `P2397` YouTube, `P856` official site), the subject's Wikipedia external links,
+   or the subject's own site linking the account.
+
+**Measured 2026-09-08, and the reason step 2 is not optional:** `x.com/<handle>` returns
+**200** for a live handle and **404** for a nonexistent one — so the status code does
+discriminate, but only after a control probe established that. Ownership still came from
+Wikidata or the subject's own site in every one of the four cases.
+
+**Filing nothing is a valid outcome.** A subject with no verifiable public presence gets an
+empty `links` array, and the row correctly renders as absent rather than as an empty
+placeholder. Never pad it with the organisation to avoid an empty row — that is the exact
+substitution this section refuses.
+
+### Write it
+
+`links` is deliberately absent from `upsert_my_profile`, so a member's own profile save can
+neither set nor clear it. It is operator-written: `PATCH /rest/v1/profiles?id=eq.<profile_id>`
+with the service role on the target environment. Read it back through the **anon** path the
+browser actually uses (`get_profile_by_slug`) and paste the result — the P877 column grant is
+what makes it visible to a reader, and a service-role read passes whether that grant landed or
+not.
+
+---
+
 ## Step 6 — Verify, then record
 
 Read back and **paste** the output:
@@ -200,7 +284,10 @@ Read back and **paste** the output:
 - `agent_accounts` has a row for this `subject_key`, with the operator you confirmed;
 - `profiles` shows the reserved name, `is_verified = false`, `has_pledged = false`, `ears_count = 0`, and the avatar URL;
 - the avatar URL still returns `200 image/*`;
-- `is_reserved_agent_name(<the name>)` returns **true** on the target.
+- `is_reserved_agent_name(<the name>)` returns **true** on the target;
+- **`bio` is non-empty and `links` is filed** (step 5b) — read through `get_profile_by_slug`
+  with the anon key, not the service role. An account that reaches this point with an empty
+  bio is not finished: the profile is the only place the disclosure lives.
 
 Then **record the key where the filer will read it.** The registry file is `.private/logs/agent-registry.log` (gitignored — `.private/` — since a line carries a real name and a real UUID; this repo is public). Append one line:
 

@@ -83,6 +83,25 @@ function LinkIcon({ link }: { link: ProfileLink }) {
   return <Icon size={14} aria-hidden="true" />;
 }
 
+/**
+ * Whether the icon already IS the platform's name, making the text label a duplicate.
+ *
+ * Only X qualifies, and it is why this exists: the row rendered the wordmark followed by the
+ * word — founder, reading it back, *"we have two Xs, right? XX, that's weird."* Correct. It
+ * is the general shape of a logo that SPELLS its name sitting beside that name, not a special
+ * case: Wikipedia's book, YouTube's play button and Instagram's camera are pictograms, none
+ * of them spell anything, so all of them keep their label.
+ *
+ * The label never leaves the ACCESSIBLE name — `aria-label` on the anchor still says "X", so
+ * a screen reader hears the platform even though the eye reads only the mark. An
+ * operator-supplied label always wins and is always shown: an X link deliberately labelled
+ * "Connor's posts" is a decision, not a duplicate.
+ */
+function iconSpellsItsOwnName(link: ProfileLink): boolean {
+  const hasOperatorLabel = typeof link.label === "string" && link.label.trim() !== "";
+  return !hasOperatorLabel && profileLinkKind(link) === "x";
+}
+
 export function ProfileSubjectLinks({
   links,
   subjectName,
@@ -113,10 +132,10 @@ export function ProfileSubjectLinks({
               data-testid="profile-subject-link"
               data-link-kind={profileLinkKind(link)}
               aria-label={`${label} — ${subjectName}'s own page, opens in a new tab`}
-              className="inline-flex min-h-[40px] items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline"
+              className="inline-flex min-h-[40px] items-center gap-1.5 text-sm text-foreground/80 transition-colors hover:text-foreground hover:underline"
             >
               <LinkIcon link={link} />
-              {label}
+              {iconSpellsItsOwnName(link) ? null : label}
             </a>
           </li>
         );
