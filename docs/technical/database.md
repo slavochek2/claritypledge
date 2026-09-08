@@ -485,6 +485,16 @@ alone leaves the role-direct grant. `has_function_privilege()` cannot tell them 
 half-revoke leaves this check green and the hole open — see the `NOT_COVERED` constant the
 script prints on every run, which is authoritative over this paragraph.
 
+**This applies to functions you create correctly from scratch, not only to ones being locked
+down after the fact** — which is the case nobody checks. Supabase's `ALTER DEFAULT PRIVILEGES`
+on the `public` schema grants EXECUTE on every **newly created** function to `anon`,
+`authenticated` and `service_role` role-directly, so a brand-new function written with
+`REVOKE ALL … FROM PUBLIC` + `GRANT EXECUTE … TO authenticated` is still anon-executable the
+moment its migration applies. P1236 hit this and it was the fifth instance here after P1063's
+four. **Read the grant back from the live catalog after applying** — never from the migration
+text — and put a known anon-executable function in the same query as a control, so a
+uniformly-false result cannot be a blind probe.
+
 `scripts/test-function-grant-drift-check.py` asserts each shape offline against synthetic
 fixtures, including that the blindness controls fire. Run it after any change to the
 checker. The known-open backlog lives in `.private/function-grant-baseline.json`
