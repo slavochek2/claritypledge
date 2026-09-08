@@ -95,6 +95,31 @@ else
 fi
 
 echo
+echo "--- every producer title has a byte-exact registry entry ---"
+# The registry matches issues by EXACT title (never `gh --search`, which token-matches).
+# So a single character of drift between a producer's TITLE= and the registry's
+# match_title makes that check a permanent silent no-op: the reader finds nothing,
+# reports nothing due, and exits 0 — indistinguishable from a healthy system. No
+# fixture test can catch this, because fixtures supply their own titles; the two
+# sides only meet in production. Several of these titles contain em-dashes, which
+# is exactly the kind of character that survives a copy-paste and not a retype.
+producer_titles=$(for p in "${PRODUCERS[@]}"; do
+  grep -hoE 'TITLE="[^"]*"' ".github/workflows/$p.yml"
+done | sed 's/^TITLE="//; s/"$//' | sort -u)
+registry_titles=$(jq -r '.checks[] | select(.kind=="github-issue-age") | .match_title' \
+  .github/alert-registry.json | sort -u)
+if [ "$producer_titles" = "$registry_titles" ]; then
+  printf 'PASS  %s title(s) match byte for byte\n' "$(printf '%s\n' "$producer_titles" | wc -l | tr -d ' ')"
+else
+  echo "FAIL  producer titles and registry match_titles have drifted:"
+  diff <(printf '%s\n' "$producer_titles") <(printf '%s\n' "$registry_titles") \
+    | sed 's/^/      /'
+  echo "      < = in a producer but not the registry (that alarm is never escalated)"
+  echo "      > = in the registry but no producer (that check can never fire)"
+  fails=$((fails+1))
+fi
+
+echo
 if [ "$fails" -gt 0 ]; then
   echo "RESULT: $fails failure(s)"; exit 1
 fi
