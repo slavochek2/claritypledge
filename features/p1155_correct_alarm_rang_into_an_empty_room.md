@@ -176,11 +176,15 @@ own exact-title match plus its own author check (Build Sequence 2a), independent
 producing workflow found or created the issue. That makes this spec robust whether or not the five
 `--search` detectors are ever hardened.
 
-**Out of scope, but recorded because it is live today:** the `--search` form is exploitable in the
-producers themselves — an unrelated open issue sharing title words swallows the detector's comment,
-so a genuine alarm gets appended to the wrong issue and never opens its own. That is a defect in
-the five detectors, not in this reader, and fixing detectors is a Non-Goal here. Flagged for its
-own spec.
+**Recorded here because it WAS live, and is no longer.** The `--search` form was exploitable in
+the producers themselves — an unrelated open issue sharing title words swallowed the detector's
+comment, so a genuine alarm got appended to the wrong issue and never opened its own. This was
+originally scoped out as a detector defect rather than a reader defect. The adversarial review
+(A4) refused that split: a reader that only watches issues the producers can be diverted away from
+watches nothing. All ten call sites across the seven producers were rewritten to the exact-title,
+author-bound form in `5242694a7`, and `scripts/test-producer-author-bind.sh` extracts the jq filter
+from the workflow files themselves so a regression in either direction fails rather than passing
+quietly. Verified: `grep -n "gh issue list" .github/workflows/*.yml` returns no `--search` form.
 
 ### 3. The channel is ops@, and it fails loudly
 
@@ -233,7 +237,8 @@ fixture contains only inputs it should catch has an unmeasured false-positive ra
   that, and does not need to: the escalation's job is to put a decision-ready item in the agent's
   inbox, not to guarantee sub-day latency. Escalation at N=2 days into a weekly-read inbox is
   strictly better than the status quo of never. If ops@ latency proves to be the next binding
-  constraint, that is a follow-up with its own evidence.
+  constraint, that is a follow-up with its own evidence — and it needs that evidence first, so it
+  is deliberately not filed as a spec today.
 - **ACCEPT — nothing watches the watcher** (§6).
 - **MITIGATE — the escalator gains repo-secret access to a live mailbox.** It sends only; it never
   reads ops@, and it never receives. Body content is the issue body plus the fix commands, both of
@@ -319,8 +324,14 @@ the revert handled it.
 - [x] All seven producers author-bind their find-or-append (and their close-on-recovery, where
       present), so a producer cannot be induced to append to an issue it did not create — with a
       fixture proving a genuine bot-authored issue is still matched (A4)
-- [ ] An issue aged past the threshold produces exactly one email to ops@, **observed firing** in a
-      simulated run — not asserted
+- [x] An issue aged past the threshold produces exactly one email to ops@ — **observed by running
+      the script as a process**, not by asserting on an imported function's return value.
+      `scripts/test-escalator-exit-codes.sh` stubs `gh` onto `PATH` and checks the three exit codes
+      CI dispatches on: `0` nothing due, `1` due (and a message actually composed), `2` broken.
+      Per gate 7 the failure path was exercised: removing the forced `EXIT_BROKEN` makes the two
+      broken-case assertions fail with `expected exit 2, got 1`, and restoring it returns the suite
+      to green. That regression is exactly A7 — a crash spelled the same way as a successful send,
+      which no assertion inside the module can catch, because the module never sets the exit code
 - [x] The same issue on the following run produces **no** second email (once per threshold crossing)
 - [x] An issue younger than the threshold produces no email — the no-false-alarm case is tested, not
       only the catch case (gate 7c)
@@ -359,16 +370,44 @@ found. `MAILGUN_REGION` is now in the workflow env, both routes are pinned by fi
 and a non-2xx now names the base URL, the domain and the region rather than just the
 status code.
 
-### Post-deploy verification
+## Post-deploy Verification — the one thing that cannot happen before merge
+
+**Deliberately not part of the ship gate, and this section explains why rather than
+asserting it.** Every item below needs a real GitHub Actions run. A run needs the
+workflow on the default branch. Getting it there is the merge. So requiring these
+before merging is not a strict gate, it is an unsatisfiable one — the spec's original
+Done-When contained exactly that loop, authored by me, and the only way to make the
+gate pass today would have been to tick boxes for things that had not occurred, which
+is precisely what P1169 exists to stop.
+
+The honest structure is: everything provable on a laptop is a Done-When item and is
+ticked above; everything that needs the runner is here, unticked, and stays unticked
+until someone runs it and pastes the result.
+
+**`workflow_dispatch` is GitHub's manual "Run workflow" button.** It does not appear in
+the Actions UI until the workflow file is on the default branch — which is why none of
+this is reachable now, and why `gh api .../actions/workflows` currently returns nothing
+for this workflow: GitHub has never seen it.
+
+**Owner: whoever merges. Do this immediately after the merge, not "later" — an
+escalator nobody has watched escalate is the same empty room this spec is about,
+one level up.**
+
 - [ ] One `workflow_dispatch` run against the live open issue #11 (aged 3+ days) delivers one email
 - [ ] A second `workflow_dispatch` run delivers nothing (label suppression holds)
-- [ ] **Remove the `escalated` label from #11 afterwards.** The two runs above are a test, and #11
+- [ ] **Remove the `p1155-escalated-2d` / `-7d` / `-30d` labels from #11 afterwards** — one per
+      threshold the test run crossed; #11 is 3+ days old so at least `-2d` will be applied. The two runs above are a test, and #11
       is a live unresolved alarm — leaving the label on it silences its own re-escalation. Do this
       even if the feature stays: the label means "already escalated for this crossing", and the
       crossing being tested is synthetic.
 - [ ] Confirm `concurrency:` actually serialized the two runs (check the Actions log for a queued,
       not concurrent, second run) — the two back-to-back dispatches are themselves the race the
       guard exists to stop
+
+**If any item fails, the escalator is not working**, regardless of a green CI badge —
+the badge only proves the job ran, and a job that decides nothing is due exits `0` too.
+
+---
 
 ## Resolved Decisions
 
@@ -538,12 +577,17 @@ existing=$(gh issue list --state open --json number,title \
   | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty')
 ```
 `prod-health-smoke.yml:77`, `auth-canary.yml:54`, `db-backup.yml:191`, `stranded-signups.yml:66,91`
-instead use `gh issue list --state open --search "$TITLE in:title" --json number --jq
-'.[0].number // empty'` — `gh --search` token-matches `in:title`, which is exactly the failure
-mode the spec's Problem section warns about. **`github-issue-age` reuses the first pattern only.**
-This is a pre-existing inconsistency in the repo, out of scope to fix here (Non-Goals: no second
-detector, no scope beyond the registry+reader+channel) — noted so the next reader of these seven
-files doesn't assume the `--search` form is the sanctioned one.
+**used to** instead use `gh issue list --state open --search "$TITLE in:title" --json number --jq
+'.[0].number // empty'` — `gh --search` token-matches `in:title`, which is exactly the failure mode
+the spec's Problem section warns about.
+
+**This analysis is kept as written, and then corrected, because the correction is the finding.**
+The original conclusion — a pre-existing inconsistency, out of scope, noted for the next reader —
+was wrong, and wrong in a way worth preserving: the reader this spec builds cannot be more reliable
+than the issues it reads, so leaving five of seven producers divertible would have left the whole
+mechanism divertible while every test went green. A4 overturned it. All ten call sites now use the
+single exact-title, author-bound form, and `scripts/test-producer-author-bind.sh` binds the test to
+the workflow files rather than restating their filter.
 
 **Body-building convention.** `check-deploy-drift.yml` and `backup-staleness.yml` build the issue
 body into a file (`> issue-body.md`) and pass `--body-file`, keeping shell interpolation out of

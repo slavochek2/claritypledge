@@ -249,7 +249,7 @@ echo ""
 # the alarm is diverted silently. Hermetic (jq against fixtures, no network).
 # The canary extracts the jq filter FROM the workflows rather than restating it,
 # so a drift between test and code fails rather than passing quietly.
-ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs|test-mailgun-send\.mjs)|\.github/alert-registry\.json)$' || true)
+ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs|test-mailgun-send\.mjs|test-escalator-exit-codes\.sh)|\.github/alert-registry\.json)$' || true)
 if [ -n "$ALERT_PRODUCER_STAGED" ]; then
     if ! run_quiet "Alert-producer author-bind canary (P1155)" bash scripts/test-producer-author-bind.sh; then
         ERRORS=$((ERRORS + 1))
@@ -265,6 +265,15 @@ if [ -n "$ALERT_PRODUCER_STAGED" ]; then
     # modes throwing without echoing the credential.
     if [ -f "scripts/test-mailgun-send.mjs" ]; then
         if ! run_quiet "Mailgun send canary (P1155)" node scripts/test-mailgun-send.mjs; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # The fixture suites above import the evaluators and assert on return values, so
+    # neither can see the exit code — the only thing the workflow actually dispatches
+    # on. A crash exiting 1 would read as "email sent" and the run would go green.
+    # This one runs the script as a process with gh stubbed onto PATH.
+    if [ -f "scripts/test-escalator-exit-codes.sh" ]; then
+        if ! run_quiet "Alert-escalator exit-code canary (P1155)" bash scripts/test-escalator-exit-codes.sh; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
