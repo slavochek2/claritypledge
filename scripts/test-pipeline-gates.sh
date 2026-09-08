@@ -194,6 +194,19 @@ else
   fail "B3: a well-formed spec was refused (exit $rc)"; sed 's/^/    /' "$SCRATCH/b3.log" >&2
 fi
 
+# ── B4. A refused ship must leave NO stale journal ──────────────────────────
+# ship_init_journal runs before the gate on the branch route, so a refusal used
+# to leave a journal behind — which pipeline-strandings.sh then reported as
+# "INTERRUPTED SHIP ... converge with --resume". Nothing was interrupted and the
+# advice looped. A gate whose refusal manufactures a false alarm in the repo's
+# own monitoring is worse than no monitoring.
+if [[ -d "$R1/.claude/worktrees/.ship-journal" ]] && \
+   ls "$R1/.claude/worktrees/.ship-journal/"*.json >/dev/null 2>&1; then
+  fail "B4: the refused ship (B1) left a stale journal: $(ls "$R1/.claude/worktrees/.ship-journal/")"
+else
+  pass "B4: a gate-refused ship leaves no journal — no false 'INTERRUPTED SHIP' in the strandings report"
+fi
+
 # ── C. Fail closed when the gate script is missing ──────────────────────────
 R3="$SCRATCH/r3"; mk_repo "$R3"
 spec_fixture "$R3" p1045 ticked
@@ -318,5 +331,5 @@ if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A1-A4, B1-B3, C1, D1-D3, E1-E6, F1-F5, G1-G3)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A1-A4, B1-B4, C1, D1-D3, E1-E6, F1-F5, G1-G3)"
 exit 0

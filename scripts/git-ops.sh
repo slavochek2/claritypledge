@@ -2601,8 +2601,21 @@ ship_close_message() {
   fi
 }
 
+# $3 = path of a journal this run CREATED (empty on --resume). A refusal removes
+# it, so a correctly-refused ship leaves no stale state behind.
+#
+# Without this, `ship_init_journal` (which runs earlier on the branch route)
+# leaves a journal on every gate refusal, and pipeline-strandings.sh then reports
+# it as "INTERRUPTED SHIP ... converge with --resume". Nothing was interrupted —
+# the gate did its job — so the report is wrong and its advice is a loop. Caught
+# 2026-09-08 by running the new reporter against the new gate; a self-inflicted
+# false positive of exactly the kind epistemic.md gate 7c exists to catch, and it
+# would have trained the founder to ignore the one report meant to be trusted.
+#
+# Same precedent as the self-modification guard below: "On a fresh run the
+# journal was just created — remove it so refusal leaves no stale state."
 ship_run_gates() {
-  local pn="$1" want_override="${2:-0}"
+  local pn="$1" want_override="${2:-0}" fresh_journal="${3:-}"
   SHIP_GATE_OVERRIDE_REASON=""
 
   local gates_script="$REPO_ROOT/scripts/ship-gates.sh"
@@ -2610,6 +2623,7 @@ ship_run_gates() {
   # branch -> deny"). A missing gate script must never mean "no gates apply" —
   # that is the failure mode where deleting the gate is the cheapest way past it.
   if [[ ! -x "$gates_script" ]]; then
+    [[ -n "$fresh_journal" ]] && rm -f "$fresh_journal"
     die "ship: cannot run closure gates — $gates_script is missing or not executable. Refusing to close $pn ungated."
   fi
 
@@ -2621,8 +2635,9 @@ ship_run_gates() {
     return 0
   fi
 
-  # --- Failed. The ONLY way past is a human at a terminal. -------------------
+  # --- Failed. --------------------------------------------------------------
   if [[ "$want_override" -ne 1 ]]; then
+    [[ -n "$fresh_journal" ]] && rm -f "$fresh_journal"
     die "$(gate_override_refusal_text "$pn")"
   fi
 
@@ -2642,8 +2657,10 @@ ship_run_gates() {
   fi
 
   local reason=""
-  reason="$( gate_override_capture "$pn" "closure gate" )" \
-    || die "ship: override aborted at the prompt — $pn not closed."
+  if ! reason="$( gate_override_capture "$pn" "closure gate" )"; then
+    [[ -n "$fresh_journal" ]] && rm -f "$fresh_journal"
+    die "ship: override aborted at the prompt — $pn not closed."
+  fi
 
   gate_override_record "$pn" "closure" "$reason"
   SHIP_GATE_OVERRIDE_REASON="$reason"
@@ -3025,7 +3042,9 @@ cmd_ship() {
   if (( _gate_skip == 1 )); then
     echo "ship: closure gate skipped — $pn's spec has already left features/ (resuming a partially-landed ship)." >&2
   else
-    ship_run_gates "$pn" "$want_override"
+    local _fresh_journal=""
+    (( journal_exists == 0 )) && _fresh_journal="$journal"
+    ship_run_gates "$pn" "$want_override" "$_fresh_journal"
   fi
 
   # Guard: refuse if branch touches git-ops.sh itself.
