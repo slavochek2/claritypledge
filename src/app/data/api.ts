@@ -931,10 +931,6 @@ function mapSessionFromDb(dbSession: DbClaritySession, knownCode: string): Clari
     sourceStoryId: dbSession.source_story_id ?? null,
     targetListenerId: dbSession.target_listener_id ?? null,
     status: dbSession.status ?? null,
-    // P1058: same mechanism as `code` above — a definer function's result is not filtered by
-    // the caller's column privileges, so the seat capability arrives here on a claim and is
-    // undefined on every ordinary read.
-    joinerSeatToken: dbSession.joiner_seat_token ?? null,
   };
 }
 
@@ -1350,11 +1346,7 @@ export async function getActiveSessionByCode(code: string): Promise<ClaritySessi
  * (P511: pagehide no longer clears the joiner; the grace period handles departures.)
  * @param sessionId - The session UUID
  */
-export async function clearSessionJoiner(
-  sessionId: string,
-  code: string | null,
-  seatToken: string | null,
-): Promise<void> {
+export async function clearSessionJoiner(sessionId: string, code: string | null): Promise<void> {
 
   // P1053: one RPC replaces the read-modify-write above.
   //
@@ -1380,14 +1372,9 @@ export async function clearSessionJoiner(
   // claim_joiner_seat has always keyed on it. Passing it here makes release symmetric with
   // claim. A SIGNED-IN joiner is still authorized on auth.uid() alone and may pass null —
   // their arm never needed the code and is unchanged.
-  // P1058 residue fix: the code alone does not authorize an EVENT PRACTICE ROOM release —
-  // get_practice_room_codes publishes those codes to any anon visitor (P1057 D-A). The seat
-  // token is the per-occupancy capability that does: minted by claim_joiner_seat, handed only
-  // to the caller who won the seat, and unreadable from the table by any client role.
   const { error } = await supabase.rpc('release_joiner_seat', {
     p_session_id: sessionId,
     p_code: code,
-    p_seat_token: seatToken,
   });
 
   if (error) {

@@ -328,11 +328,7 @@ describe('P740: joiner-leave closes letter-sourced invite', () => {
       // toHaveBeenCalled) keeps this a contract test: if the live page ever stops threading
       // the code through, a guest's leave starts failing 42501 against the real RPC and this
       // is the test that says so.
-      // P1058: third argument is the per-seat capability. This fixture's joiner is the
-      // letter's target listener (signed in), and no claim_joiner_seat call runs in the unit
-      // environment, so the active-session record carries no token — null is the honest value
-      // and the signed-in arm never consults it.
-      expect(mockClearSessionJoiner).toHaveBeenCalledWith('session-letter-abc', 'ABC123', null);
+      expect(mockClearSessionJoiner).toHaveBeenCalledWith('session-letter-abc', 'ABC123');
     }, { timeout: 3000 });
   });
 

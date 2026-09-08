@@ -11,12 +11,6 @@ export interface StoredActiveSession {
   timestamp: string; // ISO 8601
   /** Guest's own display name (for anonymous joiners who need "Rejoin as [Name]") */
   guestDisplayName?: string | null;
-  /**
-   * P1058: per-seat capability required to release an anonymously-held seat. Absent for
-   * creators and for records written before P1058 — both cases degrade to a refused release
-   * rather than an unauthorized one, which is the correct direction to fail.
-   */
-  seatToken?: string | null;
 }
 
 /** Save active session info to localStorage. */
@@ -68,18 +62,11 @@ interface LiveSessionContextValue {
   activeSessionPartnerName: string | null;
   activeSessionRole: 'creator' | 'joiner' | null;
   activeSessionGuestDisplayName: string | null;
-  /**
-   * P1058: the per-seat capability required to release an anonymously-held seat. It lives
-   * HERE, in the localStorage-backed active-session record, rather than in the live page's
-   * sessionStorage: the banner renders in any tab and must be able to end the session, and
-   * sessionStorage would be empty in a tab the live page never ran in.
-   */
-  activeSessionSeatToken: string | null;
   isGracePeriod: boolean;
   gracePeriodPartnerName: string | null;
 
   // P511: Methods
-  setActiveSession: (code: string, partnerName: string | null, role: 'creator' | 'joiner', guestDisplayName?: string | null, seatToken?: string | null) => void;
+  setActiveSession: (code: string, partnerName: string | null, role: 'creator' | 'joiner', guestDisplayName?: string | null) => void;
   clearActiveSession: () => void;
   setGracePeriod: (isGrace: boolean, partnerName?: string | null) => void;
 }
@@ -93,7 +80,6 @@ const LiveSessionContext = createContext<LiveSessionContextValue>({
   activeSessionPartnerName: null,
   activeSessionRole: null,
   activeSessionGuestDisplayName: null,
-  activeSessionSeatToken: null,
   isGracePeriod: false,
   gracePeriodPartnerName: null,
   setActiveSession: () => {},
@@ -110,23 +96,20 @@ export function LiveSessionProvider({ children }: { children: ReactNode }) {
   const [activeSessionPartnerName, setActiveSessionPartnerName] = useState<string | null>(null);
   const [activeSessionRole, setActiveSessionRole] = useState<'creator' | 'joiner' | null>(null);
   const [activeSessionGuestDisplayName, setActiveSessionGuestDisplayName] = useState<string | null>(null);
-  const [activeSessionSeatToken, setActiveSessionSeatToken] = useState<string | null>(null);
   const [isGracePeriod, setIsGracePeriodState] = useState(false);
   const [gracePeriodPartnerName, setGracePeriodPartnerName] = useState<string | null>(null);
 
-  const setActiveSession = useCallback((code: string, partnerName: string | null, role: 'creator' | 'joiner', guestDisplayName?: string | null, seatToken?: string | null) => {
+  const setActiveSession = useCallback((code: string, partnerName: string | null, role: 'creator' | 'joiner', guestDisplayName?: string | null) => {
     setActiveSessionCode(code);
     setActiveSessionPartnerName(partnerName);
     setActiveSessionRole(role);
     setActiveSessionGuestDisplayName(guestDisplayName ?? null);
-    setActiveSessionSeatToken(seatToken ?? null);
     saveActiveSessionToStorage({
       code,
       partnerName,
       role,
       timestamp: new Date().toISOString(),
       guestDisplayName: guestDisplayName ?? null,
-      seatToken: seatToken ?? null,
     });
   }, []);
 
@@ -135,7 +118,6 @@ export function LiveSessionProvider({ children }: { children: ReactNode }) {
     setActiveSessionPartnerName(null);
     setActiveSessionRole(null);
     setActiveSessionGuestDisplayName(null);
-    setActiveSessionSeatToken(null);
     setIsGracePeriodState(false);
     setGracePeriodPartnerName(null);
     clearActiveSessionFromStorage();
@@ -157,7 +139,6 @@ export function LiveSessionProvider({ children }: { children: ReactNode }) {
         activeSessionPartnerName,
         activeSessionRole,
         activeSessionGuestDisplayName,
-        activeSessionSeatToken,
         isGracePeriod,
         gracePeriodPartnerName,
         setActiveSession,

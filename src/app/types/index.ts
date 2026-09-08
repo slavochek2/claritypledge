@@ -169,13 +169,6 @@ export interface ClaritySession {
   sourceStoryId?: string | null;
   targetListenerId?: string | null;
   status?: string | null;
-  /**
-   * P1058: per-seat capability minted by claim_joiner_seat. Present ONLY on the row that
-   * function returns to the caller who won the seat — it is never readable from the table
-   * (P1057 default-deny column grants), so every other read path leaves it undefined.
-   * Required by release_joiner_seat's anonymous arm.
-   */
-  joinerSeatToken?: string | null;
 }
 
 export interface ClaritySessionState {
@@ -218,9 +211,6 @@ export interface DbClaritySession {
   is_private?: boolean;
   // P511: Last heartbeat timestamp
   last_activity_at?: string | null;
-  // P1058: per-seat capability. Optional for the same reason `code` is — only a SECURITY
-  // DEFINER function's result carries it; no direct client read can select this column.
-  joiner_seat_token?: string | null;
   // P703: Letter-sourced session fields
   source_letter_id?: string | null;
   source_story_id?: string | null;
