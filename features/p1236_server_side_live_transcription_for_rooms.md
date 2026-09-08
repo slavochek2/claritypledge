@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 disclosure: public
 rank: 1000066
@@ -7,8 +7,8 @@ workstream: transcription
 created_date: '2026-09-03'
 tags: [transcribe, transcription, mobile, gpu, cost]
 feature_type: backend
-delivery_stage: architect
-pipeline_ran: [create-spec, architect]
+delivery_stage: dev
+pipeline_ran: [create-spec, architect, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -799,11 +799,57 @@ introduced — the previous text is already in the table the new row is going in
 transcribed identically twice**: `S22` re-emerged as a stray `23`, and total words went 132 → 155
 rather than 132 → 132 + a clean duplicate. So exact token matching will miss real duplicates, and a
 naive fuzzy match will delete real words. **This is the highest-risk unproven component in the
-design.** `[UNVERIFIED: no de-duplication algorithm has been run against this data. Finding 8
-established only that 1 s of lead-in recovers "doesn't work" intact and that the word count rises by
-23. The shape of the duplication — how often the overlapped region differs, and by how much — is not
-characterised.]` It must be built test-first against the Finding-8 audio as a committed fixture, not
-reasoned about; that is why committing the Gemini harness is a build step.
+design.**
+
+**BUILT AND MEASURED 2026-09-08 — the `[UNVERIFIED]` above is discharged, and the answer changed one
+of this spec's own acceptance criteria.** `supabase/functions/transcribe-slice/dedup.ts` +
+`dedup.test.ts` (17 tests, all passing), built against the 43 real slice pairs now committed as
+`__fixtures__/p1236-boundary-slices.json`. The fixture reproduces this spec's own figures exactly
+(132 words plain, 155 raw overlapped), which is what establishes it is the same data.
+
+*The duplication shape, which was uncharacterised.* Of the 42 slice boundaries, 24 have speech on
+both sides. **Half of those repeat exactly** after normalisation (case, punctuation, spoken-number
+words, and runs of digits — Gemini renders the same spoken digits both ways across consecutive
+slices, `"Test three two four."` immediately followed by `"3 2 4 3 2 4 3 2 4"`, and once as the
+single token `"341113"`). The other half do not repeat exactly and are not recoverable by matching.
+
+*The selection rule, and why the obvious one is wrong.* Strip the longest prefix of the new slice
+matching a suffix of the previous — the natural reading of "strip the longest overlapping
+word-sequence prefix" above — **deletes real speech**. Repeated content lets the match run far past
+what one second can physically hold. Replayed over the whole corpus (whole-file reference 134 words;
+same audio at 4 s with no overlap 132; raw overlapped 155):
+
+| strip window | words out | reading |
+|---|---|---|
+| none (de-dup disabled) | 155 | 21 duplicated |
+| 2 words per overlap second | 138 | duplicates survive |
+| **3 — implemented** | **129** | every strip verified by eye as a genuine repeat |
+| 4 / 5 / 6 | 127 | starts eating the ambiguous repeated-word region |
+| unbounded (longest match) | 122 | **7 more words gone** |
+
+The bound therefore comes from the **overlap duration**, not from how long a match can be found;
+3 words is one second of conversational English (~2.5-3 words/s) and is derived from speech rate,
+not fitted to this curve. Bias throughout is **under-strip**: a surviving duplicate is visible and
+harmless, a deleted word is invisible and unrecoverable, and no per-slice audio is retained to
+recover it from.
+
+*This spec's Stage D criterion cannot be met as written, and that is a measurement not an excuse.*
+Step 6 below asks that de-dup reconstruct the Finding-8 sentence *"without the stray `23` and
+without deleting a real word."* **Those two halves are in direct conflict.** `S22` and `23` do not
+match under any exact rule, so removing the stray needs fuzzy matching, and both candidate fuzzy
+rules were built and replayed over the corpus before being rejected:
+
+| rule | words out (ref 134) | stray `23` |
+|---|---|---|
+| exact, windowed — implemented | 129 | survives |
+| fuzzy, ≤1 mismatch, anchored | 124 | **still survives** |
+| anchor on the previous slice's final token | 117 | removed |
+
+Removing the stray costs 12 real words. The criterion is amended below to the half that is
+achievable, with the other half recorded as a known limit rather than quietly dropped. **What the
+overlap does deliver is the thing it was added for**, asserted end-to-end in the test file: the
+no-overlap cut renders the sentence *"…Galaxy S22 and still that work."*, and overlap + de-dup
+recovers *"…still doesn't work."*
 
 **Alternative rejected — de-duplicate on the client.** The client is untrusted, and it does not know
 what the previous slice's *transcript* said, only what audio it sent.
@@ -986,9 +1032,25 @@ re-derived here. This sequence builds the live path.
 
 **Stage B — make the evidence reproducible and the fixture available.**
 
-2. Commit the Gemini measurement harness that produced Findings 6, 7 and 8 (currently prose-only) as
-   `scripts/p1236-gemini-slice-bench.py`, together with the Finding-8 audio as a committed fixture.
-   Decision 4's de-dup cannot be built test-first without it.
+2. ~~Commit the Gemini measurement harness that produced Findings 6, 7 and 8 (currently prose-only)
+   as `scripts/p1236-gemini-slice-bench.py`, together with the Finding-8 audio as a committed
+   fixture.~~ **DONE 2026-09-08, with one deliberate change: the AUDIO IS NOT COMMITTED.** It is
+   168 s of real `/transcribe` room audio from five sessions, and this repository is public — that
+   is participant voice data, and `CLAUDE.md`'s private-vs-public rule puts it out of the repo
+   regardless of how convenient a fixture it would make. What de-duplication actually needs is the
+   **transcripts**, which carry no personal content: committed as
+   `supabase/functions/transcribe-slice/__fixtures__/p1236-boundary-slices.json` (all 43 slices of
+   both cuttings, reproducing this spec's 132/155 figures). The WAV stays at
+   `gs://claritypledge-ml-training/p1236-measurement/input.wav` and the harness regenerates the
+   fixture from it with `--mode boundary`.
+
+   **What is verified about the harness, and what is not.** Its slicer was run against that exact
+   WAV and reproduces all three archived cuttings — 43 / 43 / 12 slices, 168.24 s, and the 1 s
+   lead-in visible as 4 s for slice 0 then 5 s thereafter. Both of its guards were exercised on
+   their failure paths and exit non-zero (missing key; `--chunk-seconds` over the 30 s RQ5 ceiling),
+   against a known-good control that passes, so the probe is not blind. **The Gemini call itself is
+   UNVERIFIED** — no `GEMINI_API_KEY` was available this session, so Findings 6 and 7 are
+   re-runnable but have not been re-run.
 
 **Stage C — server state and the consent gate (no behaviour change yet).**
 
@@ -1004,11 +1066,21 @@ re-derived here. This sequence builds the live path.
 
 **Stage D — de-duplication, test-first, in isolation.**
 
-6. `supabase/functions/transcribe-slice/dedup.ts` + `dedup.test.ts`, built against the Stage B
-   fixture. Assert on the Finding-8 sentence specifically: 1 s overlap must reconstruct
-   *"I tried fixing the transcribe and on my Galaxy S22 and it still doesn't work"* without the
-   stray `23` and without deleting a real word. Include a negative case where two *genuinely
-   different* consecutive sentences must not be merged.
+6. ~~`supabase/functions/transcribe-slice/dedup.ts` + `dedup.test.ts`, built against the Stage B
+   fixture.~~ **DONE 2026-09-08 — 17 tests, all passing.** The criterion is **amended**, on
+   measurement recorded under Decision 4: *1 s overlap must reconstruct
+   "…on my Galaxy S22 and it still doesn't work" **without deleting a real word**, and the corpus
+   replay must not fall below the whole-file reference by more than the ambiguous repeated-word
+   region accounts for.* The original *"without the stray `23`"* half is **withdrawn as
+   unachievable** — every rule that strips it deletes 5-12 real words elsewhere, and both were
+   built and replayed before being rejected. The stray is pinned by a test so a future
+   "improvement" has to answer for the corpus regression it causes. The negative case (two
+   genuinely different consecutive sentences must not be merged) is included and passes, along with
+   an under-strip case, surface-form preservation, and the partial-digit-run case.
+
+   The load-bearing test is the **corpus replay**, not the single boundaries: every per-boundary
+   assertion above can be satisfied by an algorithm that quietly deletes speech somewhere else, and
+   the replay is what refuted the two rejected rules.
 
 **Stage E — the ingest function.**
 
