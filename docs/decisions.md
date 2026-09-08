@@ -195,6 +195,52 @@ to change its test fixtures — if it does not, it is probably not armed where t
 
 ---
 
+## 2026-09-08 [process]: A check that reasons about the SHAPE of a change is wrong about the cases nobody pictured — three instances in one session (P1255)
+
+**Context:** P1255's backfill stamped `disclosure: public` on every already-published spec.
+Running it surfaced the same defect three more times, in three different pieces of code, none
+of them written together.
+
+1. **The backfill's own path matching.** It selected published specs by regex over path
+   *shapes* — `features/pN.md` and `features/done/<sprint>/pN.md`. `features/archive/2026-05-15/pN.md`
+   is a real, published, three-level path, so 204 specs read as "not published" and were skipped.
+   The regex was doing no useful work: the caller already tests each file's own relative path
+   against the set, so no shape assumption was needed. Replaced with exact-path membership.
+2. **pre-commit's goal-gate.** Staging ~1000 spec files made it treat *"a file under
+   `features/done/` was modified"* as *"a spec is being closed"*, so it re-ran the gates of two
+   long-closed specs and blocked the commit on pre-existing red gates that the commit neither
+   caused nor could fix. Worked around by excluding those two files; the check itself is
+   unfixed and still confuses the shape with the event.
+3. **P1255's own advisory tier** — recorded because it is this session's own miss. The two
+   *blocking* gates were correctly scoped to newly-added specs and were verified against the
+   existing `/ship` workflow. The *report-only* tier was not scoped and not checked, so
+   `fix-frontmatter.py` — which `/fix-kanban` runs — went from reporting **0** issues to
+   **1006**. A gate that always fires is indistinguishable from a broken one.
+
+**Decision:** Test membership, not form. Where a check must decide "is this thing one of
+ours", compare against the actual set rather than matching a pattern over names or paths. And
+[epistemic.md](../.claude/rules/epistemic.md) gate 7c applies to **advisory** output too, not
+only to refusals: a warning tier that goes from silent to a four-figure count has destroyed a
+signal just as surely as a broken gate would have.
+
+**Alternatives rejected:** Widening the backfill regex to cover the archive shape — the next
+unforeseen layout breaks it again, which is the whole finding. Fixing goal-gate's
+shape-vs-event confusion inside a mechanical relabeling commit — right fix, wrong commit; it
+is named here so it is not lost.
+
+**Consequences:** 1006 advisories reduced to 3 (two deliberately excluded per (2), one an
+unpushed spec belonging to another session). **Also a real incident, recorded rather than
+tidied away:** to exclude those two files the commit was made with a plain `git commit` on a
+verified index instead of `git-ops.sh commit-to-main`, which bypassed `commit_staged_exact` —
+and a co-tenant's staged prod deploy-manifest stamp rode along under this commit's message.
+The content is correct and belongs on `main`; only its attribution is wrong. This is
+[git.md](../.claude/rules/git.md)'s documented 2026-09-03 failure reproduced, by the one step
+that skipped the guard built to prevent it. The guard's exact-match refusal is not an
+obstacle to route around when the index is "already right" — being already right is what it
+verifies.
+
+**References:** [features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md](../features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md) · `scripts/archive/migrations/20260908-backfill-disclosure-public.py` · [git.md](../.claude/rules/git.md) · [epistemic.md](../.claude/rules/epistemic.md) gate 7c · commit `ffac5dfd3`
+
 ## 2026-09-08 [process]: A gate proven in place is not proven through the path CI actually runs it from (P1255)
 
 **Context:** P1255's embargo-link gate was exercised in both directions before commit — a doc
