@@ -1189,3 +1189,29 @@ instrumentation is the smaller task.
 P1237 measured attribution at 59.5% against physics on correctly-aligned, well-separated audio,
 below the 75.0% naive rate, and 0 of 10 on the minority speaker. Alignment is necessary, not
 sufficient — so a "yes, they read them" answer argues for attacking attribution, not only alignment.
+
+## 2026-09-08 — `ship.md` still tells the agent to run a gate that now runs itself (P1246)
+
+`due: week`
+
+**What changed.** [P1246](../features/p1246_pipeline_controls_are_advisory.md) wired
+`ship-gates.sh` into `git-ops.sh`'s closing code on both close routes. `ship.md:51`
+still instructs the agent to run `./scripts/ship-gates.sh pN` by hand, and steps
+3.5 / 3.65 describe the gate report as something the agent assembles.
+
+**Why it was not fixed in the same run.** P1246's own Non-Goals say *"Do NOT edit
+`.claude/commands/slava/build/*.md` while the concurrent session holds them.
+Sequence or coordinate."* Skill files must also be committed on `main`
+(`.claude/rules/skills.md` Branch Guard), so they cannot ride the feature branch
+this work lives on. No Done-When required the edit.
+
+**Severity: low, and stated so it is not over-read.** Running `ship-gates.sh` by
+hand is read-only and idempotent, so the stale instruction costs a redundant
+invocation, not a wrong outcome. The real cost is that the prose now describes a
+control as advisory when it is deterministic, which is the exact confusion P1246
+exists to remove.
+
+**The edit.** In `ship.md`: say the gate runs from the closing path and that the
+agent relays its output; keep the manual invocation only as a pre-flight
+convenience; document `--override` as founder-only (it prompts on `/dev/tty`,
+which an agent session does not have). Land it on `main` as its own commit.
