@@ -13,9 +13,61 @@ status: week          # REQUIRED: kanban column
 type: story           # REQUIRED: story | bug | task | comment
 rank: 7               # REQUIRED: sort order within column
 tags: []              # REQUIRED: can be empty array
+disclosure: public    # REQUIRED on NEW specs: public | embargo (see Disclosure below)
 # completed_at: "2026-02-19"  # Add when status transitions to done
 ---
 ```
+
+## Disclosure (`disclosure:`) — where a spec is AUTHORED (P1255)
+
+```yaml
+disclosure: public | embargo
+```
+
+**`public`** — safe to publish now. The answer for the overwhelming majority of specs.
+
+**`embargo`** — this spec describes a **live, unfixed defect in an authenticated or
+anon-reachable surface**. It is authored **branch-born**: filed inside a worktree on its
+own `feature/pN-*` branch and never seeded onto `main`, so it is not published until the
+fix is confirmed live on prod. `/ship` merges the code and withholds the spec;
+`./scripts/git-ops.sh publish-spec pN` publishes it afterwards, hard-asserting the spec's
+migrations are in `origin/main`'s `deploy-manifest [prod].migrations` **and** that the
+authenticated prod smoke test passes. The manifest is a record, not the database — never
+the manifest alone.
+
+**Default closed when the call is genuinely unclear.** Over-classifying costs one
+`git-ops.sh claim` and is fully reversible. Under-classifying publishes a live hole.
+
+**Required on newly ADDED specs only.** `scripts/check-disclosure.sh` blocks a commit that
+adds `features/pN_*.md` without a valid value (pre-commit check 12c, and the
+`disclosure-gate` required check on `main`). Specs predating P1255 are grandfathered
+structurally — the check is scoped to `--diff-filter=A`, and they only ever appear as `M`.
+`scripts/fix-frontmatter.py` reports a missing value but never fills it in, exactly as it
+treats `type:`: a wrong mechanical default here would be a lie about exposure.
+
+**What this does NOT do — state the limit, do not let it be inferred.** It covers the
+**deliberate** class, where the spec's own subject is a live hole and the author knows it.
+It does nothing for the **incidental** class — a private-log verdict quoted into an
+otherwise unrelated spec — because that author would set `public` without hesitating. For
+that class the remedy is review cadence, not this field
+([decisions.md](../../docs/decisions.md) 2026-07-15 [security], which rejects
+content-detection gates outright and is not overturned by this rule: the human still makes
+the whole judgement here, and the machine only enforces that it was made and honoured).
+
+**Never build a committed list of which specs are sensitive.** The scope is derived from
+each spec's own frontmatter, never from a curated index — such an index would itself be
+the disclosure. Same finding that rejected P1248 and P936's names watchlist ([pii.md](pii.md)).
+
+**Already-published security specs are frozen, not relabelled** (founder call D2,
+2026-09-08). A spec already on `origin/main` is already disclosed, and marking it `embargo`
+after the fact would be a lie — it gets `public`. While its defect is open, **add no
+further detail to it**; closing the defect is the actual remedy.
+
+**Write commit subjects for an embargoed spec in roles, not specifics.** The branch's commit
+subjects and `/ship`'s `chore: close pN — <title>` reach `main` *ahead* of the spec itself,
+and a title routinely names the component and the hole (`…_insertable_directly`,
+`…_keyed_only_by_session_id`). A subject is a publication channel the embargo does not
+cover. Same discipline [pii.md](pii.md) already requires for names.
 
 ## Status Values
 

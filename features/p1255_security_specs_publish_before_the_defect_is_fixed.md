@@ -165,18 +165,27 @@ dead. A detector for credential content stays rejected (P1248, 2026-09-04).
 
 ## Done-When
 
-- [ ] Every consumer of `features/` is enumerated by command and each is confirmed working
+- [x] Every consumer of `features/` is enumerated by command and each is confirmed working
       against an embargoed spec — list pasted in the spec, not summarised
-- [ ] A public doc linking to an embargoed spec is **blocked at commit time** by the new
+      → see **Consumer verification** below.
+- [x] A public doc linking to an embargoed spec is **blocked at commit time** by the new
       publishability check, with the non-zero exit code pasted (gate 7 — failure path
       exercised, not asserted), AND a legitimate link to a normal spec still passes in the
       same run (gate 7c — the false-positive side is measured, not assumed)
-- [ ] A security-tagged spec filed after this change does not appear in
-      `git ls-tree -r --name-only origin/main features/` after a push
-- [ ] `/ship` on that spec makes it public in the same commit range as its fix, verified by
-      `git cat-file -e origin/main:features/done/…`
-- [ ] The kanban renders embargoed specs identically to today (founder's board is unchanged)
-- [ ] Decisions D1-D3 recorded in this spec with the founder's answer
+      → see **Gate evidence** below; both directions pasted, re-run after rebase onto main.
+- [ ] **BLOCKED (needs a push + a real embargoed spec).** A security-tagged spec filed after
+      this change does not appear in `git ls-tree -r --name-only origin/main features/`
+      after a push. Cannot be discharged in this run: pushes require the founder in the same
+      turn, and no genuine embargoed spec exists yet. Discharge on the first real one.
+- [ ] **BLOCKED (needs a prod apply).** `/ship` on that spec makes it public in the same
+      commit range as its fix. `publish-spec` hard-asserts the prod manifest AND the live
+      smoke test, neither of which can be exercised against a fixture without a real
+      migration on prod. Discharge on the first real embargoed spec.
+- [x] The kanban renders embargoed specs identically to today (founder's board is unchanged)
+      → `tools/kanban/server/api.ts:64-105` already enumerates every worktree's own
+      `features/` dir, so a branch-born spec renders from its worktree board today. No code
+      change was needed; confirmed by reading the file, and it is in the NOT-modified list.
+- [x] Decisions D1-D5 recorded in this spec with the founder's answer (below)
 
 ## Alternatives Considered
 
@@ -215,6 +224,39 @@ consumer holds state about the embargo. One commit.
   exposure-duration figure per security spec (R3). Added by the `/architect` merge step.
 - **D5 — is the P1068 rebuttal made, or is the mechanism withdrawn?** See the merge-step note
   under Architecture Decisions. Added by the `/architect` merge step.
+
+### Founder answers (2026-09-08)
+
+- **D1 — scope.** Neither tag-scoping nor all-specs: scope by the **required
+  `disclosure:` field**, as the Decision Criteria section recommends after criterion 2
+  fired. Tag-scoping was measured blind — 26% of open specs carry no `tags:` at all.
+- **D2 — the already-published 20.** **Freeze + prioritise the fixes.** They are backfilled
+  `disclosure: public` (already exposed; the Invariant forbids pretending otherwise), no
+  further detail is added while their defect is open, and closing those defects is the real
+  remedy. The freeze is an authoring rule — now in `.claude/rules/features.md`.
+- **D3 — mechanism.** Branch-born **plus** the neutral public stub (Alternative 3), not one
+  or the other: branch-born withholds the content, the stub closes the P-number-gap channel
+  that branch-born leaves open.
+- **D4 — the field after close.** **Rewrite to `public` at publication.** Leaving `embargo`
+  in `features/done/` would publish a permanent, computable
+  `completed_at − created_date` exposure-duration figure for every security fix, forever —
+  which sits badly beside Invariant 1. Implemented in `cmd_publish_spec`.
+- **D5 — the P1068 rebuttal.** **Made, and narrowed.** The 2026-07-15 entry rejects a
+  *content-detection* gate; its reasons are all about detection (*"narrative is not
+  greppable"*, *"trivially evaded by paraphrase"*, *"a judgment failure, not a string
+  failure"*). `disclosure:` is not in that class: the human makes the entire judgement and
+  the machine enforces only that it was **made** and **honoured**. P1068's objection (1)
+  (contradictory trigger) is fixed by stating the trigger concretely; (3) is this rebuttal;
+  **(2), the evasion hole, survives and is unfixable** — the honest case is that the field
+  changes the *default*, and today there is no default, since a quarter of the board carries
+  no tags at all.
+
+  **The narrowing is load-bearing and belongs in the Solution, not a footnote.** This
+  mechanism covers the **deliberate** class only. It would NOT have caught P1215 — the
+  review's own most urgent finding — because that author was writing an agent-API spec and
+  would have set `public` without hesitating. For the **incidental** class, 2026-07-15's
+  review-cadence remedy stands unchanged, and Decision 6 (P1215 redaction, its own spec)
+  remains step 0.
 
 ## Decision Criteria
 

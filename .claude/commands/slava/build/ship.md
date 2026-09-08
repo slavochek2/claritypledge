@@ -50,7 +50,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
    ```bash
    ./scripts/ship-gates.sh pN
    ```
-   The script is the **sole source of gate truth** — it runs gates 2.5 (**completion criteria**: every `## Acceptance Criteria` / `## Done-When` checkbox ticked, plus `dev` or `fix` in `pipeline_ran`), 2.7 / 2.7b (code-review artifact), **3.5 (pre-deploy checklist)**, and **3.65 (deferrals)**, reading the spec branch-authoritatively. **Gate 2.5 does not read `status:`** — since P1169 it reads the artifact rather than a label a skill wrote about the artifact. A spec at `in-progress` with everything ticked ships; a spec at `qa` with an unticked box does not. **Relay its stdout verbatim as the gate report — never re-type your own `✓` lines** (a hand-composed report can claim a gate passed that never ran; that was the whole point of folding these in).
+   The script is the **sole source of gate truth** — it runs gate 1.5 (**disclosure**, P1255: report-only. For `disclosure: embargo` it says the code merges and the spec does not — `git-ops.sh` withholds the spec seed, the close `git mv` and the branch/worktree teardown, and `./scripts/git-ops.sh publish-spec pN` publishes it after the prod apply. It deliberately never blocks the merge: a pre-merge block would deadlock against step 3.7 below, which mandates merge-first-then-migrate, so the prod stamp it would wait for cannot exist yet), gates 2.5 (**completion criteria**: every `## Acceptance Criteria` / `## Done-When` checkbox ticked, plus `dev` or `fix` in `pipeline_ran`), 2.7 / 2.7b (code-review artifact), **3.5 (pre-deploy checklist)**, and **3.65 (deferrals)**, reading the spec branch-authoritatively. **Gate 2.5 does not read `status:`** — since P1169 it reads the artifact rather than a label a skill wrote about the artifact. A spec at `in-progress` with everything ticked ships; a spec at `qa` with an unticked box does not. **Relay its stdout verbatim as the gate report — never re-type your own `✓` lines** (a hand-composed report can claim a gate passed that never ran; that was the whole point of folding these in).
    - Exit 0: paste the script output, proceed silently.
    - Exit non-zero: **hard stop** — paste the failing `[GATE …] FAIL:` lines, "Fix listed issues. Do NOT proceed." Do NOT ask y/n. Do NOT proceed. For gate 3.5, "fix" = apply the infra step and tick the box in the spec (the ticked box is the acknowledgement) or mark the item N/A.
 
@@ -73,6 +73,7 @@ Run all gates, collect results. Only prompt the user on failures. The happy path
 ```
 /ship pN — all gates passed.
   ✓ Clean worktree
+  [GATE 1.5] PASS: pN is disclosure: public — publishes normally.
   [GATE 2.5] PASS: all completion items ticked (Acceptance Criteria + Done-When), implementation run recorded (from branch feature/pN-...)
   [GATE 2.7] PASS: code review artifact present (N code entries)
   [GATE 3.5] PASS: no pre-deploy checklist

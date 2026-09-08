@@ -33,6 +33,60 @@ Compare to `pwd`. If they differ, you are in a worktree — **stop immediately**
 > "Specs must be created in w0 (main). Run `cd ~/Projects/public/claritypledge` first, then re-run this skill."
 Do not create any file until you are in the main repo.
 
+### Classification runs BEFORE the location guard (P1255)
+
+Ask first: **will this spec describe a live, unfixed defect in an authenticated or
+anon-reachable surface?**
+
+**If no** — the overwhelming majority — apply the guard above unchanged: stop and
+redirect to w0.
+
+**If yes**, do not stop. The spec is *embargoed*: it is authored branch-born so it is
+not published until the fix is confirmed live on prod.
+
+1. `./scripts/next-p-number.sh` → `pN`.
+2. `./scripts/git-ops.sh claim pN <slug>` → creates `feature/pN-<slug>` + worktree
+   (or stay in the current worktree if it is already dedicated to this work).
+3. Write the spec **inside that worktree** at `features/pN_<slug>.md` with
+   `disclosure: embargo`. Derive the worktree root with `git rev-parse --show-toplevel`
+   and prefix every path with it — a file written to the main-repo path from inside a
+   worktree lands on the shared checkout (`.claude/rules/git.md`).
+4. Commit a **neutral stub** to `main` at `features/pN_security-review-pending.md` so the
+   P-number sequence carries no gap. From P400 on, only 2.3% of numbers are absent, so a
+   fresh gap in the tail is near-certain evidence that a spec was withheld — and
+   countable, and timestamped by its neighbours. The stub must use a **generic** filename:
+   real slugs routinely name the defect class (`…_insertable_directly`,
+   `…_keyed_only_by_session_id`), which would reintroduce the exact leak it closes.
+
+   ```yaml
+   ---
+   status: backlog
+   type: task
+   rank: <bottom of backlog>
+   tags: [disclosure-embargo]
+   disclosure: public
+   created_date: <today>
+   ---
+   # P<N>: Under disclosure embargo
+
+   This P-number is reserved for a spec under active security disclosure embargo.
+   Details — including the affected component and the nature of the issue — are
+   withheld until the underlying defect is confirmed fixed on production. This stub
+   exists so the P-number sequence carries no gap.
+   ```
+5. **Say so explicitly**, never silently: *"Filing pN as a branch-born embargoed spec on
+   `feature/pN-<slug>` — it will not reach `main` until `git-ops.sh publish-spec pN`
+   confirms the fix is live on prod."*
+
+**Why the guard is not simply removed.** It exists to prevent *accidental* stranding
+([decisions.md](../../../../docs/decisions.md) 2026-03-02 [process]). Embargo is
+*deliberate* stranding, with a name and an exit condition. Moving classification ahead of
+the location check is the minimum that lets this skill make the routing call, without
+weakening the guard for the 96%+ of specs it correctly protects.
+
+Full field semantics, including what this does **not** cover:
+[.claude/rules/features.md](../../../rules/features.md) — Disclosure.
+
 ---
 
 ## Quick Start
@@ -279,6 +333,7 @@ drafted_by: {model writing this draft: opus|sonnet|gemini|human}  # write-once, 
 exec_model: opus | sonnet | haiku | gemini      # recommended model to FIX this — see below
 exec_effort: low | medium | high | xhigh
 tags: [{relevant tags, 2-4}]
+disclosure: public              # public | embargo — embargo ONLY for a live, unfixed defect in an authenticated/anon-reachable surface (see .claude/rules/features.md)
 delivery_stage: create-bug
 pipeline_ran: [create-bug]
 ---
@@ -322,6 +377,7 @@ workstream: {workstream}
 date_reported: {YYYY-MM-DD}
 created_date: {YYYY-MM-DD}
 tags: [{tags}]
+disclosure: public
 delivery_stage: create-bug
 pipeline_ran: [create-bug]
 ---
