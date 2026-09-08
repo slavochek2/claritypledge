@@ -861,10 +861,20 @@ roughly 47× the current monthly Gemini gross — not a comfortable margin again
 (`20260225120000_p425...sql`), and this path issues ~900 calls per member-hour. Reuse its *pattern* —
 service-role written, server-enforced, client-invisible — not its schema.
 
-**Trade-off:** the room hard-stop is a user-visible truncation of a real conversation. `N` is a
-`[FOUNDER DECISION: maximum room duration before the server ends the room. The founder's own sizing
-is "maximum once per week or so, and then maximum 10 people", which bounds frequency but not
-length.]`
+**Trade-off:** the room hard-stop is a user-visible truncation of a real conversation.
+`[FOUNDER DECISION — ANSWERED 2026-09-08: N = 180 minutes (3 hours).]` Chosen as the generous end of
+the range on the founder's reasoning that a cap which interrupts a real conversation is the worse
+error: truncation is loud and gets reported, whereas a room left running is silent. Three hours is
+well beyond any session length described for this format ("maximum once per week or so, and then
+maximum 10 people"), so the cap should never fire on legitimate use — it exists for the forgotten
+room, not the long one.
+
+**What 180 minutes costs if a room is abandoned**, so the number is not adopted blind: ten members
+at one 4-second slice each gives 2.5 requests/second sustained, and Decision 6's own sizing puts the
+EUR 75 batch fuse at roughly 47x current monthly Gemini gross for rooms alone. A single forgotten
+3-hour room is therefore nowhere near the fuse; the risk the cap addresses is many such rooms, not
+one. **UNVERIFIED:** no abandoned-room cost has been measured end to end — Build Sequence step 13's
+billing check is where this number gets its first real test, and 180 is cheap to lower afterwards.
 
 #### Decision 7: Recording is restored by teeing one `getUserMedia` stream; `RECORD_AUDIO_WHILE_LIVE` is deleted
 
