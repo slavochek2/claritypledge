@@ -1,0 +1,88 @@
+<!doctype html>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P1236 Stage A</title>
+<style>body{font:14px system-ui;margin:16px}#log{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12px}button{font-size:18px;padding:12px 20px}</style>
+<h3>P1236 Stage A — one getUserMedia stream, two consumers</h3>
+<p>Phase 1 (0-8s): Web Audio tap ONLY — the control.<br>
+   Phase 2 (8-20s): MediaRecorder starts on the SAME stream.<br>
+   Decision 7 holds only if the tap keeps receiving non-silent audio in phase 2.</p>
+<button id="go">START — then speak continuously</button>
+<div id="log"></div>
+<script>
+const logEl = document.getElementById('log');
+function L(...a) {
+  const line = a.join(' ');
+  console.log('[P1236A]', line);
+  logEl.textContent += line + '\n';
+  // Post back over the same adb tunnel. Android CDP attach proved unreliable; this is a
+  // more direct instrument and the bytes still originate on the physical device.
+  try { fetch('/log', { method: 'POST', body: line }); } catch (e) {}
+}
+document.getElementById('go').onclick = async () => {
+  document.getElementById('go').disabled = true;
+  try {
+    L('UA=' + navigator.userAgent);
+    L('secureContext=' + window.isSecureContext);
+
+    // ONE getUserMedia call. Decision 7's whole claim is that this single stream can
+    // drive both consumers; taking two streams would not test it.
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const track = stream.getAudioTracks()[0];
+    L('stream id=' + stream.id + ' tracks=' + stream.getAudioTracks().length);
+    L('track label=' + track.label + ' state=' + track.readyState + ' muted=' + track.muted);
+    L('track settings=' + JSON.stringify(track.getSettings()));
+
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    await ctx.audioWorklet.addModule('pcm-tap-worklet.js');
+    const src = ctx.createMediaStreamSource(stream);
+    const tap = new AudioWorkletNode(ctx, 'pcm-tap');
+    src.connect(tap);
+    // Not connected to destination on purpose — no monitoring, no feedback loop.
+    await ctx.resume();
+    L('audioContext state=' + ctx.state + ' sampleRate=' + ctx.sampleRate);
+
+    let sec = 0, recorder = null, chunks = 0, bytes = 0, recStarted = false;
+    let tapThisSec = { frames: 0, peak: 0, rms: 0 };
+    tap.port.onmessage = (e) => { tapThisSec = e.data; };
+
+    const timer = setInterval(() => {
+      sec++;
+      const phase = recStarted ? 'REC ' : 'TAP ';
+      const db = tapThisSec.rms > 0 ? (20 * Math.log10(tapThisSec.rms)).toFixed(1) : '-inf';
+      L(`t=${String(sec).padStart(2)}s ${phase}` +
+        `tapFrames=${tapThisSec.frames} peak=${tapThisSec.peak.toFixed(4)} rms=${db}dBFS ` +
+        `recChunks=${chunks} recBytes=${bytes} trackMuted=${track.muted} trackState=${track.readyState}`);
+
+      if (sec === 8) {
+        // Phase 2: attach MediaRecorder to the SAME MediaStream.
+        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4');
+        L('--- starting MediaRecorder on the SAME stream, mime=' + mime + ' ---');
+        recorder = new MediaRecorder(stream, { mimeType: mime });
+        recorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size >= 0) { chunks++; bytes += ev.data.size; }
+        };
+        recorder.onerror = (ev) => L('RECORDER ERROR: ' + (ev.error && ev.error.name));
+        recorder.start(1000);
+        recStarted = true;
+      }
+
+      if (sec >= 20) {
+        clearInterval(timer);
+        if (recorder && recorder.state !== 'inactive') recorder.stop();
+        setTimeout(() => {
+          L('=== VERDICT INPUTS ===');
+          L('recorder chunks=' + chunks + ' totalBytes=' + bytes);
+          L('final track state=' + track.readyState + ' muted=' + track.muted);
+          L('DONE');
+          stream.getTracks().forEach(t => t.stop());
+          ctx.close();
+        }, 1200);
+      }
+    }, 1000);
+  } catch (err) {
+    L('FATAL ' + err.name + ': ' + err.message);
+  }
+};
+</script>

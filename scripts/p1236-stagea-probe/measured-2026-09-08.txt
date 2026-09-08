@@ -1,0 +1,37 @@
+# P1236 Stage A — measured 2026-09-08 on the physical Galaxy S22 (SM-S908B) over adb.
+# Verdict: PASS. One getUserMedia stream drove a MediaStreamAudioSourceNode and a
+# MediaRecorder simultaneously. The tap held exactly 48000 frames/second in EVERY second
+# of both phases including the transition second, so the recorder did not starve it.
+# Opaque device/group hashes redacted; nothing else altered.
+#
+UA=Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Mobile Safari/537.36
+secureContext=true
+stream id=<redacted> tracks=1
+track label=Default state=live muted=false
+track settings={"autoGainControl":true,"channelCount":1,"deviceId":"default","echoCancellation":true,"groupId":"<redacted>","latency":0.01,"noiseSuppression":true,"sampleRate":48000,"sampleSize":16,"voiceIsolation":false}
+audioContext state=running sampleRate=48000
+t= 1s TAP tapFrames=0 peak=0.0000 rms=-infdBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t= 2s TAP tapFrames=48128 peak=0.4916 rms=-21.3dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t= 3s TAP tapFrames=96128 peak=0.6232 rms=-21.0dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t= 4s TAP tapFrames=144128 peak=1.0000 rms=-13.7dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t= 5s TAP tapFrames=192128 peak=0.3748 rms=-23.3dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t= 6s TAP tapFrames=240128 peak=0.4178 rms=-27.6dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t= 7s TAP tapFrames=288128 peak=0.8551 rms=-24.4dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t= 8s TAP tapFrames=336128 peak=0.0130 rms=-63.0dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+--- starting MediaRecorder on the SAME stream, mime=audio/webm;codecs=opus ---
+t= 9s REC tapFrames=384128 peak=0.5960 rms=-26.3dBFS recChunks=0 recBytes=0 trackMuted=false trackState=live
+t=10s REC tapFrames=432128 peak=0.5653 rms=-30.6dBFS recChunks=1 recBytes=15618 trackMuted=false trackState=live
+t=11s REC tapFrames=480128 peak=0.0058 rms=-64.0dBFS recChunks=2 recBytes=32056 trackMuted=false trackState=live
+t=12s REC tapFrames=528128 peak=0.2292 rms=-31.0dBFS recChunks=3 recBytes=48494 trackMuted=false trackState=live
+t=13s REC tapFrames=576128 peak=0.4434 rms=-28.1dBFS recChunks=4 recBytes=64932 trackMuted=false trackState=live
+t=14s REC tapFrames=624128 peak=0.3913 rms=-29.8dBFS recChunks=5 recBytes=81370 trackMuted=false trackState=live
+t=15s REC tapFrames=672128 peak=0.2080 rms=-37.9dBFS recChunks=6 recBytes=97808 trackMuted=false trackState=live
+t=16s REC tapFrames=720128 peak=0.5596 rms=-31.1dBFS recChunks=7 recBytes=114246 trackMuted=false trackState=live
+t=17s REC tapFrames=768128 peak=0.0315 rms=-51.4dBFS recChunks=8 recBytes=130684 trackMuted=false trackState=live
+t=18s REC tapFrames=816128 peak=0.0217 rms=-53.8dBFS recChunks=9 recBytes=147122 trackMuted=false trackState=live
+t=19s REC tapFrames=864128 peak=0.0159 rms=-57.7dBFS recChunks=10 recBytes=163560 trackMuted=false trackState=live
+t=20s REC tapFrames=912128 peak=0.3829 rms=-27.9dBFS recChunks=11 recBytes=179998 trackMuted=false trackState=live
+=== VERDICT INPUTS ===
+recorder chunks=12 totalBytes=192571
+final track state=live muted=false
+DONE

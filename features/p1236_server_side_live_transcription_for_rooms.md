@@ -945,16 +945,48 @@ than by scheduling the two. The archival path then needs no change at all, which
 what makes the stored recording a by-product of the same single stream, as the spec's Non-Goal
 ("do NOT build `/record` as a separate surface") requires.
 
-**`[UNVERIFIED — verify on hardware before anything downstream is trusted]`** that a
-`MediaStreamAudioSourceNode` and a `MediaRecorder` attached to the same `MediaStream` both receive
-audio on the physical Galaxy S22 that produced this spec's A/B. It is a supported pattern per the Web
-Audio and MediaStream Recording specifications, and there is no documented contention between them.
-But this spec exists **because a supported pattern did not hold on that device**, and the failure
-mode there was silent — no error of any kind, fourteen consecutive times. The same adb-forwarded
-DevTools instrument that produced the A/B is the check. If it fails, the fallback is to drop
-`MediaRecorder` and encode the archival WAV from the same ring buffer (larger objects: ~1.9 MB/min at
-16 kHz 16-bit mono against ~120 KB/min for WebM, and `audio.py` would need to accept `.wav` under the
-room prefix) — a real fallback, not a hope, but a worse one.
+**`[VERIFIED ON HARDWARE 2026-09-08 — the claim holds, and the WAV fallback is not needed.]`**
+Measured on the same physical Galaxy S22 (SM-S908B, Android, Chrome 152) that produced this spec's
+original A/B, over the adb tunnel. Probe: `scripts/p1236-stagea-probe/`.
+
+The probe is a **within-run A/B**, and that shape is what makes the result readable: seconds 1-8 run
+the Web Audio tap ALONE (the control), then at second 8 a `MediaRecorder` attaches to the *same*
+`MediaStream`. Without the control phase a silent tap would be ambiguous between "the tap never
+worked" and "the recorder starved it" — which is the exact ambiguity the original 14-failure A/B had
+to resolve.
+
+```
+t= 7s TAP tapFrames=288128 peak=0.8551 rms=-24.4dBFS recChunks=0 recBytes=0      trackState=live
+t= 8s TAP tapFrames=336128 peak=0.0130 rms=-63.0dBFS recChunks=0 recBytes=0      trackState=live
+--- starting MediaRecorder on the SAME stream, mime=audio/webm;codecs=opus ---
+t= 9s REC tapFrames=384128 peak=0.5960 rms=-26.3dBFS recChunks=0  recBytes=0     trackState=live
+t=10s REC tapFrames=432128 peak=0.5653 rms=-30.6dBFS recChunks=1  recBytes=15618 trackState=live
+t=20s REC tapFrames=912128 peak=0.3829 rms=-27.9dBFS recChunks=11 recBytes=179998 trackState=live
+=== VERDICT INPUTS ===
+recorder chunks=12 totalBytes=192571
+final track state=live muted=false
+```
+
+**The decisive number is the frame rate, not the levels.** The tap delivered **exactly 48000
+frames/second in every second of both phases, including the second spanning the transition** — the
+set of per-second deltas is `{48000}` across the whole run. Audio remained non-silent under the
+recorder (peaks 0.38-0.60), and the recorder itself produced 12 chunks totalling 192571 bytes at a
+steady 16438 B/s. The track stayed `live` and `muted=false` throughout.
+
+Levels are deliberately NOT the evidence: the quiet seconds (t=8 peak 0.013 in the control phase;
+t=11, t=17-19 under the recorder) appear in **both** phases, so they track when the speaker paused,
+not what the recorder did. Frame count is speech-independent and is what a starved tap would show.
+
+Contrast with the failure this spec exists for: `SpeechRecognition` + `MediaRecorder` ended at ~5.3 s
+with `heard=false`, fourteen consecutive times. `MediaStreamAudioSourceNode` + `MediaRecorder` on one
+stream shows no degradation at all — consistent with Decision 7's rationale that `SpeechRecognition`
+is the half that cannot share a stream, because it opens its own capture and takes no `MediaStream`.
+
+The fallback below is therefore **not** being taken. Recorded for the record: had it failed, it was
+to drop `MediaRecorder` and encode the archival WAV from the same ring buffer (~1.9 MB/min at 16 kHz
+16-bit mono against ~120 KB/min for WebM, and `audio.py` would need to accept `.wav` under the room
+prefix). **Not tested here:** that only `chunk_000` carries the EBML header — a known property of the
+existing recorder path, unchanged by this design and not Stage A's question.
 
 **Trade-off:** live text loses the browser recognizer's sub-second latency and lands at ≈6 s. The
 spec already accepts this (Risk: *"slower and working beats instant and absent"*), and the founder's
@@ -1031,12 +1063,20 @@ re-derived here. This sequence builds the live path.
 
 **Stage A — the hardware precondition. Nothing below is worth building until this passes.**
 
-1. On the physical Galaxy S22, over the adb-forwarded DevTools console, confirm that one
+1. ~~On the physical Galaxy S22, over the adb-forwarded DevTools console, confirm that one
    `getUserMedia` stream simultaneously drives a `MediaStreamAudioSourceNode` (samples arriving,
-   non-silent) **and** a `MediaRecorder` (chunks with non-zero size). This is Decision 7's
-   `[UNVERIFIED]` claim. Paste the log into this spec the way the original A/B was. **If it fails,
-   stop and take the WAV-archival fallback in Decision 7 before writing the ingest function** — the
-   object format changes, which changes the migration and `audio.py`'s expectations.
+   non-silent) **and** a `MediaRecorder` (chunks with non-zero size).~~ **PASSED 2026-09-08 — log
+   and analysis in Decision 7 above; probe committed at `scripts/p1236-stagea-probe/`.** The tap
+   held exactly 48000 frames/second across the phase boundary with the recorder running, and the
+   recorder produced 12 non-empty chunks. **Stages C-F are unblocked and the WAV-archival fallback
+   is not taken**, so the object format, the migration and `audio.py`'s expectations all stand as
+   written.
+
+   One deviation from the step as specified: the log was read by having the page **POST each line
+   back over the same adb tunnel**, not off the DevTools console. Android Chrome's CDP would not
+   attach — `Target.getTargets` reported 2 live page targets against 62 in the HTTP list, and
+   `Target.attachToTarget` hung. The bytes still originate on the physical device over the same
+   `adb reverse` tunnel; only the readout path differs.
 
 **Stage B — make the evidence reproducible and the fixture available.**
 
