@@ -105,6 +105,60 @@ to reason about than deciding which tags are safe.
 
 **References:** [features/p1271_gray_matter_frontmatter_parse_can_execute_embedded_code.md](../features/p1271_gray_matter_frontmatter_parse_can_execute_embedded_code.md)
 
+
+## 2026-09-08 [technical]: A "still validates after the crash" regression test passed on the crashing code too — order, not presence, is what proves continuation (P1238)
+
+**Context:** P1238 fixed `validate-features.ts` crashing with an unhandled `YAMLException` on one
+malformed spec's duplicate frontmatter key, aborting the whole run before any later file was
+checked. The regression test's third assertion asserted that three files with pre-existing
+(unrelated) invalid `type:` values still appeared in the output, with a comment claiming this
+"proves the loop didn't stop at the malformed file." When the canary was run against the
+still-broken code during `/fix`'s reproduce gate, 2 of 3 assertions failed as expected — but that
+third assertion **passed even on the crashing code**, because the three files it checked sort
+alphabetically *before* the malformed one in the directory walk, so their lines print before the
+crash point regardless of whether the loop ever continues past it. That signal was visible in the
+gate output at the time and wasn't reasoned through; an adversarial review pass caught it by
+running the validator directly and comparing line order.
+
+**Decision:** A "does X still happen after the failure point" assertion must prove *order*, not
+mere *presence* — assert the crash-point's output line index is less than a downstream line's
+index (or equivalent), using content confirmed (by an actual run) to sort after the failure point.
+Presence-only assertions pass identically whether the loop stops or continues, so they're
+indistinguishable from a no-op test. Applied here: the test now finds the malformed file's line and
+`uat_p617.md`'s line (the real next entry in the same directory) and asserts the second index is
+greater — the original three-file check is kept, but relabeled as proving the *separate*,
+narrower acceptance criterion (pre-existing errors still surface), not continuation.
+
+The same review pass also found the root cause's own framing ("no per-file guard") was read too
+narrowly during the fix: `getMarkdownFiles()`'s directory walk (`readdirSync`/`statSync`) ran with
+no try/catch at all, one call site upstream of the loop this fix hardened — same failure class
+(an unhandled exception kills the whole run before any summary prints), different function. Fixed
+in the same commit rather than filed separately, since it's the same file and the same defensive
+pattern already being added.
+
+**Alternatives rejected:** Leaving the three-file assertion as the only continuation proof — it
+reads as evidence but distinguishes nothing; a reviewer or future editor would reasonably trust a
+green run here. Filing the directory-walk gap as a separate P-number — rejected as unnecessary
+process overhead for a same-file, same-pattern, few-line addition already in flight; a genuinely
+unrelated finding surfaced by the same review (gray-matter's language-tag engine selection can
+execute code on parse) *was* filed separately as P1271, since that one is a different bug class
+entirely and pre-existing.
+
+**Consequences:** When writing a "keeps working past the failure point" regression test for any
+report-and-continue fix (parsers, batch validators, import loops), assert order against content
+confirmed by a real run to sort after the failure point — never presence of content whose position
+relative to the failure is unverified. When the reproduce-phase canary run shows an unexpected
+pass among expected failures, that pass is itself a signal worth investigating before treating the
+canary as validated, not something to note and move past.
+
+**References:** [features/p1238_validate_features_crashes_on_duplicate_status_key.md](../features/p1238_validate_features_crashes_on_duplicate_status_key.md) ·
+[tools/kanban/scripts/validate-features.ts](../tools/kanban/scripts/validate-features.ts) ·
+[tools/kanban/scripts/__tests__/validate-features.test.ts](../tools/kanban/scripts/__tests__/validate-features.test.ts) ·
+P1271 (gray-matter frontmatter parse can execute embedded code) ·
+epistemic.md gate 7b
+
+---
+
 ## 2026-09-08 [product]: Stories lead the tabs; the feed's default stays with the links that point at it
 
 **Context:** The founder's read was that stories carry pictures and video and are the more
