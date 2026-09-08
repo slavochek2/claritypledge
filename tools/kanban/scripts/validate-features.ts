@@ -109,8 +109,19 @@ function validateFeatures(): number {
   let validCount = 0;
 
   for (const file of files) {
-    const content = readFileSync(file, 'utf-8');
-    const { data: frontmatter } = parseFrontmatter(content);
+    // P1238: a single unreadable file or malformed frontmatter block (e.g. a
+    // duplicate key) must not abort the whole run — report it as one failing
+    // row and keep validating.
+    let frontmatter: Record<string, unknown>;
+    try {
+      const content = readFileSync(file, 'utf-8');
+      frontmatter = parseFrontmatter(content).data;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.log(`${RED}✗ ${file}: Cannot be parsed: ${reason}${NC}`);
+      errors++;
+      continue;
+    }
 
     if (!frontmatter || Object.keys(frontmatter).length === 0) {
       console.log(`${RED}✗ ${file}: No frontmatter found${NC}`);

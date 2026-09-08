@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 disclosure: public
 rank: 1000067
@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: low
 tags: [specs, tooling, validation]
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: tools/kanban/scripts/__tests__/validate-features.test.ts
   root_cause: "validate-features.ts calls matter(content) with no try/catch per file; gray-matter/js-yaml throws YAMLException on features/archive/p821_letter_reading_progress_bar_disappears_on_scroll.md's duplicate status: key, killing the whole process before the summary prints"
@@ -51,12 +51,33 @@ to reach.
 
 ## Acceptance Criteria
 
-- [ ] `./scripts/validate-features.sh` completes and prints a report with the duplicate key present
-- [ ] A file that cannot be parsed is reported as one failing row, naming the file and the reason,
+- [x] `./scripts/validate-features.sh` completes and prints a report with the duplicate key present
+- [x] A file that cannot be parsed is reported as one failing row, naming the file and the reason,
       and the run continues to the next file
-- [ ] Exercised by a fixture with a duplicate key, observed failing before the fix (epistemic gate 7)
-- [ ] The three pre-existing invalid `type` values in `features/archive/` are reported, not hidden
+- [x] Exercised by a fixture with a duplicate key, observed failing before the fix (epistemic gate 7)
+- [x] The three pre-existing invalid `type` values in `features/archive/` are reported, not hidden
 
 ## Non-Goals
 
 - Do NOT fix the archived specs' content to work around the crash — the crash is the bug.
+
+---
+
+## Resolution
+
+**Fixed:** 2026-09-08
+**Root cause:** `validate-features.ts` called `matter(content)` with no try/catch per file;
+`gray-matter`/`js-yaml` throws an unhandled `YAMLException` on a duplicate `status:` key, aborting
+the whole `for` loop before the summary ever prints.
+**Resolution:** Wrapped the `matter(content)` call in a per-file try/catch. On failure, the file is
+reported as one failing row (`Cannot be parsed: <js-yaml message>`), `errors` is incremented, and
+the loop `continue`s to the next file — matching the existing pattern used by every other check in
+the loop.
+
+**Files changed:**
+- `tools/kanban/scripts/validate-features.ts`
+
+**Regression test:** `tools/kanban/scripts/__tests__/validate-features.test.ts` — exercises the
+real `features/archive/p821_letter_reading_progress_bar_disappears_on_scroll.md` fixture (the file
+that surfaced this bug), asserting the run completes, reports the malformed file by name and
+reason, and still validates files after it.
