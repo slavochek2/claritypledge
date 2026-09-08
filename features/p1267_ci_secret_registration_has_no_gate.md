@@ -8,9 +8,9 @@ tags: [credentials, pre-commit, ci, drift-audit]
 related: [p1147, p1153, p1155, p1214, p1239, p1248]
 disclosure: public
 flow: dev
-delivery_stage: dev
+delivery_stage: ship
 pipeline_plan: [create-spec, dev]
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec, dev, ship]
 pipeline_skipped: ["challenge-prd -- founder asked for an inline critique instead; five findings folded into Solution and Risks", "architect -- the one architectural call (extend vs rebuild) is argued in Alternatives Considered and was verified in critique C4", "generate-tests -- /dev runs TDD and the fixture shape is pinned by Done-When", "ux/ui/verify -- no user-visible surface; the output is a shell exit code", "decompose -- four files", "adversarial-review -- WILL RUN after /dev, kept out of pipeline_plan because the skill does not stamp pipeline_ran and would deadlock the plan"]
 drafted_by: opus
 exec_model: opus
