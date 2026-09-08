@@ -19,7 +19,7 @@ import {
   type HandlerDeps,
   type SliceMembership,
 } from './handler.ts';
-import { MAX_SLICE_BYTES, MAX_SLICE_DURATION_MS, VERR } from './validate.ts';
+import { MAX_SLICE_BYTES, MAX_SLICE_DURATION_MS, parseWavHeader, VERR } from './validate.ts';
 
 const ALICE = '11111111-1111-4111-8111-111111111111';
 const BOB = '22222222-2222-4222-8222-222222222222';
@@ -292,6 +292,58 @@ Deno.test('a WAV whose data chunk is empty is refused as silence, not sent', asy
   const deps = makeDeps();
   assertEquals((await call(deps, 'alice', { ...SLICE, audio: b64(makeWav({ seconds: 0 })) })).body.error, VERR.empty);
   assertEquals(deps.transcribed.length, 0);
+});
+
+// ── the header parser, under adversarial bytes ──────────────────────────────
+
+Deno.test('parseWavHeader terminates and never throws on malformed input', () => {
+  // This is the one loop in the request path driven by ATTACKER-CONTROLLED lengths: the
+  // chunk walk reads a size out of the buffer and uses it to advance. Everything else here
+  // is bounded by the byte cap. Termination is structural — `offset` becomes
+  // `offset + 8 + size + pad`, so it advances by at least 8 per iteration regardless of
+  // what `size` says, and a zero-size chunk cannot spin. These cases pin that, plus the
+  // refuse-rather-than-guess behaviour on every field the duration derivation depends on.
+  const hdr = (mutate: (v: DataView, b: Uint8Array) => void, len = 200): Uint8Array => {
+    const b = new Uint8Array(len);
+    const v = new DataView(b.buffer);
+    const put = (o: number, t: string) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    put(0, 'RIFF'); v.setUint32(4, len - 8, true); put(8, 'WAVE');
+    put(12, 'fmt '); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 16_000, true);
+    v.setUint32(28, 32_000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    put(36, 'data'); v.setUint32(40, len - 44, true);
+    mutate(v, b);
+    return b;
+  };
+
+  const mustRefuse: Array<[string, Uint8Array]> = [
+    ['a chunk size of 0xFFFFFFFF walks past the buffer', hdr((v) => v.setUint32(16, 0xFFFFFFFF, true))],
+    ['a zero-size chunk still advances', hdr((v, b) => {
+      for (let i = 0; i < 4; i++) b[12 + i] = 'LIST'.charCodeAt(i);
+      v.setUint32(16, 0, true);
+    })],
+    ['an odd chunk size (word-alignment pad path)', hdr((v) => v.setUint32(16, 17, true))],
+    ['sampleRate 0 would divide by zero', hdr((v) => v.setUint32(24, 0, true))],
+    ['bitsPerSample 0 would divide by zero', hdr((v) => v.setUint16(34, 0, true))],
+    ['channels 0 would divide by zero', hdr((v) => v.setUint16(22, 0, true))],
+    ['no data chunk anywhere', hdr((_v, b) => { for (let i = 0; i < 4; i++) b[36 + i] = 'junk'.charCodeAt(i); })],
+    ['shorter than the smallest possible header', new Uint8Array(43)],
+    ['all zeros', new Uint8Array(200)],
+  ];
+
+  for (const [label, bytes] of mustRefuse) {
+    const started = Date.now();
+    assertEquals(parseWavHeader(bytes), null, label);
+    assert(Date.now() - started < 1_000, `parseWavHeader did not terminate promptly on: ${label}`);
+  }
+
+  // An over-declared data size is TRUNCATION, not long audio — 156 real bytes, not 4 GB.
+  const overDeclared = parseWavHeader(hdr((v) => v.setUint32(40, 0xFFFFFFFF, true)));
+  assertEquals(overDeclared?.dataBytes, 156);
+
+  // A header with no samples parses, and is refused one layer up as VERR.empty rather than
+  // being treated as a zero-length utterance.
+  assertEquals(parseWavHeader(hdr(() => {}, 44))?.dataBytes, 0);
 });
 
 // ── membership and consent ──────────────────────────────────────────────────
