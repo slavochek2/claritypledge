@@ -6,8 +6,9 @@ rank: 1000066
 workstream: transcription
 created_date: '2026-09-03'
 tags: [transcribe, transcription, mobile, gpu, cost]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+feature_type: backend
+delivery_stage: architect
+pipeline_ran: [create-spec, architect]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -402,9 +403,12 @@ not when the first word is spoken — the consent and join screens supply the co
    Caveat on the evidence: the test audio is speech-sparse ("test test", counting) with long
    silences, which is the worst case for Whisper hallucination — and also, per the lavalier design,
    the normal case for a per-person channel. Not yet re-run on dense conversational speech.
-3. Does the 30-minute Gemini cap apply when diarization is OFF? The cap is documented as tied to
-   diarization/word-timestamps; unverified for plain transcription. Untouched by this measurement,
-   which exercised the Whisper path only.
+3. *(Retired 2026-09-08 — answered by [P1237](p1237_batch_pipeline_gemini_vs_six_steps.md)
+   RQ5, and the answer is a hard design constraint rather than a clearance. With diarization OFF the
+   30-minute cap does not reject: the request is accepted, the whole file is billed, and a transcript
+   covering roughly the opening five minutes is returned with no warning. Carried into
+   `### Technical Analysis` and Decision 8 — no path may send a whole session or any long
+   concatenation to Gemini.)*
 4. Does the chunk-length/throughput curve hold for dense conversational speech? Findings 1-3 rest on
    168s of sparse test audio from one speaker. The fixed-per-call-cost mechanism (Finding 2) should
    be speech-independent, but the VAD gating rate (28% at 4s) certainly is not.
@@ -492,6 +496,38 @@ The spec does not yet specify what, if anything, is sent to Gemini besides raw a
 - ✅ The EXISTING batch pipeline (`services/transcribe/main.py`, `docs/technical/infrastructure.md:59`) is architected correctly against the P858 leak: `min-instances: 0` (scale-to-zero), `--concurrency=1`, event-driven `/transcribe-async` triggered per-job via Cloud Tasks with an atomic claim (`storage.py: claim_pending_job`), and a `/sweep` janitor that "cannot keep the GPU warm (it is NOT a 5-min work-poll)" (`main.py:158` comment). This is a real, shipped, previously-broken-then-fixed mechanism — not a hoped-for scale-to-zero.
 - ⚠️ **That mechanism does not yet extend to a LIVE session.** The existing pattern's safety comes from each unit of work being short and bounded (one batch job, then the instance can scale down). A live room is, by definition, long-lived and continuous for the duration of the conversation — the spec's own Invariant ("Idle cost MUST remain ≈ €0... live transcription structurally re-introduces warm-GPU time, so the shutdown path is load-bearing, not incidental") is asserted but **no shutdown mechanism for the live case exists in code yet**. Concretely unresolved and required before ship: (1) what triggers the GPU/Gemini path to stop when a room ends normally (`endRoom()` exists but nothing currently calls back into the transcription infra — `endRoom` only sets `ended_at` and calls `createTranscriptionJob('', m.sessionId)` for the OLD batch flow, `transcribe-service.ts:300-308`); (2) what happens on **abnormal** termination — a participant's browser crashes or loses network mid-room without calling `endRoom` — is there a server-side idle/heartbeat timeout that tears down the GPU instance or Gemini session, or does it wait for `ended_at` that may never be set? This must be answered and verified against **billing**, per the spec's own Done-When item, not inferred from the batch pipeline's unrelated (and correct) scale-to-zero design.
 
+### Addendum — engine-specific (2026-09-08)
+
+*Covers only what the engine-independent Security Review (line 411 of the w5 spec, carried over 2026-09-07 — consent/attribution/storage/abuse-bounds findings) does not reach, now that both founder decisions are answered: **4-second slices, no streaming**, and **Gemini 3.5 Transcribe** as the live engine. The findings in that section still stand unchanged and are not repeated here.*
+
+**Data Protection (third-party disclosure — a confirmed gap, not a conditional one):**
+- ⚠️ Confirmed by reading `src/app/content/privacy.md`: the "Transcribe rooms" section (`privacy.md:104-115`) describes audio going to "our Google Cloud Storage bucket" and a transcript "produced afterward" — worded for the self-run Whisper/pyannote pipeline. The Gemini disclosure block (`privacy.md:150-163`) and the DPA table row for "Google Gemini API" (`privacy.md:261-263`) list `/chat` and banner/image generation as Gemini consumers; neither lists transcription. **Required handling: update `privacy.md`'s Transcribe rooms section, the Gemini disclosure block, and the DPA row to name room audio/transcript content before this ships — this is no longer a conditional "if Gemini is chosen" risk, since it is chosen.** The in-room consent copy ("Recorded and visible to everyone in this room") also names no third party and needs the same update.
+- UNVERIFIED: whether Gemini API audio submitted via `generativelanguage.googleapis.com` is used for model training or retained beyond the request, at this product's tier/terms. **Required handling: confirm before shipping — determines whether the privacy-copy fix above is sufficient or a DPA/terms escalation is also needed.**
+- Billing/project: per the w5 spec's "Credit-eligible execution paths" section, Gemini calls run on billing account `010089-354936-77CD27`; per P1162 (below), the isolated project for this consumer is `aikey-cp-batch-81413`.
+
+**API Key Handling:**
+- ✅ Confirmed by grep: `GEMINI_API_KEY` is held server-side only. `.env.local:88` holds the value; `.env.local:71-78` documents deploying it via `npx supabase secrets set GEMINI_API_KEY=...` — i.e. a Supabase Edge Function secret, not a client-bundled variable. `grep -rn "VITE_.*GEMINI\|VITE_.*GOOGLE" src/ .env*` returned **zero hits** — no `VITE_`-prefixed Gemini/Google key exists in client-reachable code. `services/transcribe/*.py` (the Cloud Run measurement harness) has no `GEMINI`/`api_key` reference at all — it is Whisper-only; the Gemini measurement in Findings 6-8 ran from a separate script whose own key handling was not located in this pass (UNVERIFIED). **Required handling: whichever service ends up making the live Gemini calls (new edge function or Cloud Run job) must pull the key from a Supabase/GCP secret at deploy time — never inline it in `services/transcribe` config or any client-reachable code — and must be registered in `.private/docs/edge-function-secrets.md` per the P834/`check-edge-function-secrets.sh` gate P1162 treats as authoritative.**
+
+**Spend and Rate Limiting on a Continuously-Billing Live Path:**
+- ⚠️ P1162 (`features/done/2026-06-10/p1162_cap_claritypledge_gemini_spend.md`, all-done 2026-09-07) is the only spend cap that currently applies to this engine. It provisioned two isolated GCP projects with per-project caps on `generativelanguage.googleapis.com`: `aikey-cp-prod-inte-81368` (€50/mo, the two banner functions) and **`aikey-cp-batch-81413` (€75/mo)** — P1162's own text names consumers as *"P1237 batch transcription, P1236 if it lands, agent tooling"* and separately warns: *"P1236, if it lands, puts Gemini in the live path of every room — restoring a genuinely user-facing blast radius."* The €75 figure is sized from **batch** unit costs (EUR 0.158/audio-hour), not a live, per-room, continuously-billing workload, and it is shared project-wide across three unrelated consumers — no per-room or per-member dimension exists.
+- ⚠️ `ai_rate_limits` (`supabase/migrations/20260225120000_p425_ai_rate_limits.sql`) is a generic `(user_id, called_at)` burst/sustained limiter (RLS: `SELECT`-own only, service-role insert), scoped by its own header comment to `story-guide-chat`, which P803 retired (per P1162: *"the deployed copy is retired"*). UNVERIFIED whether anything still inserts into it. Even if reused, it caps a **user's call rate**, not a **room's session duration or GPU/API-minutes** — a different shape than P1236's continuous per-room billing.
+- **Required handling, as imperatives for the Build Sequence:**
+  1. Do not rely on the €75/mo `aikey-cp-batch-81413` cap alone as the abuse bound for the live path — it is a monthly backstop shared with an unrelated batch consumer and agent tooling, sized from batch economics, and (per P1162's own overshoot note) can take minutes of burn to trip. It is the right *fuse*, not a *rate limit*.
+  2. Add a per-room and/or per-member bound before shipping live: cap concurrent live rooms per profile, and enforce a hard maximum live-session duration per room server-side (the same control the engine-independent review already requires for GPU-wake abuse — it applies identically to Gemini, since both bill per wall-clock time the room stays open). Extend `ai_rate_limits` or a new room-scoped table; do not leave the monthly project cap as the sole backstop.
+  3. Verify, before shipping, that `aikey-cp-batch-81413`'s €75 cap is not silently exhausted to zero headroom by concurrent P1237 batch runs sharing the same project — P1162 only mitigated this class of risk for prod-interactive-vs-batch (separate projects); batch-vs-live-P1236 sharing ONE project is not similarly mitigated by anything read in either pass.
+
+**P1237 RQ5 — the silent 30-minute-cap non-refusal, as a live-path finding:**
+- ⚠️ P1237 (`features/done/2026-06-10/p1237_batch_pipeline_gemini_vs_six_steps.md:281-299`, "RQ5") measured that with diarization OFF — the mode P1236's live path uses, per Findings 6-8 (no diarization anywhere in the Gemini path) — Gemini's documented 30-minute cap does not refuse: a 58-minute file returned **HTTP 200**, billed the **full 87,020 input audio tokens**, and returned a transcript covering only roughly the first five minutes, with **no error, warning, or partial-response signal of any kind**. The w5 spec's own Risk table already names this ("Gemini silently truncates long audio when diarization is off") and states the mitigation as design intent: slices only, never a whole-session call. That is correct in shape but not yet an enforced guarantee — no code exists yet (P1236 is still pre-implementation).
+- **Required handling:** enforce a hard per-Gemini-request audio-duration ceiling in whatever code calls `generativelanguage.googleapis.com`, well under 30 minutes. The 4-second-slice design satisfies this by construction today, but any future code path that batches multiple slices into one call, retries a failed slice by resending a wider window, or implements a "re-transcribe from session start" recovery must be bounded by an explicit assertion/guard — not by design intent alone. Treat any path that could construct a large single request as BOTH a denial-of-wallet surface (full-file token billing with no refusal) AND a correctness surface (silent partial transcript, no signal to the caller) — both fire from the same root cause.
+
+**Finding 8's overlap/de-dup merge — integrity surface:**
+- ⚠️ `transcribe_messages` has no sequence-number or slice-index column (per the engine-independent review's own read of `20260823190000_p1149_transcribe_room_tables.sql`: only `id`, `room_id`, `member_id`, `text`, `spoken_at`, `is_final`, `created_at`). The overlap/de-dup merge step (new code, not yet written) needs to order and de-duplicate overlapping slice text before insert. If ordering is inferred from client-controlled upload timing, a client could reorder or replay slice uploads to make the merge emit wrong or duplicated text. **Required handling: the merge step must key slices by a server-assigned monotonic index (assigned on receipt, e.g. from the GCS object's server-observed upload sequence or an explicit counter the ingest endpoint stamps) — never a client-supplied sequence field.** This is the same "never trust client-supplied ordering" principle the engine-independent review applies to attribution, applied here to sequencing.
+- ⚠️ The merge necessarily produces an intermediate, pre-dedup candidate text (the overlapping raw slice outputs) before the final deduplicated text is known. **Required handling: never write this intermediate/candidate state to `transcribe_messages`, even transiently — no insert-then-fix-up pattern. Perform the merge in the worker's own memory/private staging structure and INSERT only the final, deduplicated, `is_final = true` row.** This closes a slicing-design-specific way the interim-broadcast invariant (engine-independent review, Data Protection) could otherwise be violated: not browser-interim leaking, but merge-step working-state leaking. The existing `is_final = true` CHECK constraint on the table does not by itself prevent a premature/partial insert — it only prevents a `false` value, so this must be enforced by never attempting such an insert in the first place, not by the CHECK catching it.
+
+**Finding 5's fail-open VAD — moot for this engine, stated explicitly:**
+- ✅ Finding 5 (VAD fails open under the reproduced production `hf-token` config: `pyannote/voice-activity-detection` returns 403, `_apply_vad` swallows the error, audio passes through un-gated — filed as P1242) is real but **moot for P1236 as scoped**, because Findings 6-7 establish Gemini needs no VAD gate (empty output on silent slices, no hallucination across 12 runs) — the w5 spec's own Risk table already marks this "Moot on the Gemini path." Confirmed by reading Findings 5-7 together: nothing in the live path as scoped (4s slices → Gemini, no diarization, no VAD) calls the code path that fails open.
+- **What failing open would mean for cost and consent, if it applied:** a VAD gate that fails open (passes all audio through un-gated on dependency failure, as Finding 5 reproduces) is a cost problem (every silent slice still gets billed as if it were speech, removing the gate's entire cost-saving rationale) AND a scope/consent problem (audio is processed regardless of whether voice activity was actually present — the gate's purpose is partly to bound *what* gets sent onward, and failing open means that bound silently disappears whenever the dependency is unavailable, with no signal to the caller or to consent tracking that a wider-than-intended slice of audio was processed). Neither applies to P1236's current Gemini-only scope. **Required handling: none for this spec as scoped — but the Build Sequence must not silently reintroduce a VAD dependency (e.g., a future cost-optimization that routes some slices back to Whisper) without first re-closing P1242, since that would reopen exactly this fail-open exposure.**
+
 ## Related
 
 - [P1152](p1152_transcribe_physical_device_verification.md) — holds PV-1, whose outcome this
@@ -505,3 +541,625 @@ The spec does not yet specify what, if anything, is sent to Gemini besides raw a
   cost lesson this must not repeat.
 - P556 / P568 / P569 — speaker attribution via cross-phone energy. Retired only if the co-location
   question resolves to "acoustically separate".
+
+## Technical Architecture
+
+*Written 2026-09-08 against this branch's copy of the spec. A previous `/architect` pass ran on the
+main checkout's stale copy and its decisions were discarded (see the note at the head of
+`## Security Review`); this pass reads the Step-1 measurement, both answered founder decisions, and
+Findings 1-8 as its inputs, which that pass could not.*
+
+### Technical Analysis
+
+#### What is already decided, and what this section is therefore not allowed to reopen
+
+Two `[FOUNDER DECISION]` markers in `## Approach` are **answered** (2026-09-04): **4-second slices**
+and **Gemini 3.5 Transcribe** for the live path. The chunked-vs-streaming fork is closed. Every
+decision below is downstream of those two and does not re-litigate either. Nothing here re-opens
+them; where analysis touched a reason the founder might want to revisit one, it is written as a
+flagged risk in this section rather than as an alternative design.
+
+#### The measured numbers, carried forward — not re-derived
+
+Source: the Step-1 harness at `services/transcribe/measurement/` (commit `dd620ab2c`, corrected in
+`a527faf3f` after the Codex review), raw per-chunk JSON in
+`gs://claritypledge-ml-training/p1236-measurement/`. Full tables in
+`### Step-1 measurement — RESULT` above. The three figures the architecture actually rests on:
+
+| Quantity | Measured value | What it does and does not license |
+|---|---|---|
+| Gemini per-slice latency, 4 s slices, in-region | **p50 1.88-2.01 s, p95 2.20-2.75 s, worst 3.70 s** | Flat from 1 to 20 concurrent streams; 0 errors in 516 requests (43 slices × 4 levels × 3 repeats). This IS a concurrency answer at the sizes this product will see. **Untested above 20**, and sustained-load rate-limit behaviour is unknown |
+| End-to-end lag | **≈6 s** (4 s to fill the slice + ~2 s transcription) | Excludes upload, queueing and render. **Still not an end-to-end measurement** — no step below may be sized against it as if it were |
+| Whisper on the L4, 4 s chunks | p50 0.67 s, p95 1.29 s, `seq. ceiling` 5.2 | **The ceiling column is NOT a stream count.** It is `chunk_seconds / mean` at 100% utilization, against a population whose worst steady-state sample was 7.19 s — longer than one arrival period. Finding 1 leaves the GPU capacity number `[UNRESOLVED]`, and this section does not resolve it |
+
+That last row is carried forward deliberately rather than dropped. `docs/decisions.md` 2026-09-05
+records that this exact quantity, when it was named `sustainable_streams_per_gpu`, propagated a
+capacity claim into a table header, prose, a Done-When and a founder summary that the expression
+never contained. **The number is retained; the conclusion it looks like it licenses is not.** It
+does not appear in any decision below, because Decision 3 removes the GPU from the live path
+entirely — Whisper on the L4 remains the batch engine and the documented fallback.
+
+#### Reuse inventory
+
+Verified by reading each file on this branch (`git rev-parse --show-toplevel` →
+`.claude/worktrees/w5`). Paths are repo-relative.
+
+**Client — the room surface**
+
+| Artifact | What it does today | Disposition |
+|---|---|---|
+| `src/app/pages/transcribe-room-page.tsx` (494 lines) | The whole room: auth gate, consent screen, join, capture, roster + chat subscriptions, end-session. `RECORD_AUDIO_WHILE_LIVE = false` at line 54 makes the entire `MediaRecorder` branch (lines 133-166) dead code | **Modify heavily.** Decisions 1, 5, 7 |
+| `src/hooks/useSpeechToText.ts` (354 lines) | Web Speech API wrapper; `{ autoRestart: true }` on this page only | **Removed from this page.** Hook itself untouched — `/chat` depends on its default non-autoRestart behaviour (Non-Goal) |
+| `src/hooks/use-audio-recorder.ts` (304 lines) | `/live`'s recorder. `mediaRecorder.start(1000)` then periodic `flushAndUploadChunk` — **this is the mechanism that produces header-less `chunk_001+`** | **Not reused.** Its chunking model is the one Finding 8 and the EBML finding rule out for slices |
+| `src/hooks/use-session-heartbeat.ts` | 30s `updateSessionLastActivity` for `/live` creators | **Pattern reused** for room liveness (Decision 6); the hook itself is session-scoped, not room-scoped |
+| `src/app/data/transcribe-service.ts` (308 lines) | `createRoom` / `getRoomByCode` (via `get_transcribe_room_by_code` RPC) / `joinRoom` / `sendFinalMessage` / `subscribeToRoom{Members,Messages}` / `endRoom` | **Modify.** `joinRoom` becomes an RPC (Decision 5); `sendFinalMessage` stays for nothing on the live path but is not deleted (see note below) |
+| `src/app/data/api.ts` `uploadRoomAudioChunk` (:3277) + `buildRoomAudioPathSegments` (:3257) + `getSignedUploadUrl` (:3021) + `uploadToGCS` (:3068) | Room archival upload to `rooms/{code}/{name}-{memberId}/chunk_NNN.webm` | **Reused unchanged.** This is how the stored recording comes back (Decision 7) |
+
+**Server — edge functions**
+
+| Artifact | What it does today | Disposition |
+|---|---|---|
+| `supabase/functions/gcs-signed-url/{index,handler,validate}.ts` + `handler.test.ts` | Mints 15-min write URLs. P1223 binds caller→prefix: `getRoomMembership(memberId)` then `m.profileId === userId && m.roomCode === target.code`; `ROOM_PREFIX_RE`, `ROOM_FILE_NAME_RE = /^(?:_dev_)?chunk_\d{3}\.webm$/`, `CONTENT_TYPE_RE`, `isConsistentFileType` | **Reused for archival upload; modified to add the consent gate** (Decision 5). Its index/handler/validate/test split is the **structural template** for the new function |
+| `supabase/functions/enqueue-transcription/index.ts` (97 lines) | P902 trigger bridge. Its docstring states the rule this design must copy: *"the task body carries job_id ONLY. Session fields always come from the DB"* | **Not on the live path.** Cited as the attribution precedent (Decision 2) |
+| `supabase/functions/generate-banner/index.ts` | The only `generativelanguage.googleapis.com` caller in the repo: `GEMINI_API_KEY` from env, URL built at :240, models at :13-14 | **Call shape reused.** Its `buildProfilePrompt` interpolating DB-sourced `profiles.name` into a prompt is the pattern the Security Review names as *not* to repeat — Decision 8 |
+| `supabase/functions/_shared/{cors,participant-name}.ts` | `buildCorsHeaders`, `sanitizeParticipantName` | Reused |
+| `scripts/deploy-functions.sh` | Per-function deploy + P834 secret hygiene pre-check + manifest stamp | Reused |
+
+**Server — GPU pipeline (batch, stays)**
+
+| Artifact | Disposition |
+|---|---|
+| `services/transcribe/main.py` (`/transcribe-async` atomic claim → 202 → background; `/sweep`; deprecated `/poll`) | **Untouched.** Still the batch path fired by `endRoom()` |
+| `services/transcribe/{pipeline,audio,transcriber,diarizer,merger,speaker_map,vad,storage}.py` | **Untouched.** Non-Goal: do not change `/live`'s batch pipeline |
+| `services/transcribe/measurement/{measure_chunks.py,measure_server.py,Dockerfile}` | The Step-1 harness. **Already run.** Retained as the reproducer for the Whisper half of the measurement |
+| `audio.py:88` `prefix = f"sessions/{session_code}/"` | **A live defect, out of scope but recorded:** the batch downloader only looks under `sessions/`, while room chunks land under `rooms/`. See "Pre-existing defects" below |
+
+**Database**
+
+| Artifact | Relevant shape |
+|---|---|
+| `supabase/migrations/20260823190000_p1149_transcribe_room_tables.sql` | `transcribe_rooms(id, code UNIQUE, event_id, created_at, ended_at)`; `transcribe_room_members(id, room_id, profile_id, display_name CHECK 1-100, session_id, joined_at)` + unique `(room_id, profile_id)`; `transcribe_messages(id, room_id, member_id, text CHECK non-empty, spoken_at, is_final DEFAULT true CHECK (is_final = true))`, index `(room_id, spoken_at)` |
+| `20260901160000_p1207_transcribe_rooms_code_enumeration.sql` | `get_transcribe_room_by_code()` SECURITY DEFINER, exact match only |
+| `20260225120000_p425_ai_rate_limits.sql` | `ai_rate_limits(user_id, called_at)` — **one row per call**. Pattern reused, table not (Decision 6) |
+
+**Measurement scripts**
+
+`scripts/p1237-crosstalk-scan.py` (the lavalier dB instrument, Open Question 1),
+`scripts/p1237-paths-compare.py`, `scripts/p1237-highsep-crosscheck.py`.
+
+#### The Gemini harness is not in the repo — Findings 6, 7 and 8 are currently unreproducible
+
+`git show --stat` over the four documentation commits on this branch (`a9b6091df`, `06cd5b812`,
+`22811320d`, `ca9b09f18`) shows **one file changed in each: the spec**. The Whisper half of the
+measurement shipped its harness (`services/transcribe/measurement/`, commit `dd620ab2c`) and P1237
+shipped three scripts; the Gemini half — 516 requests, 4 concurrency levels, the three cuttings of
+Finding 8 — shipped only prose. That asymmetry matters because Finding 8 is the *only* evidence
+behind the de-duplication requirement, which is the highest-risk component of this design, and the
+de-dup implementation needs that exact audio as a fixture. Committing the harness is a build step,
+not a nicety.
+
+#### Open Question 3 is answered by P1237 RQ5 — and the answer is a hard constraint, not a clearance
+
+The question asked whether the 30-minute Gemini cap applies with diarization off. P1237 measured it
+directly on a 58-minute file, two calls differing only in the diarization keys:
+
+- **diarization ON** → hard refusal, `Invalid input received.` The cap rejects; it does not truncate.
+- **diarization OFF** → **HTTP 200. 87,020 audio input tokens billed** (the full 3,481 s), 8,834
+  characters returned, no timestamps, **no warning of any kind**. 4-gram overlap against a local
+  Whisper transcript: 22% in minutes 0-5, **0% or 1% in every bucket after**. The hypothesis
+  *"it is an output-token limit"* was tested and refused — an identical request with
+  `max_output_tokens=65536` returned byte-identical text.
+
+So the answer is not "the cap doesn't apply". With diarization off the request is **accepted, billed
+in full, and silently returns a transcript of roughly the opening five minutes.** The design
+consequence is absolute and is written into Decision 8: **no path in this system may ever send a
+whole session, or any long concatenation, to Gemini** — not a "re-transcribe the room" convenience,
+not a flush-on-trigger that concatenates pending slices. Slices only, always. Question 3 is removed
+from `## Open Questions` on the strength of this.
+
+#### Pre-existing defects this design sits next to (recorded, not fixed here)
+
+1. **`audio.py:88` looks only under `sessions/`.** Room audio is written to `rooms/{code}/...`
+   (`buildRoomAudioPathSegments`, `api.ts:3267`), so `endRoom()`'s per-member
+   `createTranscriptionJob` produces a job whose downloader cannot find its audio. Combined with
+   `RECORD_AUDIO_WHILE_LIVE = false` this is currently masked — P1251's spec records that *every*
+   transcription job since 2026-08-29 failed with *"No files found"*. Restoring recording (Decision
+   7) **un-masks it**: jobs will start finding nothing under `sessions/` instead of finding nothing
+   because nothing was uploaded. Not this spec's to fix, but the build sequence must not report
+   "recording restored" while the batch job still fails.
+2. **`endRoom()` calls `createTranscriptionJob('', m.sessionId)`** (`transcribe-service.ts`) — an
+   empty session code. The RPC takes only `p_session_id`, so the empty string is discarded, but the
+   call site reads as if a code were being passed.
+3. **`ml_training_sessions_insert_authenticated` is `WITH CHECK (true)`** — any authenticated user
+   can insert a row for any `session_code`/`user_name`. Pre-existing; the constraint it places on
+   this design is that nothing server-side may treat `ml_training_sessions.user_name` as a speaker
+   identity.
+
+### Architecture Decisions
+
+#### Decision 1: Slices are produced from a Web Audio PCM ring buffer and sent as WAV — `MediaRecorder` cannot produce the required unit
+
+**Chosen:** `getUserMedia({audio:true})` → `AudioContext` → `AudioWorkletNode` tap → a Float32 ring
+buffer holding the last ~6 seconds. Every 4 seconds, encode the last **5 seconds** (4s of new audio
++ 1s of lead-in overlap) as 16 kHz mono 16-bit PCM WAV and POST it.
+
+**Rationale (correctness):** two measured facts in this spec make `MediaRecorder` structurally
+unable to emit this unit.
+
+- Only `chunk_000` carries the WebM/EBML header — stated in `audio.py`'s module docstring and
+  re-confirmed on real session audio (`chunk_001` alone: *"EBML header parsing failed"*; the two
+  catted together decode to the full 59.52 s). A `MediaRecorder` chunk is not independently
+  decodable, so it is not independently transcribable.
+- Finding 8 requires **lead-in** overlap: slice N must contain audio that was already emitted in
+  slice N-1. A forward-streaming encoder cannot re-emit past audio at all. A raw sample buffer can,
+  trivially, by moving one read pointer.
+
+16 kHz mono is also exactly what `audio.py` decodes to before Whisper, so the sample format matches
+the rest of the system rather than introducing a third one.
+
+**Trade-off:** genuinely new client surface. Grepped `src/`: **zero** hits for `AudioWorklet`,
+`AudioContext`, `createMediaStreamSource` or `createScriptProcessor` — there is no precedent in this
+codebase to copy. A worklet must be served as its own URL-addressable module, which adds a
+`public/` asset to a repo that currently has no such thing for JS.
+
+**Alternative rejected — stop/start a `MediaRecorder` every 4 seconds.** Each restart does produce a
+complete, header-carrying WebM. Rejected on two counts: it drops audio in the restart gap by an
+amount that is device-dependent and unmeasured (and this spec exists because a device-dependent
+audio behaviour was assumed and was wrong), and it cannot produce lead-in overlap at all, so
+Finding 8's corruption stands.
+
+**Alternative rejected — keep a per-stream decoder open server-side** and feed it the header-less
+chunk sequence. This works, but it puts long-lived per-connection state into the ingest layer, which
+is precisely the allocated-while-idle shape the idle-cost invariant exists to prevent.
+
+#### Decision 2: Ingest is a new Supabase edge function `transcribe-slice`, not the GCS signed-URL path
+
+**Chosen:** the client POSTs each slice with its Supabase user JWT to
+`supabase/functions/transcribe-slice/`. The function: authenticates the JWT → resolves the caller's
+membership **and consent** for the named room with a service-role client → calls Gemini with the
+audio → de-duplicates against the previous slice → inserts one `transcribe_messages` row using a
+**server-derived** `member_id`.
+
+**Rationale (security first, then correctness).** The Security Review's ⚠️ on Invariant #3 requires
+that speaker attribution be derived server-side and never accepted as a payload field, and it names
+`enqueue-transcription`'s *"the task body carries job_id ONLY"* as the pattern to copy. An edge
+function holding the caller's JWT can do something strictly stronger than that precedent: derive
+`member_id` from `(room_id, auth.uid())` against `transcribe_room_members` directly, so the client
+never names a member at all. The GCS route would instead have the worker parse `member_id` out of an
+object key — correct, but a longer trust chain for no gain.
+
+Correctness second: the signed-URL route is mint → PUT → DB trigger → Cloud Tasks → worker. That is
+four hops before the first byte reaches a transcriber, against an end-to-end budget the spec
+measures at ≈6 s of which ~2 s is already Gemini. It also means ~900 signed-URL mints per member-hour
+against a function whose current call rate on this surface is one per 30 seconds.
+
+**Trade-off:** the audio traverses Supabase's edge runtime rather than going straight to GCS. A 5 s
+slice at 16 kHz/16-bit mono is ~160 KB raw, ~213 KB base64 — comfortably inside edge request limits,
+but it is a real second copy of voice data in a second place, and the privacy policy must say so
+(Decision 8, and the Security Review's third-party-disclosure ⚠️).
+
+**Alternative rejected — client → GCS → trigger → Cloud Tasks → Cloud Run worker** (the P858 shape).
+Rejected on latency as above, and because it re-introduces a Cloud Run service with an idle-shutdown
+path for a workload that, after the engine decision, needs no GPU at all. Re-creating the
+allocated-resource shape in order to then defend against it is the wrong trade when the alternative
+allocates nothing.
+
+**Alternative rejected — client calls Gemini directly.** Ships the API key to the browser, and makes
+consent and attribution unenforceable by construction.
+
+#### Decision 3: The idle-cost invariant is satisfied by allocating nothing — which dissolves two of this spec's own requirements rather than solving them
+
+**Chosen:** no long-lived compute in the live path. The Gemini Developer API bills per request;
+Supabase edge functions bill per invocation. Between slices, and between rooms, **nothing is
+allocated.**
+
+This is the largest consequence of the founder's engine decision, and it changes two requirements
+written when the GPU was still assumed:
+
+- **"Cold start must be hidden by waking the transcription path when a participant joins."** There is
+  no ~30 s L4 cold start to hide. What remains is an edge-function cold start (sub-second). The
+  wake-on-join hook is **kept anyway** — Decision 6 places it in `handleJoin`, immediately after
+  `joinRoom` resolves and before `startCapture` — because it costs one request and takes the first
+  real slice off the cold path. It is now an optimisation, not a load-bearing mitigation, and it
+  should not be described as one.
+- **"Scale to zero on last-member-leave."** Nothing is allocated while a room is open, so there is
+  nothing to tear down when it closes. Normal leave and abnormal termination (browser crash, dead
+  radio) become the same case: the client stops POSTing, and cost stops. The Security Review's
+  question *"what happens on abnormal termination — is there a heartbeat that tears down the GPU?"*
+  has no work to do on this design.
+
+**What replaces it.** The risk migrates from *denial-of-wallet by allocation* (P858: paying €659/mo
+for an idle GPU) to *denial-of-wallet by call volume* (paying for slices nobody asked for). That is a
+different control and it is Decision 6.
+
+**Verification changes with it, and the Done-When wording should follow.** The item *"A room that has
+ended leaves no GPU instance allocated — verified from billing"* is trivially true on this design and
+therefore proves nothing. The assertion that actually carries the invariant is: **after `ended_at`
+is set, zero further Gemini requests are attributable to that room** — checked from the request count
+on the capped batch project over the window after `ended_at`, plus `SELECT count(*) FROM
+transcribe_messages WHERE room_id = $1 AND spoken_at > ended_at` returning 0. I am flagging this as a
+Done-When rewording for the founder rather than editing the Done-When myself.
+
+**The GPU is not removed from the product.** `endRoom()` still creates a batch `transcription_jobs`
+row per member, which still wakes `transcribe-session` through the unchanged P858 path. That path's
+scale-to-zero remains real and remains what the existing billing check covers — see the
+pre-existing-defect note about `audio.py:88` before expecting those jobs to succeed.
+
+#### Decision 4: Overlap de-duplication runs server-side, keyed on the same member's previous message
+
+**Chosen:** before inserting, read that member's most recent `transcribe_messages` row
+(`WHERE member_id = $1 ORDER BY spoken_at DESC LIMIT 1` — covered by the existing
+`(room_id, spoken_at)` index plus a new `(member_id, spoken_at)` one) and strip the longest
+overlapping word-sequence prefix from the new slice's text, bounded to the overlap window.
+
+**Rationale:** it is the only place that has both texts and trusts neither client. No new state is
+introduced — the previous text is already in the table the new row is going into.
+
+**Trade-off, and the risk stated plainly.** Finding 8 measured that the overlapped second is **not
+transcribed identically twice**: `S22` re-emerged as a stray `23`, and total words went 132 → 155
+rather than 132 → 132 + a clean duplicate. So exact token matching will miss real duplicates, and a
+naive fuzzy match will delete real words. **This is the highest-risk unproven component in the
+design.** `[UNVERIFIED: no de-duplication algorithm has been run against this data. Finding 8
+established only that 1 s of lead-in recovers "doesn't work" intact and that the word count rises by
+23. The shape of the duplication — how often the overlapped region differs, and by how much — is not
+characterised.]` It must be built test-first against the Finding-8 audio as a committed fixture, not
+reasoned about; that is why committing the Gemini harness is a build step.
+
+**Alternative rejected — de-duplicate on the client.** The client is untrusted, and it does not know
+what the previous slice's *transcript* said, only what audio it sent.
+
+**Alternative rejected — no overlap.** Finding 8: `"doesn't"` came back as `"that"` at a clean 4 s
+cut. One corrupted word per boundary is one every four seconds.
+
+#### Decision 5: Consent becomes server state, written atomically with the join
+
+**Chosen:** add `transcribe_room_members.consent_given_at TIMESTAMPTZ`, writable only through a new
+`SECURITY DEFINER` join RPC that takes consent as a required argument, so a member row cannot exist
+without one. `transcribe-slice` refuses when it is NULL; `gcs-signed-url`'s room branch gains the
+same check.
+
+**Rationale:** the Security Review established that `consentGiven` is a React `useState` boolean
+(`transcribe-room-page.tsx:63`), never sent to the server, never persisted; that
+`transcribe_room_members` has no consent column; and that the `privacy.md` promise *"nothing is
+captured before you do"* currently holds **only because `RECORD_AUDIO_WHILE_LIVE = false` makes the
+capture branch dead code.** This spec's own Done-When turns capture back on. At that moment a valid
+member JWT replayed without ever rendering the consent screen becomes indistinguishable server-side
+from a consented one — the invariant *"any path reaching audio capture MUST fail closed when consent
+is absent"* would hold by client cooperation only, which is not failing closed.
+
+**Trade-off:** `joinRoom`'s current deliberate two-statement insert-then-read moves into the RPC. That
+split exists for a documented reason — `INSERT … RETURNING` is evaluated under the SELECT policy,
+which calls `is_transcribe_room_member()`, which cannot see the row its own INSERT is still writing
+(the comment in `transcribe-service.ts` records this was reproduced directly in SQL). A
+`SECURITY DEFINER` function sidesteps it, but the reasoning must move with the code rather than be
+lost.
+
+**Alternative rejected — a separate `POST /consent` after join.** Leaves a window in which a member
+row exists without consent, which is exactly the state this decision makes unrepresentable.
+
+#### Decision 6: Cost is bounded by server-enforced ceilings on the room, not by a resource lifecycle
+
+**Chosen:** three ceilings, all server-side, none visible or settable by the client.
+
+1. **Room hard-stop.** A maximum room duration enforced in `transcribe-slice`: past
+   `created_at + N minutes` the function sets `ended_at` and refuses. The client cannot be the clock
+   — `endRoom` is caller-initiated only, so a joined member can stay indefinitely today.
+2. **Per-member slice ceiling.** A counter column on `transcribe_room_members`, incremented by the
+   service-role write in the same statement as the message insert.
+3. **Per-user concurrent-room limit.** Nothing currently stops one profile creating N rooms and
+   streaming into all of them.
+
+Wake-on-join lives here too: `handleJoin` issues one no-audio pre-warm POST after `joinRoom` resolves
+and before `startCapture`.
+
+**Rationale:** with nothing allocated, call volume is the only cost variable. Ten people at 4 s
+slices is 2.5 requests/second sustained, and the cap that would stop a runaway fires on **gross**
+cost with credits excluded (pp `docs/infra/gcp-spend-caps.md`), so the €75 batch cap is reached at
+roughly 47× the current monthly Gemini gross — not a comfortable margin against an unbounded room.
+
+**`ai_rate_limits` is deliberately NOT reused as a table.** It is one row per call
+(`20260225120000_p425...sql`), and this path issues ~900 calls per member-hour. Reuse its *pattern* —
+service-role written, server-enforced, client-invisible — not its schema.
+
+**Trade-off:** the room hard-stop is a user-visible truncation of a real conversation. `N` is a
+`[FOUNDER DECISION: maximum room duration before the server ends the room. The founder's own sizing
+is "maximum once per week or so, and then maximum 10 people", which bounds frequency but not
+length.]`
+
+#### Decision 7: Recording is restored by teeing one `getUserMedia` stream; `RECORD_AUDIO_WHILE_LIVE` is deleted
+
+**Chosen:** one `getUserMedia` call per participant. Its `MediaStream` feeds **both** the Web Audio
+graph (Decision 1, live slices) **and** a `MediaRecorder` producing 30 s archival chunks on the
+existing `uploadRoomAudioChunk` path, unchanged. `useSpeechToText` is removed from this page
+entirely.
+
+**Rationale:** H1 was contention between `MediaRecorder` and `SpeechRecognition`, and
+`SpeechRecognition` is the half that cannot share a stream — the Web Speech API opens its own capture
+and takes no `MediaStream` argument. Deleting it removes the contention **by construction** rather
+than by scheduling the two. The archival path then needs no change at all, which is why
+`chunk_NNN.webm`, `ROOM_FILE_NAME_RE` and the batch pipeline's expectations all keep working. This is
+what makes the stored recording a by-product of the same single stream, as the spec's Non-Goal
+("do NOT build `/record` as a separate surface") requires.
+
+**`[UNVERIFIED — verify on hardware before anything downstream is trusted]`** that a
+`MediaStreamAudioSourceNode` and a `MediaRecorder` attached to the same `MediaStream` both receive
+audio on the physical Galaxy S22 that produced this spec's A/B. It is a supported pattern per the Web
+Audio and MediaStream Recording specifications, and there is no documented contention between them.
+But this spec exists **because a supported pattern did not hold on that device**, and the failure
+mode there was silent — no error of any kind, fourteen consecutive times. The same adb-forwarded
+DevTools instrument that produced the A/B is the check. If it fails, the fallback is to drop
+`MediaRecorder` and encode the archival WAV from the same ring buffer (larger objects: ~1.9 MB/min at
+16 kHz 16-bit mono against ~120 KB/min for WebM, and `audio.py` would need to accept `.wav` under the
+room prefix) — a real fallback, not a hope, but a worse one.
+
+**Trade-off:** live text loses the browser recognizer's sub-second latency and lands at ≈6 s. The
+spec already accepts this (Risk: *"slower and working beats instant and absent"*), and the founder's
+answer — *"read while talking is not really the case at all"* — is what makes it acceptable.
+
+**Non-Goal respected:** `useSpeechToText`'s default (non-`autoRestart`) behaviour is not touched;
+`/chat` is unaffected. The hook is not deleted.
+
+#### Decision 8: Gemini is called on the capped **batch** key project, with a fixed system instruction and zero interpolated variables
+
+**Chosen:** `generativelanguage.googleapis.com` only — Vertex AI (`aiplatform.googleapis.com`) stays
+disabled (Invariant 4). The key is the **batch** project (`aikey-cp-batch-81413`, EUR 75 cap), not
+prod-interactive (`aikey-cp-prod-inte-81368`, EUR 50), per the Security Review's record of P1162.
+
+**Rationale:** P1162 split the projects precisely so a background workload cannot fuse the
+user-facing one. A runaway room must not take `/chat` and banner generation down with it. This is a
+per-room, per-member background stream — it belongs on the batch fuse.
+
+Audio is sent as the API's **native audio content part**, never base64-embedded into a text prompt
+(Security Review, AI Prompt Security table). The system instruction is a fixed string with **no
+interpolated variables at all**: no `display_name`, no prior `transcribe_messages.text`, no room
+code. That is the review's own "safest posture" line, and it makes the majority of its variable table
+**N/A** — which the review asks be *recorded as N/A in the architecture doc, not silently dropped*.
+Recorded here: `display_name` (untrusted, client-supplied, length-checked only), `transcribe_messages.text`
+(untrusted, other participants' speech) and `transcribe_rooms.code` (bearer credential) are **not
+sent to Gemini on this design**. `transcribe_room_members.id` is used as the sole attribution key and
+never appears in a prompt.
+
+**Hard constraint carried from P1237 RQ5:** with diarization off Gemini does not reject long audio —
+it accepts, bills in full, and silently returns roughly the opening five minutes. **No code path may
+send a whole session or a long concatenation.** Slices only. A "re-transcribe the whole room" or
+"flush everything pending as one call" convenience is therefore forbidden by design, and a test
+should assert the request builder cannot be handed more than one slice.
+
+**Fallback, not removal:** Whisper on the existing L4 remains the batch engine and the documented
+fallback for the live path. The GPU service is not decommissioned by this spec.
+
+**Trade-off:** a dependency on an API rather than a container we run, and ~1.3 s more per slice than
+Whisper. Both were weighed in the founder's answered engine decision and are not reopened here.
+
+### Security Review
+
+**This subsection is a cross-reference. The security review for P1236 lives in the level-2
+`## Security Review` section above** (carried over 2026-09-07) — RLS, authentication, authorization,
+input validation, data protection, AI prompt security, cost/abuse controls and the denial-of-wallet
+analysis, all grounded in the current schema. It is not duplicated, summarised or superseded here.
+
+That review states its own findings are **engine-independent** — consent, attribution, storage and
+abuse bounds bind whether the live path runs on Whisper or Gemini. The engine-specific surface the
+founder's 2026-09-04 decision opened is therefore its gap, and a separate pass is appending an
+`### Addendum — engine-specific (2026-09-08)` inside that same section covering: voice audio leaving
+to a third-party API, API-key handling, per-request spend and rate limiting on the live path,
+P1237 RQ5's silent-truncation-while-billing behaviour, Finding 5's fail-open VAD, and the Finding 8
+overlap/de-duplication path.
+
+Architecture decisions written directly against that review's ⚠️ items: **Decision 2** (server-derived
+attribution, Invariant #3), **Decision 5** (consent as server state), **Decision 6** (rate and
+duration ceilings), **Decision 8** (Gemini key selection and a prompt with no interpolated
+variables). Every ⚠️ item is mapped to a named Build Sequence step in
+`#### Security findings → build steps` below — including the ones no decision above closes.
+
+### Implementation Approach
+
+**Worktree recommended:** already in one — `feature/p1236-server-side-live-transcription` (w5). The
+change spans `src/`, `supabase/functions/`, `supabase/migrations/`, `public/`, `scripts/` and `docs/`
+across ~15 files, and it modifies a shared edge function (`gcs-signed-url`) that other paths depend
+on.
+
+#### Build Sequence
+
+**There is no measurement stage.** Step 1 of `## Approach` has run (`services/transcribe/measurement/`,
+2026-09-03, corrected 2026-09-04); its numbers are carried forward in Technical Analysis and are not
+re-derived here. This sequence builds the live path.
+
+**Stage A — the hardware precondition. Nothing below is worth building until this passes.**
+
+1. On the physical Galaxy S22, over the adb-forwarded DevTools console, confirm that one
+   `getUserMedia` stream simultaneously drives a `MediaStreamAudioSourceNode` (samples arriving,
+   non-silent) **and** a `MediaRecorder` (chunks with non-zero size). This is Decision 7's
+   `[UNVERIFIED]` claim. Paste the log into this spec the way the original A/B was. **If it fails,
+   stop and take the WAV-archival fallback in Decision 7 before writing the ingest function** — the
+   object format changes, which changes the migration and `audio.py`'s expectations.
+
+**Stage B — make the evidence reproducible and the fixture available.**
+
+2. Commit the Gemini measurement harness that produced Findings 6, 7 and 8 (currently prose-only) as
+   `scripts/p1236-gemini-slice-bench.py`, together with the Finding-8 audio as a committed fixture.
+   Decision 4's de-dup cannot be built test-first without it.
+
+**Stage C — server state and the consent gate (no behaviour change yet).**
+
+3. Migration: `consent_given_at TIMESTAMPTZ` and the slice counter on `transcribe_room_members`; the
+   room-duration column or constant; index `(member_id, spoken_at)` on `transcribe_messages`; the
+   `SECURITY DEFINER` join RPC carrying the RLS-vs-`RETURNING` reasoning in a comment.
+4. `transcribe-service.ts`: `joinRoom` → the RPC, consent passed as a required argument.
+5. `gcs-signed-url/handler.ts`: extend the room branch's membership check with
+   `consent_given_at IS NOT NULL`. Exercise the **refusal** path in `handler.test.ts` and confirm a
+   non-zero/4xx result — a gate nobody has watched fail is unproven (`epistemic.md` gate 7). Also run
+   the existing archival-upload happy path through it unchanged and confirm it still passes
+   (gate 7c) — this gate sits on a path that works today.
+
+**Stage D — de-duplication, test-first, in isolation.**
+
+6. `supabase/functions/transcribe-slice/dedup.ts` + `dedup.test.ts`, built against the Stage B
+   fixture. Assert on the Finding-8 sentence specifically: 1 s overlap must reconstruct
+   *"I tried fixing the transcribe and on my Galaxy S22 and it still doesn't work"* without the
+   stray `23` and without deleting a real word. Include a negative case where two *genuinely
+   different* consecutive sentences must not be merged.
+
+**Stage E — the ingest function.**
+
+7. `transcribe-slice/{index,handler,validate}.ts` + `handler.test.ts`, mirroring `gcs-signed-url`'s
+   split. `validate.ts` bounds the payload the way `gcs-signed-url/validate.ts` bounds file names:
+   max slice bytes, exact sample rate, max duration, monotonic sequence number.
+   **The client's sequence number bounds and rejects replays — it is never the de-duplication
+   ordering key.** Decision 4 orders on `spoken_at`, so `spoken_at` MUST be DB-assigned
+   (`DEFAULT now()`, as `sendFinalMessage` relies on today at `transcribe-service.ts:226-233`) and
+   MUST NOT be read from the slice payload, however tempting the capture timestamp is for a
+   transcript — handing that column to the client hands it the merge order. Assert this in
+   `handler.test.ts`: a payload carrying `spoken_at` is rejected or ignored, never persisted.
+   `handler.ts` order: JWT → membership → **consent** → ceilings (Decision 6) → Gemini → dedup →
+   service-role insert with server-derived `member_id`. The pre-dedup candidate text is held in
+   worker memory only and is never written to `transcribe_messages`, not even transiently.
+8. Deploy to **test** first: `./scripts/deploy-functions.sh transcribe-slice`. Set `GEMINI_API_KEY`
+   from the batch project and record it in `.private/docs/edge-function-secrets.md` in the same step
+   (P834 invariant; `check-edge-function-secrets.sh` is the deploy-time guard).
+
+**Stage F — the client.**
+
+9. `public/audio/pcm-tap-worklet.js` + `src/lib/audio/slice-recorder.ts`: ring buffer, 4 s cadence,
+   1 s lead-in, WAV encode.
+10. `transcribe-room-page.tsx`: remove `useSpeechToText` and the `liveTextStopped` / "Resume live
+   text" UI it drives; delete `RECORD_AUDIO_WHILE_LIVE` and un-dead the `MediaRecorder` branch; wire
+   the slice loop; pre-warm POST in `handleJoin`. The interim-text render
+   (`data-testid="transcribe-interim"`) goes away with the hook — Invariant 1 becomes true by
+   construction, since no interim text exists on this page any more.
+
+**Stage G — verify, in this order.**
+
+11. Two physical devices, two members, adb console: each sees the other's words, attributed
+    correctly (Done-When items 5 and 6). Paste the logs.
+12. Confirm a stored recording lands under `rooms/{code}/{member}/chunk_NNN.webm` (Done-When 9) —
+    and **separately** confirm whether the resulting batch job succeeds, given the `audio.py:88`
+    `sessions/`-only prefix defect. Do not report "recording restored" as "transcription restored".
+13. **Cost, verified from billing rather than assumed — both halves, because there are two.**
+    - *Live path (Gemini).* After `ended_at` is set, assert **zero further Gemini requests
+      attributable to the room**: query the BigQuery billing export
+      (`billing_export.gcp_billing_export_resource_v1_010089_354936_77CD27`, the same source that
+      produced the credit-coverage table in `### Credit-eligible execution paths`) for
+      `generativelanguage.googleapis.com` usage on the batch project over the window after
+      `ended_at`, and separately assert
+      `SELECT count(*) FROM transcribe_messages WHERE room_id = $1 AND spoken_at > ended_at` returns
+      0. This is Decision 3's reworded assertion and it is the one that carries the idle-cost
+      invariant on this design. **Note the export lags** — it is not a same-minute check; run it the
+      following day, not immediately after the session.
+    - *Batch path (GPU), unchanged by this spec but still triggered by `endRoom()`.* Confirm
+      `transcribe-session` returns to zero instances after the per-member jobs finish. Per
+      `docs/decisions.md` 2026-06-04, use the **Cloud Run shutdown log**
+      (`gcloud logging read … "Application shutdown complete"`), **not**
+      `gcloud monitoring time-series list` for `container/instance_count` — that CLI returned no
+      parseable data 3× and is recorded as unreliable for exactly this check. Measured idle-shutdown
+      there was ~5 min, not the ~15 min the P858 prose assumes; do not treat 15 as fixed.
+14. **Bucket posture — `gs://claritypledge-ml-training`.** Run `gsutil iam get` and
+    `gsutil lifecycle get` on it and record both. The Security Review flags this ⚠️ as UNVERIFIED and
+    not inferable from the repo (`grep -rn "lifecycle\|retention" docs/ scripts/` returns zero hits
+    for this bucket), and restoring recording resumes writing pseudonymous voice data into it. Record
+    the retention period in `## Pre-deploy Checklist`; if no lifecycle rule exists, that is the
+    finding — say so rather than leaving the item ticked.
+15. `privacy.md`: add the third-party transcription flow to **all three** places the addendum
+    names, not two — `### Transcribe rooms` (`privacy.md:104-115`, which today says audio goes to
+    "our Google Cloud Storage bucket" with a transcript "produced afterward", wording written for
+    the self-run Whisper pipeline), the Gemini disclosure block (`privacy.md:150-163`, which lists
+    `/chat` and banner generation as the only Gemini consumers), and the DPA row
+    (`privacy.md:261-263`, whose Gemini row reads "`/chat` replies; generated banners"). **Also
+    update the in-room consent copy**, which names no third party at all — consent to be recorded
+    is not consent to be sent to Google. **This gates prod, not test.**
+
+**Stage H — abuse bounds no decision above closes. Both must land before prod.**
+
+16. `gcs-signed-url/handler.ts`: add a per-member request-volume ceiling to the room branch. The
+    level-2 review's ⚠️ is that the handler validates identity and ownership per request but never
+    bounds how many signed URLs one member can mint per minute — hence GCS PUTs, hence archival
+    volume. Decision 6's ceilings live in `transcribe-slice` and do not cover this function, which
+    stays on the live path for archival chunks under Decision 7. Exercise the refusal path and
+    confirm a non-zero result (`epistemic.md` gate 7), then run the existing archival happy path
+    through it unchanged (gate 7c).
+17. Confirm the batch project's cap has real headroom for a live workload before enabling prod.
+    P1162 sized `aikey-cp-batch-81413` (EUR 75) from batch unit economics and shares it across
+    P1237 batch transcription, agent tooling and now P1236; its project split mitigated
+    prod-interactive-vs-batch, never batch-vs-live. Decision 6 computes the cap at roughly 47x
+    current monthly Gemini gross for rooms alone — that margin is not the shared margin. Record the
+    measured headroom with a concurrent P1237 run in flight, not the headroom for rooms in
+    isolation.
+
+#### Security findings → build steps
+
+Every ⚠️ in `## Security Review` — both the engine-independent findings and the
+`### Addendum — engine-specific (2026-09-08)` — mapped to the step that closes it. A finding with no
+step is a finding nobody builds.
+
+| ⚠️ Finding | Source | Closed by |
+|---|---|---|
+| Server-side writer cannot satisfy the participant-JWT INSERT policy; must use service-role and re-derive `member_id` from the validated upload path, never a job payload | Engine-independent, RLS + Authorization | Decision 2; step 7 (`handler.ts` order ends in service-role insert with server-derived `member_id`) |
+| `display_name` is client-supplied and length-checked only — untrusted wherever consumed | Engine-independent, RLS | Decision 8 (no interpolated variables reach Gemini at all; recorded N/A) |
+| Consent is client-side state only; any path reaching capture must fail closed | Engine-independent, Data Protection | Decision 5; steps 3, 4, 5 (consent as server state, gate exercised on its refusal path) |
+| Wake-on-join must be gated on the authenticated join check, not a client-callable "start" endpoint | Engine-independent, Authentication | Decision 6 (pre-warm POST issued in `handleJoin` after `joinRoom` resolves) |
+| Transcript text now originates from a third party and has no server-side length cap before insert | Engine-independent, Input Validation | Step 7 (`validate.ts` payload bounds) |
+| No shutdown mechanism for the live case; normal vs abnormal room termination both unresolved | Engine-independent, Denial-of-wallet | Decision 3 (nothing is allocated, so both cases collapse); Decision 6 room hard-stop; step 13 |
+| No abuse control on `gcs-signed-url` request volume per member | Engine-independent, Denial-of-wallet | **Step 16** — nothing above closed this |
+| `privacy.md` does not disclose room audio or transcripts as a Gemini destination; consent copy names no third party | Addendum, Data Protection | **Step 15**, gating prod |
+| Gemini's training/retention terms for submitted audio are UNVERIFIED at this tier | Addendum, Data Protection | Pre-deploy checklist — confirm before prod; no code closes it |
+| Live Gemini caller must pull the key from a secret store and register it per P834 | Addendum, API Key Handling | Step 8 |
+| The EUR 75 monthly cap is a shared fuse, not a rate limit; no per-room or per-member bound exists | Addendum, Spend | Decision 6's three ceilings (room hard-stop, per-member slice counter, per-user concurrent rooms) |
+| Batch cap headroom is unmeasured against concurrent P1237 runs sharing the project | Addendum, Spend | **Step 17** — nothing above closed this |
+| RQ5: with diarization off Gemini accepts long audio, bills in full, returns ~5 minutes silently | Addendum, RQ5 | Decision 8's hard constraint; step 7 (`validate.ts` max duration) + the assertion that the request builder cannot be handed more than one slice |
+| De-dup ordering must key on a server-assigned index, never a client-supplied one | Addendum, Finding 8 integrity | **Step 7**, tightened — `spoken_at` is DB-assigned and rejected from the payload; the client sequence number bounds and rejects replays only |
+| The pre-dedup candidate text must never be persisted, even transiently | Addendum, Finding 8 integrity | **Step 7** — merge held in worker memory; insert is the deduplicated row only |
+| Fail-open VAD (P1242) | Addendum, Finding 5 | Moot on this engine — Finding 6 measured Gemini needing no gate. Reopens if a VAD dependency returns |
+
+#### Files to Create
+
+| Path | Purpose |
+|---|---|
+| `supabase/functions/transcribe-slice/index.ts` | Entry point: env, clients, `Deno.serve` — mirrors `gcs-signed-url/index.ts` |
+| `supabase/functions/transcribe-slice/handler.ts` | Testable core: JWT → membership → consent → ceilings → Gemini → dedup → insert |
+| `supabase/functions/transcribe-slice/validate.ts` | Payload bounds (bytes, sample rate, duration, sequence) |
+| `supabase/functions/transcribe-slice/dedup.ts` | Overlap de-duplication (Decision 4) |
+| `supabase/functions/transcribe-slice/handler.test.ts` | Auth/consent/ceiling refusals + happy path |
+| `supabase/functions/transcribe-slice/dedup.test.ts` | Finding-8 fixture assertions |
+| `supabase/migrations/<ts>_p1236_transcribe_consent_and_limits.sql` | `consent_given_at`, slice counter, `(member_id, spoken_at)` index, join RPC |
+| `public/audio/pcm-tap-worklet.js` | `AudioWorkletProcessor` — must be URL-addressable |
+| `src/lib/audio/slice-recorder.ts` | Ring buffer, 4 s cadence, 1 s lead-in, WAV encode |
+| `scripts/p1236-gemini-slice-bench.py` | The Findings 6/7/8 harness, currently unshipped |
+
+#### Files to Modify
+
+| Path | Change |
+|---|---|
+| `src/app/pages/transcribe-room-page.tsx` | Remove `useSpeechToText` + `liveTextStopped` UI + interim render; delete `RECORD_AUDIO_WHILE_LIVE`; wire slice loop; pre-warm in `handleJoin` |
+| `src/app/data/transcribe-service.ts` | `joinRoom` → consent RPC; add the slice POST client |
+| `supabase/functions/gcs-signed-url/handler.ts` | Consent gate on the room branch |
+| `supabase/functions/gcs-signed-url/handler.test.ts` | Refusal case for the new gate + unchanged happy path |
+| `src/app/content/privacy.md` | `### Transcribe rooms` + Gemini DPA row must name audio/transcript content |
+| `docs/technical/infrastructure.md` | New live path alongside the `## Cloud Run: transcribe-session` section; state explicitly that the live path allocates nothing |
+| `docs/technical/database.md` | New columns + RPC |
+| `.private/docs/edge-function-secrets.md` | `transcribe-slice` → batch `GEMINI_API_KEY` (P834) |
+| `supabase/deploy-manifest.json` | Stamped by `deploy-functions.sh` |
+
+## Pre-deploy Checklist
+
+Triggered by `.claude/rules/features.md` — a new edge function calling an external API.
+
+### Secrets to provision
+- [ ] `GEMINI_API_KEY` for `transcribe-slice`, from the **batch** project (`aikey-cp-batch-81413`,
+      EUR 75 cap) — not the prod-interactive key. Record in `.private/docs/edge-function-secrets.md`
+      in the same step.
+
+### Deploy commands
+- [ ] `./scripts/deploy-functions.sh transcribe-slice` (test), then `--env prod`
+- [ ] `./scripts/deploy-functions.sh gcs-signed-url` — the consent gate ships with it
+- [ ] Migration via `scripts/migrate.sh`; no `VITE_*` var is added, so no rebuild is forced by
+      secrets — but the client change itself needs a Vercel deploy
+
+### Post-deploy verification
+- [ ] Unauthenticated `curl` to `transcribe-slice` → 401; authenticated non-member → 403;
+      member without `consent_given_at` → 403. All three observed, not inferred
+- [ ] Smoke a single slice on prod and confirm one `transcribe_messages` row with the correct
+      `member_id`
+- [ ] Sentry for new errors in the first 10 minutes
+- [ ] Confirm the batch project's spend cap is still `Configured` in the console — it is
+      **console-only and invisible to every script** (`gcloud billing budgets list` does not return
+      it), so a cap that was never set looks identical to one that works
