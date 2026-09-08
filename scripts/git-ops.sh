@@ -711,17 +711,196 @@ commit_staged_exact() {
 }
 
 # ----------------------------------------------------------------------------
-# Subcommand: gc
-# Lists stale feature/fix branches (no lockfile, no recent commits).
-# Default: dry-run. Requires BOTH --yes AND --delete-branches to delete.
-# Never touches branches present in `git worktree list`.
+# Subcommand: gc  (rewritten by P1260)
+#
+# Enumerates every ref this pipeline can leave behind — LOCAL branches AND the refs
+# actually on `origin` — and classifies each as MERGED or KEEP.
+#
+# What changed and why (the old version selected on age and worktree-exclusion alone):
+#   * It looked at `git branch` only, so nothing on the remote was ever a candidate. The
+#     three refs measured on origin on 2026-09-07 were invisible to it.
+#   * Its candidate filter was `^(feature|fix)/p[0-9]+`, which matches none of the refs this
+#     pipeline actually leaks — they are `staging/doc-*`, `staging/pN`, and ad-hoc names.
+#     Replaced by an explicit EXCLUSION set, so a new ref shape is a candidate by default
+#     rather than silently out of scope.
+#   * It had NO merged-ness check of any kind. Age is not a merge.
+#
+# The merged-ness oracle, and why it is three signals rather than one. Both available oracles
+# are individually wrong, measured on this repo:
+#   * patch-id (`git cherry`) alone: says 3 commits unmatched on backup/p1165-orig-20260827.
+#   * subject match alone: says 1. And `c431d2ec` subject-matches main's `eb56d6e3` while their
+#     patches differ by 382 lines across 5 files — a subject match is not a content match.
+#   * BOTH are defeated by reverted work. docs/decisions.md 2026-09-05 [technical]: rebasing
+#     work that was previously REVERTED silently drops commits, because the patch-id matches the
+#     revert's history and every gate stays green. Live here: 95036cca3 was reverted 4 minutes
+#     later by 37984ff00 and only re-landed on 2026-09-05. For those two days both oracles would
+#     have called the holding branch fully merged while main lacked the content.
+#
+# So a commit counts as absorbed only when ALL THREE agree: patch present, subject present, and
+# no revert of it anywhere in the base's history. Any commit that fails any signal is reported
+# by SHA and the branch is KEEP. This deliberately OVER-keeps — a branch whose commits were ever
+# reverted stays KEEP even after the content re-lands. That is the fail-safe invariant: the cost
+# of over-keeping is a line in a report, the cost of under-keeping is destroyed work.
+#
+# Report-only by default. Deletion still requires BOTH --yes AND --delete-branches (P781), only
+# ever deletes LOCAL branches, and never deletes anything classified KEEP.
 # ----------------------------------------------------------------------------
 
+# NOTE — every `grep -q` here reads from a PROCESS SUBSTITUTION, never the right-hand side of a
+# pipe. This file runs under `set -euo pipefail`, and `producer | grep -q x` returns 141 on a
+# SUCCESSFUL match: grep exits the moment it matches, the producer dies of SIGPIPE, and pipefail
+# surfaces that as the pipeline's status. The condition then reads as "not found" on exactly the
+# inputs it was supposed to find. This silently broke the re-land check below — the oracle called
+# a re-landed commit still-reverted, and only a fixture with a known answer caught it.
+# ── The revert index ─────────────────────────────────────────────────────────
+#
+# Why this is file-overlap and not message parsing. The governing case
+# (docs/decisions.md 2026-09-05 [technical]) is live in this repo: 95036cca3 was reverted by
+# 37984ff00 four minutes later and re-landed as 06dad4d3e two days on. That revert commit has
+# NEITHER of the two machine-readable forms — its subject is `revert(p1220): back out the
+# design-consistency commits…` (conventional-commit style, no quoted original subject) and its
+# body is free prose with no `This reverts commit <sha>` trailer. Measured on main: 4 commits use
+# git's `Revert "…"` form, 3 use the conventional form, and only 4 carry the body trailer. A
+# parser keyed on either spelling therefore misses a third of this repo's reverts — including the
+# exact one this oracle exists to catch. It reported MERGED on the fixture until this was fixed.
+#
+# Content-based detection (searching base for a commit whose patch is the inverse of C) would be
+# message-independent, but costs a patch-id over every commit in the window. File overlap gets the
+# same answer here at a fraction of that, and errs toward KEEP, which is the invariant.
+#
+# Writes "<sha>" lines to $REVERT_INDEX_SHAS and "<sha>\t<path>" to $REVERT_INDEX_FILES.
+build_revert_index() {
+  local base="$1"
+  REVERT_INDEX_SHAS="$(mktemp)"; REVERT_INDEX_FILES="$(mktemp)"
+  local r
+  # Both spellings. Reverts are rare and recent; an unbounded scan buys nothing.
+  # `|| true` throughout this function: `set -e` is on, and grep exits 1 when it simply finds
+  # NOTHING. A repo with no reverts is the normal case, not an error — without the guard `gc`
+  # aborted with no output at all in every scratch repo the canary builds.
+  ( cd "$REPO_ROOT" && git log "$base" -n 4000 --format='%H %s' 2>/dev/null || true ) \
+    | { grep -iE '^[0-9a-f]+ (revert[(:"]|revert )' || true; } | awk '{print $1}' > "$REVERT_INDEX_SHAS"
+  while IFS= read -r r; do
+    [[ -z "$r" ]] && continue
+    ( cd "$REPO_ROOT" && git show --pretty=format: --name-only "$r" 2>/dev/null || true ) \
+      | { grep -v '^$' || true; } | sed "s|^|$r\t|" >> "$REVERT_INDEX_FILES"
+  done < "$REVERT_INDEX_SHAS"
+}
+
+cleanup_revert_index() { rm -f "$REVERT_INDEX_SHAS" "$REVERT_INDEX_FILES" 2>/dev/null; }
+
+# Was commit $1's work reverted in base $2 and never re-landed? Echoes the revert sha, or "".
+commit_reverted_unrelanded() {
+  local sha="$1" base="$2" subj files r rfiles
+  [[ -s "$REVERT_INDEX_SHAS" ]] || { echo ""; return; }
+
+  files="$( cd "$REPO_ROOT" && git show --pretty=format: --name-only "$sha" 2>/dev/null | { grep -v '^$' || true; } )"
+  [[ -z "$files" ]] && { echo ""; return; }
+  subj="$( cd "$REPO_ROOT" && git log -1 --format=%s "$sha" 2>/dev/null )"
+  # AUTHOR date, not committer date: a cherry-pick or rebase rewrites the committer date but
+  # preserves the author date, and the whole point of this oracle is branches whose SHAs differ
+  # from what landed on base.
+  local sha_at
+  sha_at="$( cd "$REPO_ROOT" && git log -1 --format=%at "$sha" 2>/dev/null )"
+  [[ -z "$sha_at" ]] && { echo ""; return; }
+
+  local r_at
+  while IFS= read -r r; do
+    [[ -z "$r" ]] && continue
+    # Only a revert that came AFTER this work can have reverted it. Ancestry CANNOT be used for
+    # this: a shipped branch is cherry-picked onto main, so the branch keeps its own SHAs and is
+    # not an ancestor of the revert that backed the copy out. Testing ancestry here reported
+    # MERGED on the fixture — the exact false negative this oracle exists to prevent.
+    r_at="$( cd "$REPO_ROOT" && git log -1 --format=%ct "$r" 2>/dev/null )"
+    [[ -z "$r_at" || "$r_at" -lt "$sha_at" ]] && continue
+    rfiles="$(awk -F'\t' -v s="$r" '$1==s {print $2}' "$REVERT_INDEX_FILES")"
+    [[ -z "$rfiles" ]] && continue
+    # Any file in common? Then this revert plausibly backed this commit out.
+    if ! grep -Fxq -f <(printf '%s\n' "$rfiles") < <(printf '%s\n' "$files") 2>/dev/null; then
+      continue
+    fi
+    # Re-landed after the revert? Same subject reappearing downstream is this repo's own
+    # re-land signature (06dad4d3e carries 95036cca3's subject verbatim).
+    if [[ -n "$subj" ]] && grep -Fxq "$subj" < <( cd "$REPO_ROOT" && git log "$r..$base" --format='%s' 2>/dev/null ); then
+      continue
+    fi
+    echo "$r"; return
+  done < "$REVERT_INDEX_SHAS"
+  echo ""
+}
+
+# Is $1 (a commit) absorbed into $2 (a base ref)? Echoes "" if absorbed, else a reason.
+# Fail-safe: any signal it cannot evaluate counts as NOT absorbed.
+commit_absorbed_reason() {
+  local sha="$1" base="$2" subj rev
+
+  subj="$( cd "$REPO_ROOT" && git log -1 --format=%s "$sha" 2>/dev/null )"
+  [[ -z "$subj" ]] && { echo "unreadable"; return; }
+
+  # Signal 3 — disqualifying regardless of what the other two say.
+  rev="$(commit_reverted_unrelanded "$sha" "$base")"
+  [[ -n "$rev" ]] && { echo "reverted-by-${rev:0:9}"; return; }
+
+  # Signal 1 — patch-id. `git cherry <base> <head> <limit>` prints "- <sha>" when the patch is
+  # already in base, "+ <sha>" when it is not. Limiting to <sha>^..<sha> examines just this one.
+  local cherry
+  cherry="$( cd "$REPO_ROOT" && git cherry "$base" "$sha" "$sha^" 2>/dev/null | head -1 )"
+  [[ "$cherry" != -* ]] && { echo "patch-absent"; return; }
+
+  # Signal 2 — subject present in base.
+  if ! grep -Fxq "$subj" < <( cd "$REPO_ROOT" && git log "$base" --format='%s' 2>/dev/null ); then
+    echo "subject-absent"; return
+  fi
+
+  echo ""
+}
+
+# Classify a ref. Echoes "MERGED" or "KEEP — <reason>".
+classify_ref() {
+  local ref="$1" base="$2"
+
+  local ahead
+  ahead="$( cd "$REPO_ROOT" && git rev-list --count "$base..$ref" 2>/dev/null )"
+  if [[ -z "$ahead" ]]; then
+    echo "KEEP — cannot compare against $base (missing objects?)"
+    return
+  fi
+
+  # An ancestor of base needs no oracle, and must NOT get one. Every commit is reachable from
+  # base forever, so deleting the ref cannot lose work even if the content was later reverted —
+  # the commits stay in base's history and `git log` still finds them. An earlier revision of
+  # this function ran the revert scan over an ancestor's tip window anyway; because a `staging/*`
+  # ref is literally a snapshot of main, that swept up unrelated reverted history and reported
+  # KEEP on both staging refs, each measured to carry zero unique commits. The revert trap lives
+  # in the NON-ancestor case below, where the branch holds its own SHAs and reachability proves
+  # nothing.
+  if [[ "$ahead" -eq 0 ]]; then
+    echo "MERGED"
+    return
+  fi
+
+  local unmatched="" c reason n=0
+  while IFS= read -r c; do
+    [[ -z "$c" ]] && continue
+    reason="$(commit_absorbed_reason "$c" "$base")"
+    if [[ -n "$reason" ]]; then
+      unmatched+="${c:0:9}($reason) "
+      n=$((n+1))
+      (( n >= 8 )) && { unmatched+="… "; break; }
+    fi
+  done < <( cd "$REPO_ROOT" && git rev-list "$base..$ref" 2>/dev/null )
+
+  if [[ -z "$unmatched" ]]; then
+    echo "MERGED"
+  else
+    echo "KEEP — unmatched: ${unmatched% }"
+  fi
+}
+
 cmd_gc() {
-  local do_delete=0
-  local got_yes=0
-  local got_delete=0
+  local do_delete=0 got_yes=0 got_delete=0
   local stale_age_days=30
+  local base_ref="main"
+  local include_remote=1
   local arg
   while [[ $# -gt 0 ]]; do
     arg="$1"
@@ -729,71 +908,134 @@ cmd_gc() {
       --dry-run)          shift ;;
       --yes)              got_yes=1; shift ;;
       --delete-branches)  got_delete=1; shift ;;
+      --no-remote)        include_remote=0; shift ;;
+      --base)             base_ref="$2"; shift 2 ;;
+      --stale-days)       stale_age_days="$2"; shift 2 ;;
       *) echo "git-ops gc: unknown flag '$arg'" >&2; exit 2 ;;
     esac
   done
-  if [[ $got_yes -eq 1 && $got_delete -eq 1 ]]; then
-    do_delete=1
+  [[ $got_yes -eq 1 && $got_delete -eq 1 ]] && do_delete=1
+
+  if ! ( cd "$REPO_ROOT" && git rev-parse --verify "$base_ref" >/dev/null 2>&1 ); then
+    echo "git-ops gc: base ref '$base_ref' does not resolve" >&2
+    exit 2
   fi
 
-  # Build exclusion set: branches currently held by slot lockfiles OR in git worktree list.
+  # One pass over the base's history; consumed by classify_ref for every ref below.
+  build_revert_index "$base_ref"
+  trap cleanup_revert_index RETURN
+
+  # Exclusion set: never a candidate, whatever its age or merge state.
   local held_by_slot held_in_worktree exclusion
   held_by_slot="$(branches_held_by_slots)"
   held_in_worktree="$(branches_in_worktree_list)"
-  exclusion="$(printf '%s\n%s\n' "$held_by_slot" "$held_in_worktree" | sort -u)"
+  exclusion="$(printf '%s\n%s\nmain\nmaster\nHEAD\n' "$held_by_slot" "$held_in_worktree" | sort -u)"
 
-  # Gather candidate branches matching feature/p<digits>-* or fix/p<digits>-*.
-  local all_branches candidates
-  all_branches="$( cd "$REPO_ROOT" && git branch --format='%(refname:short)' 2>/dev/null )"
-  candidates="$(echo "$all_branches" | grep -E '^(feature|fix)/p[0-9]+' || true)"
+  # ── Candidates: every local branch, plus every head on origin ──────────────
+  local local_branches remote_branches
+  # `|| true` on both: this file runs under `set -e`, and a failing command substitution aborts
+  # the whole run at the ASSIGNMENT. Without it, `gc` died silently in any clone with no `origin`
+  # — which is every scratch repo the canary builds, so the canary saw no output at all.
+  local_branches="$( cd "$REPO_ROOT" && git branch --format='%(refname:short)' 2>/dev/null || true )"
 
-  # For each candidate: include only if NOT in exclusion AND last commit > N days ago.
-  local cutoff_ts now_ts
+  remote_branches=""
+  local remote_ok=1
+  if (( include_remote )); then
+    if ! remote_branches="$(remote_heads)"; then
+      remote_branches=""
+      remote_ok=0
+      echo "git-ops gc: WARNING — could not reach origin; remote refs NOT covered by this report." >&2
+    fi
+  fi
+
+  local now_ts cutoff_ts
   now_ts="$(date +%s)"
   cutoff_ts=$((now_ts - stale_age_days * 86400))
 
-  local stale_list=""
-  local branch last_ts
-  while IFS= read -r branch; do
-    [[ -z "$branch" ]] && continue
-    # Excluded? (use newline-anchored fixed-string match)
-    if printf '%s\n' "$exclusion" | grep -Fxq "$branch"; then
+  echo "git-ops gc: ref report (base: $base_ref, stale cutoff: ${stale_age_days}d)"
+  echo ""
+  printf '  %-8s %-46s %-9s %-6s %s\n' WHERE REF WORKTREE AGE VERDICT
+  printf '  %-8s %-46s %-9s %-6s %s\n' "-----" "---" "--------" "---" "-------"
+
+  local stale_list="" b where wt_flag age_days last_ts verdict resolved
+  local seen_local
+  while IFS=$'\t' read -r where b; do
+    [[ -z "$b" ]] && continue
+
+    if grep -Fxq "$b" < <(printf '%s\n' "$exclusion"); then
       continue
     fi
-    last_ts="$( cd "$REPO_ROOT" && git log -1 --format=%ct "$branch" 2>/dev/null || echo 0 )"
+
+    if [[ "$where" == "local" ]]; then
+      resolved="$b"
+    else
+      # Prefer the remote-tracking copy; fall back to the local name only if it is the same sha.
+      if ( cd "$REPO_ROOT" && git rev-parse --verify "origin/$b" >/dev/null 2>&1 ); then
+        resolved="origin/$b"
+      else
+        resolved=""
+      fi
+    fi
+
+    if grep -Fxq "$b" < <(printf '%s\n' "$held_in_worktree"); then wt_flag="yes"; else wt_flag="no"; fi
+
+    if [[ -n "$resolved" ]]; then
+      last_ts="$( cd "$REPO_ROOT" && git log -1 --format=%ct "$resolved" 2>/dev/null || echo 0 )"
+    else
+      last_ts=0
+    fi
+
     if [[ -z "$last_ts" || "$last_ts" -eq 0 ]]; then
-      continue
+      age_days="?"
+      verdict="KEEP — not fetched locally; run: git fetch origin"
+    else
+      age_days="$(( (now_ts - last_ts) / 86400 ))d"
+      verdict="$(classify_ref "$resolved" "$base_ref")"
     fi
-    if (( last_ts < cutoff_ts )); then
-      stale_list+="$branch"$'\n'
+
+    printf '  %-8s %-46s %-9s %-6s %s\n' "$where" "$b" "$wt_flag" "$age_days" "$verdict"
+
+    # Deletion candidates: LOCAL only, MERGED only, no worktree, older than the cutoff.
+    if [[ "$where" == "local" && "$verdict" == "MERGED" && "$wt_flag" == "no" \
+          && "$last_ts" -ne 0 && "$last_ts" -lt "$cutoff_ts" ]]; then
+      stale_list+="$b"$'\n'
     fi
-  done <<< "$candidates"
+  done < <(
+    printf '%s\n' "$local_branches"  | sed 's/^/local\t/'
+    printf '%s\n' "$remote_branches" | sed 's/^/origin\t/'
+  )
 
-  # Deterministic: sort
-  stale_list="$(printf '%s' "$stale_list" | sort -u)"
+  stale_list="$(printf '%s' "$stale_list" | { grep -v '^$' || true; } | sort -u)"
 
+  echo ""
   if [[ -z "$stale_list" ]]; then
-    echo "git-ops gc: no stale branches (cutoff: ${stale_age_days} days)" >&2
-    return 0
+    echo "git-ops gc: no LOCAL branch is both MERGED and older than ${stale_age_days}d — nothing to delete." >&2
+  else
+    echo "Deletable (local, MERGED, no worktree, older than ${stale_age_days}d):" >&2
+    printf '%s\n' "$stale_list" | sed 's/^/  /' >&2
+    if (( do_delete )); then
+      local d
+      while IFS= read -r d; do
+        [[ -z "$d" ]] && continue
+        ( cd "$REPO_ROOT" && git branch -D "$d" >&2 )
+      done <<< "$stale_list"
+      echo "git-ops gc: deleted $(printf '%s\n' "$stale_list" | grep -c .) local branches." >&2
+    else
+      {
+        echo ""
+        echo "This was a dry-run. To delete the LOCAL branches listed above:"
+        echo "  git-ops gc --yes --delete-branches"
+      } >&2
+    fi
   fi
 
-  echo "git-ops gc: stale branches (no lockfile, no worktree, no commit in ${stale_age_days}+ days):"
-  # Prefix each with two spaces — colon-safe, redirect-safe per P783.
-  echo "$stale_list" | sed 's/^/  /'
-
-  if [[ $do_delete -eq 1 ]]; then
-    local b
-    while IFS= read -r b; do
-      [[ -z "$b" ]] && continue
-      ( cd "$REPO_ROOT" && git branch -D "$b" >&2 )
-    done <<< "$stale_list"
-    echo "git-ops gc: deleted $(echo "$stale_list" | grep -c .) branches." >&2
-  else
-    {
-      echo ""
-      echo "This was a dry-run. To actually delete these branches:"
-      echo "  git-ops gc --yes --delete-branches"
-    } >&2
+  # Remote refs are never auto-deleted. Deleting a public ref does not un-publish it
+  # (P1260 Invariants), so there is no safety reason to rush it and a real reason not to
+  # automate it: the ref may be someone's in-flight recovery handle.
+  if (( include_remote )) && (( remote_ok )) && [[ -n "$remote_branches" ]]; then
+    echo "" >&2
+    echo "Remote refs are reported only, never auto-deleted. Remove one by hand when its" >&2
+    echo "verdict is MERGED and you are sure nobody is mid-recovery on it." >&2
   fi
 }
 
@@ -3060,11 +3302,19 @@ SUBCOMMANDS (T02 scope)
   help | --help                Show this message.
 
 SUBCOMMANDS (P787 extensions — T03/T04/T05)
-  gc [--dry-run | --yes --delete-branches]
-                               List stale feature/fix branches (no lockfile, no worktree,
-                               no commits in 30+ days). Default: dry-run. Deletion requires
-                               BOTH --yes AND --delete-branches. Never touches branches
-                               present in 'git worktree list'. Output sorted, deterministic.
+  gc [--dry-run | --yes --delete-branches] [--base <ref>] [--no-remote] [--stale-days <n>]
+                               Report EVERY ref this pipeline can leave behind -- local
+                               branches AND the heads on origin -- with worktree, age and a
+                               merge verdict of MERGED or 'KEEP -- unmatched: <shas>'.
+                               The verdict needs three signals to agree (patch-id, subject,
+                               and a revert scan); any commit it cannot match keeps the
+                               branch. Report-only by default; deletion requires BOTH --yes
+                               AND --delete-branches, only ever removes LOCAL branches that
+                               are MERGED and older than --stale-days (default 30), and
+                               never touches a branch in 'git worktree list' or held by a
+                               slot lockfile. Remote refs are reported, never auto-deleted.
+                               --base picks the ref to judge against (default main);
+                               --no-remote skips the origin round-trip. (P1260)
 
   abandon <slot> [--nonce <v>] Remove slot's lockfile AND worktree (branch preserved).
                                Ownership check for LIVE locks (same as release: --nonce
@@ -3366,7 +3616,9 @@ cmd_ship_to_prod() {
   if [[ -z "$check_conclusion" ]]; then
     echo "" >&2
     echo "  ❌ ship-to-prod: timed out waiting for '${CHECK_NAME}' after ${MAX_WAIT}s." >&2
-    echo "  Staging branch ${staging_branch} left for inspection." >&2
+    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
+    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
+    echo "  reclaimed, and /weekly prints that report." >&2
     echo "  Check GitHub Actions manually, then promote: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "CI poll timeout"
   fi
@@ -3374,7 +3626,9 @@ cmd_ship_to_prod() {
   if [[ "$check_conclusion" != "success" ]]; then
     echo "" >&2
     echo "  ❌ ship-to-prod: '${CHECK_NAME}' concluded: ${check_conclusion} (not success)." >&2
-    echo "  Staging branch ${staging_branch} left for inspection." >&2
+    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
+    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
+    echo "  reclaimed, and /weekly prints that report." >&2
     die "CI check failed: $check_conclusion"
   fi
 
@@ -3391,12 +3645,23 @@ cmd_ship_to_prod() {
   echo "" >&2
   echo "  Confirm prod push? (y/N)" >&2
 
-  # D1: Always require TTY -- never skip even if ~/.push-enabled is set
+  # D1: Always require TTY -- never skip even if ~/.push-enabled is set.
+  # P1260: check it EXPLICITLY rather than letting `exec < /dev/tty` fail under `set -e`. The
+  # implicit form dies with an opaque redirect error AND leaks the staging ref, because the
+  # staging push already happened several steps above. Unlike push-docs there is deliberately no
+  # ASSUME_YES escape here — a prod deploy always asks a human.
+  [[ -t 0 ]] || reclaim_staging_and_die "${staging_branch}" \
+    "ship-to-prod: no TTY available — a prod promote always requires a human confirm; run this in a terminal."
   exec < /dev/tty
   read -r answer
   if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
-    echo "  Cancelled. Staging branch ${staging_branch} still exists -- delete with:" >&2
-    echo "    git push origin --delete ${staging_branch}" >&2
+    # P1260: same reclamation as cmd_push_docs' declined promote. staging/pN refs were covered
+    # by nothing before this -- cmd_gc's old candidate filter did not match them either.
+    echo "  Cancelled." >&2
+    echo "  Reclaiming the staging ref (it is not needed once the promote is declined)." >&2
+    if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
+      echo "  WARNING: could not delete ${staging_branch} -- 'git-ops.sh gc' will report it." >&2
+    fi
     release_main_lock
     exit 1
   fi
@@ -3451,6 +3716,41 @@ remote_branch_sha() {
     fi
   fi
   awk '{print $1}' <<< "$out"
+  return 0
+}
+
+# Reclaim a staging ref and then die (P1260).
+#
+# For the abort paths that leave NOTHING to inspect. The four "left for inspection" sites are
+# deliberately not routed through this — their ref is the handle for a manual promote.
+#
+# The no-TTY aborts are the reason this exists. Both promote functions push the staging ref and
+# only afterwards discover they cannot prompt, so before P1260 an agent-driven run leaked a ref on
+# every single invocation and said nothing about it — no "left for inspection" message, no cleanup.
+# That is the most likely way the two staging/doc-* refs measured on origin on 2026-09-07 got
+# there. main.lock is held at every call site below, which is the precondition the normal-path
+# delete's SAFETY NOTE states.
+reclaim_staging_and_die() {
+  local staging_branch="$1" msg="$2"
+  echo "  Reclaiming ${staging_branch} (nothing to inspect on this path)." >&2
+  if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
+    echo "  WARNING: could not delete ${staging_branch} -- 'git-ops.sh gc' will report it." >&2
+  fi
+  die "$msg"
+}
+
+# Enumerate every head on origin, one short name per line. Sibling of remote_branch_sha, and it
+# exists for the same reason: `ls-remote` failing (offline, auth, DNS) prints NOTHING and exits
+# non-zero, so a caller that ignores the status cannot tell "origin has no branches" from "I could
+# not reach origin". For `gc` that distinction is the whole point — a silent empty list would
+# report full coverage of the remote while covering none of it, which is the false-absence class
+# this repo keeps re-learning. Returns non-zero on failure; prints nothing.
+remote_heads() {
+  local out
+  if ! out="$( cd "$REPO_ROOT" && git ls-remote --heads origin 2>/dev/null )"; then
+    return 1
+  fi
+  printf '%s\n' "$out" | sed 's|.*refs/heads/||' | grep -v '^$' || true
   return 0
 }
 
@@ -3904,7 +4204,9 @@ cmd_push_docs() {
   if [[ -z "$check_conclusion" ]]; then
     echo "" >&2
     echo "  ❌ push-docs: timed out waiting for '${CHECK_NAME}' after ${MAX_WAIT}s." >&2
-    echo "  Staging branch ${staging_branch} left for inspection." >&2
+    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
+    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
+    echo "  reclaimed, and /weekly prints that report." >&2
     echo "  Check GitHub Actions manually, then promote: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "CI poll timeout"
   fi
@@ -3912,7 +4214,9 @@ cmd_push_docs() {
   if [[ "$check_conclusion" != "success" ]]; then
     echo "" >&2
     echo "  ❌ push-docs: '${CHECK_NAME}' concluded: ${check_conclusion} (not success)." >&2
-    echo "  Staging branch ${staging_branch} left for inspection." >&2
+    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
+    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
+    echo "  reclaimed, and /weekly prints that report." >&2
     # Clear the run state on a RED check specifically. --resume exists to retry a run
     # that was interrupted (CI timeout, lapsed push-on, killed terminal) — not to
     # re-push a snapshot audit-privacy has already judged, which would burn another
@@ -3946,12 +4250,20 @@ cmd_push_docs() {
 
     # C3: Guard against pipe-injected y bypassing the prompt (adversarial-review finding).
     # -t 0 checks fd 0 is a real TTY; exec < /dev/tty alone can silently degrade.
-    [[ -t 0 ]] || die "push-docs: no TTY available — set PUSH_DOCS_ASSUME_YES=1 to confirm non-interactively, or run in a terminal."
+    [[ -t 0 ]] || reclaim_staging_and_die "${staging_branch}" \
+      "push-docs: no TTY available — set PUSH_DOCS_ASSUME_YES=1 to confirm non-interactively, or run in a terminal."
     exec < /dev/tty
     read -r answer
     if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
-      echo "  Cancelled. Staging branch ${staging_branch} still exists -- delete with:" >&2
-      echo "    git push origin --delete ${staging_branch}" >&2
+      # P1260: reclaim rather than leak. A declined promote leaves nothing to inspect -- unlike
+      # the timeout and red-CI paths above, which keep the ref deliberately. main.lock is still
+      # held here (released on the next line), the same condition that makes the normal-path
+      # delete safe; see the SAFETY NOTE above it before changing either.
+      echo "  Cancelled." >&2
+      echo "  Reclaiming the staging ref (it is not needed once the promote is declined)." >&2
+      if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
+        echo "  WARNING: could not delete ${staging_branch} -- 'git-ops.sh gc' will report it." >&2
+      fi
       release_main_lock  # C2: explicit release before exit; trap is backup
       exit 1
     fi

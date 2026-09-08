@@ -282,10 +282,19 @@ fi
 # `ls-remote | awk` in the --resume path — a defect fixed in one site and left in its
 # sibling, which is the exact class-vs-instance failure decisions.md warns about.
 # Every remote lookup must go through the one helper that checks its own exit status.
-RAW_LSREMOTE="$(grep -n "ls-remote" "$G" \
-  | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*#' \
-  | grep -v 'remote_branch_sha' \
-  | awk -F: '$1 < '"$(grep -n '^remote_branch_sha()' "$G" | cut -d: -f1)"' || $1 > '"$(( $(grep -n '^remote_branch_sha()' "$G" | cut -d: -f1) + 12 ))"'' || true)"
+# Two helpers are allowed to touch ls-remote, and both check their own exit status:
+#   remote_branch_sha  — one branch's sha
+#   remote_heads       — every head (P1260; `gc` needs the full list, not one lookup)
+# Their spans are computed from the file rather than hardcoded as line arithmetic, so this still
+# catches a raw ls-remote ANYWHERE else — the class, not one instance.
+RAW_LSREMOTE="$(awk '
+  /^remote_branch_sha\(\) \{/ { inhelper=1 }
+  /^remote_heads\(\) \{/      { inhelper=1 }
+  inhelper && /^\}$/            { inhelper=0; next }
+  !inhelper && /ls-remote/ && $0 !~ /^[[:space:]]*#/ && $0 !~ /remote_branch_sha|remote_heads/ {
+    print FNR": "$0
+  }
+' "$G" || true)"
 [[ -z "$RAW_LSREMOTE" ]] \
   && ok "every remote lookup goes through remote_branch_sha (status-checked, retried)" \
   || bad "raw ls-remote outside the helper — its exit status is unchecked:"$'\n'"$RAW_LSREMOTE"
@@ -304,6 +313,51 @@ if has_in_fn cmd_push_docs 'if [[ -n "$existing_staging_sha" ]]; then' --fixed; 
   ok "the reconcile deletes a leaked staging branch at ANY sha, not only a matching one"
 else
   bad "the reconcile only handles the equal-sha case — a leaked branch at a different sha yields a narrow-range scan"
+fi
+
+echo "── Test 9: a DECLINED promote reclaims its staging ref (P1260) ──"
+# A live proof needs a real push to origin, which needs founder authorization, so this asserts
+# the property structurally: in BOTH promote functions, the "user answered N" branch must delete
+# the staging ref before it releases main.lock. The lock is what makes the delete safe (same
+# condition as the normal-path delete's SAFETY NOTE), so ordering is the assertion, not just
+# presence.
+#
+# The timeout and red-CI paths deliberately KEEP their ref — it is the handle for the manual
+# promote — so this test must NOT demand a delete there. That asymmetry is the design.
+for fn in cmd_ship_to_prod cmd_push_docs; do
+  # Extract the function body, then the declined-promote branch within it.
+  start="$(grep -n "^${fn}() {" "$G" | head -1 | cut -d: -f1)"
+  if [[ -z "$start" ]]; then bad "$fn: function not found in $G"; continue; fi
+  # From the function header to its closing brace at column 0.
+  body="$(tail -n "+${start}" "$G" | awk 'NR==1{print;next} /^\}$/{print;exit} {print}')"
+  branch="$(printf '%s\n' "$body" | awk '
+    /answer" != "y"/ { inb=1 }
+    inb { print }
+    inb && /release_main_lock/ { exit }
+  ')"
+  if [[ -z "$branch" ]]; then
+    bad "$fn: could not locate the declined-promote branch"
+    continue
+  fi
+  if ! printf '%s\n' "$branch" | grep -q -- '--delete "\${staging_branch}"'; then
+    bad "$fn: a declined promote does not reclaim its staging ref"$'\n'"$branch"
+    continue
+  fi
+  del_line="$(printf '%s\n' "$branch" | grep -n -- '--delete "\${staging_branch}"' | head -1 | cut -d: -f1)"
+  rel_line="$(printf '%s\n' "$branch" | grep -n 'release_main_lock' | head -1 | cut -d: -f1)"
+  if (( del_line < rel_line )); then
+    ok "$fn: declined promote deletes the staging ref while main.lock is still held"
+  else
+    bad "$fn: the staging-ref delete happens AFTER release_main_lock — races a co-tenant"
+  fi
+done
+
+# The inspection paths must NOT have been turned into deletes — they are the recovery handle.
+insp_count="$(grep -c 'left for inspection (deliberate' "$G" || true)"
+if [[ "$insp_count" -ge 2 ]]; then
+  ok "the timeout / red-CI paths still keep their ref for inspection ($insp_count sites)"
+else
+  bad "the inspection paths lost their kept-ref behaviour (found $insp_count annotated sites)"
 fi
 
 echo "── Test 8: the CI poll waits longer than the scan actually takes ──"

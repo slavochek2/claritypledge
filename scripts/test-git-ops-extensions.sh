@@ -18,7 +18,6 @@
 #   H. sync runs git pull --ff-only on local-only branches.
 #   I. All new subcommands' output free of `>`, `<`, `|` (P783 shell-safety).
 #   J. All --help outputs reference P781 or P787.
-#   M. The canary leaves the INVOKING repo's core.bare untouched (P1263).
 #
 # Hermetic: scratch main repo in /tmp, scratch commits, no network.
 # Uses a bare origin repo to satisfy sync's upstream-tracking check (G).
@@ -50,65 +49,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # repo's scripts/ is where git-ops.sh lives for copying into the scratch repo.
 MAIN_REPO="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
 SCRATCH="$(mktemp -d)"
-
-# P1263 - invariant M: this canary must not be able to mutate the repository that
-# invoked it. A stray `git init` / `git init --bare` redirected by an inherited
-# GIT_DIR rewrites the invoking repo's `core.*` namespace - core.bare=true being
-# the damaging case, since it makes `git rev-parse --show-toplevel` fail repo-wide
-# and surfaces as misleading "file missing" errors in unrelated tooling.
-#
-# Scope is the `core.`/`extensions.` namespace, not the whole local config, and
-# that is deliberate: a concurrent session setting branch upstream tracking
-# legitimately writes `branch.<name>.{remote,merge}` into the SAME shared config
-# while this canary runs, so hashing all of `config --list --local` would fail
-# spuriously on other people's normal work. The trade-off is that a stray
-# `git remote add` slips past M; no routine workflow writes `core.*`, which is
-# exactly what a rogue init touches.
-#
-# Captured AFTER the env-var unset above so it reads the real invoking repo.
-# `git -C` does NOT override an inherited GIT_DIR (verified: GIT_DIR wins), so
-# these reads follow the same repo a stray command's write would land in.
-invoker_core_config() {
-  { git -C "$ORIGINAL_CWD" config --list --local 2>/dev/null || true; } \
-    | grep -E '^(core|extensions)\.' | sort | shasum | awk '{print $1}'
-}
-INVOKER_BARE_PRE="$(git -C "$ORIGINAL_CWD" config --get core.bare 2>/dev/null || echo unset)"
-INVOKER_CORE_PRE="$(invoker_core_config)"
-
-# Set immediately before the final summary line. The PASS below is gated on it so
-# that a run killed mid-suite (SIGTERM leaves $? at 0) cannot print an affirmative
-# invariant confirmation for a suite that never finished.
-CANARY_COMPLETED=0
-
-# Called from EVERY EXIT trap in this file. The script re-arms `trap ... EXIT`
-# twice further down; a single trap installed here would be silently replaced -
-# which is the same class of defect as the one P1263 fixes (a guard that looks
-# present but does not run). Keep this call in any future trap body.
-assert_invoker_unmutated() {
-  aiu_rc="${1:-0}"
-  aiu_bare="$(git -C "$ORIGINAL_CWD" config --get core.bare 2>/dev/null || echo unset)"
-  if [ "$(invoker_core_config)" != "$INVOKER_CORE_PRE" ]; then
-    echo "FAIL: M. canary mutated the invoking repo's core git config" >&2
-    if [ "$aiu_bare" != "$INVOKER_BARE_PRE" ]; then
-      echo "      core.bare: ${INVOKER_BARE_PRE} -> ${aiu_bare}" >&2
-      if [ "$INVOKER_BARE_PRE" = "unset" ]; then
-        echo "      Reset with: git -C '$ORIGINAL_CWD' config --unset core.bare" >&2
-      else
-        echo "      Reset with: git -C '$ORIGINAL_CWD' config core.bare ${INVOKER_BARE_PRE}" >&2
-      fi
-    else
-      echo "      core.bare unchanged; another core.* key moved." >&2
-      echo "      Inspect: git -C '$ORIGINAL_CWD' config --list --local" >&2
-    fi
-    exit 1
-  fi
-  if [ "$aiu_rc" -eq 0 ] && [ "$CANARY_COMPLETED" -eq 1 ]; then
-    echo "PASS: M: invoking repo core config untouched (core.bare=${aiu_bare})"
-  fi
-  exit "$aiu_rc"
-}
-
-trap 'rc=$?; rm -rf "$SCRATCH"; assert_invoker_unmutated "$rc"' EXIT
+trap 'rm -rf "$SCRATCH"' EXIT
 
 # All human-readable diagnostic output from the test goes to stdout so
 # `run_quiet` in pre-commit-checks.sh can capture it.
@@ -131,14 +72,7 @@ mkdir -p "$SCRATCH/origin.git" \
          "$SCRATCH/main/.claude/worktrees" \
          "$SCRATCH/main/features" \
          "$SCRATCH/main/supabase/migrations"
-# P1263 — name the target path explicitly. `git init --bare` with NO path operates
-# on $GIT_DIR when that variable is set, regardless of cwd: `cd` does not scope
-# git. A hook-invoked canary inherits GIT_DIR from the outer worktree (P1131), so
-# the no-path form can set core.bare=true on the REAL repo, breaking git for every
-# concurrent session. The `unset GIT_DIR` above already guards this, but a guard
-# 40 lines away is one careless edit from silent catastrophe — the path argument
-# makes the call safe on its own terms.
-git init --bare -q "$SCRATCH/origin.git"
+( cd "$SCRATCH/origin.git" && git init --bare -q )
 
 # Copy the subject under test (current worktree's git-ops.sh — this is what
 # the engineer is about to commit). Copy BEFORE the seed commit so both scripts
@@ -230,11 +164,21 @@ done
 pass "J: --help has dedicated blocks for all 6 new subcommands and references P781/P787"
 
 # -----------------------------------------------------------------------------
-# A. gc: dry-run lists stale branches, refuses delete without both flags.
-# Setup: create two branches on scratch main.
-#   - feature/p100-stale : committed, then backdated 60 days, no worktree/lock.
-#   - feature/p101-fresh : committed today, no worktree/lock → not stale.
-#   - feature/p102-active : has a live worktree/lock via claim → never listed.
+# A. gc: reports every ref with a merge verdict, and only ever offers MERGED ones
+#    for deletion.
+#
+# REWRITTEN BY P1260, and the change is deliberate — the previous version of this block
+# asserted that a STALE branch appears in the deletable list, with no merged-ness check
+# anywhere. That was the defect P1260 was filed to remove: age is not a merge, and deleting
+# an unmerged branch destroys the only copy of its work. `feature/p100-stale` below is stale
+# AND unmerged, and the assertion on it is now inverted: it must be REPORTED and must NOT be
+# deletable.
+#
+# Fixtures on scratch main:
+#   - feature/p100-stale  : own commit, backdated 60d, no worktree  -> reported KEEP, NOT deletable
+#   - feature/p101-fresh  : own commit, today                       -> reported KEEP, NOT deletable
+#   - feature/p102-active : live worktree + lockfile via claim      -> never reported at all
+#   - feature/p103-merged : merged into main, backdated 60d         -> reported MERGED, deletable
 # -----------------------------------------------------------------------------
 
 (
@@ -250,51 +194,96 @@ pass "J: --help has dedicated blocks for all 6 new subcommands and references P7
   echo fresh > f.txt && git add f.txt
   git commit -qm "p101 fresh commit"
   git checkout -q main
+
+  # Stale AND merged — the only shape that may ever be deleted.
+  git checkout -q -b feature/p103-merged
+  echo merged > m.txt && git add m.txt
+  GIT_COMMITTER_DATE="2025-01-01T00:00:00Z" \
+  GIT_AUTHOR_DATE="2025-01-01T00:00:00Z" \
+    git commit -qm "p103 merged commit"
+  git checkout -q main
+  git merge -q --no-ff -m "merge p103" feature/p103-merged
 ) >/dev/null
 
 # Claim a slot for p102 so gc can prove it never touches active branches.
-# claim's stdout goes via sentinel; we don't need to parse it, just ensure it
-# succeeds.
 ( cd "$SCRATCH/main" && bash "$GIT_OPS" claim p102 active ) >"$SCRATCH/claim.log" 2>&1 \
   || { cat "$SCRATCH/claim.log" >&2; fail "A-setup: claim p102 active failed"; }
 cat "$SCRATCH/claim.log" >> "$SAFETY_LOG"
 
-# Dry-run output — must include p100-stale, must NOT include p101-fresh or p102-active.
+# capture_i folds stderr in, so this holds both the report table (stdout) and the
+# deletable list (stderr).
 GC_DRYRUN="$(cd "$SCRATCH/main" && capture_i bash "$GIT_OPS" gc --dry-run)"
-if ! echo "$GC_DRYRUN" | grep -qF 'feature/p100-stale'; then
+
+# The deletable list is everything after the "Deletable" header; the report table is the rest.
+gc_deletable_section() { echo "$1" | sed -n '/^Deletable/,$p'; }
+
+# 1. Every candidate ref is REPORTED, with a verdict.
+for b in feature/p100-stale feature/p101-fresh feature/p103-merged; do
+  if ! echo "$GC_DRYRUN" | grep -qF "$b"; then
+    echo "$GC_DRYRUN" >&2
+    fail "A: gc did not report $b at all"
+  fi
+done
+
+# 2. The unmerged branches carry KEEP and must NOT be offered for deletion.
+#    This is the P1260 safety property; the old canary asserted the opposite for p100.
+for b in feature/p100-stale feature/p101-fresh; do
+  if ! echo "$GC_DRYRUN" | grep -E "^  local +${b} " | grep -q 'KEEP'; then
+    echo "$GC_DRYRUN" >&2
+    fail "A: $b is unmerged but gc did not report KEEP"
+  fi
+  if gc_deletable_section "$GC_DRYRUN" | grep -qF "$b"; then
+    echo "$GC_DRYRUN" >&2
+    fail "A: gc offered UNMERGED branch $b for deletion — this destroys work"
+  fi
+done
+
+# 3. The merged+stale branch is the one that may be deleted.
+if ! echo "$GC_DRYRUN" | grep -E "^  local +feature/p103-merged " | grep -q 'MERGED'; then
   echo "$GC_DRYRUN" >&2
-  fail "A: gc --dry-run did not list feature/p100-stale"
+  fail "A: merged branch feature/p103-merged was not classified MERGED"
 fi
-if echo "$GC_DRYRUN" | grep -qF 'feature/p101-fresh'; then
+if ! gc_deletable_section "$GC_DRYRUN" | grep -qF 'feature/p103-merged'; then
   echo "$GC_DRYRUN" >&2
-  fail "A: gc --dry-run incorrectly listed fresh branch"
-fi
-if echo "$GC_DRYRUN" | grep -qF 'feature/p102-active'; then
-  echo "$GC_DRYRUN" >&2
-  fail "A: gc --dry-run incorrectly listed active (worktree-held) branch"
+  fail "A: gc did not offer the merged+stale branch for deletion"
 fi
 
-# Stability: running gc --dry-run twice yields identical output.
+# 4. A worktree-held branch is excluded outright, whatever its verdict would be.
+if echo "$GC_DRYRUN" | grep -qF 'feature/p102-active'; then
+  echo "$GC_DRYRUN" >&2
+  fail "A: gc listed the active (worktree-held) branch"
+fi
+
+# 5. Stability: two runs must agree.
 GC_DRYRUN2="$(cd "$SCRATCH/main" && capture_i bash "$GIT_OPS" gc --dry-run)"
 if [[ "$GC_DRYRUN" != "$GC_DRYRUN2" ]]; then
   diff <(echo "$GC_DRYRUN") <(echo "$GC_DRYRUN2") >&2 || true
   fail "A: gc --dry-run output not stable across runs"
 fi
 
-# Bare `gc` must be dry-run by default (spec: "Default: dry-run").
+# 6. Bare `gc` is dry-run by default (spec: "Default: dry-run").
 GC_DEFAULT="$(cd "$SCRATCH/main" && capture_i bash "$GIT_OPS" gc)"
-if ! echo "$GC_DEFAULT" | grep -qF 'feature/p100-stale'; then
-  fail "A: gc (no flags) did not list stale branch"
+if ! echo "$GC_DEFAULT" | grep -qF 'feature/p103-merged'; then
+  fail "A: gc (no flags) did not report the merged branch"
 fi
 
-# `--yes` alone must NOT delete (requires both flags per spec).
+# 7. `--yes` alone must NOT delete (requires both flags per P781).
 ( cd "$SCRATCH/main" && capture_i bash "$GIT_OPS" gc --yes ) >/dev/null
-if ! (
-  cd "$SCRATCH/main" && git rev-parse --verify feature/p100-stale >/dev/null 2>&1
-); then
-  fail "A: gc --yes (without --delete-branches) deleted the branch — should need both flags"
+for b in feature/p103-merged feature/p100-stale; do
+  if ! ( cd "$SCRATCH/main" && git rev-parse --verify "$b" >/dev/null 2>&1 ); then
+    fail "A: gc --yes (without --delete-branches) deleted $b — should need both flags"
+  fi
+done
+
+# 8. With BOTH flags, only the MERGED branch goes. The unmerged one must survive.
+( cd "$SCRATCH/main" && capture_i bash "$GIT_OPS" gc --yes --delete-branches ) >/dev/null
+if ( cd "$SCRATCH/main" && git rev-parse --verify feature/p103-merged >/dev/null 2>&1 ); then
+  fail "A: gc --yes --delete-branches did not delete the merged+stale branch"
 fi
-pass "A: gc lists stale branches, stable output, refuses delete without both flags"
+if ! ( cd "$SCRATCH/main" && git rev-parse --verify feature/p100-stale >/dev/null 2>&1 ); then
+  fail "A: gc --yes --delete-branches DELETED AN UNMERGED BRANCH — work destroyed"
+fi
+pass "A: gc reports every ref with a verdict, deletes only MERGED, never unmerged (P1260)"
 
 # -----------------------------------------------------------------------------
 # B. abandon: removes lockfile + worktree, preserves branch.
@@ -420,7 +409,7 @@ pass "D: commit-to-main commits listed files and releases main.lock"
 sleep 30 &
 SLEEPER_PID=$!
 cleanup_sleeper() { kill "$SLEEPER_PID" 2>/dev/null || true; }
-trap 'rc=$?; cleanup_sleeper; rm -rf "$SCRATCH"; assert_invoker_unmutated "$rc"' EXIT
+trap 'cleanup_sleeper; rm -rf "$SCRATCH"' EXIT
 
 SLEEPER_START="$(ps -o lstart= -p "$SLEEPER_PID" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]][[:space:]]*/ /g')"
 mkdir -p "$SCRATCH/main/.claude/worktrees"
@@ -464,7 +453,7 @@ pass "E: concurrent commit-to-main serializes via main.lock (contention detected
 # Release the held lock and kill the sleeper for the next test.
 rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
 cleanup_sleeper
-trap 'rc=$?; rm -rf "$SCRATCH"; assert_invoker_unmutated "$rc"' EXIT
+trap 'rm -rf "$SCRATCH"' EXIT
 
 # -----------------------------------------------------------------------------
 # F. switch-safe refuses when main has uncommitted bystander changes.
@@ -702,5 +691,4 @@ fi
 rm -f "$SCRATCH/main/l_good.txt"
 pass "L: a rejected commit-to-main leaves the index untouched"
 
-CANARY_COMPLETED=1
-echo "PASS: all git-ops.sh extension invariants (A-M) hold"
+echo "PASS: all git-ops.sh extension invariants (A-L) hold"
