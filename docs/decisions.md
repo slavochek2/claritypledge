@@ -6,6 +6,105 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [technical]: A probe that reads through a different path than the code under test invents the wrong system (P1155)
+
+**Context:** P1155's send layer worked locally and then appeared to be talking to a Mailgun account
+that did not contain our domain. Every diagnostic written to investigate it hardcoded
+`api.mailgun.net`. The account is in Mailgun's **EU** region, and `api.eu.mailgun.net` is a
+different account with different keys and different domains — not a mirror of the US one.
+
+**Decision:** When a probe and the code under test reach the same service, the probe must read its
+routing from the same source the code does, never from a default written into the probe. Where that
+is impractical, the probe must print the endpoint it used alongside its answer, so a wrong-endpoint
+result is visibly a wrong-endpoint result.
+
+**Alternatives rejected:** "Read the docs more carefully" — the US endpoint did not error. It
+answered `{"message": "Domain not found"}` with HTTP 404 for a domain that had accepted a real
+message minutes earlier. A confident, well-formed, wrong answer is not something care detects.
+
+**Consequences:** The session produced a chain of conclusions about the wrong account — that the
+domain was sandbox-only, that an account limit had been reached, that `mg.claritypledge.com` did
+not exist, and a recommendation to revoke credentials. All were retracted. The same blindness had
+a real defect underneath it: the workflow never passed `MAILGUN_REGION`, so the first CI run would
+have 401'd with a correct key, and the symptom would have pointed at the domain rather than the
+region. `send-ops-email.mjs` now names the base URL, domain and region in every non-2xx.
+
+**References:** `.private/docs/edge-function-secrets.md`
+
+---
+
+## 2026-09-08 [process]: The macOS clipboard is shared state between concurrent agent sessions (P1155)
+
+**Context:** Transferring a newly minted Mailgun sending key into GitHub's secret form, the
+clipboard was overwritten mid-transfer twice by other Claude sessions running on the same machine —
+once with the literal string `abandon`, once with an unrelated 80-character URL. The first would
+have been submitted as a production credential.
+
+**Decision:** Any clipboard-mediated transfer of a secret verifies the payload against its source
+immediately before submitting — length and prefix at minimum — and the source of truth is a `600`
+temp file that is shredded afterwards, never the clipboard itself.
+
+**Alternatives rejected:** Trusting a copy that succeeded seconds earlier. The window is not the
+variable; a co-tenant write can land at any moment, and nothing in the paste path signals that the
+content changed.
+
+**Consequences:** Same shape as the shared git index and shared `HEAD` already documented for
+concurrent sessions ([git.md](../.claude/rules/git.md)) — the clipboard is one more piece of
+machine-global mutable state that reads as session-local. Worth checking before any agent-driven
+credential paste.
+
+---
+
+## 2026-09-08 [process]: A canary added on a branch cannot gate that branch (P1155)
+
+**Context:** Four P1155 canaries were registered in `pre-commit-checks.sh` on a feature branch and
+reported passing on every commit. They were not running. A worktree's `.git/hooks/pre-commit` is a
+symlink to the **main checkout's** copy of the script, so a gating block added on a branch is
+invisible to the hook until it merges. The passes came from invoking the script by hand, which is
+a different claim and was not distinguished at the time.
+
+**Decision:** When adding a gate, state explicitly whether it has been observed running *from the
+hook* or only *by hand*. `git show main:scripts/pre-commit-checks.sh | grep -c <marker>` settles it
+in one command.
+
+**Alternatives rejected:** Hydrating per-worktree hooks so branch-local gates fire immediately.
+That would let a branch install a hook that runs against every other worktree's commits — a larger
+hazard than the one it fixes, and the gate does start working on merge.
+
+**Consequences:** Generalizes: any branch-local change to shared tooling reached through a symlink
+to main is inert until merge. The class already has a sibling — a skill edited in a worktree is not
+the skill that runs, because a session resolves `/command` from the project root it launched in
+([dev.md](../.claude/commands/slava/build/dev.md) step 0).
+
+---
+
+## 2026-09-08 [process]: Completion criteria that can only be satisfied after the merge are not criteria, they are a deadlock (P1155)
+
+**Context:** P1155's Done-When required the escalator to be observed firing, and its pre-deploy
+checklist required four `workflow_dispatch` runs. All five need a GitHub Actions run; a run needs
+the workflow on the default branch; getting it there is the merge, which the ship gate blocks on
+those five. I authored the loop while writing the spec.
+
+**Decision:** A spec's completion criteria hold only what is verifiable before the merge.
+Everything requiring the deployed artifact goes in a separate, explicitly post-merge section that
+says why it cannot be a gate and names who runs it. `workflow_dispatch` in particular is unreachable
+until the workflow is on the default branch — GitHub does not show the button, and the API does not
+list the workflow, before then.
+
+**Alternatives rejected:** Ticking the boxes on the reasoning that the work was done "in spirit".
+That is exactly what P1169's gate exists to stop, and the gate was right — the deadlock was real
+and the fix was to correct the spec, not to defeat the gate. Also rejected: shipping with the items
+open, which trains the gate to be ignored.
+
+**Consequences:** The escaped half is a real risk — a post-merge section is not enforced by
+anything, so an unrun verification now looks like a ticked spec in `features/done/`. Mitigated only
+by naming an owner (whoever merges) and a deadline (immediately). Worth watching whether that
+holds; if it does not, the answer is a follow-up spec per deployment, not a laxer gate. What made
+this catchable at all was that the gate refused, twice, and the refusal was treated as information
+rather than as an obstacle.
+
+---
+
 ## 2026-09-08 [technical]: A controlling terminal is not proof of a human — and the canary that "proved" it was built out of the bypass (P1246)
 
 **Context:** P1246 needed an escape hatch for its new closure gate that the gated party could not
