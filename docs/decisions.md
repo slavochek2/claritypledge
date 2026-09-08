@@ -6,6 +6,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-08 [process]: Shipping a `git-ops.sh` change means landing the tool AND its canaries in one commit — the guard says "commit-to-main first" and stops one step short (P1260)
+
+**Context:** `git-ops.sh ship` refuses a branch that edits `git-ops.sh`, because bash parses
+function bodies at load and a cherry-pick would swap the tool under the running process. Its
+refusal names the remedy: *"commit that change to main via commit-to-main first, rebase the
+feature branch onto main, then re-ship."* Followed literally, that is wrong.
+
+**What happened:** the tool was landed on main by itself. Main then held the NEW `git-ops.sh`
+against the OLD canaries — `test-git-ops-extensions.sh` scenario A still asserted the pre-P1260
+contract that a stale branch is deletable with no merge check — and `commit-to-main` refused with
+two errors. Four canaries were red on main for the duration. **That is the gate working**, not a
+flake: the tests and the tool are one unit, and the guard's instruction silently assumes a
+tool-only change.
+
+**Decision:** when a branch's `git-ops.sh` change must be pre-landed, pre-land **every file that
+gates it in the same `commit-to-main`** — here `git-ops.sh` plus `test-git-ops-extensions.sh`,
+`test-push-snapshot-pinning.sh` and the new `test-git-ops-gc.sh`. Then rebase; the branch's own
+copies of those commits become empty and drop out, and the ship guard's
+`git log <branch> ^main -- scripts/git-ops.sh` check goes quiet.
+
+**Consequences:** the rebase produces a `docs/decisions.md` conflict per commit that touched it —
+both sides append at the top, so every one resolves by keeping both blocks and deleting the three
+markers. Budget for that rather than being surprised by it. A candidate hardening, not built: have
+the guard's message name the canaries alongside the tool, since it already knows the file it is
+refusing. (Status: proposed)
+
+**Unrelated breakage worth knowing about, encountered mid-ship:** `git status` on the main checkout
+began failing with *"this operation must be run in a work tree"* — `core.bare` had been set to
+`true`, which silently disables the work tree for every session on that checkout while leaving all
+files on disk. Repaired with `git config core.bare false`. **Already independently diagnosed and
+written up by another session the same day** — checked before writing, so this entry only points at
+it rather than duplicating it. Its visible symptom here was four canaries failing for a reason that
+had nothing to do with their subject, which is worth recognising quickly: a canary failing with a
+git plumbing error is a repo-state problem, not a test problem.
+
+**References:** `scripts/git-ops.sh` (the ship guard) · `scripts/test-git-ops-extensions.sh`
+scenario A · decisions.md 2026-09-08 [process] (`core.bare = true`)
+
+---
+
 ## 2026-09-08 [technical]: The same identity has two spellings, and verifying through the wrong one fails closed and silent (P1155)
 
 **Context:** P1155's escalator must ignore GitHub issues not authored by the Actions bot.
