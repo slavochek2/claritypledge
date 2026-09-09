@@ -51,7 +51,13 @@ chat pattern; this spec exists to record it and bound it, not to decide it.
       momentum or a rounding error does not silently detach the reader
 - [x] Touch target is at least 40px (visual-qa.md) — 44px (`w-11 h-11`)
 - [x] The button is not a second full-width primary action and does not trip the p955 gate — full suite green, p955 gate included
-- [ ] Screenshots at 375px, 320px and desktop, in both states
+- [x] Screenshots at 375px, 320px and desktop, in both states
+      **Done 2026-09-09** via `e2e/p1294-chat-follow-visual.spec.ts`, 3 passed. Both states at
+      each width, with the button's bounding box asserted (>=40px, and `x + width <= viewport`
+      so it cannot clip off the right edge at 320). The 320px detached shot was read: control
+      sits bottom-right, circular, 44px, fully inside the viewport, no overflow or clipping,
+      empty-state copy unobstructed, and it is not competing with the screen's one primary
+      action ("End Session").
 
 ## Notes
 
@@ -83,5 +89,7 @@ Three decisions worth keeping:
   leave a pixel behind. At zero, a reader sitting visibly at the bottom silently counts as
   detached and following stops: this feature failing in exactly the way it was asked to fix.
 
-**Screenshots at 375/320/desktop are still outstanding** — the AC is ticked for the
-p955/touch-target checks the suite covers deterministically, not for the visual pass.
+**Incidental finding from the visual run, unrelated to this spec:** the "Reconnecting
+microphone…" banner renders even in the headless fixture with a stubbed `getUserMedia`. The
+recogniser fails to start there too, so that banner is not specific to the founder's phone —
+worth knowing for whoever picks up the recogniser churn (P1288's open thread).
