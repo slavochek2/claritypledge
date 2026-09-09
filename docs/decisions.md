@@ -174,6 +174,56 @@ same warning at the point of use
 ---
 
 
+## 2026-09-09 [process]: A P-number is owned from the moment of the CLAIM, not the moment a file exists — and a consumer must never be looser than its producer (P1279)
+
+**Context:** Third P-number collision in one day, all the same shape.
+`git-ops.sh claim pN` creates a **branch and a slot lock, no spec file**.
+`next-p-number.sh` scanned only files — specs, deleted specs, archived specs, migration
+filenames — so a lock-only claim was invisible and the number got re-issued. An overnight
+orchestrator claimed p1279 for one job at 00:24; 13h later the script handed p1279 to a
+different job. The duplicate-P-number pre-commit check could not fire either: there was only
+ever one spec *file*. It then happened again with p1280 while that first collision was being
+repaired.
+
+**Decision:** `next-p-number.sh` also scans `.claude/worktrees/w*/​.lock` for `P_NUMBER=`.
+**Liveness is deliberately not consulted** — a dead session's claim still burns the number,
+exactly as a deleted spec's and a rejected archive spec's already do. Numbers are free; silent
+reuse is not.
+
+**Two restrictions are load-bearing, and the first version of this fix had neither.** Adversarial
+review caught both before they shipped, and each would have been permanent and repo-wide:
+
+- **Only `wN` slot directories.** A bare `*/.lock` glob counted any directory under
+  `.claude/worktrees/` — a backup dir, an editor scratch dir, a half-deleted slot.
+- **The value must be exactly `pNNN`.** Anchoring only the KEY (`^P_NUMBER=`) and then grepping
+  digits out of the remainder read `oops999999` as a claim on 999999. One corrupted lock and
+  every future allocation jumps by a million, with no recovery short of finding and editing the
+  lock.
+
+The second is the general lesson: **the producer validated `^p[0-9]+$` before writing, and the
+consumer did not validate at all.** A consumer looser than its producer turns any corrupted
+input into a permanent defect in shared state. Check the producer's constraint and match it.
+
+**Alternatives rejected:** *Consult liveness and ignore dead sessions' claims* — a dead claim's
+work still exists on disk and its branch still carries the name; reusing the number is what
+caused this. *Have `claim` write a placeholder spec file* — makes the numbering script correct by
+making the claim heavier, and a placeholder spec pollutes the board and the kanban.
+*Renumber the colliding branch each time* — what was done manually today; it chases the symptom
+and, as p1280 showed within the hour, loses the race.
+
+**Consequences:** The canary (`scripts/test-p1279b-next-p-number-lock-claims.sh`, 12 scenarios)
+covers malformed values, non-slot directories, CRLF locks, empty values, missing lock files and a
+missing worktrees directory. Both prior versions of the script fail it on distinct scenarios —
+the unfixed one on the lock-only claim, the unhardened one on the poisoning cases. `check-duplicate-p-numbers.sh` still
+sees only files and is **not** fixed here: it answers "two files share a number", which remains
+true and useful; the claim-vs-file case has no second file to report. P1000 carries the full
+occurrence record.
+
+**References:** [features/p1000_p_number_toctou_race_under_concurrent_sessions.md](../features/p1000_p_number_toctou_race_under_concurrent_sessions.md) ·
+`scripts/next-p-number.sh` · `scripts/test-p1279b-next-p-number-lock-claims.sh` ·
+decisions.md 2026-09-09 [technical] (the commit-recording half of P1279)
+
+
 ## 2026-09-09 [technical]: The shared-index commit race is the pre-commit hook window, and a tool that has already written the wrong thing needs its own exit code (P1279)
 
 **Context:** Third recorded occurrence of the same defect (2026-09-01, 2026-09-08, and the one

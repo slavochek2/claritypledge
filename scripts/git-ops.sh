@@ -752,6 +752,14 @@ commit_staged_exact() {
   # landed, the message would be a lie, and the cleanup writes to the very shared
   # index this function has just proven is not under our control. Any caller that
   # cleans up on failure must special-case 3. Found by adversarial review, 2026-09-09.
+  #
+  # SCOPE, stated so it is not inferred: rc 3 survives to the shell ONLY through
+  # `commit-to-main`. The other three callers (publish-spec, the branch-born seed,
+  # the in-branch spec-close) still exit 1 via die() for both failure classes --
+  # their messages no longer claim "no commit exists", but their exit CODE cannot
+  # distinguish. None of them writes to the index on failure, so none can cause the
+  # corruption the no-branch closure could; the cost is only that a script wrapping
+  # `ship` cannot branch on which happened. Widen this if such a wrapper appears.
   local recorded
   recorded=$(cd "$REPO_ROOT" && git show --stat --name-only --no-renames --format= HEAD | sed '/^$/d' | sort)
   if [[ "$recorded" != "$expected" ]]; then

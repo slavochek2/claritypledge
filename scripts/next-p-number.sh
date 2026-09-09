@@ -5,6 +5,16 @@
 # Rules:
 # - Scans features/ including done/ subdirectories
 # - Also scans .claude/worktrees/*/features/ to avoid P-number collisions
+# - Also scans worktree slot locks (.claude/worktrees/*/.lock, P_NUMBER=) — a slot
+#   claimed by `git-ops.sh claim pN` owns that number from the moment of the claim,
+#   but the claim creates a BRANCH and a lock, not a spec file. Every other source
+#   here is a file, so a lock-only claim was invisible and this script re-issued the
+#   number (P1279, 2026-09-09: w20 claimed p1279 at 00:24, this script handed the
+#   same number to another session 13h later; the duplicate-P-number check could not
+#   fire either, since there was only ever one spec FILE). Liveness is deliberately
+#   NOT consulted — a dead session's claim still burns the number, exactly as a
+#   deleted spec's and a rejected archive spec's do below. Numbers are free; silent
+#   reuse is not.
 # - Also scans supabase/migrations/ filenames for pNNN tokens — a migration
 #   (e.g. p975) can ship without a matching features/ spec, and it shares the
 #   same P-number space, so it must drive the sequence too (else /create-spec
@@ -60,6 +70,37 @@ migration_highest=$(find "$MIGRATIONS_DIR" -name '*.sql' 2>/dev/null \
 
 if [[ -n "$migration_highest" ]] && [[ -z "$highest" || "$migration_highest" -gt "$highest" ]]; then
   highest="$migration_highest"
+fi
+
+# Include P-numbers reserved by worktree slot locks (see header).
+#
+# BOTH restrictions below are load-bearing; the first version of this had neither
+# and a single stray file could have poisoned every future allocation permanently
+# (found by review before it shipped):
+#
+#   1. Only `wN` slot directories. `git-ops.sh` creates slots as w[0-9]+ and nothing
+#      else is a claim. Globbing */.lock let ANY directory under .claude/worktrees/
+#      count -- a backup dir, an editor's scratch dir, a half-deleted slot.
+#   2. The value must be exactly `pNNN`. Anchoring only the KEY (`^P_NUMBER=`) and
+#      then grepping digits out of the remainder accepted `oops999999` as a claim on
+#      999999, jumping the sequence by a million with no way back. The producer
+#      validates `^p[0-9]+$` before writing; a consumer looser than its producer
+#      turns any corrupted lock into a permanent allocation defect.
+#
+# The 1-7 digit bound rejects absurd strings while leaving five orders of magnitude
+# of headroom over the current sequence (~1300).
+lock_highest=$(
+  for _slot in "$WORKTREES_DIR"/w[0-9]*/.lock; do
+    [ -f "$_slot" ] || continue
+    # tr -d '\r' so a CRLF lock does not defeat the anchored value match.
+    grep -h '^P_NUMBER=' "$_slot" 2>/dev/null | tr -d '\r' | sed 's/^P_NUMBER=//'
+  done \
+  | grep -oiE '^p[0-9]{1,7}$' \
+  | grep -oE '[0-9]+' \
+  | sort -n | tail -1)
+
+if [[ -n "$lock_highest" ]] && [[ -z "$highest" || "$lock_highest" -gt "$highest" ]]; then
+  highest="$lock_highest"
 fi
 
 if [ -z "$highest" ]; then
