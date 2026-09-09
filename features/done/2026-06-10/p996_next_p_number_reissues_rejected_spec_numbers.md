@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 77
@@ -11,8 +11,8 @@ tags:
   - specs
   - p-numbers
   - silent-failure
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-09-09
 ---
 
 # P996: next-p-number.sh reissues P-numbers belonging to rejected specs
