@@ -131,6 +131,44 @@ describe('P1288: each finalized result is appended exactly once', () => {
       'a repeat in a new session is real speech, not a duplicate').toBe('yes yes');
   });
 
+  it('does not drop a new session\'s speech when onstart never fires', () => {
+    // THE DANGEROUS EDGE. This hook's own comments record that onstart is NOT guaranteed —
+    // on permission denial the browser goes straight to onerror + onend. If the consumed
+    // marker only reset in onstart, a session that produced results without firing it would
+    // have every early result look already-consumed, and REAL SPEECH WOULD BE SILENTLY
+    // DROPPED. That is strictly worse than the duplication this file exists to fix, so it
+    // is asserted rather than reasoned about.
+    const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: false }));
+    act(() => { result.current.startListening(); });
+
+    fire(0, [res('first session', true)]);
+    fire(1, [res('first session', true), res(' more words', true)]);
+    expect(result.current.transcript).toBe('first session more words');
+
+    act(() => { lastInstance.onend?.(); });
+
+    // A new session begins but the browser never fires onstart.
+    const silentStart = lastInstance.onstart;
+    lastInstance.onstart = null;
+    act(() => { result.current.startListening(); });
+    lastInstance.onstart = silentStart;
+
+    // Its results list restarts at 0 — indices the previous session already consumed.
+    fire(0, [res(' second session', true)]);
+    expect(result.current.transcript,
+      'a new session must not have its speech skipped as already-consumed')
+      .toBe('first session more words second session');
+  });
+
+  it('appends every final result inside a single onresult event', () => {
+    // The marker must advance per result, not be set once per event.
+    const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: false }));
+    act(() => { result.current.startListening(); });
+
+    fire(0, [res('one', true), res(' two', true), res(' three', true)]);
+    expect(result.current.transcript).toBe('one two three');
+  });
+
   it('interim results still never enter the transcript', () => {
     // DW-4 is load-bearing and predates this fix: interim text must never leave the
     // browser. Asserted here so the dedupe change cannot quietly weaken it.

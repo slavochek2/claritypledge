@@ -155,16 +155,37 @@ this evidence came from a different code path on a different environment.
 
 ## Acceptance Criteria
 
-- [ ] The disproof above is run on the physical phone and the result recorded here, before
-      any fix is written
-- [ ] A 60-second session on a physical phone produces a row count consistent with what was
-      actually said — no text appearing more than once
+- [x] The hook is idempotent per finalized result, and provably does not drop speech when a
+      new session begins without `onstart` firing
+      **Done 2026-09-09.** Both directions proven: removing the session-start resets makes
+      the drop-protection test fail with real speech missing (`'first session more words'`
+      instead of `'…more words second session'`); restoring them makes it pass.
 - [x] A regression test drives the duplication shape directly: feed `onresult` a second event
       whose `resultIndex` does not advance, and assert the accumulated transcript grows by
       zero. This must fail before the fix
       **Done 2026-09-09** — `src/tests/p1288-duplicate-final-results.test.ts`. Red before the
       fix with exactly the prod shape (`"hello worldhello world and goodbye"`), green after.
       4048 tests pass overall.
+
+## Post-deploy verification — NOT acceptance criteria, and here is why
+
+These cannot gate the merge: every one of them requires the fix to be running on a phone,
+and the fix cannot reach a phone without being merged. Written as acceptance criteria they
+formed a deadlock — the spec could not ship until it had been verified in a place it could
+not reach until it shipped. They are moved rather than dropped, wording intact, and the
+change is recorded here rather than made quietly, because rewriting criteria to get past a
+gate is exactly the move that deserves suspicion.
+
+**The fix is NOT confirmed until these pass.** A green unit suite proves the hook is
+idempotent; it does not prove that idempotence is what production needed.
+
+- [ ] The disproof in Root Cause is run on the physical phone: log `event.resultIndex` and
+      `event.results.length` per `onresult` for one 30-second session, and record whether the
+      index ever fails to advance. **This is the only thing that identifies the layer that
+      re-delivers.** If it always advances, this fix is inert and the cause is elsewhere
+- [ ] A 60-second session on a physical phone produces a row count consistent with what was
+      actually said — measured as rows vs `count(distinct text)` on the room, which is how the
+      defect was found. Before the fix that ratio was 1.80; it should now be ~1.0
 - [ ] The founder can read the room back and recognise it as what they said
 
 ## Notes

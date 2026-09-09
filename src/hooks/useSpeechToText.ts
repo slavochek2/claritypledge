@@ -257,6 +257,13 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
         restartTimerRef.current = null;
         if (intentionalStopRef.current) return;
         try {
+          // P1288: a session is about to begin and its results list restarts at 0, so the
+          // consumed marker must be fresh HERE and not only in onstart — onstart is not
+          // guaranteed to fire (see the note on sessionStartedAtRef), and this path calls
+          // start() directly rather than going through startListening(). A stale marker
+          // would make the new session's early results look already-consumed and DROP REAL
+          // SPEECH, which is strictly worse than the duplication this fix removes.
+          lastFinalIndexRef.current = -1;
           recognition.start();
         } catch (err) {
           // iOS: NotAllowedError (no user gesture). Android: InvalidStateError.
@@ -325,6 +332,9 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
     setLiveTextStopped(false);
 
     try {
+      // P1288: same reason as the auto-restart path above — fresh session, fresh marker,
+      // not dependent on onstart firing.
+      lastFinalIndexRef.current = -1;
       recognitionRef.current.start();
     } catch (err) {
       // P1196: this is the "Resume live text" path, and on iOS it is the ONLY path
