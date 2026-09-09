@@ -112,6 +112,34 @@ and the snowball is what turns one blocked commit into a worse second attempt.
       repo's pre-existing out-of-commit ones (gate 7c)
 - [ ] The blocked P1268 batch commits with hooks enabled and no override
 
+## Evidence — hypotheses eliminated 2026-09-08/09
+
+The crispest reproduction, and the one to start from:
+
+```
+same script, same 6-path index, same branch:
+  ./scripts/pre-commit-checks.sh   (standalone)  -> exit 0, 0 errors
+  git commit                       (as the hook) -> 5 errors, commit blocked
+```
+
+Four hypotheses tested and **dead** — do not re-run these:
+
+| Hypothesis | How it died |
+|---|---|
+| The worktree's index/state is corrupt | Rebuilt with `git read-tree HEAD` repeatedly; fails identically from a **brand-new worktree** created fresh on the same branch |
+| The branch is stale, rebase fixes it | w2 is **65 commits behind and commits fine**; the failing branch was 26 behind at the time. More drift, fewer problems |
+| The blocking specs are untracked leftovers | They exist in **no tree at all** — not on the branch, not on main, not on disk, and `git cat-file -e` finds them in no ref |
+| A gate computes its range backwards, so specs closed on main read as newly added | The backward range yields 5 different files, none of them the 7 that block |
+
+Two mechanisms **confirmed but insufficient**: `GIT_DIR` at the common dir inflates
+`git diff --cached` from 5 paths to 18 (HEAD resolves to main's), and a failed commit leaves the
+index expanded rather than as it found it — so attempt N+1 starts worse than attempt N. Neither
+accounts for the ~1500-path expansion or for the specific 7 files.
+
+**The one thing not yet done is the one thing that will answer it:** instrument the hook to record
+`git diff --cached --name-only | wc -l` between every step and read the first jump. Everything above
+is elimination; that is measurement.
+
 ## Open Questions
 
 1. What expands the index to ~1500? Not established. The `GIT_DIR` amplifier is confirmed but
