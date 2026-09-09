@@ -6,6 +6,63 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [technical]: A fix restored a feature and immediately exposed a second bug nobody could reach — and the fix for THAT nearly dropped real speech (P1288)
+
+**Context:** P1275 restored `/transcribe` room creation on prod after eight days. The founder ran
+the first real session within minutes, on a physical phone against the live site, and reported
+*"its not trasnibing proepelry"*. It was transcribing — 134 rows for **66** distinct utterances,
+then a second session at 196 rows for **109**. Every line written about twice.
+
+The bug was not new. It had been in the code all along and was **structurally unreachable**: you
+cannot see what a room does if you cannot create a room. Fixing the door revealed the room.
+
+**Decision:** Record three things, in order of how much they generalize.
+
+1. **Two diagnostic readings did more than any code reading.** Bucketing the duplicates into
+   10-second slices showed a **flat ~1.8× ratio** from first slice to last. A runaway accumulator
+   climbs with session length; a flat ratio means each utterance is written about twice, *once* —
+   a single duplicate emission, not a replay. That killed one hypothesis outright. Then the founder,
+   asked to watch the indicator, reported the recogniser was **not** cycling during the run — which
+   killed session restarts as a cause. Two observations, two hypotheses eliminated, before a line of
+   the fix was written. **Ask for the cheap discriminating measurement before reading more code.**
+
+2. **`event.results` is cumulative for the life of a recognition session.** Walking it from
+   `event.resultIndex` is correct *only* while that index advances past what was already consumed;
+   Android Chrome re-fires for a result already delivered as final. The remedy is idempotence keyed
+   on the result's **index, never its text** — people repeat themselves, and de-duplicating "yes"
+   against a previous "yes" eats real speech.
+
+3. **The most dangerous moment was the fix, not the bug.** Resetting the consumed marker only in
+   `onstart` looked complete and was not: this hook's own comments record that `onstart` is not
+   guaranteed to fire, and the auto-restart path calls `recognition.start()` directly rather than
+   through `startListening()`. A session that began without firing `onstart` would have seen its own
+   early results as already-consumed and **silently discarded real speech** — strictly worse than
+   the duplication being fixed, and invisible, because dropped audio leaves no row to count. Caught
+   by working the "what would this break that currently works" angle *before* the spawned reviewer
+   reported (it never did; the finding was inline). Now reset before every `start()`, proven both
+   directions: remove the resets and the drop-protection test fails with speech missing.
+
+**Consequences:** The generalization for this repo, which has now hit it repeatedly, is that
+**a deduplication or suppression fix has two failure modes and only one of them is visible.**
+Duplicates you can count. Drops you cannot — the evidence is what got removed. Any such fix needs a
+test whose failure means *too little* output, not only one whose failure means too much.
+
+Also recorded: the spec's acceptance criteria deadlocked against themselves — three of four required
+a physical phone running the fix, which could not happen before the merge. They were moved to a
+Post-deploy verification section with wording intact and the reason written down. **Rewriting
+criteria to pass a gate is exactly the move that deserves suspicion, so it is recorded rather than
+done quietly, and the spec states plainly that the fix is unconfirmed until those pass.** A green
+unit suite proves the hook is idempotent; it does not prove idempotence is what prod needed.
+
+**Status: UNCONFIRMED IN THE FIELD** — falsifier: one 60-second phone session whose rows-vs-distinct
+ratio is still ~1.8 means the duplication is upstream of this hook and this change is inert.
+
+**References:** `src/hooks/useSpeechToText.ts` · `src/tests/p1288-duplicate-final-results.test.ts` ·
+[P1288 spec](../features/done/2026-06-10/p1288_transcribe_live_text_duplicates_finalized_utterances.md)
+· P1275 · P1236
+
+---
+
 ## 2026-09-09 [product]: The artifact-opacity criterion was recorded once and never promoted — and a group is a composition of dyads, not a new unit. **UNTESTED.**
 
 **Context:** A `/claude-conversations-to-cp` sync over the 2026-08-04 → 2026-09-09 window (44 conversations) produced four candidate strategy deltas. Two survived verification unchanged, one was materially rewritten by Gate 3, and the run's larger result is that **most conversation signal in this window was already captured, and captured more precisely than the conversation stated it** — the listening-calibration Goodhart critique already sat in `hypotheses.md` verbatim with a falsifier; the group-size question already had a named mechanism there (reciprocity closure); `explanatory divergence` had already shipped as mode 4 of `arbiter-failure-model.md`. Five of ten founder `[/cp]` markers were closed before the run began.
