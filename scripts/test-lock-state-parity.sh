@@ -16,6 +16,36 @@
 
 set -euo pipefail
 
+# P785 / P1268 — Clear inherited git env vars FIRST. When this script runs inside a
+# git pre-commit hook, git sets GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE in the
+# environment. Every nested `git init` / `git worktree add` / `git-ops.sh` call below
+# would inherit them and operate on the CALLER'S REAL INDEX instead of the scratch
+# repo. This is not hypothetical: both suites were written without this line, wired
+# into pre-commit-checks.sh, and corrupted the w1 index twice — 1497 staged paths
+# against 4 added, with 235 files present on disk reported as deleted. Every sibling
+# canary in scripts/ carries this line; these two did not.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+
+# Invariant (P785 pattern): snapshot the OUTER index now and assert it is untouched
+# when we finish. A guard nobody checks is a guard that silently stops working.
+OUTER_INDEX_PRE=""
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  OUTER_INDEX_PRE="$(git diff --cached --name-only 2>/dev/null | sort || true)"
+fi
+assert_outer_index_untouched() {
+  local post=""
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    post="$(git diff --cached --name-only 2>/dev/null | sort || true)"
+  fi
+  if [[ "$post" != "$OUTER_INDEX_PRE" ]]; then
+    echo "FAIL  this canary LEAKED into the caller's index (see P785 / P1268)" >&2
+    echo "  before: $(printf '%s' "$OUTER_INDEX_PRE" | wc -l | tr -d ' ') path(s)" >&2
+    echo "  after : $(printf '%s' "$post" | wc -l | tr -d ' ') path(s)" >&2
+    return 1
+  fi
+  return 0
+}
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 PASS=0
 FAIL=0
@@ -128,6 +158,46 @@ check "dead PID + far-FUTURE heartbeat -> ORPHAN (clock skew is not life)" ORPHA
 echo "PID=" > "$L"; echo "SLOT=w1" >> "$L"
 check "empty PID -> NO_LOCK" NO_LOCK "$L"
 
+# --- TTL boundary fixtures -------------------------------------------------
+# Without these the matrix is BLIND to the thing it exists to catch. Every fixture
+# above is either `now` or 1990, so ANY TTL from 1 second to infinity classifies
+# them identically: setting pre-flight's TTL to 1 while git-ops kept 43200 left the
+# canary at 9/0, exit 0. Demonstrated, not theorised. A parity check whose fixtures
+# sit nowhere near the boundary cannot detect a divergence at the boundary.
+ttl_of() { sed -n 's/^LOCK_TTL_SECONDS="\${CP_LOCK_TTL_SECONDS:-\([0-9]*\)}"/\1/p' "$1" | head -1; }
+GITOPS_TTL="$(ttl_of "$REPO_ROOT/scripts/git-ops.sh")"
+PREFLIGHT_TTL="$(ttl_of "$REPO_ROOT/scripts/pre-flight.sh")"
+
+if [[ -z "$GITOPS_TTL" || -z "$PREFLIGHT_TTL" ]]; then
+  echo -e "${red}FAIL${nc}  could not read LOCK_TTL_SECONDS from both scripts (git-ops='$GITOPS_TTL' pre-flight='$PREFLIGHT_TTL')"
+  FAIL=$((FAIL + 1))
+else
+  if [[ "$GITOPS_TTL" == "$PREFLIGHT_TTL" ]]; then
+    echo -e "${green}PASS${nc}  both copies declare the same TTL (${GITOPS_TTL}s)"; PASS=$((PASS + 1))
+  else
+    echo -e "${red}FAIL${nc}  TTL DIVERGENCE: git-ops=${GITOPS_TTL}s pre-flight=${PREFLIGHT_TTL}s"
+    FAIL=$((FAIL + 1))
+  fi
+
+  ago() { date -u -r $(( $(date -u +%s) - $1 )) +%FT%TZ 2>/dev/null; }
+
+  make_lock "$L" "$dead_pid" "Mon Jan 01 00:00:01 1990" "$(ago $(( GITOPS_TTL / 2 )))"
+  check "dead PID + heartbeat at HALF the TTL -> LIVE (inside the window)" LIVE "$L"
+
+  make_lock "$L" "$dead_pid" "Mon Jan 01 00:00:01 1990" "$(ago $(( GITOPS_TTL - 60 )))"
+  check "dead PID + heartbeat 60s INSIDE the TTL -> LIVE (boundary)" LIVE "$L"
+
+  make_lock "$L" "$dead_pid" "Mon Jan 01 00:00:01 1990" "$(ago $(( GITOPS_TTL + 60 )))"
+  check "dead PID + heartbeat 60s PAST the TTL -> ORPHAN (boundary)" ORPHAN "$L"
+fi
+
 echo
+if assert_outer_index_untouched; then
+  echo -e "${green}PASS${nc}  the canary did not touch the caller's index"
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
 echo "passed: $PASS  failed: $FAIL"
 [[ "$FAIL" -eq 0 ]]

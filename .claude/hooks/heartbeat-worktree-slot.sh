@@ -41,13 +41,21 @@ esac
 SLOT="$(basename "$TOPLEVEL")"
 [ -f "$TOPLEVEL/.lock" ] || exit 0
 
-GIT_OPS="$TOPLEVEL/scripts/git-ops.sh"
-if [ ! -x "$GIT_OPS" ]; then
-  COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-  [ -n "$COMMON_DIR" ] || exit 0
-  GIT_OPS="$(dirname "$COMMON_DIR")/scripts/git-ops.sh"
-fi
+# Main checkout's copy only — never the branch's. See adopt-worktree-slot.sh for
+# why: the worktree copy is branch-controlled and would execute at hook time.
+COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+[ -n "$COMMON_DIR" ] || exit 0
+GIT_OPS="$(dirname "$COMMON_DIR")/scripts/git-ops.sh"
 [ -x "$GIT_OPS" ] || exit 0
 
-CP_SESSION_ID="$SESSION_ID" "$GIT_OPS" heartbeat "$SLOT" >/dev/null 2>&1 || true
+# Bounded, for the same reason: exit code is not duration. This one runs after every
+# edit, so its budget is tighter than the session-start hook's.
+CP_SESSION_ID="$SESSION_ID" "$GIT_OPS" heartbeat "$SLOT" >/dev/null 2>&1 &
+_hb_pid=$!
+_hb_waited=0
+while kill -0 "$_hb_pid" 2>/dev/null; do
+  if [ "$_hb_waited" -ge 3 ]; then kill -9 "$_hb_pid" 2>/dev/null || true; break; fi
+  sleep 1
+  _hb_waited=$((_hb_waited + 1))
+done
 exit 0

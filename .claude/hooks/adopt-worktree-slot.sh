@@ -45,20 +45,42 @@ esac
 
 SLOT="$(basename "$TOPLEVEL")"
 
-# Resolve git-ops.sh. scripts/ is a NATIVE checkout in every worktree, so there are
-# two real copies and they can differ. Prefer the worktree's own — it is the copy
-# belonging to the branch being worked on, and a worktree developing git-ops itself
-# must exercise its own version, not main's. Fall back to the main repo's copy when
-# the worktree has none.
-GIT_OPS=""
-if [ -x "$TOPLEVEL/scripts/git-ops.sh" ]; then
-  GIT_OPS="$TOPLEVEL/scripts/git-ops.sh"
-else
-  COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-  [ -n "$COMMON_DIR" ] || exit 0
-  GIT_OPS="$(dirname "$COMMON_DIR")/scripts/git-ops.sh"
-fi
+# Resolve git-ops.sh from the MAIN checkout, never the worktree's copy.
+#
+# An earlier cut deliberately preferred "$TOPLEVEL/scripts/git-ops.sh" so a worktree
+# developing git-ops would exercise its own version. That reasoning was wrong and the
+# consequence is a code-execution vector: scripts/ is a native checkout per worktree,
+# so whatever the CHECKED-OUT BRANCH puts at that path would run automatically at
+# session start, unconfirmed — a hostile branch, a bad merge, or a rebase artifact.
+# Adversarial review reproduced it. The main checkout's copy is the trusted one.
+COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+[ -n "$COMMON_DIR" ] || exit 0
+GIT_OPS="$(dirname "$COMMON_DIR")/scripts/git-ops.sh"
 [ -x "$GIT_OPS" ] || exit 0
+
+# Hard timeout. `set -uo pipefail` and `exit 0` control this hook's EXIT CODE, not
+# its DURATION — the original "never blocks" claim conflated the two. timeout(1) is
+# not installed on this Mac, so: run in the background, poll, kill.
+run_bounded() {
+  local limit="$1"; shift
+  "$@" >/tmp/cp-p1268-hook.$$ 2>&1 &
+  local pid=$! waited=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$waited" -ge "$limit" ]; then
+      kill -9 "$pid" 2>/dev/null || true
+      echo "P1268: git-ops timed out after ${limit}s; continuing." >&2
+      rm -f /tmp/cp-p1268-hook.$$
+      return 1
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  wait "$pid" 2>/dev/null
+  local rc=$?
+  OUT="$(cat /tmp/cp-p1268-hook.$$ 2>/dev/null || true)"
+  rm -f /tmp/cp-p1268-hook.$$
+  return $rc
+}
 
 # No lock at all means the slot was never claimed (or was released). Adopting is
 # not the right repair for that — say so and leave it alone.
@@ -72,7 +94,7 @@ if [ -n "$SESSION_ID" ]; then
   ADOPT_ARGS+=(--session "$SESSION_ID")
 fi
 
-if OUT="$("$GIT_OPS" adopt "${ADOPT_ARGS[@]}" 2>&1)"; then
+if run_bounded 8 "$GIT_OPS" adopt "${ADOPT_ARGS[@]}"; then
   echo "P1268: adopted $SLOT — this session now owns its lock." >&2
 else
   # Refusal is informative, never fatal. The commonest legitimate cause is that

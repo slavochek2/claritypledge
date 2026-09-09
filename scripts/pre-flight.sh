@@ -41,15 +41,29 @@ LOCK_TTL_SECONDS="${CP_LOCK_TTL_SECONDS:-43200}"
 iso_to_epoch() {
   local stamp="$1"
   [[ -n "$stamp" ]] || return 1
-  TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$stamp" +%s 2>/dev/null
+  # Validate the SHAPE before parsing. BSD `date -j -f` accepts trailing garbage
+  # and still returns an epoch ("...Z; rm -rf /" parses fine), so a malformed
+  # HEARTBEAT would read as LIFE rather than failing closed — the opposite of the
+  # stated contract. Not an injection (it is an argument, never evaluated), but the
+  # fail-closed property is the whole point. Found by adversarial review.
+  [[ "$stamp" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || return 1
+  # BSD (macOS) first, then GNU (Linux). Without the GNU arm every heartbeat is
+  # unparseable there, so every lock reads ORPHAN and the feature silently inverts
+  # to permissive on the clarity-agent VM. Same BSD-only family as `stat -f %m`.
+  TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$stamp" +%s 2>/dev/null && return 0
+  date -u -d "$stamp" +%s 2>/dev/null && return 0
+  return 1
 }
 
+# Returns 0 iff the given HEARTBEAT is within LOCK_TTL_SECONDS of now.
+# Fails closed: empty, unparseable, or clock-skewed stamps are never fresh.
 heartbeat_fresh() {
   local hb="$1" hb_epoch now_epoch age
   hb_epoch="$(iso_to_epoch "$hb")" || return 1
   [[ -n "$hb_epoch" ]] || return 1
   now_epoch="$(date -u +%s)"
   age=$(( now_epoch - hb_epoch ))
+  # A clock-skewed future stamp is not evidence of life; bound it both ways.
   [[ $age -lt 0 ]] && age=$(( -age ))
   [[ $age -le $LOCK_TTL_SECONDS ]]
 }

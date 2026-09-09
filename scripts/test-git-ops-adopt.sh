@@ -13,6 +13,36 @@
 
 set -uo pipefail
 
+# P785 / P1268 — Clear inherited git env vars FIRST. When this script runs inside a
+# git pre-commit hook, git sets GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE in the
+# environment. Every nested `git init` / `git worktree add` / `git-ops.sh` call below
+# would inherit them and operate on the CALLER'S REAL INDEX instead of the scratch
+# repo. This is not hypothetical: both suites were written without this line, wired
+# into pre-commit-checks.sh, and corrupted the w1 index twice — 1497 staged paths
+# against 4 added, with 235 files present on disk reported as deleted. Every sibling
+# canary in scripts/ carries this line; these two did not.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+
+# Invariant (P785 pattern): snapshot the OUTER index now and assert it is untouched
+# when we finish. A guard nobody checks is a guard that silently stops working.
+OUTER_INDEX_PRE=""
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  OUTER_INDEX_PRE="$(git diff --cached --name-only 2>/dev/null | sort || true)"
+fi
+assert_outer_index_untouched() {
+  local post=""
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    post="$(git diff --cached --name-only 2>/dev/null | sort || true)"
+  fi
+  if [[ "$post" != "$OUTER_INDEX_PRE" ]]; then
+    echo "FAIL  this canary LEAKED into the caller's index (see P785 / P1268)" >&2
+    echo "  before: $(printf '%s' "$OUTER_INDEX_PRE" | wc -l | tr -d ' ') path(s)" >&2
+    echo "  after : $(printf '%s' "$post" | wc -l | tr -d ' ') path(s)" >&2
+    return 1
+  fi
+  return 0
+}
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 GIT_OPS_SRC="$REPO_ROOT/scripts/git-ops.sh"
 PASS=0; FAIL=0
@@ -122,7 +152,13 @@ before_nonce="$(grep '^NONCE=' "$WT/w1/.lock" | cut -d= -f2)"
 assert_exit "adopt from inside the slot -> allow" 0 $?
 
 get() { grep "^$1=" "$WT/w1/.lock" | cut -d= -f2-; }
-assert_eq  "NONCE preserved (captured nonces keep working)" "$before_nonce" "$(get NONCE)"
+if [[ "$(get NONCE)" == "$before_nonce" ]]; then
+  echo -e "${red}FAIL${nc}  NONCE rotated on adopt (prior holders must lose the capability)"; FAIL=$((FAIL+1))
+elif [[ -z "$(get NONCE)" ]]; then
+  echo -e "${red}FAIL${nc}  NONCE rotated on adopt — got an EMPTY nonce"; FAIL=$((FAIL+1))
+else
+  echo -e "${green}PASS${nc}  NONCE rotated on adopt (was $before_nonce, now $(get NONCE))"; PASS=$((PASS+1))
+fi
 assert_eq  "CLAIMED_AT preserved" "2026-01-01T00:00:00Z" "$(get CLAIMED_AT)"
 assert_eq  "BRANCH preserved" "feature/p9999-scratch" "$(get BRANCH)"
 assert_eq  "P_NUMBER preserved" "p9999" "$(get P_NUMBER)"
@@ -141,6 +177,32 @@ assert_eq "slot reads LIVE after adopt" "LIVE" "$state"
 # And no lock temp files were left behind by the atomic swap.
 leftovers="$(find "$WT/w1" -maxdepth 1 -name '.lock.*' | wc -l | tr -d ' ')"
 assert_eq "no .lock.XXXX temp files leaked" "0" "$leftovers"
+
+echo "--- adopt: the seizure gate (adversarial review) ---"
+
+# THE finding: a second session that merely cd'd into an occupied slot took it,
+# exit 0, and was handed the nonce. Presence in a directory is not ownership.
+git -C "$FAKE" worktree add -q "$WT/w1" feature/p9999-scratch 2>/dev/null || true
+write_lock "$dead_pid" "x" "feature/p9999-scratch" "$(date -u +%FT%TZ)"   # fresh = LIVE
+( cd "$WT/w1" && "$GO" adopt w1 --session "ATTACKER" ) >/dev/null 2>&1
+assert_exit "adopt from INSIDE the slot is refused while the lock is LIVE" 1 $?
+holder="$(grep '^SESSION_ID=' "$WT/w1/.lock" | cut -d= -f2-)"
+assert_eq "the refused adopt did not overwrite SESSION_ID" "scratch" "$holder"
+
+# ...and the legitimate case still works: an unattended slot is adoptable.
+write_lock "$dead_pid" "x" "feature/p9999-scratch" "1990-01-01T00:00:00Z"
+( cd "$WT/w1" && "$GO" adopt w1 --session "RESUMER" ) >/dev/null 2>&1
+assert_exit "an EXPIRED lock is adoptable without a nonce (resume still works)" 0 $?
+
+echo "--- heartbeat: containment ---"
+
+# cmd_heartbeat originally had no containment at all, so any caller anywhere could
+# read SESSION_ID out of the lockfile and echo it back to hold the slot open forever.
+write_lock "$dead_pid" "x" "feature/p9999-scratch" "1990-01-01T00:00:00Z"
+harvested="$(grep '^SESSION_ID=' "$WT/w1/.lock" | cut -d= -f2-)"
+( cd "$FAKE" && CP_SESSION_ID="$harvested" "$GO" heartbeat w1 ) >/dev/null 2>&1
+state="$( cd "$FAKE" && "$GO" status w1 2>/dev/null | grep -i '^State' | awk '{print $2}' )"
+assert_eq "heartbeat from OUTSIDE the slot is a no-op even with a harvested SESSION_ID" "ORPHAN" "$state"
 
 echo "--- adopt: concurrency ---"
 
@@ -258,8 +320,10 @@ echo "--- heartbeat: a long session must not age back into ORPHAN ---"
 # refresh a session outliving the TTL goes ORPHAN while its owner is still working.
 if [[ -n "$claimed_slot" ]]; then
   sess="hb-test-session"
-  ( cd "$WT/$claimed_slot" && CP_SESSION_ID="" "$GO" adopt "$claimed_slot" --session "$sess" ) >/dev/null 2>&1
-  # Age the heartbeat well past any TTL.
+  # Age FIRST: adopt now refuses a LIVE lock without a nonce, and `claim` leaves one
+  # LIVE. Taking over a slot requires it to be genuinely unattended.
+  sed -i '' "s|^HEARTBEAT=.*|HEARTBEAT=1990-01-01T00:00:00Z|" "$WT/$claimed_slot/.lock"
+  ( cd "$WT/$claimed_slot" && "$GO" adopt "$claimed_slot" --session "$sess" ) >/dev/null 2>&1
   sed -i '' "s|^HEARTBEAT=.*|HEARTBEAT=1990-01-01T00:00:00Z|" "$WT/$claimed_slot/.lock"
   state="$( cd "$FAKE" && "$GO" status "$claimed_slot" 2>/dev/null | grep -i '^State' | awk '{print $2}' )"
   assert_eq "an expired heartbeat reads ORPHAN (precondition)" "ORPHAN" "$state"
@@ -285,5 +349,12 @@ if [[ -n "$claimed_slot" ]]; then
 fi
 
 echo
+if assert_outer_index_untouched; then
+  echo -e "${green}PASS${nc}  the canary did not touch the caller's index"
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
 echo "passed: $PASS  failed: $FAIL"
 [[ "$FAIL" -eq 0 ]]
