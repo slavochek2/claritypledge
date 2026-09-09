@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000080
 workstream: infrastructure
 created_date: '2026-09-08'
 tags: [pre-commit, worktree, git-index, tooling]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, inline]
 flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-09
 ---
 
 # P1273: Commits from a worktree are blocked by other sessions' files, because the hook judges a tree that is not the commit
