@@ -221,6 +221,26 @@ test.describe('P1275: create_transcribe_room', () => {
     ).toBeNull();
   });
 
+  test('the direct table INSERT path is closed — the function is the only way in', async () => {
+    // The expand half made a member-less room unreachable THROUGH the function. It did not
+    // make one unrepresentable: P1149's INSERT policy was `WITH CHECK (true)`, and RLS is
+    // enforced at PostgREST rather than by the JS client, so "no app code does this any
+    // more" was never a control. Found in review of the expand half, closed by
+    // 20260908210100_p1275_b_close_direct_room_insert.sql.
+    const direct = await creator.from('transcribe_rooms').insert({ code: roomCode() });
+    expect(direct.error, 'a direct room insert must be refused').not.toBeNull();
+    expect(direct.error?.code, 'and refused by RLS specifically').toBe('42501');
+
+    // CONTROL: the same client, same table, an operation it IS allowed — otherwise a
+    // client that simply cannot reach the table at all would produce the identical verdict.
+    const { data } = await creator.rpc('create_transcribe_room', {
+      p_code: roomCode(), p_display_name: 'P1275 Creator', p_session_id: creatorSessionId, p_event_id: null,
+    });
+    const roomId = ((data ?? []) as Record<string, string>[])[0]?.room_id;
+    expect(roomId, 'control: the same caller must still create rooms through the function').toBeTruthy();
+    createdRoomIds.push(roomId!);
+  });
+
   test('room-code enumeration stays closed', async () => {
     // P1207's guarantee, re-asserted because this migration touches the same table's
     // write path. If a fix for this bug ever loosens the SELECT policy, this goes red.

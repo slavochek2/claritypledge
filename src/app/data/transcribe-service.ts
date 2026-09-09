@@ -139,7 +139,21 @@ export async function createRoom(profileId: string, displayName: string, eventId
   // One clarity_sessions row per participant — this seat's recording (A2). Minted here
   // rather than inside the function for the same reason joinRoom mints it: createClaritySession
   // owns that shape, and duplicating it in SQL would give it two definitions.
+  //
+  // This DOES introduce a failure mode the old code did not have. Before P1275 the session
+  // was only minted after the room insert had already succeeded (it lived inside joinRoom,
+  // called afterwards); now it is minted before a call that can fail, so a failure orphans
+  // it. The order is forced — the RPC takes session_id as input, so the session must exist
+  // first — and the remedy is to clean up on the way out rather than to leave the row.
   const session = await createClaritySession(displayName, profileId, false);
+
+  // Best-effort, and honest about it: if this delete fails the row is merely orphaned, which
+  // is the state we were trying to avoid and not a reason to mask the original error. The
+  // caller's own RLS applies — this is their session.
+  const discardSession = async () => {
+    const { error } = await supabase.from('clarity_sessions').delete().eq('id', session.id);
+    if (error) console.error('[transcribe] could not discard the unused session:', error.message);
+  };
 
   const maxAttempts = 5;
   for (let attempts = 0; attempts < maxAttempts; attempts++) {
@@ -152,7 +166,10 @@ export async function createRoom(profileId: string, displayName: string, eventId
 
     if (!error) {
       const row = ((data ?? []) as unknown as DbCreatedRoom[])[0];
-      if (!row) throw new Error('Could not start a room. Please try again.');
+      if (!row) {
+        await discardSession();
+        throw new Error('Could not start a room. Please try again.');
+      }
       return {
         room: mapRoom({
           id: row.room_id,
@@ -181,9 +198,11 @@ export async function createRoom(profileId: string, displayName: string, eventId
     // this bug looked like from the consent screen. Keep the detail in the console for us
     // and give the participant a sentence they can act on.
     console.error('[transcribe] createRoom failed:', error.message, error.code);
+    await discardSession();
     throw new Error('Could not start a room. Please try again.');
   }
 
+  await discardSession();
   throw new Error('Failed to generate unique room code after multiple attempts');
 }
 

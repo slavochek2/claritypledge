@@ -222,11 +222,18 @@ alternative is holding a live prod bug behind an unfinished feature.
 - [x] The creator is a member of the room immediately — the roster is non-empty and the room can be
       ended by them — integration `creates the room and the creator membership in one call` +
       `the creator can end the room they created`
-- [x] No room row can exist without at least its creator's membership row — both INSERTs are in one
-      plpgsql function, so they share a transaction. **Partially tested, deliberately:** every guard
-      runs before the room INSERT, so no reachable input fails *between* the two INSERTs and the
-      test `a refused call creates nothing at all` would pass against a non-atomic implementation
-      too. The limit is written into that test rather than left for a reader to discover
+- [x] No room row can exist without at least its creator's membership row — **this was ticked
+      prematurely and is now genuinely met.** Two things had to be true, and only one was:
+      (a) the two INSERTs share a plpgsql transaction, and (b) the function is the only way in.
+      (b) was false — `transcribe_rooms` still carried P1149's `WITH CHECK (true)` INSERT policy,
+      and RLS is enforced at PostgREST rather than by the JS client, so any authenticated caller
+      could POST the table directly and create a member-less room. Closed by
+      `20260908210100_p1275_b_close_direct_room_insert.sql` (`WITH CHECK (false)`), guarded by
+      integration `the direct table INSERT path is closed`, which was watched fail by loosening the
+      policy on test. **Still only partially tested for (a):** every guard runs before the room
+      INSERT, so no reachable input fails *between* the two INSERTs, and `a refused call creates
+      nothing at all` would pass against a non-atomic implementation too — that limit is written
+      into the test itself
 - [x] A room-code collision still retries with a fresh code rather than surfacing an error —
       integration `a duplicate code still raises 23505 so the client retry loop keeps working`
       (the function does not swallow 23505; the client's loop consumes it)
@@ -281,36 +288,65 @@ against what matches now and returns `[]`. Step timing found it in one run after
 
 ## Review
 
-**1 of 1 spawned reviewers reported: 0.** The `/finish code` subagent was spawned, went idle without
-delivering, and did not answer a direct request for its report. Per the fan-out rule the lenses were
-re-run inline rather than by spawning replacements, and the miss is recorded rather than papered
-over with "a reviewer was spawned".
+**1 of 1 spawned reviewers reported — but only after two explicit chases**, and the first summary
+written for this spec said "0 of 1" because the report had not arrived by then. Recorded as a miss
+for the ratio: the default outcome was silence. The report was worth waiting for — it found three
+MEDIUMs, all three real, all three verified here against the catalog before being acted on, and all
+three now fixed. Its own security pass on the function (auth gate, session-ownership check,
+validation, grant story) found nothing, matching the inline pass.
 
-Inline review, 1 issue found and fixed (both counted in `.finish-reviewed`):
+**MEDIUM 1 — the "unrepresentable state" claim was false.** The expand half's comments asserted a
+member-less room was "not a representable state". True only of callers going through the function:
+`transcribe_rooms` still carried `WITH CHECK (true)` on INSERT, and my own control probe had
+*already demonstrated* a bare `INSERT` as role `authenticated` succeeding — I had the evidence and
+drew the wrong conclusion from it. Fixed by the contract migration; the expand half's comment now
+states the scope of its guarantee instead of overstating it.
 
-- **MEDIUM — the anon-grant test was vacuous.** Detailed in the acceptance criteria above. Fixed and
-  watched fail.
+**MEDIUM 2 — the orphaned `clarity_sessions` row was a NEW failure mode, not a carried-over one.**
+This spec previously said `joinRoom` "has had the identical shape since P1149", which is true of
+`joinRoom` and irrelevant here: before P1275, `createRoom` minted the session only *after* the room
+insert had succeeded. Moving the mint before a fallible call is mine. The order is forced (the RPC
+takes `session_id` as input), so the fix is a best-effort `discardSession()` on all three failure
+exits, which logs rather than masking the original error.
 
-Checked and clean:
+**MEDIUM 3 — `#variable_conflict use_column` was the inverse of fail-safe.** The comment claimed it
+made a future ambiguous reference "fail safe". Backwards: Postgres's default (`error`) raises 42702
+loudly at first call, and `use_column` *silences* that by resolving to the column — which is exactly
+why P1236 reached for it. In a `SECURITY DEFINER` function that writes rows, that trades a loud
+failure for a silently wrong value. Removed; the default is restored and the reasoning recorded.
 
-- **search_path.** Every table reference in the function body is `public.`-qualified, so a
-  `pg_temp` object cannot shadow one. `SET search_path = public` matches the repo's dominant
-  convention (177 uses) including both sibling definer functions.
+Informational, from the same report, both accepted rather than fixed:
+
+- **`p_event_id` carries no existence or ownership check** — a caller can attach a room to an
+  `event_id` they have no relation to. Carried over unchanged from the policy this function
+  supersedes, so not a regression, and out of this bug's scope. Named here so it is not rediscovered
+  as new.
+- **The migration cited `join_transcribe_room()` and P1236 as precedent** while that function exists
+  only on an unmerged branch. Comments reworded to say so explicitly.
+
+Checked and clean (inline, before the report arrived):
+
+- **search_path.** Every table reference in the function body is `public.`-qualified, so a `pg_temp`
+  object cannot shadow one. `SET search_path = public` matches the repo's dominant convention.
 - **Identity.** `profile_id` comes from `auth.uid()` and is not a parameter. The `session_id` guard
   is stricter than the policy it supersedes, which never checked it.
 - **23505 propagation.** Verified empirically, not assumed — PostgREST does surface the unique
-  violation as `error.code === '23505'`, which the integration test asserts.
-- **Migration safety.** Zero policy statements (grepped); `client-safe` annotation present and
-  accepted by the P887 pre-commit check.
+  violation as `error.code === '23505'`.
 
-Known and accepted, not fixed:
+Known and accepted:
 
-- **An orphan `clarity_sessions` row is possible.** `createRoom` mints the session before calling
-  the RPC, so a failing call leaves the session behind. `joinRoom` has had the identical shape since
-  P1149; the row is inert and carries no transcript. Restructuring is not available — the RPC needs
-  `session_id` as input, so the session must exist first. Named here rather than left for someone to
-  rediscover.
-- **`member.profileId` in the returned object comes from the caller's own argument**, not from the
-  server. It cannot diverge (the argument and `auth.uid()` come from the same session), and closing
-  it would mean changing the function's return type, which requires a `DROP FUNCTION` — an
-  ask-first operation for no reachable defect. Declined deliberately.
+- **`member.profileId` in the returned object comes from the caller's own argument**, not the
+  server. It cannot diverge (argument and `auth.uid()` come from the same session), and closing it
+  means changing the function's return type — which requires a `DROP FUNCTION`, an ask-first
+  operation, for no reachable defect. Declined deliberately; the reviewer reached the same verdict.
+
+## Deploy ordering
+
+Three steps, and the middle one is the client:
+
+1. `20260908210000` — the function. Additive, `client-safe`; nothing breaks if it lands early.
+2. The client bundle (`68072bc79`) — `createRoom` starts calling the function.
+3. `20260908210100` — `WITH CHECK (false)`, marked `requires-frontend: 68072bc79`. It removes the
+   direct create path, which the deployed client still takes. That path is *already* failing in prod
+   (it is this bug), so nothing that works today stops working — but the ordering marker is correct
+   and should be honoured.

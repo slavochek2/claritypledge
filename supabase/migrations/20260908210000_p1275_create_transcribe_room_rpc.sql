@@ -28,6 +28,14 @@
 -- unreadable by its own creator AND un-endable, the UPDATE policy being member-scoped too.
 -- The window is the defect; narrowing it is not fixing it.)
 --
+-- SCOPE OF THAT GUARANTEE, stated precisely. This function makes a member-less room
+-- unreachable THROUGH ITSELF. It does not make one unrepresentable, because
+-- transcribe_rooms still carries P1149's `WITH CHECK (true)` INSERT policy, and RLS is
+-- enforced at PostgREST — not by the JS client — so any authenticated caller can still POST
+-- the table directly and create one. Closing that is the paired contract migration
+-- (…_p1275_b_close_direct_room_insert.sql), which is held to deploy time because it breaks
+-- any client still taking the direct path.
+--
 -- Loosening the SELECT policy was rejected outright: it reintroduces the enumeration hole.
 -- This migration does NOT touch any policy.
 --
@@ -62,14 +70,19 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 -- RETURNS TABLE columns are also plpgsql OUT variables, and `room_id` is additionally a
--- real column of transcribe_room_members. Where the two meet in an expression, Postgres
--- raises 42702 ("column reference is ambiguous") — and it does so at first CALL, not at
--- CREATE, because plpgsql compiles the body lazily. P1236 shipped a migration that applied
--- cleanly and then failed on every invocation for exactly this reason. Nothing below reads
--- an OUT variable (every value is carried in a v_-prefixed local and returned by RETURN
--- QUERY), so this setting has nothing to break; it is here so that a later edit which does
--- introduce such an expression fails safe instead of at runtime.
-#variable_conflict use_column
+-- real column of transcribe_room_members. Where the two meet in a bare expression, Postgres
+-- raises 42702 ("column reference is ambiguous") — at first CALL, not at CREATE, because
+-- plpgsql compiles the body lazily. P1236 shipped a migration that applied cleanly and then
+-- failed on every invocation for exactly this reason, and silenced it with
+-- `#variable_conflict use_column`.
+--
+-- This function deliberately does NOT set that. Every value is carried in a v_-prefixed
+-- local and every column reference is qualified, so there is no ambiguity to resolve today.
+-- Setting `use_column` would only affect a FUTURE edit that introduced one — and it would
+-- resolve it SILENTLY to the column instead of raising. That is the opposite of failing
+-- safe: it trades a loud 42702 on the first call for a wrong value written by a
+-- SECURITY DEFINER function with no error at all. Postgres's default (`error`) is the
+-- safe setting here; leave it alone.
 DECLARE
   v_uid     uuid := auth.uid();
   v_name    text := btrim(coalesce(p_display_name, ''));
@@ -98,7 +111,8 @@ BEGIN
   -- supersedes for the create path checked only profile_id = auth.uid() and never looked at
   -- session_id at all, so a caller could attach ANOTHER user's recording to their own seat.
   -- Bypassing RLS means inheriting the duty to be at least as strict as what it replaced —
-  -- here, stricter. Same check join_transcribe_room() carries (P1236).
+  -- here, stricter. P1236 applies the same check on the JOIN path, but that work is still
+  -- on an unmerged branch — do not read this as a reference to existing migration history.
   IF NOT EXISTS (
     SELECT 1 FROM public.clarity_sessions s
     WHERE s.id = p_session_id AND s.creator_profile_id = v_uid
@@ -134,7 +148,8 @@ COMMENT ON FUNCTION public.create_transcribe_room(text, text, uuid, uuid) IS
 
 -- REVOKE ... FROM PUBLIC does not remove a role-direct grant, and Supabase's
 -- ALTER DEFAULT PRIVILEGES hands new functions to anon and authenticated directly
--- (P1065; hit again in P1236, where the join RPC needed a second migration to close it).
+-- (P1065; hit again on P1236's unmerged branch, where its join RPC needed a second
+-- migration to close the same gap).
 -- Revoke both explicitly, then grant back only the one that should have it.
 REVOKE ALL ON FUNCTION public.create_transcribe_room(text, text, uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.create_transcribe_room(text, text, uuid, uuid) FROM anon;
