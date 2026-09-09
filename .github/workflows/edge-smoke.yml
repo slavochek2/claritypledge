@@ -1,0 +1,126 @@
+name: Edge function smoke (prod)
+
+# P890. Calls every deployed Supabase edge function on its cheapest safe path and
+# fails when one stops answering as recorded.
+#
+# Why this exists: `deploy-functions.sh` checked secrets BEFORE deploying and
+# nothing after it, and no smoke anywhere in the repo ever called an edge function
+# (prod-smoke-test.mjs covers auth/profiles/stories; csp-smoke and
+# prod-health-smoke load browser routes). A bundle that uploads fine but throws at
+# invocation time was therefore detected only by Sentry or a user report.
+#
+# What the two probes prove — this matters, they are not interchangeable:
+#   OPTIONS, no credentials → the BOOT proof. The Supabase gateway does not
+#     require a JWT for preflight, so the request reaches the function's own
+#     handler; a matching reply proves the module loaded. Boot failure = 5xx,
+#     undeployed = 404.
+#   POST {}, no credentials → the CALLER-GATE proof (P1207). For the 13 functions
+#     deployed with gateway JWT verification this 401 comes from the gateway, so
+#     it proves the gate is up and says nothing about the function behind it.
+#
+# Scheduled rather than deploy-triggered, for the same reason as prod-health-smoke:
+# functions are also deployed from outside the terminal, and a function can break
+# with no commit of ours (a secret rotated out, a dependency host gone).
+#
+# ALERT-ONLY: the smoke step is continue-on-error, so a failure opens/appends a
+# GitHub issue instead of posting a red X. Promote to blocking once it has run
+# clean for a while.
+
+on:
+  schedule:
+    - cron: '20 */6 * * *' # every 6 hours, offset off the other smokes
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Functions base URL (defaults to prod)'
+        required: false
+        default: 'https://besjtuodziykmjidubzw.supabase.co/functions/v1'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  edge-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+
+      # No npm ci and no secrets: the smoke uses only global fetch and sends no
+      # credentials. Fewer moving parts between the schedule and the probe.
+      - name: Run edge function smoke against prod
+        id: smoke
+        continue-on-error: true
+        env:
+          EDGE_SMOKE_BASE_URL: ${{ github.event.inputs.base_url || 'https://besjtuodziykmjidubzw.supabase.co/functions/v1' }}
+        # The smoke's exit codes are not interchangeable and the alarm must not flatten
+        # them: 1 = a function is unhealthy, 2 = the SMOKE is misconfigured (a new
+        # function with no expectation row, so something is now unsmoked). Reporting a
+        # 2 as "a function stopped answering" sends the operator to look at prod for a
+        # fault that is in this repo. Capture the code and let the issue text say which.
+        run: |
+          set +e
+          node scripts/edge-function-smoke.mjs
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      # An unwatched gate is no gate. Find-or-append so repeated failures don't spam.
+      # All shell values are built-in env vars / fixed strings — no untrusted input,
+      # and the failing function names stay in the run log rather than the public body.
+      - name: Open a GitHub issue on failure
+        if: steps.smoke.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SMOKE_CODE: ${{ steps.smoke.outputs.code }}
+        run: |
+          TITLE="Edge function smoke failing on prod"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # Say which failure this is. Exit 2 is a defect in THIS repo, not in prod, and
+          # an operator sent to check prod for it loses the actual signal: a function is
+          # now unsmoked. SMOKE_CODE is the step's own numeric exit status, never input.
+          case "${SMOKE_CODE:-}" in
+            2) WHAT="The smoke is MISCONFIGURED (exit 2) — a function directory has no expectation row in scripts/edge-function-smoke.mjs, so it is not being smoked at all. This is a repo defect, not a prod outage: no function was reported unhealthy. Add the row." ;;
+            1) WHAT="At least one edge function stopped answering its recorded boot or deny path (exit 1). The failing function names are in the run log." ;;
+            *) WHAT="The smoke exited ${SMOKE_CODE:-unknown} — neither 1 (a function is unhealthy) nor 2 (the smoke is misconfigured). Treat the run log as the source of truth." ;;
+          esac
+          # Author-bound exact-title match (P1155). Two properties, both load-bearing:
+          #  - exact title, NOT `gh --search`: `in:title` token-matches, so an issue
+          #    merely sharing title words could swallow the comment.
+          #  - author == the Actions bot: without it this workflow can be induced to
+          #    append to an issue it did not create, so it never opens its own and the
+          #    alarm is diverted silently. `gh issue list --json author` reports the bot
+          #    as `app/github-actions` (the REST API spells the same identity
+          #    `github-actions[bot]` — the CLI shape is the one that applies here).
+          #  - explicit --limit: the default page is 30, newest-first, which drops the
+          #    oldest open issues — exactly the ones an ageing alarm lives in.
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing — $WHAT Run: $RUN_URL"
+          else
+            gh issue create --title "$TITLE" \
+              --body "The scheduled edge-function smoke failed. $WHAT Run: $RUN_URL"
+          fi
+
+      # Close on recovery. Without this a single transient failure leaves an issue open
+      # for ever, the age-based escalator keeps promoting it, and the operator learns to
+      # ignore the alarm — the alert-fatigue failure the registry's own readme warns
+      # about. Same author-bound exact-title lookup, so it can only close an issue this
+      # workflow opened.
+      - name: Close the GitHub issue on recovery
+        if: steps.smoke.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Edge function smoke failing on prod"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Recovered — all edge functions healthy. $RUN_URL"
+          fi

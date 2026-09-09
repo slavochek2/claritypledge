@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P1155 step 0 canary — the seven alert-only producers must only append to (or close)
+# P1155 step 0 canary — every alert-only producer must only append to (or close)
 # an issue the Actions bot itself created.
 #
 # Gate 7c: this suite tests the ACCEPT case as well as the REJECT case. A filter that
@@ -14,7 +14,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 PRODUCERS=(auth-canary csp-smoke db-backup prod-health-smoke stranded-signups
-           check-deploy-drift backup-staleness)
+           check-deploy-drift backup-staleness edge-smoke)
 BOT="app/github-actions"
 fails=0
 sites=0
@@ -123,4 +123,4 @@ echo
 if [ "$fails" -gt 0 ]; then
   echo "RESULT: $fails failure(s)"; exit 1
 fi
-echo "RESULT: all checks passed ($sites filter cases + 7 producers)"
+echo "RESULT: all checks passed ($sites filter cases + ${#PRODUCERS[@]} producers)"

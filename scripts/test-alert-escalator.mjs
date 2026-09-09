@@ -202,7 +202,7 @@ t('REGRESSION (F3): the exact registry Codex broke is now rejected before it can
 t('ACCEPT: the real shipped registry validates', () => {
   const reg = JSON.parse(readFileSync('.github/alert-registry.json', 'utf8'));
   validateRegistry(reg);
-  assert.equal(reg.checks.filter((c) => c.kind === 'github-issue-age').length, 8);
+  assert.equal(reg.checks.filter((c) => c.kind === 'github-issue-age').length, 9);
 });
 
 // --- A1: the message must not carry issue content ------------------------------

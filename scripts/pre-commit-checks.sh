@@ -268,13 +268,13 @@ else
 fi
 echo ""
 # 4.6.5. Alert-producer author-bind canary (P1155) — runs when any alert-only
-# workflow or the canary itself is staged. The seven producers must only append
+# workflow or the canary itself is staged. Every producer must only append
 # to (or close) an issue the Actions bot created; without that, a producer can be
 # induced to append to an issue it did not create, so it never opens its own and
 # the alarm is diverted silently. Hermetic (jq against fixtures, no network).
 # The canary extracts the jq filter FROM the workflows rather than restating it,
 # so a drift between test and code fails rather than passing quietly.
-ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs|test-mailgun-send\.mjs|test-escalator-exit-codes\.sh)|\.github/alert-registry\.json)$' || true)
+ALERT_PRODUCER_STAGED=$(echo "$STAGED_FILES" | grep -E '^(\.github/workflows/(auth-canary|csp-smoke|db-backup|prod-health-smoke|stranded-signups|check-deploy-drift|backup-staleness|edge-smoke|alert-escalator)\.yml|scripts/(test-producer-author-bind\.sh|alert-escalator\.mjs|send-ops-email\.mjs|test-alert-escalator\.mjs|test-mailgun-send\.mjs|test-escalator-exit-codes\.sh)|\.github/alert-registry\.json)$' || true)
 if [ -n "$ALERT_PRODUCER_STAGED" ]; then
     if ! run_quiet "Alert-producer author-bind canary (P1155)" bash scripts/test-producer-author-bind.sh; then
         ERRORS=$((ERRORS + 1))
@@ -304,6 +304,25 @@ if [ -n "$ALERT_PRODUCER_STAGED" ]; then
     fi
 else
     echo ">>> Alert-producer author-bind canary skipped (no alert workflows staged)"
+fi
+
+echo ""
+# 4.6.6. Edge-function post-deploy smoke canary (P890) — runs when the deploy
+# script, the smoke, or the canary itself is staged. Hermetic (throwaway git repo,
+# PATH-stubbed supabase CLI, no network). Guards three things that each failed
+# silently once: `_shared` is a library the Supabase CLI refuses by name and must
+# never be handed to it, a genuinely failed upload must exit non-zero now that the
+# status-masking pipe is gone, and the smoke must run after the manifest stamp and
+# only over the functions the run actually deployed.
+EDGE_SMOKE_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(deploy-functions\.sh|edge-function-smoke\.mjs|test-p890-deploy-smoke\.sh)$' || true)
+if [ -n "$EDGE_SMOKE_STAGED" ]; then
+    if [ -f "scripts/test-p890-deploy-smoke.sh" ]; then
+        if ! run_quiet "Edge-function deploy smoke canary (P890)" bash scripts/test-p890-deploy-smoke.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+else
+    echo ">>> Edge-function deploy smoke canary skipped (deploy/smoke scripts not staged)"
 fi
 
 # 4.7. git-ops.sh extensions canary (P787) — runs when git-ops.sh or its test
