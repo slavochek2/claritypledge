@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 237
@@ -11,8 +11,8 @@ drafted_by: sonnet
 exec_model: sonnet
 exec_effort: medium
 tags: [sentry, network-blip, noise-reduction, p1176-sibling]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-09-09
 ---
 
 # P1177: Five call sites report network blips to Sentry unconditionally, same pattern as P1176
