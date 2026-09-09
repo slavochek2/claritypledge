@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 severity: high
 rank: 1000090
@@ -7,11 +7,11 @@ workstream: transcription
 created_date: '2026-09-09'
 tags: [transcribe, transcription, mobile, data-quality]
 feature_type: frontend
-delivery_stage: fix
 pipeline_ran: [create-spec, fix]
 drafted_by: opus
 driver: anomaly
 disclosure: public
+completed_at: 2026-09-09
 ---
 
 # P1288: `/transcribe` writes each finalized utterance several times
