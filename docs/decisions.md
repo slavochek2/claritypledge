@@ -6,6 +6,97 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [process]: An empty index is not a quiet checkout — the ship race is won or lost inside the pre-commit hook, not at the moment you look (P1282)
+
+**Context:** Shipping P1282 on the shared main checkout, `git-ops.sh ship`'s branch-born seed step
+hit `commit_staged_exact` rc 3 **twice**. The first landed an empty commit (0 files). The second
+landed a commit recording the requested spec **plus five files belonging to a concurrent
+`/ship p1177`** — `terms-acceptance-gate.tsx`, `useOpenLiveInvite.ts`, `letter-reading-page.tsx`,
+`report-unless-blip.ts` and its test, 375 insertions — under the message
+`seed p1282 spec for ship (creation blob)`.
+
+The guard worked exactly as [git.md](../.claude/rules/git.md) documents for P1279: it detected the
+mismatch, exited non-zero, and deliberately did not roll back. Nothing was lost; the content is
+correct and committed. What is wrong is attribution, and that P1177's own ship was left to discover
+its files already committed.
+
+**The mechanism is already documented** — see the [technical] P1279 entry below, which fixed
+`commit_staged_exact` to compare recorded file names and return a distinct 3. That fix is what
+caught this; without it the incident would have exited 0 and gone unnoticed. This entry records the
+half that no tool can fix: **the operator's precondition.**
+
+Before the second attempt the index was inspected, found empty, and that was treated as "the
+checkout is quiet". It is not the same claim, and the first run's own pre-commit output had already
+said so out loud — `No feature specs staged`, printed moments after the seed had `git add`ed a
+feature spec. That line was read as noise rather than as the race announcing itself.
+
+**Decision:** The precondition for a ship on the shared checkout is **no warm ship journal**, not an
+empty index. Before `git-ops.sh ship`, run
+`find .claude/worktrees/.ship-journal -name '*.json' -mmin -3` and proceed only on empty output;
+an empty `git diff --cached` is necessary and nowhere near sufficient. A journal touched in the last
+few minutes means another ship is mid-sequence and will stage inside your hook window.
+
+**Second half, and the reason this entry is `[process]` rather than a tooling note:** the rule that
+would have prevented it was already in `git.md` — *repeating a stage-and-commit against an index a
+co-tenant is actively writing is a sign to stop* — and had been quoted **in that same session**
+twenty minutes earlier, when the identical situation was correctly declined. Between the two, the
+only thing that changed was impatience after a first failure. **A retry after an rc 3 is a new
+decision, not a continuation of the old one**, and it must re-establish the precondition from
+scratch rather than inherit the previous attempt's belief that things were fine.
+
+**Consequences:** Two junk commits on `main` (`7aba719f8` empty, `be94c485c` absorbing P1177). Not
+rolled back: `HEAD~1` on the shared checkout is precisely what `git.md` bans, and the P1177 session
+was live. Recovery deliberately deferred to the founder as a history decision rather than taken
+unilaterally. P1282 itself shipped cleanly afterwards, once no journal had been warm for three
+minutes — the precondition above, applied.
+
+**References:** `scripts/git-ops.sh` (`ship_spec_creation_blob`, the `need_seed` block) ·
+`scripts/test-p1279-commit-to-main-index-race.sh` · [git.md](../.claude/rules/git.md) "The lock does
+not cover the pre-commit hook window" · decisions.md 2026-09-09 [technical] (P1279, the tool-side
+half — its rc 3 is what made this incident visible) · 2026-09-03 "a spec edit held ~40 min on main"
+
+---
+
+## 2026-09-09 [technical]: A fix that removes one of two guards is half-applied, and the sibling surface is the oracle that says so (P1282)
+
+**Context:** The point embed — the surface `/draft-blog` uses to place points in Ghost articles —
+rendered a "N stories" disclosure that flipped to expanded and showed nothing. Data was fetched
+correctly (`story_points` returning 200 with content, `video_url`, `video_quotes`); only the render
+was gated away. The block required `(liveSessionMode || profileOwner)`, and on the embed route
+`profileOwner` is built only when the URL carries `?from=<userId>`, so a plain `?embed=true` never
+satisfies it.
+
+The cause was a **half-applied fix from six months earlier**: `c5803784e` (2026-03-18), titled
+*"fix: allow inline expand of points/stories in blog embeds"*, removed the `!isEmbed` guard from
+this exact JSX block and left the owner condition standing. The commit's stated intent was achieved
+for `story-card-with-links.tsx` and silently not for `point-card-with-links.tsx`.
+
+**Decision:** When a fix's purpose is *"make X reachable in context C"* and the render site is
+guarded by a conjunction, **removing one clause is not the fix** — enumerate every clause and prove
+each is satisfiable in C. The cheap oracle is the **sibling surface**: this repo renders the mirror
+relationship (stories-under-a-point, points-under-a-story) in two components, and the sibling gated
+its expansion on `pointsExpanded && linkedPoints.length > 0` and nothing else. One surface working
+and its mirror not is the strongest available signal that a shared change landed on only one of
+them, and it costs one grep.
+
+**Consequences:** Gate widened to `(liveSessionMode || profileOwner || isEmbed)`. Verified by a test
+seen to FAIL against the old gate (exit 1, 3 of 5 red) and in a browser against the test DB. The
+change surfaced a **second, independent defect** — the first expand click on a cold collapsed load
+is discarded, masked by `?expanded=true` re-initialising the state to true — split to P1287 rather
+than folded in, because `ship-gates.sh` gate 2.5 correctly refused a spec carrying acceptance
+criteria its own code could not satisfy. That refusal is the gate doing the job the "half-applied"
+pattern above exists to prevent.
+
+**Consequence for the article pipeline:** points embed as `?embed=true&expanded=true` — evidence on
+load rather than behind a click, which sidesteps P1287 and is the better reading artifact anyway.
+
+**References:** `src/app/components/social/point-card-with-links.tsx` ·
+`src/tests/p1282-point-embed-expands-stories.test.tsx` ·
+[P1282 spec](../features/done/2026-06-10/p1282_point_embed_never_renders_its_linked_stories.md) ·
+[P1287 spec](../features/p1287_point_embed_expand_click_lost_to_remount.md) · `c5803784e`
+
+---
+
 ## 2026-09-09 [technical]: Dropping a policy does not constrain a SECURITY DEFINER function — two correct branches merged into a consent bypass (P1236 / P1275)
 
 **Context:** `/transcribe` room membership was being fixed twice, in parallel, by two sessions that
