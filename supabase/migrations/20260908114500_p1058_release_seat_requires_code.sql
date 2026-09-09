@@ -11,7 +11,7 @@
 --   42501 RAISE are unchanged. The DROP of the id-only signature is what makes this a
 --   replacement rather than an overload — see check 1 in the verification block.
 --
--- requires-frontend: 7a801a3ef
+-- requires-frontend: d449bcfa9
 --   The signature gains a second argument and the guest arm now REQUIRES it. Deployed clients
 --   call clearSessionJoiner(sessionId) with no code, so on an anonymous seat they would begin
 --   receiving 42501 the moment this lands. 7a801a3ef threads the code through all three call
