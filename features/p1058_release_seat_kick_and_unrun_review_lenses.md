@@ -1,12 +1,12 @@
 ---
-status: week
+status: qa
 type: task
 disclosure: public
 rank: 1
 created_date: '2026-08-12'
 tags: [security, clarity-sessions, rls, adversarial-review]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: fix
+pipeline_ran: [create-spec, fix]
 driver: anomaly
 ---
 
@@ -420,6 +420,83 @@ kind of thing reading catches and running does not.
 - Read routes that held: `select=*`, `select=code`, `select=joiner_seat_token`, FK embedding,
   RPC `select=` shaping, and direct PATCH of every seat column — all 42501. `code` is not obtainable
   by reading. The token was obtainable only by asking the database to mint a new one.
+
+### Inheritance pass — independent verification by a second session (2026-09-09)
+
+This branch sat untouched for ~18h. A different session picked it up under instruction to judge
+it rather than trust it, and re-ran its load-bearing claims from scratch. **Everything above that
+was checked held.** What follows is what the re-run added.
+
+**The hole is still live on `main` today — verified, not inherited.** `grep -rn "FUNCTION
+public.release_joiner_seat" supabase/migrations/` returns two definitions, the later being
+`20260812180000:162`. Its anonymous arm is still `auth.uid() IS NULL AND joiner_profile_id IS NULL
+AND joiner_name IS NOT NULL` with no code and no token, and `20260812180000:196` still grants
+EXECUTE to `anon`. `20260817140001:68-73` grants anon SELECT on 21 columns including `id` and
+excluding `code`. No later migration touches the function — `20260813080000` (P1063) names it only
+in prose, at lines 66 and 77, to say it is deliberately NOT revoked. **Nothing has closed F4 since.**
+
+**Suites re-run against the live test project by the inheriting session, not carried over:**
+
+| suite | result | exit |
+|---|---|---|
+| `e2e/integration/p1058-release-seat-authorization.spec.ts` | 11 passed | 0 |
+| p1053 + p1063 + p1047 integration | 48 passed, 2 skipped | 0 |
+| `src/tests/p740…`, p754, p1240, p537, p705 (vitest) | 11 passed, 4 skipped | 0 |
+| `npm run lint` | clean | 0 |
+| `./scripts/typecheck-gate.sh` | clean | 0 |
+
+The P1058 suite is not all-refusals: `POSITIVE CONTROL: a guest holding the room code CAN release
+their own seat` and `a WRONG code is refused — the code is checked, not merely required` are the
+two that stop a "required but never verified" fix from passing (epistemic gate 7c).
+
+#### NEW — BLOCKS THE PROD APPLY: the `requires-frontend` marker names a SHA that ship will rewrite
+
+`-- requires-frontend: 7a801a3ef` is a **branch-local** SHA. `git-ops.sh:815` states plainly that a
+shipped branch is **cherry-picked** onto main and keeps its own SHAs, so `7a801a3ef` never becomes an
+ancestor of `origin/main`. `scripts/migrate.sh:446` gates the prod apply on exactly
+`git merge-base --is-ancestor "$REQUIRED_SHA" origin/main`, and its else-arm is a hard BLOCK that
+`--yes` does not bypass. **As written, this migration cannot be applied to prod.**
+
+This is a known repo step, not a novel defect — every one of the 11 existing `requires-frontend`
+markers in `supabase/migrations/` currently resolves to ANCESTOR-OK, and two of them were fixed by an
+explicit follow-up: `02c83e54f` ("fix(p1057): repoint requires-frontend at the post-merge sha") and
+`f16c42040` ("fix(p1275): re-point the requires-frontend marker at the cherry-picked SHA"). **The
+same follow-up commit is mandatory here, after ship and before any prod apply.** Recorded because
+the step is invisible until the apply refuses.
+
+#### NEW — the `deploy-manifest.json` edit on this branch is stale and will conflict at ship
+
+The branch adds `20260908065003`, `20260908110000`, `20260908130000` to `.test.migrations` and moves
+`migrations_deployed_at` back to `2026-09-08T13:31:39Z`. `main` already carries all three plus
+`20260908210000` and `20260908210100`, stamped `2026-09-09T05:59:51Z`. The branch's edit is now a
+strict subset and a timestamp regression. `git-ops.sh:3475` already recognises a
+deploy-manifest-only conflict and says so during ship — take main's side. Note also that
+`20260908114500` appears in **neither** manifest, although the suite above proves it IS applied on
+test; the stamp was never written.
+
+#### Second independent Codex review — 2026-09-09, verdict DO NOT SHIP (founder decision, not a code defect)
+
+Re-run via `~/.agents/bin/codex-review` on the shipped set, primed with the security claim and asked
+specifically whether an anonymous guest's in-memory `session.code` is actually populated after P1057
+revoked `code` from anon — the failure that would break the guest leave path in exactly the way this
+fix claims not to. **Refuted, and this is the reassuring finding:** `mapSessionFromDb` takes a
+REQUIRED `knownCode` and returns `code: dbSession.code ?? knownCode` (`src/app/data/api.ts:908-910`),
+so the splice is compiler-enforced at every call site. Re-checked directly rather than taken on the
+reviewer's word (epistemic gate 9). The `AuthContext` sessionStorage read was checked the same way:
+`clarity_live_session_code` is written at `clarity-live-page.tsx:1128`.
+
+Its two HIGHs are both **already-recorded items, re-rated**, not new defects:
+
+1. **An already-loaded pre-P1058 tab cannot release an anonymous seat** — it calls with one argument,
+   resolves to the new function via `DEFAULT NULL`, and fails the WHERE for `42501`. Recorded above
+   as MEDIUM by the first Codex pass; this pass calls it HIGH. The client catches it and still does
+   local cleanup, so the seat is left stamped server-side until it expires, self-healing on reload.
+   No deploy ordering can fix it — only time or a forced reload.
+2. **Event practice rooms remain evictable** — the accepted residue, pinned by a canary. The attempt
+   to close it (the per-seat token) was reviewed, broken, and reverted on founder decision.
+
+**Neither is fixable in code without a founder decision, which is why this branch stops here.**
+No new code changes were made by the inheriting session; the review found nothing to fix.
 
 ## Research Questions
 
