@@ -6,6 +6,62 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [process]: Three probes in one session returned green while measuring nothing, and the author wrote the rule against that in the same sitting
+
+**Context:** P1268 shipped with what looked like thorough verification — every refusal watched
+failing, mutation tests, an explicit gate-7c section. Two independent adversarial reviews then found
+**eight** real defects, and the sharpest three were inside the verification itself:
+
+1. The headline assertion, *"a freshly-claimed lock reads LIVE"*, **never called `claim`**. It
+   hand-wrote a lockfile resembling claim's output and asserted on that, so a regression where
+   `claim` omitted the field entirely would have passed green.
+2. The parity canary comparing two copies of one algorithm **could not see them diverge**. Every
+   fixture was `now` or `1990`, so any TTL from 1 second to infinity classified them identically —
+   setting one copy to 1s against the other's 43200s still passed 9/0.
+3. A freshness check **accepted trailing garbage**, because BSD `date -j -f` parses a prefix and
+   ignores the rest, so a malformed stamp read as *life* — inverting the fail-closed property the
+   function's own comment claimed.
+
+A fourth, in the same session: the probe written to *verify* fix 3 was itself blind — both its
+positive and negative cases hit `command not found`, and the "rejects garbage" branch was read as a
+pass.
+
+**Decision:** Two rules, both narrower than "test better".
+
+**A suite that constructs a fixture resembling the artifact is not testing the code that produces
+it.** The tell is a fixture built by hand in the same file that asserts on it. Invoke the real
+producer and assert on *its* output — and add an independent check that the green cannot come from
+the wrong cause (here: assert the claiming PID is genuinely dead, so LIVE can only have come from
+the heartbeat).
+
+**A probe that returns the same verdict for every input is blind, and "every input passes" is the
+harder half to notice.** The existing rule (global CLAUDE.md) already says to run a known-good *and*
+a known-bad control when a probe returns the same verdict for every candidate. It fired on none of
+these because each looked like a normal green suite. Extend the trigger: **any comparison check must
+carry a fixture near the boundary it compares.** A parity test whose fixtures all sit far from the
+threshold cannot detect a divergence at the threshold, and that is provable in one command rather
+than argued.
+
+**Alternatives rejected:** Trusting the author's own green run — it was green and wrong in three
+places. More mutation testing — mutations prove assertions bind the code, never that the input space
+is complete (epistemic 7b already says this; these were input-space failures, not assertion
+failures).
+
+**Consequences:** The uncomfortable part is the sequencing: item 1 was committed **while writing the
+gate-7c section**, by an author who had just articulated the principle. Writing a verification
+principle is not performing it, and having just written it appears to *raise* the risk of believing
+it was applied. Also recorded: both new canaries lacked the P785 `unset GIT_DIR GIT_INDEX_FILE …`
+line every sibling in `scripts/` carries, so once wired into pre-commit their nested git calls
+operated on the caller's real index — and one created a real worktree in the real repo for a
+P-number that does not exist. Fixed with the unset plus P785's Invariant-4 snapshot assertion, and
+proven with a control that discriminates: guard removed takes the staged set 5 -> 16 and exits 1.
+**Status: proposed** — the boundary-fixture rule is not mechanized anywhere.
+
+**References:** `scripts/test-lock-state-parity.sh` · `scripts/test-git-ops-adopt.sh` ·
+[epistemic.md](../.claude/rules/epistemic.md) gates 7, 7b, 7c, 9 · P1268 · P1273
+
+---
+
 ## 2026-09-09 [technical]: A SECURITY DEFINER function is not a gate until the table's own policy says so (P1275)
 
 **Context:** P1207 narrowed `transcribe_rooms`' SELECT policy to members-only, correctly closing a
