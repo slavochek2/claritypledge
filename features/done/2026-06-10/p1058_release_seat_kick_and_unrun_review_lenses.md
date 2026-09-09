@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: task
 disclosure: public
 rank: 1
 created_date: '2026-08-12'
 tags: [security, clarity-sessions, rls, adversarial-review]
-delivery_stage: fix
 pipeline_ran: [create-spec, fix]
 driver: anomaly
+completed_at: 2026-09-09
 ---
 
 # P1058: `release_joiner_seat` is an unauthenticated global kick, and three P1053 review lenses never ran
