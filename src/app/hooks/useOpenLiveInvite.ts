@@ -2,6 +2,8 @@
 
 import { useReducer, useEffect } from 'react';
 import * as Sentry from '@sentry/react';
+import { reportUnlessBlip } from '@/lib/report-unless-blip';
+import { isNetworkBlip } from '@/lib/network-blip';
 import { useAuth } from '@/auth';
 import {
   getOpenLiveInviteForUser,
@@ -105,7 +107,10 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
         dispatch({ type: 'LOADED', payload: record ? mapRecord(record) : null });
       })
       .catch((err) => {
-        Sentry.captureException(err, { tags: { source: 'useOpenLiveInvite.initialFetch' } });
+        reportUnlessBlip(err, {
+              context: 'useOpenLiveInvite.initialFetch',
+              tags: { source: 'useOpenLiveInvite.initialFetch' },
+            });
         if (!cancelled) dispatch({ type: 'LOADED', payload: null });
       });
 
@@ -133,6 +138,19 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
           .then(async ({ data: session, error }) => {
             if (cancelled) return;
             if (error || !session) {
+              // P1177 (code review): supabase query builders RESOLVE a network
+              // failure as `{ data: null, error }` rather than rejecting, so a
+              // dropped connection reaches this warning instead of the .catch
+              // below. Same suppression, same reason — the state handling
+              // (return, leaving the invite unenriched) is unchanged either way.
+              if (isNetworkBlip(error)) {
+                Sentry.addBreadcrumb({
+                  category: 'db-error-suppressed',
+                  level: 'info',
+                  data: { context: 'useOpenLiveInvite.enrichment', reason: 'network-blip' },
+                });
+                return;
+              }
               Sentry.captureMessage(
                 'useOpenLiveInvite: secondary session fetch returned null',
                 {
@@ -203,7 +221,10 @@ export function useOpenLiveInvite(): { invite: OpenLiveInvite | null; loading: b
             });
           })
           .catch((err) => {
-            Sentry.captureException(err, { tags: { source: 'useOpenLiveInvite.enrichment' } });
+            reportUnlessBlip(err, {
+              context: 'useOpenLiveInvite.enrichment',
+              tags: { source: 'useOpenLiveInvite.enrichment' },
+            });
           });
       },
       (raw) => {

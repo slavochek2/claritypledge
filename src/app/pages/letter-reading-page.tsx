@@ -13,7 +13,7 @@
 import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { useParams, useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import * as Sentry from '@sentry/react';
+import { reportUnlessBlip } from '@/lib/report-unless-blip';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { FunctionsHttpError } from '@supabase/supabase-js';
@@ -373,7 +373,7 @@ export function LetterReadingPage() {
           // become silent again, not because a live path reaches it today.
           if (currentUser) {
             await claimLetterDelivery(token).catch((err) => {
-              Sentry.captureException(err);
+              reportUnlessBlip(err, { context: 'letter-reading.claimOnLoad' });
             });
           }
 
@@ -467,7 +467,9 @@ export function LetterReadingPage() {
   useEffect(() => {
     if (!currentUser || !token || !delivery) return;
     if (delivery.receiver_profile_id) return; // already claimed
-    claimLetterDelivery(token).catch((err) => Sentry.captureException(err));
+    claimLetterDelivery(token).catch((err) =>
+      reportUnlessBlip(err, { context: 'letter-reading.lateAuthClaim' })
+    );
   }, [currentUser?.id, token, delivery?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 1-to-1 auth handler: calls create-and-open-letter edge function → verifyOtp

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import * as Sentry from '@sentry/react';
+import { reportUnlessBlip } from '@/lib/report-unless-blip';
 import { useAuth } from '@/auth/AuthContext';
 import { needsTermsAcceptance, recordTermsAcceptance } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
@@ -67,7 +67,10 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
       analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION });
       setShowDialog(false);
     } catch (err) {
-      Sentry.captureException(err, { tags: { area: 'terms-acceptance-gate' } });
+      reportUnlessBlip(err, {
+        context: 'terms-acceptance-gate',
+        tags: { area: 'terms-acceptance-gate' },
+      });
       setAcceptError(
         'Could not save your acceptance. Check your connection and try again.'
       );
