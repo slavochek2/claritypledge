@@ -6,6 +6,144 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [technical]: Dropping a policy does not constrain a SECURITY DEFINER function — two correct branches merged into a consent bypass (P1236 / P1275)
+
+**Context:** `/transcribe` room membership was being fixed twice, in parallel, by two sessions that
+could not see each other. P1275 (on `main`, shipped 2026-09-08) added `create_transcribe_room()`, a
+`SECURITY DEFINER` function that writes the room and its creator's membership in one transaction —
+necessary because `transcribe_rooms`' SELECT policy is member-scoped (P1207), so `INSERT …
+RETURNING` is refused for a creator who is not yet a member. P1236 (on `w5`, unshipped since
+2026-09-03) made consent a **required argument** of `join_transcribe_room()`, written server-side in
+the same statement as the member row, and paired it with a contract migration that **drops the
+direct member INSERT policy** — so that "a member without consent" stops being representable. That
+invariant is what allows audio capture to be turned back on at all.
+
+Each is correct alone. Merged as they stood, `create_transcribe_room()` writes a
+`transcribe_room_members` row with `consent_given_at` NULL — and being `SECURITY DEFINER`, it never
+consults a policy, so dropping one constrains it not at all. `join_transcribe_room`'s own COMMENT
+claims to be "the ONLY way a transcribe_room_members row is created"; it would have been false for
+**every room creator**, while `transcribe-slice` refuses exactly an unconsented seat (403) — so the
+symptom would have been the room's own creator being the one participant never transcribed.
+
+**Decision:** State the rule at the level that generalizes: **an RLS policy is a constraint on
+callers that go through RLS. A `SECURITY DEFINER` function is not one of them.** Any invariant
+enforced by *removing* a policy must be re-asserted inside every definer function that writes the
+same table — the drop is not a fence around the table, it is a fence around one door. Before
+claiming a table-level invariant, enumerate the definer functions that write it
+(`select proname, prosecdef from pg_proc where prosrc ilike '%<table>%'`), not just its policies.
+
+The second, sharper half: **adding a parameter to a Postgres function is an OVERLOAD, not a
+replacement.** P1275's spec estimated the reconciliation as *"one `CREATE OR REPLACE` and one
+call-site argument"*. `CREATE OR REPLACE` with a new argument list creates a second function and
+leaves the consent-less 4-argument form callable — the bypass, intact, sitting next to its own fix,
+with nothing in the migration's output to say so. The correct shape is `DROP FUNCTION` (no CASCADE,
+so it also proves no view or trigger depends on it) then `CREATE`, which is client-breaking and
+therefore needs a `requires-frontend` marker that the `CREATE OR REPLACE` framing would never have
+prompted anyone to add.
+
+**Consequences:** Fixed by `20260909100000_p1236_e_create_room_requires_consent.sql`: `p_consent`
+required, same `IS NOT TRUE` guard and same message as the join path, `consent_given_at` written in
+the same INSERT as the member row, and `member_profile_id` returned so the client stops assuming
+its own argument answers whose seat it is. Both remaining writers now require consent; the table
+has no UPDATE policy at all, so consent cannot be edited after the fact through PostgREST.
+Cost of the miss if it had shipped: unconsented recording of a real person's voice.
+
+**References:** `supabase/migrations/20260909100000_p1236_e_create_room_requires_consent.sql`
+(held untracked until the deploy window) · `supabase/migrations/20260908210000_p1275_create_transcribe_room_rpc.sql` ·
+[P1275 spec](../features/done/2026-06-10/p1275_transcribe_room_creation_fails_rls.md) §"Interaction with P1236" ·
+2026-04-09 "SECURITY DEFINER can be silently stripped"
+
+---
+
+## 2026-09-09 [process]: When applying a migration would break co-tenants, verify it in a rolled-back transaction — and control-probe the rollback in both directions first
+
+**Context:** Migration (e) above could not be applied to the shared test database to be verified: it
+drops the 4-argument function every session running `main` calls, so applying it would have broken
+room creation for every co-tenant and failed both P1275 specs. The P270 pre-commit gate, in turn,
+refuses to commit a migration that has not been applied. Genuine deadlock — the same one that has
+kept `…_p1236_b_…` untracked since 2026-09-08.
+
+**Decision:** Verify inside `BEGIN; <migration>; <assertions>; ROLLBACK;`. That gets real
+compilation, real grants, and real behaviour against the real catalog, and leaves nothing behind.
+Two conditions make it trustworthy, and both were needed here:
+
+1. **Control-probe the rollback both ways.** A probe that reports "the function is gone after
+   rollback" reports the same thing if the `CREATE` never ran. Run the identical statement without
+   the rollback and confirm the probe sees it (1), then with the rollback and confirm it does not
+   (0). Only then does the transaction mean what you think.
+2. **Assert on the error MESSAGE, not the errcode.** The first run of these probes did the setup
+   as `authenticated`, hit a missing table grant, and got `42501` — the same errcode the consent
+   guard raises. Every refusal assertion passed for a reason that had nothing to do with consent.
+   Doing the setup as the owner and stashing ids in GUCs fixed it; asserting the message is what
+   makes it stay fixed. This is epistemic gate 2b's read-only-probe rule meeting gate 7b's
+   "green bounds what was modelled": the probe was neither destructive nor blind, but it was
+   briefly *vacuous*, which is the failure the errcode alone cannot show you.
+
+Also confirmed by the same technique, at no cost: the anon REVOKE is load-bearing rather than
+ceremonial — an un-revoked sibling function created in the same transaction reports
+`has_function_privilege('anon', …) = true`, the sixth instance of the P1065 default-grant trap.
+
+**Consequences:** Applies to any migration held back for a client cutover, which in this repo is
+every expand/contract pair. **The residue is real and worth naming: two migrations for one feature
+are now untracked in a single worktree, in git nowhere, and losing that worktree loses both.**
+The gate's escape hatch (`scripts/lib/gate-override.sh`) was deliberately not used — its own header
+records that an agent reaching for it reads as circumvention.
+
+**References:** [epistemic.md](../.claude/rules/epistemic.md) gates 2b, 7, 7b · P270 pre-commit
+migration gate · P1065 · spec Stage F-bis result table
+
+---
+
+## 2026-09-09 [process]: Two gates that could not fire, in one file, within an hour — and the first one had already been noticed and written down (P1236)
+
+**Context:** `migrate.sh`'s P886 coupling gate is one line: `git merge-base --is-ancestor
+<requires-frontend sha> origin/main`. A migration dropping a function the deployed bundle calls
+carried the marker `requires-frontend: 3255fd18b` — **P1275's own commit, the one that shipped the
+client being protected against.** That sha is already an ancestor, so the gate prints `coupling OK`
+and applies. An operator running `migrate.sh --env prod` would have dropped the function out from
+under the live bundle and returned `PGRST202` to every user starting a `/transcribe` room: exactly
+the outage the marker exists to prevent, and exactly what the migration's own header claimed it
+prevented.
+
+The wrong sha is the smaller half. The spec's pre-deploy checklist **already contained the
+observation** — *"it points at P1275's commit on `main`, which is already an ancestor, but the
+marker must still be confirmed rather than assumed"* — written by the same agent, in the same
+session, and then filed as a to-do rather than treated as a live hole. The defect was seen,
+articulated, and shipped.
+
+Then it recurred **in the same file, while fixing it.** The post-condition added to stop
+`DROP FUNCTION IF EXISTS` failing open compared `pg_get_function_identity_arguments()` against the
+literal `'text, text, uuid, uuid'`. That function returns argument *names* too — the real value is
+`'p_code text, p_display_name text, …'` — so the check could never match and passed cleanly with
+the offending 4-argument function sitting in the catalog. Caught only by running the failure path:
+the drift case must RAISE, and it did not.
+
+**Decision:** Two rules, and the second is the one that would have caught both.
+
+1. **A coupling marker must name a commit that is NOT yet on `origin/main`.** That is not a
+   convention, it is the definition — the gate's only question is "is this deployed yet", so a
+   marker naming an already-deployed commit is structurally inert. Before writing one, run the
+   gate's own predicate against it and confirm it answers *no*. A marker that can never block is
+   worse than no marker, because it reads like protection and stops anyone looking.
+2. **Extend epistemic gate 7 to say what it already means: a gate you have not watched FAIL is not
+   a gate, and "not watched" includes 'I reasoned about the predicate'.** Both defects here are
+   invisible to inspection and obvious to execution — one line of `merge-base`, one rolled-back
+   `DO` block. The tell in both cases was a check whose failure path had never been run even once.
+
+**Consequences:** This sits directly on top of 2026-09-08's P1279 finding (a gate whose lock did
+not cover the window it claimed) and P1063's four prod RPCs carrying lockdowns that had never taken
+effect. The family is now large enough to name: **this repo's characteristic defect is not missing
+protection, it is protection that cannot fire.** Every instance was found by executing the failure
+path and none by reading the code — including, twice in one hour, by an author who had just
+finished writing about the previous one. **Writing a verification principle is not performing it,
+and having just written it appears to raise the risk of believing it was applied** — the same
+sequencing already recorded on 2026-09-08.
+
+**References:** `scripts/migrate.sh:446` · `supabase/migrations/20260909100000_p1236_e_create_room_requires_consent.sql`
+· [epistemic.md](../.claude/rules/epistemic.md) gate 7 · P886 · P1053 · P1063 · P1279
+
+---
+
 ## 2026-09-09 [process]: The reviewed bytes live in the database, not the run file — so promotion reads test, and refuses without accuracy evidence bound to those exact bytes
 
 **Context:** The AI-safety disagreement run (4 arguers, 4 points, 8 stories) was filed to test on
