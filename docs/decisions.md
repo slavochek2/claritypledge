@@ -6,6 +6,70 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [technical]: Two gates that are each correct compose into a dead interlock, and the losing side reports success (P1268)
+
+**Context:** P1268 fixed worktree locks that were born ORPHAN because `claim` stamped the
+git-ops.sh process's own PID, which never outlives the command. The fix added heartbeat-based
+liveness plus `adopt`/`heartbeat` subcommands and two hooks. Canaries were green — 38 assertions,
+including several specifically about heartbeat ownership.
+
+**The mechanism was completely inert, and the tests could not see it.** Three rules, each defensible
+alone, chain into a closed loop:
+
+1. `claim` writes `SESSION_ID=<hostname>-<pid>-<epoch>` and a fresh heartbeat — the slot reads LIVE.
+2. `adopt` refuses a LIVE lock without `--nonce` (correct: adopting an occupied slot is a seizure).
+   The SessionStart hook has no nonce, so adopt fails on every freshly claimed slot.
+3. The agent's session id therefore never reaches the lockfile, and `cmd_heartbeat` — which requires
+   `LOCK_PID == $$` (never true; that IS the original defect) or `CP_SESSION_ID == LOCK_SESSION_ID` —
+   can never match. It **exits 0** and writes nothing.
+
+Reproduced against the real `claim`: `heartbeat` returned rc=0 with a byte-identical timestamp;
+`adopt` returned rc=1. So a slot aged back to ORPHAN after the TTL *while its owner was still
+working* — the exact outcome the heartbeat exists to prevent. **The fix had moved the bug twice**:
+first from milliseconds to 12 hours, then from "wrong lifetime" to "never fires at all".
+
+**Why 38 green assertions missed it.** Every heartbeat test hand-adopted with `--session` first,
+which binds the session id and makes the later beat match. The hooks never do that — SessionStart
+fires *before* the claim. The suite tested the convenient sequence, never the one the system
+actually produces. This is [epistemic.md](../.claude/rules/epistemic.md) gate 7b in its purest form:
+green bounded what was *modelled*, and the unmodelled input was the only one that ships.
+
+**Decision:** `claim` binds `CP_SESSION_ID` when present, falling back to the process identity for a
+human running it by hand. The regression test asserts the real `claim -> heartbeat` sequence, with
+the heartbeat **pre-aged** so a successful beat is visible — without that, the assertion would pass
+on an unchanged timestamp whenever claim and beat land in the same second, which is the same
+vacuity that hid the defect. Gate 7: against the unfixed code the suite fails 2 of 42, exit 1.
+
+**The generalizable rule: a refusal and an authorization that depend on each other must be tested
+as a pair, from the entry point the system really uses.** Each of the three rules above passed its
+own test. Nothing tested the composition, because composition has no owner — it is not a unit, and
+the integration test was written by the same author who chose the convenient setup. When two gates
+reference each other's state, write the test that starts where the *caller* starts, not where the
+fixture is easiest to build.
+
+**Second finding, same shape, found by re-reading rather than by any test:** `status` printed the
+slot's nonce to any caller and the contention summary printed the holder's nonce to the session
+being *refused* — while `--nonce` bypasses both the containment check and the LIVE refusal. The
+refusal message was handing over the credential that defeats it. The suite proved `adopt` refuses;
+nothing asked what the neighbouring read-only command volunteers. **Auditing a gate is not auditing
+the surface around it.** Fixed with two assertions plus a control (the owner inside the slot must
+still see it, or the assertion would pass equally against a command that printed nothing).
+
+**Process note, recorded because it inverted a claim made to the founder.** Two subagent reviewers
+were spawned. Both went idle twice without reporting, and this session told the founder "0 of 2
+reports received" and completed the review inline. Both then delivered in full — 14 defects between
+them, including the blocker above, which the inline review had not found. **Idle is not
+finished-reporting, and a chase is worth more than a re-spawn**: the correct ratio was 2 of 2, and
+the count stated to the founder was wrong in the direction that undersold the evidence. Gate 9b
+asks for the ratio; it should also say that the ratio is provisional until the agents are gone.
+
+**Near-miss worth keeping.** During the rebase, a commit failed to apply and looked already-landed —
+its headline change was on `main`. The obvious move was `git rebase --skip`. Reading its contents
+first showed it carried seven files: the two hooks, the lock code, `pre-flight.sh` and both new
+canaries. Only the one small piece was already on main. Skipping would have merged P1268 with its
+core missing **and reported success**. Rule: before skipping a commit that "looks applied", diff its
+full file list against the target, never just the change you remember writing.
+
 ## 2026-09-09 [process]: An empty index is not a quiet checkout — the ship race is won or lost inside the pre-commit hook, not at the moment you look (P1282)
 
 **Context:** Shipping P1282 on the shared main checkout, `git-ops.sh ship`'s branch-born seed step
