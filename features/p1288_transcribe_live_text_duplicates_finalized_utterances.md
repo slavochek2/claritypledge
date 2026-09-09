@@ -75,6 +75,66 @@ duplication is in the page's diffing, not the hook — check whether the effect 
 **Not yet ruled out:** two mounted copies of the page, or `sentLengthRef` resetting on a
 re-mount while `transcript` survives.
 
+## Second measurement, 2026-09-09 — the duplication is STEADY, which kills one hypothesis
+
+The founder ran a second live session on the phone against prod while it was watched
+(room `9XU2YJ`, 87 seconds). Broken into 10-second buckets:
+
+| bucket | rows | distinct | ratio |
+|---|---|---|---|
+| 0 | 20 | 14 | 1.43 |
+| 1 | 26 | 15 | 1.73 |
+| 2 | 46 | 23 | 2.00 |
+| 3 | 21 | 12 | 1.75 |
+| 4 | 6 | 4 | 1.50 |
+| 5 | 48 | 26 | 1.85 |
+| 6 | 12 | 7 | 1.71 |
+| 7 | 14 | 7 | 2.00 |
+| 8 | 3 | 2 | 1.50 |
+| **total** | **196** | **109** | **1.80** |
+
+**The ratio does not climb with session length.** It sits around 1.8 from the first bucket
+to the last, and the worst single repeat fell from 11 (room `RG7YQF`) to 5 here.
+
+**This rules out a runaway accumulator.** If the page were re-sending an ever-growing
+history — `sentLengthRef` resetting while `transcript` survived, or the whole transcript
+being re-diffed — the ratio would rise as the session lengthened, because each replay would
+carry more text than the last. A flat ~1.8 means each finalized utterance is written
+approximately **twice, once**, and then never again.
+
+That is the signature of a single duplicate emission per result, not a replay. It promotes
+the `onresult` hypothesis above (a re-fire whose `resultIndex` points back one result,
+re-appending exactly one already-final result) and demotes the page-diffing alternative.
+`sentLengthRef` is set synchronously before the `await`, so two effect runs against one
+`transcript` value cannot both send — consistent with what the ratio shows.
+
+**It does not yet CONFIRM the hypothesis.** The disproof in the previous section is still the
+thing to run: log `event.resultIndex` and `event.results.length` per `onresult` on the phone.
+A steady 1.8 is consistent with a duplicate emission but does not identify which layer emits
+it. **Do not write the fix off this table alone.**
+
+**Founder observation on that same run, and it matters more than the table.** Asked to watch
+the indicator: *"reconencitng microhone was not flashing but now i saw it flashing"* /
+*"so it does flsh now"*. So during the 87 seconds of continuous speech the recogniser was
+**not** cycling — the reconnect state appeared only afterwards, once speaking stopped.
+
+**That decouples the two symptoms, which had been assumed to be one.** The duplication
+happened while the recogniser was running steadily, so session restarts cannot be causing it.
+A restart-driven duplication would have to coincide with the flashes, and it did not. This is
+consistent with the flat 1.8 ratio above and with the `onresult` hypothesis; it is evidence
+against anything involving `onend`/restart.
+
+It also reframes the flashing itself as **probably benign** — the recogniser ending when
+speech stops is ordinary behaviour, and the UI showing "Reconnecting microphone…" in the gap
+is a copy problem (it reads as a fault to the user), not a mic fault. Two separate issues that
+looked like one:
+
+1. duplicated utterances while recognition runs — this spec;
+2. a resting state that announces itself as a failure — cosmetic, and NOT the 2026-09-01
+   churn, which fired *during* speech with `heard=false`.
+
+**Do not merge these.** Conflating them is what produced P1236's overstated root cause.
+
 ## A second finding this run produced, and it is about P1236, not this bug
 
 **P1236's recorded root cause does not explain what prod is doing.** That spec concludes
