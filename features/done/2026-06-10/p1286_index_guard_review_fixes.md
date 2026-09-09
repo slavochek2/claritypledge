@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000082
 workstream: infrastructure
 created_date: '2026-09-09'
 tags: [pre-commit, git-index, tooling, review-followup]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, inline]
 flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: review
+completed_at: 2026-09-09
 ---
 
 # P1286: The index-integrity guard shipped with three blind spots and two vacuous assertions
