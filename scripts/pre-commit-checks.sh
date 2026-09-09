@@ -593,10 +593,11 @@ P1116_ALL_STAGED=$(git diff --cached --name-only 2>/dev/null || echo "")
 # `\.py` silently dropped test-route-brief.sh — a bash file in a list of Python ones — so
 # staging only that canary ran none of the three. Found by code review, not by any canary,
 # because a canary cannot detect that it was never invoked. (P1116, 2026-08-19.)
-P1116_STAGED=$(echo "$P1116_ALL_STAGED" | grep -E '^(\.claude/(settings\.json|hooks/(block-banned-git\.py|route-brief\.sh))|scripts/(test-block-banned-git\.py|test-route-brief\.sh|test-validate-command-refs\.py|validate-command-refs\.py))$' || true)
+P1116_STAGED=$(echo "$P1116_ALL_STAGED" | grep -E '^(\.claude/(settings\.json|hooks/(block-banned-git\.py|route-brief\.sh))|scripts/(test-block-banned-git\.py|test-p1131-banned-git-canary-env-isolation\.sh|test-route-brief\.sh|test-validate-command-refs\.py|validate-command-refs\.py))$' || true)
 if [ -n "$P1116_STAGED" ]; then
     for _p1116 in \
         "Banned-git hook canary (P1116):python3 scripts/test-block-banned-git.py" \
+        "Banned-git canary env isolation (P1131):bash scripts/test-p1131-banned-git-canary-env-isolation.sh" \
         "Route-brief hook canary (P1116):bash scripts/test-route-brief.sh" \
         "Command-ref validator canary (P1116):python3 scripts/test-validate-command-refs.py"
     do

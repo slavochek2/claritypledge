@@ -47,8 +47,21 @@ import tempfile
 # it is precisely the one it runs in for real. Scrub git's repo-scoping vars once
 # here rather than per-subprocess: every child of this script — the fixture's git
 # calls AND the hook under test — must see the scratch repo, never the caller's.
+# Widened 2026-09-09 (P1131). The original list was GIT_DIR/GIT_WORK_TREE only; the
+# blast radius measured that day was larger. `git init <dir>` does NOT create
+# <dir>/.git when GIT_DIR is set -- it re-initialises GIT_DIR, writing core.bare
+# into that repo's SHARED config, and core.worktree too when GIT_WORK_TREE is also
+# set. Both landed on the real repository four times before the cause was found:
+# core.bare=true and core.worktree=<...>/.claude/worktrees/w22, after which every
+# git command in it failed with "this operation must be run in a work tree", for
+# every concurrent session. So the scrub covers the whole repo-scoping family, not
+# the two variables git happens to export to hooks.
+# scripts/test-p1131-banned-git-canary-env-isolation.sh scenario 0 fails if this
+# list stops covering everything that canary injects.
 for _v in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE",
-           "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR", "GIT_PREFIX"):
+           "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR", "GIT_PREFIX",
+           "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE",
+           "GIT_CEILING_DIRECTORIES", "GIT_TEMPLATE_DIR"):
     os.environ.pop(_v, None)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
