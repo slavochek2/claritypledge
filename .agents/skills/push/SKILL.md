@@ -242,6 +242,31 @@ takes the lock to do it.
   re-check your own ahead/behind afterwards — their commits may already include yours.
 - **Lock free** → continue to the budget check below.
 
+**While waiting, poll on a SHORT timer — and re-probe before answering a human message.**
+`ScheduleWakeup` takes an explicit delay; a lock wait wants its floor, not a five-minute default.
+Cap it at 60s while `main.lock` is held, and re-run the probe before replying to any human message
+that arrives in between — answering *"still waiting"* without having looked spends a whole turn to
+learn nothing. The timer is the remedy; the re-probe only covers the gap inside it.
+
+Carry the **LIVE** qualifier from the bullet above into every re-check — re-confirm the holder with
+`ps -p <PID>`. A lock whose holder is dead never clears, so an unconditional wait loops forever;
+report it as stale instead.
+
+(2026-09-09: `main.lock` was observed held at 10:50:00 by a co-tenant `ship p1284 --resume`, and a
+300s wakeup was scheduled. Three human messages arrived over the following 15 seconds and each got
+a *"still waiting, nothing to act on"* with no probe behind it — the directly-evidenced fact here.
+A fourth message forced a re-check, the lock was free, and `push-docs` then ran to completion in
+76s. **When it was released is unrecorded** — held at 10:50:00, free at 10:52:32, no observation in
+between — so the wait's avoidable cost is bounded at ≤152s, never measured; do not quote a figure
+inside that window. The founder read the three dead turns as the push demanding repeated
+confirmation and asked what was broken. Nothing was: `permissionMode` was `bypassPermissions`,
+`PUSH_DOCS_ASSUME_YES` auto-confirmed the promote prompt, and the flag's waiver
+(`pre-push-checks.sh:308-318`) printed `✅ Push allowed` and `exit 0`ed on every push *before*
+Layer 3 — which only the main push would have reached anyway, since `:326` skips non-main refs.
+Three identical log lines are three waiver exits, not three waived TTY confirms. **No gate in the
+run asked for anything; the confirmations the user experienced were this skill's own dead
+turns.**)
+
 (2026-09-01, the session next door: window granted, burned by a 2-minute lock wait plus CI polling,
 flag lapsed, second `push-on` needed. Same *symptom* as the case above, different *cause* — the
 20-minute budget cannot help when the time goes to a lock that was never yours to take.)
