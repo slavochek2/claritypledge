@@ -6,6 +6,82 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [technical]: git exports GIT_DIR and GIT_INDEX_FILE to its hooks, and those override `git -C` — so a canary can corrupt the index of the commit that invoked it (P1273)
+
+**Context:** Commits from a worktree were blocked by seven spec files the commit had never
+touched — files that exist in no ref, no tree and on no disk. During the hook run the staged
+list went from 6 paths to 1497. Four sessions eliminated a corrupt index (fails identically from
+a brand-new worktree), a stale branch (a worktree 65 commits behind commits fine; the failing one
+was 26 behind), untracked leftovers, and a backwards diff range. All four were hypotheses about
+**state**. The defect was about **environment**.
+
+**Cause:** `git` exports `GIT_DIR` and `GIT_INDEX_FILE` to its hooks, and those **override
+`git -C <path>`**. `scripts/test-git-ops-gc.sh` drives the real repo through `git -C "$ROOT"` and
+was missing the P785 unset its sibling canaries carry. Run from pre-commit it therefore aimed
+every fixture operation at the *committing worktree's* index, importing the fixture's tree — which
+is why the blocking files were specs long since moved to `features/done/`. The 1497-path index was
+reconstructing an old tree, not any current state, so gates that look at *added* files saw
+hundreds.
+
+Measured, on the identical staged set, with a matched control:
+
+| Run | Index | Exit |
+|---|---|---|
+| gc canary **with** hook env | 6 → **1497** | 0 |
+| gc canary **without** hook env | 6 → 6 | 0 |
+| after the unset, with hook env | 7 → 7 | 0, still 5 passed / 0 failed |
+
+**The canary exited 0 the entire time.** That is the whole reason it survived four investigations:
+a check that corrupts its caller and reports success is invisible to every gate downstream of it,
+and to every person reading the summary line.
+
+**Two earlier "findings" collapse into this one.** The confirmed `GIT_DIR` amplifier — 5 staged
+paths reading as 18 because HEAD resolved to main's — was the same mechanism through a smaller
+aperture, a sibling variable of the one that mattered. And "a failed commit leaves the index
+expanded, so attempt N+1 starts worse than attempt N" was never a second bug: it is this one, with
+the expansion simply never rolled back. Recording them as two separate partial mechanisms made the
+remaining gap look larger and stranger than it was.
+
+**Decision:** Guard it at the chokepoint rather than auditing shell scripts forever. `run_quiet` —
+which every check in `pre-commit-checks.sh` runs through — moved to `scripts/lib/run-quiet.sh` and
+now fingerprints the staged file list before and after each step, failing **by name** when a step
+moved it. `INDEX_MUTATORS` allowlists the skills sync, which stages by design.
+
+**The fingerprint is name-only, deliberately.** `pre-commit-checks.sh` runs `eslint --fix` and
+re-stages the same files, changing content but not the file set. A content-sensitive fingerprint
+would refuse that legitimate step; a name-only one tolerates it while still catching the failure
+that matters, which is the *set* being replaced. This is a real blind spot — a step that swaps one
+file's staged content for another's passes — and it is the right trade for now because the failure
+class observed, and the one that blocks commits, is set corruption.
+
+**What the diagnosis actually cost, and why.** The control that pointed at it existed in the first
+hour: *the same script standalone exits 0; as a hook it fails*. It was read as "the hook
+environment differs" and filed as an unexplained difference, rather than as "the hook environment
+is exported into everything the hook shells out to". A second confound hid inside that sentence —
+the hook is a **symlink to the main checkout's** copy of the script, while `./scripts/...` from a
+worktree runs the worktree's copy, so "same script" was never true. The canaries it invokes,
+though, resolve by relative path and do come from the worktree, which is why patching the
+worktree's copy unblocked the commit immediately.
+
+**Generalization worth keeping:** when a tool behaves differently under a hook, a CI runner, or any
+parent that sets environment for you, the first suspect is the environment that parent *exports*,
+not the state of the repository. `git -C` and `--git-dir` look authoritative and are not: the
+environment wins. Any script that drives a repo other than the ambient one must drop
+`GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR` before its first git
+call — P785 said this and the rule reached ten of thirteen sibling canaries, which is how the
+eleventh went unnoticed for as long as it did.
+
+**Audit of the rest:** of 13 canaries lacking the unset, 10 never call git,
+`test-escalator-exit-codes.sh` uses a git stub, `test-pre-push-refclass.sh` only reads refs from
+the shared common dir, and `test-multi-harness-routing.sh` reads `git -C "$ROOT" show :<path>`,
+which under a hook reads the caller's index rather than the repo's — wrong, but read-only. No
+second corrupting instance.
+
+**Deferred, not dropped:** the gates that re-derive their own file list instead of receiving the
+commit's are what amplified this into a wall, and they remain four answers to one question. Filed
+as P1281. With the writer fixed nothing is currently misjudging anything, so holding the guard off
+`main` for that hardening would have kept the failure it prevents live.
+
 ## 2026-09-09 [process]: Three probes in one session returned green while measuring nothing, and the author wrote the rule against that in the same sitting
 
 **Context:** P1268 shipped with what looked like thorough verification — every refusal watched
