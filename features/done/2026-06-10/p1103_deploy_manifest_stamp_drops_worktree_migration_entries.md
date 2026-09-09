@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 219
@@ -8,8 +8,8 @@ workstream: infrastructure
 date_reported: 2026-08-18
 created_date: 2026-08-18
 tags: [migrations, deploy-manifest, worktrees, tooling]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-09-09
 ---
 
 # P1103: stamp-deploy-manifest rebuilds the migration list from the local checkout, silently deleting entries for migrations that live in another worktree
