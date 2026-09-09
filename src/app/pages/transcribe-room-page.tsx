@@ -106,7 +106,13 @@ export function TranscribeRoomPage() {
     onScroll: onChatScroll,
     isAtBottom,
     scrollToBottom,
-  } = useStickToBottom<HTMLDivElement>(`${messages.length}:${interimTranscript.length}`);
+  } = useStickToBottom<HTMLDivElement>(
+    // Length ALONE can collide: a removal and an arrival in the same update leave the count
+    // unchanged, and the list would silently stop following while new content is on screen.
+    // The newest id makes that unrepresentable. Interim length is in the key so the words
+    // being spoken right now stay visible instead of sitting just below the fold.
+    `${messages.length}:${messages[messages.length - 1]?.id ?? ''}:${interimTranscript.length}`,
+  );
 
   // ── Auth gate (DW-1) ────────────────────────────────────────────────────
   useEffect(() => {
