@@ -1,63 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { SEO } from "@/app/components/seo";
-import { ClarityLoader } from "@/components/ui/clarity-loader";
+import { useIframeLoadOverlay } from "@/components/ui/iframe-load-overlay";
 import { analytics } from "@/lib/mixpanel";
 
 const CALENDAR_URL =
   "https://calendar.google.com/calendar/appointments/schedules/AcZssZ1vKcTEq34JPaaW2LGytox5iJL7xpYo32BVkivWxB6lbuoAPEOsmMlYb1z0OTE5rEy4yt1mSeIe?gv=true";
 
-// How long to keep covering the embed AFTER its `load` event, while Google's own
-// client-side app renders the picker.
-//
-// A fixed constant is the wrong shape here. Any value is calibrated to one
-// connection speed: 2200ms covered the measured gap on a fast link, but a slow
-// client makes Google's render slower too, and the cover would run out mid-blank
-// — exactly the bug this fix exists to remove.
-//
-// So derive it from the client's own demonstrated speed. How long the embed
-// document itself took to fetch is a direct, already-measured proxy for how slow
-// this particular visitor's connection is, and Google's subsequent render scales
-// with the same conditions. Measured ratio on a fast cold load: fetch ~5.5s,
-// render gap ~1.6s ≈ 0.3. The multiplier is set above that with margin.
-const FADE_RATIO = 0.45;
-const FADE_MIN_MS = 2200; // never shorter than the fast-connection gap measured
-const FADE_MAX_MS = 12000; // bounded so a stalled fetch can't pin the overlay up
-
-function fadeMsFor(fetchDurationMs: number): number {
-  return Math.min(FADE_MAX_MS, Math.max(FADE_MIN_MS, Math.round(fetchDurationMs * FADE_RATIO)));
-}
+// P1019 extracted the overlay and every measurement behind it into
+// components/ui/iframe-load-overlay.tsx, so /intro and /chiang-mai share one
+// copy of the reasoning rather than two. Behaviour here is unchanged.
 
 export function IntroPage() {
-  // P1017: the embed is this page's only content, and `LazyRoute`'s Suspense
-  // fallback is bound to the lazy chunk fetch — it unmounts the moment the chunk
-  // resolves, before the iframe's own request has even started. Nobody owned the
-  // window in between, so the whole content area painted blank (measured: zero
-  // elements with visible text below the logo nav).
-  const [embedLoaded, setEmbedLoaded] = useState(false);
-  // P1017 (second pass): `onLoad` is NOT "the calendar is on screen". Measured
-  // against the real embed on a cold load, the iframe's load event fired at
-  // ~6.1s but Google's own app did not paint its picker until ~7.8s — so
-  // unmounting the overlay at `onLoad` handed the visitor a *second* blank
-  // window of ~1.6s. Cross-origin means there is no signal for "Google finished
-  // painting", so instead of guessing a moment to disappear, the overlay fades:
-  // the calendar shows through progressively as it paints, and pointer-events
-  // are released immediately so a calendar that IS ready is never held behind a
-  // spinner. Nothing here can strand the visitor — worst case is a transparent,
-  // non-interactive layer.
-  const [overlayGone, setOverlayGone] = useState(false);
-  // Set at `onLoad` from how long the embed's own fetch took — see fadeMsFor.
-  const [fadeMs, setFadeMs] = useState(FADE_MIN_MS);
-  // Wall-clock at which the iframe began loading. A ref, not state: writing it
-  // must not re-render, and it is read exactly once.
-  const embedStartedAt = useRef<number>(performance.now());
-
-  useEffect(() => {
-    if (!embedLoaded) return;
-    // Backstop for `transitionend` never firing (reduced-motion, background tab,
-    // interrupted transition). Slightly longer than the fade itself.
-    const t = setTimeout(() => setOverlayGone(true), fadeMs + 300);
-    return () => clearTimeout(t);
-  }, [embedLoaded, fadeMs]);
+  const { iframeProps, overlay } = useIframeLoadOverlay({
+    testId: "intro-calendar-loading",
+    label: "Loading the booking calendar",
+  });
 
   useEffect(() => {
     analytics.track("intro_page_viewed", {
@@ -95,50 +52,9 @@ export function IntroPage() {
           className="block min-h-[1000px] sm:min-h-[580px]"
           style={{ border: 0, height: "calc(100dvh - 15rem)" }}
           title="Book your free alignment audit"
-          // The embed is cross-origin, so its internal state is unreadable —
-          // `onLoad` is the only signal available, and it fires on document load
-          // regardless of origin.
-          onLoad={() => {
-            // Scale the post-load cover to this client's demonstrated speed.
-            setFadeMs(fadeMsFor(performance.now() - embedStartedAt.current));
-            setEmbedLoaded(true);
-          }}
+          {...iframeProps}
         />
-        {!overlayGone && (
-          // Overlay, not a swap: the iframe stays mounted underneath (its request
-          // is already in flight) and nothing reflows when this leaves.
-          // `ClarityLoader`, not `ClarityPageLoader` — the latter is a page-level
-          // gate whose `min-h-screen` would drop the spinner below the fold inside
-          // an already-rendered layout (decisions.md 2026-04-11 [technical]).
-          <div
-            data-testid="intro-calendar-loading"
-            // The visual loader is the whole point of this fix; without a live
-            // region a screen-reader user gets the pre-fix experience — no signal
-            // that anything is loading, and none that it finished.
-            role="status"
-            aria-live="polite"
-            aria-label="Loading the booking calendar"
-            // Once the fade starts the overlay is decorative cover, not status —
-            // and it must stop intercepting clicks on a calendar that may already
-            // be usable underneath it.
-            aria-hidden={embedLoaded || undefined}
-            onTransitionEnd={() => setOverlayGone(true)}
-            style={{ transitionDuration: `${fadeMs}ms` }}
-            className={`absolute inset-0 bg-background transition-opacity ease-out ${
-              embedLoaded ? "pointer-events-none opacity-0" : "opacity-100"
-            }`}
-          >
-            {/* Centring inside the overlay would put the spinner at the middle of a
-                box up to 1000px tall — on a 320x700 phone that lands within ~110px
-                of the bottom edge, and below the fold on anything shorter. It would
-                still satisfy `toBeVisible()` while the visitor saw an empty screen,
-                which is the exact bug. `sticky` centres it in the *visible* slice of
-                the box instead, at every viewport height. */}
-            <div className="sticky top-0 flex h-[100dvh] max-h-full items-center justify-center">
-              <ClarityLoader size="lg" />
-            </div>
-          </div>
-        )}
+        {overlay}
       </div>
     </>
   );

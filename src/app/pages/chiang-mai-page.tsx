@@ -14,6 +14,7 @@ import { SEO } from "@/app/components/seo";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { buildEmbedUrl, SUBSCRIBE_URL } from "@/lib/chiang-mai-calendar";
 import { withUtm } from "@/lib/utm";
+import { useIframeLoadOverlay } from "@/components/ui/iframe-load-overlay";
 
 // md breakpoint — below it the week grid is unreadably cramped, agenda list wins
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -26,6 +27,10 @@ const SUBSCRIBE_LINK = withUtm(SUBSCRIBE_URL, {
 });
 
 export function ChiangMaiPage() {
+  // P1019: same defect P1017 fixed on /intro — LazyRoute's Suspense fallback
+  // covers the lazy chunk fetch only and unmounts before the iframe's own
+  // request starts, so nobody owned the window in between and the calendar box
+  // painted blank. The overlay is shared with /intro rather than copied.
   const [isDesktop, setIsDesktop] = useState(
     () => window.matchMedia(DESKTOP_QUERY).matches
   );
@@ -36,6 +41,15 @@ export function ChiangMaiPage() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  // `resetKey: isDesktop` — the WEEK/AGENDA swap below changes the iframe's src
+  // while the page is open, which starts a new navigation and re-opens the blank
+  // window. Without the reset the overlay would already be gone by then.
+  const { iframeProps, overlay } = useIframeLoadOverlay({
+    testId: "chiang-mai-calendar-loading",
+    label: "Loading the events calendar",
+    resetKey: isDesktop,
+  });
 
   return (
     <div className="bg-background text-foreground">
@@ -65,12 +79,19 @@ export function ChiangMaiPage() {
         </a>
       </header>
 
-      {/* h-10 row above = 2.5rem — keep the calc in sync so row + iframe = exactly 100dvh */}
-      <iframe
-        src={buildEmbedUrl(isDesktop ? "WEEK" : "AGENDA")}
-        title="Clarity Pledge Chiang Mai events calendar"
-        className="block w-full border-0 h-[calc(100dvh-2.5rem)] min-h-[480px]"
-      />
+      {/* P1019: `relative` only — the wrapper carries no sizing of its own, so the
+          height pairing below stays entirely on the iframe and the overlay can
+          never push the embed around. */}
+      <div className="relative">
+        {/* h-10 row above = 2.5rem — keep the calc in sync so row + iframe = exactly 100dvh */}
+        <iframe
+          src={buildEmbedUrl(isDesktop ? "WEEK" : "AGENDA")}
+          title="Clarity Pledge Chiang Mai events calendar"
+          className="block w-full border-0 h-[calc(100dvh-2.5rem)] min-h-[480px]"
+          {...iframeProps}
+        />
+        {overlay}
+      </div>
     </div>
   );
 }
