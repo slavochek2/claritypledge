@@ -2103,7 +2103,11 @@ if [ -f "./scripts/sync-agent-skills.sh" ]; then
     # after P1284 landed. Probe for support and fall back to the repo-wide --check,
     # which is exactly what those branches ran before P1284 anyway.
     SYNC_SCOPE_FLAG="--staged-only"
-    if ! grep -q -- '--staged-only' ./scripts/sync-agent-skills.sh 2>/dev/null; then
+    # Anchor on the case ARM, not the bare string: the script's own usage comment
+    # names the flag too, so a bare grep would pass a script that merely documents
+    # it and still cannot parse it. Raised by the P1283 agent against the first
+    # version of this probe.
+    if ! grep -qE '^[[:space:]]*--staged-only\)' ./scripts/sync-agent-skills.sh 2>/dev/null; then
         SYNC_SCOPE_FLAG=""
     fi
     # shellcheck disable=SC2086
