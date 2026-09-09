@@ -145,6 +145,17 @@ check "dead PID + stale heartbeat -> ORPHAN" ORPHAN "$L"
 make_lock "$L" "$dead_pid" "Mon Jan 01 00:00:01 1990" "$(now_iso)"
 check "dead PID + FRESH heartbeat -> LIVE (the P1268 case)" LIVE "$L"
 
+# THE fixture the shape regex actually exists for. Verified 2026-09-09: BSD
+# `date -j -f` PARSES a well-formed stamp with trailing garbage, warning about the
+# extraneous characters and exiting 0 — so the ^...Z$ anchor in iso_to_epoch is the
+# only thing rejecting it. Every other malformed input below is caught by date itself,
+# which means deleting that anchor from ONE copy left the whole matrix green while the
+# copies genuinely disagreed, and disagreed PERMISSIVELY (garbage read as LIVE).
+# Found by adversarial review; demonstrated by removing the anchor from the extracted
+# pre-flight copy and watching all five original fixtures still agree.
+make_lock "$L" "$dead_pid" "Mon Jan 01 00:00:01 1990" "$(now_iso) junk"
+check "dead PID + fresh-looking heartbeat WITH TRAILING GARBAGE -> ORPHAN (fail closed)" ORPHAN "$L"
+
 # Fail-closed edges: a heartbeat that cannot be trusted must never read as fresh.
 make_lock "$L" "$dead_pid" "Mon Jan 01 00:00:01 1990" ""
 check "dead PID + EMPTY heartbeat -> ORPHAN (fail closed)" ORPHAN "$L"

@@ -349,6 +349,50 @@ if [[ -n "$claimed_slot" ]]; then
 fi
 
 echo
+# --- THE SEQUENCE THE HOOKS ACTUALLY PRODUCE: claim -> heartbeat ---
+# Every heartbeat assertion above hand-adopts with --session FIRST, which binds the
+# session id and makes the later heartbeat match. The hooks never do that: SessionStart
+# fires BEFORE the claim, and adopt refuses the resulting LIVE lock without a nonce. So
+# the suite was green while the mechanism was inert on every freshly claimed slot for a
+# full TTL window. Found by adversarial review, reproduced by command, fixed by binding
+# CP_SESSION_ID at claim time. This asserts the real sequence, not the convenient one.
+if true; then
+  hb_sess="claude-session-$$-$(date +%s)"
+  ( cd "$WT" && CP_SESSION_ID="$hb_sess" "$GO" claim p9002 claim-then-heartbeat ) >/dev/null 2>&1 || true
+  hb_slot=""
+  for _c in "$WT"/w*/.lock; do
+    [[ -f "$_c" ]] || continue
+    grep -q '^P_NUMBER=p9002$' "$_c" 2>/dev/null && { hb_slot="$(basename "$(dirname "$_c")")"; break; }
+  done
+  if [[ -z "$hb_slot" ]]; then
+    echo -e "${red}FAIL${nc}  could not claim a slot for the claim-then-heartbeat probe"; FAIL=$((FAIL+1))
+  else
+    hb_lock="$WT/$hb_slot/.lock"
+    # Precondition: claim must have bound the session id, not a process identity.
+    if grep -q "^SESSION_ID=$hb_sess$" "$hb_lock"; then
+      echo -e "${green}PASS${nc}  claim binds CP_SESSION_ID so the hook can match it"; PASS=$((PASS+1))
+    else
+      echo -e "${red}FAIL${nc}  claim did not bind CP_SESSION_ID (got: $(grep '^SESSION_ID=' "$hb_lock"))"; FAIL=$((FAIL+1))
+    fi
+    # Age the heartbeat so a successful beat is VISIBLE. Without this the assertion
+    # would pass on an unchanged timestamp whenever claim and beat share a second —
+    # the same vacuity that hid the defect in the first place.
+    before_hb="1990-01-01T00:00:00Z"
+    /usr/bin/sed -i '' "s|^HEARTBEAT=.*|HEARTBEAT=$before_hb|" "$hb_lock" 2>/dev/null \
+      || /usr/bin/sed -i "s|^HEARTBEAT=.*|HEARTBEAT=$before_hb|" "$hb_lock"
+    ( cd "$WT/$hb_slot" && CP_SESSION_ID="$hb_sess" "$GO" heartbeat "$hb_slot" ) >/dev/null 2>&1
+    after_hb="$(sed -n 's/^HEARTBEAT=//p' "$hb_lock" | head -1)"
+    if [[ "$after_hb" != "$before_hb" ]]; then
+      echo -e "${green}PASS${nc}  claim -> heartbeat actually advances the timestamp"; PASS=$((PASS+1))
+    else
+      echo -e "${red}FAIL${nc}  claim -> heartbeat left HEARTBEAT unchanged (the mechanism is inert)"; FAIL=$((FAIL+1))
+    fi
+    hb_nonce="$(sed -n 's/^NONCE=//p' "$hb_lock" | head -1)"
+    ( cd "$WT" && "$GO" abandon "$hb_slot" --nonce "$hb_nonce" ) >/dev/null 2>&1 || true
+  fi
+fi
+
+echo
 # --- nonce disclosure: `status` must not hand the seizure credential to a non-owner ---
 # `adopt --nonce <value>` bypasses BOTH the containment check and the LIVE refusal, so a
 # `status wN` run from outside the slot printing that value turns every refusal above into
