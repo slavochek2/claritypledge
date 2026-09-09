@@ -61,7 +61,21 @@ fi
 # This keeps total script output under ~5KB for passing runs (vs 100KB+ before).
 # P1273: run_quiet and the index-integrity guard live in a lib so the guard itself
 # can be canaried (scripts/test-index-integrity-guard.sh). See that file for the defect.
-RUN_QUIET_LIB="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/lib/run-quiet.sh"
+# Resolve the lib next to THIS SCRIPT, not via the worktree root. The pre-commit hook is
+# a symlink to the MAIN checkout's copy of this file, so a `--show-toplevel` lookup resolves
+# into the committing WORKTREE — and every worktree whose branch predates this lib would
+# then fail every commit with the FATAL below. That is the same "the hook's copy is not the
+# worktree's copy" confusion that produced P1273 in the first place, so it does not get to
+# cause a second outage. Follow the symlink chain to find where this script really lives.
+_pcc_self="${BASH_SOURCE[0]}"
+while [ -L "$_pcc_self" ]; do
+    _pcc_link="$(readlink "$_pcc_self")"
+    case "$_pcc_link" in
+        /*) _pcc_self="$_pcc_link" ;;
+        *)  _pcc_self="$(dirname "$_pcc_self")/$_pcc_link" ;;
+    esac
+done
+RUN_QUIET_LIB="$(cd "$(dirname "$_pcc_self")" && pwd -P)/lib/run-quiet.sh"
 if [ -f "$RUN_QUIET_LIB" ]; then
     # shellcheck source=scripts/lib/run-quiet.sh
     . "$RUN_QUIET_LIB"
