@@ -349,6 +349,48 @@ if [[ -n "$claimed_slot" ]]; then
 fi
 
 echo
+# --- nonce disclosure: `status` must not hand the seizure credential to a non-owner ---
+# `adopt --nonce <value>` bypasses BOTH the containment check and the LIVE refusal, so a
+# `status wN` run from outside the slot printing that value turns every refusal above into
+# instructions for defeating it. Found by re-reading the refusal paths after the canaries
+# were already green — the suite proved adopt refuses, and said nothing about what the
+# neighbouring read-only command volunteers.
+# The heartbeat test above deletes this lockfile on purpose, so re-establish one
+# rather than skipping — a guard that silently skips is how an assertion measures
+# nothing while the suite still reports a pass.
+if [[ -n "${claimed_slot:-}" ]]; then
+  ( cd "$WT" && "$GO" claim p9997 nonce-disclosure-probe ) >/dev/null 2>&1 || true
+  nonce_slot=""
+  for _cand in "$WT"/w*/.lock; do
+    [[ -f "$_cand" ]] || continue
+    if grep -q '^P_NUMBER=p9997$' "$_cand" 2>/dev/null; then
+      nonce_slot="$(basename "$(dirname "$_cand")")"; break
+    fi
+  done
+  if [[ -z "$nonce_slot" ]]; then
+    echo -e "${red}FAIL${nc}  could not establish a lock for the nonce-disclosure probe"; FAIL=$((FAIL+1))
+  else
+  real_nonce="$(sed -n 's/^NONCE=//p' "$WT/$nonce_slot/.lock" | head -1)"
+  claimed_slot="$nonce_slot"
+  outside_out="$( cd "$WT" && "$GO" status "$claimed_slot" 2>&1 )"
+  if [[ -n "$real_nonce" ]] && printf '%s' "$outside_out" | grep -qF "$real_nonce"; then
+    echo -e "${red}FAIL${nc}  status from OUTSIDE the slot disclosed the nonce"; FAIL=$((FAIL+1))
+  else
+    echo -e "${green}PASS${nc}  status from outside the slot does not disclose the nonce"; PASS=$((PASS+1))
+  fi
+  # Control: the owner standing in the slot must still be able to read it, or the
+  # assertion above would pass just as well against a status command that prints nothing.
+  inside_out="$( cd "$WT/$claimed_slot" && "$GO" status "$claimed_slot" 2>&1 )"
+  if [[ -n "$real_nonce" ]] && printf '%s' "$inside_out" | grep -qF "$real_nonce"; then
+    echo -e "${green}PASS${nc}  control: the owner inside the slot still sees the nonce"; PASS=$((PASS+1))
+  else
+    echo -e "${red}FAIL${nc}  control: the owner cannot see their own nonce — redaction is too broad"; FAIL=$((FAIL+1))
+  fi
+  ( cd "$WT" && "$GO" abandon "$nonce_slot" --nonce "$real_nonce" ) >/dev/null 2>&1 || true
+  fi
+fi
+
+echo
 if assert_outer_index_untouched; then
   echo -e "${green}PASS${nc}  the canary did not touch the caller's index"
   PASS=$((PASS + 1))
