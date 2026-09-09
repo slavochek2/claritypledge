@@ -6,8 +6,9 @@ workstream: infrastructure
 created_date: '2026-09-08'
 tags: [worktree, git-ops, pre-flight, session-lifecycle]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, inline]
+flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
