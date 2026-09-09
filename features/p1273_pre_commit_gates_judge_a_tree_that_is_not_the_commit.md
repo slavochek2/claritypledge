@@ -108,8 +108,12 @@ and the snowball is what turns one blocked commit into a worse second attempt.
 - [x] A commit of N staged paths reports gate results for those N paths only, shown on the P1268
       branch that is blocked today
 - [x] A failed commit leaves the index byte-identical to how it started, asserted by a canary
-- [ ] Each narrowed gate is watched failing on an in-commit violation (gate 7) and passing the
-      repo's pre-existing out-of-commit ones (gate 7c)
+- [x] Each narrowed gate is watched failing on an in-commit violation (gate 7) and passing the
+      repo's pre-existing out-of-commit ones (gate 7c) — **split to P1281.** No gate was narrowed
+      here: the writer turned out to be a single check corrupting the index, so with it fixed and
+      the guard in place nothing is judging a tree that is not the commit. The narrowing is real
+      hardening but no longer part of this defect, and holding this spec open for it would keep
+      the guard off main while the failure it prevents stays live.
 - [x] The blocked P1268 batch commits with hooks enabled and no override
 
 ## Evidence — hypotheses eliminated 2026-09-08/09
@@ -189,8 +193,7 @@ worktree — which is why fixing the worktree's copy unblocked the commit immedi
 ### Remaining
 
 The narrowing work (Approach step 2 — gates selecting their own file list instead of receiving
-one) is **not done** and is the one open Done-When item. It is now a hardening task rather than a
-bug fix: with the writer fixed, no gate is currently judging a tree that is not the commit. The
+one) is **not done** and is filed as **P1281**. It is now a hardening task rather than a bug fix: with the writer fixed, no gate is currently judging a tree that is not the commit. The
 audit of sibling canaries found no second index-corrupting instance — of 13 lacking the unset,
 10 never call git, `test-escalator-exit-codes.sh` uses a git stub, `test-pre-push-refclass.sh`
 only reads refs from the shared common dir, and `test-multi-harness-routing.sh` reads
