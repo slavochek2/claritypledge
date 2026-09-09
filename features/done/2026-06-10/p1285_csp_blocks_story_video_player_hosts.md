@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 1000082
 severity: high
@@ -10,9 +10,9 @@ exec_model: opus
 exec_effort: low
 tags: [csp, video, prod-only, infra]
 disclosure: public
-delivery_stage: create-bug
 flow: inline
 pipeline_ran: [create-bug, inline]
+completed_at: 2026-09-09
 ---
 
 # P1285: CSP blocks every YouTube host the story video player needs
