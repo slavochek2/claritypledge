@@ -51,6 +51,22 @@ interface DbMember {
   joined_at: string;
 }
 
+/** The flattened row `create_transcribe_room` returns — room and member in one record,
+ *  because they are written in one transaction. Not a DbRoom and not a DbMember. */
+interface DbCreatedRoom {
+  room_id: string;
+  room_code: string;
+  room_event_id: string | null;
+  room_created_at: string;
+  room_ended_at: string | null;
+  member_id: string;
+  member_profile_id: string;
+  member_display_name: string;
+  member_session_id: string;
+  member_joined_at: string;
+  member_consent_given_at: string | null;
+}
+
 interface DbMessage {
   id: string;
   room_id: string;
@@ -111,37 +127,72 @@ function generateTranscribeRoomCode(): string {
  * The room field exists from day one, even for a single participant (spec §6).
  */
 export async function createRoom(profileId: string, displayName: string, consentGiven: boolean, eventId?: string): Promise<{ room: TranscribeRoom; member: TranscribeRoomMember }> {
-  let code = generateTranscribeRoomCode();
-  let attempts = 0;
+  // The seat's recording is minted first because the RPC verifies it belongs to the caller
+  // before it will write anything — the check exists precisely so a caller cannot attach
+  // someone else's recording to their own seat, and it needs a row to check against.
+  const session = await createClaritySession(displayName, profileId, false);
+
+  // Every failure path below has already spent that row. Nothing else references it yet, and
+  // clarity_sessions.creator_profile_id has no ON DELETE CASCADE, so an abandoned one outlives
+  // the profile and blocks its deletion. Discard is best-effort: a failed cleanup must not
+  // replace the real error with a cleanup error.
+  const discardSession = async () => {
+    const { error } = await supabase.from('clarity_sessions').delete().eq('id', session.id);
+    if (error) console.error('[transcribe] could not discard the unused session:', error.message);
+  };
+
   const maxAttempts = 5;
-  let roomRow: DbRoom | null = null;
+  for (let attempts = 0; attempts < maxAttempts; attempts++) {
+    const { data, error } = await supabase.rpc('create_transcribe_room', {
+      p_code: generateTranscribeRoomCode(),
+      p_display_name: displayName,
+      p_session_id: session.id,
+      p_consent: consentGiven,
+      p_event_id: eventId ?? null,
+    });
 
-  while (attempts < maxAttempts) {
-    const { data, error } = await supabase
-      .from('transcribe_rooms')
-      .insert({ code, event_id: eventId ?? null })
-      .select('id, code, event_id, created_at, ended_at')
-      .single();
+    if (!error) {
+      // RETURNS TABLE, so a set. An empty one would otherwise surface as `undefined.room_id`
+      // several frames from the cause.
+      const row = ((data ?? []) as unknown as DbCreatedRoom[])[0];
+      if (!row) {
+        await discardSession();
+        throw new Error('Room creation did not return a room');
+      }
+      return {
+        room: mapRoom({
+          id: row.room_id,
+          code: row.room_code,
+          event_id: row.room_event_id,
+          created_at: row.room_created_at,
+          ended_at: row.room_ended_at,
+        }),
+        // profile_id comes back from the RPC, which derived it from auth.uid(). The caller's
+        // own `profileId` argument is NOT used here: the server's answer to "whose seat is
+        // this" is the only one that governs attribution downstream.
+        member: mapMember({
+          id: row.member_id,
+          room_id: row.room_id,
+          profile_id: row.member_profile_id,
+          display_name: row.member_display_name,
+          session_id: row.member_session_id,
+          joined_at: row.member_joined_at,
+        }),
+      };
+    }
 
-    if (!error && data) {
-      roomRow = data as unknown as DbRoom;
-      break;
-    }
-    if (error?.code === '23505') {
-      code = generateTranscribeRoomCode();
-      attempts++;
-      continue;
-    }
-    throw new Error(error?.message || 'Failed to create room');
+    // The RPC deliberately does not swallow a code collision, so the retry stays here where
+    // the code is generated. Any other error is terminal — retrying it would only burn the
+    // remaining attempts and report the collision message for an unrelated failure.
+    if (error.code === '23505') continue;
+
+    await discardSession();
+    console.error('[transcribe] create_transcribe_room failed:', error.code, error.message);
+    throw new Error('Could not start a room. Please try again.');
   }
 
-  if (!roomRow) {
-    throw new Error('Failed to generate unique room code after multiple attempts');
-  }
-
-  const room = mapRoom(roomRow);
-  const member = await joinRoom(room.id, profileId, displayName, consentGiven);
-  return { room, member };
+  await discardSession();
+  throw new Error('Failed to generate unique room code after multiple attempts');
 }
 
 /** Looks up an existing room by its code. Returns null if not found.

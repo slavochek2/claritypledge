@@ -474,9 +474,22 @@ The spec does not yet specify what, if anything, is sent to Gemini besides raw a
 | Any prior room chat text (`transcribe_messages.text`) | Written by OTHER participants' finalized speech, free text, no content filter beyond non-empty | **Untrusted** — this is user-generated content from potentially any room member | If future context-window design ever feeds prior transcript lines back into a Gemini call (e.g., for context continuity across chunks), treat as untrusted; a participant could speak an injection-style phrase ("ignore prior instructions and...") that becomes stored text and later gets fed back as trusted context |
 
 **Checklist:**
-- [ ] Confirm whether the chosen Gemini call is pure audio-transcription (no text prompt beyond a fixed system instruction) or includes any DB-sourced text — if the former, most of the above table is moot and should be noted as N/A in the architecture doc, not silently dropped
-- [ ] If a system instruction is used, keep it a fixed string with no interpolated variables at all where possible — the safest posture given the table above
-- [ ] Re-verify Gemini credit coverage before committing (spec Done-When item, unrelated to injection but gating the whole path)
+- [x] Confirm whether the chosen Gemini call is pure audio-transcription (no text prompt beyond a fixed system instruction) or includes any DB-sourced text — if the former, most of the above table is moot and should be noted as N/A in the architecture doc, not silently dropped
+      **Answered 2026-09-09: pure audio, and the whole table above is N/A.** The request body
+      built at `supabase/functions/transcribe-slice/index.ts:135` is
+      `contents: [{ parts: [{ inlineData: { mimeType: 'audio/wav', data: … } }] }]` — one audio
+      part, no text part of any kind. No display name, no prior `transcribe_messages` text, no
+      room code and no member id reaches the model. Recorded here rather than only in the
+      architecture doc so the N/A is auditable next to the table it retires
+- [x] If a system instruction is used, keep it a fixed string with no interpolated variables at all where possible — the safest posture given the table above
+      **Satisfied structurally, not by discipline.** `gemini-3.5-transcribe` rejects
+      `systemInstruction` outright (`index.ts:45`), so there is no instruction string to keep
+      fixed and no place for an interpolated variable to appear. This cannot regress by an
+      inattentive edit the way a hand-maintained fixed string could
+- [x] Re-verify Gemini credit coverage before committing (spec Done-When item, unrelated to injection but gating the whole path)
+      Discharged by the Done-When item of the same name — verified 2026-09-03 against the
+      BigQuery billing export. This is the same check written twice in two sections, not a
+      second one still outstanding
 
 **Cost / Abuse Controls:**
 - ⚠️ **No rate limit exists for this surface today.** `ai_rate_limits` (`20260225120000_p425...sql`) is a reusable per-user burst/sustained pattern (10/5min, 30/60min) but its only historical consumer, `story-guide-chat`, was retired by P803 — it is not wired to `/transcribe` at all. There is no per-user or per-room cap on: rooms created, chunks uploaded per room, or room duration. **Required limit** (name it concretely so a the build sequence step can implement it): a server-enforced **maximum room duration** (e.g., hard-stop and `endRoom()`-equivalent server-side after N minutes, not just a client-side clock — a client can stay joined indefinitely since `endRoom` is caller-initiated only, `transcribe-service.ts:300-308`) plus a **per-user concurrent-room limit** (currently unbounded — nothing stops one profile from creating N rooms and streaming audio into all of them simultaneously) reusing or extending the `ai_rate_limits` pattern, scoped to whichever billed call (GPU invocation or Gemini call) is chosen.
@@ -1248,6 +1261,77 @@ re-derived here. This sequence builds the live path.
   NOT touched: out of this spec's scope, and "revoking it looks free" is a claim about call sites
   this session did not trace. **Needs a founder decision** — revoke, or allowlist with a reason.
 
+**Stage F-bis — reconciliation with P1275, done 2026-09-09. This branch could not create a
+room at all, and merging it as it stood would have re-opened the consent hole it exists to close.**
+
+Two branches solved two halves of the same table without knowing about each other.
+
+- **The break.** `createRoom` here still did `.insert({ code, event_id }).select().single()` —
+  the exact statement P1275 diagnosed and replaced on main on 2026-09-08. INSERT … RETURNING is
+  evaluated under `transcribe_rooms`' member-scoped SELECT policy (P1207) and the creator is not
+  a member yet, so it is refused and the insert aborts. Stage G's remaining device runs could not
+  have started: nobody can create a room on this branch.
+- **The hole the obvious fix would have opened.** Adopting P1275's `create_transcribe_room()`
+  unchanged writes a `transcribe_room_members` row with `consent_given_at` NULL. It is
+  SECURITY DEFINER, so it never consults a policy — and `…_p1236_b_…`, which drops the direct
+  member INSERT *policy*, does nothing to it. `join_transcribe_room`'s own COMMENT claims to be
+  "the ONLY way a transcribe_room_members row is created"; merged as they stood, that claim was
+  false, and **Decision 5's invariant — a member without consent is not a representable state —
+  would have been false for every room creator.** `transcribe-slice` refuses a seat with no
+  consent (403), so the symptom would have been the room's creator being the one participant
+  never transcribed.
+
+Closed by `20260909100000_p1236_e_create_room_requires_consent.sql`: DROP-then-CREATE (an added
+parameter makes an *overload*, and the surviving 4-argument form would have remained the bypass),
+`p_consent` required with the same `IS NOT TRUE` guard and the same message as the join path, and
+`consent_given_at` written in the same INSERT as the member row. The return now also carries
+`member_profile_id`, so the client stops assuming its own argument answers "whose seat is this"
+and takes the server's `auth.uid()`-derived answer instead.
+
+**Verified 2026-09-09 against the test database inside a rolled-back transaction**, because
+applying it for real drops the 4-argument form that every session running `main` calls — the same
+reason `…_p1236_b_…` is held. Rollback semantics were control-probed both ways first (a function
+created and rolled back reports absent; the identical function committed reports present), so the
+probe was not blind. Results:
+
+| Assertion | Result |
+|---|---|
+| 4-argument overload remaining | 0 |
+| 5-argument form present | 1 |
+| `anon` can execute | false — **control:** an un-revoked sibling function created in the same transaction reports true, so the REVOKE is load-bearing, not ceremonial (P1065, sixth instance) |
+| `authenticated` can execute | true |
+| `p_consent := false` | refused — *consent is required to join a transcription room* |
+| `p_consent := NULL` | refused — same message (the guard is `IS NOT TRUE`; `= false` would let NULL through) |
+| `p_consent := true` | one row; `member_consent_given_at` stamped; `member_profile_id` = `auth.uid()` |
+| another profile's `p_session_id` | refused — *session does not belong to the caller* |
+| lowercase room code | refused — 22023 |
+
+Each refusal was matched on the function's own **message**, not on errcode: a missing table grant
+also raises 42501, and an errcode-only assertion passes for a reason that has nothing to do with
+consent. The first run of this probe did exactly that and had to be redone.
+
+Durable form: `e2e/integration/p1236-create-room-requires-consent.spec.ts`. It cannot run until
+the migration is applied, for the reason above.
+
+**(e) is UNTRACKED, for the same reason (b) is, and this is deliberate.** The P270 pre-commit
+gate refuses to commit a migration that has not been applied to the test database; applying this
+one to the shared test database drops the 4-argument form that every session running `main` calls,
+breaking room creation for co-tenants and failing both P1275 specs. So it sits in the worktree at
+`supabase/migrations/20260909100000_p1236_e_create_room_requires_consent.sql`, unstaged, until the
+deploy window — at which point it is applied and committed together with (b). **Two untracked
+migrations now depend on that window; neither is in git, and a lost worktree loses both.** The
+gate's escape hatch (`scripts/lib/gate-override.sh`) was deliberately not used: its own header
+records that an agent reaching for it reads as circumvention, and it does not apply to this gate
+in any case.
+
+**One correction to P1275's own prediction.** Its spec (§"Interaction with P1236") estimated the
+reconciliation at *"one `CREATE OR REPLACE` and one call-site argument"*. `CREATE OR REPLACE`
+cannot do it: in Postgres a changed argument list makes a **new** function, so the consent-less
+4-argument form would have survived alongside the new one and remained callable — the bypass,
+intact, next to its own fix. The correct cost is DROP-then-CREATE, which is why this migration
+carries a `requires-frontend` marker and P1275's did not. Nothing was wrong with shipping P1275
+first; the estimate of what would close it afterwards was.
+
 **Stage G — PARTIALLY DONE 2026-09-08, on the physical S22, against TEST (not prod).**
 
 Run over the `adb reverse` tunnel, exactly as Stage A: the phone loaded the dev server as
@@ -1481,6 +1565,18 @@ until the client change deploys — and this migration deploys with it.
 
 - [ ] Apply `20260908170100_b` **after** the client cutover is on `main`, then commit it (the P270
       pre-commit gate requires it applied to test first, which is why it is untracked until now).
+- [ ] Apply `20260909100000_p1236_e_create_room_requires_consent` in the SAME window, and before
+      the Vercel deploy is promoted. It drops the 4-argument `create_transcribe_room`, so between
+      applying it and the client going live, room creation returns PGRST202 for everyone. That is
+      the intended failure mode — the alternative is a surviving overload that writes unconsented
+      seats — but it means the two must be minutes apart, not hours.
+- [ ] Update `e2e/integration/p1275-create-transcribe-room-rpc.spec.ts` on `main` in the same
+      commit range: it calls the 4-argument form directly and will fail the moment (e) applies.
+      It lives only on `main`, so this branch cannot carry the edit and a cherry-pick will not
+      produce it. Re-run it plus `e2e/p1275-transcribe-room-create.spec.ts` after the cutover.
+- [ ] Re-resolve `(e)`'s own `requires-frontend: 3255fd18b` marker after `/ship`, for the same
+      reason as `(b)` below — it points at P1275's commit on `main`, which is already an ancestor,
+      but the marker must still be confirmed rather than assumed.
 - [ ] Re-resolve its `requires-frontend: 26be25831` marker against `main` after `/ship` —
       cherry-picking rewrites the sha, and P1053 records this exact marker blocking forever on a
       commit its own pipeline had destroyed, stranding six unrelated migrations with it.
