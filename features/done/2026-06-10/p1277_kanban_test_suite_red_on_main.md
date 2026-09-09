@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 100
@@ -7,8 +7,8 @@ severity: medium
 date_reported: '2026-09-09'
 created_date: '2026-09-09'
 tags: [kanban, tests, test-debt, security]
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-09-09
 ---
 
 # P1277: the kanban tool's test suite is red on `main` — 12 failures across 3 files, three unrelated causes
