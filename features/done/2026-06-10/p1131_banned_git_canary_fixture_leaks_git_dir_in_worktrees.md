@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 225
@@ -8,8 +8,8 @@ workstream: infra
 date_reported: '2026-08-20'
 created_date: '2026-08-20'
 tags: [pre-commit, worktree, testing, git-ops, p1116]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-09-09
 ---
 
 # P1131: "Banned-git hook canary" fixture leaks GIT_DIR — cherry-pick mid-sequence BLOCK case is unverified for gated-path worktree commits
