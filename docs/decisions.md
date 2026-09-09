@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [process]: The founder reported "repeated confirmations" on a push where no gate ever prompted — the timer owned the check
+
+**Context:** After a `/push` completed, the founder asked what was broken and why he "had to confirm multiple times". Nothing in the push had asked him anything. The evidence: `permissionMode` was `bypassPermissions` for the whole session (Claude Code raised no tool dialogs at all), `PUSH_DOCS_ASSUME_YES=1` auto-confirmed the promote step's only `y/N`, and the `~/.push-enabled` waiver in `pre-push-checks.sh:308-318` printed `✅ Push allowed` and `exit 0`ed before Layer 3's TTY confirm on every push. What he actually answered were three consecutive *"still waiting, nothing to act on"* replies from `/push` itself while it waited on `main.lock`.
+
+The mechanism: the lock was observed held at 10:50:00 by a co-tenant `ship`, and a **300s `ScheduleWakeup` was treated as the thing that owned the re-check**. Three human messages arrived over the next 15 seconds and each was answered without re-running the one-line probe. A fourth message forced a check; the lock was free and the push ran to completion in 76s. Its release time is unrecorded — held at 10:50:00, free at 10:52:32, no observation between — so the avoidable cost is bounded at ≤152s and was never measured.
+
+**Decision:** While waiting on `main.lock`, cap the wakeup at 60s and re-run the probe before answering any human message that arrives inside it. A timer is a floor on how often you look, never a ceiling — the same shape as 2026-08-10 [process], which established that the wakeup delay is a floor on wait time and not a clock. Answering a human message with a status you did not re-derive spends a full turn to learn nothing, and to the person on the other side it is indistinguishable from being asked to confirm something. Recorded in `.claude/commands/slava/build/push.md` step 4.
+
+**Alternatives rejected:** *Re-probe on every user message, with the 300s timer left alone* — this was the first fix, and a hostile review refuted it: responsiveness would then depend on the founder typing, which fails precisely when nobody is typing. It treated the symptom and left the cause. *A blanket "don't stop to report progress" reading* — the global rule against progress-reporting is about not interrupting approved work; it does not license answering a direct question without looking.
+
+**Consequences:** A second, larger lesson landed on the way. The first version of the fix asserted five things it had not measured — "free for roughly two minutes" (never observed), "completed in 90 seconds" (that was when the agent *spoke*; the run took 76s), and "the TTY gate was waived on all three pushes" (only the main push can reach Layer 3 at all — `pre-push-checks.sh:326` skips non-main refs, so three identical log lines were three waiver exits, not three waived confirms). Every one was a symptom-shaped inference written into the very file whose header documents four prior versions doing exactly that. **The hostile review caught all of them; the author's own confidence caught none.** This is the fifth entry in that file's retraction history and the first where the review ran before the claim shipped rather than after. Cost: one Opus reviewer, ~120k tokens, four false claims removed pre-commit.
+
+**References:** [.claude/commands/slava/build/push.md](../.claude/commands/slava/build/push.md) · [scripts/pre-push-checks.sh](../scripts/pre-push-checks.sh) · decisions.md 2026-08-10 [process] (wakeup cadence is not a clock)
+
+---
+
 ## 2026-09-09 [technical]: A verified fact with no expiry date — the push gate waited for one required check after the ruleset started requiring two (P1290)
 
 **Context:** A `/push` was rejected `GH013` three times while both required checks showed green on
