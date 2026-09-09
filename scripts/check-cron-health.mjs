@@ -47,11 +47,100 @@ const MIN_TOLERANCE_MINUTES = 15;
 //   cron.unschedule('name')              — group 1 'unschedule', group 2
 const CRON_OP_RE = /cron\.(schedule|unschedule)\s*\(\s*'([^']+)'(?:\s*,\s*'([^']+)')?/g;
 
-// A line whose first non-blank characters are `--` is a SQL comment. Stripping whole
-// comment lines keeps a commented-out call from inventing an expected job. Trailing
-// inline comments are deliberately left alone: `--` also appears inside string
-// literals, and a naive strip there would corrupt a real command.
-const WHOLE_LINE_COMMENT_RE = /^[ \t]*--.*$/gm;
+// Opening delimiter of a dollar-quoted string: `$$` or `$tag$`. Anchored, so it is only
+// ever tested against the character currently under the cursor.
+const DOLLAR_TAG_RE = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/;
+
+/**
+ * Remove SQL comments from a migration — and ONLY comments.
+ *
+ * Text that is not executed must not create an expectation. An earlier version stripped
+ * whole `--` lines with a regex and left everything else, which admitted two false
+ * outages, both found by adversarial review on 2026-09-09 and both reproduced before
+ * this was written:
+ *
+ *   - A BLOCK comment. `/​* cron.schedule('phantom', '0 3 * * *', 'SELECT 1') *​/` in any
+ *     migration made the check expect a job named `phantom`. Prod correctly does not have
+ *     it, so the check would have exited 1 forever and opened an incident that no change
+ *     to the database could ever clear. Reproduced: `{"phantom":"0 3 * * *"}`.
+ *   - A TRAILING `--` comment after code on the same line, which the regex could not
+ *     reach at all.
+ *
+ * The old code left trailing comments alone for a stated reason: `--` also appears inside
+ * string literals, and a blind strip would corrupt a real command. That reason is real,
+ * and it is why this is a scanner rather than a bigger regex. It tracks single-quoted and
+ * dollar-quoted strings, so a `--` or `/​*` inside a literal is copied through untouched,
+ * while a comment outside one is removed. Block comments NEST in Postgres, so the depth
+ * counter matches the server's own rule.
+ *
+ * String CONTENTS are deliberately preserved: `cron.schedule('name', 'expr', ...)` passes
+ * its job name and cron expression as string literals, so stripping literals would delete
+ * the very text this parser exists to read.
+ */
+export function stripSqlComments(sql) {
+  const n = sql.length;
+  let out = '';
+  let i = 0;
+
+  while (i < n) {
+    const c = sql[i];
+
+    // Single-quoted literal. `''` is an escaped quote, not a terminator.
+    if (c === "'") {
+      out += c;
+      i++;
+      while (i < n) {
+        if (sql[i] === "'") {
+          if (sql[i + 1] === "'") { out += "''"; i += 2; continue; }
+          out += "'";
+          i++;
+          break;
+        }
+        out += sql[i];
+        i++;
+      }
+      continue;
+    }
+
+    // Dollar-quoted literal: copied verbatim through its matching closing tag.
+    if (c === '$') {
+      const m = DOLLAR_TAG_RE.exec(sql.slice(i));
+      if (m) {
+        const tag = m[0];
+        const close = sql.indexOf(tag, i + tag.length);
+        const stop = close === -1 ? n : close + tag.length;
+        out += sql.slice(i, stop);
+        i = stop;
+        continue;
+      }
+    }
+
+    // Line comment: drop to the newline, leaving the newline itself in place.
+    if (c === '-' && sql[i + 1] === '-') {
+      while (i < n && sql[i] !== '\n') i++;
+      continue;
+    }
+
+    // Block comment, nesting as Postgres does. Replaced by a space so the tokens on
+    // either side cannot fuse into a new one.
+    if (c === '/' && sql[i + 1] === '*') {
+      let depth = 1;
+      i += 2;
+      while (i < n && depth > 0) {
+        if (sql[i] === '/' && sql[i + 1] === '*') { depth++; i += 2; }
+        else if (sql[i] === '*' && sql[i + 1] === '/') { depth--; i += 2; }
+        else i++;
+      }
+      out += ' ';
+      continue;
+    }
+
+    out += c;
+    i++;
+  }
+
+  return out;
+}
 
 /**
  * Read every migration in filename order and replay its schedule/unschedule calls **in
@@ -83,8 +172,7 @@ export function parseMigrationsForCronJobs(migrationsDir) {
 
   const jobs = {};
   for (const file of files) {
-    const sql = readFileSync(join(migrationsDir, file), 'utf8')
-      .replace(WHOLE_LINE_COMMENT_RE, '');
+    const sql = stripSqlComments(readFileSync(join(migrationsDir, file), 'utf8'));
     for (const m of sql.matchAll(CRON_OP_RE)) {
       const [, op, name, expr] = m;
       if (op === 'unschedule') delete jobs[name];
@@ -225,6 +313,27 @@ SELECT j.jobname,
   FROM cron.job j
  ORDER BY j.jobname;`.trim();
 
+/**
+ * Type every field `evaluateJobs` reads. Returns a short description of the first problem,
+ * or null when the row is a usable `cron.job` row. Shapes verified against the real prod
+ * response on 2026-09-09: `active` is a JSON boolean, `last_ok` a string or null, and
+ * `failed_24h` a JSON number.
+ */
+export function cronRowShapeProblem(row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return 'not an object';
+  if (typeof row.jobname !== 'string' || !row.jobname) return 'jobname is not a non-empty string';
+  if (typeof row.active !== 'boolean') return 'active is not a boolean';
+  // null is legitimate — a job that has never succeeded. An ABSENT key is not: it means
+  // the query did not return the column, which is a different thing from "no successes".
+  if (!('last_ok' in row)) return 'last_ok is absent';
+  if (row.last_ok !== null && typeof row.last_ok !== 'string') return 'last_ok is neither null nor a string';
+  // null and '' both coerce to 0, which would read as "no failures" — rejected explicitly.
+  if (row.failed_24h === null || row.failed_24h === '' || !Number.isFinite(Number(row.failed_24h))) {
+    return 'failed_24h is not a number';
+  }
+  return null;
+}
+
 export async function fetchCronRows({ projectRef, token, fetchImpl = fetch }) {
   const res = await fetchImpl(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
     method: 'POST',
@@ -254,11 +363,29 @@ export async function fetchCronRows({ projectRef, token, fetchImpl = fetch }) {
   // inverts this script's one structural promise: exit 2 means the watcher is broken,
   // exit 1 means prod is. Found by adversarial review, 2026-09-09, reproduced with
   // `[{"unexpected":"schema-change"}]`.
+  //
+  // Checking only for a jobname and the PRESENCE of `active` was not enough. Adversarial
+  // review found the mirror-image failure on 2026-09-09 and it was reproduced before this
+  // was written: a row can pass a loose shape check and then be scored GREEN on telemetry
+  // the check never received.
+  //
+  //   - `failed_24h` absent → `Number(undefined)` is NaN downstream, and `NaN > 0` is
+  //     false, so every job reads as having no failed runs. Reproduced: the row
+  //     `{"jobname":"j","active":true,"last_ok":"…"}` evaluated to `{"ok":true}`.
+  //   - `active` arriving as the STRING `"false"` → truthy in JavaScript, so a disabled
+  //     job reads as running. Reproduced the same way.
+  //
+  // A false GREEN is worse here than a false red: this check exists because a hard
+  // failure that nobody reads is indistinguishable from silence. So every field
+  // `evaluateJobs` reads is now typed at this boundary, and anything else exits 2 —
+  // the watcher is broken, which is never the same claim as prod being broken.
   for (const [i, row] of parsed.entries()) {
-    if (!row || typeof row !== 'object' || typeof row.jobname !== 'string' || !('active' in row)) {
+    const problem = cronRowShapeProblem(row);
+    if (problem) {
       throw new Error(
-        `Management API row ${i} is not a cron.job row (got ${JSON.stringify(row).slice(0, 120)}) — `
-        + 'the query returned an unexpected shape, which is a fault in this check, not in prod',
+        `Management API row ${i} is not a cron.job row (${problem}; got `
+        + `${JSON.stringify(row).slice(0, 120)}) — the query returned an unexpected shape, `
+        + 'which is a fault in this check, not in prod',
       );
     }
   }

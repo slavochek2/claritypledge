@@ -9,7 +9,7 @@
  *  3. The failure paths fire: missing job, inactive job, stale job, failed runs.
  */
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import {
@@ -19,6 +19,7 @@ import {
   evaluateJobs,
   parsePgTimestamp,
   fetchCronRows,
+  cronRowShapeProblem,
 } from '../../scripts/check-cron-health.mjs';
 
 const MIGRATIONS_DIR = resolve(__dirname, '../../supabase/migrations');
@@ -40,6 +41,25 @@ describe('P1283 — expected jobs derived from migrations', () => {
     expect(jobs.dispatch_event_emails).toBe('*/30 * * * *');
     expect(jobs.cleanup_expired_ready_submissions).toBe('*/5 * * * *');
     expect(jobs.cleanup_stale_live_invites).toBe('0 * * * *');
+  });
+
+  // P1283's repair migration is the one file in the tree that both unschedules and
+  // reschedules the SAME job, and whose prose and RAISE strings name that job several
+  // more times. Parsed alone it must resolve to exactly one expectation: the two calls
+  // must net to "present" in text order, and no comment or error-message mention may
+  // invent a second job. Without this, the repair could silently drop the very job it
+  // exists to create, and the health check would then agree with prod that nothing is
+  // expected — the exact blindness this whole spec is about.
+  it('the P1283 repair migration resolves, alone, to exactly the one job it creates', () => {
+    const file = '20260909120000_p1283_schedule_stale_live_invites_cleanup.sql';
+    const dir = fixtureDir({ [file]: readFileSync(join(MIGRATIONS_DIR, file), 'utf8') });
+    try {
+      expect(parseMigrationsForCronJobs(dir)).toEqual({
+        cleanup_stale_live_invites: '0 * * * *',
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('a later migration unscheduling a job removes it from the expectation', () => {
@@ -313,5 +333,124 @@ describe('P1283 — defects found by adversarial review (codex, 2026-09-09)', ()
     const rows = [{ jobname: 'a', active: true, last_ok: '2026-09-09 08:10:00.277543+00', failed_24h: 0 }];
     const fetchImpl = async () => ({ ok: true, status: 201, text: async () => JSON.stringify(rows) });
     await expect(fetchCronRows({ projectRef: 'x', token: 'y', fetchImpl })).resolves.toEqual(rows);
+  });
+});
+
+describe('P1283 — non-executable SQL must never create an expectation', () => {
+  // Both shapes below were reproduced against the shipped parser before the fix:
+  // a block comment produced `{"phantom":"0 3 * * *"}`, and a trailing `--` comment was
+  // unreachable by the whole-line regex. Either one raises an incident that no change to
+  // the database can clear, because the job it names cannot exist.
+  it('a BLOCK comment does not invent a job', () => {
+    const dir = fixtureDir({
+      '20260101000000_doc.sql':
+        "/* docs: cron.schedule('phantom', '0 3 * * *', 'SELECT 1') */\n"
+        + "PERFORM cron.schedule('real_one', '0 * * * *', 'SELECT 1');\n",
+    });
+    try {
+      expect(parseMigrationsForCronJobs(dir)).toEqual({ real_one: '0 * * * *' });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('NESTED block comments are closed at the right depth, as Postgres closes them', () => {
+    const dir = fixtureDir({
+      '20260101000000_nested.sql':
+        "/* outer /* inner cron.schedule('phantom_a', '0 3 * * *') */ still commented"
+        + " cron.schedule('phantom_b', '0 4 * * *') */\n"
+        + "PERFORM cron.schedule('real_one', '0 * * * *', 'SELECT 1');\n",
+    });
+    try {
+      expect(parseMigrationsForCronJobs(dir)).toEqual({ real_one: '0 * * * *' });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('a TRAILING -- comment after real code does not invent a job', () => {
+    const dir = fixtureDir({
+      '20260101000000_trailing.sql':
+        "PERFORM cron.schedule('real_one', '0 * * * *', 'SELECT 1');"
+        + " -- superseded cron.schedule('phantom', '0 3 * * *')\n",
+    });
+    try {
+      expect(parseMigrationsForCronJobs(dir)).toEqual({ real_one: '0 * * * *' });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // The false-positive direction (gate 7c). The old parser left trailing comments alone
+  // for a real reason — `--` and `/*` also occur inside string literals — so the fix has
+  // to be proven not to eat a live command.
+  it('a -- inside a string literal is data, not a comment', () => {
+    const dir = fixtureDir({
+      '20260101000000_literal.sql':
+        "PERFORM cron.schedule(\n  'real_one',\n  '0 * * * *',\n"
+        + "  $job$ UPDATE t SET note = 'a -- b /* c' WHERE x; $job$\n);\n"
+        + "PERFORM cron.schedule('second_one', '*/5 * * * *', 'SELECT 1');\n",
+    });
+    try {
+      expect(parseMigrationsForCronJobs(dir)).toEqual({
+        real_one: '0 * * * *',
+        second_one: '*/5 * * * *',
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('the real migrations are unchanged by the comment stripper', () => {
+    expect(parseMigrationsForCronJobs(MIGRATIONS_DIR)).toEqual({
+      cleanup_expired_ready_submissions: '*/5 * * * *',
+      cleanup_stale_live_invites: '0 * * * *',
+      dispatch_event_emails: '*/30 * * * *',
+    });
+  });
+});
+
+describe('P1283 — a row must never be scored green on telemetry that never arrived', () => {
+  const ok = async (rows: unknown) => async () => ({
+    ok: true, status: 201, text: async () => JSON.stringify(rows),
+  });
+
+  it('refuses a row with no failed_24h — NaN > 0 is false, so it would read as zero failures', async () => {
+    const fetchImpl = await ok([{ jobname: 'a', active: true, last_ok: '2026-09-09 08:10:00+00' }]);
+    await expect(fetchCronRows({ projectRef: 'x', token: 'y', fetchImpl }))
+      .rejects.toThrow(/failed_24h is not a number/);
+  });
+
+  it('refuses `active` as the string "false" — a truthy value for a disabled job', async () => {
+    const fetchImpl = await ok([{ jobname: 'a', active: 'false', last_ok: null, failed_24h: 0 }]);
+    await expect(fetchCronRows({ projectRef: 'x', token: 'y', fetchImpl }))
+      .rejects.toThrow(/active is not a boolean/);
+  });
+
+  it('refuses an absent last_ok, which is not the same claim as "never succeeded"', async () => {
+    const fetchImpl = await ok([{ jobname: 'a', active: true, failed_24h: 0 }]);
+    await expect(fetchCronRows({ projectRef: 'x', token: 'y', fetchImpl }))
+      .rejects.toThrow(/last_ok is absent/);
+  });
+
+  it('refuses null and empty-string failed_24h, both of which coerce to 0', () => {
+    expect(cronRowShapeProblem({ jobname: 'a', active: true, last_ok: null, failed_24h: null }))
+      .toMatch(/failed_24h/);
+    expect(cronRowShapeProblem({ jobname: 'a', active: true, last_ok: null, failed_24h: '' }))
+      .toMatch(/failed_24h/);
+  });
+
+  // Gate 7c: the exact rows prod returned on 2026-09-09 must still pass, or the stricter
+  // validation has replaced a false green with a permanent false exit 2.
+  it('accepts the real prod response verbatim', () => {
+    const prodRows = [
+      { jobname: 'cleanup_expired_ready_submissions', active: true, last_ok: '2026-09-09 10:35:00.211668+00', failed_24h: 0 },
+      { jobname: 'dispatch_event_emails', active: true, last_ok: '2026-09-09 10:30:00.049536+00', failed_24h: 0 },
+    ];
+    for (const row of prodRows) expect(cronRowShapeProblem(row)).toBeNull();
+  });
+
+  it('accepts a job that has never succeeded (last_ok null) — that is a real prod state', () => {
+    expect(cronRowShapeProblem({ jobname: 'a', active: true, last_ok: null, failed_24h: 3 })).toBeNull();
   });
 });

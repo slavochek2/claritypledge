@@ -54,8 +54,9 @@ their surfaces.
 
 ## Appetite
 
-One check script, one workflow, two registry rows. No new infrastructure, no migration, no
-new dependency.
+One check script, one workflow, two registry rows, and — after the founder decision below —
+one migration that creates the job the check found missing. No new infrastructure, no new
+dependency.
 
 ## Solution
 
@@ -144,15 +145,57 @@ this is not one of them. The orphan-clearing safety net that migration describes
 therefore never run on prod, and the unique partial index it backstops has been relying on
 `completeClaritySession()` alone.
 
-**[FOUNDER DECISION: the p703 cron job is missing on prod]** Two ways to resolve, and the
-choice is not the agent's:
+**[FOUNDER DECISION — TAKEN 2026-09-09: create the job on production.]** Of the two ways
+to resolve it, the founder chose to make the job exist rather than to unschedule it. The
+deliverable is therefore a new migration, `20260909120000_p1283_schedule_stale_live_invites_cleanup.sql`,
+plus the health check that would have caught the absence. **This work still does not run
+migrations on prod** — applying it is founder-only and remains the second Pre-deploy item.
 
-1. Re-apply the p703 migration to prod so the job exists as the migration says it does.
-2. If the job is deliberately not wanted, add a migration that unschedules it, so the
-   declared state and prod agree.
+### Why the April migration produced nothing
 
-Doing neither leaves the check red, and a permanently red check is one nobody reads. This
-work does not run migrations on prod, so the finding is filed rather than fixed.
+Diagnosed with read-only probes against prod on 2026-09-09, not inferred:
+
+| Fact | Evidence |
+|---|---|
+| It WAS applied — so it will never re-run | `supabase_migrations.schema_migrations` holds version `20260414100002` |
+| pg_cron was installed AFTER it ran | OIDs come from one monotonic counter: `clarity_live_invites` 125931 (April migration's own table) < pg_cron extension 127993 < `cron` schema 127994 < `ready_submissions` 129320 (August migration's table) |
+| The guard shape is not the difference | `20260816120000_p1083` uses a byte-identical guard and its job exists, because by August the extension did |
+| The lowest surviving jobid is 2 | jobid 1 was the out-of-band job P1256 dates to 2026-06-17 — two months after this migration |
+
+So `IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron')` was false at apply
+time, the `DO` block did nothing, and the migration reported success. **A new migration
+written the same way would silently no-op the same way**, which is why the repair changes
+the mechanism rather than repeating the file.
+
+### The cost, measured
+
+One `clarity_live_invites` row has been open for **90 days** (created 2026-06-11). The anon
+REST key reports **zero** open rows because RLS hides it; a role that bypasses RLS sees it.
+Any claim about this backlog made through the anon key is coverage-blind. The job's first
+run after deploy closes it — no data migration is needed or included.
+
+### How the repair fails loudly without breaking a local instance
+
+The two requirements pull against each other, and the reconciliation is the condition
+being tested, not the volume of the complaint:
+
+- **p703 tested a REMOVABLE condition** — "the extension is not created" — which was merely
+  not-yet-true and became true eight weeks later with nothing to notice.
+- **The repair tests an IRREDUCIBLE one** — `shared_preload_libraries` does not contain
+  pg_cron. That is a postmaster-level setting; where it holds, no migration, extension or
+  privilege can produce a cron job on that server, so skipping is a statement of fact.
+- Where pg_cron **is** preloaded, the migration installs the extension itself and then
+  **asserts the post-condition**: no active `cron.job` row afterwards raises, the
+  transaction aborts, and the version is never recorded as applied. A silent no-op is
+  unreachable on a cron-capable server.
+- The skip branch is not silent either: it raises a `WARNING` naming the job, and
+  `check-cron-health.mjs` reads prod's real `cron.job` from outside the migration and exits
+  non-zero when a declared job is missing — the layer p703 lacked entirely.
+
+Verified against real containers: the Supabase Postgres image (the one the local stack
+runs) preloads pg_cron and ships the extension uninstalled, so a local stack takes the
+install-and-schedule path and ends up matching prod; a bare `postgres:17` takes the
+WARNING branch and exits 0.
 
 ## Invariants
 
@@ -179,6 +222,18 @@ work does not run migrations on prod, so the finding is filed rather than fixed.
       `cron-health 2/2 lookups author-bound` and `10 title(s) match byte for byte`.
 - [x] The check distinguishes "prod unhealthy" from "check misconfigured" by exit code,
       and the workflow branches on the recorded status — exit 2 proven two ways.
+- [x] The cause of the April migration's silent no-op is named with evidence, not guessed
+      — prod's migration ledger holds `20260414100002`, and OID ordering puts pg_cron's
+      creation between that migration's own table (125931) and the August migration's
+      (129320). See Findings.
+- [x] A migration creates `cleanup_stale_live_invites` idempotently and cannot no-op
+      silently on a cron-capable server — applied twice to the Supabase Postgres image,
+      `cron.job` holds exactly 1 row after each, and the post-condition assert aborts with
+      a non-zero exit when it cannot confirm the row.
+- [x] The same migration is safe on a Postgres without pg_cron — a bare `postgres:17`
+      raises a WARNING naming the job and exits 0, creating nothing.
+- [x] A declared-but-missing job is reported, not only a job that ran and failed — the
+      real prod run exits 1 on `cleanup_stale_live_invites: not scheduled on the database`.
 
 ## Done-When
 
@@ -221,10 +276,91 @@ work does not run migrations on prod, so the finding is filed rather than fixed.
       all-healthy `EXIT=0`, real prod run `EXIT=1` on the genuine finding. 29/29 tests.
 - [x] `npm run lint` and `./scripts/typecheck-gate.sh` pass.
 
+### Second pass — the migration and the review it triggered (2026-09-09)
+
+- [x] Root cause of the April no-op established by read-only prod probes and recorded in
+      Findings as a table of facts with the command evidence behind each.
+- [x] Migration applied twice to the Supabase Postgres image
+      (`public.ecr.aws/supabase/postgres:17.6.1.134`, the image the local stack runs, in an
+      isolated container so no co-tenant session was touched): `EXIT=0` both times,
+      `cron.job` holds `1|cleanup_stale_live_invites|0 * * * *|t`, and
+      `count(*) = 1` after the second apply. The extension went from uninstalled to
+      `pg_cron|1.6.4` on the first apply.
+- [x] Migration applied to a bare `postgres:17` (empty `shared_preload_libraries`):
+      `WARNING: P1283: pg_cron is not in shared_preload_libraries …`, `EXIT=0`, and
+      `count(*) from pg_extension where extname='pg_cron'` is `0`. Nothing created, nothing
+      silent.
+- [x] Epistemic gate 7 on the migration's own assert: the RAISE EXCEPTION statement under
+      test was run byte-identical with only the asserted job name changed to a sentinel —
+      `ERROR: P1283: pg_cron accepted the scheduling call but cron.job holds no active row
+      for cleanup_stale_live_invites`, `EXIT=3`, transaction aborted.
+- [x] Epistemic gate 7 on the check, re-derived rather than inherited: declared-but-missing
+      job `EXIT=1`; stale job `no successful run for 400 min (schedule 0 * * * *, tolerance
+      120 min)` `EXIT=1`. Gate 7c: all three jobs healthy `PASS — 3/3` `EXIT=0`. Real prod
+      run `EXIT=1` on the genuine finding. Misconfiguration still exits 2 two ways (no
+      token, unreadable migrations dir), each proven in a project directory with no
+      `.env.local` — a first attempt reported `EXIT=1` because the harness leaked the real
+      token from the worktree's own `.env.local`, which was a fault in the probe, not the
+      check.
+- [x] `./scripts/check-migration-client-safety.sh` on the new migration: `EXIT=0`.
+- [x] Applied to the **test** project (`gfjctyxqlwexxwsmkakq`) through `./scripts/migrate.sh`
+      — the strongest available verification, a real hosted Supabase project rather than a
+      container. Blast radius was computed before running: the local tree held **1**
+      migration absent from test's 323-row ledger, and it was this one. Result:
+      `✓ 20260909120000_… applied`, `cron.job` now holds
+      `2|cleanup_stale_live_invites|0 * * * *|t|postgres`, and the ledger carries
+      `20260909120000 / p1283_schedule_stale_live_invites_cleanup`. Test already had
+      pg_cron installed, so the `CREATE EXTENSION` branch was not exercised there — the
+      container runs cover it. **Nothing was applied to prod.**
+- [x] `supabase/deploy-manifest.json` stamped on the branch. `stamp-deploy-manifest.sh`
+      refuses to run inside a worktree and the main checkout was off limits, so the entry
+      was appended by hand to match exactly what the stamp writes. A first attempt
+      rebuilt the whole list from the worktree's migrations directory and would have
+      **dropped** `20260908130000`, a co-tenant's migration this branch predates; caught
+      by diffing before committing and redone as a pure append. Final diff is one added
+      version plus the timestamp.
+
+**P270 integration test — deliberately not written, and why.** The gate warns that every
+migration needs `e2e/integration/pN-db-schema.spec.ts`. That template exists to prove a new
+column or table is reachable, and it reaches it through PostgREST. This migration adds
+neither; it adds a row to `cron.job`, and PostgREST does not expose the `cron` schema —
+already measured on prod as `PGRST106 Invalid schema: cron`, with the service-role key. A
+test written from the template could assert nothing. The equivalent verification is
+`check-cron-health.mjs`, which reads `cron.job` over the Management API and is what
+`cron-health.yml` runs every six hours. Recorded here rather than satisfied with a test
+that cannot fail.
+- [x] Codex adversarial review of the migration. Verdict **REJECT**, three findings — none
+      against the migration, all three against the health checker, all three reproduced by
+      command before being accepted, all three fixed:
+- [x] Review defect C fixed: the parser stripped only whole-line `--` comments, so a
+      **block** comment containing `cron.schedule('phantom', …)` invented an expected job
+      that prod can never have — a permanent false incident no database change could clear.
+      Reproduced: `{"phantom":"0 3 * * *"}`. A trailing `--` comment after code on the same
+      line was unreachable by the regex for the same reason. Replaced with a scanner that
+      tracks single-quoted and dollar-quoted strings and nested block comments, so comments
+      are removed and literals — which is where `cron.schedule`'s own arguments live — are
+      not.
+- [x] Review defect D fixed: `fetchCronRows` checked only for a `jobname` and the presence
+      of `active`, so a row could be scored **green on telemetry that never arrived**. A
+      row with no `failed_24h` made `Number(undefined)` NaN and `NaN > 0` false, reporting
+      zero failures; `active: "false"` is truthy, reporting a disabled job as running. Both
+      reproduced (`{"ok":true,"failures":[]}`) before the fix. Every field the evaluator
+      reads is now typed at the boundary and anything else exits 2.
+- [x] Gate 7c for both fixes: the real prod response is accepted verbatim, a
+      never-succeeded job (`last_ok: null`) is accepted, a `--` inside a string literal is
+      still parsed as data, and the real migrations still resolve to the same three jobs.
+      41/41 tests pass, up from 29.
+- [x] The two sibling suites this branch touches still pass: `test-alert-escalator.mjs`
+      `EXIT=0`, `test-producer-author-bind.sh` `EXIT=0`. `npm run lint` and
+      `./scripts/typecheck-gate.sh` re-run after the parser rewrite, both `EXIT=0`.
+
 ## Pre-deploy Checklist
 
 - [ ] Add `SUPABASE_ACCESS_TOKEN` as a repository secret so `cron-health.yml` can read
       prod. Until then the workflow exits 2 and opens the "check is not running" issue.
       An agent cannot set a repository secret.
-- [ ] Decide the `cleanup_stale_live_invites` question under Findings, and apply the
-      chosen migration to prod. Running migrations on prod is founder-only.
+- [ ] Apply `20260909120000_p1283_schedule_stale_live_invites_cleanup.sql` to prod
+      (`./scripts/migrate.sh --env prod`). Running migrations on prod is founder-only, so
+      this box stays unticked here by design. Until it is applied the check is legitimately
+      red; after it is applied, the next hourly run closes the 90-day-old open invite and
+      the check goes green with no further change.
