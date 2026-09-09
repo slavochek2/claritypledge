@@ -6,6 +6,47 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [process]: Two meta-learnings from the dirty-file session (Status: proposed)
+
+**Context:** `/kdd` meta-reflection, 1 of 1 reflection agent reported. Both items below were
+re-verified by command before being written here (gate 9); the second came with its own
+falsifier, which changed its mechanism.
+
+**Proposed 1 — regex over a nested format is a design-time mistake, not a two-failures signal.**
+Attribution for the dirty-file classifier was rewritten three times in one session: regex with
+`[^"]*` (missed real writes — stops at the first escaped quote inside a heredoc), regex with
+`.*` (fixed that, opened a cross-block leak an external review then reproduced), and finally a
+JSON parser. CLAUDE.md's *"two failures with the same symptom = wrong abstraction level"* is
+reactive and did not fire, because each regex change looked like a fix rather than a repeat.
+The check that would have: **the field's boundary in JSON/YAML is determined by matching
+braces or indentation, not a delimiter — so if the extractor needs to know where a nested
+structure ends, use the format's parser from the first implementation.** Narrow single-field
+extraction from a flat line is not in scope.
+
+**Proposed 2 — a "no matches" from a structurally blind glob is not evidence of absence.**
+Two commits landed on main carrying `p1287`, a number already held by
+`features/p1287_point_embed_expand_click_lost_to_remount.md`. The number was minted from the
+session's startup banner (which lists p1282–p1286 as in-flight worktrees) with no check at all.
+Worse, the check run *later* was `ls features/done/p1287*` — and `features/done/` is organized
+into **sprint subdirectories** (`2026-03-27/`, `1_nov25/`), so that glob returns "no matches"
+whether or not the number is taken. It is blind in both directions — the global CLAUDE.md
+control-probe rule, in its purest form. `find features -name 'p1287*'` returns the collision
+immediately. Note `git-ops.sh claim` does **not** allocate: it takes the P-number as an
+argument, so nothing downstream would have caught this.
+
+**Decision:** Recorded as proposed. Both target `.claude/rules/epistemic.md` (gate 7's
+abstraction corollary; gate 4's partial-manifest failure mode) — that edit must go through
+`/slava:maintain:claude-md` first and is deliberately not made here.
+
+**Consequences:** Until the rules edit lands, the actionable form is: parse structured formats
+rather than matching them, and glob a namespace with `find`, never a flat pattern against a
+directory whose layout you have not read.
+
+**References:** `scripts/lib/attribute-writes.py` · [epistemic.md](../.claude/rules/epistemic.md)
+gates 4 and 7 · `git-ops.sh cmd_claim`
+
+---
+
 ## 2026-09-09 [process]: A question the agent has better evidence for than the founder is not a question — /push resolves dirty files from transcripts
 
 **Context:** `/push` classified bystander dirty files on the shared main checkout into three
