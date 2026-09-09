@@ -93,3 +93,44 @@ Three decisions worth keeping:
 microphone…" banner renders even in the headless fixture with a stubbed `getUserMedia`. The
 recogniser fails to start there too, so that banner is not specific to the founder's phone —
 worth knowing for whoever picks up the recogniser churn (P1288's open thread).
+
+
+## Code review, 1 of 1 report received — one real finding, one wrong premise
+
+**MEDIUM, fixed: the jump button never animated.** `scrollToBottom` called
+`el.scrollTo({ behavior })` and then assigned `el.scrollTop` unconditionally. A direct
+`scrollTop` write aborts an in-progress native smooth scroll, so the animation died in the
+same tick on every browser that supports `scrollTo` — `behavior: 'smooth'` was dead code
+pretending to be a feature, and neither the unit suite nor the e2e spec touched it (the e2e
+spec never clicks the button).
+
+Fixed by **removing the animation rather than gating one line on the other**: the scroll is
+now always instant. New lines arrive every few seconds while someone is speaking, and
+overlapping smooth scrolls on a phone read as the list shivering — so there was nothing to
+preserve, and one behaviour means no in-flight animation to abort and no two lines to keep in
+sync. Both calls now stay unconditionally, and both are load-bearing.
+
+**The review's stated premise for that finding was wrong, and checking it changed the fix.**
+It reported *"confirmed via `node -e` that jsdom has no `scrollTo`"*, and recommended gating
+the assignment on `scrollTo` existing. Measured directly in this project's test environment:
+
+```
+typeof el.scrollTo = function
+'scrollTo' in el   = true
+```
+
+jsdom **does** define `Element.scrollTo` — as a **no-op stub**. So the recommended gate is
+exactly wrong here: it makes the list stop moving under test while reading as correct, which
+is what happened when it was tried (five previously-passing tests went red). A test now pins
+this: it asserts `typeof el.scrollTo === 'function'` as its stated premise and then that the
+reader still lands at the bottom — the same shape as an older WebView whose implementation
+exists but does nothing.
+
+The finding was real and worth acting on; its reasoning was not. Both halves are recorded
+because acting on the recommendation as given would have shipped a worse bug than the one it
+identified.
+
+**HIGH in the review was already fixed before it arrived** — the effect key colliding on
+`messages.length`. Found independently and committed as `3cfd0b0ff`'s successor; the reviewer
+saw it uncommitted in the working tree and correctly flagged that shipping the committed
+branch would have missed it.

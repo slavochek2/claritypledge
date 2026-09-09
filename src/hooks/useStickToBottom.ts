@@ -31,8 +31,8 @@ export interface StickToBottom<T extends HTMLElement> {
   onScroll: () => void;
   /** False once the reader has scrolled away from the bottom. Drives the return button. */
   isAtBottom: boolean;
-  /** Scroll to the bottom and re-enter sticking. */
-  scrollToBottom: (behavior?: ScrollBehavior) => void;
+  /** Scroll to the bottom and re-enter sticking. Always instant — see the implementation. */
+  scrollToBottom: () => void;
 }
 
 /**
@@ -57,15 +57,27 @@ export function useStickToBottom<T extends HTMLElement>(revision: unknown): Stic
     setIsAtBottom(atBottom);
   }, []);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+  const scrollToBottom = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    // Assigning scrollTop directly rather than scrollIntoView: this must move THIS container
-    // and nothing else. scrollIntoView walks every scrollable ancestor, which on the room
-    // screen would also move the page behind the list.
-    el.scrollTo?.({ top: el.scrollHeight, behavior });
-    // jsdom and older WebViews have no scrollTo on elements; the assignment is the fallback
-    // and is also what makes this assertable in a test.
+    // scrollTo rather than scrollIntoView: this must move THIS container and nothing else.
+    // scrollIntoView walks every scrollable ancestor, which on the room screen would also
+    // move the page behind the list.
+    //
+    // ALWAYS INSTANT, never smooth, and that is the fix rather than an oversight. Assigning
+    // scrollTop directly aborts an in-progress native smooth scroll, so the two lines below
+    // would fight each other and the animation would die in the same tick — smooth would be
+    // dead code pretending to be a feature. Rather than gate one line on the other, the
+    // animation is removed: new lines arrive every few seconds while someone is speaking, and
+    // overlapping smooth scrolls on a phone read as the list shivering. One behaviour, no
+    // in-flight animation to abort, nothing to keep in sync.
+    //
+    // Both calls stay, unconditionally, and both are load-bearing: jsdom defines
+    // Element.scrollTo as a NO-OP stub (measured in this project's environment — `typeof
+    // el.scrollTo === 'function'` is true and it moves nothing), so gating on its existence
+    // silently stops the list moving under test while looking correct. The scrollTop
+    // assignment is what actually works there, and it is harmless after an instant scroll.
+    el.scrollTo?.({ top: el.scrollHeight, behavior: 'auto' });
     el.scrollTop = el.scrollHeight;
     stickRef.current = true;
     setIsAtBottom(true);
@@ -73,9 +85,7 @@ export function useStickToBottom<T extends HTMLElement>(revision: unknown): Stic
 
   useEffect(() => {
     if (!stickRef.current) return;
-    // 'auto', not 'smooth': new lines arrive every few seconds while someone is speaking, and
-    // overlapping smooth animations on a phone read as the list shivering.
-    scrollToBottom('auto');
+    scrollToBottom();
   }, [revision, scrollToBottom]);
 
   return { containerRef, onScroll: measure, isAtBottom, scrollToBottom };
