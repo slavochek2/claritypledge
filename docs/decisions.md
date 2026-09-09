@@ -6,6 +6,91 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [process]: The reviewed bytes live in the database, not the run file — so promotion reads test, and refuses without accuracy evidence bound to those exact bytes
+
+**Context:** The AI-safety disagreement run (4 arguers, 4 points, 8 stories) was filed to test on
+2026-09-07, then **rewritten in place**: 7 stories shortened, and one previously `[HELD]` story
+repaired and added. `/slava:disagreement:publish` files *the run file* and states of itself *"Not a
+promoter. There is no copy-from-test operation."* That rule assumes text is authored once and
+published twice. Real use is not that shape — a human reads the test filing and it gets better, and
+at that moment the run file is stale by construction. Following the rule literally would have
+published the pre-review draft: all 8 stories differed, and the run-file copy of one still carried
+**three fabrications about a named living person** (a first-mover framing the source never uses, an
+enumeration substituting "the people building it" for the speaker's actual "you, me, your children",
+and a headlines/threshold contrast absent from the transcript — `grep -c -i headline` = 0), still
+marked `[HELD]` with `checker-2 -> checker-10 -> FINDINGS`.
+
+**Decision:** (1) **The run file's story text carries no authority the database rows lack.** Verified
+by recomputation, not assumed: the seals hash the approvals block and the prediction block only —
+lines 11–122 and 211–243 — while the stories sat at 472–563, under neither. `publish.md` documents
+this itself as a known bypass. Choosing between the two sources is therefore a question of *which
+bytes were reviewed*, and the answer is the database. (2) New skill
+`/slava:disagreement:promote-to-prod` takes the live test rows as its source. (3) Its spine is a
+**refusal**: it will not publish story text without an independent accuracy check whose recorded
+`sha256` matches the current bytes. A check on an earlier version, or a memory of having checked,
+is not evidence. (4) **Stage 7 writes the published text back into the run file**, which is the step
+whose absence created the divergence. (5) `publish.md`'s "not a promoter" bullet now routes to the
+new skill instead of reading as an unconditional ban.
+
+**Why (3) is a refusal and not a reminder:** the test run's own ledger line recorded, in plain text,
+`INDEPENDENT ACCURACY CHECK: NOT YET RUN — all 8 written by the orchestrator, unchecked by any
+second reader`, and exited `complete`. Eight stories about four named living people, rewritten by
+the same agent that judged them. The log was honest; nothing consumed it. A log nothing reads is
+not a control.
+
+**Alternatives rejected:** *Re-run `story-draft` to regenerate the run file* — throws away text that
+had already been reviewed and repaired, and any regeneration invalidates the accuracy check just
+performed on the current bytes. *Add a `--from-test` flag to `publish`* — that skill's identity is
+"files the authored artifact"; a flag inverting its source makes its own preconditions ambiguous
+about which text they bind. *Treat the divergence as damage and reconcile by hand* — it is not
+damage, it is the improvement, and hand-reconciliation has no artifact.
+
+**Gate consolidation, recorded as a real reduction in protection:** the founder overrode the
+per-account gates — *"i dont want to confirm mutliple times i confirmed once to do it all"* — so
+four provisioning gates plus one publish gate became **one** authorization over the full scope. What
+is kept is that the operator sees everything before anything is written; what is lost is the chance
+to approve three subjects and refuse the fourth. The compensating requirement is that the single
+gate **must print every identity and every story by name — a count is not a disclosure.** Silence
+still refuses, and no flag may bypass it.
+
+**Consequences:** Promotion is one invocation. The four agent accounts on prod are permanent —
+`DELETE` is revoked from `service_role` and a trigger guards the registry row. The P1104 cold read,
+waived since the feature shipped, was finally performed on prod and passes: the agent row renders
+square, drained, `AGENT · on {name}`, no pledge ring, no ear count. **Status: proposed** — the new
+skill's own refuse-on-silence pair and its §2 evidence refusal have not yet been exercised against a
+must-fail fixture (`epistemic.md` gate 7), and per gate 7c a legitimate promotion must also be run
+through the refusal to measure its false-positive rate.
+
+**References:** [.claude/commands/slava/disagreement/promote-to-prod.md](../.claude/commands/slava/disagreement/promote-to-prod.md) · [.claude/commands/slava/disagreement/publish.md](../.claude/commands/slava/disagreement/publish.md) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7, 7c, 9
+
+---
+
+## 2026-09-09 [technical]: A verification probe that reads a prefix reports a false failure on correct data — and `points.context` no longer exists
+
+**Context:** Two defects found while verifying the prod promotion, both in *checking* code rather
+than in the thing checked.
+
+**Decision:** (1) **Assert 6 (story bound to the right agent) must read the whole `content`, not an
+opening substring.** The first version matched the speaker's surname in the first 60 characters and
+reported **7/8 on a fully correct set** — one story names its subject in the second sentence. This
+is the failure mode that teaches an operator to wave an assert through, and it is worse than no
+assert: the check covers a factorial space (at N=4 there are 23 wrong author permutations, every one
+of which survives asserts 1–5), so its credibility is the whole point. The corrected probe checks
+full content, requires no *other* arguer be named, and cross-checks `video_url` against that
+subject's source. (2) **`publish.md`'s `context = NULL` assert is dead** — P1095 dropped the column,
+so the query errors on a current database rather than passing. Removed from the promotion skill's
+precondition list; `publish.md` still carries it.
+
+**Consequences:** The pattern generalises past this repo: a probe scoped to a prefix, a first page,
+or a sample will report absence for data that is present later. Related to the existing control-probe
+rule (a probe returning the same verdict for every candidate is blind) but distinct — this one
+returns a *mixed* verdict, which is exactly why it reads as trustworthy. **Follow-up, untracked:**
+`publish.md` retains the dead `context` assert; a run following it literally will error.
+
+**References:** [.claude/commands/slava/disagreement/promote-to-prod.md](../.claude/commands/slava/disagreement/promote-to-prod.md) Stage 6 · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
+---
+
 ## 2026-09-09 [technical]: git exports GIT_DIR and GIT_INDEX_FILE to its hooks, and those override `git -C` — so a canary can corrupt the index of the commit that invoked it (P1273)
 
 **Context:** Commits from a worktree were blocked by seven spec files the commit had never
