@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000082
 severity: high
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [transcribe, rls, regression, migration]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1275-transcribe-room-create.spec.ts
@@ -26,6 +25,7 @@ reproduce_artifact:
 date_resolved: '2026-09-08'
 root_cause: "INSERT ... RETURNING is evaluated under transcribe_rooms' member-scoped SELECT policy (P1207) for the row it just wrote; the creator is not a member yet, so the read-back is refused and the insert aborts."
 resolution: "create_transcribe_room() — a SECURITY DEFINER function writing the room and the creator's membership in one transaction. No policy changed."
+completed_at: 2026-09-09
 ---
 
 # P1275: Creating an ad-hoc `/transcribe` room fails with a raw RLS violation
@@ -33,7 +33,7 @@ resolution: "create_transcribe_room() — a SECURITY DEFINER function writing th
 ## Summary
 
 `createRoom()` inserts into `transcribe_rooms` with `.select().single()`, and since
-[P1207](done/2026-06-10/p1207_adversarial_permission_audit_before_agent_api.md) narrowed that table's SELECT policy to members-only the read-back is
+[P1207](p1207_adversarial_permission_audit_before_agent_api.md) narrowed that table's SELECT policy to members-only the read-back is
 refused inside its own INSERT — so starting a new `/transcribe` room throws
 `new row violates row-level security policy` instead of creating one. Joining an existing room is
 unaffected.
@@ -187,7 +187,7 @@ create_transcribe_room(p_code text, p_display_name text, p_session_id uuid, p_ev
   grant (P1065; hit again in P1236).
 
 **Rejected — insert-then-read split.** This is the fix used on the join path in P1149 and recorded
-in [decisions.md](../docs/decisions.md) 2026-09-08 as not applicable here. Re-checked rather than
+in [decisions.md](../../../docs/decisions.md) 2026-09-08 as not applicable here. Re-checked rather than
 inherited: it *would* now work mechanically, because `get_transcribe_room_by_code()` is
 `SECURITY DEFINER` and can read the room back for a non-member. It is still rejected, on the
 Invariants above: it leaves a window in which a room exists with no members, which is a state the
