@@ -61,6 +61,23 @@ describe('P1285: CSP allows the YouTube hosts the story player needs', () => {
     ).toContain('https://www.youtube-nocookie.com');
   });
 
+  it('frame-src does NOT also carry https://www.youtube.com (minimum necessary)', () => {
+    // Review finding, /finish p1285. The first cut of this fix put www.youtube.com in
+    // frame-src as well. Nothing frames that origin: it is the iframe_api script host
+    // (src/lib/video.ts:221, covered by script-src) and the target of plain outbound
+    // links (video.ts:112, founder-credibility.tsx:22, social-links.ts:21). Framing it
+    // is unjustified widening of a security directive.
+    //
+    // Presence assertions alone could never catch this, which is why it is asserted
+    // negatively. Safe against the sibling host: the literal below is not a substring
+    // of 'https://www.youtube-nocookie.com'.
+    const value = extractDirective(csp, 'frame-src');
+    expect(
+      value,
+      `frame-src must NOT include https://www.youtube.com — nothing frames it. Current value: ${value}`,
+    ).not.toContain('https://www.youtube.com');
+  });
+
   it('img-src allows https://i.ytimg.com (the thumbnail in the blocked fallback)', () => {
     const value = extractDirective(csp, 'img-src');
     expect(
