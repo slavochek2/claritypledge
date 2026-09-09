@@ -2095,7 +2095,19 @@ fi
 # skill name across both trees. Drift in a skill this commit does not touch is
 # now someone else's commit to fix. D4/D8/D9 hard fails stay repo-wide.
 if [ -f "./scripts/sync-agent-skills.sh" ]; then
-    if ! run_quiet "Agent skills sync (P1151)" ./scripts/sync-agent-skills.sh --check --staged-only; then
+    # P1284 follow-up: the pre-commit hook is a symlink to the MAIN checkout's copy of
+    # THIS file, but ./scripts/sync-agent-skills.sh resolves inside the committing
+    # WORKTREE. A worktree whose branch predates P1284 has a copy that does not know
+    # --staged-only, and rejects it with exit 2 — blocking every commit in that worktree
+    # with "unknown argument". Measured 2026-09-09 across w3, w5 and w10 immediately
+    # after P1284 landed. Probe for support and fall back to the repo-wide --check,
+    # which is exactly what those branches ran before P1284 anyway.
+    SYNC_SCOPE_FLAG="--staged-only"
+    if ! grep -q -- '--staged-only' ./scripts/sync-agent-skills.sh 2>/dev/null; then
+        SYNC_SCOPE_FLAG=""
+    fi
+    # shellcheck disable=SC2086
+    if ! run_quiet "Agent skills sync (P1151)" ./scripts/sync-agent-skills.sh --check $SYNC_SCOPE_FLAG; then
         echo -e "${YELLOW}  → Run ./scripts/sync-agent-skills.sh (no flag) to regenerate, then re-stage .agents/skills/${NC}"
         ERRORS=$((ERRORS + 1))
     fi
