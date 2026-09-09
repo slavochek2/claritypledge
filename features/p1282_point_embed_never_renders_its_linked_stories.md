@@ -127,13 +127,52 @@ owner-attribution chrome above the fold — the card would claim a person owns t
 prior entry rejects inline expansion in embeds. The nearest entries concern iframe *height* and CSP
 `frame-src`, both of which support the fix rather than contradict it.
 
+
+## Second defect found during verification — NOT fixed here
+
+The gate fix is verified (below). A **separate** defect on the same surface survives it, and
+`?expanded=true` masks it rather than fixing it.
+
+**Observed, local dev against test DB, point `709b0a25` (4 linked video stories):**
+
+| URL | Action | Result |
+|---|---|---|
+| `?embed=true&expanded=true` | none — loads pre-expanded | stories render: agent byline, player, body text |
+| `?embed=true&expanded=true` | collapse, then expand | works both ways |
+| `?embed=true` | wait 10s, click "4 stories" | renders nothing; card returns to collapsed |
+
+**Best-supported explanation:** the card remounts shortly after the first expansion, so
+`useState(isExpanded)` re-initialises. With `expanded=true` it re-initialises to `true` and the
+remount is invisible; without it, to `false`, which presents as the click being ignored. This fits
+all three rows; nothing else tried does.
+
+**Two hypotheses tested and eliminated**, recorded so they are not re-tried:
+1. *The click bubbles to `handleCardClick`, which calls `window.open` in embed mode.* False — the
+   toggle sits inside a `role="presentation"` wrapper carrying `onClick={(e) => e.stopPropagation()}`
+   (`point-card-with-links.tsx:538`).
+2. *A `useEffect` resyncs `storiesExpanded`.* False — `setStoriesExpanded` has exactly one call site,
+   the toggle handler itself (`:176`).
+
+**Not chased further** per the two-failed-attempts rule. The remaining suspect, untested: the embed
+branch of `point-detail-page.tsx` attaches its `ResizeObserver` and a body-wide `MutationObserver`
+inside an **inline** ref callback (`:438-470`) with no disconnect, so both are recreated on every
+render and the body observer fires on any DOM change — including the story cards and the YouTube
+iframe that the first expansion mounts.
+
+**Consequence for the article, and why this is not a blocker:** embed the points as
+`?embed=true&expanded=true`. The evidence renders on load, which is what an article wants anyway —
+the quotes and timestamps should not be behind a click for a reader who came to read.
+
 ## Acceptance Criteria
 
-- [x] On `/point/{id}?embed=true` with linked public stories, clicking "N stories" renders those
-      stories inline, and clicking again collapses them.
-- [ ] The rendered stories carry their agent byline, quotes and timestamps.
+- [~] On `/point/{id}?embed=true` with linked public stories, the stories render inline and toggle
+      both ways — **verified with `&expanded=true`, in unit test, and in the browser**. Clicking from
+      a cold collapsed load still fails, blocked by the second defect above, which this spec does
+      not fix. Deliberately not ticked: the gate was necessary, not sufficient.
+- [x] The rendered stories carry their agent byline, quotes and timestamps. (Browser-verified locally: `AGENT on Yann LeCun`, mounted player, body text.)
 - [x] A point with more than three linked stories renders three plus a "+N more stories" control.
 - [x] The feed still does not expand stories inline — no change to that surface.
 - [x] A test asserts the embed branch renders its stories, and was seen to FAIL against the current
       gate before the fix, with the non-zero exit recorded.
-- [ ] Verified signed-out, not only in an authenticated session.
+- [ ] Verified signed-out, not only in an authenticated session. **Blocked until deployed** — not pushed.
+- [ ] Second defect above (click-from-collapsed) triaged. Shipping this spec does not close it.
