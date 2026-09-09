@@ -38,6 +38,9 @@
 
 set -uo pipefail
 
+# Resolve the helper against THIS script, not the repo root: the canary runs the script
+# against a throwaway repo that has no scripts/ of its own.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT" || exit 1
 
@@ -73,7 +76,14 @@ is_generated() {
 if (( ${#PATHS[@]} == 0 )); then
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
-    PATHS+=("${line:3}")
+    entry="${line:3}"
+    # git quotes any path containing a tab, newline, quote or non-ASCII byte. Parsing the
+    # quoted form as a literal path silently classifies the WRONG file — report it instead.
+    if [[ "$entry" == '"'* ]]; then
+      emit UNKNOWN "$entry" "leave uncommitted" "filename is quoted by git (contains a tab, newline or quote); not classified — resolve by hand"
+      continue
+    fi
+    PATHS+=("$entry")
   done < <(git status --porcelain --no-renames)
 fi
 (( ${#PATHS[@]} == 0 )) && exit 0
@@ -89,72 +99,17 @@ while IFS= read -r t; do TRANSCRIPTS+=("$t"); done < <(
        -mtime "-${TRANSCRIPT_DAYS}" -path "*${CLASSIFY_PROJECT_MATCH:-claritypledge}*" 2>/dev/null
 )
 
-# Does a transcript line record a WRITE to a path (as opposed to a read, a grep hit, or an
-# error message that merely names the file)? Two shapes count:
-#   - a file-editing tool call:  "name":"Edit"|"Write"|"MultiEdit"|"NotebookEdit" + "file_path":"<path>"
-#   - a Bash command that mutates the path: redirection, sed -i, tee, cp/mv onto it
-#
-# Attribution runs as ONE pass over the transcripts for ALL paths at once, not one pass per
-# path: the per-path form took 80s on a 13-file dirty set, which is long enough that a
-# caller would be tempted to skip it, and a check that gets skipped protects nothing.
-esc_path() { printf '%s' "$1" | sed 's/[][\.*^$/|(){}+?]/\\&/g'; }
-
-# macOS ships bash 3.2, which has no associative arrays — owners are kept in a temp file
-# of "<path>\t<mtime>\t<session>\t<project>" records, newest write per path winning.
+# Attribution runs as ONE pass over the transcripts for ALL paths, in a JSON parser rather
+# than a regex — see scripts/lib/attribute-writes.py for why (a hostile review reproduced two
+# cross-session misattributions in the regex version; parsing binds each file_path to the tool
+# call it belongs to). Results land in a temp file of
+# "<path>\t<mtime>\t<session>\t<project>\t<STRONG|WEAK>" records.
 OWNERS="$(mktemp)"
 trap 'rm -f "$OWNERS"' EXIT
 
 build_attribution() {
-  local -a esc=()
-  local p
-  for p in "${PATHS[@]:-}"; do [[ -z "$p" ]] && continue; esc+=("$(esc_path "$p")"); done
-  local alt; alt="$(IFS='|'; printf '%s' "${esc[*]}")"
-  # Evidence comes in two strengths, and the difference decides whether a file may be
-  # COMMITTED or only left alone.
-  #
-  # STRONG — the record shows the path as the TARGET of a write:
-  #   * an editing tool call (Edit/Write/MultiEdit/NotebookEdit) with a matching file_path
-  #   * a redirect whose target is the path (`> path`, `>> path`) — the path must follow the
-  #     operator directly, which is what separates `cat > a.md` from `grep 2>/dev/null … a.md`
-  #   * tee / sed -i / cp / mv naming the path
-  # WEAK — the path merely appears in a mutating command (it may be an argument being read,
-  #   with the mutation aimed elsewhere; `2>/dev/null` is the common case).
-  #
-  # Only STRONG evidence from THIS session yields MINE, because MINE is the one verdict that
-  # licenses a commit — and a file this session only inspected must never be committed on the
-  # strength of a redirect that pointed at /dev/null. WEAK evidence still suffices to leave a
-  # file alone and name a likely owner, which is the safe direction.
-  #
-  # Scoped with an escape-aware run — ([^"\]|\.)* — not `[^"]*` (stops at the first \" inside
-  # a heredoc, missing real writes) and not `.*` (spans the whole record, so one tool call's
-  # `git status` gets credited with another's path). Both were measured on the live tree.
-  local jrun='([^"\\]|\\.)*'
-  local edit_tools='"name":"(Edit|Write|MultiEdit|NotebookEdit)"'
-  # A script-language rewrite (`python3 - <<PY … open(p,"w") … PY`) is a real write with no
-  # redirect and no editing-tool call. It is STRONG when the command carries both the path and
-  # a write idiom, in either order — the path is usually bound to a variable well above the
-  # open(). Found by dogfooding: this skill's own edits classified as another session's ORPHAN.
-  local wr='(open\(|write_text\(|\.write\(|writelines\()'
-  local pat_strong="(${edit_tools}.*\"file_path\":\"[^\"]*(${alt})\")|(\"command\":\"${jrun}(>>?[[:space:]]*\"?|tee (-a )?|sed -i[^[:space:]]* |cp ${jrun} |mv ${jrun} )(${alt}))|(\"command\":\"${jrun}(${alt})${jrun}${wr})|(\"command\":\"${jrun}${wr}${jrun}(${alt}))"
-  local pat_weak="\"command\":\"${jrun}(>|tee |sed -i|cp |mv )${jrun}(${alt})"
-
-  local f mtime sid proj hit strength pat
-  for f in "${TRANSCRIPTS[@]:-}"; do
-    [[ -z "$f" ]] && continue
-    grep -qE -- "$pat_weak" "$f" 2>/dev/null || grep -qE -- "$pat_strong" "$f" 2>/dev/null || continue
-    mtime="$(stat -f %m "$f")"
-    sid="$(basename "$f" .jsonl)"
-    proj="$(basename "$(dirname "$f")")"
-    for strength in STRONG WEAK; do
-      [[ "$strength" == STRONG ]] && pat="$pat_strong" || pat="$pat_weak"
-      while IFS= read -r hit; do
-        for p in "${PATHS[@]:-}"; do
-          [[ "$hit" == *"$p"* ]] || continue
-          printf '%s\t%s\t%s\t%s\t%s\n' "$p" "$mtime" "$sid" "$proj" "$strength" >> "$OWNERS"
-        done
-      done < <(grep -ohE -- "$pat" "$f" 2>/dev/null)
-    done
-  done
+  printf '%s\n' "${TRANSCRIPTS[@]:-}" \
+    | python3 "$SELF_DIR/lib/attribute-writes.py" "${PATHS[@]}" > "$OWNERS"
 }
 
 # ---- worktree index --------------------------------------------------------
@@ -213,8 +168,13 @@ for p in "${PATHS[@]}"; do
     .agents/skills/*/SKILL.md)
       mirror_name="${p#.agents/skills/}"; mirror_name="${mirror_name%/SKILL.md}"
       src="$(find .claude/commands -name "${mirror_name}.md" -o -path "*/${mirror_name}/SKILL.md" 2>/dev/null | head -1)"
-      if [[ -n "$src" ]] && awk -F'\t' -v s="$src" '$1==s && $5=="STRONG"' "$OWNERS" \
-           | grep -qF "$SESSION_ID"; then
+      # Claim the mirror only if we wrote its source AND no other session wrote the mirror
+      # itself — otherwise a peer's regenerated mirror rides out under our authorship.
+      mirror_claimed_by_peer=0
+      if [[ -n "$SESSION_ID" ]] && awk -F'\t' -v m="$p" '$1==m && $5=="STRONG"' "$OWNERS" \
+           | grep -qv -- "$SESSION_ID" ; then mirror_claimed_by_peer=1; fi
+      if [[ -n "$src" ]] && (( ! mirror_claimed_by_peer )) \
+         && awk -F'\t' -v s="$src" '$1==s && $5=="STRONG"' "$OWNERS" | grep -qF "$SESSION_ID"; then
         emit MINE "$p" "stage and commit" "generated mirror of ${src}, which this session wrote"
       else
         emit GENERATED "$p" "leave uncommitted" \
@@ -225,13 +185,12 @@ for p in "${PATHS[@]}"; do
   esac
 
   # 3. Transcript attribution — the evidence that used to be missing.
-  # Strong evidence first; a weak-only match never licenses a commit.
+  # Ownership is decided by STRONG evidence only. WEAK evidence — the path appears in a
+  # command that mutates something, with the mutation aimed elsewhere — never names an owner
+  # and never licenses a commit; it is reported as a hint inside UNKNOWN. Naming an owner on
+  # weak evidence produced a confident, wrong attribution in review (a peer that had only run
+  # `grep file 2>/dev/null` was reported as the writer).
   owner_rec="$(awk -F'\t' -v p="$p" '$1==p && $5=="STRONG"' "$OWNERS" | sort -t"$(printf '\t')" -k2,2n | tail -1)"
-  weak_only=0
-  if [[ -z "$owner_rec" ]]; then
-    owner_rec="$(awk -F'\t' -v p="$p" '$1==p' "$OWNERS" | sort -t"$(printf '\t')" -k2,2n | tail -1)"
-    weak_only=1
-  fi
   if [[ -n "$owner_rec" ]]; then
     o_mtime="$(cut -f2 <<<"$owner_rec")"; o_sid="$(cut -f3 <<<"$owner_rec")"; o_proj="$(cut -f4 <<<"$owner_rec")"
     # A transcript being appended to right now can carry an mtime a second ahead of our
@@ -239,24 +198,27 @@ for p in "${PATHS[@]}"; do
     age_min=$(( (now - o_mtime) / 60 )); (( age_min < 0 )) && age_min=0
     where="${o_proj##*claritypledge}"; where="${where:-/ (main checkout)}"
     if [[ -n "$SESSION_ID" && "$o_sid" == "$SESSION_ID" ]]; then
-      if (( weak_only )); then
-        emit UNKNOWN "$p" "leave uncommitted" \
-          "this session touched the path in a command, but no write to it was recorded — not committing on weak evidence"
-      else
-        emit MINE "$p" "stage and commit" "written by this session (${o_sid:0:8})"
-      fi
-      continue
-    fi
-    ev="$( (( weak_only )) && printf 'likely written by' || printf 'written by' )"
-    if (( age_min <= LIVE_MINUTES )); then
+      emit MINE "$p" "stage and commit" "written by this session (${o_sid:0:8})"
+    elif (( age_min <= LIVE_MINUTES )); then
       emit SESSION "$p" "leave uncommitted" \
-        "${ev} LIVE session ${o_sid:0:8} in ${where}, active ${age_min}m ago; exposed on shared main until that session commits it"
-      continue
+        "written by LIVE session ${o_sid:0:8} in ${where}, active ${age_min}m ago; exposed on shared main until that session commits it"
+    else
+      # An idle session's write is only the CURRENT state if the file has not changed since.
+      # Compare the file's mtime against the transcript's: a file modified well after its last
+      # recorded write has been edited by something we could not attribute — reporting the old
+      # writer as its owner would outrank a live session's own knowledge of what it just did.
+      f_mtime="$(stat -f %m "$p" 2>/dev/null || echo 0)"
+      if (( f_mtime > o_mtime + 300 )); then
+        emit UNKNOWN "$p" "leave uncommitted" \
+          "last recorded write was session ${o_sid:0:8} (idle ${age_min}m), but the file changed $(( (f_mtime - o_mtime) / 60 ))m after that — writer of the current content unknown"
+      else
+        emit ORPHAN "$p" "leave uncommitted" \
+          "written by session ${o_sid:0:8} in ${where}, idle ${age_min}m; no live owner"
+      fi
     fi
-    emit ORPHAN "$p" "leave uncommitted" \
-      "${ev} session ${o_sid:0:8} in ${where}, idle ${age_min}m; no live owner"
     continue
   fi
+  weak_rec="$(awk -F'\t' -v p="$p" '$1==p' "$OWNERS" | sort -t"$(printf '\t')" -k2,2n | tail -1)"
 
   # 4. Live worktree artifact (the documented migration / deploy-manifest exception).
   if w="$(worktree_owner "$p")"; then
@@ -266,11 +228,16 @@ for p in "${PATHS[@]}"; do
   fi
 
   # 5. No evidence either way — report with an age so the human can act LATER if it matters.
+  hint=""
+  if [[ -n "$weak_rec" ]]; then
+    ws="$(cut -f3 <<<"$weak_rec")"
+    hint=" (session ${ws:0:8} named it in a mutating command, but no write to it was recorded)"
+  fi
   if git ls-files --error-unmatch -- "$p" >/dev/null 2>&1; then
     age="$(git log -1 --format=%cr -- "$p" 2>/dev/null)"
-    emit UNKNOWN "$p" "leave uncommitted" "tracked, last committed ${age:-unknown}; no write found in ${TRANSCRIPT_DAYS}d of transcripts"
+    emit UNKNOWN "$p" "leave uncommitted" "tracked, last committed ${age:-unknown}; no write found in ${TRANSCRIPT_DAYS}d of transcripts${hint}"
   else
     age="$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$p" 2>/dev/null)"
-    emit UNKNOWN "$p" "leave uncommitted" "untracked, mtime ${age:-unknown}; no write found in ${TRANSCRIPT_DAYS}d of transcripts"
+    emit UNKNOWN "$p" "leave uncommitted" "untracked, mtime ${age:-unknown}; no write found in ${TRANSCRIPT_DAYS}d of transcripts${hint}"
   fi
 done

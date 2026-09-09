@@ -88,12 +88,36 @@ An `.agents/skills/*/SKILL.md` mirror of a skill **you** edited classifies as `M
 "Agent skills sync" pre-commit check blocks a commit that moves one without the other, so the
 pair ships together. Run `./scripts/sync-agent-skills.sh` after any skill edit.
 
-**Evidence has two strengths, and only the strong kind licenses a commit.** Strong = the path
-is the *target* of a write (an editing tool's `file_path`; a redirect/`tee`/`cp`/`mv`/`sed -i`
-naming it; a `python`-style rewrite carrying both the path and a write idiom). Weak = the path
-merely appears in a command that mutates something — `grep … file 2>/dev/null` is the case
-that matters, and it is why a weak-only match on your own file yields `UNKNOWN`, not `MINE`.
-Both shapes are pinned by the canary.
+**The classifier is a VETO, not the whole answer.** It proves what other sessions wrote; for
+your own work you also have your own context, which is legitimate evidence for your work and
+unavailable for anyone else's. So the set you stage is:
+
+> everything the classifier calls `MINE`, **plus** files you know you edited this session,
+> **minus** anything the classifier attributes to a **live** owner (`SESSION`, `WORKTREE`).
+
+The subtraction is not negotiable — a live peer's strong claim beats your recollection.
+`ORPHAN` and `UNKNOWN` do not subtract: they mean nobody live is claiming the file, so your
+own knowledge is the best evidence available. (`ORPHAN` also decays: a file modified well after
+its last recorded write reports as `UNKNOWN`, since the old writer no longer explains the
+current content.)
+
+If you include a skill file this way, run `./scripts/sync-agent-skills.sh` and stage its
+`.agents/skills/` mirror in the same commit — the sync check blocks the commit otherwise. The addition
+matters because some real writes cannot be attributed by any parser: a `python3` heredoc that
+opens a path held in a *variable* binds its target at runtime, so it reads as `UNKNOWN`. If an
+`UNKNOWN` file is not yours, leave it.
+
+**Evidence has two strengths, and only the strong kind licenses a commit.** Strong = the path is the
+*target* of a write: an editing tool's own `file_path`, a redirect/`tee`/`sed -i` pointing at
+it, a `cp`/`mv` **destination**, or a script write naming it literally. Weak = the path merely
+appears in a command that mutates something else (`grep … file 2>/dev/null`, `cp file /tmp/x`).
+**Weak evidence never names an owner and never commits** — it appears only as a hint inside
+`UNKNOWN`.
+
+Attribution is a JSON parse (`scripts/lib/attribute-writes.py`), not a regex. A 2026-09-09
+hostile review reproduced two cross-session misattributions in the regex version — a `Read` of
+a peer's file sitting in the same record as our own `Edit` classified that peer's file as ours.
+All four attack cases are pinned in the canary.
 
 **Only `MINE` is committable — that is the whole safety argument, and it is asserted by
 `scripts/test-classify-dirty-files.sh`.** Leaving a file uncommitted loses nothing; committing
@@ -112,6 +136,15 @@ shapes (`Edit`/`Write`/`MultiEdit`/`NotebookEdit` with a `file_path`, or a `Bash
 redirects/`sed -i`/`tee`/`cp`/`mv`s onto the path). A session that merely **saw** the path — in
 a `git status` dump, a grep hit, an error message — is not its owner; that read-vs-write
 control is the canary's load-bearing case, and a mutant that drops it is killed by the test.
+
+**Stage right after classifying.** The verdict is a snapshot; a peer can overwrite a `MINE`
+path between the classification and the commit. `git-ops.sh commit-to-main` re-checks the
+recorded file set and exits non-zero on a mismatch (P1279), so the window is caught rather than
+silent — but don't widen it by doing other work in between.
+
+**A deliberate edit to a `GENERATED` path is left behind on purpose.** If you actually meant to
+change `supabase/.temp/*`, `.privacy-reviewed` or `deploy-manifest.json`, commit it yourself;
+`/push` will not, and will say so.
 
 **Report, don't log retroactively.** One line per non-`MINE` file in your output, carrying the
 evidence string. For `SESSION`/`WORKTREE`/`ORPHAN`/`UNKNOWN`, say that the file stays exposed
