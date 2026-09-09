@@ -13,12 +13,22 @@
 #   PID_START_TIME — from `ps -o lstart= -p $PID` (macOS-compatible, whitespace-trimmed)
 #   NONCE          — 16 hex chars (8 random bytes) from /dev/urandom
 #   SESSION_ID     — hostname-pid-epoch
-#   HEARTBEAT      — ISO8601 UTC, refreshed by long-running callers (not by this script post-claim)
+#   HEARTBEAT      — ISO8601 UTC, refreshed by `claim` and `adopt` and by the SessionStart hook
 #
-# A lock is LIVE iff the PID still exists AND `ps -o lstart=` currently matches PID_START_TIME.
-# If PID exists but start time differs → STALE (the OS recycled the PID).
-# If PID does not exist at all → ORPHAN.
-# Slot directory with no .lock file → NO_LOCK.
+# LIVENESS (revised P1268). PID existence alone CANNOT express liveness here: `claim`
+# stamps the PID of the git-ops.sh process itself, and in an agent harness no process
+# outlives a single command — so every agent-claimed lock was ORPHAN within milliseconds
+# of being written. HEARTBEAT freshness is the primary evidence; PID is a fast path.
+#
+#   LIVE    — PID exists AND `ps -o lstart=` matches PID_START_TIME (fast path)
+#             OR HEARTBEAT is within LOCK_TTL_SECONDS (default 12h)
+#   STALE   — PID exists, start time differs (OS recycled the PID), heartbeat expired
+#   ORPHAN  — PID does not exist AND heartbeat expired
+#   NO_LOCK — slot directory has no .lock file
+#
+# Freshness fails CLOSED: an empty, unparseable or wildly skewed HEARTBEAT is not fresh.
+# `scripts/pre-flight.sh` carries a deliberate standalone copy of this logic; the two are
+# held in agreement by `scripts/test-lock-state-parity.sh`, not by convention.
 #
 # CALLER EVAL CONTRACT (P783 fix — see .claude/rules/shell-safety.md):
 #   `claim` prints eval-safe output wrapped in #CP_CLAIM_BEGIN / #CP_CLAIM_END
@@ -204,6 +214,44 @@ load_lockfile() {
   return 0
 }
 
+# P1268: liveness TTL for HEARTBEAT, in seconds. 12h — long enough that a session
+# idle over a long break is never misread as dead, short enough that yesterday's
+# corpse is visible today. Override for tests via CP_LOCK_TTL_SECONDS.
+LOCK_TTL_SECONDS="${CP_LOCK_TTL_SECONDS:-43200}"
+
+# Parse an ISO8601 UTC stamp ("2026-09-08T09:47:59Z") to epoch seconds.
+# Prints nothing and returns 1 if it cannot be parsed — callers MUST treat that
+# as "not fresh" (fail closed), never as "fresh".
+iso_to_epoch() {
+  local stamp="$1"
+  [[ -n "$stamp" ]] || return 1
+  # Validate the SHAPE before parsing. BSD `date -j -f` accepts trailing garbage
+  # and still returns an epoch ("...Z; rm -rf /" parses fine), so a malformed
+  # HEARTBEAT would read as LIFE rather than failing closed — the opposite of the
+  # stated contract. Not an injection (it is an argument, never evaluated), but the
+  # fail-closed property is the whole point. Found by adversarial review.
+  [[ "$stamp" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || return 1
+  # BSD (macOS) first, then GNU (Linux). Without the GNU arm every heartbeat is
+  # unparseable there, so every lock reads ORPHAN and the feature silently inverts
+  # to permissive on the clarity-agent VM. Same BSD-only family as `stat -f %m`.
+  TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$stamp" +%s 2>/dev/null && return 0
+  date -u -d "$stamp" +%s 2>/dev/null && return 0
+  return 1
+}
+
+# Returns 0 iff the given HEARTBEAT is within LOCK_TTL_SECONDS of now.
+# Fails closed: empty, unparseable, or clock-skewed stamps are never fresh.
+heartbeat_fresh() {
+  local hb="$1" hb_epoch now_epoch age
+  hb_epoch="$(iso_to_epoch "$hb")" || return 1
+  [[ -n "$hb_epoch" ]] || return 1
+  now_epoch="$(date -u +%s)"
+  age=$(( now_epoch - hb_epoch ))
+  # A clock-skewed future stamp is not evidence of life; bound it both ways.
+  [[ $age -lt 0 ]] && age=$(( -age ))
+  [[ $age -le $LOCK_TTL_SECONDS ]]
+}
+
 # Emit one of: LIVE | STALE | ORPHAN | NO_LOCK
 # Callers are expected to have already called load_lockfile.
 classify_lock_state() {
@@ -211,17 +259,30 @@ classify_lock_state() {
     echo "NO_LOCK"
     return
   fi
-  if ! pid_alive "$LOCK_PID"; then
-    echo "ORPHAN"
+  # Fast path: the recorded process is still the process that claimed the slot.
+  if pid_alive "$LOCK_PID"; then
+    local now_start
+    now_start="$(pid_start_time "$LOCK_PID")"
+    if [[ -n "$now_start" && "$now_start" == "$LOCK_PID_START_TIME" ]]; then
+      echo "LIVE"
+      return
+    fi
+    # PID recycled. A fresh heartbeat still evidences a live owner.
+    if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
+      echo "LIVE"
+      return
+    fi
+    echo "STALE"
     return
   fi
-  local now_start
-  now_start="$(pid_start_time "$LOCK_PID")"
-  if [[ -z "$now_start" || "$now_start" != "$LOCK_PID_START_TIME" ]]; then
-    echo "STALE"
-  else
+  # P1268: no process in an agent harness outlives a single command, so PID
+  # absence alone cannot mean abandoned. A heartbeat inside the TTL is the
+  # positive evidence of an owner; without it the slot really is orphaned.
+  if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
     echo "LIVE"
+    return
   fi
+  echo "ORPHAN"
 }
 
 # ----------------------------------------------------------------------------
@@ -339,8 +400,23 @@ cmd_claim() {
   fi
   local nonce
   nonce="$(gen_nonce)"
+  # P1268 follow-up. claim used to ALWAYS stamp a process identity here, and that made
+  # the whole heartbeat mechanism inert on a freshly claimed slot — a dead interlock
+  # found by adversarial review and reproduced by command:
+  #   * claim writes SESSION_ID=<hostname>-<pid>-<epoch> and a fresh heartbeat, so the
+  #     slot reads LIVE;
+  #   * the SessionStart hook's `adopt` refuses a LIVE lock without --nonce (rc=1), so
+  #     the agent's session id never reaches the lockfile;
+  #   * `cmd_heartbeat` needs LOCK_PID == $$ (never true — no agent process outlives a
+  #     command, which is the original P1268 defect) or CP_SESSION_ID == LOCK_SESSION_ID,
+  #     which now cannot match. It exits 0 silently, so nothing reports the failure.
+  # Net effect: the slot ages back to ORPHAN after the TTL while its owner is still
+  # working — exactly what the heartbeat exists to prevent.
+  # Binding the caller's session id AT CLAIM TIME closes it: the same session that
+  # claimed the slot is the one whose PostToolUse hook beats it. Falls back to the
+  # process identity when CP_SESSION_ID is absent (a human running claim by hand).
   local session_id
-  session_id="$(hostname -s)-${pid}-$(date +%s)"
+  session_id="${CP_SESSION_ID:-$(hostname -s)-${pid}-$(date +%s)}"
   local now
   now="$(iso_now)"
 
@@ -422,7 +498,18 @@ cmd_status_single() {
   echo "P-Number: ${LOCK_P_NUMBER:-?}"
   echo "PID:      ${LOCK_PID:-?}"
   echo "PID start:${LOCK_PID_START_TIME:+ }${LOCK_PID_START_TIME:-?}"
-  echo "Nonce:    ${LOCK_NONCE:-?}"
+  # Redacted unless the caller is standing in this slot. `--nonce` accepts this
+  # value as proof of ownership and bypasses the LIVE refusal, so `status wN` on a
+  # slot you are not in must not hand it over. Honest about strength: .lock is a
+  # readable file, so this is friction for the tool's own paths, not a boundary
+  # against a determined local process.
+  local _status_caller
+  _status_caller="$(git rev-parse --path-format=absolute --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$_status_caller" && "$(cd "$_status_caller" 2>/dev/null && pwd -P)" == "$(cd "$slot_path" 2>/dev/null && pwd -P)" ]]; then
+    echo "Nonce:    ${LOCK_NONCE:-?}"
+  else
+    echo "Nonce:    (hidden — run from inside $slot to see it)"
+  fi
   echo "Session:  ${LOCK_SESSION_ID:-?}"
   echo "Claimed:  ${LOCK_CLAIMED_AT:-?}"
   echo "Heartbeat:${LOCK_HEARTBEAT:+ }${LOCK_HEARTBEAT:-?}"
@@ -532,7 +619,9 @@ cmd_release() {
     {
       echo "git-ops: refusing to release $slot — ownership check failed"
       echo "  lock PID  : ${LOCK_PID:-?}  (caller pid: $caller_pid)"
-      echo "  lock nonce: ${LOCK_NONCE:-?}"
+      # NEVER print LOCK_NONCE here — it is the credential this branch is refusing
+      # for. Disclosing it in the denial makes the gate decorative (reproduced by
+      # adversarial review: harvest from the refusal, replay, succeed).
       if [[ -n "$nonce_arg" ]]; then
         echo "  given nonce: $nonce_arg  (no match)"
       else
@@ -547,6 +636,299 @@ cmd_release() {
   echo "git-ops: released $slot (lockfile removed, worktree/branch preserved)" >&2
 }
 
+# ----------------------------------------------------------------------------
+# Subcommand: heartbeat (P1268)
+# ----------------------------------------------------------------------------
+#
+# Refresh ONLY the HEARTBEAT of a slot's lock, in place. Cheap enough to call on
+# every file edit, which is the point: `adopt` fires once at session start, so a
+# session that outlives the TTL would go ORPHAN again while its owner is still
+# typing — the original defect, moved from milliseconds to 12 hours rather than
+# fixed. Found by adversarial review, not by the author.
+#
+# Deliberately activity-driven, never a timer. A daemon stamping on a schedule
+# outlives the session it represents and manufactures false LIVE, which is worse
+# than the false ORPHAN this whole spec exists to remove. A refresh triggered by
+# the session doing something cannot outlive the session doing things.
+#
+# Silent and non-zero-exit-free by design: callers are hooks on the hot path.
+# It refuses to CREATE a lock — no lock means nothing is claimed, and inventing
+# one here would forge a claim nobody made.
+cmd_heartbeat() {
+  local slot="${1:-}"
+  [[ -n "$slot" ]] || { echo "usage: git-ops heartbeat <slot>" >&2; exit 2; }
+  [[ "$slot" =~ ^w[0-9]+$ ]] || exit 0
+  local lockfile="$WORKTREES_DIR/$slot/.lock"
+  [[ -f "$lockfile" ]] || exit 0
+
+  load_lockfile "$lockfile" || exit 0
+
+  # Containment FIRST. cmd_heartbeat originally had none at all, so a caller
+  # anywhere on the filesystem could keep any slot alive forever by reading
+  # SESSION_ID out of the very lockfile it wanted to hold open and echoing it back
+  # in CP_SESSION_ID. Reproduced by adversarial review. CP_SESSION_ID is an ordinary
+  # environment variable and therefore NOT a credential — it is a same-session hint,
+  # and it is only meaningful behind this check.
+  local hb_caller_root hb_resolved_caller hb_resolved_slot
+  hb_caller_root="$(git rev-parse --path-format=absolute --show-toplevel 2>/dev/null || true)"
+  [[ -n "$hb_caller_root" ]] || exit 0
+  hb_resolved_slot="$(cd "$WORKTREES_DIR/$slot" 2>/dev/null && pwd -P || echo "")"
+  hb_resolved_caller="$(cd "$hb_caller_root" 2>/dev/null && pwd -P || echo "")"
+  [[ -n "$hb_resolved_slot" && "$hb_resolved_caller" == "$hb_resolved_slot" ]] || exit 0
+
+  # Only the session that OWNS the lock may keep it alive.
+  local caller_pid=$$
+  if [[ "${LOCK_PID:-}" != "$caller_pid" ]]; then
+    # The claiming PID is a dead short-lived process by design, so PID equality
+    # almost never holds. Fall back to session identity, which `adopt` stamps.
+    if [[ -z "${CP_SESSION_ID:-}" || "${CP_SESSION_ID}" != "${LOCK_SESSION_ID:-}" ]]; then
+      exit 0
+    fi
+  fi
+
+  local now tmp
+  now="$(iso_now)"
+  tmp="$(mktemp "$WORKTREES_DIR/$slot/.lock.XXXXXX")" || exit 0
+  # Rewrite every field verbatim except HEARTBEAT — never regenerate identity here.
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      HEARTBEAT=*) echo "HEARTBEAT=$now" ;;
+      *)           echo "$line" ;;
+    esac
+  done < "$lockfile" > "$tmp"
+  mv -f "$tmp" "$lockfile"
+}
+
+# ----------------------------------------------------------------------------
+# Subcommand: adopt (P1268)
+# ----------------------------------------------------------------------------
+#
+# Re-own an EXISTING lock: refresh the liveness fields, preserve the identity
+# fields. `claim` creates a claim; `adopt` says "the same claim, me now".
+#
+# Preserved: SLOT, BRANCH, P_NUMBER, CLAIMED_AT, NONCE.
+# Refreshed: PID, PID_START_TIME, SESSION_ID, HEARTBEAT.
+#
+# NONCE is deliberately preserved, not regenerated: a nonce captured by an
+# earlier `claim` (CP_LOCK_NONCE_wN, and every skill that stores it) must keep
+# working across an adopt, or adopting a slot silently breaks the `release` and
+# `abandon` its own owner is holding a nonce for.
+#
+# Containment — adoption is only ever INTO the slot you are working in:
+#   1. slot dir and lockfile must exist
+#   2. caller's git toplevel must BE the slot path, unless --nonce matches
+#      (a matching nonce proves prior ownership and is accepted from anywhere)
+#   3. the worktree's checked-out branch must equal the lock's BRANCH
+#   4. a LIVE lock held by a DIFFERENT living PID is refused without a nonce
+cmd_adopt() {
+  local slot=""
+  local nonce_arg=""
+  local session_arg=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --nonce)   [[ $# -lt 2 ]] && { echo "--nonce requires a value" >&2; exit 2; }; nonce_arg="$2"; shift 2 ;;
+      --nonce=*) nonce_arg="${1#--nonce=}"; shift ;;
+      --session) [[ $# -lt 2 ]] && { echo "--session requires a value" >&2; exit 2; }; session_arg="$2"; shift 2 ;;
+      --session=*) session_arg="${1#--session=}"; shift ;;
+      -*)        echo "unknown flag: $1" >&2; exit 2 ;;
+      *)
+        if [[ -n "$slot" ]]; then
+          echo "usage: git-ops adopt <slot> [--nonce <value>] [--session <id>]" >&2
+          exit 2
+        fi
+        slot="$1"; shift ;;
+    esac
+  done
+
+  if [[ -z "$slot" ]]; then
+    echo "usage: git-ops adopt <slot> [--nonce <value>] [--session <id>]" >&2
+    exit 2
+  fi
+
+  # `claim` validates its arguments; `adopt` validated nothing, so a slot name
+  # could be any path fragment. Constrain it to the wN convention.
+  [[ "$slot" =~ ^w[0-9]+$ ]] || die "adopt: invalid slot '$slot' (expected wN)"
+
+  local slot_path="$WORKTREES_DIR/$slot"
+  local lockfile="$slot_path/.lock"
+  [[ -d "$slot_path" ]] || die "slot $slot does not exist at $slot_path"
+  [[ -f "$lockfile" ]] || die "no lockfile at $lockfile — nothing to adopt (use 'claim' to create one)"
+
+  # Serialize the read-modify-write below. `mv` alone makes the WRITE atomic but
+  # does nothing about two adopters both reading the same dead claim, both passing
+  # every check, and both writing — last one wins silently, and the loser keeps
+  # working under a lock that now names someone else. `mkdir` is atomic on POSIX
+  # and needs no extra tooling (`flock` is not on stock macOS).
+  # Found by adversarial review.
+  local mutex="$slot_path/.lock.mutex"
+  local mutex_waited=0
+  until mkdir "$mutex" 2>/dev/null; do
+    mutex_waited=$(( mutex_waited + 1 ))
+    if [[ "$mutex_waited" -gt 50 ]]; then
+      {
+        echo "git-ops: refusing to adopt $slot — another adopt holds its mutex ($mutex)"
+        echo "adopt is a sub-second operation, so a mutex held for 5s means a previous"
+        echo "run was killed mid-flight. Inspect, then remove it by hand:  rmdir '$mutex'"
+      } >&2
+      exit 1
+    fi
+    sleep 0.1
+  done
+  # NO automatic staleness break, deliberately. The previous version broke any mutex
+  # whose mtime read older than 30s, and adversarial review reproduced two failures
+  # that together destroy mutual exclusion outright:
+  #   (a) the breaker walks into a critical section a slow holder still occupies; and
+  #   (b) far worse, the original holder's path-based `rmdir` then deletes the
+  #       BREAKER's mutex on exit, so every later holder can be unlocked by the
+  #       previous one — an unbounded cascade, not a one-shot race.
+  # It also read mtime via `stat -f %m`, which is BSD-only; GNU `stat -f` rejects
+  # `%m`, and the `|| echo 0` fallback made age ~1.7e9, so on Linux EVERY mutex read
+  # as stale and was broken instantly. A portability slip whose failure mode was
+  # silently permissive.
+  # A wedged slot needing one human `rmdir` is strictly better than a lock that does
+  # not lock. Failing closed is the whole point of a mutex.
+  # shellcheck disable=SC2064
+  trap "rmdir '$mutex' 2>/dev/null || true" EXIT
+
+  load_lockfile "$lockfile" || die "failed to read lockfile $lockfile"
+
+  local own_by_nonce=0
+  if [[ -n "$nonce_arg" && "$nonce_arg" == "${LOCK_NONCE:-}" ]]; then
+    own_by_nonce=1
+  fi
+
+  # (2) Containment: must be standing in the slot, unless the nonce proves ownership.
+  if [[ "$own_by_nonce" -ne 1 ]]; then
+    local caller_root
+    caller_root="$(git rev-parse --path-format=absolute --show-toplevel 2>/dev/null || true)"
+    # Resolve both sides through the same realpath treatment so a symlinked
+    # /tmp or /private/tmp prefix does not read as a different directory.
+    local resolved_slot resolved_caller
+    resolved_slot="$(cd "$slot_path" 2>/dev/null && pwd -P || echo "$slot_path")"
+    resolved_caller="$(cd "$caller_root" 2>/dev/null && pwd -P || echo "$caller_root")"
+    if [[ -z "$caller_root" || "$resolved_caller" != "$resolved_slot" ]]; then
+      {
+        echo "git-ops: refusing to adopt $slot — caller is not inside that slot"
+        echo "  slot   : $resolved_slot"
+        echo "  caller : ${resolved_caller:-<not in a git repo>}"
+        echo "Adopting a slot you are not working in is a seizure, not a hand-off."
+        echo "Run from inside the worktree, or pass --nonce <value> to prove prior ownership."
+      } >&2
+      exit 1
+    fi
+  fi
+
+  # (2b) THE ownership gate. Presence in a directory is not evidence of ownership —
+  # every session in the repo can cd anywhere. Classify, and refuse a LIVE lock
+  # without the nonce, exactly as cmd_abandon already does.
+  #
+  # An earlier cut only WARNED here, reasoning that refusing might break a session
+  # resuming into its own slot if Claude issues a new session_id on --resume. That
+  # was a false dilemma, and an adversarial review reproduced the cost: any session
+  # that cd'd into an occupied slot seized it silently, exit 0, and the SessionStart
+  # hook made it automatic. Refusing LIVE does NOT break resume — a resumed session's
+  # slot is by definition NOT heartbeat-fresh, because its owner was away and nothing
+  # was beating it. A fresh heartbeat means someone is actively there right now.
+  # That is the whole point of having a heartbeat: it distinguishes the two cases
+  # that PID identity could not.
+  if [[ "$own_by_nonce" -ne 1 ]]; then
+    local cur_state
+    cur_state="$(classify_lock_state)"
+    if [[ "$cur_state" == "LIVE" ]]; then
+      {
+        echo "git-ops: refusing to adopt $slot — the lock is LIVE"
+        echo "  held by  : ${LOCK_SESSION_ID:-?}"
+        echo "  last beat: ${LOCK_HEARTBEAT:-?}"
+        echo "A fresh heartbeat means a session is actively working in this slot."
+        echo "If this claim is yours, pass --nonce <value>. If that session is gone,"
+        echo "its heartbeat expires after ${LOCK_TTL_SECONDS}s and adopt will succeed."
+      } >&2
+      exit 1
+    fi
+  fi
+
+  # (3) Branch identity: the worktree must still hold the branch the lock names.
+  local wt_branch
+  wt_branch="$(git -C "$slot_path" symbolic-ref --short HEAD 2>/dev/null || true)"
+  if [[ -n "${LOCK_BRANCH:-}" && -n "$wt_branch" && "$wt_branch" != "$LOCK_BRANCH" ]]; then
+    {
+      echo "git-ops: refusing to adopt $slot — branch mismatch"
+      echo "  lock BRANCH   : $LOCK_BRANCH"
+      echo "  worktree HEAD : $wt_branch"
+      echo "The one-worktree-one-branch invariant is broken here; resolve that before adopting."
+    } >&2
+    exit 1
+  fi
+
+  # (4) Never take a lock out from under a genuinely live, different process.
+  local caller_pid=$$
+  if [[ "$own_by_nonce" -ne 1 && -n "${LOCK_PID:-}" && "${LOCK_PID}" != "$caller_pid" ]]; then
+    if pid_alive "$LOCK_PID"; then
+      local now_start
+      now_start="$(pid_start_time "$LOCK_PID")"
+      if [[ -n "$now_start" && "$now_start" == "${LOCK_PID_START_TIME:-}" ]]; then
+        {
+          echo "git-ops: refusing to adopt $slot — lock is LIVE under a different process"
+          echo "  lock PID: $LOCK_PID (alive, start time matches)"
+          echo "Pass --nonce <value> if this claim is yours."
+        } >&2
+        exit 1
+      fi
+    fi
+  fi
+
+  # Re-check the slot survived the reads above before writing into it.
+  [[ -d "$slot_path" && -e "$slot_path/.git" ]] \
+    || die "slot $slot disappeared or is no longer a worktree — refusing to write a lock into it"
+
+  local pid=$$
+  local pst
+  pst="$(pid_start_time "$pid")"
+  [[ -n "$pst" ]] || die "could not read PID_START_TIME via 'ps -o lstart=' for pid $pid"
+  local session_id="${session_arg:-$(hostname -s)-${pid}-$(date +%s)}"
+  local now
+  now="$(iso_now)"
+
+  # Rotate the nonce. Preserving it was wrong: --nonce bypasses containment from
+  # anywhere, so one disclosure granted permanent seizure power over the slot across
+  # every later hand-off, and only `claim` ever rotated it. The adopting session
+  # receives the new value on stdout via the same eval contract `claim` uses, so a
+  # hand-off keeps working while prior holders lose the capability.
+  local new_nonce
+  new_nonce="$(gen_nonce)"
+
+  local prev_hb="${LOCK_HEARTBEAT:-<none>}"
+  local tmp
+  tmp="$(mktemp "$slot_path/.lock.XXXXXX")" || die "mktemp failed in $slot_path"
+  {
+    echo "PID=$pid"
+    echo "PID_START_TIME=$pst"
+    echo "NONCE=$new_nonce"
+    echo "SESSION_ID=$session_id"
+    echo "SLOT=${LOCK_SLOT:-$slot}"
+    echo "BRANCH=${LOCK_BRANCH:-$wt_branch}"
+    echo "P_NUMBER=${LOCK_P_NUMBER:-}"
+    echo "CLAIMED_AT=${LOCK_CLAIMED_AT:-$now}"
+    echo "HEARTBEAT=$now"
+  } > "$tmp"
+  # Atomic swap so a concurrent reader never sees a half-written lock.
+  mv -f "$tmp" "$lockfile"
+  rmdir "$mutex" 2>/dev/null || true
+  trap - EXIT
+
+  {
+    echo "git-ops: adopted $slot"
+    echo "  branch   : ${LOCK_BRANCH:-$wt_branch}"
+    echo "  heartbeat: $prev_hb -> $now"
+    echo "  session  : $session_id"
+  } >&2
+
+  # Same eval-safe contract as `claim` (P783) — callers may capture the nonce.
+  echo "#CP_CLAIM_BEGIN"
+  echo "export CP_LOCK_NONCE_${slot}=${new_nonce}"
+  echo "#CP_CLAIM_END"
+}
+
 # ============================================================================
 # P787 extensions — gc, abandon, reconcile, commit-to-main, switch-safe, sync
 # ============================================================================
@@ -555,7 +937,10 @@ cmd_release() {
 # Helpers for P787 subcommands
 # ----------------------------------------------------------------------------
 
-# Print set of branches currently held by any live lockfile under worktrees/.
+# Print set of branches held by any lockfile under worktrees/ — by lockfile
+# PRESENCE, not by state. (The comment previously said "live"; it never consulted
+# classify_lock_state. The direction is conservative — it over-excludes, never
+# over-deletes — so P1268's LIVE widening changes nothing here. Verified by review.)
 # One branch name per line, sorted, no duplicates.
 branches_held_by_slots() {
   if [[ ! -d "$WORKTREES_DIR" ]]; then
@@ -603,7 +988,10 @@ main_lock_holder_summary() {
   echo "  session : ${LOCK_SESSION_ID:-?}"
   echo "  pid     : ${LOCK_PID:-?} (state: $state)"
   echo "  started : ${LOCK_CLAIMED_AT:-?}"
-  echo "  nonce   : ${LOCK_NONCE:-?}"
+  # The holder's nonce is deliberately NOT printed. This summary is shown to the
+  # party being REFUSED, and the nonce is exactly what `--nonce` accepts as proof
+  # of ownership — it bypasses both the containment check and the LIVE refusal.
+  # Handing it to the contending session turns a refusal into instructions.
 }
 
 # Atomic main.lock acquisition via hard link. Writes the lock contents to a
@@ -712,68 +1100,7 @@ commit_staged_exact() {
     echo "  staged:    $(printf '%s ' $staged)" >&2
     return 1
   fi
-  ( cd "$REPO_ROOT" && git commit -q -m "$message" ) || return 1
-
-  # P1279 -- POST-COMMIT VERIFICATION. The check above and the `git commit` below
-  # it are NOT adjacent in time: `git commit` runs the pre-commit hook
-  # (pre-commit-checks.sh, minutes long) and reads the index only AFTERWARDS.
-  # Anything that mutates the shared index inside that window is what actually
-  # gets committed, and main.lock cannot prevent it -- the lock serializes
-  # git-ops CALLERS, not a co-tenant session running raw `git add` / `git reset`
-  # on the same checkout. Reproduced in scripts/test-p1279-commit-to-main-index-race.sh:
-  # requested 2 paths, commit recorded 1 foreign file, exit 0. Matches the
-  # observed incident (5f80bfc36, 2026-09-08) exactly.
-  #
-  # LIMITATION (pre-existing, shared with the pre-check above, stated so nobody
-  # reads this as total): both comparisons put git's line-oriented path output
-  # against raw shell arguments. Under default core.quotePath a non-ASCII path
-  # comes back C-quoted, and a path containing a newline is unrepresentable in
-  # either stream — such a path fails the PRE-check first, so it can never reach
-  # a wrong commit, but it fails as a refusal rather than as a clear diagnosis.
-  # This repo's paths are ASCII, so the case is theoretical here.
-  #
-  # We compare NAME SETS, not counts: a mutation that swaps one file for another
-  # keeps the count and was invisible to the count check in cmd_commit_to_main.
-  # Content may legitimately differ (the ESLint --fix re-stage at
-  # pre-commit-checks.sh:127-128 rewrites a staged file inside this same window),
-  # so the file set is the right invariant -- not the tree.
-  #
-  # DELIBERATELY NO ROLLBACK. `git reset --soft HEAD~1` here would be a history
-  # move on the shared main checkout made by a caller that has just been shown
-  # the index is not under its control -- the exact condition under which HEAD~1
-  # is banned (.claude/rules/git.md). Fail loudly, leave the commit, tell the
-  # human what to inspect.
-  #
-  # RETURN CODE 3, NOT 1, AND THE DIFFERENCE IS LOAD-BEARING. Callers already
-  # treat a non-zero return as "nothing was committed" and clean up after
-  # themselves -- cmd_ship's no-branch closure unstages the rename it staged and
-  # tells the operator to `git mv` it back. Both are correct for return 1 (the
-  # pre-check refused; no commit exists) and both are WRONG here: the commit has
-  # landed, the message would be a lie, and the cleanup writes to the very shared
-  # index this function has just proven is not under our control. Any caller that
-  # cleans up on failure must special-case 3. Found by adversarial review, 2026-09-09.
-  #
-  # SCOPE, stated so it is not inferred: rc 3 survives to the shell ONLY through
-  # `commit-to-main`. The other three callers (publish-spec, the branch-born seed,
-  # the in-branch spec-close) still exit 1 via die() for both failure classes --
-  # their messages no longer claim "no commit exists", but their exit CODE cannot
-  # distinguish. None of them writes to the index on failure, so none can cause the
-  # corruption the no-branch closure could; the cost is only that a script wrapping
-  # `ship` cannot branch on which happened. Widen this if such a wrapper appears.
-  local recorded
-  recorded=$(cd "$REPO_ROOT" && git show --stat --name-only --no-renames --format= HEAD | sed '/^$/d' | sort)
-  if [[ "$recorded" != "$expected" ]]; then
-    echo "commit_staged_exact: FATAL -- the commit LANDED and records a different set of files than was requested" >&2
-    echo "  requested: $(printf '%s ' $expected)" >&2
-    echo "  recorded:  $(printf '%s ' $recorded)" >&2
-    echo "  commit:    $(cd "$REPO_ROOT" && git rev-parse HEAD)" >&2
-    echo "  Something changed the index between the pre-commit check and git's read of it:" >&2
-    echo "  a co-tenant session's raw git (P1279), or a pre-commit hook that stages or" >&2
-    echo "  unstages files of its own. Both look identical from here." >&2
-    echo "  The commit was NOT rolled back and nothing was unstaged -- inspect it, and any" >&2
-    echo "  co-tenant work it may have absorbed, before anything else: git show --stat HEAD" >&2
-    return 3
-  fi
+  ( cd "$REPO_ROOT" && git commit -q -m "$message" )
 }
 
 # ----------------------------------------------------------------------------
@@ -1158,13 +1485,22 @@ cmd_abandon() {
         {
           echo "git-ops abandon: refusing $slot — lock is LIVE and ownership check failed"
           echo "  lock pid   : ${LOCK_PID:-?} (caller pid: $caller_pid)"
-          echo "  lock nonce : ${LOCK_NONCE:-?}"
+          # NEVER print LOCK_NONCE in a refusal — see cmd_release.
           if [[ -n "$nonce_arg" ]]; then
             echo "  given nonce: $nonce_arg (no match)"
           else
             echo "  no --nonce supplied"
           fi
           echo "Pass --nonce matching the lockfile, or run from the claiming PID."
+          # P1268 widened LIVE to include a fresh HEARTBEAT, so this refusal can now
+          # fire where it previously could not: before, every agent-claimed lock was
+          # ORPHAN within milliseconds and abandon never asked for ownership at all.
+          # Name the way out, or a caller who has lost their nonce is simply stuck.
+          if [[ -n "${LOCK_HEARTBEAT:-}" ]] && heartbeat_fresh "${LOCK_HEARTBEAT}"; then
+            echo "  heartbeat  : ${LOCK_HEARTBEAT} (fresh — this slot reads LIVE on heartbeat, not PID)"
+            echo "If that session is really gone, its heartbeat expires ${LOCK_TTL_SECONDS}s after"
+            echo "the stamp above, after which 'abandon' needs no nonce."
+          fi
         } >&2
         exit 1
       fi
@@ -1493,46 +1829,24 @@ cmd_commit_to_main() {
 
   # commit_staged_exact: plain commit (not pathspec), guarded — see its own
   # comment for why that's safe here (acquire_main_lock, held above).
-  #
-  # PROPAGATE rc 3 VERBATIM. `|| exit 1` here used to flatten it, which made the
-  # distinction the fix is built on unobservable through the very subcommand this
-  # spec is about: a caller checking $? could not tell "refused, nothing committed"
-  # (1) from "a commit landed recording the wrong files" (3), and every shell script
-  # or human branching on the exit code saw 1 for both. Found by review, 2026-09-09 —
-  # and NOT by this fix's own canary, which asserted only "non-zero" and so passed
-  # either way. The canary now pins the number.
-  local _csx_rc=0
-  commit_staged_exact "$message" "${files[@]}" >&2 || _csx_rc=$?
-  if [[ "$_csx_rc" -ne 0 ]]; then
-    release_main_lock
-    trap - EXIT
-    exit "$_csx_rc"
-  fi
+  commit_staged_exact "$message" "${files[@]}" >&2 || exit 1
 
   # Report what the commit ACTUALLY recorded, not how many paths were requested. The
   # 2026-09-01 incident printed a confident "committed 3 file(s)" over a commit holding
   # one deletion; main.lock serializes git-ops CALLERS only, so a co-tenant running raw
   # git on the shared checkout is not held off by it at all. Cause unresolved.
   #
-  # THE COMMENT THAT USED TO SIT HERE SAID THIS WARNING COULD NOT FIRE -- that
-  # commit_staged_exact's exact-match guard made a count mismatch unreachable, and that
-  # the check was a tripwire for a future weakening rather than a live detector. That was
-  # WRONG, and it was the only thing that caught P1279 (2026-09-08): the guard checks the
-  # index BEFORE `git commit`, and `git commit` runs the pre-commit hook -- minutes long --
-  # before reading the index. The window between them is real and a co-tenant's raw git
-  # is not held off by main.lock. See commit_staged_exact for the mechanism and the canary.
-  #
-  # The refusal now lives in commit_staged_exact (name-set comparison, exit non-zero), so
-  # control does not reach here on a mismatch. This line is kept as plain reporting, and
-  # the mismatch branch as a second, weaker (count-only) tripwire -- it is now FATAL rather
-  # than advisory, because a tool that has detected a wrong write must not return success.
+  # THE WARNING BELOW CANNOT FIRE TODAY, and that is stated rather than left to look
+  # like a live safety net: commit_staged_exact refuses unless the staged set equals the
+  # requested paths exactly, so by the time control reaches here the counts always
+  # agree. Verified by trying to make it fire three ways (partial co-tenant commit,
+  # directory pathspec, rename) -- the exact-match guard rejected each first. It is a
+  # TRIPWIRE for a future change that weakens that guard, not a detector for the
+  # incident above. The unconditional line, by contrast, is plain fact and always runs.
   _landed="$( cd "$REPO_ROOT" && git show --stat --no-renames --format= HEAD | sed '$d' | wc -l | tr -d ' ' )"
   echo "git-ops commit-to-main: requested ${#files[@]} path(s); the commit records ${_landed} file(s)" >&2
   if [[ "$_landed" != "${#files[@]}" ]]; then
-    echo "git-ops commit-to-main: FATAL -- requested and recorded counts differ. Inspect 'git show --stat --no-renames HEAD' before continuing; a concurrent session may have altered the shared index." >&2
-    release_main_lock
-    trap - EXIT
-    exit 1
+    echo "git-ops commit-to-main: WARNING -- requested and recorded counts differ. Inspect 'git show --stat --no-renames HEAD' before continuing; a concurrent session may have altered the shared index." >&2
   fi
   # P919 D4: this commit is main-bound and subject to the privacy-scan required check
   # once the ruleset is live — route it through a staging branch before main. Release
@@ -2625,7 +2939,7 @@ PYEOF
 
   ( cd "$REPO_ROOT" && git add -- "$dest" ) || die "publish-spec: git add failed"
   commit_staged_exact "chore: publish $pn spec — embargo lifted, fix confirmed on prod" "$dest" \
-    || die "publish-spec: the spec-publish commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused) or whether a commit LANDED recording the wrong files. Do not retry until you know which."
+    || die "publish-spec: commit failed"
   echo "publish-spec: $pn published at $dest" >&2
 
   # ── Teardown: what ship's Phase 3 deliberately skipped ────────────────────
@@ -3025,16 +3339,7 @@ cmd_ship() {
       # Include $spec_file so the git mv source deletion is committed too.
       # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
       # (held for this whole block); see its own comment for why.
-      # rc 3 means the commit LANDED but records the wrong files (P1279). The
-      # unstage-and-`git mv`-back recovery below is only valid when no commit was
-      # created (rc 1); running it on rc 3 would write to a shared index we have
-      # just been told is moving, and print a recovery recipe for a commit that
-      # already exists. Do neither — hand the operator the real state.
-      local _csx_rc=0
-      commit_staged_exact "$(ship_close_message "chore: close $pn (direct-to-main) — $title")" "$spec_dest" "$spec_file" || _csx_rc=$?
-      if [[ "$_csx_rc" -eq 3 ]]; then
-        die "ship: the spec-close commit LANDED but records the wrong files (no-branch closure) — nothing was unstaged and nothing was rolled back. Inspect 'git show --stat HEAD' and any co-tenant work it may have absorbed BEFORE re-running ship or touching the index."
-      elif [[ "$_csx_rc" -ne 0 ]]; then
+      if ! commit_staged_exact "$(ship_close_message "chore: close $pn (direct-to-main) — $title")" "$spec_dest" "$spec_file"; then
         ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
         die "ship: spec-close commit failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
       fi
@@ -3322,7 +3627,7 @@ The branch is authoritative for shipped migrations. Compare each file with
     # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
     # (held for this whole block); see its own comment for why.
     commit_staged_exact "seed ${pn} spec for ship (creation blob)" "$branch_spec_file" >/dev/null || \
-      die "ship: the branch-born seed commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused, rc 1) or whether a commit LANDED recording the wrong files (rc 3). Do not retry until you know which."
+      die "ship: branch-born seed commit failed"
     echo "ship: branch-born spec $branch_spec_file seeded on main (creation blob — cherry-picks will replay cleanly)" >&2
     spec_file="$(resolve_ship_spec "$pn")"
     ship_init_journal "$pn" "$branch" "$spec_file"
@@ -3663,7 +3968,7 @@ The branch is authoritative for shipped migrations. Compare each file with
         _expected_paths+=("$spec_file")
       fi
       commit_staged_exact "$(ship_close_message "chore: close $pn — $title")" "${_expected_paths[@]}" \
-        || die "ship: the spec-close commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused, rc 1) or whether a commit LANDED recording the wrong files (rc 3). Do not retry until you know which."
+        || die "ship: spec-close commit failed"
       ship_set_journal_flag "$pn" "spec_closed"
     fi
   fi
@@ -3784,6 +4089,22 @@ SUBCOMMANDS (T02 scope)
   release <slot> [--nonce <v>] Remove slot's lockfile. Ownership check: --nonce must match
                                the stored NONCE, OR current PID must match the stored PID.
                                Does NOT delete the worktree or branch.
+
+  heartbeat <slot>             Refresh ONLY that slot's HEARTBEAT, in place. Silent no-op
+                               unless the caller owns the lock (PID match, or
+                               CP_SESSION_ID matching the lock's SESSION_ID). Meant to
+                               be called from an editing hook so a session outliving
+                               the TTL does not go ORPHAN while still working.
+
+  adopt <slot> [--nonce <v>] [--session <id>]
+                               Re-own an EXISTING lock: refresh PID / PID_START_TIME /
+                               SESSION_ID / HEARTBEAT, preserve SLOT / BRANCH / P_NUMBER /
+                               CLAIMED_AT / NONCE. Use when a session resumes into a slot
+                               it already owns. Refuses unless the caller is standing IN
+                               the slot (or --nonce matches), the worktree branch equals
+                               the lock's BRANCH, and the lock is not LIVE under a
+                               different process. Same #CP_CLAIM_BEGIN/END eval contract
+                               as `claim`.
 
   help | --help                Show this message.
 
@@ -4800,6 +5121,8 @@ main() {
     claim)           cmd_claim "$@" ;;
     status)          cmd_status "$@" ;;
     release)         cmd_release "$@" ;;
+    adopt)           cmd_adopt "$@" ;;
+    heartbeat)       cmd_heartbeat "$@" ;;
     gc)              cmd_gc "$@" ;;
     abandon)         cmd_abandon "$@" ;;
     reconcile)       cmd_reconcile "$@" ;;
