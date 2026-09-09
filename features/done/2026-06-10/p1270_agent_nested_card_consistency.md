@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1000078
 workstream: product
 created_date: '2026-09-08'
 tags: [agent-accounts, feed, profile, design-system]
 disclosure: public
-delivery_stage: ship
 pipeline_plan: [create-spec, challenge-prd, generate-tests, dev, verify]
 pipeline_ran: [create-spec, challenge-prd, generate-tests, dev, ship]
 pipeline_skipped: ["architect -- no schema or auth change; the query edit adds columns to an existing SELECT", "decompose -- five sections already independently sequenced, the shape P1212/P1259 used"]
@@ -14,6 +13,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-09
 ---
 
 # P1270: Two nesting directions, two layouts — agent card drift across profile and feed
