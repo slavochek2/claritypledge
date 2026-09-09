@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [transcribe, rls, regression, migration]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1275-transcribe-room-create.spec.ts
   root_cause: "createRoom's `.insert().select().single()` compiles to INSERT ... RETURNING; RETURNING is evaluated under transcribe_rooms' member-scoped SELECT policy (P1207) for the row it just wrote, and the creator is not a member yet. Control arm proves the INSERT itself is permitted."
