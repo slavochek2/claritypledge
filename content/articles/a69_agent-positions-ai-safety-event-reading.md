@@ -66,6 +66,16 @@ four will be discussed.
 - Primary source-of-truth file: `.private/points-runs/ai-power-remedies-d.md` — the run that
   produced all of the above, including the arguer set and the verified quotes.
 - Read live values from prod rather than trusting this file's counts (they are a snapshot).
+- **Sync verified 2026-09-09 — do not re-investigate.** Prod `aisafety1` (4 points, 9 Sep) and test
+  `aisafety2` (same 4 points, 7 Sep) agree, and the run file carries prod's story text verbatim
+  (two stories spot-checked on mid-sentence fragments, both exact). `promote-to-prod` performed its
+  write-back correctly. **Trap:** test ALSO carries an old `aisafety1` — 5 different points from
+  1 Sep, a superseded run. Same tag name, wrong material. Query prod for `aisafety1`, or test for
+  `aisafety2`; never test for `aisafety1`.
+- **From the run file, worth knowing when picking the live point:** the point target was 5 and the
+  run yielded 4, deliberately not padded — four arguers give four distinct pairs. One arguer holds a
+  position on only ONE point (P3, the ownership point); if that point is not among the ones run at
+  the event, that arguer does not appear at all.
 - **Transcripts are NOT in the repo.** P1140 retains them outside it; the run file's verified
   quotes are the working evidence. Do not promise the article more source text than that.
 
