@@ -78,7 +78,8 @@ test.describe('P1236: create_transcribe_room requires consent', () => {
     const { data: me } = await creator.auth.getUser();
     expect(me.user?.id, 'control: the creator must hold a real session').toBe(creatorId);
 
-    const { data, error } = await call(roomCode(), { p_consent: true, p_event_id: null });
+    const code = roomCode();
+    const { data, error } = await call(code, { p_consent: true, p_event_id: null });
     expect(error, `creating a room must succeed: ${error?.message}`).toBeNull();
 
     const row = ((data ?? []) as Record<string, string | null>[])[0];
@@ -88,6 +89,23 @@ test.describe('P1236: create_transcribe_room requires consent', () => {
     expect(row!.member_consent_given_at, 'consent must be stamped by the server').not.toBeNull();
     // Server-derived, not echoed from an argument: the function takes no profile_id.
     expect(row!.member_profile_id, 'attribution must come from auth.uid()').toBe(creatorId);
+
+    // EVERY returned column, on purpose. RETURNS TABLE grew from 9 to 11 and every position
+    // moved; five of the columns are uuid, so a swap among them in the RETURN QUERY SELECT is
+    // type-compatible and raises nothing — it just returns the wrong value. member_session_id
+    // is the one that matters most: it binds a recording to a speaker, and the client maps it
+    // straight into TranscribeRoomMember.sessionId.
+    expect(row!.room_code, 'room_code must be the code we asked for').toBe(code);
+    expect(row!.room_event_id, 'an ad-hoc room has no event').toBeNull();
+    expect(row!.room_created_at, 'room_created_at must be populated').not.toBeNull();
+    expect(row!.room_ended_at, 'a new room must be live').toBeNull();
+    expect(row!.member_session_id, 'the seat must carry the recording we minted').toBe(creatorSessionId);
+    expect(row!.member_display_name, 'display name must round-trip').toBe('P1236 Creator');
+    expect(row!.member_joined_at, 'member_joined_at must be populated').not.toBeNull();
+    expect(row!.room_id, 'room_id must be a uuid, not another column').toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(row!.member_id, 'member_id must differ from room_id').not.toBe(row!.room_id);
 
     // The return value is not the evidence — the row is.
     const { data: member } = await supabaseAdmin
@@ -134,6 +152,63 @@ test.describe('P1236: create_transcribe_room requires consent', () => {
     expect(error, 'the 4-argument form must no longer resolve').not.toBeNull();
     expect(error!.code, 'PostgREST must find no matching function').toBe('PGRST202');
   });
+
+  // These three guards are covered today ONLY by e2e/integration/p1275-create-transcribe-room-rpc.spec.ts,
+  // which lives on main and which this migration turns red the moment it applies (its 8 call
+  // sites all use the 4-argument form). Without these, the strictest checks in a SECURITY
+  // DEFINER function would have zero green coverage between the apply and that spec's update —
+  // and the session-ownership one is the check P1275 called an impersonation primitive.
+  test('a session belonging to someone else is refused', async () => {
+    const strangerEmail = generateTestEmail();
+    const stranger = await createTestUser({ name: 'P1236 Stranger', email: strangerEmail });
+    try {
+      const { data: s } = await supabaseAdmin
+        .from('clarity_sessions')
+        .insert({
+          code: `P1236X-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+          creator_name: 'P1236 Stranger',
+          creator_profile_id: stranger.user.id,
+        })
+        .select('id')
+        .single();
+
+      const { error } = await creator.rpc('create_transcribe_room', {
+        p_code: roomCode(),
+        p_display_name: 'P1236 Creator',
+        p_session_id: s!.id,
+        p_consent: true,
+        p_event_id: null,
+      });
+      expect(error, "another user's recording must not be attachable to this seat").not.toBeNull();
+      expect(error!.message).toMatch(/session does not belong to the caller/i);
+    } finally {
+      await supabaseAdmin.from('clarity_sessions').delete().eq('creator_profile_id', stranger.user.id);
+      await deleteTestUser(stranger.user.id);
+    }
+  });
+
+  // Lowercase, and I/O/0/1 — the four characters the generator's alphabet excludes.
+  for (const bad of ['lower1', 'ABCDE', 'ABCDEFG', 'ABCDEI', 'ABCDE0']) {
+    test(`room code ${JSON.stringify(bad)} is refused`, async () => {
+      const { error } = await call(bad, { p_consent: true, p_event_id: null });
+      expect(error, 'an off-alphabet room code must be refused').not.toBeNull();
+      expect(error!.message).toMatch(/room code must be 6 characters/i);
+    });
+  }
+
+  for (const [label, name] of [['empty', ''], ['whitespace only', '   '], ['101 chars', 'x'.repeat(101)]] as const) {
+    test(`display name (${label}) is refused`, async () => {
+      const { error } = await creator.rpc('create_transcribe_room', {
+        p_code: roomCode(),
+        p_display_name: name,
+        p_session_id: creatorSessionId,
+        p_consent: true,
+        p_event_id: null,
+      });
+      expect(error, 'an out-of-bounds display name must be refused').not.toBeNull();
+      expect(error!.message).toMatch(/display name must be between 1 and 100/i);
+    });
+  }
 
   test('anon cannot execute it', async () => {
     const anon = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);

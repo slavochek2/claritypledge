@@ -1342,6 +1342,80 @@ policy to `clarity_sessions`, or accept orphaned sessions and clean them with a 
 Until then, every failed room creation leaves a row that also blocks that profile's deletion —
 which is the same FK that already breaks the P1275 canary's own teardown.
 
+**Adversarial review, 1 of 1 reports received — after two chases.** One HIGH, four MEDIUM, four
+LOW. Every load-bearing claim was re-run by command before being acted on; the reviewer could not
+execute SQL from its worktree (`psql` absent), so all of its plpgsql findings were static analysis
+and it could neither reproduce nor falsify the rolled-back-transaction table above. It also
+independently re-derived the `discardSession` no-op recorded here, and confirmed the earlier
+race-prone room-count assertion was already fixed.
+
+**HIGH — the `requires-frontend` marker could not block, and this spec had already written the
+sentence that let it through.** The marker named `3255fd18b`, which is *P1275's own commit* — the
+one that shipped the 4-argument client. `scripts/migrate.sh:446` is a single
+`git merge-base --is-ancestor <sha> origin/main`; that sha is already an ancestor, so the gate
+prints `coupling OK` and applies. An operator running `migrate.sh --env prod` would have dropped
+the function out from under the deployed bundle and returned PGRST202 to every user trying to
+start a room — precisely the outage the marker exists to prevent, and precisely what the file's
+own header claims it prevents. **A marker that can never block is worse than no marker, because it
+reads like protection.** Verified: `3255fd18b` → ancestor (does not block); `35752a156`, the commit
+carrying the `p_consent` client → not an ancestor (blocks), which is also how sibling `(b)` is
+correctly wired. Fixed by re-pointing it.
+
+The uncomfortable part is not the wrong sha. It is that the pre-deploy checklist already said *"it
+points at P1275's commit on `main`, which is already an ancestor, but the marker must still be
+confirmed rather than assumed"* — the defect, observed, written down, and then filed as a to-do
+rather than treated as a live hole. Noticing is not fixing.
+
+**And it happened a second time, in the same file, while fixing the first one.** The post-condition
+added for MEDIUM-5 below compared `pg_get_function_identity_arguments()` against the literal
+`'text, text, uuid, uuid'`. That function returns argument **names** too — the real value is
+`'p_code text, p_display_name text, p_session_id uuid, p_event_id uuid'` — so the check could never
+match and passed cleanly with the 4-argument form sitting in the catalog. It was caught only by
+running the failure path (epistemic gate 7): the drift case must RAISE, and it did not. Rewritten
+with `to_regprocedure()`, which resolves by type signature and ignores names; now proven both ways
+— failure path raises `P1236(e): a consent-less create_transcribe_room… is still present`, success
+path applies clean. **Two gates that could not fire, in one file, within an hour. Writing a gate
+and watching a gate fail are different acts, and only the second one is evidence.**
+
+**MEDIUM, all fixed:**
+
+- **The `DROP FUNCTION IF EXISTS` failed open.** Exact-signature match plus `IF EXISTS` means any
+  prod drift makes it a silent no-op with exit 0, leaving the consent-less overload alive next to
+  its own fix — the exact outcome this migration exists to prevent. P1063 (four prod RPCs carrying
+  lockdowns that had never taken effect) and sibling `(d)` are the precedents. Now asserted.
+- **The 11-column return was almost entirely unasserted.** `RETURNS TABLE` grew from 9 to 11 and
+  every position moved; five columns are `uuid`, so a swap among them is type-compatible, raises
+  nothing, and returns the wrong value. `member_session_id` is the one that matters — it binds a
+  recording to a speaker — and P1275's spec asserted it while this one had dropped it. All eleven
+  are now asserted.
+- **Three guards were about to lose every green test.** Session-ownership, the room-code alphabet
+  and the display-name bounds are covered only by `p1275-create-transcribe-room-rpc.spec.ts` on
+  `main`, which this migration turns red (8 four-argument call sites). Between the apply and that
+  spec's update, the strictest checks in a `SECURITY DEFINER` function would have had zero
+  coverage — including the one P1275 called an impersonation primitive. All three are now covered
+  here, verified against the live function with positive controls (`ABCDEF` and a valid name are
+  accepted, so the probe is not merely refusing everything).
+- **A coupled hazard behind the `discardSession` finding, worth more than the finding.**
+  `transcribe_room_members.session_id` is `ON DELETE CASCADE` on `clarity_sessions`
+  (`…_p1149_…:71`). So if a creator-scoped DELETE policy is ever added to answer the founder
+  decision above, `discardSession` goes live — and a lost response after a *successful* commit
+  would cascade the member row away, producing exactly the member-less room P1275 calls
+  unrepresentable. **Whoever answers that founder decision must make `discardSession` conditional
+  on the room genuinely not existing, in the same change.**
+
+**LOW:** two developer-facing strings were being rendered verbatim to participants by
+`transcribe-room-page.tsx:267` — a regression against `main`, which had deliberately made that
+path generic; both now say the same thing every other failure says, with detail going to the
+console. Left alone as out of scope: `joinRoom` still throws raw Postgres text (pre-existing, makes
+the hardening asymmetric), and `node_modules` in this worktree is a symlink that `.gitignore`'s
+`node_modules/` directory pattern does not match — untracked and stage-able, which matters only if
+anyone ever runs a broad `git add` here.
+
+**What the reviewer asked to be said out loud, and it is right:** the committed change alone does
+**not** close the consent hole. The direct self-insert policy on `transcribe_room_members` is still
+open; only untracked migration `(b)` closes it, at deploy. Until then, consent is enforced by both
+RPCs and bypassable by a direct PostgREST insert.
+
 **One correction to P1275's own prediction.** Its spec (§"Interaction with P1236") estimated the
 reconciliation at *"one `CREATE OR REPLACE` and one call-site argument"*. `CREATE OR REPLACE`
 cannot do it: in Postgres a changed argument list makes a **new** function, so the consent-less
@@ -1592,9 +1666,11 @@ until the client change deploys — and this migration deploys with it.
       commit range: it calls the 4-argument form directly and will fail the moment (e) applies.
       It lives only on `main`, so this branch cannot carry the edit and a cherry-pick will not
       produce it. Re-run it plus `e2e/p1275-transcribe-room-create.spec.ts` after the cutover.
-- [ ] Re-resolve `(e)`'s own `requires-frontend: 3255fd18b` marker after `/ship`, for the same
-      reason as `(b)` below — it points at P1275's commit on `main`, which is already an ancestor,
-      but the marker must still be confirmed rather than assumed.
+- [ ] Re-resolve `(e)`'s `requires-frontend: 35752a156` marker after `/ship`, for the same reason
+      as `(b)` — cherry-picking rewrites the sha. It now names the commit carrying the `p_consent`
+      client, which is NOT on `origin/main`, so the gate blocks. **It briefly named `3255fd18b`
+      (P1275's own commit, already an ancestor), which made the gate print `coupling OK` and wave
+      the drop through against the live 4-argument bundle — see Stage F-bis.**
 - [ ] Re-resolve its `requires-frontend: 26be25831` marker against `main` after `/ship` —
       cherry-picking rewrites the sha, and P1053 records this exact marker blocking forever on a
       commit its own pipeline had destroyed, stranding six unrelated migrations with it.

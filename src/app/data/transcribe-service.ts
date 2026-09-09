@@ -178,8 +178,12 @@ export async function createRoom(profileId: string, displayName: string, consent
       // several frames from the cause.
       const row = ((data ?? []) as unknown as DbCreatedRoom[])[0];
       if (!row) {
+        // transcribe-room-page.tsx renders err.message verbatim to the participant, so this
+        // says the same thing every other failure here says. The diagnostic detail goes to
+        // the console, where it is useful, rather than into the room's UI.
         await discardSession();
-        throw new Error('Room creation did not return a room');
+        console.error('[transcribe] create_transcribe_room returned no row');
+        throw new Error('Could not start a room. Please try again.');
       }
       return {
         room: mapRoom({
@@ -214,7 +218,8 @@ export async function createRoom(profileId: string, displayName: string, consent
   }
 
   await discardSession();
-  throw new Error('Failed to generate unique room code after multiple attempts');
+  console.error(`[transcribe] ${maxAttempts} room-code collisions in a row — check the generator`);
+  throw new Error('Could not start a room. Please try again.');
 }
 
 /** Looks up an existing room by its code. Returns null if not found.
