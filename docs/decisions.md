@@ -46,6 +46,15 @@ migrate is the manual equivalent.
 
 **References:** `supabase/migrations/20260908210000_p1275_create_transcribe_room_rpc.sql` | `supabase/migrations/20260908210100_p1275_b_close_direct_room_insert.sql` | [P1275 spec](../features/done/2026-06-10/p1275_transcribe_room_creation_fails_rls.md) | 2026-04-09 "SECURITY DEFINER can be silently stripped"
 
+**Postscript, found at the prod-migrate step:** the contract migration's `requires-frontend` marker
+was written on the feature branch and named that branch's SHA. `git-ops.sh ship` cherry-picks, so
+that commit was orphaned by the merge and can never become an ancestor of `origin/main` — the gate
+refused correctly and would have refused permanently, reading as a coupling failure rather than a
+stale identifier. **A `requires-frontend` marker cannot be written on the branch it couples to under
+a cherry-pick merge strategy.** Write it post-ship, or re-point it at the cherry-picked SHA before
+the prod apply. Re-pointed here to the on-main commit, with the reason recorded in the migration
+itself.
+
 ---
 
 ## 2026-09-09 [process]: The evidence that disproves a claim can already be in hand when the claim is written (P1275)

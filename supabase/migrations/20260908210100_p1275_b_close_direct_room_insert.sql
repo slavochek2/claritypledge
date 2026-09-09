@@ -32,8 +32,13 @@
 -- The service role is unaffected — it bypasses RLS entirely, which is how the e2e fixtures
 -- and any future admin tooling seed rooms.
 --
--- requires-frontend: 68072bc79
---   The client commit that routes createRoom() through the RPC. Deploying this ahead of
+-- requires-frontend: 3255fd18b
+--   The client commit that routes createRoom() through the RPC, AS IT LANDED ON MAIN.
+--   This marker first named 68072bc79 — the same change's SHA on the feature branch —
+--   which `git-ops.sh ship` then cherry-picked into a new commit, orphaning it. The gate
+--   correctly refused to apply and would have refused forever, because a branch SHA can
+--   never become an ancestor of origin/main under a cherry-pick merge strategy. Write this
+--   marker post-ship, or re-point it at the cherry-picked SHA before the prod apply. Deploying this ahead of
 --   that bundle removes the only path the deployed client has to create a room.
 --   In practice that path is ALREADY broken in prod — it fails on the RETURNING read-back,
 --   which is the bug this spec exists to fix — so this migration takes a create that
