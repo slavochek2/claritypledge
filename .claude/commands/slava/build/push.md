@@ -14,7 +14,7 @@ Push local `main` work to `origin/main` without making you steer every gate.
 /push "commit message for outstanding changes"
 ```
 
-**Why this skill exists:** pushing to main in this repo has three gates that previously each became a stop-and-ask (commit-or-not, run-privacy, branch-protection staging-hop). This skill absorbs all three: it commits your work, writes the privacy stamp, and drives `scripts/git-ops.sh push-docs` through the staging branch and the `audit-privacy` CI poll. Whether it can also land the final push depends on one human flag — read the next section before doing anything else.
+**Why this skill exists:** pushing to main in this repo has three gates that previously each became a stop-and-ask (commit-or-not, run-privacy, branch-protection staging-hop). This skill absorbs all three: it commits your work, writes the privacy stamp, and drives `scripts/git-ops.sh push-docs` through the staging branch and the required-status-check CI poll (plural since P1290 — the list is read from main's ruleset at run time, never hardcoded). Whether it can also land the final push depends on one human flag — read the next section before doing anything else.
 
 ## One human flag decides whether you can finish
 
@@ -166,7 +166,7 @@ A verdict of `UNKNOWN` is not an escalation.
 - **Not on `main`** → this skill only pushes main. For `feature/*` or `fix/*`, route to `/ship`.
 - **Behind `origin/main`** (divergence) → could be co-tenant work. Report ahead/behind counts and let the user resolve. Do not blindly proceed or auto-rebase shared main.
 - **Privacy review finds a HARD flag** → real PII can't reach a public repo. Surface it; let the user fix or move to `.private/`.
-- **`audit-privacy` CI red on staging** → surfaced by `push-docs`; relay it. Never `--force` or bypass.
+- **Any required check red on staging** (`audit-privacy`, `disclosure`, or whatever the ruleset requires today) → surfaced by `push-docs` naming the context; relay it. Never `--force` or bypass.
 - **`Authentication failed for 'https://github.com'`** → run `gh auth setup-git` (wires the active `gh` token into git's credential helper — needed after a token rotation), then re-run `push-docs`. One-time fix; does not need user confirmation.
 
 ---
@@ -277,7 +277,9 @@ fresh grant, but say that plainly.
 PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs
 ```
 
-Deterministic: **snapshot pin** → privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → `audit-privacy` CI poll → promote → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag FRESH the pre-push waiver handles the rest, and it runs unattended end to end.
+Deterministic: **snapshot pin** → privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → **required-check CI poll** → promote → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag FRESH the pre-push waiver handles the rest, and it runs unattended end to end.
+
+**The poll waits for EVERY required check, and the list is derived, not hardcoded (P1290).** `main` currently requires two — `audit-privacy` and `disclosure` — and `push-docs` reads them from the live ruleset at run time via `derive_required_contexts` (`scripts/lib-required-checks.sh`). Do not assume the count: `gh api repos/:owner/:repo/rules/branches/main` is the answer, and it changes. Until 2026-09-09 the poll waited on `audit-privacy` alone; P1255 had added `disclosure` the day before, the two jobs finish in no fixed order, and the promote raced it — `GH013`, three times, with both checks green by the time anyone looked. **A required check that has not appeared on the SHA yet is queued, not inapplicable** — that follows from the job timestamps (`disclosure` had not started 23s after `audit-privacy` concluded), which is the evidence the fix rests on. One of the rejections read `2 of 2 required status checks have not succeeded: .` with an empty context name; that is *consistent with* an absent check-run but does not prove it, since `audit-privacy` was green at the time and a per-context report would have said "1 of 2". Do not repeat the empty-name reading as established — it is exactly the kind of inferred-from-a-symptom claim the four-version header above exists to warn about.
 
 **Everything runs on ONE pinned snapshot SHA — `main` is never re-read (2026-09-04).** Step 0 resolves `$local_sha` once and every later stage uses it: the ahead-count, the branch NAME, the staging push (`${local_sha}:refs/heads/<branch>`) and the promote (`${local_sha}:refs/heads/main`). Before this, `cmd_push_docs` resolved `main` live at five points across a 15-20 minute run on a checkout whose median gap between watched-path commits is ~16 min, so the staging branch was pushed at one SHA while the poll waited on another, never matched, and died at `MAX_WAIT`. Do not "simplify" any of these back to `main`; `scripts/test-push-snapshot-pinning.sh` fails the commit if you do.
 
@@ -332,7 +334,7 @@ A `staging/doc-*` branch is only ever a copy of local `main` at push time, so on
 
 **Real blockers (surface, don't auto-resolve):** `audit-privacy` CI **red** (content is not publishable — never `--force`), privacy coverage gap, staging push rejected (behind origin), `gh` not authenticated.
 
-**What stays protected:** the server-side `audit-privacy` check on main is the real boundary (P919 — *documented*; the branch-protection API returns 403 to the local `gh` token, so "required" is not verifiable from here. Do not restate it as confirmed). Layer 1's PII scan runs on every ref regardless of the flag. `PUSH_DOCS_ASSUME_YES` applies to `push-docs` ONLY — never `ship-to-prod`, whose `Confirm prod push? (y/N)` + `exec < /dev/tty` in `cmd_ship_to_prod` has no `ASSUME_YES` escape at all.
+**What stays protected:** the server-side required checks on main are the real boundary (P919). **Correction, 2026-09-09:** this line previously said "required" is not verifiable from here because the branch-protection API returns 403 to the local `gh` token. That is true of the *branch-protection* endpoint and false of the *rulesets* endpoint — `gh api repos/:owner/:repo/rules/branches/main` returns the required contexts to the ordinary local token, which is exactly how P1290 was diagnosed and what `derive_required_contexts` now calls on every run. Verify, don't assume it is unverifiable. Layer 1's PII scan runs on every ref regardless of the flag. `PUSH_DOCS_ASSUME_YES` applies to `push-docs` ONLY — never `ship-to-prod`, whose `Confirm prod push? (y/N)` + `exec < /dev/tty` in `cmd_ship_to_prod` has no `ASSUME_YES` escape at all.
 
 **Never hand the user `! <command>` as a workaround.** Claude Code's `!` bash mode is **not** a TTY: `push-docs` dies at the `[[ -t 0 ]]` guard in its promote step, and the pre-push hook's `/dev/tty` read fails the same way. If the flag is unavailable, the fallback is the user running it in a **real terminal** — not `!`.
 

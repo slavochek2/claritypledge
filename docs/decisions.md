@@ -6,6 +6,91 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [technical]: A verified fact with no expiry date — the push gate waited for one required check after the ruleset started requiring two (P1290)
+
+**Context:** A `/push` was rejected `GH013` three times while both required checks showed green on
+the exact SHA. It landed only after more wall-clock passed, which made it look like GitHub
+flakiness. It was not. `scripts/git-ops.sh push-docs` waited for one hardcoded check —
+`CHECK_NAME="audit-privacy"` — printed "CI verified", and promoted. `main`'s ruleset had required
+**two** since P1255 landed the day before, and the ruleset object says so with a timestamp:
+`created_at 2026-06-16` (P919), `updated_at 2026-09-08T16:42+07:00`. Today was the first `/push`
+after that change.
+
+The two jobs finish in no fixed order. Across the five staging cycles pushed that morning,
+`disclosure` finished first twice, last twice, and once had not **started** 23s after
+`audit-privacy` concluded. Both workflow *runs* are created in the same second; the spread is
+runner queue latency, up to 42s. So the promote was a coin flip on every run.
+
+**Decision:** Derive the required-context list from the live ruleset at run time
+(`scripts/lib-required-checks.sh`), never hardcode it, in both `push-docs` and `ship-to-prod`.
+Three things generalize past this bug:
+
+1. **A verified fact can expire, and a comment recording the verification makes it look permanent.**
+   `git-ops.sh:4830` said the ruleset "requires only the `audit-privacy` context (verified against
+   the live ruleset)". That was true when written on 2026-09-04 and false four days later. The
+   citation is what made it convincing. Where a fact is *queryable at run time and can change
+   without touching this repo* — ruleset config, branch protection, quota, an external schema —
+   query it; a comment is the wrong storage medium. This is the same failure the `/push` skill's
+   own header already logs four times over.
+
+2. **An absent required check is queued, not inapplicable.** The vacuous-pass shape ("every
+   check-run on this SHA is green") passes when the check-run does not exist yet, which is exactly
+   the state that loses the race. Epistemic gate 7b, met in the wild.
+
+3. **Gate the operation, not the tool.** The first fail-closed attempt made `git-ops.sh` exit at
+   source time if the new library was missing. That broke `adopt`, `claim`, `park` and `status` —
+   none of which touch a required check — because the hermetic canaries build fixtures copying only
+   `git-ops.sh`. Fifteen assertions caught it; inspection had not. The guard now sits at the top of
+   the two functions that promote to main. Gate 7c is not a formality: a new refusal must be run
+   against the workflows that already exist.
+
+**What actually found the defects.** Worth recording because the ratio is lopsided. A hostile
+review found four blocking issues in the first draft — including a fail-closed property that was
+true of the function and false of the system (with the library merely *absent*, the caller's
+`|| ruleset_ok=1` swallowed the command-not-found and the poll promoted with an empty wait-list,
+printing `✅ all required checks passed ... : []`). But three further defects were found only by
+**running** the code, and each is invisible to reading it: `status` is read-only in zsh, so the
+assignment silently emptied a verdict; TAB is IFS whitespace, so `read` collapsed an in-progress
+check's empty `conclusion` field and reported *pending* as `mismatch`; and a hand-spliced
+`?check_name=Secret Scan` is not a valid URL, which reads as `absent` and burns the full 40-minute
+budget. The last one matters because this repo already has check-runs named `Secret Scan` and
+`Vercel Preview Comments` — the array handling added for spaced names would have been undone by the
+query string.
+
+Also corrected: the unfiltered `/check-runs` endpoint pages at 30 and this repo returns
+`{"returned":30,"total":33}` on the very SHA the bug was diagnosed from, so a required context can
+fall off page 1 and read `absent`. Now filtered server-side by `check_name`.
+
+**Two claims retracted rather than defended.** Both were mine, both sounded like findings:
+(a) "disclosure was never created in cycle 1" — built on a `check-runs` listing that paginated at 30
+and truncated; I read the truncation as absence. (b) The empty context name in
+`2 of 2 required status checks have not succeeded: .` was presented as proof that no check-run
+existed. It does not survive its own evidence — the message says **2 of 2** at a moment when
+`audit-privacy` was green, and a per-context report would have said "1 of 2". The design consequence
+(absent ≠ satisfied) is correct and rests on job timestamps, not on parsing an error string. Nothing
+in the fix depends on the retracted reading.
+
+**Deferred, with the consequence named:** the ruleset binds each context to an `integration_id` and
+the derivation discards it, so a same-named check from another GitHub App would satisfy the *local*
+poll. Raised by `codex review` as P2. GitHub still enforces the binding server-side, so the failure
+mode is a rejected promote — a wasted cycle, not an unsafe one. Deferred because the proper fix
+needs a per-context app id and macOS ships bash 3.2 (no associative arrays), and bolting that on
+late is how the fifth false claim would have shipped.
+
+**Consequences:** `push-docs`/`ship-to-prod` now cost one extra API call per context per poll.
+`MAX_WAIT` (2400s) is unchanged but is now bounded by the slowest of N checks, and it is held while
+`main.lock` is held — releasing the lock across the poll is now the obvious next change rather than
+an optional one. `scripts/test-p1290-required-checks-poll.sh` (19 assertions) is wired into
+`pre-commit-checks.sh` and blocks if the library or canary is missing.
+
+**References:** `features/p1290_push_docs_promotes_while_a_second_required_check_is_still_queued.md` ·
+`scripts/lib-required-checks.sh` · `scripts/test-p1290-required-checks-poll.sh` ·
+`.claude/commands/slava/build/push.md` · decisions.md 2026-06-16 (P919 staging hop) ·
+`features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md` ·
+`.claude/rules/epistemic.md` gates 7, 7b, 7c
+
+---
+
 ## 2026-09-09 [technical]: A fix restored a feature and immediately exposed a second bug nobody could reach — and the fix for THAT nearly dropped real speech (P1288)
 
 **Context:** P1275 restored `/transcribe` room creation on prod after eight days. The founder ran

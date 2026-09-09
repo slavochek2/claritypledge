@@ -81,6 +81,45 @@ fi
 if [[ -f "$REPO_ROOT/scripts/lib/gate-override.sh" ]]; then
   source "$REPO_ROOT/scripts/lib/gate-override.sh"
 fi
+# Required-status-check derivation (P1290). The `main` ruleset's required contexts are
+# QUERIED, never hardcoded — a hardcoded list is what let push-docs promote while a
+# newly-added second required check was still queued. See lib-required-checks.sh.
+#
+# Sourced when present. The HARD failure for a missing library lives in the two paths
+# that promote to main (`require_required_checks_lib`, called by cmd_push_docs and
+# cmd_ship_to_prod), NOT here.
+#
+# Why not here: a missing file must never degrade into an empty wait-list — with
+# derive_required_contexts undefined, the caller's `|| ruleset_ok=1` swallows the
+# command-not-found (127) under `set -e`, and an empty wait-list means "wait for
+# nothing", i.e. promote to a public main with ZERO CI verification (found by hostile
+# review, 2026-09-09). But refusing to LOAD AT ALL was the wrong lever: it broke
+# `adopt`, `claim`, `park` and `status`, none of which touch a required check, because
+# the hermetic canaries build fixtures that copy only git-ops.sh. That is epistemic gate
+# 7c exactly — a new gate must be run against the workflows that already exist, and this
+# one was caught by 15 failing assertions in test-git-ops-adopt.sh, not by inspection.
+# Gate the operation, never the whole tool.
+if [[ -f "$REPO_ROOT/scripts/lib-required-checks.sh" ]]; then
+  source "$REPO_ROOT/scripts/lib-required-checks.sh"
+fi
+
+# Called at the top of every path that promotes to main. Fails closed and loudly.
+require_required_checks_lib() {
+  local caller="${1:-git-ops}"
+  if ! command -v derive_required_contexts >/dev/null 2>&1 \
+     || ! command -v wait_for_required_checks >/dev/null 2>&1; then
+    echo "git-ops: FATAL: scripts/lib-required-checks.sh is missing or did not load." >&2
+    echo "  ${caller} cannot verify main's required status checks without it, and" >&2
+    echo "  promoting unverified is strictly worse than not promoting. Restore it." >&2
+    exit 1
+  fi
+  if ! command -v parse_utc_epoch >/dev/null 2>&1; then
+    echo "git-ops: FATAL: scripts/lib-datetime.sh is missing or did not load." >&2
+    echo "  Without it the CI freshness guard cannot run, so a green check from a" >&2
+    echo "  PRIOR staging cycle would satisfy this push. Restore it." >&2
+    exit 1
+  fi
+}
 
 # ----------------------------------------------------------------------------
 # Utilities
@@ -1708,11 +1747,13 @@ print_staging_hop() {
   fi
   local snap="$2"
   cat >&2 <<EOF
-Staging hop (P919) — main is gated by the 'audit-privacy' required check.
+Staging hop (P919) — main is gated by REQUIRED status checks (P1290: more than one;
+list them with 'gh api repos/:owner/:repo/rules/branches/main').
 Every command below pins the snapshot ${snap} on purpose; do not substitute 'main'.
   1. Run CI on these commits via a staging branch:
        git push origin ${snap}:refs/heads/${sb}
-  2. Wait for 'audit-privacy' to pass on those commits (Actions tab, or gh run watch).
+  2. Wait for EVERY required check to pass on those commits (Actions tab, or gh run
+     watch). A check that has not appeared yet is not a pass — it is queued.
   3. Promote to main (the green check on that exact SHA satisfies the rule):
        git push origin ${snap}:refs/heads/main
   4. Delete the ephemeral staging branch:
@@ -4207,6 +4248,7 @@ EOF
 # commits are already on origin/main before pushing main.
 # ─────────────────────────────────────────────────────────────────────────────
 cmd_ship_to_prod() {
+  require_required_checks_lib "ship-to-prod"
   local pn="${1:-}"
   [[ -n "$pn" ]] || die "ship-to-prod: usage: git-ops.sh ship-to-prod <pN> (e.g. p950)"
   # Normalize: strip leading 'p' if caller passed numeric only
@@ -4316,14 +4358,37 @@ cmd_ship_to_prod() {
   fi
   echo "  ✅ Staging branch ${staging_branch} created at $local_sha" >&2
 
-  # ── Step 4: CI poll -- verify the named check on these exact SHAs ─────────
-  echo "ship-to-prod [4/6]: waiting for 'audit-privacy' on ${local_sha}..." >&2
+  # ── Step 4: CI poll -- verify EVERY required check on these exact SHAs ────
+  # P1290: derived from the live ruleset, never hardcoded. See cmd_push_docs for the
+  # incident that produced this — the identical hardcoded single-check poll lived here
+  # too and was latent for exactly the same reason.
+  # Array, not word-splitting — see the identical block in cmd_push_docs for why
+  # (a required context name may contain spaces).
+  local _raw ctx_list
+  local ruleset_ok=0
+  local -a required_contexts=()
+  _raw="$(derive_required_contexts main)" || ruleset_ok=1
+  while IFS= read -r _c; do
+    [[ -n "$_c" ]] && required_contexts+=("$_c")
+  done <<< "$_raw"
+  ctx_list="$(printf '%s, ' "${required_contexts[@]}" | sed 's/, $//')"
+  if (( ${#required_contexts[@]} == 0 )); then
+    die "ship-to-prod: required-check list is empty — refusing to promote (P1290 fail-closed)"
+  fi
+  if (( ruleset_ok != 0 )); then
+    echo "  ⚠️  ship-to-prod: could not read required_status_checks from main's ruleset." >&2
+    echo "     Falling back to the known set: ${ctx_list}" >&2
+    echo "     If the ruleset has gained a check, this promote may still be rejected." >&2
+    echo "     Verify with: gh api repos/:owner/:repo/rules/branches/main" >&2
+  fi
+
+  echo "ship-to-prod [4/6]: waiting for [${ctx_list}] on ${local_sha}..." >&2
 
   # Verify gh is available and authenticated
   if ! command -v gh >/dev/null 2>&1; then
     echo "" >&2
     echo "  ❌ ship-to-prod: 'gh' CLI not found. Cannot poll CI." >&2
-    echo "  Manual fallback: wait for 'audit-privacy' to pass in GitHub Actions," >&2
+    echo "  Manual fallback: wait for [${ctx_list}] to pass in GitHub Actions," >&2
     echo "  then run: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "gh not available"
   fi
@@ -4333,7 +4398,6 @@ cmd_ship_to_prod() {
     die "gh not authenticated"
   fi
 
-  local CHECK_NAME="audit-privacy"
   # Taken before the staging push (see cmd_push_docs for the mechanism): a baseline
   # stamped after the push is later than our own check-run's started_at, so the poll
   # rejects its own scan as stale and dies at MAX_WAIT with CI green.
@@ -4356,90 +4420,38 @@ cmd_ship_to_prod() {
   # 40 min also means a push-on grant must cover ~45 minutes, not the 20 /push budgets.
   local MAX_WAIT="${GIT_OPS_CI_MAX_WAIT:-2400}"
   local POLL_INTERVAL=20
-  local waited=0
-  local check_conclusion=""
 
-  while (( waited < MAX_WAIT )); do
-    local check_run
-    # NEWEST matching run, not an arbitrary first one. A single SHA can carry several
-    # `audit-privacy` runs — a prior aborted attempt, or a `pull_request`-event run whose
-    # scan range differs (decisions.md 2026-09-01). `head -1` re-picked the same possibly
-    # stale one every poll and spun to MAX_WAIT while a fresh green run existed on the
-    # SHA — indistinguishable from the ordering bug fixed above, and a second live path
-    # to the identical symptom.
-    check_run="$(gh api "repos/:owner/:repo/commits/${local_sha}/check-runs" \
-      --jq "[.check_runs[] | select(.name == \"${CHECK_NAME}\")] | sort_by(.started_at) | last" 2>/dev/null)"
-    [[ "$check_run" == "null" ]] && check_run=""
+  # The poll loop itself lives in lib-required-checks.sh so it can be tested: git-ops.sh
+  # hard-fails without real `gh auth`, so while this logic was inline it was the one
+  # part of the fix no canary could reach. It was also written out twice (here and in
+  # cmd_ship_to_prod) — the same duplication that let the original single-check bug sit
+  # latent in ship-to-prod after it was found in push-docs.
+  local rc_status=0
+  wait_for_required_checks "$local_sha" "$PUSH_EPOCH" "$MAX_WAIT" "$POLL_INTERVAL" \
+    "${required_contexts[@]}" || rc_status=$?
 
-    if [[ -z "$check_run" ]]; then
-      echo "  ... check run not yet registered (${waited}s elapsed, waiting...)" >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
 
-    local status conclusion head_sha started_at started_epoch
-    status="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status',''))" 2>/dev/null)"
-    conclusion="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('conclusion',''))" 2>/dev/null)"
-    head_sha="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('head_sha',''))" 2>/dev/null)"
-    started_at="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('started_at',''))" 2>/dev/null)"
-    # Convert started_at to epoch for freshness check
-    started_epoch="$(parse_utc_epoch "$started_at" || echo 0)"
-
-    # Validate: right SHA + started after our push + must be completed
-    if [[ "$head_sha" != "$local_sha" ]]; then
-      echo "  ... check run SHA mismatch (expected $local_sha, got $head_sha) -- waiting for fresh run..." >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
-
-    # CROSS-CLOCK COMPARE, stated plainly: PUSH_EPOCH is this machine's `date +%s`;
-    # started_epoch is GitHub's clock. Stamping PUSH_EPOCH before the push buys the
-    # transfer duration as slack, and nothing at all against clock skew — if this Mac
-    # runs ahead of GitHub by more than the push takes, the poll rejects its own green
-    # scan again. So allow a tolerance. It cannot admit a genuinely stale run: those are
-    # minutes to hours old (a prior aborted attempt), far outside this window, and the
-    # `head_sha != local_sha` guard below independently excludes every other SHA.
-    local CLOCK_SKEW_TOLERANCE=180
-    if (( started_epoch > 0 && started_epoch < PUSH_EPOCH - CLOCK_SKEW_TOLERANCE )); then
-      echo "  ... check run pre-dates our push (stale run) -- waiting for fresh run..." >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
-
-    if [[ "$status" != "completed" ]]; then
-      echo "  ... status=$status (${waited}s elapsed, waiting...)" >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
-
-    check_conclusion="$conclusion"
-    break
-  done
-
-  if [[ -z "$check_conclusion" ]]; then
+  if (( rc_status == 2 )); then
     echo "" >&2
-    echo "  ❌ ship-to-prod: timed out waiting for '${CHECK_NAME}' after ${MAX_WAIT}s." >&2
+    echo "  ❌ ship-to-prod: '${RC_FAILED_CONTEXT}' concluded: ${RC_FAILED_CONCLUSION} (not success)." >&2
     echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
     echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
     echo "  reclaimed, and /weekly prints that report." >&2
-    echo "  Check GitHub Actions manually, then promote: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
+    die "CI check failed: ${RC_FAILED_CONTEXT} concluded ${RC_FAILED_CONCLUSION}"
+  fi
+
+  if (( rc_status != 0 )); then
+    echo "" >&2
+    echo "  ❌ ship-to-prod: timed out after ${MAX_WAIT}s waiting for [${ctx_list}]." >&2
+    echo "  Still blocking: ${RC_BLOCKING:-unknown}" >&2
+    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
+    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
+    echo "  reclaimed, and /weekly prints that report." >&2
+    echo "  Check GitHub Actions manually, then promote the snapshot to main and delete ${staging_branch}." >&2
     die "CI poll timeout"
   fi
 
-  if [[ "$check_conclusion" != "success" ]]; then
-    echo "" >&2
-    echo "  ❌ ship-to-prod: '${CHECK_NAME}' concluded: ${check_conclusion} (not success)." >&2
-    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
-    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
-    echo "  reclaimed, and /weekly prints that report." >&2
-    die "CI check failed: $check_conclusion"
-  fi
-
-  echo "  ✅ '${CHECK_NAME}' passed on ${local_sha}" >&2
+  echo "  ✅ all required checks passed on ${local_sha}: [${ctx_list}]" >&2
 
   # ── Step 5: Promote to main (D1: ALWAYS prompt TTY y/N) ──────────────────
   echo "" >&2
@@ -4582,6 +4594,9 @@ remote_heads() {
 # ─────────────────────────────────────────────────────────────────────────────
 cmd_push_docs() {
   require_main_repo
+  # Refuse BEFORE anything is pushed. Placed at the top rather than beside the poll
+  # so a missing library cannot cost a staging branch and a CI cycle first.
+  require_required_checks_lib "push-docs"
 
   local resume=0
   while (( $# )); do
@@ -4827,8 +4842,14 @@ cmd_push_docs() {
   # pinned snapshot 20e894b89: `audit-privacy` started 09:39:13 and concluded SUCCESS at
   # 09:47:53, yet push-docs died and origin/main did not move. Precisely: `goal-gate`
   # also ran on that SHA and concluded FAILURE at 09:50:27 — it is NOT the explanation,
-  # because the `main-privacy-gate` ruleset requires only the `audit-privacy` context
-  # (verified against the live ruleset), so a red goal-gate cannot block the promote.
+  # because a red `goal-gate` is not a REQUIRED context and cannot block the promote.
+  # (This comment previously said the ruleset "requires only the `audit-privacy`
+  # context (verified against the live ruleset)". That was true when written on
+  # 2026-09-04 and false on 2026-09-08, when P1255 added `disclosure` as a second
+  # required check — and the poll that trusted it raced the new check and was rejected
+  # GH013 three times on 2026-09-09. A verified fact with no expiry date is still a
+  # fact that expires: the required set is now DERIVED, see derive_required_contexts.
+  # P1290.)
   # Named here because the two failures sat in the same evidence and only one is ours. The bigger the
   # push, the longer the transfer, the more certain the misordering — which is why
   # this bites hardest exactly when the backlog is worst.
@@ -4908,12 +4929,47 @@ cmd_push_docs() {
   echo "  ✅ Staging branch ${staging_branch} created at ${local_sha}" >&2
 
   # ── Step 3: CI poll ───────────────────────────────────────────────────────
-  echo "push-docs [4/6]: waiting for 'audit-privacy' on ${local_sha}..." >&2
+  # P1290: the wait-list is DERIVED from the live ruleset, never hardcoded. This poll
+  # previously waited on `audit-privacy` alone, which was correct until P1255 added
+  # `disclosure` as a second required check on 2026-09-08 — after which push-docs
+  # promoted the instant the first one went green and raced the second. The two jobs
+  # have no fixed completion order (measured across five staging cycles on 2026-09-09:
+  # `disclosure` finished first twice, last twice, and once had not STARTED 23s after
+  # `audit-privacy` concluded), so this was a coin flip on every run, and GH013 when it
+  # lost. Hardcoding the second name would rot the same way the first one did.
+  # Read into an ARRAY, one context per line — never `for ctx in $unquoted`. A GitHub
+  # check context may legitimately contain spaces: this repo already has check-runs
+  # named "Secret Scan" and "Vercel Preview Comments", and marking either required
+  # would make word-splitting silently wait for four nonexistent checks named "Secret",
+  # "Scan", "Vercel", ... forever. Also immune to glob characters in a context name,
+  # which unquoted splitting would pathname-expand.
+  local _raw ctx_list
+  local ruleset_ok=0
+  local -a required_contexts=()
+  _raw="$(derive_required_contexts main)" || ruleset_ok=1
+  while IFS= read -r _c; do
+    [[ -n "$_c" ]] && required_contexts+=("$_c")
+  done <<< "$_raw"
+  ctx_list="$(printf '%s, ' "${required_contexts[@]}" | sed 's/, $//')"
+  # Unreachable by construction (derive_required_contexts never echoes nothing), and
+  # asserted anyway: an empty wait-list means "wait for nothing", which promotes
+  # instantly and is strictly worse than the bug this whole change fixes.
+  if (( ${#required_contexts[@]} == 0 )); then
+    die "push-docs: required-check list is empty — refusing to promote (P1290 fail-closed)"
+  fi
+  if (( ruleset_ok != 0 )); then
+    echo "  ⚠️  push-docs: could not read required_status_checks from main's ruleset." >&2
+    echo "     Falling back to the known set: ${ctx_list}" >&2
+    echo "     If the ruleset has gained a check, this promote may still be rejected." >&2
+    echo "     Verify with: gh api repos/:owner/:repo/rules/branches/main" >&2
+  fi
+
+  echo "push-docs [4/6]: waiting for [${ctx_list}] on ${local_sha}..." >&2
 
   if ! command -v gh >/dev/null 2>&1; then
     echo "" >&2
     echo "  ❌ push-docs: 'gh' CLI not found. Cannot poll CI." >&2
-    echo "  Manual fallback: wait for 'audit-privacy' to pass in GitHub Actions," >&2
+    echo "  Manual fallback: wait for [${ctx_list}] to pass in GitHub Actions," >&2
     echo "  then run: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
     die "gh not available"
   fi
@@ -4923,7 +4979,6 @@ cmd_push_docs() {
     die "gh not authenticated"
   fi
 
-  local CHECK_NAME="audit-privacy"
   # PUSH_EPOCH is deliberately NOT re-stamped here — it was taken BEFORE the staging
   # push (see the comment there). Re-stamping it now would reinstate the race that
   # made the poll reject its own green scan.
@@ -4937,6 +4992,16 @@ cmd_push_docs() {
   # each failed push lengthens the next scan and makes the next timeout more certain.
   # The backlog was both the result and the cause.
   #
+  # P1290 widens what this budget must cover: the wait is now bounded by the SLOWEST of
+  # N required checks, not by audit-privacy alone. Stated precisely, because the first
+  # draft of this comment conflated two different facts: workflow RUNS are created in
+  # the same second (measured — `privacy-scan` and `disclosure-gate` both trigger on a
+  # bare `push:`), but the JOBS do not start together — 09:55:01 vs 09:55:40 in the
+  # cycle this fix was diagnosed from, a 39s spread, up to 42s from run creation. So the
+  # added cost is queue latency rather than serialized scan time, and 2400s still holds
+  # — but that is an inference from the observed spread, not from proven concurrency.
+  # Revisit if a required check is added whose own runtime exceeds audit-privacy's.
+  #
   # COST, stated because it is real: push-docs holds main.lock across this poll, so a
   # longer budget widens the window in which co-tenant sessions cannot commit
   # (GIT_OPS_MAIN_LOCK_TIMEOUT is 120s — they cannot wait this long by construction).
@@ -4946,94 +5011,44 @@ cmd_push_docs() {
   # 40 min also means a push-on grant must cover ~45 minutes, not the 20 /push budgets.
   local MAX_WAIT="${GIT_OPS_CI_MAX_WAIT:-2400}"
   local POLL_INTERVAL=20
-  local waited=0
-  local check_conclusion=""
 
-  while (( waited < MAX_WAIT )); do
-    local check_run
-    # NEWEST matching run, not an arbitrary first one. A single SHA can carry several
-    # `audit-privacy` runs — a prior aborted attempt, or a `pull_request`-event run whose
-    # scan range differs (decisions.md 2026-09-01). `head -1` re-picked the same possibly
-    # stale one every poll and spun to MAX_WAIT while a fresh green run existed on the
-    # SHA — indistinguishable from the ordering bug fixed above, and a second live path
-    # to the identical symptom.
-    check_run="$(gh api "repos/:owner/:repo/commits/${local_sha}/check-runs" \
-      --jq "[.check_runs[] | select(.name == \"${CHECK_NAME}\")] | sort_by(.started_at) | last" 2>/dev/null)"
-    [[ "$check_run" == "null" ]] && check_run=""
+  # The poll loop itself lives in lib-required-checks.sh so it can be tested: git-ops.sh
+  # hard-fails without real `gh auth`, so while this logic was inline it was the one
+  # part of the fix no canary could reach. It was also written out twice (here and in
+  # cmd_ship_to_prod) — the same duplication that let the original single-check bug sit
+  # latent in ship-to-prod after it was found in push-docs.
+  local rc_status=0
+  wait_for_required_checks "$local_sha" "$PUSH_EPOCH" "$MAX_WAIT" "$POLL_INTERVAL" \
+    "${required_contexts[@]}" || rc_status=$?
 
-    if [[ -z "$check_run" ]]; then
-      echo "  ... check run not yet registered (${waited}s elapsed, waiting...)" >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
 
-    local status conclusion head_sha started_at started_epoch
-    status="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status',''))" 2>/dev/null)"
-    conclusion="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('conclusion',''))" 2>/dev/null)"
-    head_sha="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('head_sha',''))" 2>/dev/null)"
-    started_at="$(echo "$check_run" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('started_at',''))" 2>/dev/null)"
-    started_epoch="$(parse_utc_epoch "$started_at" || echo 0)"
-
-    if [[ "$head_sha" != "$local_sha" ]]; then
-      echo "  ... check run SHA mismatch (expected $local_sha, got $head_sha) -- waiting for fresh run..." >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
-
-    # CROSS-CLOCK COMPARE, stated plainly: PUSH_EPOCH is this machine's `date +%s`;
-    # started_epoch is GitHub's clock. Stamping PUSH_EPOCH before the push buys the
-    # transfer duration as slack, and nothing at all against clock skew — if this Mac
-    # runs ahead of GitHub by more than the push takes, the poll rejects its own green
-    # scan again. So allow a tolerance. It cannot admit a genuinely stale run: those are
-    # minutes to hours old (a prior aborted attempt), far outside this window, and the
-    # `head_sha != local_sha` guard below independently excludes every other SHA.
-    local CLOCK_SKEW_TOLERANCE=180
-    if (( started_epoch > 0 && started_epoch < PUSH_EPOCH - CLOCK_SKEW_TOLERANCE )); then
-      echo "  ... check run pre-dates our push (stale run) -- waiting for fresh run..." >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
-
-    if [[ "$status" != "completed" ]]; then
-      echo "  ... status=$status (${waited}s elapsed, waiting...)" >&2
-      sleep "$POLL_INTERVAL"
-      waited=$((waited + POLL_INTERVAL))
-      continue
-    fi
-
-    check_conclusion="$conclusion"
-    break
-  done
-
-  if [[ -z "$check_conclusion" ]]; then
+  if (( rc_status == 2 )); then
     echo "" >&2
-    echo "  ❌ push-docs: timed out waiting for '${CHECK_NAME}' after ${MAX_WAIT}s." >&2
-    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
-    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
-    echo "  reclaimed, and /weekly prints that report." >&2
-    echo "  Check GitHub Actions manually, then promote: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
-    die "CI poll timeout"
-  fi
-
-  if [[ "$check_conclusion" != "success" ]]; then
-    echo "" >&2
-    echo "  ❌ push-docs: '${CHECK_NAME}' concluded: ${check_conclusion} (not success)." >&2
+    echo "  ❌ push-docs: '${RC_FAILED_CONTEXT}' concluded: ${RC_FAILED_CONCLUSION} (not success)." >&2
     echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
     echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
     echo "  reclaimed, and /weekly prints that report." >&2
     # Clear the run state on a RED check specifically. --resume exists to retry a run
     # that was interrupted (CI timeout, lapsed push-on, killed terminal) — not to
-    # re-push a snapshot audit-privacy has already judged, which would burn another
-    # full poll to be told the same thing. Those interrupted paths deliberately KEEP
-    # the state; this one must not.
+    # re-push a snapshot CI has already judged, which would burn another full poll to
+    # be told the same thing. Those interrupted paths deliberately KEEP the state;
+    # this one must not.
     rm -f "$resume_state"
-    die "CI check failed: $check_conclusion"
+    die "CI check failed: ${RC_FAILED_CONTEXT} concluded ${RC_FAILED_CONCLUSION}"
   fi
 
-  echo "  ✅ '${CHECK_NAME}' passed on ${local_sha}" >&2
+  if (( rc_status != 0 )); then
+    echo "" >&2
+    echo "  ❌ push-docs: timed out after ${MAX_WAIT}s waiting for [${ctx_list}]." >&2
+    echo "  Still blocking: ${RC_BLOCKING:-unknown}" >&2
+    echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
+    echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
+    echo "  reclaimed, and /weekly prints that report." >&2
+    echo "  Check GitHub Actions manually, then promote the snapshot to main and delete ${staging_branch}." >&2
+    die "CI poll timeout"
+  fi
+
+  echo "  ✅ all required checks passed on ${local_sha}: [${ctx_list}]" >&2
 
   # ── Step 4: Promote to main (TTY y/N — auto-confirmed when PUSH_DOCS_ASSUME_YES=1) ──
   echo "" >&2

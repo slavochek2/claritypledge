@@ -505,6 +505,29 @@ else
 fi
 echo ""
 
+# 4.7c-ter. Required-status-check canary (P1290) — runs when git-ops.sh, the required-
+# checks library, or the canary itself is staged. Proves the push/deploy paths wait for
+# EVERY context main's ruleset marks required, not one hardcoded name. The bug it locks
+# down promoted to main while a second required check was still queued, because the
+# ruleset gained `disclosure` (P1255) and the poll still waited only on `audit-privacy`.
+# The MISSING-file branch blocks the commit deliberately: the library failing open means
+# an empty wait-list, and an empty wait-list promotes with no CI verification at all.
+# See scripts/test-p1290-required-checks-poll.sh header.
+REQ_CHECKS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops\.sh|lib-required-checks\.sh|test-p1290-required-checks-poll\.sh)$' || true)
+if [ -n "$REQ_CHECKS_STAGED" ]; then
+    if [ -f "scripts/test-p1290-required-checks-poll.sh" ] && [ -f "scripts/lib-required-checks.sh" ]; then
+        if ! run_quiet "Required-status-check canary (P1290)" bash scripts/test-p1290-required-checks-poll.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Required-status-check canary... ${RED}✗ scripts/lib-required-checks.sh or its canary missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Required-status-check canary skipped (git-ops.sh / lib-required-checks.sh not staged)"
+fi
+echo ""
+
 # 4.7d. Playwright tail-pipe hook canary (P911) — runs when the hook or its canary
 # is staged. Proves block-pw-tail-pipe.sh still BLOCKS a live test run piped to
 # head/tail (incl. `;`/`&`/`|&` and case variants) and ALLOWS mere mentions, log-file
