@@ -6,6 +6,108 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [technical]: A SECURITY DEFINER function is not a gate until the table's own policy says so (P1275)
+
+**Context:** P1207 narrowed `transcribe_rooms`' SELECT policy to members-only, correctly closing a
+room-code enumeration hole. `INSERT … RETURNING` is evaluated under the SELECT policy for the row it
+just wrote — and a room's creator is not a member at that instant — so `createRoom`'s
+`.insert().select().single()` aborted. **Creating an ad-hoc `/transcribe` room was broken in
+production from 2026-09-01 until this shipped**, surfacing as a raw row-level-security message on
+the consent screen. Joining an existing room was unaffected; it goes through a definer function.
+Proven rather than reasoned: as role `authenticated`, the same INSERT succeeds without `RETURNING`
+and fails with it.
+
+**Decision:** The create path goes through `create_transcribe_room()`, a `SECURITY DEFINER` function
+writing the room and its creator's membership in one transaction. **And — this is the half that was
+initially missed — the table's `WITH CHECK (true)` INSERT policy is tightened to `WITH CHECK
+(false)` in a paired contract migration.** Writing the function does not close the direct path.
+Row-level security is enforced at PostgREST, not by the JS client, so "no application code does this
+any more" is not a control: any authenticated caller could still POST the table and create a room
+its creator can neither read (member-scoped SELECT) nor end (member-scoped UPDATE). The function
+made that state unreachable *through itself*; only the policy makes it unrepresentable.
+
+**Alternatives rejected:** *Insert-then-read*, the split P1149 used on the join path — the creator
+still cannot read the room back, and a `SECURITY DEFINER` code lookup could, but that leaves a
+window in which a room exists with no members; the window is the defect. *Loosening the SELECT
+policy* — reintroduces the enumeration hole. *Dropping the INSERT policy* rather than setting it
+`false` — no policy denies by default and reads identically to one lost in a bad merge; an explicit
+`false` carries its reason in the catalog where someone debugging a refused insert will look.
+
+**Consequences:** Deploy order is three steps, not two: function → client bundle → policy tightening
+(marked `requires-frontend`). **Live risk to carry forward:** this is the `WITH CHECK (false)` +
+trust-`SECURITY DEFINER` shape that 2026-04-09 records as having broken once already, when
+`prosecdef` was silently stripped from a function by a schema operation. That decision's remedy —
+pair it with a policy that still works if the attribute is stripped — is not available here, because
+a room row carries no creator column for a policy to check. So the standing obligation is its other
+half: **verify `prosecdef` on prod after any schema operation touching this function.** If it is
+ever stripped, room creation fails closed for everyone, which is this same bug returning. The
+integration suite is the behavioural check on test; prod has none — creating a room after a prod
+migrate is the manual equivalent.
+
+**References:** `supabase/migrations/20260908210000_p1275_create_transcribe_room_rpc.sql` | `supabase/migrations/20260908210100_p1275_b_close_direct_room_insert.sql` | [P1275 spec](../features/done/2026-06-10/p1275_transcribe_room_creation_fails_rls.md) | 2026-04-09 "SECURITY DEFINER can be silently stripped"
+
+---
+
+## 2026-09-09 [process]: The evidence that disproves a claim can already be in hand when the claim is written (P1275)
+
+**Context:** While diagnosing P1275 a control probe was run on the test database: as role
+`authenticated`, `INSERT INTO transcribe_rooms` with no `RETURNING` **succeeded**. Its purpose was
+to prove the INSERT policy was not the refusing one, and it did. Minutes later the fix's migration
+was authored with a comment asserting that a member-less room "is not a representable state" — a
+claim that same probe had just falsified, since a bare insert creates exactly that. The gap was not
+missing evidence, weak tooling, or a skipped check. The command had run, the output had been read,
+and it had been used to answer a narrower question than it settled.
+
+**Decision:** When a probe returns, record what it rules out as well as what it confirms, and treat
+that list as binding on later claims about the same object. A control arm answers more than the
+question it was run for, and the surplus is exactly what goes unexamined — it was not the reason for
+running it.
+
+**Alternatives rejected:** *Rely on review to catch it* — review did catch it here, which is the
+only reason it did not ship, but a reviewer had to be chased twice and the same session had already
+run three inline passes over the same file without seeing it. That is a recovery path, not a
+control. *Add a checklist gate* — the check that would have caught this had already been performed;
+another instruction to perform it changes nothing.
+
+**Consequences:** The claim reached a migration comment, an acceptance criterion that was ticked,
+and a completion summary written to the founder, before review reversed all three. Anything asserted
+about what a schema "cannot" represent now needs the probe that tested it cited next to it, not
+recalled.
+
+**References:** [P1275 spec](../features/done/2026-06-10/p1275_transcribe_room_creation_fails_rls.md) — Review section
+
+---
+
+## 2026-09-09 [process]: An absence assertion that auto-waits reports the app as broken (P1275)
+
+**Context:** A canary asserted that no error element was present after a successful action, written
+as `await locator.textContent().catch(() => null)`. Playwright's `textContent()` **auto-waits for
+the element to appear**. On the passing path — where the element correctly does not exist — that one
+line blocked for the full default timeout, consumed 24 seconds of a 30-second test budget, and the
+`.catch()` swallowed the eventual throw as "no error". The failure then surfaced on the *next*
+assertion as a timeout, pointing at innocent code. Two runs were read as a product regression, and
+three hypotheses (a VPN, a shared dev server, a wrong database) were raised and killed before step
+timing located it. The app had been reaching the correct state in under 3 seconds throughout.
+
+**Decision:** Assert absence with the query that resolves against what matches now —
+`allTextContents()` (returns `[]`) or `count()` — never with a retrieval that auto-waits. For
+"either A or B happened", wait on `A.or(B)` first, then assert on the settled state; that also puts
+the server's real message into the failure output instead of a bare visibility timeout.
+
+**Alternatives rejected:** *Raise the test timeout* — tried, and it disproved itself: at 90 seconds
+the test still failed, because the wait scales with the budget. *Pass a short explicit timeout to
+`textContent()`* — works, but leaves a retrieval call standing where the intent is a presence check,
+so the next person copying the line reintroduces it.
+
+**Consequences:** A test can fail in a way that reads as a product defect and points somewhere else
+entirely. When a canary times out on an assertion whose subject is visible in the captured page
+snapshot, suspect the preceding line's waiting behaviour before suspecting the application.
+
+**References:** `e2e/p1275-transcribe-room-create.spec.ts` — the comment on the assertion carries the
+same warning at the point of use
+
+---
+
 
 ## 2026-09-09 [technical]: The shared-index commit race is the pre-commit hook window, and a tool that has already written the wrong thing needs its own exit code (P1279)
 
