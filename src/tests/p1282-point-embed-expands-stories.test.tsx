@@ -12,9 +12,19 @@
  *
  * WHY THE CONTROL CASE IS IN THIS FILE AND NOT A SEPARATE ONE (epistemic gate 7c). A gate
  * whose fixture contains only inputs it should ACCEPT has an unmeasured false-positive rate.
- * The feed case below is the input that must keep being REFUSED: in the feed there is no
- * embed, no live session and no profile owner, and stories must stay collapsed. If a future
- * change widens the gate too far, that test — not this comment — is what catches it.
+ * The last test is the input that must keep being REFUSED: none of the three gating conditions
+ * holds, and stories must stay collapsed. If a future change widens the gate too far, that test
+ * — not this comment — is what catches it.
+ *
+ * WHAT THAT CONTROL IS NOT, corrected after code review. An earlier draft of this file called it
+ * "the feed case". It is not: `feed-page.tsx` renders `FeedPointCard`
+ * (`src/app/components/feed/feed-point-card.tsx`), which never reaches this gate and carries its
+ * own expand state. Verified by command — `grep -rn "PointCardWithLinks" src/app/pages/feed-page.tsx
+ * src/app/components/feed/` returns nothing, and the only four production call sites are
+ * `point-detail-page`, `profile-page-v2`, `landing-v4` (always `liveSessionMode`) and
+ * `usp-contrast-demo` (passes no `linkedStories`). So this control binds the COMPONENT's boundary,
+ * which is real and worth binding; it does not prove anything about the feed, and must not be cited
+ * as if it did.
  *
  * HISTORY. `c5803784e` (2026-03-18, "fix: allow inline expand of points/stories in blog
  * embeds") removed the `!isEmbed` guard from this exact block and left the owner condition
@@ -122,8 +132,8 @@ describe('P1282 — linked stories in an embedded point', () => {
     expect(screen.getByText('+2 more stories')).toBeInTheDocument();
   });
 
-  // ─── CONTROL (gate 7c): the input that must still be REFUSED. ─────────────────────────
-  it('does NOT expand stories in the feed — no embed, no live session, no profile owner', () => {
+  // ─── CONTROL (gate 7c): the input that must still be REFUSED. Not a feed test — see header.
+  it('does NOT expand with none of the three gating conditions set', () => {
     renderAt('', [story()]);
     fireEvent.click(screen.getByLabelText('Expand linked stories'));
     expect(screen.queryByText(new RegExp(STORY_TEXT, 'i'))).not.toBeInTheDocument();

@@ -171,7 +171,11 @@ the quotes and timestamps should not be behind a click for a reader who came to 
       not sufficient, and does not claim to close it.**
 - [x] The rendered stories carry their agent byline, quotes and timestamps. (Browser-verified locally: `AGENT on Yann LeCun`, mounted player, body text.)
 - [x] A point with more than three linked stories renders three plus a "+N more stories" control.
-- [x] The feed still does not expand stories inline — no change to that surface.
+- [x] With none of the three gating conditions set, the block stays closed — a control test, so the
+      gate's false-positive rate is measured rather than assumed. **Corrected after code review:**
+      this is not a "feed" assertion. The feed renders `FeedPointCard`, a different component that
+      never reaches this gate (verified: no `PointCardWithLinks` under `feed-page.tsx` or
+      `components/feed/`; the only four call sites are point-detail, profile, landing-v4 and a demo).
 - [x] A test asserts the embed branch renders its stories, and was seen to FAIL against the current
       gate before the fix, with the non-zero exit recorded.
 - [x] The second defect found during verification is filed rather than buried — P1287, carrying
