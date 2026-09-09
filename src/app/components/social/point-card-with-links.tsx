@@ -639,10 +639,15 @@ export function PointCardWithLinks({
         </>
       )}
 
-      {/* Expanded linked stories - in feed view or live session mode */}
+      {/* Expanded linked stories - in feed view, live session mode, or an embed.
+          `isEmbed` is here because the embed route never builds a `profileOwner` unless the URL
+          carries `?from=<userId>` (point-detail-page.tsx), so without it the disclosure toggles
+          open and renders nothing — the half c5803784e missed when it removed `!isEmbed` from
+          this same block. The story card's mirror of this expansion (story-card-with-links.tsx)
+          has never carried an owner condition at all. */}
       {!isDetailView &&
         storiesExpanded &&
-        (liveSessionMode || profileOwner) &&
+        (liveSessionMode || profileOwner || isEmbed) &&
         (liveSessionMode ? allLinkedStories : storiesToShow).length > 0 && (
           <div
             className={
