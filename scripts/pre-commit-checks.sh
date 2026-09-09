@@ -358,7 +358,23 @@ echo ""
 # dropping the hook's exported GIT_DIR/GIT_INDEX_FILE — which override -C — turning a
 # 6-path staged commit into 1497 paths mid-hook, while exiting 0. Runs whenever the guard,
 # its canary, or this script is staged.
-INDEX_GUARD_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(lib/run-quiet|test-index-integrity-guard|pre-commit-checks)\.sh$' || true)
+# Deliberately NOT built from $STAGED_FILES: that list is computed with
+# --diff-filter=d, so DELETIONS are excluded. `git rm scripts/test-index-integrity-guard.sh`
+# would match nothing, the -f test would also fail, and this block would print
+# "skipped" while the gate was being deleted. The comment further down in this file
+# spells out the same hazard for P1116 and uses a raw listing for exactly this reason;
+# this block did not follow it until adversarial review pointed it out.
+INDEX_GUARD_RAW=$(git diff --cached --name-only 2>/dev/null || true)
+INDEX_GUARD_STAGED=$(echo "$INDEX_GUARD_RAW" | grep -E '^scripts/(lib/run-quiet|test-index-integrity-guard|pre-commit-checks)\.sh$' || true)
+# A staged deletion of the guard or its canary is a hard error, never a skip.
+INDEX_GUARD_DELETED=$(git diff --cached --name-only --diff-filter=D 2>/dev/null \
+    | grep -E '^scripts/(lib/run-quiet|test-index-integrity-guard)\.sh$' || true)
+if [ -n "$INDEX_GUARD_DELETED" ]; then
+    echo -e "${RED}✗ Removing the index-integrity guard is not a silent operation:${NC}"
+    echo "$INDEX_GUARD_DELETED" | sed 's/^/    /'
+    echo -e "${YELLOW}  If this is deliberate, say so in the commit and remove this block too.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
 if [ -n "$INDEX_GUARD_STAGED" ] && [ -f "scripts/test-index-integrity-guard.sh" ]; then
     if ! run_quiet "Index-integrity guard canary (P1273)" bash scripts/test-index-integrity-guard.sh; then
         ERRORS=$((ERRORS + 1))

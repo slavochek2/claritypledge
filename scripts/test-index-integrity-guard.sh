@@ -42,19 +42,33 @@ if run_quiet "inert step" true >/dev/null 2>&1; then ok "inert step returns 0"; 
 
 echo "-- 2. a step that STAGES a file is refused, even though the step itself succeeds --"
 # This is the whole point: the P1273 instance exited 0 while corrupting its caller.
+# Control FIRST: the bare command must succeed. Without this the assertion below passes
+# just as well when the staging command fails for its own reasons (reproduced by review:
+# `git add /nonexistent-path` satisfied it with the guard never firing), and the message
+# claiming "step's own exit was 0" verified nothing.
+if git add c.txt >/dev/null 2>&1; then ok "control: the staging command itself succeeds"; else bad "control: staging command failed — scenario 2 would be vacuous"; fi
+git reset -q HEAD -- c.txt >/dev/null 2>&1
+_before_n=$(git diff --cached --raw | wc -l | tr -d ' ')
 if run_quiet "sneaky stager" git add c.txt >/dev/null 2>&1; then
   bad "guard let an index-mutating step through"
 else
   ok "guard refused a step that staged c.txt (step's own exit was 0)"
 fi
+_after_n=$(git diff --cached --raw | wc -l | tr -d ' ')
+[ "$_after_n" != "$_before_n" ] && ok "control: the index really moved ($_before_n -> $_after_n)" \
+                               || bad "control: index never moved — scenario 2 proved nothing"
 
 echo "-- 3. a step that UNSTAGES is refused too (mutation is not only growth) --"
 git add c.txt >/dev/null 2>&1
+_before_n=$(git diff --cached --raw | wc -l | tr -d ' ')
 if run_quiet "sneaky unstager" git reset -q HEAD -- c.txt >/dev/null 2>&1; then
   bad "guard let an unstaging step through"
 else
   ok "guard refused a step that unstaged c.txt"
 fi
+_after_n=$(git diff --cached --raw | wc -l | tr -d ' ')
+[ "$_after_n" != "$_before_n" ] && ok "control: the unstage really happened ($_before_n -> $_after_n)" \
+                               || bad "control: index never moved — scenario 3 proved nothing"
 
 echo "-- 3b. an allowlisted label may mutate (gate 7c: the guard must not block real work) --"
 git add c.txt >/dev/null 2>&1
@@ -65,6 +79,28 @@ else
   bad "allowlist did not exempt the label"
 fi
 INDEX_MUTATORS=()
+
+echo "-- 3c. content-only, mode-only and round-trip mutations (--raw, not --name-only) --"
+# All three passed the name-only fingerprint. The content case is the dangerous one: a
+# redirected step staging unreviewed content under names the author already approved is
+# silent all the way into the commit, where a changed file LIST would have been loud.
+git add c.txt >/dev/null 2>&1
+echo "changed" > c.txt
+if run_quiet "content changer" git add c.txt >/dev/null 2>&1; then
+  bad "guard blind to a content-only restage (same path, different blob)"
+else
+  ok "guard catches a content-only restage"
+fi
+if run_quiet "mode changer" git add --chmod=+x c.txt >/dev/null 2>&1; then
+  bad "guard blind to a mode-only restage"
+else
+  ok "guard catches a mode-only restage"
+fi
+if run_quiet "round tripper" bash -c 'git add z.txt 2>/dev/null; git reset -q HEAD -- z.txt 2>/dev/null; true' >/dev/null 2>&1; then
+  ok "round trip leaving the index identical is correctly allowed"
+else
+  ok "round trip refused (also acceptable — it did touch the index)"
+fi
 
 echo "-- 4. THE REAL MECHANISM: exported hook env overrides 'git -C', guard catches it --"
 # Build a second repo with a big tree, then run a 'canary' that drives it via `git -C`
