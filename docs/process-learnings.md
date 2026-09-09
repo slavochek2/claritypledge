@@ -30,6 +30,37 @@ an empty file is the healthy state.
 
 ---
 
+## `goal-gate.sh` CHECK 3 soft-resets HEAD in a worktree — a killed run strands the branch ref
+
+**Status:** proposed
+**due:** week
+
+`goal-gate.sh` CHECK 3 soft-resets `HEAD` to the merge-base while running, inside the worktree it
+is invoked from, and restores afterwards. If the run is killed between those two points the
+**branch ref is left at the merge-base**, so the branch appears to have lost every commit — and a
+later run then "restores" to that wrong sha, making the loss look deliberate.
+
+Observed 2026-09-09 during the P1284 review: `feature/p1284-script-inbox-batch` showed 0 commits
+ahead of `main` with its seven commits' content sitting as uncommitted changes. The orchestrator
+read this as possible data loss and spent tool calls confirming otherwise. Nothing was lost —
+`git reflog` showed the ref bouncing between the merge-base and the real tip across repeated gate
+runs. Repaired with `git reset <absolute-sha>` (never `HEAD~1` — the shared-HEAD rule in
+`.claude/rules/git.md`), verified by all seven commits back on the branch and byte-identical
+checksums for all nine working-tree files.
+
+Two things to fix, and the second is the one that matters:
+
+1. Make the restore crash-safe — record the pre-reset sha somewhere durable (a file next to the
+   lock, not a shell variable) and restore from it on the next invocation, so a killed run
+   self-heals instead of stranding the ref.
+2. Never soft-reset the ref at all if the check can be done another way. Reading a diff against
+   the merge-base does not require moving `HEAD`; `git diff <merge-base>...HEAD` answers the same
+   question without touching any ref, which removes the failure mode rather than recovering from
+   it.
+
+Until then: a branch that suddenly reads "0 commits ahead" right after a gate run is almost
+certainly this, not lost work. Check `git reflog <branch>` before doing anything else.
+
 ## Confirm the P1260 branch-and-remote-refs step on the first post-merge `/weekly`
 
 **Status:** proposed
