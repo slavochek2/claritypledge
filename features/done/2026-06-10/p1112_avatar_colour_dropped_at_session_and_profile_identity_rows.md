@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 221
@@ -8,8 +8,8 @@ workstream: social
 date_reported: '2026-08-19'
 created_date: '2026-08-19'
 tags: [avatar, pledge-ring, gravatar-avatar, props-drilling]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-09-09
 ---
 
 # P1112: Avatar colour dropped at two more `GravatarAvatar` call sites (session list, profile identity row)
