@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 13
@@ -13,8 +13,8 @@ tags:
   - point-engage
   - error-handling
   - silent-failure
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-09-09
 ---
 
 # P960: Point-position submit can hang the receiver (no RPC timeout)
