@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 1
 severity: high
@@ -8,12 +8,12 @@ date_reported: '2026-09-09'
 created_date: '2026-09-09'
 tags: [embed, points, stories, blog]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-09-09
 ---
 
 # P1282: The point embed toggles its story list open and renders nothing
@@ -64,7 +64,7 @@ was finished.
 3. **The disclosure markers travel.** Stories rendered here are agent stories, so every render
    branch remains bound by the census in
    `src/tests/p1259-disclosure-route-on-every-surface.test.tsx` — the unit of which is the render
-   branch, not the component ([decisions.md](../docs/decisions.md) 2026-09-08, P1270).
+   branch, not the component ([decisions.md](../../../docs/decisions.md) 2026-09-08, P1270).
 
 ## Reproduction Steps
 
