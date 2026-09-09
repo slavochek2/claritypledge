@@ -42,6 +42,8 @@ interface MockRecognition {
 }
 
 let lastInstance: MockRecognition;
+/** When true the next start() throws InvalidStateError — the documented "already started" case. */
+let startThrows = false;
 
 function MockCtor(): MockRecognition {
   const instance: MockRecognition = {
@@ -52,7 +54,14 @@ function MockCtor(): MockRecognition {
     onerror: null,
     onend: null,
     onstart: null,
-    start: vi.fn(() => { instance.onstart?.(); }),
+    start: vi.fn(() => {
+      if (startThrows) {
+        const err = new Error('already started');
+        err.name = 'InvalidStateError';
+        throw err;
+      }
+      instance.onstart?.();
+    }),
     stop: vi.fn(() => instance.onend?.()),
     abort: vi.fn(),
   };
@@ -70,6 +79,7 @@ const fire = (resultIndex: number, results: ReturnType<typeof res>[]) =>
 
 beforeEach(() => {
   vi.useFakeTimers();
+  startThrows = false;
   vi.stubGlobal('SpeechRecognition', MockCtor);
 });
 afterEach(() => {
@@ -167,6 +177,34 @@ describe('P1288: each finalized result is appended exactly once', () => {
 
     fire(0, [res('one', true), res(' two', true), res(' three', true)]);
     expect(result.current.transcript).toBe('one two three');
+  });
+
+  it('a start() that throws "already started" must not reset the running session\'s marker', () => {
+    // Adversarial review finding. The marker reset was placed BEFORE start(). When start()
+    // throws because a session is already running — a case this hook's own catch block
+    // documents as having happened on Android/iOS — no new session begins. The OLD one is
+    // still going and its results list did NOT restart at 0, but the marker was just zeroed,
+    // so every index it already consumed looks new again and gets re-appended. That
+    // resurrects the exact duplication P1288 exists to remove, for the rest of that session.
+    //
+    // Trigger: double-tapping "Resume live text", or tapping it while the auto-restart timer
+    // has already succeeded.
+    const { result } = renderHook(() => useSpeechToText('en-US', { autoRestart: false }));
+    act(() => { result.current.startListening(); });
+
+    fire(0, [res('already said this', true)]);
+    expect(result.current.transcript).toBe('already said this');
+
+    // A second start() while that session is still running: it throws, nothing new begins.
+    startThrows = true;
+    act(() => { result.current.startListening(); });
+    startThrows = false;
+
+    // The ongoing session re-delivers its index 0, as Android does.
+    fire(0, [res('already said this', true)]);
+    expect(result.current.transcript,
+      'a failed start() must not make consumed results look new again')
+      .toBe('already said this');
   });
 
   it('interim results still never enter the transcript', () => {

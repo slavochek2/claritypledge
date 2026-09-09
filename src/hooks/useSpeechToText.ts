@@ -263,8 +263,15 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
           // start() directly rather than going through startListening(). A stale marker
           // would make the new session's early results look already-consumed and DROP REAL
           // SPEECH, which is strictly worse than the duplication this fix removes.
-          lastFinalIndexRef.current = -1;
+          //
+          // AFTER start(), never before. A throw here means "already started" — no new
+          // session began, the OLD one is still running, and its results list did NOT
+          // restart at 0. Zeroing the marker first would make every index that session had
+          // already consumed look new again and re-append it, resurrecting the exact
+          // duplication this fix exists to remove. Safe to sit after the call because
+          // onresult can only fire on a later tick, once start() has returned.
           recognition.start();
+          lastFinalIndexRef.current = -1;
         } catch (err) {
           // iOS: NotAllowedError (no user gesture). Android: InvalidStateError.
           // Either way onend will NOT fire, so this path owns the next attempt.
@@ -333,9 +340,10 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
 
     try {
       // P1288: same reason as the auto-restart path above — fresh session, fresh marker,
-      // not dependent on onstart firing.
-      lastFinalIndexRef.current = -1;
+      // not dependent on onstart firing, and AFTER the call so an "already started" throw
+      // cannot zero a still-running session's marker.
       recognitionRef.current.start();
+      lastFinalIndexRef.current = -1;
     } catch (err) {
       // P1196: this is the "Resume live text" path, and on iOS it is the ONLY path
       // that can work. A throw here used to be swallowed as "already started", which

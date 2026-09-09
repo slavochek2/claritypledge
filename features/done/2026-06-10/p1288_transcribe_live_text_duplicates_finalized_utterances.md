@@ -225,3 +225,35 @@ the spec on a green unit suite: the prod symptom is the oracle, not the test fil
 speech pauses. The founder confirmed it fires only after speaking stops, which is ordinary
 recogniser behaviour announced as a fault. Cosmetic, separate, and merging it into this fix is
 what produced P1236's overstated root cause.
+
+
+## Post-ship correction, 2026-09-09 — the review landed after the merge
+
+The code review arrived after `/ship` had already run (it had to be chased twice; the ship
+proceeded on an inline review that had found the `onstart` drop). It found one MEDIUM that the
+inline pass missed, and one honest overstatement in this spec.
+
+**MEDIUM, fixed: the session-start reset ran BEFORE `start()`, not after.** `start()` throws
+`InvalidStateError` when a session is already running — a case this hook's own catch block
+documents as having happened on Android and iOS. On that throw no new session begins: the OLD
+one is still running and its results list did **not** restart at 0. Zeroing the marker first
+made every index that session had already consumed look new again and re-append it —
+**resurrecting the exact duplication P1288 exists to remove**, for the rest of that session.
+Triggered by double-tapping "Resume live text", or tapping it while the auto-restart timer has
+already succeeded. Reproduced as a failing test (`'already said thisalready said this'`) before
+the fix, green after; the reset now runs immediately after `start()` returns, which is still
+safe against "onstart never fires" because `onresult` can only fire on a later tick.
+
+Note the shape: the first fix closed the *drop* direction and opened a narrower *duplicate*
+direction. Both times the danger was in the fix, not the bug.
+
+**Overstatement, corrected: only 3 of the 7 tests here are load-bearing.** The reviewer traced
+each against two baselines (pre-P1288, and the intermediate onstart-only commit). Tests 1, 2
+and 5 discriminate — they fail against a real prior version. Tests 3, 4 and 6 pass identically
+on every version of the hook **including no fix at all**; they are regression guards against a
+plausible *bad* implementation, not evidence that this defect was closed. The commit message
+for the second fix said "Proven both directions… Also asserts that every final result inside a
+single `onresult` event is appended", which reads as if all of them validate the change. They
+do not. **"4055 tests pass" is not evidence this commit closed the gap — test 5 is, and now the
+`already started` test.** Recorded because citing a green suite as proof of a specific fix is
+the failure this repo keeps writing entries about.
