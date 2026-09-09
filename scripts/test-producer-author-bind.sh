@@ -2,6 +2,10 @@
 # P1155 step 0 canary — every alert-only producer must only append to (or close)
 # an issue the Actions bot itself created.
 #
+# The roster below is the enrolment point: a new producer workflow is bound to this
+# canary by being listed here, and a producer that is NOT listed is silently exempt
+# from every check in this file. P1283 added cron-health as the ninth (after P890 added edge-smoke as the eighth).
+#
 # Gate 7c: this suite tests the ACCEPT case as well as the REJECT case. A filter that
 # rejects everything looks identical to a quiet system, which is the exact defect P1155
 # exists to fix — so "no match" is only ever evidence when a known-good input matches.
@@ -14,7 +18,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 PRODUCERS=(auth-canary csp-smoke db-backup prod-health-smoke stranded-signups
-           check-deploy-drift backup-staleness edge-smoke)
+           check-deploy-drift backup-staleness edge-smoke cron-health)
 BOT="app/github-actions"
 fails=0
 sites=0

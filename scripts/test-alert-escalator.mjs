@@ -202,7 +202,21 @@ t('REGRESSION (F3): the exact registry Codex broke is now rejected before it can
 t('ACCEPT: the real shipped registry validates', () => {
   const reg = JSON.parse(readFileSync('.github/alert-registry.json', 'utf8'));
   validateRegistry(reg);
-  assert.equal(reg.checks.filter((c) => c.kind === 'github-issue-age').length, 9);
+  const issueAge = reg.checks.filter((c) => c.kind === 'github-issue-age');
+  // A floor, not an equality. The registry's own _readme says adding a check of an
+  // existing kind is "a row here and no code" — an exact count contradicts that and
+  // fails every legitimate addition with a number, not a diagnosis (it did exactly
+  // that when P1283 added the two pg_cron rows). The floor still catches the case this
+  // assertion exists for: a row silently disappearing, and an empty list validating
+  // vacuously. Set to the merged count (11: main's edge-smoke plus P1283's two rows) on the
+  // P1283 rebase — raise it when a row is added, never lower it without saying why.
+  assert.ok(issueAge.length >= 11, `expected at least 11 github-issue-age checks, found ${issueAge.length}`);
+  // Every row must actually carry the fields the escalator reads, so "it validated"
+  // cannot mean "it validated nothing".
+  for (const c of issueAge) {
+    assert.ok(c.id && c.match_title && Array.isArray(c.escalate_at_days) && c.escalate_at_days.length > 0,
+      `incomplete github-issue-age row: ${JSON.stringify(c)}`);
+  }
 });
 
 // --- A1: the message must not carry issue content ------------------------------

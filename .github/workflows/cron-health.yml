@@ -1,0 +1,125 @@
+name: pg_cron health
+
+# Watches the pg_cron jobs that the migrations schedule on prod: that each one exists,
+# is active, has succeeded recently enough for its own schedule, and has no failed runs
+# in the last 24h.
+#
+# Why (P1283): a job created by 20260907140000_p1256_* dispatches every event reminder
+# and feedback mail. Its predecessor failed on all 328 of its runs across roughly three
+# months and wrote 328 identical errors into cron.job_run_details. Nothing read that
+# table, so a hard error was operationally indistinguishable from silence, and the
+# outage was found by hand. None of the other seven detectors can see this: they watch
+# HTTP surfaces and deploy state, and a dead cron job breaks neither.
+#
+# The expected-job list is DERIVED from supabase/migrations/*.sql by the script. It is
+# deliberately not restated here or in the registry — a second copy would drift from the
+# migrations, and that drift would be exactly as invisible as the outage it is meant to
+# catch.
+#
+# ALERT-ONLY, matching auth-canary.yml and stranded-signups.yml: the check step is
+# continue-on-error so a finding cannot post a red X on the repo; the issue steps read
+# the recorded exit status instead.
+#
+# EXIT STATUS IS READ DIRECTLY, not inferred from whether output was produced. The
+# script separates "a job is unhealthy" (1) from "the check could not run" (2), and
+# collapsing them would let a rotated token masquerade as a clean database. This is the
+# one place this workflow deliberately differs from stranded-signups.yml, which has to
+# infer the distinction from an empty summary because its script cannot say so directly.
+
+on:
+  schedule:
+    - cron: '40 */6 * * *' # every 6 hours, offset off the 0-past and 20-past jobs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  cron-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Check pg_cron health on prod
+        id: check
+        continue-on-error: true
+        env:
+          # A Supabase personal access token. cron.job_run_details lives in the `cron`
+          # schema, which PostgREST does not expose — verified 2026-09-09, the prod
+          # service-role key is refused there with
+          # `PGRST106 Invalid schema: cron — Only the following schemas are exposed:
+          # public, graphql_public`. The Management API query endpoint is the only read
+          # path that needs no new migration, and it is the one /day already uses.
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set +e
+          node scripts/check-cron-health.mjs > /tmp/cron-health.txt 2>&1
+          status=$?
+          set -e
+          cat /tmp/cron-health.txt
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          exit $status
+
+      # Exit 2 means the check could NOT run (missing secret, API error, unreadable
+      # migrations). That is a different problem from "a cron job is dead" and must not
+      # be reported as one, or a broken credential would masquerade as a healthy
+      # database — the precise failure shape P1256 already cost three months to.
+      - name: Report that the check itself could not run
+        if: steps.check.outputs.status == '2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="pg_cron health check is not running"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          BODY="The pg_cron health check exited 2, so the scheduled jobs on prod are currently unmonitored. Usually the \`SUPABASE_ACCESS_TOKEN\` repository secret is missing or was rotated. Triage: run \`node scripts/check-cron-health.mjs\` locally — it names the missing variable on stderr. Run log: $RUN_URL
+
+          \`\`\`
+          $(cat /tmp/cron-health.txt)
+          \`\`\`"
+          # Author-bound exact-title match (P1155). Three properties, all load-bearing:
+          #  - exact title, NOT `gh --search`: `in:title` token-matches, so an issue
+          #    merely sharing title words could swallow the comment.
+          #  - author == the Actions bot: without it this workflow can be induced to
+          #    append to an issue it did not create, so it never opens its own and the
+          #    alarm is diverted silently. `gh issue list --json author` reports the bot
+          #    as `app/github-actions` (the REST API spells the same identity
+          #    `github-actions[bot]` — the CLI shape is the one that applies here).
+          #  - explicit --limit: the default page is 30, newest-first, which drops the
+          #    oldest open issues — exactly the ones an ageing alarm lives in.
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
+
+      - name: Open a GitHub issue when a scheduled job is unhealthy
+        if: steps.check.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="pg_cron job unhealthy on prod"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          BODY="A pg_cron job that a migration schedules is missing, inactive, failing, or has not succeeded within its own schedule's tolerance.
+
+          \`\`\`
+          $(cat /tmp/cron-health.txt)
+          \`\`\`
+
+          **What a line means.** \`not scheduled\` — a migration creates the job but prod's \`cron.job\` has no row, so the migration never reached prod or something unscheduled it out of band. \`inactive\` — the row exists with \`active = false\`. \`no successful run for N min\` — pg_cron is not firing it, or every recent run errored. \`failed run(s) in the last 24h\` — read the error with:
+
+              select status, return_message, start_time from cron.job_run_details
+               where jobid = (select jobid from cron.job where jobname = '<name>')
+               order by start_time desc limit 10;
+
+          **A green run does not prove delivery.** \`net.http_post\` is asynchronous, so a tick that queues a request records \`succeeded\` whatever the response turns out to be — a 401 from a rotated secret included. Delivery is asserted separately against \`net._http_response\`. Run log: $RUN_URL"
+          # Author-bound exact-title match (P1155) — see the reasoning above.
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
