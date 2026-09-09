@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 1000082
 severity: medium
@@ -11,8 +11,9 @@ exec_model: opus
 exec_effort: high
 tags: [git-ops, concurrency, shared-index, commit-to-main]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+flow: fix
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1279: `commit-to-main` recorded a file that was not requested, and returned success
