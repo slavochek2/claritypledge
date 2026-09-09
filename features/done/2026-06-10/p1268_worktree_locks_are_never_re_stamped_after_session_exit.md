@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 1000077
 workstream: infrastructure
 created_date: '2026-09-08'
 tags: [worktree, git-ops, pre-flight, session-lifecycle]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, inline]
 flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-09
 ---
 
 # P1268: A worktree lock is never re-stamped, so every resumed session's slot reads ORPHAN forever
