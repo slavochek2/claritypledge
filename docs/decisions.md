@@ -6,6 +6,107 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-09 [process]: A question the agent has better evidence for than the founder is not a question — /push resolves dirty files from transcripts
+
+**Context:** `/push` classified bystander dirty files on the shared main checkout into three
+buckets (P1264) and the third fell through to *"list them once and ask."* The founder's own
+standing procedure for that ask was *"tell it, ask neighbouring sessions, then reason
+yourself"* — a procedure he had to dictate each time, for a decision he had no better evidence
+for than the agent did. His question: *"Why do I have to be involved?"*
+
+**Decision:** `scripts/classify-dirty-files.sh` decides every dirty path without asking, from
+the sessions' own transcripts: which session actually **wrote** each file. Verdicts are MINE /
+NOOP / GENERATED / SESSION / WORKTREE / ORPHAN / UNKNOWN, and **only MINE licenses a commit** —
+every ambiguous case resolves to *leave uncommitted and report*, never to a question. On the
+live tree it resolved 12 of 13 files with named evidence.
+
+The founder's "ask the neighbours" step was deliberately **not** implemented as messaging. Of
+55 peer sessions listed, most were offline and several busy; a session that does not answer is
+indistinguishable from one with no claim. The transcript **is** the neighbour's answer, already
+written, available synchronously, and incapable of being wrong about what that session did.
+
+**Alternatives rejected:** *Messaging peer sessions* — needs a peer awake and willing, and
+silence is unreadable. *Committing bystanders anyway* — `git.md` records that failure twice
+(2026-08-28, 2026-09-03). *Keeping the ask* — the thing being removed. *Regex attribution* —
+tried, and broken by review (below).
+
+**Consequences:** Ambiguity now has a defined safe answer instead of an escalation: leaving a
+file uncommitted loses nothing, while committing a co-tenant's in-flight edit under your
+message loses attribution. `/push` composes its commit set as MINE **plus what the session
+knows it wrote, minus what a LIVE peer claims** — because a `python3` heredoc that opens a path
+held in a variable binds its target at runtime and no parser can attribute it. That residual
+gap is documented rather than papered over.
+
+**References:** `scripts/classify-dirty-files.sh` · `scripts/lib/attribute-writes.py` ·
+[push.md](../.claude/commands/slava/build/push.md) · `e1920d024`
+
+---
+
+## 2026-09-09 [technical]: Regexing JSON to decide who owns a file — the review found the misattribution the canary could not
+
+**Context:** Attribution for the above shipped as a regex over the transcript JSONL, with a
+canary that passed 10 cases including two deliberate controls. An external hostile review
+(codex) was then run against it.
+
+**Decision:** Attribution is a **JSON parse** (`scripts/lib/attribute-writes.py`), not a regex.
+The review reproduced two ways to make a *peer's* file classify as MINE — the single failure
+the design exists to prevent:
+
+- `"name":"Edit".*"file_path"` does not bind a `file_path` to its own `tool_use` block, so a
+  **Read** of a peer's file sitting in the same JSONL record was credited to our **Edit**'s
+  tool name.
+- the script-write branch accepted any command carrying both the path and a write idiom, so
+  `p="peer.md"; open("report.md","w")` claimed `peer.md`.
+
+Parsing binds each `file_path` to the call it belongs to and decodes JSON escaping for free.
+Write shapes are now position-bound: a redirect target, a `tee`/`sed -i` target, a `cp`/`mv`
+**destination**, a script write naming the path literally.
+
+**Alternatives rejected:** *Tightening the regex again* — the third attempt in one session; the
+first `[^"]*` form missed real writes (stops at the first escaped quote in a heredoc), the `.*`
+form that fixed it opened the cross-block leak. Each fix moved the defect rather than removing
+it, which is the signal to change representation, not pattern.
+
+**Consequences:** Three lessons, each measured this session and none caught by the canary that
+was already green.
+
+1. **A canary written by the implementer tests the shapes the implementer thought of.** All ten
+   cases passed while both leaks were live. The four attack cases are now fixtures, *including
+   the two the review got wrong* (prefix collision, `cp` source — neither reproduced), so the
+   claim is tested rather than assumed in either direction.
+2. **Dogfooding found what neither the canary nor the review did.** Running the classifier on
+   the live tree showed `grep file 2>/dev/null` reading as a write, and this session's own
+   edits attributed to another session — two defects visible only against real data.
+3. **Weak evidence must not name an owner.** It had been reporting a peer that only ran
+   `grep … 2>/dev/null` as the writer: confident, specific, wrong. Weak evidence now appears
+   only as a hint inside UNKNOWN.
+
+**References:** `scripts/lib/attribute-writes.py` · `scripts/test-classify-dirty-files.sh`
+(15 cases) · [epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
+## 2026-09-09 [process]: Two commits on main carry the wrong P-number (p1287)
+
+**Context:** The dirty-file work above was committed with `p1287` in both subjects. `p1287` was
+already taken by `features/p1287_point_embed_expand_click_lost_to_remount.md`. The number was
+picked from the highest visible spec without checking `features/` for the collision — the
+adjacent numbers (p1282–p1286) live in worktrees and were listed in the session's own startup
+banner, which should have been the tell.
+
+**Decision:** Leave the commits as they are. Record the collision here instead. Rewriting two
+commits on the shared main checkout to fix a subject line is the more dangerous operation, and
+`git.md` bans the tools it would need.
+
+**Consequences:** `git log --grep=p1287` returns two unrelated changes. Anyone tracing the
+point-embed spec should read the commit body, not the subject. **Before putting a P-number in a
+commit subject, `ls features/pNNNN*` — the pipeline banner listing worktree specs is not the
+same as the number being free.**
+
+**References:** `e1920d024` and its follow-up · [git.md](../.claude/rules/git.md)
+
+---
+
 ## 2026-09-09 [technical]: Two gates that are each correct compose into a dead interlock, and the losing side reports success (P1268)
 
 **Context:** P1268 fixed worktree locks that were born ORPHAN because `claim` stamped the

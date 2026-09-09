@@ -101,6 +101,12 @@ own knowledge is the best evidence available. (`ORPHAN` also decays: a file modi
 its last recorded write reports as `UNKNOWN`, since the old writer no longer explains the
 current content.)
 
+**Shared append-only logs are the one file-level exception.** `docs/decisions.md` and the other
+append-only logs are written by many sessions by design, so a `SESSION` verdict on one means
+"a peer also appends here", not "this content is theirs". Read the diff before deciding:
+`git diff HEAD -- docs/decisions.md` — if every hunk is yours, commit it; the peer's entries
+are already in HEAD. Ownership there is per-hunk, and only the diff can show it.
+
 If you include a skill file this way, run `./scripts/sync-agent-skills.sh` and stage its
 `.agents/skills/` mirror in the same commit — the sync check blocks the commit otherwise. The addition
 matters because some real writes cannot be attributed by any parser: a `python3` heredoc that
