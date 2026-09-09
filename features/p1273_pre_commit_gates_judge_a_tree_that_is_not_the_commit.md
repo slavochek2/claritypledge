@@ -104,13 +104,13 @@ and the snowball is what turns one blocked commit into a worse second attempt.
 
 ## Done-When
 
-- [ ] The step that expands the index is **named**, with the instrumented before/after counts
-- [ ] A commit of N staged paths reports gate results for those N paths only, shown on the P1268
+- [x] The step that expands the index is **named**, with the instrumented before/after counts
+- [x] A commit of N staged paths reports gate results for those N paths only, shown on the P1268
       branch that is blocked today
-- [ ] A failed commit leaves the index byte-identical to how it started, asserted by a canary
+- [x] A failed commit leaves the index byte-identical to how it started, asserted by a canary
 - [ ] Each narrowed gate is watched failing on an in-commit violation (gate 7) and passing the
       repo's pre-existing out-of-commit ones (gate 7c)
-- [ ] The blocked P1268 batch commits with hooks enabled and no override
+- [x] The blocked P1268 batch commits with hooks enabled and no override
 
 ## Evidence — hypotheses eliminated 2026-09-08/09
 
@@ -140,12 +140,69 @@ accounts for the ~1500-path expansion or for the specific 7 files.
 `git diff --cached --name-only | wc -l` between every step and read the first jump. Everything above
 is elimination; that is measurement.
 
+
+## Root cause — found 2026-09-09, by measurement
+
+**`git` exports `GIT_DIR` and `GIT_INDEX_FILE` to its hooks, and those OVERRIDE `git -C <path>`.**
+
+`scripts/test-git-ops-gc.sh` drives the real repo through `git -C "$ROOT"` and did not carry the
+P785 unset. Run from pre-commit it therefore aimed every fixture operation at the **committing
+worktree's** index instead of the repo's — importing the fixture tree, which is why the blocking
+files are specs that exist in no current ref. **It exited 0 while doing it.** A canary that
+corrupts its caller and reports success is invisible to every gate downstream of it.
+
+Measured on the identical staged set, with a matched control:
+
+| Run | Index before → after | Exit |
+|---|---|---|
+| gc canary **with** hook env | 6 → **1497** | 0 |
+| gc canary **without** hook env | 6 → 6 | 0 |
+| after the unset, **with** hook env | 7 → 7 | 0, still 5 passed / 0 failed |
+
+Two earlier observations are now explained rather than merely recorded. The `GIT_DIR` amplifier
+(5 paths reading as 18) was the same mechanism seen through a smaller aperture — a sibling
+variable of the one that mattered. And "a failed commit leaves the index expanded" was not a
+second bug: it is this one, with the expansion simply never rolled back.
+
+**Why four sessions missed it.** Every hypothesis tested was about *state* — a corrupt index, a
+stale branch, leftover files, a backwards range. The defect was about *environment*, and it lived
+in a check that was passing. The standalone-vs-hook control pointed at it from the first hour and
+was read as "the hook environment differs" rather than "the hook environment is exported into
+things the hook shells out to".
+
+One further confound, worth recording because it made the reproduction look inconsistent: the
+pre-commit hook is a **symlink to the main checkout's** `scripts/pre-commit-checks.sh`, while
+`./scripts/pre-commit-checks.sh` from a worktree runs the worktree's copy. "Same script" was never
+true. The canaries it invokes, however, resolve by relative path and so *do* come from the
+worktree — which is why fixing the worktree's copy unblocked the commit immediately.
+
+### What shipped
+
+- `scripts/lib/run-quiet.sh` — `run_quiet` extracted so the guard is reachable by a canary, plus
+  the guard itself: fingerprint the staged list before and after every check, fail naming the
+  step when it moved. `INDEX_MUTATORS` allowlists the skills sync, which stages by design.
+- `scripts/test-git-ops-gc.sh` — the missing unset.
+- `scripts/test-index-integrity-guard.sh` — 7 assertions, wired into pre-commit. Scenario 4
+  reproduces the mechanism end-to-end and carries a control asserting the index really moved
+  (1 → 41), so it cannot pass vacuously.
+
+### Remaining
+
+The narrowing work (Approach step 2 — gates selecting their own file list instead of receiving
+one) is **not done** and is the one open Done-When item. It is now a hardening task rather than a
+bug fix: with the writer fixed, no gate is currently judging a tree that is not the commit. The
+audit of sibling canaries found no second index-corrupting instance — of 13 lacking the unset,
+10 never call git, `test-escalator-exit-codes.sh` uses a git stub, `test-pre-push-refclass.sh`
+only reads refs from the shared common dir, and `test-multi-harness-routing.sh` reads
+`git -C "$ROOT" show :<path>`, which under a hook reads the caller's index rather than the
+repo's — wrong, but read-only.
+
 ## Open Questions
 
-1. What expands the index to ~1500? Not established. The `GIT_DIR` amplifier is confirmed but
-   accounts for 18, not 1497.
-2. Does this reproduce in a worktree whose branch is freshly rebased on `main`? If drift is
-   required, that narrows it sharply.
+1. ~~What expands the index to ~1500?~~ **Answered:** `test-git-ops-gc.sh` without the P785
+   unset. The `GIT_DIR` observation was the same mechanism through a smaller aperture.
+2. ~~Does drift matter?~~ **Answered: no.** Branch position is irrelevant — the trigger is the
+   exported hook environment, which is present on every hook run from every worktree.
 3. Has it been silently blocking other sessions, with `--no-verify` as the unrecorded workaround?
 
 ## Related
