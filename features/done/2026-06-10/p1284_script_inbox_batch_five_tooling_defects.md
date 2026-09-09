@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 91
 workstream: infrastructure
 created_date: '2026-09-09'
 tags: [tooling, scripts, pre-commit, gates, e2e]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: process-debt
+completed_at: 2026-09-09
 ---
 
 # P1284: Five script defects from the task inbox — rank ratchet, goal-gate ceiling, skills-sync scope, deploy-manifest fix command, e2e zombie reaper
