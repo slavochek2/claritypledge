@@ -54,6 +54,16 @@ Concrete next steps in priority order. **Active on top; dormant/superseded compr
 >
 > **Reading the answer.** *"Months"* signals organisational/strategic loss → higher band. *"Two weeks"* is a corpus-attested **idiom for "a recoverable amount"** — treat it as possible minimising, not measurement, and probe once. *"Never happened"* = not the buyer; route to the intro hour or out. **It routes people and it collects exposure — it is not evidence.** A self-reported number validates nothing about the mechanism, and step 3 is the guard that keeps it from becoming a promise the offer cannot back (H-BuildRightThing-**Cause** is untestable until installs accumulate).
 >
+> **[PRE-SESSION DECLARATION — conversation-sourced 2026-08-01, `UNTESTED`, never run. ADDS a field; it does NOT touch the elicitation above.]** The elicitation above is deliberately **retrospective** and stays that way — it prices exposure in the buyer's own attested units, and its backward look is what makes it answerable. This is a **different instrument with a different job**: selecting for a situation the session can actually work on.
+>
+> **The diagnosis.** Across 30+ sessions the product demonstrably works in the room and conversion breaks after it ([hypotheses.md](hypotheses.md) §"product works in the room; conversion breaks after the room"). One candidate cause, not previously recorded: the pitch asks people to recall **closed** situations. A closed situation has already been survived, so nothing in the room is at stake and the CTA can only ever be a **method demo** rather than a promised finding — the attendee leaves impressed and unmoved.
+>
+> **The field.** Before the session, ask for a **live, unresolved** situation and a **named specific person**: *"Name one person you currently disagree with, on something not yet settled."* `[FOUNDER DECISION: exact wording]`. Two properties do the work — *unresolved* means the outcome is still open, and *a named person* means the counterparty is real rather than a category.
+>
+> **Why a declaration and not another question in the room.** Asked live, it competes with the elicitation for the same minutes and lets the attendee retreat to a safe closed example. Asked **before**, it is a small pre-commitment, and it converts the CTA from *"see how this works"* into *"bring the thing you are stuck on."*
+>
+> **Do not over-read it.** This is one conversation, deductive, **n=1 and zero field contact** — it is a candidate cause of the conversion break, not the cause. **Falsifier:** attendees who file a live declaration convert at no better rate than those who do not across the first ~3 events ⟹ retrospective framing was not the blocker and the conversion break lies elsewhere. Source: 2026-08-01 investment-pitch feedback conversation, surfaced by the 2026-09-09 `/claude-conversations-to-cp` run.
+>
 > **Falsifiers — one per channel, none may run without a kill criterion.**
 >
 > | Channel | Falsifier | If it fires |

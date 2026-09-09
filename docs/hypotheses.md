@@ -49,6 +49,9 @@ These apply to **new or materially-updated** hypotheses. Existing entries are **
 | H-DisagreementDecomposition | Verified comprehension splits disagreement into misunderstanding- vs value-driven (severity-calibrated) | Active | P1 | — | New 2026-06-10 — formalizes lean-canvas "which gap" innovation; a35 battery |
 | H-AffectiveHonesty | Affective safety raises the honesty of Min self-estimates; cold/status-threatening rooms inflate self-rated comprehension | Active | P1 | — | New 2026-06-26 — peer-operator conversation; integrity precondition for the instrument |
 | H-PopperianIncrement | CP beats matched active-listening on error-catching + decision quality | Active | **P0-scientific** | installs must exist | New 2026-06-10 — the "Popper or rebranded Rogers" discriminator. **2026-08-07:** moved to front of the **scientific** queue as the rivals-registry discriminator (business P0 unaffected); control arm fixed as closed-loop readback / two-challenge; prediction **pre-registered** (ledger L3). Install-precondition recorded — it cannot run before installs exist. |
+| H-ArtifactOpacity | Where an artifact reads fine whether or not the human understood, only the human's EDITS carry the comprehension signal — edit distance as the measure | Active | P1 | — | New 2026-09-09. **Promotion, not discovery** — the criterion sat in decisions.md 2026-08-12 and reached no strategy doc (grep: 0/6). The edit-distance instrument is the only new part. Bears on K5 delegability + rival (c). **UNTESTED, n=0.** |
+| H-GroupCounterparty | A group is a trustworthy external counterparty only if it verified internally — a composition rule over dyads, NOT a new unit | Active | P2 | multi-party install | New 2026-09-09 from a founder marker. Founder-ruled **belt**, K5 untouched. Carries a K5 core-hit escalation clause. **UNTESTED, n=0.** |
+| H-TranslationProbe | Cross-language restatement beats same-language paraphrase as a comprehension probe | Active | P2 | — | New 2026-09-09. Research probe only, not a product mechanic. **UNTESTED, n=0.** |
 | H-GapCompression | Protocol narrows the novice–expert comprehension-fidelity gap (democratization) | Active | P2 | — | New 2026-06-10 — needs novice-vs-expert design arm |
 | H-OfferInProduct | An offer delivered inside the product (end of a filled clarity letter) differentiates + converts better than a standalone offer page | Active | P2 | H-WTP-Pain | New 2026-07-15 — the "offer self-demonstrates" unfair-advantage bet (lean-canvas §Unfair Advantage item 9); tests only when the letter funnel runs (build frozen). UNTESTED. |
 | H-MetaEpistemic | Meta-epistemological briefing deepens sessions | Blocked | — | H-PairsReturn | Test passively. |
@@ -375,6 +378,62 @@ Surviving differentiators, narrower than the docs previously implied: (1) **a nu
 **Transform if:** CP ties active-listening-only across the pilot — the Popperian increment is not real; reposition as communication-quality, not falsification infrastructure.
 **Status (2026-06-10):** New. From the 2026-06-09 Popper-gap conversation. The "is it Popper or rebranded Rogers" discriminator — guards the "democratizes Popperian critique" claim against the prestige-laundering objection.
 **Feeds into:** a36 (the adversarial-collaboration article's pre-registered prediction), a35 battery.
+
+---
+
+#### H-ArtifactOpacity: Where the artifact cannot fail loudly, only sender edits can carry the comprehension signal
+
+> **Programme tag:** `both` · **Core-adjacent: no (belt)** — but it supplies evidence on **K5's open delegability question** and on **rival (c)** (AI-mediated alignment), the rivals registry's self-declared weakest row.
+
+**This is not a new finding — it is a promotion.** The criterion was recorded in [decisions.md](decisions.md) 2026-08-12 [product] and never reached a strategy doc (grep of all six: 0 matches): *"can you detect the miss from the artifact alone? Code fails loudly. A strategy memo, a diagnosis, a summary of your own thinking — these read fine whether or not I understood you."* The same entry bounds it: *"bad work is visible"* holds for **verifiable** output and fails for **plausible-but-unverifiable** output. A conversation on 2026-08-09 re-derived it independently from the other direction — *a well-drafted agent letter proves the agent comprehended, not the sender* — which is the third instance of this project re-deriving something its own log already held.
+
+**Bet:** For the plausible-but-unverifiable artifact class, artifact **quality** is not evidence about the human's comprehension, because a competent drafter — agent or human — produces a fluent artifact either way. Where an agent does the drafting, the artifact is evidence about the **agent**. The comprehension signal must therefore come from somewhere the drafter cannot supply it: **the human's edits**. Proposed measure — **edit distance between the agent draft and the sent artifact**, treated as a comprehension signal rather than as friction to be minimised.
+
+**Test:** across a batch of agent-drafted letters, record edit distance (or a semantic-change proxy) between draft and sent version, and correlate against the recipient's comprehension score and the sender's own later ability to restate what was sent. Cheap: it reads off artifacts the funnel already produces.
+
+**Transform if:** edit distance shows no relationship to comprehension outcomes across a batch ⟹ it is not the signal, and the artifact-opacity gap needs a different instrument. **Note the asymmetry** — a null result kills the *instrument*, never the *gap*, which was established independently and by a different route.
+
+**Novel prediction — recorded 2026-09-09, before any measurement.** Sender edit distance predicts the recipient's comprehension score **better than the artifact's own fluency or length does**. The predecessor framing (agent-drafted letters as a distribution mechanism — [lean-canvas.md](lean-canvas.md) §"The act IS the broadcast", H-LetterAsProduct §Variant) predicted **reach**, and made no claim about who the artifact measures; it is compatible with a zero-edit send being just as good. This one says a zero-edit send is **diagnostically empty**. Discriminating, and it reads off existing artifacts. *Corroboration status: pending. Programme tag: both.*
+
+**Why it matters beyond the instrument.** [research-programme.md](research-programme.md) rival (c) holds that verification can be delegated to a model, making the human practice transitional. This is an argument — not data — that delegation does not preserve the thing being measured: the more capable the drafter, the less the artifact says about the human. **It cuts against (c) on our own reasoning, and it is recorded as argument, matching how that row already labels its contents.**
+
+**Status (2026-09-09):** New. **UNTESTED, n=0**, zero field contact. Source: [decisions.md](decisions.md) 2026-09-09 [product] · 2026-08-12 [product].
+
+---
+
+#### H-GroupCounterparty: A group is a trustworthy external counterparty only if it verified internally
+
+> **Programme tag:** `business` · **Core-adjacent: no (belt).** Founder ruling 2026-09-09.
+
+**Bet:** A group that does not verify internally cannot be a trustworthy counterparty externally — its stated position is not actually held by its members, so its representative's commitment does not bind, and the other group is right to discount it. **Internal verification is a precondition for external trust.**
+
+**This is a composition rule, not a new unit — and the distinction is load-bearing.** K5 ([research-programme.md](research-programme.md#hard-core)) holds that the unit of intervention is a human relationship. That is untouched here: the mechanism runs **through** internal dyadic verification, never around it, so at no point is verified understanding achieved without a counterparty holding first-person rejection authority. **A group never acquires the authority to say "that's not what I meant"** — its external trustworthiness is an emergent property of the dyads inside it. Stating it the other way round would be a K5 core-hit, which this is not.
+
+**Test:** in any multi-party negotiation the product touches, record whether each side ran internal verification before stating a position, and whether the counterparty's commitment subsequently held. Currently unrunnable — no multi-party install exists.
+
+**Transform if:** a group functions as a trustworthy external counterparty with **no** internal dyadic verification having occurred ⟹ the composition rule is wrong. **Escalation clause:** if verified understanding is ever observed with no first-person rejector anywhere in the chain, that is a **K5 core-hit** — route to `/slava:maintain:programme-health`, never absorb it here.
+
+**Novel prediction — recorded 2026-09-09, before any test.** Representative commitments from internally-unverified groups **fail at a higher rate** than those from internally-verified groups, holding the representative's own sincerity constant. The predecessor framing treated verification as valuable **within** a dyad and made no prediction about a dyad's *external* standing; it is compatible with a group's commitments binding regardless of its internal state. This also predicts something the sincerity account does not: the failure appears even when the representative is entirely honest, because the defect is in whether the position was ever held. *Corroboration status: pending. Programme tag: business.*
+
+**Status (2026-09-09):** New, from a founder `[/cp]` marker in the 2026-08-24 conversation. **UNTESTED, n=0.** Narrative: `content/articles/a70_the-observable-of-last-resort.md`. Source: [decisions.md](decisions.md) 2026-09-09 [product].
+
+---
+
+#### H-TranslationProbe: Cross-language restatement is a stronger comprehension probe than same-language paraphrase
+
+> **Programme tag:** `scientific` · **Core-adjacent: no (belt).**
+
+**Bet:** Same-language paraphrase can be passed by **recombining the speaker's own words** — shared vocabulary lets a listener simulate comprehension without achieving it, so lexical familiarity masquerades as understanding. Restating in a **different language** forces a pass through meaning rather than through wording, and should therefore separate real comprehension from fluent echo more sharply.
+
+**Test:** in dyads sharing a second language, run the protocol twice on matched topics — once with same-language paraphrase, once with cross-language restatement — and compare speaker-confirmed accuracy and the rate at which the speaker rejects the restatement.
+
+**Transform if:** cross-language restatement produces comprehension scores no better calibrated than same-language paraphrase ⟹ shared vocabulary is not doing the masking work claimed, and the probe is not stronger.
+
+**Novel prediction — recorded 2026-09-09, before any test.** Cross-language restatement produces **more speaker rejections** ("that's not what I meant") than same-language paraphrase on the same content. The predecessor framing treated paraphrase as a single instrument whose strength varies with the paraphraser's skill; it made no prediction that a *language switch* would change the rejection rate at constant skill. The obvious rival account — cross-language is simply *harder*, so it degrades everything — predicts more rejections **and** worse speaker-rated accuracy together; this predicts more rejections with **better** final calibration. Discriminating. *Corroboration status: pending. Programme tag: scientific.*
+
+**Scope limit:** only available where both parties share a second language, so it is a **research probe**, not a product mechanic. Do not route it into the protocol.
+
+**Status (2026-09-09):** New, conversation-sourced 2026-08-09. **UNTESTED, n=0.** Source: [decisions.md](decisions.md) 2026-09-09 [product].
 
 ---
 

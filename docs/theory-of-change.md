@@ -144,6 +144,22 @@ The 6-layer operational stack ([operational-stack.md](operational-stack.md)) pla
 - From private knowledge → recursive understanding of what we disagree about
 - From misaligned AI (trained on unverified signals) → calibrated AI (trained on verified Stories)
 
+### The modest claim, and it is the defensible one (2026-08-17, UNTESTED)
+
+Everything above this line is an **end-state**. This is what the mechanism claims on the way there, and it is deliberately much smaller:
+
+> **It doesn't stop bad actors. It raises the cost of sustained incoherence and removes plausible deniability over time.**
+
+The mechanism is mechanical, not moral: a **timestamped, publicly held position is an asset that can be checked against a later position.** Nothing in that stops anyone from being incoherent. It makes sustained incoherence progressively more expensive to maintain, and it removes the *"I never said that"* move.
+
+**Why it is recorded here and not as a USP.** It describes how the world changes if the practice spreads, and **promises the buyer nothing**. Sold as a value proposition it would offer a civilizational benefit to someone with a Tuesday problem. Routing settled 2026-09-09 on a founder question that asked exactly this (*"usp? or theory of change? of what? vision?"*).
+
+**The hole, stated rather than softened.** The mechanism works **inside** a group that has already accepted it. The theory of change requires it to reach people who have every reason to refuse — **how does adoption spread from communities that opted in to actors whose incoherence is profitable?** Unanswered in the source conversation and unanswered anywhere in this repo. A concrete instance of a refusing population, from a separate 2026-08-26 conversation: crypto/DAO culture assumes **mechanism replaces comprehension**, where this programme argues mechanism cannot **skip** comprehension.
+
+**Falsifier:** across a set of cases, a timestamped public position is contradicted later at no observable cost to the holder ⟹ the archive does not raise the cost of sustained incoherence and this claim is empty.
+
+*Conversation-sourced, **UNTESTED**, zero field contact — no archive has run long enough for a single incoherence cost to have been paid. Narrative: `content/articles/a71_raising-the-cost-of-incoherence.md`. Adjacent and distinct: a31 (feedback infrastructure as an error-minimizing layer). The Pinker deniability material lives in a24 / a10 / a29 and is deliberately not restated. Rationale: [decisions.md](decisions.md) 2026-09-09 [product].*
+
 ---
 
 ## Strategic Assumptions
