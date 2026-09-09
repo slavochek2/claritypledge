@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 64
@@ -8,8 +8,8 @@ workstream: infra
 date_reported: '2026-06-04'
 created_date: '2026-06-04'
 tags: [deploy-pipeline, smoke-test, edge-functions, process]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-09-09
 ---
 
 # P890: deploy-functions.sh has no post-deploy smoke — edge functions reach prod unverified
