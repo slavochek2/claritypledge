@@ -30,6 +30,32 @@ an empty file is the healthy state.
 
 ---
 
+## The agent-skills gate fails OPEN when its script is missing or a dangling symlink
+
+**Status:** proposed
+**due:** week
+
+`pre-commit-checks.sh` guards the skills-sync gate with `[ -f "./scripts/sync-agent-skills.sh" ]`.
+If the file is absent, or is a symlink whose target is gone, the test is false, the hook prints
+"skipping agent-skills sync gate", and **the commit proceeds**. A gate that cannot run reports the
+same outcome as a gate that ran and passed.
+
+Raised independently by the P1284 and P1283 agents on 2026-09-09 while both were working on the
+`--staged-only` probe next to it. Pre-existing — it predates that probe and both of its hotfixes,
+and neither fixed it. P1293's canary covers the probe's flag handling, not this branch.
+
+Why it matters here specifically: worktrees hydrate `scripts/` as a native checkout, so a slot
+whose checkout is incomplete, or mid-`git checkout`, hits exactly this path — and the commit that
+lands is one nobody verified.
+
+Fix direction: distinguish "cannot run" from "ran and passed". A missing callee should FAIL the
+hook with a message naming the path it looked for, not skip. If a genuine skip is needed (a branch
+that predates the script existing at all), gate it on something explicit rather than on the file
+being absent — the current shape cannot tell the two apart, which is the whole defect.
+
+Epistemic gate 7 applies to the fix: move the script aside, confirm the hook exits non-zero, put it
+back. That is the proof, not the reasoning.
+
 ## `goal-gate.sh` CHECK 3 soft-resets HEAD in a worktree — a killed run strands the branch ref
 
 **Status:** proposed
