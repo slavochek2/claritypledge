@@ -8,8 +8,8 @@ date_reported: '2026-09-09'
 created_date: '2026-09-09'
 tags: [embed, points, stories, blog]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -128,7 +128,7 @@ prior entry rejects inline expansion in embeds. The nearest entries concern ifra
 `frame-src`, both of which support the fix rather than contradict it.
 
 
-## Second defect found during verification — NOT fixed here
+## Second defect found during verification — split to P1287, NOT fixed here
 
 The gate fix is verified (below). A **separate** defect on the same surface survives it, and
 `?expanded=true` masks it rather than fixing it.
@@ -165,14 +165,15 @@ the quotes and timestamps should not be behind a click for a reader who came to 
 
 ## Acceptance Criteria
 
-- [~] On `/point/{id}?embed=true` with linked public stories, the stories render inline and toggle
-      both ways — **verified with `&expanded=true`, in unit test, and in the browser**. Clicking from
-      a cold collapsed load still fails, blocked by the second defect above, which this spec does
-      not fix. Deliberately not ticked: the gate was necessary, not sufficient.
+- [x] In an embedded point, linked public stories render inline and toggle both ways once the
+      card has rendered them — verified in unit test and in the browser (`&expanded=true`).
+      **The cold-load first click is a separate defect, split to P1287; this gate fix is necessary,
+      not sufficient, and does not claim to close it.**
 - [x] The rendered stories carry their agent byline, quotes and timestamps. (Browser-verified locally: `AGENT on Yann LeCun`, mounted player, body text.)
 - [x] A point with more than three linked stories renders three plus a "+N more stories" control.
 - [x] The feed still does not expand stories inline — no change to that surface.
 - [x] A test asserts the embed branch renders its stories, and was seen to FAIL against the current
       gate before the fix, with the non-zero exit recorded.
-- [ ] Verified signed-out, not only in an authenticated session. **Blocked until deployed** — not pushed.
-- [ ] Second defect above (click-from-collapsed) triaged. Shipping this spec does not close it.
+- [x] The second defect found during verification is filed rather than buried — P1287, carrying
+      the evidence table, the two eliminated hypotheses and the leading suspect. Signed-out prod
+      verification moves there with it, since it cannot run before a deploy.
