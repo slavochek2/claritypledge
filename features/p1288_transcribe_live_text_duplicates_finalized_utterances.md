@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 severity: high
 rank: 1000090
@@ -7,8 +7,8 @@ workstream: transcription
 created_date: '2026-09-09'
 tags: [transcribe, transcription, mobile, data-quality]
 feature_type: frontend
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: fix
+pipeline_ran: [create-spec, fix]
 drafted_by: opus
 driver: anomaly
 disclosure: public
@@ -159,9 +159,12 @@ this evidence came from a different code path on a different environment.
       any fix is written
 - [ ] A 60-second session on a physical phone produces a row count consistent with what was
       actually said — no text appearing more than once
-- [ ] A regression test drives the duplication shape directly: feed `onresult` a second event
+- [x] A regression test drives the duplication shape directly: feed `onresult` a second event
       whose `resultIndex` does not advance, and assert the accumulated transcript grows by
       zero. This must fail before the fix
+      **Done 2026-09-09** — `src/tests/p1288-duplicate-final-results.test.ts`. Red before the
+      fix with exactly the prod shape (`"hello worldhello world and goodbye"`), green after.
+      4048 tests pass overall.
 - [ ] The founder can read the room back and recognise it as what they said
 
 ## Notes
@@ -172,3 +175,32 @@ this evidence came from a different code path on a different environment.
 - If P1236 ships first, this path is deleted and the bug goes with it. That is not a reason
   to close this: P1236 needs two physical devices, a prod deploy and a spend cap before it
   can ship, and this is writing duplicate rows into prod today.
+
+
+## Fix applied 2026-09-09 — idempotence per result index
+
+`src/hooks/useSpeechToText.ts` now tracks `lastFinalIndexRef`: the highest `results` index
+already appended to `transcript` **in the current session**. `onresult` skips any final
+result at or below it. Three deliberate properties:
+
+- **Keyed on index, never on text.** De-duplicating by content would eat real speech — people
+  repeat themselves, and "yes" following "yes" is two utterances, not one. A test asserts this.
+- **Reset in `onstart`.** A new session restarts its results list at index 0, so the marker
+  must reset with it. Not resetting would make every result of a new session look
+  already-consumed and silently discard everything after the first restart — a worse failure
+  than the duplication being fixed. A test asserts this too, and it is the reason the fix is
+  four lines rather than one.
+- **Interim text still never enters `transcript`.** Asserted, so the change cannot quietly
+  weaken DW-4.
+
+**What this does NOT establish.** The fix makes the hook idempotent whichever layer
+re-delivers a result. It does **not** prove Android is the layer that re-delivers — the
+instrumented phone run in Root Cause above is still the thing that would show that, and it
+has not been run. If the duplication survives this fix on a real phone, the cause is upstream
+of the hook and this change is inert rather than wrong. Say so plainly rather than closing
+the spec on a green unit suite: the prod symptom is the oracle, not the test file.
+
+**Not addressed here, deliberately:** the "Reconnecting microphone…" copy appearing whenever
+speech pauses. The founder confirmed it fires only after speaking stops, which is ordinary
+recogniser behaviour announced as a fault. Cosmetic, separate, and merging it into this fix is
+what produced P1236's overstated root cause.

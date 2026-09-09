@@ -126,6 +126,15 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
   const sessionActiveRef = useRef(false);
   const sessionStartedAtRef = useRef(0);
   const sessionGotResultRef = useRef(false);
+  // P1288: the highest `results` index already appended to `transcript` in THIS session.
+  // `event.results` is cumulative for the life of a session, so walking from
+  // `event.resultIndex` is correct only while that index advances past what was consumed.
+  // Android Chrome re-fires onresult for a result already delivered as final; without this
+  // the same utterance is appended again, the page diffs the grown string, and the delta is
+  // written to the room as a new message. Measured on prod 2026-09-09: 196 rows for 109
+  // distinct utterances, a flat ~1.8x across the whole session.
+  // Session-scoped on purpose — see the reset in onstart.
+  const lastFinalIndexRef = useRef(-1);
 
   const clearRestartTimer = useCallback(() => {
     if (restartTimerRef.current !== null) {
@@ -159,6 +168,11 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
       sessionActiveRef.current = true;
       sessionStartedAtRef.current = Date.now();
       sessionGotResultRef.current = false;
+      // P1288: a new session restarts its own results list at index 0, so the consumed
+      // marker MUST reset with it. Leaving it set would make every result of the new
+      // session look already-consumed and silently discard real speech — a worse failure
+      // than the duplication this fix removes.
+      lastFinalIndexRef.current = -1;
       setIsListening(true);
       setError(null);
       setLiveTextStopped(false);
@@ -177,6 +191,11 @@ export function useSpeechToText(lang: string = 'en-US', options?: UseSpeechToTex
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
+          // P1288: append a final result at most once per session. Keyed on the result's
+          // INDEX, never on its text — people repeat themselves, and de-duplicating "yes"
+          // against a previous "yes" would eat real speech.
+          if (i <= lastFinalIndexRef.current) continue;
+          lastFinalIndexRef.current = i;
           finalTranscript += result[0].transcript;
         } else {
           interim += result[0].transcript;
