@@ -40,6 +40,35 @@ Narrow the P-number/rank TOCTOU window using the cheapest combination that actua
 
 A file-lock/reservation mechanism (`features/reserved/pN` markers or similar) is explicitly a **fallback**, not the default: it closes the race completely but adds a reservation-lifecycle problem (stale reservations from crashed/abandoned sessions) and needs a shell-safety review. Only build it if the recheck-based approach proves insufficient in practice.
 
+## Occurrence 2026-09-09 — a claim `next-p-number.sh` structurally cannot see
+
+A second, **different** shape of this race, recorded because the spec above only covers
+spec-file-vs-spec-file collisions and this one is invisible to every mechanism it proposes.
+
+`git-ops.sh claim` creates a branch + worktree slot and writes `P_NUMBER=` into the slot's
+`.lock` — **without creating a spec file**. `next-p-number.sh` scans spec files (`features/`,
+`features/done/`, `features/archive/`) and git history. It never reads the slot locks. So a
+P-number claimed by a slot but not yet by a file is, to the numbering script, free.
+
+Observed: `w20/.lock` claimed `p1279` for `feature/p1279-cron-health` at 2026-09-08T17:24:54Z.
+Thirteen hours later `next-p-number.sh` returned 1279 to a different session, which filed
+`features/p1279_commit_to_main_recorded_a_file_that_was_not_requested.md` on main. Both are
+"p1279". The duplicate-P-number pre-commit check did not fire — there is only one spec *file*.
+Discovered only when `git-ops.sh ship p1279` resolved the wrong branch and refused with
+"has no commits ahead of main", which is a true statement about a branch the shipping session
+had never heard of.
+
+Aggravating detail: the claiming session was **dead** (lock PID not alive, heartbeat never
+updated past the claim) but its slot held real untracked work
+(`scripts/check-cron-health.mjs`, `src/tests/p1279-cron-health.test.ts`). So a stale lock is
+not evidence the number is free either — the lifecycle problem the Solution section names as
+the reason to avoid reservations is already present in the slot locks, unmanaged.
+
+**What this adds to the fix surface:** the recheck in Solution step 1 must read slot locks
+(`.claude/worktrees/*/.lock`, `P_NUMBER=`), not only spec files — otherwise it re-runs the
+same blind query and returns the same colliding number. `scripts/check-duplicate-p-numbers.sh`
+has the same gap.
+
 ## Risks / Non-Goals
 
 ### Risks
