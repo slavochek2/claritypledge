@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 202
@@ -7,14 +7,14 @@ severity: low
 date_reported: '2026-07-31'
 created_date: '2026-07-31'
 tags: [chiang-mai, events, calendar, iframe, loading-state]
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-09-09
 ---
 
 # P1019: Chiang Mai events calendar shows a blank box while the embed loads
 
 > **Demotion reversed 2026-08-07, same day** — same error as P1028. The event-led funnel is
-> **applied** ([goals.md](../docs/goals.md)), not frozen; `lean-canvas.md` §active-channel is
+> **applied** ([goals.md](../../../docs/goals.md)), not frozen; `lean-canvas.md` §active-channel is
 > stale. `/chiang-mai` is an event surface on the active channel. Ranked below the funnel
 > and consent work because it is a polish defect on one landing, not a leak.
 
