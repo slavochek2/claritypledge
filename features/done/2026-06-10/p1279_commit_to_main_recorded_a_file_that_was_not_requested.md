@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1000082
 severity: medium
@@ -12,8 +12,8 @@ exec_effort: high
 tags: [git-ops, concurrency, shared-index, commit-to-main]
 disclosure: public
 flow: fix
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-09-09
 ---
 
 # P1279: `commit-to-main` recorded a file that was not requested, and returned success
