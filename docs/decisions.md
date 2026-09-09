@@ -143,6 +143,25 @@ sequencing already recorded on 2026-09-08.
 · [epistemic.md](../.claude/rules/epistemic.md) gate 7 · P886 · P1053 · P1063 · P1279
 
 ---
+## 2026-09-09 [technical]: A designed graceful-degradation path hides a self-inflicted CSP block from every gate we have (P1285)
+
+**Context:** The aisafety1 feed shipped with the story video player mounted on feed cards (P1141/P1259). On prod the player never played: `script-src` had no `https://www.youtube.com` (so `loadYouTubeApi()` in `src/lib/video.ts` never resolved), `frame-src` had no `https://www.youtube-nocookie.com` (`YOUTUBE_PLAYER_ORIGIN`), and `img-src` had no `https://i.ytimg.com` (so the fallback's own thumbnail rendered as a broken image with alt text). The founder read it as a failed push. It was our own enforcing CSP.
+
+This is the fifth incident in the same family (P805, P863, P865, P906) and the family's own prescribed fix — the 2026-06-06 P906 entry, "every external-origin capability needs its CSP directive declared explicitly" — was already written down and still did not fire.
+
+**Decision:** Name the reason it did not fire, because it is not the CSP rule. P1023's blocked-embed fallback is a *correct* design: an embed stopped by an ad blocker fires no load event, so silence is treated as blocked and the reader gets a thumbnail card that opens the source. That path cannot distinguish "an extension blocked this" from "we blocked this" — and it renders a plausible, non-alarming UI either way. So the failure produced **no console error, no thrown exception, no CSP `securitypolicyviolation` on the directive that mattered reaching any gate that watches the feed route, and no visible breakage** beyond a broken thumbnail. `csp-smoke` and `prod-health-smoke` iterate `PROD_HEALTH_ROUTES`; a graceful fallback is green by construction even on a route they cover, because degrading gracefully is what it is for.
+
+The generalization: **any degradation path that treats "no signal" as an expected external condition will absorb an identical internal defect silently.** When you add one, the CSP/allowlist audit for the hosts it degrades away from is not optional — the fallback is precisely what removes your chance to notice later.
+
+Fix applied: the three hosts added to the `/(.*)` CSP in `vercel.json`, plus canary `src/tests/p1285-csp-youtube-hosts.test.ts`, exercised in both directions (3 assertions fail on the pre-fix CSP, all pass after — epistemic gate 7).
+
+**Alternatives rejected:** (a) Treat it as a one-off host addition and skip the entry — four prior incidents say the host list is not the lesson. (b) Make the fallback distinguish CSP-block from extension-block and report the former — the browser deliberately does not tell a page why a cross-origin load failed, so this would be inference presented as diagnosis. (c) Widen the prod smoke gates to assert inline playback — a real gate would need a working YouTube embed in CI, which is a third-party dependency in the gate path; the static `vercel.json` canary costs nothing and fails deterministically.
+
+**Consequences:** Every future embed of a third-party origin needs its CSP hosts added *with* the feature, not after a founder screenshot. The unclosed question this leaves: no gate catches the next instance of this class either — the canary is per-host, so a sixth external origin added without a CSP audit repeats it exactly. (Status: proposed — a gate that enumerates external origins referenced in `src/` and asserts each appears in the CSP would close it; not built.)
+
+**References:** [src/tests/p1285-csp-youtube-hosts.test.ts](../src/tests/p1285-csp-youtube-hosts.test.ts) · `vercel.json` `/(.*)` route · P906 (2026-06-06, the rule that did not fire) · P1023 (the fallback design) · P805 · P863 · P865
+---
+
 
 ## 2026-09-09 [process]: The reviewed bytes live in the database, not the run file — so promotion reads test, and refuses without accuracy evidence bound to those exact bytes
 
