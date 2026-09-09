@@ -202,6 +202,13 @@ and was invisible to the old check (the 2026-09-08 occurrence matched 4 = 4 by c
 difference it returns **3**, deliberately distinct from the pre-commit refusal's 1, and the count
 tripwire in `cmd_commit_to_main` became fatal.
 
+The code propagates verbatim through `git-ops.sh commit-to-main`, so a shell caller reading
+`$?` sees 3 and not a bare 1. That did **not** hold in the first version of this fix — the CLI
+flattened it with `|| exit 1`, and the canary asserted only "non-zero", so it passed either way.
+A probe that returns the same verdict for the fixed and the half-fixed code is blind; the canary
+now pins the number, and fails on the flattening version. **The exit code was the whole contract
+and it was the one thing not being asserted.**
+
 **The distinct exit code is the non-obvious half, and adversarial review is what surfaced it.**
 The first version of the fix returned 1 for both failures. Callers already read a non-zero return
 as *"nothing was committed"* and clean up accordingly: `cmd_ship`'s no-branch closure unstages the

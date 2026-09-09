@@ -89,10 +89,17 @@ OUT="$( cd "$D" && bash scripts/git-ops.sh commit-to-main --message "canary: p12
 RC=$?
 echo "$OUT" | sed 's/^/    | /'
 echo "    exit code: $RC"
+# Assert the NUMBER, not merely non-zero. "Non-zero" was the original assertion here
+# and it is the reason this canary passed while the CLI was flattening rc 3 to 1 --
+# a probe that returns the same verdict for the fixed and the half-fixed code is
+# blind. 3 = "a commit LANDED recording the wrong files"; 1 = "refused, nothing
+# committed". Callers branch on the difference, so the difference is the contract.
 if [ "$RC" -eq 0 ]; then
   bad "race: commit-to-main exited 0 after the index moved under it (recorded: $(recorded_files "$D"))"
+elif [ "$RC" -ne 3 ]; then
+  bad "race: commit-to-main exited $RC, expected 3 (landed-but-wrong) -- a non-zero code alone does not tell a caller whether a commit exists"
 else
-  ok "race: commit-to-main exited $RC instead of reporting success"
+  ok "race: commit-to-main exits 3 (landed-but-wrong), not 0 and not a bare 1"
 fi
 case "$(recorded_files "$D")" in
   *foreign.txt*) echo "    note: the commit records foreign.txt — the mutation did land (window is real)";;
@@ -134,7 +141,10 @@ BEFORE="$( cd "$D" && git rev-parse HEAD )"
 OUT="$( cd "$D" && bash scripts/git-ops.sh commit-to-main --message "canary: p1279 extra" --files a.txt b.txt 2>&1 )"
 RC=$?
 AFTER="$( cd "$D" && git rev-parse HEAD )"
-if [ "$RC" -eq 0 ] || [ "$BEFORE" != "$AFTER" ]; then
+if [ "$RC" -eq 3 ]; then
+  echo "$OUT" | sed 's/^/    | /'
+  bad "extra-path: a PRE-commit refusal returned 3 (landed-but-wrong) -- callers will skip the index cleanup that this case still needs"
+elif [ "$RC" -eq 0 ] || [ "$BEFORE" != "$AFTER" ]; then
   echo "$OUT" | sed 's/^/    | /'
   bad "extra-path: a foreign staged path was not refused (rc=$RC, HEAD moved: $([ "$BEFORE" != "$AFTER" ] && echo yes || echo no))"
 elif ! echo "$OUT" | grep -q "staged set does not match"; then
@@ -188,6 +198,9 @@ OUT="$( cd "$D" && bash scripts/git-ops.sh commit-to-main --message "canary: p12
 RC=$?
 if [ "$RC" -eq 0 ]; then
   bad "rc3: landed-but-wrong commit exited 0"
+elif [ "$RC" -ne 3 ]; then
+  echo "$OUT" | sed 's/^/    | /'
+  bad "rc3: exited $RC, expected 3 -- the code that distinguishes a landed commit from a refusal is being flattened somewhere between commit_staged_exact and the CLI"
 elif echo "$OUT" | grep -q "refusing to commit"; then
   echo "$OUT" | sed 's/^/    | /'
   bad "rc3: a LANDED commit was reported with the pre-commit refusal wording -- callers will unstage after it"

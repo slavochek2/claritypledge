@@ -1485,7 +1485,21 @@ cmd_commit_to_main() {
 
   # commit_staged_exact: plain commit (not pathspec), guarded — see its own
   # comment for why that's safe here (acquire_main_lock, held above).
-  commit_staged_exact "$message" "${files[@]}" >&2 || exit 1
+  #
+  # PROPAGATE rc 3 VERBATIM. `|| exit 1` here used to flatten it, which made the
+  # distinction the fix is built on unobservable through the very subcommand this
+  # spec is about: a caller checking $? could not tell "refused, nothing committed"
+  # (1) from "a commit landed recording the wrong files" (3), and every shell script
+  # or human branching on the exit code saw 1 for both. Found by review, 2026-09-09 —
+  # and NOT by this fix's own canary, which asserted only "non-zero" and so passed
+  # either way. The canary now pins the number.
+  local _csx_rc=0
+  commit_staged_exact "$message" "${files[@]}" >&2 || _csx_rc=$?
+  if [[ "$_csx_rc" -ne 0 ]]; then
+    release_main_lock
+    trap - EXIT
+    exit "$_csx_rc"
+  fi
 
   # Report what the commit ACTUALLY recorded, not how many paths were requested. The
   # 2026-09-01 incident printed a confident "committed 3 file(s)" over a commit holding
@@ -2603,7 +2617,7 @@ PYEOF
 
   ( cd "$REPO_ROOT" && git add -- "$dest" ) || die "publish-spec: git add failed"
   commit_staged_exact "chore: publish $pn spec — embargo lifted, fix confirmed on prod" "$dest" \
-    || die "publish-spec: commit failed"
+    || die "publish-spec: the spec-publish commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused) or whether a commit LANDED recording the wrong files. Do not retry until you know which."
   echo "publish-spec: $pn published at $dest" >&2
 
   # ── Teardown: what ship's Phase 3 deliberately skipped ────────────────────
@@ -3300,7 +3314,7 @@ The branch is authoritative for shipped migrations. Compare each file with
     # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
     # (held for this whole block); see its own comment for why.
     commit_staged_exact "seed ${pn} spec for ship (creation blob)" "$branch_spec_file" >/dev/null || \
-      die "ship: branch-born seed commit failed"
+      die "ship: the branch-born seed commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused, rc 1) or whether a commit LANDED recording the wrong files (rc 3). Do not retry until you know which."
     echo "ship: branch-born spec $branch_spec_file seeded on main (creation blob — cherry-picks will replay cleanly)" >&2
     spec_file="$(resolve_ship_spec "$pn")"
     ship_init_journal "$pn" "$branch" "$spec_file"
@@ -3641,7 +3655,7 @@ The branch is authoritative for shipped migrations. Compare each file with
         _expected_paths+=("$spec_file")
       fi
       commit_staged_exact "$(ship_close_message "chore: close $pn — $title")" "${_expected_paths[@]}" \
-        || die "ship: spec-close commit failed"
+        || die "ship: the spec-close commit did not complete as requested — read commit_staged_exact's output directly above: it says whether NOTHING was committed (refused, rc 1) or whether a commit LANDED recording the wrong files (rc 3). Do not retry until you know which."
       ship_set_journal_flag "$pn" "spec_closed"
     fi
   fi
