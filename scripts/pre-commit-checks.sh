@@ -2003,7 +2003,7 @@ echo ""
 
 # 19. Zombie Vite server check — detect dev servers from deleted worktrees
 echo ">>> Checking for leaked vite/playwright processes..."
-# P1277: this check used to enumerate LISTENING node sockets and flag only a
+# P1284: this check used to enumerate LISTENING node sockets and flag only a
 # vite whose cwd had been deleted. It reported CLEAN through a measured leak of
 # 8 vite servers (oldest 11 days) and 59 playwright processes, for three
 # reasons: it never looked at playwright at all; an orphan whose cwd still
@@ -2082,7 +2082,7 @@ fi
 # Codex, ...). VERIFY ONLY — never regenerate before checking here. A
 # regenerate-then-check step would be vacuous by construction: the generator's
 # job is to make the check pass, so the failure branch would be unreachable.
-# Scoped to the staged set since P1277 (--staged-only). It used to run against
+# Scoped to the staged set since P1284 (--staged-only). It used to run against
 # the whole WORKING TREE, which meant any co-tenant session's in-progress,
 # unstaged edit under .claude/commands/slava/ failed every other session's
 # unrelated commit — three recorded occurrences, each "resolved" by polling

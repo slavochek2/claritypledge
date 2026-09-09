@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # reap-e2e-zombies.sh — find, and optionally kill, leaked vite dev servers and
-# Playwright processes left behind by e2e runs. (P1277, item 5)
+# Playwright processes left behind by e2e runs. (P1284, item 5)
 #
 # WHY ---------------------------------------------------------------------
 # Two identical p683 runs took 4.5 minutes and 57.5 minutes, and a test that had

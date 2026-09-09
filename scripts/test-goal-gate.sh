@@ -238,7 +238,7 @@ m_hash_forged()    { printf 'TAMPERED\n' > "$1/features/verification/$PN/shot-32
 m_shot_missing()   { rm -f "$1/features/verification/$PN/shot-desktop.png"; }
 m_one_pass_only()  { sed -i.bak 's/^VERDICT: PASS/VERDICT: FAIL/' "$1/features/verification/$PN/review-round-1.md"; }
 m_no_rounds()      { rm -f "$1/features/verification/$PN"/review-round-*.md; }
-# The bound is 20 since P1277 (it no longer carries the anti-re-roll property —
+# The bound is 20 since P1284 (it no longer carries the anti-re-roll property —
 # the pixel-change rule below does). Twenty-one rounds is pathology and is refused.
 # NOTE: review-round-*.md is enumerated with `ls | sort`, so double-digit rounds
 # must be zero-padded or round 10 sorts before round 2 and the verdict sequence
@@ -250,7 +250,7 @@ m_too_many_rounds(){
        "$1/features/verification/$PN/review-round-$(printf '%02d' "$i").md"
   done
 }
-# P1277b — a round that FOLLOWS a FAIL must judge different pixels. Here round 1
+# P1284b — a round that FOLLOWS a FAIL must judge different pixels. Here round 1
 # fails, round 2 re-judges byte-identical renders and passes, round 3 confirms.
 # The trailing pair is PASS PASS and the count is 3, so nothing else can catch
 # this: the only signal that no fix happened is that the pixels did not move.
@@ -258,7 +258,7 @@ m_reroll_same_pixels() {
   sed -i.bak 's/^VERDICT: PASS/VERDICT: FAIL/' "$1/features/verification/$PN/review-round-1.md"
   cp "$1/features/verification/$PN/review-round-2.md" "$1/features/verification/$PN/review-round-3.md"
 }
-# P1277a CONTROL — must stay GREEN. A late round finds a real defect, the fix
+# P1284a CONTROL — must stay GREEN. A late round finds a real defect, the fix
 # regenerates a render, and round 3 re-judges it. Rounds 1 and 2 now carry a hash
 # that no longer matches the working tree. That is supersession, not tampering:
 # the LAST round recording that path matches, so the gate must pass. Before the

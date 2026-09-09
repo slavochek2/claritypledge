@@ -394,7 +394,7 @@ CHECKS_RUN=$((CHECKS_RUN+1))
 # This does NOT weaken evidence: no round file is ever edited, deleted or renumbered
 # to satisfy the check, and every screenshot hash is still re-derived here.
 #
-# ── P1277 (2026-09-09): two defects in the above, both measured ─────────────
+# ── P1284 (2026-09-09): two defects in the above, both measured ─────────────
 #
 # (a) THE HASH CHECK PUNISHED A CORRECT WORKFLOW. A round records the hashes of
 #     the renders it judged. A later round finds a real defect, the fix changes
@@ -463,7 +463,7 @@ else
     fi
   done
 
-  # ── the hash rule, per path (P1277a) ──────────────────────────────────────
+  # ── the hash rule, per path (P1284a) ──────────────────────────────────────
   # A path missing from disk fails for EVERY round that judged it: nothing can
   # supersede a render that no longer exists.
   while IFS=$'\t' read -r ri path claimed; do
@@ -487,7 +487,7 @@ else
     fi
   done < "$RLEDGER"
 
-  # ── the re-roll rule (P1277b) ─────────────────────────────────────────────
+  # ── the re-roll rule (P1284b) ─────────────────────────────────────────────
   # A round that follows a FAIL must judge at least one render whose recorded
   # hash differs from the previous round's record — a fix must have changed
   # something. Re-running the reviewer on identical pixels until a PASS lands is

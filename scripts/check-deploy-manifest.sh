@@ -5,7 +5,7 @@
 # Returns 1 if drift is detected. Drift is bidirectional:
 #   local-not-deployed  → FUNCTION_MISSING / FUNCTION_STALE / MIGRATION_MISSING
 #   deployed-not-local  → FUNCTION_ORPHANED (source deleted, platform still serving)
-#   stamped-not-pushed  → FUNCTION_UNPUSHED_STAMP / MIGRATION_UNPUSHED_STAMP (P1277)
+#   stamped-not-pushed  → FUNCTION_UNPUSHED_STAMP / MIGRATION_UNPUSHED_STAMP (P1284)
 #
 # The unpushed-stamp class exists because --env prod reads the manifest from
 # origin/main. When local main is ahead of origin, a stamp that HAS been applied
@@ -75,7 +75,7 @@ if [ "$ENV_NAME" = "prod" ]; then
     cp "$MANIFEST" "$MANIFEST_TMPFILE"
   fi
   MANIFEST_PATH="$MANIFEST_TMPFILE"
-  # The working-tree manifest, as the second opinion (P1277). Empty when there
+  # The working-tree manifest, as the second opinion (P1284). Empty when there
   # is no local file, in which case the unpushed-stamp branch cannot fire and
   # the classification is exactly what it was before.
   [ -f "$MANIFEST" ] && LOCAL_MANIFEST_PATH="$MANIFEST"
@@ -233,7 +233,7 @@ while IFS= read -r line; do
   elif [[ "$line" == MIGRATION_UNPUSHED_STAMP:* ]] || [[ "$line" == FUNCTION_UNPUSHED_STAMP:* ]]; then
     # NOT migrate.sh and NOT deploy-functions.sh. The infra change already
     # landed; what is missing is the record of it on origin/main. Redeploying
-    # re-stamps the local manifest only, so it never clears this (P1277).
+    # re-stamps the local manifest only, so it never clears this (P1284).
     echo "  git log origin/main..main -- supabase/deploy-manifest.json   # confirm the stamp is local-only"
     echo "  commit supabase/deploy-manifest.json on main, then push main to origin"
   fi

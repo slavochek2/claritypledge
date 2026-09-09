@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# test-next-rank.sh — canary for scripts/next-rank.sh (P1277, item 1).
+# test-next-rank.sh — canary for scripts/next-rank.sh (P1284, item 1).
 #
 # Epistemic gate 7: a check you have not seen FAIL is unproven. Every case below
 # is driven against a hermetic fixture repo — its own features/ tree in a temp

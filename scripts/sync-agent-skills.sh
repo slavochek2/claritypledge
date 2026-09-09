@@ -39,7 +39,7 @@
 #                                                      drift; changes NOTHING on disk
 #   scripts/sync-agent-skills.sh --check --staged-only
 #                                                      as --check, but report only drift
-#                                                      the CURRENT COMMIT contains (P1277)
+#                                                      the CURRENT COMMIT contains (P1284)
 #   scripts/sync-agent-skills.sh --src-dir D --out-dir D2 [--check]
 #                                                      override scan/output roots
 #                                                      (testability — see
@@ -228,7 +228,7 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
   DRIFT="$WORK/drift.txt"
   : > "$DRIFT"
 
-  # ── --staged-only: judge the COMMIT, not the working tree (P1277) ─────────
+  # ── --staged-only: judge the COMMIT, not the working tree (P1284) ─────────
   #
   # Without this flag the drift scan `cmp`s every source in the tree. On a
   # shared checkout with concurrent sessions that means any co-tenant's

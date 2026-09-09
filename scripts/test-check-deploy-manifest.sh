@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # test-check-deploy-manifest.sh — canary for scripts/check-deploy-manifest.sh
-# (P1277, item 4).
+# (P1284, item 4).
 #
 # The defect: `--env prod` reads the manifest from origin/main (P820). When
 # local main is ahead of origin, a stamp that HAS been applied reads as

@@ -9,7 +9,7 @@
 # happened here: 75 of 122 open specs ended up in a 1,000,000 band while the
 # hand-ordered ones sat at 1-11, making column order carry no priority signal.
 #
-# Why per-column was NOT enough (P1277, 2026-09-09): the specs the old global
+# Why per-column was NOT enough (P1284, 2026-09-09): the specs the old global
 # scheme pushed into the 1,000,000 band are still open, and they are spread
 # across every column. `max + 1` inside a column that holds one of them
 # reproduces the identical ratchet — measured on the live board the day this was

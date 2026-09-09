@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# test-reap-e2e-zombies.sh — canary for scripts/reap-e2e-zombies.sh (P1277, item 5).
+# test-reap-e2e-zombies.sh — canary for scripts/reap-e2e-zombies.sh (P1284, item 5).
 #
 # The reaper kills processes, so its classifier is tested against a FIXTURE
 # process table and never against the real one: REAP_PS_FIXTURE and

@@ -313,7 +313,7 @@ run_sync "check after closed-world canaries is clean" 0 --check --src-dir "$SRC"
 assert_out "case E: final check confirms 0 drift" "0 drift"
 
 # ══════════════════════════════════════════════════════════════════════════
-# case F — --staged-only (P1277)
+# case F — --staged-only (P1284)
 #
 # The defect it closes: --check cmp's the whole working tree, so a co-tenant's
 # unstaged edit anywhere under the source tree fails EVERY other session's
