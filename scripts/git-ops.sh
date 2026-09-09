@@ -712,7 +712,60 @@ commit_staged_exact() {
     echo "  staged:    $(printf '%s ' $staged)" >&2
     return 1
   fi
-  ( cd "$REPO_ROOT" && git commit -q -m "$message" )
+  ( cd "$REPO_ROOT" && git commit -q -m "$message" ) || return 1
+
+  # P1279 -- POST-COMMIT VERIFICATION. The check above and the `git commit` below
+  # it are NOT adjacent in time: `git commit` runs the pre-commit hook
+  # (pre-commit-checks.sh, minutes long) and reads the index only AFTERWARDS.
+  # Anything that mutates the shared index inside that window is what actually
+  # gets committed, and main.lock cannot prevent it -- the lock serializes
+  # git-ops CALLERS, not a co-tenant session running raw `git add` / `git reset`
+  # on the same checkout. Reproduced in scripts/test-p1279-commit-to-main-index-race.sh:
+  # requested 2 paths, commit recorded 1 foreign file, exit 0. Matches the
+  # observed incident (5f80bfc36, 2026-09-08) exactly.
+  #
+  # LIMITATION (pre-existing, shared with the pre-check above, stated so nobody
+  # reads this as total): both comparisons put git's line-oriented path output
+  # against raw shell arguments. Under default core.quotePath a non-ASCII path
+  # comes back C-quoted, and a path containing a newline is unrepresentable in
+  # either stream — such a path fails the PRE-check first, so it can never reach
+  # a wrong commit, but it fails as a refusal rather than as a clear diagnosis.
+  # This repo's paths are ASCII, so the case is theoretical here.
+  #
+  # We compare NAME SETS, not counts: a mutation that swaps one file for another
+  # keeps the count and was invisible to the count check in cmd_commit_to_main.
+  # Content may legitimately differ (the ESLint --fix re-stage at
+  # pre-commit-checks.sh:127-128 rewrites a staged file inside this same window),
+  # so the file set is the right invariant -- not the tree.
+  #
+  # DELIBERATELY NO ROLLBACK. `git reset --soft HEAD~1` here would be a history
+  # move on the shared main checkout made by a caller that has just been shown
+  # the index is not under its control -- the exact condition under which HEAD~1
+  # is banned (.claude/rules/git.md). Fail loudly, leave the commit, tell the
+  # human what to inspect.
+  #
+  # RETURN CODE 3, NOT 1, AND THE DIFFERENCE IS LOAD-BEARING. Callers already
+  # treat a non-zero return as "nothing was committed" and clean up after
+  # themselves -- cmd_ship's no-branch closure unstages the rename it staged and
+  # tells the operator to `git mv` it back. Both are correct for return 1 (the
+  # pre-check refused; no commit exists) and both are WRONG here: the commit has
+  # landed, the message would be a lie, and the cleanup writes to the very shared
+  # index this function has just proven is not under our control. Any caller that
+  # cleans up on failure must special-case 3. Found by adversarial review, 2026-09-09.
+  local recorded
+  recorded=$(cd "$REPO_ROOT" && git show --stat --name-only --no-renames --format= HEAD | sed '/^$/d' | sort)
+  if [[ "$recorded" != "$expected" ]]; then
+    echo "commit_staged_exact: FATAL -- the commit LANDED and records a different set of files than was requested" >&2
+    echo "  requested: $(printf '%s ' $expected)" >&2
+    echo "  recorded:  $(printf '%s ' $recorded)" >&2
+    echo "  commit:    $(cd "$REPO_ROOT" && git rev-parse HEAD)" >&2
+    echo "  Something changed the index between the pre-commit check and git's read of it:" >&2
+    echo "  a co-tenant session's raw git (P1279), or a pre-commit hook that stages or" >&2
+    echo "  unstages files of its own. Both look identical from here." >&2
+    echo "  The commit was NOT rolled back and nothing was unstaged -- inspect it, and any" >&2
+    echo "  co-tenant work it may have absorbed, before anything else: git show --stat HEAD" >&2
+    return 3
+  fi
 }
 
 # ----------------------------------------------------------------------------
@@ -1439,17 +1492,25 @@ cmd_commit_to_main() {
   # one deletion; main.lock serializes git-ops CALLERS only, so a co-tenant running raw
   # git on the shared checkout is not held off by it at all. Cause unresolved.
   #
-  # THE WARNING BELOW CANNOT FIRE TODAY, and that is stated rather than left to look
-  # like a live safety net: commit_staged_exact refuses unless the staged set equals the
-  # requested paths exactly, so by the time control reaches here the counts always
-  # agree. Verified by trying to make it fire three ways (partial co-tenant commit,
-  # directory pathspec, rename) -- the exact-match guard rejected each first. It is a
-  # TRIPWIRE for a future change that weakens that guard, not a detector for the
-  # incident above. The unconditional line, by contrast, is plain fact and always runs.
+  # THE COMMENT THAT USED TO SIT HERE SAID THIS WARNING COULD NOT FIRE -- that
+  # commit_staged_exact's exact-match guard made a count mismatch unreachable, and that
+  # the check was a tripwire for a future weakening rather than a live detector. That was
+  # WRONG, and it was the only thing that caught P1279 (2026-09-08): the guard checks the
+  # index BEFORE `git commit`, and `git commit` runs the pre-commit hook -- minutes long --
+  # before reading the index. The window between them is real and a co-tenant's raw git
+  # is not held off by main.lock. See commit_staged_exact for the mechanism and the canary.
+  #
+  # The refusal now lives in commit_staged_exact (name-set comparison, exit non-zero), so
+  # control does not reach here on a mismatch. This line is kept as plain reporting, and
+  # the mismatch branch as a second, weaker (count-only) tripwire -- it is now FATAL rather
+  # than advisory, because a tool that has detected a wrong write must not return success.
   _landed="$( cd "$REPO_ROOT" && git show --stat --no-renames --format= HEAD | sed '$d' | wc -l | tr -d ' ' )"
   echo "git-ops commit-to-main: requested ${#files[@]} path(s); the commit records ${_landed} file(s)" >&2
   if [[ "$_landed" != "${#files[@]}" ]]; then
-    echo "git-ops commit-to-main: WARNING -- requested and recorded counts differ. Inspect 'git show --stat --no-renames HEAD' before continuing; a concurrent session may have altered the shared index." >&2
+    echo "git-ops commit-to-main: FATAL -- requested and recorded counts differ. Inspect 'git show --stat --no-renames HEAD' before continuing; a concurrent session may have altered the shared index." >&2
+    release_main_lock
+    trap - EXIT
+    exit 1
   fi
   # P919 D4: this commit is main-bound and subject to the privacy-scan required check
   # once the ruleset is live — route it through a staging branch before main. Release
@@ -2942,7 +3003,16 @@ cmd_ship() {
       # Include $spec_file so the git mv source deletion is committed too.
       # commit_staged_exact: plain commit, guarded — safe under acquire_main_lock
       # (held for this whole block); see its own comment for why.
-      if ! commit_staged_exact "$(ship_close_message "chore: close $pn (direct-to-main) — $title")" "$spec_dest" "$spec_file"; then
+      # rc 3 means the commit LANDED but records the wrong files (P1279). The
+      # unstage-and-`git mv`-back recovery below is only valid when no commit was
+      # created (rc 1); running it on rc 3 would write to a shared index we have
+      # just been told is moving, and print a recovery recipe for a commit that
+      # already exists. Do neither — hand the operator the real state.
+      local _csx_rc=0
+      commit_staged_exact "$(ship_close_message "chore: close $pn (direct-to-main) — $title")" "$spec_dest" "$spec_file" || _csx_rc=$?
+      if [[ "$_csx_rc" -eq 3 ]]; then
+        die "ship: the spec-close commit LANDED but records the wrong files (no-branch closure) — nothing was unstaged and nothing was rolled back. Inspect 'git show --stat HEAD' and any co-tenant work it may have absorbed BEFORE re-running ship or touching the index."
+      elif [[ "$_csx_rc" -ne 0 ]]; then
         ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
         die "ship: spec-close commit failed (no-branch closure) — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
       fi

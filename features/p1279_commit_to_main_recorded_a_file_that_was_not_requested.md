@@ -25,7 +25,11 @@ commit message, and exited 0.
 
 ## Root Cause
 
-**Unexplained. This is the point of the ticket, not a gap in it.**
+**Unexplained at filing time. This was the point of the ticket, not a gap in it.**
+**RESOLVED — see Resolution below.** The reconstruction this section refuses to accept on faith
+was right in shape and wrong in cause: the window is not a co-tenant beating a held lock, it is
+`git commit` running the pre-commit hook for minutes *before* it reads the index. The text below
+is left as filed.
 
 `commit_staged_exact()` (`scripts/git-ops.sh:699-716`) compares the staged set against the
 requested paths and returns 1 on any difference. It is a strict `sort`ed string equality,
@@ -145,14 +149,72 @@ this bug.
 
 ## Acceptance Criteria
 
-- [ ] A `commit-to-main` whose commit records anything other than the requested paths exits
+- [x] A `commit-to-main` whose commit records anything other than the requested paths exits
       non-zero, and the failing exit code is pasted from a staged reproduction — not asserted
-- [ ] The comment at `scripts/git-ops.sh:115-116` no longer claims a count mismatch cannot
+- [x] The comment at `scripts/git-ops.sh:115-116` no longer claims a count mismatch cannot
       reach that point
-- [ ] The check-to-commit window is either shown to be safe (with the command that shows it) or
+- [x] The check-to-commit window is either shown to be safe (with the command that shows it) or
       closed; if the ESLint re-stage inside `pre-commit-checks.sh` is the cause, say so and cite
       the run that proves it
-- [ ] The existing `commit_staged_exact` refusal still fires on an extra staged path — a
+- [x] The existing `commit_staged_exact` refusal still fires on an extra staged path — a
       known-good and a known-bad case both run through the changed code, not just the bad one
-- [ ] A verdict is recorded on whether callers should reset co-tenant files out of the shared
+- [x] A verdict is recorded on whether callers should reset co-tenant files out of the shared
       index or wait for a clean one, and `.claude/rules/git.md` reflects it either way
+
+## Resolution
+
+**Reproduced deterministically**, and the reconstruction the spec refused to accept on faith
+turned out to be right in shape but wrong in cause. It is not a co-tenant beating a held lock:
+
+`commit_staged_exact` checks the index, then calls `git commit` — and **`git commit` runs the
+pre-commit hook (this repo's `pre-commit-checks.sh`, minutes long) BEFORE it reads the index**.
+The guard and the read it protects are minutes apart, and `main.lock` cannot help: it serializes
+git-ops *callers*, not a co-tenant session's raw `git add` / `git reset` on the shared checkout.
+`scripts/test-p1279-commit-to-main-index-race.sh` scenario 1 stages that mutation from inside the
+hook and reproduces the incident's exact signature on the pre-fix code:
+
+```
+git-ops commit-to-main: requested 2 path(s); the commit records 1 file(s)
+git-ops commit-to-main: WARNING -- requested and recorded counts differ. ...
+exit code: 0            # recorded: foreign.txt
+```
+
+**The ESLint re-stage was NOT the cause** (`pre-commit-checks.sh:127-128`). It re-`git add`s files
+already staged, so it can change staged *content* but never the staged *file set*; canary scenario
+3 runs exactly that shape and must — and does — still commit and exit 0. It is the hook's
+*duration*, not its `git add`, that matters.
+
+**Fix.** `commit_staged_exact` now re-reads the commit it just made and compares the **recorded
+file name set** (not counts — a swap keeps the count and was invisible to the old check) against
+the requested paths. On a difference it returns **3**, a code distinct from the pre-commit
+refusal's 1. The count check in `cmd_commit_to_main` became fatal, and the comment calling it
+unreachable is corrected — it was wrong, and it was the only thing that caught this.
+
+**No rollback, deliberately.** `git reset --soft HEAD~1` here would be a history move on the
+shared main checkout, ordered by a caller that has just proven the index is not under its
+control — the exact condition `.claude/rules/git.md` bans `HEAD~1` for. It fails loudly and
+hands the operator `git show --stat HEAD`.
+
+**Adversarial review (codex, 2026-09-09) found a real regression in the first fix** and it is
+why return 3 exists: `cmd_ship`'s no-branch closure unstages its staged rename and prints a
+`git mv`-back recipe whenever `commit_staged_exact` fails. Correct when nothing was committed;
+actively harmful once a commit has landed — it writes to the moving shared index and the recovery
+text is a lie. Canary scenario 7 binds that contract. Codex also correctly noted the
+path-encoding limit (`core.quotePath`) shared by both comparisons; pre-existing, documented in
+the code rather than fixed, and unreachable for a wrong commit because the pre-check refuses first.
+
+**Verdict on clearing co-tenant files from the shared index (AC 5): keep the prescription.** The
+reset is what lets the pre-commit guard pass and it only touches the index. But it is *not* what
+makes the commit safe — nothing the caller does before `git commit` is — and a caller doing it
+repeatedly against an index a co-tenant is actively writing should move to a worktree instead.
+`.claude/rules/git.md` now says so, and the claim there that the lock "closes that gap" is
+corrected to "narrows".
+
+## Evidence
+
+- `scripts/test-p1279-commit-to-main-index-race.sh` — 7 scenarios, `7 passed, 0 failed`
+- Pre-fix control observed FAILING on scenario 1 (exit 0, recorded `foreign.txt`) before the
+  patch; scenarios 2, 3, 4 passed pre-fix, so the canary is not vacuous
+- False-positive controls run through the changed code: clean commit, hook content re-stage,
+  `git mv` rename, pure deletion — all commit and exit 0 (epistemic.md 7c)
+- `scripts/test-git-ops-ship.sh` and `scripts/test-git-ops-extensions.sh` both pass unchanged

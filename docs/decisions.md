@@ -7,6 +7,68 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-09-09 [technical]: The shared-index commit race is the pre-commit hook window, and a tool that has already written the wrong thing needs its own exit code (P1279)
+
+**Context:** Third recorded occurrence of the same defect (2026-09-01, 2026-09-08, and the one
+this spec was filed for): `git-ops.sh commit-to-main` requested five paths, committed exactly one
+co-tenant file under this session's message, and **exited 0**. Both prior entries stopped at
+"the verify-then-commit window is real even inside the lock" and recorded the cause as
+unestablished. The 2026-09-08 entry proposed comparing the committed content rather than the
+count, and marked it `(Status: proposed)`. This closes both.
+
+**What the window actually is.** Not a co-tenant beating a held lock — the lock is held and does
+its job. `commit_staged_exact` checks the index, then calls `git commit`, and **`git commit` runs
+the pre-commit hook — this repo's `pre-commit-checks.sh`, minutes long — BEFORE it reads the
+index.** The guard and the read it protects are minutes apart by design, in every invocation.
+`main.lock` cannot help: it serializes git-ops *callers*, and a co-tenant's raw `git add` /
+`git reset` is not one. Reproduced deterministically by staging that mutation from inside the hook
+(`scripts/test-p1279-commit-to-main-index-race.sh`), yielding the incident's exact signature on
+pre-fix code: requested 2, recorded 1 foreign file, exit 0.
+
+The ESLint `--fix` re-stage inside the hook — the candidate the spec asked to eliminate first —
+is **not** the cause. It re-adds files already staged, so it changes staged *content* but never
+the staged *file set*. It is the hook's duration that matters, not its `git add`.
+
+**Decision:** `commit_staged_exact` re-reads the commit it just made and compares the **recorded
+file name set** against the requested paths — names, not counts, because a swap keeps the count
+and was invisible to the old check (the 2026-09-08 occurrence matched 4 = 4 by coincidence). On a
+difference it returns **3**, deliberately distinct from the pre-commit refusal's 1, and the count
+tripwire in `cmd_commit_to_main` became fatal.
+
+**The distinct exit code is the non-obvious half, and adversarial review is what surfaced it.**
+The first version of the fix returned 1 for both failures. Callers already read a non-zero return
+as *"nothing was committed"* and clean up accordingly: `cmd_ship`'s no-branch closure unstages the
+rename it staged and prints a `git mv`-back recipe. Correct when no commit exists; actively
+harmful once one does — it writes to the very shared index the function has just proven is moving,
+and the recovery text is a lie. **A new failure class that reuses an existing failure code inherits
+every handler written for the old one.**
+
+**Alternatives rejected:** *Roll the bad commit back* (`git reset --soft HEAD~1`) — a history move
+on the shared main checkout, ordered by a caller that has just established the index is not under
+its control; that is exactly the condition `HEAD~1` is banned for. It fails loudly and hands the
+operator `git show --stat HEAD` instead. *Close the window by running the hook before the guard and
+committing with `--no-verify`* — trades a detectable wrong commit for a silently ungated one.
+*Commit a recorded tree via `commit-tree`* — same problem: it skips the hook entirely.
+
+**Consequences:** Detection, not prevention, and that is stated rather than implied — a wrong
+commit can still land; it can no longer be reported as success. Two operational consequences,
+both now in [git.md](../.claude/rules/git.md): a **non-zero `commit-to-main` may mean a commit
+already exists** that records the wrong files, so read `git show --stat HEAD` before anything
+else; and **never filter git-ops output through a keyword grep** — the 2026-09-08 incident printed
+a correct warning that the caller's `grep` pattern did not include, so nobody read it. The
+standing prescription to `git reset HEAD -- <bystander>` co-tenant files out of the shared index
+**stands** (it is what lets the guard pass, and it only touches the index) but is no longer
+described as what makes the commit safe: nothing done before `git commit` is, and a caller
+repeating it against an index a co-tenant is actively writing should move to a worktree instead.
+The claim in `git.md` that the lock "closes that gap" is corrected to "narrows".
+
+**References:** [features/p1279_commit_to_main_recorded_a_file_that_was_not_requested.md](../features/p1279_commit_to_main_recorded_a_file_that_was_not_requested.md) ·
+`scripts/git-ops.sh` (`commit_staged_exact`) · `scripts/test-p1279-commit-to-main-index-race.sh` ·
+[git.md](../.claude/rules/git.md) "The lock does not cover the pre-commit hook window" ·
+decisions.md 2026-09-08 and 2026-09-01 (occurrences 2 and 1, cause unresolved there) ·
+[epistemic.md](../.claude/rules/epistemic.md) gate 7c (the false-positive controls)
+
+
 ## 2026-09-08 [product]: A navigation label that asserts a time ("Join now") has to be gated on that time — and the affordance's presence keys on the generous window, not the actual end (P1272)
 
 **Context:** The event page's room nav row rendered unconditionally with a hardcoded

@@ -80,7 +80,8 @@ by any other session. **On the shared main checkout it is NOT enough on its own*
 index and HEAD there are shared across every concurrent session, and the sequence below
 still has a real gap between the bystander check and the commit. Use `git-ops.sh
 commit-to-main` there instead (Merge Strategy Matrix, below) — it holds a lock across
-the whole staging+commit sequence, which is what actually closes that gap.
+the whole staging+commit sequence, which is what narrows that gap. **It does not close it
+(P1279): the lock serializes git-ops CALLERS, never a co-tenant's raw `git add`/`git reset`.**
 
 ```bash
 # ✅ Correct — worktree
@@ -112,6 +113,30 @@ in CLAUDE.md cannot fire on its own (2026-09-03: 39 iterations against a quoting
 The original concern — a plain `git commit` sweeping in files OTHER sessions staged elsewhere in the shared index — is still real, but the pathspec form is not the fix for it; it trades that risk for a worse one (silently wrong CONTENT for the very files you're committing, not just wrong file selection).
 
 **The worktree/main-checkout distinction above is load-bearing, not decoration — a bystander-checked plain commit is still not safe on the shared checkout.** "Verify the index, then `git add`, then plain commit" still has a real gap: another session can stage or edit something between your check and your commit. This repo's own incident log records exactly that failure on the shared main checkout twice (2026-08-17 P1057, 2026-06-06) — a plain commit corrupted a co-tenant's work even though the verify-before-commit rule had been followed, because the verify→commit window was not atomic. A private worktree closes that gap by construction; the shared main checkout needs an actual lock, held for the whole sequence — that is what `commit-to-main` provides and a hand-run `git add` + `git commit` does not. **Never run a bare add-then-commit sequence directly on the shared main checkout, bystander-checked or not — always go through `git-ops.sh commit-to-main`.**
+
+## The lock does not cover the pre-commit hook window (P1279)
+
+`commit-to-main` verifies the staged set equals your requested paths, and then runs `git commit` —
+which runs the **pre-commit hook (`pre-commit-checks.sh`, minutes long) BEFORE git reads the index**.
+A co-tenant's raw `git add`/`git reset` inside that window is what actually gets committed, and
+`main.lock` does not hold it off (it serializes git-ops callers only). Observed 2026-09-08: five
+paths requested, one co-tenant file recorded, **exit 0**. Reproduced deterministically in
+`scripts/test-p1279-commit-to-main-index-race.sh`.
+
+Three consequences, all binding:
+
+- **The exit code is the contract.** `commit_staged_exact` now re-checks the *recorded* file set
+  after the commit and exits non-zero on any difference. A non-zero `commit-to-main` means a commit
+  may already exist that records the wrong files — it is deliberately **not** rolled back (`HEAD~1`
+  on the shared checkout is exactly what this file bans). Read `git show --stat HEAD` before
+  anything else.
+- **Never filter git-ops output through a keyword grep.** The 2026-09-08 incident printed a correct
+  warning that the caller's `grep` pattern did not include, so nobody read it. Pipe it to a file or
+  read it whole; a filter that can drop `FATAL`/`WARNING` makes the tool's only signal invisible.
+- **Verdict on clearing co-tenant files from the shared index** (`git reset HEAD -- <bystander>`, as
+  prescribed above): keep doing it — it is what lets the pre-commit guard pass, and it touches only
+  the index. But it is *not* what makes the commit safe, and repeating it in a loop against an index
+  a co-tenant is actively writing is a sign to stop and use a worktree instead.
 
 **`git mv` needs both paths confirmed staged, and the check must disable rename detection.** A rename stages as delete(old)+add(new); `git mv` does this atomically. `git status --short` and `git diff --cached --name-only` both COLLAPSE a staged rename into one line by default (rename detection) — use `git status --short --no-renames` (or add `--no-renames` to the diff form) to see both halves. This matters twice: confirming your own rename is fully staged, AND when unstaging a bystander's rename — `git reset HEAD -- <bystander>` on only the destination path leaves the source deletion staged and invisible to the same collapsed check. Reset BOTH paths of a rename, never just one.
 
