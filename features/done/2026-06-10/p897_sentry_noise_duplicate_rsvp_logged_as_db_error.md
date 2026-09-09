@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 65
@@ -12,8 +12,8 @@ tags:
   - noise
   - events
   - error-handling
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+completed_at: 2026-09-09
 ---
 
 # P897: Expected duplicate-RSVP case in rsvpToEvent reported to Sentry as DB error
