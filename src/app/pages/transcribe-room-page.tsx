@@ -14,9 +14,10 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
-import { MicOff, Sparkles, ShieldOff, Loader2, Users, LogOut } from 'lucide-react';
+import { MicOff, Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 import {
   createRoom,
   getRoomByCode,
@@ -93,6 +94,19 @@ export function TranscribeRoomPage() {
   // How much of the hook's cumulative `transcript` has already been sent as a message —
   // only the newly-appended (finalized) suffix is ever sent, one utterance at a time.
   const sentLengthRef = useRef(0);
+
+  // P1294: the list follows new lines, and stops following the moment the reader scrolls up.
+  // Keyed on a SCALAR, never on `messages` itself — the subscription replaces that array
+  // wholesale on every realtime event and on a 15s reconciliation poll, so array identity
+  // would re-scroll on a timer and fight the reader. Interim text is in the key too: it grows
+  // under the last message while someone is mid-sentence, and not following it would leave
+  // the words being spoken just off-screen.
+  const {
+    containerRef: chatRef,
+    onScroll: onChatScroll,
+    isAtBottom,
+    scrollToBottom,
+  } = useStickToBottom<HTMLDivElement>(`${messages.length}:${interimTranscript.length}`);
 
   // ── Auth gate (DW-1) ────────────────────────────────────────────────────
   useEffect(() => {
@@ -465,7 +479,15 @@ export function TranscribeRoomPage() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4" data-testid="transcribe-chat">
+        {/* `relative` anchors the return button to this list, not the page — the button
+            belongs to the transcript and must not float over the controls below it. */}
+        <div className="relative flex-1 min-h-0 mb-4">
+        <div
+          ref={chatRef}
+          onScroll={onChatScroll}
+          className="h-full overflow-y-auto space-y-3"
+          data-testid="transcribe-chat"
+        >
           {messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8" data-testid="transcribe-empty-room">
               You're first here. Words will appear as people speak.
@@ -487,6 +509,22 @@ export function TranscribeRoomPage() {
               {interimTranscript}
             </p>
           )}
+        </div>
+
+        {/* Only while detached. A control that is always present but does nothing half the
+            time teaches the reader to ignore it. Not a primary action and never full-width
+            (P955): the primary action on this screen is ending the session. */}
+        {!isAtBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom()}
+            aria-label="Jump to newest"
+            data-testid="transcribe-jump-to-newest"
+            className="absolute bottom-2 right-2 w-11 h-11 rounded-full border bg-background shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <ArrowDown className="w-5 h-5" aria-hidden="true" />
+          </button>
+        )}
         </div>
       </div>
     </div>

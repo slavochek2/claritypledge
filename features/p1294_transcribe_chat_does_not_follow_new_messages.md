@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 1000092
 workstream: transcription
 created_date: '2026-09-09'
 tags: [transcribe, ux, mobile, chat]
 feature_type: frontend
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 driver: founder
 disclosure: public
@@ -44,13 +44,13 @@ chat pattern; this spec exists to record it and bound it, not to decide it.
 
 ## Acceptance Criteria
 
-- [ ] With the list at the bottom, a new message keeps it at the bottom
-- [ ] Scrolled up, a new message does not move the viewport
-- [ ] The return button appears only while detached, and re-attaches on tap
-- [ ] The threshold treats "close enough to the bottom" as bottom, so a few pixels of
+- [x] With the list at the bottom, a new message keeps it at the bottom
+- [x] Scrolled up, a new message does not move the viewport — **mutation-proved**: removing the guard makes this test fail (`expected 1500 to be 100`)
+- [x] The return button appears only while detached, and re-attaches on tap
+- [x] The threshold treats "close enough to the bottom" as bottom, so a few pixels of
       momentum or a rounding error does not silently detach the reader
-- [ ] Touch target is at least 40px (visual-qa.md)
-- [ ] The button is not a second full-width primary action and does not trip the p955 gate
+- [x] Touch target is at least 40px (visual-qa.md) — 44px (`w-11 h-11`)
+- [x] The button is not a second full-width primary action and does not trip the p955 gate — full suite green, p955 gate included
 - [ ] Screenshots at 375px, 320px and desktop, in both states
 
 ## Notes
@@ -61,3 +61,27 @@ chat pattern; this spec exists to record it and bound it, not to decide it.
 - `messages` is replaced wholesale on every realtime event (full-refetch subscription), so the
   effect must key on something stable — a length or last-id — rather than array identity, or
   it will fire on every reconciliation poll and fight the reader every 15 seconds.
+
+
+## Implementation, 2026-09-09
+
+`src/hooks/useStickToBottom.ts` + `src/tests/p1294-stick-to-bottom.test.ts` (6 tests), wired
+into the room's message list with a 44px circular "Jump to newest" control that renders only
+while detached.
+
+Three decisions worth keeping:
+
+- **Keyed on a scalar, not the array.** `messages` is replaced wholesale on every realtime
+  event *and* on a 15-second reconciliation poll. Keying on array identity would re-scroll on
+  that timer and fight the reader every 15 seconds. The key is
+  `` `${messages.length}:${interimTranscript.length}` `` — interim included so the words being
+  spoken right now stay on screen rather than sitting just below the fold.
+- **The stick flag is a ref, not state.** With `isAtBottom` in the effect's dependencies,
+  re-entering sticking would itself trigger a scroll.
+- **A 48px threshold, and it is not cosmetic.** `scrollHeight - scrollTop - clientHeight` is
+  rarely exactly 0 — fractional device pixel ratios, sub-pixel line heights and momentum all
+  leave a pixel behind. At zero, a reader sitting visibly at the bottom silently counts as
+  detached and following stops: this feature failing in exactly the way it was asked to fix.
+
+**Screenshots at 375/320/desktop are still outstanding** — the AC is ticked for the
+p955/touch-target checks the suite covers deterministically, not for the visual pass.
