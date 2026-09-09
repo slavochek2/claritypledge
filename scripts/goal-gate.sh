@@ -427,7 +427,15 @@ MAX_ROUNDS=20
 # while working fine on CI's bash 5. Read the list the portable way.
 ROUNDS=()
 while IFS= read -r _r; do [[ -n "$_r" ]] && ROUNDS+=("$_r"); done \
-  < <(ls "${VDIR}"/review-round-*.md 2>/dev/null | sort)
+  < <(ls "${VDIR}"/review-round-*.md 2>/dev/null \
+      | awk -F'review-round-' '{ n = $NF; sub(/\.md$/, "", n); printf "%d\t%s\n", n + 0, $0 }' \
+      | sort -k1,1n -k2,2 | cut -f2-)
+# Ordered NUMERICALLY, not lexicographically (code review, 2026-09-09). A plain
+# `sort` puts review-round-10.md between 1 and 2, and since P1284 the round ORDER
+# decides which record is the last one bound to the working tree — so under the
+# old sort a forged round 10 was treated as superseded by round 2 and its hash
+# mismatch was waved through (canary 5i). Harmless before P1284, when every round
+# had to match; load-bearing now, and more so with the bound raised to 20.
 n_rounds=${#ROUNDS[@]}
 needs_review=$(contract_rows | $GREP -c '^COMPARABLE' || true)
 
@@ -495,9 +503,20 @@ else
   if [[ "$n_rounds" -ge 2 ]]; then
     for ((i=2; i<=n_rounds; i++)); do
       [[ "${verdicts[$((i-2))]}" == FAIL ]] || continue
-      prev="$(awk -F'\t' -v n="$((i-1))" '$1 == n { print $2 "\t" $3 }' "$RLEDGER" | sort)"
-      cur="$(awk -F'\t' -v n="$i" '$1 == n { print $2 "\t" $3 }' "$RLEDGER" | sort)"
-      if [[ "$prev" == "$cur" ]]; then
+      # Compare only the paths BOTH rounds judged. Comparing the two complete
+      # sets let a round launder a re-roll by ADDING an unrelated render while
+      # re-recording the failing one byte-identical: the sets then differ and the
+      # check stayed silent (code review, 2026-09-09; canary 5j).
+      #
+      # No overlap at all is left alone deliberately — a round judging an
+      # entirely new render set is a different situation, and the failing render
+      # is still bound to the working tree by the last-round rule above.
+      overlap="$(awk -F'\t' -v a="$((i-1))" -v b="$i" '
+        $1 == a { prev[$2] = $3 }
+        $1 == b && ($2 in prev) { shared = 1; if (prev[$2] != $3) moved = 1 }
+        END { if (!shared) print "none"; else if (moved) print "moved"; else print "same" }
+      ' "$RLEDGER")"
+      if [[ "$overlap" == "same" ]]; then
         fail "$(basename "${ROUNDS[$((i-1))]}"): follows a FAIL but judges byte-identical renders — a re-roll, not a fix"
         hash_ok=0
       fi

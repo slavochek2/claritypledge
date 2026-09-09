@@ -288,14 +288,21 @@ if [[ "$CHECK_MODE" -eq 1 ]]; then
       : > "$STAGED_NAMES"
       ABS_SRC="$(abs_of "${SRC_DIR%/}")"
       ABS_OUT="$(abs_of "${OUT_DIR%/}")"
-      while IFS= read -r rel; do
+      # -z, not the plain listing: under the default core.quotePath git C-quotes
+      # any path holding a non-ASCII byte, so a source under (say) a directory
+      # with an accented name arrived here as the literal string
+      # "src/caf\303\251/skill.md" — quotes included — matched neither prefix,
+      # fell out of scope, and a commit carrying real drift passed the gate
+      # (code review 2026-09-09; canary F5). -z emits raw bytes with no quoting
+      # and also survives a path containing a newline.
+      while IFS= read -r -d '' rel; do
         [[ -z "$rel" ]] && continue
         abs="${GIT_TOP}/${rel}"
         case "$abs" in
           "$ABS_SRC"/*) derive_name "$abs" >> "$STAGED_NAMES" ;;
           "$ABS_OUT"/*) rest="${abs#"$ABS_OUT"/}"; printf '%s\n' "${rest%%/*}" >> "$STAGED_NAMES" ;;
         esac
-      done < <(git diff --cached --name-only 2>/dev/null)
+      done < <(git diff --cached --name-only -z 2>/dev/null)
       sort -u -o "$STAGED_NAMES" "$STAGED_NAMES"
       SCOPED=1
     else

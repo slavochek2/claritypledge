@@ -71,8 +71,14 @@ printf '%s\n' "$RANKS" | awk -v band="$LEGACY_BAND" '
   { any = 1; if ($1 + 0 > max_all) max_all = $1 + 0 }
   $1 + 0 < band { dense = 1; if ($1 + 0 > max_dense) max_dense = $1 + 0 }
   END {
-    if (dense)     { printf "%.12g\n", max_dense + 1 }   # join the hand-ordered scale
-    else if (any)  { printf "%.12g\n", max_all + 1 }     # column is entirely legacy: do not collide
-    else           { print 1 }                            # empty column
+    # The dense answer is only usable while it STAYS below the band. A column
+    # holding both 999999 and 1000000 makes max_dense + 1 equal to the rank of
+    # another card — the one input that breaks the no-collision guarantee this
+    # script states above (found by code review, 2026-09-09). Leaving the dense
+    # scale is the safe answer there, exactly as for an all-legacy column.
+    # NOTE: no apostrophes in this awk program. It is single-quoted in the shell.
+    if (dense && max_dense + 1 < band) { printf "%.12g\n", max_dense + 1 }  # join the hand-ordered scale
+    else if (any)                      { printf "%.12g\n", max_all + 1 }    # do not collide
+    else                               { print 1 }                          # empty column
   }
 '

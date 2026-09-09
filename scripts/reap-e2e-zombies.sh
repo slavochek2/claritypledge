@@ -128,21 +128,50 @@ etime_seconds() {
 # ─── classification ────────────────────────────────────────────────────────
 
 # kind COMMAND — vite, playwright, or empty for "not ours".
+#
+# Match the PROGRAM BEING RUN, never a word that happens to appear in the argv.
+# The first version matched `*" vite"*` and `*playwright*test*` as substrings
+# anywhere in the command, so an orphaned `/bin/sh -c backup job vite marker`
+# classified as a vite server and --kill would have signalled it — a live,
+# unrelated process (code review 2026-09-09; canary rows 9012 and 9013). Every
+# pattern below therefore anchors on an executable path or on the first word.
 kind_of() {
-  local cmd="$1"
+  local cmd="$1" exe="${1%% *}"
   # Never ours: the Playwright MCP server belongs to a live Claude session.
   case "$cmd" in
     *playwright-mcp*|*@playwright/mcp*|*"playwright/mcp"*) echo ""; return ;;
   esac
+  # vite invoked directly: `vite --port ...` or `/path/to/vite --port ...`
+  case "$exe" in
+    vite|*/vite) echo vite; return ;;
+  esac
+  # vite invoked through node: the binary is the last path before the arguments.
   case "$cmd" in
-    *node_modules/.bin/vite*|*node_modules/vite/bin/vite.js*|*" vite"|*" vite "*)
+    *node_modules/.bin/vite|*node_modules/.bin/vite\ *|*node_modules/vite/bin/vite.js|*node_modules/vite/bin/vite.js\ *)
       echo vite; return ;;
   esac
   case "$cmd" in
-    *playwright*test*|*playwright*run-server*|*headless_shell*|*playwright-core*)
+    *node_modules/.bin/playwright\ *test*|*node_modules/.bin/playwright\ *run-server*|*node_modules/playwright-core/*|*ms-playwright/*headless_shell*|*ms-playwright/*headless_shell)
       echo playwright; return ;;
   esac
   echo ""
+}
+
+# still_target PID KIND — the process ALIVE under this pid right now still looks
+# like the thing we classified. A pid can be recycled between the scan and the
+# signal, and again during the TERM/KILL gap; without this, the reaper would
+# TERM whatever inherited the number. Re-derives the kind from the live argv
+# rather than trusting the snapshot (code review 2026-09-09).
+#
+# NOT exercised by scripts/test-reap-e2e-zombies.sh: fixture mode disables
+# signalling entirely, so no canary can reach the kill path. Verified by
+# extracting these two functions and running them against real pids.
+still_target() {
+  local pid="$1" want="$2" live
+  live="$(ps -o command= -p "$pid" 2>/dev/null | awk 'NR == 1 { print }')"
+  [[ -n "$live" ]] || return 1
+  [[ "$(kind_of "$live")" == "$want" ]] || return 1
+  return 0
 }
 
 CANDIDATES=0
@@ -174,7 +203,9 @@ while IFS= read -r line; do
 
   if [[ -n "$reason" ]]; then
     REAPABLE=$((REAPABLE + 1))
-    REAP_PIDS="${REAP_PIDS}${REAP_PIDS:+ }${pid}"
+    # Carry the KIND alongside the pid: the signal path re-derives it from the
+    # live argv to defend against pid reuse (still_target, above).
+    REAP_PIDS="${REAP_PIDS}${REAP_PIDS:+ }${pid}:${kind}"
     if [[ "$MODE" == list ]]; then
       echo "REAPABLE:${pid}:${kind}:${reason}"
     else
@@ -204,23 +235,34 @@ if [[ "$MODE" != kill ]]; then
 fi
 
 # ─── kill: TERM, give it a moment, then KILL what is left ──────────────────
-for pid in $REAP_PIDS; do
+skipped=0
+for entry in $REAP_PIDS; do
+  pid="${entry%%:*}"; want="${entry##*:}"
+  if ! still_target "$pid" "$want"; then
+    echo "  skipped ${pid}: it is gone, or the pid now belongs to something else"
+    skipped=$((skipped + 1)); continue
+  fi
   kill -TERM "$pid" 2>/dev/null && echo "  TERM sent to ${pid}"
 done
 sleep 3
 survivors=0
-for pid in $REAP_PIDS; do
-  if kill -0 "$pid" 2>/dev/null; then
+for entry in $REAP_PIDS; do
+  pid="${entry%%:*}"; want="${entry##*:}"
+  # Re-checked a SECOND time: the TERM window is three seconds wide, which is
+  # ample for the pid to be released and handed to an unrelated process.
+  if kill -0 "$pid" 2>/dev/null && still_target "$pid" "$want"; then
     kill -KILL "$pid" 2>/dev/null && echo "  KILL sent to ${pid}"
   fi
 done
 sleep 1
-for pid in $REAP_PIDS; do
-  if kill -0 "$pid" 2>/dev/null; then
+for entry in $REAP_PIDS; do
+  pid="${entry%%:*}"; want="${entry##*:}"
+  if kill -0 "$pid" 2>/dev/null && still_target "$pid" "$want"; then
     echo "  still alive after KILL: ${pid}"
     survivors=$((survivors + 1))
   fi
 done
+REAPABLE=$((REAPABLE - skipped))
 echo "reap-e2e-zombies: reaped $((REAPABLE - survivors)) of ${REAPABLE}"
 [[ "$survivors" -eq 0 ]] || exit 1
 exit 0

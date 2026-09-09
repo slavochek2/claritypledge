@@ -164,7 +164,26 @@ One night, one batch, one commit per item.
   live-parent processes and selects orphans.
   Evidence: `scripts/test-reap-e2e-zombies.sh` 19 passed / 0 failed over an 11-row fixture process
   table, 4 reapable and 7 spared. Check 19 driven to its warning path through the fixture (pids
-  9001, 9007); against the real table 3 vite seen, 0 reapable, exit 0. Commit `e3477fc7a`.
+  9001, 9007); against the real table 3 vite seen, 0 reapable, exit 0. Commit `8b7dc55da`
+  (the sha recorded here was `e3477fc7a`, an earlier copy of the same change that is not on
+  this branch — corrected during code review).
+
+- [x] 6. Independent code review of all five fixes, with every real finding either closed by a
+  canary-backed fix or recorded as an accepted residual.
+  Evidence: `~/.agents/bin/codex-review` returned UNSAFE with 9 findings; each was re-run by
+  command before being acted on (epistemic gate 9). Six were reproduced and fixed, each with a
+  canary proven RED against the pre-review code and GREEN after: next-rank returned `1000000` for
+  a column holding 999999 and 1000000, colliding with an existing card; goal-gate ordered rounds
+  lexicographically so a forged `review-round-10.md` read as superseded by round 2; the re-roll
+  rule compared complete path sets so adding one unrelated render laundered a re-roll;
+  `git diff --cached --name-only` C-quotes non-ASCII paths, so a staged source under an accented
+  directory fell out of `--staged-only` scope and real drift passed; the reaper classified
+  `/bin/sh -c backup job vite marker` as a reapable vite by substring; and the kill path signalled
+  by pid with no re-check, so a recycled pid would have been TERMed. Suites after: next-rank 8/0,
+  goal-gate 35/0, deploy-manifest 7/0, reap 22/0, sync-agent-skills 63/0. Three findings are
+  recorded as accepted residuals in the review artifact (deleting a FAIL round is undetectable and
+  pre-existing; `cmp` reads the working tree not the staged blobs, also pre-existing; a hand-forged
+  local manifest redirects the deploy-manifest remedy, which is inherent to the fix).
 
 ## Pre-deploy Checklist
 

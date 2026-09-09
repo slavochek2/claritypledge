@@ -95,6 +95,20 @@ check "all-legacy column falls back to legacy max+1 (never collides)" \
       "1000012" "$(cd "$t" && ./scripts/next-rank.sh qa 2>/dev/null)"
 rm -rf "$t"
 
+# --- 5b. EDGE: the dense scale runs right up to the band -------------------
+# Found by the P1284 code review (codex, 2026-09-09). The fix's own guarantee is
+# "the value can never collide with an existing card", and dense max+1 breaks it
+# at exactly one input: a column holding both 999999 and 1000000. max_dense + 1
+# IS 1000000, which is another card's rank. The answer must leave the dense scale
+# rather than collide, so it falls back to legacy max+1 the same way an
+# all-legacy column does.
+t=$(mktemp -d); build_fixture "$t"
+spec "$t" p001 week 999999
+spec "$t" p002 week 1000000
+check "dense max+1 landing on the band does not collide" \
+      "1000001" "$(cd "$t" && ./scripts/next-rank.sh week 2>/dev/null)"
+rm -rf "$t"
+
 # --- 6. bugs_and_debt/ is scanned too -------------------------------------
 t=$(mktemp -d); build_fixture "$t"
 spec "$t" p001 week 2

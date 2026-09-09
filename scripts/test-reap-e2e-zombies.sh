@@ -42,6 +42,9 @@ cat > "$WORK/ps.txt" <<EOF
  9009     1    03:03:24 /Users/x/Library/Caches/ms-playwright/chromium-1234/headless_shell --headless
  9010     1 20-03:31:41 claude --chrome --model opus --dangerously-skip-permissions
  9011     1    05:00:00 /usr/bin/some-unrelated-daemon --port 5173
+ 9012     1    05:00:00 /bin/sh -c backup job vite marker
+ 9013     1    05:00:00 /bin/sh -c echo playwright and test data
+ 9014     1    05:00:00 vite --port 5199 --host
 EOF
 
 # cwd table: 9003 is a kanban server whose directory still exists (live parent
@@ -80,6 +83,7 @@ check "9001 orphaned vite, 4h old"                "" "$( reaped 9001 && echo 1 |
 check "9002 vite whose worktree was deleted"      "" "$( reaped 9002 && echo 1 || echo 0 )"
 check "9007 orphaned playwright test runner"      "" "$( reaped 9007 && echo 1 || echo 0 )"
 check "9009 orphaned headless browser"            "" "$( reaped 9009 && echo 1 || echo 0 )"
+check "9014 a bare 'vite' invocation is still ours" "" "$( reaped 9014 && echo 1 || echo 0 )"
 
 echo "${DIM}MUST SPARE — this is the half that protects live sessions${NC}"
 check "9003 vite with a live parent, 11 days old" "" "$( reaped 9003 && echo 0 || echo 1 )"
@@ -89,9 +93,16 @@ check "9006 playwright-mcp — same, even orphaned and old" "" "$( reaped 9006 &
 check "9008 playwright test with a live parent"   "" "$( reaped 9008 && echo 0 || echo 1 )"
 check "9010 the claude process itself"            "" "$( reaped 9010 && echo 0 || echo 1 )"
 check "9011 an unrelated daemon whose flag says 5173" "" "$( reaped 9011 && echo 0 || echo 1 )"
+# P1284 code review (codex, 2026-09-09): the classifier matched " vite" and
+# "playwright...test" as substrings ANYWHERE in the command, so an orphaned
+# shell that merely mentions either word was classified as ours and --kill would
+# have signalled it. The word has to be the program being run, not a passing
+# argument. These two are the whole reason the tightening exists.
+check "9012 an orphaned shell that merely mentions vite" "" "$( reaped 9012 && echo 0 || echo 1 )"
+check "9013 an orphaned shell that merely mentions playwright test" "" "$( reaped 9013 && echo 0 || echo 1 )"
 
 n_reap="$(printf '%s\n' "$OUT" | grep -c '^REAPABLE:' || true)"
-check "exactly 4 of the 11 rows are reapable (got ${n_reap})" "" "$( [[ "$n_reap" == 4 ]] && echo 1 || echo 0 )"
+check "exactly 5 of the 14 rows are reapable (got ${n_reap})" "" "$( [[ "$n_reap" == 5 ]] && echo 1 || echo 0 )"
 check "--list exits non-zero when it found candidates (exit ${RC})" "" "$( [[ "$RC" -ne 0 ]] && echo 1 || echo 0 )"
 
 echo "${DIM}the age floor is a knob, and it moves the answer${NC}"

@@ -275,6 +275,33 @@ m_superseded_render() {
     done
   } > "$d/review-round-3.md"
 }
+# P1284 code review (codex, 2026-09-09) — rounds were ordered with a plain `sort`,
+# so review-round-10.md sorted between 1 and 2. Round ORDER decides which record
+# the supersession rule binds to the working tree, so a forged round 10 read as
+# "superseded by round 2" and its hash mismatch was waved through. Everything
+# else here is honest: rounds 1 and 2 still match the tree, all three PASS.
+m_round10_forged() {
+  local d="$1/features/verification/$PN"
+  {
+    echo "VERDICT: PASS"
+    echo "Reviewer was given renders only — never the diff, never the intent."
+    echo "SCREENSHOT: 0000000000000000000000000000000000000000000000000000000000000000  features/verification/$PN/shot-320.png"
+  } > "$d/review-round-10.md"
+}
+# P1284 code review — the re-roll rule compared the two COMPLETE path/hash sets,
+# so a round could follow a FAIL, re-record the failing render byte-identical,
+# and add one unrelated render: the sets differ, the check stayed silent, and
+# nothing about the failing render had changed.
+m_reroll_added_shot() {
+  local d="$1/features/verification/$PN"
+  sed -i.bak 's/^VERDICT: PASS/VERDICT: FAIL/' "$d/review-round-1.md"
+  printf 'PNG-FIXTURE-extra\n' > "$d/shot-extra.png"
+  {
+    sed 's/^VERDICT: FAIL/VERDICT: PASS/' "$d/review-round-1.md"
+    echo "SCREENSHOT: $(sha_of "$d/shot-extra.png")  features/verification/$PN/shot-extra.png"
+  } > "$d/review-round-2.md"
+  cp "$d/review-round-2.md" "$d/review-round-3.md"
+}
 m_empty_round()    { $GREP -v '^SCREENSHOT:' "$1/features/verification/$PN/review-round-2.md" > "$1/t" && mv "$1/t" "$1/features/verification/$PN/review-round-2.md"; }
 m_no_assumptions() { rm -f "$1/features/verification/$PN/assumptions.md"; }
 m_one_axis()       { $GREP -v 'turns consumed' "$1/features/verification/$PN/feedback.md" > "$1/t" && mv "$1/t" "$1/features/verification/$PN/feedback.md"; }
@@ -312,6 +339,8 @@ expect 1 "5e re-rolled past the round bound"          ci  m_too_many_rounds "exc
 expect 1 "5f a round that judged zero screenshots"    ci  m_empty_round "judged zero screenshots"
 expect 1 "5g re-roll on byte-identical renders after a FAIL" ci m_reroll_same_pixels "re-roll, not a fix"
 expect 0 "5h superseded earlier round — control, must NOT go red" ci m_superseded_render "!hash mismatch"
+expect 1 "5i round 10 is the last round, not round 2 (numeric order)" ci m_round10_forged "hash mismatch"
+expect 1 "5j re-roll laundered by ADDING an unrelated render"  ci m_reroll_added_shot "re-roll, not a fix"
 echo "${DIM}CHECK 6 — the instruments${NC}"
 expect 1 "6a assumptions.md absent"                   ci  m_no_assumptions "missing features/verification/p9001/assumptions.md"
 expect 1 "6b feedback.md carries only one axis"       ci  m_one_axis "one axis is a trap"

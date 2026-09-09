@@ -389,6 +389,31 @@ assert_out "case F3: names the skill whose projection was staged" "DRIFT_CONTENT
 run_sync_in "$GITFIX" "gitfix: regenerate after F3" 0 --src-dir "$SRC" --out-dir "$OUT"
 (cd "$GITFIX" && git add -- "$OUT" >/dev/null 2>&1 && git commit -qm "resync F3" >/dev/null 2>&1)
 
+# F5 — P1284 code review (codex, 2026-09-09). `git diff --cached --name-only`
+# C-quotes any path with a non-ASCII byte under the default core.quotePath, so
+# the string arriving here was `"fixture-src/caf\303\251/nested-skill.md"` —
+# quotes included — which matched neither the source nor the projection prefix.
+# The skill fell out of scope and a commit carrying real drift passed. The
+# directory carries the non-ASCII, not the projected NAME: a non-ASCII name is
+# already a D9 hard fail, so this is the only shape that reaches the scan.
+mkdir -p "${GITFIX}/${SRC}/café"
+cat > "${GITFIX}/${SRC}/café/nested-skill.md" <<'EOF'
+---
+name: nested-skill
+description: A synthetic skill under a non-ASCII directory (quotePath escaping).
+---
+fixture body
+EOF
+run_sync_in "$GITFIX" "gitfix: regenerate with the non-ASCII path" 0 --src-dir "$SRC" --out-dir "$OUT"
+(cd "$GITFIX" && git add -- "$SRC" "$OUT" >/dev/null 2>&1 && git commit -qm "add non-ascii skill" >/dev/null 2>&1)
+printf 'drift under a non-ASCII directory\n' >> "${GITFIX}/${SRC}/café/nested-skill.md"
+(cd "$GITFIX" && git add -- "${SRC}/café/nested-skill.md" >/dev/null 2>&1)
+run_sync_in "$GITFIX" "case F5: a staged non-ASCII source path is still in scope" 1 \
+  --check --staged-only --src-dir "$SRC" --out-dir "$OUT"
+assert_out "case F5: names the skill behind the quoted path" "DRIFT_CONTENT_MISMATCH:nested-skill"
+run_sync_in "$GITFIX" "gitfix: regenerate after F5" 0 --src-dir "$SRC" --out-dir "$OUT"
+(cd "$GITFIX" && git add -- "$SRC" "$OUT" >/dev/null 2>&1 && git commit -qm "resync F5" >/dev/null 2>&1)
+
 # F4 — outside a git work tree the flag must DEGRADE TO A FULL CHECK, never to
 # a silent pass. A gate that quietly does nothing where git is absent is worse
 # than no gate: it reports OK.
