@@ -63,6 +63,49 @@ better information.
 bypasses any name check, so a name check on claim alone is not what is holding the attacker back."
 P1058 removed release-then-claim. That premise is now false, and the name check is load-bearing.
 
+### DECISION TAKEN — 2026-09-09
+
+**Close the forgeable path, with a bounded grace window.** Founder, presented with close / leave /
+close-with-grace: *"yes, we can close it with grace window. I don't know what is appropriate grace
+window. I'll let you decide."* The window length was delegated; everything below the first sentence
+is the agent's call and is open to revision.
+
+**Shape.** A per-seat secret is the primary key to the seat: minted at claim, held client-side,
+required on both release **and** reclaim (the spec's own Approach note already establishes that
+requiring it on release alone hands it to whoever asks). Name-only reclaim survives **solely** as a
+recovery fallback, permitted only inside the grace window below. Outside that window, a name is
+never sufficient — which is what actually closes the forgery.
+
+**Grace window: 15 minutes, measured from the guest's last verified presence on that seat**, where
+a successful secret-bearing reclaim refreshes it. So the common case (refresh, tab reopen, network
+blip — the client still holds the secret) is silent, needs no name, and rolls the window forward;
+the rare case (storage cleared, phone died, moved device) falls back to name-only and must land
+inside 15 minutes of the last time we actually saw that guest.
+
+**Why 15 and not less or more** — the asymmetry, not a round number. Being locked out of your own
+live room mid-conversation is visible, immediate, and lands on a real person; seat forgery is rare,
+invisible, and requires the room code *and* the published name *and* being present inside the
+window. P1053's revert is the recorded evidence that this founder weights the lockout harm heavily,
+so the window errs generous. 15 minutes covers a browser crash plus reopen, or fetching a laptop
+after a phone dies; it stays well inside a live session; and it is half the shortest existing room
+lifetime (`20260221160452_p406_event_practice_rooms.sql`, 30 minutes), so it can never outlive the
+room it protects.
+
+**The machinery this needs, and it does not exist yet.** There is no presence signal for a guest
+seat at all: P511's heartbeat is creator-only and its own migration says so explicitly
+(`20260315141534_p511_session_resilience.sql:19-20` — *"Anonymous joiners do NOT heartbeat"*), and
+P1053's migration records the same absence (*"there is no heartbeat or presence timeout, and
+`pagehide` performs no DB write"*). A 15-minute window is therefore **not implementable against any
+column that exists today** — it requires a `last_seen_at` (or equivalent) on the seat, written on
+claim and on every secret-bearing reclaim. Cost that honestly before building: if the presence
+timestamp proves disproportionate, the fallback shape is a window measured from seat **claim**
+time, which is simpler, needs no new writes, and is strictly worse for exactly the long-session
+case (a guest who refreshes at minute 40 of a 45-minute session would be outside it). Do not
+silently substitute the weaker one — bring it back as a decision.
+
+**Still open, deliberately:** whether the grace window also applies when the session's creator has
+stopped heartbeating (i.e. the room is probably dead anyway). Not decided here.
+
 ## Approach
 
 Not settled — the founder call above decides between shapes, and this spec should not pre-commit.
