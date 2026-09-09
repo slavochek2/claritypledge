@@ -1324,6 +1324,24 @@ gate's escape hatch (`scripts/lib/gate-override.sh`) was deliberately not used: 
 records that an agent reaching for it reads as circumvention, and it does not apply to this gate
 in any case.
 
+**A second defect found while reviewing this change, inherited from P1275 and present on `main`
+today: `discardSession()` cannot delete anything.** `createRoom` mints a `clarity_sessions` row
+before calling the RPC (the RPC verifies the session belongs to the caller, so it must pre-exist),
+and every failure path then calls a cleanup that deletes it. `clarity_sessions` has RLS enabled and
+**no DELETE policy at all** — only INSERT, SELECT and UPDATE — so the delete is filtered to zero
+rows, and PostgREST returns no error for a zero-row delete, which means the `if (error)` guard
+reports success forever. Measured on test with a control: as the row's own creator, 0 rows deleted;
+the identical statement as the table owner, 1 row. RLS, not a bad predicate.
+
+The statement is kept — it is already correct for the day a DELETE policy exists — but it now asks
+for the deleted rows back and warns by session id when none come, so the orphan is named instead of
+imagined. **Whether a creator may delete their own `clarity_sessions` row is a product decision,
+not a mechanical fix** — the table holds real conversation state, and widening RLS to allow it is
+not something to slip into a transcription spec. [FOUNDER DECISION: add a creator-scoped DELETE
+policy to `clarity_sessions`, or accept orphaned sessions and clean them with a scheduled sweep?]
+Until then, every failed room creation leaves a row that also blocks that profile's deletion —
+which is the same FK that already breaks the P1275 canary's own teardown.
+
 **One correction to P1275's own prediction.** Its spec (§"Interaction with P1236") estimated the
 reconciliation at *"one `CREATE OR REPLACE` and one call-site argument"*. `CREATE OR REPLACE`
 cannot do it: in Postgres a changed argument list makes a **new** function, so the consent-less

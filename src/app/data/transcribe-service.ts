@@ -134,11 +134,33 @@ export async function createRoom(profileId: string, displayName: string, consent
 
   // Every failure path below has already spent that row. Nothing else references it yet, and
   // clarity_sessions.creator_profile_id has no ON DELETE CASCADE, so an abandoned one outlives
-  // the profile and blocks its deletion. Discard is best-effort: a failed cleanup must not
-  // replace the real error with a cleanup error.
+  // the profile and blocks its deletion.
+  //
+  // THIS CLEANUP CANNOT CURRENTLY SUCCEED, AND THAT IS DELIBERATELY VISIBLE. clarity_sessions
+  // has RLS enabled and NO DELETE policy — only INSERT, SELECT and UPDATE — so a delete issued
+  // by `authenticated` is filtered to zero rows. PostgREST reports no error for a zero-row
+  // delete, so an `if (error)` check here reports success forever. Measured 2026-09-09 against
+  // the test database: the row's own creator deletes 0 rows, while the same statement as the
+  // table owner deletes 1, so this is RLS and not a bad predicate.
+  //
+  // The statement is kept rather than removed for two reasons: it is already correct for the
+  // day a DELETE policy exists, and asking for the deleted rows back turns a silent no-op into
+  // a warning that names the orphan. Whether creators may delete their own sessions at all is a
+  // product decision, not a mechanical fix — tracked separately.
   const discardSession = async () => {
-    const { error } = await supabase.from('clarity_sessions').delete().eq('id', session.id);
-    if (error) console.error('[transcribe] could not discard the unused session:', error.message);
+    const { data, error } = await supabase
+      .from('clarity_sessions')
+      .delete()
+      .eq('id', session.id)
+      .select('id');
+    if (error) {
+      console.error('[transcribe] could not discard the unused session:', error.message);
+    } else if (!data || data.length === 0) {
+      console.warn(
+        `[transcribe] orphaned clarity_session ${session.id}: no DELETE policy on clarity_sessions, ` +
+        'so the row could not be discarded. It will block this profile\'s deletion.',
+      );
+    }
   };
 
   const maxAttempts = 5;
