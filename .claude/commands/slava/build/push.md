@@ -2,7 +2,7 @@
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 5.2.0
+version: 6.0.0
 ---
 
 # /push
@@ -59,43 +59,68 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 
 ## Decisions this skill makes for you (do NOT ask)
 
-- Commit tracked changes **you modified this session** → **yes**, no need to ask. Dirty files you did *not* touch → **classify first** (below), ask only what classification can't resolve.
+- Commit tracked changes **you modified this session** → **yes**, no need to ask. Dirty files you did *not* touch → **classified automatically** (below) and left uncommitted with a reported reason. Never ask the user about them.
 - Run `/maintain:privacy` → **yes, automatically — when the push range touches a watched path** (its stamp is required by `push-docs`; src-only pushes skip it). Never ask "ok to run privacy?".
 - Use the staging-branch hop → **yes** (it's the canonical and only path to main; `push-docs` owns it).
 
-### Bystander dirty files — classify before asking (P1264, 2026-09-08)
+### Bystander dirty files — resolved automatically, never asked (P1287, 2026-09-09)
 
-A dirty file you didn't touch this session is not automatically a question. Run this
-classification per file (all read-only) before falling back to "list them once and ask"
-(`git.md` — still the default for anything the three checks below don't resolve):
+**Run the classifier and act on it. Do not ask the user about a dirty file.**
 
-1. **Stale no-op index entry** — `git diff --no-renames HEAD -- <file>` empty AND
-   `git status --short --no-renames -- <file>` shows no collapsed rename → the staged
-   content already matches HEAD, unstage silently (`git reset HEAD -- <file>`), nothing to
-   ask. Use `--no-renames` on both checks — default rename detection can collapse a real
-   change into what looks like a no-op (`git.md`).
-2. **Live worktree's in-flight artifact** — `git worktree list`, then for each worktree
-   check `git -C <worktree> status --short` for the **same relative path** (not bare
-   filename — a shared basename like `README.md` or `deploy-manifest.json` matching two
-   unrelated worktrees is a coincidence, not ownership) staged or modified there, OR, for a
-   migration, the identical `<timestamp>_<slug>.sql` stem. A match — especially the
-   documented Supabase CLI migration exception (`git.md`: migration + deploy-manifest
-   stamped on main, run from the worktree) — means it belongs to that session's active
-   work. Leave it uncommitted, but **do not treat that as resolved**: `git.md` is explicit
-   that any uncommitted file on the shared main checkout is exposed regardless of whose it
-   is. State the exposure in the report line (below), not just the owner. A basename-only
-   match on a non-migration file downgrades to bucket 3 — don't attribute ownership on
-   filename alone.
-3. **Neither** → age it (`git log -1 --format=%cr -- <file>` if tracked; mtime if not) and
-   list it once with that age, per the existing rule.
+```bash
+./scripts/classify-dirty-files.sh --session-id "$CLAUDE_SESSION_ID"
+```
 
-State the classification and its action **before** acting on buckets 1-2, then report the
-outcome — this is a report, not a retroactive log. One line per file, e.g.
-"`docs/process-learnings.md` staged, identical to HEAD — unstaging (no-op)" or
-"`supabase/deploy-manifest.json` matches active migration in w6 (`feature/p1264-...`) —
-leaving uncommitted; exposed on shared main until that session commits it." Never message
-peer sessions to ask before checking these three — reserve that for a genuine ambiguity a
-worktree/age check can't resolve.
+One TAB-separated record per dirty path: `<verdict>` `<path>` `<action>` `<evidence>`. Every
+check is read-only. Act on the verdict:
+
+| Verdict | Meaning | What you do |
+|---|---|---|
+| `MINE` | this session's transcript records the write | stage it, commit it |
+| `NOOP` | index entry whose content already equals HEAD | `git reset HEAD -- <path>` |
+| `GENERATED` | tool-regenerated stamp (`supabase/.temp/*`, `.privacy-reviewed`, `deploy-manifest.json`), or an `.agents/skills/*/SKILL.md` mirror whose source skill is not yours | leave uncommitted |
+| `SESSION` | another **live** session wrote it | leave uncommitted, report the owner |
+| `WORKTREE` | same relative path dirty in a live worktree | leave uncommitted, report the slot |
+| `ORPHAN` | written by a session now idle | leave uncommitted, report the age |
+| `UNKNOWN` | no write found in 14d of transcripts | leave uncommitted, report the age |
+
+An `.agents/skills/*/SKILL.md` mirror of a skill **you** edited classifies as `MINE` — the
+"Agent skills sync" pre-commit check blocks a commit that moves one without the other, so the
+pair ships together. Run `./scripts/sync-agent-skills.sh` after any skill edit.
+
+**Evidence has two strengths, and only the strong kind licenses a commit.** Strong = the path
+is the *target* of a write (an editing tool's `file_path`; a redirect/`tee`/`cp`/`mv`/`sed -i`
+naming it; a `python`-style rewrite carrying both the path and a write idiom). Weak = the path
+merely appears in a command that mutates something — `grep … file 2>/dev/null` is the case
+that matters, and it is why a weak-only match on your own file yields `UNKNOWN`, not `MINE`.
+Both shapes are pinned by the canary.
+
+**Only `MINE` is committable — that is the whole safety argument, and it is asserted by
+`scripts/test-classify-dirty-files.sh`.** Leaving a file uncommitted loses nothing; committing
+a co-tenant's in-flight edit under your message loses attribution and has done so twice
+(`git.md`, 2026-08-28 and 2026-09-03). So when the evidence is ambiguous the answer is not a
+question to the user — it is `leave uncommitted`, which is what an ambiguous case should have
+resolved to all along.
+
+**Why transcripts and not a message to the peer session.** The founder's manual procedure was
+"ask the neighbouring sessions, then reason yourself." Asking requires a peer to be awake,
+idle, and willing to answer — of 55 peers listed on 2026-09-09, most were offline and several
+busy — and a session that does not answer is indistinguishable from one that has no claim.
+The transcript **is** the neighbour's answer, already written down, available synchronously,
+and it cannot be wrong about what that session actually did. Attribution matches only *write*
+shapes (`Edit`/`Write`/`MultiEdit`/`NotebookEdit` with a `file_path`, or a `Bash` command that
+redirects/`sed -i`/`tee`/`cp`/`mv`s onto the path). A session that merely **saw** the path — in
+a `git status` dump, a grep hit, an error message — is not its owner; that read-vs-write
+control is the canary's load-bearing case, and a mutant that drops it is killed by the test.
+
+**Report, don't log retroactively.** One line per non-`MINE` file in your output, carrying the
+evidence string. For `SESSION`/`WORKTREE`/`ORPHAN`/`UNKNOWN`, say that the file stays exposed
+on the shared main checkout until its owner commits it (`git.md`) — leaving it is the correct
+action, not a resolved state.
+
+**Escalate to the user only** when a file is `SESSION`/`WORKTREE` **and** it blocks your push
+(it cannot: leaving it uncommitted never blocks a push), or when the classifier itself errors.
+A verdict of `UNKNOWN` is not an escalation.
 
 ## Genuine STOPs (surface these, do not auto-resolve)
 
@@ -133,7 +158,7 @@ Respect the git firewall (`.claude/rules/git.md`): **explicit paths only, never 
    git diff --cached --name-only          # inspect for prior-session leftovers
    git reset HEAD -- <bystander>          # unstage anything not yours
    ```
-3. Stage **only paths you modified in this session**, by explicit path. Never `git add .` / `-A`. This repo runs concurrent worktree sessions and `git.md` calls staging-everything *"the #1 cause of wrong-files-in-wrong-commit"* — `/push` does not get an exemption from that. For dirty files you did **not** touch, list them once and ask; don't sweep them in and don't adjudicate file-by-file.
+3. Stage **only paths you modified in this session**, by explicit path. Never `git add .` / `-A`. This repo runs concurrent worktree sessions and `git.md` calls staging-everything *"the #1 cause of wrong-files-in-wrong-commit"* — `/push` does not get an exemption from that. The `MINE` set from the classifier above **is** that list; everything else is left alone and reported. Do not ask the user to adjudicate it.
 4. `/push` runs on the shared main checkout, so commit through `./scripts/git-ops.sh commit-to-main --message "..." --files <explicit paths>` (`.claude/rules/git.md` — corrected 2026-08-20: a hand-run `git add` + `git commit -- <files>` is NOT safe there even bystander-checked; `commit-to-main` holds a lock across the whole staging+commit sequence, which is the actual guarantee needed). Use the user's message (or a descriptive `chore:`/`docs:`/`fix:` summary of the staged files) plus the commit trailers your session was given (the `Co-Authored-By:` model line + `Claude-Session:` link from your session's git instructions). **Use the running session's model in the trailer — do not hardcode a model name** (a Sonnet `/push` must not stamp Opus authorship).
 
 ### 3. Write the privacy stamp (only if a watched path changed)
