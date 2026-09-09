@@ -59,25 +59,16 @@ fi
 
 # Helper: run a command, suppress output on success, show last 30 lines on failure.
 # This keeps total script output under ~5KB for passing runs (vs 100KB+ before).
-run_quiet() {
-    local label="$1"
-    shift
-    local tmpfile
-    tmpfile=$(mktemp)
-    echo -n ">>> $label... "
-    if "$@" > "$tmpfile" 2>&1; then
-        echo -e "${GREEN}✓${NC}"
-        rm -f "$tmpfile"
-        return 0
-    else
-        echo -e "${RED}✗${NC}"
-        echo "--- Last 30 lines of output ---"
-        tail -30 "$tmpfile"
-        echo "--- End output ---"
-        rm -f "$tmpfile"
-        return 1
-    fi
-}
+# P1273: run_quiet and the index-integrity guard live in a lib so the guard itself
+# can be canaried (scripts/test-index-integrity-guard.sh). See that file for the defect.
+RUN_QUIET_LIB="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/lib/run-quiet.sh"
+if [ -f "$RUN_QUIET_LIB" ]; then
+    # shellcheck source=scripts/lib/run-quiet.sh
+    . "$RUN_QUIET_LIB"
+else
+    echo "FATAL: scripts/lib/run-quiet.sh is missing — every check below runs through it." >&2
+    exit 1
+fi
 
 # T10 (P786): Compute build-affecting staged files once.
 # Sections 1 (TypeScript), 3 (Build), and 4 (Tests) are gated behind this.
@@ -330,6 +321,22 @@ if [ -n "$GIT_OPS_STAGED" ]; then
     fi
 else
     echo ">>> git-ops.sh extensions canary skipped (no git-ops scripts staged)"
+fi
+echo ""
+
+# 4.7a2. Index-integrity guard canary (P1273). Every check in this file runs through
+# run_quiet, so a check that rewrites the index corrupts the very thing the later gates
+# judge. Measured 2026-09-09: test-git-ops-gc.sh drove the real repo via `git -C` without
+# dropping the hook's exported GIT_DIR/GIT_INDEX_FILE — which override -C — turning a
+# 6-path staged commit into 1497 paths mid-hook, while exiting 0. Runs whenever the guard,
+# its canary, or this script is staged.
+INDEX_GUARD_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(lib/run-quiet|test-index-integrity-guard|pre-commit-checks)\.sh$' || true)
+if [ -n "$INDEX_GUARD_STAGED" ] && [ -f "scripts/test-index-integrity-guard.sh" ]; then
+    if ! run_quiet "Index-integrity guard canary (P1273)" bash scripts/test-index-integrity-guard.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Index-integrity guard canary skipped (guard not staged)"
 fi
 echo ""
 

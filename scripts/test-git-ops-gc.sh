@@ -18,6 +18,13 @@
 
 set -uo pipefail
 
+# P785/P1273. This canary drives the REAL repo via `git -C "$ROOT"`, and git exports GIT_DIR
+# and GIT_INDEX_FILE to its hooks — those OVERRIDE -C. Run from pre-commit it therefore wrote
+# into the COMMITTING worktree's index: 6 staged paths became 1497, reconstructing an old tree
+# whose specs exist in no current ref, and the later gates refused the commit over files it
+# never touched. It exited 0 while doing so. Unset before touching git.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GITOPS="$ROOT/scripts/git-ops.sh"
 
