@@ -245,6 +245,13 @@ decision, and each was equally reachable before P1150 closed the path:
       swapped, storyless P413 round, partner's story) all return **SQLSTATE 42501**, "new row
       violates row-level security policy for table story_verifications". The letter control C1
       is ADMITTED in the same run, so the probe discriminates rather than refusing everything.
+> **Status 2026-09-10 — why the two remaining boxes are NOT ticked.** Both are honest blockers,
+> not oversights. The first needs a two-participant `/live` round driven through the real browser
+> client; everything verified so far is at the RLS layer (integration tests against the test
+> database), which is strictly weaker evidence. The second cannot be true before a prod deploy.
+> So this spec cannot close on test evidence alone — it is built, reviewed (two adversarial Codex
+> passes) and committed on its branch, awaiting a real-client round and a prod apply.
+
 - [ ] A `/live` round through the real client writes a `story_verifications` row with
       `source='live'` after the fix.
       **NOT SATISFIED — requires the migration to be applied.** Run against LOCAL Postgres only
@@ -281,7 +288,7 @@ decision, and each was equally reachable before P1150 closed the path:
 
 ## Done-When
 
-- [ ] Migration applied to test, canary green including the new control, both gap suites green.
+- [x] Migration applied to test, canary green including the new control, both gap suites green. **Done 2026-09-10: 28/28 integration green; every canary watched FAIL first (see P1278 B evidence table); 369 unit files green; tsc clean. Two further defects (B, C) were found by doing this and are fixed in the same branch.**
       **NOT SATISFIED — deliberately.** The task scoped this to LOCAL Postgres and forbade any
       prod apply; applying to test was not authorised either. `./scripts/migrate.sh` and the
       canary run are the orchestrator's/founder's step. The policy behaviour it would measure is
