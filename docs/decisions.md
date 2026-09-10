@@ -6,6 +6,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-10 [process]: A monitor that discards its own diagnostic cannot be triaged — put the reason on the stream you are allowed to publish
+
+**Context:** The P1257 stranded-signup check shipped 2026-09-07 and has **never once produced a count**. It exits 2 ("could not run") on every scheduled run. The alarm fired correctly and opened issue #12 — but that issue could only *guess* at the cause, because its body is a fixed string ending "usually the prod service-role secret is missing or was rotated". Five distinct exit-2 paths (no key, API refused, no `jq`, unparseable response, page-limit hit) were indistinguishable from the outside. Two days of "Still not running" comments accumulated with no way to act on them.
+
+The reason the diagnostic was thrown away is a **correct** privacy decision, not an oversight: this gate's subject matter is user email addresses, the repo is public, so the workflow runs the check as `2>/dev/null` and publishes only stdout. Stderr — where every explanation lived — was deliberately unpublishable.
+
+**Decision:** Split the diagnostic by *stream sensitivity* rather than suppressing it. Each exit-2 path now also prints a **fixed reason code** on stdout (`stranded_check_error=missing_service_role_key`, `…=auth_api_call_failed`, and three more). The codes are constant strings that interpolate nothing — never `$response`, never an address, never key material — which is precisely what makes them safe to publish into a public issue verbatim. The issue body prints the code plus a table of what each one means. Stderr keeps the full human detail and stays local.
+
+The workflow now branches on the **exit code** (`steps.check.outputs.status`) instead of on stdout being empty. This was forced by the change and is the subtle half: with a reason code present, the old `summary == ''` test would have classified a could-not-run as *"people are stranded"* and posted the wrong alarm at the wrong severity.
+
+**Alternatives rejected:** *Forward stderr into the issue* — the exact thing the privacy design forbids; the curl-failure path echoes a raw API response that can carry user rows. *Forward only the first line of stderr* — no invariant makes line 1 non-identifying, so it is the same leak with a smaller window. *Have the founder read the Actions log* — the log is also public, and it requires noticing the issue is uninformative first, which is what did not happen for three days.
+
+**Consequences:** The general rule this repo now has, applicable to all seven scheduled gates: **an alert must carry a machine-classifiable reason, and the reason belongs on whichever stream the alert channel is already allowed to publish.** A gate whose explanation lives only on a suppressed stream is a gate that can fail loudly and still tell nobody anything.
+
+Two follow-ups, both live: the CI secret is still absent, so the check remains unmonitored until the founder adds it — and this whole class was reachable because the gate shipped without anyone watching it *succeed* once ([epistemic.md](../.claude/rules/epistemic.md) gate 7 applied to a scheduled job, where "run it once by hand" is not the same as "watch a real scheduled run"). **Status: proposed** — worth extending the reason-code shape to the other six gates.
+
+**References:** [scripts/check-stranded-signups.sh](../scripts/check-stranded-signups.sh), [.github/workflows/stranded-signups.yml](../.github/workflows/stranded-signups.yml), issue #12
+
+---
+
+## 2026-09-10 [technical]: The anon-execute allowlist has no category for a grant that an RLS policy predicate requires — so the drift check flags three functions it can never resolve
+
+**Context:** The P1065 grant-drift check reported **7 NEW anon-executable functions**. All seven turned out to carry a deliberate, commented `GRANT EXECUTE … TO anon` in their own migration — nothing had leaked; the allowlist had simply not kept up with shipped features. Four had real logged-out call sites and were allowlisted normally (P1229 pledgers page, P1222 public agreements ×2, P1149 transcribe room), taking the check from 7 NEW to 3.
+
+The remaining three exposed a gap in the allowlist's own rules. Rule 1 requires citing a real anon **call site**; rule 2 says a function without one "does not belong here — those are backlog, not allowlist". But `can_read_clarity_session(uuid)` and `can_read_verification_message(uuid)` have no client call site *and are not backlog*: they sit in the `USING` clause of RLS policies, and Postgres evaluates a policy predicate as the querying role, so the anon grant is **load-bearing and permanent**. Revoking it breaks anon reads of the child tables it protects. Neither rule 1 nor rule 2 can produce a correct answer for them, so the check is guaranteed to keep reporting them forever.
+
+**Decision:** Recorded, not yet resolved — the fix changes the semantics of a security baseline file and is the founder's call. The shape needed is a third category, something like "granted because policy evaluation requires it", justified by citing the **policy** rather than a call site.
+
+The same pass found the opposite case and it is worth separating: `event_grace_interval()` carries an anon grant that **nothing requires**. Every caller is `SECURITY DEFINER` (so runs as owner) and no policy references it — verified by grep across all migrations. That grant is genuinely removable, and it is what rule 2's "backlog" was actually written for. Harmless in the meantime: the function returns a constant interval and reads nothing.
+
+**Alternatives rejected:** *Allowlist all three anyway* — rule 1 exists precisely to stop entries justified by reasoning rather than evidence, and the allowlist's own header warns that such an entry "is exactly the entry this check would then bless forever". *Baseline them as known-open* — the baseline is documented as "known backlog", which is false for two of the three and would mislabel a permanent structural grant as debt. *Revoke and see what breaks* — a destructive probe against prod RLS ([epistemic.md](../.claude/rules/epistemic.md) gate 2b).
+
+**Consequences:** The drift check stays at 3 NEW / exit 1 until this is decided, so it is currently a red gate whose redness is understood — which is the state most likely to get a check ignored. Deciding it is worth doing soon for that reason alone, not because of any exposure.
+
+**References:** [scripts/anon-execute-allowlist.txt](../scripts/anon-execute-allowlist.txt), [scripts/function-grant-drift-check.py](../scripts/function-grant-drift-check.py)
+
+---
+
 ## 2026-09-10 [process]: A room reading sheet and a blog article need opposite things — the constraint that makes one work destroys the other
 
 **Context:** `a69` specified a reading artifact for the first AI-safety event that would "double as a standalone content asset": four points, eight agent stories, embedded, with two hard requirements — one framing sentence, and **no founder voice between the stories** because "the agent stories ARE the content". A full draft was built to that spec, with live embeds, and shown to the founder. Verbatim: *"its aweful - first its not a blog article on ghost, second the ris no story line.. third having point above and below opned stories looks like chaos."*
