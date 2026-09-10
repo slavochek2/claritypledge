@@ -6,6 +6,54 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-10 [process]: Two failed fixes in one evening, and the thing that made them expensive was not being wrong (P1295)
+
+**Context:** After P1275 restored `/transcribe` room creation, the first real sessions on a
+physical phone showed three symptoms at once — every line written twice, invented words, and a
+microphone indicator cycling. Two fixes were attempted and both failed. P1236's diagnosis
+(`MediaRecorder` contention) was disproved by the fact that the recorder is flag-disabled on prod
+and both it and `getUserMedia` sit inside that flag. P1288's fix (duplicate `onresult` delivery at
+a repeated result index) shipped and was then disproved by an incognito run still measuring 1.92
+duplication.
+
+**Decision:** Record what actually cost the evening, because it was not the two wrong hypotheses —
+those are the normal price of debugging.
+
+1. **Every iteration required a human holding a phone.** `adb devices` lists nothing and no device
+   appears on the USB bus, so each hypothesis cost a founder round-trip: connect, speak, report,
+   wait. Two iterations is nothing; two iterations at human latency, late at night, is what
+   produced *"i'm a bit hopeless now"* and *"why do I need to be involved in all of that?"*.
+   **The fix is one-time device access, not better hypotheses.** With USB debugging authorised, an
+   agent can `adb reverse` the dev server, attach over the DevTools protocol, inject
+   instrumentation and iterate alone. P1236's own 2026-09-01 A/B was run that way, so this
+   capability existed and lapsed unnoticed.
+
+2. **Three symptoms were filed as one spec on purpose.** Splitting them invites three patches on
+   three hypotheses — which is the loop that produced the two failures. They are all consistent
+   with one suspect: a short-utterance browser API driven as continuous dictation.
+
+3. **The strongest signal was ignored for hours: the component under repair is scheduled for
+   deletion.** P1236 replaces browser speech recognition with a server-side path and is blocked on
+   a spend cap, two devices and a deploy — not on engineering. Every hour spent patching the
+   recogniser was spent on code that feature removes. **When a fix target is already scheduled for
+   replacement, "repair vs finish the replacement" is the first question, not the last.**
+
+**Consequences:** The generalization worth keeping is about *cadence*, not correctness. A debugging
+loop whose iteration requires a human is not a slow loop, it is a **different activity** — each
+attempt spends someone's patience rather than a machine's time, so the number of affordable wrong
+guesses collapses from many to about two. Before starting any investigation that needs a physical
+device, a production account, or a manual step: **establish direct access first, or say out loud
+that the loop is human-paced and budget the guesses accordingly.**
+
+**Status: the root cause is UNRESOLVED and deliberately recorded as such.** Falsifier for the
+current suspect: an instrumented run showing `event.resultIndex` never repeating within or across
+sessions would move the cause out of the recogniser entirely.
+
+**References:** [P1295 spec](../features/p1295_browser_speech_recognition_is_unfit_for_room_transcription.md)
+· P1288 · P1236 · P1275
+
+---
+
 ## 2026-09-09 [process]: The founder reported "repeated confirmations" on a push where no gate ever prompted — the timer owned the check
 
 **Context:** After a `/push` completed, the founder asked what was broken and why he "had to confirm multiple times". Nothing in the push had asked him anything. The evidence: `permissionMode` was `bypassPermissions` for the whole session (Claude Code raised no tool dialogs at all), `PUSH_DOCS_ASSUME_YES=1` auto-confirmed the promote step's only `y/N`, and the `~/.push-enabled` waiver in `pre-push-checks.sh:308-318` printed `✅ Push allowed` and `exit 0`ed before Layer 3's TTY confirm on every push. What he actually answered were three consecutive *"still waiting, nothing to act on"* replies from `/push` itself while it waited on `main.lock`.
