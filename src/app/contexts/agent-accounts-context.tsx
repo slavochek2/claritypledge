@@ -43,7 +43,16 @@ interface AgentAccountsState {
   isLoading: boolean;
 }
 
-const AgentAccountsContext = createContext<AgentAccountsState | null>(null);
+/**
+ * Exported for ONE reason: a `/tree/*` prototype has to supply this fact itself.
+ * The provider below fetches the registry from whichever Supabase project the app is
+ * pointed at, and local dev points at TEST — so a prototype rendering a frozen snapshot
+ * of PROD agent-authored content would have every card render as a person. The
+ * fail-closed guarantee is unaffected: an override is a deliberate `<Provider value=…>`
+ * in a DEV-gated page, never a fallback anything reaches by accident.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export const AgentAccountsContext = createContext<AgentAccountsState | null>(null);
 
 export function AgentAccountsProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<Map<string, string> | null>(null);

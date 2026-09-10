@@ -53,7 +53,26 @@ The footer shape to converge on is **`feed-story-card`'s own**: `border-t border
 
 Contents, left to right: expand affordance and count, then right-aligned share, then open-in-new. Feed cards gain the open-in-new icon they lack. On the point card this means lifting the share control out of the `PositionButtons` row, which is the focus-order risk below.
 
+Two things verified 2026-09-10, both of which look like objections and are not:
+
+- **The open-in-new icon is not redundant with the card click.** The card root navigates
+  (`feed-story-card.tsx:83-85`), but the footer row calls `stopPropagation`
+  (`feed-story-card.tsx:342`) — so the footer strip is the one band of the card where the
+  card-click navigation is dead. The icon restores it there. The profile carries both for the same
+  reason (`point-card-with-links.tsx:282` navigates AND `:632` renders the icon).
+- **Lifting share out of the buttons row must carry its analytics line with it.**
+  `analytics.track('feed_card_shared', …)` fires from `feed-point-card.tsx:230` and
+  `feed-story-card.tsx:318`. This is the same fact that rules out the profile's `ShareButton`,
+  which fires nothing.
+
+Touch targets: the profile's footer icons are `min-w-11 min-h-11` (44px) while the feed's expander
+is `min-h-[40px]`. Use 44px on the new icons — 40px is the checklist floor, not the target.
+
 **2. `/stake` gets the footer on BOTH tabs.** **FOUNDER DECISION, RESOLVED 2026-09-10.** Requires `/stake` to fetch linked stories and points — a page-level data change, not styling.
+
+**No new query is needed.** Both batch fetchers already exist with mock counterparts —
+`getPointsForStories` and `getStoriesForPoints` (`stories-service.interface.ts:83,123`). `/stake`
+wires them exactly as `feed-page.tsx:510-525` does. Verified 2026-09-10.
 
 **3. The footer covers point cards as well as story cards.** **FOUNDER DECISION, RESOLVED 2026-09-10**, same statement.
 
@@ -66,6 +85,10 @@ Contents, left to right: expand affordance and count, then right-aligned share, 
 - **Tab switches use `replace: true`**, or the new bottom CTA walks the reader back through their own tab switches.
 
 **6. `/stake` gains a bottom back CTA**, mirroring `handleBack` (`stake-page.tsx:141-144`).
+**Label: "Go back" — FOUNDER DECISION, RESOLVED 2026-09-10**, the founder's own words. Deliberately
+NOT "Back to the feed": `handleBack` goes to the previous page whenever there is one and only falls
+back to `/feed` on a cold arrival (`location.key === 'default'`), so a destination-naming label
+would be wrong for most visitors.
 
 **7. Absorb P500's `text-base` body type, then close P500.** `feed-story-card.tsx:245` and `feed-point-card.tsx:186` are `text-sm`. **Do NOT cite `profile-page-v2.tsx:1930` as the target — it sits inside `PointCardFull`, which is never rendered.** **Do NOT absorb P500's "~180 char threshold" for Show more; P1259 change 6 banned that shape explicitly.** Tab counts ("Points (N)") are the other live P500 item. Note `text-base` on `feed-story-card:245` interacts with `line-clamp-[18]` — density changes, screenshot it.
 
@@ -76,7 +99,37 @@ The pile is real and it is **on the Stories tab today, behind no collapse**: 8 s
 - **(a) Collapse repeats.** Full player on a source's first appearance; later appearances render quotes and timestamps with the player behind a small expandable affordance. The rule `a69` already specified.
 - **(b) Group by source.** A source's stories under one heading, player shown once. For this tag each author has exactly one video, so group-by-source and group-by-author coincide; group-by-source is the general rule.
 
-`[FOUNDER DECISION: (a) or (b) — deferred until artifacts exist. Verbatim: "gorup by soruce is itneresitng but i guess we need to build artifact to see how it would look to decide if we do that or dedup as orignially thought of?" Build both as static artifacts against real aisafety1 content and show them before implementing either.]`
+**THE ARTIFACTS NOW EXIST.** `/tree/stake-grouping` (DEV-gated) renders Today, (a) and (b) side
+by side in tabs, using the SHIPPING `FeedStoryCard` against a frozen prod snapshot of all eight
+stories (`src/app/pages/tree/aisafety1-fixture.ts`). Verified in a real browser: 17 timecodes stay
+visible in every variant, no console errors, no horizontal overflow at 375px or 320px.
+
+`[FOUNDER DECISION: (a) or (b) — artifacts built 2026-09-10, awaiting the founder's look. Verbatim: "gorup by soruce is itneresitng but i guess we need to build artifact to see how it would look to decide if we do that or dedup as orignially thought of?"]`
+
+**What the real data does to the choice — and it is not what either draft assumed.** In the
+oldest-first order `/stake` actually requests, LeCun's two stories are already ADJACENT and so are
+Bengio's; only Leahy's three are scattered, at positions 1, 3 and 8. So (a) and (b) differ on
+exactly one person, and (b)'s cost is concentrated there: grouping moves five cards.
+
+Three observations from the built artifact, offered as input to the call, not as the call:
+
+- **(b) reorders a list whose order is deliberate.** `stake-page.tsx:74-80` requests stories
+  `ascending = true` and the file's header treats stored order as render order. On `/feed` the same
+  rule would rearrange the global feed around whoever posted the video.
+- **(b) collides with the agent profile.** Rendered, a group reads "Connor Leahy / 3 stories from
+  one source" over one player — which is `/p/agent-connor-leahy`. The name then appears five times
+  in one group (heading, plus byline and quote header on each card), and at 375px the group's
+  container double-indents every card inside it.
+- **(a) buys back roughly a video box (~330px) on each of the four repeats and moves nothing.**
+
+**NEW — an open question BOTH designs inherit, found while building the artifact and present in
+neither adversarial review.** `useLazyStoryPlayer` swallows a seek whenever `enabled` is false:
+`mode` stays `'thumbnail'`, `playerRef` never populates, and `onSeek` sets `mounted` without ever
+producing a player. So a timecode click on a card whose player has been collapsed (a) or hoisted to
+a group heading (b) is a DEAD CLICK unless the design says otherwise. Three candidate answers, and
+the design that wins must pick one: expand-then-seek; seek the group's player; or fall back to the
+open-on-YouTube link — the last walks back P1259 change 1, whose entire purpose was to stop a
+timecode throwing the reader off the page, and it would do so on five of these eight cards.
 
 **Invariant on either design:** timestamps stay visible on every repeat without exception. The embed is convenience; the timestamp is the falsifiability hook. Hiding a repeated *player* is dedup. Hiding repeated *quotes or timestamps* is not, and is out of bounds.
 
@@ -104,7 +157,7 @@ The pile is real and it is **on the Stories tab today, behind no collapse**: 8 s
 | Lifting share out of the `PositionButtons` row disturbs focus order | MITIGATE | Tab through the footer on every surface. `decisions.md` 2026-05-20 [technical], "Portal-rendered menus require manual focus management", records a prior focus-order defect in this exact row |
 | A point card needs a type adapter | MITIGATE | Types are inverted from the March note: `StoryWithPoints extends StoryWithAuthor` (converged), while the *point* card has prototype `Point` vs `PointWithUserPosition` |
 | `text-base` interacts with `line-clamp-[18]` | MITIGATE | Density shift on story cards; screenshot before and after |
-| Feed card with 0 linked items | MITIGATE | Define the empty footer. `point-card-with-links:600` returns `<span/>` in that case — a blank divider, worse than today's `0 stories` |
+| Feed card with 0 linked items | RESOLVED | **FOUNDER DECISION 2026-09-10: keep `0 points` / `0 stories`**, as `feed-story-card.tsx:357` already does. The row still carries share and open-in-new, so it is never a bare divider. Do NOT copy `point-card-with-links:600`'s `<span/>` |
 | Dark mode ACs are unproducible today | ACCEPT | No code adds `.dark`; the mode is dormant. Keep `dark:` usage at 0 in these cards rather than testing a mode that cannot be entered |
 | `MobileTooltip` vs plain `title="Copy link"` parity | ACCEPT | Real, small |
 
@@ -119,7 +172,9 @@ The pile is real and it is **on the Stories tab today, behind no collapse**: 8 s
 
 ## Done-When
 
-- [ ] Two static artifacts exist showing repeat-source options (a) and (b) against real `aisafety1` content, and the founder has chosen
+- [x] Two artifacts exist showing repeat-source options (a) and (b) against real `aisafety1` content — `/tree/stake-grouping`, real `FeedStoryCard`, prod snapshot, browser-verified
+- [ ] The founder has chosen (a) or (b)
+- [ ] Whichever design wins says where a timecode seeks on a card with no visible player
 - [ ] Story and point cards on `/feed` and `/stake` render the same footer row: `border-t border-border px-4 py-2.5`, count and expand left, share then open-in-new right
 - [ ] Feed cards render an open-in-new icon
 - [ ] `feed_card_shared` still fires from the feed share control
@@ -145,11 +200,23 @@ The pile is real and it is **on the Stories tab today, behind no collapse**: 8 s
 
 ## Open Questions
 
-1. Repeat-source design (a) or (b), after artifacts.
-2. Empty-footer treatment on a card with 0 linked items.
+1. **Repeat-source design (a) or (b).** The artifacts exist at `/tree/stake-grouping`; the founder
+   has not yet looked. This is the ONLY thing blocking `/dev`.
+2. **Where a timecode seeks on a collapsed or grouped card.** New, found while building the
+   artifact — see item 8. Answered as part of whichever design wins, not before.
+
+~~2. Empty-footer treatment~~ — RESOLVED 2026-09-10, see Risks.
 
 ## Review
 
 Two adversarial reviews, 1 of 1 reviewer reporting each time, both VERDICT: **No**, each on a different premise this spec no longer holds. Second reviewer's coverage, in its own words: commands on all six axes plus two read-only prod REST reads; **no browser check** — every rendered-visual claim, focus order included, is read from source rather than observed. That gap is why the visual Done-When items require screenshots rather than inheriting the review's word.
 
 **This draft has not been reviewed.** It was written from the second review's findings, including its explicit answer that in-place alignment is the correct target.
+
+**Artifact session, 2026-09-10 — no subagents spawned, 0 of 0 reporting.** Every claim added in
+that pass was verified by command or in a real browser by the main session: prod REST reads for the
+eight stories, four profiles, the agent registry and the story→point links; `tsc` and `eslint` clean
+on the new files; Chrome DevTools for the render, the 17 visible timecodes, the empty console, and
+the absence of horizontal overflow at 375px and 320px. The `useLazyStoryPlayer` seek finding is read
+from source (`use-lazy-story-player.ts`), NOT observed — it is the one claim in this pass that has
+not been exercised, and it should be reproduced before the fix is designed on it.
