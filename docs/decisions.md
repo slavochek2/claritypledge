@@ -3158,6 +3158,42 @@ decisions.md 2026-06-27 [process] (`ship-gates.sh` SIGPIPE)
 
 ---
 
+## 2026-09-10 [process]: A spend cap is invisible to the billing API, so querying it turns a working cap into a reported absence (P1236)
+
+**Context:** Asked whether P1236's Gemini path was protected by a spend cap, an agent ran
+`ai-keys --collect-budgets`, saw five budgets — all labelled *alert* — found no budget naming the
+batch key P1236 uses, and reported to the founder that only a notification existed and nothing would
+actually stop a runaway. Every one of those observations was accurate. The conclusion drawn from
+them was false.
+
+**What was actually true.** A monthly spend-cap-enforcement budget on
+`generativelanguage.googleapis.com` has been live since P1162 shipped 2026-09-07, with an
+alert-only budget alongside it, and the key P1236 uses (`cp-batch`) carries a EUR 75 cap.
+Enforcement is measured, not inferred: a tripped cap returns `403 PERMISSION_DENIED` naming the
+cap, and raising it restores service.
+
+**Decision — absence from the Billing API is not evidence a cap is missing.** Spend caps do not
+appear in `gcloud billing budgets list` and `enforce` appears nowhere in the Billing Budgets v1 or
+v1beta1 schema; a cap is visible only in the Console's "Spend cap status" column. Measured on this
+billing account: console 11 budgets, API 8, and the 3 omitted were exactly the capped ones. **Never
+answer "is there a cap?" from any script.** Alert budgets *are* API-visible and creatable — which
+is the trap, because the API returns a confident, well-formed, incomplete list.
+
+**Why this recurred despite being written down.** `pp/docs/infra/gcp-spend-caps.md` opens with this
+exact warning in bold, and names both directions it has already failed in — a claim trusted as a
+fact, and an API's silence trusted as a disproof. It did not fire, because an agent working in **cp**
+has no path that routes it to a **pp** infra doc, and the question ("is the Gemini path capped?")
+arrives inside a cp feature spec. A rule must live where it can fire — the same routing-time failure
+as 2026-08-07. Hence this entry in cp, and an inline correction in P1236's own Done-When item rather
+than a reference to the pp doc.
+
+**Consequences:** P1236's spend-cap blocker is closed on evidence, not judgment — the spec had been
+carrying it as open only because it was written before P1162 landed. The generalisation worth
+keeping is narrower than "verify before asserting": **when a probe answers a yes/no question with a
+list, ask what the list is structurally unable to contain before reading a "no" out of it.** A
+control probe in the other direction (a known-capped resource) would have caught this one, and is
+the cheap check whenever an API's emptiness is about to become a finding.
+
 ## 2026-09-08 [technical]: A control scoped to a ref's NAME misses the other name for the same commit — and a correctly-proven abort was never asked what it left behind (P1260)
 
 **Context:** P1260 added a pre-push refusal for `feature/*` and `fix/*` refs, to make P1255's
