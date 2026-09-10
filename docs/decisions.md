@@ -6,6 +6,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-10 [process]: A room reading sheet and a blog article need opposite things — the constraint that makes one work destroys the other
+
+**Context:** `a69` specified a reading artifact for the first AI-safety event that would "double as a standalone content asset": four points, eight agent stories, embedded, with two hard requirements — one framing sentence, and **no founder voice between the stories** because "the agent stories ARE the content". A full draft was built to that spec, with live embeds, and shown to the founder. Verbatim: *"its aweful - first its not a blog article on ghost, second the ris no story line.. third having point above and below opned stories looks like chaos."*
+
+**Decision:** The two jobs are not compatible in one document, and the no-founder-voice rule is the reason. In a room where people read silently for three minutes before arguing, prose between the points is noise competing with the thing they are forming an opinion about — the rule is correct there. On a blog the same page has no reason to be read: four points are **parallel, not sequential**, so nothing pulls a reader from one to the next. That is a structural property of the container, not a writing failure, and no amount of better sentences fixes it.
+
+The event needs no article at all. `/stake/aisafety1` already renders the four statements with position buttons, no video, no search and no filter chrome — verified signed out. The Ghost build was a second, worse copy of a page that already ships.
+
+**Alternatives rejected:** *(a) One document, article-shaped* — relaxing the no-founder-voice rule to get a narrative; loses the clean silent-reading artifact the room actually needs. *(b) One document, sheet-shaped* — what was built; works in the room, fails as a blog post, confirmed by the founder on sight. *(c) Build the source-dedup mechanism `a69` specified* — the duplicate-video problem only ever bit the blog container; with no container it has nowhere to bite, and the founder dropped it: *"probably duplication is not really a concern anyway until we actually find the concern."*
+
+**Consequences:** Write the artifact for one venue. If a blog post is wanted later it is a different document with a real spine, and it should be written after an event produces something worth writing about rather than before. `a69` carries a SUPERSEDED block at the top listing all five reversals; the draft was deleted. **The general rule worth carrying: when a spec's constraints are tuned for a physical setting, do not also ask the artifact to work as published content.**
+
+**References:** [a69](../content/articles/a69_agent-positions-ai-safety-event-reading.md) · [clarity-practice-event.md](events/clarity-practice-event.md)
+
+---
+
+## 2026-09-10 [process]: The plan already existed — twice in one session, and both times it cost hours
+
+**Context:** Roughly four hours went into designing an event artifact: what the room reads, how many points, whether participants see the agent stories, how the founder frames each position, what to do about consent and recording. Near the end the founder said he had forgotten how the fishbowl worked. `docs/events/clarity-practice-event.md` was then read for the first time: **326 lines, a settled ten-block run-of-show, timings decided, the fishbowl specified, an event-#1 seeding exception, and a drafted description copy section.** It contradicted the session's working assumptions on three points at once — the room loops over ~3 points not 1, the host frames each position rather than the room reading stories, and a recording-policy founder decision was already open and waiting.
+
+The same failure had already fired earlier the same session: a spec was drafted for card-footer consistency before the blocking duplicate gate turned up `P500`, filed 13 March, specifying the same footer work.
+
+**Decision:** For any work touching an existing surface, process or event, **read the manifest before designing** — the events doc, the open specs, the decisions log. This repo's CLAUDE.md already says "check what already exists before building new" and `epistemic.md` gate 4 already says to read the registry rather than guess among candidates. Neither fired, because the work did not look like it had a manifest: it presented as "write an article", not "modify an existing event design".
+
+**Alternatives rejected:** *(a) Add another rule* — two rules already cover this and both were skipped; a third would be skipped identically. *(b) Treat it as a one-off* — it happened twice in one session, on unrelated surfaces.
+
+**Consequences:** The tell is the shape of the request, not its subject. **A task phrased as pure creation ("write the article", "file a spec") can still be an edit to something that exists, and that is exactly when the manifest check is skipped.** Cost this session: a full article draft built and discarded, plus a spec drafted against a six-month-old duplicate. What made both recoverable was cheap: one `grep` and one file read. (Status: proposed — the intervention, if any, is unresolved; recording the pattern is what this entry is for.)
+
+**References:** [clarity-practice-event.md](events/clarity-practice-event.md) · [p1296](../features/p1296_card_footer_consistency_and_stake_navigation.md) · `features/p500_feed_card_harmonization.md`
+
+---
+
 ## 2026-09-10 [process]: Two failed fixes in one evening, and the thing that made them expensive was not being wrong (P1295)
 
 **Context:** After P1275 restored `/transcribe` room creation, the first real sessions on a
