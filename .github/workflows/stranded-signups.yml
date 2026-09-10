@@ -50,16 +50,24 @@ jobs:
           summary="$(./scripts/check-stranded-signups.sh 2>/dev/null)"
           status=$?
           set -e
+          # Both outputs are single-line by construction: the count line on exit 0/1, or a
+          # fixed `stranded_check_error=<code>` token on exit 2. A multi-line value would
+          # be an invalid `key=value` write here and would silently arrive EMPTY.
           echo "summary=${summary}" >> "$GITHUB_OUTPUT"
+          # The exit CODE is the branch key, not whether stdout is empty. Exit 2 now prints
+          # a reason code on stdout, so the old `summary == ''` test would have classified a
+          # could-not-run as "people are stranded" and posted the wrong alarm.
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
           exit $status
 
       # Exit 2 means the check could NOT run (missing secret, API error). That is a
       # different problem from "people are stranded" and must not be reported as one,
       # or a broken credential would masquerade as a clean week.
       - name: Report that the check itself could not run
-        if: steps.check.outcome == 'failure' && steps.check.outputs.summary == ''
+        if: steps.check.outcome == 'failure' && steps.check.outputs.status == '2'
         env:
           GH_TOKEN: ${{ github.token }}
+          REASON: ${{ steps.check.outputs.summary }}
         run: |
           TITLE="Stranded-signup check is not running"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
@@ -76,14 +84,26 @@ jobs:
           existing=$(gh issue list --state open --limit 100 --json number,title,author \
             | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
           if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "Still not running — $RUN_URL"
+            gh issue comment "$existing" --body "Still not running (\`${REASON:-no reason code}\`) — $RUN_URL"
           else
             gh issue create --title "$TITLE" \
-              --body "The daily stranded-signup check exited without producing a count, so signup failures are currently unmonitored. Usually the prod service-role secret is missing or was rotated, or the auth admin API refused the call. Triage: run \`./scripts/check-stranded-signups.sh\` locally — it names the missing variable. Run log: $RUN_URL"
+              --body "The daily stranded-signup check exited without producing a count, so signup failures are currently unmonitored.
+
+          **Reason reported by the check:** \`${REASON:-none — the script exited 2 without a reason code, which itself is a bug}\`
+
+          | code | what it means |
+          |---|---|
+          | \`missing_service_role_key\` | the prod service-role secret is absent from this repo's Actions secrets, or empty |
+          | \`auth_api_call_failed\` | the secret exists but prod's auth admin API refused or was unreachable (rotated key, outage) |
+          | \`jq_not_installed\` | the runner image lost \`jq\` |
+          | \`unparseable_api_response\` | the API answered with something that is not the expected shape |
+          | \`page_limit_reached_window_incomplete\` | more than 1000 auth users; this check does not paginate and would under-report |
+
+          Triage: run \`./scripts/check-stranded-signups.sh\` locally — stderr carries the full detail, which is deliberately not published here because it can contain user email addresses. Run log: $RUN_URL"
           fi
 
       - name: Open a GitHub issue when people are stranded
-        if: steps.check.outcome == 'failure' && steps.check.outputs.summary != ''
+        if: steps.check.outcome == 'failure' && steps.check.outputs.status == '1'
         env:
           GH_TOKEN: ${{ github.token }}
           SUMMARY: ${{ steps.check.outputs.summary }}

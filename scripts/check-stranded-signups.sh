@@ -65,6 +65,22 @@ env_value() {
     | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
 }
 
+# Exit-2 means "the check could not run", which is NOT a clean result. The reason has
+# always been printed to stderr — but the CI caller drops stderr on purpose (it can carry
+# user email addresses and the repo is public), so for three days the only signal that
+# reached anyone was an issue body that GUESSED at the cause: "usually the prod
+# service-role secret is missing or was rotated". Nobody could tell which of the five
+# exit-2 paths had fired.
+#
+# So each one also emits a REASON CODE on stdout. Codes are fixed strings chosen to carry
+# no user data, no addresses and no key material, which is what makes them safe to publish
+# into a public GitHub issue verbatim. Never interpolate $response, an email, or a key into
+# one. Separator is `=` and never a shell redirect character (.claude/rules/shell-safety.md).
+cannot_run() {
+  printf 'stranded_check_error=%s\n' "$1"
+  exit 2
+}
+
 PROD_URL="${PROD_SUPABASE_URL:-$(env_value PROD_SUPABASE_URL)}"
 PROD_URL="${PROD_URL:-https://besjtuodziykmjidubzw.supabase.co}"
 SERVICE_KEY="${PROD_SUPABASE_SERVICE_ROLE_KEY:-$(env_value PROD_SUPABASE_SERVICE_ROLE_KEY)}"
@@ -72,7 +88,7 @@ SERVICE_KEY="${PROD_SUPABASE_SERVICE_ROLE_KEY:-$(env_value PROD_SUPABASE_SERVICE
 if [ -z "$SERVICE_KEY" ]; then
   echo "check-stranded-signups: PROD_SUPABASE_SERVICE_ROLE_KEY is not set — cannot query auth users." >&2
   echo "This is NOT a clean result. Set it in .env.local (local) or as a secret (CI)." >&2
-  exit 2
+  cannot_run missing_service_role_key
 fi
 
 # The admin users endpoint is the only read of auth.users available over REST.
@@ -84,12 +100,12 @@ response="$(curl -sS -f -X GET \
   -H "Authorization: Bearer ${SERVICE_KEY}" 2>&1)" || {
   echo "check-stranded-signups: prod auth API call failed:" >&2
   echo "$response" >&2
-  exit 2
+  cannot_run auth_api_call_failed
 }
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "check-stranded-signups: jq is required but not installed." >&2
-  exit 2
+  cannot_run jq_not_installed
 fi
 
 # A signup is "stranded" when all of:
@@ -115,7 +131,7 @@ filter='
 
 stranded="$(printf '%s' "$response" | jq --arg grace "$GRACE_HOURS" --arg window "$WINDOW_DAYS" "$filter")" || {
   echo "check-stranded-signups: could not parse the auth API response." >&2
-  exit 2
+  cannot_run unparseable_api_response
 }
 count="$(printf '%s' "$stranded" | jq 'length')"
 
@@ -125,7 +141,7 @@ count="$(printf '%s' "$stranded" | jq 'length')"
 returned="$(printf '%s' "$response" | jq '.users | length')"
 if [ "$returned" -ge 1000 ]; then
   echo "check-stranded-signups: the API returned a full page (${returned} users); this check does not paginate, so the window is not fully covered." >&2
-  exit 2
+  cannot_run page_limit_reached_window_incomplete
 fi
 
 if [ "$WRITE_EMAILS" -eq 1 ]; then

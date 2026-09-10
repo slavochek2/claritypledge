@@ -74,3 +74,12 @@ resolve_letter_shortcode(text,text)           # a shortcode letter URL resolves 
 get_session_by_code(text)                     # a cold /live/:code visit resolves the room before any account exists — src/app/data/api.ts:1016 (join pre-flight), :1100 (getClaritySession)
 get_active_session_by_code(text)              # the same guest rejoining within the grace window, still with no session — src/app/data/api.ts:1278
 get_practice_room_codes(uuid)                 # a public event page lists its practice rooms to logged-out visitors (P406) — src/app/data/events-service-real.ts:851
+
+# --- 2026-09-10: shipped anon paths whose grant was never listed here ---
+# Found by the P1065 drift check, not by a leak. Each grant was written deliberately
+# in its own migration; only the allowlist entry was missing. Routes confirmed
+# unguarded in src/App.tsx (all render under ClarityLandingLayout, no auth wrapper).
+get_pledgers_page(integer,integer)            # the public /pledgers list pages through verified pledgers for logged-out visitors (P1229) — src/app/data/api.ts:310, route src/App.tsx:596
+get_public_agreement(uuid)                    # a public agreement page /agreements/:id renders to a visitor with no account; the table policy is parties-only, so the column-scoped RPC is the only read (P1222) — src/app/data/agreements-service-real.ts:278, route src/App.tsx:506
+get_public_agreements_for_profile(uuid)       # a public profile lists its active agreements to anonymous or non-party visitors, same parties-only policy (P1222) — src/app/data/agreements-service-real.ts:376
+get_transcribe_room_by_code(text)             # a cold /transcribe/:code visit resolves the room before any account exists (P1149) — src/app/data/transcribe-service.ts:218, route src/App.tsx:848
