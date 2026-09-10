@@ -36,6 +36,11 @@ type ViewState = 'loading' | 'consent' | 'joining' | 'room' | 'ended';
 
 const CHUNK_INTERVAL_MS = 30000;
 
+/** Consecutive dropped/failed slices before the room tells the user live text has stopped.
+ *  Three is one full queue's worth (createSerialSender's default maxPending), i.e. the
+ *  point at which the jam is structural rather than a single bad request. */
+const STALL_AFTER_CONSECUTIVE_FAILURES = 3;
+
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
@@ -191,11 +196,32 @@ export function TranscribeRoomPage() {
       // the server may already have transcribed. The queue is bounded so a phone that has
       // lost its radio drops slices rather than growing without limit — the archival
       // upload above still carries every second, so only live text degrades.
+      // A run of consecutive failures/drops is the ONLY client-visible symptom of a stalled
+      // ingest, and before P1236's 2026-09-10 device run there was nothing watching it: the
+      // room said "Listening" while storing nothing for 2.5 minutes. One dropped slice is
+      // normal (a bump in the radio); several in a row means live text has stopped.
+      let consecutiveFailures = 0;
+      const noteFailure = () => {
+        consecutiveFailures++;
+        if (consecutiveFailures >= STALL_AFTER_CONSECUTIVE_FAILURES) {
+          setMicError('Live text has stalled — your words are still being recorded.');
+        }
+      };
       const sendSlice = createSerialSender(
         (wav, sequence) => sendAudioSlice(roomForCapture.id, sequence, wav),
         {
-          onError: (err, sequence) => console.error(`[transcribe] slice ${sequence} upload failed:`, err),
-          onDrop: (sequence) => console.warn(`[transcribe] slice ${sequence} dropped — upload queue full`),
+          onSuccess: () => {
+            if (consecutiveFailures > 0) setMicError(null);
+            consecutiveFailures = 0;
+          },
+          onError: (err, sequence) => {
+            console.error(`[transcribe] slice ${sequence} upload failed:`, err);
+            noteFailure();
+          },
+          onDrop: (sequence) => {
+            console.warn(`[transcribe] slice ${sequence} dropped — upload queue full`);
+            noteFailure();
+          },
         },
       );
       sliceRecorderRef.current = await createSliceRecorder(stream, {

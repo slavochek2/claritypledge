@@ -293,8 +293,54 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+/**
+ * Every slice upload is deadlined. P1236, measured 2026-09-10 on a physical phone.
+ *
+ * `createSerialSender` chains sends strictly one at a time (`tail = tail.then(...)`) and
+ * bounds the queue at `maxPending`. Both are correct, and together they make a send that
+ * NEVER SETTLES fatal rather than slow: the chain never advances, `pending` never returns
+ * below the cap, and from then on every slice for the rest of the session is dropped by
+ * the `pending >= maxPending` guard. The user sees a room that says "Listening" and stores
+ * nothing, with no error anywhere and HTTP 200 on the last request that got through.
+ *
+ * That is not hypothetical — it is the failure this constant was added for. A room
+ * transcribed two utterances, then stored nothing for the next 2.5 minutes while the
+ * microphone, the WAV assembly and Gemini were each proven healthy in isolation (the
+ * captured slice transcribed correctly when replayed against the API by hand).
+ *
+ * There are TWO awaits here and both can hang, so both are covered:
+ *   - `supabase.auth.getSession()` performs a NETWORK token refresh when the access token
+ *     is near expiry. On a stalled radio that promise simply never resolves. It is the
+ *     easier one to miss because it reads like a local cache lookup.
+ *   - `fetch` without a signal has no timeout in any browser.
+ *
+ * A deadline that fires is a normal outcome, not an error condition: the slice is dropped
+ * (never retried — see `sendAudioSlice`), the chain advances, and the NEXT slice is sent.
+ * Losing one slice costs a few seconds of live text; losing the chain costs the session.
+ */
+export const SLICE_REQUEST_TIMEOUT_MS = 15_000;
+
+/** Rejects if `promise` has not settled within `ms`. Used for awaits that take no signal. */
+async function withDeadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 async function postSlicePayload(body: Record<string, unknown>): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await withDeadline(
+    supabase.auth.getSession(),
+    SLICE_REQUEST_TIMEOUT_MS,
+    'auth.getSession',
+  );
   const token = session?.access_token;
   if (!token) throw new Error('Not signed in');
 
@@ -302,9 +348,16 @@ async function postSlicePayload(body: Record<string, unknown>): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
+    // Belt and braces: the signal covers connect + response headers; withDeadline below
+    // also covers a body that streams forever after a 200.
+    signal: AbortSignal.timeout(SLICE_REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
+    const detail = await withDeadline(
+      response.json().catch(() => ({})),
+      SLICE_REQUEST_TIMEOUT_MS,
+      'transcribe-slice error body',
+    ).catch(() => ({}));
     throw new Error(`transcribe-slice ${response.status}: ${(detail as { error?: string }).error ?? 'unknown'}`);
   }
 }

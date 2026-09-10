@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
-import { handleTranscribeSlice } from './handler.ts';
+import { handleTranscribeSlice, ROOM_MAX_DURATION_MINUTES } from './handler.ts';
 
 // ── Entry point ──────────────────────────────────────────────────────────────
 // P1236 Decision 2: the live transcription path is an edge function, not the GCS
@@ -104,13 +104,32 @@ Deno.serve((req: Request) =>
 
     countActiveRooms: async (userId) => {
       const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      // A room is ended EXACTLY ONE WAY on the server: a slice arrives for it after its
+      // duration cap, and the handler ends it. An ABANDONED room never receives another
+      // slice, so nothing ever ends it — `ended_at` stays NULL for as long as the table
+      // lives. Counting on `ended_at IS NULL` alone therefore counts rooms that ended in
+      // every sense except the column, and each one permanently consumes one of the
+      // user's MAX_CONCURRENT_ROOMS_PER_USER slots.
+      //
+      // Measured 2026-09-10 on test: one user held SEVEN such rooms, the oldest 17 days
+      // old, against a cap of 3 — so every slice came back 429 and live transcription was
+      // dead for that account forever. The room's only symptom was that words stopped
+      // appearing. Opening /transcribe three times and walking away is enough to trigger
+      // it, which makes it reachable by ordinary use, not just by testing.
+      //
+      // So the count asks whether a room can still legitimately accept audio, which is the
+      // question the ceiling is actually about: not-ended AND inside the duration cap.
+      // `ROOM_MAX_DURATION_MINUTES` is the same constant the handler enforces per-slice,
+      // so the two agree by construction rather than by coincidence.
+      const cutoff = new Date(Date.now() - ROOM_MAX_DURATION_MINUTES * 60_000).toISOString();
       // !inner so the filter on the joined room actually restricts the member rows;
       // a plain embed would return every membership with a null room and count them all.
       const { count, error } = await serviceClient
         .from('transcribe_room_members')
-        .select('id, transcribe_rooms!inner(ended_at)', { count: 'exact', head: true })
+        .select('id, transcribe_rooms!inner(ended_at, created_at)', { count: 'exact', head: true })
         .eq('profile_id', userId)
-        .is('transcribe_rooms.ended_at', null);
+        .is('transcribe_rooms.ended_at', null)
+        .gt('transcribe_rooms.created_at', cutoff);
       // Fail CLOSED on a counting error: an unreadable count is not evidence of zero.
       if (error) return Number.MAX_SAFE_INTEGER;
       return count ?? 0;

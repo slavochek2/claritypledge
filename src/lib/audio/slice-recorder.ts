@@ -191,6 +191,10 @@ export function createSerialSender(
     maxPending?: number;
     onError?: (err: unknown, sequence: number) => void;
     onDrop?: (sequence: number) => void;
+    /** A slice reached the server and was accepted. Used to clear a stall indicator —
+     *  without it, "no successes" and "no attempts" are indistinguishable to the caller,
+     *  which is precisely how a jammed queue stayed invisible for a day (P1236). */
+    onSuccess?: (sequence: number) => void;
   } = {},
 ): (wav: Uint8Array, sequence: number) => void {
   const maxPending = options.maxPending ?? 3;
@@ -207,6 +211,7 @@ export function createSerialSender(
     pending++;
     tail = tail
       .then(() => send(wav, sequence))
+      .then(() => { options.onSuccess?.(sequence); })
       .catch((err) => { options.onError?.(err, sequence); })
       .finally(() => { pending--; });
   };
