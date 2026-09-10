@@ -64,7 +64,14 @@ jobs:
       # different problem from "people are stranded" and must not be reported as one,
       # or a broken credential would masquerade as a clean week.
       - name: Report that the check itself could not run
-        if: steps.check.outcome == 'failure' && steps.check.outputs.status == '2'
+        # NOT `status == '2'`. Any nonzero that is not the stranded case (1) belongs here:
+        # a SIGKILL (137), an OOM, a `set -e` trip, or a step killed before it could write
+        # GITHUB_OUTPUT at all (status arrives EMPTY, and '' != '1' correctly fires this).
+        # Matching only '2' put every unmodelled failure into SILENCE — a broken monitor
+        # that looks clean, which is the precise failure this whole gate exists to prevent.
+        # Caught by adversarial review 2026-09-10; the first branch table checked that the
+        # two alarms were mutually exclusive and never that they were exhaustive.
+        if: steps.check.outcome == 'failure' && steps.check.outputs.status != '1'
         env:
           GH_TOKEN: ${{ github.token }}
           REASON: ${{ steps.check.outputs.summary }}

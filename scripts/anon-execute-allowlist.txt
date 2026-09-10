@@ -82,4 +82,16 @@ get_practice_room_codes(uuid)                 # a public event page lists its pr
 get_pledgers_page(integer,integer)            # the public /pledgers list pages through verified pledgers for logged-out visitors (P1229) — src/app/data/api.ts:310, route src/App.tsx:596
 get_public_agreement(uuid)                    # a public agreement page /agreements/:id renders to a visitor with no account; the table policy is parties-only, so the column-scoped RPC is the only read (P1222) — src/app/data/agreements-service-real.ts:278, route src/App.tsx:506
 get_public_agreements_for_profile(uuid)       # a public profile lists its active agreements to anonymous or non-party visitors, same parties-only policy (P1222) — src/app/data/agreements-service-real.ts:376
-get_transcribe_room_by_code(text)             # a cold /transcribe/:code visit resolves the room before any account exists (P1149) — src/app/data/transcribe-service.ts:218, route src/App.tsx:848
+# get_transcribe_room_by_code(text) IS DELIBERATELY NOT LISTED. It was added here on
+# 2026-09-10 and removed the same day by adversarial review, because the entry was wrong in
+# the way rule 1 exists to prevent: it was justified by an unguarded ROUTE rather than by a
+# reachable anon CALL SITE. /transcribe/:code has no route wrapper, but the page redirects a
+# logged-out visitor to /login (transcribe-room-page.tsx:117-123) and the only caller of the
+# RPC returns early without a user (:214-215). No anon caller exists.
+#
+# Its defining migration (20260901160000_p1207) grants EXECUTE to `authenticated` ONLY. The
+# anon grant on the live catalog is therefore the ALTER DEFAULT PRIVILEGES trap this repo has
+# now hit five times (P1063, P1093, P1104, P1275, here) — an accidental grant, which is the
+# exact thing the drift check is built to surface. Allowlisting it would have blessed it
+# permanently. It needs a per-function REVOKE migration, like
+# 20260826063353_fix_transcribe_room_member_anon_grant.sql did for its neighbour.
