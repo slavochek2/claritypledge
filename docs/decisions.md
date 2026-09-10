@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-10 [process]: Agreeing with a good question is not checking it — three spec drafts, three falsified premises
+
+**Context:** The founder asked a reasonable question about a card-consistency spec: *"point cards in profiles build similarly? why not reuse that pattern? ther they have line etc?"* The answer given was an enthusiastic yes, and a whole spec draft was rewritten around adopting that component. An adversarial review then falsified it by command in about a minute.
+
+The premise rested on a count: "it is already the card on six surfaces, this is convergence onto a shipped pattern." The real number is **two**. `grep -rn "<PointCardWithLinks" src | grep -v tests` returns four call sites, two of which `App.tsx` gates behind `import.meta.env.DEV`. The six came from counting files that *import* the symbol — including two test files and one that imports only a type. Adoption would also have shipped a dead story expander (gated on props the feed does not pass — the P1282 defect, documented in that file's own source comment), reverted two shipped accessibility fixes and one deliberately feed-only behaviour, and silently killed an analytics event.
+
+That was the second falsified premise. The first draft called the work a styling drift on already-shared components; the review found `/stake` renders no footer at all. A third invention, a collapse-by-default rule, turned out to be a no-op: everything already collapses, and a lazy player already prevents the pile it was written to solve.
+
+**Decision:** The failure is not the miscount. It is that **a founder question phrased as a suggestion was treated as a hypothesis to support rather than one to test.** The check was one grep and it was never run, because the idea sounded right and agreeing was faster than verifying. `epistemic.md` gate 9 binds an agent's claim; nothing binds the founder's — and the founder is the one whose suggestions carry the most social pressure to affirm.
+
+**Alternatives rejected:** *(a) Treat it as a grep-hygiene lapse* — CLAUDE.md and `epistemic.md` gate 1 already require grepping before asserting, and both were skipped for the same reason, so a fourth restatement changes nothing. *(b) Blame review latency* — the reviews worked; all three premises died within minutes of being examined. The cost was three drafts written before examination, not slow examination.
+
+**Consequences:** Each falsification made the spec **smaller**. The final draft deletes a rule, a risk table row, an absorbed requirement and an entire alternative approach, and keeps the March recommendation it had abandoned. **A count used as the load-bearing premise of a document deserves the same treatment as an absence claim: run the command, and check that what you counted is what you meant.** Imports are not renders. (Status: proposed — recorded as a pattern; no intervention decided.)
+
+**References:** [p1296](../features/p1296_card_footer_consistency_and_stake_navigation.md) §Alternatives Considered · `.claude/rules/epistemic.md` gates 1 and 9
+
+---
+
 ## 2026-09-10 [process]: A monitor that discards its own diagnostic cannot be triaged — put the reason on the stream you are allowed to publish
 
 **Context:** The P1257 stranded-signup check shipped 2026-09-07 and has **never once produced a count**. It exits 2 ("could not run") on every scheduled run. The alarm fired correctly and opened issue #12 — but that issue could only *guess* at the cause, because its body is a fixed string ending "usually the prod service-role secret is missing or was rotated". Five distinct exit-2 paths (no key, API refused, no `jq`, unparseable response, page-limit hit) were indistinguishable from the outside. Two days of "Still not running" comments accumulated with no way to act on them.
