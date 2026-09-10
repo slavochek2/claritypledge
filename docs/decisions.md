@@ -503,6 +503,58 @@ an optional one. `scripts/test-p1290-required-checks-poll.sh` (19 assertions) is
 `.claude/commands/slava/build/push.md` · decisions.md 2026-06-16 (P919 staging hop) ·
 `features/done/2026-06-10/p1255_security_specs_publish_before_the_defect_is_fixed.md` ·
 `.claude/rules/epistemic.md` gates 7, 7b, 7c
+## 2026-09-09 [technical]: A security fix's own header said the path it was breaking did not exist (P1278)
+
+**Context:** P1150 rebuilt the single INSERT policy on `story_verifications` to close a real
+counter-forgery hole. Its header asserted *"Live sessions have no client write path into this
+table today"*. That was false when it was written: `/live` has written a `source='live'` row on
+every completed paraphrase exchange since P413. The new predicate demanded
+`source = 'letter' AND session_id IS NULL AND speaker_rating = 0 AND delivery_id IS NOT NULL`, so
+every `/live` calibration write was refused by RLS from the prod apply onward. The client logs the
+error and returns null, the round completes, and the success analytics event fired anyway — so the
+loss was silent. Nothing had been lost yet only because no `/live` session ran in the window.
+
+**Decision:** the live path gets its OWN admission shape inside the SAME policy, as a second
+OR-branch, rather than a second policy or a widened letter predicate.
+
+- **Not a second policy.** Permissive policies OR together, which is why P1150 asserted "exactly
+  one INSERT policy" in its own DO block. A branch inside the one policy keeps that assertion
+  true, so the guard is re-asserted rather than rewritten — a reviewer still sees the whole
+  admission surface in one expression.
+- **Not a widened letter predicate.** The letter shape is correct and adversarially reviewed. It
+  is carried over conjunct for conjunct.
+- **Bound to the session, not to one actor column.** P1150's defect was binding the caller to ONE
+  of `speaker_id`/`listener_id` and leaving the other free. The live branch requires BOTH to be
+  the named session's participants and to differ, which forces the pair to be exactly
+  `{creator_profile_id, joiner_profile_id}`. That is only worth anything because session
+  membership is pinned by PRIVILEGE, not predicate: `creator_profile_id` is not in P1047's UPDATE
+  column grant, and `joiner_profile_id` was revoked by P1053 and is written only by
+  `claim_joiner_seat`'s `COALESCE(auth.uid(), joiner_profile_id)`.
+
+**The finding that mattered was not the one the design was built around.** Binding the two actors
+looked sufficient. It was not: `story_verifications` carries a SECOND counters trigger,
+`update_story_understood_count`, which moves `stories.understood_count` for `NEW.story_id` — and
+the story's author need not be in the room. Two genuine participants could therefore have moved
+any stranger's public number, the same class P1150 closed, through a column the actor binding
+never touched. Caught by the Codex adversarial review, not by the author, and not by a test: every
+gap case passed before the fix because the policy refused *everything*, which is exactly the
+all-pass blindness the epistemic gates warn about. The fix binds the story's author to a
+participant, and the version to that story.
+
+**The generalisable lesson is gate 7c, paid for twice.** P1150 shipped a predicate whose canary
+contained a `source='live'` case that must be REJECTED and no control asserting a legitimate live
+row is ADMITTED. Its false-positive rate was therefore never measured, and the thing it wrongly
+refused was a shipped product path. A gate whose fixture holds only inputs it should reject has an
+unmeasured false-positive rate by construction. The canary now carries three live controls that
+must stay green.
+
+**What is NOT fixed, and why it is recorded rather than done:** the founder decided guests may
+record. No RLS policy can serve that — an anonymous caller has no identity to bind, and `anon` can
+already read both participant ids of every public session — and it is structurally unreachable
+anyway, because `speaker_id`/`listener_id` are NOT NULL FKs to `profiles` and a `/live` guest has
+no profile row. Guest recording needs a code-bearing `SECURITY DEFINER` RPC plus nullable
+participant columns and a NULL guard in the ears trigger. Both change what an "ear" means when a
+participant is anonymous, so both are founder calls. See `features/p1278_*.md`.
 
 ---
 

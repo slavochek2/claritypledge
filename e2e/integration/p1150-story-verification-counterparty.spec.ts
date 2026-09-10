@@ -17,10 +17,29 @@
  * enumeration oracle); listener_rating must be NOT NULL. Controls send delivery_id, as both
  * client writers now do.
  *
- * The only direct client writers of this table are letter-screening ratings (caller = listener,
- * speaker = the letter's sender, speaker_rating = 0 placeholder, source = 'letter'). There is no
- * live-session client write path today (grep story_verifications src/ — letters-service.ts is the
- * only inserter); every other writer is a SECURITY DEFINER RPC that RLS does not govern.
+ * CORRECTION (P1278, 2026-09-09): this file used to state "There is no live-session client write
+ * path today (grep story_verifications src/ — letters-service.ts is the only inserter)". That was
+ * FALSE — clarity-live-page.tsx:2305 -> calibration-service-real.ts:246 (`recordVerification`) has
+ * written a live-sourced row on every completed paraphrase exchange since P413, and the P1150
+ * predicate refused all of them. There are TWO direct client writers: letter-screening ratings
+ * (caller = listener, speaker = the letter's sender, speaker_rating = 0 placeholder,
+ * source = 'letter') and /live calibration (caller = either participant, session_id bound,
+ * source = 'live', real ratings). Every other writer is a SECURITY DEFINER RPC or service_role,
+ * which RLS does not govern.
+ *
+ * P1278 (20260909093000) adds the live branch to the same single INSERT policy, and the controls
+ * and gap tests at the end of this file are what measures its false-positive rate — the thing
+ * P1150 shipped without.
+ *
+ * P270 coverage — this file IS the integration test for the migrations below. They all rewrite
+ * the SAME two policies on story_verifications (one INSERT, one SELECT), so splitting their
+ * canaries across files would test one policy in three places and hide which conjunct a failure
+ * belongs to:
+ *   - 20260901210000_p1150_bind_story_verification_counterparty
+ *   - 20260901220000_p1150_b_bind_delivery_and_caller
+ *   - 20260909093000_p1278_admit_live_calibration_insert
+ *   - 20260910110000_p1278_b_live_verification_visible_to_its_participants
+ *   - 20260910130000_p1278_c_live_rows_must_carry_both_ratings
  *
  * Run: npx playwright test --project=integration e2e/integration/p1150-story-verification-counterparty.spec.ts
  */
@@ -31,6 +50,7 @@ import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, generateTestEmail, deleteTestUser, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 import { createTestStory, deleteTestStory } from '../helpers/test-story';
 import { createTestLetter, createTestStorySnapshot, createTestDelivery, sealTestLetter, deleteTestLetter } from '../helpers/test-letter';
+import { createTestSessionInDB, type TestSessionInDB } from '../helpers/test-session';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -127,6 +147,8 @@ test.describe('P1150: story_verifications INSERT — counterparty and attributed
   let reader: TestUser;
   let victimStoryId: string;
   let letter: LetterFixture;
+  /** P1278: a real two-participant /live room — sender is the creator, reader the joiner. */
+  let liveSession: TestSessionInDB;
 
   test.beforeAll(async () => {
     attacker = await createTestUser({ email: generateTestEmail(), name: 'P1150 Attacker' });
@@ -135,9 +157,16 @@ test.describe('P1150: story_verifications INSERT — counterparty and attributed
     reader = await createTestUser({ email: generateTestEmail(), name: 'P1150 Reader' });
     victimStoryId = (await createTestStory(victim.user.id, { title: `P1150 victim story ${Date.now()}` })).id;
     letter = await createLetterFixture(sender, reader, victim);
+    liveSession = await createTestSessionInDB(sender.user.id, 'P1150 Reader', {
+      hostName: 'P1150 Sender',
+      guestProfileId: reader.user.id,
+    });
   });
 
   test.afterAll(async () => {
+    // story_verifications.session_id has no ON DELETE, so live rows must go first.
+    await supabaseAdmin.from('story_verifications').delete().eq('session_id', liveSession.sessionId);
+    await liveSession.cleanup();
     await supabaseAdmin.from('story_verifications').delete().eq('story_id', victimStoryId);
     await deleteTestStory(victimStoryId);
     await deleteLetterFixture(letter);
@@ -556,6 +585,459 @@ test.describe('P1150: story_verifications INSERT — counterparty and attributed
       expect(error, `batch letter rating regressed: ${error?.message}`).toBeNull();
       ids.push(...(data ?? []).map((r) => r.id));
       expect(ids.length).toBe(1);
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  // ── P1278 — the /live branch: controls that must be ADMITTED, gaps that must be REFUSED ────
+  //
+  // P1150's header claimed "Live sessions have no client write path into this table today".
+  // That was false: clarity-live-page.tsx:2305 -> calibration-service-real.ts:246 has written
+  // one since P413. Because this file carried only a source:'live' case that must be REJECTED
+  // (the first gap test above) and no control asserting a legitimate live row is ADMITTED, the
+  // predicate's false-positive rate was never measured and every /live round was refused for
+  // two days on prod. See .claude/rules/epistemic.md gate 7c.
+
+  test('control (P1278): the /live client shape is admitted for the session creator', async () => {
+    const ids: string[] = [];
+    try {
+      const senderClient = makeUserClient(await signIn(sender.email));
+      // Exact payload of calibration-service-real.ts recordVerification: no `source`
+      // (the column default is 'live'), no delivery_id, real ratings on both sides.
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 7,
+          listener_rating: 8,
+        })
+        .select('id, source')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(
+        error,
+        `P1278 not fixed: the /live calibration write is still refused (${error?.code} ${error?.message})`
+      ).toBeNull();
+      expect(data?.source).toBe('live');
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('control (P1278): the same exchange written by the joiner, actors swapped, is admitted', async () => {
+    // Both clients fire writeVerification, and the speaker is whoever checked understanding
+    // that round — so the caller may be either actor. The policy binds the caller to session
+    // membership, never to one specific column.
+    const ids: string[] = [];
+    try {
+      const readerClient = makeUserClient(await signIn(reader.email));
+      const { data, error } = await readerClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: liveSession.sessionId,
+          speaker_id: reader.user.id,
+          listener_id: sender.user.id,
+          speaker_rating: 9,
+          listener_rating: 9,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(error, `P1278: the joiner's write was refused (${error?.code} ${error?.message})`).toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('control (P1278): a storyless exchange is admitted (P413 nullable story/version)', async () => {
+    const ids: string[] = [];
+    try {
+      const senderClient = makeUserClient(await signIn(sender.email));
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: null,
+          version_id: null,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 5,
+          listener_rating: 6,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(error, `P1278: a storyless /live exchange was refused (${error?.code})`).toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('control (P1278 B): the non-author participant can write and read back a round about a PRIVATE story', async () => {
+    // Production's stories.visibility default is 'private' (P424), and the /live picker only
+    // offers you your OWN stories — so "a round about a private story" is the ordinary case,
+    // not an edge case. Before P1278 B the SELECT policy admitted a live row only when its
+    // story was public or authored by the reader, so the LISTENER's own insert failed on its
+    // RETURNING clause (PostgREST always issues .select() here) even though the row was
+    // admitted by the INSERT policy. That is a 42501 the writer cannot distinguish from a
+    // refusal, and it would have left half of every /live round unrecorded after P1278 A.
+    const ids: string[] = [];
+    let privateStoryId: string | undefined;
+    try {
+      privateStoryId = (
+        await createTestStory(sender.user.id, {
+          title: `P1278B private story ${Date.now()}`,
+          visibility: 'private',
+        })
+      ).id;
+
+      // The reader is the listener and is NOT the story's author.
+      const readerClient = makeUserClient(await signIn(reader.email));
+      const { data, error } = await readerClient
+        .from('story_verifications')
+        .insert({
+          story_id: privateStoryId,
+          version_id: null,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 9,
+          listener_rating: 9,
+        })
+        .select('id, source')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(
+        error,
+        `P1278 B not fixed: a live round about a private story was refused for the non-author participant (${error?.code} ${error?.message})`
+      ).toBeNull();
+      expect(data?.source).toBe('live');
+    } finally {
+      await cleanupVerifications(ids);
+      if (privateStoryId) await deleteTestStory(privateStoryId);
+    }
+  });
+
+  test('gap (P1278 C): a participant cannot write a live row with NULL ratings', async () => {
+    // Found by adversarial review of the P1278 A+B diff. Both rating columns are nullable and
+    // their CHECKs are `BETWEEN 0 AND 10`, which ADMITS NULL (a CHECK passes on UNKNOWN). Both
+    // counters triggers fire on every inserted row without inspecting a rating, so before
+    // P1278 C two real participants could move their own public verification_session_count
+    // with a row that records no calibration. The letter branch has required
+    // listener_rating IS NOT NULL since P1150 B; this closes the same gap on the live branch.
+    const ids: string[] = [];
+    try {
+      const senderClient = makeUserClient(await signIn(sender.email));
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: null,
+          listener_rating: null,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(
+        error,
+        `P1278 C: a ratingless live row was admitted (id ${data?.id}) — it moves both participants' verification_session_count with no calibration behind it`
+      ).not.toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278 B): a stranger still cannot read a live row about a private story', async () => {
+    // The widening must reach the two named actors and nobody else. The attacker is a real
+    // signed-in user who is neither participant nor the story's author.
+    const ids: string[] = [];
+    let privateStoryId: string | undefined;
+    try {
+      privateStoryId = (
+        await createTestStory(sender.user.id, {
+          title: `P1278B private story gap ${Date.now()}`,
+          visibility: 'private',
+        })
+      ).id;
+
+      const { data: seeded } = await supabaseAdmin
+        .from('story_verifications')
+        .insert({
+          story_id: privateStoryId,
+          version_id: null,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 9,
+          listener_rating: 9,
+        })
+        .select('id')
+        .single();
+      if (seeded?.id) ids.push(seeded.id);
+      expect(seeded?.id, 'fixture seed failed').toBeTruthy();
+
+      const attackerClient = makeUserClient(await signIn(attacker.email));
+      const { data: visible } = await attackerClient
+        .from('story_verifications')
+        .select('id')
+        .eq('id', seeded!.id);
+      expect(
+        visible ?? [],
+        'P1278 B leaked: a non-participant can read a live calibration row about a private story'
+      ).toHaveLength(0);
+    } finally {
+      await cleanupVerifications(ids);
+      if (privateStoryId) await deleteTestStory(privateStoryId);
+    }
+  });
+
+  test('gap (P1278): an outsider cannot write a live row into a session they are not in', async () => {
+    const ids: string[] = [];
+    try {
+      const attackerClient = makeUserClient(await signIn(attacker.email));
+      const { data, error } = await attackerClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 10,
+          listener_rating: 10,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(
+        error,
+        `P1278 opened a hole: a non-participant wrote ratings into someone else's session (id ${data?.id})`
+      ).not.toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278): a participant cannot name a third party as speaker in their own session', async () => {
+    // The P1150 attack, retried through the live branch: both actor columns must be the
+    // session's own participants, so there is no column left to point at a stranger.
+    const ids: string[] = [];
+    const before = await counters(victim.user.id);
+    try {
+      const senderClient = makeUserClient(await signIn(sender.email));
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: victimStoryId,
+          session_id: liveSession.sessionId,
+          speaker_id: victim.user.id,   // forged counterparty, not in this session
+          listener_id: sender.user.id,
+          speaker_rating: 10,
+          listener_rating: 10,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      const after = await counters(victim.user.id);
+      expect.soft(
+        error,
+        `P1278 restored P1150: a forged live row landed (id ${data?.id}) naming victim ${victim.user.id} as speaker`
+      ).not.toBeNull();
+      expect.soft(
+        after,
+        `victim's public counters moved through a forged live insert (before ${JSON.stringify(before)}, after ${JSON.stringify(after)})`
+      ).toEqual(before);
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278): a participant cannot name a story authored by someone outside the room', async () => {
+    // Codex review of P1278, finding 1. The actor binding protects `profiles` counters but
+    // NOT `stories.understood_count`: update_story_understood_count recomputes it for
+    // NEW.story_id, and the story's author need not be a participant. Two genuine
+    // participants could otherwise move any stranger's public number. The helper now
+    // requires the story's author to be one of the two participants.
+    const ids: string[] = [];
+    const { data: beforeRow } = await supabaseAdmin
+      .from('stories').select('understood_count').eq('id', victimStoryId).single();
+    try {
+      const senderClient = makeUserClient(await signIn(sender.email));
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: victimStoryId,          // authored by victim, who is not in this session
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,       // both actors ARE participants
+          listener_id: reader.user.id,
+          speaker_rating: 10,
+          listener_rating: 10,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      const { data: afterRow } = await supabaseAdmin
+        .from('stories').select('understood_count').eq('id', victimStoryId).single();
+
+      expect.soft(
+        error,
+        `P1278: a live row landed (id ${data?.id}) naming a story authored outside the session`
+      ).not.toBeNull();
+      expect.soft(
+        afterRow?.understood_count,
+        `a stranger's stories.understood_count moved through an admitted live row (before ${beforeRow?.understood_count}, after ${afterRow?.understood_count})`
+      ).toBe(beforeRow?.understood_count);
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278): a version_id belonging to a different story is refused', async () => {
+    const ids: string[] = [];
+    try {
+      // A real version, but of the victim's story rather than the one named.
+      const otherVersionId = await storyVersionId(victimStoryId);
+      const senderClient = makeUserClient(await signIn(sender.email));
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: otherVersionId,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 8,
+          listener_rating: 8,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(error, `P1278: a mismatched version_id landed (id ${data?.id})`).not.toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278): a live row marked verified = false is refused', async () => {
+    // `verified` is true for authoritative (live) rows and false for letter screening (P581).
+    // The live client never sends it, so the column default applies; a caller that sends
+    // false is not the product path.
+    const ids: string[] = [];
+    try {
+      const senderClient = makeUserClient(await signIn(sender.email));
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 8,
+          listener_rating: 8,
+          verified: false,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(error, `P1278: an unverified live row landed (id ${data?.id})`).not.toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278): a live row cannot carry a delivery_id', async () => {
+    // P1067's partial unique index is (delivery_id, story_id) WHERE source='letter' AND
+    // delivery_id IS NOT NULL. A live-sourced row carrying a delivery sits outside it, so it
+    // could occupy a letter relation without being deduped against letter ratings.
+    const ids: string[] = [];
+    try {
+      const readerClient = makeUserClient(await signIn(reader.email));
+      const { data, error } = await readerClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 8,
+          listener_rating: 8,
+          delivery_id: letter.deliveryId,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(error, `P1278: a live row carrying a delivery_id landed (id ${data?.id})`).not.toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278): a live row with no session_id is refused', async () => {
+    // session_id is the ONLY thing binding the live branch. Without it the branch would admit
+    // any pair of profile ids from any caller.
+    const ids: string[] = [];
+    try {
+      const senderClient = makeUserClient(await signIn(sender.email));
+      const { data, error } = await senderClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: null,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 8,
+          listener_rating: 8,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(error, `P1278: an unbound live row landed (id ${data?.id})`).not.toBeNull();
+    } finally {
+      await cleanupVerifications(ids);
+    }
+  });
+
+  test('gap (P1278): an ANONYMOUS caller cannot write a live row', async () => {
+    // The founder's decision is that guests may record, and this policy deliberately does not
+    // deliver that half: anon has no identity to bind, and clarity_sessions_select exposes
+    // every target_listener_id IS NULL row — with creator_profile_id and joiner_profile_id
+    // readable per P1057 — so an anon branch would let anyone enumerate real pairs and inflate
+    // strangers' counters. Guest recording needs a code-bearing SECURITY DEFINER RPC; see
+    // features/p1278_*.md.
+    const ids: string[] = [];
+    try {
+      const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data, error } = await anonClient
+        .from('story_verifications')
+        .insert({
+          story_id: letter.storyId,
+          version_id: letter.versionId,
+          session_id: liveSession.sessionId,
+          speaker_id: sender.user.id,
+          listener_id: reader.user.id,
+          speaker_rating: 10,
+          listener_rating: 10,
+        })
+        .select('id')
+        .single();
+      if (data?.id) ids.push(data.id);
+      expect(error, `P1278: an anonymous caller wrote a live row (id ${data?.id})`).not.toBeNull();
     } finally {
       await cleanupVerifications(ids);
     }

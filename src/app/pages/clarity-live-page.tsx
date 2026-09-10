@@ -62,6 +62,7 @@ import { calibrationService } from '@/app/data/calibration-service';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
 import { isDevRecordingActive } from '@/lib/dev-recording';
+import { reportUnlessBlip } from '@/lib/report-unless-blip';
 import { mergeInFlight, isStateRegression, isPhaseRegression } from '@/app/lib/live-state-merge';
 import {
   Dialog,
@@ -2196,7 +2197,7 @@ export function ClarityLivePage() {
         versionId = versionRow?.id;
       }
 
-      await calibrationService.recordVerification({
+      const written = await calibrationService.recordVerification({
         storyId,
         versionId,
         sessionId,
@@ -2206,13 +2207,31 @@ export function ClarityLivePage() {
         listenerRating: responderRating,
       });
 
+      // P1278: this used to be a bare `await` whose result was dropped, so an RLS
+      // refusal — recordVerification logs and returns null, it does not throw — left
+      // the round emitting live_story_verified for a row that does not exist. The
+      // P1150 policy refused every /live write behind exactly that silence.
+      //
+      // The refusal is ALREADY reported: recordVerification calls logDbError, which
+      // captures every non-blip DB error to Sentry under the context
+      // `recordVerification` and suppresses 42501 only for the letter helper
+      // functions, never for a table denial (db-error-logger.ts). A second capture
+      // here would double-report the same failure and would report the blips that
+      // logDbError deliberately drops — flagged by the Codex review of this change.
+      // So this branch only stops the lie: no row, no success event.
+      if (!written) return;
+
       analytics.track('live_story_verified', {
         session_id: session.id,
         story_id: storyId ?? null,
       });
     } catch (err) {
-      console.error('[P413] writeVerification failed:', err);
-      // Non-blocking — round completes regardless
+      // Non-blocking — round completes regardless. Reported unless it is a network
+      // blip (P1177), which the offline path produces on every exchange.
+      reportUnlessBlip(err, {
+        context: 'clarity-live-page.writeVerification',
+        tags: { feature: 'live_calibration' },
+      });
     }
   }, [user?.id, session]);
 

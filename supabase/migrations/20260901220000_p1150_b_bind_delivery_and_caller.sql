@@ -26,6 +26,14 @@
 -- trigger never runs for it. listener_rating NOT NULL closes a row that records nothing.
 --
 -- Canary: e2e/integration/p1150-story-verification-counterparty.spec.ts (extended).
+--
+-- CORRECTION (P1278, 20260909093000 — comment only, no SQL changed here): part A's header claims
+-- "Live sessions have no client write path into this table today". That is false; the /live
+-- calibration write (clarity-live-page.tsx -> calibration-service-real.ts recordVerification) was
+-- refused by this policy on four conjuncts from the prod apply until P1278 added a session-bound
+-- live branch to the same single INSERT policy. The canary named above carried only a
+-- source='live' case that must be REJECTED and no control asserting a legitimate live row is
+-- ADMITTED, so this predicate's false-positive rate was unmeasured (epistemic gate 7c).
 
 DROP POLICY IF EXISTS "story_verifications_insert" ON public.story_verifications;
 DROP FUNCTION IF EXISTS public.p1150_letter_rating_admissible(uuid, uuid, uuid, uuid, uuid);

@@ -12,6 +12,14 @@
 --   SECURITY DEFINER or service_role and RLS does not govern it. Live sessions have no client
 --   write path into this table today.
 --
+-- CORRECTION (P1278, 20260909093000 — comment only, no SQL changed here): the last sentence
+--   above is FALSE and was false when written. clarity-live-page.tsx:2305 ->
+--   calibration-service-real.ts:246 (recordVerification) has written a source='live' row on every
+--   completed paraphrase exchange since P413, and this policy refused all of them from the prod
+--   apply (2026-09-07) until P1278. The client swallows the 42501 and the round completes, which
+--   is why it was silent. P1278 adds a session-bound live branch to the same single policy; do not
+--   re-derive "no live write path" from this header.
+--
 -- The gap (reproduced 2026-09-01 on test through the real REST path, integration spec below):
 -- the P586 predicate `auth.uid() = speaker_id OR auth.uid() = listener_id` bound the caller to
 -- ONE of the two actor columns and left the other free, along with speaker_rating. An ordinary
