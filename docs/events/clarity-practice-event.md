@@ -4,6 +4,12 @@
 > **This file holds the description and the run-of-show. Nothing else.** Reasoning lives where it
 > already lives; if this file starts re-arguing decided things it has become the fourth unrun design
 > ([decisions.md](../decisions.md) 2026-08-10 [process]).
+>
+> **Writing the description for the first AI-safety event? Read
+> [aisafety1-source-material.md](aisafety1-source-material.md) first.** It holds the four points
+> with their positions, the four agents, every verified quote with its timecode, the dated news
+> peg, a provenance ledger marking what may and may not be printed, and the list of things already
+> tried and rejected. It exists so that material is not re-derived, or re-invented wrongly.
 
 ---
 
