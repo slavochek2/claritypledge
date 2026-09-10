@@ -103,10 +103,11 @@ Sequence is settled. Timings are `[FOUNDER DECISION]` **except block 6, decided 
 | 3 | **`/meet`** | The principle is shown. Each person **opts in or out** — this is the champion filter, and it happens here, not in the targeting. Opting out is legitimate; those who opt out **observe** those who opted in. |
 | 4 | **Understanding question** | Each answers how much they understood. |
 | 5 | **Stake `cmp7`** | Seven dimensions. They build a model before arguing. |
-| 5b | **Host frames the two positions** | **~3 min, per point.** Each side's position in that side's own terms, neutrally, without arguing either. **Added 2026-08-27.** |
+| 5b | **Host frames the two positions** | **~3 min, per point.** Each side's position in that side's own terms, neutrally, without arguing either. **Added 2026-08-27. Amended 2026-09-10: for event #1 the host READS THE TWO AGENT STORIES ALOUD** rather than paraphrasing them. See *Reading the stories aloud* below. |
 | 6 | **Argue — fishbowl, looping over the topical points** | 2–4 speak, everyone votes. Those opted in have a job: **challenge each other to give the number.** **Amended 2026-09-01:** the block is a LOOP over ~3 topical points — per point: host reads the one-sentence statement → **everyone stakes that point** → 5b framing → argue → **re-stake that point** → next. **Budget, decided 2026-09-01: 36 min total, 12 min per point across 3 points** — per point: 1 min stake · 3 min framing (5b) · 6 min argue · 2 min re-stake. This leaves ~54 min for the other nine blocks. 12 was chosen over 15 because half the evening on one block squeezes the comprehension blocks and the close; over 10 because four minutes of argument is a round of statements with no exchange, and the exchange is what the block is for. **This number makes objective condition 7 evaluable** — a point that cannot be staked, framed and argued inside 12 min does not fit the evening. See *Where the pipeline's points enter*. |
-| 7 | **Re-stake `cmp7`** | Any dimension that moved. Once, after block 6 — **not** per point. |
-| 8 | **Stake `cmp3`** | The triad, scoped to their real counterpart, who is absent. |
+| 7+8 | **Stake `cmp10`** | **Amended 2026-09-10, supersedes the separate blocks 7 and 8 below.** One closing stake of `cmp10`, which contains both `cmp7` and `cmp3`, instead of re-staking `cmp7` and then staking `cmp3` as two blocks. Founder reasoning, verbatim: *"start with cmp7, end with cmp10 because it includes both cmp7 and cmp3 and cmp3 summarizes their attitude and makes cmp7 more actionable."* The cmp7 delta (block 5 → here) still yields "any dimension that moved", which block 9 reveals; the triad arrives in the same pass rather than as a separate ask. |
+| ~~7~~ | ~~**Re-stake `cmp7`**~~ | Superseded by block 7+8 above. Was: any dimension that moved. Once, after block 6 — **not** per point. |
+| ~~8~~ | ~~**Stake `cmp3`**~~ | Superseded by block 7+8 above. Was: the triad, scoped to their real counterpart, who is absent. |
 | 9 | **Reveal** | The P1/P2 gap, and the movement. |
 | 10 | **The offer** | One spoken CTA. |
 
@@ -156,6 +157,30 @@ neutral statement of each position, not a recital.** The host may quote a story'
 framing; what is excluded is substituting story-reading for framing, which is the 10–15 unbudgeted
 minutes block 5b exists to avoid. The listing links each arguer's profile, where their stories carry
 their position on each point.
+
+### Reading the stories aloud — amendment 2026-09-10
+
+**For event #1, block 5b is the host reading the two agent stories aloud, not paraphrasing them.**
+
+The exclusion above was written on the estimate that story-reading costs 10 to 15 unbudgeted
+minutes. **Measured 2026-09-10, that estimate does not hold for the story text alone**: the P3 pair
+runs about 110 and 95 words, roughly one minute each read aloud, two minutes for both sides, inside
+5b's three-minute budget with a minute spare. Six stories across three points is about six minutes
+against a nine-minute allowance. The 10-to-15 figure plausibly assumed stories **plus** quotes
+**plus** video; that combination is still excluded.
+
+Why this matters more than the minutes: the alternative requires the host to watch four long
+interviews and neutrally paraphrase four people he has not seen, **before every event, forever**.
+Founder, verbatim: *"this is heavy preparation for each event, and I don't know if I want to do
+that, if it's sustainable."* The stories already satisfy 5b's own specification — a position, in
+that side's own terms, neutrally, sourced from published quotes. Preparation becomes reading six
+short paragraphs.
+
+It also removes the improvisation risk on the block most exposed to it, given the founder's named
+failure mode of over-explaining before anything has been demonstrated.
+
+**If reading aloud feels stiff on the night, switch to your own words for point three** — by then
+you will have heard the register twice.
 
 **The accurate boundary for the instrument** *(corrected 2026-09-01)*: the instrument's Points are
 themselves already public — what block 5b's trade-off protects is that **the instrument is never linked
@@ -313,8 +338,32 @@ That's normal. It's also invisible from the inside, which is the whole problem.
 - Find out where you actually stand relative to a room — and relative to what you assumed about the
   people you work with.
 
-`[FOUNDER DECISION: recording policy — the offline series records and publishes to YouTube with opt-out;
-decide whether the online one does too, and say so here if it does.]`
+### Recording policy — DECIDED 2026-09-10
+
+**One line in the event description, no RSVP form, no checkbox.** Standard practice for every
+meetup and conference: photos and audio may be recorded and used publicly. Nobody signs anything.
+If someone objects, they say so in the room and it is honoured, person to person.
+
+Founder reasoning, verbatim: *"I never saw events writing RSVP and then don't quote me. This is
+like very... it's triggering anxiety. Let's think about psychology here. We cannot just be
+technocratic."* An RSVP consent checkbox was drafted and **rejected** on those grounds.
+
+Three things that follow:
+
+- **Record the fishbowl panel on video and audio as a plain recording.** Transcribe afterwards.
+- **Do NOT put live in-browser transcription on the critical path of event #1.** Verified
+  2026-09-10: the speech hook is mounted page-scoped (`transcribe-room-page.tsx`,
+  `transcription-input.tsx`), not globally, so navigating anywhere else unmounts it and recording
+  stops. It is the browser speech API, which also dies on backgrounding or screen lock, with only
+  bounded auto-restarts (P1196). Fragile at exactly the moment it cannot be debugged, in front of
+  people.
+- **Promise participants nothing about publication.** The enrichment value is the founder's
+  (evidence the instrument works on ordinary input), not theirs. Their benefit is the room. Telling
+  the room "your story goes in the article" makes the article the reason to speak, and people
+  perform for articles — which costs exactly the candour the evening exists to collect.
+
+*(This resolves the open `[FOUNDER DECISION: recording policy]` that stood here. The online
+configuration is still undecided.)*
 
 ---
 

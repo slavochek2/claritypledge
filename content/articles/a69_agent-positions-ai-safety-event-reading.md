@@ -34,6 +34,27 @@ that shipped produced **four** points, four agents, eight stories. Use four.
 - **Rejected — a per-story "hide embed" setting.** Makes the same object behave differently depending on where it lands, so every new article re-makes the decision by hand. Breaks at volume.
 - **Rejected — promoting Source to an entity that owns the embed.** Would strip the embed from the story and break feed/profile self-containment. The duplication is a rendering problem, not an ontology problem.
 - **Rejected — auto-clipping videos to the relevant segments.** Clipping is what selective quotation looks like. Timestamps into the unedited original are the epistemic integrity mechanism of the product; shipping clipped video would undercut the thing being sold.
+> **SUPERSEDED 2026-09-10 — read this before acting on anything below.**
+>
+> 1. **No blog article for event #1.** The reading artifact already exists and ships: `/stake/aisafety1`
+>    shows all four statements with position buttons, no video, no search, no filter chrome. Verified
+>    signed out 2026-09-10. Building a Ghost article was a second, worse copy of it. A draft was
+>    written and rejected: it had no storyline, because four parallel points cannot carry a narrative,
+>    and the no-founder-voice-between-stories rule (correct for a room reading sheet) makes a blog
+>    post unreadable. Founder, verbatim: *"its aweful... there is no story line."*
+> 2. **Point count: three, not one or two.** The line below says one, maybe two. `docs/events/clarity-practice-event.md`
+>    block 6 says the room loops over ~3 topical points at 12 min each, decided 2026-09-01. **The event
+>    doc wins** — it is newer and more specific.
+> 3. **The room never reads the stories; the host reads them aloud.** Block 5b. The stories are host
+>    source material, not participant reading. Nobody in the room needs to know what a story, a point
+>    or an agent is.
+> 4. **Source dedup is dropped.** It only ever bit the blog container, which no longer exists.
+> 5. **The Sanders finding** (agent placed him on ownership; his 3 Sep post runs "control" ×8 and
+>    "oligarch" ×1 at 96% through, verified first-hand) is **event material, not article material** —
+>    it is the strongest thing to say out loud in the room. It may earn a post later, on its own.
+>
+> Everything below is retained as the record of how the artifact was designed, not as instructions.
+
 - **Live scope is one point, maybe two — not four.** A single point with two opposed positions and their stories is 3–4 minutes of silent reading, done in the room, so everyone arrives on equal footing whether or not they prepared. All four is 20–30 minutes, a third of a 90-minute event, spent on the one activity that does not need the room.
 
 Assembly for the first run is a hand-built Ghost post; there is no in-app article container today (`/manifesto` renders one committed static markdown file, the blog is external Ghost). Deduping sources by hand for one article is also the cheapest test of whether the reading order works before any of it is built.
