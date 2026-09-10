@@ -373,9 +373,15 @@ export function TranscribeRoomPage() {
         <FocusHeader onBack={handleBack} />
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Join the transcription room</h1>
         <p className="text-sm text-muted-foreground mb-6">
+          {/* [FOUNDER DECISION: copy] — this previously promised "a corrected transcript is
+              produced afterward and added to your session history". Nothing produces it:
+              transcription_jobs is created only for /live clarity_sessions, and no path
+              enqueues a job for a room's recording (verified 2026-09-10). Saying so on the
+              CONSENT screen is the worst place to be wrong — people agree to be recorded
+              partly on the strength of what they are told they get back. Reduced to what is
+              actually true today. Restore a promise here only once something keeps it. */}
           Your spoken words will be transcribed live and shown to everyone in this room,
-          attributed to you with a timestamp. A corrected transcript is produced afterward and
-          added to your session history.
+          attributed to you with a timestamp. The room&rsquo;s audio is recorded.
         </p>
 
         <button
@@ -430,7 +436,8 @@ export function TranscribeRoomPage() {
       >
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Session ended</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          A corrected transcript is being produced and will appear in your session history when ready.
+          {/* [FOUNDER DECISION: copy] — see the note on the consent screen above. */}
+          The room&rsquo;s audio has been saved.
         </p>
         {members.length > 0 && (
           <p className="text-xs text-muted-foreground mb-6" data-testid="transcribe-ended-roster">

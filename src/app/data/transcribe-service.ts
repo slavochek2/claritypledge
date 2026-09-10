@@ -165,11 +165,20 @@ export async function createRoom(profileId: string, displayName: string, consent
 
   const maxAttempts = 5;
   for (let attempts = 0; attempts < maxAttempts; attempts++) {
-    const { data, error } = await supabase.rpc('create_transcribe_room', {
-      p_code: generateTranscribeRoomCode(),
+    // P1236 (f): ONE shared room. Everyone arriving at /transcribe without a code lands in
+    // the room that is already running, and only the first arrival creates one. Before this,
+    // every visitor created a private room and sat alone in it — not because joining was
+    // unimplemented, but because nothing ever showed a visitor a room code to share, so the
+    // two-participant case the feature exists for was unreachable.
+    //
+    // The retry loop around this call is still the code-collision retry: `p_new_code` is only
+    // consumed on the create branch, and a 23505 there is what a retry fixes. On the join
+    // branch the generated code is simply unused.
+    const { data, error } = await supabase.rpc('enter_transcribe_room', {
       p_display_name: displayName,
       p_session_id: session.id,
       p_consent: consentGiven,
+      p_new_code: generateTranscribeRoomCode(),
       p_event_id: eventId ?? null,
     });
 
@@ -182,7 +191,7 @@ export async function createRoom(profileId: string, displayName: string, consent
         // says the same thing every other failure here says. The diagnostic detail goes to
         // the console, where it is useful, rather than into the room's UI.
         await discardSession();
-        console.error('[transcribe] create_transcribe_room returned no row');
+        console.error('[transcribe] enter_transcribe_room returned no row');
         throw new Error('Could not start a room. Please try again.');
       }
       return {
