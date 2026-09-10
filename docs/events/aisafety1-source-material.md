@@ -17,6 +17,19 @@ checkable, so an unsourced quote costs more than a missing one.
 Verified signed out 2026-09-10. Reading surface: `https://claritypledge.com/stake/aisafety1`
 (four statements, position buttons, no video, no search or filter chrome).
 
+**Corrected 2026-09-10:** that page has BOTH a Points and a Stories tab for this tag, because the
+tag carries points and stories. An earlier version of this line implied the Stories tab was absent.
+It opens on Points. The Stories tab currently shows all 8 stories flat, with the repeat-source pile
+unaddressed (one author holds 3 stories on a single video) — see P1296 item 8.
+
+**Pre-event staking is deliberate, and optional.** The position buttons on that page are there by
+design (`stake-page.tsx:9-10`: *"KEPT: the point cards with their position buttons"*). What the
+event measures is the **in-room** stake: block 6 runs *"per point: host reads the one-sentence
+statement → everyone stakes that point → 5b framing → argue → re-stake that point → next"*
+(`clarity-practice-event.md:113`). So do not write "you are not asked to take a position
+beforehand" into any copy — the page invites it. Equally, do not require it: a position taken at
+home is not the baseline the loop measures.
+
 | # | Statement | Agree | Disagree |
 |---|---|---|---|
 | P3 | If AI goes badly, it will be because of the people who own it, not because the machine slipped everyone's control. | Sanders `strongly_agree` | Leahy `strongly_disagree` |
