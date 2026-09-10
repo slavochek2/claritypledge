@@ -348,10 +348,18 @@ not when the first word is spoken — the consent and join screens supply the co
       lavalier per person, each into its owner's phone)
 - [x] The remaining founder decision (latency vs iteration) is answered here, after the measurement
       (2026-09-04: 4-second slices; engine answered separately as Gemini 3.5 Transcribe)
-- [ ] A spend cap exists on `generativelanguage.googleapis.com` before the Gemini path carries real
-      sessions — P1237 criterion 3 found both budgets on the billing account are alert-only and
-      neither is scoped to that service. Caps count gross cost with credits excluded, so this is the
-      only mechanism that actually stops a runaway
+- [x] A spend cap exists on `generativelanguage.googleapis.com` before the Gemini path carries real
+      sessions — **satisfied by P1162, shipped 2026-09-07** (`features/done/2026-06-10/p1162_cap_claritypledge_gemini_spend.md`).
+      A monthly spend-cap-enforcement budget is active on exactly this service, with an alert-only
+      budget alongside it at ~10% of the cap, both recorded in the `ai-keys` registry. Enforcement
+      was measured, not assumed: a tripped cap returns a 403 naming the cap, and raising it restores
+      service. The P1237 criterion-3 finding quoted below was correct *for its date* and is now
+      superseded.
+      **Do not re-derive this from `gcloud billing budgets list` — spend caps are invisible to the
+      Billing API and appear only in the console** (pp `docs/infra/gcp-spend-caps.md`: console 11
+      budgets vs API 8, the 3 omitted being exactly the capped ones). Absence from the API is not
+      evidence a cap is missing; that inversion was made again on 2026-09-09 and reported to the
+      founder as an uncapped key
 - [ ] A person speaking on a physical Android phone sees their words in the room, verified over the
       adb DevTools console with the log pasted into this spec — the same instrument that produced
       the A/B above
@@ -373,6 +381,94 @@ not when the first word is spoken — the consent and join screens supply the co
       them and the sentence survives that path, not this one
 - [ ] `/transcribe` produces a stored recording again (by-product of the server-side stream),
       restoring what the `RECORD_AUDIO_WHILE_LIVE=false` mitigation currently gives up
+
+## BLOCKING DEFECT — the capture path dies silently within ~1 minute (measured 2026-09-10, physical device)
+
+**Status: reproduced end-to-end on a physical Samsung SM-S908B (Android, Chrome 152) driven over
+adb, against this branch and the `transcribe-slice` function deployed to test.** This is not the
+browser-recognizer duplication of P1295 — the browser recognizer is not in this path at all. It is a
+new, distinct failure in P1236's own capture code, and it blocks the phone Done-When items.
+
+### What was observed
+
+| | |
+|---|---|
+| Room | created normally; consent gate rendered and passed; `record_transcribe_slice` reachable |
+| First ~60 s | **works** — two utterances transcribed and stored, ratio 1.00, no duplication |
+| After that | **nothing is ever stored again**, for the remaining life of the room |
+| Slices | keep POSTing every 4 s, ~37 over 150 s, **every one HTTP 200** |
+| Errors | none — no 4xx, no 5xx, no exception, no console error |
+| User-visible signal | **none.** The room still says "Listening" |
+
+Re-tested with the room tab foregrounded and the browser untouched for the whole window (to rule
+out tab-backgrounding suspension caused by the instrumentation itself): founder spoke ~30 s,
+**zero new rows**. The trigger is not backgrounding.
+
+### Where it is, proven by a control probe
+
+An independent microphone tap opened **in the same page, at the same moment**, measured:
+
+```
+track: readyState=live  muted=false  enabled=true
+AudioContext: running (48 kHz)
+RMS 0.105   peak 0.995      <- loud, unambiguous speech
+```
+
+So the device, the permission, the track and the browser are all healthy while the app's own
+capture is yielding silence. **The fault is inside this feature's capture path, not the platform.**
+
+Server-side corroboration: the only `handler.ts` paths that return 200 without inserting are
+(a) `!candidate.trim()` — Gemini heard nothing — and (b) the whole slice de-duplicated away.
+(b) is bounded to a 3-token window (`MAX_WORDS_PER_OVERLAP_SECOND`) and biased to under-strip, so
+it cannot consume whole sentences. Therefore Gemini is receiving **silent or unintelligible audio**
+while the microphone is delivering peak 0.995.
+
+### Why nothing detects it — the part worth fixing regardless of trigger
+
+`slice-recorder.ts` checks `context.state` **exactly once**, at construction:
+
+```ts
+if (context.state === 'suspended') await context.resume();
+```
+
+After that there is no `onstatechange` handler, no re-`resume()`, and no check anywhere that the
+samples handed to `encodeWav` are non-silent. The `setInterval` timer is independent of the
+AudioWorklet, so **if the worklet ever stops feeding the ring, the timer keeps emitting
+well-formed WAVs of silence forever**, each of which is a successful upload and a billable Gemini
+call. The system cannot distinguish "the user is not speaking" from "our capture died", and
+reports neither.
+
+Note the tap is deliberately not connected to `context.destination`, on the stated assumption that
+*"An AudioWorkletNode pulls input without a downstream connection, so the tap runs regardless."*
+**That assumption is now suspect and is the first thing to falsify** — it is exactly the kind of
+platform-behaviour claim that CLAUDE.md's "Falsify Before You Rely" covers, and it has never been
+verified on Android Chrome for a long-lived context. Ruled out already: RingBuffer wrap-around
+(`BUFFER_SECONDS` = 6 s, so it wraps every 6 s and the first minute works fine), permissions,
+track death, and tab backgrounding.
+
+### Independent second defect, same session
+
+```
+[transcribe] slice 50 dropped — upload queue full
+```
+
+Fired once on USB-tethered localhost — i.e. under the most favourable network conditions this
+feature will ever see. On mobile data this will be routine, and a dropped slice is speech the user
+said and will never see. It is silent to the user (a `console.warn`).
+
+### Consequences for shipping
+
+Three Done-When items depend on a person's speech reaching the room and staying there. **None of
+them can pass while this stands**, and the duplication verdict (rows vs `count(distinct text)`)
+cannot be measured either: the observed 1.00 is over **two** utterances before the failure began,
+which is far too small a sample to compare against the browser path's 1.80-2.14. Do not read that
+1.00 as a pass.
+
+**Do not ship P1236 until the capture path is fixed and a run of several minutes stores speech
+continuously.** The instrument to re-measure with now exists and needs no human round-trip beyond
+speaking: adb over USB, `adb reverse tcp:5500`, `am start` Chrome at the room (localhost is a
+secure context, so the microphone works without HTTPS), then read rows vs distinct text.
+
 
 ## Open Questions
 
@@ -1683,6 +1779,13 @@ until the client change deploys — and this migration deploys with it.
       transcription slice on the user-facing fuse. Record in `.private/docs/edge-function-secrets.md`
       in the same step.
       `npx supabase secrets set GEMINI_BATCH_API_KEY="$(~/.agents/bin/ai-keys --key-string --name cp-batch)" --project-ref <ref>`
+
+**Measured 2026-09-10 — the test project already has this wrong, do not copy it to prod.**
+On test (`gfjctyxqlwexxwsmkakq`), `GEMINI_BATCH_API_KEY` and `GEMINI_API_KEY` return the SAME
+digest (`a9e5235...`), i.e. the batch variable holds the interactive key. Test volume makes that
+harmless, but it means **a green test run does not validate the fuse separation** — the property
+this checklist item exists to guarantee is untested by construction there. Verify on prod by
+digest inequality (`supabase secrets list`), not by the variable merely being present.
 
 ### Deploy commands
 - [ ] `./scripts/deploy-functions.sh transcribe-slice` (test), then `--env prod`
