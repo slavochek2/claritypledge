@@ -3250,6 +3250,51 @@ decisions.md 2026-06-27 [process] (`ship-gates.sh` SIGPIPE)
 
 ---
 
+## 2026-09-10 [technical]: Every component was healthy and the feature was dead — the fault was in the chaining, not the parts (P1236)
+
+**Context:** `/transcribe` on a real phone transcribed two utterances, then stored nothing for
+the rest of the session while claiming to listen. HTTP 200 on every upload, no error anywhere.
+
+**Four hypotheses were formed and three were falsified by measurement**, in this order: the
+AudioWorklet stops when it has no downstream connection (measured: 11,261 callbacks over 90s,
+identical to a connected control — the code comment was right); the microphone or stream had
+died (measured in-page: track live, unmuted, RMS 0.105, peak 0.995); Gemini or the key had
+failed (measured: the app's OWN captured slice, replayed by hand, transcribed correctly).
+
+**Decision — when every component tests healthy, suspect the composition.** The defect was in
+`createSerialSender`: sends are chained `tail = tail.then(...)` with a queue capped at 3, and
+`postSlicePayload` awaited both `auth.getSession()` (a NETWORK refresh near expiry) and `fetch`
+**with no deadline on either**. One send that never settles stops the chain forever, `pending`
+never falls below the cap, and every later slice is dropped silently for the rest of the
+session. Neither half is wrong alone. Serial ordering is correct and deliberate; a bounded queue
+is correct and deliberate; unbounded awaits are survivable in isolation. Composed, they convert
+a slow request into a permanent, silent, unrecoverable outage.
+
+**The generalisable rule: any await inside a serialised or bounded pipeline needs a deadline,
+because there the cost of "never" is not slowness — it is the pipeline.** `auth.getSession()`
+is the easy one to miss; it reads like a local cache lookup and is not.
+
+**Two more defects surfaced from the same run, both of the same family — a state nothing could
+observe.** `countActiveRooms` counted rooms that had ended in every sense except the column
+(a room is ended server-side only when a slice arrives after its cap, so an ABANDONED room stays
+open forever): one account held seven, oldest 17 days, against a cap of 3, so every slice
+returned 429 permanently. And nothing distinguished "no attempts" from "all attempts failed",
+which is why the jam stayed invisible for a day — fixed by adding an explicit success signal and
+a stall message, so the room stops claiming to listen when it is not.
+
+**What actually found it:** capturing the real request body off the wire. Every probe before
+that measured a *component*; the first probe that measured the *artifact the system produced*
+answered the question in one step. The slice was 96% non-zero samples at peak 25,046/32,767 —
+which simultaneously killed the silence hypothesis and handed over a fixture that could be
+replayed against the API.
+
+**Consequences:** verified after the fix on the device — 23 slices over 90s, all 200, and 23 rows
+with 23 distinct texts (ratio 1.00, against the browser recognizer's measured 1.80-2.14), across
+English, Russian and German in one session. Two probes I wrote were themselves wrong before they
+were right (a `fetch` hook the app never used; a REST call naming a parameter that does not
+exist, which reported a live function as missing) — a probe returning "nothing" is a claim about
+the probe until a control says otherwise.
+
 ## 2026-09-10 [process]: A spend cap is invisible to the billing API, so querying it turns a working cap into a reported absence (P1236)
 
 **Context:** Asked whether P1236's Gemini path was protected by a spend cap, an agent ran
