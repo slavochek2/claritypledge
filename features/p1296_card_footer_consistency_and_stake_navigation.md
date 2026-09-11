@@ -43,7 +43,7 @@ Founder framing, verbatim:
 
 ## Appetite
 
-Blast radius: **medium-high**. Two components, three surfaces, plus a page-level data fetch on `/stake`. **1,614 lines of tests bind to the feed cards**, including two structural suites that assert on source text — budget for updating them. Reversibility: high. Decision density: **one open call**, deferred to artifacts (repeat-source handling).
+Blast radius: **medium-high**. Two components, three surfaces, plus a page-level data fetch on `/stake`. **1,614 lines of tests bind to the feed cards**, including two structural suites that assert on source text — budget for updating them. Reversibility: high. Decision density: repeat-source design **chosen, (b) group by source**; two placement calls open (Open Questions 1-2).
 
 ## Solution
 
@@ -92,7 +92,7 @@ would be wrong for most visitors.
 
 **7. Absorb P500's `text-base` body type, then close P500.** `feed-story-card.tsx:245` and `feed-point-card.tsx:186` are `text-sm`. **Do NOT cite `profile-page-v2.tsx:1930` as the target — it sits inside `PointCardFull`, which is never rendered.** **Do NOT absorb P500's "~180 char threshold" for Show more; P1259 change 6 banned that shape explicitly.** Tab counts ("Points (N)") are the other live P500 item. Note `text-base` on `feed-story-card:245` interacts with `line-clamp-[18]` — density changes, screenshot it.
 
-**8. Repeat-source handling — OPEN, decided against artifacts.**
+**8. Repeat-source handling — (b) group by source, chosen 2026-09-11 against artifacts.**
 
 The pile is real and it is **on the Stories tab today, behind no collapse**: 8 stories from 4 authors over 4 videos under `aisafety1`, verified read-only against prod. Two candidate designs, both applying to `/feed` and `/stake`:
 
@@ -128,7 +128,35 @@ Implemented as three opt-in props no shipping call site passes — `sourceCollap
 `/stake` and the profile byte-identical, which is what keeps this inside the Non-Goal below: the
 artifact exercises the real card, and no surface changes until the founder picks.
 
-`[FOUNDER DECISION: (a) or (b) — artifacts built 2026-09-10, awaiting the founder's look. Verbatim: "gorup by soruce is itneresitng but i guess we need to build artifact to see how it would look to decide if we do that or dedup as orignially thought of?"]`
+**FOUNDER DECISION, 2026-09-11 — (b) group by source.** Verbatim, after the second artifact: *"I
+do like the grouping"*. The cost recorded below — (b) reorders the list — is accepted with it. The
+rule that keeps the reordering bounded: a group sits where its source FIRST appears in whatever
+order the page already uses, and the other stories of that source join it there. Nothing is
+re-sorted by author or date. A source with one story gets no group chrome.
+
+**THIRD PASS, 2026-09-11 — three annotated screenshots from the founder, all three built.**
+
+- *"too much text that is not needed? 3 Stories by Agent on Connor Leahy? or what? or we name the
+  source?"* (the group heading) → one line, **"3 stories from this video"**. No avatar, no name.
+  The group IS the video, and the player names it (title and channel) as soon as it mounts; every
+  byline inside already names the person.
+- *"not sure we need the name of person again here? redundant?"* (the quotes toggle) → **"2
+  supporting quotes"**. The byline a few lines above already says whose words they are.
+- *"should show position here"* (the opened point) → **the artifact's defect, not a design gap.**
+  `/feed` already renders the story author's stance above each point ("Connor Leahy Disagrees+",
+  P1270 §4, via `profileSubjectPosition`). The prod snapshot had left that field out, so the
+  artifact showed a point with no stance. Re-read from prod `point_positions` through
+  `story_points.author_id`: all eight links carry a stance. With the fixture carrying them the
+  stance renders, and no component changed.
+
+**Where the repeats actually occur — prod, read-only, 2026-09-11.** The whole `stories` table
+filtered to rows with a video (one request, `limit=1000`, 8 rows returned, all filed 2026-09-09):
+four videos, three of them backing more than one story (groups of 3, 2 and 2). **No video has been
+read by two different authors.** So every repeat is one person's video appearing more than once,
+and 3 of the 4 authors carry a repeat on their OWN profile. The pile is on three surfaces at once —
+`/feed`, `/stake/:tag` and the author's profile — and the profile renders stories through a
+different component (`StoryCardFull`, page-private, `profile-page-v2.tsx:1175`), not
+`FeedStoryCard`. That is what Open Question 1 is about.
 
 **What the real data does to the choice — and it is not what either draft assumed.** In the
 oldest-first order `/stake` actually requests, LeCun's two stories are already ADJACENT and so are
@@ -164,7 +192,13 @@ saw, and the thing I told them, were both artifacts of the prototype and the dev
 **anyone testing a timecode on a not-yet-mounted player against `npm run dev` will see it fail and
 be wrong about why**; note it before filing that bug.
 
-**Invariant on either design:** timestamps stay visible on every repeat without exception. The embed is convenience; the timestamp is the falsifiability hook. Hiding a repeated *player* is dedup. Hiding repeated *quotes or timestamps* is not, and is out of bounds.
+**Invariant, amended 2026-09-11:** quotes and timestamps are never REMOVED from a repeat, and are
+never folded without a control stating their count. The earlier wording ("visible without
+exception") contradicted the founder's second-pass decision to fold them (*"if we collapse, we
+collapse both"*). What survives is the part that mattered: the evidence is announced on every card,
+one click away, and a timecode on a folded card still plays. The embed is convenience; the
+timestamp is the falsifiability hook. Hiding a repeated *player* is dedup; deleting repeated
+*quotes* is not, and stays out of bounds.
 
 ## Alternatives Considered — both were drafted, both falsified
 
@@ -204,13 +238,16 @@ be wrong about why**; note it before filing that bug.
   opt-in props added for the artifact (`sourceCollapsed`, `quotesCollapsed`, `showHeading`) are
   passed by `/tree/stake-grouping` and nothing else; wiring them into `/feed` or `/stake` is the
   implementation, and it waits.
-- Do NOT hide quotes or timestamps under any dedup design.
+- Do NOT remove quotes or timestamps under any dedup design. Folding them behind a control that
+  states their count is allowed (founder, 2026-09-11); deleting them is not.
 
 ## Done-When
 
 - [x] Two artifacts exist showing repeat-source options (a) and (b) against real `aisafety1` content — `/tree/stake-grouping`, real `FeedStoryCard`, prod snapshot, browser-verified
 - [x] Second pass: the fold is real and reversible, quotes fold with it, a timecode opens the fold and plays, groups are indented and capped — all four verified in Chrome
-- [ ] The founder has chosen (a) or (b)
+- [x] The founder has chosen: **(b) group by source**, 2026-09-11
+- [x] Third pass: group heading reduced to a count, quotes toggle drops the name, the author's stance restored on opened points — verified in Chrome
+- [ ] Grouping renders on every surface named in Open Question 1, with the same rule on each
 - [ ] Story and point cards on `/feed` and `/stake` render the same footer row: `border-t border-border px-4 py-2.5`, count and expand left, share then open-in-new right
 - [ ] Feed cards render an open-in-new icon
 - [ ] `feed_card_shared` still fires from the feed share control
@@ -221,7 +258,7 @@ be wrong about why**; note it before filing that bug.
 - [ ] Switching tabs adds no history entries; the bottom back CTA after two tab switches leaves the page
 - [ ] A back CTA is reachable at the bottom of `/stake/:tag` without scrolling up
 - [ ] Feed card body type is `text-base`; feed tabs show counts; P500 closed
-- [ ] Timestamps visible on every repeated source, whichever design is chosen
+- [ ] Every repeated source keeps its quotes and timestamps, folded behind a counted control; a timecode on a folded or grouped card plays
 - [ ] Screenshots at desktop, 375px and 320px on feed, stake and profile, before and after
 - [ ] Footer keyboard focus order verified by tabbing on each surface
 - [ ] No console errors on feed, stake or profile
@@ -236,23 +273,29 @@ be wrong about why**; note it before filing that bug.
 
 ## Open Questions
 
-1. **Repeat-source design (a) or (b).** The second-pass artifact is at `/tree/stake-grouping`. This
-   is the ONLY thing blocking `/dev`.
-2. **Should supporting quotes be folded EVERYWHERE, not only on a collapsed repeat?** Founder:
-   *"generally supporting quotes, maybe we collapse everywhere, not just in stake... they take so
-   much space. Who reads? I read the story and then I say, okay, that's interesting — and then who
-   wants to read after the story the supporting quotes? Maybe, but maybe not."* The artifact's
-   `Supporting quotes folded` switch applies to the Today tab as well, so the `/feed` version of
-   this question can be looked at directly. Scope if yes: the six surfaces P1259 change 1 touched,
-   which is a bigger change than this spec — likely its own P-number.
-3. **Should an old story be collapsible on its own, independent of repeat sources?** Founder:
-   *"should one be able to collapse old stories? I don't know."* NOT built. The card already clamps
-   its body at 18 lines, so the unread cost of an old story is roughly one screen, not the pile
-   this spec is about — which is why it is recorded rather than prototyped.
-4. **In a group, the subject's name appears in the heading AND on every card inside it.** Visible
-   in (b) at any width: heading, byline and quote toggle each name the same person, five times in
-   Leahy's group. Reducing the member card's chrome inside a group is possible but is a change to
-   what a card IS, not to how the list is arranged — out of scope until (b) is chosen.
+1. **Which surfaces group.** `/feed` Stories and `/stake/:tag` Stories render `FeedStoryCard`, so
+   one implementation covers both. The profile's Stories tab renders `StoryCardFull`, which would
+   need the same two opt-in props (`quotesCollapsed`, and a way to hand timecodes to the group's
+   player) plus the group wrapper. Prod says the repeats are on all three surfaces equally (every
+   repeat is one author's own video, see item 8). Recommendation: all three in this spec, one rule,
+   because a rule that holds on two of three surfaces is the inconsistency this spec exists to
+   close. `[FOUNDER DECISION: feed + stake + profile, or feed + stake now and profile as its own
+   P-number]`
+2. **Are supporting quotes folded on every list, or only inside groups?** Founder, second pass:
+   *"generally supporting quotes, maybe we collapse everywhere, not just in stake."* The artifact's
+   `Supporting quotes folded` switch applies to every tab, so both readings can be looked at
+   directly. Recommendation: folded on every list surface (`/feed`, `/stake`, profile), open on the
+   story's own page (`/story/:id`), where the reader came for the whole story. A fold that
+   applies inside groups only would make the same story look different depending on whether its
+   video happens to repeat. `[FOUNDER DECISION]`
+3. **Should an old story be collapsible on its own?** Founder: *"should one be able to collapse old
+   stories? I don't know."* NOT built. Recommendation: close it. The body already clamps at 18
+   lines, groups cap at two stories, and quotes fold — the three things that made the page long
+   are each handled.
+4. **Name repetition — mostly resolved by the third pass.** The group heading and the quotes toggle
+   no longer name the person. What remains: an opened point's stance row names the author again
+   ("Connor Leahy Disagrees+"). That row is P1270's shipped `/feed` behaviour, rendered by the
+   shared `QuotedPointCard` the profile also uses — not changed here.
 
 ~~Where a timecode seeks on a collapsed or grouped card~~ — RESOLVED 2026-09-11: the fold opens and
 plays from that second; inside a group the group's player takes it. See item 8.

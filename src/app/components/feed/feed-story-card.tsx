@@ -348,10 +348,11 @@ export function FeedStoryCard({
             {normalizeVideoQuotes(story.videoQuotes).quotes.length > 0 && story.videoUrl && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
                 {/* P1296 — the quotes' own fold, opt-in. Founder: *"who wants to read after
-                    the story the supporting quotes? Maybe, but maybe not"* — the count and
-                    the subject are the whole of what the fold has to promise, so the toggle
-                    carries both and StoryVideoQuotes drops its heading to avoid saying it
-                    twice. */}
+                    the story the supporting quotes? Maybe, but maybe not"* — the count is the
+                    whole of what the fold has to promise, and StoryVideoQuotes drops its heading
+                    to avoid saying it twice. NOT the subject's name: the byline a few lines up
+                    already says whose words these are. Founder, on the second artifact: *"not
+                    sure we need the name of person again here? redundant?"* */}
                 {quotesCollapsed && (
                   <button
                     type="button"
@@ -368,7 +369,6 @@ export function FeedStoryCard({
                     <span className="min-w-0">
                       {normalizeVideoQuotes(story.videoQuotes).quotes.length} supporting{' '}
                       {normalizeVideoQuotes(story.videoQuotes).quotes.length === 1 ? 'quote' : 'quotes'}
-                      {' '}from {stripAgentPrefix(story.authorName) ?? story.authorName}
                     </span>
                   </button>
                 )}

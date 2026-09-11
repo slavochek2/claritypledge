@@ -44,7 +44,6 @@ import { ChevronDown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { StoryMedia } from '@/app/components/shared/story-media';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { AgentAccountsContext } from '@/app/contexts/agent-accounts-context';
 import { stripAgentPrefix } from '@/lib/utils';
@@ -185,21 +184,15 @@ function SourceGroup({
 
   return (
     <section className="rounded-lg border border-border bg-muted/30 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <GravatarAvatar
-          name={subjectOf(lead)}
-          photoUrl={lead.authorAvatarUrl ?? undefined}
-          avatarColor={lead.authorAvatarColor}
-          size="sm"
-          isPledger={lead.authorHasPledged ?? false}
-        />
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold">One source · {subjectOf(lead)}</div>
-          <div className="text-xs text-muted-foreground">
-            {stories.length} stories argue from this video
-          </div>
-        </div>
-      </div>
+      {/* Founder, on the second artifact: *"too much text that is not needed?"* The heading
+          used to be an avatar, "One source · {name}" and a subtitle — the name then repeated
+          on every card inside. The group IS the video, and the player names it (title and
+          channel) the moment it mounts, so the only thing left to say is the count. On prod
+          no video has been read by two different authors (2026-09-11), so every byline
+          inside already carries the name. */}
+      <p className="mb-2 text-sm font-medium text-muted-foreground">
+        {stories.length} stories from this video
+      </p>
 
       <div ref={player.containerRef}>
         <StoryMedia

@@ -50,7 +50,15 @@ export const AGENT_PROFILE_IDS: ReadonlySet<string> = new Set([
 /** Every one of these is operated by ClarityPledge, per prod's `agent_accounts`. */
 export const AGENT_OPERATOR_NAME = 'ClarityPledge';
 
-/** Story id -> the points it argues, in the shape the feed page's batch fetch returns. */
+/**
+ * Story id -> the points it argues, in the shape the feed page's batch fetch returns.
+ *
+ * `profileSubjectPosition` is the story AUTHOR's own stance on the point, which is what
+ * `getPointsForStories` fills on the real feed (P1270 §4, via `story_points.author_id`). The
+ * first snapshot left it out, so the artifact rendered a point with no stance where `/feed`
+ * renders "{name} Disagrees+" above it — founder: *"should show position here"*. Read from
+ * prod `point_positions` 2026-09-11; all eight links carry one.
+ */
 export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
   "023f60d6-0809-41b2-9da2-ece803ac66fe": [
     {
@@ -60,6 +68,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "strongly_disagree",
     },
   ],
   "2165309e-09e7-4d87-88f2-e54fb2897b5d": [
@@ -70,6 +79,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "agree",
     },
   ],
   "36a04e74-fdde-4ace-8aeb-e7cfcdbf4ac7": [
@@ -80,6 +90,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "strongly_agree",
     },
   ],
   "b2c72544-24ee-4755-bf39-930d96b2c6aa": [
@@ -90,6 +101,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "strongly_disagree",
     },
   ],
   "ca95e99d-02ad-4d7d-97b1-97dd40d4a133": [
@@ -100,6 +112,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "strongly_disagree",
     },
   ],
   "cf0365cc-8102-4528-91b7-dfaff8811c37": [
@@ -110,6 +123,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "strongly_disagree",
     },
   ],
   "ea78c1ba-4393-4c38-9ea5-c0dc30428555": [
@@ -120,6 +134,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "strongly_agree",
     },
   ],
   "f85c6466-26c4-4ea9-8e4b-fc31c476ea7f": [
@@ -130,6 +145,7 @@ export const AISAFETY1_LINKED_POINTS: Record<string, PointSummary[]> = {
       systemTags: [],
       visibility: "public",
       supersededBy: null,
+      profileSubjectPosition: "strongly_agree",
     },
   ],
 };
