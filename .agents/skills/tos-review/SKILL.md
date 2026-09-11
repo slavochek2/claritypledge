@@ -175,7 +175,9 @@ behind, open an ordinary non-session page, and screenshot the popup. Then:
 
 1. Read every sentence against the new documents. The popup may describe **the documents only**, never
    the page, session or activity behind it, because it renders over all of them.
-2. Open both links. Each must land on the document it names, not on the not-found page.
+2. Open both links in a new tab as that same user. Each must land on the document it names, and the
+   document must be readable: not the not-found page, and not with the popup re-opened over it. The
+   gate stays dormant on the legal routes via its exempt list; a new legal page needs adding there.
 
 Why this step exists: from 2026-05 until P1300, the popup told every returning user "This session is
 recorded for AI Insights" on pages with no session, and its "View Terms" link opened a page that did not
