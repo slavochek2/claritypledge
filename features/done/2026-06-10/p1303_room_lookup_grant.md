@@ -10,7 +10,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [security, grants, p1065, transcribe]
-disclosure: embargo
+disclosure: public
 pipeline_ran: [create-bug, inline, ship]
 completed_at: 2026-09-11
 ---
@@ -106,8 +106,9 @@ mechanically instead — `git-ops.sh publish-spec p1303` refuses until the migra
 `origin/main`'s prod manifest and the authenticated prod smoke test passes. **Nothing from this
 branch may be pushed before the prod apply** (P1102 disclosure ordering).
 
-- `has_function_privilege('anon', …)` reads false on **prod** after `migrate.sh --env prod`
-- `scripts/function-grant-drift-check.py` no longer lists the function in either direction
+- `has_function_privilege('anon', …)` reads false on **prod** after `migrate.sh --env prod` — **done 2026-09-11:** applied (1 pending, exit 0), authenticated prod smoke 8 passed / 0 failed; live anon REST call returns `42501 permission denied for function get_transcribe_room_by_code` (HTTP 401) while the allowlisted control `get_session_by_code` returns HTTP 200
+- `scripts/function-grant-drift-check.py` no longer lists the function in either direction — **done:** not listed in any section; prod anon-executable 40 → 39, gating findings 18 → 16
+- Disclosure flipped `embargo` → `public` on the evidence above (the embargo's exit condition is the fix confirmed live on prod)
 - A signed-in user joins an existing room at `/transcribe/:code` in the browser, **on prod**. Moved
   here from Acceptance Criteria: on the shared test DB the room create/join path is broken by
   unshipped P1236 schema changes (`e2e/p1275-transcribe-room-create.spec.ts`: "Could not start a
