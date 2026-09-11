@@ -70,8 +70,14 @@ user today and breaks e2e cleanup every run, which is how it was found.
       15/15 after the fix. The suite asserts the per-step counts as literals (`positions_deleted: 2`,
       `points_orphaned: 1`, …), so passing after the fix is the same counts it has always required.
       **Method deviation, stated:** run against the test project, not local Supabase, and not re-run before the fix.
-- [ ] e2e fixture cleanup deletes its points with zero failures; a second consecutive run finds no orphans from the first
-      — runs with P1078's hashtag-feed suite (`w10`), next
+- [x] e2e fixture cleanup deletes its points with zero failures; a second consecutive run finds no orphans from the first
+      — `e2e/p491-hashtag-feed.spec.ts`, run twice from `w10` on 2026-09-11: per run, 16 "Deleting test point",
+      16 "Test point deleted", 0 "Error deleting point" (before the fix: 16 of 16 failed). Points carrying the
+      fixture's statement: 38 before run 1, 38 after it, 38 after run 2 — the runs left nothing behind.
+      **The 38 are older leftovers, not new ones:** they were stranded before the fix, when both the point
+      delete and the user delete failed. They are what makes 8 of that suite's tests fail (strict-mode
+      violations, 23 matching elements), which is P1078's to clear. Removing them is a delete on the test
+      database, so it waits for the founder
 - [x] A regression test covers both arms: point-delete succeeds, position-only-delete still tombstones —
       `e2e/integration/p1292-point-delete-history.spec.ts`, arms A (point delete), B (position-only delete, the
       control), C (profile delete) and D (a user deleted through the auth API — see below). Watched failing
