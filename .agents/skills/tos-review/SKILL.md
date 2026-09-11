@@ -63,6 +63,12 @@ Read the full ToS. For each section, note:
 - What it implicitly excludes
 - Any language that's now technically inaccurate
 
+Then read the **in-app text that paraphrases these documents**, because users read it far more often
+than the documents themselves: the re-acceptance popup (`src/app/components/live-meeting/terms-update-dialog.tsx`),
+the letter re-acceptance modal (`src/app/components/letters/letter-stale-terms-modal.tsx`), and any
+consent or recording notice (`grep -rn "AI Insights\|Private session" src/app`). A sentence there that
+the documents contradict is stale language too, and it goes into Stage 3 alongside the ToS gaps.
+
 ### Stage 3 — Gap Analysis (run yourself)
 
 Cross-reference Stage 1 vs Stage 2. Identify:
@@ -161,6 +167,20 @@ For each approved change:
 Use Claude in Chrome to load `http://localhost:5173/terms-of-service` and screenshot the updated sections.
 
 **Pass criteria:** All new paragraphs render without truncation, spacing matches surrounding sections, no raw HTML visible, date in page header matches today.
+
+**Then review the re-acceptance popup. This is mandatory whenever Stage 7b bumped the version.** The bump
+shows the popup to *every* returning user, over whatever page they open first. That page is usually a
+profile, a group or the feed, not a live session. Sign in as a user whose `accepted_terms_version` is
+behind, open an ordinary non-session page, and screenshot the popup. Then:
+
+1. Read every sentence against the new documents. The popup may describe **the documents only**, never
+   the page, session or activity behind it, because it renders over all of them.
+2. Open both links. Each must land on the document it names, not on the not-found page.
+
+Why this step exists: from 2026-05 until P1300, the popup told every returning user "This session is
+recorded for AI Insights" on pages with no session, and its "View Terms" link opened a page that did not
+exist. The v1.4 bump ran through this skill and still missed both problems: this stage only looked at
+the terms page, and the only check on the popup confirmed that it *appeared*.
 
 **Fallback (if Claude in Chrome unavailable):** Use any available browser automation tool — Chrome DevTools MCP, Playwright, or Claude in Chrome. If none is available, note "Visual review skipped — no browser tool available. Run manually before pushing."
 
