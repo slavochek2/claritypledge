@@ -392,7 +392,14 @@ not when the first word is spoken — the consent and join screens supply the co
       The first run of this test is what found the defect below. Both contexts run on one
       machine, so real audio from two separate microphones remains unproven — that is the
       phone half, and it needs a second physical device
-- [ ] A room that has ended leaves no GPU instance allocated — verified from billing, not inferred
+- [x] A room that has ended leaves no GPU instance allocated — verified from billing, not inferred
+      **N/A by architecture, verified 2026-09-11 rather than assumed.** This criterion was
+      written for the self-hosted Whisper/pyannote path on Cloud Run. That path is not in this
+      feature: `grep` across `supabase/functions/transcribe-slice/` for `run.app`, `cloudrun`,
+      `CLOUD_RUN`, `whisper`, `pyannote` returns nothing outside tests — the ingest calls the
+      Gemini API directly. There is no GPU instance to leak, so there is nothing for billing to
+      show. Spend is bounded by the enforcing cap (P1162) instead, which is its own criterion
+      above
 - [x] Current Gemini credit coverage re-verified against billing before any Gemini path is committed
       (2026-09-03, from the BigQuery billing export, superseding the Apr 2026 figure — see
       "Credit-eligible execution paths")
@@ -407,8 +414,23 @@ not when the first word is spoken — the consent and join screens supply the co
       TEXT was ever archived — only the count reached the spec; (b) nothing yet **produces**
       overlapping slices, since the capture side is Stage F. This ticks when a real client emits
       them and the sentence survives that path, not this one
-- [ ] `/transcribe` produces a stored recording again (by-product of the server-side stream),
+
+      **(b) is discharged 2026-09-11; (a) is not, and that is why this stays unticked.** Stage F
+      now exists and a real client did emit overlapping slices: the device runs stored 23/23 and
+      37/37 rows vs distinct text — ratio 1.00 across English, Russian and German. A ratio of
+      1.00 over overlapping slices IS the de-duplicator working end to end on real audio, which
+      is exactly what (b) asked for. What (a) asked for is still missing: no whole-file
+      transcript TEXT was ever archived, only its word count (134), so the sentence-level
+      comparison this criterion names cannot be run against anything. Producing that archive is
+      a measurement task, not a correctness fix — the de-duplicator's behaviour is already
+      asserted end to end in `dedup.test.ts`
+- [x] `/transcribe` produces a stored recording again (by-product of the server-side stream),
       restoring what the `RECORD_AUDIO_WHILE_LIVE=false` mitigation currently gives up
+      **Verified 2026-09-11 against the bucket itself, not inferred from the upload code.**
+      The 2026-09-10 device run left 15 archival chunks for room `YYRXXJ`
+      (`chunk_000`–`chunk_014.webm`, ~483 KB each, 30 s apart, timestamps matching the run).
+      Bucket total 7180 objects / 1.21 GiB. So the archival path and the live path run off the
+      one shared microphone stream, which is what Decision 1 set out to restore
 
 ## RESOLVED 2026-09-10 — the capture path died silently within ~1 minute (measured on a physical device)
 
@@ -585,7 +607,21 @@ Scope note: P1236 is a research/measurement spec — the server-side live path (
 - ⚠️ UNVERIFIED — no equivalent validation exists yet for whatever payload shape a Gemini or Cloud-Run streaming call would take (chunk size limits, max chunk count per room, audio duration bounds). Must be specified before any the build sequence step that adds a new ingest surface.
 
 **Data Protection:**
-- ⚠️ **Retention / bucket ACL — UNVERIFIED, not inferable from this repo.** The actual signed-URL-minting Cloud Function (`cloud-functions/gcs-signed-url/index.js`) only mints a 15-minute **write** URL (`index.js:84-90`) and sanitizes path segments; it says nothing about the bucket's IAM bindings, uniform bucket-level access, public-access-prevention, or a lifecycle/retention rule. No `lifecycle.json`, no `gsutil lifecycle set`, no retention doc for `gs://claritypledge-ml-training` exists anywhere in this repo (`grep -rn "lifecycle\|retention" docs/ scripts/` — zero hits for this bucket). Given transcribe-room audio is explicitly described in `privacy.md:104-106` as pseudonymous (voice can re-identify), **do not mark this ✅ — verify via `gsutil iam get gs://claritypledge-ml-training` and `gsutil lifecycle get gs://claritypledge-ml-training` before shipping**, and record a retention period in the Pre-deploy Checklist per `.claude/rules/features.md`'s Secrets & External Services trigger (this introduces a new external-data-flow surface even without a new key).
+- ⚠️ **Retention / bucket ACL — ACCESS VERIFIED 2026-09-11, RETENTION IS AN OPEN FOUNDER
+  DECISION.** Measured, not inferred: uniform bucket-level access is **Enabled and LOCKED**
+  (locked 2026-04-04, so it cannot be turned off), public-access-prevention is inherited, and
+  the IAM policy contains **no `allUsers` or `allAuthenticatedUsers` binding** — six role
+  bindings, every one a named principal. So the recordings are not reachable by the public, and
+  the original worry about bucket ACLs is closed.
+  **What is NOT closed: `gsutil lifecycle get` returns "has no lifecycle configuration" — there
+  is no retention rule of any kind, so room audio is kept forever by default.** The bucket
+  already holds 1.21 GiB across 7180 objects. `privacy.md` describes this audio as pseudonymous
+  and notes that a voice can re-identify a person, so "forever" is a commitment worth making
+  deliberately rather than by omission. **[FOUNDER DECISION: how long is room audio kept?]**
+  This does not block the merge — nothing about it changes with this branch — but it should be
+  answered before /transcribe carries sessions that are not the founder's own.
+  Original note follows.
+  ⚠️ **(superseded) Retention / bucket ACL — UNVERIFIED, not inferable from this repo.** The actual signed-URL-minting Cloud Function (`cloud-functions/gcs-signed-url/index.js`) only mints a 15-minute **write** URL (`index.js:84-90`) and sanitizes path segments; it says nothing about the bucket's IAM bindings, uniform bucket-level access, public-access-prevention, or a lifecycle/retention rule. No `lifecycle.json`, no `gsutil lifecycle set`, no retention doc for `gs://claritypledge-ml-training` exists anywhere in this repo (`grep -rn "lifecycle\|retention" docs/ scripts/` — zero hits for this bucket). Given transcribe-room audio is explicitly described in `privacy.md:104-106` as pseudonymous (voice can re-identify), **do not mark this ✅ — verify via `gsutil iam get gs://claritypledge-ml-training` and `gsutil lifecycle get gs://claritypledge-ml-training` before shipping**, and record a retention period in the Pre-deploy Checklist per `.claude/rules/features.md`'s Secrets & External Services trigger (this introduces a new external-data-flow surface even without a new key).
 - ⚠️ **Consent is client-side state only — the documented "nothing is captured before you do [consent]" promise (`privacy.md:111-112`) is currently satisfied ONLY because `RECORD_AUDIO_WHILE_LIVE = false` disables the entire capture branch as dead code** (`transcribe-room-page.tsx:54,133-166`). `consentGiven` is a React `useState` boolean (`transcribe-room-page.tsx:63`), never sent to the server, never persisted — `joinRoom(roomId, profileId, displayName)` (`transcribe-service.ts:167`) has no consent parameter, and `transcribe_room_members` has no `consent_given_at` column (grepped: zero hits). The `gcs-signed-url` handler's authorization check is membership-only (`isMember = m.profileId === userId && m.roomCode === target.code`) — it has no way to know or check whether consent was given, because the server has no record of it. **The moment this spec flips `RECORD_AUDIO_WHILE_LIVE` to true (its explicit Done-When goal), fail-closed stops being true by construction and becomes true only by client cooperation.** Required handling: add a server-persisted consent flag (e.g. `transcribe_room_members.consent_given_at TIMESTAMPTZ`, set only via the join RPC/insert itself, i.e. consent and join become the same atomic server-side event) and gate the `gcs-signed-url` room-membership check (and/or a corresponding gate on whatever new ingest endpoint is added) on `consent_given_at IS NOT NULL` — not on trusting that the client only calls `startCapture` after the checkbox was toggled. A replayed or scripted request with a valid JWT for a genuine room member, sent without ever rendering the consent screen, currently would not be distinguishable server-side from a consented one, once capture is enabled.
 - ⚠️ **Third-party AI disclosure gap if the Gemini path is chosen.** `privacy.md:108-115` (`### Transcribe rooms`) currently discloses only: audio → "our Google Cloud Storage bucket" → "a corrected transcript is produced afterward" — worded to describe the existing self-run Whisper/pyannote Cloud Run pipeline (matches the `/live` paragraph immediately above it, `privacy.md:78-80`: "our own transcription service — software we run on Google Cloud"). The separate Gemini disclosure block (`privacy.md:150-163`) lists only `/chat` and banner/image generation as going to `generativelanguage.googleapis.com` — **transcription is not listed**. If P1236 routes room audio (voice — biometric-adjacent per the spec's own framing) through the Gemini Developer API, the current privacy policy does not disclose that flow, and the DPA table (`privacy.md:261-263`, "Google Gemini API" row) does not list transcript/audio content either. **Required before shipping the Gemini path**: update `privacy.md`'s Transcribe rooms section and the Gemini API disclosure row to name audio/transcript content, and confirm this doesn't need a fresh consent capture (the existing consent copy — "Recorded and visible to everyone in this room" — makes no mention of a third party at all).
 - ✅ No participant email/name is embedded in the GCS **object path** beyond the already-sanitized display name (`sanitizeParticipantName`) and the room member UUID — the object key itself doesn't leak more PII than P1223 already reviewed for the `/live` path.
