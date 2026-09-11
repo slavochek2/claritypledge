@@ -3,7 +3,8 @@
  * @description P1296 item 7 — one video, its player mounted once, and every story built on it
  * underneath. Rendered on `/feed` Stories, `/stake/:tag` Stories and the profile's Stories tab.
  *
- * The design is the one the founder chose on the `/tree/stake-grouping` artifact, option (b),
+ * The design is the one the founder chose on the grouping artifact (a throwaway `/tree` page,
+ * removed once UAT passed), option (b),
  * after three passes: *"I do like the grouping"*, *"if it's group, then it has to look like a
  * group"*, *"show more stories... otherwise people just scroll and scroll"*.
  *

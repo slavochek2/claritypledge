@@ -372,7 +372,7 @@ Grouping
 - [x] Feed search and tag filters regroup live; a group left with one story renders as a plain card — `p1296-feed-grouping.test.tsx` (one left → plain card; two left → same group node and same player node)
 - [x] No indent below 640px; no horizontal overflow and one-line bylines at 320px — 320 screenshots of the profile group and the grouping reference; `documentElement.scrollWidth === 320`
 - [x] Every card inside a group keeps its full footer and points — `p1296-source-group.test.tsx`; the grouped profile card mounts 0 iframes of its own
-- [ ] `/tree/stake-grouping` and its fixture deleted after UAT sign-off
+- [x] `/tree/stake-grouping` and its fixture deleted after UAT sign-off — removed with its route and the `AgentAccountsContext` export it needed; UAT evidence above (screenshots, visual QA PASS, production-build seek check)
 
 Quotes and timestamps
 - [x] Quotes folded by default on all six `StoryVideoQuotes` surfaces, toggle "N supporting quotes" (N = quotes rendered there), 40px — the fold lives in the component, so all six call sites inherit it; `p1141-video-seek.test.tsx` fold suite; nine quote suites updated to open the fold
