@@ -1452,3 +1452,33 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 `git-ops.sh commit-to-main` exited 0 after recording zero of seven requested files (empty commit `2ca583efd`): a concurrent session reset the shared index during the pre-commit window, and the tool printed "WARNING -- requested and recorded counts differ" yet returned success. The comment beside that warning says it "CANNOT FIRE TODAY", and `.claude/rules/git.md` says the recorded-set check "exits non-zero on any difference"; both were falsified by this run. Done when the mismatch exits non-zero and the comment and the git.md sentence match the behaviour; droppable if P1279 already changed this path.
 
 ---
+
+## Make deleteTestUser fail loudly when the profile delete fails
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** week
+
+`e2e/helpers/test-user.ts` `deleteTestUser` logs a failed profile delete as a warning and moves on, so test users accumulate silently: 38 "Feed Author" users stranded on the test project by P1292's trigger defect went unnoticed for two days and now break eight hashtag-feed tests. Make the failure throw, or return a result the caller must read. Droppable if two weeks of runs strand no test user.
+
+---
+
+## Decide whether deleting a user who has story verifications should be refused
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** week
+
+`story_verifications_speaker_id_fkey` has no ON DELETE action, so deleting any user who has story verifications fails with 23503 — the dashboard's user delete included; only `erase_my_account` and `deleteTestUser` pre-clean them (measured on test while probing P1292). Decide between cascade, SET NULL (now representable on live rows since P1278 D) and a documented refusal. Droppable once the choice is written down.
+
+---
+
+## Fix the calibration breakdown page's older display issues
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** week
+
+Two independent visual-QA passes during P1278 D found issues older than it: the verdict ("Well calibrated") reads a signed average in which over- and under-estimates cancel, so rounds off by 2–4 read as calibrated; the name column is 70–100 px, so names wrap; tap targets are under 40 px (info icons ~17 px, "Start a Session" 36 px); the result bar looks draggable but is read-only; gap values wrap and render their signs inconsistently. Droppable if the page is taken out of scope.
+
+---
