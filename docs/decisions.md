@@ -547,6 +547,75 @@ stops printing.
 **Consequences:** Trap 3 is also recorded in `docs/technical/e2e-testing-guide.md` beside the serial-mode exception, and trap 1 in `docs/technical/worktree-setup.md`.
 
 **References:** `.claude/rules/epistemic.md` gate 7 · `.claude/rules/git.md`
+## 2026-09-11 [technical]: Room live slices move from 4 s to 13 s — measured on real room audio (P1307)
+
+**Context:** The 2026-09-04 founder decision set 4-second live slices (P1236), reasoning that
+reading-while-talking is not the use case and that 2 s measured worse. P1298 then showed that 4 s
+slices invent words at the cuts (24 non-Latin characters sliced, 0 whole-file on the same audio).
+The founder asked for 13 s to be tested and decided by a rule set before the run.
+
+**Decision:** 13-second slices, keeping the 1 s lead-in and the de-duplicator. Same 450 s of real
+room audio, same model and request shape as `transcribe-slice`, production de-duplication applied
+in production order, two runs per variant (byte-identical): invented non-Latin letters **37 → 2**;
+word error against the whole-file transcript **55.2% → 30.0%**; the sentence 4 s turned from "the
+four statements" into "the first statement" comes back correct at 13 s.
+
+**Alternatives rejected:** Stay at 4 s — loses on both measures. Cut on pauses (voice activity) —
+deferred, unmeasured here and more to build. Wider overlap or de-duplicator tuning — already ruled
+out by P1298: the defect is invented text, not repeated text.
+
+**Consequences:** 13 s still invents occasionally at a cut (one sentence in 450 s) and leaves a few
+lead-in duplicates, so the **saved** transcript is a whole-recording pass (P1307 part 2), never the
+live rows. About 15 s from speech to text, accepted. `MAX_SLICES_PER_MEMBER` was sized for 4 s and
+must be re-derived. Limits of the evidence: one speaker, one room, English; the reference is the
+same model with full context, not a human transcript.
+
+**References:** [P1307 Evidence](../features/p1307_event_transcription_from_ready_across_pages_into_sessions.md)
+
+## 2026-09-11 [product]: Recording that follows you across pages starts from a default-on switch, says what it keeps, and is always visible (P1307)
+
+**Context:** Event attendees leave the transcript page and their audio stops. P1307 makes room
+capture follow the person across the app, which changes what "leaving the room stops your
+recording" means in `privacy.md`.
+
+**Decision:** On the event ready screen, a switch **on by default** — "Transcribe for AI insights",
+with the founder's sub-line "Record audio and share transcript with others in the room" — and the
+`/live`-style line under Continue ("By continuing, you agree to our Terms and Privacy Policy.").
+**Capture never runs unless an indicator is on screen**; where the shared bar is hidden today
+(immersive letter screens, `/donate`) either show one or pause. During a `/live` session room
+capture pauses without a message and resumes when that session ends, only if it was running. No
+new timeout: the room's 3-hour cap is the backstop for a forgotten open page, as an accepted risk.
+
+**Alternatives rejected:** A separate consent screen — the founder wants the `/live` pattern. The
+terms line alone with no sub-line — the single tap would no longer say that audio is kept and that
+the room reads your words, both of which today's consent text states. A 15-minute silence stop —
+it drops the question someone waited through a talk to ask.
+
+**Consequences:** `/live`'s switch takes the same label; `privacy.md` and `tos.md` change in the
+same release as the code; one shared bar component serves `/live` and room transcription. Button
+colours are untouched here — split out as P1308.
+
+**References:** [P1307 Decisions D1–D9](../features/p1307_event_transcription_from_ready_across_pages_into_sessions.md)
+
+## 2026-09-11 [process]: Clickable /tree prototypes draw only what changes; every unchanged page is a labelled stand-in (P1307)
+
+**Context:** The first P1307 prototype rendered an invented event meet page (a roster and headings)
+and a new transcript screen. The founder flagged it as "hallucinated": the real flow lands on the
+existing `/events/:slug/meet`, and Open goes to the existing `/transcribe` room. The brief had
+asked for "a simple placeholder roster card", which invited the invention.
+
+**Decision:** A prototype brief names the screens that change. Every other screen is a dashed box
+reading "Stand-in — the real X page, unchanged", and only the new element (here, the bar) is drawn
+for real.
+
+**Alternatives rejected:** Rendering the real routed page with mocks — heavy for DB-backed pages
+like the meet page. Keeping the invented screen with a caveat in chat — the founder reviews the
+screen, not the chat.
+
+**Consequences:** Founder review time goes to what actually changes. Applies to every brief handed
+to a `/tree` prototype subagent.
+
+**References:** `src/app/prototypes/event-transcription/MeetScreen.tsx` on `feature/p1307-event-transcription`
 
 ## 2026-09-11 [process]: An embargoed spec reached main, and taking it off main did not take it off the branches cut from that tip (P1302)
 
