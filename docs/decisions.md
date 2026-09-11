@@ -6,6 +6,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-11 [product]: The terms re-acceptance popup speaks only about the documents, and the documents it links are never behind it (P1300)
+
+**Context:** A user reported, from a phone on prod, that the site-wide "Updated Terms" popup said *"This session is recorded for AI Insights"* over a groups page. The popup is `TermsUpdateDialog`, written as a `/live` join notice and reused unchanged by P832 as the global `TermsAcceptanceGate`. P832's entry further down records the first leak of that reuse (outside-click signed users out) and fixed the behaviour. The copy leaked too and was never re-read in its new context. Its only unit test asserted the false sentence was present, and a second asserted the dead `/terms` href, so the defect was written into the tests as expected behaviour. It stayed latent from 2026-05 until the v1.4 bump (P1219) put the popup in front of every returning user. Code review then found a third leak: the gate also covered `/terms-of-service` and `/privacy-policy`, so fixing the href alone would have sent the user to a document the same modal covered.
+
+**Decision:**
+- The popup describes the documents only, never the page, session or activity behind it. The fix was a deletion: the session sentence went and the popup kept its existing *"By continuing, you agree to the updated terms."* No new consent wording was written.
+- "View Terms" links `/terms-of-service`.
+- The gate stays dormant on `/terms-of-service` and `/privacy-policy`, matched by exact route (trailing slash allowed), not by prefix. The gate overlays the page rather than blocking its render, so the exemption changes what a stale user can read, not what is processed.
+- `/tos-review` now reads the in-app terms copy in Stage 2. Whenever Stage 7b bumps the version, it screenshots the popup on an ordinary non-session page and opens both links as that same user.
+
+**Alternatives rejected:**
+- Keep a recording sentence on the `/live` join path only, conditioned on the host's recording switch. The published ToS and Privacy Policy both say there is no separate recording-consent dialog: recording is disclosed by the host's switch, the in-session banner and the "Private session" badge. A notice shown only to users with stale terms would disclose to a random subset and contradict the documents.
+- Write new consent wording. That is a founder call, and the deletion made it unnecessary.
+- Exempt the legal routes by prefix. That would silently exempt any future look-alike page, such as `/privacy-policy-preview`.
+
+**Consequences:**
+- When a component is reused in a broader context, re-read its copy there, not only its behaviour. This one leaked twice, once on each axis.
+- A test that asserts the user-facing copy of a shared component asserts that copy's original context. When the context widens, the test protects the defect, not the fix.
+- For a consent link the criterion is not "the href resolves". It is "the document is readable by the same user who is shown the popup". The e2e docs test asserts that no dialog is present, and it failed before the exemption.
+- The gate's exact-route exempt list is where any new legal page must be added.
+
+**References:** [P1300 spec](../features/done/2026-06-10/p1300_terms_gate_claims_session_is_recorded_and_links_dead_terms.md) · [terms-update-dialog.tsx](../src/app/components/live-meeting/terms-update-dialog.tsx) · [terms-acceptance-gate.tsx](../src/app/components/auth/terms-acceptance-gate.tsx) · [e2e/p1300-terms-popup.spec.ts](../e2e/p1300-terms-popup.spec.ts) · [/tos-review](../.claude/commands/slava/maintain/tos-review/SKILL.md)
+
 ## 2026-09-10 [process]: Agreeing with a good question is not checking it — three spec drafts, three falsified premises
 
 **Context:** The founder asked a reasonable question about a card-consistency spec: *"point cards in profiles build similarly? why not reuse that pattern? ther they have line etc?"* The answer given was an enthusiastic yes, and a whole spec draft was rewritten around adopting that component. An adversarial review then falsified it by command in about a minute.
