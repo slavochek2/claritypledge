@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 95
 severity: high
@@ -10,7 +10,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [legal, consent, copy, terms]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: 2026-09-11
 root_cause: "TermsUpdateDialog was a /live join notice reused unchanged as the global gate (P832): its session sentence rendered on every page, its Terms link targeted a never-deployed /terms, and the gate also covered the legal documents the popup links"
@@ -22,6 +21,7 @@ reproduce_artifact:
   surfaces_in_scope: [global-terms-gate, live-join-terms-dialog]
   surfaces_deferred: []
   reproduced_at: 2026-09-11
+completed_at: 2026-09-11
 ---
 
 # P1300: Terms re-acceptance popup says "This session is recorded" on every page, and its "View Terms" link is dead
