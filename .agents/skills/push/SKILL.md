@@ -22,12 +22,12 @@ Push local `main` work to `origin/main` without making you steer every gate.
 
 | Check | Where | Behavior |
 |---|---|---|
-| PreToolUse hook | `~/.claude/hooks/block-prod-deploy.sh` → `push_flag_valid()` | Text-matches the push command and blocks unless the flag is present **and unexpired**. **It does not match `./scripts/git-ops.sh push-docs`** — so the hook will *not* stop you from starting step 5 with a missing or lapsed flag. Step 4's own check is what stops you. The real boundary is the server-side check (P919), not this local hook. |
+| PreToolUse hook | `~/.claude/hooks/block-prod-deploy.sh` → `flag_allows()` | Text-matches the push command — `git push`, and since 2026-09-11 also `git-ops.sh push-docs` / `ship-to-prod` — and blocks unless the flag is present **and unexpired**. **It refuses any push from a subagent, even with the flag set** (`agent_id` in the hook input): the flag authorizes the main session only (decisions.md 2026-09-11 [process]). So a missing or lapsed flag now stops step 5 at the hook; step 4's own check is still what saves you a wasted staging push. The real boundary is the server-side check (P919), not this local hook. |
 | Layer 3 — prod TTY confirm | `scripts/pre-push-checks.sh` (`.git/hooks/pre-push` is a **symlink** to it) | Prompts `Ship to production? (y/N)` and reads `/dev/tty`. Only guards `remote_ref == refs/heads/main`. |
 
 **The waiver is explicit and it is real:** in `scripts/pre-push-checks.sh` it runs *before* Layer 3 and short-circuits it — but only for a flag that is present **and unexpired** (the `_exp_s` check at the `PUSH_FLAG` block). Grep for `PUSH_FLAG` rather than trusting a line number here; this region has moved twice.
 
-So with the flag set, **you can and should complete the push yourself.** With it unset, you cannot — no env var substitutes.
+So with the flag set, **you can and should complete the push yourself** — from the main session. A subagent cannot, flag or not; never delegate any part of `/push` that pushes, and run its privacy review inline or as a `general-purpose` agent, never a `fork`. With the flag unset, you cannot — no env var substitutes.
 
 **What the flag does NOT waive — stated precisely:**
 - **Layer 1 (PII content scan, `:44-68`)** — runs on every ref, unconditionally. This is the one that is always enforced.
