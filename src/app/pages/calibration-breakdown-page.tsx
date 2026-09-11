@@ -271,21 +271,30 @@ export function CalibrationBreakdownPage() {
                       {rows.map((row) => (
                         <tr key={row.id} className="border-b border-border/50 last:border-0 text-sm">
                           <td className="py-2 pr-2 px-3">
-                            <Link
-                              to={`/p/${row.speaker_slug}`}
-                              className="text-foreground font-medium hover:underline"
-                            >
-                              {row.speaker_name}
-                            </Link>
+                            {row.speaker_slug ? (
+                              <Link
+                                to={`/p/${row.speaker_slug}`}
+                                className="text-foreground font-medium hover:underline"
+                              >
+                                {row.speaker_name}
+                              </Link>
+                            ) : (
+                              // P1278 D: a guest speaker has no profile to link to.
+                              <span className="text-foreground font-medium">Guest</span>
+                            )}
                             <div className="text-xs text-muted-foreground">
                               {new Date(row.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                             </div>
                             {(() => {
                               const sameStory = rows.filter(r => r.story_id === row.story_id);
                               const roundIdx = sameStory.indexOf(row);
-                              const label = sameStory.length > 1
-                                ? `${row.story_title} (round ${roundIdx + 1})`
-                                : row.story_title;
+                              // Null guard: the RPC returns no story_title, and a storyless round (every
+                              // guest round) has no story to link — "null (round N)" linked to /story/null.
+                              const label = !row.story_title
+                                ? null
+                                : sameStory.length > 1
+                                  ? `${row.story_title} (round ${roundIdx + 1})`
+                                  : row.story_title;
                               return label ? (
                                 <Link
                                   to={`/story/${row.story_id}`}

@@ -32,8 +32,8 @@ interface DbVerificationWithProfiles {
   story_id: string | null;
   version_id: string | null;
   session_id: string | null;
-  speaker_id: string;
-  listener_id: string;
+  speaker_id: string | null;
+  listener_id: string | null;
   speaker_rating: number;
   listener_rating: number;
   accuracy_achieved: boolean;
@@ -56,8 +56,8 @@ function mapVerificationFromDb(row: {
   story_id: string | null;
   version_id: string | null;
   session_id: string | null;
-  speaker_id: string;
-  listener_id: string;
+  speaker_id: string | null;
+  listener_id: string | null;
   speaker_rating: number;
   listener_rating: number;
   accuracy_achieved: boolean;

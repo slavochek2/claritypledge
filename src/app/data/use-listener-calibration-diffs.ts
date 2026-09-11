@@ -17,8 +17,9 @@ export interface CalibrationDiffRow {
   story_id: string;
   listener_rating: number | null;
   speaker_rating: number | null;
-  speaker_name: string;
-  speaker_slug: string;
+  /** null when the speaker was a guest — no profile to name or link (P1278 D). */
+  speaker_name: string | null;
+  speaker_slug: string | null;
   story_title: string;
   created_at: string;
   sort_order: number | null;

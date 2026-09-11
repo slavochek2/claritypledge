@@ -66,8 +66,9 @@ export interface RecordVerificationInput {
   storyId?: string;
   versionId?: string;
   sessionId?: string;
-  speakerId: string;
-  listenerId: string;
+  /** null only for a guest's side of a /live round (P1278 D). */
+  speakerId: string | null;
+  listenerId: string | null;
   speakerRating: number; // 0-10
   listenerRating: number; // 0-10
 }

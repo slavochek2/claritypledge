@@ -175,7 +175,8 @@ users AND guests; guest-origin rows must remain distinguishable so they can be f
 "I don't want to overcomplicate it."*
 
 **1. May a guest record? — DECIDED YES, and this fix does NOT deliver that half.** Stated plainly
-rather than quietly dropped. Two independent blockers, both verified in this repo:
+rather than quietly dropped. *(Delivered 2026-09-11 by P1278 D — see that section; the shape built differs from sketch (b)
+below, and why is recorded there.)* Two independent blockers, both verified in this repo:
 
 - **No RLS policy can serve an anonymous caller safely.** There is no identity to bind, and
   `clarity_sessions_select` (`20260414100001_p703:124-129`) exposes every row with
@@ -235,6 +236,104 @@ decision, and each was equally reachable before P1150 closed the path:
   round used, and may attribute the pair in either order. Bounded by needing a real counterparty
   in a room both people actually shared.
 
+## P1278 D — guests' rounds are recorded (2026-09-11)
+
+**Decision.** The founder, 2026-09-09: guests may record; rows must stay distinguishable; *"I don't
+want to overcomplicate it."* And 2026-09-11: *"you can fix the guests … verify, run codex review, and
+then ship that on top."*
+
+**The shape — and a deviation from sketch (b) above.** Sketch (b) was a code-bearing SECURITY DEFINER
+RPC for the guest's own anonymous client. It was not built, because nothing needs it. A guest can only
+ever hold the joiner seat (every `clarity_sessions` INSERT policy requires a creator profile); the
+creator's client already holds both ratings when a round is revealed; and it can write through the
+existing single INSERT policy under its own identity. So: **no new anonymous write surface**, no seat
+secret to present (D does not depend on P1269), and one row per guest round — the guest's client has no
+signed-in user and never writes. A guest is marked by the field this spec already named: a NULL
+participant id.
+
+**What changed.** `20260911173000_p1278_d_a_guest_round_is_recorded.sql`:
+- the two participant columns become nullable, under a CHECK (`story_verifications_guest_side_only_on_live`)
+  that allows at most one NULL, and only on a live row — letter rows are untouched;
+- `p1278_live_verification_admissible` gains a second arm: the joiner seat is occupied by a guest, the
+  room is still open (`ended_at IS NULL`, and status `'active'` or NULL), the caller is the creator, and the
+  row names the creator on one side and NULL on the other;
+- the read policy's story-visibility disjunct now requires both participants to be named, so a guest round
+  is readable by its creator only and never published through a public story (`ALTER POLICY`; nothing in
+  the app lists a public story's verification rows today, so no screen changes);
+- `update_profile_ears_count` moves only a named participant — its old `!=` evaluated to NULL against a
+  NULL listener and would have silently skipped the speaker;
+- `get_my_listener_calibration_diffs` uses a LEFT JOIN, so the breakdown keeps listing a round the
+  averages already count (the P967 faithfulness invariant).
+
+Client: `src/app/data/live-verification-participants.ts` decides who a row names; the live page uses it
+instead of returning early; the types allow a null participant; the breakdown page renders a guest
+speaker as "Guest" — existing app copy — with no profile link.
+
+**What a guest round moves.** The creator's `verification_session_count`, once. No `ears_count` (a guest
+has no profile, and a storyless round names no story). Never a story's `understood_count` —
+`COUNT(DISTINCT listener_id)` does not count NULL, so a guest cannot inflate it. The creator's calibration
+averages include the round, and the breakdown lists it.
+
+| Check | Result |
+|---|---|
+| `e2e/integration/p1278-guest-round.spec.ts` before the migration (one worker, every arm observed) | 4 failed — the four admit arms, refused by the live row's admission policy (`42501`) — and 8 passed: every refusal already held |
+| The same spec after the migration, in one run with the P1150 canary | 40/40 (12 + 28) |
+| The three arms added after review, run against the first version of the migration | 3 failed — ended room, erased joiner, public-story privacy — 13 passed |
+| After the migration was corrected and re-applied on test by hand (idempotent; version already recorded) | 44/44 (16 + 28) |
+| The completed-without-an-end-stamp arm (Codex, second pass), run against that version | 1 failed — that arm alone — 16 passed |
+| After the positive status test was re-applied | 45/45 (17 + 28) |
+| `src/tests/p1278-guest-round-participants.test.ts`, `src/tests/p967-calibration-breakdown-faithfulness.test.ts` | 6/6, 15/15 |
+| `./scripts/typecheck-gate.sh`, eslint on the changed files | `EXIT=0`, `EXIT=0` |
+| The breakdown page with guest rounds, desktop / 375 / 320, asserted in-browser (3 "Guest" labels, no dead link, the viewport width confirmed) | 3/3; independent visual QA — see below |
+
+**Codex review (2026-09-11)** — four findings, each checked before anything changed:
+
+| Finding | Verdict | What changed |
+|---|---|---|
+| HIGH — an ended or cancelled room stays a valid guest capability | True: `complete_clarity_session` stamps `ended_at` and leaves the seat stamp; `erase_my_account` nulls a departing joiner's id, cancels the room and leaves the seat stamp | The guest arm requires `ended_at IS NULL` and an open status; arms for an ended room and an erased joiner were watched failing first |
+| HIGH — a guest round about a public story is readable by anyone | True, through the story-visibility disjunct | That disjunct requires both participants named; a control proves a stranger still reads a signed-in round about the same story, and the guest arm was watched failing first |
+| MEDIUM — a refusal test could pass on a refused read-back while the write landed | Plausible with `insert(...).select()` | Writes carry a caller-supplied id and no `.select()`; every outcome is re-read through service_role |
+| MEDIUM — the client would send a guest write for an empty or ended room | Partly: the client has no seat state, but it has `endedAt` | The helper refuses an ended room; an empty or released seat is refused by the database only |
+
+Codex also confirmed two paths are closed: the letter arm cannot carry a NULL participant, and a signed-in
+creator cannot take their own joiner seat "as a guest" — `claim_joiner_seat` records their id.
+
+**Codex, second pass on the fixes.** The read-policy change is otherwise byte-identical to P1278 B, so
+signed-in and letter rows see no change; the supplied ids never enter the INSERT predicate, and every
+refusal now checks both the error and a service-role count of zero; the null guard holds. Two findings:
+
+| Finding | Verdict | What changed |
+|---|---|---|
+| MEDIUM — a room marked `completed` without an end stamp still qualifies | True, and it exists in the data: `status` is client-updatable under P1047, and open rooms marked `completed` number 9 on test and 3 on prod. Allowed values are `active`, `completed`, `cancelled`, default NULL — measured | The status test is now positive: `COALESCE(status, 'active') = 'active'`; the new arm was watched failing first |
+| LOW — the client cannot tell an empty room from a guest-seated one | True: the client session carries no seat state. Unreachable in practice — no round completes until the guest has joined and rated | Recorded, not changed; the database refuses such a write regardless |
+
+**Independent visual QA, first pass.** One reviewer, given only the screenshots and the checklist. It
+reported, and each was checked against the diff:
+- *Every row read "null (round N)", linking to `/story/null`.* Real, and older than D: the breakdown RPC
+  has always returned no `story_title`, so any two storyless rounds printed it — D makes storyless rounds
+  common. Fixed with a null guard in the same cell.
+- *"Guest" rows are shorter than a named row, and read like a person called Guest.* The height difference
+  is the name wrapping in a narrow column; a short real name renders the same. Kept: "Guest" is the app's
+  existing word for these participants.
+- *At 320 px the gap column is cut off; the headline says "Well calibrated" on a signed average whose misses
+  cancel; small tap targets; slider and gap-format inconsistencies.* Real, and all older than D — the diff
+  touches one cell. Filed, not fixed here.
+- *The captures were narrower than labelled (a desktop scrollbar), and the header was still loading.*
+  Re-captured with mobile emulation and a settled page for the second pass.
+
+**Independent visual QA, second pass** (2 of 2 reviewers spawned have reported). With the null guard and
+true mobile widths: no stray text anywhere, a fully loaded page at every width, and the gap column fits at
+320 px — the first pass's cut-off was the desktop scrollbar. "Guest" matches a named row in font, weight and
+colour. What it still lists is older than D and outside the one cell D touches: the verdict reads a signed
+average in which misses cancel, the name column is narrow, tap targets are small, the result bar looks
+draggable, and the gap column formats inconsistently. Filed as a note for the breakdown page.
+
+
+**Residuals, accepted and stated.** A creator who seats themself as a guest from a second, signed-out
+browser can play both sides and move their own session count — exactly what two accounts already allow.
+A guest round written while the seat is occupied but the guest has since gone quiet is still admitted;
+the seat stamp is the only occupancy signal the database has for a guest.
+
 ## Acceptance Criteria
 
 - [x] A failing-first test proves a legitimate `/live` insert is refused by the current policy,
@@ -285,6 +384,19 @@ decision, and each was equally reachable before P1150 closed the path:
       refusal itself reports through the existing `logDbError` channel. All three assertions
       verified FAILING against `git show HEAD:src/app/pages/clarity-live-page.tsx` and passing
       after — `src/tests/p1278-live-calibration-write.test.ts`, 8/8.
+
+- [x] **D:** a guest round is recorded from the creator with the guest's side NULL, in either role —
+      `p1278-guest-round.spec.ts` admit arms: 4 failed before the migration, pass after.
+- [x] **D:** counters move only for a named participant — the creator's session count once, no ears for a
+      storyless round, a story's `understood_count` unmoved by a guest who understood it.
+- [x] **D:** every refusal still holds, before and after: an empty seat, a signed-in joiner, a stranger
+      opposite the NULL side, any writer but the creator, an anonymous caller, a row naming nobody, a
+      letter row with a NULL participant (the CHECK refuses it even for service_role), missing ratings.
+- [x] **D:** the breakdown page renders a guest round — desktop and mobile-emulated 375 / 320, asserted
+      in-browser (three "Guest" labels, no dead link, no "null (round N)", the width confirmed) and reviewed
+      by two independent visual-QA passes; nothing either raised is caused by D.
+- [ ] **D:** a real-browser /live round with a guest writes a row (not run; same status as the signed-in
+      criterion above).
 
 ## Done-When
 

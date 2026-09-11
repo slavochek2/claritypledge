@@ -1012,12 +1012,12 @@ test.describe('P1150: story_verifications INSERT — counterparty and attributed
   });
 
   test('gap (P1278): an ANONYMOUS caller cannot write a live row', async () => {
-    // The founder's decision is that guests may record, and this policy deliberately does not
-    // deliver that half: anon has no identity to bind, and clarity_sessions_select exposes
-    // every target_listener_id IS NULL row — with creator_profile_id and joiner_profile_id
-    // readable per P1057 — so an anon branch would let anyone enumerate real pairs and inflate
-    // strangers' counters. Guest recording needs a code-bearing SECURITY DEFINER RPC; see
-    // features/p1278_*.md.
+    // Anon has no identity to bind, and clarity_sessions_select exposes every
+    // target_listener_id IS NULL row — with creator_profile_id and joiner_profile_id readable per
+    // P1057 — so an anon branch would let anyone enumerate real pairs and inflate strangers'
+    // counters. Guests' rounds ARE recorded since P1278 D, but by the signed-in CREATOR's client,
+    // with the guest's side NULL (e2e/integration/p1278-guest-round.spec.ts); an anonymous caller
+    // still has no write path at all, which is what this test pins.
     const ids: string[] = [];
     try {
       const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

@@ -59,6 +59,7 @@ import { pointsService } from '@/app/data/points-service';
 import { eventsService } from '@/app/data/events-service';
 import { storiesService } from '@/app/data/stories-service';
 import { calibrationService } from '@/app/data/calibration-service';
+import { resolveVerificationParticipants } from '@/app/data/live-verification-participants';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
 import { isDevRecordingActive } from '@/lib/dev-recording';
@@ -2172,17 +2173,14 @@ export function ClarityLivePage() {
     if (!user?.id || !session) return;
 
     try {
-      const speakerId = session.creatorName === checkerName
-        ? session.creatorProfileId
-        : session.joinerProfileId;
-      const listenerId = session.creatorName === checkerName
-        ? session.joinerProfileId
-        : session.creatorProfileId;
-
-      if (!speakerId || !listenerId) {
+      // P1278 D: a guest in the joiner seat has no profile. The creator's client records the round with
+      // the guest's side null; nobody else's may (see live-verification-participants.ts).
+      const participants = resolveVerificationParticipants(session, checkerName, user.id);
+      if (!participants) {
         console.error('[P413] Cannot write verification: missing profile IDs');
         return;
       }
+      const { speakerId, listenerId } = participants;
 
       // Look up story version only when a story is selected
       let versionId: string | undefined;
