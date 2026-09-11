@@ -579,9 +579,46 @@ export function subscribeToRoomMessages(roomId: string, onUpdate: (messages: Tra
  * extra flag this function has to remember to pass.
  */
 export async function endRoom(roomId: string): Promise<void> {
-  const members = await getRoomMembers(roomId);
+  const members = await withDeadline(
+    getRoomMembers(roomId), ROOM_ENTRY_TIMEOUT_MS, 'reading the roster',
+  ).catch(rethrowAsUnreachable('[transcribe] reading the roster'));
 
-  await supabase.from('transcribe_rooms').update({ ended_at: new Date().toISOString() }).eq('id', roomId);
+  // `.is('ended_at', null)` is what makes this idempotent, and `.select('id')` is what lets
+  // us find out. Without both, ending a room twice creates a SECOND transcription job for
+  // every member — including members who are not present and whose job was created hours
+  // earlier.
+  //
+  // Two ordinary sequences reach it, neither of them a race a user could be blamed for:
+  //
+  //   - The server ends the room when a slice arrives past the duration cap. Nothing tells
+  //     the other members' browsers (they keep showing "Listening"), so when one of them
+  //     later taps "End Session" the client path runs against an already-ended room and
+  //     re-stamps `ended_at` to the later time — losing when the room actually ended.
+  //   - Two members tap "End Session" within a moment of each other.
+  //
+  // The server's own endRoom (transcribe-slice/index.ts) already guards exactly this way.
+  // This is the client half catching up, not a new idea.
+  const { data: ended, error } = await withDeadline(
+    supabase
+      .from('transcribe_rooms')
+      .update({ ended_at: new Date().toISOString() })
+      .eq('id', roomId)
+      .is('ended_at', null)
+      .select('id'),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'ending the room',
+  ).catch(rethrowAsUnreachable('[transcribe] ending the room'));
+
+  if (error) throw new Error(error.message);
+
+  // Zero rows means someone else ended it first. That is a normal outcome, not a failure:
+  // their end already created the jobs, so creating them again is the bug this returns to
+  // avoid. Logged rather than silent, because "my End Session did nothing" should be
+  // findable when a transcript later turns up missing.
+  if (!ended || ended.length === 0) {
+    console.warn(`[transcribe] room ${roomId} was already ended — not creating duplicate jobs`);
+    return;
+  }
 
   await Promise.all(
     members.map((m) => createTranscriptionJob('', m.sessionId))

@@ -74,7 +74,17 @@ describe('P1149 DW-7: endRoom creates exactly one job per member, with no extra 
       }
       if (table === 'transcribe_rooms') {
         return {
-          update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+          // P1236 (2026-09-11): endRoom became idempotent, so the chain gained
+          // `.is('ended_at', null).select('id')`. The row returned below is what says
+          // "THIS caller ended the room" — without it endRoom correctly creates no jobs
+          // and this test's own assertion could not hold. The assertions themselves are
+          // unchanged: the mock tracks a deliberate interface change, it does not soften
+          // anything. Idempotency has its own coverage in p1236-end-room-idempotent.
+          update: () => ({
+            eq: () => ({
+              is: () => ({ select: () => Promise.resolve({ data: [{ id: 'r1' }], error: null }) }),
+            }),
+          }),
         } as unknown as ReturnType<typeof supabase.from>;
       }
       throw new Error(`unexpected table: ${table}`);
